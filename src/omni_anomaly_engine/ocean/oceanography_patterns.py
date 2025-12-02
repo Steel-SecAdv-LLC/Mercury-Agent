@@ -35,7 +35,6 @@ Key influences:
 Research source: Wikipedia - Oceanography
 (https://en.wikipedia.org/wiki/Oceanography)
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

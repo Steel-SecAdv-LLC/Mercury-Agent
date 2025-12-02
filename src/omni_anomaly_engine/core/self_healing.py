@@ -32,7 +32,6 @@ Research source: Wikipedia - CRISPR (https://en.wikipedia.org/wiki/CRISPR)
 Verified: October 2025
 
 Attribution: Integrated concept from CRISPR biological mechanism
-MIT License compatible
 """
 
 import numpy as np

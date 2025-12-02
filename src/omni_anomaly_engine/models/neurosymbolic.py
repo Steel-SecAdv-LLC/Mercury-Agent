@@ -18,7 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """
 Neurosymbolic Engine - Fusion of neural networks and symbolic reasoning
-Integrated from FIND-YOU-ARC-CODE (MIT License)
+
+Original implementation for OMNI ♱ AVA neural-symbolic AI archetype.
 """
 
 import numpy as np

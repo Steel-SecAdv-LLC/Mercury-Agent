@@ -48,7 +48,6 @@ Intelligence Disciplines:
 ⚠️ SIMULATION-BASED: Research/development tool for threat analysis patterns.
 Operational deployment requires security clearance and legal authorization.
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

@@ -26,7 +26,6 @@ Research sources:
 - CISA Information Technology Sector framework
 - NIST Cybersecurity Framework
 
-MIT License compatible - original implementation
 """
 
 from typing import Dict, List, Optional

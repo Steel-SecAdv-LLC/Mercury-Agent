@@ -44,7 +44,6 @@ Research sources:
 
 Performance: 35% improved crisis prediction via multi-modal financial + network fusion
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

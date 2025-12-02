@@ -35,7 +35,6 @@ Research sources:
 - Side-channel attack literature
 - RF spectrum analysis methodologies
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

@@ -33,7 +33,6 @@ Research sources:
 - ESA exobiology research
 - Breakthrough Listen technosignature search
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

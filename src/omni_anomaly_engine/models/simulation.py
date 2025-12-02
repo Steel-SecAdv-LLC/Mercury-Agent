@@ -33,7 +33,6 @@ Research sources:
 - Wikipedia - List of unsolved problems in mathematics
 - Stanford Encyclopedia of Philosophy - Paradoxes
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

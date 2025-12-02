@@ -33,7 +33,6 @@ Research sources:
 - NOAA Climate.gov
 - NASA Earth Observatory
 
-MIT License compatible - original implementation
 """
 
 from typing import Dict, Any, List, Optional

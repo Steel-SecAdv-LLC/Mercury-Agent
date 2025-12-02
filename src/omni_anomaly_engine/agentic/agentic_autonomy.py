@@ -27,7 +27,6 @@ that can operate with minimal human oversight.
 
 Research source: Bain & Company Technology Report 2025
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

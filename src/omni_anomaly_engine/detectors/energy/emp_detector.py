@@ -43,7 +43,6 @@ Research sources:
 
 Performance: 40% improved attack detection via multi-sensor fusion
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

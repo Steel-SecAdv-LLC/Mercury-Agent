@@ -45,7 +45,6 @@ Research sources:
 
 Performance: 40% faster outbreak detection via temporal + genomic fusion
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

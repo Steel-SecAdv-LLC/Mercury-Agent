@@ -27,7 +27,6 @@ Research sources:
 - CDC surveillance guidelines
 - HIPAA security rules
 
-MIT License compatible - original implementation
 """
 
 from typing import Dict, List, Optional

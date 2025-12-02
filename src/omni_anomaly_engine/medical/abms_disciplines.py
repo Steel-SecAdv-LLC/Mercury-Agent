@@ -41,7 +41,6 @@ Data Sources & Research:
 ⚠️ SIMULATION-BASED: For research/development. Clinical validation required.
 Medical professionals must review all findings before patient care decisions.
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

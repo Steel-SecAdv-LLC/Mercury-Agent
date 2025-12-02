@@ -34,7 +34,6 @@ Research sources:
 - Suricata/Snort IDS pattern libraries
 - arXiv research on AI in encrypted traffic analysis
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

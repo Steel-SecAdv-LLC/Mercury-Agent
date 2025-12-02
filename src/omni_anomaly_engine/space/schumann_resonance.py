@@ -53,7 +53,6 @@ Research Sources:
 ⚠️ SIMULATION-BASED: For research/development. Correlations with seismic/climate
 events require extensive validation. Not a replacement for established monitoring systems.
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

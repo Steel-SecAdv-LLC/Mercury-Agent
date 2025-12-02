@@ -37,7 +37,6 @@ Research sources:
 - Cyber Threat Intelligence frameworks
 - NIST Cybersecurity Framework
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

@@ -25,7 +25,6 @@ Research sources:
 - PyOD GitHub (github.com/yzhao062/pyod)
 - Zhao et al. "PyOD: A Python Toolbox" (JMLR 2019)
 
-MIT License compatible - original implementation
 Note: This compares approaches, doesn't copy PyOD code
 """
 

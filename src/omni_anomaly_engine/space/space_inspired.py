@@ -34,7 +34,6 @@ Key influences:
 Research source: Wikipedia - Space technology
 (https://en.wikipedia.org/wiki/Space_technology)
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

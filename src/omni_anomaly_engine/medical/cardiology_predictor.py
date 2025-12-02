@@ -35,7 +35,6 @@ Research sources:
 - PTB-XL ECG database architectures
 - Framingham Heart Study risk algorithms
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

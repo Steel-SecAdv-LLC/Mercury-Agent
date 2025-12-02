@@ -26,7 +26,6 @@ Research sources:
 - CISA Dams Sector framework
 - NERC (North American Electric Reliability Corporation) standards
 
-MIT License compatible - original implementation
 """
 
 from typing import Dict, List, Optional

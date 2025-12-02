@@ -33,7 +33,6 @@ Research sources:
 - Hubble Space Telescope mission data
 - Space debris monitoring systems (ESA, NASA, NORAD)
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

@@ -33,7 +33,6 @@ Research sources:
 - OECD education statistics
 - EdTech research on learning analytics
 
-MIT License compatible - original implementation
 """
 
 from typing import Dict, Any, List, Optional

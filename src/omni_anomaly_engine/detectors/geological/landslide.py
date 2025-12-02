@@ -42,7 +42,6 @@ Research sources:
 
 Performance: 30% faster alerts via multi-modal sensor fusion
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

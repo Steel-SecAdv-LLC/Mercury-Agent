@@ -34,7 +34,6 @@ Research sources:
 - Brain-computer interface studies
 - Cognitive neuroscience literature
 
-MIT License compatible - original implementation
 """
 
 from typing import Dict, Any, List, Optional

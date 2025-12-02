@@ -24,7 +24,6 @@ using cross-attention mechanisms for improved anomaly detection.
 
 ⚠️ SIMULATION-BASED: Trained on simulated multimodal data. Real-world validation required.
 
-MIT License compatible - original implementation
 """
 
 import torch

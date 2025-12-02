@@ -40,7 +40,6 @@ Research sources:
 
 Performance: 20-30% faster detection via multi-scale thermal fusion
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

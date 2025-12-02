@@ -26,7 +26,6 @@ Automated report generation for non-technical users:
 - Executive dashboards
 - CSV/Excel exports
 
-MIT License compatible - original implementation
 """
 
 import logging

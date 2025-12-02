@@ -26,7 +26,6 @@ for optimal feature subset selection in anomaly detection.
 
 Reference: Mirjalili et al. (2014) - Grey Wolf Optimizer
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

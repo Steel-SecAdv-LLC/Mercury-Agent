@@ -26,7 +26,6 @@ for improved time-series anomaly detection (20-40% forecasting gains).
 
 Reference: Inspired by TCN and attention mechanisms for time-series
 
-MIT License compatible - original implementation
 """
 
 import torch

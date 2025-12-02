@@ -18,7 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """
 Ethical Scalars Configuration
-Integrated from Aether_Halo (MIT License)
+
+Original implementation for OMNI ♱ AVA neural-symbolic AI archetype.
 
 This module defines the ethical scalar framework that guides the engine's
 decision-making processes, ensuring alignment with compassionate and just AI principles.

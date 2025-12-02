@@ -43,7 +43,6 @@ Research sources:
 
 Performance: 35% improved prediction via multi-modal solar + magnetosphere fusion
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

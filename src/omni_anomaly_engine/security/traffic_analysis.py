@@ -36,7 +36,6 @@ Research sources:
 - Covert channel detection literature
 - Graph theory for network analysis
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

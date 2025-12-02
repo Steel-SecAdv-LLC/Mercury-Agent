@@ -18,7 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """
 Multiverse Omni Engine - Quantum State Exploration and Parallel Reality Analysis
-Integrated from FIND-YOU-ARC-CODE (MIT License)
+
+Original implementation for OMNI ♱ AVA neural-symbolic AI archetype.
 
 This engine explores multiple solution pathways simultaneously, using quantum-inspired
 algorithms and multi-dimensional state space exploration to find optimal strategies.

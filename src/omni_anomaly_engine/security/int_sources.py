@@ -42,7 +42,6 @@ Intelligence Disciplines Covered:
 security clearance, legal authorization, and oversight by qualified intelligence
 professionals.
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

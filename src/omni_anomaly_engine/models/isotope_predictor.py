@@ -34,7 +34,6 @@ Research sources:
 - Isotope ratio mass spectrometry (IRMS) principles
 - Environmental radiological monitoring standards
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

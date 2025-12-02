@@ -53,7 +53,6 @@ Research Sources:
 ⚠️ SIMULATION-BASED: For research/development. Experimental validation required
 for novel chemical predictions. Consult chemists before laboratory implementation.
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

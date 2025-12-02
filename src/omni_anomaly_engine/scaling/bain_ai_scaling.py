@@ -30,7 +30,6 @@ Key insights:
 Research source: Bain & Company Technology Report 2025
 (https://www.bain.com/insights/topics/technology-report/)
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

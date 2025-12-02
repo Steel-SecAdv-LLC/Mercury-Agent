@@ -42,7 +42,6 @@ Research sources:
 - NOAA Space Weather Prediction Center
 - USGS earthquake monitoring
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

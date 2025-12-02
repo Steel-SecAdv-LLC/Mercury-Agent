@@ -33,7 +33,6 @@ Research sources:
 - WHO treatment guidelines
 - arXiv research on deep learning in medical imaging
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

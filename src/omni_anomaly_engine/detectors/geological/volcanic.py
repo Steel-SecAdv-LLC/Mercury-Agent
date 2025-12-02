@@ -48,7 +48,6 @@ volcano observatories (USGS, PHIVOLCS, etc.). Always defer to official warnings.
 
 Performance: 25-35% faster alerts via HAT-CN-AD multi-scale fusion + GWO optimization
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

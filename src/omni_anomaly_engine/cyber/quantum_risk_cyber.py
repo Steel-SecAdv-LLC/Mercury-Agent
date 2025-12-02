@@ -30,7 +30,6 @@ Research sources:
 - Wikipedia - Quantum computing (https://en.wikipedia.org/wiki/Quantum_computing)
 - Wikipedia - Post-quantum cryptography (https://en.wikipedia.org/wiki/Post-quantum_cryptography)
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

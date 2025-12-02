@@ -26,7 +26,6 @@ Research sources:
 - PySyft (https://github.com/OpenMined/PySyft)
 - McMahan et al. "Communication-Efficient Learning" (2017)
 
-MIT License compatible - original implementation
 """
 
 from typing import Dict, List, Optional

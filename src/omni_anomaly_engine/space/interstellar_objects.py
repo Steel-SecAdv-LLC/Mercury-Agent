@@ -50,7 +50,6 @@ Research References:
 origins require extraordinary evidence and peer review. This module analyzes
 anomalies objectively without asserting conclusions about artificial origins.
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

@@ -44,7 +44,6 @@ Research sources:
 
 Performance: 35% improved ecosystem health assessment via multi-modal fusion
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

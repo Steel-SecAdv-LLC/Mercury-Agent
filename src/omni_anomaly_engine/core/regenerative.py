@@ -36,7 +36,6 @@ Research sources:
 - Wikipedia - Permaculture (https://en.wikipedia.org/wiki/Permaculture)
 Verified: October 2025
 
-MIT License compatible
 """
 
 import numpy as np

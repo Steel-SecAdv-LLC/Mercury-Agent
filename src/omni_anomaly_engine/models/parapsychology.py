@@ -56,7 +56,6 @@ science. This module provides statistical tools for objective anomaly detection 
 probability distributions. Extraordinary claims require extraordinary evidence.
 Use skeptical, rigorous methodology.
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

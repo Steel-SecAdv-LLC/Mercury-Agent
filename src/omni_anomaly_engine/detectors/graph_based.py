@@ -26,7 +26,6 @@ Detects anomalies in graph-structured data using:
 
 ⚠️ SIMULATION-BASED: Uses simulated graph data. Real-world validation required.
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

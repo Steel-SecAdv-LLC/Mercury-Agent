@@ -24,7 +24,6 @@ through reconstruction error and KL divergence.
 
 ⚠️ SIMULATION-BASED: Trained on simulated data. Real-world validation required.
 
-MIT License compatible - original implementation
 """
 
 import torch

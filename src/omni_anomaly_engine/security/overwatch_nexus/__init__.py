@@ -19,22 +19,22 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 Overwatch Nexus and Response Module for Ethical Counterintelligence
 
+Original implementation for OMNI ♱ AVA neural-symbolic AI archetype.
+
 Provides proactive, ethical CI capabilities with Medical Interdiction and Intervention integration.
 Focuses on non-LE threats: foreign intelligence penetration, insider risks,
 emerging anomalies, bio-threats, and pandemic forecasting.
 
 **DISCLAIMER:**
-This is a simulation-based research tool built on free, open-source technologies
-(MIT-licensed libraries). Operational deployment in counterintelligence, security,
-or medical applications requires appropriate clearances, compliance with U.S. laws
-(e.g., CFAA for unauthorized access prevention, export controls under BIS for
-AI/security software), and ethical reviews.
+This is a simulation-based research tool built on free, open-source technologies.
+Operational deployment in counterintelligence, security, or medical applications
+requires appropriate clearances, compliance with U.S. laws (e.g., CFAA for
+unauthorized access prevention, export controls under BIS for AI/security software),
+and ethical reviews.
 
 No sensitive data is included. Access is limited to open-source data via OSINT APIs.
 Developed from public knowledge—users may simulate scenarios and access open data
 without permission, but real-world use must adhere to legal boundaries to avoid misuse.
-
-MIT License - Steel Security Advisors LLC
 """
 
 from omni_anomaly_engine.security.overwatch_nexus.core import OverwatchNexus

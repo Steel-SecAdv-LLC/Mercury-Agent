@@ -33,7 +33,6 @@ Research sources:
 - World Bank development metrics
 - Federal Reserve economic data
 
-MIT License compatible - original implementation
 """
 
 from typing import Dict, Any, List, Optional

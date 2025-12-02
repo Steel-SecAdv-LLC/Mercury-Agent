@@ -34,7 +34,6 @@ Key influences:
 Research source: Wikipedia - Energy development
 (https://en.wikipedia.org/wiki/Energy_development)
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

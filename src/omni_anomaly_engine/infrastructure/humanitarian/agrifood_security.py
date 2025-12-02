@@ -33,7 +33,6 @@ Research sources:
 - CGIAR crop research
 - USDA Agricultural Research Service
 
-MIT License compatible - original implementation
 """
 
 from typing import Dict, Any, List, Optional

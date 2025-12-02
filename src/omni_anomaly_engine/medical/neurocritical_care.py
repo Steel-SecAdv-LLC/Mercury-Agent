@@ -35,7 +35,6 @@ Research sources:
 - International League Against Epilepsy seizure classifications
 - Glasgow Coma Scale standards
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

@@ -36,7 +36,6 @@ Research sources:
 - SOFA/qSOFA validation studies
 - MIMIC-III sepsis cohort research
 
-MIT License compatible - original implementation
 """
 
 import numpy as np

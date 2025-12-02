@@ -26,7 +26,6 @@ Research sources:
 - CISA Nuclear Sector framework
 - Nuclear Regulatory Commission (NRC) standards
 
-MIT License compatible - original implementation
 """
 
 from enum import Enum
