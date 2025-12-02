@@ -24,7 +24,20 @@ import click
 import json
 import numpy as np
 from pathlib import Path
-from omni_anomaly_engine import OmniAnomalyEngine
+
+# Lazy import to support CLI help without torch dependency
+# OmniAnomalyEngine is only imported when actually needed (not for --help)
+OmniAnomalyEngine = None
+
+
+def _get_engine(*args, **kwargs):
+    """Lazy load OmniAnomalyEngine to defer torch import."""
+    global OmniAnomalyEngine
+    if OmniAnomalyEngine is None:
+        from omni_anomaly_engine.engine import OmniAnomalyEngine as _Engine
+
+        OmniAnomalyEngine = _Engine
+    return OmniAnomalyEngine(*args, **kwargs)
 
 
 @click.group()
@@ -41,7 +54,7 @@ def main() -> None:
 @click.option("--threshold", "-t", default=0.5, type=float, help="Anomaly threshold")
 def detect(input: str, detector: str, output: str, threshold: float) -> None:
     """Detect anomalies in data"""
-    engine = OmniAnomalyEngine(mode=detector)
+    engine = _get_engine(mode=detector)
 
     data = _load_data(input)
 
@@ -62,7 +75,7 @@ def detect(input: str, detector: str, output: str, threshold: float) -> None:
 @click.option("--test", "-t", help="Test face image to match")
 def biometric(reference: str, test: str) -> None:
     """Biometric face matching"""
-    engine = OmniAnomalyEngine()
+    engine = _get_engine()
 
     result = engine.detect_biometric(reference, test)
 
@@ -73,7 +86,7 @@ def biometric(reference: str, test: str) -> None:
 @click.option("--payload", "-p", required=True, help="Payload to check for threats")
 def security(payload: str) -> None:
     """Security threat detection"""
-    engine = OmniAnomalyEngine()
+    engine = _get_engine()
 
     result = engine.detect_security_threat(payload)
 
@@ -86,7 +99,7 @@ def security(payload: str) -> None:
 @click.option("--epochs", "-e", default=50, type=int, help="Training epochs")
 def train(data: str, output: str, epochs: int) -> None:
     """Train fusion model"""
-    engine = OmniAnomalyEngine(mode="fusion")
+    engine = _get_engine(mode="fusion")
 
     click.echo(f"Training fusion model on {data}...")
     engine.train_fusion_model(data, epochs=epochs)
@@ -100,7 +113,7 @@ def train(data: str, output: str, epochs: int) -> None:
 @click.option("--model", "-m", default="fusion", help="Model type")
 def explain(input: str, model: str) -> None:
     """Explain anomaly detection decision"""
-    engine = OmniAnomalyEngine(mode=model)
+    engine = _get_engine(mode=model)
 
     data = _load_data(input)
 

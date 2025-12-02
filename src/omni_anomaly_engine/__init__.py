@@ -23,18 +23,41 @@ A unified toolkit for anomaly detection across security, biometrics, temporal pa
 and multi-dimensional data using neural network fusion of specialized detectors.
 """
 
-from omni_anomaly_engine.engine import OmniAnomalyEngine
-from omni_anomaly_engine.core.config import EngineConfig
-from omni_anomaly_engine.core.exceptions import (
-    OmniAnomalyException,
-    DetectorException,
-    ModelException,
-    FusionException,
-)
+# Lazy imports to support running without ML dependencies (torch)
+# The OmniAnomalyEngine requires torch, but we defer the import to allow
+# CLI help commands and other lightweight operations to work without it.
+
+
+def __getattr__(name: str):
+    """Lazy import for OmniAnomalyEngine to defer torch dependency."""
+    if name == "OmniAnomalyEngine":
+        from omni_anomaly_engine.engine import OmniAnomalyEngine
+
+        return OmniAnomalyEngine
+    elif name == "EngineConfig":
+        from omni_anomaly_engine.core.config import EngineConfig
+
+        return EngineConfig
+    elif name in ("OmniAnomalyException", "DetectorException", "ModelException", "FusionException"):
+        from omni_anomaly_engine.core.exceptions import (
+            OmniAnomalyException,
+            DetectorException,
+            ModelException,
+            FusionException,
+        )
+
+        return {
+            "OmniAnomalyException": OmniAnomalyException,
+            "DetectorException": DetectorException,
+            "ModelException": ModelException,
+            "FusionException": FusionException,
+        }[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __version__ = "1.0.0"
 __author__ = "Steel Security Advisors LLC"
-__license__ = "MIT"
+__license__ = "GPL-3.0"
 
 __all__ = [
     "OmniAnomalyEngine",
