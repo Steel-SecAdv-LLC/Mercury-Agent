@@ -415,7 +415,7 @@ def humanitarian_analysis_page():
 
     st.title("🌍 Humanitarian Crisis Dashboard")
 
-    crisis_type = st.selectbox(
+    st.selectbox(
         "Crisis Type", ["Natural Disaster", "Pandemic", "Refugee Crisis", "Missing Persons"]
     )
 
@@ -465,7 +465,7 @@ def chemistry_analysis_page():
 
     st.title("🧪 Chemistry & Isotope Analysis")
 
-    analysis_type = st.selectbox(
+    st.selectbox(
         "Analysis Type", ["Isotope Ratio Analysis", "Rare Earth Elements", "General Chemistry"]
     )
 

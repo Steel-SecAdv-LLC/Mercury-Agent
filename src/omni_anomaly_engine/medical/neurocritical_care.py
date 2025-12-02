@@ -545,7 +545,6 @@ class NeurocriticalCarePredictor:
 
         probs = torch.softmax(classification[0], dim=0)
         seizure_idx = torch.argmax(probs).item()
-        confidence = float(probs[seizure_idx].item())
         risk_score = float(risk[0].item())
 
         seizure_types = [e.value for e in SeizureType]

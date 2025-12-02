@@ -314,8 +314,6 @@ class AnomalyOracle:
             forecasted_likelihood = float(np.mean(scores))
             forecasted_impact = float(np.mean(impacts))
 
-        confidence = min(len(self.historical_anomalies) / self.lookback_window, 1.0)
-
         return forecasted_likelihood, forecasted_impact
 
 

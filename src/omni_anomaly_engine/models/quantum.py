@@ -95,7 +95,6 @@ class QuantumAnomalyModel:
     def predict(self, data: Union[np.ndarray, Dict[str, Any]]) -> Dict[str, Any]:
         """Predict anomalies using quantum state analysis."""
         features = self.extract_features(data)
-        batch_size = features.shape[0]
 
         amplitudes = features[:, :8]
         phases = features[:, 8:12]

@@ -128,7 +128,7 @@ class PathogenDetector:
 
         energy = self._compute_qbm_energy(pathogen_state)
 
-        probability = self._compute_boltzmann_probability(energy)
+        self._compute_boltzmann_probability(energy)
 
         threat_detected = energy < self.energy_threshold
 

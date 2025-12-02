@@ -70,10 +70,9 @@ class AstrophysicalAnomalyModel:
         if data.ndim == 1:
             data = data.reshape(1, -1)
 
-        batch_size = data.shape[0]
         features = []
 
-        for i in range(batch_size):
+        for i in range(data.shape[0]):
             point = data[i]
 
             distance = self._compute_event_horizon_distance(point)
@@ -116,7 +115,6 @@ class AstrophysicalAnomalyModel:
     def predict(self, data: Union[np.ndarray, Dict[str, Any]]) -> Dict[str, Any]:
         """Predict anomalies using astrophysical models."""
         features = self.extract_features(data)
-        batch_size = features.shape[0]
 
         distances = features[:, 0]
         grav_fields = features[:, 1]

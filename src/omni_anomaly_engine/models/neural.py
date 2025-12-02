@@ -154,8 +154,6 @@ class NeuralCognitiveModel:
         if data_array.ndim == 1:
             data_array = data_array.reshape(1, -1)
 
-        batch_size = data_array.shape[0]
-
         memory_scores = self._hippocampal_memory(data_array)
         executive_scores = self._prefrontal_executive(data_array)
         emotional_scores = self._amygdala_processing(data_array)

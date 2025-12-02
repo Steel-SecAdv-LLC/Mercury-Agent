@@ -195,7 +195,6 @@ class SOFACalculator:
         map_val = data.get("mean_arterial_pressure", 75)
         dopamine = data.get("dopamine_mcg_kg_min", 0.0)
         norepinephrine = data.get("norepinephrine_mcg_kg_min", 0.0)
-        epinephrine = data.get("epinephrine_mcg_kg_min", 0.0)
 
         if map_val >= 70 and dopamine == 0 and norepinephrine == 0:
             return 0

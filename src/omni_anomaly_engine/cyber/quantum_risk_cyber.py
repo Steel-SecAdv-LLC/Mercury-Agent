@@ -807,7 +807,6 @@ class PostQuantumMigrationPlanner:
         Returns:
             Progress report with completion percentage and next steps
         """
-        total_phases = len(plan["migration_phases"])
         total_activities = sum(
             len(phase["activities"]) for phase in plan["migration_phases"].values()
         )

@@ -285,8 +285,6 @@ class EthicalAutonomyGovernor:
         Returns:
             Ethical score (0.0 to 2.0, normalized by scalars)
         """
-        scalars_dict = self.ethical_scalars.to_dict()
-
         relevant_scalars = []
 
         if "harm" in context:

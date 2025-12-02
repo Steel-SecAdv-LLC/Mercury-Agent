@@ -173,8 +173,6 @@ class BankingStressDetector:
         cds_spread_bps = banking_data.get("cds_spread_bps", 100.0)
         default_rate_pct = banking_data.get("default_rate_pct", 1.0)
         liquidity_ratio = banking_data.get("liquidity_ratio", 1.2)
-        capital_adequacy_ratio = banking_data.get("capital_adequacy_ratio", 0.12)
-
         cds_threshold = 300.0
         default_threshold = 3.0
         liquidity_threshold = 0.8

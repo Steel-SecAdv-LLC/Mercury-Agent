@@ -594,7 +594,6 @@ class SimulationModule:
             Dictionary with anomaly scores, branch predictions, ethical flags
         """
         features = self.extract_features(data)
-        batch_size = features.shape[0]
 
         branch_predictions = []
         for branch in range(self.num_branches):

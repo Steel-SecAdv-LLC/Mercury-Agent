@@ -222,9 +222,9 @@ class AgenticAutonomy:
                 )
 
                 if decision and step.get("on_true"):
-                    next_step_id = step["on_true"]
+                    pass  # next_step_id would be step["on_true"] for branching
                 elif not decision and step.get("on_false"):
-                    next_step_id = step["on_false"]
+                    pass  # next_step_id would be step["on_false"] for branching
                 else:
                     continue
 

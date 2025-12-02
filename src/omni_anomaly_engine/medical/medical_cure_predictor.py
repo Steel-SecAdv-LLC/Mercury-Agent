@@ -398,7 +398,7 @@ class TreatmentPathwayOptimizer:
 
             return float(efficacy + safety * 0.5 + tolerance * 0.3)
 
-        converged = self.multiverse.converge_multiverse(treatment_fitness)
+        self.multiverse.converge_multiverse(treatment_fitness)
 
         sorted_universes = sorted(
             self.multiverse.universes.values(), key=lambda u: u.fitness, reverse=True

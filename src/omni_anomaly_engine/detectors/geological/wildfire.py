@@ -198,8 +198,8 @@ class WildfireDetector:
         self.enable_ignition = enable_ignition_detection
         self.enable_spread = enable_spread_modeling
 
-        self.ignition_detector = FireIgnitionDetector() if enable_ignition else None
-        self.spread_model = FireSpreadModel() if enable_spread else None
+        self.ignition_detector = FireIgnitionDetector() if self.enable_ignition else None
+        self.spread_model = FireSpreadModel() if self.enable_spread else None
 
         self.logger = logging.getLogger(__name__)
 

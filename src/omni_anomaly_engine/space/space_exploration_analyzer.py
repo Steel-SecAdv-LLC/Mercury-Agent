@@ -339,12 +339,8 @@ class SpaceExplorationAnalyzer:
             velocity_data = velocity_data.reshape(1, -1)
 
         distances = np.linalg.norm(position_data, axis=1)
-        velocities = np.linalg.norm(velocity_data, axis=1)
 
         mean_distance = np.mean(distances)
-        std_distance = np.std(distances)
-
-        distance_anomalies = np.abs(distances - mean_distance) > (2 * std_distance)
 
         proximity_warnings = []
         for i in range(len(distances) - 1):

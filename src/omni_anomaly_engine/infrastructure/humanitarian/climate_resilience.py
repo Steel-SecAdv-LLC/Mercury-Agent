@@ -89,7 +89,6 @@ class ClimateResilienceDetector:
             return {"anomaly_detected": False}
 
         mean_temp = np.mean(temperature_series)
-        std_temp = np.std(temperature_series)
         max_temp = np.max(temperature_series)
         min_temp = np.min(temperature_series)
 

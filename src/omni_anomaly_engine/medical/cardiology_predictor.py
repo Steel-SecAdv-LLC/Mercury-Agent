@@ -111,8 +111,6 @@ class ECGRhythmAnalyzer(nn.Module):
             nn.MaxPool1d(2),
         )
 
-        conv_output_length = input_length // 8
-
         self.lstm = nn.LSTM(
             input_size=256,
             hidden_size=128,
