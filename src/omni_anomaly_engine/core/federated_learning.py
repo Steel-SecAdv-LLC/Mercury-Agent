@@ -47,7 +47,7 @@ class FederatedAnomalyDetector:
         self.learning_rate = self.config.get("learning_rate", 0.001)
         self.local_epochs = self.config.get("local_epochs", 5)
         self.aggregation_method = self.config.get("aggregation_method", "fedavg")
-        self.global_model = None
+        self.global_model: Optional[np.ndarray] = None
 
     def federated_average(
         self, client_weights: List[np.ndarray], client_sizes: Optional[List[int]] = None
@@ -65,10 +65,12 @@ class FederatedAnomalyDetector:
         """
         if self.aggregation_method == "weighted_fedavg" and client_sizes:
             total_samples = sum(client_sizes)
-            weights = [size / total_samples for size in client_sizes]
-            return np.average(client_weights, axis=0, weights=weights)
+            weights_list = [size / total_samples for size in client_sizes]
+            result: np.ndarray = np.average(client_weights, axis=0, weights=weights_list)
+            return result
         else:
-            return np.mean(client_weights, axis=0)
+            result_mean: np.ndarray = np.mean(client_weights, axis=0)
+            return result_mean
 
     def train_federated(
         self, client_data: List[np.ndarray], num_rounds: int = 10
@@ -82,8 +84,9 @@ class FederatedAnomalyDetector:
         Returns:
             Training results including global model and metrics
         """
-        results = {
-            "round_losses": [],
+        round_losses: List[float] = []
+        results: Dict[str, Any] = {
+            "round_losses": round_losses,
             "privacy_preserved": True,
             "num_clients": len(client_data),
             "num_rounds": num_rounds,
@@ -93,8 +96,8 @@ class FederatedAnomalyDetector:
             self.global_model = np.random.randn(10)
 
         for round_idx in range(num_rounds):
-            client_weights = []
-            client_sizes = []
+            client_weights: List[np.ndarray] = []
+            client_sizes: List[int] = []
 
             for client_idx, data in enumerate(client_data):
                 local_weights = self._local_training(data, self.global_model)
@@ -104,7 +107,7 @@ class FederatedAnomalyDetector:
             self.global_model = self.federated_average(client_weights, client_sizes)
 
             round_loss = np.mean([(np.mean((w - self.global_model) ** 2)) for w in client_weights])
-            results["round_losses"].append(round_loss)
+            round_losses.append(float(round_loss))
 
         results["final_model"] = self.global_model
         return results

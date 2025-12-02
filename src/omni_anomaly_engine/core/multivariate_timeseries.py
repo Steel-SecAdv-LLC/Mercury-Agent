@@ -51,11 +51,11 @@ class MultivariateTSDetector:
         self.graph_conv_layers = self.config.get("graph_conv_layers", 2)
 
         self.trained = False
-        self.threshold = None
-        self.mean_features = None
-        self.std_features = None
+        self.threshold: Optional[float] = None
+        self.mean_features: Optional[np.ndarray] = None
+        self.std_features: Optional[np.ndarray] = None
 
-    def fit(self, time_series_data: np.ndarray):
+    def fit(self, time_series_data: np.ndarray) -> None:
         """Fit LTG model on training time-series data.
 
         Args:
@@ -77,7 +77,7 @@ class MultivariateTSDetector:
         reconstruction_errors = self._compute_reconstruction_error(
             time_series_data, combined_features
         )
-        self.threshold = np.mean(reconstruction_errors) + 3 * np.std(reconstruction_errors)
+        self.threshold = float(np.mean(reconstruction_errors) + 3 * np.std(reconstruction_errors))
         self.trained = True
 
     def predict(self, time_series_data: np.ndarray) -> Dict[str, Any]:
@@ -118,14 +118,16 @@ class MultivariateTSDetector:
 
         In full implementation, would use actual LSTM layers with hidden states.
         """
-        return np.mean(data, axis=1)
+        result: np.ndarray = np.mean(data, axis=1)
+        return result
 
     def _extract_temporal_conv_features(self, data: np.ndarray) -> np.ndarray:
         """Extract short-term patterns using temporal convolution (simplified).
 
         In full implementation, would use 1D convolution layers with multiple filters.
         """
-        return np.std(data, axis=1)
+        result: np.ndarray = np.std(data, axis=1)
+        return result
 
     def _extract_graph_features(self, data: np.ndarray) -> np.ndarray:
         """Extract inter-feature dependencies using graph convolution (simplified).
@@ -147,7 +149,8 @@ class MultivariateTSDetector:
         reconstructed = np.tile(features[:, : self.num_features], (1, self.window_size, 1)).reshape(
             original.shape
         )
-        return np.mean((original - reconstructed) ** 2, axis=(1, 2))
+        result: np.ndarray = np.mean((original - reconstructed) ** 2, axis=(1, 2))
+        return result
 
     def _estimate_roc_auc(self, scores: np.ndarray, predictions: np.ndarray) -> float:
         """Estimate ROC-AUC from scores and predictions."""
@@ -169,7 +172,7 @@ class MultivariateTSDetector:
         else:
             roc_auc = 0.5
 
-        return min(max(roc_auc, 0.0), 1.0)
+        return float(min(max(roc_auc, 0.0), 1.0))
 
 
 class ChaosMultivariateFusion:
@@ -190,7 +193,7 @@ class ChaosMultivariateFusion:
         self.chaos_config = chaos_config or {}
         self.trained = False
 
-    def fit(self, time_series_data: np.ndarray):
+    def fit(self, time_series_data: np.ndarray) -> None:
         """Fit fusion model on training data."""
         self.mvts_detector.fit(time_series_data)
         self.trained = True
@@ -251,4 +254,4 @@ class ChaosMultivariateFusion:
         else:
             roc_auc = 0.5
 
-        return min(max(roc_auc, 0.0), 1.0)
+        return float(min(max(roc_auc, 0.0), 1.0))

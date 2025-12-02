@@ -40,7 +40,7 @@ Verified: October 2025
 """
 
 import numpy as np
-from typing import Dict, List
+from typing import Dict, List, Any
 from dataclasses import dataclass
 from enum import Enum
 
@@ -94,10 +94,12 @@ class RegenerativeArchitecture:
         self.permaculture_metrics: Dict[PermaculturePrinciple, float] = {
             p: 0.0 for p in PermaculturePrinciple
         }
-        self.knowledge_bank: List[Dict] = []
-        self.waste_log: List[Dict] = []
+        self.knowledge_bank: List[Dict[str, Any]] = []
+        self.waste_log: List[Dict[str, Any]] = []
 
-    def apply_permaculture_principle(self, principle: PermaculturePrinciple, context: Dict) -> Dict:
+    def apply_permaculture_principle(
+        self, principle: PermaculturePrinciple, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Apply a specific permaculture principle to current context.
 
@@ -237,7 +239,7 @@ class RegenerativeArchitecture:
 
         return updated_metrics
 
-    def calculate_net_positive_score(self, context: Dict) -> float:
+    def calculate_net_positive_score(self, context: Dict[str, Any]) -> float:
         """
         Calculate net-positive score (regenerative > sustainable > neutral > harmful).
 
@@ -258,25 +260,25 @@ class RegenerativeArchitecture:
             resources_consumed + waste_produced * 0.1 + 1e-6
         )
 
-        return net_positive_score
+        return float(net_positive_score)
 
-    def _observe_system_state(self) -> List:
+    def _observe_system_state(self) -> List[Any]:
         """Observe current system state before acting (Principle 1)."""
         return []
 
-    def _calculate_yield_metrics(self, context: Dict) -> Dict:
+    def _calculate_yield_metrics(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Calculate measurable yield/value (Principle 3)."""
         return {
             "total_value": context.get("accuracy", 0.0) * context.get("efficiency", 1.0),
             "ethical_alignment": context.get("ethical_score", 0.0),
         }
 
-    def _apply_ethical_constraints(self, context: Dict) -> Dict:
+    def _apply_ethical_constraints(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Apply ethical constraints (Principle 4)."""
         context["ethical_constraints_applied"] = True
         return context
 
-    def _auto_tune_parameters(self, context: Dict) -> Dict:
+    def _auto_tune_parameters(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Auto-tune parameters based on feedback (Principle 4)."""
         context["parameters_tuned"] = True
         return context
@@ -285,19 +287,19 @@ class RegenerativeArchitecture:
         """Filter to only renewable/open-source dependencies (Principle 5)."""
         return [d for d in dependencies if "proprietary" not in d.lower()]
 
-    def _identify_waste(self, context: Dict) -> Dict:
+    def _identify_waste(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Identify waste (unused code, features, data) (Principle 6)."""
         return {"unused_features": [], "dead_code": [], "redundant_data": []}
 
-    def _patterns_to_details(self, patterns: List) -> Dict:
+    def _patterns_to_details(self, patterns: List[Any]) -> Dict[str, Any]:
         """Design from patterns to details (Principle 7)."""
         return {"detailed_design": patterns}
 
-    def _integrate_components(self, components: List) -> Dict:
+    def _integrate_components(self, components: List[Any]) -> Dict[str, Any]:
         """Integrate components rather than keeping separate (Principle 8)."""
         return {"integrated": True, "component_count": len(components)}
 
-    def _calculate_diversity(self, models: List) -> float:
+    def _calculate_diversity(self, models: List[Any]) -> float:
         """Calculate diversity score for ensemble (Principle 10)."""
         return len(set(str(m) for m in models)) / max(len(models), 1)
 
@@ -308,8 +310,9 @@ class RegenerativeArchitecture:
         mean = np.mean(data, axis=0)
         distances = np.linalg.norm(data - mean, axis=1)
         threshold = np.percentile(distances, 95)
-        return data[distances > threshold]
+        result: np.ndarray = data[distances > threshold]
+        return result
 
-    def _plan_adaptation(self, changes: Dict) -> Dict:
+    def _plan_adaptation(self, changes: Dict[str, Any]) -> Dict[str, Any]:
         """Plan adaptation strategy for environmental changes (Principle 12)."""
         return {"adaptation_planned": True, "changes_addressed": len(changes)}

@@ -138,7 +138,7 @@ class SigmaDirective:
         if bias:
             return 0.0
 
-        return fairness
+        return float(fairness)
 
     def _evaluate_altruism(self, context: Dict[str, Any]) -> float:
         """Evaluate altruism component."""
@@ -146,21 +146,21 @@ class SigmaDirective:
         harm = context.get("potential_harm", 0.0)
 
         net_benefit = benefit - harm
-        return max(0.0, min(1.0, net_benefit))
+        return float(max(0.0, min(1.0, net_benefit)))
 
     def _evaluate_compassion(self, context: Dict[str, Any]) -> float:
         """Evaluate compassion component."""
         harm_prevention = context.get("harm_prevention", 0.5)
         suffering_mitigation = context.get("suffering_mitigation", 0.5)
 
-        return (harm_prevention + suffering_mitigation) / 2.0
+        return float((harm_prevention + suffering_mitigation) / 2.0)
 
     def _evaluate_truth(self, context: Dict[str, Any]) -> float:
         """Evaluate truth component."""
         transparency = context.get("transparency", 0.5)
         honesty = context.get("honesty", 0.5)
 
-        return (transparency + honesty) / 2.0
+        return float((transparency + honesty) / 2.0)
 
     def _generate_override_reasoning(
         self, justice: float, altruism: float, compassion: float, truth: float
@@ -216,10 +216,9 @@ class EthicalAutonomyGovernor:
         self.p_value_threshold = p_value_threshold
         self.ethical_threshold = ethical_threshold
 
-        if enable_sigma_directives:
-            self.sigma_directive = SigmaDirective(self.ethical_scalars)
-        else:
-            self.sigma_directive = None
+        self.sigma_directive: Optional[SigmaDirective] = (
+            SigmaDirective(self.ethical_scalars) if enable_sigma_directives else None
+        )
 
         self.decision_history: List[EthicalDecision] = []
         self.rollback_history: List[EthicalDecision] = []
@@ -311,7 +310,7 @@ class EthicalAutonomyGovernor:
         if context.get("humanitarian", False):
             context_modifier *= self.ethical_scalars.omni_disaster_response
 
-        return base_score * context_modifier
+        return float(base_score * context_modifier)
 
     def _audit_bias(self, data: np.ndarray, context: Dict[str, Any]) -> BiasMetrics:
         """

@@ -71,7 +71,7 @@ class MultiElementBinarization:
         Returns:
             Binary anomaly mask
         """
-        binary_mask = (anomaly_mask > self.binarization_threshold).astype(np.float32)
+        binary_mask: np.ndarray = (anomaly_mask > self.binarization_threshold).astype(np.float32)
         return binary_mask
 
     def process_multi_element(self, anomaly_regions: List[np.ndarray]) -> List[np.ndarray]:
@@ -112,13 +112,11 @@ class NovelClassDiscovery:
         self.non_prominence_mode = self.config.get("non_prominence_mode", True)
         self.num_clusters = self.config.get("num_clusters", 5)
 
-        if self.enable_mebin:
-            self.mebin = MultiElementBinarization(config)
-        else:
-            self.mebin = None
-
-        self.discovered_classes = []
-        self.cluster_centers = None
+        self.mebin: Optional[MultiElementBinarization] = (
+            MultiElementBinarization(config) if self.enable_mebin else None
+        )
+        self.discovered_classes: List[str] = []
+        self.cluster_centers: Optional[np.ndarray] = None
 
     def extract_anomaly_features(self, images: np.ndarray, masks: np.ndarray) -> np.ndarray:
         """Extract features from anomaly regions.
@@ -133,7 +131,7 @@ class NovelClassDiscovery:
         features = []
 
         for img, mask in zip(images, masks):
-            if self.enable_mebin:
+            if self.enable_mebin and self.mebin is not None:
                 binary_mask = self.mebin.binarize(mask)
             else:
                 binary_mask = mask

@@ -25,7 +25,7 @@ Implements Chaos Game Optimization (CGO) using fractal configurations and chaos 
 for dynamic hyperparameter tuning in anomaly detection systems.
 """
 
-from typing import Optional, Dict, Any, Callable, List
+from typing import Optional, Dict, Any, Callable, List, Tuple
 import numpy as np
 
 
@@ -72,7 +72,7 @@ class ChaoticMap:
         Returns:
             Next chaotic value
         """
-        return a * np.sin(np.pi * x) / 4.0
+        return float(a * np.sin(np.pi * x) / 4.0)
 
 
 class ChaosEvolutionOptimizer:
@@ -98,11 +98,11 @@ class ChaosEvolutionOptimizer:
         self.beta = self.config.get("beta", 0.2)
 
         self.chaotic_map = self._get_chaotic_map()
-        self.best_solution = None
-        self.best_fitness = np.inf
-        self.convergence_history = []
+        self.best_solution: Optional[np.ndarray] = None
+        self.best_fitness: float = np.inf
+        self.convergence_history: List[float] = []
 
-    def _get_chaotic_map(self) -> Callable:
+    def _get_chaotic_map(self) -> Callable[[float], float]:
         """Get chaotic map function based on configuration."""
         if self.chaotic_map_type == "logistic":
             return ChaoticMap.logistic_map
@@ -113,7 +113,7 @@ class ChaosEvolutionOptimizer:
         else:
             return ChaoticMap.logistic_map
 
-    def _initialize_population(self, dim: int, bounds: List[tuple]) -> np.ndarray:
+    def _initialize_population(self, dim: int, bounds: List[Tuple[float, float]]) -> np.ndarray:
         """Initialize population with random solutions.
 
         Args:
@@ -134,7 +134,7 @@ class ChaosEvolutionOptimizer:
         position: np.ndarray,
         best_position: np.ndarray,
         chaos_value: float,
-        bounds: List[tuple],
+        bounds: List[Tuple[float, float]],
     ) -> np.ndarray:
         """Perform one chaos game step for fractal-based position update.
 
@@ -165,7 +165,7 @@ class ChaosEvolutionOptimizer:
         return new_position
 
     def optimize(
-        self, objective_function: Callable[[np.ndarray], float], dim: int, bounds: List[tuple]
+        self, objective_function: Callable[[np.ndarray], float], dim: int, bounds: List[Tuple[float, float]]
     ) -> Dict[str, Any]:
         """Run chaos-evolutionary optimization.
 
@@ -180,15 +180,18 @@ class ChaosEvolutionOptimizer:
         population = self._initialize_population(dim, bounds)
 
         fitness = np.array([objective_function(ind) for ind in population])
-        best_idx = np.argmin(fitness)
+        best_idx = int(np.argmin(fitness))
         self.best_solution = population[best_idx].copy()
-        self.best_fitness = fitness[best_idx]
+        self.best_fitness = float(fitness[best_idx])
 
-        chaos_value = np.random.rand()
+        chaos_value = float(np.random.rand())
 
         for iteration in range(self.max_iterations):
             for i in range(self.population_size):
                 chaos_value = self.chaotic_map(chaos_value)
+
+                if self.best_solution is None:
+                    self.best_solution = population[i].copy()
 
                 new_position = self._chaos_game_step(
                     population[i], self.best_solution, chaos_value, bounds
@@ -202,9 +205,9 @@ class ChaosEvolutionOptimizer:
 
                     if new_fitness < self.best_fitness:
                         self.best_solution = new_position.copy()
-                        self.best_fitness = new_fitness
+                        self.best_fitness = float(new_fitness)
 
-            self.convergence_history.append(self.best_fitness)
+            self.convergence_history.append(float(self.best_fitness))
 
             if iteration % 10 == 0:
                 chaos_value = np.random.rand()
@@ -223,7 +226,7 @@ class ChaosEvolutionOptimizer:
 
     def tune_hyperparameters(
         self,
-        parameter_space: Dict[str, tuple],
+        parameter_space: Dict[str, Tuple[float, float]],
         evaluation_function: Callable[[Dict[str, float]], float],
     ) -> Dict[str, Any]:
         """Tune hyperparameters for anomaly detection system.
