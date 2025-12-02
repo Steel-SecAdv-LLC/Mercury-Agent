@@ -22,7 +22,13 @@ Pytest configuration and fixtures
 
 import pytest
 import numpy as np
-import torch
+
+# Optional torch import for ML tests
+try:
+    import torch
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
 
 
 @pytest.fixture
@@ -33,7 +39,9 @@ def sample_data():
 
 @pytest.fixture
 def sample_tensor():
-    """Generate sample tensor for testing"""
+    """Generate sample tensor for testing (requires torch)"""
+    if not HAS_TORCH:
+        pytest.skip("torch not installed - skipping ML test")
     return torch.randn(100, 10)
 
 
