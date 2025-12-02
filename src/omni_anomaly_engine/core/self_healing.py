@@ -115,7 +115,7 @@ class CRISPRInspiredSelfHealing:
         Returns:
             Detection pattern (processed feature vector)
         """
-        detection_pattern = signature.feature_vector / (
+        detection_pattern: np.ndarray = signature.feature_vector / (
             np.linalg.norm(signature.feature_vector) + 1e-8
         )
         return detection_pattern
@@ -184,16 +184,16 @@ class CRISPRInspiredSelfHealing:
         norm2 = np.linalg.norm(vec2)
         if norm1 == 0 or norm2 == 0:
             return 0.0
-        return np.dot(vec1, vec2) / (norm1 * norm2)
+        return float(np.dot(vec1, vec2) / (norm1 * norm2))
 
-    def _prune_oldest_signature(self):
+    def _prune_oldest_signature(self) -> None:
         """Remove oldest signature when library is full."""
         if self.acquisition_history:
             oldest_id = self.acquisition_history.pop(0)
             if oldest_id in self.signature_library:
                 del self.signature_library[oldest_id]
 
-    def save_signature_library(self, filepath: str):
+    def save_signature_library(self, filepath: str) -> None:
         """Save signature library to file for heritable immunity."""
         data = {
             sig_id: {
@@ -207,7 +207,7 @@ class CRISPRInspiredSelfHealing:
         with open(filepath, "w") as f:
             json.dump(data, f, indent=2)
 
-    def load_signature_library(self, filepath: str):
+    def load_signature_library(self, filepath: str) -> None:
         """Load signature library from file for heritable immunity."""
         with open(filepath, "r") as f:
             data = json.load(f)

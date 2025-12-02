@@ -98,7 +98,7 @@ class USLawPolling:
     - AI/ML specific regulations
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize US law polling system."""
         self.compliance_rules = self._initialize_us_rules()
         self.last_poll_time = datetime.now()
@@ -174,7 +174,7 @@ class USLawPolling:
 class GDPRCompliance:
     """GDPR compliance hooks for EU data protection."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize GDPR compliance."""
         self.data_subject_rights = [
             "right_to_access",
@@ -215,7 +215,7 @@ class GDPRCompliance:
 class HIPAACompliance:
     """HIPAA compliance hooks for US healthcare data."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize HIPAA compliance."""
         self.phi_identifiers = [
             "names",
@@ -266,7 +266,7 @@ class AnomalyOracle:
     Uses historical patterns to predict future anomalies and risks.
     """
 
-    def __init__(self, lookback_window: int = 100):
+    def __init__(self, lookback_window: int = 100) -> None:
         """
         Initialize anomaly oracle.
 
@@ -276,7 +276,7 @@ class AnomalyOracle:
         self.lookback_window = lookback_window
         self.historical_anomalies: List[Tuple[float, float]] = []
 
-    def record_anomaly(self, anomaly_score: float, impact: float):
+    def record_anomaly(self, anomaly_score: float, impact: float) -> None:
         """
         Record anomaly for future forecasting.
 
@@ -335,7 +335,7 @@ class EthicalRiskMatrix:
         enable_gdpr: bool = True,
         enable_hipaa: bool = True,
         enable_forecasting: bool = True,
-    ):
+    ) -> None:
         """
         Initialize Ethical Risk Matrix.
 
@@ -350,25 +350,10 @@ class EthicalRiskMatrix:
         self.enable_hipaa = enable_hipaa
         self.enable_forecasting = enable_forecasting
 
-        if enable_us_compliance:
-            self.us_law = USLawPolling()
-        else:
-            self.us_law = None
-
-        if enable_gdpr:
-            self.gdpr = GDPRCompliance()
-        else:
-            self.gdpr = None
-
-        if enable_hipaa:
-            self.hipaa = HIPAACompliance()
-        else:
-            self.hipaa = None
-
-        if enable_forecasting:
-            self.oracle = AnomalyOracle()
-        else:
-            self.oracle = None
+        self.us_law: Optional[USLawPolling] = USLawPolling() if enable_us_compliance else None
+        self.gdpr: Optional[GDPRCompliance] = GDPRCompliance() if enable_gdpr else None
+        self.hipaa: Optional[HIPAACompliance] = HIPAACompliance() if enable_hipaa else None
+        self.oracle: Optional[AnomalyOracle] = AnomalyOracle() if enable_forecasting else None
 
         self.risk_history: List[RiskScore] = []
 
@@ -531,11 +516,11 @@ class EthicalRiskMatrix:
             self.risk_history[-100:] if len(self.risk_history) > 100 else self.risk_history
         )
 
-        all_violations = []
+        all_violations: List[str] = []
         for risk in recent_risks:
             all_violations.extend(risk.compliance_violations)
 
-        violation_counts = {}
+        violation_counts: Dict[str, int] = {}
         for violation in all_violations:
             violation_counts[violation] = violation_counts.get(violation, 0) + 1
 

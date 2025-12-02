@@ -81,7 +81,7 @@ class SymbolicReasoningEngine:
         self.rules: List[SymbolicRule] = []
         self._initialize_default_rules()
 
-    def _initialize_default_rules(self):
+    def _initialize_default_rules(self) -> None:
         """Initialize default reasoning rules for code anomaly detection."""
         self.rules = [
             SymbolicRule(
@@ -104,7 +104,7 @@ class SymbolicReasoningEngine:
             ),
         ]
 
-    def add_rule(self, rule: SymbolicRule):
+    def add_rule(self, rule: SymbolicRule) -> None:
         """Add a custom reasoning rule."""
         self.rules.append(rule)
 
@@ -121,29 +121,30 @@ class SymbolicReasoningEngine:
         Returns:
             Reasoning results with explanations
         """
-        results = {
-            "neural_score": float(neural_output[0]) if len(neural_output) > 0 else 0.0,
-            "symbolic_rules_fired": [],
-            "explanations": [],
-            "final_decision": None,
-            "confidence": 0.0,
-        }
+        symbolic_rules_fired: List[str] = []
+        explanations: List[str] = []
+        neural_score = float(neural_output[0]) if len(neural_output) > 0 else 0.0
 
         for rule in self.rules:
             satisfied, confidence = rule.evaluate(context)
             if satisfied and confidence >= self.explainability_threshold:
-                results["symbolic_rules_fired"].append(rule.name)
-                results["explanations"].append(
+                symbolic_rules_fired.append(rule.name)
+                explanations.append(
                     f"Rule '{rule.name}': {rule.predicate} (confidence: {confidence:.2f})"
                 )
 
-        symbolic_confidence = (
-            len(results["symbolic_rules_fired"]) / len(self.rules) if self.rules else 0.0
-        )
-        combined_confidence = 0.6 * results["neural_score"] + 0.4 * symbolic_confidence
+        symbolic_confidence = len(symbolic_rules_fired) / len(self.rules) if self.rules else 0.0
+        combined_confidence = 0.6 * neural_score + 0.4 * symbolic_confidence
 
-        results["confidence"] = combined_confidence
-        results["final_decision"] = "anomalous" if combined_confidence > 0.5 else "normal"
+        final_decision = "anomalous" if combined_confidence > 0.5 else "normal"
+
+        results: Dict[str, Any] = {
+            "neural_score": neural_score,
+            "symbolic_rules_fired": symbolic_rules_fired,
+            "explanations": explanations,
+            "final_decision": final_decision,
+            "confidence": combined_confidence,
+        }
 
         return results
 
@@ -185,34 +186,37 @@ class SymbolicReasoningEngine:
         Returns:
             Detection results with symbolic explanations
         """
-        results = {
-            "detected_anomalies": [],
-            "novel_classes": [],
-            "symbolic_explanations": [],
-        }
+        detected_anomalies: List[Dict[str, Any]] = []
+        novel_classes: List[Dict[str, Any]] = []
+        symbolic_explanations: List[str] = []
 
         for obs in observations:
             for rule in self.rules:
                 try:
-                    satisfied = rule.evaluate(obs)
-                    if isinstance(satisfied, tuple):
-                        satisfied, confidence = satisfied
+                    eval_result = rule.evaluate(obs)
+                    if isinstance(eval_result, tuple):
+                        satisfied, confidence = eval_result
                     else:
+                        satisfied = bool(eval_result)
                         confidence = 1.0 if satisfied else 0.0
 
                     if satisfied and confidence >= confidence_threshold:
                         if hasattr(rule, "predicate") and rule.predicate == "is_novel_object":
-                            results["novel_classes"].append(
+                            novel_classes.append(
                                 {"observation": obs, "confidence": confidence, "rule": rule.name}
                             )
-                            results["symbolic_explanations"].append(
+                            symbolic_explanations.append(
                                 f"Novel object detected: {rule.name} (conf: {confidence:.2f})"
                             )
                         elif hasattr(rule, "predicate") and rule.predicate == "is_anomalous":
-                            results["detected_anomalies"].append(
+                            detected_anomalies.append(
                                 {"observation": obs, "confidence": confidence, "rule": rule.name}
                             )
                 except Exception:
                     continue
 
-        return results
+        return {
+            "detected_anomalies": detected_anomalies,
+            "novel_classes": novel_classes,
+            "symbolic_explanations": symbolic_explanations,
+        }

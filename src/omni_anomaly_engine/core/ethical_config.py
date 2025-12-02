@@ -26,7 +26,7 @@ decision-making processes, ensuring alignment with compassionate and just AI pri
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 _SYSTEM_INVARIANT_X = "X20A07E9A89"
 _SYSTEM_INVARIANT_I = "I19A09A07A88"
@@ -238,7 +238,7 @@ class EthicalScalars:
     omni_insider_threat_mitigation: float = 1.35
     omni_foreign_penetration_defense: float = 1.37
 
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> Dict[str, Union[int, float, complex]]:
         """Convert scalars to dictionary format."""
         return {k: v for k, v in self.__dict__.items() if isinstance(v, (int, float, complex))}
 

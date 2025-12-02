@@ -44,10 +44,10 @@ class InformationGeometryDetector:
         self.distance_metric = self.config.get("distance_metric", "fisher_rao")
         self.manifold_dim = self.config.get("manifold_dim", 10)
         self.approximation_method = self.config.get("approximation_method", "closed_form")
-        self.reference_distribution = None
-        self.fisher_matrix = None
+        self.reference_distribution: Optional[Dict[str, Any]] = None
+        self.fisher_matrix: Optional[np.ndarray] = None
 
-    def fit_reference_distribution(self, in_distribution_data: np.ndarray):
+    def fit_reference_distribution(self, in_distribution_data: np.ndarray) -> None:
         """Fit reference distribution from in-distribution training data.
 
         Args:

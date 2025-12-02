@@ -24,7 +24,7 @@ Based on: Quantum anomaly detection in the latent space of proton collision even
 Implements quantum-inspired kernel machines for unsupervised anomaly detection.
 """
 
-from typing import Optional, Dict, Any, Callable
+from typing import Optional, Dict, Any, Callable, Union
 import numpy as np
 
 
@@ -47,8 +47,8 @@ class QuantumKernelMachine:
         self.num_qubits = self.config.get("num_qubits", 4)
         self.entanglement_depth = self.config.get("entanglement_depth", 2)
         self.gamma = self.config.get("gamma", 1.0)
-        self.training_data = None
-        self.anomaly_threshold = None
+        self.training_data: Optional[np.ndarray] = None
+        self.anomaly_threshold: Optional[float] = None
 
     def quantum_inspired_kernel(self, x1: np.ndarray, x2: np.ndarray) -> float:
         """Compute quantum-inspired kernel between two samples.
@@ -110,7 +110,7 @@ class QuantumKernelMachine:
         return float(np.exp(-self.gamma * np.linalg.norm(x1 - x2) ** 2))
 
     def compute_kernel_matrix(
-        self, X: np.ndarray, kernel_func: Optional[Callable] = None
+        self, X: np.ndarray, kernel_func: Optional[Callable[[np.ndarray, np.ndarray], float]] = None
     ) -> np.ndarray:
         """Compute kernel matrix for dataset.
 
@@ -137,7 +137,7 @@ class QuantumKernelMachine:
 
         return K
 
-    def fit(self, training_data: np.ndarray):
+    def fit(self, training_data: np.ndarray) -> None:
         """Fit quantum kernel machine on training data.
 
         Args:
@@ -149,7 +149,7 @@ class QuantumKernelMachine:
 
         train_scores = np.mean(K_train, axis=1)
 
-        self.anomaly_threshold = np.mean(train_scores) - 3 * np.std(train_scores)
+        self.anomaly_threshold = float(np.mean(train_scores) - 3 * np.std(train_scores))
 
     def predict(self, test_data: np.ndarray) -> Dict[str, Any]:
         """Predict anomalies using quantum kernel machine.
@@ -178,7 +178,8 @@ class QuantumKernelMachine:
             ]
             anomaly_scores[i] = np.mean(similarities)
 
-        predictions = anomaly_scores < self.anomaly_threshold
+        threshold = self.anomaly_threshold if self.anomaly_threshold is not None else 0.0
+        predictions = anomaly_scores < threshold
 
         return {
             "anomaly_scores": anomaly_scores,
