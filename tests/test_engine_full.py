@@ -21,10 +21,9 @@ Full engine tests to boost coverage
 """
 
 import numpy as np
-import torch
-import pytest
 import tempfile
 import os
+
 from omni_anomaly_engine.engine import OmniAnomalyEngine
 
 

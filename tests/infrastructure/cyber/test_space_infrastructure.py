@@ -20,7 +20,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Tests for Space Infrastructure Monitor (EU Critical Entities unique sector).
 """
 
-import pytest
 import numpy as np
 from omni_anomaly_engine.infrastructure.cyber.space_infrastructure import SpaceInfrastructureMonitor
 

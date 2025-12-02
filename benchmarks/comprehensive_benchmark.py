@@ -26,7 +26,7 @@ across 1, 5, and all 12 infrastructure modules.
 
 import time
 import numpy as np
-from typing import Dict, Any, List
+from typing import Dict, Any
 import json
 
 from omni_anomaly_engine.infrastructure import InfrastructureCoordinator
@@ -41,12 +41,12 @@ def benchmark_module_instantiation() -> Dict[str, float]:
     coord = InfrastructureCoordinator()
 
     start = time.time()
-    modules_1 = coord.instantiate_filtered_modules(module_names=["ncf_monitor"])
+    coord.instantiate_filtered_modules(module_names=["ncf_monitor"])
     elapsed_1 = (time.time() - start) * 1000
     results["1_module_ms"] = elapsed_1
 
     start = time.time()
-    modules_5 = coord.instantiate_filtered_modules(priorities=["high"])
+    coord.instantiate_filtered_modules(priorities=["high"])
     elapsed_5 = (time.time() - start) * 1000
     results["5_modules_ms"] = elapsed_5
 
@@ -98,12 +98,12 @@ def benchmark_simulation_module() -> Dict[str, Any]:
     collatz_elapsed = (time.time() - start) * 1000
 
     start = time.time()
-    p_vs_np_result = sim.analyze_millennium_problem("p_vs_np")
+    sim.analyze_millennium_problem("p_vs_np")
     millennium_elapsed = (time.time() - start) * 1000
 
     start = time.time()
     data = np.random.randn(100, 20)
-    predict_result = sim.predict(data)
+    sim.predict(data)
     predict_elapsed = (time.time() - start) * 1000
 
     return {

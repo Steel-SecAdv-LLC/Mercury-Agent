@@ -30,7 +30,7 @@ Tests the 20-24% reductions applied in commit f2eea48:
 
 import numpy as np
 import time
-from typing import Dict, List, Tuple
+from typing import Dict, List
 import json
 from pathlib import Path
 from dataclasses import dataclass
@@ -294,12 +294,14 @@ def main():
 
     if f1_change_pct >= degradation_threshold:
         print(
-            f"✅ VALIDATION PASSED: F1-score degradation ({f1_change_pct:.2f}%) is within acceptable threshold (<5%)"
+            f"✅ VALIDATION PASSED: F1-score degradation ({f1_change_pct:.2f}%) "
+            "is within acceptable threshold (<5%)"
         )
         validation_passed = True
     else:
         print(
-            f"❌ VALIDATION FAILED: F1-score degradation ({f1_change_pct:.2f}%) exceeds threshold (>5%)"
+            f"❌ VALIDATION FAILED: F1-score degradation ({f1_change_pct:.2f}%) "
+            "exceeds threshold (>5%)"
         )
         print("   RECOMMENDATION: Revert ethical scalar changes")
         validation_passed = False
@@ -314,9 +316,10 @@ def main():
     print("BASELINE by scenario type:")
     baseline_type_results = analyze_by_scenario_type(scenarios, baseline_scalars)
     for scenario_type, results in baseline_type_results.items():
-        print(
-            f"  {scenario_type:20s}: F1={results['f1_score']:.4f}, Precision={results['precision']:.4f}, Recall={results['recall']:.4f}"
-        )
+        f1 = results["f1_score"]
+        prec = results["precision"]
+        rec = results["recall"]
+        print(f"  {scenario_type:20s}: F1={f1:.4f}, Precision={prec:.4f}, Recall={rec:.4f}")
     print()
 
     print("OPTIMIZED by scenario type:")
@@ -326,9 +329,11 @@ def main():
         f1_change = (
             ((results["f1_score"] - baseline_f1) / baseline_f1 * 100) if baseline_f1 > 0 else 0
         )
-        print(
-            f"  {scenario_type:20s}: F1={results['f1_score']:.4f} ({f1_change:+.1f}%), Precision={results['precision']:.4f}, Recall={results['recall']:.4f}"
-        )
+        f1 = results["f1_score"]
+        prec = results["precision"]
+        rec = results["recall"]
+        print(f"  {scenario_type:20s}: F1={f1:.4f} ({f1_change:+.1f}%)")
+        print(f"      Prec={prec:.4f}, Rec={rec:.4f}")
     print()
 
     print("=" * 80)

@@ -22,8 +22,7 @@ Comprehensive tests for biometric model to boost coverage
 
 import numpy as np
 import torch
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
 
 

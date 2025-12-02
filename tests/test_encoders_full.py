@@ -21,8 +21,6 @@ Comprehensive encoder tests to boost coverage
 """
 
 import torch
-import numpy as np
-import pytest
 from omni_anomaly_engine.ml.encoders import (
     StatisticalEncoder,
     TemporalEncoder,

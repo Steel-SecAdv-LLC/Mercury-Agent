@@ -147,7 +147,7 @@ def main():
         print(f"   Passed: {result.passed}")
         if not result.passed:
             all_passed = False
-            print(f"   ⚠️ Ethical concerns identified!")
+            print("   ⚠️ Ethical concerns identified!")
             print(f"   Violations: {result.violations}")
 
     print(f"\n{'=' * 60}")

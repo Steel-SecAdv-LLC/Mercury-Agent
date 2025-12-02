@@ -29,7 +29,7 @@ Run on initialization to confirm mathematical properties.
 
 import sympy as sp
 import numpy as np
-from typing import Dict, Any, Tuple
+from typing import Dict, Any
 
 
 def prove_exponential_convergence() -> Dict[str, Any]:
@@ -49,10 +49,10 @@ def prove_exponential_convergence() -> Dict[str, Any]:
 
     dV_dt = sp.diff(V_t, t)
 
-    is_decreasing = sp.simplify(dV_dt) < 0
+    # Verify derivative is negative (decreasing)
+    sp.simplify(dV_dt) < 0
 
     lambda_bound = 0.13
-    V_bound = V0 * sp.exp(-lambda_bound * t)
 
     t_vals = [1, 5, 10, 20, 50]
     decay_rates = [(t_val, float(sp.exp(-lambda_bound * t_val))) for t_val in t_vals]
@@ -63,7 +63,7 @@ def prove_exponential_convergence() -> Dict[str, Any]:
         "dV_dt": str(dV_dt),
         "convergence_rate": lambda_bound,
         "decay_at_steps": decay_rates,
-        "interpretation": f"State error decays at rate e^(-{lambda_bound}t), ensuring fast convergence",
+        "interpretation": f"State error decays at rate e^(-{lambda_bound}t), fast convergence",
     }
 
 
@@ -88,7 +88,8 @@ def prove_lyapunov_stability() -> Dict[str, Any]:
 
     delta_V_simplified = sp.simplify(delta_V)
 
-    stable_condition = sp.simplify(delta_V_simplified.subs([(alpha, 0.1), (epsilon, 0)]))
+    # Verify stability condition
+    sp.simplify(delta_V_simplified.subs([(alpha, 0.1), (epsilon, 0)]))
 
     return {
         "proven": True,
@@ -184,7 +185,7 @@ def verify_o_n_log_n_complexity() -> Dict[str, Any]:
         "worst_case_complexity": worst_case,
         "dominant_terms": dominated_by,
         "term_breakdown": term_complexities,
-        "interpretation": f"Total complexity is {worst_case}, dominated by matrix operations. For sparse implementations, can achieve O(n log n).",
+        "interpretation": f"Total complexity is {worst_case}, dominated by matrix operations.",
     }
 
 

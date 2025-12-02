@@ -20,10 +20,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Comprehensive CLI tests to boost coverage
 """
 
-import pytest
 import tempfile
 import os
-import numpy as np
 from click.testing import CliRunner
 from omni_anomaly_engine.cli import main
 

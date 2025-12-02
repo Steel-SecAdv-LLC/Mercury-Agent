@@ -20,7 +20,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Tests for SimulationModule (paradoxes, conjectures, Millennium Prize Problems).
 """
 
-import pytest
 import numpy as np
 from omni_anomaly_engine.models.simulation import SimulationModule
 
