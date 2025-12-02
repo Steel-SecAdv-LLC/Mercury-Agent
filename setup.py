@@ -23,7 +23,7 @@ setup(
     license="GPL-3.0-or-later",
     packages=find_packages(where="src", exclude=["tests", "tests.*", "examples", "docs"]),
     package_dir={"": "src"},
-    python_requires=">=3.12",
+    python_requires=">=3.11",
     # Core dependencies only - lightweight for basic functionality
     install_requires=[
         "numpy>=1.24.0",
