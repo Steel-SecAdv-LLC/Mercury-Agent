@@ -20,10 +20,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Training module smoke tests to boost coverage
 """
 
-import pytest
 import torch
-import tempfile
-import os
 from omni_anomaly_engine.ml.training import (
     AnomalyDataset,
     FusionTrainer,

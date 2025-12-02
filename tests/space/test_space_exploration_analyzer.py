@@ -20,7 +20,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Tests for SpaceExplorationAnalyzer (Hubble-inspired cosmic anomaly detection).
 """
 
-import pytest
 import numpy as np
 from omni_anomaly_engine.space.space_exploration_analyzer import SpaceExplorationAnalyzer
 

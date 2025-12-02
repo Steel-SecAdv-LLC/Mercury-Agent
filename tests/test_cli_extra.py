@@ -20,9 +20,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Additional CLI tests to boost coverage above 85%
 """
 
-import pytest
 from click.testing import CliRunner
-from omni_anomaly_engine.cli import main, security
+from omni_anomaly_engine.cli import main
 import tempfile
 import os
 import json

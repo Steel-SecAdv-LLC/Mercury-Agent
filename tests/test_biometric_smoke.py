@@ -20,10 +20,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Additional biometric tests to boost coverage
 """
 
-import pytest
 import numpy as np
 import torch
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
 
 

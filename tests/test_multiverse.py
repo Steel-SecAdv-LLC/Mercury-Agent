@@ -18,11 +18,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Tests for Multiverse Omni Engine"""
 
-import pytest
 import numpy as np
 from omni_anomaly_engine.models.multiverse import (
     MultiverseOmniEngine,
-    Universe,
     UniverseState,
 )
 

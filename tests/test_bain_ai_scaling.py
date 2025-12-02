@@ -18,8 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Tests for Bain AI Scaling module"""
 
-import pytest
-import numpy as np
 from omni_anomaly_engine.scaling.bain_ai_scaling import BainAIScaling, ComputeResource
 
 

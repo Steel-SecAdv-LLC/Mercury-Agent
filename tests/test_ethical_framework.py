@@ -39,7 +39,6 @@ from omni_anomaly_engine.core.ethical_risk_matrix import (
     ComplianceRegime,
 )
 from omni_anomaly_engine.core.ethical_config import DEFAULT_CONFIG
-from scipy import stats
 
 
 class TestSigmaDirective:

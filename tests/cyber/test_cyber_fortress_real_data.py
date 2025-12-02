@@ -19,7 +19,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """Real-data tests for Cyber Fortress module using simulated datasets."""
 
 import pytest
-import numpy as np
 import sys
 import os
 

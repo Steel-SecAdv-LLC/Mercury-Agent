@@ -23,7 +23,6 @@ Tests InfrastructureCoordinator with all 12 modules, synthetic data predictions,
 and end-to-end workflow validation.
 """
 
-import pytest
 import numpy as np
 from omni_anomaly_engine.infrastructure import InfrastructureCoordinator
 from omni_anomaly_engine.models.simulation import SimulationModule
@@ -87,17 +86,17 @@ class TestComprehensiveIntegration:
 
         result = analyzer.detect(data, "cosmic_ray", {"telescope": "hubble_test"})
 
-        assert result["anomaly_detected"] == True
+        assert result["anomaly_detected"] is True
         assert result["cosmic_ray_events"] >= 5
         assert result["severity"] in ["low", "medium", "high", "critical"]
         assert len(result["recommendations"]) > 0
 
-        print(f"\n=== Cosmic Ray Prediction ===")
+        print("\n=== Cosmic Ray Prediction ===")
         print(f"Anomaly Score: {result['anomaly_score']:.2f}")
         print(f"Cosmic Ray Events: {result['cosmic_ray_events']}")
         print(f"Severity: {result['severity']}")
         print(
-            f"Insights: Detected high-energy particle events indicative of cosmic ray interference"
+            "Insights: Detected high-energy particle events indicative of cosmic ray interference"
         )
 
     def test_space_exploration_satellite_position_prediction(self):
@@ -123,14 +122,13 @@ class TestComprehensiveIntegration:
         assert "deviation_from_expected_km" in result
         assert len(result["insights"]) > 0
 
-        print(f"\n=== Satellite Position Prediction ===")
+        print("\n=== Satellite Position Prediction ===")
         print(f"Anomaly Detected: {result['anomaly_detected']}")
         print(f"Severity: {result['severity']}")
         print(f"Deviation: {result['deviation_from_expected_km']:.2f} km")
         print(f"Insights: {result['insights'][0]}")
-        print(
-            f"Recommendation: {result['recommendations'][0] if result['recommendations'] else 'Nominal orbit'}"
-        )
+        rec = result["recommendations"][0] if result["recommendations"] else "Nominal orbit"
+        print(f"Recommendation: {rec}")
 
     def test_simulation_module_collatz_prediction(self):
         """Run Collatz conjecture exploration and report insights."""
@@ -139,10 +137,10 @@ class TestComprehensiveIntegration:
         result = sim.explore_conjecture("collatz", search_space=5000)
 
         assert result["conjecture"] == "collatz"
-        assert result["all_reached_one"] == True
+        assert result["all_reached_one"] is True
         assert result["viability_score"] == 1.0
 
-        print(f"\n=== Collatz Conjecture Exploration ===")
+        print("\n=== Collatz Conjecture Exploration ===")
         print(f"Cases Explored: {result['explored_cases']}")
         print(f"All Reached 1: {result['all_reached_one']}")
         print(f"Average Steps: {result['average_steps']:.2f}")
@@ -160,7 +158,7 @@ class TestComprehensiveIntegration:
         assert "complexity_gap" in result
         assert "ethical_flags" in result
 
-        print(f"\n=== P vs NP Analysis ===")
+        print("\n=== P vs NP Analysis ===")
         print(f"Status: {result['status']}")
         print(f"Prize Amount: {result['prize_amount']}")
         print(f"Complexity Gap (n=200): {result['complexity_gap']:.2e}x")
@@ -179,7 +177,7 @@ class TestComprehensiveIntegration:
         assert "branch_variance" in result
         assert len(result["anomaly_scores"]) == 10
 
-        print(f"\n=== Multiverse Branching Prediction ===")
+        print("\n=== Multiverse Branching Prediction ===")
         print(f"Branches Explored: {result['num_branches_explored']}")
         print(f"Mean Anomaly Score: {np.mean(result['anomaly_scores']):.3f}")
         print(f"Branch Variance: {np.mean(result['branch_variance']):.3f}")
@@ -205,7 +203,7 @@ class TestComprehensiveIntegration:
         assert result["analysis_type"] == "orbital_debris"
         assert len(result["proximity_warnings"]) > 0
 
-        print(f"\n=== Orbital Debris Collision Risk ===")
+        print("\n=== Orbital Debris Collision Risk ===")
         print(f"Risk Level: {result['risk_level']}")
         print(f"Proximity Warnings: {len(result['proximity_warnings'])}")
         if result["proximity_warnings"]:

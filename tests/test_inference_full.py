@@ -22,7 +22,6 @@ Comprehensive tests for inference module to boost coverage
 
 import torch
 import numpy as np
-import pytest
 from omni_anomaly_engine.ml.inference import FusionInference
 
 
