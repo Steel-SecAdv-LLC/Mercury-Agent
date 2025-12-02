@@ -32,7 +32,7 @@ Research source: Bain & Company Technology Report 2025
 
 """
 
-from typing import Dict, List
+from typing import Any, Dict, List
 from dataclasses import dataclass
 
 
@@ -142,7 +142,7 @@ class BainAIScaling:
 
     def plan_infrastructure_scaling(
         self, current_investment_millions: float, growth_rate: float = 0.25, years: int = 5
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """
         Plan AI infrastructure scaling based on Bain findings.
 
@@ -190,7 +190,7 @@ class BainAIScaling:
 
     def estimate_agentic_ai_impact(
         self, current_workforce_size: int, process_automation_target: float = 0.30
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """
         Estimate impact of agentic AI on operations.
 
@@ -237,8 +237,8 @@ class BainAIScaling:
         }
 
     def optimize_power_management(
-        self, workload_schedule: List[Dict], power_budget_watts: float
-    ) -> Dict[str, any]:
+        self, workload_schedule: List[Dict[str, Any]], power_budget_watts: float
+    ) -> Dict[str, Any]:
         """
         Optimize power management for AI workloads.
 
