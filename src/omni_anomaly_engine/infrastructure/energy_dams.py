@@ -217,8 +217,7 @@ class EnergyDamsDetector:
                 "risk": "HIGH",
                 "probability": min(1.0, (critical_count * 0.4 + high_count * 0.2)),
                 "message": (
-                    "Energy sector failure will cascade to ALL critical "
-                    "infrastructure sectors"
+                    "Energy sector failure will cascade to ALL critical " "infrastructure sectors"
                 ),
             }
 

@@ -512,8 +512,7 @@ class SimulationModule:
             "status": "unsolved",
             "prize_amount": "$1,000,000",
             "analysis": (
-                "Relationship between algebraic cycles and cohomology "
-                "in algebraic geometry"
+                "Relationship between algebraic cycles and cohomology " "in algebraic geometry"
             ),
             "insights": [
                 "Hodge conjecture: Deep connection in algebraic geometry",

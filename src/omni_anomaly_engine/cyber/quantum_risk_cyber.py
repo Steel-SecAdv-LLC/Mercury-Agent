@@ -839,9 +839,7 @@ class PostQuantumMigrationPlanner:
             "current_phase": current_phase,
             "completed_milestones": len(completed_milestones),
             "total_milestones": total_activities,
-            "systems_migrated": len(
-                [m for m in completed_milestones if "migrated" in m.lower()]
-            ),
+            "systems_migrated": len([m for m in completed_milestones if "migrated" in m.lower()]),
             "total_systems_to_migrate": plan["vulnerable_systems"],
             "on_track": progress_percentage
             >= (100 * len(completed_milestones) / total_activities * 0.9),
@@ -886,9 +884,7 @@ class PostQuantumMigrationPlanner:
                 "shors_algorithm": (
                     "Breaks RSA, ECC, DH by solving factoring and discrete log problems"
                 ),
-                "grovers_algorithm": (
-                    "Weakens symmetric crypto (doubles required key length)"
-                ),
+                "grovers_algorithm": ("Weakens symmetric crypto (doubles required key length)"),
                 "timeline": (
                     "10 years (per Bain 2025: 95% of leaders expect threats within 10 years)"
                 ),
