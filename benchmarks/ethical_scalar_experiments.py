@@ -28,13 +28,13 @@ import numpy as np
 import json
 import time
 from itertools import product
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any
 import sys
 import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from omni_anomaly_engine.core.ethical_config import EthicalScalars, EngineConfig
+from omni_anomaly_engine.core.ethical_config import EthicalScalars
 
 
 def generate_weight_variations() -> List[Dict[str, Any]]:
@@ -94,7 +94,8 @@ def evaluate_configuration(config: Dict[str, Any]) -> Dict[str, Any]:
     """Evaluate a single weight configuration."""
     start_time = time.time()
 
-    test_data = np.random.randn(100, 10)
+    # Generate test data (used for timing simulation)
+    np.random.randn(100, 10)
 
     execution_time = np.random.uniform(0.05, 0.15) * (1.0 + np.random.randn() * 0.1)
     memory_usage = np.random.uniform(1.0, 3.0) * (1.0 + np.random.randn() * 0.1)
@@ -194,7 +195,7 @@ def run_experiments() -> Dict[str, Any]:
     print(f"  Accuracy score: {avg_accuracy:.4f}")
     print(f"  Efficiency score: {avg_efficiency:.4f}")
     print()
-    print(f"Results saved to benchmarks/ethical_scalar_experiment_results.json")
+    print("Results saved to benchmarks/ethical_scalar_experiment_results.json")
     print()
 
     return output

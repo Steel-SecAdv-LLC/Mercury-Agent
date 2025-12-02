@@ -146,7 +146,7 @@ def profile_memory_usage():
         "system_state": np.random.randn(64),
         "network_traffic": np.random.randn(1000, 3) * 100,
     }
-    result = fortress.fortress_scan(system_data)
+    fortress.fortress_scan(system_data)
     snapshot2 = tracemalloc.take_snapshot()
 
     top_stats = snapshot2.compare_to(snapshot1, "lineno")
@@ -161,7 +161,7 @@ def profile_memory_usage():
         "medical_image": np.random.randn(224, 224) * 50 + 128,
         "imaging_type": "xray",
     }
-    result = predictor.predict_and_cure(patient_data)
+    predictor.predict_and_cure(patient_data)
     snapshot2 = tracemalloc.take_snapshot()
 
     top_stats = snapshot2.compare_to(snapshot1, "lineno")
@@ -172,7 +172,7 @@ def profile_memory_usage():
     snapshot1 = tracemalloc.take_snapshot()
     detector = EmergentLifeDetector()
     signal = np.random.randn(10000) * 0.5
-    result = detector.detect_emergent_life(signal, "comprehensive")
+    detector.detect_emergent_life(signal, "comprehensive")
     snapshot2 = tracemalloc.take_snapshot()
 
     top_stats = snapshot2.compare_to(snapshot1, "lineno")
@@ -195,7 +195,7 @@ def profile_runtime():
     times = []
     for _ in range(10):
         start = time.time()
-        result = fortress.fortress_scan(
+        fortress.fortress_scan(
             {
                 "hash_chain": [f"tx_{i}" for i in range(500)],
                 "system_state": np.random.randn(64),
@@ -210,7 +210,7 @@ def profile_runtime():
     times = []
     for _ in range(10):
         start = time.time()
-        result = predictor.predict_and_cure(
+        predictor.predict_and_cure(
             {
                 "vital_signs_sequence": np.tile([75, 120, 98, 98.6, 16], (288, 1)),
                 "medical_image": np.random.randn(224, 224) * 50 + 128,
@@ -225,7 +225,7 @@ def profile_runtime():
     times = []
     for _ in range(10):
         start = time.time()
-        result = detector.detect_emergent_life(np.random.randn(10000) * 0.5, "comprehensive")
+        detector.detect_emergent_life(np.random.randn(10000) * 0.5, "comprehensive")
         times.append(time.time() - start)
     print(f"  Mean runtime: {np.mean(times)*1000:.2f} ms ± {np.std(times)*1000:.2f} ms")
 

@@ -28,7 +28,7 @@ Quick validation on synthetic data - comprehensive benchmarks on actual repos
 
 import numpy as np
 import time
-from typing import Dict, List
+from typing import Dict
 import json
 from pathlib import Path
 
@@ -113,7 +113,7 @@ def main():
             "e2": best_ava["e2"],
             "t1": best_ava["t1"],
         }
-        print(f"Loaded best Ava config from optimization results:")
+        print("Loaded best Ava config from optimization results:")
         print(f"  {optimized_config}")
     else:
         optimized_config = {"w1": 0.50, "w2": 1.00, "w3": 1.00, "e1": 1.00, "e2": 2.00, "t1": 0.40}
@@ -123,7 +123,7 @@ def main():
     print()
 
     baseline_config = {"w1": 1.0, "w2": 1.0, "w3": 1.0, "e1": 1.0, "e2": 1.0, "t1": 1.0}
-    print(f"Baseline config:")
+    print("Baseline config:")
     print(f"  {baseline_config}")
     print()
 

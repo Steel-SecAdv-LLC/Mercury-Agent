@@ -20,7 +20,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Tests for STEM Discipline Router for multi-engine fusion.
 """
 
-import pytest
 import torch
 from omni_anomaly_engine.ml.fusion_network import STEMDisciplineRouter
 

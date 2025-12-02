@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Tests for CRISPR-inspired self-healing module"""
 
-import pytest
 import numpy as np
 from omni_anomaly_engine.core.self_healing import CRISPRInspiredSelfHealing, AnomalySignature
 

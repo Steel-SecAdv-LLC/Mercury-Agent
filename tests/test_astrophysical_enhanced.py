@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Tests for enhanced astrophysical anomaly detection model"""
 
-import pytest
 import numpy as np
 from omni_anomaly_engine.models.astrophysical import AstrophysicalAnomalyModel
 

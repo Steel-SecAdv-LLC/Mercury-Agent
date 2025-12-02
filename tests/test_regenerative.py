@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Tests for regenerative architecture module"""
 
-import pytest
 import numpy as np
 from omni_anomaly_engine.core.regenerative import (
     RegenerativeArchitecture,

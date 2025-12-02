@@ -21,7 +21,6 @@ Integration tests for SpaceExplorationAnalyzer with simulated NASA telemetry.
 Tests end-to-end functionality with Hubble-inspired scenarios.
 """
 
-import pytest
 import numpy as np
 from omni_anomaly_engine.space import SpaceExplorationAnalyzer
 

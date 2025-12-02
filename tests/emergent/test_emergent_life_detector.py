@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Comprehensive tests for Emergent Life Detector module."""
 
-import pytest
 import numpy as np
 from omni_anomaly_engine.emergent.emergent_life_detector import (
     EmergentLifeDetector,

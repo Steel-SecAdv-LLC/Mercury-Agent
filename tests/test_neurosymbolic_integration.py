@@ -18,11 +18,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Tests for neurosymbolic engine integration"""
 
-import pytest
 import numpy as np
 from omni_anomaly_engine.models.neurosymbolic import (
     NeurosymbolicEngine,
-    SymbolicRule,
 )
 
 

@@ -18,8 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Tests for Energy Optimization module"""
 
-import pytest
-import numpy as np
 from omni_anomaly_engine.energy.energy_optimization import (
     EnergyOptimization,
     EnergySource,

@@ -23,7 +23,6 @@ Tests all 4 phases (Discovery, Identification, Ethics, Resolution)
 independently and as an integrated pipeline.
 """
 
-import pytest
 import numpy as np
 from omni_anomaly_engine.truth_decipher import TruthDecipherFramework, TruthDecipherResult
 

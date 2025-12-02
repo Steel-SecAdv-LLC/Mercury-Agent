@@ -145,7 +145,8 @@ class TestOmniAvaEngine:
         engine = OmniAvaEngine(state_dim=20)
 
         state = np.random.randn(20) * 0.1
-        h_term = engine._term_H(state)
+        # Compute H term to verify it works (return value not needed)
+        engine._term_H(state)
 
         ethical_mean = np.mean(list(DEFAULT_CONFIG.ethical_scalars.to_dict().values())[:10])
 

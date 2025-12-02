@@ -37,7 +37,6 @@ Research-backed approach inspired by:
 import numpy as np
 import json
 from pathlib import Path
-from typing import Dict, List, Tuple
 import itertools
 from datetime import datetime
 
@@ -331,9 +330,8 @@ def main():
     print()
     print(f"Harmonic Coefficients (score={best_harmonic['score']:.4f}):")
     print(f"  f1={best_harmonic['f1']:.2f}, f2={best_harmonic['f2']:.2f}")
-    print(
-        f"  a1={best_harmonic['a1']:.2f}, a2={best_harmonic['a2']:.2f}, p1={best_harmonic['p1']:.2f}"
-    )
+    print(f"  a1={best_harmonic['a1']:.2f}, a2={best_harmonic['a2']:.2f}")
+    print(f"  p1={best_harmonic['p1']:.2f}")
     print("=" * 60)
     print(f"End time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
