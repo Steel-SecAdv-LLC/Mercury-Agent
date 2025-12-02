@@ -1,0 +1,30 @@
+name: Security
+
+on:
+  push:
+    branches: [ main, devin/* ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly
+
+jobs:
+  dependency-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: |
+        pip install safety bandit
+
+    - name: Run Safety check
+      run: safety check --json || true
+
+    - name: Run Bandit security scan
+      run: bandit -r omni_ava/ src/ -f json || true

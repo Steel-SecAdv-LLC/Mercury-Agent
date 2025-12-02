@@ -1,0 +1,296 @@
+{
+  "validation_passed": false,
+  "acceptance_threshold_pct": -5.0,
+  "baseline": {
+    "precision": 0.9999999998333333,
+    "recall": 0.9523809522297808,
+    "f1_score": 0.9756097509418997,
+    "accuracy": 0.994,
+    "false_positive_rate": 0.0,
+    "false_negative_rate": 0.04761904761148904,
+    "time_seconds": 0.003050088882446289,
+    "true_positives": 60,
+    "false_positives": 0,
+    "true_negatives": 437,
+    "false_negatives": 3,
+    "mean_adjusted_score": 0.18672456926590938,
+    "std_adjusted_score": 0.24234910900615012,
+    "scalars": {
+      "omnibenevolent": 1.45,
+      "omni_compassionate": 1.22,
+      "omni_justitia": 1.2
+    }
+  },
+  "optimized": {
+    "precision": 0.9999999998113207,
+    "recall": 0.8412698411363063,
+    "f1_score": 0.9137930983278834,
+    "accuracy": 0.98,
+    "false_positive_rate": 0.0,
+    "false_negative_rate": 0.15873015870496346,
+    "time_seconds": 0.0025870800018310547,
+    "true_positives": 53,
+    "false_positives": 0,
+    "true_negatives": 437,
+    "false_negatives": 10,
+    "mean_adjusted_score": 0.16500704980358086,
+    "std_adjusted_score": 0.2124105526500146,
+    "scalars": {
+      "omnibenevolent": 1.1,
+      "omni_compassionate": 1.1,
+      "omni_justitia": 1.1
+    }
+  },
+  "changes": {
+    "f1_score_pct": -6.336206926420697,
+    "precision_pct": -2.2012613957516673e-09,
+    "recall_pct": -11.666666666666673,
+    "accuracy_pct": -1.4084507042253533
+  },
+  "scenario_type_breakdown": {
+    "baseline": {
+      "healthcare": {
+        "precision": 0.9999999992857143,
+        "recall": 0.9999999992857143,
+        "f1_score": 0.9999999942857143,
+        "accuracy": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0,
+        "time_seconds": 0.0005285739898681641,
+        "true_positives": 14,
+        "false_positives": 0,
+        "true_negatives": 70,
+        "false_negatives": 0,
+        "mean_adjusted_score": 0.23345608506917911,
+        "std_adjusted_score": 0.31943879861333024,
+        "scalars": {
+          "omnibenevolent": 1.45,
+          "omni_compassionate": 1.22,
+          "omni_justitia": 1.2
+        }
+      },
+      "essential_workers": {
+        "precision": 0.9999999991666666,
+        "recall": 0.9999999991666666,
+        "f1_score": 0.9999999941666666,
+        "accuracy": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0,
+        "time_seconds": 0.0004930496215820312,
+        "true_positives": 12,
+        "false_positives": 0,
+        "true_negatives": 72,
+        "false_negatives": 0,
+        "mean_adjusted_score": 0.2024584073289676,
+        "std_adjusted_score": 0.2473833358351358,
+        "scalars": {
+          "omnibenevolent": 1.45,
+          "omni_compassionate": 1.22,
+          "omni_justitia": 1.2
+        }
+      },
+      "space_infrastructure": {
+        "precision": 0.9999999988888888,
+        "recall": 0.9999999988888888,
+        "f1_score": 0.9999999938888888,
+        "accuracy": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0,
+        "time_seconds": 0.00045299530029296875,
+        "true_positives": 9,
+        "false_positives": 0,
+        "true_negatives": 74,
+        "false_negatives": 0,
+        "mean_adjusted_score": 0.15593458409495958,
+        "std_adjusted_score": 0.17570594711415752,
+        "scalars": {
+          "omnibenevolent": 1.45,
+          "omni_compassionate": 1.22,
+          "omni_justitia": 1.2
+        }
+      },
+      "energy_grid": {
+        "precision": 0.9999999991666666,
+        "recall": 0.9999999991666666,
+        "f1_score": 0.9999999941666666,
+        "accuracy": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0,
+        "time_seconds": 0.0008652210235595703,
+        "true_positives": 12,
+        "false_positives": 0,
+        "true_negatives": 71,
+        "false_negatives": 0,
+        "mean_adjusted_score": 0.20665349481383774,
+        "std_adjusted_score": 0.25428451117028256,
+        "scalars": {
+          "omnibenevolent": 1.45,
+          "omni_compassionate": 1.22,
+          "omni_justitia": 1.2
+        }
+      },
+      "water_supply": {
+        "precision": 0.9999999988888888,
+        "recall": 0.9999999988888888,
+        "f1_score": 0.9999999938888888,
+        "accuracy": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0,
+        "time_seconds": 0.0004889965057373047,
+        "true_positives": 9,
+        "false_positives": 0,
+        "true_negatives": 74,
+        "false_negatives": 0,
+        "mean_adjusted_score": 0.21178914414474984,
+        "std_adjusted_score": 0.2589185961757173,
+        "scalars": {
+          "omnibenevolent": 1.45,
+          "omni_compassionate": 1.22,
+          "omni_justitia": 1.2
+        }
+      },
+      "economic_sector": {
+        "precision": 0.9999999975,
+        "recall": 0.571428570612245,
+        "f1_score": 0.7272727213223142,
+        "accuracy": 0.963855421686747,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.4285714279591837,
+        "time_seconds": 0.0004496574401855469,
+        "true_positives": 4,
+        "false_positives": 0,
+        "true_negatives": 76,
+        "false_negatives": 3,
+        "mean_adjusted_score": 0.10930310551886689,
+        "std_adjusted_score": 0.12492869965333767,
+        "scalars": {
+          "omnibenevolent": 1.45,
+          "omni_compassionate": 1.22,
+          "omni_justitia": 1.2
+        }
+      }
+    },
+    "optimized": {
+      "healthcare": {
+        "precision": 0.9999999992857143,
+        "recall": 0.9999999992857143,
+        "f1_score": 0.9999999942857143,
+        "accuracy": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0,
+        "time_seconds": 0.0005176067352294922,
+        "true_positives": 14,
+        "false_positives": 0,
+        "true_negatives": 70,
+        "false_negatives": 0,
+        "mean_adjusted_score": 0.20963671419267177,
+        "std_adjusted_score": 0.288671981335571,
+        "scalars": {
+          "omnibenevolent": 1.1,
+          "omni_compassionate": 1.1,
+          "omni_justitia": 1.1
+        }
+      },
+      "essential_workers": {
+        "precision": 0.9999999991666666,
+        "recall": 0.9999999991666666,
+        "f1_score": 0.9999999941666666,
+        "accuracy": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0,
+        "time_seconds": 0.0004868507385253906,
+        "true_positives": 12,
+        "false_positives": 0,
+        "true_negatives": 72,
+        "false_negatives": 0,
+        "mean_adjusted_score": 0.17800718285539782,
+        "std_adjusted_score": 0.2129057140845218,
+        "scalars": {
+          "omnibenevolent": 1.1,
+          "omni_compassionate": 1.1,
+          "omni_justitia": 1.1
+        }
+      },
+      "space_infrastructure": {
+        "precision": 0.9999999983333333,
+        "recall": 0.6666666659259258,
+        "f1_score": 0.7999999941333333,
+        "accuracy": 0.963855421686747,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.3333333329629629,
+        "time_seconds": 0.0004506111145019531,
+        "true_positives": 6,
+        "false_positives": 0,
+        "true_negatives": 74,
+        "false_negatives": 3,
+        "mean_adjusted_score": 0.13697193330164972,
+        "std_adjusted_score": 0.1510627542534199,
+        "scalars": {
+          "omnibenevolent": 1.1,
+          "omni_compassionate": 1.1,
+          "omni_justitia": 1.1
+        }
+      },
+      "energy_grid": {
+        "precision": 0.9999999991666666,
+        "recall": 0.9999999991666666,
+        "f1_score": 0.9999999941666666,
+        "accuracy": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0,
+        "time_seconds": 0.0004787445068359375,
+        "true_positives": 12,
+        "false_positives": 0,
+        "true_negatives": 71,
+        "false_negatives": 0,
+        "mean_adjusted_score": 0.18142091466972227,
+        "std_adjusted_score": 0.21943051710766603,
+        "scalars": {
+          "omnibenevolent": 1.1,
+          "omni_compassionate": 1.1,
+          "omni_justitia": 1.1
+        }
+      },
+      "water_supply": {
+        "precision": 0.9999999988888888,
+        "recall": 0.9999999988888888,
+        "f1_score": 0.9999999938888888,
+        "accuracy": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0,
+        "time_seconds": 0.00044918060302734375,
+        "true_positives": 9,
+        "false_positives": 0,
+        "true_negatives": 74,
+        "false_negatives": 0,
+        "mean_adjusted_score": 0.18741612215165349,
+        "std_adjusted_score": 0.22505256279154046,
+        "scalars": {
+          "omnibenevolent": 1.1,
+          "omni_compassionate": 1.1,
+          "omni_justitia": 1.1
+        }
+      },
+      "economic_sector": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "accuracy": 0.9156626506024096,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.9999999985714286,
+        "time_seconds": 0.0004761219024658203,
+        "true_positives": 0,
+        "false_positives": 0,
+        "true_negatives": 76,
+        "false_negatives": 7,
+        "mean_adjusted_score": 0.09589509674146349,
+        "std_adjusted_score": 0.1069903922338186,
+        "scalars": {
+          "omnibenevolent": 1.1,
+          "omni_compassionate": 1.1,
+          "omni_justitia": 1.1
+        }
+      }
+    }
+  }
+}
