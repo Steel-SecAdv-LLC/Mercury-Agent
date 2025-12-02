@@ -379,7 +379,7 @@ class RefactoringEngine:
                 "cyclomatic_complexity": 1,
             }
 
-        cache_key = hash(code)
+        cache_key = str(hash(code))
         if self.config.enable_caching and cache_key in self._analysis_cache:
             return self._analysis_cache[cache_key]
 
