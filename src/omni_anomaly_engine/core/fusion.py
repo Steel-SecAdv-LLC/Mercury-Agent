@@ -227,7 +227,8 @@ class HybridFusionLayer(nn.Module):
                 projected_features.append(torch.zeros(batch_size, self.hidden_dim))
 
         concatenated = torch.cat(projected_features, dim=1)
-        return self.early_fusion(concatenated)
+        result: torch.Tensor = self.early_fusion(concatenated)
+        return result
 
     def late_fusion_forward(self, detector_scores: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
@@ -297,7 +298,8 @@ class EarlyFusionEncoder(nn.Module):
         )
 
     def forward(self, concatenated_features: torch.Tensor) -> torch.Tensor:
-        return self.encoder(concatenated_features)
+        result: torch.Tensor = self.encoder(concatenated_features)
+        return result
 
 
 class OmniAvaEngine:
@@ -420,7 +422,7 @@ class OmniAvaEngine:
         self.enable_purity_invariant = self.config.get("enable_purity_invariant", True)
         self._initialize_ethical_matrix()
 
-    def _initialize_ethical_matrix(self):
+    def _initialize_ethical_matrix(self) -> None:
         """
         Initialize positive-definite ethical matrix for Purity Invariant.
 
@@ -493,10 +495,11 @@ class OmniAvaEngine:
 
             if self.np.any(positive_mask):
                 positive_subspace = eigenvectors[:, positive_mask]
-                projection = positive_subspace @ positive_subspace.T @ state
+                projection: np.ndarray = positive_subspace @ positive_subspace.T @ state
                 return projection
             else:
-                return state * 0.5
+                result: np.ndarray = state * 0.5
+                return result
 
         return state
 
@@ -597,7 +600,7 @@ class OmniAvaEngine:
         elif len(cross_coupling) < len(helix1):
             cross_coupling = self.np.pad(cross_coupling, (0, len(helix1) - len(cross_coupling)))
 
-        intertwined = element_wise + cross_coupling * 0.1
+        intertwined: np.ndarray = element_wise + cross_coupling * 0.1
 
         return intertwined
 
@@ -700,19 +703,22 @@ class OmniAvaEngine:
             [v for v in ethical_scalars.to_dict().values() if isinstance(v, float)]
         )
         target = self.np.ones(self.state_dim) * target_mean
-        return target - state
+        result: np.ndarray = target - state
+        return result
 
     def _term_Q(self, state: "np.ndarray") -> "np.ndarray":
         """𝐐: Quantum superposition - simulate quantum effects."""
         phase = self.np.exp(1j * state)
         superposition = (phase + self.np.conj(phase)) / 2.0
-        return self.np.real(superposition) * 0.1
+        result: np.ndarray = self.np.real(superposition) * 0.1
+        return result
 
     def _term_P(self, state: "np.ndarray") -> "np.ndarray":
         """𝐏: Psi non-local correlations."""
         shifted = self.np.roll(state, 1)
         correlation = state * shifted
-        return correlation * 0.05
+        result: np.ndarray = correlation * 0.05
+        return result
 
     def _term_D(self, state: "np.ndarray") -> "np.ndarray":
         """𝐃: Multi-dimensional projection (SVD-inspired)."""
@@ -721,7 +727,8 @@ class OmniAvaEngine:
         reshaped = state.reshape(-1, 1)
         U, s, Vt = self.np.linalg.svd(reshaped @ reshaped.T, full_matrices=False)
         projected = U[:, 0] * s[0] if len(s) > 0 else self.np.zeros_like(state)
-        return (projected - state) * 0.1
+        result: np.ndarray = (projected - state) * 0.1
+        return result
 
     def _term_E(self, state: "np.ndarray") -> "np.ndarray":
         """𝐄: Energy minimization (Hamiltonian)."""
@@ -738,14 +745,16 @@ class OmniAvaEngine:
     def _term_W(self, state: "np.ndarray") -> "np.ndarray":
         """𝐖: Wave propagation."""
         laplacian = self.np.roll(state, -1) + self.np.roll(state, 1) - 2 * state
-        return laplacian * 0.05
+        result: np.ndarray = laplacian * 0.05
+        return result
 
     def _term_R3(self, state: "np.ndarray") -> "np.ndarray":
         """𝐑₃: Recursion-Resonance-Refactoring composite."""
         recursion = state**2 / (1 + self.np.abs(state))
         resonance = self.np.sin(state * self.np.pi)
         refactoring = (state - self.np.mean(state)) / (self.np.std(state) + 1e-8)
-        return (recursion + resonance + refactoring) * 0.01
+        result: np.ndarray = (recursion + resonance + refactoring) * 0.01
+        return result
 
     def _term_An(self, state: "np.ndarray", T: float) -> "np.ndarray":
         """𝐀_n: Quantum annealing with temperature decay."""
@@ -753,63 +762,73 @@ class OmniAvaEngine:
             return self.np.zeros_like(state)
         energy = -self.np.sum(state**2)
         prob = self.np.exp(energy / T)
-        perturbation = self.np.random.randn(self.state_dim) * prob * 0.1
+        perturbation: np.ndarray = self.np.random.randn(self.state_dim) * prob * 0.1
         return perturbation
 
     def _term_Lambda(self, state: "np.ndarray") -> "np.ndarray":
         """𝚲: Chaos Lyapunov exponents."""
         perturbed = state + self.np.random.randn(self.state_dim) * 0.01
         divergence = perturbed - state
-        return divergence * 0.05
+        result: np.ndarray = divergence * 0.05
+        return result
 
     def _term_Theta(self, state: "np.ndarray") -> "np.ndarray":
         """𝚯: Topology homology."""
         cyclic = self.np.roll(state, 1) - self.np.roll(state, -1)
-        return cyclic * 0.05
+        result: np.ndarray = cyclic * 0.05
+        return result
 
     def _term_Phi(self, state: "np.ndarray") -> "np.ndarray":
         """𝚽: Fractal self-similarity (golden ratio)."""
         golden = (1 + self.np.sqrt(5)) / 2
         scaled = state / golden
-        return (scaled - state) * 0.05
+        result: np.ndarray = (scaled - state) * 0.05
+        return result
 
     def _term_Z(self, state: "np.ndarray") -> "np.ndarray":
         """𝐙: Zeta number theory (periodic sums)."""
         periodic = self.np.sin(2 * self.np.pi * state) + self.np.cos(2 * self.np.pi * state)
-        return periodic * 0.02
+        result: np.ndarray = periodic * 0.02
+        return result
 
     def _term_hq(self, state: "np.ndarray") -> "np.ndarray":
         """𝐡_q: Quantum uncertainty (iℏ ∂/∂t approximation)."""
         time_derivative = self.np.gradient(state)
-        return time_derivative * 0.01
+        result: np.ndarray = time_derivative * 0.01
+        return result
 
     def _term_L(self, state: "np.ndarray") -> "np.ndarray":
         """𝐋: Hybrid Light/Love (Lorentz bound + ethical smoothing)."""
         c = 1.0
         lorentz_factor = self.np.sqrt(1 - self.np.clip(state**2 / c**2, 0, 0.99))
         ethical_smooth = 1.0 / (1.0 + self.np.exp(-state))
-        return (lorentz_factor * ethical_smooth - state) * 0.05
+        result: np.ndarray = (lorentz_factor * ethical_smooth - state) * 0.05
+        return result
 
     def _term_VQE(self, state: "np.ndarray", params: "np.ndarray") -> "np.ndarray":
         """𝐕𝐐𝐄: Variational Quantum Eigensolver ansatz."""
         ansatz = self.np.sin(params * state)
-        return ansatz * 0.02
+        result: np.ndarray = ansatz * 0.02
+        return result
 
     def _term_QBM(self, state: "np.ndarray") -> "np.ndarray":
         """𝐐𝐁𝐌: Quantum Boltzmann Machine energy sampling."""
-        energy_interaction = -self.np.dot(self.qbm_J, state)
-        return energy_interaction * 0.01
+        energy_interaction: np.ndarray = -self.np.dot(self.qbm_J, state)
+        result: np.ndarray = energy_interaction * 0.01
+        return result
 
     def _term_Attn(self, state: "np.ndarray") -> "np.ndarray":
         """𝐀𝐭𝐭𝐧: Attention weighting."""
         weighted = state * self.attention_weights
-        return (weighted - state) * 0.05
+        result: np.ndarray = (weighted - state) * 0.05
+        return result
 
     def _term_F(self, state: "np.ndarray") -> "np.ndarray":
         """𝐅: Field Lagrangian integration (finite differences)."""
         field_gradient = self.np.gradient(state)
         lagrangian = state * field_gradient
-        return lagrangian * 0.02
+        result: np.ndarray = lagrangian * 0.02
+        return result
 
     def _term_S(self, state: "np.ndarray") -> "np.ndarray":
         """𝐒: Symmetry group operations (rotation)."""
@@ -822,21 +841,24 @@ class OmniAvaEngine:
             for i in range(0, len(state) - 1, 2):
                 pair = state[i : i + 2]
                 rotated[i : i + 2] = rotation_matrix @ pair
-            return (rotated - state) * 0.02
+            result: np.ndarray = (rotated - state) * 0.02
+            return result
         return self.np.zeros_like(state)
 
     def _term_I(self, state: "np.ndarray") -> "np.ndarray":
         """𝐈: Information entropy."""
         probs = self.np.abs(state) / (self.np.sum(self.np.abs(state)) + 1e-8)
         entropy = -self.np.sum(probs * self.np.log(probs + 1e-8))
-        return self.np.ones_like(state) * entropy * 0.01
+        result: np.ndarray = self.np.ones_like(state) * entropy * 0.01
+        return result
 
     def _term_Rel(self, state: "np.ndarray") -> "np.ndarray":
         """𝐑𝐞𝐥: Relativistic corrections (Lorentz)."""
         c = 1.0
         v = state
         gamma = 1.0 / self.np.sqrt(1 - self.np.clip(v**2 / c**2, 0, 0.99))
-        return (gamma * state - state) * 0.02
+        result: np.ndarray = (gamma * state - state) * 0.02
+        return result
 
     def _term_inf_b(self, state: "np.ndarray") -> "np.ndarray":
         """∞_b: Asymptotic clip (bound divergences)."""
@@ -878,9 +900,10 @@ class OmniAvaEngine:
             octonion_approx = self.np.concatenate([[o_real], o_vec])
             rotated = octonion_approx * self.np.sin(self.np.arange(8) * self.np.pi / 4)
 
-            result = self.np.zeros_like(state)
-            result[: min(8, len(state))] = rotated[: min(8, len(state))]
-            return result * self.xi
+            temp_result = self.np.zeros_like(state)
+            temp_result[: min(8, len(state))] = rotated[: min(8, len(state))]
+            final_result: np.ndarray = temp_result * self.xi
+            return final_result
         except ImportError:
             n_pairs = len(state) // 2
             if len(state) % 2 != 0:
@@ -901,8 +924,9 @@ class OmniAvaEngine:
                 )
                 rotated_pairs.append(rotation @ pairs[i])
 
-            result = self.np.concatenate(rotated_pairs)[: len(state)]
-            return result * self.xi
+            concat_result = self.np.concatenate(rotated_pairs)[: len(state)]
+            final_result_al: np.ndarray = concat_result * self.xi
+            return final_result_al
 
     def converge(
         self,
@@ -945,7 +969,8 @@ class OmniAvaEngine:
             if diff < tolerance:
                 break
 
-        return state, convergence_history
+        history: List[float] = [float(v) for v in convergence_history]
+        return state, history
 
     def detect_anomaly(self, data: "np.ndarray", threshold: float = 2.0) -> Dict[str, Any]:
         """

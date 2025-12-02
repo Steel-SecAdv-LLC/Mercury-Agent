@@ -676,7 +676,7 @@ class RefactoringEngine:
                 self._analysis_cache[func_id]["complexity"] = metrics.copy()
 
         if "error" in metrics:
-            return metrics
+            return dict(metrics)
 
         metric_series = np.array(
             [
@@ -703,7 +703,7 @@ class RefactoringEngine:
                 "pattern_detected": magnitudes[dominant_freq_idx] > np.mean(magnitudes) * 2,
             }
 
-        return metrics
+        return dict(metrics)
 
     def explore_quantum_refactoring_paths(
         self, func: Callable[..., Any], num_paths: Optional[int] = None
@@ -907,7 +907,7 @@ class RefactoringEngine:
                     futures["harmonic"] = executor.submit(self.analyze_with_harmonics, func)
                 if "quantum" in strategies and self.config.enable_quantum_paths:
                     futures["quantum_paths"] = executor.submit(
-                        self.explore_quantum_refactoring_paths, func
+                        lambda f: {"paths": self.explore_quantum_refactoring_paths(f)}, func
                     )
                 if "resonance" in strategies and self.config.enable_pattern_resonance:
                     futures["resonance"] = executor.submit(self.detect_pattern_resonance, func)

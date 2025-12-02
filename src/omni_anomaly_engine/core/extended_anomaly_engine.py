@@ -67,10 +67,12 @@ class EvolutionEngine:
     def _initialize_population(self) -> np.ndarray:
         return np.random.randn(self.population_size, self.state_dim) * 0.1
 
-    def evaluate_fitness(self, individual: np.ndarray, fitness_fn: Callable) -> float:
-        return fitness_fn(individual)
+    def evaluate_fitness(
+        self, individual: np.ndarray, fitness_fn: Callable[[np.ndarray], float]
+    ) -> float:
+        return float(fitness_fn(individual))
 
-    def evolve_generation(self, fitness_fn: Callable) -> Dict[str, Any]:
+    def evolve_generation(self, fitness_fn: Callable[[np.ndarray], float]) -> Dict[str, Any]:
         fitness_scores = np.array(
             [self.evaluate_fitness(ind, fitness_fn) for ind in self.population]
         )
@@ -128,7 +130,7 @@ class EvolutionEngine:
 
 
 class SecurityEngine:
-    def __init__(self):
+    def __init__(self) -> None:
         self.threat_patterns = self._load_threat_patterns()
         self.rate_limit_window = 60
         self.rate_limit_max = 60
@@ -183,7 +185,7 @@ class SecurityEngine:
 
 
 class IntegrationEngine:
-    def __init__(self):
+    def __init__(self) -> None:
         self.integrations: Dict[str, Dict[str, Any]] = {}
 
     def register_integration(
@@ -227,24 +229,22 @@ class OmniAva:
         if self.config.enable_3r_mechanism:
             from .three_r_mechanism import ThreeRMechanism
 
-            self.three_r = ThreeRMechanism(
+            self.three_r: Optional["ThreeRMechanism"] = ThreeRMechanism(
                 max_recursion_depth=self.config.max_recursion_depth,
                 sampling_rate=self.config.resonance_sampling_rate,
             )
         else:
             self.three_r = None
 
-        if self.config.enable_evolution:
-            self.evolution_engine = EvolutionEngine()
-        else:
-            self.evolution_engine = None
+        self.evolution_engine: Optional[EvolutionEngine] = (
+            EvolutionEngine() if self.config.enable_evolution else None
+        )
 
-        if self.config.enable_security:
-            self.security_engine = SecurityEngine()
-        else:
-            self.security_engine = None
+        self.security_engine: Optional[SecurityEngine] = (
+            SecurityEngine() if self.config.enable_security else None
+        )
 
-        self.integration_engine = IntegrationEngine()
+        self.integration_engine: IntegrationEngine = IntegrationEngine()
 
         logging.info("OMNI ♱ AVA initialized with full integration")
 
@@ -287,7 +287,7 @@ class OmniAva:
 
         anomaly_score = 1.0 / (1.0 + np.exp(-0.5 * (max_z_score - 3.0)))
 
-        return anomaly_score
+        return float(anomaly_score)
 
     def validate_input_security(self, input_data: str) -> Dict[str, Any]:
         if not self.config.enable_security or not self.security_engine:
@@ -295,7 +295,9 @@ class OmniAva:
 
         return self.security_engine.detect_threats(input_data)
 
-    def evolve_detector(self, fitness_fn: Callable, num_generations: int = 10) -> Dict[str, Any]:
+    def evolve_detector(
+        self, fitness_fn: Callable[[np.ndarray], float], num_generations: int = 10
+    ) -> Dict[str, Any]:
         if not self.config.enable_evolution or not self.evolution_engine:
             return {"error": "Evolution disabled"}
 
