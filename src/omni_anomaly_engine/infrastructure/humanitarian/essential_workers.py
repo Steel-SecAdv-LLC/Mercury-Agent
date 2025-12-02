@@ -25,7 +25,6 @@ Reference: CISA Essential Workers Advisory List
 """
 
 from typing import Dict, Any, Optional
-import numpy as np
 
 
 class EssentialWorkersMonitor:

@@ -46,7 +46,7 @@ from dataclasses import dataclass, field
 from omni_anomaly_engine.engine import OmniAnomalyEngine
 from omni_anomaly_engine.core.config import EngineConfig
 from omni_anomaly_engine.core.novel_class_discovery import NovelClassDiscovery
-from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine, ThreeRMechanism
+from omni_anomaly_engine.core.three_r_mechanism import ThreeRMechanism
 from omni_anomaly_engine.core.ai_ethics import EthicalAutonomyGovernor, EthicsResult
 from omni_anomaly_engine.agentic.agentic_autonomy import AgenticAutonomy
 from omni_anomaly_engine.core.self_healing import CRISPRInspiredSelfHealing

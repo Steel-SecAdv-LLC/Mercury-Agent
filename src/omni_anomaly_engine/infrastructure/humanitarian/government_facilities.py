@@ -23,7 +23,6 @@ democratic governance, transparency, and accountability.
 """
 
 from typing import Dict, Any, Optional
-import numpy as np
 
 
 class GovernmentFacilitiesMonitor:

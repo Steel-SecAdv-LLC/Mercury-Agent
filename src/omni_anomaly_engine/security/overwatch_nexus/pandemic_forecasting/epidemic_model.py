@@ -37,7 +37,7 @@ References:
 """
 
 import numpy as np
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 from scipy.integrate import odeint
 import logging

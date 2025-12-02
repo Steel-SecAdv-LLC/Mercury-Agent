@@ -48,7 +48,7 @@ Performance: 40% improved attack detection via multi-sensor fusion
 import numpy as np
 import torch
 import torch.nn as nn
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 import logging

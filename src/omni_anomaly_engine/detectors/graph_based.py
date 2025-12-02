@@ -30,7 +30,7 @@ Detects anomalies in graph-structured data using:
 
 import numpy as np
 import networkx as nx
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, Optional, Union
 import torch
 from omni_anomaly_engine.core.base import BaseDetector
 

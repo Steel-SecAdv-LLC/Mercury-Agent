@@ -60,7 +60,6 @@ import torch
 import torch.nn as nn
 from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass, field
-from scipy import signal as scipy_signal
 from scipy.fft import fft, fftfreq
 import logging
 

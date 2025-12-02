@@ -23,7 +23,7 @@ Original implementation for OMNI ♱ AVA neural-symbolic AI archetype.
 """
 
 import numpy as np
-from typing import Dict, List, Any, Optional, Set
+from typing import Dict, List, Any, Set
 from dataclasses import dataclass
 import logging
 
@@ -32,7 +32,6 @@ _FOUNDATION_HASH = "D19L12E19A92"
 try:
     import torch
     import torch.nn as nn
-    import torch.nn.functional as F
 
     TORCH_AVAILABLE = True
 except ImportError:

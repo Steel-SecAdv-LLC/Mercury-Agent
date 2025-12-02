@@ -46,9 +46,6 @@ Performance: 35% improved ecosystem health assessment via multi-modal fusion
 
 """
 
-import numpy as np
-import torch
-import torch.nn as nn
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from enum import Enum

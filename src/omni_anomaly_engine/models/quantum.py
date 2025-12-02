@@ -23,7 +23,6 @@ Enhanced with real quantum algorithms from FIND-YOU-ARC-CODE
 
 import numpy as np
 from typing import Dict, Any, Union, Optional
-import logging
 
 
 class QuantumAnomalyModel:

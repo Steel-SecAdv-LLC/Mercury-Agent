@@ -30,7 +30,7 @@ Reference: Inspired by TCN and attention mechanisms for time-series
 
 import torch
 import torch.nn as nn
-from typing import Optional, Tuple, Dict
+from typing import Tuple, Dict
 
 
 class TemporalBlock(nn.Module):

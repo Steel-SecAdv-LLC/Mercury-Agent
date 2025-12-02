@@ -25,7 +25,6 @@ Reference: Wikipedia - Emerging technologies
 """
 
 from typing import Dict, Any, List
-import numpy as np
 
 
 class EmergingTechMonitor:

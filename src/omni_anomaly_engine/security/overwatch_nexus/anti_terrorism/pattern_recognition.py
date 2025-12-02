@@ -23,7 +23,6 @@ Detects radicalization patterns using QBM and OSINT anomalies.
 Integrates with existing threat knowledge base from intelligence_fusion.py.
 """
 
-import numpy as np
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 import logging

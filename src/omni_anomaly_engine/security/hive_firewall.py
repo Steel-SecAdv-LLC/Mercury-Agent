@@ -32,7 +32,7 @@ MIT-compatible implementation.
 """
 
 import numpy as np
-from typing import Dict, List, Optional, Any, Set, Tuple
+from typing import Dict, Optional, Any, Set, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 import hashlib

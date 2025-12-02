@@ -23,7 +23,6 @@ Enhanced with black hole physics from FIND-YOU-ARC-CODE
 
 import numpy as np
 from typing import Dict, Any, Union, Optional
-import logging
 
 _ETHICAL_ANCHOR = "I19A09A07A88"
 

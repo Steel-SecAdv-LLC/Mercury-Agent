@@ -26,7 +26,7 @@ import torch
 import torch.nn as nn
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-from scipy.fft import fft, fft2, fftn
+from scipy.fft import fft
 from typing import Dict, Any, Union, Optional
 from omni_anomaly_engine.core.base import BaseDetector
 from omni_anomaly_engine.core.exceptions import DetectorException

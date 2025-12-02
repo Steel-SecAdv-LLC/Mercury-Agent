@@ -29,7 +29,7 @@ MIT-compatible implementation using scikit-learn and numpy.
 """
 
 import numpy as np
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from datetime import datetime
 from sklearn.ensemble import IsolationForest

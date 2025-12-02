@@ -873,7 +873,7 @@ class OmniAvaEngine:
         Full implementation requires numpy-quaternion extension.
         """
         try:
-            import quaternion
+            import quaternion  # noqa: F401
 
             o_real = float(self.np.mean(state))
             o_vec = state[:7] if len(state) >= 7 else self.np.pad(state, (0, 7 - len(state)))

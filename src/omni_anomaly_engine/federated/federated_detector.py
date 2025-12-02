@@ -28,7 +28,7 @@ Research sources:
 
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 import numpy as np
 from enum import Enum
 

@@ -36,7 +36,7 @@ Research sources:
 """
 
 import numpy as np
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List
 import logging
 
 
