@@ -34,9 +34,19 @@ def _get_engine(*args, **kwargs):
     """Lazy load OmniAnomalyEngine to defer torch import."""
     global OmniAnomalyEngine
     if OmniAnomalyEngine is None:
-        from omni_anomaly_engine.engine import OmniAnomalyEngine as _Engine
+        try:
+            from omni_anomaly_engine.engine import OmniAnomalyEngine as _Engine
 
-        OmniAnomalyEngine = _Engine
+            OmniAnomalyEngine = _Engine
+        except ImportError as e:
+            if "torch" in str(e).lower():
+                click.echo(
+                    "Error: PyTorch (torch) is required for ML-based detection but is not installed. "
+                    "Install it with: pip install torch"
+                )
+            else:
+                click.echo(f"Error: Failed to load ML engine - {e}")
+            raise SystemExit(1)
     return OmniAnomalyEngine(*args, **kwargs)
 
 
