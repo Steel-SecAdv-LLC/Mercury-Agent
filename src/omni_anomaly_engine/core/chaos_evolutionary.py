@@ -165,7 +165,10 @@ class ChaosEvolutionOptimizer:
         return new_position
 
     def optimize(
-        self, objective_function: Callable[[np.ndarray], float], dim: int, bounds: List[Tuple[float, float]]
+        self,
+        objective_function: Callable[[np.ndarray], float],
+        dim: int,
+        bounds: List[Tuple[float, float]],
     ) -> Dict[str, Any]:
         """Run chaos-evolutionary optimization.
 
