@@ -30,10 +30,9 @@ MIT License compatible - original implementation
 """
 
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 import json
 
 

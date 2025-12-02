@@ -34,7 +34,7 @@ MIT-compatible implementation.
 """
 
 import numpy as np
-from typing import Dict, List, Optional, Any, Callable, Tuple
+from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 from scipy import stats

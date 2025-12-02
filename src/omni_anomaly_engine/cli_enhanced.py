@@ -27,7 +27,6 @@ import json
 import numpy as np
 from pathlib import Path
 from typing import Optional, Dict, Any
-import sys
 
 from omni_anomaly_engine import OmniAnomalyEngine
 

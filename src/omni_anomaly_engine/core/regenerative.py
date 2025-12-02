@@ -40,7 +40,7 @@ MIT License compatible
 """
 
 import numpy as np
-from typing import Dict, List, Optional, Callable
+from typing import Dict, List
 from dataclasses import dataclass
 from enum import Enum
 
