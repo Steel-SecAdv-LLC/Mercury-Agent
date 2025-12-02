@@ -149,7 +149,7 @@ class GreyWolfOptimizer:
             try:
                 scores = cross_val_score(clf, X_selected, y, cv=3)
                 return 1.0 - np.mean(scores)
-            except:
+            except Exception:
                 return 1.0
 
         lb = np.zeros(n_total_features)

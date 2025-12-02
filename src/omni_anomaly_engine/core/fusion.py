@@ -25,10 +25,16 @@ Implements hybrid fusion strategy:
 - Hybrid: Concatenate raw features + detector scores → attention network
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Dict, Tuple, Optional, Any, List
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Dict, Tuple, Optional, Any, List
+
+if TYPE_CHECKING:
+    import numpy as np
 
 
 class AttentionFusion(nn.Module):
