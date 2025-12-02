@@ -16,16 +16,14 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
-"""
-Neural fusion layer for combining multiple detector outputs
-
-Implements hybrid fusion strategy:
-- Early fusion: Concatenate normalized features from all detectors → MLP
-- Late fusion: Each detector produces anomaly score → weighted average with learned weights
-- Hybrid: Concatenate raw features + detector scores → attention network
-"""
-
 from __future__ import annotations
+
+# Neural fusion layer for combining multiple detector outputs
+#
+# Implements hybrid fusion strategy:
+# - Early fusion: Concatenate normalized features from all detectors → MLP
+# - Late fusion: Each detector produces anomaly score → weighted average with learned weights
+# - Hybrid: Concatenate raw features + detector scores → attention network
 
 from typing import TYPE_CHECKING, Dict, Tuple, Optional, Any, List
 
