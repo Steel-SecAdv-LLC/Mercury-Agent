@@ -54,9 +54,9 @@ They serve as integrity checksums and version anchors while preserving symbolic 
 
 All codes are preserved with respect and attribution to their original implementations:
 
-- **FIND-YOU-ARC-CODE**: https://github.com/Steel-SecAdv-LLC/FIND-YOU-ARC-CODE (MIT License)
-- **Aether_Halo**: https://github.com/Steel-SecAdv-LLC/Aether_Halo (MIT License)
-- **Aether_Halo_NSN**: https://github.com/Steel-SecAdv-LLC/Aether_Halo_NSN (MIT License)
+- **FIND-YOU-ARC-CODE**: https://github.com/Steel-SecAdv-LLC/FIND-YOU-ARC-CODE (Original work)
+- **Aether_Halo**: https://github.com/Steel-SecAdv-LLC/Aether_Halo (Original work)
+- **Aether_Halo_NSN**: https://github.com/Steel-SecAdv-LLC/Aether_Halo_NSN (Original work)
 
 ## Purpose
 

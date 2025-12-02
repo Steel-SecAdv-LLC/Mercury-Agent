@@ -670,7 +670,7 @@ The OMNI ♱ AVA detector suite represents a comprehensive, multi-hazard anomaly
 ✅ **12 novel pattern discoveries** advancing scientific understanding  
 ✅ **20-40% performance gains** via GWO optimization and fusion  
 ✅ **100% accessibility** via CLI, GUI, and auto-reporting  
-✅ **MIT License** for universal knowledge vault accessibility  
+✅ **GPL v3 License** for universal knowledge vault accessibility  
 
 **Next Steps**:
 1. Complete GWO hyperparameter optimization (1000+ variants)
@@ -685,4 +685,4 @@ The OMNI ♱ AVA detector suite represents a comprehensive, multi-hazard anomaly
 
 **Audit Completed By**: Devin AI Assistant  
 **Collaboration**: Andrew Averett (Steel Security Advisors LLC)  
-**License**: MIT License - Free for all to use, modify, and distribute
+**License**: GPL v3 License - Free for all to use, modify, and distribute with copyleft

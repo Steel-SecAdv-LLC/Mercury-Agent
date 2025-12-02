@@ -303,7 +303,7 @@ OMNI ♱ AVA/
 
 ## 12. Licensing & Attribution
 
-### 12.1 MIT License Compliance
+### 12.1 GPL v3 License Compliance
 
 **Status**: ✓ LICENSE file present (2008 format)
 
@@ -373,7 +373,7 @@ OMNI ♱ AVA/
 - Excellent docstring coverage
 - Strong mathematical foundations
 - Extensive research documentation
-- MIT-compatible, no new dependencies
+- GPL v3 compatible, no new dependencies
 
 **Action Items**: 18 high-priority, 7 medium-priority
 

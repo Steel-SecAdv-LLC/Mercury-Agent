@@ -135,7 +135,7 @@ omni-ava/
 ├── setup.py                      # Package setup
 ├── pyproject.toml                # Build configuration
 ├── Dockerfile                    # Docker container
-├── LICENSE                       # MIT License
+├── LICENSE                       # GPL v3 License
 └── .gitignore                   # Git ignore patterns
 ```
 
@@ -649,7 +649,7 @@ The OMNI ♱ AVA successfully integrates 18 engines (19 analyzed, 18 fully integ
 
 ### License
 
-MIT License - Open source and free for commercial use
+GPL v3 License - Open source with copyleft provisions
 
 ### Contact
 

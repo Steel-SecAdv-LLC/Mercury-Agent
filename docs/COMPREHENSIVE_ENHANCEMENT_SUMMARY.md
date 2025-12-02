@@ -3,7 +3,7 @@
 **Date:** October 13, 2025  
 **Project:** OMNI ♱ AVA  
 **Version:** 2.0 (Public Release)  
-**License:** MIT (Open Source)
+**License:** GPL v3 (Open Source)
 
 ## Executive Overview
 
@@ -307,7 +307,7 @@ Based on quick validation benchmarks (synthetic anomaly data):
 - Pandemic prediction models focus on vulnerable population identification
 
 ### Compassion & Justice
-- Free/open-source (MIT) ensures global accessibility
+- Free/open-source (GPL v3) ensures global accessibility
 - No geographic restrictions on module usage
 - Documentation includes diverse use cases (healthcare, disaster response, research)
 
@@ -341,7 +341,7 @@ Based on quick validation benchmarks (synthetic anomaly data):
 - **Paradox Resolution:** Formal frameworks for Zeno's, Russell's logical contradictions
 
 ### Open-Source Innovation
-- **MIT License:** No restrictions, free for anyone worldwide
+- **GPL v3 License:** Open source with copyleft, free for anyone worldwide
 - **Modular Architecture:** Use 1, 5, or all 12 modules based on needs
 - **Extensible Design:** Easy to add new modules following established patterns
 - **Universal Access:** Knowledge vault for STEM education, research, crisis response
@@ -396,4 +396,4 @@ The OMNI ♱ AVA v2.0 represents a paradigm shift in multidisciplinary anomaly d
 **Author:** Devin AI (Autonomous Coding Agent)  
 **Requested by:** @Steel-SecAdv-LLC  
 **Session:** https://app.devin.ai/sessions/af5a3a1205374975920a97c54dfc19c5  
-**License:** MIT (Open Source)
+**License:** GPL v3 (Open Source)

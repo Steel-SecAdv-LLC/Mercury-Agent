@@ -23,7 +23,7 @@ The OMNI ♱ AVA demonstrates exceptional architectural design and comprehensive
 | **Code Quality** | A- | 97 modules, 70 test files, 730+ tests, good coverage (~85%) |
 | **Innovation** | A+ | Novel constructs (QPCP, harmonic encoders, CRISPR-inspired self-healing) |
 | **Scalability** | B+ | GPU support, batch processing, needs distributed inference optimization |
-| **Ethics & Transparency** | A+ | Clear disclaimers, MIT license, research-first framing |
+| **Ethics & Transparency** | A+ | Clear disclaimers, GPL v3 license, research-first framing |
 
 **Weighted Overall Grade:** **A-** (91/100)
 
@@ -480,7 +480,7 @@ The OMNI ♱ AVA demonstrates exceptional architectural design and comprehensive
 
 **Practices:**
 - Clear disclaimers (simulated data, 20-40% variance expected)
-- MIT License (open-source, no vendor lock-in)
+- GPL v3 License (open-source, copyleft)
 - Research-first framing (not over-promising)
 - Survivor-first principles (trauma-informed design)
 - Bias audit mentions (dynamic polling for fairness)
@@ -493,7 +493,7 @@ The OMNI ♱ AVA demonstrates exceptional architectural design and comprehensive
 
 | Tool | Domain Breadth | Fusion Strategy | Real Data | Open Source | Grade |
 |------|----------------|-----------------|-----------|-------------|-------|
-| **OMNI ♱ AVA** | 13 engines, 55 NCFs | Neurosymbolic hybrid | Simulated | MIT | **A-** |
+| **OMNI ♱ AVA** | 13 engines, 55 NCFs | Neurosymbolic hybrid | Simulated | GPL v3 | **A-** |
 | PyOD | Univariate outliers | Ensemble voting | Yes (benchmarks) | BSD | B+ |
 | scikit-learn | General ML | Isolation Forest, One-Class SVM | Yes | BSD | B |
 | Datadog | Infrastructure | Rules + ML | Yes (proprietary) | No | A (commercial) |

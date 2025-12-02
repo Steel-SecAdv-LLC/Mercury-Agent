@@ -398,7 +398,7 @@ This document summarizes findings from reliable .gov and .edu sources on counter
 - Open-source data only (no classified/controlled access)
 
 **Export Control Notes:**
-- MIT License allows open-source distribution
+- GPL v3 License allows open-source distribution with copyleft
 - No ITAR-controlled cryptography (standard algorithms only)
 - BIS notification recommended for international use
 
@@ -503,7 +503,7 @@ This document summarizes findings from reliable .gov and .edu sources on counter
 
 ## Conclusion
 
-The Overwatch Nexus and Response module integrates authoritative .gov and .edu research to provide ethical, proactive counterintelligence with Medical Interdiction and Intervention capabilities. All implementations are grounded in open-source technologies (MIT License) with clear disclaimers for operational deployment requirements.
+The Overwatch Nexus and Response module integrates authoritative .gov and .edu research to provide ethical, proactive counterintelligence with Medical Interdiction and Intervention capabilities. All implementations are grounded in open-source technologies (GPL v3 License) with clear disclaimers for operational deployment requirements.
 
 **Key Innovations:**
 1. σ_Sacred Purity Invariant for ethical CI enforcement
@@ -529,4 +529,4 @@ The Overwatch Nexus and Response module integrates authoritative .gov and .edu r
 **Review Cycle**: Quarterly  
 **Next Review**: 2026-01-15
 
-**Attribution**: All government and academic sources cited in-line. No Wikipedia references used. Original MIT-licensed implementation by Steel Security Advisors LLC.
+**Attribution**: All government and academic sources cited in-line. No Wikipedia references used. Original GPL v3 licensed implementation by Steel Security Advisory LLC.

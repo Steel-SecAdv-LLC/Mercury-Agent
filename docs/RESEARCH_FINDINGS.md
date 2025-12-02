@@ -481,7 +481,7 @@ class GPRInspiredScanner:
 - Mathematical principles (electromagnetic wave propagation) well-understood
 - Trade-offs (frequency vs penetration) based on physics, not speculation
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - GPR technology concepts are public domain (first patent 1910, expired)
 - Implementation uses standard signal processing techniques (open-source)
 - No proprietary GPR algorithms required
@@ -621,7 +621,7 @@ class StimulatedDetectionCascade:
 - Physical principles (stimulated emission, population inversion) well-established in quantum mechanics
 - Einstein's 1917 prediction experimentally verified
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - LASER technology concepts public domain (original patents expired)
 - Stimulated emission from fundamental physics (Einstein 1917)
 - Implementation uses standard ML techniques (attention, LSTM, cascade detection)
@@ -800,7 +800,7 @@ def apply_decoherence_resilience(
 - GHZ states well-established in quantum information theory
 - High-dimensional quantum states theoretically sound (generalized GHZ states for M-partite qudit systems)
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - GHZ state concept from published research (Greenberger, Horne, Zeilinger 1989-1990)
 - 37-dimensional extension based on user-verified 2025 experiment
 - Implementation uses standard quantum computing techniques (state superposition, entanglement)
@@ -1157,7 +1157,7 @@ class ThermalEnhancedEngine:
 - Camera specifications (resolution, wavelengths, NETD) documented
 - FDA warning on breast screening (2011) documented
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - Thermography technology concepts public domain (Herschel 1800, Langley 1880)
 - Physical principles from fundamental physics (black body radiation)
 - Implementation uses standard signal processing and detection algorithms
@@ -1421,7 +1421,7 @@ class EcholocationDetector:
 - Physics of sound propagation, reflection, Doppler effect well-understood
 - Active scanning and probe-response analysis standard in security/testing domains
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - Echolocation concepts from biology and physics (public domain)
 - SONAR principles from fundamental acoustics
 - Implementation uses standard signal processing and ML techniques
@@ -1701,7 +1701,7 @@ class TranspersonalAnomalyDetector:
 - Cross-cultural spiritual practices documented in anthropology, religious studies
 - Neuroscience of meditation/peak experiences increasingly studied (fMRI, EEG)
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - Transpersonal psychology concepts from academic research (public domain ideas)
 - Peak experience, flow state, self-transcendence are psychological concepts (not proprietary)
 - Implementation uses standard ML techniques (ensemble, domain adaptation, change-point detection)
@@ -2023,7 +2023,7 @@ class AffectiveAnomalyDetector:
 - Ethical concerns (privacy, bias, manipulation) documented in research
 - Discrete emotion theory (Ekman), dimensional models (Russell) foundational
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - Affective computing concepts from academic research (Picard 1995, public domain ideas)
 - Emotion recognition approaches (FACS, prosody analysis, sentiment) from published research
 - Implementation uses standard ML techniques (CNNs, RNNs, NLP)
@@ -2354,7 +2354,7 @@ class NanoInspiredDetector:
 - PUFs for cybersecurity well-documented in security research
 - Dimensional properties (0D/1D/2D/3D) from solid-state physics
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - Nanotechnology concepts from fundamental physics/chemistry (public domain)
 - Nanomaterial properties from published scientific research
 - PUF concepts from security research literature
@@ -2715,7 +2715,7 @@ class RunicSymbolicEncoder:
 - Runic alphabet (Elder Futhark) well-documented linguistic system
 - Numerical patterns (9, 3) evident in primary sources
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - Norse mythology from public domain historical/cultural knowledge
 - Deity characteristics, cosmology, runes from documented historical sources
 - No proprietary religious or cultural practices required
@@ -3155,7 +3155,7 @@ class SingularityInspiredMonitor:
 - Survey data from 2017 ML conference (quantitative evidence)
 - S-curve technology adoption pattern documented in innovation diffusion research
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - Technological singularity concepts from academic research/futurism (public domain ideas)
 - Intelligence explosion (I.J. Good 1965), Law of Accelerating Returns (Kurzweil) - published theoretical concepts
 - Implementation uses standard algorithms (trend fitting, time series analysis, change detection)
@@ -3440,7 +3440,7 @@ class CelticKnotworkGraphDetector:
 - All mythological concepts grounded in documented oral tradition and medieval manuscripts
 - Influences on modern culture well-documented (Arthurian legend, fantasy literature)
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - Celtic mythology: Public domain (ancient oral tradition, medieval manuscripts long out of copyright)
 - Historical sources: Julius Caesar (1st century BC), medieval scribes (5th-12th centuries AD) - public domain
 - Implementation uses standard algorithms (Fourier analysis, graph algorithms, isolation forests)
@@ -3667,7 +3667,7 @@ class KarmaCausalDetector:
     Research source: Wikipedia - Hindu mythology, Karma
     (https://en.wikipedia.org/wiki/Hindu_mythology, https://en.wikipedia.org/wiki/Karma)
     
-    MIT License compatible - original implementation
+    GPL v3 License compatible - original implementation
     """
     
     def __init__(self, max_causal_depth: int = 5):
@@ -3828,7 +3828,7 @@ class YogicTrainingPipeline:
     Research source: Wikipedia - Yoga, Yoga Sutras of Patanjali
     (https://en.wikipedia.org/wiki/Yoga, https://en.wikipedia.org/wiki/Yoga_Sutras_of_Patanjali)
     
-    MIT License compatible - original implementation
+    GPL v3 License compatible - original implementation
     """
     
     def __init__(self, ethical_scalars: 'EthicalScalars'):
@@ -3976,7 +3976,7 @@ class YogicTrainingPipeline:
 - All concepts grounded in documented texts and scholarly research
 - Mathematical/scientific contributions independently verified through history of mathematics
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - Hindu mythology and philosophy: Public domain (ancient texts, millennia old)
 - Historical sources: Vedas, Upanishads, epics, Puranas - public domain
 - Mathematical concepts: Hindu-Arabic numerals, zero, decimal system - public domain (ancient inventions)
@@ -4156,7 +4156,7 @@ class NaturalLanguageInterface:
     Research source: Wikipedia - Generative artificial intelligence
     (https://en.wikipedia.org/wiki/Generative_artificial_intelligence)
     
-    MIT License compatible - original implementation
+    GPL v3 License compatible - original implementation
     """
     
     def __init__(self, engine: 'OmniAnomalyEngine'):
@@ -4260,7 +4260,7 @@ class AdversarialRobustness:
     Research source: Wikipedia - Generative artificial intelligence
     (https://en.wikipedia.org/wiki/Generative_artificial_intelligence)
     
-    MIT License compatible - original implementation
+    GPL v3 License compatible - original implementation
     """
     
     def __init__(self, epsilon: float = 0.1):
@@ -4353,7 +4353,7 @@ class AdversarialRobustness:
 - Ethical concerns documented in governance frameworks, policy papers, research studies
 - Global adoption statistics from UN reports, SAS surveys, research organizations
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - Generative AI concepts: Public domain (published academic research, open discussions)
 - Technical innovations: Transformers (Google 2017), GPT (OpenAI 2018+), GANs (Goodfellow 2014) - published research, public domain ideas
 - Implementation uses standard algorithms (neural networks, transformers, attention mechanisms, adversarial training)
@@ -4470,7 +4470,7 @@ class AdversarialRobustness:
 
 **Attribution:**
 - Report insights: Bain & Company (2025), publicly accessible insights
-- All code implementations: Original work, MIT License compatible
+- All code implementations: Original work, GPL v3 License compatible
 - Concepts applied: Resource optimization, autonomous agents, quantum risk management
 
 ---
@@ -4599,7 +4599,7 @@ class AdversarialRobustness:
 **Attribution:**
 - Space technology concepts: Public domain historical/engineering knowledge
 - Voyager 1, Apollo missions: NASA public data
-- All code implementations: Original work, MIT License compatible
+- All code implementations: Original work, GPL v3 License compatible
 
 ---
 
@@ -4754,7 +4754,7 @@ class AdversarialRobustness:
 **Attribution:**
 - Energy development concepts: Public domain economic/engineering knowledge
 - Statistics: IEA World Energy Outlook 2024, public data
-- All code implementations: Original work, MIT License compatible
+- All code implementations: Original work, GPL v3 License compatible
 
 ---
 
@@ -4931,7 +4931,7 @@ class AdversarialRobustness:
 - Oceanography concepts: Public domain scientific knowledge
 - HMS Challenger expedition: Historical scientific data (1872-1876)
 - Technologies: Sonar (1914+), bathyscaphe (Piccard 1950s), satellite oceanography
-- All code implementations: Original work, MIT License compatible
+- All code implementations: Original work, GPL v3 License compatible
 
 ---
 
@@ -5029,7 +5029,7 @@ class ChemicalNuclearDetector:
     - CISA Nuclear Sector framework
     - Nuclear Regulatory Commission (NRC) standards
     
-    MIT License compatible - original implementation
+    GPL v3 License compatible - original implementation
     """
     
     def __init__(self, sector: CISASector):
@@ -5183,7 +5183,7 @@ class ChemicalNuclearDetector:
 - Safety thresholds based on NRC regulations, EPA standards
 - All facts verifiable via government sources
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - CISA frameworks: Public domain (U.S. government work)
 - Sector statistics: Public data from government agencies
 - Safety concepts: Industry standards and regulations (public domain)
@@ -5282,7 +5282,7 @@ class CommunicationsITDetector:
     - CISA Information Technology Sector framework
     - NIST Cybersecurity Framework
     
-    MIT License compatible - original implementation
+    GPL v3 License compatible - original implementation
     """
     
     def __init__(self, baseline_window: int = 3600):
@@ -5535,7 +5535,7 @@ class CommunicationsITDetector:
 - Threat patterns based on NIST Cybersecurity Framework, CISA advisories
 - Network security principles from established cybersecurity standards
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - CISA frameworks: Public domain (U.S. government work)
 - Network security concepts: Industry standards (public domain)
 - Threat detection algorithms: Original implementations
@@ -5646,7 +5646,7 @@ class EnergyDamsDetector:
     - CISA Dams Sector framework
     - NERC (North American Electric Reliability Corporation) standards
     
-    MIT License compatible - original implementation
+    GPL v3 License compatible - original implementation
     """
     
     def __init__(self, subsector: Optional[EnergySubsector] = None):
@@ -5976,7 +5976,7 @@ class EnergyDamsDetector:
 - Grid standards: NERC reliability standards (60 Hz ± 0.05 Hz frequency tolerance)
 - All statistics verifiable via Department of Energy, Energy Information Administration
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - CISA frameworks: Public domain (U.S. government work)
 - Grid parameters: Industry standards (public domain)
 - Dam safety concepts: Engineering standards (public domain)
@@ -6090,7 +6090,7 @@ class HealthcareEmergencyDetector:
     - CDC surveillance guidelines
     - HIPAA security rules
     
-    MIT License compatible - original implementation
+    GPL v3 License compatible - original implementation
     """
     
     def __init__(self):
@@ -6473,7 +6473,7 @@ class HealthcareEmergencyDetector:
 - Early warning scores: Based on NEWS (National Early Warning Score) system
 - All statistics verifiable via CDC, CMS, NFPA, professional medical associations
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - CISA frameworks: Public domain (U.S. government work)
 - Clinical protocols: Medical standards (public domain)
 - Emergency response procedures: Industry standards (public domain)
@@ -6629,7 +6629,7 @@ class FederatedAnomalyDetector:
     - McMahan et al. "Communication-Efficient Learning" (2017)
     - Google Federated Learning (2016-present)
     
-    MIT License compatible - original implementation
+    GPL v3 License compatible - original implementation
     """
     
     def __init__(
@@ -6948,9 +6948,9 @@ class CISAFederatedCoordinator:
 - SMPC: Cryptographic protocols from secure computation literature
 - All facts verifiable via academic papers, framework documentation
 
-**MIT License Compatibility:**
-- Flower Framework: Apache 2.0 license (compatible with MIT)
-- PySyft: Apache 2.0 license (compatible with MIT)
+**GPL v3 License Compatibility:**
+- Flower Framework: Apache 2.0 license (compatible with GPL v3)
+- PySyft: Apache 2.0 license (compatible with GPL v3)
 - Federated learning concepts: Published research (public domain ideas)
 - Algorithms (FedAvg, FedProx): Published academic work (public domain)
 - All code: Original implementation, no direct copying from frameworks
@@ -7122,7 +7122,7 @@ class PyODComparison:
     - PyOD GitHub (github.com/yzhao062/pyod)
     - Zhao et al. "PyOD: A Python Toolbox" (JMLR 2019)
     
-    MIT License compatible - original implementation
+    GPL v3 License compatible - original implementation
     Note: This compares approaches, doesn't copy PyOD code
     """
     
@@ -7411,7 +7411,7 @@ class PyODComparison:
 - Complexity analysis: Standard algorithm analysis (LOF O(n²), Isolation Forest O(n log n), COPOD O(n))
 - All facts verifiable via PyOD documentation, academic papers
 
-**MIT License Compatibility:**
+**GPL v3 License Compatibility:**
 - PyOD: BSD 2-Clause license (compatible with MIT)
 - Algorithms: Published research (public domain ideas)
 - This code: Comparative analysis, not copying PyOD implementation
@@ -7473,7 +7473,7 @@ class PyODComparison:
 ## Attribution & Licensing
 
 **Research Sources**: All Wikipedia (October 2025), public domain historical knowledge, published scientific research  
-**Implementations**: Original code, MIT License compatible  
+**Implementations**: Original code, GPL v3 License compatible  
 **Concepts Inspired By**:
 - Ancient cultures: Public domain historical knowledge
 - CRISPR: Biological mechanism (Ishino 1987, Mojica 2007, Doudna/Charpentier 2012)

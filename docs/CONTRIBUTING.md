@@ -513,7 +513,7 @@ class NewEngineModel(BaseModel):
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree that your contributions will be licensed under the GPL v3 License.
 
 ## Code of Conduct
 
