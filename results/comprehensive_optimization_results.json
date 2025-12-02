@@ -1,0 +1,3930 @@
+{
+  "metadata": {
+    "timestamp": "2025-10-13T20:23:37.881978",
+    "total_experiments": 322,
+    "optimization_areas": [
+      "ava_equation",
+      "ethical_scalars",
+      "fusion_weights",
+      "harmonic_coefficients"
+    ]
+  },
+  "ava_equation": [
+    {
+      "experiment_id": 1,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.028649990959174167,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 2,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.23389798956422878,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 3,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.11679141649691496,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 4,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.20584717127230764,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 5,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.04899136110599176,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 6,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.16651517595886475,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 7,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": -0.01339720971066135,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 8,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.1804381143548729,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 9,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": -0.026955407421501855,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 10,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.2600309989080094,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 11,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.10150869156391348,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 12,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.17064098624107357,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 13,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": -0.002502700089890446,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 14,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.2072165937626811,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 15,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.145901068849353,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 16,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.11886563524034256,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 17,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.08835623119800613,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 18,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.24467453830786193,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 19,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.1078145912948591,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 20,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.26169952799041946,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 21,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.10987195876162507,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 22,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.30894848586834434,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 23,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.09944112269806857,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 24,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.32232058087824605,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 25,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.06255606896451256,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 26,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.289010524402746,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 27,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.11739808690696116,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 28,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.32107004647065035,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 29,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.04108264292621963,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 30,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.26631107926879005,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 31,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.02637757980286301,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 32,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.2463950934993804,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 33,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.10963134822425025,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 34,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.3263687357602742,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 35,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.06490757537973657,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 36,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.4210912568334112,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 37,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.11318960934335237,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 38,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.3955459360357436,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 39,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.08617854693973322,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 40,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.49760344724468386,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 41,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.09275068239797879,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 42,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.40241151513846135,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 43,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 1.5,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.15488824561960648,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 44,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 1.5,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.5146878809774782,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 45,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 1.5,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.1532860435328418,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 46,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 1.5,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.43476717778937285,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 47,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 1.5,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.17499933797909797,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 48,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 1.5,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.46102714769095837,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 49,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 2.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.07858680810066096,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 50,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 2.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.4319963614279799,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 51,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 2.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.15804960333947363,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 52,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 2.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.5002341973659714,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 53,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 2.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.15637419243893655,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 54,
+      "w1": 0.5,
+      "w2": 0.5,
+      "w3": 1.0,
+      "e1": 2.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.5163691977526406,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 55,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.05630944814776749,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 56,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.338702589311986,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 57,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.06010758340980598,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 58,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.3651839752438506,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 59,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.03499050571311547,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 60,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.30587468596731743,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 61,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": -0.05453136618578451,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 62,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.35367683280386425,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 63,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.14876214753635963,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 64,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.2919967571565005,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 65,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.10011232233178427,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 66,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.3297884003916333,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 67,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.025472881452312572,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 68,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.24531128610920627,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 69,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.02844591890678934,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 70,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.3344739364868351,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 71,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.05477741735101012,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 72,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.35534671714443966,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 73,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.08900394354490637,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 74,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.4729691063319813,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 75,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.10013151124914169,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 76,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.40167499123428174,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 77,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.14434251059707212,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 78,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.5258820984379773,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 79,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.17858393358068664,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 80,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.4985997314891356,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 81,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.12726589658080947,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 82,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.44205742317625524,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 83,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.011472159978123397,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 84,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.45424691458630145,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 85,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.13687172942946838,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 86,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.41036789229048265,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 87,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.11519861971825454,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 88,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.5040089695831994,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 89,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.15587217449573712,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 90,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.4230388331966175,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 91,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.08868875039685256,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 92,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.5442632420665783,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 93,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.16359527507561103,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 94,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.6173818660991026,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 95,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.15949210149845916,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 96,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.6752839686082834,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 97,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 1.5,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.1457809314132498,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 98,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 1.5,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.6895113156946296,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 99,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 1.5,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.1772228300370483,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 100,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 1.5,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.5884796255071862,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 101,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 1.5,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.18521683411205764,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 102,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 1.5,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.6188356996909244,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 103,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 2.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.14518784881151817,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 104,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 2.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.5607274551248755,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 105,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 2.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.12267056667782625,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 106,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 2.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.5895677079958697,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 107,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 2.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.1941021806118088,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 108,
+      "w1": 0.5,
+      "w2": 0.75,
+      "w3": 1.0,
+      "e1": 2.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.674293191018658,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 109,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.10865180261682315,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 110,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.46107344473281825,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 111,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.1407669881415423,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 112,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.45375351419666726,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 113,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.07402531401197102,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 114,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.39057969962416167,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 115,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.0027047054614408317,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 116,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.42481606283268397,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 117,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.05647172888149011,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 118,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.5033985291172833,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 119,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.08800316393757929,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 120,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 1.5,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.4720382343056637,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 121,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.11568691113342436,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 122,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.4566070166071121,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 123,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.07136217073500561,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 124,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.38462182500894065,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 125,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.09744002385591842,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 126,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.5,
+      "e1": 2.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.5030604972953368,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 127,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.16053338412332518,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 128,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.5852665268045231,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 129,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.17542541334190673,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 130,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.5922761311194127,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 131,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.0808814662129942,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 132,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.7200287729898177,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 133,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.17322659497756687,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 134,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.6414928633411026,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 135,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.21880693300856935,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 136,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.650444407990685,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 137,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.20166975983057434,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 138,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 1.5,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.6372457955176661,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 139,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.22365984820877022,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 140,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.644437336620753,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 141,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.09541266098095809,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 142,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.7020604015981013,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 143,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.1306623926499376,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 144,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 0.75,
+      "e1": 2.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.7313156041684574,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 145,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.1,
+      "score": 0.238933649399672,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 146,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 1.0,
+      "t1": 0.4,
+      "score": 0.6737154593776035,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 147,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.1,
+      "score": 0.24073911632953218,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 148,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 1.5,
+      "t1": 0.4,
+      "score": 0.7792823701311845,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 149,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.1,
+      "score": 0.30822010905967223,
+      "equation_type": "ava_primary"
+    },
+    {
+      "experiment_id": 150,
+      "w1": 0.5,
+      "w2": 1.0,
+      "w3": 1.0,
+      "e1": 1.0,
+      "e2": 2.0,
+      "t1": 0.4,
+      "score": 0.9120402946796684,
+      "equation_type": "ava_primary"
+    }
+  ],
+  "ethical_scalars": [
+    {
+      "experiment_id": 1,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "score": 0.7000000000000002,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 2,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.8,
+        0.8,
+        0.9
+      ],
+      "score": 0.7594280904158206,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 3,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.8,
+        0.8,
+        1.0
+      ],
+      "score": 0.8188561808316414,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 4,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.8,
+        0.8,
+        1.1
+      ],
+      "score": 0.8782842712474619,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 5,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.8,
+        0.9,
+        0.8
+      ],
+      "score": 0.7594280904158206,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 6,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.8,
+        0.9,
+        0.9
+      ],
+      "score": 0.8094280904158206,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 7,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.8,
+        0.9,
+        1.0
+      ],
+      "score": 0.8663299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 8,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.8,
+        0.9,
+        1.1
+      ],
+      "score": 0.9249443825784931,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 9,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.8,
+        1.0,
+        0.8
+      ],
+      "score": 0.8188561808316414,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 10,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.8,
+        1.0,
+        0.9
+      ],
+      "score": 0.8663299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 11,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.8,
+        1.0,
+        1.0
+      ],
+      "score": 0.9188561808316411,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 12,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.8,
+        1.0,
+        1.1
+      ],
+      "score": 0.9749443825784931,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 13,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.8,
+        1.1,
+        0.8
+      ],
+      "score": 0.8782842712474619,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 14,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.8,
+        1.1,
+        0.9
+      ],
+      "score": 0.9249443825784931,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 15,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.8,
+        1.1,
+        1.0
+      ],
+      "score": 0.9749443825784931,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 16,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.8,
+        1.1,
+        1.1
+      ],
+      "score": 1.0282842712474618,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 17,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.9,
+        0.8,
+        0.8
+      ],
+      "score": 0.7594280904158206,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 18,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.9,
+        0.8,
+        0.9
+      ],
+      "score": 0.8094280904158206,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 19,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.9,
+        0.8,
+        1.0
+      ],
+      "score": 0.8663299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 20,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.9,
+        0.8,
+        1.1
+      ],
+      "score": 0.9249443825784931,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 21,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.9,
+        0.9,
+        0.8
+      ],
+      "score": 0.8094280904158206,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 22,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.9,
+        0.9,
+        0.9
+      ],
+      "score": 0.8500000000000001,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 23,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.9,
+        0.9,
+        1.0
+      ],
+      "score": 0.9094280904158205,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 24,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.9,
+        0.9,
+        1.1
+      ],
+      "score": 0.9688561808316415,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 25,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.9,
+        1.0,
+        0.8
+      ],
+      "score": 0.8663299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 26,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.9,
+        1.0,
+        0.9
+      ],
+      "score": 0.9094280904158205,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 27,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "score": 0.9594280904158206,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 28,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.9,
+        1.0,
+        1.1
+      ],
+      "score": 1.0163299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 29,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.9,
+        1.1,
+        0.8
+      ],
+      "score": 0.9249443825784929,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 30,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.9,
+        1.1,
+        0.9
+      ],
+      "score": 0.9688561808316414,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 31,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.9,
+        1.1,
+        1.0
+      ],
+      "score": 1.0163299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 32,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        0.9,
+        1.1,
+        1.1
+      ],
+      "score": 1.0355228474983078,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 33,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.0,
+        0.8,
+        0.8
+      ],
+      "score": 0.8188561808316414,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 34,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.0,
+        0.8,
+        0.9
+      ],
+      "score": 0.8663299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 35,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.0,
+        0.8,
+        1.0
+      ],
+      "score": 0.9188561808316411,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 36,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.0,
+        0.8,
+        1.1
+      ],
+      "score": 0.9749443825784931,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 37,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.0,
+        0.9,
+        0.8
+      ],
+      "score": 0.8663299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 38,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.0,
+        0.9,
+        0.9
+      ],
+      "score": 0.9094280904158205,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 39,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.0,
+        0.9,
+        1.0
+      ],
+      "score": 0.9594280904158206,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 40,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.0,
+        0.9,
+        1.1
+      ],
+      "score": 1.0163299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 41,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.0,
+        1.0,
+        0.8
+      ],
+      "score": 0.9188561808316411,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 42,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.0,
+        1.0,
+        0.9
+      ],
+      "score": 0.9594280904158206,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 43,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "score": 1.0,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 44,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.0,
+        1.0,
+        1.1
+      ],
+      "score": 1.0260947570824874,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 45,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.0,
+        1.1,
+        0.8
+      ],
+      "score": 0.9749443825784931,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 46,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.0,
+        1.1,
+        0.9
+      ],
+      "score": 1.0163299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 47,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.0,
+        1.1,
+        1.0
+      ],
+      "score": 1.0260947570824874,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 48,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.0,
+        1.1,
+        1.1
+      ],
+      "score": 1.042761423749154,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 49,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.1,
+        0.8,
+        0.8
+      ],
+      "score": 0.8782842712474619,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 50,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.1,
+        0.8,
+        0.9
+      ],
+      "score": 0.9249443825784931,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 51,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.1,
+        0.8,
+        1.0
+      ],
+      "score": 0.9749443825784931,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 52,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.1,
+        0.8,
+        1.1
+      ],
+      "score": 1.0282842712474618,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 53,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.1,
+        0.9,
+        0.8
+      ],
+      "score": 0.9249443825784929,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 54,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.1,
+        0.9,
+        0.9
+      ],
+      "score": 0.9688561808316414,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 55,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.1,
+        0.9,
+        1.0
+      ],
+      "score": 1.0163299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 56,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.1,
+        0.9,
+        1.1
+      ],
+      "score": 1.0355228474983078,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 57,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.1,
+        1.0,
+        0.8
+      ],
+      "score": 0.9749443825784931,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 58,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.1,
+        1.0,
+        0.9
+      ],
+      "score": 1.0163299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 59,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.1,
+        1.0,
+        1.0
+      ],
+      "score": 1.0260947570824874,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 60,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.1,
+        1.0,
+        1.1
+      ],
+      "score": 1.042761423749154,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 61,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.1,
+        1.1,
+        0.8
+      ],
+      "score": 1.0282842712474618,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 62,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.1,
+        1.1,
+        0.9
+      ],
+      "score": 1.0355228474983078,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 63,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.1,
+        1.1,
+        1.0
+      ],
+      "score": 1.042761423749154,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 64,
+      "scalar_group": [
+        "omnibenevolent",
+        "omni_compassionate",
+        "omni_justitia"
+      ],
+      "scale_factors": [
+        1.1,
+        1.1,
+        1.1
+      ],
+      "score": 1.05,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 65,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "score": 0.7000000000000002,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 66,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.8,
+        0.8,
+        0.9
+      ],
+      "score": 0.7594280904158206,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 67,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.8,
+        0.8,
+        1.0
+      ],
+      "score": 0.8188561808316414,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 68,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.8,
+        0.8,
+        1.1
+      ],
+      "score": 0.8782842712474619,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 69,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.8,
+        0.9,
+        0.8
+      ],
+      "score": 0.7594280904158206,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 70,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.8,
+        0.9,
+        0.9
+      ],
+      "score": 0.8094280904158206,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 71,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.8,
+        0.9,
+        1.0
+      ],
+      "score": 0.8663299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 72,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.8,
+        0.9,
+        1.1
+      ],
+      "score": 0.9249443825784931,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 73,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.8,
+        1.0,
+        0.8
+      ],
+      "score": 0.8188561808316414,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 74,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.8,
+        1.0,
+        0.9
+      ],
+      "score": 0.8663299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 75,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.8,
+        1.0,
+        1.0
+      ],
+      "score": 0.9188561808316411,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 76,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.8,
+        1.0,
+        1.1
+      ],
+      "score": 0.9749443825784931,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 77,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.8,
+        1.1,
+        0.8
+      ],
+      "score": 0.8782842712474619,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 78,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.8,
+        1.1,
+        0.9
+      ],
+      "score": 0.9249443825784931,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 79,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.8,
+        1.1,
+        1.0
+      ],
+      "score": 0.9749443825784931,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 80,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.8,
+        1.1,
+        1.1
+      ],
+      "score": 1.0282842712474618,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 81,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.9,
+        0.8,
+        0.8
+      ],
+      "score": 0.7594280904158206,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 82,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.9,
+        0.8,
+        0.9
+      ],
+      "score": 0.8094280904158206,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 83,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.9,
+        0.8,
+        1.0
+      ],
+      "score": 0.8663299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 84,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.9,
+        0.8,
+        1.1
+      ],
+      "score": 0.9249443825784931,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 85,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.9,
+        0.9,
+        0.8
+      ],
+      "score": 0.8094280904158206,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 86,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.9,
+        0.9,
+        0.9
+      ],
+      "score": 0.8500000000000001,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 87,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.9,
+        0.9,
+        1.0
+      ],
+      "score": 0.9094280904158205,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 88,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.9,
+        0.9,
+        1.1
+      ],
+      "score": 0.9688561808316415,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 89,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.9,
+        1.0,
+        0.8
+      ],
+      "score": 0.8663299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 90,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.9,
+        1.0,
+        0.9
+      ],
+      "score": 0.9094280904158205,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 91,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "score": 0.9594280904158206,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 92,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.9,
+        1.0,
+        1.1
+      ],
+      "score": 1.0163299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 93,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.9,
+        1.1,
+        0.8
+      ],
+      "score": 0.9249443825784929,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 94,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.9,
+        1.1,
+        0.9
+      ],
+      "score": 0.9688561808316414,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 95,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.9,
+        1.1,
+        1.0
+      ],
+      "score": 1.0163299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 96,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        0.9,
+        1.1,
+        1.1
+      ],
+      "score": 1.0355228474983078,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 97,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        1.0,
+        0.8,
+        0.8
+      ],
+      "score": 0.8188561808316414,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 98,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        1.0,
+        0.8,
+        0.9
+      ],
+      "score": 0.8663299316185546,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 99,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        1.0,
+        0.8,
+        1.0
+      ],
+      "score": 0.9188561808316411,
+      "equation_type": "ethical_scalars"
+    },
+    {
+      "experiment_id": 100,
+      "scalar_group": [
+        "omni_truth_alignment",
+        "omni_transparency",
+        "omni_harm_prevention"
+      ],
+      "scale_factors": [
+        1.0,
+        0.8,
+        1.1
+      ],
+      "score": 0.9749443825784931,
+      "equation_type": "ethical_scalars"
+    }
+  ],
+  "fusion_weights": [
+    {
+      "experiment_id": 1,
+      "strategy": "early",
+      "weights": [
+        0.33,
+        0.33,
+        0.34
+      ],
+      "score": 1.0450502525316943,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 2,
+      "strategy": "early",
+      "weights": [
+        0.5,
+        0.3,
+        0.2
+      ],
+      "score": 0.9190419914629121,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 3,
+      "strategy": "early",
+      "weights": [
+        0.4,
+        0.4,
+        0.2
+      ],
+      "score": 0.9510050506338834,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 4,
+      "strategy": "early",
+      "weights": [
+        0.6,
+        0.2,
+        0.2
+      ],
+      "score": 0.8520101012677668,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 5,
+      "strategy": "early",
+      "weights": [
+        0.25,
+        0.25,
+        0.5
+      ],
+      "score": 0.9262563132923542,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 6,
+      "strategy": "early",
+      "weights": [
+        0.7,
+        0.15,
+        0.15
+      ],
+      "score": 0.7777638892431793,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 7,
+      "strategy": "early",
+      "weights": [
+        0.4,
+        0.3,
+        0.3
+      ],
+      "score": 1.0005025253169417,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 8,
+      "strategy": "early",
+      "weights": [
+        0.35,
+        0.35,
+        0.3
+      ],
+      "score": 1.0252512626584709,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 9,
+      "strategy": "late",
+      "weights": [
+        0.33,
+        0.33,
+        0.34
+      ],
+      "score": 1.0251445334358524,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 10,
+      "strategy": "late",
+      "weights": [
+        0.5,
+        0.3,
+        0.2
+      ],
+      "score": 0.9015364297207614,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 11,
+      "strategy": "late",
+      "weights": [
+        0.4,
+        0.4,
+        0.2
+      ],
+      "score": 0.9328906687170475,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 12,
+      "strategy": "late",
+      "weights": [
+        0.6,
+        0.2,
+        0.2
+      ],
+      "score": 0.835781337434095,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 13,
+      "strategy": "late",
+      "weights": [
+        0.25,
+        0.25,
+        0.5
+      ],
+      "score": 0.9086133358963093,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 14,
+      "strategy": "late",
+      "weights": [
+        0.7,
+        0.15,
+        0.15
+      ],
+      "score": 0.7629493389718806,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 15,
+      "strategy": "late",
+      "weights": [
+        0.4,
+        0.3,
+        0.3
+      ],
+      "score": 0.9814453343585237,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 16,
+      "strategy": "late",
+      "weights": [
+        0.35,
+        0.35,
+        0.3
+      ],
+      "score": 1.0057226671792618,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 17,
+      "strategy": "hybrid",
+      "weights": [
+        0.33,
+        0.33,
+        0.34
+      ],
+      "score": 1.0749088311754569,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 18,
+      "strategy": "hybrid",
+      "weights": [
+        0.5,
+        0.3,
+        0.2
+      ],
+      "score": 0.9453003340761382,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 19,
+      "strategy": "hybrid",
+      "weights": [
+        0.4,
+        0.4,
+        0.2
+      ],
+      "score": 0.9781766235091373,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 20,
+      "strategy": "hybrid",
+      "weights": [
+        0.6,
+        0.2,
+        0.2
+      ],
+      "score": 0.8763532470182743,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 21,
+      "strategy": "hybrid",
+      "weights": [
+        0.25,
+        0.25,
+        0.5
+      ],
+      "score": 0.9527207793864215,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 22,
+      "strategy": "hybrid",
+      "weights": [
+        0.7,
+        0.15,
+        0.15
+      ],
+      "score": 0.7999857146501272,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 23,
+      "strategy": "hybrid",
+      "weights": [
+        0.4,
+        0.3,
+        0.3
+      ],
+      "score": 1.0290883117545686,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 24,
+      "strategy": "hybrid",
+      "weights": [
+        0.35,
+        0.35,
+        0.3
+      ],
+      "score": 1.0545441558772843,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 25,
+      "strategy": "quantum_inspired",
+      "weights": [
+        0.33,
+        0.33,
+        0.34
+      ],
+      "score": 1.0948145502712987,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 26,
+      "strategy": "quantum_inspired",
+      "weights": [
+        0.5,
+        0.3,
+        0.2
+      ],
+      "score": 0.9628058958182889,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 27,
+      "strategy": "quantum_inspired",
+      "weights": [
+        0.4,
+        0.4,
+        0.2
+      ],
+      "score": 0.9962910054259732,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 28,
+      "strategy": "quantum_inspired",
+      "weights": [
+        0.6,
+        0.2,
+        0.2
+      ],
+      "score": 0.8925820108519461,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 29,
+      "strategy": "quantum_inspired",
+      "weights": [
+        0.25,
+        0.25,
+        0.5
+      ],
+      "score": 0.9703637567824663,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 30,
+      "strategy": "quantum_inspired",
+      "weights": [
+        0.7,
+        0.15,
+        0.15
+      ],
+      "score": 0.8148002649214259,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 31,
+      "strategy": "quantum_inspired",
+      "weights": [
+        0.4,
+        0.3,
+        0.3
+      ],
+      "score": 1.0481455027129865,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 32,
+      "strategy": "quantum_inspired",
+      "weights": [
+        0.35,
+        0.35,
+        0.3
+      ],
+      "score": 1.0740727513564934,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 33,
+      "strategy": "adaptive",
+      "weights": [
+        0.33,
+        0.33,
+        0.34
+      ],
+      "score": 1.1147202693671405,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 34,
+      "strategy": "adaptive",
+      "weights": [
+        0.5,
+        0.3,
+        0.2
+      ],
+      "score": 0.9803114575604396,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 35,
+      "strategy": "adaptive",
+      "weights": [
+        0.4,
+        0.4,
+        0.2
+      ],
+      "score": 1.014405387342809,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 36,
+      "strategy": "adaptive",
+      "weights": [
+        0.6,
+        0.2,
+        0.2
+      ],
+      "score": 0.9088107746856179,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 37,
+      "strategy": "adaptive",
+      "weights": [
+        0.25,
+        0.25,
+        0.5
+      ],
+      "score": 0.9880067341785111,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 38,
+      "strategy": "adaptive",
+      "weights": [
+        0.7,
+        0.15,
+        0.15
+      ],
+      "score": 0.8296148151927246,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 39,
+      "strategy": "adaptive",
+      "weights": [
+        0.4,
+        0.3,
+        0.3
+      ],
+      "score": 1.0672026936714045,
+      "equation_type": "fusion_weights"
+    },
+    {
+      "experiment_id": 40,
+      "strategy": "adaptive",
+      "weights": [
+        0.35,
+        0.35,
+        0.3
+      ],
+      "score": 1.0936013468357022,
+      "equation_type": "fusion_weights"
+    }
+  ],
+  "harmonic_coefficients": [
+    {
+      "experiment_id": 1,
+      "f1": 0.5,
+      "f2": 0.5,
+      "a1": 0.3,
+      "a2": 0.3,
+      "p1": 0.0,
+      "score": 2.9999999999999996,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 2,
+      "f1": 0.5,
+      "f2": 0.5,
+      "a1": 0.3,
+      "a2": 0.3,
+      "p1": 0.7853981633974483,
+      "score": 2.1213203435596424,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 3,
+      "f1": 0.5,
+      "f2": 0.5,
+      "a1": 0.3,
+      "a2": 0.55,
+      "p1": 0.0,
+      "score": 4.25,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 4,
+      "f1": 0.5,
+      "f2": 0.5,
+      "a1": 0.3,
+      "a2": 0.55,
+      "p1": 0.7853981633974483,
+      "score": 3.0052038200428277,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 5,
+      "f1": 0.5,
+      "f2": 0.5,
+      "a1": 0.55,
+      "a2": 0.3,
+      "p1": 0.0,
+      "score": 4.25,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 6,
+      "f1": 0.5,
+      "f2": 0.5,
+      "a1": 0.55,
+      "a2": 0.3,
+      "p1": 0.7853981633974483,
+      "score": 3.0052038200428277,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 7,
+      "f1": 0.5,
+      "f2": 0.5,
+      "a1": 0.55,
+      "a2": 0.55,
+      "p1": 0.0,
+      "score": 5.5,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 8,
+      "f1": 0.5,
+      "f2": 0.5,
+      "a1": 0.55,
+      "a2": 0.55,
+      "p1": 0.7853981633974483,
+      "score": 3.8890872965260117,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 9,
+      "f1": 0.5,
+      "f2": 1.0,
+      "a1": 0.3,
+      "a2": 0.3,
+      "p1": 0.0,
+      "score": 0.5,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 10,
+      "f1": 0.5,
+      "f2": 1.0,
+      "a1": 0.3,
+      "a2": 0.3,
+      "p1": 0.7853981633974483,
+      "score": 0.3535533905932738,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 11,
+      "f1": 0.5,
+      "f2": 1.0,
+      "a1": 0.3,
+      "a2": 0.55,
+      "p1": 0.0,
+      "score": 0.7083333333333335,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 12,
+      "f1": 0.5,
+      "f2": 1.0,
+      "a1": 0.3,
+      "a2": 0.55,
+      "p1": 0.7853981633974483,
+      "score": 0.5008673033404714,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 13,
+      "f1": 0.5,
+      "f2": 1.0,
+      "a1": 0.55,
+      "a2": 0.3,
+      "p1": 0.0,
+      "score": 0.7083333333333335,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 14,
+      "f1": 0.5,
+      "f2": 1.0,
+      "a1": 0.55,
+      "a2": 0.3,
+      "p1": 0.7853981633974483,
+      "score": 0.5008673033404714,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 15,
+      "f1": 0.5,
+      "f2": 1.0,
+      "a1": 0.55,
+      "a2": 0.55,
+      "p1": 0.0,
+      "score": 0.9166666666666667,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 16,
+      "f1": 0.5,
+      "f2": 1.0,
+      "a1": 0.55,
+      "a2": 0.55,
+      "p1": 0.7853981633974483,
+      "score": 0.6481812160876687,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 17,
+      "f1": 1.0,
+      "f2": 0.5,
+      "a1": 0.3,
+      "a2": 0.3,
+      "p1": 0.0,
+      "score": 0.5,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 18,
+      "f1": 1.0,
+      "f2": 0.5,
+      "a1": 0.3,
+      "a2": 0.3,
+      "p1": 0.7853981633974483,
+      "score": 0.3535533905932738,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 19,
+      "f1": 1.0,
+      "f2": 0.5,
+      "a1": 0.3,
+      "a2": 0.55,
+      "p1": 0.0,
+      "score": 0.7083333333333335,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 20,
+      "f1": 1.0,
+      "f2": 0.5,
+      "a1": 0.3,
+      "a2": 0.55,
+      "p1": 0.7853981633974483,
+      "score": 0.5008673033404714,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 21,
+      "f1": 1.0,
+      "f2": 0.5,
+      "a1": 0.55,
+      "a2": 0.3,
+      "p1": 0.0,
+      "score": 0.7083333333333335,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 22,
+      "f1": 1.0,
+      "f2": 0.5,
+      "a1": 0.55,
+      "a2": 0.3,
+      "p1": 0.7853981633974483,
+      "score": 0.5008673033404714,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 23,
+      "f1": 1.0,
+      "f2": 0.5,
+      "a1": 0.55,
+      "a2": 0.55,
+      "p1": 0.0,
+      "score": 0.9166666666666667,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 24,
+      "f1": 1.0,
+      "f2": 0.5,
+      "a1": 0.55,
+      "a2": 0.55,
+      "p1": 0.7853981633974483,
+      "score": 0.6481812160876687,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 25,
+      "f1": 1.0,
+      "f2": 1.0,
+      "a1": 0.3,
+      "a2": 0.3,
+      "p1": 0.0,
+      "score": 2.9999999999999996,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 26,
+      "f1": 1.0,
+      "f2": 1.0,
+      "a1": 0.3,
+      "a2": 0.3,
+      "p1": 0.7853981633974483,
+      "score": 2.1213203435596424,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 27,
+      "f1": 1.0,
+      "f2": 1.0,
+      "a1": 0.3,
+      "a2": 0.55,
+      "p1": 0.0,
+      "score": 4.25,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 28,
+      "f1": 1.0,
+      "f2": 1.0,
+      "a1": 0.3,
+      "a2": 0.55,
+      "p1": 0.7853981633974483,
+      "score": 3.0052038200428277,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 29,
+      "f1": 1.0,
+      "f2": 1.0,
+      "a1": 0.55,
+      "a2": 0.3,
+      "p1": 0.0,
+      "score": 4.25,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 30,
+      "f1": 1.0,
+      "f2": 1.0,
+      "a1": 0.55,
+      "a2": 0.3,
+      "p1": 0.7853981633974483,
+      "score": 3.0052038200428277,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 31,
+      "f1": 1.0,
+      "f2": 1.0,
+      "a1": 0.55,
+      "a2": 0.55,
+      "p1": 0.0,
+      "score": 5.5,
+      "equation_type": "harmonic_coefficients"
+    },
+    {
+      "experiment_id": 32,
+      "f1": 1.0,
+      "f2": 1.0,
+      "a1": 0.55,
+      "a2": 0.55,
+      "p1": 0.7853981633974483,
+      "score": 3.8890872965260117,
+      "equation_type": "harmonic_coefficients"
+    }
+  ]
+}

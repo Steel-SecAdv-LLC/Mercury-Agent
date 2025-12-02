@@ -1,0 +1,34 @@
+BASELINE vs IMPROVED COMPARISON RESULTS
+============================================================
+
+Sample size: 100 functions
+
+BASELINE (main branch, 336 lines):
+  Execution time: 0.089ms ± 0.038ms
+  Memory usage: 2.72KB ± 1.14KB
+  Accuracy: 100.0%
+
+IMPROVED (PR #3, 1018 lines, +5 analysis methods):
+  Execution time: 0.386ms ± 0.164ms
+  Memory usage: 2.82KB ± 1.19KB
+  Accuracy: 100.0%
+
+STATISTICAL VALIDATION:
+
+Execution Time:
+  Improvement: -332.68%
+  T-statistic: -23.279
+  P-value: 0.000000
+  Significant (p<0.05): True
+  Cohen's d: -2.500 (large)
+  95% CI: (-0.3225ms, -0.2718ms)
+
+Memory Usage:
+  Improvement: -3.95%
+  T-statistic: -23.138
+  P-value: 0.000000
+  Significant (p<0.05): True
+  Cohen's d: -0.092 (small)
+
+REQUIREMENT CHECK:
+  >15% improvement with p<0.05: FAIL

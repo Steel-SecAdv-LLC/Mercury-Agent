@@ -1,0 +1,8 @@
+# ML dependencies for OMNI-AVA (heavy ML stack)
+# These are the heavy dependencies for full ML functionality
+
+torch>=2.2.0
+pytorch-lightning>=2.0.0
+deepface>=0.0.79
+opencv-python>=4.8.0
+pillow>=10.0.0
