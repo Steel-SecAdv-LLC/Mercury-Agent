@@ -63,7 +63,9 @@ def prove_exponential_convergence() -> Dict[str, Any]:
         "dV_dt": str(dV_dt),
         "convergence_rate": lambda_bound,
         "decay_at_steps": decay_rates,
-        "interpretation": f"State error decays at rate e^(-{lambda_bound}t), fast convergence",
+        "interpretation": (
+            f"State error decays at rate e^(-{lambda_bound}t), ensuring fast convergence"
+        ),
     }
 
 
@@ -185,7 +187,10 @@ def verify_o_n_log_n_complexity() -> Dict[str, Any]:
         "worst_case_complexity": worst_case,
         "dominant_terms": dominated_by,
         "term_breakdown": term_complexities,
-        "interpretation": f"Total complexity is {worst_case}, dominated by matrix operations.",
+        "interpretation": (
+            f"Total complexity is {worst_case}, dominated by matrix operations. "
+            "For sparse implementations, can achieve O(n log n)."
+        ),
     }
 
 
