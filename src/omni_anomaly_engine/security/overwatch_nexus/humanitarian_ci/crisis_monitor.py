@@ -121,7 +121,8 @@ class CrisisMonitor:
 
         if crisis_detected:
             self.logger.warning(
-                f"Crisis detected: {crisis_type} (severity={severity}, affected={affected_population:,})"
+                f"Crisis detected: {crisis_type} "
+                f"(severity={severity}, affected={affected_population:,})"
             )
 
         return alert

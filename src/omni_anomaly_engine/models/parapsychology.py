@@ -317,9 +317,9 @@ class ParapsychologyDetector:
             consciousness_correlation=consciousness_correlation,
         )
 
+        status = "SIGNIFICANT" if anomaly_detected else "not significant"
         self.logger.info(
-            f"Psi anomaly: {psi_type} "
-            f"(p={p_value:.4f}, d={effect_size:.3f}, {'SIGNIFICANT' if anomaly_detected else 'not significant'})"
+            f"Psi anomaly: {psi_type} (p={p_value:.4f}, d={effect_size:.3f}, {status})"
         )
 
         return result

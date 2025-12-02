@@ -85,7 +85,8 @@ class ChaosEvolutionOptimizer:
             config: Configuration including:
                 - population_size: Number of candidate solutions (default: 30)
                 - max_iterations: Maximum optimization iterations (default: 100)
-                - chaotic_map: Type of chaotic map ('logistic', 'tent', 'sine') (default: 'logistic')
+                - chaotic_map: Type of chaotic map ('logistic', 'tent', 'sine')
+                    (default: 'logistic')
                 - alpha: Fractal self-similarity parameter (default: 0.8)
                 - beta: Chaos influence parameter (default: 0.2)
         """
@@ -260,8 +261,8 @@ class ChaosEvolutionOptimizer:
     ) -> List[np.ndarray]:
         """Generate creative hypothesis variations using controlled chaos.
 
-        Inspired by: AI and Human Creativity: Can Chaos Theory Make Machines Think Differently
-        (Unite.AI: https://www.unite.ai/ai-and-human-creativity-can-chaos-theory-make-machines-think-differently/)
+        Inspired by: AI and Human Creativity: Can Chaos Theory Make Machines
+        Think Differently (Unite.AI)
 
         Simulates human-like intuition by introducing chaotic perturbations
         to explore creative solution space.

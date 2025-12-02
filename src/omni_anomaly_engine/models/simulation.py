@@ -441,7 +441,10 @@ class SimulationModule:
             "complexity_gap": complexity_gap,
             "p_example_times": p_times,
             "np_example_times": np_times,
-            "analysis": "P=NP question: Can every problem whose solution can be verified quickly also be solved quickly?",
+            "analysis": (
+                "P=NP question: Can every problem whose solution can be "
+                "verified quickly also be solved quickly?"
+            ),
             "insights": [
                 "P: Polynomial time (n^k) - efficient algorithms",
                 "NP: Nondeterministic polynomial time - verifiable in polynomial time",
@@ -489,7 +492,10 @@ class SimulationModule:
             "problem": "birch_swinnerton_dyer",
             "status": "unsolved",
             "prize_amount": "$1,000,000",
-            "analysis": "Relationship between number of rational points on elliptic curves and L-function behavior",
+            "analysis": (
+                "Relationship between number of rational points on elliptic "
+                "curves and L-function behavior"
+            ),
             "insights": [
                 "Elliptic curves: Fundamental objects in number theory",
                 "Conjecture relates algebraic and analytic properties",
@@ -505,7 +511,10 @@ class SimulationModule:
             "problem": "hodge_conjecture",
             "status": "unsolved",
             "prize_amount": "$1,000,000",
-            "analysis": "Relationship between algebraic cycles and cohomology in algebraic geometry",
+            "analysis": (
+                "Relationship between algebraic cycles and cohomology "
+                "in algebraic geometry"
+            ),
             "insights": [
                 "Hodge conjecture: Deep connection in algebraic geometry",
                 "Question: Are Hodge cycles algebraic?",

@@ -118,7 +118,7 @@ class InfrastructureCoordinator:
                 "class": GovernmentFacilitiesMonitor,
                 "category": "humanitarian",
                 "priority": "medium",
-                "description": "Government facilities (16th CISA sector) with democratic governance",
+                "description": "Government facilities (16th CISA sector) with governance",
             },
             "world_bank_sectors": {
                 "class": WorldBankSectorsMonitor,
@@ -136,7 +136,7 @@ class InfrastructureCoordinator:
                 "class": SpaceExplorationAnalyzer,
                 "category": "scientific",
                 "priority": "high",
-                "description": "Hubble-inspired cosmic anomaly detection and orbital threat analysis",
+                "description": "Hubble-inspired cosmic anomaly detection and threat analysis",
             },
         }
 

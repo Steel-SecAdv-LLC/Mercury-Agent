@@ -19,9 +19,10 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 Regenerative Architecture Module
 
-Inspired by regenerative design principles from permaculture (Holmgren & Mollison, 1974-1978),
-regenerative organic agriculture (Robert Rodale), and built environment regeneration (John T. Lyle,
-1994). Implements concepts from Living Building Challenge (Jason F. McLennan) for net-positive systems.
+Inspired by regenerative design principles from permaculture (Holmgren & Mollison,
+1974-1978), regenerative organic agriculture (Robert Rodale), and built environment
+regeneration (John T. Lyle, 1994). Implements concepts from Living Building Challenge
+(Jason F. McLennan) for net-positive systems.
 
 Key Principles:
 1. Systems Thinking: Closed-loop feedback mechanisms

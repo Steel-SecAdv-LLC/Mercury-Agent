@@ -469,11 +469,26 @@ class STEMDisciplineRouter:
         sorted_engines = sorted(weights.items(), key=lambda x: x[1], reverse=True)
 
         explanations = {
-            "biology": "Biometric patterns dominate biological data, with neural and affective engines for behavioral aspects",
-            "physics": "Quantum and astrophysical engines excel at physics simulations, dimensional for complex spaces",
-            "cybersecurity": "Security engine designed specifically for threat detection, with neural for pattern recognition",
-            "neuroscience": "Neural and consciousness engines specialized for brain data, biometric for physiological signals",
-            "chemistry": "Dimensional analysis for molecular structures, statistical for reaction kinetics",
+            "biology": (
+                "Biometric patterns dominate biological data, "
+                "with neural and affective engines for behavioral aspects"
+            ),
+            "physics": (
+                "Quantum and astrophysical engines excel at physics simulations, "
+                "dimensional for complex spaces"
+            ),
+            "cybersecurity": (
+                "Security engine designed specifically for threat detection, "
+                "with neural for pattern recognition"
+            ),
+            "neuroscience": (
+                "Neural and consciousness engines specialized for brain data, "
+                "biometric for physiological signals"
+            ),
+            "chemistry": (
+                "Dimensional analysis for molecular structures, "
+                "statistical for reaction kinetics"
+            ),
         }
 
         return {

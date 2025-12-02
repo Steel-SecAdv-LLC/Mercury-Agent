@@ -85,7 +85,8 @@ class QuantumRiskCyber:
         Initialize quantum risk cybersecurity system.
 
         Args:
-            threat_timeline_years: Timeline for quantum threat realization (default 10 from Bain report)
+            threat_timeline_years: Timeline for quantum threat realization
+                (default 10 from Bain report)
             preparedness_threshold: Threshold for adequate preparedness (0-1)
         """
         self.threat_timeline_years = threat_timeline_years
@@ -485,7 +486,9 @@ class QuantumRiskCyber:
             "current_preparedness": self.preparedness_score,
             "target_preparedness": self.preparedness_threshold,
             "needs_improvement": self.preparedness_score < self.preparedness_threshold,
-            "bain_insight": "Only 10% of tech leaders have quantum threat plans despite 95% awareness",
+            "bain_insight": (
+                "Only 10% of tech leaders have quantum threat plans despite 95% awareness"
+            ),
             "recommendations": [],
         }
 
@@ -600,7 +603,10 @@ class PostQuantumMigrationPlanner:
                     "algorithm": algorithm,
                     "vulnerable_to_quantum": False,
                     "threat_level": "low",
-                    "explanation": "AES-256 provides adequate security against quantum attacks (Grover's algorithm)",
+                    "explanation": (
+                        "AES-256 provides adequate security against quantum attacks "
+                        "(Grover's algorithm)"
+                    ),
                     "action_required": "none",
                 }
 
@@ -772,7 +778,10 @@ class PostQuantumMigrationPlanner:
             "total_systems": len(current_systems),
             "vulnerable_systems": len(migration_recommendations),
             "migration_recommendations": migration_recommendations,
-            "estimated_cost_range": f"${len(migration_recommendations) * 50000}-${len(migration_recommendations) * 200000}",
+            "estimated_cost_range": (
+                f"${len(migration_recommendations) * 50000}"
+                f"-${len(migration_recommendations) * 200000}"
+            ),
             "success_metrics": [
                 "All critical systems migrated to PQC",
                 "Zero quantum-vulnerable systems in production",
@@ -830,7 +839,9 @@ class PostQuantumMigrationPlanner:
             "current_phase": current_phase,
             "completed_milestones": len(completed_milestones),
             "total_milestones": total_activities,
-            "systems_migrated": len([m for m in completed_milestones if "migrated" in m.lower()]),
+            "systems_migrated": len(
+                [m for m in completed_milestones if "migrated" in m.lower()]
+            ),
             "total_systems_to_migrate": plan["vulnerable_systems"],
             "on_track": progress_percentage
             >= (100 * len(completed_milestones) / total_activities * 0.9),
@@ -852,7 +863,9 @@ class PostQuantumMigrationPlanner:
             "algorithm_families": {
                 "lattice_based": {
                     "examples": ["CRYSTALS-Kyber", "CRYSTALS-Dilithium", "FALCON"],
-                    "security_basis": "Shortest Vector Problem (SVP) and Learning With Errors (LWE)",
+                    "security_basis": (
+                        "Shortest Vector Problem (SVP) and Learning With Errors (LWE)"
+                    ),
                     "advantages": "Fast, efficient, well-studied",
                     "quantum_resistance": "High confidence in long-term security",
                 },
@@ -870,9 +883,15 @@ class PostQuantumMigrationPlanner:
                 },
             },
             "quantum_threats": {
-                "shors_algorithm": "Breaks RSA, ECC, DH by solving factoring and discrete log problems",
-                "grovers_algorithm": "Weakens symmetric crypto (doubles required key length)",
-                "timeline": "10 years (per Bain 2025: 95% of leaders expect threats within 10 years)",
+                "shors_algorithm": (
+                    "Breaks RSA, ECC, DH by solving factoring and discrete log problems"
+                ),
+                "grovers_algorithm": (
+                    "Weakens symmetric crypto (doubles required key length)"
+                ),
+                "timeline": (
+                    "10 years (per Bain 2025: 95% of leaders expect threats within 10 years)"
+                ),
             },
             "migration_importance": [
                 "Harvest now, decrypt later attacks already occurring",

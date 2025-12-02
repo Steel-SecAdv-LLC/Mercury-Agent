@@ -165,12 +165,14 @@ class EpidemicForecaster:
 
         if outbreak_detected:
             self.logger.warning(
-                f"Pandemic outbreak detected (R0={r0:.2f}, peak={peak_infections:,} on day {peak_day})"
+                f"Pandemic outbreak detected "
+                f"(R0={r0:.2f}, peak={peak_infections:,} on day {peak_day})"
             )
 
         if bifurcation_detected:
             self.logger.error(
-                f"Critical bifurcation detected (chaos={chaos_score:.3f}) - transition to pandemic imminent"
+                f"Critical bifurcation detected (chaos={chaos_score:.3f}) - "
+                "transition to pandemic imminent"
             )
 
         return result

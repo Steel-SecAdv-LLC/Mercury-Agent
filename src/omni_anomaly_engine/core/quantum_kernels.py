@@ -36,7 +36,8 @@ class QuantumKernelMachine:
 
         Args:
             config: Configuration including:
-                - kernel_type: 'rbf', 'quantum_inspired', or 'polynomial' (default: 'quantum_inspired')
+                - kernel_type: 'rbf', 'quantum_inspired', or 'polynomial'
+                    (default: 'quantum_inspired')
                 - num_qubits: Number of qubits in quantum circuit (default: 4)
                 - entanglement_depth: Depth of entangling layers (default: 2)
                 - gamma: RBF kernel parameter (default: 1.0)

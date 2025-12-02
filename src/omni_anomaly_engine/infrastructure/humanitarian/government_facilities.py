@@ -94,7 +94,8 @@ class GovernmentFacilitiesMonitor:
 
         Args:
             data: Facility access logs, system availability, process metrics
-            facility_type: Type of facility ('executive', 'legislative', 'judicial', 'electoral', etc.)
+            facility_type: Type of facility ('executive', 'legislative',
+                'judicial', 'electoral', etc.)
 
         Returns:
             Detection results with threat assessment, democratic impact

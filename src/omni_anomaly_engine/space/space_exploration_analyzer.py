@@ -164,7 +164,8 @@ class SpaceExplorationAnalyzer:
                 "anomaly_score": 0.0,
                 "error": f"Unknown analysis type: {analysis_type}",
                 "recommendations": [
-                    "Use valid analysis_type: cosmic_ray, spectral, orbital_debris, satellite_position"
+                    "Use valid analysis_type: cosmic_ray, spectral, "
+                    "orbital_debris, satellite_position"
                 ],
             }
 
@@ -470,10 +471,11 @@ class SpaceExplorationAnalyzer:
             recommendations.append("Recommend immediate satellite health check")
             recommendations.append("Assess need for orbit correction maneuver")
 
+        alt_range = f"{expected_altitude_range[0]}-{expected_altitude_range[1]}"
         insights = [
             f"Mean orbital radius: {mean_radius:.2f} km",
             f"Altitude above Earth: {mean_radius - earth_radius_km:.2f} km",
-            f"Expected {orbit_type.upper()} altitude: {expected_altitude_range[0]}-{expected_altitude_range[1]} km",
+            f"Expected {orbit_type.upper()} altitude: {alt_range} km",
         ]
 
         return {

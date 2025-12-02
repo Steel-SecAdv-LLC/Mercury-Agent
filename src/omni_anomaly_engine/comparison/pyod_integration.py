@@ -280,5 +280,8 @@ class PyODComparison:
                 "Easy to use API",
                 "Active maintenance",
             ],
-            "recommendation": "Use Omni-AXA for STEM-specific anomaly detection with domain fusion; use PyOD for general-purpose anomaly detection with classical methods",
+            "recommendation": (
+                "Use Omni-AXA for STEM-specific anomaly detection with domain fusion; "
+                "use PyOD for general-purpose anomaly detection with classical methods"
+            ),
         }

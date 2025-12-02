@@ -218,7 +218,9 @@ class BainAIScaling:
             "automated_process_equivalent_ftes": automated_processes_equivalent,
             "augmented_workforce_size": augmented_workforce,
             "productivity_multiplier": productivity_multiplier,
-            "estimated_ebitda_improvement_range": f"{ebitda_improvement_low*100:.0f}%-{ebitda_improvement_high*100:.0f}%",
+            "estimated_ebitda_improvement_range": (
+                f"{ebitda_improvement_low*100:.0f}%-{ebitda_improvement_high*100:.0f}%"
+            ),
             "transformation_timeline": "2025-2030 (per Bain agentic AI projections)",
             "key_capabilities": [
                 "Agents running complete workflows autonomously",

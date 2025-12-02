@@ -270,7 +270,10 @@ class EncryptedTrafficFingerprinter:
         extensions = tls_handshake.get("extensions", [])
         curves = tls_handshake.get("elliptic_curves", [])
 
-        fingerprint = f"{tls_version}_{','.join(map(str, cipher_suites))}_{','.join(map(str, extensions))}_{','.join(map(str, curves))}"
+        cipher_str = ",".join(map(str, cipher_suites))
+        ext_str = ",".join(map(str, extensions))
+        curve_str = ",".join(map(str, curves))
+        fingerprint = f"{tls_version}_{cipher_str}_{ext_str}_{curve_str}"
 
         fingerprint_hash = hash(fingerprint) % (10**8)
 
