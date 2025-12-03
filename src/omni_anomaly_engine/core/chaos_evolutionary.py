@@ -82,9 +82,7 @@ class ChaoticMap:
 class ChaosEvolutionOptimizer:
     """Chaos-Evolutionary Optimizer using CGO algorithm."""
 
-    def __init__(
-        self, config: dict[str, Any] | None = None, rng: DeterministicRNG | None = None
-    ):
+    def __init__(self, config: dict[str, Any] | None = None, rng: DeterministicRNG | None = None):
         """Initialize chaos-evolutionary optimizer.
 
         Args:

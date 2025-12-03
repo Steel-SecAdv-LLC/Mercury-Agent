@@ -359,9 +359,7 @@ class EthicalRiskMatrix:
 
         self.risk_history: list[RiskScore] = []
 
-    def assess_risk(
-        self, context: dict[str, Any], anomaly_score: float | None = None
-    ) -> RiskScore:
+    def assess_risk(self, context: dict[str, Any], anomaly_score: float | None = None) -> RiskScore:
         """
         Comprehensive risk assessment.
 

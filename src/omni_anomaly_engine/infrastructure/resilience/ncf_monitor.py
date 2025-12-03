@@ -135,9 +135,7 @@ class NCFMonitor:
             ],
         }
 
-    def detect(
-        self, data: np.ndarray, ncf_id: str, context: dict | None = None
-    ) -> dict[str, Any]:
+    def detect(self, data: np.ndarray, ncf_id: str, context: dict | None = None) -> dict[str, Any]:
         """Detect anomalies for specific NCF.
 
         Args:

@@ -236,9 +236,7 @@ def run_schumann(
 @click.option("--sample-file", required=True, help="Chemical sample data file")
 @click.option("--output", "-o", help="Output file for results")
 @click.option("--report", "-r", is_flag=True, help="Generate analysis report")
-def run_chemistry(
-    analysis_type: str, sample_file: str, output: str | None, report: bool
-) -> None:
+def run_chemistry(analysis_type: str, sample_file: str, output: str | None, report: bool) -> None:
     """Run chemistry/isotope analysis"""
 
     click.echo(f"🧪 Running Chemistry Analysis - Type: {analysis_type.upper()}")

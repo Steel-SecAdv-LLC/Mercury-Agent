@@ -237,7 +237,12 @@ class AnomalyDataset(Dataset):
     def __len__(self) -> int:
         return self.num_samples
 
-    def __getitem__(self, idx: int) -> tuple[dict[str, torch.Tensor], torch.Tensor] | tuple[dict[str, torch.Tensor], dict[str, torch.Tensor], torch.Tensor]:
+    def __getitem__(
+        self, idx: int
+    ) -> (
+        tuple[dict[str, torch.Tensor], torch.Tensor]
+        | tuple[dict[str, torch.Tensor], dict[str, torch.Tensor], torch.Tensor]
+    ):
         features = {k: v[idx] for k, v in self.detector_features.items()}
         label = self.labels[idx]
 
