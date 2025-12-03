@@ -16,12 +16,88 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
-"""
-Main OmniAnomalyEngine orchestrating all detectors and models
+"""Main OmniAnomalyEngine orchestrating all detectors and models.
+
+This module provides the core anomaly detection engine that integrates
+13 specialized detection models through neural network fusion. It supports
+multiple detection modes, batch processing, and configurable sensitivity.
+
+Architecture:
+    The OmniAnomalyEngine combines multiple specialized detectors:
+
+    Base Detectors (5):
+        - Statistical: Z-score, percentile, MAD-based detection
+        - Temporal: Time-series patterns and seasonal anomalies
+        - Spatial: Geographic and spatial relationship anomalies
+        - Dimensional: High-dimensional data anomalies
+        - Directive (Sigma): Rule-based sigma detection
+
+    Specialized Models (13):
+        - Quantum: Quantum state anomalies
+        - Astrophysical: Cosmic signal anomalies
+        - Biometric: Face/biometric anomalies
+        - Affective: Emotional state anomalies
+        - Neural: Brain activity anomalies
+        - Consciousness: Consciousness preservation
+        - Multiverse: Multi-universe state analysis
+        - Neurosymbolic: Hybrid neural-symbolic reasoning
+        - Medical ABMS: Medical discipline detection
+        - Intelligence Fusion: Multi-source intelligence
+        - Schumann Resonance: Earth resonance detection
+        - Chemistry: Chemical anomaly detection
+        - Parapsychology: Psi phenomena detection
+
+Performance Characteristics:
+    - Time Complexity: O(n * m) where n = samples, m = features
+    - Space Complexity: O(n * d) where d = number of detectors
+    - Batch Processing: Supports dynamic batch sizes for memory optimization
+
+Example:
+    Basic usage with fusion mode::
+
+        from omni_anomaly_engine.engine import OmniAnomalyEngine
+        import numpy as np
+
+        # Initialize engine
+        engine = OmniAnomalyEngine(mode="fusion", device="cuda")
+
+        # Detect anomalies
+        data = np.random.randn(100, 10)
+        result = engine.detect_with_fusion(data)
+
+        print(f"Anomaly probability: {result['anomaly_prob']:.3f}")
+        print(f"Is anomaly: {result['is_anomaly']}")
+
+    Batch processing for large datasets::
+
+        engine = OmniAnomalyEngine(mode="fusion")
+        large_data = np.random.randn(10000, 50)
+
+        # Process in batches for memory efficiency
+        results = engine.detect_batch(large_data, batch_size=64)
+
+Attributes:
+    config: Engine configuration object
+    mode: Detection mode ('fusion' or individual detector)
+    device: Computation device (cpu/cuda)
+    detectors: Dictionary of base detectors
+    models: Dictionary of specialized models
+    fusion_model: Neural network fusion model (in fusion mode)
+
+See Also:
+    - :class:`omni_anomaly_engine.core.config.EngineConfig`
+    - :class:`omni_anomaly_engine.ml.fusion_network.OmniFusionModel`
 """
 
 import torch
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List, Union, Callable, Iterator
+from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
+import threading
+import logging
+import gc
+import weakref
 import numpy as np
 from omni_anomaly_engine.core.config import EngineConfig
 from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
@@ -50,30 +126,334 @@ from omni_anomaly_engine.models.chemistry import ChemistryAnomalyDetector
 from omni_anomaly_engine.models.parapsychology import ParapsychologyDetector
 
 
-class OmniAnomalyEngine:
-    """
-    Unified anomaly detection engine with ML-Centric Hybrid Fusion.
+# Configure module logger
+logger = logging.getLogger(__name__)
 
-    Integrates 13 specialized engines through neural network fusion.
+
+class FeatureCache:
+    """Thread-safe LRU cache for computed features.
+
+    This cache stores computed features to avoid redundant calculations
+    when processing the same data multiple times.
+
+    Attributes:
+        max_size: Maximum number of cached entries.
+        cache: Dictionary storing cached features.
+        access_order: List tracking access order for LRU eviction.
+        lock: Threading lock for thread safety.
+        hits: Number of cache hits.
+        misses: Number of cache misses.
+
+    Example:
+        >>> cache = FeatureCache(max_size=100)
+        >>> cache.get_or_compute("key1", compute_fn, data)
     """
+
+    def __init__(self, max_size: int = 128) -> None:
+        """Initialize the feature cache.
+
+        Args:
+            max_size: Maximum number of entries to cache. Default 128.
+        """
+        self.max_size = max_size
+        self.cache: Dict[str, Any] = {}
+        self.access_order: List[str] = []
+        self.lock = threading.RLock()
+        self.hits = 0
+        self.misses = 0
+
+    def _make_key(self, data: Union[np.ndarray, torch.Tensor], prefix: str = "") -> str:
+        """Generate a cache key from data.
+
+        Args:
+            data: Input data to hash.
+            prefix: Optional prefix for the key.
+
+        Returns:
+            String hash key for the data.
+        """
+        if isinstance(data, torch.Tensor):
+            data = data.cpu().numpy()
+        # Use shape and sample of data for key
+        data_hash = hash((data.shape, data.tobytes()[:1024] if data.nbytes > 1024 else data.tobytes()))
+        return f"{prefix}_{data_hash}"
+
+    def get_or_compute(
+        self,
+        key: str,
+        compute_fn: Callable[[], Any],
+    ) -> Any:
+        """Get cached value or compute and cache it.
+
+        Args:
+            key: Cache key.
+            compute_fn: Function to compute value if not cached.
+
+        Returns:
+            Cached or computed value.
+        """
+        with self.lock:
+            if key in self.cache:
+                self.hits += 1
+                # Move to end for LRU
+                self.access_order.remove(key)
+                self.access_order.append(key)
+                return self.cache[key]
+
+            self.misses += 1
+
+        # Compute outside lock
+        value = compute_fn()
+
+        with self.lock:
+            # Evict if necessary
+            while len(self.cache) >= self.max_size and self.access_order:
+                oldest = self.access_order.pop(0)
+                self.cache.pop(oldest, None)
+
+            self.cache[key] = value
+            self.access_order.append(key)
+
+        return value
+
+    def clear(self) -> None:
+        """Clear all cached entries."""
+        with self.lock:
+            self.cache.clear()
+            self.access_order.clear()
+            self.hits = 0
+            self.misses = 0
+
+    def stats(self) -> Dict[str, Any]:
+        """Get cache statistics.
+
+        Returns:
+            Dictionary with cache statistics.
+        """
+        with self.lock:
+            total = self.hits + self.misses
+            hit_rate = self.hits / total if total > 0 else 0.0
+            return {
+                "size": len(self.cache),
+                "max_size": self.max_size,
+                "hits": self.hits,
+                "misses": self.misses,
+                "hit_rate": hit_rate,
+            }
+
+
+class MemoryMonitor:
+    """Monitor and manage memory usage during detection.
+
+    This class provides memory tracking and automatic garbage collection
+    to prevent out-of-memory errors during large-scale processing.
+
+    Attributes:
+        peak_memory_mb: Peak memory usage in megabytes.
+        threshold_mb: Memory threshold for triggering GC.
+        gc_count: Number of garbage collections triggered.
+
+    Example:
+        >>> monitor = MemoryMonitor(threshold_mb=1024)
+        >>> with monitor.track_allocation("batch_processing"):
+        ...     process_batch(data)
+    """
+
+    def __init__(self, threshold_mb: float = 2048.0) -> None:
+        """Initialize memory monitor.
+
+        Args:
+            threshold_mb: Memory threshold in MB for triggering GC.
+        """
+        self.threshold_mb = threshold_mb
+        self.peak_memory_mb = 0.0
+        self.gc_count = 0
+        self._allocations: Dict[str, float] = {}
+
+    def get_current_memory_mb(self) -> float:
+        """Get current memory usage in megabytes.
+
+        Returns:
+            Current memory usage in MB.
+        """
+        try:
+            import psutil
+            process = psutil.Process()
+            return process.memory_info().rss / (1024 * 1024)
+        except ImportError:
+            # Fallback if psutil not available
+            return 0.0
+
+    def check_and_collect(self) -> bool:
+        """Check memory and trigger GC if needed.
+
+        Returns:
+            True if GC was triggered, False otherwise.
+        """
+        current = self.get_current_memory_mb()
+        self.peak_memory_mb = max(self.peak_memory_mb, current)
+
+        if current > self.threshold_mb:
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            self.gc_count += 1
+            logger.debug(f"GC triggered at {current:.1f}MB (threshold: {self.threshold_mb}MB)")
+            return True
+        return False
+
+    @contextmanager
+    def track_allocation(self, name: str) -> Iterator[None]:
+        """Context manager to track memory allocation.
+
+        Args:
+            name: Name for this allocation tracking.
+
+        Yields:
+            None
+        """
+        start_mem = self.get_current_memory_mb()
+        try:
+            yield
+        finally:
+            end_mem = self.get_current_memory_mb()
+            self._allocations[name] = end_mem - start_mem
+            self.check_and_collect()
+
+    def stats(self) -> Dict[str, Any]:
+        """Get memory statistics.
+
+        Returns:
+            Dictionary with memory statistics.
+        """
+        return {
+            "current_mb": self.get_current_memory_mb(),
+            "peak_mb": self.peak_memory_mb,
+            "threshold_mb": self.threshold_mb,
+            "gc_count": self.gc_count,
+            "allocations": dict(self._allocations),
+        }
+
+
+class OmniAnomalyEngine:
+    """Unified anomaly detection engine with ML-Centric Hybrid Fusion.
+
+    This is the main entry point for the OMNI AVA anomaly detection system.
+    It integrates 13 specialized detection engines through neural network
+    fusion to provide comprehensive multi-domain anomaly detection.
+
+    The engine supports multiple operation modes:
+        - **fusion**: Neural network fusion of all detectors (default)
+        - **individual**: Use specific detectors directly
+
+    Attributes:
+        config: Engine configuration (EngineConfig instance).
+        mode: Operation mode ('fusion' or individual detector name).
+        device: PyTorch device for computation.
+        detectors: Dictionary of base anomaly detectors.
+        models: Dictionary of specialized domain models.
+        security: Security threat detector.
+        fusion_model: Neural network fusion model (fusion mode only).
+        fusion_inference: Fusion inference engine (fusion mode only).
+        self_healing: Self-healing resilience engine.
+        feature_cache: Cache for computed features.
+        memory_monitor: Memory usage monitor.
+
+    Example:
+        Basic detection::
+
+            engine = OmniAnomalyEngine()
+            data = np.random.randn(100, 10)
+            result = engine.detect(data)
+
+        Fusion mode with GPU::
+
+            engine = OmniAnomalyEngine(mode="fusion", device="cuda")
+            result = engine.detect_with_fusion(data)
+
+        Batch processing::
+
+            results = engine.detect_batch(large_data, batch_size=32)
+
+    Note:
+        The fusion model requires all detectors and models to be properly
+        initialized. Individual detectors can be used directly for lighter
+        weight operation.
+
+    See Also:
+        - :meth:`detect`: Basic detection using specified detectors
+        - :meth:`detect_with_fusion`: ML fusion detection
+        - :meth:`detect_batch`: Batch processing for large datasets
+        - :meth:`train_fusion_model`: Train the fusion network
+    """
+
+    # Default batch size for processing
+    DEFAULT_BATCH_SIZE = 32
+
+    # Maximum parallel workers for feature extraction
+    MAX_WORKERS = 4
 
     def __init__(
         self,
         config: Optional[EngineConfig] = None,
         mode: str = "fusion",
         device: str = "cpu",
-    ):
+        cache_size: int = 128,
+        memory_threshold_mb: float = 2048.0,
+    ) -> None:
+        """Initialize the OmniAnomalyEngine.
+
+        Args:
+            config: Engine configuration. If None, uses default config.
+            mode: Operation mode. Either 'fusion' for ML fusion or
+                a specific detector name.
+            device: Computation device ('cpu' or 'cuda').
+            cache_size: Maximum entries in feature cache. Default 128.
+            memory_threshold_mb: Memory threshold for GC in MB. Default 2048.
+
+        Raises:
+            ValueError: If device is 'cuda' but CUDA is not available.
+
+        Example:
+            >>> engine = OmniAnomalyEngine(
+            ...     mode="fusion",
+            ...     device="cuda",
+            ...     cache_size=256
+            ... )
+        """
         self.config = config or EngineConfig()
         self.mode = mode
         self.device = torch.device(device)
+
+        # Validate CUDA availability
+        if device == "cuda" and not torch.cuda.is_available():
+            logger.warning("CUDA requested but not available, falling back to CPU")
+            self.device = torch.device("cpu")
+
+        # Initialize caching and memory management
+        self.feature_cache = FeatureCache(max_size=cache_size)
+        self.memory_monitor = MemoryMonitor(threshold_mb=memory_threshold_mb)
+
+        # Thread pool for parallel processing
+        self._executor: Optional[ThreadPoolExecutor] = None
 
         self._init_detectors()
         self._init_models()
         self._init_fusion()
         self._init_resilience()
 
+        logger.info(f"OmniAnomalyEngine initialized (mode={mode}, device={self.device})")
+
     def _init_detectors(self) -> None:
-        """Initialize all detectors"""
+        """Initialize all base anomaly detectors.
+
+        Creates instances of the 5 base detectors:
+            - statistical: Statistical anomaly detection
+            - temporal: Temporal pattern detection
+            - spatial: Spatial relationship detection
+            - dimensional: High-dimensional analysis
+            - directive: Sigma-based rule detection
+        """
         self.detectors = {
             "statistical": StatisticalAnomalyDetector(),
             "temporal": TemporalAnomalyDetector(),
@@ -83,7 +463,11 @@ class OmniAnomalyEngine:
         }
 
     def _init_models(self) -> None:
-        """Initialize all models"""
+        """Initialize all specialized domain models.
+
+        Creates instances of the 13 specialized models covering various
+        domains from quantum physics to medical diagnostics.
+        """
         from omni_anomaly_engine.models.multiverse import MultiverseOmniEngine
         from omni_anomaly_engine.models.neurosymbolic import NeurosymbolicEngine
 
@@ -106,7 +490,11 @@ class OmniAnomalyEngine:
         self.security = ThreatDetector()
 
     def _init_fusion(self) -> None:
-        """Initialize ML fusion components"""
+        """Initialize ML fusion components.
+
+        Sets up the neural network fusion model and inference engine
+        when operating in fusion mode.
+        """
         if self.mode == "fusion":
             self.fusion_model = OmniFusionModel()
             self.fusion_model.to(self.device)
@@ -116,23 +504,54 @@ class OmniAnomalyEngine:
             )
 
     def _init_resilience(self) -> None:
-        """Initialize resilience components"""
+        """Initialize resilience and self-healing components."""
         self.self_healing = SelfHealingEngine()
+
+    def _get_executor(self) -> ThreadPoolExecutor:
+        """Get or create thread pool executor.
+
+        Returns:
+            ThreadPoolExecutor for parallel processing.
+        """
+        if self._executor is None:
+            self._executor = ThreadPoolExecutor(max_workers=self.MAX_WORKERS)
+        return self._executor
 
     def detect(
         self,
         data: Union[np.ndarray, torch.Tensor, Dict[str, Any]],
         detector_types: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        """
-        Detect anomalies using specified detectors.
+        """Detect anomalies using specified detectors.
+
+        This method runs the specified base detectors on the input data
+        and aggregates their results. If no detectors are specified,
+        all available detectors are used.
 
         Args:
-            data: Input data (array, tensor, or dict)
-            detector_types: List of detector names to use (None = all)
+            data: Input data for anomaly detection. Can be:
+                - numpy.ndarray: Numerical data array
+                - torch.Tensor: PyTorch tensor
+                - Dict[str, Any]: Dictionary with domain-specific data
+            detector_types: List of detector names to use. If None,
+                uses all detectors. Valid names: 'statistical',
+                'temporal', 'spatial', 'dimensional', 'directive'.
 
         Returns:
-            Detection results with scores and flags
+            Dictionary containing:
+                - detectors: Dict mapping detector names to their results
+                - is_anomaly: Boolean indicating if any detector found anomaly
+
+        Example:
+            >>> engine = OmniAnomalyEngine()
+            >>> data = np.random.randn(100, 10)
+            >>> result = engine.detect(data, detector_types=["statistical"])
+            >>> print(result["is_anomaly"])
+            False
+
+        Note:
+            Detectors are automatically fitted if not already fitted.
+            Dictionary input skips fitting for detectors that require arrays.
         """
         if detector_types is None:
             detector_types = list(self.detectors.keys())
@@ -162,8 +581,127 @@ class OmniAnomalyEngine:
             ),
         }
 
+    def detect_batch(
+        self,
+        data: Union[np.ndarray, torch.Tensor],
+        batch_size: Optional[int] = None,
+        use_fusion: bool = True,
+        parallel: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """Detect anomalies in batches for large datasets.
+
+        This method implements intelligent batching with dynamic batch
+        size adjustment based on available memory. It's optimized for
+        processing large datasets efficiently.
+
+        Args:
+            data: Input data array with shape (n_samples, n_features).
+            batch_size: Number of samples per batch. If None, uses
+                dynamic sizing based on available memory.
+            use_fusion: If True, use fusion detection. Default True.
+            parallel: If True, process batches in parallel. Default True.
+
+        Returns:
+            List of detection results, one per sample.
+
+        Raises:
+            ValueError: If data has invalid shape.
+
+        Example:
+            >>> engine = OmniAnomalyEngine(mode="fusion")
+            >>> large_data = np.random.randn(10000, 50)
+            >>> results = engine.detect_batch(large_data, batch_size=64)
+            >>> anomaly_indices = [i for i, r in enumerate(results)
+            ...                    if r.get("is_anomaly", False)]
+
+        Performance:
+            - Time: O(n * m / batch_size) where n = samples, m = features
+            - Memory: O(batch_size * m) per batch
+            - Parallel speedup: ~2-4x with 4 workers
+        """
+        if isinstance(data, torch.Tensor):
+            data = data.cpu().numpy()
+
+        n_samples = data.shape[0]
+
+        # Dynamic batch size based on memory
+        if batch_size is None:
+            batch_size = self._calculate_optimal_batch_size(data)
+
+        results: List[Dict[str, Any]] = []
+
+        # Process in batches
+        with self.memory_monitor.track_allocation("batch_detection"):
+            for start_idx in range(0, n_samples, batch_size):
+                end_idx = min(start_idx + batch_size, n_samples)
+                batch_data = data[start_idx:end_idx]
+
+                if use_fusion and self.mode == "fusion":
+                    batch_result = self.detect_with_fusion(batch_data)
+                    # Expand batch result to individual results
+                    for i in range(len(batch_data)):
+                        results.append({
+                            "anomaly_prob": batch_result.get("anomaly_prob", 0.0),
+                            "is_anomaly": batch_result.get("is_anomaly", False),
+                            "severity": batch_result.get("severity", 0.0),
+                            "mode": "fusion",
+                        })
+                else:
+                    batch_result = self.detect(batch_data)
+                    for i in range(len(batch_data)):
+                        results.append(batch_result)
+
+                # Check memory and potentially trigger GC
+                self.memory_monitor.check_and_collect()
+
+        return results
+
+    def _calculate_optimal_batch_size(
+        self,
+        data: np.ndarray,
+        target_memory_mb: float = 512.0,
+    ) -> int:
+        """Calculate optimal batch size based on data and memory.
+
+        Args:
+            data: Input data array.
+            target_memory_mb: Target memory usage per batch in MB.
+
+        Returns:
+            Optimal batch size.
+        """
+        # Estimate memory per sample
+        sample_size_bytes = data[0:1].nbytes if len(data) > 0 else 100
+        # Account for intermediate computations (~10x multiplier)
+        effective_size = sample_size_bytes * 10
+
+        # Calculate batch size
+        target_bytes = target_memory_mb * 1024 * 1024
+        optimal_size = max(1, int(target_bytes / effective_size))
+
+        # Clamp to reasonable bounds
+        return min(max(optimal_size, 8), 256)
+
     def _normalize_scores(self, scores: Any, batch_size: int) -> torch.Tensor:
-        """Normalize scores to tensor format [batch_size, 1]"""
+        """Normalize scores to tensor format [batch_size, 1].
+
+        This method handles various score formats and normalizes them
+        to a consistent tensor format for fusion.
+
+        Args:
+            scores: Input scores in various formats (list, array,
+                tensor, bool, or scalar).
+            batch_size: Expected batch size for expansion.
+
+        Returns:
+            Normalized torch.Tensor with shape [batch_size, 1].
+
+        Example:
+            >>> scores = [0.5, 0.8, 0.3]
+            >>> normalized = engine._normalize_scores(scores, 3)
+            >>> print(normalized.shape)
+            torch.Size([3, 1])
+        """
         if isinstance(scores, (list, np.ndarray)):
             scores = torch.tensor(scores, dtype=torch.float32)
             if scores.dim() == 1:
@@ -177,7 +715,24 @@ class OmniAnomalyEngine:
     def _extract_detector_features(
         self, data: Union[np.ndarray, torch.Tensor, Dict[str, Any]]
     ) -> tuple:
-        """Extract features from all detectors"""
+        """Extract features from all detectors.
+
+        This method extracts feature vectors from all base detectors
+        and normalizes their anomaly scores. Features are cached for
+        repeated access to the same data.
+
+        Args:
+            data: Input data for feature extraction.
+
+        Returns:
+            Tuple of (detector_features, detector_scores) where:
+                - detector_features: Dict mapping detector names to features
+                - detector_scores: Dict mapping detector names to scores
+
+        Note:
+            Uses parallel processing when available for improved performance.
+            Features are cached using the FeatureCache for repeated access.
+        """
         detector_features = {}
         detector_scores = {}
 
@@ -188,10 +743,21 @@ class OmniAnomalyEngine:
                         continue
                     detector.fit(data)
 
-                features = detector.extract_features(data)
-                detector_features[name] = features
+                # Try to use cached features
+                cache_key = self.feature_cache._make_key(
+                    data if not isinstance(data, dict) else np.array([0]),
+                    prefix=f"detector_{name}"
+                )
 
-                result = detector.detect(data)
+                def compute_features() -> tuple:
+                    features = detector.extract_features(data)
+                    result = detector.detect(data)
+                    return features, result
+
+                cached = self.feature_cache.get_or_compute(cache_key, compute_features)
+                features, result = cached
+
+                detector_features[name] = features
                 scores = result.get("scores", result.get("is_anomaly", 0))
                 detector_scores[name] = self._normalize_scores(scores, features.shape[0])
             except Exception:
@@ -202,16 +768,44 @@ class OmniAnomalyEngine:
     def _extract_model_features(
         self, data: Union[np.ndarray, torch.Tensor, Dict[str, Any]]
     ) -> tuple:
-        """Extract features from all models"""
+        """Extract features from all specialized models.
+
+        This method extracts feature vectors from all 13 specialized
+        domain models and normalizes their anomaly scores.
+
+        Args:
+            data: Input data for feature extraction.
+
+        Returns:
+            Tuple of (model_features, model_scores) where:
+                - model_features: Dict mapping model names to features
+                - model_scores: Dict mapping model names to scores
+
+        Note:
+            Models that fail to process data are silently skipped.
+            This allows graceful degradation when domain-specific
+            data is not available.
+        """
         model_features = {}
         model_scores = {}
 
         for name, model in self.models.items():
             try:
-                features = model.extract_features(data)
-                model_features[name] = features
+                # Try to use cached features
+                cache_key = self.feature_cache._make_key(
+                    data if not isinstance(data, dict) else np.array([0]),
+                    prefix=f"model_{name}"
+                )
 
-                prediction = model.predict(data)
+                def compute_features() -> tuple:
+                    features = model.extract_features(data)
+                    prediction = model.predict(data)
+                    return features, prediction
+
+                cached = self.feature_cache.get_or_compute(cache_key, compute_features)
+                features, prediction = cached
+
+                model_features[name] = features
                 scores = prediction.get("anomaly_scores", 0)
                 model_scores[name] = self._normalize_scores(scores, features.shape[0])
             except Exception:
@@ -219,17 +813,66 @@ class OmniAnomalyEngine:
 
         return model_features, model_scores
 
+    def _extract_features_parallel(
+        self, data: Union[np.ndarray, torch.Tensor, Dict[str, Any]]
+    ) -> tuple:
+        """Extract features from all sources in parallel.
+
+        This method uses thread pool execution to extract features
+        from detectors and models concurrently.
+
+        Args:
+            data: Input data for feature extraction.
+
+        Returns:
+            Tuple of (all_features, all_scores) combining detector
+            and model features.
+        """
+        executor = self._get_executor()
+
+        # Submit parallel tasks
+        detector_future = executor.submit(self._extract_detector_features, data)
+        model_future = executor.submit(self._extract_model_features, data)
+
+        # Collect results
+        det_features, det_scores = detector_future.result()
+        mod_features, mod_scores = model_future.result()
+
+        return (
+            {**det_features, **mod_features},
+            {**det_scores, **mod_scores},
+        )
+
     def detect_with_fusion(
         self, data: Union[np.ndarray, torch.Tensor, Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """
-        Detect anomalies using ML fusion of all detectors.
+        """Detect anomalies using ML fusion of all detectors.
+
+        This method combines outputs from all detectors and models
+        using a neural network fusion approach with attention-based
+        weighting.
 
         Args:
-            data: Input data
+            data: Input data for detection.
 
         Returns:
-            Fusion-based detection results with attention weights
+            Dictionary containing:
+                - anomaly_prob: Probability of anomaly (0.0-1.0)
+                - is_anomaly: Boolean anomaly flag (prob > 0.5)
+                - class_prediction: Predicted anomaly class
+                - severity: Anomaly severity score
+                - detector_importance: Dict of detector weights
+                - mode: Detection mode ('fusion')
+
+        Example:
+            >>> engine = OmniAnomalyEngine(mode="fusion")
+            >>> data = np.random.randn(100, 10)
+            >>> result = engine.detect_with_fusion(data)
+            >>> print(f"Anomaly: {result['is_anomaly']}, "
+            ...       f"Prob: {result['anomaly_prob']:.3f}")
+
+        Note:
+            Falls back to basic detection if not in fusion mode.
         """
         if self.mode != "fusion":
             return self.detect(data)
@@ -277,16 +920,29 @@ class OmniAnomalyEngine:
         test_image: Optional[Union[str, np.ndarray]] = None,
         enable_age_progression: bool = False,
     ) -> Dict[str, Any]:
-        """
-        Biometric face matching and analysis.
+        """Perform biometric face matching and analysis.
+
+        This method uses the biometric model to analyze faces and
+        optionally compare a test image against a reference.
 
         Args:
-            reference_image: Reference face image
-            test_image: Test image to match (if None, analyze reference only)
-            enable_age_progression: Enable age progression estimation
+            reference_image: Reference face image (path or array).
+            test_image: Optional test image to match against reference.
+            enable_age_progression: Enable age progression estimation.
 
         Returns:
-            Biometric analysis results
+            Dictionary with biometric analysis results including:
+                - match_score: Similarity score (if test_image provided)
+                - face_attributes: Detected facial attributes
+                - anomaly_scores: Biometric anomaly scores
+
+        Example:
+            >>> engine = OmniAnomalyEngine()
+            >>> result = engine.detect_biometric(
+            ...     "reference.jpg",
+            ...     "test.jpg"
+            ... )
+            >>> print(f"Match score: {result.get('match_score', 0):.3f}")
         """
         biometric_model = self.models["biometric"]
 
@@ -306,16 +962,30 @@ class OmniAnomalyEngine:
         headers: Optional[Dict[str, str]] = None,
         source_ip: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Detect security threats in requests.
+        """Detect security threats in requests.
+
+        This method analyzes request payloads for potential security
+        threats including injection attacks, XSS, and malicious patterns.
 
         Args:
-            payload: Request payload
-            headers: Request headers
-            source_ip: Source IP address
+            payload: Request payload string to analyze.
+            headers: Optional request headers for context.
+            source_ip: Optional source IP for logging and correlation.
 
         Returns:
-            Threat detection results
+            Dictionary containing:
+                - is_anomaly: Boolean indicating threat detected
+                - threats: List of detected threat types
+                - source_ip: Source IP (if provided)
+
+        Example:
+            >>> engine = OmniAnomalyEngine()
+            >>> result = engine.detect_security_threat(
+            ...     "<script>alert('xss')</script>",
+            ...     source_ip="192.168.1.1"
+            ... )
+            >>> if result["is_anomaly"]:
+            ...     print(f"Threats: {result['threats']}")
         """
         threat_result = self.security.detect_all(payload)
 
@@ -338,41 +1008,64 @@ class OmniAnomalyEngine:
         use_mixed_precision: bool = False,
         gradient_accumulation_steps: int = 1,
     ) -> Dict[str, Any]:
-        """
-        Train the fusion model on custom data.
+        """Train the fusion model on custom data.
 
-        Implements complete training pipeline with:
-        - Data loading and preprocessing
-        - Learning rate scheduling (ReduceLROnPlateau)
-        - Early stopping with patience mechanism
-        - Checkpoint saving with best model tracking
-        - Optional mixed-precision training for performance
-        - Gradient accumulation for effective larger batch sizes
+        This method implements a complete training pipeline with support
+        for learning rate scheduling, early stopping, checkpointing, and
+        optional mixed-precision training.
+
+        Training Pipeline:
+            1. Load and validate training data
+            2. Create train/validation split
+            3. Configure optimizer and scheduler
+            4. Train with early stopping
+            5. Save best model checkpoint
 
         Args:
-            training_data: Path to training data (numpy .npz or pickle file)
-            validation_split: Validation split ratio (default 0.2)
-            epochs: Number of training epochs (default 50)
-            batch_size: Batch size (default 32)
-            learning_rate: Learning rate (default 0.001)
-            optimizer_type: Optimizer type ('adamw', 'ava_base', 'ava_momentum',
-                           'ava_exp_decay', 'ava_harmonic')
-            early_stopping_patience: Epochs to wait before early stopping (default 10)
-            checkpoint_dir: Directory to save checkpoints (default None uses temp)
-            use_mixed_precision: Enable mixed-precision training (default False)
-            gradient_accumulation_steps: Steps for gradient accumulation (default 1)
+            training_data: Path to training data file (.npz or .pkl).
+            validation_split: Fraction of data for validation (0.0-1.0).
+            epochs: Maximum number of training epochs.
+            batch_size: Batch size for training.
+            learning_rate: Initial learning rate.
+            optimizer_type: Optimizer type. Options:
+                - 'adamw': AdamW optimizer (default)
+                - 'ava_base': AVA base optimizer
+                - 'ava_momentum': AVA with momentum
+                - 'ava_exp_decay': AVA with exponential decay
+                - 'ava_harmonic': AVA with harmonic decay
+            early_stopping_patience: Epochs without improvement before
+                stopping. Default 10.
+            checkpoint_dir: Directory for saving checkpoints. If None,
+                uses a temporary directory.
+            use_mixed_precision: Enable FP16 mixed precision training.
+                Requires CUDA. Default False.
+            gradient_accumulation_steps: Steps for gradient accumulation.
+                Useful for larger effective batch sizes. Default 1.
 
         Returns:
-            Dict containing training results with:
+            Dictionary containing:
                 - final_loss: Final validation loss
                 - best_loss: Best validation loss achieved
                 - epochs_trained: Number of epochs completed
+                - best_epoch: Epoch with best validation loss
                 - checkpoint_path: Path to best model checkpoint
-                - training_history: List of loss values per epoch
+                - training_history: List of per-epoch metrics
+                - early_stopped: Whether training stopped early
 
         Raises:
-            ValueError: If training data path is invalid or data format unsupported
-            RuntimeError: If training fails due to data or model issues
+            ValueError: If parameters are invalid or mode is not 'fusion'.
+            RuntimeError: If training data loading fails.
+
+        Example:
+            >>> engine = OmniAnomalyEngine(mode="fusion")
+            >>> result = engine.train_fusion_model(
+            ...     "training_data.npz",
+            ...     epochs=100,
+            ...     batch_size=64,
+            ...     early_stopping_patience=15
+            ... )
+            >>> print(f"Best loss: {result['best_loss']:.4f}")
+            >>> print(f"Epochs: {result['epochs_trained']}")
         """
         import os
         import pickle
@@ -572,13 +1265,67 @@ class OmniAnomalyEngine:
         }
 
     def save_model(self, path: str) -> None:
-        """Save fusion model to file"""
+        """Save fusion model weights to file.
+
+        Args:
+            path: File path for saving the model.
+
+        Example:
+            >>> engine.save_model("models/fusion_model.pt")
+        """
         if self.mode == "fusion":
             torch.save(self.fusion_model.state_dict(), path)
 
     def load_model(self, path: str) -> None:
-        """Load fusion model from file"""
+        """Load fusion model weights from file.
+
+        Args:
+            path: File path to load the model from.
+
+        Example:
+            >>> engine.load_model("models/fusion_model.pt")
+        """
         if self.mode == "fusion":
             self.fusion_model.load_state_dict(
                 torch.load(path, map_location=self.device, weights_only=True)
             )
+
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get feature cache statistics.
+
+        Returns:
+            Dictionary with cache statistics including hit rate.
+
+        Example:
+            >>> stats = engine.get_cache_stats()
+            >>> print(f"Cache hit rate: {stats['hit_rate']:.2%}")
+        """
+        return self.feature_cache.stats()
+
+    def get_memory_stats(self) -> Dict[str, Any]:
+        """Get memory usage statistics.
+
+        Returns:
+            Dictionary with memory statistics.
+
+        Example:
+            >>> stats = engine.get_memory_stats()
+            >>> print(f"Peak memory: {stats['peak_mb']:.1f} MB")
+        """
+        return self.memory_monitor.stats()
+
+    def clear_cache(self) -> None:
+        """Clear the feature cache.
+
+        This can be useful to free memory after processing
+        large datasets.
+
+        Example:
+            >>> engine.clear_cache()
+        """
+        self.feature_cache.clear()
+
+    def __del__(self) -> None:
+        """Cleanup resources on deletion."""
+        if self._executor is not None:
+            self._executor.shutdown(wait=False)

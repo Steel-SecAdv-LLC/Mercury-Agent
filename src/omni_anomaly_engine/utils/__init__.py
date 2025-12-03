@@ -62,6 +62,30 @@ from omni_anomaly_engine.utils.constants import (
     SYMPY_AVAILABLE,
     MPMATH_AVAILABLE,
 )
+from omni_anomaly_engine.utils.logging import (
+    get_logger,
+    configure_logging,
+    correlation_context,
+    get_correlation_id,
+    set_correlation_id,
+    StructuredFormatter,
+    ColoredFormatter,
+    PerformanceLogger,
+    log_function_call,
+)
+from omni_anomaly_engine.utils.resilience import (
+    CircuitBreaker,
+    CircuitBreakerOpenError,
+    CircuitState,
+    retry,
+    GracefulShutdown,
+    ShutdownInProgressError,
+    Bulkhead,
+    BulkheadFullError,
+    HealthChecker,
+    HealthStatus,
+    timeout,
+)
 
 
 def normalize_data(
@@ -256,10 +280,12 @@ def compute_time_dilation(
 
 
 __all__ = [
+    # Communication utilities
     "Message",
     "MessagePriority",
     "AsyncMessageQueue",
     "SimplePubSub",
+    # RNG utilities
     "DeterministicRNG",
     "RNGState",
     "RNGRegistry",
@@ -270,6 +296,7 @@ __all__ = [
     "reset_global_rng",
     "get_thread_local_rng",
     "get_rng_registry",
+    # Constants
     "MathematicalConstants",
     "MathConstant",
     "Precision",
@@ -278,6 +305,29 @@ __all__ = [
     "validate_all_constants_with_sympy",
     "SYMPY_AVAILABLE",
     "MPMATH_AVAILABLE",
+    # Logging utilities
+    "get_logger",
+    "configure_logging",
+    "correlation_context",
+    "get_correlation_id",
+    "set_correlation_id",
+    "StructuredFormatter",
+    "ColoredFormatter",
+    "PerformanceLogger",
+    "log_function_call",
+    # Resilience utilities
+    "CircuitBreaker",
+    "CircuitBreakerOpenError",
+    "CircuitState",
+    "retry",
+    "GracefulShutdown",
+    "ShutdownInProgressError",
+    "Bulkhead",
+    "BulkheadFullError",
+    "HealthChecker",
+    "HealthStatus",
+    "timeout",
+    # Data utilities
     "normalize_data",
     "compute_complexity",
     "compress_information",
