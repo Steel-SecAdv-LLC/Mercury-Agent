@@ -291,9 +291,7 @@ class TestNeurosymbolicReasoning:
     def test_reasoning_output_structure(self):
         """Test neurosymbolic reasoning output structure."""
         data = np.random.randn(64).astype(np.float32)
-        result = self.detector.detect(
-            data, specialty="internal_medicine", include_reasoning=True
-        )
+        result = self.detector.detect(data, specialty="internal_medicine", include_reasoning=True)
 
         if result.neurosymbolic_reasoning is not None:
             assert isinstance(result.neurosymbolic_reasoning, dict)
@@ -301,9 +299,7 @@ class TestNeurosymbolicReasoning:
     def test_reasoning_explains_decision(self):
         """Test that reasoning provides explanation."""
         data = np.ones(64).astype(np.float32) * 2.0  # Abnormal values
-        result = self.detector.detect(
-            data, specialty="emergency_medicine", include_reasoning=True
-        )
+        result = self.detector.detect(data, specialty="emergency_medicine", include_reasoning=True)
 
         # High-risk should have reasoning
         if result.risk_score > 0.7 and result.neurosymbolic_reasoning:

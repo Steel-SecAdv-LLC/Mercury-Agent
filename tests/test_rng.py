@@ -332,9 +332,7 @@ class TestThreadSafeRNGManager:
             rng = manager.get_rng(thread_local=True)
             results[name] = rng.randn(5)
 
-        threads = [
-            threading.Thread(target=worker, args=(f"thread_{i}",)) for i in range(3)
-        ]
+        threads = [threading.Thread(target=worker, args=(f"thread_{i}",)) for i in range(3)]
         for t in threads:
             t.start()
         for t in threads:

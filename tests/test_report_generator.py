@@ -84,9 +84,7 @@ class TestReportSection:
     def test_nested_sections(self):
         """Test nested subsections."""
         subsection = ReportSection(title="Subsection", content="Details")
-        section = ReportSection(
-            title="Main Section", content="Overview", subsections=[subsection]
-        )
+        section = ReportSection(title="Main Section", content="Overview", subsections=[subsection])
         assert len(section.subsections) == 1
 
 
@@ -254,9 +252,10 @@ class TestReportContent:
         parsed = json.loads(report)
 
         # Should have timestamp or generated_at field
-        assert any(
-            key in parsed for key in ["timestamp", "generated_at", "report_date"]
-        ) or "title" in parsed
+        assert (
+            any(key in parsed for key in ["timestamp", "generated_at", "report_date"])
+            or "title" in parsed
+        )
 
     def test_metadata_included(self):
         """Test that metadata is included."""
