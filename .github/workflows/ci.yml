@@ -6,7 +6,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop, devin/*, claude/*]
+    branches: [main, develop, feature/*]
   pull_request:
     branches: [main, develop]
   workflow_dispatch:

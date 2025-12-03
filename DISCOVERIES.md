@@ -378,7 +378,7 @@ hidden_dim_n+1 = int(hidden_dim_n / φ)  # Compression
 
 ### Transparency
 
-- **Open Source**: All code MIT licensed for public scrutiny
+- **Open Source**: All code GPL v3 licensed for public scrutiny
 - **Simulation Disclosure**: Clearly label simulated vs real-data results
 - **Replication**: Encourage independent verification of all claims
 - **Humility**: Acknowledge limitations and speculative nature of novel discoveries
@@ -398,6 +398,6 @@ This work demonstrates the power of systematic interdisciplinary integration for
 ---
 
 **Contributors**: Steel Security Advisors LLC  
-**License**: MIT (open-source for universal access)  
+**License**: GPL v3 (open-source for universal access)  
 **Contact**: For collaboration on real-data validation studies  
 **Motto**: "Knowledge belongs to humanity"

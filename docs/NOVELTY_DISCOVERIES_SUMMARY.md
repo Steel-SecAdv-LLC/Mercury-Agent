@@ -90,5 +90,5 @@ This is the **first known formalization of ancient ethical principles as positiv
 
 ---
 
-**Contributors**: Devin AI, andrew.e.averett@outlook.com, Steel Security Advisors LLC  
-**License**: MIT
+**Contributors**: Steel Security Advisors LLC
+**License**: GPL v3

@@ -2,7 +2,7 @@ name: Security
 
 on:
   push:
-    branches: [ main, devin/* ]
+    branches: [ main, feature/* ]
   pull_request:
     branches: [ main ]
   schedule:
