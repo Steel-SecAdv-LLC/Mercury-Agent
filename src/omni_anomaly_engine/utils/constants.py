@@ -44,12 +44,14 @@ import numpy as np
 # Try to import high-precision libraries
 try:
     import mpmath
+
     MPMATH_AVAILABLE = True
 except ImportError:
     MPMATH_AVAILABLE = False
 
 try:
-    import sympy
+    import sympy  # noqa: F401 - imported for future symbolic computation support
+
     SYMPY_AVAILABLE = True
 except ImportError:
     SYMPY_AVAILABLE = False
@@ -57,6 +59,7 @@ except ImportError:
 
 class Precision(Enum):
     """Precision levels for mathematical constants."""
+
     FLOAT32 = "float32"
     FLOAT64 = "float64"
     ARBITRARY = "arbitrary"  # Uses mpmath for arbitrary precision
@@ -76,6 +79,7 @@ class MathConstant:
         reference: Academic/authoritative reference
         precision_digits: Number of verified decimal digits
     """
+
     value: float
     name: str
     symbol: str
@@ -329,11 +333,7 @@ class MathematicalConstants:
         Returns:
             Dict mapping constant names to MathConstant objects
         """
-        return {
-            name: value
-            for name, value in vars(cls).items()
-            if isinstance(value, MathConstant)
-        }
+        return {name: value for name, value in vars(cls).items() if isinstance(value, MathConstant)}
 
     @classmethod
     def validate_all(cls) -> Dict[str, bool]:
@@ -343,10 +343,7 @@ class MathematicalConstants:
         Returns:
             Dict mapping constant names to validation results
         """
-        return {
-            name: const.validate()
-            for name, const in cls.get_all().items()
-        }
+        return {name: const.validate() for name, const in cls.get_all().items()}
 
     @classmethod
     def get_by_symbol(cls, symbol: str) -> Optional[MathConstant]:
@@ -392,9 +389,7 @@ def get_constant(name: str, precision: Precision = Precision.FLOAT64) -> float:
 
     if const is None or not isinstance(const, MathConstant):
         available = list(MathematicalConstants.get_all().keys())
-        raise ValueError(
-            f"Unknown constant: {name}. Available: {available}"
-        )
+        raise ValueError(f"Unknown constant: {name}. Available: {available}")
 
     return const.to_precision(precision)
 

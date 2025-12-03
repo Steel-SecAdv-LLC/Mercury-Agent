@@ -250,6 +250,7 @@ class DeterministicRNG:
 @dataclass
 class RNGState:
     """Serializable RNG state for reproducibility across processes."""
+
     seed: int
     numpy_state: Optional[Dict[str, Any]] = None
     python_state: Optional[tuple] = None
@@ -261,9 +262,11 @@ class RNGState:
         return {
             "seed": self.seed,
             "version": self.version,
-            "numpy_state_hash": hashlib.md5(
-                str(self.numpy_state).encode()
-            ).hexdigest() if self.numpy_state else None,
+            "numpy_state_hash": (
+                hashlib.md5(str(self.numpy_state).encode()).hexdigest()
+                if self.numpy_state
+                else None
+            ),
         }
 
     def to_json(self) -> str:
@@ -291,8 +294,9 @@ class RNGRegistry:
         self._registry: Dict[str, DeterministicRNG] = {}
         self._lock = threading.RLock()
 
-    def register(self, name: str, seed: Optional[int] = None,
-                 parent: Optional[str] = None) -> DeterministicRNG:
+    def register(
+        self, name: str, seed: Optional[int] = None, parent: Optional[str] = None
+    ) -> DeterministicRNG:
         """
         Register a new named RNG.
 
@@ -357,8 +361,7 @@ class RNGContext:
 
     _context_stack = threading.local()
 
-    def __init__(self, seed: Optional[int] = None,
-                 parent: Optional['RNGContext'] = None):
+    def __init__(self, seed: Optional[int] = None, parent: Optional["RNGContext"] = None):
         self._seed = seed
         self._parent = parent
         self._rng: Optional[DeterministicRNG] = None
@@ -371,7 +374,7 @@ class RNGContext:
             raise RuntimeError("RNGContext not entered. Use 'with' statement.")
         return self._rng
 
-    def __enter__(self) -> 'RNGContext':
+    def __enter__(self) -> "RNGContext":
         # Determine seed
         if self._seed is not None:
             seed = self._seed
@@ -384,7 +387,7 @@ class RNGContext:
         self._rng = DeterministicRNG(seed=seed)
 
         # Push to context stack
-        if not hasattr(self._context_stack, 'stack'):
+        if not hasattr(self._context_stack, "stack"):
             self._context_stack.stack = []
         self._context_stack.stack.append(self)
 
@@ -392,15 +395,15 @@ class RNGContext:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         # Pop from context stack
-        if hasattr(self._context_stack, 'stack') and self._context_stack.stack:
+        if hasattr(self._context_stack, "stack") and self._context_stack.stack:
             self._context_stack.stack.pop()
         self._rng = None
         return False
 
     @classmethod
-    def current(cls) -> Optional['RNGContext']:
+    def current(cls) -> Optional["RNGContext"]:
         """Get the current active RNG context."""
-        if hasattr(cls._context_stack, 'stack') and cls._context_stack.stack:
+        if hasattr(cls._context_stack, "stack") and cls._context_stack.stack:
             return cls._context_stack.stack[-1]
         return None
 
@@ -438,12 +441,13 @@ class ThreadSafeRNGManager:
             DeterministicRNG instance
         """
         if thread_local:
-            if not hasattr(self._thread_local, 'rng'):
+            if not hasattr(self._thread_local, "rng"):
                 # Create thread-local RNG with derived seed
                 with self._lock:
                     # Derive seed from thread ID for uniqueness
-                    thread_seed = (self._default_seed +
-                                   hash(threading.current_thread().ident)) % (2**31)
+                    thread_seed = (self._default_seed + hash(threading.current_thread().ident)) % (
+                        2**31
+                    )
                 self._thread_local.rng = DeterministicRNG(seed=thread_seed)
             return self._thread_local.rng
         else:
@@ -465,7 +469,7 @@ class ThreadSafeRNGManager:
             self._global_rng = None
             self._registry.clear()
         # Clear thread-local storage
-        if hasattr(self._thread_local, 'rng'):
+        if hasattr(self._thread_local, "rng"):
             del self._thread_local.rng
 
     def get_state(self) -> Optional[RNGState]:
@@ -475,8 +479,11 @@ class ThreadSafeRNGManager:
                 return None
             return RNGState(
                 seed=self._global_rng.get_seed() or self._default_seed,
-                numpy_state=dict(np.random.get_state()._asdict())
-                if hasattr(np.random.get_state(), '_asdict') else None,
+                numpy_state=(
+                    dict(np.random.get_state()._asdict())
+                    if hasattr(np.random.get_state(), "_asdict")
+                    else None
+                ),
                 python_state=random.getstate(),
             )
 

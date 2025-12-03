@@ -388,17 +388,21 @@ class OmniAnomalyEngine:
             raise ValueError(f"Training data path does not exist: {training_data}")
 
         try:
-            if training_data.endswith('.npz'):
+            if training_data.endswith(".npz"):
                 data = np.load(training_data, allow_pickle=True)
-                features_dict = {k: torch.tensor(v, dtype=torch.float32)
-                               for k, v in data.items() if k != 'labels'}
-                labels = torch.tensor(data['labels'], dtype=torch.long)
-            elif training_data.endswith('.pkl') or training_data.endswith('.pickle'):
-                with open(training_data, 'rb') as f:
+                features_dict = {
+                    k: torch.tensor(v, dtype=torch.float32)
+                    for k, v in data.items()
+                    if k != "labels"
+                }
+                labels = torch.tensor(data["labels"], dtype=torch.long)
+            elif training_data.endswith(".pkl") or training_data.endswith(".pickle"):
+                with open(training_data, "rb") as f:
                     loaded = pickle.load(f)
-                features_dict = {k: torch.tensor(v, dtype=torch.float32)
-                               for k, v in loaded['features'].items()}
-                labels = torch.tensor(loaded['labels'], dtype=torch.long)
+                features_dict = {
+                    k: torch.tensor(v, dtype=torch.float32) for k, v in loaded["features"].items()
+                }
+                labels = torch.tensor(loaded["labels"], dtype=torch.long)
             else:
                 raise ValueError(f"Unsupported data format. Use .npz or .pkl: {training_data}")
         except Exception as e:
@@ -411,8 +415,7 @@ class OmniAnomalyEngine:
         train_size = total_size - val_size
 
         train_dataset, val_dataset = random_split(
-            dataset, [train_size, val_size],
-            generator=torch.Generator().manual_seed(42)
+            dataset, [train_size, val_size], generator=torch.Generator().manual_seed(42)
         )
 
         # Create data loaders
@@ -421,19 +424,19 @@ class OmniAnomalyEngine:
             batch_size=batch_size,
             shuffle=True,
             num_workers=0,
-            pin_memory=True if self.device.type == 'cuda' else False,
+            pin_memory=True if self.device.type == "cuda" else False,
         )
         val_loader = DataLoader(
             val_dataset,
             batch_size=batch_size,
             shuffle=False,
             num_workers=0,
-            pin_memory=True if self.device.type == 'cuda' else False,
+            pin_memory=True if self.device.type == "cuda" else False,
         )
 
         # Setup checkpoint directory
         if checkpoint_dir is None:
-            checkpoint_dir = tempfile.mkdtemp(prefix='omni_fusion_')
+            checkpoint_dir = tempfile.mkdtemp(prefix="omni_fusion_")
         os.makedirs(checkpoint_dir, exist_ok=True)
 
         # Create trainer module
@@ -444,19 +447,23 @@ class OmniAnomalyEngine:
         trainer_module.optimizer_type = optimizer_type
 
         # Training state
-        best_val_loss = float('inf')
+        best_val_loss = float("inf")
         best_epoch = 0
         epochs_without_improvement = 0
         training_history: List[Dict[str, float]] = []
-        best_checkpoint_path = os.path.join(checkpoint_dir, 'best_model.pt')
+        best_checkpoint_path = os.path.join(checkpoint_dir, "best_model.pt")
 
         # Setup mixed precision if requested
-        scaler = torch.cuda.amp.GradScaler() if use_mixed_precision and self.device.type == 'cuda' else None
+        scaler = (
+            torch.cuda.amp.GradScaler()
+            if use_mixed_precision and self.device.type == "cuda"
+            else None
+        )
 
         # Configure optimizer
         optimizer_config = trainer_module.configure_optimizers()
-        optimizer = optimizer_config['optimizer']
-        scheduler = optimizer_config['lr_scheduler']['scheduler']
+        optimizer = optimizer_config["optimizer"]
+        scheduler = optimizer_config["lr_scheduler"]["scheduler"]
 
         self.fusion_model.train()
 
@@ -499,7 +506,7 @@ class OmniAnomalyEngine:
                     outputs = self.fusion_model(features, return_attention=True)
                     anomaly_labels = (labels_batch > 0).float().unsqueeze(1)
                     val_loss = torch.nn.functional.binary_cross_entropy(
-                        outputs['anomaly_probs'], anomaly_labels
+                        outputs["anomaly_probs"], anomaly_labels
                     )
                     val_losses.append(val_loss.item())
 
@@ -509,24 +516,29 @@ class OmniAnomalyEngine:
             scheduler.step(avg_val_loss)
 
             # Track history
-            training_history.append({
-                'epoch': epoch + 1,
-                'train_loss': avg_train_loss,
-                'val_loss': avg_val_loss,
-                'learning_rate': optimizer.param_groups[0]['lr'],
-            })
+            training_history.append(
+                {
+                    "epoch": epoch + 1,
+                    "train_loss": avg_train_loss,
+                    "val_loss": avg_val_loss,
+                    "learning_rate": optimizer.param_groups[0]["lr"],
+                }
+            )
 
             # Check for improvement and save best model
             if avg_val_loss < best_val_loss:
                 best_val_loss = avg_val_loss
                 best_epoch = epoch + 1
                 epochs_without_improvement = 0
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': self.fusion_model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'val_loss': best_val_loss,
-                }, best_checkpoint_path)
+                torch.save(
+                    {
+                        "epoch": epoch,
+                        "model_state_dict": self.fusion_model.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                        "val_loss": best_val_loss,
+                    },
+                    best_checkpoint_path,
+                )
             else:
                 epochs_without_improvement += 1
 
@@ -536,20 +548,21 @@ class OmniAnomalyEngine:
 
         # Load best model
         if os.path.exists(best_checkpoint_path):
-            checkpoint = torch.load(best_checkpoint_path, map_location=self.device,
-                                   weights_only=True)
-            self.fusion_model.load_state_dict(checkpoint['model_state_dict'])
+            checkpoint = torch.load(
+                best_checkpoint_path, map_location=self.device, weights_only=True
+            )
+            self.fusion_model.load_state_dict(checkpoint["model_state_dict"])
 
         self.fusion_model.eval()
 
         return {
-            'final_loss': training_history[-1]['val_loss'] if training_history else 0.0,
-            'best_loss': best_val_loss,
-            'epochs_trained': len(training_history),
-            'best_epoch': best_epoch,
-            'checkpoint_path': best_checkpoint_path,
-            'training_history': training_history,
-            'early_stopped': epochs_without_improvement >= early_stopping_patience,
+            "final_loss": training_history[-1]["val_loss"] if training_history else 0.0,
+            "best_loss": best_val_loss,
+            "epochs_trained": len(training_history),
+            "best_epoch": best_epoch,
+            "checkpoint_path": best_checkpoint_path,
+            "training_history": training_history,
+            "early_stopped": epochs_without_improvement >= early_stopping_patience,
         }
 
     def save_model(self, path: str) -> None:

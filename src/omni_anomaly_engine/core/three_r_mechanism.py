@@ -263,18 +263,14 @@ class RefactoringConfig:
     golden_ratio: float = field(
         default_factory=lambda: MathematicalConstants.GOLDEN_RATIO_CONJUGATE.value
     )
-    catalan_constant: float = field(
-        default_factory=lambda: MathematicalConstants.CATALAN.value
-    )
+    catalan_constant: float = field(default_factory=lambda: MathematicalConstants.CATALAN.value)
     euler_mascheroni: float = field(
         default_factory=lambda: MathematicalConstants.EULER_MASCHERONI.value
     )
     feigenbaum_delta: float = field(
         default_factory=lambda: MathematicalConstants.FEIGENBAUM_DELTA.value
     )
-    omega_constant: float = field(
-        default_factory=lambda: MathematicalConstants.OMEGA.value
-    )
+    omega_constant: float = field(default_factory=lambda: MathematicalConstants.OMEGA.value)
 
     enable_spherical_harmonics: bool = False
     spherical_harmonic_degree: int = 4
@@ -548,8 +544,9 @@ class RefactoringEngine:
     Uses centralized RNG for reproducible random operations.
     """
 
-    def __init__(self, config: Optional[RefactoringConfig] = None,
-                 rng: Optional[DeterministicRNG] = None):
+    def __init__(
+        self, config: Optional[RefactoringConfig] = None, rng: Optional[DeterministicRNG] = None
+    ):
         self.config = config or RefactoringConfig()
         self.optimization_history: List[Dict[str, Any]] = []
         self._backup_files: Dict[str, str] = {}
@@ -698,9 +695,7 @@ class RefactoringEngine:
                 "High cognitive complexity. Consider breaking into smaller functions."
             )
         if visitor.nesting_contribution > total_complexity * 0.5:
-            recommendations.append(
-                "Heavy nesting detected. Use early returns or guard clauses."
-            )
+            recommendations.append("Heavy nesting detected. Use early returns or guard clauses.")
         if visitor.recursion_count > 0:
             recommendations.append(
                 "Recursion detected. Consider iterative alternatives if appropriate."
@@ -722,9 +717,9 @@ class RefactoringEngine:
             },
             "recommendations": recommendations,
             "threshold_status": (
-                "OK" if total_complexity <= 10
-                else "WARNING" if total_complexity <= 15
-                else "CRITICAL"
+                "OK"
+                if total_complexity <= 10
+                else "WARNING" if total_complexity <= 15 else "CRITICAL"
             ),
         }
 
@@ -752,9 +747,8 @@ class RefactoringEngine:
             }
 
         # Combined score - weighted average
-        combined_score = (
-            0.4 * cyclomatic.get("cyclomatic_complexity", 0) +
-            0.6 * cognitive.get("cognitive_complexity", 0)
+        combined_score = 0.4 * cyclomatic.get("cyclomatic_complexity", 0) + 0.6 * cognitive.get(
+            "cognitive_complexity", 0
         )
 
         return {
@@ -762,9 +756,7 @@ class RefactoringEngine:
             "cognitive": cognitive,
             "combined_score": combined_score,
             "overall_status": (
-                "OK" if combined_score <= 8
-                else "WARNING" if combined_score <= 12
-                else "CRITICAL"
+                "OK" if combined_score <= 8 else "WARNING" if combined_score <= 12 else "CRITICAL"
             ),
         }
 
