@@ -1,1 +1,0 @@
-PROTECTION_OVERVIEW.md will be created after tests complete
