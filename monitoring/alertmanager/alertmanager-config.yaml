@@ -16,8 +16,8 @@ stringData:
       resolve_timeout: 5m
       # SMTP settings for email notifications
       smtp_smarthost: 'smtp.example.com:587'
-      smtp_from: 'alerts@example.com'
-      smtp_auth_username: 'alerts@example.com'
+      smtp_from: 'steel.sa.llc.@gmail.com'
+      smtp_auth_username: 'steel.sa.llc.@gmail.com'
       smtp_auth_password: 'SMTP_PASSWORD'
       smtp_require_tls: true
 
@@ -106,7 +106,7 @@ stringData:
     receivers:
       - name: 'default-receiver'
         email_configs:
-          - to: 'ops@example.com'
+          - to: 'steel.sa.llc.@gmail.com'
             send_resolved: true
 
       - name: 'critical-pagerduty'
@@ -157,7 +157,7 @@ stringData:
 
       - name: 'platform-team'
         email_configs:
-          - to: 'platform-team@example.com'
+          - to: 'steel.sa.llc.@gmail.com'
             send_resolved: true
         slack_configs:
           - channel: '#platform-alerts'
@@ -165,7 +165,7 @@ stringData:
 
       - name: 'ml-team'
         email_configs:
-          - to: 'ml-team@example.com'
+          - to: 'steel.sa.llc.@gmail.com'
             send_resolved: true
         slack_configs:
           - channel: '#ml-alerts'

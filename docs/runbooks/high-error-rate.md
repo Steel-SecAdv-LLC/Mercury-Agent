@@ -154,9 +154,9 @@ If the issue persists after following these steps:
 3. **Notify stakeholders** via Slack #omni-ava-incidents
 
 ### Escalation Contacts
-- **Platform Team**: platform-oncall@example.com
-- **ML Team**: ml-oncall@example.com
-- **Management**: ops-manager@example.com
+- **Platform Team**: steel.sa.llc.@gmail.com
+- **ML Team**: steel.sa.llc.@gmail.com
+- **Management**: steel.sa.llc.@gmail.com
 
 ---
 

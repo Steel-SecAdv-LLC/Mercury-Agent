@@ -429,9 +429,9 @@ All backup operations are logged:
 
 | Role | Name | Phone | Email |
 |------|------|-------|-------|
-| Primary On-Call | Rotating | PagerDuty | oncall@example.com |
-| Platform Lead | TBD | TBD | platform-lead@example.com |
-| SRE Manager | TBD | TBD | sre-manager@example.com |
+| Primary On-Call | Rotating | PagerDuty | steel.sa.llc.@gmail.com |
+| Platform Lead | TBD | TBD | steel.sa.llc.@gmail.com |
+| SRE Manager | TBD | TBD | steel.sa.llc.@gmail.com |
 
 ### Vendor Contacts
 
