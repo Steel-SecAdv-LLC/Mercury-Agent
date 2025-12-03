@@ -4,27 +4,27 @@ Tests for ML pipeline modules.
 Tests fusion_network, training, inference, and related ML components.
 """
 
-import pytest
 import numpy as np
+import pytest
 import torch
 import torch.nn as nn
 
 from omni_anomaly_engine.ml.fusion_network import (
-    FusionNetwork,
-    MultimodalFusion,
     AttentionFusion,
+    FusionNetwork,
     GatedFusion,
-)
-from omni_anomaly_engine.ml.training import (
-    TrainingConfig,
-    Trainer,
-    EarlyStopping,
-    LearningRateScheduler,
+    MultimodalFusion,
 )
 from omni_anomaly_engine.ml.inference import (
-    InferenceEngine,
     BatchInference,
+    InferenceEngine,
     ModelEnsemble,
+)
+from omni_anomaly_engine.ml.training import (
+    EarlyStopping,
+    LearningRateScheduler,
+    Trainer,
+    TrainingConfig,
 )
 
 
@@ -35,9 +35,7 @@ class TestFusionNetwork:
         """Set up test fixtures."""
         self.input_dims = [32, 64, 48]  # Multiple modalities
         self.output_dim = 128
-        self.model = FusionNetwork(
-            input_dims=self.input_dims, output_dim=self.output_dim
-        )
+        self.model = FusionNetwork(input_dims=self.input_dims, output_dim=self.output_dim)
 
     def test_initialization(self):
         """Test network initialization."""
@@ -195,9 +193,7 @@ class TestTrainingConfig:
 
     def test_custom_config(self):
         """Test custom configuration."""
-        config = TrainingConfig(
-            learning_rate=0.001, batch_size=64, epochs=100, weight_decay=1e-5
-        )
+        config = TrainingConfig(learning_rate=0.001, batch_size=64, epochs=100, weight_decay=1e-5)
 
         assert config.learning_rate == 0.001
         assert config.batch_size == 64
@@ -267,9 +263,7 @@ class TestLearningRateScheduler:
         """Test step learning rate scheduler."""
         model = nn.Linear(10, 1)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
-        scheduler = LearningRateScheduler(
-            optimizer, mode="step", step_size=10, gamma=0.1
-        )
+        scheduler = LearningRateScheduler(optimizer, mode="step", step_size=10, gamma=0.1)
 
         initial_lr = optimizer.param_groups[0]["lr"]
 
@@ -300,9 +294,7 @@ class TestTrainer:
     def setup_method(self):
         """Set up test fixtures."""
         self.model = nn.Sequential(nn.Linear(32, 16), nn.ReLU(), nn.Linear(16, 1))
-        self.config = TrainingConfig(
-            learning_rate=0.01, batch_size=8, epochs=5, device="cpu"
-        )
+        self.config = TrainingConfig(learning_rate=0.01, batch_size=8, epochs=5, device="cpu")
         self.trainer = Trainer(self.model, self.config)
 
     def test_initialization(self):
@@ -403,9 +395,7 @@ class TestBatchInference:
     def setup_method(self):
         """Set up test fixtures."""
         self.model = nn.Sequential(nn.Linear(32, 16), nn.ReLU(), nn.Linear(16, 1))
-        self.batch_inference = BatchInference(
-            self.model, batch_size=4, device="cpu"
-        )
+        self.batch_inference = BatchInference(self.model, batch_size=4, device="cpu")
 
     def test_large_batch_processing(self):
         """Test processing large batches in chunks."""
@@ -431,8 +421,7 @@ class TestModelEnsemble:
     def setup_method(self):
         """Set up test fixtures."""
         self.models = [
-            nn.Sequential(nn.Linear(32, 16), nn.ReLU(), nn.Linear(16, 1))
-            for _ in range(3)
+            nn.Sequential(nn.Linear(32, 16), nn.ReLU(), nn.Linear(16, 1)) for _ in range(3)
         ]
         self.ensemble = ModelEnsemble(self.models, aggregation="mean")
 

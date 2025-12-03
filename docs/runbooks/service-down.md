@@ -194,9 +194,9 @@ kubectl rollout restart deployment/omni-ava-api -n omni-ava
 - Multiple services affected
 
 ### Contacts
-- **Platform Team Lead**: steel.sa.llc.@gmail.com
-- **SRE Manager**: steel.sa.llc.@gmail.com
-- **VP Engineering**: steel.sa.llc.@gmail.com (for P1 incidents)
+- **Platform Team Lead**: steel.sa.llc@gmail.com
+- **SRE Manager**: steel.sa.llc@gmail.com
+- **VP Engineering**: steel.sa.llc@gmail.com (for P1 incidents)
 
 ---
 
