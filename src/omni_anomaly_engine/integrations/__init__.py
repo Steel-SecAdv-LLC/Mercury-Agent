@@ -20,15 +20,15 @@ from omni_anomaly_engine.integrations.http.client import (
     HTTPClientConfig,
     HTTPResponse,
 )
+from omni_anomaly_engine.integrations.routing.fallback import (
+    FallbackChain,
+    FallbackHandler,
+    FallbackResult,
+)
 from omni_anomaly_engine.integrations.routing.router import (
     RequestRouter,
     Route,
     RouteMatch,
-)
-from omni_anomaly_engine.integrations.routing.fallback import (
-    FallbackHandler,
-    FallbackChain,
-    FallbackResult,
 )
 
 __all__ = [
