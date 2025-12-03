@@ -19,10 +19,11 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """Comprehensive tests for Medical Cure Predictor module."""
 
 import numpy as np
+
 from omni_anomaly_engine.medical.medical_cure_predictor import (
     MedicalCurePredictor,
-    TemporalVitalSignsDetector,
     MedicalPredictionResult,
+    TemporalVitalSignsDetector,
 )
 
 

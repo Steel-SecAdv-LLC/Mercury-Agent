@@ -24,7 +24,7 @@ with emphasis on survivor-first ethical principles.
 Reference: CISA Essential Workers Advisory List
 """
 
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 
 class EssentialWorkersMonitor:

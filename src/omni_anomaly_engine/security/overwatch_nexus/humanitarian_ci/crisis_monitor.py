@@ -25,9 +25,9 @@ humanitarian crisis, and essential worker protection monitoring.
 Survivor-first prioritization using ethical scalars.
 """
 
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 
 @dataclass

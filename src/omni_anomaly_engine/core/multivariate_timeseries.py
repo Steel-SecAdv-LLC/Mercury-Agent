@@ -25,8 +25,11 @@ Implements Long short-term memory + Temporal convolution + Graph convolution (LT
 for detecting cascading anomalies across domains (biometrics + quantum simulations).
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 import numpy as np
+
+from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
 class MultivariateTSDetector:
@@ -182,16 +185,19 @@ class ChaosMultivariateFusion:
         self,
         mvts_config: Optional[Dict[str, Any]] = None,
         chaos_config: Optional[Dict[str, Any]] = None,
+        rng: Optional[DeterministicRNG] = None,
     ):
         """Initialize fusion detector.
 
         Args:
             mvts_config: Configuration for multivariate TS detector
             chaos_config: Configuration for chaos-evolutionary optimizer
+            rng: Optional DeterministicRNG for reproducibility
         """
         self.mvts_detector = MultivariateTSDetector(mvts_config)
         self.chaos_config = chaos_config or {}
         self.trained = False
+        self._rng = rng or get_global_rng()
 
     def fit(self, time_series_data: np.ndarray) -> None:
         """Fit fusion model on training data."""
@@ -226,7 +232,7 @@ class ChaosMultivariateFusion:
         """Apply chaotic perturbation to threshold for adaptive detection."""
         from omni_anomaly_engine.core.chaos_evolutionary import ChaoticMap
 
-        chaos_value = np.random.rand()
+        chaos_value = self._rng.rand(1)[0]
         chaos_value = ChaoticMap.logistic_map(chaos_value)
 
         perturbation = 0.1 * (2 * chaos_value - 1)

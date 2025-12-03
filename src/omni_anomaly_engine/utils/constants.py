@@ -38,7 +38,8 @@ References:
 import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Union, Dict, Any
+from typing import Any, Dict, Optional, Union
+
 import numpy as np
 
 # Try to import high-precision libraries

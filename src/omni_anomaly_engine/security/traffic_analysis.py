@@ -38,14 +38,15 @@ Research sources:
 
 """
 
+import logging
+from collections import defaultdict
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Dict, List, Set
+
 import numpy as np
 import torch
 import torch.nn as nn
-from typing import Dict, Any, List, Set
-from dataclasses import dataclass, field
-from enum import Enum
-from collections import defaultdict
-import logging
 
 
 class TrafficAnomalyType(Enum):

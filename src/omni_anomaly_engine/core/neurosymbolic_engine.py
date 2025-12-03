@@ -29,8 +29,11 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 from numpy.typing import NDArray
+
+from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
 class ReadinessLevel(Enum):
@@ -91,12 +94,17 @@ class NeurosymbolicEngine:
     Neural components require training data to be fully functional.
     """
 
-    def __init__(self, config: Optional[NeurosymbolicConfig] = None):
+    def __init__(
+        self,
+        config: Optional[NeurosymbolicConfig] = None,
+        rng: Optional[DeterministicRNG] = None,
+    ):
         self.config = config or NeurosymbolicConfig()
         self.training_metrics = TrainingMetrics()
         self.current_phase = TrainingPhase.FOUNDATION
         self.neural_model = None
         self.pattern_library: Dict[str, Any] = {}
+        self._rng = rng or get_global_rng()
 
         if self.config.transparency_logging:
             logging.info("NeurosymbolicEngine initialized with symbolic reasoning")
@@ -329,7 +337,7 @@ class NeurosymbolicEngine:
         learning_rate = self.config.backprop_learning_rate
         quantum_noise = self.config.backprop_quantum_noise
 
-        weights = np.random.randn(4) * 0.1
+        weights = self._rng.randn(4) * 0.1
         losses = []
 
         for i in range(iterations):
@@ -346,7 +354,7 @@ class NeurosymbolicEngine:
             gradient = 2 * (prediction - target) * padded_features
 
             if quantum_noise > 0:
-                noise = np.random.randn(*gradient.shape) * quantum_noise
+                noise = self._rng.randn(*gradient.shape) * quantum_noise
                 gradient = gradient + noise
 
             weights -= learning_rate * gradient

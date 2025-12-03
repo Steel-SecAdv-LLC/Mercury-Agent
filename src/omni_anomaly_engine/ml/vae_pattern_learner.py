@@ -26,10 +26,11 @@ through reconstruction error and KL divergence.
 
 """
 
+from typing import Any, Dict, List, Optional, Tuple
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Tuple, Dict, Any, Optional, List
 
 
 class VAE(nn.Module):

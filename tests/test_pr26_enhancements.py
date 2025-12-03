@@ -20,20 +20,20 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Tests for PR #26 enhancements: DB term, N term, RNG utility, liboqs hooks
 """
 
-import pytest
 import numpy as np
+import pytest
 
-from omni_anomaly_engine.utils.rng import (
-    DeterministicRNG,
-    get_global_rng,
-    set_global_seed,
-    reset_global_rng,
-)
 from omni_anomaly_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_anomaly_engine.detectors.directive import SigmaDirectiveDetector
 from omni_anomaly_engine.security.encryption import (
     QuantumResistantEncryption,
     SecureDataHandler,
+)
+from omni_anomaly_engine.utils.rng import (
+    DeterministicRNG,
+    get_global_rng,
+    reset_global_rng,
+    set_global_seed,
 )
 
 

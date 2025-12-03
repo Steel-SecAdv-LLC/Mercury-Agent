@@ -22,7 +22,8 @@ Monitors 55 CISA National Critical Functions for anomalies and models
 interdependencies for cascading failure analysis.
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 
 

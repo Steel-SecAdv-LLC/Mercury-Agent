@@ -18,6 +18,14 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
+
 # Neural fusion layer for combining multiple detector outputs
 #
 # Implements hybrid fusion strategy:
@@ -25,11 +33,6 @@ from __future__ import annotations
 # - Late fusion: Each detector produces anomaly score → weighted average with learned weights
 # - Hybrid: Concatenate raw features + detector scores → attention network
 
-from typing import TYPE_CHECKING, Dict, Tuple, Optional, Any, List
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
 if TYPE_CHECKING:
     import numpy as np
@@ -320,17 +323,24 @@ class OmniAvaEngine:
     Ethical guards enforce threshold >0.8 for rollback and net-positive outcomes.
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None, state_dim: int = 50):
+    def __init__(
+        self,
+        config: Optional[Dict[str, Any]] = None,
+        state_dim: int = 50,
+        rng: Optional[DeterministicRNG] = None,
+    ):
         """
         Initialize OmniAvaEngine.
 
         Args:
             config: Configuration dictionary with term weights and flags
             state_dim: Dimensionality of state vector 𝔄
+            rng: Optional DeterministicRNG for reproducibility
         """
         import numpy as np
 
         self.np = np
+        self._rng = rng or get_global_rng()
         self.state_dim = state_dim
         self.config = config or {}
 
@@ -409,8 +419,8 @@ class OmniAvaEngine:
         self.ethical_threshold = self.config.get("ethical_threshold", 0.8)
         self.noise_scale = self.config.get("noise_scale", 0.01)
 
-        self.vqe_params = self.np.random.randn(state_dim) * 0.1
-        self.qbm_J = self.np.random.randn(state_dim, state_dim) * 0.01
+        self.vqe_params = self._rng.randn(state_dim) * 0.1
+        self.qbm_J = self._rng.randn(state_dim, state_dim) * 0.01
         self.qbm_J = (self.qbm_J + self.qbm_J.T) / 2
 
         self.attention_weights = self.np.ones(state_dim) / state_dim
@@ -444,7 +454,7 @@ class OmniAvaEngine:
 
         diag = self.np.diag(scalar_values)
 
-        symmetry = self.np.random.randn(self.state_dim, self.state_dim) * 0.01
+        symmetry = self._rng.randn(self.state_dim, self.state_dim) * 0.01
         symmetry = (symmetry + symmetry.T) / 2
 
         self.ethical_matrix = diag + symmetry
@@ -557,7 +567,7 @@ class OmniAvaEngine:
         if self.enable_Omega:
             strand += self.omega_weight * self._term_Omega(state)
 
-        noise = self.np.random.randn(self.state_dim) * self.noise_scale
+        noise = self._rng.randn(self.state_dim) * self.noise_scale
         strand += noise
 
         return strand
@@ -686,7 +696,7 @@ class OmniAvaEngine:
             if self.enable_inf_b:
                 state_next = self._term_inf_b(state_next)
 
-            noise = self.np.random.randn(self.state_dim) * self.noise_scale
+            noise = self._rng.randn(self.state_dim) * self.noise_scale
             state_next += noise
 
             if self.enable_purity_invariant:
@@ -762,12 +772,12 @@ class OmniAvaEngine:
             return self.np.zeros_like(state)
         energy = -self.np.sum(state**2)
         prob = self.np.exp(energy / T)
-        perturbation: np.ndarray = self.np.random.randn(self.state_dim) * prob * 0.1
+        perturbation: np.ndarray = self._rng.randn(self.state_dim) * prob * 0.1
         return perturbation
 
     def _term_Lambda(self, state: "np.ndarray") -> "np.ndarray":
         """𝚲: Chaos Lyapunov exponents."""
-        perturbed = state + self.np.random.randn(self.state_dim) * 0.01
+        perturbed = state + self._rng.randn(self.state_dim) * 0.01
         divergence = perturbed - state
         result: np.ndarray = divergence * 0.05
         return result
@@ -946,7 +956,7 @@ class OmniAvaEngine:
             Tuple of (final_state, convergence_history)
         """
         if initial_state is None:
-            state = self.np.random.randn(self.state_dim) * 0.1
+            state = self._rng.randn(self.state_dim) * 0.1
         else:
             state = initial_state.copy()
 

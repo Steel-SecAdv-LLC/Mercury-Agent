@@ -29,10 +29,11 @@ Research sources:
 
 """
 
-from typing import Dict, List, Optional
-import numpy as np
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import Dict, List, Optional
+
+import numpy as np
 
 
 class PatientStatus(Enum):

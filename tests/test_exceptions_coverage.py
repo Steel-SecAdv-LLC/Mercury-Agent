@@ -21,13 +21,14 @@ Tests for exception classes
 """
 
 import pytest
+
 from omni_anomaly_engine.core.exceptions import (
-    OmniAnomalyException,
-    DetectorException,
-    ModelException,
-    FusionException,
     ConfigException,
     DataException,
+    DetectorException,
+    FusionException,
+    ModelException,
+    OmniAnomalyException,
     SecurityException,
 )
 

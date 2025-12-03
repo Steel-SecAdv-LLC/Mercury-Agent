@@ -20,10 +20,12 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Spatial anomaly detector for geographic data
 """
 
+from typing import Any, Dict, Optional, Union
+
 import numpy as np
 import torch
 from sklearn.neighbors import LocalOutlierFactor
-from typing import Dict, Any, Union, Optional
+
 from omni_anomaly_engine.core.base import BaseDetector
 from omni_anomaly_engine.core.exceptions import DetectorException
 

@@ -44,9 +44,9 @@ professionals.
 
 """
 
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass, field
 import logging
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
 
 @dataclass

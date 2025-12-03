@@ -18,6 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Agentic AI autonomy modules."""
 
-from omni_anomaly_engine.agentic.agentic_autonomy import AgenticAutonomy, AgentState, AgentAction
+from omni_anomaly_engine.agentic.agentic_autonomy import AgentAction, AgenticAutonomy, AgentState
 
 __all__ = ["AgenticAutonomy", "AgentState", "AgentAction"]

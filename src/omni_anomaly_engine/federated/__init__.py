@@ -23,8 +23,8 @@ Implements federated learning inspired by Flower/PySyft frameworks.
 """
 
 from .federated_detector import (
-    FederatedAnomalyDetector,
     CISAFederatedCoordinator,
+    FederatedAnomalyDetector,
     FederatedStrategy,
     PrivacyLevel,
 )

@@ -19,7 +19,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """Tests for explicit hybrid fusion methods"""
 
 import torch
-from omni_anomaly_engine.core.fusion import HybridFusionLayer, EarlyFusionEncoder
+
+from omni_anomaly_engine.core.fusion import EarlyFusionEncoder, HybridFusionLayer
 
 
 def test_extract_features():

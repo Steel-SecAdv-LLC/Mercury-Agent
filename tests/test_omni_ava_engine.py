@@ -22,10 +22,11 @@ Comprehensive test suite for Enhanced Omni-AVA Equation Engine
 Tests convergence, all 22 terms, threat detection, and ethical integration.
 """
 
-import pytest
 import numpy as np
-from omni_anomaly_engine.core.fusion import OmniAvaEngine
+import pytest
+
 from omni_anomaly_engine.core.ethical_config import DEFAULT_CONFIG
+from omni_anomaly_engine.core.fusion import OmniAvaEngine
 
 
 class TestOmniAvaEngine:

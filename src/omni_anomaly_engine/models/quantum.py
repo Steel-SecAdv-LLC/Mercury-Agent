@@ -21,8 +21,9 @@ Quantum-inspired anomaly detection model
 Enhanced with real quantum algorithms from FIND-YOU-ARC-CODE
 """
 
+from typing import Any, Dict, Optional, Union
+
 import numpy as np
-from typing import Dict, Any, Union, Optional
 
 
 class QuantumAnomalyModel:

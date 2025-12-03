@@ -35,9 +35,12 @@ Research sources:
 
 """
 
-import numpy as np
-from typing import Dict, Any, Union, Optional
 import logging
+from typing import Any, Dict, Optional, Union
+
+import numpy as np
+
+from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
 class SimulationModule:
@@ -52,7 +55,12 @@ class SimulationModule:
     - Ethical alignment via eternal_cycle invariants
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None, **kwargs):
+    def __init__(
+        self,
+        config: Optional[Dict[str, Any]] = None,
+        rng: Optional[DeterministicRNG] = None,
+        **kwargs,
+    ):
         """
         Initialize mathematical simulation module.
 
@@ -61,12 +69,14 @@ class SimulationModule:
                 - num_branches: Number of multiverse branches to explore
                 - embedding_dim: Dimension of feature embeddings
                 - ethical_threshold: Threshold for ethical risk flagging
+            rng: Optional DeterministicRNG for reproducibility
         """
         self.config = config or {}
         self.num_branches = self.config.get("num_branches", 10)
         self.embedding_dim = self.config.get("embedding_dim", 128)
         self.ethical_threshold = self.config.get("ethical_threshold", 0.8)
         self.logger = logging.getLogger(__name__)
+        self._rng = rng or get_global_rng()
 
     def simulate_paradox(self, paradox_type: str, iterations: int = 100) -> Dict[str, Any]:
         """
@@ -352,7 +362,7 @@ class SimulationModule:
         simulated_zeros = []
         for i in range(zeros_checked):
             imaginary_part = 14.134725 + i * 10.0
-            real_part = critical_line + np.random.normal(0, 0.001)
+            real_part = critical_line + self._rng.normal(0, 0.001)
             deviation = abs(real_part - critical_line)
             simulated_zeros.append(
                 {
@@ -566,7 +576,7 @@ class SimulationModule:
         normalized = (data - np.mean(data, axis=0)) / (np.std(data, axis=0) + 1e-8)
 
         if data_dim < self.embedding_dim:
-            padding = np.random.randn(batch_size, self.embedding_dim - data_dim) * 0.1
+            padding = self._rng.randn(batch_size, self.embedding_dim - data_dim) * 0.1
             features = np.concatenate([normalized, padding], axis=1)
         else:
             features = normalized[:, : self.embedding_dim]
@@ -605,7 +615,7 @@ class SimulationModule:
 
         branch_predictions = []
         for branch in range(self.num_branches):
-            branch_noise = np.random.randn(*features.shape) * 0.1
+            branch_noise = self._rng.randn(*features.shape) * 0.1
             branch_features = features + branch_noise
 
             branch_score = np.mean(np.abs(branch_features), axis=1)

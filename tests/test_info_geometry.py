@@ -18,8 +18,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Tests for Information Geometry integration."""
 
-import pytest
 import numpy as np
+import pytest
+
 from omni_anomaly_engine.core.info_geometry import InformationGeometryDetector
 
 

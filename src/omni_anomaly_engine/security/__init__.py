@@ -22,10 +22,10 @@ Security module for OMNI ♱ AVA
 Provides threat detection, rate limiting, and encryption utilities.
 """
 
-from omni_anomaly_engine.security.threat_detection import ThreatDetector
-from omni_anomaly_engine.security.rate_limiting import RateLimiter
 from omni_anomaly_engine.security.encryption import SecureDataHandler
 from omni_anomaly_engine.security.intelligence_fusion import IntelligenceFusionEngine
+from omni_anomaly_engine.security.rate_limiting import RateLimiter
+from omni_anomaly_engine.security.threat_detection import ThreatDetector
 
 __all__ = [
     "ThreatDetector",

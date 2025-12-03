@@ -18,9 +18,10 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Neural cognitive anomaly detection model."""
 
-import numpy as np
-from typing import Dict, Any, Union
 from collections import deque
+from typing import Any, Dict, Union
+
+import numpy as np
 
 
 class NeuralCognitiveModel:

@@ -21,13 +21,15 @@ Training utilities for fusion model using PyTorch Lightning
 Enhanced with Ava Equation state evolution optimizers
 """
 
+from typing import Dict, Optional, Tuple, Union
+
+import numpy as np
+import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset
-import pytorch_lightning as pl
-import numpy as np
-from typing import Dict, Optional, Tuple, Union
+
 from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
 
 

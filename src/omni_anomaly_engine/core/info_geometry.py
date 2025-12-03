@@ -24,7 +24,8 @@ Based on: IGEOOD - An Information Geometry Approach to Out-of-Distribution Detec
 Uses Fisher-Rao geodesic distance on Riemannian manifolds for OOD detection.
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 import numpy as np
 
 

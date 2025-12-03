@@ -36,10 +36,11 @@ Research source: Wikipedia - Space technology
 
 """
 
-import numpy as np
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
 
 
 class SystemState(Enum):

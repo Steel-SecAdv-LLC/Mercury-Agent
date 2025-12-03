@@ -30,12 +30,15 @@ Interactive GUI for non-technical users featuring:
 Run with: streamlit run streamlit_dashboard.py
 """
 
-import streamlit as st
+import json
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from typing import Optional
-import json
+import streamlit as st
+
+from omni_anomaly_engine.utils.rng import get_global_rng
 
 st.set_page_config(
     page_title="OMNI ♱ AVA Dashboard",
@@ -158,10 +161,11 @@ def cardiology_interface():
             if ecg_file and ecg_data is not None:
                 if len(ecg_data.shape) == 1:
                     ecg_data = ecg_data.reshape(1, -1)
+                rng = get_global_rng()
                 patient_data["ecg_signal"] = (
                     ecg_data[:, :1000].reshape(12, -1)
                     if ecg_data.shape[1] >= 1000
-                    else np.random.randn(12, 1000)
+                    else rng.randn(12, 1000)
                 )
 
             patient_data["biomarkers"] = {
@@ -351,15 +355,16 @@ def cybint_interface():
 
             threat_data = {}
 
+            rng = get_global_rng()
             if threat_file:
                 threat_data["threat_features"] = load_file_data(threat_file)
             else:
-                threat_data["threat_features"] = np.random.randn(256)
+                threat_data["threat_features"] = rng.randn(256)
 
             if malware_file:
                 threat_data["malware_features"] = load_file_data(malware_file)
             else:
-                threat_data["malware_features"] = np.random.randn(128)
+                threat_data["malware_features"] = rng.randn(128)
 
             result = processor.process_cybint(threat_data)
 

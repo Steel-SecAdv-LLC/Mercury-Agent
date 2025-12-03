@@ -29,10 +29,11 @@ Research source: Bain & Company Technology Report 2025
 
 """
 
-import numpy as np
-from typing import Dict, List, Optional
 from dataclasses import dataclass
 from enum import Enum
+from typing import Dict, List, Optional
+
+import numpy as np
 
 
 class AgentState(Enum):

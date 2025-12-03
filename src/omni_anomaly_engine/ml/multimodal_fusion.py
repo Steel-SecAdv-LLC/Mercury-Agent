@@ -26,9 +26,10 @@ using cross-attention mechanisms for improved anomaly detection.
 
 """
 
+from typing import Dict
+
 import torch
 import torch.nn as nn
-from typing import Dict
 
 
 class CrossModalAttention(nn.Module):

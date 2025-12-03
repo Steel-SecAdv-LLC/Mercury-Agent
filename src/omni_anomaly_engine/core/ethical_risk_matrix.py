@@ -35,11 +35,12 @@ References:
 MIT-compatible implementation.
 """
 
-import numpy as np
-from typing import Dict, List, Optional, Any, Callable, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+import numpy as np
 
 
 class RiskLevel(Enum):

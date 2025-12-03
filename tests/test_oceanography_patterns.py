@@ -19,6 +19,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """Tests for Oceanography Patterns module"""
 
 import numpy as np
+
 from omni_anomaly_engine.ocean.oceanography_patterns import (
     OceanographyPatterns,
     WavePattern,

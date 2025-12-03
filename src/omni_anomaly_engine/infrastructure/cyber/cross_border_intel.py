@@ -22,7 +22,8 @@ Correlates anomaly patterns across international boundaries (EU-US)
 for comprehensive threat intelligence.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
+
 import numpy as np
 
 

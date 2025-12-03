@@ -28,9 +28,10 @@ Research sources:
 
 """
 
-from typing import Dict, List, Optional
-import numpy as np
 from enum import Enum
+from typing import Dict, List, Optional
+
+import numpy as np
 
 
 class EnergySubsector(Enum):

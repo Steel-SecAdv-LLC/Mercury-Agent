@@ -35,10 +35,11 @@ Research sources:
 
 """
 
-import numpy as np
-from typing import Dict, Any, List, Optional
 import logging
 from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+import numpy as np
 from scipy import fft
 
 from omni_anomaly_engine.core.three_r_mechanism import ResonanceEngine

@@ -32,8 +32,8 @@ Research source: Bain & Company Technology Report 2025
 
 """
 
-from typing import Any, Dict, List
 from dataclasses import dataclass
+from typing import Any, Dict, List
 
 
 @dataclass

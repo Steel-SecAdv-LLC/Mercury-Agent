@@ -28,17 +28,27 @@ Reference: Mirjalili et al. (2014) - Grey Wolf Optimizer
 
 """
 
+from typing import Callable, Optional, Tuple
+
 import numpy as np
-from typing import Callable, Tuple, Optional
+
+from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
 class GreyWolfOptimizer:
     """GWO for feature selection and hyperparameter optimization."""
 
-    def __init__(self, n_wolves: int = 10, max_iter: int = 50, dim: Optional[int] = None):
+    def __init__(
+        self,
+        n_wolves: int = 10,
+        max_iter: int = 50,
+        dim: Optional[int] = None,
+        rng: Optional[DeterministicRNG] = None,
+    ):
         self.n_wolves = n_wolves
         self.max_iter = max_iter
         self.dim = dim
+        self._rng = rng or get_global_rng()
 
         self.alpha_pos = None
         self.beta_pos = None
@@ -64,7 +74,7 @@ class GreyWolfOptimizer:
         """
         dim = len(lb)
 
-        positions = np.random.uniform(lb, ub, (self.n_wolves, dim))
+        positions = self._rng.uniform(lb, ub, (self.n_wolves, dim))
 
         for iteration in range(self.max_iter):
             for i in range(self.n_wolves):
@@ -93,22 +103,22 @@ class GreyWolfOptimizer:
 
             for i in range(self.n_wolves):
                 for j in range(dim):
-                    r1 = np.random.random()
-                    r2 = np.random.random()
+                    r1 = self._rng.random()
+                    r2 = self._rng.random()
                     A1 = 2 * a * r1 - a
                     C1 = 2 * r2
                     D_alpha = abs(C1 * self.alpha_pos[j] - positions[i, j])
                     X1 = self.alpha_pos[j] - A1 * D_alpha
 
-                    r1 = np.random.random()
-                    r2 = np.random.random()
+                    r1 = self._rng.random()
+                    r2 = self._rng.random()
                     A2 = 2 * a * r1 - a
                     C2 = 2 * r2
                     D_beta = abs(C2 * self.beta_pos[j] - positions[i, j])
                     X2 = self.beta_pos[j] - A2 * D_beta
 
-                    r1 = np.random.random()
-                    r2 = np.random.random()
+                    r1 = self._rng.random()
+                    r2 = self._rng.random()
                     A3 = 2 * a * r1 - a
                     C3 = 2 * r2
                     D_delta = abs(C3 * self.delta_pos[j] - positions[i, j])

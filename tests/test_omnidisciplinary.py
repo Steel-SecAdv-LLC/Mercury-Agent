@@ -18,8 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Basic integration tests for omnidisciplinary modules"""
 
-import pytest
 import numpy as np
+import pytest
 
 
 def test_medical_abms_import():

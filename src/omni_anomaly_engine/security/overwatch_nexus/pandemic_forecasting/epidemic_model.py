@@ -36,11 +36,12 @@ References:
 - Epidemiological literature: Kermack-McKendrick (1927), Anderson-May (1991)
 """
 
-import numpy as np
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass
-from scipy.integrate import odeint
 import logging
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
+import numpy as np
+from scipy.integrate import odeint
 
 
 @dataclass

@@ -22,14 +22,15 @@ Additional training tests to boost coverage above 85%
 
 import pytest
 import torch
+
 from omni_anomaly_engine.ml.training import (
-    AvaOptimizer,
-    AvaMomentumOptimizer,
+    AnomalyDataset,
     AvaExponentialDecayOptimizer,
     AvaHarmonicOptimizer,
-    create_ava_optimizer,
+    AvaMomentumOptimizer,
+    AvaOptimizer,
     FusionTrainer,
-    AnomalyDataset,
+    create_ava_optimizer,
 )
 
 

@@ -19,7 +19,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """Tests for CRISPR-inspired self-healing module"""
 
 import numpy as np
-from omni_anomaly_engine.core.self_healing import CRISPRInspiredSelfHealing, AnomalySignature
+
+from omni_anomaly_engine.core.self_healing import AnomalySignature, CRISPRInspiredSelfHealing
 
 
 def test_self_healing_initialization():
@@ -73,8 +74,8 @@ def test_stage_3_interference():
 
 def test_heritable_immunity():
     """Test heritable immunity via save/load"""
-    import tempfile
     import os
+    import tempfile
 
     system = CRISPRInspiredSelfHealing()
 

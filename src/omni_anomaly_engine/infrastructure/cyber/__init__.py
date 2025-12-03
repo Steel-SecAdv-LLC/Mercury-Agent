@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Cybersecurity and cross-border intelligence monitoring."""
 
-from .space_infrastructure import SpaceInfrastructureMonitor
 from .cross_border_intel import CrossBorderIntelligence
+from .space_infrastructure import SpaceInfrastructureMonitor
 
 __all__ = ["SpaceInfrastructureMonitor", "CrossBorderIntelligence"]

@@ -19,7 +19,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """Tests for Symbolic Reasoning integration."""
 
 import numpy as np
-from omni_anomaly_engine.core.symbolic_reasoning import SymbolicRule, SymbolicReasoningEngine
+
+from omni_anomaly_engine.core.symbolic_reasoning import SymbolicReasoningEngine, SymbolicRule
 
 
 class TestSymbolicRule:

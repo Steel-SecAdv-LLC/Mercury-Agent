@@ -28,9 +28,10 @@ Research sources:
 Note: This compares approaches, doesn't copy PyOD code
 """
 
-from typing import Dict, List, Optional, Any
-import numpy as np
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+import numpy as np
 
 
 class PyODAlgorithm(Enum):

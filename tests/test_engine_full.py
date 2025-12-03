@@ -20,9 +20,10 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Full engine tests to boost coverage
 """
 
-import numpy as np
-import tempfile
 import os
+import tempfile
+
+import numpy as np
 
 from omni_anomaly_engine.engine import OmniAnomalyEngine
 

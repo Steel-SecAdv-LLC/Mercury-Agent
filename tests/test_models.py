@@ -21,10 +21,11 @@ Test model modules
 """
 
 import numpy as np
-from omni_anomaly_engine.models.quantum import QuantumAnomalyModel
-from omni_anomaly_engine.models.astrophysical import AstrophysicalAnomalyModel
+
 from omni_anomaly_engine.models.affective import AffectiveAnomalyModel
+from omni_anomaly_engine.models.astrophysical import AstrophysicalAnomalyModel
 from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
+from omni_anomaly_engine.models.quantum import QuantumAnomalyModel
 
 
 def test_quantum_model(sample_data):

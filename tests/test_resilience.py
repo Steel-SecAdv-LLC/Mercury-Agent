@@ -21,9 +21,10 @@ Test resilience modules
 """
 
 import time
+
 from omni_anomaly_engine.resilience.circuit_breaker import CircuitBreaker
-from omni_anomaly_engine.resilience.retry import RetryPolicy
 from omni_anomaly_engine.resilience.health_monitoring import HealthMonitor
+from omni_anomaly_engine.resilience.retry import RetryPolicy
 from omni_anomaly_engine.resilience.self_healing import SelfHealingEngine
 
 

@@ -19,7 +19,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """Tests for Chaos-Evolutionary Optimization integration."""
 
 import numpy as np
-from omni_anomaly_engine.core.chaos_evolutionary import ChaoticMap, ChaosEvolutionOptimizer
+
+from omni_anomaly_engine.core.chaos_evolutionary import ChaosEvolutionOptimizer, ChaoticMap
 
 
 class TestChaoticMap:

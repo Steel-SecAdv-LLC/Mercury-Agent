@@ -20,12 +20,12 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Test security modules
 """
 
-from omni_anomaly_engine.security.threat_detection import (
-    ThreatDetector,
-    BanishmentAction,
-)
 from omni_anomaly_engine.security.encryption import SecureDataHandler
 from omni_anomaly_engine.security.rate_limiting import RateLimiter
+from omni_anomaly_engine.security.threat_detection import (
+    BanishmentAction,
+    ThreatDetector,
+)
 
 
 def test_threat_detector_initialization():

@@ -21,6 +21,7 @@ Tests for SimulationModule (paradoxes, conjectures, Millennium Prize Problems).
 """
 
 import numpy as np
+
 from omni_anomaly_engine.models.simulation import SimulationModule
 
 

@@ -21,13 +21,14 @@ Comprehensive encoder tests to boost coverage
 """
 
 import torch
+
 from omni_anomaly_engine.ml.encoders import (
-    StatisticalEncoder,
-    TemporalEncoder,
+    AffectiveEncoder,
+    AstrophysicalEncoder,
     BiometricEncoder,
     QuantumEncoder,
-    AstrophysicalEncoder,
-    AffectiveEncoder,
+    StatisticalEncoder,
+    TemporalEncoder,
 )
 from omni_anomaly_engine.ml.harmonic_encoder import HarmonicEncoder
 

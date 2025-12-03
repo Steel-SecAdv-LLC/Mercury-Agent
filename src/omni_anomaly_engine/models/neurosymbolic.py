@@ -22,10 +22,11 @@ Neurosymbolic Engine - Fusion of neural networks and symbolic reasoning
 Original implementation for OMNI ♱ AVA neural-symbolic AI archetype.
 """
 
-import numpy as np
-from typing import Dict, List, Any, Set
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
+from typing import Any, Dict, List, Set
+
+import numpy as np
 
 _FOUNDATION_HASH = "D19L12E19A92"
 

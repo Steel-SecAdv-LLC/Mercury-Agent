@@ -21,10 +21,11 @@ Test harmonic encoder functionality
 """
 
 import numpy as np
+
 from omni_anomaly_engine.ml.harmonic_encoder import (
-    SphericalHarmonicDecomposer,
     FourierHarmonicAnalyzer,
     QuantumHarmonicOscillator,
+    SphericalHarmonicDecomposer,
 )
 
 

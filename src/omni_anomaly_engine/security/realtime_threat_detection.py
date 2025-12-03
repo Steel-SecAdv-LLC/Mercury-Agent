@@ -28,13 +28,14 @@ https://github.com/yzhao062/pyod
 MIT-compatible implementation using scikit-learn and numpy.
 """
 
-import numpy as np
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import numpy as np
+from sklearn.covariance import EllipticEnvelope
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
-from sklearn.covariance import EllipticEnvelope
 
 
 @dataclass

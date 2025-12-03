@@ -18,9 +18,10 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Real-data tests for Cyber Fortress module using simulated datasets."""
 
-import pytest
-import sys
 import os
+import sys
+
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 

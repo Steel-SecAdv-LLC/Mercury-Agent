@@ -27,7 +27,8 @@ without prior labels, specifically designed for industrial scenarios with low-se
 and non-prominence anomalies.
 """
 
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 
 

@@ -19,6 +19,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """Extended tests for neurosymbolic_engine to reach >95% coverage."""
 
 import ast
+
 from omni_anomaly_engine.core.neurosymbolic_engine import NeurosymbolicEngine
 
 
@@ -48,6 +49,7 @@ def func3():
     def test_backprop_tune_patterns_with_labels(self):
         """Test backprop tuning with explicit labels."""
         import numpy as np
+
         from omni_anomaly_engine.core.neurosymbolic_engine import NeurosymbolicConfig
 
         config = NeurosymbolicConfig(enable_backprop_tuning=True)
@@ -97,6 +99,7 @@ def func3():
     def test_backprop_tune_convergence(self):
         """Test backprop tuning shows convergence."""
         import numpy as np
+
         from omni_anomaly_engine.core.neurosymbolic_engine import NeurosymbolicConfig
 
         config = NeurosymbolicConfig(enable_backprop_tuning=True)

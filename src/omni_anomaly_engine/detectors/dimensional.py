@@ -21,13 +21,15 @@ Dimensional analyzer using PCA, t-SNE, and neural projection
 Enhanced with DB term (dimensional code-breaking via Fourier analysis)
 """
 
+from typing import Any, Dict, Optional, Union
+
 import numpy as np
 import torch
 import torch.nn as nn
+from scipy.fft import fft
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-from scipy.fft import fft
-from typing import Dict, Any, Union, Optional
+
 from omni_anomaly_engine.core.base import BaseDetector
 from omni_anomaly_engine.core.exceptions import DetectorException
 

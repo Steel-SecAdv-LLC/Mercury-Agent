@@ -24,7 +24,8 @@ Unique to EU Critical Entities Directive (not in CISA 16 sectors).
 Reference: EUR-Lex Directive (EU) 2022/2557
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 
 

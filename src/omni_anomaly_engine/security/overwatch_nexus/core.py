@@ -33,16 +33,17 @@ References:
 - Quantum resilience: omni_anomaly_engine/core/fusion.py (OmniAvaEngine)
 """
 
+import logging
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import torch
-from typing import Dict, Any, Optional, List
-from dataclasses import dataclass, field
-import logging
 
 from omni_anomaly_engine.core.ethical_config import DEFAULT_CONFIG
 from omni_anomaly_engine.security.intelligence_fusion import (
-    IntelligenceFusionEngine,
     IntelligenceDiscipline,
+    IntelligenceFusionEngine,
 )
 
 

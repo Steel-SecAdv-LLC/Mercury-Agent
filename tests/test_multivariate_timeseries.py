@@ -18,11 +18,12 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Tests for Multivariate Time-Series Anomaly Detection."""
 
-import pytest
 import numpy as np
+import pytest
+
 from omni_anomaly_engine.core.multivariate_timeseries import (
-    MultivariateTSDetector,
     ChaosMultivariateFusion,
+    MultivariateTSDetector,
 )
 
 

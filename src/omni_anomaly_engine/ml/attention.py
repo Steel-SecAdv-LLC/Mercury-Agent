@@ -20,10 +20,11 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Attention mechanisms for detector fusion and cross-modal integration
 """
 
+from typing import Tuple
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Tuple
 
 
 class MultiHeadDetectorAttention(nn.Module):

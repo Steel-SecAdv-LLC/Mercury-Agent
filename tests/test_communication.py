@@ -21,10 +21,11 @@ Test communication utilities
 """
 
 import asyncio
+
 from omni_anomaly_engine.utils.comm import (
+    AsyncMessageQueue,
     Message,
     MessagePriority,
-    AsyncMessageQueue,
     SimplePubSub,
 )
 

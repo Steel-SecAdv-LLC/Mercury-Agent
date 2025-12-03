@@ -21,12 +21,13 @@ Harmonic analysis encoder using spherical harmonics and Fourier analysis
 Extracted from Harmonic Analysis Engine with memorial codes removed
 """
 
+from typing import Dict, Optional, Tuple
+
 import numpy as np
 import torch
 import torch.nn as nn
-from typing import Dict, Optional, Tuple
-from scipy.special import sph_harm
 from scipy.fft import fft, ifft
+from scipy.special import sph_harm
 
 
 class SphericalHarmonicDecomposer:
@@ -238,6 +239,7 @@ class QuantumHarmonicOscillator:
             Wavefunction values
         """
         import math
+
         from scipy.special import hermite
 
         alpha = np.sqrt(self.mass * self.omega / self.hbar)

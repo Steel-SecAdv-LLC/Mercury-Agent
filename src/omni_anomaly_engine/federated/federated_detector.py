@@ -28,9 +28,12 @@ Research sources:
 
 """
 
-from typing import Dict, List
-import numpy as np
 from enum import Enum
+from typing import Dict, List, Optional
+
+import numpy as np
+
+from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
 class FederatedStrategy(Enum):
@@ -75,6 +78,7 @@ class FederatedAnomalyDetector:
         num_clients: int = 10,
         epsilon: float = 1.0,
         delta: float = 1e-5,
+        rng: Optional[DeterministicRNG] = None,
     ):
         self.strategy = strategy
         self.privacy_level = privacy_level
@@ -84,6 +88,7 @@ class FederatedAnomalyDetector:
         self.global_model_weights = None
         self.client_models = {}
         self.round_number = 0
+        self._rng = rng or get_global_rng()
 
     def federated_train(
         self, client_data: Dict[str, np.ndarray], local_epochs: int = 5, num_rounds: int = 10
@@ -188,12 +193,12 @@ class FederatedAnomalyDetector:
     def _local_train(self, client_id: str, data: np.ndarray, epochs: int) -> np.ndarray:
         """Simulate local training on client device."""
         if self.global_model_weights is None:
-            self.global_model_weights = np.random.randn(data.shape[1])
+            self.global_model_weights = self._rng.randn(data.shape[1])
 
         local_model = self.global_model_weights.copy()
 
         for epoch in range(epochs):
-            gradient = np.random.randn(len(local_model)) * 0.01
+            gradient = self._rng.randn(len(local_model)) * 0.01
             local_model -= 0.01 * gradient
 
         model_update = local_model - self.global_model_weights
@@ -234,7 +239,7 @@ class FederatedAnomalyDetector:
         sensitivity = 1.0
         sigma = sensitivity * np.sqrt(2 * np.log(1.25 / self.delta)) / self.epsilon
 
-        noise = np.random.normal(0, sigma, size=model_update.shape)
+        noise = self._rng.normal(0, sigma, size=model_update.shape)
 
         return model_update + noise
 
@@ -249,7 +254,7 @@ class FederatedAnomalyDetector:
         personalized_model = global_model.copy()
 
         for _ in range(personalization_epochs):
-            gradient = np.random.randn(len(personalized_model)) * 0.01
+            gradient = self._rng.randn(len(personalized_model)) * 0.01
             personalized_model -= 0.01 * gradient
 
         return personalized_model

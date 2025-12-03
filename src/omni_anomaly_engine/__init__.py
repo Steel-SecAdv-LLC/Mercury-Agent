@@ -40,10 +40,10 @@ def __getattr__(name: str):
         return EngineConfig
     elif name in ("OmniAnomalyException", "DetectorException", "ModelException", "FusionException"):
         from omni_anomaly_engine.core.exceptions import (
-            OmniAnomalyException,
             DetectorException,
-            ModelException,
             FusionException,
+            ModelException,
+            OmniAnomalyException,
         )
 
         return {

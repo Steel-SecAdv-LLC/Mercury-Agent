@@ -22,7 +22,7 @@ Anomaly Detection Engine Comparison and Benchmarking
 Compare OMNI ♱ AVA with top open-source anomaly detection engines.
 """
 
-from .pyod_integration import PyODComparison, PyODAlgorithm, CombinationMethod
+from .pyod_integration import CombinationMethod, PyODAlgorithm, PyODComparison
 
 __all__ = [
     "PyODComparison",
