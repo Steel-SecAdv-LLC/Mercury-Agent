@@ -71,8 +71,8 @@ except ImportError:
 
 if not LIBOQS_AVAILABLE:
     try:
-        import pqcrypto.sign.dilithium2 as dilithium_fallback
         import pqcrypto.kem.kyber512 as kyber_fallback
+        import pqcrypto.sign.dilithium2 as dilithium_fallback
 
         PQCRYPTO_AVAILABLE = True
         DILITHIUM_AVAILABLE = True
