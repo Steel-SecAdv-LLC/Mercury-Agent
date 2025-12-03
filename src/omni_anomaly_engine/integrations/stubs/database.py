@@ -317,9 +317,7 @@ class DatabaseStub:
             "query_count": self._query_count,
             "error_count": self._error_count,
             "avg_latency_ms": (
-                self._total_latency / self._query_count
-                if self._query_count > 0
-                else 0
+                self._total_latency / self._query_count if self._query_count > 0 else 0
             ),
             "table_count": len(self._tables),
             "total_rows": sum(len(t) for t in self._tables.values()),

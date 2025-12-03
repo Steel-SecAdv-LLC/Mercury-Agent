@@ -91,9 +91,7 @@ class Route:
             param_name = match.group(1)
             param_names.append(param_name)
             # Replace with named capture group
-            regex_pattern = regex_pattern.replace(
-                match.group(0), f"(?P<{param_name}>[^/]+)"
-            )
+            regex_pattern = regex_pattern.replace(match.group(0), f"(?P<{param_name}>[^/]+)")
 
         # Add anchors
         regex_pattern = f"^{regex_pattern}$"
@@ -149,8 +147,7 @@ class MethodNotAllowedError(Exception):
 
     def __init__(self, path: str, method: str, allowed: list[str]):
         super().__init__(
-            f"Method {method} not allowed for {path}. "
-            f"Allowed: {', '.join(allowed)}"
+            f"Method {method} not allowed for {path}. " f"Allowed: {', '.join(allowed)}"
         )
         self.path = path
         self.method = method

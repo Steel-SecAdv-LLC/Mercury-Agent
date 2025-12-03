@@ -177,21 +177,27 @@ class WeatherServiceStub:
 
         # Determine condition based on humidity and temperature
         if humidity > 80:
-            condition = self._rng.choice([
-                WeatherCondition.RAIN,
-                WeatherCondition.CLOUDY,
-                WeatherCondition.FOG,
-            ])
+            condition = self._rng.choice(
+                [
+                    WeatherCondition.RAIN,
+                    WeatherCondition.CLOUDY,
+                    WeatherCondition.FOG,
+                ]
+            )
         elif humidity > 60:
-            condition = self._rng.choice([
-                WeatherCondition.PARTLY_CLOUDY,
-                WeatherCondition.CLOUDY,
-            ])
+            condition = self._rng.choice(
+                [
+                    WeatherCondition.PARTLY_CLOUDY,
+                    WeatherCondition.CLOUDY,
+                ]
+            )
         else:
-            condition = self._rng.choice([
-                WeatherCondition.CLEAR,
-                WeatherCondition.PARTLY_CLOUDY,
-            ])
+            condition = self._rng.choice(
+                [
+                    WeatherCondition.CLEAR,
+                    WeatherCondition.PARTLY_CLOUDY,
+                ]
+            )
 
         return WeatherData(
             location=location,
@@ -288,13 +294,15 @@ class WeatherServiceStub:
                 ("Winter Storm Warning", "winter", "severe"),
             ]
             alert = self._rng.choice(alert_types)
-            alerts.append({
-                "title": alert[0],
-                "type": alert[1],
-                "severity": alert[2],
-                "location": location,
-                "expires": (datetime.now() + timedelta(hours=24)).isoformat(),
-            })
+            alerts.append(
+                {
+                    "title": alert[0],
+                    "type": alert[1],
+                    "severity": alert[2],
+                    "location": location,
+                    "expires": (datetime.now() + timedelta(hours=24)).isoformat(),
+                }
+            )
 
         return alerts
 

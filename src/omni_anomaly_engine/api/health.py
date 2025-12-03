@@ -263,9 +263,7 @@ class HealthChecker:
         """
         checks_to_run = self._checks
         if tags:
-            checks_to_run = [
-                c for c in self._checks if any(t in c.tags for t in tags)
-            ]
+            checks_to_run = [c for c in self._checks if any(t in c.tags for t in tags)]
 
         # Run checks concurrently
         tasks = [self.run_check(check) for check in checks_to_run]
@@ -283,8 +281,7 @@ class HealthChecker:
         )
 
         has_degradation = any(
-            result.status in (ComponentStatus.DOWN, ComponentStatus.DEGRADED)
-            for result in results
+            result.status in (ComponentStatus.DOWN, ComponentStatus.DEGRADED) for result in results
         )
 
         if has_critical_failure:
@@ -550,8 +547,10 @@ async def health_metrics() -> Response:
     ]
 
     for component in components:
-        value = 1 if component.status == ComponentStatus.UP else (
-            0.5 if component.status == ComponentStatus.DEGRADED else 0
+        value = (
+            1
+            if component.status == ComponentStatus.UP
+            else (0.5 if component.status == ComponentStatus.DEGRADED else 0)
         )
         lines.append(f'omni_ava_component_status{{component="{component.name}"}} {value}')
 

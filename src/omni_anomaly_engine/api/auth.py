@@ -228,9 +228,7 @@ class APIKeyStore:
             user_id=user_id,
             permissions=permissions or {Permission.READ, Permission.DETECT},
             expires_at=(
-                datetime.now() + timedelta(days=expires_in_days)
-                if expires_in_days
-                else None
+                datetime.now() + timedelta(days=expires_in_days) if expires_in_days else None
             ),
             rate_limit=rate_limit,
         )

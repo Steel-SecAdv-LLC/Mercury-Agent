@@ -57,9 +57,7 @@ class CacheEntry:
             "value": self.value,
             "created_at": datetime.fromtimestamp(self.created_at).isoformat(),
             "expires_at": (
-                datetime.fromtimestamp(self.expires_at).isoformat()
-                if self.expires_at
-                else None
+                datetime.fromtimestamp(self.expires_at).isoformat() if self.expires_at else None
             ),
             "ttl": self.ttl,
             "hits": self.hits,

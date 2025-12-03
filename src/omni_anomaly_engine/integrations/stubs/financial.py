@@ -284,10 +284,7 @@ class FinancialServiceStub:
         await self._simulate_latency()
         self._maybe_fail()
 
-        return {
-            symbol.upper(): self._generate_price(symbol.upper())
-            for symbol in symbols
-        }
+        return {symbol.upper(): self._generate_price(symbol.upper()) for symbol in symbols}
 
     async def get_market_data(self, index: str = "SPX") -> MarketData:
         """Get market index data.
