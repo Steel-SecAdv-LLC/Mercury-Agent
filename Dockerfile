@@ -84,8 +84,8 @@ WORKDIR /app
 
 # Install only runtime dependencies (no build tools)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libopencv-core4.6 \
-    libopencv-imgproc4.6 \
+    libopencv-core410 \
+    libopencv-imgproc410 \
     libgomp1 \
     curl \
     && rm -rf /var/lib/apt/lists/* \
