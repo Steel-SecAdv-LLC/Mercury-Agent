@@ -31,12 +31,20 @@ Thread-Safety Features:
 import numpy as np
 import random
 import threading
-import torch
 from typing import Optional, Union, Dict, Any
 from contextlib import contextmanager
 from dataclasses import dataclass
 import json
 import hashlib
+
+# Make torch optional to support environments without ML dependencies
+try:
+    import torch
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    torch = None  # type: ignore[assignment]
+    TORCH_AVAILABLE = False
 
 
 class DeterministicRNG:
@@ -77,10 +85,11 @@ class DeterministicRNG:
 
         random.seed(seed)
 
-        torch.manual_seed(seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed(seed)
-            torch.cuda.manual_seed_all(seed)
+        if TORCH_AVAILABLE and torch is not None:
+            torch.manual_seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed(seed)
+                torch.cuda.manual_seed_all(seed)
 
         self._numpy_rng = np.random.default_rng(seed)
         self._initialized = True
@@ -205,7 +214,9 @@ class DeterministicRNG:
         old_seed = self._seed
         old_numpy_state = np.random.get_state()
         old_random_state = random.getstate()
-        old_torch_state = torch.get_rng_state()
+        old_torch_state = None
+        if TORCH_AVAILABLE and torch is not None:
+            old_torch_state = torch.get_rng_state()
 
         self.set_seed(seed)
 
@@ -215,7 +226,8 @@ class DeterministicRNG:
             self._seed = old_seed
             np.random.set_state(old_numpy_state)
             random.setstate(old_random_state)
-            torch.set_rng_state(old_torch_state)
+            if TORCH_AVAILABLE and torch is not None and old_torch_state is not None:
+                torch.set_rng_state(old_torch_state)
             if self._seed is not None:
                 self._numpy_rng = np.random.default_rng(self._seed)
 
@@ -238,13 +250,14 @@ class DeterministicRNG:
         """
         np.random.seed(seed)
         random.seed(seed)
-        torch.manual_seed(seed)
 
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed(seed)
-            torch.cuda.manual_seed_all(seed)
-            torch.backends.cudnn.deterministic = True
-            torch.backends.cudnn.benchmark = False
+        if TORCH_AVAILABLE and torch is not None:
+            torch.manual_seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed(seed)
+                torch.cuda.manual_seed_all(seed)
+                torch.backends.cudnn.deterministic = True
+                torch.backends.cudnn.benchmark = False
 
 
 @dataclass
@@ -351,6 +364,9 @@ class RNGContext:
     Provides nested RNG scopes where child contexts derive seeds from
     parents, ensuring reproducibility while maintaining isolation.
 
+    Note: Each context creates its own DeterministicRNG instance with a
+    derived seed. This provides isolation without modifying global state.
+
     Example:
         with RNGContext(seed=42) as ctx:
             data1 = ctx.rng.randn(100)
@@ -365,7 +381,6 @@ class RNGContext:
         self._seed = seed
         self._parent = parent
         self._rng: Optional[DeterministicRNG] = None
-        self._saved_state: Optional[RNGState] = None
 
     @property
     def rng(self) -> DeterministicRNG:

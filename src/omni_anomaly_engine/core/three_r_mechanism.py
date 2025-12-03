@@ -31,6 +31,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import logging
 import tempfile
 import textwrap
+import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -542,6 +543,7 @@ class RefactoringEngine:
     with safeguards including backup, rollback, and user confirmation.
 
     Uses centralized RNG for reproducible random operations.
+    Thread-safe cache access when parallel processing is enabled.
     """
 
     def __init__(
@@ -552,6 +554,7 @@ class RefactoringEngine:
         self._backup_files: Dict[str, str] = {}
         self.ethics_governor = EthicalAutonomyGovernor(EthicsConfig())
         self._analysis_cache: Dict[str, Dict[str, Any]] = {}
+        self._cache_lock = threading.RLock()
         # Use provided RNG or get global instance
         self._rng = rng or get_global_rng()
 
@@ -607,8 +610,10 @@ class RefactoringEngine:
             }
 
         cache_key = str(hash(code))
-        if self.config.enable_caching and cache_key in self._analysis_cache:
-            return self._analysis_cache[cache_key]
+        if self.config.enable_caching:
+            with self._cache_lock:
+                if cache_key in self._analysis_cache:
+                    return self._analysis_cache[cache_key]
 
         try:
             tree = ast.parse(code)
@@ -626,7 +631,8 @@ class RefactoringEngine:
             )
 
             if self.config.enable_caching:
-                self._analysis_cache[cache_key] = complexity_metrics
+                with self._cache_lock:
+                    self._analysis_cache[cache_key] = complexity_metrics
 
             return complexity_metrics
         except SyntaxError as e:
@@ -1178,9 +1184,9 @@ class RefactoringEngine:
 
             metrics = np.array(
                 [
-                    complexity.get("cyclomatic", 1),
-                    complexity.get("nesting_depth", 0),
-                    len(complexity.get("variables", [])),
+                    complexity.get("cyclomatic_complexity", 1),
+                    complexity.get("max_nesting_depth", 0),
+                    complexity.get("num_function_calls", 0),
                 ],
                 dtype=float,
             )
