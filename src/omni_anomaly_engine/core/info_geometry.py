@@ -106,9 +106,7 @@ class InformationGeometryDetector:
 
         return float(distance)
 
-    def detect_ood(
-        self, test_data: np.ndarray, threshold: float | None = None
-    ) -> dict[str, Any]:
+    def detect_ood(self, test_data: np.ndarray, threshold: float | None = None) -> dict[str, Any]:
         """Detect out-of-distribution samples using information geometry.
 
         Args:

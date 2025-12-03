@@ -717,9 +717,7 @@ class OmniAnomalyEngine:
             scores = torch.full((batch_size, 1), float(scores), dtype=torch.float32)
         return scores
 
-    def _extract_detector_features(
-        self, data: np.ndarray | torch.Tensor | dict[str, Any]
-    ) -> tuple:
+    def _extract_detector_features(self, data: np.ndarray | torch.Tensor | dict[str, Any]) -> tuple:
         """Extract features from all detectors.
 
         This method extracts feature vectors from all base detectors
@@ -769,9 +767,7 @@ class OmniAnomalyEngine:
 
         return detector_features, detector_scores
 
-    def _extract_model_features(
-        self, data: np.ndarray | torch.Tensor | dict[str, Any]
-    ) -> tuple:
+    def _extract_model_features(self, data: np.ndarray | torch.Tensor | dict[str, Any]) -> tuple:
         """Extract features from all specialized models.
 
         This method extracts feature vectors from all 13 specialized
@@ -816,9 +812,7 @@ class OmniAnomalyEngine:
 
         return model_features, model_scores
 
-    def _extract_features_parallel(
-        self, data: np.ndarray | torch.Tensor | dict[str, Any]
-    ) -> tuple:
+    def _extract_features_parallel(self, data: np.ndarray | torch.Tensor | dict[str, Any]) -> tuple:
         """Extract features from all sources in parallel.
 
         This method uses thread pool execution to extract features

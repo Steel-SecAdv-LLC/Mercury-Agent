@@ -325,9 +325,7 @@ class ParapsychologyDetector:
 
         return result
 
-    def _determine_psi_type(
-        self, experimental_data: dict[str, Any], metadata: dict | None
-    ) -> str:
+    def _determine_psi_type(self, experimental_data: dict[str, Any], metadata: dict | None) -> str:
         """Determine type of psi phenomenon being tested"""
         if metadata and "experiment_type" in metadata:
             return metadata["experiment_type"]
