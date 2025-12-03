@@ -519,12 +519,18 @@ class AvaEquationEngine:
         }
 
 
+# Aliases for backward compatibility and naming consistency
+DoubleHelixEvolutionEngine = AvaEquationEngine
+HelixConfig = EvolutionConfig
+
 __all__ = [
     "EvolutionMode",
     "TermType",
     "EvolutionState",
     "EvolutionConfig",
+    "HelixConfig",
     "AvaEquationEngine",
+    "DoubleHelixEvolutionEngine",
     "PHI",
     "PHI_SQUARED",
     "PHI_CUBED",
