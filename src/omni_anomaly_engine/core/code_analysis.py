@@ -17,11 +17,25 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Neurosymbolic Integration Engine for Refactoring
-Combines symbolic reasoning (AST analysis) with neural pattern learning.
+Code Analysis Engine - AST-based symbolic reasoning for code refactoring.
 
-Inspired by AI Agent Training & Deployment Readiness Engine.
-Framework implementation with extension points for future training data integration.
+This module provides AST (Abstract Syntax Tree) analysis capabilities for:
+- Code complexity analysis
+- Refactoring suggestions
+- Training readiness assessment
+
+Note:
+    This is distinct from :class:`omni_anomaly_engine.models.neurosymbolic.NeurosymbolicEngine`
+    which provides LTN-based anomaly detection. This module focuses on static code analysis
+    using Python's AST module.
+
+    For anomaly detection with neurosymbolic reasoning, use::
+
+        from omni_anomaly_engine.models.neurosymbolic import NeurosymbolicEngine
+
+    For code analysis and refactoring, use::
+
+        from omni_anomaly_engine.core.code_analysis import CodeAnalysisEngine
 """
 
 import ast
@@ -367,3 +381,8 @@ class NeurosymbolicEngine:
             "convergence": (losses[0] - losses[-1]) / iterations if iterations > 0 else 0,
             "tensor_shape": tensor_4d.shape,
         }
+
+
+# Aliases for clearer naming
+CodeAnalysisEngine = NeurosymbolicEngine
+CodeAnalysisConfig = NeurosymbolicConfig

@@ -305,9 +305,9 @@ class EarlyFusionEncoder(nn.Module):
         return result
 
 
-class OmniAvaEngine:
+class DoubleHelixEvolutionEngine:
     """
-    Enhanced Omni-AVA Equation Engine with Double-Helix Evolution Architecture.
+    Double-Helix Evolution Engine for state evolution and anomaly detection.
 
     Implements the vectorized state-update model with DNA-inspired structure:
     ℵ(𝔄_{t+1}) = Helix_1(𝔄_t) ⊗ Helix_2(𝔄_t)
@@ -321,6 +321,10 @@ class OmniAvaEngine:
 
     Intertwined via tensor product for replication/resilience.
     Ethical guards enforce threshold >0.8 for rollback and net-positive outcomes.
+
+    Note:
+        This is the mathematical state evolution engine. For the main anomaly
+        detection orchestration engine, see :class:`omni_anomaly_engine.engine.OmniAvaEngine`.
     """
 
     def __init__(
