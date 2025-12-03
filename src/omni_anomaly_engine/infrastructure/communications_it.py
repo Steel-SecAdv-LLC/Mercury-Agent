@@ -28,10 +28,11 @@ Research sources:
 
 """
 
-from typing import Dict, List, Optional
-import numpy as np
 from collections import deque
 from datetime import datetime
+from typing import Dict, List, Optional
+
+import numpy as np
 
 
 class CommunicationsITDetector:

@@ -21,11 +21,11 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 import numpy as np
 
 from omni_anomaly_engine.core.extended_anomaly_engine import (
+    EngineConfig,
     EvolutionEngine,
-    SecurityEngine,
     IntegrationEngine,
     OmniAva,
-    EngineConfig,
+    SecurityEngine,
 )
 
 

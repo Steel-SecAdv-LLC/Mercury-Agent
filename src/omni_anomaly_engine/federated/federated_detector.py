@@ -28,9 +28,10 @@ Research sources:
 
 """
 
-from typing import Dict, List, Optional
-import numpy as np
 from enum import Enum
+from typing import Dict, List, Optional
+
+import numpy as np
 
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 

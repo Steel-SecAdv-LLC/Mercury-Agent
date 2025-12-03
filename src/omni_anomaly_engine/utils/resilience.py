@@ -42,21 +42,17 @@ Example:
             process_work()
 """
 
+import functools
+import logging
 import signal
 import threading
 import time
-import logging
-import functools
-from typing import (
-    Any, Callable, Dict, List, Optional, TypeVar, Union,
-    Generic, Set
-)
-from dataclasses import dataclass, field
-from enum import Enum, auto
+from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from concurrent.futures import ThreadPoolExecutor, Future
-
+from enum import Enum, auto
+from typing import Any, Callable, Dict, Generic, List, Optional, Set, TypeVar, Union
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +63,9 @@ F = TypeVar("F", bound=Callable[..., Any])
 class CircuitState(Enum):
     """States for circuit breaker pattern."""
 
-    CLOSED = auto()      # Normal operation
-    OPEN = auto()        # Failing, reject calls
-    HALF_OPEN = auto()   # Testing if service recovered
+    CLOSED = auto()  # Normal operation
+    OPEN = auto()  # Failing, reject calls
+    HALF_OPEN = auto()  # Testing if service recovered
 
 
 @dataclass
@@ -174,9 +170,7 @@ class CircuitBreaker:
                 and self._failure_count >= self.config.failure_threshold
             ):
                 self._state = CircuitState.OPEN
-                logger.warning(
-                    f"Circuit '{self.name}' opened after {self._failure_count} failures"
-                )
+                logger.warning(f"Circuit '{self.name}' opened after {self._failure_count} failures")
 
     def __call__(self, func: F) -> F:
         """Decorator to wrap function with circuit breaker.
@@ -187,12 +181,11 @@ class CircuitBreaker:
         Returns:
             Wrapped function.
         """
+
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             if self.state == CircuitState.OPEN:
-                raise CircuitBreakerOpenError(
-                    f"Circuit '{self.name}' is open, call rejected"
-                )
+                raise CircuitBreakerOpenError(f"Circuit '{self.name}' is open, call rejected")
 
             try:
                 result = func(*args, **kwargs)
@@ -247,6 +240,7 @@ def retry(
         ... def unstable_function():
         ...     return call_unreliable_service()
     """
+
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -260,9 +254,7 @@ def retry(
                     last_exception = e
 
                     if attempt == max_attempts:
-                        logger.error(
-                            f"Final retry attempt failed for {func.__name__}: {e}"
-                        )
+                        logger.error(f"Final retry attempt failed for {func.__name__}: {e}")
                         raise
 
                     if on_retry:
@@ -465,17 +457,13 @@ class Bulkhead:
 
         with self._lock:
             if self._waiting_count >= self.max_waiting:
-                raise BulkheadFullError(
-                    f"Bulkhead '{self.name}' queue full ({self.max_waiting})"
-                )
+                raise BulkheadFullError(f"Bulkhead '{self.name}' queue full ({self.max_waiting})")
             self._waiting_count += 1
 
         try:
             acquired = self._semaphore.acquire(timeout=timeout)
             if not acquired:
-                raise BulkheadFullError(
-                    f"Bulkhead '{self.name}' timeout waiting for slot"
-                )
+                raise BulkheadFullError(f"Bulkhead '{self.name}' timeout waiting for slot")
 
             with self._lock:
                 self._waiting_count -= 1
@@ -593,6 +581,7 @@ def timeout(seconds: float) -> Callable[[F], F]:
         ... def long_operation():
         ...     return process_data()
     """
+
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -601,9 +590,7 @@ def timeout(seconds: float) -> Callable[[F], F]:
                 try:
                     return future.result(timeout=seconds)
                 except TimeoutError:
-                    raise TimeoutError(
-                        f"Function {func.__name__} timed out after {seconds}s"
-                    )
+                    raise TimeoutError(f"Function {func.__name__} timed out after {seconds}s")
 
         return wrapper  # type: ignore
 

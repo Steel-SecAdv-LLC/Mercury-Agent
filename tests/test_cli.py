@@ -21,6 +21,7 @@ Test CLI functionality
 """
 
 from click.testing import CliRunner
+
 from omni_anomaly_engine.cli import main
 
 

@@ -33,12 +33,14 @@ References:
 MIT-compatible implementation.
 """
 
-import numpy as np
-from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
 from scipy import stats
-from omni_anomaly_engine.core.ethical_config import EthicalScalars, DEFAULT_CONFIG
+
+from omni_anomaly_engine.core.ethical_config import DEFAULT_CONFIG, EthicalScalars
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
@@ -371,9 +373,7 @@ class EthicalAutonomyGovernor:
         """
         baseline_score = 1.0
 
-        sample_scores = [ethical_score] * 10 + self._rng.normal(
-            baseline_score, 0.1, 20
-        ).tolist()
+        sample_scores = [ethical_score] * 10 + self._rng.normal(baseline_score, 0.1, 20).tolist()
 
         t_stat, p_value = stats.ttest_1samp(sample_scores, baseline_score)
 

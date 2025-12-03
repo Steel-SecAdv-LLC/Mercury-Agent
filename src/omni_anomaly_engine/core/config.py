@@ -253,11 +253,7 @@ class ConfigurationManager:
         def deep_merge(base: Dict, override: Dict) -> Dict:
             result = base.copy()
             for key, value in override.items():
-                if (
-                    key in result
-                    and isinstance(result[key], dict)
-                    and isinstance(value, dict)
-                ):
+                if key in result and isinstance(result[key], dict) and isinstance(value, dict):
                     result[key] = deep_merge(result[key], value)
                 else:
                     result[key] = value
@@ -417,16 +413,12 @@ class ConfigurationManager:
             # Deterministic hash for consistent user experience
             import hashlib
 
-            user_hash = int(
-                hashlib.md5(f"{name}:{user_id}".encode()).hexdigest()[:8], 16
-            )
+            user_hash = int(hashlib.md5(f"{name}:{user_id}".encode()).hexdigest()[:8], 16)
             return (user_hash % 100) < flag.rollout_percentage
 
         return flag.rollout_percentage >= 100.0 or flag.rollout_percentage == 0.0
 
-    def get_feature_variant(
-        self, name: str, user_id: Optional[str] = None
-    ) -> Optional[str]:
+    def get_feature_variant(self, name: str, user_id: Optional[str] = None) -> Optional[str]:
         """Get the variant for A/B testing."""
         if name not in self._feature_flags:
             return None
@@ -438,9 +430,7 @@ class ConfigurationManager:
         if user_id:
             import hashlib
 
-            user_hash = int(
-                hashlib.md5(f"{name}:{user_id}".encode()).hexdigest()[:8], 16
-            )
+            user_hash = int(hashlib.md5(f"{name}:{user_id}".encode()).hexdigest()[:8], 16)
             variant_names = list(flag.variants.keys())
             return variant_names[user_hash % len(variant_names)]
 

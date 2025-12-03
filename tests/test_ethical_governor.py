@@ -21,13 +21,14 @@ Tests for Ethical Governor module
 """
 
 import numpy as np
-from omni_anomaly_engine.core.ethical_governor import (
-    EthicalAutonomyGovernor,
-    SigmaDirective,
-    EthicalDecision,
-    BiasMetrics,
-)
+
 from omni_anomaly_engine.core.ethical_config import DEFAULT_CONFIG
+from omni_anomaly_engine.core.ethical_governor import (
+    BiasMetrics,
+    EthicalAutonomyGovernor,
+    EthicalDecision,
+    SigmaDirective,
+)
 
 
 class TestSigmaDirective:

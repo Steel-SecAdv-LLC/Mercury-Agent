@@ -21,13 +21,14 @@ Test utility functions
 """
 
 import numpy as np
+
 from omni_anomaly_engine.utils import (
-    normalize_data,
     compress_information,
-    decompress_information,
-    gravitational_lensing,
-    detect_singularity,
     compute_time_dilation,
+    decompress_information,
+    detect_singularity,
+    gravitational_lensing,
+    normalize_data,
 )
 
 

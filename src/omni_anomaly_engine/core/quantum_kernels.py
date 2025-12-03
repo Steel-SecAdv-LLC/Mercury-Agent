@@ -24,7 +24,8 @@ Based on: Quantum anomaly detection in the latent space of proton collision even
 Implements quantum-inspired kernel machines for unsupervised anomaly detection.
 """
 
-from typing import Optional, Dict, Any, Callable
+from typing import Any, Callable, Dict, Optional
+
 import numpy as np
 
 

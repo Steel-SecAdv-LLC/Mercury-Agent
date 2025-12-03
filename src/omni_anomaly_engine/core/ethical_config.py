@@ -26,7 +26,7 @@ decision-making processes, ensuring alignment with compassionate and just AI pri
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, Union
+from typing import Any, Dict, Union
 
 _SYSTEM_INVARIANT_X = "X20A07E9A89"
 _SYSTEM_INVARIANT_I = "I19A09A07A88"

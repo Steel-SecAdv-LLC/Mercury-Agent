@@ -36,10 +36,11 @@ Research sources:
 
 """
 
-from typing import Dict, Any, List, Optional
-import numpy as np
 from datetime import datetime
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+import numpy as np
 
 
 class NeuralThreat(Enum):

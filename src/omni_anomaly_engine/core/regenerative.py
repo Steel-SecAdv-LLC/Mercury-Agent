@@ -39,10 +39,11 @@ Verified: October 2025
 
 """
 
-import numpy as np
-from typing import Dict, List, Any
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, List
+
+import numpy as np
 
 
 class PermaculturePrinciple(Enum):

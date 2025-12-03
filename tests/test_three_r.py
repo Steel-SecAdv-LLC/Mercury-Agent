@@ -22,8 +22,8 @@ import numpy as np
 
 from omni_anomaly_engine.core.three_r_mechanism import (
     RecursionEngine,
-    ResonanceEngine,
     RefactoringEngine,
+    ResonanceEngine,
     ThreeRMechanism,
 )
 
@@ -341,7 +341,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_apply_refactorings_with_backup(self):
         """Test automatic refactoring creates backup."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine, RefactoringConfig
+        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
         config = RefactoringConfig(apply_refactorings=True, require_confirmation=False)
         engine = RefactoringEngine(config=config)
@@ -359,7 +359,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_rollback_refactoring(self):
         """Test rollback functionality."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine, RefactoringConfig
+        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
         config = RefactoringConfig(apply_refactorings=True, require_confirmation=False)
         engine = RefactoringEngine(config=config)
@@ -457,7 +457,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_refactoring_with_invalid_function(self):
         """Test error handling for invalid functions."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine, RefactoringConfig
+        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
         config = RefactoringConfig(apply_refactorings=True, require_confirmation=False)
         engine = RefactoringEngine(config=config)
@@ -469,7 +469,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_ast_transformation_validation(self):
         """Test that AST transformations produce valid Python code."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine, RefactoringConfig
+        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
         config = RefactoringConfig(apply_refactorings=True, require_confirmation=False)
         engine = RefactoringEngine(config=config)
@@ -491,7 +491,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_complex_nesting_reduction(self):
         """Test refactoring of deeply nested code."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine, RefactoringConfig
+        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
         config = RefactoringConfig(apply_refactorings=True, require_confirmation=False)
         engine = RefactoringEngine(config=config)
@@ -511,7 +511,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_optimization_history_tracking(self):
         """Test that optimization history is tracked."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine, RefactoringConfig
+        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
         config = RefactoringConfig(apply_refactorings=True, require_confirmation=False)
         engine = RefactoringEngine(config=config)
@@ -544,8 +544,9 @@ class TestRefactoringEngineAutoApplication:
 
     def test_backup_file_creation(self):
         """Test that backup files are created correctly."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine, RefactoringConfig
         import os
+
+        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
         config = RefactoringConfig(
             apply_refactorings=True, create_backup=True, require_confirmation=False
@@ -660,8 +661,8 @@ class TestNewEnginePatterns:
     def test_neurosymbolic_readiness_level(self):
         """Test neurosymbolic readiness level assessment."""
         from omni_anomaly_engine.core.neurosymbolic_engine import (
-            NeurosymbolicEngine,
             NeurosymbolicConfig,
+            NeurosymbolicEngine,
             ReadinessLevel,
         )
 

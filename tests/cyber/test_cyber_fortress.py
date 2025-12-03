@@ -19,11 +19,12 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """Comprehensive tests for Cyber Fortress module."""
 
 import numpy as np
+
 from omni_anomaly_engine.cyber.cyber_fortress import (
     CyberFortress,
-    ResonanceHashIntegrityChecker,
-    MultiverseZeroDaySimulator,
     FortressResult,
+    MultiverseZeroDaySimulator,
+    ResonanceHashIntegrityChecker,
 )
 
 

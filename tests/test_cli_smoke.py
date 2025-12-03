@@ -20,10 +20,12 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 CLI smoke tests to boost coverage
 """
 
-from click.testing import CliRunner
-from omni_anomaly_engine.cli import main
-import tempfile
 import os
+import tempfile
+
+from click.testing import CliRunner
+
+from omni_anomaly_engine.cli import main
 
 
 def test_cli_main_help():

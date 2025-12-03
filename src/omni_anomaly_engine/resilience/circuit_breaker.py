@@ -22,7 +22,7 @@ Circuit breaker pattern implementation
 
 import time
 from enum import Enum
-from typing import Callable, Any, Optional
+from typing import Any, Callable, Optional
 
 
 class CircuitState(Enum):

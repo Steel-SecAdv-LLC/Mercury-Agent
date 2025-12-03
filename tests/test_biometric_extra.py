@@ -22,6 +22,7 @@ Additional biometric tests to boost coverage above 85%
 
 import numpy as np
 import torch
+
 from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
 
 

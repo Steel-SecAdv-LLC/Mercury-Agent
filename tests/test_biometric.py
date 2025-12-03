@@ -20,8 +20,10 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Test biometric model functionality
 """
 
-import numpy as np
 from unittest.mock import patch
+
+import numpy as np
+
 from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
 
 

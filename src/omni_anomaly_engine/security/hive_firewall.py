@@ -31,12 +31,13 @@ Reference: Immune system-inspired computing architectures
 MIT-compatible implementation.
 """
 
-import numpy as np
-from typing import Dict, Optional, Any, Set, Tuple
-from dataclasses import dataclass, field
-from datetime import datetime
 import hashlib
 from collections import defaultdict
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Dict, Optional, Set, Tuple
+
+import numpy as np
 
 
 @dataclass

@@ -35,9 +35,10 @@ Research sources:
 
 """
 
-import numpy as np
-from typing import Dict, Any, Optional, List
 import logging
+from typing import Any, Dict, List, Optional
+
+import numpy as np
 
 
 class SpaceExplorationAnalyzer:

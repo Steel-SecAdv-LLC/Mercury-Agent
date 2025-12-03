@@ -18,8 +18,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Tests for Quantum Kernel Machines integration."""
 
-import pytest
 import numpy as np
+import pytest
+
 from omni_anomaly_engine.core.quantum_kernels import QuantumKernelMachine
 
 

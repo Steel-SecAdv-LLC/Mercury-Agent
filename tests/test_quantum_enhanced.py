@@ -19,6 +19,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """Tests for enhanced quantum anomaly detection model"""
 
 import numpy as np
+
 from omni_anomaly_engine.models.quantum import QuantumAnomalyModel
 
 

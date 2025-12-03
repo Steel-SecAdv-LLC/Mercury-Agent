@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Tests for spherical harmonics analysis feature."""
 
-from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine, RefactoringConfig
+from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
 
 class TestSphericalHarmonics:

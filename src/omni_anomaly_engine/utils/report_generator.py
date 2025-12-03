@@ -28,11 +28,11 @@ Automated report generation for non-technical users:
 
 """
 
+import json
 import logging
-from typing import Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
-import json
+from typing import Any, Dict, Optional
 
 
 @dataclass
@@ -278,9 +278,9 @@ class PDFReportGenerator:
         try:
             try:
                 from reportlab.lib.pagesizes import letter
-                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
                 from reportlab.lib.styles import getSampleStyleSheet
                 from reportlab.lib.units import inch
+                from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
             except ImportError:
                 self.logger.warning("reportlab not installed - saving as text instead")
                 with open(output_path.replace(".pdf", ".txt"), "w") as f:
@@ -336,8 +336,8 @@ class EmailReportSender:
         """
         try:
             import smtplib
-            from email.mime.text import MIMEText
             from email.mime.multipart import MIMEMultipart
+            from email.mime.text import MIMEText
 
             smtp_server = self.smtp_config.get("server", "smtp.gmail.com")
             smtp_port = int(self.smtp_config.get("port", 587))

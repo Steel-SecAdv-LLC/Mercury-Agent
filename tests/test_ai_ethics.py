@@ -21,11 +21,12 @@ Tests for AI Ethics Framework (src/core/ai_ethics.py)
 """
 
 import pytest
+
 from omni_anomaly_engine.core.ai_ethics import (
+    EthicalAutonomyGovernor,
     EthicalPrinciple,
     EthicsConfig,
     EthicsResult,
-    EthicalAutonomyGovernor,
     evaluate_refactoring_ethics,
 )
 

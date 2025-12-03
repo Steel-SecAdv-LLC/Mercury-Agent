@@ -20,11 +20,13 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Statistical anomaly detector using z-score, IQR, and isolation forest
 """
 
+from typing import Any, Dict, Optional, Union
+
 import numpy as np
 import torch
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
-from typing import Dict, Any, Union, Optional
+
 from omni_anomaly_engine.core.base import BaseDetector
 from omni_anomaly_engine.core.exceptions import DetectorException
 

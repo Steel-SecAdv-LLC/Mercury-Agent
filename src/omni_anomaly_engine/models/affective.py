@@ -18,8 +18,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Affective computing anomaly detection model."""
 
+from typing import Any, Dict, Optional, Union
+
 import numpy as np
-from typing import Dict, Any, Union, Optional
 
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 

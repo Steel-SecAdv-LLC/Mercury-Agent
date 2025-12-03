@@ -161,9 +161,7 @@ class ServiceContainer:
             )
         return self
 
-    def resolve(
-        self, service_type: Type[T], scope_id: Optional[str] = None
-    ) -> T:
+    def resolve(self, service_type: Type[T], scope_id: Optional[str] = None) -> T:
         """
         Resolve a service instance.
 
@@ -180,9 +178,7 @@ class ServiceContainer:
         """
         with self._lock:
             if service_type not in self._services:
-                raise ServiceNotFoundError(
-                    f"Service {service_type.__name__} is not registered"
-                )
+                raise ServiceNotFoundError(f"Service {service_type.__name__} is not registered")
 
             # Check for circular dependencies
             if service_type in self._resolution_stack:

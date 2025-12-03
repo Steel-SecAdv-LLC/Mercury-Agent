@@ -37,12 +37,13 @@ Example:
             -d '{"data": [1.0, 2.0, 1.5, 10.0, 1.8], "sensitivity": 0.5}'
 """
 
+from enum import Enum
+from typing import Annotated, Any, Dict, List, Optional
+
+import numpy as np
 from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional, Dict, Any, Annotated
-from enum import Enum
-import numpy as np
 
 # API version information
 API_VERSION = "1.0.0"
@@ -290,12 +291,8 @@ class HealthResponse(BaseModel):
     status: str = Field(
         ..., description="Service health status", json_schema_extra={"example": "healthy"}
     )
-    version: str = Field(
-        ..., description="API version", json_schema_extra={"example": "1.0.0"}
-    )
-    uptime_seconds: Optional[float] = Field(
-        default=None, description="Server uptime in seconds"
-    )
+    version: str = Field(..., description="API version", json_schema_extra={"example": "1.0.0"})
+    uptime_seconds: Optional[float] = Field(default=None, description="Server uptime in seconds")
 
     model_config = {
         "json_schema_extra": {
@@ -376,9 +373,7 @@ class MultivariateResponse(BaseModel):
         summary: Summary statistics of the detection.
     """
 
-    anomalies: List[bool] = Field(
-        ..., description="Boolean flags for each time point"
-    )
+    anomalies: List[bool] = Field(..., description="Boolean flags for each time point")
     scores: List[float] = Field(..., description="Combined anomaly scores")
     feature_contributions: Optional[Dict[str, List[float]]] = Field(
         default=None, description="Per-feature anomaly contributions"
@@ -426,12 +421,8 @@ class ErrorResponse(BaseModel):
 
     error: str = Field(..., description="Error type/code")
     message: str = Field(..., description="Human-readable error message")
-    details: Optional[Dict[str, Any]] = Field(
-        default=None, description="Additional error details"
-    )
-    request_id: Optional[str] = Field(
-        default=None, description="Request ID for support"
-    )
+    details: Optional[Dict[str, Any]] = Field(default=None, description="Additional error details")
+    request_id: Optional[str] = Field(default=None, description="Request ID for support")
 
     model_config = {
         "json_schema_extra": {
@@ -478,11 +469,7 @@ def _classify_severity(score: float, threshold: float) -> SeverityLevel:
     responses={
         200: {
             "description": "Service is healthy",
-            "content": {
-                "application/json": {
-                    "example": {"status": "healthy", "version": "1.0.0"}
-                }
-            },
+            "content": {"application/json": {"example": {"status": "healthy", "version": "1.0.0"}}},
         },
         503: {
             "description": "Service is unhealthy",

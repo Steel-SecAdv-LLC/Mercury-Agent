@@ -21,14 +21,15 @@ Test suite for security enhancements: quantum-resistant encryption,
 real-time threat detection, and hive firewall.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 from omni_anomaly_engine.security.encryption import QuantumResistantEncryption, SecureDataHandler
-from omni_anomaly_engine.security.realtime_threat_detection import (
-    RealTimeThreatDetector,
-    AdaptiveThreatDetector,
-)
 from omni_anomaly_engine.security.hive_firewall import HiveFirewall
+from omni_anomaly_engine.security.realtime_threat_detection import (
+    AdaptiveThreatDetector,
+    RealTimeThreatDetector,
+)
 
 
 class TestQuantumResistantEncryption:

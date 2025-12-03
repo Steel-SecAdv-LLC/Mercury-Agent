@@ -25,7 +25,8 @@ https://www.frontiersin.org/journals/artificial-intelligence/articles/10.3389/fr
 Implements FedAvg aggregation algorithm for distributed model training without sharing raw data.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng

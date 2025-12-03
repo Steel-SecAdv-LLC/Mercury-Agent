@@ -24,13 +24,13 @@ All test fixtures now use seeded random number generation
 to ensure consistent test results across runs.
 """
 
-import pytest
 import numpy as np
+import pytest
 
 from omni_anomaly_engine.utils.rng import (
     DeterministicRNG,
-    set_global_seed,
     get_global_rng,
+    set_global_seed,
 )
 
 # Optional torch import for ML tests

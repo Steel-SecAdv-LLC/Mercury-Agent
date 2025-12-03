@@ -21,10 +21,11 @@ Tests for Regenerative Architecture module
 """
 
 import numpy as np
+
 from omni_anomaly_engine.core.regenerative import (
-    RegenerativeArchitecture,
-    PermaculturePrinciple,
     FeedbackLoop,
+    PermaculturePrinciple,
+    RegenerativeArchitecture,
 )
 
 

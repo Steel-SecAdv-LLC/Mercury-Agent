@@ -21,9 +21,10 @@ Tests for Federated Learning module.
 """
 
 import numpy as np
+
 from omni_anomaly_engine.federated import (
-    FederatedAnomalyDetector,
     CISAFederatedCoordinator,
+    FederatedAnomalyDetector,
     FederatedStrategy,
     PrivacyLevel,
 )

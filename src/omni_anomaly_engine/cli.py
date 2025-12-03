@@ -20,10 +20,11 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Command-line interface for OMNI ♱ AVA
 """
 
-import click
 import json
-import numpy as np
 from pathlib import Path
+
+import click
+import numpy as np
 
 # Lazy import to support CLI help without torch dependency
 # OmniAnomalyEngine is only imported when actually needed (not for --help)

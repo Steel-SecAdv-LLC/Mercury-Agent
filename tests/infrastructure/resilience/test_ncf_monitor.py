@@ -21,6 +21,7 @@ Tests for NCF Monitor (55 CISA National Critical Functions).
 """
 
 import numpy as np
+
 from omni_anomaly_engine.infrastructure.resilience.ncf_monitor import NCFMonitor
 
 

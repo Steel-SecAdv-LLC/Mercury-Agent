@@ -30,12 +30,13 @@ Interactive GUI for non-technical users featuring:
 Run with: streamlit run streamlit_dashboard.py
 """
 
-import streamlit as st
+import json
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from typing import Optional
-import json
+import streamlit as st
 
 from omni_anomaly_engine.utils.rng import get_global_rng
 

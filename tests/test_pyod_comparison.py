@@ -21,7 +21,8 @@ Tests for PyOD comparison module.
 """
 
 import numpy as np
-from omni_anomaly_engine.comparison import PyODComparison, PyODAlgorithm, CombinationMethod
+
+from omni_anomaly_engine.comparison import CombinationMethod, PyODAlgorithm, PyODComparison
 
 
 class TestPyODComparison:

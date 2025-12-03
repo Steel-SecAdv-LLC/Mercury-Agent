@@ -21,12 +21,12 @@ Tests for configuration classes
 """
 
 from omni_anomaly_engine.core.config import (
-    DeviceType,
-    FusionMode,
     DetectorConfig,
-    ModelConfig,
-    FusionConfig,
+    DeviceType,
     EngineConfig,
+    FusionConfig,
+    FusionMode,
+    ModelConfig,
 )
 
 

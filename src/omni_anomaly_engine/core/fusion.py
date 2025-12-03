@@ -18,6 +18,14 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
+
 # Neural fusion layer for combining multiple detector outputs
 #
 # Implements hybrid fusion strategy:
@@ -25,13 +33,8 @@ from __future__ import annotations
 # - Late fusion: Each detector produces anomaly score → weighted average with learned weights
 # - Hybrid: Concatenate raw features + detector scores → attention network
 
-from typing import TYPE_CHECKING, Dict, Tuple, Optional, Any, List
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
-from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 
 if TYPE_CHECKING:
     import numpy as np

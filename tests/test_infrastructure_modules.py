@@ -21,13 +21,14 @@ Tests for CISA Critical Infrastructure sector modules.
 """
 
 import numpy as np
+
 from omni_anomaly_engine.infrastructure import (
     ChemicalNuclearDetector,
     CISASector,
     CommunicationsITDetector,
+    DamType,
     EnergyDamsDetector,
     EnergySubsector,
-    DamType,
     HealthcareEmergencyDetector,
     PatientStatus,
 )

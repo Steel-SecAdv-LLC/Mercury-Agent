@@ -18,9 +18,10 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Tests for Agentic Autonomy module"""
 
-import pytest
 import numpy as np
-from omni_anomaly_engine.agentic.agentic_autonomy import AgenticAutonomy, AgentState, AgentAction
+import pytest
+
+from omni_anomaly_engine.agentic.agentic_autonomy import AgentAction, AgenticAutonomy, AgentState
 
 
 def test_agentic_initialization():

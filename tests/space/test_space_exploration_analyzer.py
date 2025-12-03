@@ -21,6 +21,7 @@ Tests for SpaceExplorationAnalyzer (Hubble-inspired cosmic anomaly detection).
 """
 
 import numpy as np
+
 from omni_anomaly_engine.space.space_exploration_analyzer import SpaceExplorationAnalyzer
 
 

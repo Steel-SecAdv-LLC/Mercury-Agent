@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Extended tests for three_r_mechanism to reach >95% coverage."""
 
-from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine, RefactoringConfig
+from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
 
 class TestThreeRExtended:

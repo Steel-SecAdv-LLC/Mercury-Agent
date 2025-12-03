@@ -26,10 +26,10 @@ decisions while enforcing ethical guardrails. All actions are evaluated against
 Competence, and Commitment.
 """
 
+import logging
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
-import logging
 
 
 class EthicalPrinciple(Enum):

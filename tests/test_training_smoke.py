@@ -21,13 +21,14 @@ Training module smoke tests to boost coverage
 """
 
 import torch
+
 from omni_anomaly_engine.ml.training import (
     AnomalyDataset,
-    FusionTrainer,
-    AvaOptimizer,
-    AvaMomentumOptimizer,
     AvaExponentialDecayOptimizer,
     AvaHarmonicOptimizer,
+    AvaMomentumOptimizer,
+    AvaOptimizer,
+    FusionTrainer,
     create_ava_optimizer,
 )
 

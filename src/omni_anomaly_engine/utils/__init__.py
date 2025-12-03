@@ -21,9 +21,10 @@ Utilities subpackage
 Enhanced with Black Hole Engine compression and gravitational lensing utilities
 """
 
-import numpy as np
 import zlib
-from typing import Union, Dict, Any, Tuple
+from typing import Any, Dict, Tuple, Union
+
+import numpy as np
 
 # Make torch optional to support environments without ML dependencies
 try:
@@ -35,56 +36,56 @@ except ImportError:
     TORCH_AVAILABLE = False
 
 from omni_anomaly_engine.utils.comm import (
+    AsyncMessageQueue,
     Message,
     MessagePriority,
-    AsyncMessageQueue,
     SimplePubSub,
 )
-from omni_anomaly_engine.utils.rng import (
-    DeterministicRNG,
-    RNGState,
-    RNGRegistry,
-    RNGContext,
-    ThreadSafeRNGManager,
-    get_global_rng,
-    set_global_seed,
-    reset_global_rng,
-    get_thread_local_rng,
-    get_rng_registry,
-)
 from omni_anomaly_engine.utils.constants import (
-    MathematicalConstants,
+    MPMATH_AVAILABLE,
+    SYMPY_AVAILABLE,
     MathConstant,
+    MathematicalConstants,
     Precision,
     get_constant,
-    validate_constant,
     validate_all_constants_with_sympy,
-    SYMPY_AVAILABLE,
-    MPMATH_AVAILABLE,
+    validate_constant,
 )
 from omni_anomaly_engine.utils.logging import (
-    get_logger,
+    ColoredFormatter,
+    PerformanceLogger,
+    StructuredFormatter,
     configure_logging,
     correlation_context,
     get_correlation_id,
-    set_correlation_id,
-    StructuredFormatter,
-    ColoredFormatter,
-    PerformanceLogger,
+    get_logger,
     log_function_call,
+    set_correlation_id,
 )
 from omni_anomaly_engine.utils.resilience import (
+    Bulkhead,
+    BulkheadFullError,
     CircuitBreaker,
     CircuitBreakerOpenError,
     CircuitState,
-    retry,
     GracefulShutdown,
-    ShutdownInProgressError,
-    Bulkhead,
-    BulkheadFullError,
     HealthChecker,
     HealthStatus,
+    ShutdownInProgressError,
+    retry,
     timeout,
+)
+from omni_anomaly_engine.utils.rng import (
+    DeterministicRNG,
+    RNGContext,
+    RNGRegistry,
+    RNGState,
+    ThreadSafeRNGManager,
+    get_global_rng,
+    get_rng_registry,
+    get_thread_local_rng,
+    reset_global_rng,
+    set_global_seed,
 )
 
 

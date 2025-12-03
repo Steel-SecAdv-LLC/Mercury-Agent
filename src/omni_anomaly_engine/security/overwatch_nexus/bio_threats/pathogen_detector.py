@@ -33,11 +33,12 @@ References:
 - MASINT integration: intelligence_fusion.py:IntelligenceDiscipline.MASINT
 """
 
+import logging
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import torch
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass
-import logging
 
 
 @dataclass

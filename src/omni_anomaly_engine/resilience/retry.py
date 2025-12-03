@@ -21,8 +21,8 @@ Retry policy implementation
 """
 
 import time
-from typing import Callable, Any
 from functools import wraps
+from typing import Any, Callable
 
 
 class RetryPolicy:

@@ -22,7 +22,7 @@ Covers 16th CISA sector (Government Facilities) with focus on
 democratic governance, transparency, and accountability.
 """
 
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 
 class GovernmentFacilitiesMonitor:

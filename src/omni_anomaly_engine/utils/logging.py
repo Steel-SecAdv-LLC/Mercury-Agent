@@ -34,17 +34,17 @@ Example:
             # All logs within this context will have the same correlation_id
 """
 
-import logging
 import json
-import sys
+import logging
 import os
+import sys
+import threading
 import time
 import uuid
-import threading
-from typing import Any, Dict, Optional, Union, Callable
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from functools import wraps
+from typing import Any, Callable, Dict, Optional, Union
 
 # Thread-local storage for correlation IDs
 _correlation_context = threading.local()
@@ -109,6 +109,7 @@ class StructuredFormatter(logging.Formatter):
 
         if include_hostname:
             import socket
+
             self._hostname = socket.gethostname()
 
     def _redact_value(self, key: str, value: Any) -> Any:
@@ -172,10 +173,26 @@ class StructuredFormatter(logging.Formatter):
         # Add extra fields from the record
         for key, value in record.__dict__.items():
             if key not in [
-                "name", "msg", "args", "created", "filename", "funcName",
-                "levelname", "levelno", "lineno", "module", "msecs",
-                "pathname", "process", "processName", "relativeCreated",
-                "stack_info", "exc_info", "exc_text", "thread", "threadName",
+                "name",
+                "msg",
+                "args",
+                "created",
+                "filename",
+                "funcName",
+                "levelname",
+                "levelno",
+                "lineno",
+                "module",
+                "msecs",
+                "pathname",
+                "process",
+                "processName",
+                "relativeCreated",
+                "stack_info",
+                "exc_info",
+                "exc_text",
+                "thread",
+                "threadName",
                 "message",
             ]:
                 log_entry[key] = self._redact_value(key, value)
@@ -197,10 +214,10 @@ class ColoredFormatter(logging.Formatter):
     """
 
     COLORS = {
-        "DEBUG": "\033[36m",     # Cyan
-        "INFO": "\033[32m",      # Green
-        "WARNING": "\033[33m",   # Yellow
-        "ERROR": "\033[31m",     # Red
+        "DEBUG": "\033[36m",  # Cyan
+        "INFO": "\033[32m",  # Green
+        "WARNING": "\033[33m",  # Yellow
+        "ERROR": "\033[31m",  # Red
         "CRITICAL": "\033[35m",  # Magenta
     }
     RESET = "\033[0m"
@@ -294,6 +311,7 @@ class PerformanceLogger:
         for operation, durations in self._metrics.items():
             if durations:
                 import statistics
+
                 stats[operation] = {
                     "count": len(durations),
                     "total_ms": sum(durations) * 1000,
@@ -471,6 +489,7 @@ def log_function_call(logger: Optional[logging.Logger] = None):
         ... def process_data(data):
         ...     return transformed_data
     """
+
     def decorator(func: Callable) -> Callable:
         nonlocal logger
         if logger is None:
@@ -498,4 +517,5 @@ def log_function_call(logger: Optional[logging.Logger] = None):
                 raise
 
         return wrapper
+
     return decorator

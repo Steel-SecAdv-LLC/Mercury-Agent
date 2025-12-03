@@ -28,9 +28,10 @@ Reference: Inspired by TCN and attention mechanisms for time-series
 
 """
 
+from typing import Dict, Tuple
+
 import torch
 import torch.nn as nn
-from typing import Tuple, Dict
 
 
 class TemporalBlock(nn.Module):

@@ -21,11 +21,12 @@ Test attention mechanism functionality
 """
 
 import torch
+
 from omni_anomaly_engine.ml.attention import (
-    MultiHeadDetectorAttention,
-    TemporalAttention,
-    SpatialAttention,
     CrossModalAttention,
+    MultiHeadDetectorAttention,
+    SpatialAttention,
+    TemporalAttention,
 )
 
 

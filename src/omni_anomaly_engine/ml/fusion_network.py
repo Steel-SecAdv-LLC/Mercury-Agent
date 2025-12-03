@@ -23,17 +23,19 @@ This is the core ML component that orchestrates feature extraction,
 encoding, and fusion for unified anomaly detection.
 """
 
+from typing import Any, Dict, Optional
+
 import torch
 import torch.nn as nn
-from typing import Dict, Optional, Any
+
 from omni_anomaly_engine.core.fusion import HybridFusionLayer
 from omni_anomaly_engine.ml.encoders import (
-    StatisticalEncoder,
-    TemporalEncoder,
+    AffectiveEncoder,
+    AstrophysicalEncoder,
     BiometricEncoder,
     QuantumEncoder,
-    AstrophysicalEncoder,
-    AffectiveEncoder,
+    StatisticalEncoder,
+    TemporalEncoder,
 )
 
 

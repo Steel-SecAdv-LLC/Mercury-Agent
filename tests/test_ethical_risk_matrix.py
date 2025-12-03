@@ -21,14 +21,14 @@ Tests for Ethical Risk Matrix module
 """
 
 from omni_anomaly_engine.core.ethical_risk_matrix import (
+    AnomalyOracle,
+    ComplianceRegime,
     EthicalRiskMatrix,
-    USLawPolling,
     GDPRCompliance,
     HIPAACompliance,
-    AnomalyOracle,
     RiskLevel,
-    ComplianceRegime,
     RiskScore,
+    USLawPolling,
 )
 
 

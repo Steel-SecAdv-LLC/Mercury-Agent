@@ -45,13 +45,14 @@ Performance: 35% improved prediction via multi-modal solar + magnetosphere fusio
 
 """
 
+import logging
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import torch
 import torch.nn as nn
-from typing import Dict, Any, List, Optional, Tuple
-from dataclasses import dataclass, field
-from enum import Enum
-import logging
 
 
 class SolarFlareClass(Enum):

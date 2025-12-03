@@ -23,22 +23,22 @@ Provides attention mechanisms, feature encoders, fusion networks, training, and 
 """
 
 from omni_anomaly_engine.ml.attention import (
-    MultiHeadDetectorAttention,
-    TemporalAttention,
-    SpatialAttention,
     CrossModalAttention,
+    MultiHeadDetectorAttention,
+    SpatialAttention,
+    TemporalAttention,
 )
 from omni_anomaly_engine.ml.encoders import (
-    StatisticalEncoder,
-    TemporalEncoder,
+    AffectiveEncoder,
+    AstrophysicalEncoder,
     BiometricEncoder,
     QuantumEncoder,
-    AstrophysicalEncoder,
-    AffectiveEncoder,
+    StatisticalEncoder,
+    TemporalEncoder,
 )
 from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
-from omni_anomaly_engine.ml.training import FusionTrainer
 from omni_anomaly_engine.ml.inference import FusionInference
+from omni_anomaly_engine.ml.training import FusionTrainer
 
 __all__ = [
     "MultiHeadDetectorAttention",

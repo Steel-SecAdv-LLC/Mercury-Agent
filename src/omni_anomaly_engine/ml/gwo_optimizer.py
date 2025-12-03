@@ -28,8 +28,9 @@ Reference: Mirjalili et al. (2014) - Grey Wolf Optimizer
 
 """
 
+from typing import Callable, Optional, Tuple
+
 import numpy as np
-from typing import Callable, Tuple, Optional
 
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 

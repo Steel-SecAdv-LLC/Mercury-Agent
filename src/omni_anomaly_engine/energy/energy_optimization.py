@@ -36,10 +36,11 @@ Research source: Wikipedia - Energy development
 
 """
 
-import numpy as np
-from typing import Dict, List, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from typing import Dict, List, Tuple
+
+import numpy as np
 
 
 class EnergySource(Enum):

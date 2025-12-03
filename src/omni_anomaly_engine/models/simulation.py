@@ -35,9 +35,10 @@ Research sources:
 
 """
 
-import numpy as np
-from typing import Dict, Any, Union, Optional
 import logging
+from typing import Any, Dict, Optional, Union
+
+import numpy as np
 
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 

@@ -20,9 +20,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Health monitoring for components and agents
 """
 
-from typing import Dict, Any, List
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Dict, List
 
 
 @dataclass

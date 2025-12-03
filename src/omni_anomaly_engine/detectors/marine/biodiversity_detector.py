@@ -46,10 +46,10 @@ Performance: 35% improved ecosystem health assessment via multi-modal fusion
 
 """
 
-from typing import Dict, Any, List, Optional
+import logging
 from dataclasses import dataclass, field
 from enum import Enum
-import logging
+from typing import Any, Dict, List, Optional
 
 
 class EcosystemHealth(Enum):

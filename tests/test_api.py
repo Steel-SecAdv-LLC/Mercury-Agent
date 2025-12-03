@@ -19,8 +19,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """Tests for REST API endpoints."""
 
 from fastapi.testclient import TestClient
-from omni_anomaly_engine.api.server import app
 
+from omni_anomaly_engine.api.server import app
 
 client = TestClient(app)
 

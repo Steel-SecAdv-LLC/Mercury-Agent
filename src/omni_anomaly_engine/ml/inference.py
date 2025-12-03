@@ -20,9 +20,11 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Production inference utilities for fusion model
 """
 
-import torch
+from typing import Any, Dict, List, Optional, Union
+
 import numpy as np
-from typing import Dict, List, Optional, Any, Union
+import torch
+
 from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
 
 

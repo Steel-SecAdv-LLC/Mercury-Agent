@@ -20,8 +20,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Self-healing engine for autonomous error recovery
 """
 
-from typing import Dict, Any, Optional, Callable
 import logging
+from typing import Any, Callable, Dict, Optional
+
 from omni_anomaly_engine.resilience.circuit_breaker import CircuitBreaker
 
 

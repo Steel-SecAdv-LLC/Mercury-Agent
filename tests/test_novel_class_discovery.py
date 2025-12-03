@@ -18,8 +18,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Tests for Novel Class Discovery integration."""
 
-import pytest
 import numpy as np
+import pytest
+
 from omni_anomaly_engine.core.novel_class_discovery import (
     MultiElementBinarization,
     NovelClassDiscovery,

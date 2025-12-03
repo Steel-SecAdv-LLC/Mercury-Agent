@@ -22,6 +22,7 @@ Abstract base classes for detectors, models, and encoders
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
+
 import numpy as np
 import torch
 import torch.nn as nn

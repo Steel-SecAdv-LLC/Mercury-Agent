@@ -20,8 +20,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from omni_anomaly_engine.energy.energy_optimization import (
     EnergyOptimization,
-    EnergySource,
     EnergyProfile,
+    EnergySource,
 )
 
 

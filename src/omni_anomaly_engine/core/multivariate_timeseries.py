@@ -25,7 +25,8 @@ Implements Long short-term memory + Temporal convolution + Graph convolution (LT
 for detecting cascading anomalies across domains (biometrics + quantum simulations).
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 import numpy as np
 
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng

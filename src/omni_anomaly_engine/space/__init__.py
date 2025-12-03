@@ -18,10 +18,10 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Space-inspired modules for resilience and optimization."""
 
-from omni_anomaly_engine.space.space_inspired import SpaceInspiredResilience
-from omni_anomaly_engine.space.space_exploration_analyzer import SpaceExplorationAnalyzer
-from omni_anomaly_engine.space.schumann_resonance import SchumannResonanceDetector
 from omni_anomaly_engine.space.interstellar_objects import InterstellarObjectDetector
+from omni_anomaly_engine.space.schumann_resonance import SchumannResonanceDetector
+from omni_anomaly_engine.space.space_exploration_analyzer import SpaceExplorationAnalyzer
+from omni_anomaly_engine.space.space_inspired import SpaceInspiredResilience
 
 __all__ = [
     "SpaceInspiredResilience",

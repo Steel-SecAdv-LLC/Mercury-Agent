@@ -22,13 +22,13 @@ Detector module for OMNI ♱ AVA
 Provides specialized anomaly detectors for different data types and domains.
 """
 
+from omni_anomaly_engine.detectors.dimensional import DimensionalAnalyzer
+from omni_anomaly_engine.detectors.directive import SigmaDirectiveDetector
+from omni_anomaly_engine.detectors.spatial import SpatialAnomalyDetector
 from omni_anomaly_engine.detectors.statistical import (
     StatisticalAnomalyDetector,
 )
 from omni_anomaly_engine.detectors.temporal import TemporalAnomalyDetector
-from omni_anomaly_engine.detectors.spatial import SpatialAnomalyDetector
-from omni_anomaly_engine.detectors.dimensional import DimensionalAnalyzer
-from omni_anomaly_engine.detectors.directive import SigmaDirectiveDetector
 
 __all__ = [
     "StatisticalAnomalyDetector",

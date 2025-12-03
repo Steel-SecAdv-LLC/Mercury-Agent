@@ -21,6 +21,7 @@ Test fusion mechanisms
 """
 
 import torch
+
 from omni_anomaly_engine.core.fusion import HybridFusionLayer
 from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
 

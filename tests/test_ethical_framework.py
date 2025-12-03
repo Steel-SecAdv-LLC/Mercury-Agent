@@ -21,24 +21,25 @@ Test suite for ethical framework components: Ethical Governor,
 Sigma Directives, Risk Matrix, and Compliance.
 """
 
-import pytest
 import numpy as np
+import pytest
+
+from omni_anomaly_engine.core.ethical_config import DEFAULT_CONFIG
 from omni_anomaly_engine.core.ethical_governor import (
-    EthicalAutonomyGovernor,
-    SigmaDirective,
-    EthicalDecision,
     BiasMetrics,
+    EthicalAutonomyGovernor,
+    EthicalDecision,
+    SigmaDirective,
 )
 from omni_anomaly_engine.core.ethical_risk_matrix import (
-    EthicalRiskMatrix,
-    RiskLevel,
-    USLawPolling,
-    GDPRCompliance,
-    HIPAACompliance,
     AnomalyOracle,
     ComplianceRegime,
+    EthicalRiskMatrix,
+    GDPRCompliance,
+    HIPAACompliance,
+    RiskLevel,
+    USLawPolling,
 )
-from omni_anomaly_engine.core.ethical_config import DEFAULT_CONFIG
 
 
 class TestSigmaDirective:

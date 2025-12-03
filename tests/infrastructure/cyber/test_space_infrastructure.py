@@ -21,6 +21,7 @@ Tests for Space Infrastructure Monitor (EU Critical Entities unique sector).
 """
 
 import numpy as np
+
 from omni_anomaly_engine.infrastructure.cyber.space_infrastructure import SpaceInfrastructureMonitor
 
 

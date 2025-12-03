@@ -22,11 +22,12 @@ Enhanced Command-Line Interface for OMNI ♱ AVA
 Comprehensive CLI with medical, security, humanitarian, and accessibility features.
 """
 
-import click
 import json
-import numpy as np
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
+import click
+import numpy as np
 
 from omni_anomaly_engine import OmniAnomalyEngine
 from omni_anomaly_engine.utils.rng import get_global_rng

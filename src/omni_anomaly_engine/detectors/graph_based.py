@@ -28,10 +28,12 @@ Detects anomalies in graph-structured data using:
 
 """
 
-import numpy as np
+from typing import Any, Dict, Optional, Union
+
 import networkx as nx
-from typing import Dict, Any, Optional, Union
+import numpy as np
 import torch
+
 from omni_anomaly_engine.core.base import BaseDetector
 
 

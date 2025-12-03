@@ -24,7 +24,7 @@ future-proofs the engine against unknown technology threats.
 Reference: Wikipedia - Emerging technologies
 """
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 
 class EmergingTechMonitor:

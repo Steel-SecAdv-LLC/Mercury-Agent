@@ -21,6 +21,7 @@ Tests for STEM Discipline Router for multi-engine fusion.
 """
 
 import torch
+
 from omni_anomaly_engine.ml.fusion_network import STEMDisciplineRouter
 
 

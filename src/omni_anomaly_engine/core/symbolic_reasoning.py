@@ -24,7 +24,8 @@ Based on: PyReason - Temporal First-Order Logic Explainable AI
 Provides symbolic reasoning layer for explainable anomaly detection outputs.
 """
 
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 
 

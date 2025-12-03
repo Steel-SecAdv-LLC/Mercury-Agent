@@ -89,42 +89,43 @@ See Also:
     - :class:`omni_anomaly_engine.ml.fusion_network.OmniFusionModel`
 """
 
-import torch
-from typing import Dict, Any, Optional, List, Union, Callable, Iterator
-from functools import lru_cache
+import gc
+import logging
+import threading
+import weakref
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
-import threading
-import logging
-import gc
-import weakref
+from functools import lru_cache
+from typing import Any, Callable, Dict, Iterator, List, Optional, Union
+
 import numpy as np
+import torch
+
 from omni_anomaly_engine.core.config import EngineConfig
-from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
-from omni_anomaly_engine.ml.inference import FusionInference
+from omni_anomaly_engine.detectors.dimensional import DimensionalAnalyzer
+from omni_anomaly_engine.detectors.directive import SigmaDirectiveDetector
+from omni_anomaly_engine.detectors.spatial import SpatialAnomalyDetector
 from omni_anomaly_engine.detectors.statistical import (
     StatisticalAnomalyDetector,
 )
 from omni_anomaly_engine.detectors.temporal import TemporalAnomalyDetector
-from omni_anomaly_engine.detectors.spatial import SpatialAnomalyDetector
-from omni_anomaly_engine.detectors.dimensional import DimensionalAnalyzer
-from omni_anomaly_engine.detectors.directive import SigmaDirectiveDetector
-from omni_anomaly_engine.models.quantum import QuantumAnomalyModel
+from omni_anomaly_engine.medical.abms_disciplines import ABMSDisciplineDetector
+from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
+from omni_anomaly_engine.ml.inference import FusionInference
+from omni_anomaly_engine.models.affective import AffectiveAnomalyModel
 from omni_anomaly_engine.models.astrophysical import AstrophysicalAnomalyModel
 from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
-from omni_anomaly_engine.models.affective import AffectiveAnomalyModel
-from omni_anomaly_engine.models.neural import NeuralCognitiveModel
+from omni_anomaly_engine.models.chemistry import ChemistryAnomalyDetector
 from omni_anomaly_engine.models.consciousness import (
     ConsciousnessPreservationModel,
 )
-from omni_anomaly_engine.security.threat_detection import ThreatDetector
-from omni_anomaly_engine.resilience.self_healing import SelfHealingEngine
-from omni_anomaly_engine.medical.abms_disciplines import ABMSDisciplineDetector
-from omni_anomaly_engine.security.intelligence_fusion import IntelligenceFusionEngine
-from omni_anomaly_engine.space.schumann_resonance import SchumannResonanceDetector
-from omni_anomaly_engine.models.chemistry import ChemistryAnomalyDetector
+from omni_anomaly_engine.models.neural import NeuralCognitiveModel
 from omni_anomaly_engine.models.parapsychology import ParapsychologyDetector
-
+from omni_anomaly_engine.models.quantum import QuantumAnomalyModel
+from omni_anomaly_engine.resilience.self_healing import SelfHealingEngine
+from omni_anomaly_engine.security.intelligence_fusion import IntelligenceFusionEngine
+from omni_anomaly_engine.security.threat_detection import ThreatDetector
+from omni_anomaly_engine.space.schumann_resonance import SchumannResonanceDetector
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -175,7 +176,9 @@ class FeatureCache:
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
         # Use shape and sample of data for key
-        data_hash = hash((data.shape, data.tobytes()[:1024] if data.nbytes > 1024 else data.tobytes()))
+        data_hash = hash(
+            (data.shape, data.tobytes()[:1024] if data.nbytes > 1024 else data.tobytes())
+        )
         return f"{prefix}_{data_hash}"
 
     def get_or_compute(
@@ -278,6 +281,7 @@ class MemoryMonitor:
         """
         try:
             import psutil
+
             process = psutil.Process()
             return process.memory_info().rss / (1024 * 1024)
         except ImportError:
@@ -640,12 +644,14 @@ class OmniAnomalyEngine:
                     batch_result = self.detect_with_fusion(batch_data)
                     # Expand batch result to individual results
                     for i in range(len(batch_data)):
-                        results.append({
-                            "anomaly_prob": batch_result.get("anomaly_prob", 0.0),
-                            "is_anomaly": batch_result.get("is_anomaly", False),
-                            "severity": batch_result.get("severity", 0.0),
-                            "mode": "fusion",
-                        })
+                        results.append(
+                            {
+                                "anomaly_prob": batch_result.get("anomaly_prob", 0.0),
+                                "is_anomaly": batch_result.get("is_anomaly", False),
+                                "severity": batch_result.get("severity", 0.0),
+                                "mode": "fusion",
+                            }
+                        )
                 else:
                     batch_result = self.detect(batch_data)
                     for i in range(len(batch_data)):
@@ -745,8 +751,7 @@ class OmniAnomalyEngine:
 
                 # Try to use cached features
                 cache_key = self.feature_cache._make_key(
-                    data if not isinstance(data, dict) else np.array([0]),
-                    prefix=f"detector_{name}"
+                    data if not isinstance(data, dict) else np.array([0]), prefix=f"detector_{name}"
                 )
 
                 def compute_features() -> tuple:
@@ -793,8 +798,7 @@ class OmniAnomalyEngine:
             try:
                 # Try to use cached features
                 cache_key = self.feature_cache._make_key(
-                    data if not isinstance(data, dict) else np.array([0]),
-                    prefix=f"model_{name}"
+                    data if not isinstance(data, dict) else np.array([0]), prefix=f"model_{name}"
                 )
 
                 def compute_features() -> tuple:
@@ -1070,8 +1074,10 @@ class OmniAnomalyEngine:
         import os
         import pickle
         import tempfile
+
         from torch.utils.data import DataLoader, random_split
-        from omni_anomaly_engine.ml.training import FusionTrainer, AnomalyDataset
+
+        from omni_anomaly_engine.ml.training import AnomalyDataset, FusionTrainer
 
         if self.mode != "fusion":
             raise ValueError("Training requires fusion mode. Initialize with mode='fusion'")

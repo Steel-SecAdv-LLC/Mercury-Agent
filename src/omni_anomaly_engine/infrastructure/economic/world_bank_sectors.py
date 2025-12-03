@@ -24,7 +24,8 @@ on sustainable development and regenerative economic patterns.
 Reference: UN Statistics Division - ISIC Rev 4
 """
 
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 import numpy as np
 
 

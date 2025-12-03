@@ -21,8 +21,8 @@ Rate limiting utilities
 """
 
 import time
-from typing import Dict
 from collections import defaultdict
+from typing import Dict
 
 
 class RateLimiter:

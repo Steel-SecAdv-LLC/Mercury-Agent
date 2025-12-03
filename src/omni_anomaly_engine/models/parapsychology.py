@@ -58,13 +58,14 @@ Use skeptical, rigorous methodology.
 
 """
 
+import logging
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import torch
 import torch.nn as nn
-from typing import Dict, Any, List, Optional, Tuple
-from dataclasses import dataclass, field
 from scipy import stats
-import logging
 
 
 class PsiPhenomenon(str):

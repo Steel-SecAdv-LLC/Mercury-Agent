@@ -33,7 +33,8 @@ MIT-compatible implementation using standard cryptographic primitives.
 import base64
 import hashlib
 import secrets
-from typing import Union, Optional, Tuple
+from typing import Optional, Tuple, Union
+
 import numpy as np
 
 

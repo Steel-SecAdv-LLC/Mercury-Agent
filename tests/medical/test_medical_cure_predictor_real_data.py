@@ -18,10 +18,11 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Real-data tests for Medical Cure Predictor using simulated datasets."""
 
-import pytest
-import numpy as np
-import sys
 import os
+import sys
+
+import numpy as np
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
@@ -31,7 +32,7 @@ from omni_anomaly_engine.medical.medical_cure_predictor import (
 )
 
 try:
-    from assets.loaders import generate_mimic_vitals, generate_medical_image
+    from assets.loaders import generate_medical_image, generate_mimic_vitals
 
     ASSETS_AVAILABLE = True
 except ImportError:

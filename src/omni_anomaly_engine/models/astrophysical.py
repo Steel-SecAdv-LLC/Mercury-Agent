@@ -21,8 +21,9 @@ Astrophysical anomaly detection model
 Enhanced with black hole physics from FIND-YOU-ARC-CODE
 """
 
+from typing import Any, Dict, Optional, Union
+
 import numpy as np
-from typing import Dict, Any, Union, Optional
 
 _ETHICAL_ANCHOR = "I19A09A07A88"
 

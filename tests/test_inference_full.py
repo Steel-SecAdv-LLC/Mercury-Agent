@@ -20,8 +20,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Comprehensive tests for inference module to boost coverage
 """
 
-import torch
 import numpy as np
+import torch
+
 from omni_anomaly_engine.ml.inference import FusionInference
 
 

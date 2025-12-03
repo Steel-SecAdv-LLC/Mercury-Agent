@@ -25,7 +25,8 @@ Implements Chaos Game Optimization (CGO) using fractal configurations and chaos 
 for dynamic hyperparameter tuning in anomaly detection systems.
 """
 
-from typing import Optional, Dict, Any, Callable, List, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
 import numpy as np
 
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
