@@ -22,6 +22,12 @@ Machine Learning module for OMNI ♱ AVA
 Provides attention mechanisms, feature encoders, fusion networks, training, and inference.
 """
 
+from omni_anomaly_engine.ml.advanced_optimizers import (
+    AuxiliaryMaxVariance,
+    DifferenceTargetPropagation,
+    SyntheticGradientModule,
+    SyntheticGradientPredictor,
+)
 from omni_anomaly_engine.ml.attention import (
     CrossModalAttention,
     MultiHeadDetectorAttention,
@@ -38,20 +44,38 @@ from omni_anomaly_engine.ml.encoders import (
 )
 from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
 from omni_anomaly_engine.ml.inference import FusionInference
+from omni_anomaly_engine.ml.ppo_trainer import (
+    CheckpointCallback,
+    ConvergenceMonitor,
+    MultiEnvPPOTrainer,
+    PPOConfig,
+    PPOTrainer,
+    TrainingStats,
+)
 from omni_anomaly_engine.ml.training import FusionTrainer
 
 __all__ = [
     "AffectiveEncoder",
     "AstrophysicalEncoder",
+    "AuxiliaryMaxVariance",
     "BiometricEncoder",
+    "CheckpointCallback",
+    "ConvergenceMonitor",
     "CrossModalAttention",
+    "DifferenceTargetPropagation",
     "FusionInference",
     "FusionTrainer",
+    "MultiEnvPPOTrainer",
     "MultiHeadDetectorAttention",
     "OmniFusionModel",
+    "PPOConfig",
+    "PPOTrainer",
     "QuantumEncoder",
     "SpatialAttention",
     "StatisticalEncoder",
+    "SyntheticGradientModule",
+    "SyntheticGradientPredictor",
     "TemporalAttention",
     "TemporalEncoder",
+    "TrainingStats",
 ]

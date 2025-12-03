@@ -19,17 +19,90 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 Security module for OMNI ♱ AVA
 
-Provides threat detection, rate limiting, and encryption utilities.
+Provides threat detection, rate limiting, encryption utilities,
+and post-quantum cryptographic protection.
 """
 
+from omni_anomaly_engine.security.crypto_api import (
+    AlgorithmType,
+    AvaGuardianCrypto,
+    CryptoBackend,
+    CryptoPackageConfig,
+    CryptoPackageResult,
+    EncapsulatedSecret,
+    HybridSignature,
+    HybridSignatureProvider,
+    KeyPair,
+    KyberProvider,
+    MLDSAProvider,
+    SecurityLevel,
+    Signature,
+    SphincsProvider,
+)
 from omni_anomaly_engine.security.encryption import SecureDataHandler
 from omni_anomaly_engine.security.intelligence_fusion import IntelligenceFusionEngine
+from omni_anomaly_engine.security.pqc_backends import (
+    DILITHIUM_AVAILABLE,
+    KYBER_AVAILABLE,
+    LIBOQS_AVAILABLE,
+    SPHINCS_AVAILABLE,
+    DilithiumKeyPair,
+    KyberEncapsulation,
+    KyberKeyPair,
+    PQCBackend,
+    SphincsKeyPair,
+    dilithium_sign,
+    dilithium_verify,
+    generate_dilithium_keypair,
+    generate_kyber_keypair,
+    generate_sphincs_keypair,
+    get_active_backend,
+    get_pqc_capabilities,
+    kyber_decapsulate,
+    kyber_encapsulate,
+    sphincs_sign,
+    sphincs_verify,
+)
 from omni_anomaly_engine.security.rate_limiting import RateLimiter
 from omni_anomaly_engine.security.threat_detection import ThreatDetector
 
 __all__ = [
+    "AlgorithmType",
+    "AvaGuardianCrypto",
+    "CryptoBackend",
+    "CryptoPackageConfig",
+    "CryptoPackageResult",
+    "DILITHIUM_AVAILABLE",
+    "DilithiumKeyPair",
+    "EncapsulatedSecret",
+    "HybridSignature",
+    "HybridSignatureProvider",
     "IntelligenceFusionEngine",
+    "KYBER_AVAILABLE",
+    "KeyPair",
+    "KyberEncapsulation",
+    "KyberKeyPair",
+    "KyberProvider",
+    "LIBOQS_AVAILABLE",
+    "MLDSAProvider",
+    "PQCBackend",
     "RateLimiter",
     "SecureDataHandler",
+    "SecurityLevel",
+    "SPHINCS_AVAILABLE",
+    "Signature",
+    "SphincsKeyPair",
+    "SphincsProvider",
     "ThreatDetector",
+    "dilithium_sign",
+    "dilithium_verify",
+    "generate_dilithium_keypair",
+    "generate_kyber_keypair",
+    "generate_sphincs_keypair",
+    "get_active_backend",
+    "get_pqc_capabilities",
+    "kyber_decapsulate",
+    "kyber_encapsulate",
+    "sphincs_sign",
+    "sphincs_verify",
 ]

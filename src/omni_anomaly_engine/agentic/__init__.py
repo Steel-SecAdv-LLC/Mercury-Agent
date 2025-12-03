@@ -19,5 +19,33 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """Agentic AI autonomy modules."""
 
 from omni_anomaly_engine.agentic.agentic_autonomy import AgentAction, AgenticAutonomy, AgentState
+from omni_anomaly_engine.agentic.mercury_a_agent import (
+    AgentMemory,
+    AgentMode,
+    DomainType,
+    MercuryAgent,
+    MercuryPlanner,
+    MercuryReasoner,
+    PlanResult,
+    ReasoningStep,
+    Task,
+    TaskPriority,
+    create_mercury_agent,
+)
 
-__all__ = ["AgentAction", "AgentState", "AgenticAutonomy"]
+__all__ = [
+    "AgentAction",
+    "AgentMemory",
+    "AgentMode",
+    "AgentState",
+    "AgenticAutonomy",
+    "DomainType",
+    "MercuryAgent",
+    "MercuryPlanner",
+    "MercuryReasoner",
+    "PlanResult",
+    "ReasoningStep",
+    "Task",
+    "TaskPriority",
+    "create_mercury_agent",
+]
