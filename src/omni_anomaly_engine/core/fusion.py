@@ -34,8 +34,6 @@ from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 # - Hybrid: Concatenate raw features + detector scores → attention network
 
 
-
-
 if TYPE_CHECKING:
     import numpy as np
 
