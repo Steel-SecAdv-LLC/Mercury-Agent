@@ -86,7 +86,6 @@ This is the **first known formalization of ancient ethical principles as positiv
 - `omni_anomaly_engine/core/fusion.py`: 22-term implementation
 - `omni_anomaly_engine/core/ethical_config.py`: 151 scalars
 - `docs/RESEARCH_FINDINGS.md`: Ancient wisdom sources
-- `docs/AUDIT_REPORT.md`: Repository analysis
 
 ---
 
