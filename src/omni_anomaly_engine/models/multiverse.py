@@ -33,6 +33,8 @@ from enum import Enum
 import time
 import hashlib
 
+from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
+
 _VITALITY_HASH = "V20V11M16V19"
 
 
@@ -73,6 +75,7 @@ class MultiverseOmniEngine:
         state_dim: int = 50,
         convergence_threshold: float = 0.95,
         entanglement_strength: float = 0.3,
+        rng: Optional[DeterministicRNG] = None,
     ):
         """
         Initialize Multi-Universe Omni Engine.
@@ -82,11 +85,13 @@ class MultiverseOmniEngine:
             state_dim: Dimensionality of state space
             convergence_threshold: Threshold for universe convergence
             entanglement_strength: Strength of entanglement between universes
+            rng: Optional DeterministicRNG for reproducibility
         """
         self.num_universes = num_universes
         self.state_dim = state_dim
         self.convergence_threshold = convergence_threshold
         self.entanglement_strength = entanglement_strength
+        self._rng = rng or get_global_rng()
 
         self.universes: Dict[str, Universe] = {}
         self.timeline = 0
@@ -102,7 +107,7 @@ class MultiverseOmniEngine:
         for i in range(self.num_universes):
             universe_id = hashlib.sha256(f"universe_{i}_{time.time()}".encode()).hexdigest()[:16]
 
-            state_vector = np.random.randn(self.state_dim) * 0.5
+            state_vector = self._rng.randn(self.state_dim) * 0.5
             probability_amplitude = 1.0 / self.num_universes
 
             universe = Universe(
@@ -166,7 +171,7 @@ class MultiverseOmniEngine:
             superposed_state += weights[i] * universe.state_vector
 
         universe_id = hashlib.sha256(
-            f"superposed_{time.time()}_{np.random.randint(0, 1000000)}".encode()
+            f"superposed_{time.time()}_{self._rng.randint(0, 1000000)}".encode()
         ).hexdigest()[:16]
 
         new_universe = Universe(

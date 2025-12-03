@@ -19,14 +19,22 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """Affective computing anomaly detection model."""
 
 import numpy as np
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, Optional
+
+from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
 class AffectiveAnomalyModel:
     """Affective computing model for emotional state anomaly detection."""
 
-    def __init__(self, config: Dict[str, Any] = None, **kwargs):
+    def __init__(
+        self,
+        config: Dict[str, Any] = None,
+        rng: Optional[DeterministicRNG] = None,
+        **kwargs,
+    ):
         self.config = config or {}
+        self._rng = rng or get_global_rng()
 
     def extract_features(self, data: Union[np.ndarray, Dict[str, Any]]) -> np.ndarray:
         """Extract affective features from data."""
@@ -41,7 +49,7 @@ class AffectiveAnomalyModel:
         batch_size = data.shape[0]
         num_features = 64
 
-        return np.random.randn(batch_size, num_features).astype(np.float32)
+        return self._rng.randn(batch_size, num_features).astype(np.float32)
 
     def predict(self, data: Union[np.ndarray, Dict[str, Any]]) -> Dict[str, Any]:
         """Predict emotional state anomalies."""
@@ -49,7 +57,7 @@ class AffectiveAnomalyModel:
         batch_size = features.shape[0]
 
         return {
-            "anomaly_scores": np.random.rand(batch_size).astype(np.float32),
-            "emotion_scores": np.random.randn(batch_size, 6).astype(np.float32),
-            "distress_levels": np.random.rand(batch_size).astype(np.float32),
+            "anomaly_scores": self._rng.rand(batch_size).astype(np.float32),
+            "emotion_scores": self._rng.randn(batch_size, 6).astype(np.float32),
+            "distress_levels": self._rng.rand(batch_size).astype(np.float32),
         }

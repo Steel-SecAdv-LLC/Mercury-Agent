@@ -35,6 +35,8 @@ from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
+
 
 @dataclass
 class ClientModel:
@@ -76,6 +78,7 @@ class FederatedAnomalyDetection:
         byzantine_tolerance: bool = True,
         differential_privacy: bool = False,
         epsilon: float = 1.0,
+        rng: Optional[DeterministicRNG] = None,
     ):
         """
         Initialize federated anomaly detection.
@@ -86,16 +89,18 @@ class FederatedAnomalyDetection:
             byzantine_tolerance: Enable Byzantine fault tolerance
             differential_privacy: Enable differential privacy
             epsilon: Privacy budget for differential privacy
+            rng: Optional DeterministicRNG for reproducibility
         """
         self.model_dim = model_dim
         self.aggregation_method = aggregation_method
         self.byzantine_tolerance = byzantine_tolerance
         self.differential_privacy = differential_privacy
         self.epsilon = epsilon
+        self._rng = rng or get_global_rng()
 
         self.global_model = GlobalModel(
             round_number=0,
-            weights=np.random.randn(model_dim) * 0.01,
+            weights=self._rng.randn(model_dim) * 0.01,
             participating_clients=0,
             aggregated_loss=0.0,
         )
@@ -373,7 +378,7 @@ class FederatedAnomalyDetection:
 
         sigma = sensitivity * np.sqrt(2 * np.log(1.25)) / self.epsilon
 
-        noise = np.random.normal(0, sigma, size=weights.shape)
+        noise = self._rng.normal(0, sigma, size=weights.shape)
 
         return weights + noise
 
