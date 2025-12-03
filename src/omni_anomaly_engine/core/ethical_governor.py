@@ -39,6 +39,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from scipy import stats
 from omni_anomaly_engine.core.ethical_config import EthicalScalars, DEFAULT_CONFIG
+from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
 @dataclass
@@ -199,6 +200,7 @@ class EthicalAutonomyGovernor:
         enable_sigma_directives: bool = True,
         p_value_threshold: float = 0.05,
         ethical_threshold: float = 0.8,
+        rng: Optional[DeterministicRNG] = None,
     ):
         """
         Initialize Ethical Autonomy Governor.
@@ -209,12 +211,14 @@ class EthicalAutonomyGovernor:
             enable_sigma_directives: Enable Sigma Directive overrides
             p_value_threshold: Statistical significance threshold
             ethical_threshold: Minimum ethical score threshold
+            rng: Optional DeterministicRNG for reproducibility
         """
         self.ethical_scalars = ethical_scalars or DEFAULT_CONFIG.ethical_scalars
         self.enable_bias_audits = enable_bias_audits
         self.enable_sigma_directives = enable_sigma_directives
         self.p_value_threshold = p_value_threshold
         self.ethical_threshold = ethical_threshold
+        self._rng = rng or get_global_rng()
 
         self.sigma_directive: Optional[SigmaDirective] = (
             SigmaDirective(self.ethical_scalars) if enable_sigma_directives else None
@@ -367,7 +371,9 @@ class EthicalAutonomyGovernor:
         """
         baseline_score = 1.0
 
-        sample_scores = [ethical_score] * 10 + np.random.normal(baseline_score, 0.1, 20).tolist()
+        sample_scores = [ethical_score] * 10 + self._rng.normal(
+            baseline_score, 0.1, 20
+        ).tolist()
 
         t_stat, p_value = stats.ttest_1samp(sample_scores, baseline_score)
 

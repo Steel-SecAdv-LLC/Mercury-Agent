@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 
 from omni_anomaly_engine import OmniAnomalyEngine
+from omni_anomaly_engine.utils.rng import get_global_rng
 
 
 @click.group()
@@ -575,8 +576,8 @@ def _run_sepsis_demo() -> None:
 
 def _run_cybersecurity_demo() -> None:
     """Run interactive cybersecurity demo"""
-
-    threat_features = np.random.randn(256) * 0.5
+    rng = get_global_rng()
+    threat_features = rng.randn(256) * 0.5
 
     from omni_anomaly_engine.security.cybint_subprocessor import CYBINTSubProcessor
 

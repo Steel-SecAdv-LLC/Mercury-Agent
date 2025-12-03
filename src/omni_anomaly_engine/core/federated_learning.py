@@ -28,11 +28,17 @@ Implements FedAvg aggregation algorithm for distributed model training without s
 from typing import List, Dict, Any, Optional
 import numpy as np
 
+from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
+
 
 class FederatedAnomalyDetector:
     """Federated learning for privacy-preserving anomaly detection."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        config: Optional[Dict[str, Any]] = None,
+        rng: Optional[DeterministicRNG] = None,
+    ):
         """Initialize federated detector.
 
         Args:
@@ -41,6 +47,7 @@ class FederatedAnomalyDetector:
                 - learning_rate: Learning rate for local training (default: 0.001)
                 - local_epochs: Epochs per client per round (default: 5)
                 - aggregation_method: 'fedavg' or 'weighted_fedavg' (default: 'fedavg')
+            rng: Optional DeterministicRNG for reproducibility
         """
         self.config = config or {}
         self.num_clients = self.config.get("num_clients", 5)
@@ -48,6 +55,7 @@ class FederatedAnomalyDetector:
         self.local_epochs = self.config.get("local_epochs", 5)
         self.aggregation_method = self.config.get("aggregation_method", "fedavg")
         self.global_model: Optional[np.ndarray] = None
+        self._rng = rng or get_global_rng()
 
     def federated_average(
         self, client_weights: List[np.ndarray], client_sizes: Optional[List[int]] = None
@@ -93,7 +101,7 @@ class FederatedAnomalyDetector:
         }
 
         if self.global_model is None:
-            self.global_model = np.random.randn(10)
+            self.global_model = self._rng.randn(10)
 
         for round_idx in range(num_rounds):
             client_weights: List[np.ndarray] = []
@@ -122,5 +130,5 @@ class FederatedAnomalyDetector:
         Returns:
             Updated local model weights
         """
-        updated_weights = global_weights + np.random.randn(*global_weights.shape) * 0.01
+        updated_weights = global_weights + self._rng.randn(*global_weights.shape) * 0.01
         return updated_weights

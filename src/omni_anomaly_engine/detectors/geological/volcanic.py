@@ -58,6 +58,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 import logging
 
+from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
+
 
 class VolcanicActivityLevel(Enum):
     """USGS volcanic alert levels"""
@@ -391,12 +393,14 @@ class VolcanicEruptionDetector:
         enable_gas: bool = True,
         enable_insar: bool = True,
         enable_schumann_correlation: bool = True,
+        rng: Optional[DeterministicRNG] = None,
     ):
         self.enable_seismic = enable_seismic
         self.enable_thermal = enable_thermal
         self.enable_gas = enable_gas
         self.enable_insar = enable_insar
         self.enable_schumann = enable_schumann_correlation
+        self._rng = rng or get_global_rng()
 
         self.seismic_detector = SeismicSwarmDetector() if enable_seismic else None
         self.thermal_detector = ThermalHotspotDetector() if enable_thermal else None
@@ -524,7 +528,7 @@ class VolcanicEruptionDetector:
         if "fused_features" in volcano_data:
             features = volcano_data["fused_features"]
         else:
-            features = np.random.randn(128) * 0.3 + indicators / 4.0
+            features = self._rng.randn(128) * 0.3 + indicators / 4.0
 
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 

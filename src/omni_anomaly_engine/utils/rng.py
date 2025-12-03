@@ -110,6 +110,63 @@ class DeterministicRNG:
         rng = self.get_numpy_rng()
         return rng.standard_normal(size=shape).astype(dtype)
 
+    def normal(
+        self,
+        loc: float = 0.0,
+        scale: float = 1.0,
+        size: Optional[Union[int, tuple]] = None,
+        dtype: type = np.float64,
+    ) -> np.ndarray:
+        """
+        Generate random numbers from normal (Gaussian) distribution.
+
+        Args:
+            loc: Mean of the distribution
+            scale: Standard deviation of the distribution
+            size: Output shape
+            dtype: Data type for output
+
+        Returns:
+            Random array from normal distribution
+        """
+        rng = self.get_numpy_rng()
+        return rng.normal(loc=loc, scale=scale, size=size).astype(dtype)
+
+    def uniform(
+        self,
+        low: float = 0.0,
+        high: float = 1.0,
+        size: Optional[Union[int, tuple]] = None,
+        dtype: type = np.float64,
+    ) -> np.ndarray:
+        """
+        Generate random numbers from uniform distribution.
+
+        Args:
+            low: Lower bound (inclusive)
+            high: Upper bound (exclusive)
+            size: Output shape
+            dtype: Data type for output
+
+        Returns:
+            Random array from uniform distribution
+        """
+        rng = self.get_numpy_rng()
+        return rng.uniform(low=low, high=high, size=size).astype(dtype)
+
+    def random(self, size: Optional[Union[int, tuple]] = None) -> np.ndarray:
+        """
+        Generate random floats in the half-open interval [0.0, 1.0).
+
+        Args:
+            size: Output shape
+
+        Returns:
+            Random array from [0.0, 1.0)
+        """
+        rng = self.get_numpy_rng()
+        return rng.random(size=size)
+
     def rand(self, *shape: int, dtype: type = np.float64) -> np.ndarray:
         """
         Generate uniform random numbers in [0, 1).
