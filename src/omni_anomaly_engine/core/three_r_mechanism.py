@@ -1558,7 +1558,8 @@ class RefactoringEngine:
 
     def clear_cache(self) -> None:
         """Clear the analysis cache to free memory."""
-        self._analysis_cache.clear()
+        with self._cache_lock:
+            self._analysis_cache.clear()
 
     def multiverse_optimization(
         self,
