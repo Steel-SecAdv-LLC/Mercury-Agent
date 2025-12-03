@@ -50,13 +50,9 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from omni_anomaly_engine.security.pqc_backends import (
-    DilithiumKeyPair,
-    KyberEncapsulation,
-    KyberKeyPair,
-    SphincsKeyPair,
     dilithium_sign,
     dilithium_verify,
     generate_dilithium_keypair,
@@ -169,8 +165,8 @@ class CryptoPackageResult:
     """Result of cryptographic package creation."""
 
     data_hash: str
-    signature: Optional[Signature] = None
-    hybrid_signature: Optional[HybridSignature] = None
+    signature: Signature | None = None
+    hybrid_signature: HybridSignature | None = None
     timestamp: float = field(default_factory=time.time)
     metadata: dict[str, Any] = field(default_factory=dict)
     verified: bool = False
@@ -182,8 +178,8 @@ class Ed25519Provider:
     def __init__(self):
         if not ED25519_AVAILABLE:
             raise RuntimeError("cryptography library required for Ed25519")
-        self._private_key: Optional[Ed25519PrivateKey] = None
-        self._public_key: Optional[Ed25519PublicKey] = None
+        self._private_key: Ed25519PrivateKey | None = None
+        self._public_key: Ed25519PublicKey | None = None
 
     def generate_keypair(self) -> KeyPair:
         """Generate Ed25519 key pair."""
@@ -296,13 +292,13 @@ class HybridSignatureProvider:
     """Hybrid signature provider combining classical and post-quantum."""
 
     def __init__(self):
-        self.classical_provider: Optional[Ed25519Provider] = None
+        self.classical_provider: Ed25519Provider | None = None
         self.pqc_provider = MLDSAProvider()
 
         if ED25519_AVAILABLE:
             self.classical_provider = Ed25519Provider()
 
-    def generate_keypairs(self) -> tuple[Optional[KeyPair], KeyPair]:
+    def generate_keypairs(self) -> tuple[KeyPair | None, KeyPair]:
         """Generate both classical and PQC key pairs."""
         classical_kp = None
         if self.classical_provider:
@@ -313,7 +309,7 @@ class HybridSignatureProvider:
     def sign(
         self,
         message: bytes,
-        classical_secret: Optional[bytes],
+        classical_secret: bytes | None,
         pqc_secret: bytes,
     ) -> HybridSignature:
         """Create hybrid signature."""
@@ -336,7 +332,7 @@ class HybridSignatureProvider:
         self,
         message: bytes,
         hybrid_sig: HybridSignature,
-        classical_public: Optional[bytes],
+        classical_public: bytes | None,
         pqc_public: bytes,
     ) -> tuple[bool, bool]:
         """Verify hybrid signature. Returns (classical_valid, pqc_valid)."""
@@ -378,19 +374,19 @@ class AvaGuardianCrypto:
         self.sphincs_provider = SphincsProvider()
         self.hybrid_provider = HybridSignatureProvider()
 
-        self.ed25519_provider: Optional[Ed25519Provider] = None
+        self.ed25519_provider: Ed25519Provider | None = None
         if ED25519_AVAILABLE:
             self.ed25519_provider = Ed25519Provider()
 
-        self._signing_keypair: Optional[KeyPair] = None
-        self._kem_keypair: Optional[KeyPair] = None
+        self._signing_keypair: KeyPair | None = None
+        self._kem_keypair: KeyPair | None = None
 
         logger.info(
             f"AvaGuardianCrypto initialized (level={security_level.value}, "
             f"backend={backend.value})"
         )
 
-    def generate_signing_keypair(self, algorithm: Optional[AlgorithmType] = None) -> KeyPair:
+    def generate_signing_keypair(self, algorithm: AlgorithmType | None = None) -> KeyPair:
         """Generate signing key pair based on security level."""
         if algorithm:
             if algorithm == AlgorithmType.ED25519:
@@ -417,7 +413,7 @@ class AvaGuardianCrypto:
         self,
         message: bytes,
         secret_key: bytes,
-        algorithm: Optional[AlgorithmType] = None,
+        algorithm: AlgorithmType | None = None,
     ) -> Signature:
         """Sign message with appropriate algorithm."""
         if algorithm is None:
@@ -472,7 +468,7 @@ class AvaGuardianCrypto:
     def create_crypto_package(
         self,
         data: dict[str, Any],
-        config: Optional[CryptoPackageConfig] = None,
+        config: CryptoPackageConfig | None = None,
     ) -> CryptoPackageResult:
         """
         Create cryptographic package for anomaly detection results.
@@ -542,18 +538,18 @@ class AvaGuardianCrypto:
 
 __all__ = [
     "AlgorithmType",
-    "SecurityLevel",
+    "AvaGuardianCrypto",
     "CryptoBackend",
-    "KeyPair",
-    "Signature",
-    "HybridSignature",
-    "EncapsulatedSecret",
     "CryptoPackageConfig",
     "CryptoPackageResult",
     "Ed25519Provider",
-    "MLDSAProvider",
-    "KyberProvider",
-    "SphincsProvider",
+    "EncapsulatedSecret",
+    "HybridSignature",
     "HybridSignatureProvider",
-    "AvaGuardianCrypto",
+    "KeyPair",
+    "KyberProvider",
+    "MLDSAProvider",
+    "SecurityLevel",
+    "Signature",
+    "SphincsProvider",
 ]

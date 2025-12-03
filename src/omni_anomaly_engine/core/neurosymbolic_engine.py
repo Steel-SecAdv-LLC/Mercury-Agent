@@ -31,11 +31,11 @@ from omni_anomaly_engine.core.code_analysis import (
 )
 
 __all__ = [
-    "NeurosymbolicEngine",
-    "NeurosymbolicConfig",
-    "TrainingPhase",
-    "CodeAnalysisEngine",
     "CodeAnalysisConfig",
+    "CodeAnalysisEngine",
+    "NeurosymbolicConfig",
+    "NeurosymbolicEngine",
+    "TrainingPhase",
 ]
 
 # Issue deprecation warning on import

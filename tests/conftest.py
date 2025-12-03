@@ -29,7 +29,6 @@ import pytest
 
 from omni_anomaly_engine.utils.rng import (
     DeterministicRNG,
-    get_global_rng,
     set_global_seed,
 )
 

@@ -47,7 +47,7 @@ import numpy as np
 
 try:
     import torch
-    import torch.nn as nn
+    from torch import nn
 
     TORCH_AVAILABLE = True
 except ImportError:
@@ -342,7 +342,7 @@ class GlobalOmniScalarNetwork:
         component_name: str,
         scalars: dict[str, float],
         group: ScalarGroup = ScalarGroup.ETHICAL,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Register scalars from a component.
@@ -376,7 +376,7 @@ class GlobalOmniScalarNetwork:
         self,
         requesting_component: str,
         base_scalars: dict[str, float],
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> EnhancementResult:
         """
         Get enhanced scalars with GOSNN fusion and ethical gating.
@@ -651,7 +651,7 @@ class GlobalOmniScalarNetwork:
         return float(np.clip(contribution, 0.0, 1.0))
 
 
-_global_network: Optional[GlobalOmniScalarNetwork] = None
+_global_network: GlobalOmniScalarNetwork | None = None
 
 
 def get_global_scalar_network(

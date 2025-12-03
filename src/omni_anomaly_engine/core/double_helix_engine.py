@@ -53,7 +53,7 @@ Integrated into OMNI ♱ AVA for adaptive anomaly detection evolution.
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -132,7 +132,7 @@ class AvaEquationEngine:
     def __init__(
         self,
         dimension: int = 64,
-        config: Optional[EvolutionConfig] = None,
+        config: EvolutionConfig | None = None,
     ):
         self.dimension = dimension
         self.config = config or EvolutionConfig(dimension=dimension)
@@ -163,7 +163,7 @@ class AvaEquationEngine:
         self._normalize_weights()
 
         self.evolution_history: list[EvolutionState] = []
-        self.current_state: Optional[EvolutionState] = None
+        self.current_state: EvolutionState | None = None
 
         logger.info(
             f"AvaEquationEngine initialized (dim={dimension}, " f"mode={self.config.mode.value})"
@@ -341,7 +341,8 @@ class AvaEquationEngine:
     def _term_lyapunov_stability(self, state: np.ndarray) -> np.ndarray:
         """Lyapunov stability enforcement term."""
         target = np.ones(self.dimension) / np.sqrt(self.dimension)
-        V = np.sum((state - target) ** 2)
+        # Lyapunov function value (unused, kept for documentation)
+        _V = np.sum((state - target) ** 2)  # noqa: F841
         gradient = 2 * (state - target)
         return -LAMBDA_DECAY * gradient * 0.1
 
@@ -447,7 +448,7 @@ class AvaEquationEngine:
     def converge(
         self,
         initial_state: np.ndarray,
-        max_iter: Optional[int] = None,
+        max_iter: int | None = None,
     ) -> tuple[np.ndarray, list[EvolutionState]]:
         """
         Evolve state until convergence.
@@ -524,16 +525,16 @@ DoubleHelixEvolutionEngine = AvaEquationEngine
 HelixConfig = EvolutionConfig
 
 __all__ = [
-    "EvolutionMode",
-    "TermType",
-    "EvolutionState",
-    "EvolutionConfig",
-    "HelixConfig",
+    "LAMBDA_DECAY",
+    "PHI",
+    "PHI_CUBED",
+    "PHI_SQUARED",
+    "SIGMA_QUADRATIC_THRESHOLD",
     "AvaEquationEngine",
     "DoubleHelixEvolutionEngine",
-    "PHI",
-    "PHI_SQUARED",
-    "PHI_CUBED",
-    "SIGMA_QUADRATIC_THRESHOLD",
-    "LAMBDA_DECAY",
+    "EvolutionConfig",
+    "EvolutionMode",
+    "EvolutionState",
+    "HelixConfig",
+    "TermType",
 ]

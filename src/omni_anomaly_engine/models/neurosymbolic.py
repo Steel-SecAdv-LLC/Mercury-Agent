@@ -261,19 +261,17 @@ class SymbolicReasoningLayer:
                 key = part[4:].strip()
                 if context.get(key):
                     return False
-            else:
-                # Check for comparisons
-                if ">" in part:
-                    key, val = part.split(">")
-                    if context.get(key.strip(), 0) <= float(val.strip()):
-                        return False
-                elif "<" in part:
-                    key, val = part.split("<")
-                    if context.get(key.strip(), 0) >= float(val.strip()):
-                        return False
-                else:
-                    if not context.get(part):
-                        return False
+            # Check for comparisons
+            elif ">" in part:
+                key, val = part.split(">")
+                if context.get(key.strip(), 0) <= float(val.strip()):
+                    return False
+            elif "<" in part:
+                key, val = part.split("<")
+                if context.get(key.strip(), 0) >= float(val.strip()):
+                    return False
+            elif not context.get(part):
+                return False
         return True
 
     def explain_decision(

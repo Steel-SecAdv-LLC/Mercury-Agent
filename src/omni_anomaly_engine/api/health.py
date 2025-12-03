@@ -27,10 +27,11 @@ import logging
 import os
 import platform
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel, Field
@@ -229,7 +230,7 @@ class HealthChecker:
                 details=result.get("details", {}),
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             latency = (time.time() - start_time) * 1000
             return ComponentHealth(
                 name=check.name,

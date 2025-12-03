@@ -24,11 +24,11 @@ from omni_anomaly_engine.ethical.sacred_wisdom_engine import (
 )
 
 __all__ = [
-    "SacredWisdomEngine",
-    "MaatBalanceEngine",
     "AthenaWisdomEngine",
-    "TwelveFoldVerificationSystem",
+    "MaatBalanceEngine",
     "SacredGeometryProcessor",
-    "WisdomArchetype",
+    "SacredWisdomEngine",
+    "TwelveFoldVerificationSystem",
     "VerificationDimension",
+    "WisdomArchetype",
 ]

@@ -587,7 +587,7 @@ class TestNewEnginePatterns:
             for i in range(x):
                 for j in range(y):
                     for k in range(z):
-                        if i > j and j > k:
+                        if i > j > k:
                             result += i * j * k
             return result
 
