@@ -33,11 +33,11 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # Copy only requirements first for better layer caching
-COPY requirements.txt requirements-core.txt ./
-COPY requirements-ml.txt requirements-optional.txt* ./
+COPY requirements-core.txt ./
 
-# Install dependencies with hash verification when available
-RUN pip install --no-cache-dir -r requirements.txt
+# Install core dependencies (lightweight, no ML frameworks)
+# For ML capabilities, use the ml-enabled stage or install torch separately
+RUN pip install --no-cache-dir -r requirements-core.txt
 
 # Copy application code
 COPY src/ ./src/
