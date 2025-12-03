@@ -41,8 +41,8 @@ def _get_engine(*args, **kwargs):
         except ImportError as e:
             if "torch" in str(e).lower():
                 click.echo(
-                    "Error: PyTorch (torch) is required for ML-based detection but is not installed. "
-                    "Install it with: pip install torch"
+                    "Error: PyTorch (torch) is required for ML-based detection "
+                    "but is not installed. Install it with: pip install torch"
                 )
             else:
                 click.echo(f"Error: Failed to load ML engine - {e}")
