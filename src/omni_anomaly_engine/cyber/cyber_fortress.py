@@ -39,11 +39,11 @@ Research sources:
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 from omni_anomaly_engine.core.three_r_mechanism import ResonanceEngine, ThreeRMechanism
 from omni_anomaly_engine.models.multiverse import MultiverseOmniEngine
@@ -59,9 +59,9 @@ class FortressResult:
     hash_integrity_verified: bool
     zero_day_risk: float
     encrypted_traffic_anomaly: bool
-    vulnerabilities_found: List[str] = field(default_factory=list)
+    vulnerabilities_found: list[str] = field(default_factory=list)
     auto_refactored: bool = False
-    recommendations: List[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
 
 class ResonanceHashIntegrityChecker:
@@ -79,10 +79,10 @@ class ResonanceHashIntegrityChecker:
 
     def check_integrity(
         self,
-        hash_chain: List[str],
-        reference_chain: Optional[List[str]] = None,
-        threshold_std: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        hash_chain: list[str],
+        reference_chain: list[str] | None = None,
+        threshold_std: float | None = None,
+    ) -> dict[str, Any]:
         """
         Check hash chain integrity using resonance analysis.
 
@@ -153,7 +153,7 @@ class ResonanceHashIntegrityChecker:
 
     def _generate_integrity_recommendations(
         self, num_anomalies: int, drift_score: float
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate recommendations based on integrity analysis."""
         recs = []
 
@@ -186,8 +186,8 @@ class MultiverseZeroDaySimulator:
         self.logger = logging.getLogger(__name__)
 
     def simulate_zero_day(
-        self, system_state: np.ndarray, known_vulnerabilities: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+        self, system_state: np.ndarray, known_vulnerabilities: list[str] | None = None
+    ) -> dict[str, Any]:
         """
         Simulate potential zero-day attacks using multiverse exploration.
 
@@ -229,7 +229,7 @@ class MultiverseZeroDaySimulator:
             "recommendations": self._generate_zero_day_recommendations(zero_day_risk),
         }
 
-    def _generate_zero_day_recommendations(self, risk: float) -> List[str]:
+    def _generate_zero_day_recommendations(self, risk: float) -> list[str]:
         """Generate recommendations based on zero-day risk."""
         recs = []
 
@@ -314,7 +314,7 @@ class EncryptedTrafficAnomalyDetector:
 
         return np.array(features[:20], dtype=np.float32)
 
-    def detect_anomaly(self, traffic_data: np.ndarray) -> Dict[str, Any]:
+    def detect_anomaly(self, traffic_data: np.ndarray) -> dict[str, Any]:
         """
         Detect behavioral anomalies in encrypted traffic.
 
@@ -340,7 +340,7 @@ class EncryptedTrafficAnomalyDetector:
             "recommendations": self._generate_traffic_recommendations(is_anomalous, anomaly_score),
         }
 
-    def _generate_traffic_recommendations(self, is_anomalous: bool, score: float) -> List[str]:
+    def _generate_traffic_recommendations(self, is_anomalous: bool, score: float) -> list[str]:
         """Generate recommendations based on traffic analysis."""
         recs = []
 
@@ -398,7 +398,7 @@ class CyberFortress:
         self.basic_detector = ThreatDetector()
         self.logger = logging.getLogger(__name__)
 
-    def fortress_scan(self, system_data: Dict[str, Any]) -> FortressResult:
+    def fortress_scan(self, system_data: dict[str, Any]) -> FortressResult:
         """
         Comprehensive fortress scan for proactive threat elimination.
 

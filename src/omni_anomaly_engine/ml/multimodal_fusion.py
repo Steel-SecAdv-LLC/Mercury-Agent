@@ -26,10 +26,9 @@ using cross-attention mechanisms for improved anomaly detection.
 
 """
 
-from typing import Dict
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class CrossModalAttention(nn.Module):
@@ -58,7 +57,7 @@ class CrossModalAttention(nn.Module):
 class MultimodalFusionNetwork(nn.Module):
     """Multimodal fusion with cross-attention for anomaly detection."""
 
-    def __init__(self, modality_dims: Dict[str, int], fusion_dim: int = 128, num_heads: int = 4):
+    def __init__(self, modality_dims: dict[str, int], fusion_dim: int = 128, num_heads: int = 4):
         super().__init__()
 
         self.modality_dims = modality_dims
@@ -71,8 +70,8 @@ class MultimodalFusionNetwork(nn.Module):
         self.cross_attentions = nn.ModuleDict(
             {
                 f"{m1}_to_{m2}": CrossModalAttention(fusion_dim, num_heads)
-                for m1 in modality_dims.keys()
-                for m2 in modality_dims.keys()
+                for m1 in modality_dims
+                for m2 in modality_dims
                 if m1 != m2
             }
         )
@@ -86,7 +85,7 @@ class MultimodalFusionNetwork(nn.Module):
             nn.Sigmoid(),
         )
 
-    def forward(self, modality_features: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def forward(self, modality_features: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         """
         Fuse multiple modalities with cross-attention.
 
@@ -103,9 +102,9 @@ class MultimodalFusionNetwork(nn.Module):
             projected[name] = self.projections[name](features)
 
         attended = {}
-        for m1 in projected.keys():
+        for m1 in projected:
             attended_m1 = [projected[m1]]
-            for m2 in projected.keys():
+            for m2 in projected:
                 if m1 != m2:
                     key = f"{m1}_to_{m2}"
                     if key in self.cross_attentions:

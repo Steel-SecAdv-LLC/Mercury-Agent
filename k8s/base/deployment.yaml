@@ -1,0 +1,364 @@
+# OMNI-AVA API Server Deployment
+# Production-grade deployment with rolling updates, health checks, and resource management
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omni-ava-api
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: api
+    app.kubernetes.io/version: "1.0.0"
+  annotations:
+    kubernetes.io/change-cause: "Initial deployment"
+spec:
+  replicas: 3
+  revisionHistoryLimit: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: omni-ava
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: omni-ava
+        app.kubernetes.io/component: api
+        app.kubernetes.io/version: "1.0.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: omni-ava-api
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+      # Anti-affinity to spread pods across nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: omni-ava
+                    app.kubernetes.io/component: api
+                topologyKey: kubernetes.io/hostname
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 50
+              preference:
+                matchExpressions:
+                  - key: node-type
+                    operator: In
+                    values:
+                      - compute-optimized
+
+      # Topology spread for zone distribution
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: omni-ava
+              app.kubernetes.io/component: api
+
+      initContainers:
+        - name: init-permissions
+          image: busybox:1.36
+          command: ['sh', '-c', 'chmod -R 755 /app/logs /app/cache /app/data']
+          volumeMounts:
+            - name: logs
+              mountPath: /app/logs
+            - name: cache
+              mountPath: /app/cache
+            - name: data
+              mountPath: /app/data
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+
+      containers:
+        - name: api
+          image: ghcr.io/steel-secadv-llc/omni-ava:latest
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: omni-ava-config
+            - secretRef:
+                name: omni-ava-secrets
+
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+            successThreshold: 1
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+          volumeMounts:
+            - name: logs
+              mountPath: /app/logs
+            - name: cache
+              mountPath: /app/cache
+            - name: data
+              mountPath: /app/data
+            - name: models
+              mountPath: /app/models
+            - name: tmp
+              mountPath: /tmp
+            - name: logging-config
+              mountPath: /app/config/logging.yaml
+              subPath: logging.yaml
+
+      volumes:
+        - name: logs
+          emptyDir: {}
+        - name: cache
+          emptyDir:
+            sizeLimit: 2Gi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 1Gi
+        - name: data
+          persistentVolumeClaim:
+            claimName: omni-ava-data
+        - name: models
+          persistentVolumeClaim:
+            claimName: omni-ava-models
+        - name: logging-config
+          configMap:
+            name: omni-ava-logging-config
+
+      terminationGracePeriodSeconds: 60
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+---
+# OMNI-AVA Engine Worker Deployment
+# For background processing and heavy computation tasks
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omni-ava-engine
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: engine
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: omni-ava
+      app.kubernetes.io/component: engine
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: omni-ava
+        app.kubernetes.io/component: engine
+        app.kubernetes.io/version: "1.0.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: omni-ava-engine
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: omni-ava
+                    app.kubernetes.io/component: engine
+                topologyKey: kubernetes.io/hostname
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 80
+              preference:
+                matchExpressions:
+                  - key: node-type
+                    operator: In
+                    values:
+                      - gpu
+                      - compute-optimized
+
+      containers:
+        - name: engine
+          image: ghcr.io/steel-secadv-llc/omni-ava:latest
+          imagePullPolicy: Always
+          command: ["python", "-m", "omni_anomaly_engine.cli", "serve", "--mode", "worker"]
+
+          ports:
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: omni-ava-config
+            - secretRef:
+                name: omni-ava-secrets
+
+          env:
+            - name: OMNI_WORKER_MODE: "true"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+
+          resources:
+            requests:
+              cpu: "1"
+              memory: "4Gi"
+            limits:
+              cpu: "4"
+              memory: "16Gi"
+              # Uncomment for GPU support
+              # nvidia.com/gpu: "1"
+
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "from omni_anomaly_engine import OmniAnomalyEngine; print('healthy')"
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "from omni_anomaly_engine import OmniAnomalyEngine; print('ready')"
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+          volumeMounts:
+            - name: logs
+              mountPath: /app/logs
+            - name: cache
+              mountPath: /app/cache
+            - name: data
+              mountPath: /app/data
+            - name: models
+              mountPath: /app/models
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: logs
+          emptyDir: {}
+        - name: cache
+          emptyDir:
+            sizeLimit: 5Gi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 2Gi
+        - name: data
+          persistentVolumeClaim:
+            claimName: omni-ava-data
+        - name: models
+          persistentVolumeClaim:
+            claimName: omni-ava-models
+
+      terminationGracePeriodSeconds: 120
+      restartPolicy: Always

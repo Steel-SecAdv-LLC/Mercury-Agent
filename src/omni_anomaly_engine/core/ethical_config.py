@@ -26,7 +26,7 @@ decision-making processes, ensuring alignment with compassionate and just AI pri
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Union
+from typing import Any
 
 _SYSTEM_INVARIANT_X = "X20A07E9A89"
 _SYSTEM_INVARIANT_I = "I19A09A07A88"
@@ -238,7 +238,7 @@ class EthicalScalars:
     omni_insider_threat_mitigation: float = 1.35
     omni_foreign_penetration_defense: float = 1.37
 
-    def to_dict(self) -> Dict[str, Union[int, float, complex]]:
+    def to_dict(self) -> dict[str, int | float | complex]:
         """Convert scalars to dictionary format."""
         return {k: v for k, v in self.__dict__.items() if isinstance(v, (int, float, complex))}
 
@@ -294,7 +294,7 @@ class EngineConfig:
     astrophysical_speed_of_light: float = 1.0
     astrophysical_gravitational_constant: float = 1.0
 
-    def get_model_config(self, model_name: str) -> Dict[str, Any]:
+    def get_model_config(self, model_name: str) -> dict[str, Any]:
         """Get configuration specific to a model."""
         configs = {
             "quantum": {
@@ -314,7 +314,7 @@ class EngineConfig:
         }
         return configs.get(model_name, {})
 
-    def apply_ethical_framework(self) -> Dict[str, Any]:
+    def apply_ethical_framework(self) -> dict[str, Any]:
         """
         Generate a complete ethical framework report.
 

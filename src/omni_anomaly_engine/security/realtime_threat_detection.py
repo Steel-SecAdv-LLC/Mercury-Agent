@@ -30,7 +30,7 @@ MIT-compatible implementation using scikit-learn and numpy.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 from sklearn.covariance import EllipticEnvelope
@@ -99,7 +99,7 @@ class RealTimeThreatDetector:
             )
 
         self.is_fitted = False
-        self.threat_history: List[ThreatSignature] = []
+        self.threat_history: list[ThreatSignature] = []
 
     def fit(self, X: np.ndarray) -> "RealTimeThreatDetector":
         """
@@ -120,7 +120,7 @@ class RealTimeThreatDetector:
         self.is_fitted = True
         return self
 
-    def detect_threat(self, X: np.ndarray) -> Dict[str, Any]:
+    def detect_threat(self, X: np.ndarray) -> dict[str, Any]:
         """
         Detect threats in real-time data.
 
@@ -151,7 +151,7 @@ class RealTimeThreatDetector:
             except Exception as e:
                 print(f"Warning: Failed to predict with {name}: {e}")
 
-        ensemble_score = np.mean([scores[name] for name in scores.keys()], axis=0)
+        ensemble_score = np.mean([scores[name] for name in scores], axis=0)
 
         is_threat = ensemble_score < np.percentile(ensemble_score, self.contamination * 100)
 
@@ -212,7 +212,7 @@ class RealTimeThreatDetector:
 
         return signature
 
-    def get_threat_statistics(self) -> Dict[str, Any]:
+    def get_threat_statistics(self) -> dict[str, Any]:
         """Get statistics about detected threats."""
         if not self.threat_history:
             return {"total_threats": 0, "threat_types": {}, "avg_severity": 0.0}
@@ -251,10 +251,10 @@ class AdaptiveThreatDetector(RealTimeThreatDetector):
         super().__init__(*args, **kwargs)
         self.update_frequency = update_frequency
         self.samples_since_update = 0
-        self.training_buffer: List[np.ndarray] = []
+        self.training_buffer: list[np.ndarray] = []
         self.max_buffer_size = 1000
 
-    def detect_and_adapt(self, X: np.ndarray, is_normal: Optional[bool] = None) -> Dict[str, Any]:
+    def detect_and_adapt(self, X: np.ndarray, is_normal: bool | None = None) -> dict[str, Any]:
         """
         Detect threats and adapt model based on feedback.
 

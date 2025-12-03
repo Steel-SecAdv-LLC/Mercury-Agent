@@ -27,7 +27,7 @@ without prior labels, specifically designed for industrial scenarios with low-se
 and non-prominence anomalies.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -35,7 +35,7 @@ import numpy as np
 class MultiElementBinarization:
     """Multi-Element Binarization (MEBin) for anomaly region processing."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """Initialize MEBin processor.
 
         Args:
@@ -75,7 +75,7 @@ class MultiElementBinarization:
         binary_mask: np.ndarray = (anomaly_mask > self.binarization_threshold).astype(np.float32)
         return binary_mask
 
-    def process_multi_element(self, anomaly_regions: List[np.ndarray]) -> List[np.ndarray]:
+    def process_multi_element(self, anomaly_regions: list[np.ndarray]) -> list[np.ndarray]:
         """Process multiple anomaly elements with MEBin.
 
         Args:
@@ -97,7 +97,7 @@ class MultiElementBinarization:
 class NovelClassDiscovery:
     """Novel anomaly class discovery system."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """Initialize novel class discovery system.
 
         Args:
@@ -113,11 +113,11 @@ class NovelClassDiscovery:
         self.non_prominence_mode = self.config.get("non_prominence_mode", True)
         self.num_clusters = self.config.get("num_clusters", 5)
 
-        self.mebin: Optional[MultiElementBinarization] = (
+        self.mebin: MultiElementBinarization | None = (
             MultiElementBinarization(config) if self.enable_mebin else None
         )
-        self.discovered_classes: List[str] = []
-        self.cluster_centers: Optional[np.ndarray] = None
+        self.discovered_classes: list[str] = []
+        self.cluster_centers: np.ndarray | None = None
 
     def extract_anomaly_features(self, images: np.ndarray, masks: np.ndarray) -> np.ndarray:
         """Extract features from anomaly regions.
@@ -155,7 +155,7 @@ class NovelClassDiscovery:
 
         return np.array(features)
 
-    def discover_novel_classes(self, images: np.ndarray, masks: np.ndarray) -> Dict[str, Any]:
+    def discover_novel_classes(self, images: np.ndarray, masks: np.ndarray) -> dict[str, Any]:
         """Discover novel anomaly classes using unsupervised clustering.
 
         Args:
@@ -187,7 +187,7 @@ class NovelClassDiscovery:
 
         return results
 
-    def classify_new_anomaly(self, image: np.ndarray, mask: np.ndarray) -> Dict[str, Any]:
+    def classify_new_anomaly(self, image: np.ndarray, mask: np.ndarray) -> dict[str, Any]:
         """Classify a new anomaly into discovered classes.
 
         Args:
@@ -216,7 +216,7 @@ class NovelClassDiscovery:
 
         return results
 
-    def get_class_statistics(self, class_assignments: np.ndarray) -> Dict[str, Any]:
+    def get_class_statistics(self, class_assignments: np.ndarray) -> dict[str, Any]:
         """Compute statistics for discovered classes.
 
         Args:

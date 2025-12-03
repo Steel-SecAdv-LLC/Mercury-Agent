@@ -1,0 +1,125 @@
+# OMNI-AVA ConfigMap - Application Configuration
+# Contains non-sensitive configuration for the OMNI-AVA engine
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: omni-ava-config
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: config
+data:
+  # Application Settings
+  OMNI_LOG_LEVEL: "INFO"
+  OMNI_CACHE_DIR: "/app/cache"
+  OMNI_DATA_DIR: "/app/data"
+  OMNI_MODEL_DIR: "/app/models"
+
+  # API Server Settings
+  OMNI_API_HOST: "0.0.0.0"
+  OMNI_API_PORT: "8000"
+  OMNI_API_WORKERS: "4"
+  OMNI_API_TIMEOUT: "120"
+
+  # Performance Settings
+  OMP_NUM_THREADS: "4"
+  PYTORCH_CUDA_ALLOC_CONF: "max_split_size_mb:512"
+  TORCH_HOME: "/app/models"
+
+  # Python Settings
+  PYTHONUNBUFFERED: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PYTHONHASHSEED: "random"
+
+  # Feature Flags
+  OMNI_ENABLE_METRICS: "true"
+  OMNI_ENABLE_TRACING: "true"
+  OMNI_ENABLE_PROFILING: "false"
+
+  # Detection Configuration
+  OMNI_DEFAULT_SENSITIVITY: "0.5"
+  OMNI_MAX_BATCH_SIZE: "1000"
+  OMNI_DETECTION_TIMEOUT: "60"
+
+  # Ethical Framework Settings
+  OMNI_ETHICS_ENABLED: "true"
+  OMNI_ETHICS_STRICT_MODE: "true"
+---
+# ConfigMap for Prometheus metrics configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: omni-ava-prometheus-config
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: 'omni-ava-api'
+        static_configs:
+          - targets: ['omni-ava-api:8000']
+        metrics_path: /metrics
+        scrape_interval: 10s
+
+      - job_name: 'omni-ava-engine'
+        static_configs:
+          - targets: ['omni-ava-engine:9090']
+        metrics_path: /metrics
+        scrape_interval: 15s
+---
+# ConfigMap for logging configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: omni-ava-logging-config
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: logging
+data:
+  logging.yaml: |
+    version: 1
+    disable_existing_loggers: false
+
+    formatters:
+      standard:
+        format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+      json:
+        class: pythonjsonlogger.jsonlogger.JsonFormatter
+        format: '%(asctime)s %(name)s %(levelname)s %(message)s'
+
+    handlers:
+      console:
+        class: logging.StreamHandler
+        level: INFO
+        formatter: json
+        stream: ext://sys.stdout
+
+      file:
+        class: logging.handlers.RotatingFileHandler
+        level: DEBUG
+        formatter: standard
+        filename: /app/logs/omni-ava.log
+        maxBytes: 10485760
+        backupCount: 5
+
+    loggers:
+      omni_anomaly_engine:
+        level: INFO
+        handlers: [console, file]
+        propagate: false
+
+      uvicorn:
+        level: INFO
+        handlers: [console]
+        propagate: false
+
+    root:
+      level: INFO
+      handlers: [console]

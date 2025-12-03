@@ -39,7 +39,6 @@ Research source: Wikipedia - Oceanography
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -87,11 +86,11 @@ class OceanographyPatterns:
         self.depth_levels = depth_levels
         self.acoustic_sensitivity = acoustic_sensitivity
         self.wave_detection_threshold = wave_detection_threshold
-        self.pattern_history: List[WavePattern] = []
+        self.pattern_history: list[WavePattern] = []
 
     def acoustic_sensing(
         self, data: np.ndarray, pulse_frequency: float = 1.0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """
         Acoustic sensing analogous to sonar/echo sounder.
 
@@ -121,7 +120,7 @@ class OceanographyPatterns:
             "signal_strength": float(np.max(np.abs(reflection))),
         }
 
-    def wave_pattern_analysis(self, time_series: np.ndarray) -> List[WavePattern]:
+    def wave_pattern_analysis(self, time_series: np.ndarray) -> list[WavePattern]:
         """
         Analyze wave patterns in time-series data.
 
@@ -159,7 +158,7 @@ class OceanographyPatterns:
 
         return patterns
 
-    def depth_based_stratification(self, data: np.ndarray) -> Dict[str, np.ndarray]:
+    def depth_based_stratification(self, data: np.ndarray) -> dict[str, np.ndarray]:
         """
         Hierarchical analysis inspired by ocean depth stratification.
 
@@ -192,7 +191,7 @@ class OceanographyPatterns:
         return stratified
 
     def multi_sensor_fusion(
-        self, sensor_data: Dict[str, np.ndarray], weights: Optional[Dict[str, float]] = None
+        self, sensor_data: dict[str, np.ndarray], weights: dict[str, float] | None = None
     ) -> np.ndarray:
         """
         Multi-sensor fusion inspired by interdisciplinary oceanography.
@@ -209,7 +208,7 @@ class OceanographyPatterns:
             Fused feature representation
         """
         if weights is None:
-            weights = {key: 1.0 / len(sensor_data) for key in sensor_data.keys()}
+            weights = {key: 1.0 / len(sensor_data) for key in sensor_data}
 
         fused_features = []
 
@@ -229,7 +228,7 @@ class OceanographyPatterns:
 
     def systematic_sampling(
         self, data: np.ndarray, num_samples: int = 492
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Systematic sampling inspired by HMS Challenger expedition.
 
@@ -255,8 +254,8 @@ class OceanographyPatterns:
         return sample_indices, sample_values
 
     def tidal_pattern_detection(
-        self, time_series: np.ndarray, expected_period: Optional[float] = None
-    ) -> Dict[str, float]:
+        self, time_series: np.ndarray, expected_period: float | None = None
+    ) -> dict[str, float]:
         """
         Detect periodic patterns analogous to tides.
 
@@ -295,7 +294,7 @@ class OceanographyPatterns:
 
     def climate_drift_detection(
         self, historical_data: np.ndarray, recent_data: np.ndarray
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Detect gradual drift analogous to climate change monitoring.
 

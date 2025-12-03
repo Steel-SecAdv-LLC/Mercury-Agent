@@ -35,7 +35,7 @@ References:
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -56,16 +56,16 @@ class OverwatchNexusResult:
     confidence: float
     risk_score: float
 
-    ci_threat_type: Optional[str] = None
+    ci_threat_type: str | None = None
     medical_interdiction_required: bool = False
-    bio_threat_indicators: List[str] = field(default_factory=list)
+    bio_threat_indicators: list[str] = field(default_factory=list)
 
     ethical_compliance: float = 1.0
     purity_invariant: float = 1.0
-    survivor_first_priority: List[str] = field(default_factory=list)
+    survivor_first_priority: list[str] = field(default_factory=list)
 
-    recommended_actions: List[str] = field(default_factory=list)
-    humanitarian_impact: Optional[Dict[str, Any]] = None
+    recommended_actions: list[str] = field(default_factory=list)
+    humanitarian_impact: dict[str, Any] | None = None
 
 
 class OverwatchNexus:
@@ -91,7 +91,7 @@ class OverwatchNexus:
     - Crisis prevention: GEOINT fusion for disaster/natural threat monitoring
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """
         Initialize Overwatch Nexus and Response engine.
 
@@ -123,7 +123,7 @@ class OverwatchNexus:
         )
 
     def proactive_ci(
-        self, data_stream: Any, intel_reports: Optional[Dict[str, Any]] = None
+        self, data_stream: Any, intel_reports: dict[str, Any] | None = None
     ) -> OverwatchNexusResult:
         """
         Proactive counterintelligence threat detection.
@@ -192,7 +192,7 @@ class OverwatchNexus:
 
         return result
 
-    def _generate_synthetic_intel(self, data_stream: Any) -> Dict[str, Any]:
+    def _generate_synthetic_intel(self, data_stream: Any) -> dict[str, Any]:
         """
         Generate synthetic intelligence reports for simulation.
 
@@ -278,7 +278,7 @@ class OverwatchNexus:
 
         return float(chaos_score)
 
-    def _detect_bio_threats(self, data_stream: Any, intel_reports: Dict[str, Any]) -> List[str]:
+    def _detect_bio_threats(self, data_stream: Any, intel_reports: dict[str, Any]) -> list[str]:
         """
         Detect biological threat indicators (Medical Interdiction).
 
@@ -290,10 +290,10 @@ class OverwatchNexus:
         """
         indicators = []
 
-        if "masint" in [k.lower() for k in intel_reports.keys()]:
+        if "masint" in [k.lower() for k in intel_reports]:
             indicators.append("MASINT bio-signature anomaly detected")
 
-        if "osint" in [k.lower() for k in intel_reports.keys()]:
+        if "osint" in [k.lower() for k in intel_reports]:
             osint_data = intel_reports.get("open_source", {})
             if osint_data.get("threat_score", 0) > 0.6:
                 indicators.append("OSINT disease outbreak signals")
@@ -322,7 +322,7 @@ class OverwatchNexus:
         else:
             return "general_anomaly"
 
-    def _identify_survivor_priorities(self, fusion_result) -> List[str]:
+    def _identify_survivor_priorities(self, fusion_result) -> list[str]:
         """
         Identify survivor-first priorities for humanitarian CI.
 
@@ -342,8 +342,8 @@ class OverwatchNexus:
         return priorities
 
     def _assess_humanitarian_impact(
-        self, fusion_result, bio_threat_indicators: List[str]
-    ) -> Dict[str, Any]:
+        self, fusion_result, bio_threat_indicators: list[str]
+    ) -> dict[str, Any]:
         """
         Assess humanitarian impact of detected threats.
 
@@ -385,7 +385,7 @@ class OverwatchNexus:
 
         return features
 
-    def predict(self, data: Any) -> Dict[str, Any]:
+    def predict(self, data: Any) -> dict[str, Any]:
         """
         Predict anomalies using Overwatch Nexus and Response CI framework.
 

@@ -41,7 +41,7 @@ Verified: October 2025
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 
@@ -91,16 +91,16 @@ class RegenerativeArchitecture:
             enable_closed_loops: Whether to enable feedback loops
         """
         self.enable_closed_loops = enable_closed_loops
-        self.feedback_loops: Dict[str, FeedbackLoop] = {}
-        self.permaculture_metrics: Dict[PermaculturePrinciple, float] = {
-            p: 0.0 for p in PermaculturePrinciple
-        }
-        self.knowledge_bank: List[Dict[str, Any]] = []
-        self.waste_log: List[Dict[str, Any]] = []
+        self.feedback_loops: dict[str, FeedbackLoop] = {}
+        self.permaculture_metrics: dict[PermaculturePrinciple, float] = dict.fromkeys(
+            PermaculturePrinciple, 0.0
+        )
+        self.knowledge_bank: list[dict[str, Any]] = []
+        self.waste_log: list[dict[str, Any]] = []
 
     def apply_permaculture_principle(
-        self, principle: PermaculturePrinciple, context: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, principle: PermaculturePrinciple, context: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Apply a specific permaculture principle to current context.
 
@@ -211,7 +211,7 @@ class RegenerativeArchitecture:
         self.feedback_loops[loop_id] = loop
         return loop
 
-    def apply_feedback_loops(self, metrics: Dict[str, float]) -> Dict[str, float]:
+    def apply_feedback_loops(self, metrics: dict[str, float]) -> dict[str, float]:
         """
         Apply all registered feedback loops to current metrics.
 
@@ -240,7 +240,7 @@ class RegenerativeArchitecture:
 
         return updated_metrics
 
-    def calculate_net_positive_score(self, context: Dict[str, Any]) -> float:
+    def calculate_net_positive_score(self, context: dict[str, Any]) -> float:
         """
         Calculate net-positive score (regenerative > sustainable > neutral > harmful).
 
@@ -263,44 +263,44 @@ class RegenerativeArchitecture:
 
         return float(net_positive_score)
 
-    def _observe_system_state(self) -> List[Any]:
+    def _observe_system_state(self) -> list[Any]:
         """Observe current system state before acting (Principle 1)."""
         return []
 
-    def _calculate_yield_metrics(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _calculate_yield_metrics(self, context: dict[str, Any]) -> dict[str, Any]:
         """Calculate measurable yield/value (Principle 3)."""
         return {
             "total_value": context.get("accuracy", 0.0) * context.get("efficiency", 1.0),
             "ethical_alignment": context.get("ethical_score", 0.0),
         }
 
-    def _apply_ethical_constraints(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _apply_ethical_constraints(self, context: dict[str, Any]) -> dict[str, Any]:
         """Apply ethical constraints (Principle 4)."""
         context["ethical_constraints_applied"] = True
         return context
 
-    def _auto_tune_parameters(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _auto_tune_parameters(self, context: dict[str, Any]) -> dict[str, Any]:
         """Auto-tune parameters based on feedback (Principle 4)."""
         context["parameters_tuned"] = True
         return context
 
-    def _filter_renewable_deps(self, dependencies: List[str]) -> List[str]:
+    def _filter_renewable_deps(self, dependencies: list[str]) -> list[str]:
         """Filter to only renewable/open-source dependencies (Principle 5)."""
         return [d for d in dependencies if "proprietary" not in d.lower()]
 
-    def _identify_waste(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _identify_waste(self, context: dict[str, Any]) -> dict[str, Any]:
         """Identify waste (unused code, features, data) (Principle 6)."""
         return {"unused_features": [], "dead_code": [], "redundant_data": []}
 
-    def _patterns_to_details(self, patterns: List[Any]) -> Dict[str, Any]:
+    def _patterns_to_details(self, patterns: list[Any]) -> dict[str, Any]:
         """Design from patterns to details (Principle 7)."""
         return {"detailed_design": patterns}
 
-    def _integrate_components(self, components: List[Any]) -> Dict[str, Any]:
+    def _integrate_components(self, components: list[Any]) -> dict[str, Any]:
         """Integrate components rather than keeping separate (Principle 8)."""
         return {"integrated": True, "component_count": len(components)}
 
-    def _calculate_diversity(self, models: List[Any]) -> float:
+    def _calculate_diversity(self, models: list[Any]) -> float:
         """Calculate diversity score for ensemble (Principle 10)."""
         return len(set(str(m) for m in models)) / max(len(models), 1)
 
@@ -314,6 +314,6 @@ class RegenerativeArchitecture:
         result: np.ndarray = data[distances > threshold]
         return result
 
-    def _plan_adaptation(self, changes: Dict[str, Any]) -> Dict[str, Any]:
+    def _plan_adaptation(self, changes: dict[str, Any]) -> dict[str, Any]:
         """Plan adaptation strategy for environmental changes (Principle 12)."""
         return {"adaptation_planned": True, "changes_addressed": len(changes)}

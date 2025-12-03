@@ -60,10 +60,10 @@ __author__ = "Steel Security Advisors LLC"
 __license__ = "GPL-3.0"
 
 __all__ = [
-    "OmniAnomalyEngine",
-    "EngineConfig",
-    "OmniAnomalyException",
     "DetectorException",
-    "ModelException",
+    "EngineConfig",
     "FusionException",
+    "ModelException",
+    "OmniAnomalyEngine",
+    "OmniAnomalyException",
 ]

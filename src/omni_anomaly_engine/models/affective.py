@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Affective computing anomaly detection model."""
 
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import numpy as np
 
@@ -30,14 +30,14 @@ class AffectiveAnomalyModel:
 
     def __init__(
         self,
-        config: Dict[str, Any] = None,
-        rng: Optional[DeterministicRNG] = None,
+        config: dict[str, Any] = None,
+        rng: DeterministicRNG | None = None,
         **kwargs,
     ):
         self.config = config or {}
         self._rng = rng or get_global_rng()
 
-    def extract_features(self, data: Union[np.ndarray, Dict[str, Any]]) -> np.ndarray:
+    def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
         """Extract affective features from data."""
         if isinstance(data, dict):
             data = np.array(list(data.values())[0])
@@ -52,7 +52,7 @@ class AffectiveAnomalyModel:
 
         return self._rng.randn(batch_size, num_features).astype(np.float32)
 
-    def predict(self, data: Union[np.ndarray, Dict[str, Any]]) -> Dict[str, Any]:
+    def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
         """Predict emotional state anomalies."""
         features = self.extract_features(data)
         batch_size = features.shape[0]

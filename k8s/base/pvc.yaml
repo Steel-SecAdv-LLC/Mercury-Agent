@@ -1,0 +1,109 @@
+# OMNI-AVA Persistent Volume Claims
+# Storage configuration for data, models, and logs
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: omni-ava-data
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 50Gi
+---
+# PVC for ML models
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: omni-ava-models
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 100Gi
+---
+# PVC for backup storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: omni-ava-backup
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: backup
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 200Gi
+---
+# Storage Class for high-performance SSD storage (cloud-specific)
+# Uncomment and customize for your cloud provider
+# AWS EBS
+# apiVersion: storage.k8s.io/v1
+# kind: StorageClass
+# metadata:
+#   name: omni-ava-fast
+#   labels:
+#     app.kubernetes.io/name: omni-ava
+# provisioner: ebs.csi.aws.com
+# parameters:
+#   type: gp3
+#   iops: "10000"
+#   throughput: "500"
+#   encrypted: "true"
+# reclaimPolicy: Retain
+# volumeBindingMode: WaitForFirstConsumer
+# allowVolumeExpansion: true
+
+# GCP Persistent Disk
+# apiVersion: storage.k8s.io/v1
+# kind: StorageClass
+# metadata:
+#   name: omni-ava-fast
+# provisioner: pd.csi.storage.gke.io
+# parameters:
+#   type: pd-ssd
+# reclaimPolicy: Retain
+# volumeBindingMode: WaitForFirstConsumer
+# allowVolumeExpansion: true
+
+# Azure Disk
+# apiVersion: storage.k8s.io/v1
+# kind: StorageClass
+# metadata:
+#   name: omni-ava-fast
+# provisioner: disk.csi.azure.com
+# parameters:
+#   skuName: Premium_LRS
+# reclaimPolicy: Retain
+# volumeBindingMode: WaitForFirstConsumer
+# allowVolumeExpansion: true
+---
+# VolumeSnapshot class for backup snapshots
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: omni-ava-snapshot
+  labels:
+    app.kubernetes.io/name: omni-ava
+# Change driver based on cloud provider
+driver: ebs.csi.aws.com
+deletionPolicy: Retain
+parameters:
+  # AWS-specific
+  # GCP: type: pd-standard
+  # Azure: incremental: "true"

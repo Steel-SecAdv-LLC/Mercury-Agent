@@ -24,7 +24,7 @@ with emphasis on survivor-first ethical principles.
 Reference: CISA Essential Workers Advisory List
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class EssentialWorkersMonitor:
@@ -34,7 +34,7 @@ class EssentialWorkersMonitor:
     with emphasis on survivor-first ethical principles.
     """
 
-    def __init__(self, ethical_config: Optional[Dict[str, float]] = None):
+    def __init__(self, ethical_config: dict[str, float] | None = None):
         """Initialize Essential Workers Monitor.
 
         Args:
@@ -105,7 +105,7 @@ class EssentialWorkersMonitor:
             ),
         }
 
-    def detect(self, data: Dict[str, Any], category: str) -> Dict[str, Any]:
+    def detect(self, data: dict[str, Any], category: str) -> dict[str, Any]:
         """Detect workforce anomalies for a worker category.
 
         Args:
@@ -148,7 +148,7 @@ class EssentialWorkersMonitor:
             ),
         }
 
-    def model_crisis_scenario(self, scenario_type: str) -> Dict[str, Any]:
+    def model_crisis_scenario(self, scenario_type: str) -> dict[str, Any]:
         """Model workforce impacts under crisis scenarios.
 
         Args:
@@ -191,7 +191,7 @@ class EssentialWorkersMonitor:
         }
 
         multipliers = impact_multipliers.get(
-            scenario_type, {k: 0.85 for k in self.worker_categories}
+            scenario_type, dict.fromkeys(self.worker_categories, 0.85)
         )
 
         predictions = {}

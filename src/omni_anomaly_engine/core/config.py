@@ -35,7 +35,7 @@ import os
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -66,7 +66,7 @@ class DetectorConfig:
     use_quantum_enhanced: bool = True
     use_nano_detection: bool = True
     use_harmonic_detection: bool = True
-    params: Dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -76,7 +76,7 @@ class ModelConfig:
     enabled: bool = True
     use_harmonic_features: bool = True
     use_black_hole_features: bool = True
-    params: Dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -101,11 +101,11 @@ class EngineConfig:
     batch_size: int = 32
     num_workers: int = 4
 
-    detectors: Dict[str, DetectorConfig] = field(default_factory=dict)
-    models: Dict[str, ModelConfig] = field(default_factory=dict)
+    detectors: dict[str, DetectorConfig] = field(default_factory=dict)
+    models: dict[str, ModelConfig] = field(default_factory=dict)
     fusion: FusionConfig = field(default_factory=FusionConfig)
 
-    model_path: Optional[str] = None
+    model_path: str | None = None
     cache_dir: str = "./cache"
     log_level: str = "INFO"
 
@@ -149,8 +149,8 @@ class FeatureFlag:
     name: str
     enabled: bool = False
     rollout_percentage: float = 0.0
-    variants: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    variants: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class ConfigurationManager:
@@ -173,13 +173,13 @@ class ConfigurationManager:
     ENV_PREFIX = "OMNI_AVA_"
 
     def __init__(self):
-        self._config: Dict[str, Any] = {}
-        self._config_files: List[Path] = []
-        self._feature_flags: Dict[str, FeatureFlag] = {}
-        self._watchers: List[callable] = []
+        self._config: dict[str, Any] = {}
+        self._config_files: list[Path] = []
+        self._feature_flags: dict[str, FeatureFlag] = {}
+        self._watchers: list[callable] = []
         self._loaded = False
 
-    def load_from_file(self, path: Union[str, Path]) -> "ConfigurationManager":
+    def load_from_file(self, path: str | Path) -> "ConfigurationManager":
         """
         Load configuration from a file.
 
@@ -247,10 +247,10 @@ class ConfigurationManager:
             data = json.load(f)
             self._merge_config(data)
 
-    def _merge_config(self, data: Dict[str, Any]) -> None:
+    def _merge_config(self, data: dict[str, Any]) -> None:
         """Deep merge configuration data."""
 
-        def deep_merge(base: Dict, override: Dict) -> Dict:
+        def deep_merge(base: dict, override: dict) -> dict:
             result = base.copy()
             for key, value in override.items():
                 if key in result and isinstance(result[key], dict) and isinstance(value, dict):
@@ -389,7 +389,7 @@ class ConfigurationManager:
         self._feature_flags[flag.name] = flag
         logger.info(f"Registered feature flag: {flag.name}")
 
-    def is_feature_enabled(self, name: str, user_id: Optional[str] = None) -> bool:
+    def is_feature_enabled(self, name: str, user_id: str | None = None) -> bool:
         """
         Check if a feature flag is enabled.
 
@@ -418,7 +418,7 @@ class ConfigurationManager:
 
         return flag.rollout_percentage >= 100.0 or flag.rollout_percentage == 0.0
 
-    def get_feature_variant(self, name: str, user_id: Optional[str] = None) -> Optional[str]:
+    def get_feature_variant(self, name: str, user_id: str | None = None) -> str | None:
         """Get the variant for A/B testing."""
         if name not in self._feature_flags:
             return None
@@ -438,7 +438,7 @@ class ConfigurationManager:
 
 
 # Global configuration manager instance
-_config_manager: Optional[ConfigurationManager] = None
+_config_manager: ConfigurationManager | None = None
 
 
 def get_config_manager() -> ConfigurationManager:
@@ -450,7 +450,7 @@ def get_config_manager() -> ConfigurationManager:
 
 
 def load_configuration(
-    config_files: Optional[List[Union[str, Path]]] = None,
+    config_files: list[str | Path] | None = None,
     load_env: bool = True,
 ) -> ConfigurationManager:
     """

@@ -45,11 +45,11 @@ Performance: 20-30% faster detection via multi-scale thermal fusion
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class FireRiskLevel(Enum):
@@ -70,20 +70,20 @@ class WildfirePredictionResult:
     confidence: float
     risk_level: str
 
-    ignition_locations: List[Tuple[float, float]] = field(default_factory=list)
-    fire_perimeter_km2: Optional[float] = None
-    spread_rate_km_hr: Optional[float] = None
-    spread_direction_deg: Optional[float] = None
+    ignition_locations: list[tuple[float, float]] = field(default_factory=list)
+    fire_perimeter_km2: float | None = None
+    spread_rate_km_hr: float | None = None
+    spread_direction_deg: float | None = None
 
     thermal_hotspots: int = 0
     smoke_detected: bool = False
 
-    weather_factors: Dict[str, float] = field(default_factory=dict)
-    fuel_moisture: Optional[float] = None
+    weather_factors: dict[str, float] = field(default_factory=dict)
+    fuel_moisture: float | None = None
 
-    evacuation_zones: List[str] = field(default_factory=list)
-    containment_strategy: List[str] = field(default_factory=list)
-    early_warning_actions: List[str] = field(default_factory=list)
+    evacuation_zones: list[str] = field(default_factory=list)
+    containment_strategy: list[str] = field(default_factory=list)
+    early_warning_actions: list[str] = field(default_factory=list)
 
 
 class FireIgnitionDetector(nn.Module):
@@ -140,8 +140,8 @@ class FireSpreadModel:
         self.logger = logging.getLogger(__name__)
 
     def predict_spread(
-        self, fire_data: Dict[str, Any], weather_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, fire_data: dict[str, Any], weather_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Predict fire spread dynamics.
 
@@ -204,7 +204,7 @@ class WildfireDetector:
 
         self.logger = logging.getLogger(__name__)
 
-    def predict_wildfire(self, wildfire_data: Dict[str, Any]) -> WildfirePredictionResult:
+    def predict_wildfire(self, wildfire_data: dict[str, Any]) -> WildfirePredictionResult:
         """
         Comprehensive wildfire prediction.
 
@@ -238,7 +238,7 @@ class WildfireDetector:
 
         return result
 
-    def _detect_ignition(self, thermal_image: np.ndarray) -> Dict[str, Any]:
+    def _detect_ignition(self, thermal_image: np.ndarray) -> dict[str, Any]:
         """Detect fire ignition"""
 
         if len(thermal_image.shape) == 2:
@@ -262,7 +262,7 @@ class WildfireDetector:
         }
 
     def _assess_fire_risk(
-        self, wildfire_data: Dict[str, Any], result: WildfirePredictionResult
+        self, wildfire_data: dict[str, Any], result: WildfirePredictionResult
     ) -> str:
         """Assess fire risk level"""
 
@@ -290,7 +290,7 @@ class WildfireDetector:
         else:
             return FireRiskLevel.LOW.value
 
-    def _generate_warnings(self, result: WildfirePredictionResult) -> List[str]:
+    def _generate_warnings(self, result: WildfirePredictionResult) -> list[str]:
         """Generate early warnings"""
 
         warnings = []

@@ -24,7 +24,8 @@ Based on: Quantum anomaly detection in the latent space of proton collision even
 Implements quantum-inspired kernel machines for unsupervised anomaly detection.
 """
 
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
@@ -32,7 +33,7 @@ import numpy as np
 class QuantumKernelMachine:
     """Quantum-inspired kernel machine for anomaly detection."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """Initialize quantum kernel machine.
 
         Args:
@@ -48,8 +49,8 @@ class QuantumKernelMachine:
         self.num_qubits = self.config.get("num_qubits", 4)
         self.entanglement_depth = self.config.get("entanglement_depth", 2)
         self.gamma = self.config.get("gamma", 1.0)
-        self.training_data: Optional[np.ndarray] = None
-        self.anomaly_threshold: Optional[float] = None
+        self.training_data: np.ndarray | None = None
+        self.anomaly_threshold: float | None = None
 
     def quantum_inspired_kernel(self, x1: np.ndarray, x2: np.ndarray) -> float:
         """Compute quantum-inspired kernel between two samples.
@@ -111,7 +112,7 @@ class QuantumKernelMachine:
         return float(np.exp(-self.gamma * np.linalg.norm(x1 - x2) ** 2))
 
     def compute_kernel_matrix(
-        self, X: np.ndarray, kernel_func: Optional[Callable[[np.ndarray, np.ndarray], float]] = None
+        self, X: np.ndarray, kernel_func: Callable[[np.ndarray, np.ndarray], float] | None = None
     ) -> np.ndarray:
         """Compute kernel matrix for dataset.
 
@@ -152,7 +153,7 @@ class QuantumKernelMachine:
 
         self.anomaly_threshold = float(np.mean(train_scores) - 3 * np.std(train_scores))
 
-    def predict(self, test_data: np.ndarray) -> Dict[str, Any]:
+    def predict(self, test_data: np.ndarray) -> dict[str, Any]:
         """Predict anomalies using quantum kernel machine.
 
         Args:

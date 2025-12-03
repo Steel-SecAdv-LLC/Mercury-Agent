@@ -53,11 +53,11 @@ Operational deployment requires security clearance and legal authorization.
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class IntelligenceDiscipline(Enum):
@@ -97,18 +97,18 @@ class IntelligenceFusionResult:
     confidence: float
     risk_score: float
 
-    primary_intel_sources: List[str] = field(default_factory=list)
-    corroborating_sources: List[str] = field(default_factory=list)
+    primary_intel_sources: list[str] = field(default_factory=list)
+    corroborating_sources: list[str] = field(default_factory=list)
 
-    threat_indicators: List[str] = field(default_factory=list)
-    temporal_patterns: Dict[str, Any] = field(default_factory=dict)
-    geospatial_context: Dict[str, Any] = field(default_factory=dict)
+    threat_indicators: list[str] = field(default_factory=list)
+    temporal_patterns: dict[str, Any] = field(default_factory=dict)
+    geospatial_context: dict[str, Any] = field(default_factory=dict)
 
-    recommended_actions: List[str] = field(default_factory=list)
-    collection_priorities: List[str] = field(default_factory=list)
+    recommended_actions: list[str] = field(default_factory=list)
+    collection_priorities: list[str] = field(default_factory=list)
 
-    neurosymbolic_assessment: Optional[Dict] = None
-    cryptographic_indicators: Optional[Dict] = None
+    neurosymbolic_assessment: dict | None = None
+    cryptographic_indicators: dict | None = None
 
 
 class AllSourceFusionNetwork(nn.Module):
@@ -174,9 +174,9 @@ class AllSourceFusionNetwork(nn.Module):
 
     def forward(
         self,
-        int_features: Dict[str, torch.Tensor],
-        temporal_sequence: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        int_features: dict[str, torch.Tensor],
+        temporal_sequence: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Forward pass through all-source fusion network.
 
@@ -275,7 +275,7 @@ class IntelligenceFusionEngine:
             f"Intelligence Fusion Engine initialized with {len(IntelligenceDiscipline)} disciplines"
         )
 
-    def _initialize_threat_kb(self) -> Dict[str, Dict]:
+    def _initialize_threat_kb(self) -> dict[str, dict]:
         """Initialize threat pattern knowledge base"""
         return {
             "terrorism_indicators": {
@@ -323,7 +323,7 @@ class IntelligenceFusionEngine:
             },
         }
 
-    def _initialize_reliability_scores(self) -> Dict[str, float]:
+    def _initialize_reliability_scores(self) -> dict[str, float]:
         """Initialize INT source reliability weights"""
         return {
             IntelligenceDiscipline.HUMINT.value: 0.85,
@@ -342,7 +342,7 @@ class IntelligenceFusionEngine:
         }
 
     def fuse_intelligence(
-        self, intel_reports: Dict[str, Any], temporal_context: Optional[List[Dict]] = None
+        self, intel_reports: dict[str, Any], temporal_context: list[dict] | None = None
     ) -> IntelligenceFusionResult:
         """
         Fuse multi-source intelligence for threat assessment.
@@ -439,7 +439,7 @@ class IntelligenceFusionEngine:
 
         return result
 
-    def _extract_int_features(self, intel_reports: Dict[str, Any]) -> Dict[str, torch.Tensor]:
+    def _extract_int_features(self, intel_reports: dict[str, Any]) -> dict[str, torch.Tensor]:
         """Extract features from intelligence reports (O(n) complexity)"""
         int_features = {}
         feature_dim = 128 // len(IntelligenceDiscipline)
@@ -469,7 +469,7 @@ class IntelligenceFusionEngine:
 
         return int_features
 
-    def _process_temporal_context(self, temporal_context: List[Dict]) -> torch.Tensor:
+    def _process_temporal_context(self, temporal_context: list[dict]) -> torch.Tensor:
         """Process temporal threat progression"""
         sequence_length = min(len(temporal_context), 10)
         feature_dim = 165
@@ -484,8 +484,8 @@ class IntelligenceFusionEngine:
         return torch.tensor(temporal_features, dtype=torch.float32)
 
     def _identify_sources(
-        self, intel_reports: Dict[str, Any], attention_weights: np.ndarray
-    ) -> Tuple[List[str], List[str]]:
+        self, intel_reports: dict[str, Any], attention_weights: np.ndarray
+    ) -> tuple[list[str], list[str]]:
         """Identify primary and corroborating intelligence sources"""
         source_scores = []
 
@@ -502,8 +502,8 @@ class IntelligenceFusionEngine:
         return primary, corroborating
 
     def _extract_threat_indicators(
-        self, intel_reports: Dict[str, Any], threat_level: ThreatLevel
-    ) -> List[str]:
+        self, intel_reports: dict[str, Any], threat_level: ThreatLevel
+    ) -> list[str]:
         """Extract key threat indicators from reports"""
         indicators = set()
 
@@ -516,7 +516,7 @@ class IntelligenceFusionEngine:
 
         return list(indicators)[:15]
 
-    def _analyze_temporal_patterns(self, temporal_context: List[Dict]) -> Dict[str, Any]:
+    def _analyze_temporal_patterns(self, temporal_context: list[dict]) -> dict[str, Any]:
         """Analyze temporal threat progression patterns"""
         if not temporal_context:
             return {}
@@ -530,7 +530,7 @@ class IntelligenceFusionEngine:
             "time_span_days": len(temporal_context),
         }
 
-    def _extract_geospatial_context(self, intel_reports: Dict[str, Any]) -> Dict[str, Any]:
+    def _extract_geospatial_context(self, intel_reports: dict[str, Any]) -> dict[str, Any]:
         """Extract geospatial threat context"""
         geospatial = {}
 
@@ -545,7 +545,7 @@ class IntelligenceFusionEngine:
 
         return geospatial
 
-    def _recommend_actions(self, threat_level: ThreatLevel, indicators: List[str]) -> List[str]:
+    def _recommend_actions(self, threat_level: ThreatLevel, indicators: list[str]) -> list[str]:
         """Recommend actions based on threat assessment"""
         actions = []
 
@@ -581,8 +581,8 @@ class IntelligenceFusionEngine:
         return actions[:6]
 
     def _prioritize_collection(
-        self, threat_level: ThreatLevel, primary_sources: List[str], indicators: List[str]
-    ) -> List[str]:
+        self, threat_level: ThreatLevel, primary_sources: list[str], indicators: list[str]
+    ) -> list[str]:
         """Prioritize intelligence collection efforts"""
         priorities = []
 
@@ -605,8 +605,8 @@ class IntelligenceFusionEngine:
         return priorities[:6]
 
     def _apply_symbolic_reasoning(
-        self, intel_reports: Dict[str, Any], threat_level: ThreatLevel, indicators: List[str]
-    ) -> Dict[str, Any]:
+        self, intel_reports: dict[str, Any], threat_level: ThreatLevel, indicators: list[str]
+    ) -> dict[str, Any]:
         """Apply neurosymbolic threat reasoning"""
         reasoning = {"matched_patterns": [], "deductions": [], "confidence_factors": []}
 
@@ -630,7 +630,7 @@ class IntelligenceFusionEngine:
 
         return reasoning
 
-    def _analyze_cryptographic_patterns(self, intel_reports: Dict[str, Any]) -> Dict[str, Any]:
+    def _analyze_cryptographic_patterns(self, intel_reports: dict[str, Any]) -> dict[str, Any]:
         """Analyze cryptographic and pattern indicators"""
         crypto_analysis = {
             "encrypted_comms_detected": False,
@@ -655,7 +655,7 @@ class IntelligenceFusionEngine:
 
         return crypto_analysis
 
-    def extract_features(self, data: Dict[str, Any]) -> torch.Tensor:
+    def extract_features(self, data: dict[str, Any]) -> torch.Tensor:
         """Extract features for ML fusion integration"""
         int_features = self._extract_int_features(data)
 
@@ -669,7 +669,7 @@ class IntelligenceFusionEngine:
         else:
             return torch.zeros(1, 128, dtype=torch.float32)
 
-    def predict(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def predict(self, data: dict[str, Any]) -> dict[str, Any]:
         """Predict for engine integration"""
         result = self.fuse_intelligence(data)
 
@@ -681,7 +681,7 @@ class IntelligenceFusionEngine:
         }
 
 
-def create_omni_intelligence_scalars() -> Dict[str, float]:
+def create_omni_intelligence_scalars() -> dict[str, float]:
     """
     Create doctorate-level intelligence scalars for truth deciphering.
 

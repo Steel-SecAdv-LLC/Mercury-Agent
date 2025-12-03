@@ -20,7 +20,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Spatial anomaly detector for geographic data
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -38,7 +38,7 @@ class SpatialAnomalyDetector(BaseDetector):
     - Spatial clustering
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         super().__init__(config)
         self.n_neighbors = self.config.get("n_neighbors", 20)
         self.contamination = self.config.get("contamination", 0.1)
@@ -49,10 +49,10 @@ class SpatialAnomalyDetector(BaseDetector):
             novelty=True,
         )
 
-        self.center: Optional[np.ndarray] = None
-        self.radius_threshold: Optional[float] = None
+        self.center: np.ndarray | None = None
+        self.radius_threshold: float | None = None
 
-    def fit(self, data: Union[np.ndarray, torch.Tensor]) -> "SpatialAnomalyDetector":
+    def fit(self, data: np.ndarray | torch.Tensor) -> "SpatialAnomalyDetector":
         """Fit detector to normal spatial data"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
@@ -70,7 +70,7 @@ class SpatialAnomalyDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    def detect(self, data: Union[np.ndarray, torch.Tensor]) -> Dict[str, Any]:
+    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
         """Detect spatial anomalies"""
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
@@ -99,7 +99,7 @@ class SpatialAnomalyDetector(BaseDetector):
             "detector_type": "spatial",
         }
 
-    def extract_features(self, data: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
         """Extract spatial features for ML fusion"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()

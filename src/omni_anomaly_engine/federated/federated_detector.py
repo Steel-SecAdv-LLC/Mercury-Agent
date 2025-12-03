@@ -29,7 +29,6 @@ Research sources:
 """
 
 from enum import Enum
-from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -78,7 +77,7 @@ class FederatedAnomalyDetector:
         num_clients: int = 10,
         epsilon: float = 1.0,
         delta: float = 1e-5,
-        rng: Optional[DeterministicRNG] = None,
+        rng: DeterministicRNG | None = None,
     ):
         self.strategy = strategy
         self.privacy_level = privacy_level
@@ -91,8 +90,8 @@ class FederatedAnomalyDetector:
         self._rng = rng or get_global_rng()
 
     def federated_train(
-        self, client_data: Dict[str, np.ndarray], local_epochs: int = 5, num_rounds: int = 10
-    ) -> Dict:
+        self, client_data: dict[str, np.ndarray], local_epochs: int = 5, num_rounds: int = 10
+    ) -> dict:
         """
         Train federated anomaly detection model across clients.
 
@@ -151,8 +150,8 @@ class FederatedAnomalyDetector:
         }
 
     def federated_detect(
-        self, client_data: Dict[str, np.ndarray], use_personalization: bool = True
-    ) -> Dict[str, Dict]:
+        self, client_data: dict[str, np.ndarray], use_personalization: bool = True
+    ) -> dict[str, dict]:
         """
         Perform federated anomaly detection across clients.
 
@@ -206,7 +205,7 @@ class FederatedAnomalyDetector:
         return model_update
 
     def _federated_averaging(
-        self, client_updates: List[np.ndarray], client_weights: List[int]
+        self, client_updates: list[np.ndarray], client_weights: list[int]
     ) -> np.ndarray:
         """FedAvg: Weighted average of client model updates."""
         total_weight = sum(client_weights)
@@ -223,7 +222,7 @@ class FederatedAnomalyDetector:
             return aggregated
 
     def _federated_proximal(
-        self, client_updates: List[np.ndarray], client_weights: List[int], mu: float = 0.1
+        self, client_updates: list[np.ndarray], client_weights: list[int], mu: float = 0.1
     ) -> np.ndarray:
         """FedProx: Handles system heterogeneity with proximal term."""
         aggregated = self._federated_averaging(client_updates, client_weights)
@@ -264,7 +263,7 @@ class FederatedAnomalyDetector:
         reconstruction_errors = np.linalg.norm(data - model, axis=1)
         return reconstruction_errors
 
-    def _evaluate_global_model(self, client_data: Dict[str, np.ndarray]) -> float:
+    def _evaluate_global_model(self, client_data: dict[str, np.ndarray]) -> float:
         """Evaluate global model across all clients."""
         if self.global_model_weights is None:
             return 0.0
@@ -291,7 +290,7 @@ class CISAFederatedCoordinator:
     - Differential privacy for sensitive sectors (Healthcare, Nuclear, Financial)
     """
 
-    def __init__(self, sectors: List[str]):
+    def __init__(self, sectors: list[str]):
         self.sectors = sectors
         self.sector_detectors = {
             sector: FederatedAnomalyDetector(
@@ -301,8 +300,8 @@ class CISAFederatedCoordinator:
         }
 
     def coordinate_cross_sector_training(
-        self, sector_data: Dict[str, Dict[str, np.ndarray]], rounds: int = 10
-    ) -> Dict:
+        self, sector_data: dict[str, dict[str, np.ndarray]], rounds: int = 10
+    ) -> dict:
         """
         Coordinate federated training across multiple CISA sectors.
 

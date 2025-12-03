@@ -22,10 +22,11 @@ Extracted from Communication Engine for future scalability
 """
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 
 class MessagePriority(Enum):
@@ -48,7 +49,7 @@ class Message:
     timestamp: float = field(default_factory=lambda: datetime.now().timestamp())
     message_id: str = field(default_factory=lambda: f"msg_{datetime.now().timestamp()}")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert message to dictionary"""
         return {
             "sender": self.sender,
@@ -60,7 +61,7 @@ class Message:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Message":
+    def from_dict(cls, data: dict[str, Any]) -> "Message":
         """Create message from dictionary"""
         return cls(
             sender=data["sender"],
@@ -80,7 +81,7 @@ class AsyncMessageQueue:
 
     def __init__(self, max_size: int = 1000):
         self.queue: asyncio.Queue = asyncio.Queue(maxsize=max_size)
-        self.handlers: Dict[str, List[Callable]] = {}
+        self.handlers: dict[str, list[Callable]] = {}
         self.stats = {
             "messages_sent": 0,
             "messages_received": 0,
@@ -105,7 +106,7 @@ class AsyncMessageQueue:
             self.stats["errors"] += 1
             return False
 
-    async def receive(self, timeout: Optional[float] = None) -> Optional[Message]:
+    async def receive(self, timeout: float | None = None) -> Message | None:
         """
         Receive message from queue
 
@@ -123,7 +124,7 @@ class AsyncMessageQueue:
 
             self.stats["messages_received"] += 1
             return message
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return None
         except Exception:
             self.stats["errors"] += 1
@@ -164,7 +165,7 @@ class AsyncMessageQueue:
                     except Exception:
                         self.stats["errors"] += 1
 
-    def get_stats(self) -> Dict[str, int]:
+    def get_stats(self) -> dict[str, int]:
         """Get queue statistics"""
         return self.stats.copy()
 
@@ -176,7 +177,7 @@ class SimplePubSub:
     """
 
     def __init__(self):
-        self.subscribers: Dict[str, List[Callable]] = {}
+        self.subscribers: dict[str, list[Callable]] = {}
 
     def subscribe(self, topic: str, callback: Callable):
         """

@@ -29,7 +29,7 @@ from omni_anomaly_engine.resilience.self_healing import SelfHealingEngine
 
 __all__ = [
     "CircuitBreaker",
+    "HealthMonitor",
     "RetryPolicy",
     "SelfHealingEngine",
-    "HealthMonitor",
 ]

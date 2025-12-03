@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Consciousness preservation model."""
 
-from typing import Any, Dict, Union
+from typing import Any
 
 import numpy as np
 
@@ -26,7 +26,7 @@ import numpy as np
 class ConsciousnessPreservationModel:
     """Model for consciousness state preservation and anomaly detection."""
 
-    def __init__(self, config: Dict[str, Any] = None, **kwargs):
+    def __init__(self, config: dict[str, Any] = None, **kwargs):
         self.config = config or {}
         self.coherence_threshold = self.config.get("coherence_threshold", 0.5)
 
@@ -88,7 +88,7 @@ class ConsciousnessPreservationModel:
 
         return entanglement
 
-    def extract_features(self, data: Union[np.ndarray, Dict[str, Any]]) -> np.ndarray:
+    def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
         """Extract consciousness-related features from data."""
         if isinstance(data, dict):
             data = np.array(list(data.values())[0])
@@ -117,7 +117,7 @@ class ConsciousnessPreservationModel:
 
         return features.astype(np.float32)
 
-    def predict(self, data: Union[np.ndarray, Dict[str, Any]]) -> Dict[str, Any]:
+    def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
         """Predict consciousness state anomalies."""
         if isinstance(data, dict):
             data_array = np.array(list(data.values())[0])

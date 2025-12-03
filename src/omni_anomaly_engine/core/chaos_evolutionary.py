@@ -25,7 +25,8 @@ Implements Chaos Game Optimization (CGO) using fractal configurations and chaos 
 for dynamic hyperparameter tuning in anomaly detection systems.
 """
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
@@ -81,9 +82,7 @@ class ChaoticMap:
 class ChaosEvolutionOptimizer:
     """Chaos-Evolutionary Optimizer using CGO algorithm."""
 
-    def __init__(
-        self, config: Optional[Dict[str, Any]] = None, rng: Optional[DeterministicRNG] = None
-    ):
+    def __init__(self, config: dict[str, Any] | None = None, rng: DeterministicRNG | None = None):
         """Initialize chaos-evolutionary optimizer.
 
         Args:
@@ -105,9 +104,9 @@ class ChaosEvolutionOptimizer:
         self._rng = rng or get_global_rng()
 
         self.chaotic_map = self._get_chaotic_map()
-        self.best_solution: Optional[np.ndarray] = None
+        self.best_solution: np.ndarray | None = None
         self.best_fitness: float = np.inf
-        self.convergence_history: List[float] = []
+        self.convergence_history: list[float] = []
 
     def _get_chaotic_map(self) -> Callable[[float], float]:
         """Get chaotic map function based on configuration."""
@@ -120,7 +119,7 @@ class ChaosEvolutionOptimizer:
         else:
             return ChaoticMap.logistic_map
 
-    def _initialize_population(self, dim: int, bounds: List[Tuple[float, float]]) -> np.ndarray:
+    def _initialize_population(self, dim: int, bounds: list[tuple[float, float]]) -> np.ndarray:
         """Initialize population with random solutions.
 
         Args:
@@ -141,7 +140,7 @@ class ChaosEvolutionOptimizer:
         position: np.ndarray,
         best_position: np.ndarray,
         chaos_value: float,
-        bounds: List[Tuple[float, float]],
+        bounds: list[tuple[float, float]],
     ) -> np.ndarray:
         """Perform one chaos game step for fractal-based position update.
 
@@ -175,8 +174,8 @@ class ChaosEvolutionOptimizer:
         self,
         objective_function: Callable[[np.ndarray], float],
         dim: int,
-        bounds: List[Tuple[float, float]],
-    ) -> Dict[str, Any]:
+        bounds: list[tuple[float, float]],
+    ) -> dict[str, Any]:
         """Run chaos-evolutionary optimization.
 
         Args:
@@ -236,9 +235,9 @@ class ChaosEvolutionOptimizer:
 
     def tune_hyperparameters(
         self,
-        parameter_space: Dict[str, Tuple[float, float]],
-        evaluation_function: Callable[[Dict[str, float]], float],
-    ) -> Dict[str, Any]:
+        parameter_space: dict[str, tuple[float, float]],
+        evaluation_function: Callable[[dict[str, float]], float],
+    ) -> dict[str, Any]:
         """Tune hyperparameters for anomaly detection system.
 
         Args:
@@ -271,7 +270,7 @@ class ChaosEvolutionOptimizer:
 
     def generate_creative_hypotheses(
         self, base_solution: np.ndarray, num_hypotheses: int = 10, chaos_intensity: float = 0.1
-    ) -> List[np.ndarray]:
+    ) -> list[np.ndarray]:
         """Generate creative hypothesis variations using controlled chaos.
 
         Inspired by: AI and Human Creativity: Can Chaos Theory Make Machines

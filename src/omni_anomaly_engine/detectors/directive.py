@@ -22,7 +22,7 @@ Enhanced with quantum pattern containment and nano-scale detection
 """
 
 import hashlib
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -41,7 +41,7 @@ class SigmaDirectiveDetector(BaseDetector):
     - EOA (Ethical Oversight Amplifier)
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         super().__init__(config)
         self.convergence_threshold = self.config.get("convergence_threshold", 0.01)
         self.stability_factor = self.config.get("stability_factor", 1.0)
@@ -50,10 +50,10 @@ class SigmaDirectiveDetector(BaseDetector):
         self.use_nano_detection = self.config.get("use_nano_detection", True)
         self.use_harmonic_detection = self.config.get("use_harmonic_detection", True)
 
-        self.baseline_pattern: Optional[np.ndarray] = None
+        self.baseline_pattern: np.ndarray | None = None
         self.memory_buffer: list = []
 
-    def fit(self, data: Union[np.ndarray, torch.Tensor]) -> "SigmaDirectiveDetector":
+    def fit(self, data: np.ndarray | torch.Tensor) -> "SigmaDirectiveDetector":
         """Fit Sigma protocols to normal patterns"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
@@ -63,7 +63,7 @@ class SigmaDirectiveDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    def detect(self, data: Union[np.ndarray, torch.Tensor]) -> Dict[str, Any]:
+    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using Sigma protocols with quantum enhancement"""
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
@@ -116,7 +116,7 @@ class SigmaDirectiveDetector(BaseDetector):
             "detector_type": "directive",
         }
 
-    def extract_features(self, data: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
         """Extract Sigma protocol features for ML fusion"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
@@ -201,7 +201,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         return magnitude_norm
 
-    def _quantum_pattern_containment(self, data: np.ndarray) -> Dict[str, float]:
+    def _quantum_pattern_containment(self, data: np.ndarray) -> dict[str, float]:
         """
         Quantum Pattern Containment Protocol (QPCP)
         """
@@ -223,7 +223,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         return pattern_scores
 
-    def _nano_scale_detection(self, data: np.ndarray) -> Dict[str, float]:
+    def _nano_scale_detection(self, data: np.ndarray) -> dict[str, float]:
         """
         Nano-Scale Detection & Response System (NDRS)
         Enhanced N term with dimensional downsampling for micro-anomaly detection

@@ -33,7 +33,7 @@ Research source: Bain & Company Technology Report 2025
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -57,11 +57,11 @@ class BainAIScaling:
 
     def __init__(self, max_power_watts: float = 1000.0):
         self.max_power_watts = max_power_watts
-        self.current_allocation: Dict[str, ComputeResource] = {}
+        self.current_allocation: dict[str, ComputeResource] = {}
 
     def optimize_compute_allocation(
-        self, workloads: List[Dict], available_resources: ComputeResource
-    ) -> Dict[str, ComputeResource]:
+        self, workloads: list[dict], available_resources: ComputeResource
+    ) -> dict[str, ComputeResource]:
         """
         Optimize compute resource allocation across workloads.
 
@@ -142,7 +142,7 @@ class BainAIScaling:
 
     def plan_infrastructure_scaling(
         self, current_investment_millions: float, growth_rate: float = 0.25, years: int = 5
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Plan AI infrastructure scaling based on Bain findings.
 
@@ -190,7 +190,7 @@ class BainAIScaling:
 
     def estimate_agentic_ai_impact(
         self, current_workforce_size: int, process_automation_target: float = 0.30
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Estimate impact of agentic AI on operations.
 
@@ -237,8 +237,8 @@ class BainAIScaling:
         }
 
     def optimize_power_management(
-        self, workload_schedule: List[Dict[str, Any]], power_budget_watts: float
-    ) -> Dict[str, Any]:
+        self, workload_schedule: list[dict[str, Any]], power_budget_watts: float
+    ) -> dict[str, Any]:
         """
         Optimize power management for AI workloads.
 

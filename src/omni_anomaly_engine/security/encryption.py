@@ -33,7 +33,6 @@ MIT-compatible implementation using standard cryptographic primitives.
 import base64
 import hashlib
 import secrets
-from typing import Optional, Tuple, Union
 
 import numpy as np
 
@@ -94,7 +93,7 @@ class QuantumResistantEncryption:
             self._oqs_kem = None
             self._oqs_signature = None
 
-    def _generate_lattice_key(self) -> Tuple[np.ndarray, np.ndarray]:
+    def _generate_lattice_key(self) -> tuple[np.ndarray, np.ndarray]:
         """
         Generate lattice-based key pair (public, private) using LWE.
 
@@ -116,7 +115,7 @@ class QuantumResistantEncryption:
 
         return public_key, private_key
 
-    def encrypt_hybrid(self, data: bytes, public_key: Optional[Tuple] = None) -> bytes:
+    def encrypt_hybrid(self, data: bytes, public_key: tuple | None = None) -> bytes:
         """
         Hybrid encryption: quantum-resistant KEM + symmetric stream cipher.
 
@@ -321,7 +320,7 @@ class SecureDataHandler:
         sanitized = sanitized.replace("'", "&#39;").replace('"', "&quot;")
         return sanitized
 
-    def encode_data(self, data: Union[str, bytes]) -> str:
+    def encode_data(self, data: str | bytes) -> str:
         """Base64 encode data"""
         if isinstance(data, str):
             data = data.encode()
@@ -331,7 +330,7 @@ class SecureDataHandler:
         """Base64 decode data"""
         return base64.b64decode(encoded.encode())
 
-    def encrypt_quantum_resistant(self, data: Union[str, bytes]) -> bytes:
+    def encrypt_quantum_resistant(self, data: str | bytes) -> bytes:
         """
         Encrypt data with quantum-resistant encryption.
 

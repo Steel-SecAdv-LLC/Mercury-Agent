@@ -39,7 +39,7 @@ Integrates:
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -59,23 +59,23 @@ class TruthDecipherResult:
 
     anomaly_detected: bool
     anomaly_score: float
-    novel_classes: List[str] = field(default_factory=list)
+    novel_classes: list[str] = field(default_factory=list)
 
-    issue_type: Optional[str] = None
-    severity: Optional[float] = None
-    recommendations: List[str] = field(default_factory=list)
+    issue_type: str | None = None
+    severity: float | None = None
+    recommendations: list[str] = field(default_factory=list)
 
     ethics_passed: bool = False
     ethics_score: float = 0.0
-    ethical_violations: List[str] = field(default_factory=list)
+    ethical_violations: list[str] = field(default_factory=list)
 
     resolution_applied: bool = False
-    resolution_type: Optional[str] = None
-    autonomous_actions: List[str] = field(default_factory=list)
-    self_healing_signature: Optional[str] = None
+    resolution_type: str | None = None
+    autonomous_actions: list[str] = field(default_factory=list)
+    self_healing_signature: str | None = None
 
     phase_completed: int = 0
-    blocked_reason: Optional[str] = None
+    blocked_reason: str | None = None
 
 
 class TruthDecipherFramework:
@@ -89,7 +89,7 @@ class TruthDecipherFramework:
 
     def __init__(
         self,
-        config: Optional[EngineConfig] = None,
+        config: EngineConfig | None = None,
         enable_novel_discovery: bool = True,
         enable_self_healing: bool = True,
         autonomy_level: float = 0.8,
@@ -118,8 +118,8 @@ class TruthDecipherFramework:
 
     def decipher_truth(
         self,
-        data_stream: Union[np.ndarray, torch.Tensor, Dict[str, Any]],
-        context: Optional[Dict[str, Any]] = None,
+        data_stream: np.ndarray | torch.Tensor | dict[str, Any],
+        context: dict[str, Any] | None = None,
     ) -> TruthDecipherResult:
         """
         Main orchestrator: Run all 4 phases to discover, identify,
@@ -171,9 +171,9 @@ class TruthDecipherFramework:
 
     def detect_anomalies(
         self,
-        data_stream: Union[np.ndarray, torch.Tensor, Dict[str, Any]],
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        data_stream: np.ndarray | torch.Tensor | dict[str, Any],
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Phase 1: Discovery - Detect anomalies using OmniAnomalyEngine
         and discover novel classes.
@@ -211,8 +211,8 @@ class TruthDecipherFramework:
         return result
 
     def classify_and_identify(
-        self, discovery_result: Dict[str, Any], context: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, discovery_result: dict[str, Any], context: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         Phase 2: Identification - Classify anomalies by type and severity.
 
@@ -255,7 +255,7 @@ class TruthDecipherFramework:
         }
 
     def determine_ethics(
-        self, identification_result: Dict[str, Any], context: Optional[Dict[str, Any]] = None
+        self, identification_result: dict[str, Any], context: dict[str, Any] | None = None
     ) -> EthicsResult:
         """
         Phase 3: Ethical Course Determination - Evaluate proposed actions
@@ -295,10 +295,10 @@ class TruthDecipherFramework:
 
     def resolve_with_measures(
         self,
-        identification_result: Dict[str, Any],
-        original_data: Union[np.ndarray, torch.Tensor, Dict[str, Any]],
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        identification_result: dict[str, Any],
+        original_data: np.ndarray | torch.Tensor | dict[str, Any],
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Phase 4: Resolution - Apply automated fixes using ThreeRMechanism,
         AgenticAutonomy, and CRISPRInspiredSelfHealing.
@@ -340,7 +340,7 @@ class TruthDecipherFramework:
 
         return result
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """
         Get statistics about framework operations.
 

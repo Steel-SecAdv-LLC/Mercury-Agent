@@ -1,0 +1,53 @@
+# OMNI-AVA Kubernetes Namespace Configuration
+# Provides isolation and resource management for the OMNI-AVA application
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: namespace
+    app.kubernetes.io/part-of: omni-ava-platform
+  annotations:
+    description: "OMNI-AVA Neural-Symbolic AI Framework for Multi-Domain Anomaly Detection"
+    owner: "Steel Security Advisors LLC"
+---
+# Resource Quota for the namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: omni-ava-quota
+  namespace: omni-ava
+spec:
+  hard:
+    requests.cpu: "20"
+    requests.memory: 40Gi
+    limits.cpu: "40"
+    limits.memory: 80Gi
+    persistentvolumeclaims: "10"
+    pods: "50"
+    services: "20"
+    secrets: "50"
+    configmaps: "50"
+---
+# LimitRange for default resource constraints
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: omni-ava-limits
+  namespace: omni-ava
+spec:
+  limits:
+    - default:
+        cpu: "1"
+        memory: 2Gi
+      defaultRequest:
+        cpu: "100m"
+        memory: 256Mi
+      max:
+        cpu: "8"
+        memory: 16Gi
+      min:
+        cpu: "50m"
+        memory: 64Mi
+      type: Container

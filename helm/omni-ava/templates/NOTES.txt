@@ -1,0 +1,72 @@
+OMNI-AVA has been deployed successfully!
+
+{{- if .Values.api.enabled }}
+===========================================
+API Server
+===========================================
+
+1. Get the API URL:
+{{- if .Values.api.ingress.enabled }}
+{{- range $host := .Values.api.ingress.hosts }}
+   https://{{ $host.host }}
+{{- end }}
+{{- else if contains "NodePort" .Values.api.service.type }}
+   export NODE_PORT=$(kubectl get --namespace {{ include "omni-ava.namespace" . }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "omni-ava.fullname" . }}-api)
+   export NODE_IP=$(kubectl get nodes --namespace {{ include "omni-ava.namespace" . }} -o jsonpath="{.items[0].status.addresses[0].address}")
+   echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.api.service.type }}
+   NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+   Watch status: kubectl get svc --namespace {{ include "omni-ava.namespace" . }} -w {{ include "omni-ava.fullname" . }}-api
+{{- else if contains "ClusterIP" .Values.api.service.type }}
+   kubectl port-forward svc/{{ include "omni-ava.fullname" . }}-api {{ .Values.api.service.port }}:{{ .Values.api.service.port }} -n {{ include "omni-ava.namespace" . }}
+   echo "API available at http://127.0.0.1:{{ .Values.api.service.port }}"
+{{- end }}
+
+2. Check API health:
+   curl -s http://localhost:{{ .Values.api.service.port }}/health | jq
+
+3. Access API documentation:
+   http://localhost:{{ .Values.api.service.port }}/docs
+{{- end }}
+
+{{- if .Values.metrics.enabled }}
+
+===========================================
+Monitoring
+===========================================
+
+Metrics endpoint: /metrics on port {{ .Values.metrics.port }}
+
+{{- if .Values.metrics.serviceMonitor.enabled }}
+ServiceMonitor is enabled. Prometheus should automatically discover and scrape metrics.
+{{- end }}
+{{- end }}
+
+===========================================
+Useful Commands
+===========================================
+
+# View pod status
+kubectl get pods -n {{ include "omni-ava.namespace" . }} -l app.kubernetes.io/name={{ include "omni-ava.name" . }}
+
+# View logs
+kubectl logs -f deployment/{{ include "omni-ava.fullname" . }}-api -n {{ include "omni-ava.namespace" . }}
+
+# Scale API replicas
+kubectl scale deployment/{{ include "omni-ava.fullname" . }}-api --replicas=5 -n {{ include "omni-ava.namespace" . }}
+
+# Check HPA status
+kubectl get hpa -n {{ include "omni-ava.namespace" . }}
+
+# View events
+kubectl get events -n {{ include "omni-ava.namespace" . }} --sort-by='.lastTimestamp'
+
+===========================================
+Documentation
+===========================================
+
+- Project: https://github.com/Steel-SecAdv-LLC/OMNI-AVA
+- API Docs: /docs endpoint
+- Issues: https://github.com/Steel-SecAdv-LLC/OMNI-AVA/issues
+
+Thank you for using OMNI-AVA!

@@ -22,7 +22,7 @@ Correlates anomaly patterns across international boundaries (EU-US)
 for comprehensive threat intelligence.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 
@@ -43,7 +43,7 @@ class CrossBorderIntelligence:
 
     def correlate_threats(
         self, eu_data: np.ndarray, us_data: np.ndarray, threat_type: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Correlate threat patterns across EU and US data.
 
         Args:
@@ -72,7 +72,7 @@ class CrossBorderIntelligence:
             ),
         }
 
-    def _calculate_time_lag(self, eu_data: np.ndarray, us_data: np.ndarray) -> Dict[str, Any]:
+    def _calculate_time_lag(self, eu_data: np.ndarray, us_data: np.ndarray) -> dict[str, Any]:
         """Calculate time lag between EU and US anomaly patterns."""
         max_lag = min(24, len(eu_data) // 2, len(us_data) // 2)
         if max_lag < 1:

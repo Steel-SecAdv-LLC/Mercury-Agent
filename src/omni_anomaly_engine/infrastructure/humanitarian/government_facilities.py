@@ -22,7 +22,7 @@ Covers 16th CISA sector (Government Facilities) with focus on
 democratic governance, transparency, and accountability.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class GovernmentFacilitiesMonitor:
@@ -32,7 +32,7 @@ class GovernmentFacilitiesMonitor:
     democratic governance, transparency, and accountability.
     """
 
-    def __init__(self, ethical_config: Optional[Dict[str, float]] = None):
+    def __init__(self, ethical_config: dict[str, float] | None = None):
         """Initialize Government Facilities Monitor.
 
         Args:
@@ -89,7 +89,7 @@ class GovernmentFacilitiesMonitor:
             ),
         }
 
-    def detect(self, data: Dict[str, Any], facility_type: str) -> Dict[str, Any]:
+    def detect(self, data: dict[str, Any], facility_type: str) -> dict[str, Any]:
         """Detect anomalies in government facilities and processes.
 
         Args:
@@ -140,7 +140,7 @@ class GovernmentFacilitiesMonitor:
             "recommendations": self._generate_gov_recommendations(facility_type, threat_type),
         }
 
-    def monitor_democratic_process(self, process_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    def monitor_democratic_process(self, process_type: str, data: dict[str, Any]) -> dict[str, Any]:
         """Monitor specific democratic processes for integrity.
 
         Args:
@@ -161,7 +161,7 @@ class GovernmentFacilitiesMonitor:
         else:
             raise ValueError(f"Unknown process type: {process_type}")
 
-    def _monitor_electoral_integrity(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _monitor_electoral_integrity(self, data: dict[str, Any]) -> dict[str, Any]:
         """Monitor electoral process integrity."""
         voter_turnout = data.get("voter_turnout_percent", 50)
         ballot_rejection_rate = data.get("ballot_rejection_percent", 1.0)
@@ -192,7 +192,7 @@ class GovernmentFacilitiesMonitor:
             ],
         }
 
-    def _monitor_legislative_process(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _monitor_legislative_process(self, data: dict[str, Any]) -> dict[str, Any]:
         """Monitor legislative process integrity."""
         quorum_violations = data.get("quorum_violations", 0)
         procedural_irregularities = data.get("procedural_issues", 0)
@@ -209,7 +209,7 @@ class GovernmentFacilitiesMonitor:
             },
         }
 
-    def _monitor_judicial_process(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _monitor_judicial_process(self, data: dict[str, Any]) -> dict[str, Any]:
         """Monitor judicial process integrity."""
         case_backlog_days = data.get("case_backlog_days", 60)
         due_process_violations = data.get("due_process_issues", 0)
@@ -222,7 +222,7 @@ class GovernmentFacilitiesMonitor:
             ),
         }
 
-    def _monitor_regulatory_process(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _monitor_regulatory_process(self, data: dict[str, Any]) -> dict[str, Any]:
         """Monitor regulatory process integrity."""
         comment_period_violations = data.get("comment_period_issues", 0)
         transparency_score = data.get("transparency_score", 0.85)

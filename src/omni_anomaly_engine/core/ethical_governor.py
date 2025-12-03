@@ -35,7 +35,7 @@ MIT-compatible implementation.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 from scipy import stats
@@ -100,7 +100,7 @@ class SigmaDirective:
             self.TRUTH: ethical_scalars.omni_truth_alignment,
         }
 
-    def apply_directive(self, action: str, context: Dict[str, Any]) -> Tuple[bool, str]:
+    def apply_directive(self, action: str, context: dict[str, Any]) -> tuple[bool, str]:
         """
         Apply Sigma Directive to validate action.
 
@@ -133,7 +133,7 @@ class SigmaDirective:
 
         return True, "Action approved by Sigma Directive"
 
-    def _evaluate_justice(self, context: Dict[str, Any]) -> float:
+    def _evaluate_justice(self, context: dict[str, Any]) -> float:
         """Evaluate justice component."""
         fairness = context.get("fairness_score", 0.5)
         bias = context.get("bias_detected", False)
@@ -143,7 +143,7 @@ class SigmaDirective:
 
         return float(fairness)
 
-    def _evaluate_altruism(self, context: Dict[str, Any]) -> float:
+    def _evaluate_altruism(self, context: dict[str, Any]) -> float:
         """Evaluate altruism component."""
         benefit = context.get("societal_benefit", 0.5)
         harm = context.get("potential_harm", 0.0)
@@ -151,14 +151,14 @@ class SigmaDirective:
         net_benefit = benefit - harm
         return float(max(0.0, min(1.0, net_benefit)))
 
-    def _evaluate_compassion(self, context: Dict[str, Any]) -> float:
+    def _evaluate_compassion(self, context: dict[str, Any]) -> float:
         """Evaluate compassion component."""
         harm_prevention = context.get("harm_prevention", 0.5)
         suffering_mitigation = context.get("suffering_mitigation", 0.5)
 
         return float((harm_prevention + suffering_mitigation) / 2.0)
 
-    def _evaluate_truth(self, context: Dict[str, Any]) -> float:
+    def _evaluate_truth(self, context: dict[str, Any]) -> float:
         """Evaluate truth component."""
         transparency = context.get("transparency", 0.5)
         honesty = context.get("honesty", 0.5)
@@ -197,12 +197,12 @@ class EthicalAutonomyGovernor:
 
     def __init__(
         self,
-        ethical_scalars: Optional[EthicalScalars] = None,
+        ethical_scalars: EthicalScalars | None = None,
         enable_bias_audits: bool = True,
         enable_sigma_directives: bool = True,
         p_value_threshold: float = 0.05,
         ethical_threshold: float = 0.8,
-        rng: Optional[DeterministicRNG] = None,
+        rng: DeterministicRNG | None = None,
     ):
         """
         Initialize Ethical Autonomy Governor.
@@ -222,15 +222,15 @@ class EthicalAutonomyGovernor:
         self.ethical_threshold = ethical_threshold
         self._rng = rng or get_global_rng()
 
-        self.sigma_directive: Optional[SigmaDirective] = (
+        self.sigma_directive: SigmaDirective | None = (
             SigmaDirective(self.ethical_scalars) if enable_sigma_directives else None
         )
 
-        self.decision_history: List[EthicalDecision] = []
-        self.rollback_history: List[EthicalDecision] = []
+        self.decision_history: list[EthicalDecision] = []
+        self.rollback_history: list[EthicalDecision] = []
 
     def evaluate_decision(
-        self, action: str, context: Dict[str, Any], data: Optional[np.ndarray] = None
+        self, action: str, context: dict[str, Any], data: np.ndarray | None = None
     ) -> EthicalDecision:
         """
         Evaluate decision through ethical framework.
@@ -279,7 +279,7 @@ class EthicalAutonomyGovernor:
 
         return decision
 
-    def _compute_ethical_score(self, action: str, context: Dict[str, Any]) -> float:
+    def _compute_ethical_score(self, action: str, context: dict[str, Any]) -> float:
         """
         Compute ethical score using ~150 ethical scalars.
 
@@ -318,7 +318,7 @@ class EthicalAutonomyGovernor:
 
         return float(base_score * context_modifier)
 
-    def _audit_bias(self, data: np.ndarray, context: Dict[str, Any]) -> BiasMetrics:
+    def _audit_bias(self, data: np.ndarray, context: dict[str, Any]) -> BiasMetrics:
         """
         Audit for bias using Fairlearn-compatible metrics.
 
@@ -360,7 +360,7 @@ class EthicalAutonomyGovernor:
             mitigation_applied=mitigation_applied,
         )
 
-    def _statistical_validation(self, ethical_score: float, context: Dict[str, Any]) -> float:
+    def _statistical_validation(self, ethical_score: float, context: dict[str, Any]) -> float:
         """
         Perform statistical validation (p<0.05).
 
@@ -403,7 +403,7 @@ class EthicalAutonomyGovernor:
 
         return False
 
-    def get_governance_report(self) -> Dict[str, Any]:
+    def get_governance_report(self) -> dict[str, Any]:
         """Generate comprehensive governance report."""
         total_decisions = len(self.decision_history)
         total_rollbacks = len(self.rollback_history)

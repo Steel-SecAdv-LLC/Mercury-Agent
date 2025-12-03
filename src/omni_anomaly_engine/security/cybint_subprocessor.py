@@ -43,11 +43,11 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class APTGroup(Enum):
@@ -112,20 +112,20 @@ class CYBINTAnalysisResult:
     threat_severity: str
     risk_score: float
 
-    apt_group: Optional[str] = None
-    malware_family: Optional[str] = None
-    kill_chain_stage: Optional[str] = None
-    threat_actor_type: Optional[str] = None
+    apt_group: str | None = None
+    malware_family: str | None = None
+    kill_chain_stage: str | None = None
+    threat_actor_type: str | None = None
 
-    ttps_detected: List[str] = field(default_factory=list)
-    iocs: Dict[str, List[str]] = field(default_factory=dict)
-    c2_indicators: List[str] = field(default_factory=list)
+    ttps_detected: list[str] = field(default_factory=list)
+    iocs: dict[str, list[str]] = field(default_factory=dict)
+    c2_indicators: list[str] = field(default_factory=list)
 
     zero_day_likelihood: float = 0.0
     attribution_confidence: float = 0.0
 
-    recommended_actions: List[str] = field(default_factory=list)
-    defensive_measures: List[str] = field(default_factory=list)
+    recommended_actions: list[str] = field(default_factory=list)
+    defensive_measures: list[str] = field(default_factory=list)
 
 
 class APTPatternRecognizer(nn.Module):
@@ -155,7 +155,7 @@ class APTPatternRecognizer(nn.Module):
 
         self.confidence_head = nn.Sequential(nn.Linear(256, 1), nn.Sigmoid())
 
-    def forward(self, threat_features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, threat_features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass for APT attribution.
 
@@ -230,7 +230,7 @@ class C2InfrastructureDetector:
             "fast_flux": {"protocol": "DNS", "pattern": "rapid_ip_changes"},
         }
 
-    def detect_c2(self, network_data: Dict[str, Any]) -> Dict[str, Any]:
+    def detect_c2(self, network_data: dict[str, Any]) -> dict[str, Any]:
         """
         Detect C2 infrastructure indicators.
 
@@ -268,14 +268,14 @@ class C2InfrastructureDetector:
             "recommendations": self._generate_c2_recommendations(c2_indicators),
         }
 
-    def _match_signature(self, data: Dict[str, Any], signature: Dict[str, str]) -> bool:
+    def _match_signature(self, data: dict[str, Any], signature: dict[str, str]) -> bool:
         """Match network data against C2 signature"""
         protocol_match = data.get("protocol") == signature["protocol"]
         pattern_match = signature["pattern"] in data.get("patterns", [])
 
         return protocol_match and pattern_match
 
-    def _detect_beaconing(self, data: Dict[str, Any]) -> bool:
+    def _detect_beaconing(self, data: dict[str, Any]) -> bool:
         """Detect beaconing patterns in network traffic"""
         intervals = data.get("connection_intervals", [])
         if len(intervals) < 5:
@@ -288,7 +288,7 @@ class C2InfrastructureDetector:
 
         return coefficient_variation < 0.2
 
-    def _detect_dga(self, data: Dict[str, Any]) -> bool:
+    def _detect_dga(self, data: dict[str, Any]) -> bool:
         """Detect Domain Generation Algorithm usage"""
         domains = data.get("queried_domains", [])
 
@@ -316,7 +316,7 @@ class C2InfrastructureDetector:
 
         return entropy
 
-    def _generate_c2_recommendations(self, indicators: List[str]) -> List[str]:
+    def _generate_c2_recommendations(self, indicators: list[str]) -> list[str]:
         """Generate C2 mitigation recommendations"""
         recs = []
 
@@ -345,7 +345,7 @@ class ZeroDayIndicatorAnalyzer:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def analyze_zero_day_likelihood(self, exploit_data: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze_zero_day_likelihood(self, exploit_data: dict[str, Any]) -> dict[str, Any]:
         """
         Analyze likelihood of zero-day exploitation.
 
@@ -389,7 +389,7 @@ class ZeroDayIndicatorAnalyzer:
             "recommendations": self._generate_zero_day_recommendations(likelihood),
         }
 
-    def _generate_zero_day_recommendations(self, likelihood: float) -> List[str]:
+    def _generate_zero_day_recommendations(self, likelihood: float) -> list[str]:
         """Generate zero-day response recommendations"""
         recs = []
 
@@ -435,7 +435,7 @@ class CYBINTSubProcessor:
 
         self.logger = logging.getLogger(__name__)
 
-    def process_cybint(self, threat_data: Dict[str, Any]) -> CYBINTAnalysisResult:
+    def process_cybint(self, threat_data: dict[str, Any]) -> CYBINTAnalysisResult:
         """
         Comprehensive CYBINT analysis.
 
@@ -513,7 +513,7 @@ class CYBINTSubProcessor:
 
         return result
 
-    def _attribute_apt(self, features: np.ndarray) -> Dict[str, Any]:
+    def _attribute_apt(self, features: np.ndarray) -> dict[str, Any]:
         """Attribute threat to APT group"""
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
@@ -530,7 +530,7 @@ class CYBINTSubProcessor:
 
         return {"apt_group": identified_apt, "confidence": apt_confidence}
 
-    def _classify_malware(self, features: np.ndarray) -> Dict[str, Any]:
+    def _classify_malware(self, features: np.ndarray) -> dict[str, Any]:
         """Classify malware family"""
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
@@ -547,7 +547,7 @@ class CYBINTSubProcessor:
 
         return {"family": identified_family, "confidence": confidence}
 
-    def _identify_kill_chain_stage(self, threat_data: Dict[str, Any]) -> str:
+    def _identify_kill_chain_stage(self, threat_data: dict[str, Any]) -> str:
         """Identify cyber kill chain stage"""
         ttps = threat_data.get("ttps", [])
 
@@ -574,9 +574,7 @@ class CYBINTSubProcessor:
             return ThreatActorType.NATION_STATE.value
 
         if result.malware_family:
-            if "ransomware" in result.malware_family:
-                return ThreatActorType.CYBERCRIME.value
-            elif "stealer" in result.malware_family:
+            if "ransomware" in result.malware_family or "stealer" in result.malware_family:
                 return ThreatActorType.CYBERCRIME.value
 
         return ThreatActorType.UNKNOWN.value
@@ -598,7 +596,7 @@ class CYBINTSubProcessor:
 
         return min(base_score, 1.0)
 
-    def _generate_defensive_measures(self, result: CYBINTAnalysisResult) -> List[str]:
+    def _generate_defensive_measures(self, result: CYBINTAnalysisResult) -> list[str]:
         """Generate defensive countermeasures"""
         measures = []
 

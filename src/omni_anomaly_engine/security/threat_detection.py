@@ -24,7 +24,7 @@ Enhanced with Banish_Void_Undue threat validity assessment
 import re
 import time
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import bcrypt
 
@@ -47,7 +47,7 @@ class ThreatDetector:
     - Data exfiltration
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.config = config or {}
         self.sql_patterns = [
             r"(\bUNION\b.*\bSELECT\b)",
@@ -71,7 +71,7 @@ class ThreatDetector:
             r"%2e%2e\\",
         ]
 
-    def detect_sql_injection(self, payload: str) -> Dict[str, Any]:
+    def detect_sql_injection(self, payload: str) -> dict[str, Any]:
         """Detect SQL injection attempts"""
         matches = []
 
@@ -88,7 +88,7 @@ class ThreatDetector:
             "matched_patterns": matches,
         }
 
-    def detect_xss(self, payload: str) -> Dict[str, Any]:
+    def detect_xss(self, payload: str) -> dict[str, Any]:
         """Detect XSS attacks"""
         matches = []
 
@@ -105,7 +105,7 @@ class ThreatDetector:
             "matched_patterns": matches,
         }
 
-    def detect_path_traversal(self, payload: str) -> Dict[str, Any]:
+    def detect_path_traversal(self, payload: str) -> dict[str, Any]:
         """Detect path traversal attempts"""
         matches = []
 
@@ -122,7 +122,7 @@ class ThreatDetector:
             "matched_patterns": matches,
         }
 
-    def detect_all(self, payload: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def detect_all(self, payload: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
         """Run all threat detection checks with banishment recommendation"""
         sql_result = self.detect_sql_injection(payload)
         xss_result = self.detect_xss(payload)
@@ -166,9 +166,9 @@ class ThreatDetector:
 
     def assess_threat_validity(
         self,
-        threats: List[Dict[str, Any]],
-        context: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        threats: list[dict[str, Any]],
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Assess validity of detected threats to reduce false positives
         Extracted from Banish_Void_Undue Threat Engine
@@ -214,7 +214,7 @@ class ThreatDetector:
         }
 
     @staticmethod
-    def evaluate_temporal_relevance(context: Dict[str, Any]) -> float:
+    def evaluate_temporal_relevance(context: dict[str, Any]) -> float:
         """
         Evaluate temporal relevance of threat
         Recent threats are more relevant
@@ -241,8 +241,8 @@ class ThreatDetector:
 
     @staticmethod
     def _evaluate_ethical_alignment(
-        threats: List[Dict[str, Any]],
-        context: Dict[str, Any],
+        threats: list[dict[str, Any]],
+        context: dict[str, Any],
     ) -> float:
         """
         Evaluate ethical alignment of threat response

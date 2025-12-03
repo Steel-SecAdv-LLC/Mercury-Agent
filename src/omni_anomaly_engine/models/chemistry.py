@@ -58,11 +58,11 @@ for novel chemical predictions. Consult chemists before laboratory implementatio
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class ElementGroup(Enum):
@@ -88,15 +88,15 @@ class ChemicalAnomalyResult:
     confidence: float
     risk_score: float
 
-    element_anomalies: List[Dict] = field(default_factory=list)
-    isotope_anomalies: List[Dict] = field(default_factory=list)
-    reaction_anomalies: List[Dict] = field(default_factory=list)
+    element_anomalies: list[dict] = field(default_factory=list)
+    isotope_anomalies: list[dict] = field(default_factory=list)
+    reaction_anomalies: list[dict] = field(default_factory=list)
 
-    periodic_violations: List[str] = field(default_factory=list)
-    stability_concerns: List[str] = field(default_factory=list)
+    periodic_violations: list[str] = field(default_factory=list)
+    stability_concerns: list[str] = field(default_factory=list)
 
-    recommendations: List[str] = field(default_factory=list)
-    ancient_alchemical_correlation: Optional[Dict] = None
+    recommendations: list[str] = field(default_factory=list)
+    ancient_alchemical_correlation: dict | None = None
 
 
 class PeriodicTableEncoder(nn.Module):
@@ -207,7 +207,7 @@ class ChemistryAnomalyDetector:
 
         self.logger.info("Chemistry Anomaly Detector initialized")
 
-    def _initialize_element_data(self) -> Dict[int, Dict]:
+    def _initialize_element_data(self) -> dict[int, dict]:
         """Initialize periodic table element data"""
         elements = {}
 
@@ -261,7 +261,7 @@ class ChemistryAnomalyDetector:
 
         return base_radius - period_decrease + group_increase
 
-    def _initialize_isotope_data(self) -> Dict[str, Dict]:
+    def _initialize_isotope_data(self) -> dict[str, dict]:
         """Initialize isotope stability and decay data"""
         return {
             "H-1": {"mass": 1, "stable": True, "abundance": 99.98},
@@ -275,7 +275,7 @@ class ChemistryAnomalyDetector:
             "Pu-239": {"mass": 239, "stable": False, "half_life": 24110, "decay_mode": "alpha"},
         }
 
-    def _initialize_alchemical_kb(self) -> Dict[str, Any]:
+    def _initialize_alchemical_kb(self) -> dict[str, Any]:
         """
         Initialize alchemical knowledge base.
 
@@ -314,7 +314,7 @@ class ChemistryAnomalyDetector:
         }
 
     def detect_chemical_anomaly(
-        self, chemical_data: Dict[str, Any], temporal_history: Optional[List[Dict]] = None
+        self, chemical_data: dict[str, Any], temporal_history: list[dict] | None = None
     ) -> ChemicalAnomalyResult:
         """
         Detect chemical anomalies across elements, isotopes, and reactions.
@@ -400,7 +400,7 @@ class ChemistryAnomalyDetector:
 
         return result
 
-    def _analyze_elemental_composition(self, composition: Dict[str, float]) -> List[Dict]:
+    def _analyze_elemental_composition(self, composition: dict[str, float]) -> list[dict]:
         """Analyze elemental composition for anomalies"""
         anomalies = []
 
@@ -426,7 +426,7 @@ class ChemistryAnomalyDetector:
 
         return anomalies
 
-    def _analyze_isotope_ratios(self, isotope_ratios: Dict[str, float]) -> List[Dict]:
+    def _analyze_isotope_ratios(self, isotope_ratios: dict[str, float]) -> list[dict]:
         """Analyze isotope ratios for decay anomalies"""
         anomalies = []
 
@@ -466,7 +466,7 @@ class ChemistryAnomalyDetector:
 
         return anomalies
 
-    def _analyze_reaction_kinetics(self, reaction_rates: Dict[str, float]) -> List[Dict]:
+    def _analyze_reaction_kinetics(self, reaction_rates: dict[str, float]) -> list[dict]:
         """Analyze reaction rate anomalies"""
         anomalies = []
 
@@ -490,7 +490,7 @@ class ChemistryAnomalyDetector:
 
         return anomalies
 
-    def _check_periodic_law_violations(self, element_anomalies: List[Dict]) -> List[str]:
+    def _check_periodic_law_violations(self, element_anomalies: list[dict]) -> list[str]:
         """Check for violations of periodic law patterns"""
         violations = []
 
@@ -510,8 +510,8 @@ class ChemistryAnomalyDetector:
         return violations
 
     def _assess_stability(
-        self, element_anomalies: List[Dict], isotope_anomalies: List[Dict]
-    ) -> List[str]:
+        self, element_anomalies: list[dict], isotope_anomalies: list[dict]
+    ) -> list[str]:
         """Assess chemical/nuclear stability concerns"""
         concerns = []
 
@@ -525,7 +525,7 @@ class ChemistryAnomalyDetector:
         return concerns
 
     def _classify_anomaly_type(
-        self, elem_anom: List[Dict], iso_anom: List[Dict], react_anom: List[Dict]
+        self, elem_anom: list[dict], iso_anom: list[dict], react_anom: list[dict]
     ) -> str:
         """Classify primary anomaly type"""
         if iso_anom:
@@ -538,7 +538,7 @@ class ChemistryAnomalyDetector:
             return "combined"
 
     def _compute_detection_confidence(
-        self, elem_anom: List[Dict], iso_anom: List[Dict], react_anom: List[Dict]
+        self, elem_anom: list[dict], iso_anom: list[dict], react_anom: list[dict]
     ) -> float:
         """Compute overall detection confidence"""
         total_anomalies = len(elem_anom) + len(iso_anom) + len(react_anom)
@@ -551,8 +551,8 @@ class ChemistryAnomalyDetector:
             return min(0.95, 0.5 + total_anomalies * 0.1)
 
     def _generate_recommendations(
-        self, anomaly_type: str, elem_anom: List[Dict], iso_anom: List[Dict], stability: List[str]
-    ) -> List[str]:
+        self, anomaly_type: str, elem_anom: list[dict], iso_anom: list[dict], stability: list[str]
+    ) -> list[str]:
         """Generate chemistry analysis recommendations"""
         recommendations = []
 
@@ -579,8 +579,8 @@ class ChemistryAnomalyDetector:
         return recommendations[:6]
 
     def _correlate_alchemical_knowledge(
-        self, chemical_data: Dict[str, Any], element_anomalies: List[Dict]
-    ) -> Dict[str, Any]:
+        self, chemical_data: dict[str, Any], element_anomalies: list[dict]
+    ) -> dict[str, Any]:
         """Correlate with historical alchemical knowledge"""
         correlation = {
             "alchemical_metals_present": [],
@@ -643,7 +643,7 @@ class ChemistryAnomalyDetector:
         }
         return symbol_map.get(symbol, 0)
 
-    def _get_expected_abundance_range(self, element_symbol: str) -> Tuple[float, float]:
+    def _get_expected_abundance_range(self, element_symbol: str) -> tuple[float, float]:
         """Get expected abundance range for element"""
         common_ranges = {
             "O": (40.0, 60.0),
@@ -657,7 +657,7 @@ class ChemistryAnomalyDetector:
         """Estimate expected reaction rate"""
         return 1.0
 
-    def extract_features(self, data: Dict[str, Any]) -> torch.Tensor:
+    def extract_features(self, data: dict[str, Any]) -> torch.Tensor:
         """Extract features for ML fusion integration"""
         features = []
 
@@ -675,7 +675,7 @@ class ChemistryAnomalyDetector:
 
         return torch.tensor(features[:10], dtype=torch.float32).unsqueeze(0)
 
-    def predict(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def predict(self, data: dict[str, Any]) -> dict[str, Any]:
         """Predict for engine integration"""
         result = self.detect_chemical_anomaly(data)
 
@@ -687,7 +687,7 @@ class ChemistryAnomalyDetector:
         }
 
 
-def create_omni_chemistry_scalars() -> Dict[str, float]:
+def create_omni_chemistry_scalars() -> dict[str, float]:
     """
     Create doctorate-level chemistry scalars for truth deciphering.
 

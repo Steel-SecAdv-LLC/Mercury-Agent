@@ -22,7 +22,7 @@ Health monitoring for components and agents
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -44,7 +44,7 @@ class HealthMonitor:
     """Monitor health of components and agents"""
 
     def __init__(self):
-        self.metrics: Dict[str, List[HealthMetrics]] = {}
+        self.metrics: dict[str, list[HealthMetrics]] = {}
 
     def record_metrics(self, component_name: str, metrics: HealthMetrics) -> None:
         """Record health metrics for a component"""
@@ -56,7 +56,7 @@ class HealthMonitor:
         if len(self.metrics[component_name]) > 1000:
             self.metrics[component_name] = self.metrics[component_name][-1000:]
 
-    def get_current_health(self, component_name: str) -> Dict[str, Any]:
+    def get_current_health(self, component_name: str) -> dict[str, Any]:
         """Get current health status of a component"""
         if component_name not in self.metrics or not self.metrics[component_name]:
             return {"status": "unknown"}
@@ -78,7 +78,7 @@ class HealthMonitor:
             "timestamp": latest.timestamp.isoformat(),
         }
 
-    def get_ecosystem_health(self) -> Dict[str, Any]:
+    def get_ecosystem_health(self) -> dict[str, Any]:
         """Get overall ecosystem health"""
         component_health = {name: self.get_current_health(name) for name in self.metrics.keys()}
 

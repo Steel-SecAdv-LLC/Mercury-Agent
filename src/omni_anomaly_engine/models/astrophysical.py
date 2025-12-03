@@ -21,7 +21,7 @@ Astrophysical anomaly detection model
 Enhanced with black hole physics from FIND-YOU-ARC-CODE
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import numpy as np
 
@@ -31,7 +31,7 @@ _ETHICAL_ANCHOR = "I19A09A07A88"
 class AstrophysicalAnomalyModel:
     """Astrophysical anomaly detection using black hole physics and cosmic event modeling."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None, **kwargs):
+    def __init__(self, config: dict[str, Any] | None = None, **kwargs):
         self.config = config or {}
         self.mass_equivalent = self.config.get("mass_equivalent", 1.0)
         self.speed_of_light = self.config.get("speed_of_light", 1.0)
@@ -61,7 +61,7 @@ class AstrophysicalAnomalyModel:
         """Compute distance from event horizon (singularity)."""
         return float(np.linalg.norm(data_point))
 
-    def extract_features(self, data: Union[np.ndarray, Dict[str, Any]]) -> np.ndarray:
+    def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
         """Extract astrophysical features from data."""
         if isinstance(data, dict):
             data = np.array(list(data.values())[0])
@@ -113,7 +113,7 @@ class AstrophysicalAnomalyModel:
 
         return np.array(features).astype(np.float32)
 
-    def predict(self, data: Union[np.ndarray, Dict[str, Any]]) -> Dict[str, Any]:
+    def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
         """Predict anomalies using astrophysical models."""
         features = self.extract_features(data)
 

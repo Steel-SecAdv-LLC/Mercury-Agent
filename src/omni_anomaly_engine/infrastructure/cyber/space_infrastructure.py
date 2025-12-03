@@ -24,7 +24,7 @@ Unique to EU Critical Entities Directive (not in CISA 16 sectors).
 Reference: EUR-Lex Directive (EU) 2022/2557
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -58,8 +58,8 @@ class SpaceInfrastructureMonitor:
         }
 
     def detect(
-        self, data: np.ndarray, asset_type: str, asset_id: str, context: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        self, data: np.ndarray, asset_type: str, asset_id: str, context: dict | None = None
+    ) -> dict[str, Any]:
         """Detect anomalies in space infrastructure using z-score analysis.
 
         Args:
@@ -142,7 +142,7 @@ class SpaceInfrastructureMonitor:
         z_scores = np.abs((data - mean) / std)
         return np.max(z_scores, axis=1) if data.ndim > 1 else z_scores.flatten()
 
-    def _generate_space_recommendations(self, threat_type: str) -> List[str]:
+    def _generate_space_recommendations(self, threat_type: str) -> list[str]:
         """Generate recommendations based on threat type."""
         recommendations_map = {
             "jamming_or_interference": [

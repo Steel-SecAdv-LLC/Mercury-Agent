@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Biometric anomaly detection model."""
 
-from typing import Any, Dict, Union
+from typing import Any, Union
 
 import numpy as np
 
@@ -53,7 +53,7 @@ class HarmonicDecomposer:
 class FourierAnalyzer:
     """Fourier analysis for frequency-domain biometric features."""
 
-    def analyze(self, data: np.ndarray) -> Dict[str, np.ndarray]:
+    def analyze(self, data: np.ndarray) -> dict[str, np.ndarray]:
         """Analyze frequency components of biometric data."""
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -69,7 +69,7 @@ class FourierAnalyzer:
 class BiometricAnomalyModel:
     """Biometric anomaly detection for facial recognition and analysis."""
 
-    def __init__(self, config: Dict[str, Any] = None, **kwargs):
+    def __init__(self, config: dict[str, Any] = None, **kwargs):
         self.config = config or {}
         self.model_name = self.config.get("model_name", "Facenet")
         self.use_harmonic_features = self.config.get("use_harmonic_features", True)
@@ -175,7 +175,7 @@ class BiometricAnomalyModel:
         return normalized
 
     def extract_features(
-        self, data: Union[np.ndarray, Dict[str, Any]]
+        self, data: np.ndarray | dict[str, Any]
     ) -> Union[np.ndarray, "torch.Tensor"]:
         """Extract biometric features from image data."""
         if isinstance(data, dict):
@@ -213,7 +213,7 @@ class BiometricAnomalyModel:
             return features
         return features
 
-    def predict(self, data: Union[np.ndarray, Dict[str, Any]]) -> Dict[str, Any]:
+    def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
         """Predict biometric anomalies and quality scores."""
         if data is None:
             return {

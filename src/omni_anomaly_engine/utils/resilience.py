@@ -47,12 +47,13 @@ import logging
 import signal
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum, auto
-from typing import Any, Callable, Dict, Generic, List, Optional, Set, TypeVar, Union
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +126,7 @@ class CircuitBreaker:
         self._state = CircuitState.CLOSED
         self._failure_count = 0
         self._success_count = 0
-        self._last_failure_time: Optional[float] = None
+        self._last_failure_time: float | None = None
         self._lock = threading.RLock()
 
     @property
@@ -193,7 +194,7 @@ class CircuitBreaker:
                 return result
             except self.config.excluded_exceptions:
                 raise
-            except Exception as e:
+            except Exception:
                 self._record_failure()
                 raise
 
@@ -220,7 +221,7 @@ def retry(
     initial_delay: float = 1.0,
     max_delay: float = 60.0,
     exceptions: tuple = (Exception,),
-    on_retry: Optional[Callable[[Exception, int], None]] = None,
+    on_retry: Callable[[Exception, int], None] | None = None,
 ) -> Callable[[F], F]:
     """Decorator for retry with exponential backoff.
 
@@ -245,7 +246,7 @@ def retry(
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             delay = initial_delay
-            last_exception: Optional[Exception] = None
+            last_exception: Exception | None = None
 
             for attempt in range(1, max_attempts + 1):
                 try:
@@ -292,7 +293,7 @@ class GracefulShutdown:
     def __init__(
         self,
         timeout: float = 30.0,
-        signals: Optional[List[int]] = None,
+        signals: list[int] | None = None,
     ) -> None:
         """Initialize graceful shutdown handler.
 
@@ -302,7 +303,7 @@ class GracefulShutdown:
         """
         self.timeout = timeout
         self._should_stop = threading.Event()
-        self._handlers: List[Callable[[], None]] = []
+        self._handlers: list[Callable[[], None]] = []
         self._lock = threading.Lock()
         self._in_flight_count = 0
         self._shutdown_started = False
@@ -387,7 +388,7 @@ class GracefulShutdown:
 
         logger.info("Graceful shutdown complete")
 
-    def wait_for_shutdown(self, timeout: Optional[float] = None) -> bool:
+    def wait_for_shutdown(self, timeout: float | None = None) -> bool:
         """Wait for shutdown signal.
 
         Args:
@@ -441,7 +442,7 @@ class Bulkhead:
         self._lock = threading.Lock()
 
     @contextmanager
-    def acquire(self, timeout: Optional[float] = None):
+    def acquire(self, timeout: float | None = None):
         """Acquire a slot in the bulkhead.
 
         Args:
@@ -491,7 +492,7 @@ class HealthStatus:
     healthy: bool
     name: str
     message: str = ""
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=datetime.now)
 
 
@@ -507,7 +508,7 @@ class HealthChecker:
 
     def __init__(self) -> None:
         """Initialize health checker."""
-        self._checks: Dict[str, Callable[[], HealthStatus]] = {}
+        self._checks: dict[str, Callable[[], HealthStatus]] = {}
 
     def add_check(
         self,
@@ -547,7 +548,7 @@ class HealthChecker:
                 message=f"Check failed: {e}",
             )
 
-    def check_all(self) -> Dict[str, HealthStatus]:
+    def check_all(self) -> dict[str, HealthStatus]:
         """Run all health checks.
 
         Returns:

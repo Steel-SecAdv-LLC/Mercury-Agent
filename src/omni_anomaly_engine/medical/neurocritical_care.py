@@ -40,11 +40,11 @@ Research sources:
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class StrokeType(Enum):
@@ -80,20 +80,20 @@ class NeurocriticalPredictionResult:
 
     stroke_detected: bool
     stroke_type: str
-    nihss_score: Optional[int] = None
+    nihss_score: int | None = None
 
     seizure_detected: bool
     seizure_type: str
     seizure_risk_score: float = 0.0
 
     icp_elevated: bool = False
-    icp_mmhg: Optional[float] = None
+    icp_mmhg: float | None = None
 
-    tbi_severity: Optional[str] = None
-    gcs_score: Optional[int] = None
+    tbi_severity: str | None = None
+    gcs_score: int | None = None
 
-    clinical_recommendations: List[str] = field(default_factory=list)
-    time_sensitive_interventions: List[str] = field(default_factory=list)
+    clinical_recommendations: list[str] = field(default_factory=list)
+    time_sensitive_interventions: list[str] = field(default_factory=list)
 
 
 class StrokeDetector(nn.Module):
@@ -128,7 +128,7 @@ class StrokeDetector(nn.Module):
             nn.Linear(128, 32), nn.ReLU(), nn.Linear(32, 1), nn.Sigmoid()
         )
 
-    def forward(self, features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass for stroke detection.
 
@@ -177,7 +177,7 @@ class SeizurePredictor(nn.Module):
             nn.Linear(hidden_dim * 2, 32), nn.ReLU(), nn.Linear(32, 1), nn.Sigmoid()
         )
 
-    def forward(self, sequence: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, sequence: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Forward pass for seizure prediction.
 
@@ -213,7 +213,7 @@ class ICPMonitor:
         self.elevated_threshold = 20.0
         self.critical_threshold = 25.0
 
-    def assess_icp(self, patient_data: Dict[str, Any]) -> Dict[str, Any]:
+    def assess_icp(self, patient_data: dict[str, Any]) -> dict[str, Any]:
         """
         Assess ICP status and risk.
 
@@ -250,7 +250,7 @@ class ICPMonitor:
             "recommendations": recommendations,
         }
 
-    def _estimate_icp_from_clinicals(self, patient_data: Dict[str, Any]) -> float:
+    def _estimate_icp_from_clinicals(self, patient_data: dict[str, Any]) -> float:
         """Estimate ICP from clinical signs when direct measurement unavailable"""
         baseline_icp = 10.0
 
@@ -272,7 +272,7 @@ class ICPMonitor:
 
     def _generate_icp_recommendations(
         self, icp: float, cpp: float, elevated: bool, critical: bool
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate ICP management recommendations"""
         recs = []
 
@@ -305,7 +305,7 @@ class NIHSSCalculator:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def calculate_nihss(self, exam_findings: Dict[str, Any]) -> Dict[str, Any]:
+    def calculate_nihss(self, exam_findings: dict[str, Any]) -> dict[str, Any]:
         """
         Calculate NIHSS score from neurological exam.
 
@@ -342,7 +342,7 @@ class NIHSSCalculator:
             "recommendations": severity["recommendations"],
         }
 
-    def _interpret_nihss(self, score: int) -> Dict[str, Any]:
+    def _interpret_nihss(self, score: int) -> dict[str, Any]:
         """Interpret NIHSS score"""
         if score == 0:
             return {
@@ -419,7 +419,7 @@ class NeurocriticalCarePredictor:
         self.logger = logging.getLogger(__name__)
 
     def predict_neurocritical_emergency(
-        self, patient_data: Dict[str, Any]
+        self, patient_data: dict[str, Any]
     ) -> NeurocriticalPredictionResult:
         """
         Comprehensive neurocritical care prediction.
@@ -504,7 +504,7 @@ class NeurocriticalCarePredictor:
 
         return result
 
-    def _detect_stroke(self, features: np.ndarray) -> Dict[str, Any]:
+    def _detect_stroke(self, features: np.ndarray) -> dict[str, Any]:
         """Detect and classify stroke"""
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
@@ -536,7 +536,7 @@ class NeurocriticalCarePredictor:
             "recommendations": recs,
         }
 
-    def _predict_seizure(self, sequence: np.ndarray) -> Dict[str, Any]:
+    def _predict_seizure(self, sequence: np.ndarray) -> dict[str, Any]:
         """Predict seizure occurrence and type"""
         seq_tensor = torch.tensor(sequence, dtype=torch.float32).unsqueeze(0)
 
@@ -568,7 +568,7 @@ class NeurocriticalCarePredictor:
             "recommendations": recs,
         }
 
-    def _assess_tbi(self, tbi_features: Dict[str, Any]) -> Dict[str, Any]:
+    def _assess_tbi(self, tbi_features: dict[str, Any]) -> dict[str, Any]:
         """Assess traumatic brain injury severity"""
         gcs = tbi_features.get("gcs_score", 15)
 

@@ -20,7 +20,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Statistical anomaly detector using z-score, IQR, and isolation forest
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -39,7 +39,7 @@ class StatisticalAnomalyDetector(BaseDetector):
     - Isolation Forest
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         super().__init__(config)
         self.z_threshold = self.config.get("z_threshold", 3.0)
         self.iqr_multiplier = self.config.get("iqr_multiplier", 1.5)
@@ -51,12 +51,12 @@ class StatisticalAnomalyDetector(BaseDetector):
             random_state=42,
         )
 
-        self.mean: Optional[np.ndarray] = None
-        self.std: Optional[np.ndarray] = None
-        self.q1: Optional[np.ndarray] = None
-        self.q3: Optional[np.ndarray] = None
+        self.mean: np.ndarray | None = None
+        self.std: np.ndarray | None = None
+        self.q1: np.ndarray | None = None
+        self.q3: np.ndarray | None = None
 
-    def fit(self, data: Union[np.ndarray, torch.Tensor]) -> "StatisticalAnomalyDetector":
+    def fit(self, data: np.ndarray | torch.Tensor) -> "StatisticalAnomalyDetector":
         """Fit detector to normal data"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
@@ -75,7 +75,7 @@ class StatisticalAnomalyDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    def detect(self, data: Union[np.ndarray, torch.Tensor]) -> Dict[str, Any]:
+    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies in data"""
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
@@ -109,7 +109,7 @@ class StatisticalAnomalyDetector(BaseDetector):
             "detector_type": "statistical",
         }
 
-    def extract_features(self, data: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
         """Extract statistical features for ML fusion"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()

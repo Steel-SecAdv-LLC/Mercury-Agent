@@ -38,7 +38,6 @@ Research source: Wikipedia - Energy development
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -88,11 +87,11 @@ class EnergyOptimization:
         self.max_power_budget = max_power_budget
         self.efficiency_target = efficiency_target
         self.carbon_limit = carbon_limit
-        self.energy_profiles: List[EnergyProfile] = []
+        self.energy_profiles: list[EnergyProfile] = []
 
     def efficiency_first_optimization(
-        self, operations: List[Dict], available_power: float
-    ) -> List[Dict]:
+        self, operations: list[dict], available_power: float
+    ) -> list[dict]:
         """
         Optimize operations with efficiency-first approach.
 
@@ -128,7 +127,7 @@ class EnergyOptimization:
 
     def renewable_resource_allocation(
         self, total_resources: float, renewable_fraction: float = 0.19
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Allocate resources with renewable/sustainable emphasis.
 
@@ -195,7 +194,7 @@ class EnergyOptimization:
 
     def transition_strategy(
         self, legacy_power: float, modern_power: float, transition_rate: float = 0.1
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """
         Manage transition from legacy to modern efficient methods.
 
@@ -241,7 +240,7 @@ class EnergyOptimization:
 
         return roi
 
-    def get_efficiency_report(self) -> Dict:
+    def get_efficiency_report(self) -> dict:
         """
         Generate comprehensive efficiency report.
 

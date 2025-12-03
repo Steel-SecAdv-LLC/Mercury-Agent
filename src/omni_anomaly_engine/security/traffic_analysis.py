@@ -42,11 +42,11 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Set
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class TrafficAnomalyType(Enum):
@@ -71,14 +71,14 @@ class TrafficAnalysisResult:
     anomaly_type: str
     risk_score: float
 
-    flow_statistics: Dict[str, Any] = field(default_factory=dict)
-    communication_graph: Dict[str, Any] = field(default_factory=dict)
-    protocol_anomalies: List[str] = field(default_factory=list)
-    encrypted_flows: List[Dict] = field(default_factory=list)
-    covert_channels: List[str] = field(default_factory=list)
+    flow_statistics: dict[str, Any] = field(default_factory=dict)
+    communication_graph: dict[str, Any] = field(default_factory=dict)
+    protocol_anomalies: list[str] = field(default_factory=list)
+    encrypted_flows: list[dict] = field(default_factory=list)
+    covert_channels: list[str] = field(default_factory=list)
 
-    attribution_indicators: List[str] = field(default_factory=list)
-    recommended_actions: List[str] = field(default_factory=list)
+    attribution_indicators: list[str] = field(default_factory=list)
+    recommended_actions: list[str] = field(default_factory=list)
 
 
 class NetworkFlowAnalyzer:
@@ -91,7 +91,7 @@ class NetworkFlowAnalyzer:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def analyze_flows(self, flow_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def analyze_flows(self, flow_data: list[dict[str, Any]]) -> dict[str, Any]:
         """
         Analyze network flows for anomalies.
 
@@ -151,14 +151,14 @@ class NetworkFlowAnalyzer:
             "suspicious_sources": self._identify_suspicious_sources(flows_per_src, ports_accessed),
         }
 
-    def _detect_port_scanning(self, flows_per_src: Dict, ports_accessed: Dict[str, Set]) -> bool:
+    def _detect_port_scanning(self, flows_per_src: dict, ports_accessed: dict[str, set]) -> bool:
         """Detect port scanning activity"""
         for src_ip, port_set in ports_accessed.items():
             if len(port_set) > 20 and flows_per_src[src_ip] > 50:
                 return True
         return False
 
-    def _detect_ddos(self, flows_per_dst: Dict) -> bool:
+    def _detect_ddos(self, flows_per_dst: dict) -> bool:
         """Detect DDoS attack patterns"""
         if not flows_per_dst:
             return False
@@ -168,7 +168,7 @@ class NetworkFlowAnalyzer:
 
         return max_flows > avg_flows * 10 and max_flows > 100
 
-    def _detect_data_exfiltration(self, byte_volumes: List[int], flow_data: List[Dict]) -> bool:
+    def _detect_data_exfiltration(self, byte_volumes: list[int], flow_data: list[dict]) -> bool:
         """Detect data exfiltration patterns"""
         if not byte_volumes:
             return False
@@ -189,8 +189,8 @@ class NetworkFlowAnalyzer:
         return False
 
     def _identify_suspicious_sources(
-        self, flows_per_src: Dict, ports_accessed: Dict[str, Set]
-    ) -> List[str]:
+        self, flows_per_src: dict, ports_accessed: dict[str, set]
+    ) -> list[str]:
         """Identify suspicious source IPs"""
         suspicious = []
 
@@ -256,7 +256,7 @@ class EncryptedTrafficFingerprinter:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def fingerprint_tls(self, tls_handshake: Dict[str, Any]) -> Dict[str, Any]:
+    def fingerprint_tls(self, tls_handshake: dict[str, Any]) -> dict[str, Any]:
         """
         Generate TLS fingerprint from handshake.
 
@@ -290,7 +290,7 @@ class EncryptedTrafficFingerprinter:
             "risk_indicators": self._identify_risk_indicators(tls_handshake),
         }
 
-    def _analyze_tls_parameters(self, handshake: Dict[str, Any]) -> bool:
+    def _analyze_tls_parameters(self, handshake: dict[str, Any]) -> bool:
         """Analyze TLS parameters for suspicious patterns"""
         cipher_suites = handshake.get("cipher_suites", [])
         extensions = handshake.get("extensions", [])
@@ -304,7 +304,7 @@ class EncryptedTrafficFingerprinter:
 
         return False
 
-    def _identify_risk_indicators(self, handshake: Dict[str, Any]) -> List[str]:
+    def _identify_risk_indicators(self, handshake: dict[str, Any]) -> list[str]:
         """Identify TLS risk indicators"""
         indicators = []
 
@@ -331,7 +331,7 @@ class CovertChannelDetector:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def detect_covert_channels(self, traffic_sample: Dict[str, Any]) -> Dict[str, Any]:
+    def detect_covert_channels(self, traffic_sample: dict[str, Any]) -> dict[str, Any]:
         """
         Detect covert channels in traffic.
 
@@ -368,7 +368,7 @@ class CovertChannelDetector:
             "recommendations": self._generate_covert_channel_recommendations(channels_detected),
         }
 
-    def _detect_timing_channel(self, traffic: Dict[str, Any]) -> Dict[str, bool]:
+    def _detect_timing_channel(self, traffic: dict[str, Any]) -> dict[str, bool]:
         """Detect timing-based covert channels"""
         packet_times = traffic.get("packet_timestamps", [])
 
@@ -386,7 +386,7 @@ class CovertChannelDetector:
             "confidence": 0.7 if timing_channel_detected else 0.0,
         }
 
-    def _detect_storage_channel(self, traffic: Dict[str, Any]) -> Dict[str, bool]:
+    def _detect_storage_channel(self, traffic: dict[str, Any]) -> dict[str, bool]:
         """Detect storage-based covert channels"""
         packet_sizes = traffic.get("packet_sizes", [])
 
@@ -403,7 +403,7 @@ class CovertChannelDetector:
             "confidence": 0.6 if storage_channel_detected else 0.0,
         }
 
-    def _detect_protocol_field_manipulation(self, traffic: Dict[str, Any]) -> Dict[str, bool]:
+    def _detect_protocol_field_manipulation(self, traffic: dict[str, Any]) -> dict[str, bool]:
         """Detect protocol field manipulation for covert channels"""
         protocol_fields = traffic.get("protocol_fields", {})
 
@@ -427,7 +427,7 @@ class CovertChannelDetector:
 
         return {"detected": detected, "confidence": 0.8 if detected else 0.0}
 
-    def _calculate_entropy(self, data: List) -> float:
+    def _calculate_entropy(self, data: list) -> float:
         """Calculate Shannon entropy of data"""
         if not data:
             return 0.0
@@ -440,7 +440,7 @@ class CovertChannelDetector:
 
         return entropy
 
-    def _detect_pattern_in_sequence(self, sequence: List[int]) -> bool:
+    def _detect_pattern_in_sequence(self, sequence: list[int]) -> bool:
         """Detect non-random patterns in sequence"""
         if len(sequence) < 5:
             return False
@@ -450,7 +450,7 @@ class CovertChannelDetector:
 
         return diff_std < np.mean(diffs) * 0.1
 
-    def _generate_covert_channel_recommendations(self, channels: List[str]) -> List[str]:
+    def _generate_covert_channel_recommendations(self, channels: list[str]) -> list[str]:
         """Generate recommendations for covert channel mitigation"""
         recs = []
 
@@ -496,7 +496,7 @@ class TrafficAnalysisEngine:
 
         self.logger = logging.getLogger(__name__)
 
-    def analyze_traffic(self, traffic_data: Dict[str, Any]) -> TrafficAnalysisResult:
+    def analyze_traffic(self, traffic_data: dict[str, Any]) -> TrafficAnalysisResult:
         """
         Comprehensive traffic analysis.
 
@@ -573,8 +573,8 @@ class TrafficAnalysisEngine:
         return min(base_score, 1.0)
 
     def _extract_attribution_indicators(
-        self, traffic_data: Dict[str, Any], result: TrafficAnalysisResult
-    ) -> List[str]:
+        self, traffic_data: dict[str, Any], result: TrafficAnalysisResult
+    ) -> list[str]:
         """Extract indicators for threat attribution"""
         indicators = []
 

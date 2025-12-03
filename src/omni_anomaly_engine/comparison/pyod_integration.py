@@ -29,7 +29,7 @@ Note: This compares approaches, doesn't copy PyOD code
 """
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -71,7 +71,7 @@ class PyODComparison:
         self.algorithm_characteristics = self._init_algorithm_profiles()
         self.benchmark_results = {}
 
-    def _init_algorithm_profiles(self) -> Dict:
+    def _init_algorithm_profiles(self) -> dict:
         """Initialize algorithm characteristics for selection guidance."""
         return {
             PyODAlgorithm.ISOLATION_FOREST: {
@@ -121,8 +121,8 @@ class PyODComparison:
         }
 
     def recommend_algorithm(
-        self, data_characteristics: Dict[str, Any], constraints: Optional[Dict] = None
-    ) -> Dict:
+        self, data_characteristics: dict[str, Any], constraints: dict | None = None
+    ) -> dict:
         """
         Recommend best algorithm(s) based on data characteristics.
 
@@ -167,7 +167,7 @@ class PyODComparison:
 
     def combine_predictions(
         self,
-        predictions: Dict[str, np.ndarray],
+        predictions: dict[str, np.ndarray],
         method: CombinationMethod = CombinationMethod.AVERAGE,
     ) -> np.ndarray:
         """
@@ -215,8 +215,8 @@ class PyODComparison:
         omni_engine,
         test_data: np.ndarray,
         ground_truth: np.ndarray,
-        pyod_algorithms: List[PyODAlgorithm],
-    ) -> Dict:
+        pyod_algorithms: list[PyODAlgorithm],
+    ) -> dict:
         """
         Benchmark OMNI ♱ AVA against PyOD algorithms.
 
@@ -244,7 +244,7 @@ class PyODComparison:
 
         return results
 
-    def _evaluate_detector(self, detector, data: np.ndarray, labels: np.ndarray) -> Dict:
+    def _evaluate_detector(self, detector, data: np.ndarray, labels: np.ndarray) -> dict:
         """Evaluate detector performance."""
         try:
             scores = detector.predict(data)
@@ -264,7 +264,7 @@ class PyODComparison:
         except Exception as e:
             return {"error": str(e)}
 
-    def _generate_comparison_summary(self, results: Dict) -> Dict:
+    def _generate_comparison_summary(self, results: dict) -> dict:
         """Generate summary comparing Omni-AXA with PyOD algorithms."""
         return {
             "omni_ava_strengths": [

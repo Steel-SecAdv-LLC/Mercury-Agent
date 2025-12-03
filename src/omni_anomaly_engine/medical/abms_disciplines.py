@@ -46,11 +46,11 @@ Medical professionals must review all findings before patient care decisions.
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class ABMSBoard(Enum):
@@ -87,15 +87,15 @@ class MedicalAnomalyResult:
     """Result from ABMS-based medical anomaly detection"""
 
     primary_board: str
-    subspecialty: Optional[str] = None
+    subspecialty: str | None = None
     anomaly_detected: bool = False
     confidence: float = 0.0
     risk_score: float = 0.0
-    clinical_indicators: List[str] = field(default_factory=list)
-    recommended_consultations: List[str] = field(default_factory=list)
-    treatment_considerations: List[str] = field(default_factory=list)
+    clinical_indicators: list[str] = field(default_factory=list)
+    recommended_consultations: list[str] = field(default_factory=list)
+    treatment_considerations: list[str] = field(default_factory=list)
     urgency_level: str = "routine"
-    neurosymbolic_reasoning: Optional[Dict] = None
+    neurosymbolic_reasoning: dict | None = None
 
 
 class MultiSpecialtyNeuralNet(nn.Module):
@@ -145,7 +145,7 @@ class MultiSpecialtyNeuralNet(nn.Module):
             embed_dim=hidden_3, num_heads=8, dropout=0.1, batch_first=True
         )
 
-    def forward(self, x: torch.Tensor, specialty: Optional[str] = None) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, specialty: str | None = None) -> dict[str, torch.Tensor]:
         """
         Forward pass with optional specialty-specific prediction.
 
@@ -212,7 +212,7 @@ class ABMSDisciplineDetector:
 
         self.logger.info(f"ABMS Disciplines Detector initialized with {len(ABMSBoard)} boards")
 
-    def _initialize_subspecialties(self) -> Dict[str, List[str]]:
+    def _initialize_subspecialties(self) -> dict[str, list[str]]:
         """
         Initialize comprehensive subspecialty mappings per ABMS board.
 
@@ -436,7 +436,7 @@ class ABMSDisciplineDetector:
             ],
         }
 
-    def _initialize_medical_kb(self) -> Dict[str, Dict]:
+    def _initialize_medical_kb(self) -> dict[str, dict]:
         """Initialize medical knowledge base for neurosymbolic reasoning"""
         return {
             "cardiac_indicators": {
@@ -463,7 +463,7 @@ class ABMSDisciplineDetector:
         }
 
     def detect_medical_anomaly(
-        self, patient_data: Dict[str, Any], specialty_focus: Optional[str] = None
+        self, patient_data: dict[str, Any], specialty_focus: str | None = None
     ) -> MedicalAnomalyResult:
         """
         Detect medical anomalies across ABMS disciplines.
@@ -534,7 +534,7 @@ class ABMSDisciplineDetector:
 
         return result
 
-    def _extract_clinical_features(self, patient_data: Dict[str, Any]) -> np.ndarray:
+    def _extract_clinical_features(self, patient_data: dict[str, Any]) -> np.ndarray:
         """Extract numerical features from patient clinical data (O(n) complexity)"""
         features = []
 
@@ -597,8 +597,8 @@ class ABMSDisciplineDetector:
         return np.array(features[:64], dtype=np.float32)
 
     def _determine_primary_specialty(
-        self, predictions: Dict[str, torch.Tensor], patient_data: Dict[str, Any]
-    ) -> Tuple[str, float, Optional[str]]:
+        self, predictions: dict[str, torch.Tensor], patient_data: dict[str, Any]
+    ) -> tuple[str, float, str | None]:
         """Determine primary specialty and confidence from predictions"""
         max_confidence = 0.0
         primary_board = ABMSBoard.INTERNAL_MEDICINE.value
@@ -619,8 +619,8 @@ class ABMSDisciplineDetector:
         return primary_board, max_confidence, subspecialty
 
     def _identify_clinical_indicators(
-        self, patient_data: Dict[str, Any], primary_board: str
-    ) -> List[str]:
+        self, patient_data: dict[str, Any], primary_board: str
+    ) -> list[str]:
         """Identify key clinical indicators for the primary specialty"""
         indicators = []
 
@@ -640,8 +640,8 @@ class ABMSDisciplineDetector:
         return indicators[:10]
 
     def _recommend_consultations(
-        self, primary_board: str, subspecialty: Optional[str], indicators: List[str]
-    ) -> List[str]:
+        self, primary_board: str, subspecialty: str | None, indicators: list[str]
+    ) -> list[str]:
         """Recommend consultations based on specialty and indicators"""
         consultations = [primary_board]
 
@@ -661,8 +661,8 @@ class ABMSDisciplineDetector:
         return consultations[:5]
 
     def _generate_treatment_considerations(
-        self, primary_board: str, subspecialty: Optional[str], risk_score: float
-    ) -> List[str]:
+        self, primary_board: str, subspecialty: str | None, risk_score: float
+    ) -> list[str]:
         """Generate treatment considerations based on specialty"""
         treatments = []
 
@@ -686,7 +686,7 @@ class ABMSDisciplineDetector:
 
         return treatments[:6]
 
-    def _assess_urgency(self, risk_score: float, indicators: List[str]) -> str:
+    def _assess_urgency(self, risk_score: float, indicators: list[str]) -> str:
         """Assess clinical urgency level"""
         critical_indicators = ["chest_pain", "altered_consciousness", "severe_bleeding", "stroke"]
 
@@ -701,8 +701,8 @@ class ABMSDisciplineDetector:
             return "ROUTINE"
 
     def _apply_symbolic_reasoning(
-        self, patient_data: Dict[str, Any], primary_board: str, indicators: List[str]
-    ) -> Dict[str, Any]:
+        self, patient_data: dict[str, Any], primary_board: str, indicators: list[str]
+    ) -> dict[str, Any]:
         """Apply neurosymbolic medical reasoning"""
         reasoning = {"rules_applied": [], "deductions": [], "confidence_adjustments": []}
 
@@ -721,12 +721,12 @@ class ABMSDisciplineDetector:
 
         return reasoning
 
-    def extract_features(self, data: Dict[str, Any]) -> torch.Tensor:
+    def extract_features(self, data: dict[str, Any]) -> torch.Tensor:
         """Extract features for ML fusion integration"""
         features = self._extract_clinical_features(data)
         return torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
-    def predict(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def predict(self, data: dict[str, Any]) -> dict[str, Any]:
         """Predict for engine integration"""
         result = self.detect_medical_anomaly(data)
 
@@ -738,7 +738,7 @@ class ABMSDisciplineDetector:
         }
 
 
-def create_omni_medical_scalars() -> Dict[str, float]:
+def create_omni_medical_scalars() -> dict[str, float]:
     """
     Create doctorate-level medical scalars for truth deciphering.
 

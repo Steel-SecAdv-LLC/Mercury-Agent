@@ -19,7 +19,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """Neural cognitive anomaly detection model."""
 
 from collections import deque
-from typing import Any, Dict, Union
+from typing import Any
 
 import numpy as np
 
@@ -27,7 +27,7 @@ import numpy as np
 class NeuralCognitiveModel:
     """Neural cognitive model for brain activity anomaly detection."""
 
-    def __init__(self, config: Dict[str, Any] = None, **kwargs):
+    def __init__(self, config: dict[str, Any] = None, **kwargs):
         self.config = config or {}
         self.memory_capacity = self.config.get("memory_capacity", 100)
         self.memory_buffer = deque(maxlen=self.memory_capacity)
@@ -127,7 +127,7 @@ class NeuralCognitiveModel:
 
         return emotional_features
 
-    def extract_features(self, data: Union[np.ndarray, Dict[str, Any]]) -> np.ndarray:
+    def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
         """Extract neural cognitive features from data."""
         if isinstance(data, dict):
             data = np.array(list(data.values())[0])
@@ -143,7 +143,7 @@ class NeuralCognitiveModel:
 
         return np.concatenate([memory_features, executive_features, emotional_features], axis=1)
 
-    def predict(self, data: Union[np.ndarray, Dict[str, Any]]) -> Dict[str, Any]:
+    def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
         """Predict neural cognitive anomalies."""
         if isinstance(data, dict):
             data_array = np.array(list(data.values())[0])

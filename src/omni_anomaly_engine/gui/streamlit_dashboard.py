@@ -31,7 +31,6 @@ Run with: streamlit run streamlit_dashboard.py
 """
 
 import json
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -521,7 +520,7 @@ def general_analysis_page():
                         st.metric("Confidence", f"{result.get('anomaly_prob', 0):.1%}")
 
 
-def load_file_data(uploaded_file) -> Optional[np.ndarray]:
+def load_file_data(uploaded_file) -> np.ndarray | None:
     """Load data from uploaded file"""
 
     try:

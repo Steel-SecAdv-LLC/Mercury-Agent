@@ -38,7 +38,7 @@ References:
 import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import numpy as np
 
@@ -60,7 +60,7 @@ except ImportError:
 
 
 # Mapping of our constants to sympy equivalents for validation
-SYMPY_CONSTANT_MAP: Dict[str, str] = {
+SYMPY_CONSTANT_MAP: dict[str, str] = {
     "PI": "pi",
     "E": "E",
     "EULER_MASCHERONI": "EulerGamma",
@@ -101,11 +101,11 @@ class MathConstant:
     name: str
     symbol: str
     description: str
-    oeis_id: Optional[str] = None
-    reference: Optional[str] = None
+    oeis_id: str | None = None
+    reference: str | None = None
     precision_digits: int = 15
 
-    def to_precision(self, precision: Precision) -> Union[float, Any]:
+    def to_precision(self, precision: Precision) -> float | Any:
         """
         Get the constant in specified precision.
 
@@ -357,7 +357,7 @@ class MathematicalConstants:
     )
 
     @classmethod
-    def get_all(cls) -> Dict[str, MathConstant]:
+    def get_all(cls) -> dict[str, MathConstant]:
         """
         Get all defined constants as a dictionary.
 
@@ -367,7 +367,7 @@ class MathematicalConstants:
         return {name: value for name, value in vars(cls).items() if isinstance(value, MathConstant)}
 
     @classmethod
-    def validate_all(cls) -> Dict[str, bool]:
+    def validate_all(cls) -> dict[str, bool]:
         """
         Validate all constants.
 
@@ -377,7 +377,7 @@ class MathematicalConstants:
         return {name: const.validate() for name, const in cls.get_all().items()}
 
     @classmethod
-    def get_by_symbol(cls, symbol: str) -> Optional[MathConstant]:
+    def get_by_symbol(cls, symbol: str) -> MathConstant | None:
         """
         Look up a constant by its mathematical symbol.
 
@@ -444,7 +444,7 @@ def validate_constant(value: float, name: str, tolerance: float = 1e-10) -> bool
         return False
 
 
-def _get_sympy_constant_name(constant_name: str) -> Optional[str]:
+def _get_sympy_constant_name(constant_name: str) -> str | None:
     """
     Get the sympy constant name for a given constant.
 
@@ -458,7 +458,7 @@ def _get_sympy_constant_name(constant_name: str) -> Optional[str]:
     return SYMPY_CONSTANT_MAP.get(name_key)
 
 
-def _evaluate_sympy_constant(sympy_expr: str) -> Optional[float]:
+def _evaluate_sympy_constant(sympy_expr: str) -> float | None:
     """
     Evaluate a sympy constant expression to float.
 
@@ -487,7 +487,7 @@ def _evaluate_sympy_constant(sympy_expr: str) -> Optional[float]:
         return None
 
 
-def validate_all_constants_with_sympy(tolerance: float = 1e-10) -> Dict[str, bool]:
+def validate_all_constants_with_sympy(tolerance: float = 1e-10) -> dict[str, bool]:
     """
     Validate all constants against sympy's high-precision values.
 
@@ -500,7 +500,7 @@ def validate_all_constants_with_sympy(tolerance: float = 1e-10) -> Dict[str, boo
     Returns:
         Dict mapping constant names to validation results
     """
-    results: Dict[str, bool] = {}
+    results: dict[str, bool] = {}
     for name, const in MathematicalConstants.get_all().items():
         results[name] = const.validate(tolerance=tolerance, use_sympy=True)
     return results

@@ -20,11 +20,11 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Temporal anomaly detector for time series analysis
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 from omni_anomaly_engine.core.base import BaseDetector
 from omni_anomaly_engine.core.exceptions import DetectorException
@@ -39,7 +39,7 @@ class TemporalAnomalyDetector(BaseDetector):
     - LSTM-based forecasting
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         super().__init__(config)
         self.window_size = self.config.get("window_size", 10)
         self.change_threshold = self.config.get("change_threshold", 2.0)
@@ -51,10 +51,10 @@ class TemporalAnomalyDetector(BaseDetector):
             batch_first=True,
         )
 
-        self.baseline_mean: Optional[float] = None
-        self.baseline_std: Optional[float] = None
+        self.baseline_mean: float | None = None
+        self.baseline_std: float | None = None
 
-    def fit(self, data: Union[np.ndarray, torch.Tensor]) -> "TemporalAnomalyDetector":
+    def fit(self, data: np.ndarray | torch.Tensor) -> "TemporalAnomalyDetector":
         """Fit detector to normal time series"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
@@ -65,7 +65,7 @@ class TemporalAnomalyDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    def detect(self, data: Union[np.ndarray, torch.Tensor]) -> Dict[str, Any]:
+    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
         """Detect temporal anomalies"""
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
@@ -89,7 +89,7 @@ class TemporalAnomalyDetector(BaseDetector):
             "detector_type": "temporal",
         }
 
-    def extract_features(self, data: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
         """Extract temporal features for ML fusion"""
         if isinstance(data, torch.Tensor):
             data_np = data.cpu().numpy()

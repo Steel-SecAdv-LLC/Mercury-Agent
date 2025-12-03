@@ -41,10 +41,11 @@ import sys
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any
 
 # Thread-local storage for correlation IDs
 _correlation_context = threading.local()
@@ -91,7 +92,7 @@ class StructuredFormatter(logging.Formatter):
         include_timestamp: bool = True,
         include_hostname: bool = False,
         redact_pii: bool = True,
-        extra_fields: Optional[Dict[str, Any]] = None,
+        extra_fields: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the structured formatter.
 
@@ -140,7 +141,7 @@ class StructuredFormatter(logging.Formatter):
         Returns:
             JSON string representation of the log record.
         """
-        log_entry: Dict[str, Any] = {
+        log_entry: dict[str, Any] = {
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -148,7 +149,7 @@ class StructuredFormatter(logging.Formatter):
 
         # Add timestamp
         if self.include_timestamp:
-            log_entry["timestamp"] = datetime.now(timezone.utc).isoformat()
+            log_entry["timestamp"] = datetime.now(UTC).isoformat()
 
         # Add hostname
         if self.include_hostname:
@@ -222,7 +223,7 @@ class ColoredFormatter(logging.Formatter):
     }
     RESET = "\033[0m"
 
-    def __init__(self, fmt: Optional[str] = None, datefmt: Optional[str] = None) -> None:
+    def __init__(self, fmt: str | None = None, datefmt: str | None = None) -> None:
         """Initialize the colored formatter.
 
         Args:
@@ -258,7 +259,7 @@ class PerformanceLogger:
         >>> perf_logger.log_metrics()
     """
 
-    def __init__(self, component: str, logger: Optional[logging.Logger] = None) -> None:
+    def __init__(self, component: str, logger: logging.Logger | None = None) -> None:
         """Initialize performance logger.
 
         Args:
@@ -267,7 +268,7 @@ class PerformanceLogger:
         """
         self.component = component
         self.logger = logger or logging.getLogger(f"omni_anomaly_engine.perf.{component}")
-        self._metrics: Dict[str, list] = {}
+        self._metrics: dict[str, list] = {}
 
     @contextmanager
     def measure(self, operation: str):
@@ -301,7 +302,7 @@ class PerformanceLogger:
                 },
             )
 
-    def log_metrics(self) -> Dict[str, Dict[str, float]]:
+    def log_metrics(self) -> dict[str, dict[str, float]]:
         """Log aggregated metrics.
 
         Returns:
@@ -333,7 +334,7 @@ class PerformanceLogger:
         self._metrics.clear()
 
 
-def get_correlation_id() -> Optional[str]:
+def get_correlation_id() -> str | None:
     """Get the current correlation ID.
 
     Returns:
@@ -352,7 +353,7 @@ def set_correlation_id(correlation_id: str) -> None:
 
 
 @contextmanager
-def correlation_context(correlation_id: Optional[str] = None):
+def correlation_context(correlation_id: str | None = None):
     """Context manager for correlation ID tracking.
 
     This context manager sets a correlation ID for all log messages
@@ -402,12 +403,12 @@ def get_logger(name: str) -> logging.Logger:
 
 
 def configure_logging(
-    level: Union[str, int] = "INFO",
+    level: str | int = "INFO",
     json_format: bool = False,
-    log_file: Optional[str] = None,
+    log_file: str | None = None,
     include_hostname: bool = False,
     redact_pii: bool = True,
-    extra_fields: Optional[Dict[str, Any]] = None,
+    extra_fields: dict[str, Any] | None = None,
 ) -> None:
     """Configure logging for the application.
 
@@ -475,7 +476,7 @@ def configure_logging(
     root_logger.propagate = False
 
 
-def log_function_call(logger: Optional[logging.Logger] = None):
+def log_function_call(logger: logging.Logger | None = None):
     """Decorator to log function entry and exit.
 
     Args:

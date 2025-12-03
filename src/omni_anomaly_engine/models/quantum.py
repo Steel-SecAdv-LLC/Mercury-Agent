@@ -21,7 +21,7 @@ Quantum-inspired anomaly detection model
 Enhanced with real quantum algorithms from FIND-YOU-ARC-CODE
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import numpy as np
 
@@ -29,7 +29,7 @@ import numpy as np
 class QuantumAnomalyModel:
     """Quantum-inspired anomaly detection using quantum state representations."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None, **kwargs):
+    def __init__(self, config: dict[str, Any] | None = None, **kwargs):
         self.config = config or {}
         self.num_qubits = self.config.get("num_qubits", 8)
         self.entanglement_strength = self.config.get("entanglement_strength", 0.3)
@@ -52,7 +52,7 @@ class QuantumAnomalyModel:
         entropy = -np.sum(eigenvalues * np.log2(eigenvalues + 1e-10))
         return float(entropy)
 
-    def extract_features(self, data: Union[np.ndarray, Dict[str, Any]]) -> np.ndarray:
+    def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
         """Extract quantum-inspired features from data."""
         if isinstance(data, dict):
             data = np.array(list(data.values())[0])
@@ -93,7 +93,7 @@ class QuantumAnomalyModel:
 
         return features
 
-    def predict(self, data: Union[np.ndarray, Dict[str, Any]]) -> Dict[str, Any]:
+    def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
         """Predict anomalies using quantum state analysis."""
         features = self.extract_features(data)
 

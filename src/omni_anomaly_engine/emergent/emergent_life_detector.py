@@ -37,7 +37,7 @@ Research sources:
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 from scipy import fft
@@ -55,10 +55,10 @@ class LifeDetectionResult:
     confidence: float
     signal_type: str
     anomaly_score: float
-    bio_signature_patterns: List[str] = field(default_factory=list)
-    seti_technosignatures: List[Dict] = field(default_factory=list)
-    contact_protocols: List[str] = field(default_factory=list)
-    recommendations: List[str] = field(default_factory=list)
+    bio_signature_patterns: list[str] = field(default_factory=list)
+    seti_technosignatures: list[dict] = field(default_factory=list)
+    contact_protocols: list[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
 
 class SETICosmicSignalAnalyzer:
@@ -84,9 +84,9 @@ class SETICosmicSignalAnalyzer:
     def detect_seti_anomaly(
         self,
         signal_data: np.ndarray,
-        context: Optional[Dict] = None,
-        threshold_std: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        context: dict | None = None,
+        threshold_std: float | None = None,
+    ) -> dict[str, Any]:
         """
         Detect SETI-like anomalies in cosmic signals.
 
@@ -154,7 +154,7 @@ class SETICosmicSignalAnalyzer:
 
     def _detect_narrow_band_signals(
         self, frequencies: np.ndarray, magnitudes: np.ndarray
-    ) -> List[float]:
+    ) -> list[float]:
         """Detect narrow-band signals (key SETI technosignature)."""
         narrow_band_peaks = []
 
@@ -174,7 +174,7 @@ class SETICosmicSignalAnalyzer:
 
         return narrow_band_peaks
 
-    def _detect_repeating_patterns(self, signal_data: np.ndarray) -> Dict[str, Any]:
+    def _detect_repeating_patterns(self, signal_data: np.ndarray) -> dict[str, Any]:
         """Detect repeating patterns in signal."""
         if len(signal_data) < 10:
             return {"detected": False, "period": 0.0}
@@ -193,7 +193,7 @@ class SETICosmicSignalAnalyzer:
 
         return {"detected": False, "period": 0.0}
 
-    def _detect_modulation(self, signal_data: np.ndarray) -> Dict[str, Any]:
+    def _detect_modulation(self, signal_data: np.ndarray) -> dict[str, Any]:
         """Detect modulation patterns (AM, FM, etc.)."""
         envelope = np.abs(signal_data)
         envelope_var = np.var(envelope)
@@ -209,10 +209,10 @@ class SETICosmicSignalAnalyzer:
 
     def _calculate_seti_confidence(
         self,
-        narrow_band_peaks: List,
-        repeating_patterns: Dict,
-        modulation: Dict,
-        resonance_anomalies: Dict,
+        narrow_band_peaks: list,
+        repeating_patterns: dict,
+        modulation: dict,
+        resonance_anomalies: dict,
     ) -> float:
         """Calculate overall SETI confidence score."""
         confidence = 0.0
@@ -232,8 +232,8 @@ class SETICosmicSignalAnalyzer:
         return min(confidence, 1.0)
 
     def _generate_seti_recommendations(
-        self, confidence: float, technosignatures: List[Dict]
-    ) -> List[str]:
+        self, confidence: float, technosignatures: list[dict]
+    ) -> list[str]:
         """Generate SETI analysis recommendations."""
         recs = []
 
@@ -274,7 +274,7 @@ class BioSignalPatternRecognizer:
 
     def detect_biosignatures(
         self, environmental_data: np.ndarray, data_type: str = "atmospheric"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Detect biosignature patterns in environmental/space data.
 
@@ -309,7 +309,7 @@ class BioSignalPatternRecognizer:
             "recommendations": self._generate_biosig_recommendations(biosig_detected, confidence),
         }
 
-    def _detect_periodicity(self, data: np.ndarray) -> Dict[str, Any]:
+    def _detect_periodicity(self, data: np.ndarray) -> dict[str, Any]:
         """Detect periodic patterns in data."""
         if len(data) < 10:
             return {"detected": False, "period_sec": 0.0}
@@ -344,8 +344,8 @@ class BioSignalPatternRecognizer:
         return ratio > 10.0 or ratio < 0.1
 
     def _generate_biosig_recommendations(
-        self, biosignatures: List[str], confidence: float
-    ) -> List[str]:
+        self, biosignatures: list[str], confidence: float
+    ) -> list[str]:
         """Generate biosignature analysis recommendations."""
         recs = []
 
@@ -380,7 +380,7 @@ class MultiverseContactProtocolExplorer:
         )
         self.logger = logging.getLogger(__name__)
 
-    def explore_contact_protocols(self, signal_characteristics: Dict[str, Any]) -> Dict[str, Any]:
+    def explore_contact_protocols(self, signal_characteristics: dict[str, Any]) -> dict[str, Any]:
         """
         Explore potential contact/communication protocols using multiverse.
 
@@ -425,7 +425,7 @@ class MultiverseContactProtocolExplorer:
             "recommendations": self._generate_protocol_recommendations(protocol_candidates),
         }
 
-    def _generate_protocol_recommendations(self, protocols: List[Dict]) -> List[str]:
+    def _generate_protocol_recommendations(self, protocols: list[dict]) -> list[str]:
         """Generate contact protocol recommendations."""
         recs = []
 
@@ -469,7 +469,7 @@ class EmergentLifeDetector:
         self.logger = logging.getLogger(__name__)
 
     def detect_emergent_life(
-        self, data: np.ndarray, analysis_type: str, context: Optional[Dict] = None
+        self, data: np.ndarray, analysis_type: str, context: dict | None = None
     ) -> LifeDetectionResult:
         """
         Comprehensive emergent life detection.

@@ -23,10 +23,10 @@ This is the core ML component that orchestrates feature extraction,
 encoding, and fusion for unified anomaly detection.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from omni_anomaly_engine.core.fusion import HybridFusionLayer
 from omni_anomaly_engine.ml.encoders import (
@@ -52,7 +52,7 @@ class OmniFusionModel(nn.Module):
 
     def __init__(
         self,
-        feature_dims: Optional[Dict[str, int]] = None,
+        feature_dims: dict[str, int] | None = None,
         hidden_dim: int = 128,
         num_heads: int = 4,
         dropout: float = 0.1,
@@ -115,7 +115,7 @@ class OmniFusionModel(nn.Module):
                 )
 
         self.fusion_layer = HybridFusionLayer(
-            feature_dims={k: hidden_dim for k in feature_dims.keys()},
+            feature_dims=dict.fromkeys(feature_dims.keys(), hidden_dim),
             hidden_dim=hidden_dim,
             num_heads=num_heads,
             dropout=dropout,
@@ -144,10 +144,10 @@ class OmniFusionModel(nn.Module):
 
     def forward(
         self,
-        detector_features: Dict[str, torch.Tensor],
-        detector_scores: Optional[Dict[str, torch.Tensor]] = None,
+        detector_features: dict[str, torch.Tensor],
+        detector_scores: dict[str, torch.Tensor] | None = None,
         return_attention: bool = False,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """
         Forward pass through fusion network.
 
@@ -170,12 +170,11 @@ class OmniFusionModel(nn.Module):
                 encoded_features[name] = self.encoders[name](features)
             elif name in self.generic_encoders:
                 encoded_features[name] = self.generic_encoders[name](features)
-            else:
-                if features.dim() == 2 and features.shape[1] == self.hidden_dim:
-                    encoded_features[name] = features
-                elif features.dim() == 2:
-                    proj = nn.Linear(features.shape[1], self.hidden_dim).to(features.device)
-                    encoded_features[name] = proj(features)
+            elif features.dim() == 2 and features.shape[1] == self.hidden_dim:
+                encoded_features[name] = features
+            elif features.dim() == 2:
+                proj = nn.Linear(features.shape[1], self.hidden_dim).to(features.device)
+                encoded_features[name] = proj(features)
 
         if detector_scores is None:
             detector_scores = {
@@ -201,8 +200,8 @@ class OmniFusionModel(nn.Module):
         return output
 
     def get_detector_importance(
-        self, detector_features: Dict[str, torch.Tensor]
-    ) -> Dict[str, float]:
+        self, detector_features: dict[str, torch.Tensor]
+    ) -> dict[str, float]:
         """
         Get importance scores for each detector based on attention weights.
 
@@ -393,8 +392,8 @@ class STEMDisciplineRouter:
         }
 
     def route(
-        self, data: torch.Tensor, discipline: str, data_type: Optional[str] = None
-    ) -> Dict[str, float]:
+        self, data: torch.Tensor, discipline: str, data_type: str | None = None
+    ) -> dict[str, float]:
         """Route data to appropriate engines based on STEM discipline.
 
         Args:
@@ -415,7 +414,7 @@ class STEMDisciplineRouter:
 
         return weights
 
-    def _adjust_for_data_type(self, weights: Dict[str, float], data_type: str) -> Dict[str, float]:
+    def _adjust_for_data_type(self, weights: dict[str, float], data_type: str) -> dict[str, float]:
         """Adjust weights based on data type characteristics."""
         adjusted = weights.copy()
 
@@ -433,7 +432,7 @@ class STEMDisciplineRouter:
 
         return adjusted
 
-    def _default_weights(self) -> Dict[str, float]:
+    def _default_weights(self) -> dict[str, float]:
         """Return default weights when discipline is unknown."""
         return {
             "statistical": 0.75,
@@ -450,7 +449,7 @@ class STEMDisciplineRouter:
             "resilience": 0.50,
         }
 
-    def explain_routing(self, discipline: str) -> Dict[str, Any]:
+    def explain_routing(self, discipline: str) -> dict[str, Any]:
         """Explain why engines were prioritized for a discipline.
 
         Args:

@@ -24,7 +24,7 @@ Based on: IGEOOD - An Information Geometry Approach to Out-of-Distribution Detec
 Uses Fisher-Rao geodesic distance on Riemannian manifolds for OOD detection.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
@@ -32,7 +32,7 @@ import numpy as np
 class InformationGeometryDetector:
     """Information geometry-based OOD detector."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """Initialize information geometry detector.
 
         Args:
@@ -45,8 +45,8 @@ class InformationGeometryDetector:
         self.distance_metric = self.config.get("distance_metric", "fisher_rao")
         self.manifold_dim = self.config.get("manifold_dim", 10)
         self.approximation_method = self.config.get("approximation_method", "closed_form")
-        self.reference_distribution: Optional[Dict[str, Any]] = None
-        self.fisher_matrix: Optional[np.ndarray] = None
+        self.reference_distribution: dict[str, Any] | None = None
+        self.fisher_matrix: np.ndarray | None = None
 
     def fit_reference_distribution(self, in_distribution_data: np.ndarray) -> None:
         """Fit reference distribution from in-distribution training data.
@@ -83,8 +83,8 @@ class InformationGeometryDetector:
 
     def fisher_rao_distance(
         self,
-        distribution_1: Dict[str, np.ndarray],
-        distribution_2: Dict[str, np.ndarray],
+        distribution_1: dict[str, np.ndarray],
+        distribution_2: dict[str, np.ndarray],
     ) -> float:
         """Compute Fisher-Rao geodesic distance between two distributions.
 
@@ -106,9 +106,7 @@ class InformationGeometryDetector:
 
         return float(distance)
 
-    def detect_ood(
-        self, test_data: np.ndarray, threshold: Optional[float] = None
-    ) -> Dict[str, Any]:
+    def detect_ood(self, test_data: np.ndarray, threshold: float | None = None) -> dict[str, Any]:
         """Detect out-of-distribution samples using information geometry.
 
         Args:

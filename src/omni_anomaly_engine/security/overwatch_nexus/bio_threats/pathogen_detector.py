@@ -35,7 +35,7 @@ References:
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -50,9 +50,9 @@ class BioThreatResult:
     energy_score: float
     confidence: float
 
-    bio_signatures: List[str]
-    masint_indicators: List[str]
-    recommended_interdiction: List[str]
+    bio_signatures: list[str]
+    masint_indicators: list[str]
+    recommended_interdiction: list[str]
 
 
 class PathogenDetector:
@@ -69,7 +69,7 @@ class PathogenDetector:
     - Convergence proofs via Boltzmann distribution
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """
         Initialize pathogen detector.
 
@@ -110,7 +110,7 @@ class PathogenDetector:
         return J
 
     def detect_pathogen(
-        self, bio_data: np.ndarray, masint_data: Optional[Dict[str, Any]] = None
+        self, bio_data: np.ndarray, masint_data: dict[str, Any] | None = None
     ) -> BioThreatResult:
         """
         Detect bio-threats in data using QBM energy model.
@@ -231,7 +231,7 @@ class PathogenDetector:
         else:
             return "none_detected"
 
-    def _identify_bio_signatures(self, state: np.ndarray) -> List[str]:
+    def _identify_bio_signatures(self, state: np.ndarray) -> list[str]:
         """
         Identify biological signatures from pathogen state.
 
@@ -251,7 +251,7 @@ class PathogenDetector:
 
         return signatures
 
-    def _process_masint(self, masint_data: Dict[str, Any]) -> List[str]:
+    def _process_masint(self, masint_data: dict[str, Any]) -> list[str]:
         """
         Process MASINT intelligence for bio-threat correlation.
 
@@ -271,8 +271,8 @@ class PathogenDetector:
         return indicators
 
     def _recommend_interdiction(
-        self, pathogen_type: str, energy: float, masint_indicators: List[str]
-    ) -> List[str]:
+        self, pathogen_type: str, energy: float, masint_indicators: list[str]
+    ) -> list[str]:
         """
         Recommend medical interdiction actions.
 

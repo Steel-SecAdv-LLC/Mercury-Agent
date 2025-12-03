@@ -60,12 +60,12 @@ Use skeptical, rigorous methodology.
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
 from scipy import stats
+from torch import nn
 
 
 class PsiPhenomenon(str):
@@ -91,17 +91,17 @@ class ParapsychologyResult:
 
     z_score: float
     p_value: float
-    confidence_interval: Tuple[float, float] = (0.0, 0.0)
+    confidence_interval: tuple[float, float] = (0.0, 0.0)
 
-    hit_rate: Optional[float] = None
-    variance_ratio: Optional[float] = None
-    coherence_score: Optional[float] = None
+    hit_rate: float | None = None
+    variance_ratio: float | None = None
+    coherence_score: float | None = None
 
-    control_comparison: Optional[Dict] = None
-    temporal_pattern: Optional[Dict] = None
+    control_comparison: dict | None = None
+    temporal_pattern: dict | None = None
 
-    recommendations: List[str] = field(default_factory=list)
-    consciousness_correlation: Optional[Dict] = None
+    recommendations: list[str] = field(default_factory=list)
+    consciousness_correlation: dict | None = None
 
 
 class ConsciousnessFieldAnalyzer(nn.Module):
@@ -134,7 +134,7 @@ class ConsciousnessFieldAnalyzer(nn.Module):
             nn.Sigmoid(),
         )
 
-    def forward(self, sequence: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, sequence: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Analyze consciousness field coherence.
 
@@ -201,7 +201,7 @@ class ParapsychologyDetector:
 
         self.logger.info(f"Parapsychology Detector initialized (p < {significance_threshold})")
 
-    def _initialize_baselines(self) -> Dict[str, Dict]:
+    def _initialize_baselines(self) -> dict[str, dict]:
         """Initialize expected baseline distributions"""
         return {
             "esp_cards": {
@@ -227,9 +227,9 @@ class ParapsychologyDetector:
 
     def detect_psi_anomaly(
         self,
-        experimental_data: Dict[str, Any],
-        control_data: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict] = None,
+        experimental_data: dict[str, Any],
+        control_data: dict[str, Any] | None = None,
+        metadata: dict | None = None,
     ) -> ParapsychologyResult:
         """
         Detect statistically significant psi anomalies.
@@ -325,9 +325,7 @@ class ParapsychologyDetector:
 
         return result
 
-    def _determine_psi_type(
-        self, experimental_data: Dict[str, Any], metadata: Optional[Dict]
-    ) -> str:
+    def _determine_psi_type(self, experimental_data: dict[str, Any], metadata: dict | None) -> str:
         """Determine type of psi phenomenon being tested"""
         if metadata and "experiment_type" in metadata:
             return metadata["experiment_type"]
@@ -339,7 +337,7 @@ class ParapsychologyDetector:
 
     def _analyze_esp_trials(
         self, results: np.ndarray, targets: np.ndarray
-    ) -> Tuple[float, float, float, float]:
+    ) -> tuple[float, float, float, float]:
         """
         Analyze ESP trial data (telepathy/clairvoyance/precognition).
 
@@ -362,7 +360,7 @@ class ParapsychologyDetector:
 
         return hit_rate, z_score, p_value, effect_size
 
-    def _analyze_reg_output(self, reg_output: np.ndarray) -> Tuple[float, float, float, float]:
+    def _analyze_reg_output(self, reg_output: np.ndarray) -> tuple[float, float, float, float]:
         """
         Analyze random event generator output for psychokinesis.
 
@@ -386,8 +384,8 @@ class ParapsychologyDetector:
         return variance_ratio, z_score, p_value, effect_size
 
     def _analyze_presentiment(
-        self, physiological_data: Dict[str, np.ndarray]
-    ) -> Tuple[float, float, float]:
+        self, physiological_data: dict[str, np.ndarray]
+    ) -> tuple[float, float, float]:
         """
         Analyze presentiment (pre-stimulus physiological response).
 
@@ -417,7 +415,7 @@ class ParapsychologyDetector:
 
     def _compute_confidence_interval(
         self, effect_size: float, n: int, confidence_level: float = 0.95
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """Compute confidence interval for effect size"""
         if n < 2:
             return (effect_size, effect_size)
@@ -444,7 +442,7 @@ class ParapsychologyDetector:
 
         return float(coherence[0].item())
 
-    def _compare_with_control(self, experimental_data: Dict, control_data: Dict) -> Dict[str, Any]:
+    def _compare_with_control(self, experimental_data: dict, control_data: dict) -> dict[str, Any]:
         """Compare experimental condition with control"""
         comparison = {
             "control_p_value": None,
@@ -476,7 +474,7 @@ class ParapsychologyDetector:
 
         return comparison
 
-    def _analyze_temporal_patterns(self, experimental_data: Dict) -> Dict[str, Any]:
+    def _analyze_temporal_patterns(self, experimental_data: dict) -> dict[str, Any]:
         """Analyze temporal evolution of psi effects"""
         temporal = {"decline_effect": False, "trend": "stable"}
 
@@ -505,7 +503,7 @@ class ParapsychologyDetector:
 
     def _generate_recommendations(
         self, psi_type: str, p_value: float, effect_size: float, significant: bool
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate research recommendations"""
         recommendations = []
 
@@ -532,8 +530,8 @@ class ParapsychologyDetector:
         return recommendations[:6]
 
     def _correlate_consciousness_states(
-        self, experimental_data: Dict, metadata: Optional[Dict]
-    ) -> Dict[str, Any]:
+        self, experimental_data: dict, metadata: dict | None
+    ) -> dict[str, Any]:
         """Correlate results with consciousness states"""
         correlation = {"meditation_state": None, "group_coherence": None, "insights": []}
 
@@ -552,7 +550,7 @@ class ParapsychologyDetector:
 
         return correlation
 
-    def extract_features(self, data: Dict[str, Any]) -> torch.Tensor:
+    def extract_features(self, data: dict[str, Any]) -> torch.Tensor:
         """Extract features for ML fusion integration"""
         features = []
 
@@ -575,7 +573,7 @@ class ParapsychologyDetector:
 
         return torch.tensor(features[:8], dtype=torch.float32).unsqueeze(0)
 
-    def predict(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def predict(self, data: dict[str, Any]) -> dict[str, Any]:
         """Predict for engine integration"""
         result = self.detect_psi_anomaly(data)
 
@@ -589,7 +587,7 @@ class ParapsychologyDetector:
         }
 
 
-def create_omni_psi_scalars() -> Dict[str, float]:
+def create_omni_psi_scalars() -> dict[str, float]:
     """
     Create doctorate-level parapsychology scalars.
 

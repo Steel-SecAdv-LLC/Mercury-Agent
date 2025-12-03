@@ -1,0 +1,291 @@
+# OMNI-AVA Prometheus Recording and Alerting Rules
+# Comprehensive monitoring for the OMNI-AVA platform
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: omni-ava-rules
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: monitoring
+    prometheus: k8s
+    role: alert-rules
+spec:
+  groups:
+    # ==========================================================================
+    # Recording Rules - Pre-computed metrics for dashboards and alerts
+    # ==========================================================================
+    - name: omni-ava.recording.rules
+      interval: 30s
+      rules:
+        # Request rate per second
+        - record: omni_ava:http_requests:rate5m
+          expr: sum(rate(http_requests_total{app="omni-ava"}[5m])) by (service, method, status)
+
+        # Request latency percentiles
+        - record: omni_ava:http_request_duration_seconds:p50
+          expr: histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{app="omni-ava"}[5m])) by (le, service))
+
+        - record: omni_ava:http_request_duration_seconds:p95
+          expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{app="omni-ava"}[5m])) by (le, service))
+
+        - record: omni_ava:http_request_duration_seconds:p99
+          expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{app="omni-ava"}[5m])) by (le, service))
+
+        # Error rate
+        - record: omni_ava:http_errors:rate5m
+          expr: sum(rate(http_requests_total{app="omni-ava",status=~"5.."}[5m])) by (service) / sum(rate(http_requests_total{app="omni-ava"}[5m])) by (service)
+
+        # Detection processing metrics
+        - record: omni_ava:detections:rate5m
+          expr: sum(rate(omni_detection_requests_total{app="omni-ava"}[5m])) by (detector_type)
+
+        - record: omni_ava:detection_duration_seconds:p95
+          expr: histogram_quantile(0.95, sum(rate(omni_detection_duration_seconds_bucket{app="omni-ava"}[5m])) by (le, detector_type))
+
+        # Resource utilization
+        - record: omni_ava:cpu_utilization:avg5m
+          expr: avg(rate(container_cpu_usage_seconds_total{container="api", namespace="omni-ava"}[5m])) by (pod)
+
+        - record: omni_ava:memory_utilization:avg5m
+          expr: avg(container_memory_usage_bytes{container="api", namespace="omni-ava"}) by (pod) / avg(container_spec_memory_limit_bytes{container="api", namespace="omni-ava"}) by (pod)
+
+    # ==========================================================================
+    # SLI/SLO Rules
+    # ==========================================================================
+    - name: omni-ava.slo.rules
+      interval: 30s
+      rules:
+        # Availability SLI (successful requests / total requests)
+        - record: omni_ava:sli:availability
+          expr: |
+            sum(rate(http_requests_total{app="omni-ava",status!~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{app="omni-ava"}[5m]))
+
+        # Latency SLI (requests under 500ms / total requests)
+        - record: omni_ava:sli:latency
+          expr: |
+            sum(rate(http_request_duration_seconds_bucket{app="omni-ava",le="0.5"}[5m]))
+            /
+            sum(rate(http_request_duration_seconds_count{app="omni-ava"}[5m]))
+
+        # Error Budget (99.9% availability target)
+        - record: omni_ava:error_budget:remaining
+          expr: |
+            1 - ((1 - omni_ava:sli:availability) / (1 - 0.999))
+
+        # Monthly error budget consumption rate
+        - record: omni_ava:error_budget:consumption_rate
+          expr: |
+            (1 - omni_ava:sli:availability) / (1 - 0.999) * 30 * 24 * 60
+
+    # ==========================================================================
+    # Alerting Rules - Critical
+    # ==========================================================================
+    - name: omni-ava.alerts.critical
+      rules:
+        # High error rate alert
+        - alert: OmniAvaHighErrorRate
+          expr: omni_ava:http_errors:rate5m > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "High error rate detected in OMNI-AVA"
+            description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/high-error-rate.md"
+
+        # Service down alert
+        - alert: OmniAvaServiceDown
+          expr: up{job="omni-ava-api"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "OMNI-AVA service is down"
+            description: "The OMNI-AVA API service has been down for more than 1 minute"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/service-down.md"
+
+        # All replicas down
+        - alert: OmniAvaAllReplicasDown
+          expr: |
+            sum(kube_deployment_status_replicas_available{deployment=~".*omni-ava.*"}) == 0
+          for: 1m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "All OMNI-AVA replicas are down"
+            description: "No available replicas for OMNI-AVA deployment"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/all-replicas-down.md"
+
+        # SLO breach imminent
+        - alert: OmniAvaSLOBreach
+          expr: omni_ava:error_budget:remaining < 0.1
+          for: 5m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "OMNI-AVA SLO breach imminent"
+            description: "Only {{ $value | humanizePercentage }} of error budget remaining"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/slo-breach.md"
+
+        # Memory exhaustion
+        - alert: OmniAvaMemoryExhaustion
+          expr: |
+            container_memory_usage_bytes{container="api", namespace="omni-ava"}
+            /
+            container_spec_memory_limit_bytes{container="api", namespace="omni-ava"} > 0.95
+          for: 5m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "OMNI-AVA pod memory exhaustion"
+            description: "Pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} of memory limit"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/memory-exhaustion.md"
+
+    # ==========================================================================
+    # Alerting Rules - Warning
+    # ==========================================================================
+    - name: omni-ava.alerts.warning
+      rules:
+        # Elevated error rate
+        - alert: OmniAvaElevatedErrorRate
+          expr: omni_ava:http_errors:rate5m > 0.01
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Elevated error rate in OMNI-AVA"
+            description: "Error rate is {{ $value | humanizePercentage }} (threshold: 1%)"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/elevated-error-rate.md"
+
+        # High latency
+        - alert: OmniAvaHighLatency
+          expr: omni_ava:http_request_duration_seconds:p95 > 0.5
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "High latency in OMNI-AVA"
+            description: "P95 latency is {{ $value | humanizeDuration }} (threshold: 500ms)"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/high-latency.md"
+
+        # Low replica count
+        - alert: OmniAvaLowReplicaCount
+          expr: |
+            kube_deployment_status_replicas_available{deployment=~".*omni-ava-api.*"} < 2
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Low replica count for OMNI-AVA"
+            description: "Only {{ $value }} replicas available (minimum: 2)"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/low-replicas.md"
+
+        # High CPU usage
+        - alert: OmniAvaHighCPU
+          expr: omni_ava:cpu_utilization:avg5m > 0.8
+          for: 15m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "High CPU usage in OMNI-AVA"
+            description: "CPU utilization is {{ $value | humanizePercentage }}"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/high-cpu.md"
+
+        # High memory usage
+        - alert: OmniAvaHighMemory
+          expr: omni_ava:memory_utilization:avg5m > 0.8
+          for: 15m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "High memory usage in OMNI-AVA"
+            description: "Memory utilization is {{ $value | humanizePercentage }}"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/high-memory.md"
+
+        # PVC near capacity
+        - alert: OmniAvaPVCNearCapacity
+          expr: |
+            kubelet_volume_stats_used_bytes{namespace="omni-ava"}
+            /
+            kubelet_volume_stats_capacity_bytes{namespace="omni-ava"} > 0.85
+          for: 15m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "OMNI-AVA PVC near capacity"
+            description: "PVC {{ $labels.persistentvolumeclaim }} is {{ $value | humanizePercentage }} full"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/pvc-capacity.md"
+
+        # HPA at max replicas
+        - alert: OmniAvaHPAAtMax
+          expr: |
+            kube_horizontalpodautoscaler_status_current_replicas{namespace="omni-ava"}
+            ==
+            kube_horizontalpodautoscaler_spec_max_replicas{namespace="omni-ava"}
+          for: 30m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "OMNI-AVA HPA at maximum replicas"
+            description: "HPA {{ $labels.horizontalpodautoscaler }} is at max replicas ({{ $value }})"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/hpa-max.md"
+
+    # ==========================================================================
+    # Alerting Rules - Business Metrics
+    # ==========================================================================
+    - name: omni-ava.alerts.business
+      rules:
+        # Detection success rate drop
+        - alert: OmniAvaDetectionSuccessRateDrop
+          expr: |
+            sum(rate(omni_detection_success_total{app="omni-ava"}[5m]))
+            /
+            sum(rate(omni_detection_requests_total{app="omni-ava"}[5m])) < 0.95
+          for: 10m
+          labels:
+            severity: warning
+            team: ml
+          annotations:
+            summary: "Detection success rate has dropped"
+            description: "Detection success rate is {{ $value | humanizePercentage }} (threshold: 95%)"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/detection-success.md"
+
+        # Slow detection processing
+        - alert: OmniAvaSlowDetection
+          expr: omni_ava:detection_duration_seconds:p95 > 10
+          for: 10m
+          labels:
+            severity: warning
+            team: ml
+          annotations:
+            summary: "Slow detection processing"
+            description: "P95 detection time is {{ $value | humanizeDuration }} (threshold: 10s)"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/slow-detection.md"
+
+        # Model inference errors
+        - alert: OmniAvaModelInferenceErrors
+          expr: |
+            sum(rate(omni_model_inference_errors_total{app="omni-ava"}[5m])) > 0.1
+          for: 5m
+          labels:
+            severity: warning
+            team: ml
+          annotations:
+            summary: "Model inference errors detected"
+            description: "{{ $value }} inference errors per second"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/inference-errors.md"

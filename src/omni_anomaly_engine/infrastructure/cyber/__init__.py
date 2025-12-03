@@ -21,4 +21,4 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from .cross_border_intel import CrossBorderIntelligence
 from .space_infrastructure import SpaceInfrastructureMonitor
 
-__all__ = ["SpaceInfrastructureMonitor", "CrossBorderIntelligence"]
+__all__ = ["CrossBorderIntelligence", "SpaceInfrastructureMonitor"]

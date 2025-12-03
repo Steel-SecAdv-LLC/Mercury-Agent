@@ -38,7 +38,7 @@ Research sources:
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -62,8 +62,8 @@ class NeuroscienceDetector:
         self,
         data: np.ndarray,
         detection_type: str = "neural_activity",
-        subject_context: Optional[Dict] = None,
-    ) -> Dict[str, Any]:
+        subject_context: dict | None = None,
+    ) -> dict[str, Any]:
         """
         Detect neuroscience anomalies.
 
@@ -83,8 +83,8 @@ class NeuroscienceDetector:
             return self.detect_neural_activity_anomaly(data, subject_context)
 
     def detect_neural_activity_anomaly(
-        self, neural_data: np.ndarray, subject_context: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        self, neural_data: np.ndarray, subject_context: dict | None = None
+    ) -> dict[str, Any]:
         """Detect abnormal neural activity patterns."""
         if len(neural_data) == 0:
             return {"anomaly_detected": False}
@@ -124,8 +124,8 @@ class NeuroscienceDetector:
         }
 
     def detect_cognitive_anomaly(
-        self, cognitive_data: np.ndarray, subject_context: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        self, cognitive_data: np.ndarray, subject_context: dict | None = None
+    ) -> dict[str, Any]:
         """Detect cognitive decline or attention deficits."""
         if len(cognitive_data) == 0:
             return {"anomaly_detected": False}
@@ -172,7 +172,7 @@ class NeuroscienceDetector:
 
     def _generate_neuroscience_recommendations(
         self, threat_type: NeuralThreat, severity: str
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate neuroscience recommendations."""
         recommendations = []
 

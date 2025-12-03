@@ -47,11 +47,11 @@ Performance: 30% faster alerts via multi-modal sensor fusion
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class LandslideRiskLevel(Enum):
@@ -85,22 +85,22 @@ class LandslidePredictionResult:
     landslide_type: str
 
     slope_failure_probability: float = 0.0
-    time_to_failure_hours: Optional[float] = None
+    time_to_failure_hours: float | None = None
 
     rainfall_trigger: bool = False
     seismic_trigger: bool = False
     snowmelt_trigger: bool = False
 
-    soil_saturation_pct: Optional[float] = None
-    slope_angle_deg: Optional[float] = None
-    displacement_rate_mm_day: Optional[float] = None
+    soil_saturation_pct: float | None = None
+    slope_angle_deg: float | None = None
+    displacement_rate_mm_day: float | None = None
 
-    affected_area_km2: Optional[float] = None
-    runout_distance_km: Optional[float] = None
+    affected_area_km2: float | None = None
+    runout_distance_km: float | None = None
 
-    evacuation_zones: List[str] = field(default_factory=list)
-    early_warning_actions: List[str] = field(default_factory=list)
-    cascade_risks: List[str] = field(default_factory=list)
+    evacuation_zones: list[str] = field(default_factory=list)
+    early_warning_actions: list[str] = field(default_factory=list)
+    cascade_risks: list[str] = field(default_factory=list)
 
 
 class RainfallTriggerModel:
@@ -113,7 +113,7 @@ class RainfallTriggerModel:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def assess_rainfall_trigger(self, rainfall_data: Dict[str, Any]) -> Dict[str, Any]:
+    def assess_rainfall_trigger(self, rainfall_data: dict[str, Any]) -> dict[str, Any]:
         """
         Assess rainfall-induced landslide risk.
 
@@ -165,7 +165,7 @@ class SeismicTriggerModel:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def assess_seismic_trigger(self, seismic_data: Dict[str, Any]) -> Dict[str, Any]:
+    def assess_seismic_trigger(self, seismic_data: dict[str, Any]) -> dict[str, Any]:
         """
         Assess earthquake-induced landslide risk.
 
@@ -226,7 +226,7 @@ class SlopeStabilityModel(nn.Module):
 
         self.type_classifier = nn.Sequential(nn.Linear(64, 32), nn.ReLU(), nn.Linear(32, 6))
 
-    def forward(self, slope_features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, slope_features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Predict slope failure probability and type.
 
@@ -267,7 +267,7 @@ class LandslideDetector:
 
         self.logger = logging.getLogger(__name__)
 
-    def predict_landslide(self, landslide_data: Dict[str, Any]) -> LandslidePredictionResult:
+    def predict_landslide(self, landslide_data: dict[str, Any]) -> LandslidePredictionResult:
         """
         Comprehensive landslide prediction.
 
@@ -341,7 +341,7 @@ class LandslideDetector:
 
         return result
 
-    def _assess_slope_stability(self, slope_features: np.ndarray) -> Dict[str, Any]:
+    def _assess_slope_stability(self, slope_features: np.ndarray) -> dict[str, Any]:
         """Assess slope stability using ML model"""
 
         features_tensor = torch.tensor(slope_features, dtype=torch.float32).unsqueeze(0)
@@ -384,7 +384,7 @@ class LandslideDetector:
         else:
             return LandslideRiskLevel.LOW.value
 
-    def _identify_evacuation_zones(self, result: LandslidePredictionResult) -> List[str]:
+    def _identify_evacuation_zones(self, result: LandslidePredictionResult) -> list[str]:
         """Identify evacuation zones"""
 
         zones = []
@@ -400,7 +400,7 @@ class LandslideDetector:
 
         return zones
 
-    def _generate_warnings(self, result: LandslidePredictionResult) -> List[str]:
+    def _generate_warnings(self, result: LandslidePredictionResult) -> list[str]:
         """Generate early warnings"""
 
         warnings = []
@@ -417,8 +417,8 @@ class LandslideDetector:
         return warnings
 
     def _assess_cascade_risks(
-        self, result: LandslidePredictionResult, data: Dict[str, Any]
-    ) -> List[str]:
+        self, result: LandslidePredictionResult, data: dict[str, Any]
+    ) -> list[str]:
         """Assess cascade hazard risks"""
 
         cascades = []

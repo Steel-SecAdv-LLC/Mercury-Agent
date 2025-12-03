@@ -35,7 +35,7 @@ import hashlib
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Optional, Set, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -47,7 +47,7 @@ class HiveNode:
     node_id: str
     node_type: str
     trust_score: float = 1.0
-    blocked_signatures: Set[str] = field(default_factory=set)
+    blocked_signatures: set[str] = field(default_factory=set)
     detection_count: int = 0
     false_positive_count: int = 0
 
@@ -107,9 +107,9 @@ class HiveFirewall:
 
         self.queen_node = HiveNode(node_id="queen", node_type="queen")
 
-        self.blocked_threats: Dict[str, ThreatBlocking] = {}
+        self.blocked_threats: dict[str, ThreatBlocking] = {}
 
-        self.allowed_patterns: Set[str] = set()
+        self.allowed_patterns: set[str] = set()
 
         self.threat_stats = defaultdict(int)
 
@@ -118,7 +118,7 @@ class HiveFirewall:
         data_bytes = data.tobytes()
         return hashlib.sha256(data_bytes).hexdigest()[:16]
 
-    def is_blocked(self, data: np.ndarray) -> Tuple[bool, Optional[ThreatBlocking]]:
+    def is_blocked(self, data: np.ndarray) -> tuple[bool, ThreatBlocking | None]:
         """
         Check if data matches blocked threat signature (O(1) lookup).
 
@@ -181,7 +181,7 @@ class HiveFirewall:
 
         return threat_block
 
-    def _worker_consensus(self, anomaly_score: float) -> Dict[str, Any]:
+    def _worker_consensus(self, anomaly_score: float) -> dict[str, Any]:
         """
         Worker nodes vote on threat.
 
@@ -210,7 +210,7 @@ class HiveFirewall:
             "confidence": consensus,
         }
 
-    def _supervisor_consensus(self, worker_results: Dict[str, Any]) -> Dict[str, Any]:
+    def _supervisor_consensus(self, worker_results: dict[str, Any]) -> dict[str, Any]:
         """
         Supervisor nodes aggregate worker decisions.
 
@@ -243,7 +243,7 @@ class HiveFirewall:
             "reasoning": reasoning,
         }
 
-    def _queen_decision(self, supervisor_results: Dict[str, Any], anomaly_score: float) -> bool:
+    def _queen_decision(self, supervisor_results: dict[str, Any], anomaly_score: float) -> bool:
         """
         Queen node makes final blocking decision.
 
@@ -319,7 +319,7 @@ class HiveFirewall:
                     node.trust_score *= self.trust_decay
                 break
 
-    def get_firewall_stats(self) -> Dict[str, Any]:
+    def get_firewall_stats(self) -> dict[str, Any]:
         """Get comprehensive firewall statistics."""
         total_blocked = len(self.blocked_threats)
         total_allowed = len(self.allowed_patterns)

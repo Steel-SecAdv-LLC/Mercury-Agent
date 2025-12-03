@@ -30,8 +30,8 @@ from .federated_detector import (
 )
 
 __all__ = [
-    "FederatedAnomalyDetector",
     "CISAFederatedCoordinator",
+    "FederatedAnomalyDetector",
     "FederatedStrategy",
     "PrivacyLevel",
 ]

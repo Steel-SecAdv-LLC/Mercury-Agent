@@ -24,7 +24,7 @@ future-proofs the engine against unknown technology threats.
 Reference: Wikipedia - Emerging technologies
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 
 class EmergingTechMonitor:
@@ -128,7 +128,7 @@ class EmergingTechMonitor:
             },
         }
 
-    def detect(self, data: Dict[str, Any], category: str, technology: str) -> Dict[str, Any]:
+    def detect(self, data: dict[str, Any], category: str, technology: str) -> dict[str, Any]:
         """Detect anomalies in emerging technology development.
 
         Args:
@@ -181,7 +181,7 @@ class EmergingTechMonitor:
 
     def explore_technology_scenarios(
         self, technology: str, timeframe_years: int = 10
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Explore multiple technology evolution scenarios using multiverse approach.
 
         Args:
@@ -229,7 +229,7 @@ class EmergingTechMonitor:
             ),
         }
 
-    def assess_adaptive_detection_readiness(self, technology: str) -> Dict[str, Any]:
+    def assess_adaptive_detection_readiness(self, technology: str) -> dict[str, Any]:
         """Assess readiness to detect anomalies in novel technology.
 
         Args:
@@ -293,7 +293,7 @@ class EmergingTechMonitor:
         risk_level: str,
         safety_concern: bool,
         weaponization_risk: bool,
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate recommendations for emerging technology monitoring."""
         recommendations = []
 

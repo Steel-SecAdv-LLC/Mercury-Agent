@@ -28,10 +28,9 @@ Reference: Inspired by TCN and attention mechanisms for time-series
 
 """
 
-from typing import Dict, Tuple
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class TemporalBlock(nn.Module):
@@ -94,7 +93,7 @@ class HierarchicalAttention(nn.Module):
 
         self.scale_weights = nn.Parameter(torch.ones(num_scales) / num_scales)
 
-    def forward(self, scale_features: list) -> Tuple[torch.Tensor, list]:
+    def forward(self, scale_features: list) -> tuple[torch.Tensor, list]:
         """
         Apply hierarchical attention across scales.
 
@@ -147,7 +146,7 @@ class HATCN_AD(nn.Module):
             nn.Sigmoid(),
         )
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """
         Forward pass for anomaly detection.
 

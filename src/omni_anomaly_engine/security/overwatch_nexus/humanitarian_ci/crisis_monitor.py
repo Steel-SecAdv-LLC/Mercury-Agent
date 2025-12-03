@@ -27,7 +27,7 @@ Survivor-first prioritization using ethical scalars.
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -39,10 +39,10 @@ class CrisisAlert:
     severity: str
     affected_population: int
 
-    vulnerable_groups: List[str]
-    survivor_priorities: List[str]
-    geoint_indicators: List[str]
-    recommended_response: List[str]
+    vulnerable_groups: list[str]
+    survivor_priorities: list[str]
+    geoint_indicators: list[str]
+    recommended_response: list[str]
 
 
 class CrisisMonitor:
@@ -56,7 +56,7 @@ class CrisisMonitor:
     - Real-time survivor-first alerts
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.logger = logging.getLogger(__name__)
         self.config = config or {}
 
@@ -74,8 +74,8 @@ class CrisisMonitor:
 
     def monitor_crisis(
         self,
-        geoint_data: Optional[Dict[str, Any]] = None,
-        osint_data: Optional[Dict[str, Any]] = None,
+        geoint_data: dict[str, Any] | None = None,
+        osint_data: dict[str, Any] | None = None,
     ) -> CrisisAlert:
         """
         Monitor for humanitarian crises using multi-INT fusion.
@@ -128,7 +128,7 @@ class CrisisMonitor:
         return alert
 
     def _compute_crisis_score(
-        self, geoint_data: Dict[str, Any], osint_data: Optional[Dict[str, Any]]
+        self, geoint_data: dict[str, Any], osint_data: dict[str, Any] | None
     ) -> float:
         """Compute crisis severity score from multi-INT sources."""
         score = geoint_data.get("threat_score", 0.0)
@@ -139,7 +139,7 @@ class CrisisMonitor:
         return float(min(score, 1.0))
 
     def _classify_crisis(
-        self, geoint_data: Dict[str, Any], osint_data: Optional[Dict[str, Any]]
+        self, geoint_data: dict[str, Any], osint_data: dict[str, Any] | None
     ) -> str:
         """Classify crisis type."""
         indicators = geoint_data.get("indicators", [])
@@ -165,14 +165,14 @@ class CrisisMonitor:
             return "LOW"
 
     def _estimate_affected_population(
-        self, geoint_data: Dict[str, Any], crisis_score: float
+        self, geoint_data: dict[str, Any], crisis_score: float
     ) -> int:
         """Estimate affected population (simulated)."""
         base_population = geoint_data.get("population_density", 10000)
         affected = int(base_population * crisis_score * 10)
         return affected
 
-    def _identify_vulnerable_groups(self, crisis_type: str, severity: str) -> List[str]:
+    def _identify_vulnerable_groups(self, crisis_type: str, severity: str) -> list[str]:
         """Identify vulnerable population groups."""
         groups = ["Elderly", "Children", "Disabled individuals", "Low-income families"]
 
@@ -186,7 +186,7 @@ class CrisisMonitor:
 
         return groups
 
-    def _prioritize_survivors(self, vulnerable_groups: List[str], crisis_type: str) -> List[str]:
+    def _prioritize_survivors(self, vulnerable_groups: list[str], crisis_type: str) -> list[str]:
         """Prioritize survivors for rescue/aid (survivor-first principle)."""
         priorities = []
 
@@ -200,14 +200,14 @@ class CrisisMonitor:
 
         return priorities
 
-    def _extract_geoint_indicators(self, geoint_data: Dict[str, Any]) -> List[str]:
+    def _extract_geoint_indicators(self, geoint_data: dict[str, Any]) -> list[str]:
         """Extract GEOINT indicators."""
         indicators = geoint_data.get("indicators", [])
         return [str(ind) for ind in indicators]
 
     def _recommend_response(
         self, crisis_type: str, severity: str, affected_population: int
-    ) -> List[str]:
+    ) -> list[str]:
         """Recommend humanitarian response actions."""
         response = []
 

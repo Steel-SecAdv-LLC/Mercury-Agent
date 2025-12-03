@@ -53,11 +53,11 @@ Performance: 25-35% faster alerts via HAT-CN-AD multi-scale fusion + GWO optimiz
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -91,22 +91,22 @@ class VolcanicPredictionResult:
     alert_level: str
     eruption_type: str
 
-    time_to_eruption_hours: Optional[float] = None
-    vei_estimate: Optional[int] = None  # Volcanic Explosivity Index
+    time_to_eruption_hours: float | None = None
+    vei_estimate: int | None = None  # Volcanic Explosivity Index
 
     seismic_swarm_detected: bool = False
     thermal_anomaly_detected: bool = False
     gas_flux_anomaly: bool = False
     deformation_detected: bool = False
 
-    schumann_elf_correlation: Optional[float] = None
+    schumann_elf_correlation: float | None = None
 
-    hazard_zones: List[str] = field(default_factory=list)
-    ashfall_forecast: Optional[Dict] = None
-    lahar_risk: Optional[str] = None
+    hazard_zones: list[str] = field(default_factory=list)
+    ashfall_forecast: dict | None = None
+    lahar_risk: str | None = None
 
-    early_warning_actions: List[str] = field(default_factory=list)
-    evacuation_recommendations: List[str] = field(default_factory=list)
+    early_warning_actions: list[str] = field(default_factory=list)
+    evacuation_recommendations: list[str] = field(default_factory=list)
 
 
 class SeismicSwarmDetector(nn.Module):
@@ -138,7 +138,7 @@ class SeismicSwarmDetector(nn.Module):
             nn.Sigmoid(),
         )
 
-    def forward(self, seismic_sequence: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, seismic_sequence: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Detect seismic swarms.
 
@@ -171,7 +171,7 @@ class ThermalHotspotDetector:
         self.logger = logging.getLogger(__name__)
         self.baseline_temp_k = 288.0  # 15°C in Kelvin
 
-    def detect_thermal_anomaly(self, thermal_data: Dict[str, Any]) -> Dict[str, Any]:
+    def detect_thermal_anomaly(self, thermal_data: dict[str, Any]) -> dict[str, Any]:
         """
         Detect thermal anomalies from TIR satellite data.
 
@@ -229,7 +229,7 @@ class GasEmissionAnalyzer:
         self.baseline_so2_tons_day = 100.0
         self.baseline_co2_tons_day = 500.0
 
-    def analyze_gas_emissions(self, gas_data: Dict[str, float]) -> Dict[str, Any]:
+    def analyze_gas_emissions(self, gas_data: dict[str, float]) -> dict[str, Any]:
         """
         Analyze volcanic gas emissions.
 
@@ -279,7 +279,7 @@ class InSARDeformationDetector:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def detect_deformation(self, insar_data: Dict[str, Any]) -> Dict[str, Any]:
+    def detect_deformation(self, insar_data: dict[str, Any]) -> dict[str, Any]:
         """
         Detect ground deformation from InSAR.
 
@@ -360,7 +360,7 @@ class EruptionForecastModel(nn.Module):
 
     def forward(
         self, fused_features: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Forecast volcanic eruption.
 
@@ -394,7 +394,7 @@ class VolcanicEruptionDetector:
         enable_gas: bool = True,
         enable_insar: bool = True,
         enable_schumann_correlation: bool = True,
-        rng: Optional[DeterministicRNG] = None,
+        rng: DeterministicRNG | None = None,
     ):
         self.enable_seismic = enable_seismic
         self.enable_thermal = enable_thermal
@@ -411,7 +411,7 @@ class VolcanicEruptionDetector:
 
         self.logger = logging.getLogger(__name__)
 
-    def predict_eruption(self, volcano_data: Dict[str, Any]) -> VolcanicPredictionResult:
+    def predict_eruption(self, volcano_data: dict[str, Any]) -> VolcanicPredictionResult:
         """
         Comprehensive volcanic eruption prediction.
 
@@ -489,7 +489,7 @@ class VolcanicEruptionDetector:
 
         return result
 
-    def _analyze_seismic(self, seismic_sequence: np.ndarray) -> Dict[str, Any]:
+    def _analyze_seismic(self, seismic_sequence: np.ndarray) -> dict[str, Any]:
         """Analyze seismic swarm activity"""
 
         seq_tensor = torch.tensor(seismic_sequence, dtype=torch.float32).unsqueeze(0)
@@ -523,7 +523,7 @@ class VolcanicEruptionDetector:
 
         return correlation
 
-    def _forecast_eruption(self, volcano_data: Dict[str, Any], indicators: float) -> Dict[str, Any]:
+    def _forecast_eruption(self, volcano_data: dict[str, Any], indicators: float) -> dict[str, Any]:
         """Forecast eruption using ML model"""
 
         if "fused_features" in volcano_data:
@@ -567,7 +567,7 @@ class VolcanicEruptionDetector:
         else:
             return VolcanicActivityLevel.NORMAL.value
 
-    def _identify_hazard_zones(self, result: VolcanicPredictionResult) -> List[str]:
+    def _identify_hazard_zones(self, result: VolcanicPredictionResult) -> list[str]:
         """Identify volcanic hazard zones"""
 
         zones = []
@@ -585,7 +585,7 @@ class VolcanicEruptionDetector:
 
         return zones
 
-    def _generate_early_warning(self, result: VolcanicPredictionResult) -> List[str]:
+    def _generate_early_warning(self, result: VolcanicPredictionResult) -> list[str]:
         """Generate early warning actions"""
 
         actions = []
@@ -604,7 +604,7 @@ class VolcanicEruptionDetector:
 
         return actions
 
-    def _generate_evacuation_plan(self, result: VolcanicPredictionResult) -> List[str]:
+    def _generate_evacuation_plan(self, result: VolcanicPredictionResult) -> list[str]:
         """Generate evacuation recommendations"""
 
         recs = []

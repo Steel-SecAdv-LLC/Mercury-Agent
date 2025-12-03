@@ -38,7 +38,7 @@ References:
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 from scipy.integrate import odeint
@@ -53,12 +53,12 @@ class PandemicForecast:
     peak_infections: int
     peak_day: int
 
-    seir_trajectory: Dict[str, np.ndarray]
+    seir_trajectory: dict[str, np.ndarray]
     chaos_score: float
     bifurcation_detected: bool
 
-    humanitarian_impact: Dict[str, Any]
-    recommended_interventions: List[str]
+    humanitarian_impact: dict[str, Any]
+    recommended_interventions: list[str]
 
 
 class EpidemicForecaster:
@@ -76,7 +76,7 @@ class EpidemicForecaster:
     - Intervention recommendation (vaccination, quarantine, treatment)
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """
         Initialize epidemic forecaster.
 
@@ -178,7 +178,7 @@ class EpidemicForecaster:
 
         return result
 
-    def _seir_derivatives(self, y: List[float], t: float) -> List[float]:
+    def _seir_derivatives(self, y: list[float], t: float) -> list[float]:
         """
         Compute SEIR model derivatives.
 
@@ -247,7 +247,7 @@ class EpidemicForecaster:
 
         return float(chaos_score)
 
-    def _assess_pandemic_impact(self, peak_infections: int, r0: float) -> Dict[str, Any]:
+    def _assess_pandemic_impact(self, peak_infections: int, r0: float) -> dict[str, Any]:
         """
         Assess humanitarian impact of pandemic.
 
@@ -287,7 +287,7 @@ class EpidemicForecaster:
 
     def _recommend_interventions(
         self, r0: float, peak_infections: int, peak_day: int, bifurcation_detected: bool
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Recommend pandemic intervention strategies (Medical Interdiction).
 
@@ -331,7 +331,7 @@ class EpidemicForecaster:
 
     def simulate_intervention_effect(
         self, intervention_type: str, effectiveness: float = 0.5
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Simulate effect of intervention on pandemic trajectory.
 

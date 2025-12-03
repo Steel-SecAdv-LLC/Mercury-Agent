@@ -31,7 +31,6 @@ Research source: Bain & Company Technology Report 2025
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -51,7 +50,7 @@ class AgentAction:
     """Represents an action taken by the agent."""
 
     action_type: str
-    parameters: Dict
+    parameters: dict
     confidence: float
     rationale: str
 
@@ -73,10 +72,10 @@ class AgenticAutonomy:
         """
         self.autonomy_level = autonomy_level
         self.state = AgentState.IDLE
-        self.action_history: List[AgentAction] = []
+        self.action_history: list[AgentAction] = []
         self.decision_threshold = 1.0 - autonomy_level
 
-    def autonomous_detect(self, data: np.ndarray, context: Optional[Dict] = None) -> Dict:
+    def autonomous_detect(self, data: np.ndarray, context: dict | None = None) -> dict:
         """
         Autonomously detect anomalies with minimal human oversight.
 
@@ -115,16 +114,16 @@ class AgenticAutonomy:
             "human_oversight_needed": bool(anomaly_score < self.decision_threshold),
         }
 
-    def _observe_patterns(self, data: np.ndarray) -> Dict:
+    def _observe_patterns(self, data: np.ndarray) -> dict:
         """Observe patterns in data."""
         return {"mean": np.mean(data), "std": np.std(data), "trend": self._detect_trend(data)}
 
-    def _analyze_anomalies(self, observations: Dict) -> float:
+    def _analyze_anomalies(self, observations: dict) -> float:
         """Analyze observations for anomalies."""
         score = abs(observations["mean"]) / (observations["std"] + 1e-8)
         return min(score / 10.0, 1.0)
 
-    def _decide_action(self, anomaly_score: float, observations: Dict) -> AgentAction:
+    def _decide_action(self, anomaly_score: float, observations: dict) -> AgentAction:
         """Decide what action to take."""
         return AgentAction(
             action_type="flag_anomaly",
@@ -149,7 +148,7 @@ class AgenticAutonomy:
             return "decreasing"
         return "stable"
 
-    def execute_workflow(self, workflow_definition: Dict, input_data: np.ndarray) -> Dict:
+    def execute_workflow(self, workflow_definition: dict, input_data: np.ndarray) -> dict:
         """
         Execute complete workflow autonomously.
 
@@ -264,7 +263,7 @@ class AgenticAutonomy:
         else:
             return data
 
-    def _evaluate_condition(self, data: np.ndarray, condition: Dict) -> bool:
+    def _evaluate_condition(self, data: np.ndarray, condition: dict) -> bool:
         """Evaluate decision condition."""
         metric = condition.get("metric", "mean")
         operator = condition.get("operator", ">")
@@ -288,7 +287,7 @@ class AgenticAutonomy:
         else:
             return False
 
-    def _execute_action(self, action_type: str, data: np.ndarray) -> Dict:
+    def _execute_action(self, action_type: str, data: np.ndarray) -> dict:
         """Execute workflow action."""
         if action_type == "log":
             return {"logged": True, "data_summary": f"mean={np.mean(data):.3f}"}
@@ -299,11 +298,11 @@ class AgenticAutonomy:
         else:
             return {"action": action_type, "status": "unknown"}
 
-    def _learn_from_workflow(self, workflow_results: Dict):
+    def _learn_from_workflow(self, workflow_results: dict):
         """Learn from workflow execution outcomes."""
         pass
 
-    def get_autonomy_metrics(self) -> Dict:
+    def get_autonomy_metrics(self) -> dict:
         """
         Get metrics on autonomous operation.
 

@@ -28,9 +28,10 @@ algorithms and multi-dimensional state space exploration to find optimal strateg
 import hashlib
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -58,8 +59,8 @@ class Universe:
     fitness: float
     state: UniverseState
     timeline: int
-    parent_universe: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    parent_universe: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class MultiverseOmniEngine:
@@ -76,7 +77,7 @@ class MultiverseOmniEngine:
         state_dim: int = 50,
         convergence_threshold: float = 0.95,
         entanglement_strength: float = 0.3,
-        rng: Optional[DeterministicRNG] = None,
+        rng: DeterministicRNG | None = None,
     ):
         """
         Initialize Multi-Universe Omni Engine.
@@ -94,9 +95,9 @@ class MultiverseOmniEngine:
         self.entanglement_strength = entanglement_strength
         self._rng = rng or get_global_rng()
 
-        self.universes: Dict[str, Universe] = {}
+        self.universes: dict[str, Universe] = {}
         self.timeline = 0
-        self.best_universe: Optional[Universe] = None
+        self.best_universe: Universe | None = None
 
         self._initialize_multiverse()
 
@@ -146,7 +147,7 @@ class MultiverseOmniEngine:
 
         return fitness
 
-    def quantum_superposition(self, universes_to_superpose: List[str]) -> Universe:
+    def quantum_superposition(self, universes_to_superpose: list[str]) -> Universe:
         """
         Create quantum superposition of multiple universes.
 
@@ -261,7 +262,7 @@ class MultiverseOmniEngine:
 
         return np.array(features).astype(np.float32)
 
-    def predict(self, data: np.ndarray) -> Dict[str, Any]:
+    def predict(self, data: np.ndarray) -> dict[str, Any]:
         """Predict anomalies using multiverse optimization."""
         features = self.extract_features(data)
 
@@ -274,7 +275,7 @@ class MultiverseOmniEngine:
             "best_fitness": float(self.best_universe.fitness) if self.best_universe else 0.0,
         }
 
-    def get_multiverse_report(self) -> Dict[str, Any]:
+    def get_multiverse_report(self) -> dict[str, Any]:
         """Generate comprehensive multiverse report."""
         if not self.universes:
             return {"status": "empty", "message": "No universes in multiverse"}
@@ -330,7 +331,7 @@ class MultiverseOmniEngine:
 
         return scaled_state
 
-    def _apply_egyptian_unit_fractions(self, value: float) -> List[float]:
+    def _apply_egyptian_unit_fractions(self, value: float) -> list[float]:
         """
         Decompose value into Egyptian unit fractions (1/n form).
 

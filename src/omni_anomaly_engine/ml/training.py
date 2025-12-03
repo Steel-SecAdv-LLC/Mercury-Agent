@@ -21,13 +21,11 @@ Training utilities for fusion model using PyTorch Lightning
 Enhanced with Ava Equation state evolution optimizers
 """
 
-from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 import pytorch_lightning as pl
 import torch
-import torch.nn as nn
-import torch.optim as optim
+from torch import nn, optim
 from torch.utils.data import Dataset
 
 from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
@@ -227,9 +225,9 @@ class AnomalyDataset(Dataset):
 
     def __init__(
         self,
-        detector_features: Dict[str, torch.Tensor],
+        detector_features: dict[str, torch.Tensor],
         labels: torch.Tensor,
-        scores: Optional[Dict[str, torch.Tensor]] = None,
+        scores: dict[str, torch.Tensor] | None = None,
     ):
         self.detector_features = detector_features
         self.labels = labels
@@ -239,10 +237,12 @@ class AnomalyDataset(Dataset):
     def __len__(self) -> int:
         return self.num_samples
 
-    def __getitem__(self, idx: int) -> Union[
-        Tuple[Dict[str, torch.Tensor], torch.Tensor],
-        Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], torch.Tensor],
-    ]:
+    def __getitem__(
+        self, idx: int
+    ) -> (
+        tuple[dict[str, torch.Tensor], torch.Tensor]
+        | tuple[dict[str, torch.Tensor], dict[str, torch.Tensor], torch.Tensor]
+    ):
         features = {k: v[idx] for k, v in self.detector_features.items()}
         label = self.labels[idx]
 
@@ -265,7 +265,7 @@ class FusionTrainer(pl.LightningModule):
 
     def __init__(
         self,
-        model: Optional[OmniFusionModel] = None,
+        model: OmniFusionModel | None = None,
         learning_rate: float = 0.001,
         weight_decay: float = 0.0001,
         anomaly_weight: float = 1.0,
@@ -286,12 +286,12 @@ class FusionTrainer(pl.LightningModule):
 
         self.save_hyperparameters(ignore=["model"])
 
-    def forward(self, detector_features: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def forward(self, detector_features: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         return self.model(detector_features, return_attention=True)
 
     def training_step(
         self,
-        batch: Tuple[Dict[str, torch.Tensor], torch.Tensor],
+        batch: tuple[dict[str, torch.Tensor], torch.Tensor],
         batch_idx: int,
     ) -> torch.Tensor:
         features, labels = batch
@@ -322,7 +322,7 @@ class FusionTrainer(pl.LightningModule):
 
     def validation_step(
         self,
-        batch: Tuple[Dict[str, torch.Tensor], torch.Tensor],
+        batch: tuple[dict[str, torch.Tensor], torch.Tensor],
         batch_idx: int,
     ) -> None:
         features, labels = batch

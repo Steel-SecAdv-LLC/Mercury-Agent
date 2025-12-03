@@ -1,0 +1,59 @@
+{{- if and .Values.persistence.data.enabled (not .Values.persistence.data.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "omni-ava.dataPvcName" . }}
+  namespace: {{ include "omni-ava.namespace" . }}
+  labels:
+    {{- include "omni-ava.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - {{ .Values.persistence.data.accessMode }}
+  {{- if or .Values.persistence.data.storageClass .Values.global.storageClass }}
+  storageClassName: {{ .Values.persistence.data.storageClass | default .Values.global.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.data.size }}
+{{- end }}
+---
+{{- if and .Values.persistence.models.enabled (not .Values.persistence.models.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "omni-ava.modelsPvcName" . }}
+  namespace: {{ include "omni-ava.namespace" . }}
+  labels:
+    {{- include "omni-ava.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - {{ .Values.persistence.models.accessMode }}
+  {{- if or .Values.persistence.models.storageClass .Values.global.storageClass }}
+  storageClassName: {{ .Values.persistence.models.storageClass | default .Values.global.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.models.size }}
+{{- end }}
+---
+{{- if and .Values.persistence.backup.enabled (not .Values.persistence.backup.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "omni-ava.fullname" . }}-backup
+  namespace: {{ include "omni-ava.namespace" . }}
+  labels:
+    {{- include "omni-ava.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  accessModes:
+    - {{ .Values.persistence.backup.accessMode }}
+  {{- if or .Values.persistence.backup.storageClass .Values.global.storageClass }}
+  storageClassName: {{ .Values.persistence.backup.storageClass | default .Values.global.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.backup.size }}
+{{- end }}

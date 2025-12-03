@@ -31,7 +31,6 @@ Research sources:
 
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -92,8 +91,8 @@ class HealthcareEmergencyDetector:
         self,
         data: np.ndarray,
         detection_type: str = "patient",
-        patient_history: Optional[Dict] = None,
-    ) -> Dict:
+        patient_history: dict | None = None,
+    ) -> dict:
         """Generic detection interface for healthcare/emergency services.
 
         Args:
@@ -122,10 +121,10 @@ class HealthcareEmergencyDetector:
 
     def detect_patient_deterioration(
         self,
-        vital_signs: Dict[str, float],
-        patient_history: Optional[Dict] = None,
-        time_series: Optional[Dict[str, np.ndarray]] = None,
-    ) -> Dict:
+        vital_signs: dict[str, float],
+        patient_history: dict | None = None,
+        time_series: dict[str, np.ndarray] | None = None,
+    ) -> dict:
         """
         Detect patient deterioration from vital signs.
 
@@ -178,8 +177,8 @@ class HealthcareEmergencyDetector:
         }
 
     def detect_emergency_call_anomaly(
-        self, call_data: Dict[str, int], time_window: timedelta = timedelta(hours=1)
-    ) -> Dict:
+        self, call_data: dict[str, int], time_window: timedelta = timedelta(hours=1)
+    ) -> dict:
         """
         Detect anomalies in 911/emergency call patterns.
 
@@ -231,7 +230,7 @@ class HealthcareEmergencyDetector:
         else:
             return PatientStatus.STABLE
 
-    def _generate_clinical_recommendations(self, anomalies: Dict, score: int) -> List[str]:
+    def _generate_clinical_recommendations(self, anomalies: dict, score: int) -> list[str]:
         """Generate clinical action recommendations."""
         if score < 3:
             return ["Continue routine monitoring"]
@@ -254,7 +253,7 @@ class HealthcareEmergencyDetector:
 
         return recommendations
 
-    def _classify_emergency_event(self, call_data: Dict, z_score: float) -> str:
+    def _classify_emergency_event(self, call_data: dict, z_score: float) -> str:
         """Classify type of emergency event."""
         if z_score <= 3:
             return "normal_operations"
@@ -264,7 +263,7 @@ class HealthcareEmergencyDetector:
 
         return "elevated_activity"
 
-    def _recommend_resource_allocation(self, call_data: Dict, event_type: str) -> Dict:
+    def _recommend_resource_allocation(self, call_data: dict, event_type: str) -> dict:
         """Recommend emergency resource allocation."""
         if event_type == "normal_operations":
             return {"status": "normal", "additional_units": 0}
@@ -281,7 +280,7 @@ class HealthcareEmergencyDetector:
             "activate_emergency_operations_center": event_type == "major_disaster",
         }
 
-    def _generate_emergency_recommendations(self, anomalies: Dict, event_type: str) -> List[str]:
+    def _generate_emergency_recommendations(self, anomalies: dict, event_type: str) -> list[str]:
         """Generate emergency response recommendations."""
         if not anomalies:
             return ["Continue normal operations"]
