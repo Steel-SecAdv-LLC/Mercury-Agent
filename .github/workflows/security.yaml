@@ -28,4 +28,4 @@ jobs:
       run: safety check --json || true
 
     - name: Run Bandit security scan
-      run: bandit -r omni_ava/ src/ -f json || true
+      run: bandit -r src/omni_anomaly_engine/ -f json || true
