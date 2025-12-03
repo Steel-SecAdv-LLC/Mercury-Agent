@@ -18,6 +18,32 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """REST API for OMNI ♱ AVA anomaly detection."""
 
+from .auth import (
+    APIKeyAuth,
+    JWTAuth,
+    Permission,
+    User,
+    require_permission,
+    require_role,
+)
+from .health import (
+    HealthChecker,
+    get_health_checker,
+    health_router,
+)
 from .server import app
 
-__all__ = ["app"]
+__all__ = [
+    "app",
+    # Auth
+    "APIKeyAuth",
+    "JWTAuth",
+    "User",
+    "Permission",
+    "require_permission",
+    "require_role",
+    # Health
+    "health_router",
+    "HealthChecker",
+    "get_health_checker",
+]
