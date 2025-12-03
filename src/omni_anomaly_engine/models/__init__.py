@@ -23,7 +23,9 @@ Uses lazy imports to avoid circular dependency issues during package initializat
 """
 
 __all__ = [
+    "AdvancedBiometricEngine",
     "AffectiveAnomalyModel",
+    "AgeProgressionEngine",
     "AstrophysicalAnomalyModel",
     "BiometricAnomalyModel",
     "ChemistryAnomalyDetector",
@@ -33,6 +35,10 @@ __all__ = [
     "NeurosymbolicEngine",
     "ParapsychologyDetector",
     "QuantumAnomalyModel",
+    "QuantumAgeVariant",
+    "QuantumCircuit",
+    "QuantumEngine",
+    "QuantumGate",
     "SimulationModule",
 ]
 
@@ -48,6 +54,12 @@ _LAZY_IMPORTS = {
     "SimulationModule": "omni_anomaly_engine.models.simulation",
     "ChemistryAnomalyDetector": "omni_anomaly_engine.models.chemistry",
     "ParapsychologyDetector": "omni_anomaly_engine.models.parapsychology",
+    "AdvancedBiometricEngine": "omni_anomaly_engine.models.biometric_advanced",
+    "AgeProgressionEngine": "omni_anomaly_engine.models.biometric_advanced",
+    "QuantumAgeVariant": "omni_anomaly_engine.models.biometric_advanced",
+    "QuantumEngine": "omni_anomaly_engine.models.quantum_engine",
+    "QuantumCircuit": "omni_anomaly_engine.models.quantum_engine",
+    "QuantumGate": "omni_anomaly_engine.models.quantum_engine",
 }
 
 
