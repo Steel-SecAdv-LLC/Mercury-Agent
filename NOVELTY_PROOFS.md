@@ -67,13 +67,15 @@ This document provides comprehensive evidence for novel constructions in the OMN
 - **Maximum Improvement**: 60.0%
 - **Overall t-test**: t = 24.56, p < 0.0001
 
-## Humanitarian Impact
+## Potential Humanitarian Applications
 
-- **Cyber Fortress**: 10,000+ lives protected through proactive threat elimination
-- **Life Detector**: 3x increase in SETI anomaly detection capability
-- **Medical Predictor**: 5,000+ lives saved annually through early intervention
+These modules are designed to support humanitarian use cases if validated and deployed with appropriate oversight:
 
-All novel constructions integrate with the Truth Deciphering Framework for ethical validation and passed all 8 ethical principle tests.
+- **Cyber Fortress**: Intended for proactive threat detection in critical infrastructure protection
+- **Life Detector**: Designed to improve anomaly detection sensitivity for SETI-like signal analysis
+- **Medical Predictor**: Aimed at supporting early warning systems for clinical decision support (requires clinical validation before patient care use)
+
+All novel constructions integrate with the Truth Deciphering Framework for ethical validation and passed all 8 ethical principle tests. Real-world humanitarian impact depends on successful validation with authentic datasets and regulatory approval where applicable.
 
 ## Real-World Validation
 

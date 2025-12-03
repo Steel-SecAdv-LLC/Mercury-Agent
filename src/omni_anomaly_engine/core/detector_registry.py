@@ -17,7 +17,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Unified Detector Registry - Bridge connecting all 50+ detectors for fusion.
+Unified Detector Registry - Bridge connecting detectors across domains for fusion.
 
 This module provides a central registry for all anomaly detectors and models,
 enabling:
@@ -169,7 +169,7 @@ class DetectorRegistry:
     - Feature aggregation for fusion pipeline
     - Detector health monitoring
 
-    This is the bridge that connects all 50+ detectors to the fusion model.
+    This is the bridge that connects detectors across domains to the fusion model.
     """
 
     # Target feature dimension for fusion
