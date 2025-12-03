@@ -198,7 +198,7 @@ print(f"Recommended: {orchestrated['recommended_strategy']}")
 
 ## Requirements & Dependencies
 
-All dependencies remain MIT-compatible and open-source:
+All dependencies remain GPL v3-compatible and open-source:
 
 **Core Dependencies** (unchanged):
 - `numpy>=1.24.0` - Array operations, FFT for harmonic analysis

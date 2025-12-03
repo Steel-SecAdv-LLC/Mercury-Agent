@@ -61,7 +61,7 @@ class PyODComparison:
     Compare OMNI ♱ AVA with PyOD algorithms.
 
     Enables:
-    - Benchmarking Omni-AXA's 13 engines against PyOD's 40+ algorithms
+    - Benchmarking OMNI-AVA's 13 engines against PyOD's 40+ algorithms
     - Learning from PyOD's ensemble combination methods
     - Identifying complementary detection approaches
     - Algorithm selection guidance
@@ -265,7 +265,7 @@ class PyODComparison:
             return {"error": str(e)}
 
     def _generate_comparison_summary(self, results: dict) -> dict:
-        """Generate summary comparing Omni-AXA with PyOD algorithms."""
+        """Generate summary comparing OMNI-AVA with PyOD algorithms."""
         return {
             "omni_ava_strengths": [
                 "Multi-domain fusion (mathematical, physical, quantum, biometric)",
@@ -282,7 +282,7 @@ class PyODComparison:
                 "Active maintenance",
             ],
             "recommendation": (
-                "Use Omni-AXA for STEM-specific anomaly detection with domain fusion; "
+                "Use OMNI-AVA for STEM-specific anomaly detection with domain fusion;"
                 "use PyOD for general-purpose anomaly detection with classical methods"
             ),
         }

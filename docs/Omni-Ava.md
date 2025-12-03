@@ -1504,7 +1504,7 @@ Std Dev: 1.70KB
 - ✅ High Compassion (0.90): Reduces computation time, improves user experience
 - ✅ High Evidence (0.95): Benchmarked 60-70% improvement
 - ✅ High Justice (0.85): Available to all users equally
-- ✅ High Altruism (0.80): Open-source, MIT license
+- ✅ High Altruism (0.80): Open-source, GPL v3 license
 - ✅ High Control (0.85): User can disable via config
 - ✅ High Character (0.90): Transparent, well-documented
 - ⚠️ Moderate Competence (0.75): Good test coverage but not complete

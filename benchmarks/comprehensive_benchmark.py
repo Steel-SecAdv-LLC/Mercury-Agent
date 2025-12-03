@@ -148,7 +148,7 @@ def benchmark_cosmic_ray_detection() -> Dict[str, Any]:
 def run_all_benchmarks() -> Dict[str, Any]:
     """Run all benchmarks and return results."""
     print("=" * 70)
-    print("OMNI-AXA-ENGINE COMPREHENSIVE BENCHMARK")
+    print("OMNI-AVA COMPREHENSIVE BENCHMARK")
     print("=" * 70)
 
     results = {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()), "benchmarks": {}}

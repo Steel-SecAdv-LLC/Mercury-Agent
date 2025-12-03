@@ -87,7 +87,5 @@ pytest tests/
 - [ ] New and existing unit tests pass locally with my changes
 - [ ] Any dependent changes have been merged and published
 
-## AI-Assisted Development
-<!-- If AI tools were used, please disclose -->
-- [ ] This PR includes AI-assisted code (Devin, GitHub Copilot, Claude, etc.)
-- If yes, briefly describe: ___________
+## Development Notes
+<!-- Add any additional notes about your development process if relevant -->

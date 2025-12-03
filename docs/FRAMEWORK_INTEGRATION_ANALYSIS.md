@@ -548,4 +548,4 @@ This analysis identifies 8 major integration opportunities spanning resilience, 
 **Estimated Implementation**: 3,000-5,000 lines of production code + comprehensive tests  
 **Documentation**: This analysis (~2,400 lines) + inline docstrings + test documentation
 
-All integrations maintain the engine's core ethical framework (135+ omni-scalars), MIT-compatible dependencies, and survivor-first principles. Implementation follows existing module patterns with comprehensive testing and documentation.
+All integrations maintain the engine's core ethical framework (135+ omni-scalars), GPL v3-compatible dependencies, and survivor-first principles. Implementation follows existing module patterns with comprehensive testing and documentation.
