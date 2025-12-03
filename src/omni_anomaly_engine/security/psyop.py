@@ -690,7 +690,10 @@ class PSYOPAnalyzer:
             detection_confidence=confidence,
             category=category,
             vectors=vectors,
-            narratives=[m.get("id", str(i)) for i, m in enumerate(messages[:10])],
+            narratives=[
+                m.get("id", str(i)) if isinstance(m, dict) else str(m)[:50]
+                for i, m in enumerate(messages[:10])
+            ],
             target_audiences=campaign_data.get("target_audiences", []),
             coordination_indicators=coordination,
             attribution_assessment=attribution,

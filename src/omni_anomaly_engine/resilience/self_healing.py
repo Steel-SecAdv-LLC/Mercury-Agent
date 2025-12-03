@@ -238,6 +238,15 @@ class AdaptiveDefenseSystem:
         }
         self.acquisition_history = list(self.signature_library.keys())
 
+    # Backward compatibility aliases
+    def save_signature_library(self, filepath: str) -> None:
+        """Alias for save_library (deprecated)."""
+        return self.save_library(filepath)
+
+    def load_signature_library(self, filepath: str) -> None:
+        """Alias for load_library (deprecated)."""
+        return self.load_library(filepath)
+
     def get_statistics(self) -> dict[str, Any]:
         """Get adaptive defense statistics."""
         if not self.signature_library:

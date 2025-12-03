@@ -1328,3 +1328,7 @@ class OmniAvaEngine:
         """Cleanup resources on deletion."""
         if self._executor is not None:
             self._executor.shutdown(wait=False)
+
+
+# Backward compatibility alias
+OmniAnomalyEngine = OmniAvaEngine
