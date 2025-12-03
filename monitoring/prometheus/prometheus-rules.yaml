@@ -95,7 +95,7 @@ spec:
           annotations:
             summary: "High error rate detected in OMNI-AVA"
             description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/high-error-rate.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/high-error-rate.md"
 
         # Service down alert
         - alert: OmniAvaServiceDown
@@ -107,7 +107,7 @@ spec:
           annotations:
             summary: "OMNI-AVA service is down"
             description: "The OMNI-AVA API service has been down for more than 1 minute"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/service-down.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/service-down.md"
 
         # All replicas down
         - alert: OmniAvaAllReplicasDown
@@ -120,7 +120,7 @@ spec:
           annotations:
             summary: "All OMNI-AVA replicas are down"
             description: "No available replicas for OMNI-AVA deployment"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/all-replicas-down.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/all-replicas-down.md"
 
         # SLO breach imminent
         - alert: OmniAvaSLOBreach
@@ -132,7 +132,7 @@ spec:
           annotations:
             summary: "OMNI-AVA SLO breach imminent"
             description: "Only {{ $value | humanizePercentage }} of error budget remaining"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/slo-breach.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/slo-breach.md"
 
         # Memory exhaustion
         - alert: OmniAvaMemoryExhaustion
@@ -147,7 +147,7 @@ spec:
           annotations:
             summary: "OMNI-AVA pod memory exhaustion"
             description: "Pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} of memory limit"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/memory-exhaustion.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/memory-exhaustion.md"
 
     # ==========================================================================
     # Alerting Rules - Warning
@@ -164,7 +164,7 @@ spec:
           annotations:
             summary: "Elevated error rate in OMNI-AVA"
             description: "Error rate is {{ $value | humanizePercentage }} (threshold: 1%)"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/elevated-error-rate.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/elevated-error-rate.md"
 
         # High latency
         - alert: OmniAvaHighLatency
@@ -176,7 +176,7 @@ spec:
           annotations:
             summary: "High latency in OMNI-AVA"
             description: "P95 latency is {{ $value | humanizeDuration }} (threshold: 500ms)"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/high-latency.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/high-latency.md"
 
         # Low replica count
         - alert: OmniAvaLowReplicaCount
@@ -189,7 +189,7 @@ spec:
           annotations:
             summary: "Low replica count for OMNI-AVA"
             description: "Only {{ $value }} replicas available (minimum: 2)"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/low-replicas.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/low-replicas.md"
 
         # High CPU usage
         - alert: OmniAvaHighCPU
@@ -201,7 +201,7 @@ spec:
           annotations:
             summary: "High CPU usage in OMNI-AVA"
             description: "CPU utilization is {{ $value | humanizePercentage }}"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/high-cpu.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/high-cpu.md"
 
         # High memory usage
         - alert: OmniAvaHighMemory
@@ -213,7 +213,7 @@ spec:
           annotations:
             summary: "High memory usage in OMNI-AVA"
             description: "Memory utilization is {{ $value | humanizePercentage }}"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/high-memory.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/high-memory.md"
 
         # PVC near capacity
         - alert: OmniAvaPVCNearCapacity
@@ -228,7 +228,7 @@ spec:
           annotations:
             summary: "OMNI-AVA PVC near capacity"
             description: "PVC {{ $labels.persistentvolumeclaim }} is {{ $value | humanizePercentage }} full"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/pvc-capacity.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/pvc-capacity.md"
 
         # HPA at max replicas
         - alert: OmniAvaHPAAtMax
@@ -243,7 +243,7 @@ spec:
           annotations:
             summary: "OMNI-AVA HPA at maximum replicas"
             description: "HPA {{ $labels.horizontalpodautoscaler }} is at max replicas ({{ $value }})"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/hpa-max.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/hpa-max.md"
 
     # ==========================================================================
     # Alerting Rules - Business Metrics
@@ -263,7 +263,7 @@ spec:
           annotations:
             summary: "Detection success rate has dropped"
             description: "Detection success rate is {{ $value | humanizePercentage }} (threshold: 95%)"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/detection-success.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/detection-success.md"
 
         # Slow detection processing
         - alert: OmniAvaSlowDetection
@@ -275,7 +275,7 @@ spec:
           annotations:
             summary: "Slow detection processing"
             description: "P95 detection time is {{ $value | humanizeDuration }} (threshold: 10s)"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/slow-detection.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/slow-detection.md"
 
         # Model inference errors
         - alert: OmniAvaModelInferenceErrors
@@ -288,4 +288,4 @@ spec:
           annotations:
             summary: "Model inference errors detected"
             description: "{{ $value }} inference errors per second"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/docs/runbooks/inference-errors.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/inference-errors.md"
