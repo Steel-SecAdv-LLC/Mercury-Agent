@@ -49,11 +49,11 @@ Performance: 35% improved crisis prediction via multi-modal financial + network 
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class CrisisType(Enum):
@@ -86,7 +86,7 @@ class FinancialCrisisPredictionResult:
     crisis_type: str
     severity_level: str
 
-    market_volatility_index: Optional[float] = None
+    market_volatility_index: float | None = None
     systemic_risk_score: float = 0.0
     contagion_probability: float = 0.0
 
@@ -95,15 +95,15 @@ class FinancialCrisisPredictionResult:
     currency_instability: bool = False
     liquidity_shortage: bool = False
 
-    fraud_indicators: List[str] = field(default_factory=list)
-    interconnected_failures: List[str] = field(default_factory=list)
+    fraud_indicators: list[str] = field(default_factory=list)
+    interconnected_failures: list[str] = field(default_factory=list)
 
-    vix_level: Optional[float] = None
-    credit_default_swap_spread: Optional[float] = None
+    vix_level: float | None = None
+    credit_default_swap_spread: float | None = None
 
-    policy_recommendations: List[str] = field(default_factory=list)
-    intervention_actions: List[str] = field(default_factory=list)
-    affected_sectors: List[str] = field(default_factory=list)
+    policy_recommendations: list[str] = field(default_factory=list)
+    intervention_actions: list[str] = field(default_factory=list)
+    affected_sectors: list[str] = field(default_factory=list)
 
 
 class MarketCrashDetector:
@@ -114,7 +114,7 @@ class MarketCrashDetector:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def detect_market_crash(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
+    def detect_market_crash(self, market_data: dict[str, Any]) -> dict[str, Any]:
         """
         Detect market crash from price and volatility data.
 
@@ -161,7 +161,7 @@ class BankingStressDetector:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def detect_banking_stress(self, banking_data: Dict[str, Any]) -> Dict[str, Any]:
+    def detect_banking_stress(self, banking_data: dict[str, Any]) -> dict[str, Any]:
         """
         Detect banking sector stress.
 
@@ -244,7 +244,7 @@ class SystemicRiskAnalyzer:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def assess_systemic_risk(self, network_data: Dict[str, Any]) -> Dict[str, Any]:
+    def assess_systemic_risk(self, network_data: dict[str, Any]) -> dict[str, Any]:
         """
         Assess systemic risk in financial network.
 
@@ -300,7 +300,7 @@ class FinancialCrisisDetector:
         self.logger = logging.getLogger(__name__)
 
     def predict_financial_crisis(
-        self, financial_data: Dict[str, Any]
+        self, financial_data: dict[str, Any]
     ) -> FinancialCrisisPredictionResult:
         """
         Comprehensive financial crisis prediction.
@@ -385,7 +385,7 @@ class FinancialCrisisDetector:
 
         return result
 
-    def _detect_fraud(self, trading_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _detect_fraud(self, trading_data: dict[str, Any]) -> dict[str, Any]:
         """Detect fraudulent trading patterns"""
 
         if "trading_features" in trading_data:
@@ -426,7 +426,7 @@ class FinancialCrisisDetector:
 
     def _generate_policy_recommendations(
         self, result: FinancialCrisisPredictionResult
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate policy recommendations"""
 
         recommendations = []
@@ -448,7 +448,7 @@ class FinancialCrisisDetector:
 
         return recommendations
 
-    def _generate_interventions(self, result: FinancialCrisisPredictionResult) -> List[str]:
+    def _generate_interventions(self, result: FinancialCrisisPredictionResult) -> list[str]:
         """Generate intervention actions"""
 
         interventions = []
@@ -468,8 +468,8 @@ class FinancialCrisisDetector:
         return interventions
 
     def _identify_affected_sectors(
-        self, result: FinancialCrisisPredictionResult, data: Dict[str, Any]
-    ) -> List[str]:
+        self, result: FinancialCrisisPredictionResult, data: dict[str, Any]
+    ) -> list[str]:
         """Identify affected economic sectors"""
 
         sectors = []

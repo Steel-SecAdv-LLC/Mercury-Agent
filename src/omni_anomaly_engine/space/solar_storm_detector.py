@@ -48,11 +48,11 @@ Performance: 35% improved prediction via multi-modal solar + magnetosphere fusio
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class SolarFlareClass(Enum):
@@ -89,11 +89,11 @@ class SolarStormPredictionResult:
     flare_intensity: float = 0.0
 
     cme_detected: bool = False
-    cme_speed_km_s: Optional[float] = None
-    cme_arrival_time_hours: Optional[float] = None
+    cme_speed_km_s: float | None = None
+    cme_arrival_time_hours: float | None = None
 
-    kp_index: Optional[float] = None
-    dst_index: Optional[float] = None
+    kp_index: float | None = None
+    dst_index: float | None = None
     geomagnetic_storm_level: str = "G0"
 
     radiation_storm: bool = False
@@ -103,10 +103,10 @@ class SolarStormPredictionResult:
     satellite_risk: str = "low"
     communication_disruption: str = "low"
 
-    schumann_correlation: Optional[float] = None
+    schumann_correlation: float | None = None
 
-    protective_actions: List[str] = field(default_factory=list)
-    infrastructure_alerts: List[str] = field(default_factory=list)
+    protective_actions: list[str] = field(default_factory=list)
+    infrastructure_alerts: list[str] = field(default_factory=list)
 
 
 class SolarFlareDetector:
@@ -117,7 +117,7 @@ class SolarFlareDetector:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def detect_solar_flare(self, xray_data: Dict[str, Any]) -> Dict[str, Any]:
+    def detect_solar_flare(self, xray_data: dict[str, Any]) -> dict[str, Any]:
         """
         Detect solar flares from X-ray flux.
 
@@ -153,7 +153,7 @@ class SolarFlareDetector:
             "severity": severity,
         }
 
-    def _classify_flare(self, flux: float) -> Tuple[str, float]:
+    def _classify_flare(self, flux: float) -> tuple[str, float]:
         """Classify solar flare by X-ray flux"""
 
         if flux >= 1e-4:
@@ -176,7 +176,7 @@ class CMETracker:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def track_cme(self, cme_data: Dict[str, Any]) -> Dict[str, Any]:
+    def track_cme(self, cme_data: dict[str, Any]) -> dict[str, Any]:
         """
         Track CME and predict Earth arrival.
 
@@ -244,7 +244,7 @@ class GeomagneticStormPredictor(nn.Module):
 
         self.kp_predictor = nn.Sequential(nn.Linear(64, 16), nn.ReLU(), nn.Linear(16, 1))
 
-    def forward(self, magnetosphere_features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, magnetosphere_features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Predict geomagnetic storm probability and Kp index.
 
@@ -286,7 +286,7 @@ class SolarStormDetector:
 
         self.logger = logging.getLogger(__name__)
 
-    def predict_solar_storm(self, storm_data: Dict[str, Any]) -> SolarStormPredictionResult:
+    def predict_solar_storm(self, storm_data: dict[str, Any]) -> SolarStormPredictionResult:
         """
         Comprehensive solar storm prediction.
 
@@ -351,7 +351,7 @@ class SolarStormDetector:
 
         return result
 
-    def _predict_geomagnetic_storm(self, magnetosphere_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _predict_geomagnetic_storm(self, magnetosphere_data: dict[str, Any]) -> dict[str, Any]:
         """Predict geomagnetic storm using ML model"""
 
         if "features" in magnetosphere_data:
@@ -439,7 +439,7 @@ class SolarStormDetector:
 
         return correlation
 
-    def _generate_protective_actions(self, result: SolarStormPredictionResult) -> List[str]:
+    def _generate_protective_actions(self, result: SolarStormPredictionResult) -> list[str]:
         """Generate protective actions"""
 
         actions = []
@@ -458,7 +458,7 @@ class SolarStormDetector:
 
         return actions
 
-    def _generate_infrastructure_alerts(self, result: SolarStormPredictionResult) -> List[str]:
+    def _generate_infrastructure_alerts(self, result: SolarStormPredictionResult) -> list[str]:
         """Generate infrastructure alerts"""
 
         alerts = []

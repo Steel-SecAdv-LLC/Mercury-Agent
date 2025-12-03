@@ -24,8 +24,8 @@ from omni_anomaly_engine.space.space_exploration_analyzer import SpaceExploratio
 from omni_anomaly_engine.space.space_inspired import SpaceInspiredResilience
 
 __all__ = [
-    "SpaceInspiredResilience",
-    "SpaceExplorationAnalyzer",
-    "SchumannResonanceDetector",
     "InterstellarObjectDetector",
+    "SchumannResonanceDetector",
+    "SpaceExplorationAnalyzer",
+    "SpaceInspiredResilience",
 ]

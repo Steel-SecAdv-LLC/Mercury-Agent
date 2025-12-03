@@ -37,7 +37,7 @@ Research sources:
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -61,8 +61,8 @@ class EconomicResilienceDetector:
         self,
         data: np.ndarray,
         detection_type: str = "market",
-        economic_context: Optional[Dict] = None,
-    ) -> Dict[str, Any]:
+        economic_context: dict | None = None,
+    ) -> dict[str, Any]:
         """
         Detect economic anomalies.
 
@@ -82,8 +82,8 @@ class EconomicResilienceDetector:
             return self.detect_market_anomaly(data, economic_context)
 
     def detect_market_anomaly(
-        self, market_data: np.ndarray, economic_context: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        self, market_data: np.ndarray, economic_context: dict | None = None
+    ) -> dict[str, Any]:
         """Detect market crashes and volatility spikes."""
         if len(market_data) == 0:
             return {"anomaly_detected": False}
@@ -126,8 +126,8 @@ class EconomicResilienceDetector:
         }
 
     def detect_employment_anomaly(
-        self, employment_data: np.ndarray, economic_context: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        self, employment_data: np.ndarray, economic_context: dict | None = None
+    ) -> dict[str, Any]:
         """Detect unemployment spikes and labor market stress."""
         if len(employment_data) == 0:
             return {"anomaly_detected": False}
@@ -176,7 +176,7 @@ class EconomicResilienceDetector:
 
     def _generate_economic_recommendations(
         self, threat_type: EconomicThreat, severity: str
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate economic resilience recommendations."""
         recommendations = []
 

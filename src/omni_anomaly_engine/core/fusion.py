@@ -18,11 +18,11 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -68,7 +68,7 @@ class AttentionFusion(nn.Module):
         self.layer_norm = nn.LayerNorm(embed_dim)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, detector_embeddings: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, detector_embeddings: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Apply multi-head attention over detector embeddings.
 
@@ -105,7 +105,7 @@ class HybridFusionLayer(nn.Module):
 
     def __init__(
         self,
-        feature_dims: Dict[str, int],
+        feature_dims: dict[str, int],
         hidden_dim: int = 128,
         num_heads: int = 4,
         dropout: float = 0.1,
@@ -117,7 +117,7 @@ class HybridFusionLayer(nn.Module):
         self.num_detectors = len(self.detector_names)
 
         self.feature_projectors = nn.ModuleDict(
-            {name: nn.Linear(feature_dims[name], hidden_dim) for name in feature_dims.keys()}
+            {name: nn.Linear(feature_dims[name], hidden_dim) for name in feature_dims}
         )
 
         total_encoded_dim = hidden_dim * self.num_detectors
@@ -140,9 +140,9 @@ class HybridFusionLayer(nn.Module):
 
     def forward(
         self,
-        detector_features: Dict[str, torch.Tensor],
-        detector_scores: Dict[str, torch.Tensor],
-    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        detector_features: dict[str, torch.Tensor],
+        detector_scores: dict[str, torch.Tensor],
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
         """
         Hybrid fusion of detector outputs.
 
@@ -196,8 +196,8 @@ class HybridFusionLayer(nn.Module):
         return fused_representation, attention_dict
 
     def extract_features(
-        self, detector_features: Dict[str, torch.Tensor]
-    ) -> Dict[str, torch.Tensor]:
+        self, detector_features: dict[str, torch.Tensor]
+    ) -> dict[str, torch.Tensor]:
         """
         Extract and normalize features from all detectors.
         Explicitly named method for feature extraction phase.
@@ -214,7 +214,7 @@ class HybridFusionLayer(nn.Module):
 
         return extracted
 
-    def early_fusion_forward(self, detector_features: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def early_fusion_forward(self, detector_features: dict[str, torch.Tensor]) -> torch.Tensor:
         """
         Early fusion: concatenate normalized features → MLP.
         Explicitly named method for early fusion phase.
@@ -233,7 +233,7 @@ class HybridFusionLayer(nn.Module):
         result: torch.Tensor = self.early_fusion(concatenated)
         return result
 
-    def late_fusion_forward(self, detector_scores: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def late_fusion_forward(self, detector_scores: dict[str, torch.Tensor]) -> torch.Tensor:
         """
         Late fusion: weighted average of detector scores.
         Explicitly named method for late fusion phase.
@@ -252,8 +252,8 @@ class HybridFusionLayer(nn.Module):
         return (scores_tensor * weights.unsqueeze(0)).sum(dim=1, keepdim=True)
 
     def hybrid_detect(
-        self, detector_features: Dict[str, torch.Tensor], detector_scores: Dict[str, torch.Tensor]
-    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        self, detector_features: dict[str, torch.Tensor], detector_scores: dict[str, torch.Tensor]
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
         """
         Hybrid detection: combine early + late fusion with attention.
         Explicitly named method for complete hybrid fusion pipeline.
@@ -325,9 +325,9 @@ class OmniAvaEngine:
 
     def __init__(
         self,
-        config: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
         state_dim: int = 50,
-        rng: Optional[DeterministicRNG] = None,
+        rng: DeterministicRNG | None = None,
     ):
         """
         Initialize OmniAvaEngine.
@@ -464,7 +464,7 @@ class OmniAvaEngine:
             min_eig = self.np.min(eigenvalues)
             self.ethical_matrix += self.np.eye(self.state_dim) * (abs(min_eig) + 0.1)
 
-    def _compute_purity_invariant(self, state: "np.ndarray") -> float:
+    def _compute_purity_invariant(self, state: np.ndarray) -> float:
         """
         Compute Purity Invariant σ_Sacred.
 
@@ -485,7 +485,7 @@ class OmniAvaEngine:
 
         return float(sacred_scalar)
 
-    def _apply_purity_correction(self, state: "np.ndarray") -> "np.ndarray":
+    def _apply_purity_correction(self, state: np.ndarray) -> np.ndarray:
         """
         Apply purity correction to banish negative divergences.
 
@@ -513,7 +513,7 @@ class OmniAvaEngine:
 
         return state
 
-    def helix_1_discovery(self, state: "np.ndarray", t: int = 0) -> "np.ndarray":
+    def helix_1_discovery(self, state: np.ndarray, t: int = 0) -> np.ndarray:
         """
         Helix_1 Discovery Strand: Quantum/chaos/exploration terms.
 
@@ -572,7 +572,7 @@ class OmniAvaEngine:
 
         return strand
 
-    def helix_2_ethical(self, state: "np.ndarray") -> "np.ndarray":
+    def helix_2_ethical(self, state: np.ndarray) -> np.ndarray:
         """
         Helix_2 Ethical Verification Strand: Purity/benevolence terms.
 
@@ -593,7 +593,7 @@ class OmniAvaEngine:
 
         return strand
 
-    def _intertwine_helixes(self, helix1: "np.ndarray", helix2: "np.ndarray") -> "np.ndarray":
+    def _intertwine_helixes(self, helix1: np.ndarray, helix2: np.ndarray) -> np.ndarray:
         """
         Intertwine helix strands via tensor-like product for DNA-like replication.
 
@@ -614,7 +614,7 @@ class OmniAvaEngine:
 
         return intertwined
 
-    def step(self, state: "np.ndarray", t: int = 0) -> "np.ndarray":
+    def step(self, state: np.ndarray, t: int = 0) -> np.ndarray:
         """
         Single iterative step of Omni-AVA equation with Double-Helix evolution.
 
@@ -704,7 +704,7 @@ class OmniAvaEngine:
 
             return state_next
 
-    def _term_H(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_H(self, state: np.ndarray) -> np.ndarray:
         """𝐇: Helical ethical refinement - pull towards ethical scalars."""
         from omni_anomaly_engine.core.ethical_config import DEFAULT_CONFIG
 
@@ -716,21 +716,21 @@ class OmniAvaEngine:
         result: np.ndarray = target - state
         return result
 
-    def _term_Q(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_Q(self, state: np.ndarray) -> np.ndarray:
         """𝐐: Quantum superposition - simulate quantum effects."""
         phase = self.np.exp(1j * state)
         superposition = (phase + self.np.conj(phase)) / 2.0
         result: np.ndarray = self.np.real(superposition) * 0.1
         return result
 
-    def _term_P(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_P(self, state: np.ndarray) -> np.ndarray:
         """𝐏: Psi non-local correlations."""
         shifted = self.np.roll(state, 1)
         correlation = state * shifted
         result: np.ndarray = correlation * 0.05
         return result
 
-    def _term_D(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_D(self, state: np.ndarray) -> np.ndarray:
         """𝐃: Multi-dimensional projection (SVD-inspired)."""
         if len(state) < 2:
             return self.np.zeros_like(state)
@@ -740,25 +740,25 @@ class OmniAvaEngine:
         result: np.ndarray = (projected - state) * 0.1
         return result
 
-    def _term_E(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_E(self, state: np.ndarray) -> np.ndarray:
         """𝐄: Energy minimization (Hamiltonian)."""
         energy_gradient = -state
         return energy_gradient * 0.05
 
-    def _term_V(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_V(self, state: np.ndarray) -> np.ndarray:
         """𝐕: Vibration harmonics (FFT)."""
         fft_vals = self.np.fft.fft(state)
         fft_vals[len(fft_vals) // 2 :] = 0
         filtered = self.np.fft.ifft(fft_vals)
         return self.np.real(filtered) * 0.05 - state * 0.05
 
-    def _term_W(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_W(self, state: np.ndarray) -> np.ndarray:
         """𝐖: Wave propagation."""
         laplacian = self.np.roll(state, -1) + self.np.roll(state, 1) - 2 * state
         result: np.ndarray = laplacian * 0.05
         return result
 
-    def _term_R3(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_R3(self, state: np.ndarray) -> np.ndarray:
         """𝐑₃: Recursion-Resonance-Refactoring composite."""
         recursion = state**2 / (1 + self.np.abs(state))
         resonance = self.np.sin(state * self.np.pi)
@@ -766,7 +766,7 @@ class OmniAvaEngine:
         result: np.ndarray = (recursion + resonance + refactoring) * 0.01
         return result
 
-    def _term_An(self, state: "np.ndarray", T: float) -> "np.ndarray":
+    def _term_An(self, state: np.ndarray, T: float) -> np.ndarray:
         """𝐀_n: Quantum annealing with temperature decay."""
         if T < 1e-6:
             return self.np.zeros_like(state)
@@ -775,39 +775,39 @@ class OmniAvaEngine:
         perturbation: np.ndarray = self._rng.randn(self.state_dim) * prob * 0.1
         return perturbation
 
-    def _term_Lambda(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_Lambda(self, state: np.ndarray) -> np.ndarray:
         """𝚲: Chaos Lyapunov exponents."""
         perturbed = state + self._rng.randn(self.state_dim) * 0.01
         divergence = perturbed - state
         result: np.ndarray = divergence * 0.05
         return result
 
-    def _term_Theta(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_Theta(self, state: np.ndarray) -> np.ndarray:
         """𝚯: Topology homology."""
         cyclic = self.np.roll(state, 1) - self.np.roll(state, -1)
         result: np.ndarray = cyclic * 0.05
         return result
 
-    def _term_Phi(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_Phi(self, state: np.ndarray) -> np.ndarray:
         """𝚽: Fractal self-similarity (golden ratio)."""
         golden = (1 + self.np.sqrt(5)) / 2
         scaled = state / golden
         result: np.ndarray = (scaled - state) * 0.05
         return result
 
-    def _term_Z(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_Z(self, state: np.ndarray) -> np.ndarray:
         """𝐙: Zeta number theory (periodic sums)."""
         periodic = self.np.sin(2 * self.np.pi * state) + self.np.cos(2 * self.np.pi * state)
         result: np.ndarray = periodic * 0.02
         return result
 
-    def _term_hq(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_hq(self, state: np.ndarray) -> np.ndarray:
         """𝐡_q: Quantum uncertainty (iℏ ∂/∂t approximation)."""
         time_derivative = self.np.gradient(state)
         result: np.ndarray = time_derivative * 0.01
         return result
 
-    def _term_L(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_L(self, state: np.ndarray) -> np.ndarray:
         """𝐋: Hybrid Light/Love (Lorentz bound + ethical smoothing)."""
         c = 1.0
         lorentz_factor = self.np.sqrt(1 - self.np.clip(state**2 / c**2, 0, 0.99))
@@ -815,32 +815,32 @@ class OmniAvaEngine:
         result: np.ndarray = (lorentz_factor * ethical_smooth - state) * 0.05
         return result
 
-    def _term_VQE(self, state: "np.ndarray", params: "np.ndarray") -> "np.ndarray":
+    def _term_VQE(self, state: np.ndarray, params: np.ndarray) -> np.ndarray:
         """𝐕𝐐𝐄: Variational Quantum Eigensolver ansatz."""
         ansatz = self.np.sin(params * state)
         result: np.ndarray = ansatz * 0.02
         return result
 
-    def _term_QBM(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_QBM(self, state: np.ndarray) -> np.ndarray:
         """𝐐𝐁𝐌: Quantum Boltzmann Machine energy sampling."""
         energy_interaction: np.ndarray = -self.np.dot(self.qbm_J, state)
         result: np.ndarray = energy_interaction * 0.01
         return result
 
-    def _term_Attn(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_Attn(self, state: np.ndarray) -> np.ndarray:
         """𝐀𝐭𝐭𝐧: Attention weighting."""
         weighted = state * self.attention_weights
         result: np.ndarray = (weighted - state) * 0.05
         return result
 
-    def _term_F(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_F(self, state: np.ndarray) -> np.ndarray:
         """𝐅: Field Lagrangian integration (finite differences)."""
         field_gradient = self.np.gradient(state)
         lagrangian = state * field_gradient
         result: np.ndarray = lagrangian * 0.02
         return result
 
-    def _term_S(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_S(self, state: np.ndarray) -> np.ndarray:
         """𝐒: Symmetry group operations (rotation)."""
         angle = self.np.pi / 4
         rotation_matrix = self.np.array(
@@ -855,14 +855,14 @@ class OmniAvaEngine:
             return result
         return self.np.zeros_like(state)
 
-    def _term_I(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_I(self, state: np.ndarray) -> np.ndarray:
         """𝐈: Information entropy."""
         probs = self.np.abs(state) / (self.np.sum(self.np.abs(state)) + 1e-8)
         entropy = -self.np.sum(probs * self.np.log(probs + 1e-8))
         result: np.ndarray = self.np.ones_like(state) * entropy * 0.01
         return result
 
-    def _term_Rel(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_Rel(self, state: np.ndarray) -> np.ndarray:
         """𝐑𝐞𝐥: Relativistic corrections (Lorentz)."""
         c = 1.0
         v = state
@@ -870,12 +870,12 @@ class OmniAvaEngine:
         result: np.ndarray = (gamma * state - state) * 0.02
         return result
 
-    def _term_inf_b(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_inf_b(self, state: np.ndarray) -> np.ndarray:
         """∞_b: Asymptotic clip (bound divergences)."""
         bound = 10.0
         return self.np.clip(state, -bound, bound)
 
-    def _term_Omega(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_Omega(self, state: np.ndarray) -> np.ndarray:
         """
         Ω: Asymptotic horizons for long-term forecasting.
 
@@ -892,7 +892,7 @@ class OmniAvaEngine:
 
         return accumulator * 0.01
 
-    def _term_Al(self, state: "np.ndarray") -> "np.ndarray":
+    def _term_Al(self, state: np.ndarray) -> np.ndarray:
         """
         𝐀𝐥: Alien resistance using octonions for non-associative exotic threats.
 
@@ -940,10 +940,10 @@ class OmniAvaEngine:
 
     def converge(
         self,
-        initial_state: Optional["np.ndarray"] = None,
+        initial_state: np.ndarray | None = None,
         max_steps: int = 100,
         tolerance: float = 1e-4,
-    ) -> Tuple["np.ndarray", List[float]]:
+    ) -> tuple[np.ndarray, list[float]]:
         """
         Iteratively converge to stable state with Lyapunov stability checking.
 
@@ -979,10 +979,10 @@ class OmniAvaEngine:
             if diff < tolerance:
                 break
 
-        history: List[float] = [float(v) for v in convergence_history]
+        history: list[float] = [float(v) for v in convergence_history]
         return state, history
 
-    def detect_anomaly(self, data: "np.ndarray", threshold: float = 2.0) -> Dict[str, Any]:
+    def detect_anomaly(self, data: np.ndarray, threshold: float = 2.0) -> dict[str, Any]:
         """
         Use converged state to detect anomalies in input data.
 

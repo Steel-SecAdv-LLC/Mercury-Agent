@@ -28,7 +28,7 @@ import ast
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -61,8 +61,8 @@ class NeurosymbolicConfig:
 
     enable_neural: bool = False
     enable_symbolic: bool = True
-    training_data_path: Optional[str] = None
-    model_path: Optional[str] = None
+    training_data_path: str | None = None
+    model_path: str | None = None
     bias_check_enabled: bool = True
     transparency_logging: bool = True
     enable_backprop_tuning: bool = False
@@ -96,14 +96,14 @@ class NeurosymbolicEngine:
 
     def __init__(
         self,
-        config: Optional[NeurosymbolicConfig] = None,
-        rng: Optional[DeterministicRNG] = None,
+        config: NeurosymbolicConfig | None = None,
+        rng: DeterministicRNG | None = None,
     ):
         self.config = config or NeurosymbolicConfig()
         self.training_metrics = TrainingMetrics()
         self.current_phase = TrainingPhase.FOUNDATION
         self.neural_model = None
-        self.pattern_library: Dict[str, Any] = {}
+        self.pattern_library: dict[str, Any] = {}
         self._rng = rng or get_global_rng()
 
         if self.config.transparency_logging:
@@ -111,7 +111,7 @@ class NeurosymbolicEngine:
             if self.config.enable_neural:
                 logging.warning("Neural components enabled but require training data")
 
-    def symbolic_analysis(self, code_ast: ast.AST) -> Dict[str, Any]:
+    def symbolic_analysis(self, code_ast: ast.AST) -> dict[str, Any]:
         """
         Perform symbolic reasoning on code AST.
 
@@ -157,7 +157,7 @@ class NeurosymbolicEngine:
             "confidence": 1.0,
         }
 
-    def neural_analysis(self, code_features: NDArray[Any]) -> Dict[str, Any]:
+    def neural_analysis(self, code_features: NDArray[Any]) -> dict[str, Any]:
         """
         Perform neural pattern recognition (stub).
 
@@ -182,7 +182,7 @@ class NeurosymbolicEngine:
             "message": "Neural inference not yet implemented - requires training",
         }
 
-    def hybrid_analysis(self, code_ast: ast.AST) -> Dict[str, Any]:
+    def hybrid_analysis(self, code_ast: ast.AST) -> dict[str, Any]:
         """
         Combine symbolic and neural analysis.
 
@@ -216,7 +216,7 @@ class NeurosymbolicEngine:
         }
 
     def train_model(
-        self, training_data: Optional[List[Tuple[ast.AST, Dict[str, Any]]]] = None
+        self, training_data: list[tuple[ast.AST, dict[str, Any]]] | None = None
     ) -> TrainingMetrics:
         """
         Train neural model on code patterns (stub).
@@ -253,7 +253,7 @@ class NeurosymbolicEngine:
 
         return self.training_metrics
 
-    def check_bias(self, predictions: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def check_bias(self, predictions: list[dict[str, Any]]) -> dict[str, Any]:
         """
         Check for bias in model predictions.
 
@@ -306,7 +306,7 @@ class NeurosymbolicEngine:
 
     def backprop_tune_patterns(
         self, code_features: NDArray[Any], ground_truth: NDArray[Any], iterations: int = 100
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Fine-tune pattern recognition using backpropagation with quantum noise.
 

@@ -25,7 +25,7 @@ https://www.frontiersin.org/journals/artificial-intelligence/articles/10.3389/fr
 Implements FedAvg aggregation algorithm for distributed model training without sharing raw data.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -37,8 +37,8 @@ class FederatedAnomalyDetector:
 
     def __init__(
         self,
-        config: Optional[Dict[str, Any]] = None,
-        rng: Optional[DeterministicRNG] = None,
+        config: dict[str, Any] | None = None,
+        rng: DeterministicRNG | None = None,
     ):
         """Initialize federated detector.
 
@@ -55,11 +55,11 @@ class FederatedAnomalyDetector:
         self.learning_rate = self.config.get("learning_rate", 0.001)
         self.local_epochs = self.config.get("local_epochs", 5)
         self.aggregation_method = self.config.get("aggregation_method", "fedavg")
-        self.global_model: Optional[np.ndarray] = None
+        self.global_model: np.ndarray | None = None
         self._rng = rng or get_global_rng()
 
     def federated_average(
-        self, client_weights: List[np.ndarray], client_sizes: Optional[List[int]] = None
+        self, client_weights: list[np.ndarray], client_sizes: list[int] | None = None
     ) -> np.ndarray:
         """FedAvg: Aggregate client model weights into global model.
 
@@ -82,8 +82,8 @@ class FederatedAnomalyDetector:
             return result_mean
 
     def train_federated(
-        self, client_data: List[np.ndarray], num_rounds: int = 10
-    ) -> Dict[str, Any]:
+        self, client_data: list[np.ndarray], num_rounds: int = 10
+    ) -> dict[str, Any]:
         """Train using federated learning.
 
         Args:
@@ -93,8 +93,8 @@ class FederatedAnomalyDetector:
         Returns:
             Training results including global model and metrics
         """
-        round_losses: List[float] = []
-        results: Dict[str, Any] = {
+        round_losses: list[float] = []
+        results: dict[str, Any] = {
             "round_losses": round_losses,
             "privacy_preserved": True,
             "num_clients": len(client_data),
@@ -105,8 +105,8 @@ class FederatedAnomalyDetector:
             self.global_model = self._rng.randn(10)
 
         for round_idx in range(num_rounds):
-            client_weights: List[np.ndarray] = []
-            client_sizes: List[int] = []
+            client_weights: list[np.ndarray] = []
+            client_sizes: list[int] = []
 
             for client_idx, data in enumerate(client_data):
                 local_weights = self._local_training(data, self.global_model)

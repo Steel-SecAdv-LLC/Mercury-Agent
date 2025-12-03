@@ -92,11 +92,10 @@ See Also:
 import gc
 import logging
 import threading
-import weakref
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections.abc import Callable, Iterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from functools import lru_cache
-from typing import Any, Callable, Dict, Iterator, List, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -157,13 +156,13 @@ class FeatureCache:
             max_size: Maximum number of entries to cache. Default 128.
         """
         self.max_size = max_size
-        self.cache: Dict[str, Any] = {}
-        self.access_order: List[str] = []
+        self.cache: dict[str, Any] = {}
+        self.access_order: list[str] = []
         self.lock = threading.RLock()
         self.hits = 0
         self.misses = 0
 
-    def _make_key(self, data: Union[np.ndarray, torch.Tensor], prefix: str = "") -> str:
+    def _make_key(self, data: np.ndarray | torch.Tensor, prefix: str = "") -> str:
         """Generate a cache key from data.
 
         Args:
@@ -227,7 +226,7 @@ class FeatureCache:
             self.hits = 0
             self.misses = 0
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Get cache statistics.
 
         Returns:
@@ -271,7 +270,7 @@ class MemoryMonitor:
         self.threshold_mb = threshold_mb
         self.peak_memory_mb = 0.0
         self.gc_count = 0
-        self._allocations: Dict[str, float] = {}
+        self._allocations: dict[str, float] = {}
 
     def get_current_memory_mb(self) -> float:
         """Get current memory usage in megabytes.
@@ -324,7 +323,7 @@ class MemoryMonitor:
             self._allocations[name] = end_mem - start_mem
             self.check_and_collect()
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Get memory statistics.
 
         Returns:
@@ -399,7 +398,7 @@ class OmniAnomalyEngine:
 
     def __init__(
         self,
-        config: Optional[EngineConfig] = None,
+        config: EngineConfig | None = None,
         mode: str = "fusion",
         device: str = "cpu",
         cache_size: int = 128,
@@ -439,7 +438,7 @@ class OmniAnomalyEngine:
         self.memory_monitor = MemoryMonitor(threshold_mb=memory_threshold_mb)
 
         # Thread pool for parallel processing
-        self._executor: Optional[ThreadPoolExecutor] = None
+        self._executor: ThreadPoolExecutor | None = None
 
         self._init_detectors()
         self._init_models()
@@ -523,9 +522,9 @@ class OmniAnomalyEngine:
 
     def detect(
         self,
-        data: Union[np.ndarray, torch.Tensor, Dict[str, Any]],
-        detector_types: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        data: np.ndarray | torch.Tensor | dict[str, Any],
+        detector_types: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Detect anomalies using specified detectors.
 
         This method runs the specified base detectors on the input data
@@ -587,11 +586,11 @@ class OmniAnomalyEngine:
 
     def detect_batch(
         self,
-        data: Union[np.ndarray, torch.Tensor],
-        batch_size: Optional[int] = None,
+        data: np.ndarray | torch.Tensor,
+        batch_size: int | None = None,
         use_fusion: bool = True,
         parallel: bool = True,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Detect anomalies in batches for large datasets.
 
         This method implements intelligent batching with dynamic batch
@@ -632,7 +631,7 @@ class OmniAnomalyEngine:
         if batch_size is None:
             batch_size = self._calculate_optimal_batch_size(data)
 
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
 
         # Process in batches
         with self.memory_monitor.track_allocation("batch_detection"):
@@ -719,7 +718,7 @@ class OmniAnomalyEngine:
         return scores
 
     def _extract_detector_features(
-        self, data: Union[np.ndarray, torch.Tensor, Dict[str, Any]]
+        self, data: np.ndarray | torch.Tensor | dict[str, Any]
     ) -> tuple:
         """Extract features from all detectors.
 
@@ -771,7 +770,7 @@ class OmniAnomalyEngine:
         return detector_features, detector_scores
 
     def _extract_model_features(
-        self, data: Union[np.ndarray, torch.Tensor, Dict[str, Any]]
+        self, data: np.ndarray | torch.Tensor | dict[str, Any]
     ) -> tuple:
         """Extract features from all specialized models.
 
@@ -818,7 +817,7 @@ class OmniAnomalyEngine:
         return model_features, model_scores
 
     def _extract_features_parallel(
-        self, data: Union[np.ndarray, torch.Tensor, Dict[str, Any]]
+        self, data: np.ndarray | torch.Tensor | dict[str, Any]
     ) -> tuple:
         """Extract features from all sources in parallel.
 
@@ -848,8 +847,8 @@ class OmniAnomalyEngine:
         )
 
     def detect_with_fusion(
-        self, data: Union[np.ndarray, torch.Tensor, Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self, data: np.ndarray | torch.Tensor | dict[str, Any]
+    ) -> dict[str, Any]:
         """Detect anomalies using ML fusion of all detectors.
 
         This method combines outputs from all detectors and models
@@ -892,21 +891,15 @@ class OmniAnomalyEngine:
         )
 
         anomaly_prob_val = fusion_result["anomaly_probs"][0]
-        if isinstance(anomaly_prob_val, np.ndarray):
-            anomaly_prob_val = anomaly_prob_val.item()
-        elif hasattr(anomaly_prob_val, "item"):
+        if isinstance(anomaly_prob_val, np.ndarray) or hasattr(anomaly_prob_val, "item"):
             anomaly_prob_val = anomaly_prob_val.item()
 
         severity_val = fusion_result["severity_scores"][0]
-        if isinstance(severity_val, np.ndarray):
-            severity_val = severity_val.item()
-        elif hasattr(severity_val, "item"):
+        if isinstance(severity_val, np.ndarray) or hasattr(severity_val, "item"):
             severity_val = severity_val.item()
 
         class_pred_val = fusion_result["class_predictions"][0]
-        if isinstance(class_pred_val, np.ndarray):
-            class_pred_val = class_pred_val.item()
-        elif hasattr(class_pred_val, "item"):
+        if isinstance(class_pred_val, np.ndarray) or hasattr(class_pred_val, "item"):
             class_pred_val = class_pred_val.item()
 
         return {
@@ -920,10 +913,10 @@ class OmniAnomalyEngine:
 
     def detect_biometric(
         self,
-        reference_image: Union[str, np.ndarray],
-        test_image: Optional[Union[str, np.ndarray]] = None,
+        reference_image: str | np.ndarray,
+        test_image: str | np.ndarray | None = None,
         enable_age_progression: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Perform biometric face matching and analysis.
 
         This method uses the biometric model to analyze faces and
@@ -963,9 +956,9 @@ class OmniAnomalyEngine:
     def detect_security_threat(
         self,
         payload: str,
-        headers: Optional[Dict[str, str]] = None,
-        source_ip: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        headers: dict[str, str] | None = None,
+        source_ip: str | None = None,
+    ) -> dict[str, Any]:
         """Detect security threats in requests.
 
         This method analyzes request payloads for potential security
@@ -1008,10 +1001,10 @@ class OmniAnomalyEngine:
         learning_rate: float = 0.001,
         optimizer_type: str = "adamw",
         early_stopping_patience: int = 10,
-        checkpoint_dir: Optional[str] = None,
+        checkpoint_dir: str | None = None,
         use_mixed_precision: bool = False,
         gradient_accumulation_steps: int = 1,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Train the fusion model on custom data.
 
         This method implements a complete training pipeline with support
@@ -1155,7 +1148,7 @@ class OmniAnomalyEngine:
         best_val_loss = float("inf")
         best_epoch = 0
         epochs_without_improvement = 0
-        training_history: List[Dict[str, float]] = []
+        training_history: list[dict[str, float]] = []
         best_checkpoint_path = os.path.join(checkpoint_dir, "best_model.pt")
 
         # Setup mixed precision if requested
@@ -1296,7 +1289,7 @@ class OmniAnomalyEngine:
                 torch.load(path, map_location=self.device, weights_only=True)
             )
 
-    def get_cache_stats(self) -> Dict[str, Any]:
+    def get_cache_stats(self) -> dict[str, Any]:
         """Get feature cache statistics.
 
         Returns:
@@ -1308,7 +1301,7 @@ class OmniAnomalyEngine:
         """
         return self.feature_cache.stats()
 
-    def get_memory_stats(self) -> Dict[str, Any]:
+    def get_memory_stats(self) -> dict[str, Any]:
         """Get memory usage statistics.
 
         Returns:

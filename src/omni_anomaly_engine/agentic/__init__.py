@@ -20,4 +20,4 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from omni_anomaly_engine.agentic.agentic_autonomy import AgentAction, AgenticAutonomy, AgentState
 
-__all__ = ["AgenticAutonomy", "AgentState", "AgentAction"]
+__all__ = ["AgentAction", "AgentState", "AgenticAutonomy"]

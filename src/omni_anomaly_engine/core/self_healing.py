@@ -36,7 +36,6 @@ Attribution: Integrated concept from CRISPR biological mechanism
 
 import json
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -70,8 +69,8 @@ class CRISPRInspiredSelfHealing:
         """
         self.max_signatures = max_signatures
         self.similarity_threshold = similarity_threshold
-        self.signature_library: Dict[str, AnomalySignature] = {}
-        self.acquisition_history: List[str] = []
+        self.signature_library: dict[str, AnomalySignature] = {}
+        self.acquisition_history: list[str] = []
 
     def stage_1_acquisition(self, anomaly_data: np.ndarray) -> AnomalySignature:
         """
@@ -121,7 +120,7 @@ class CRISPRInspiredSelfHealing:
         )
         return detection_pattern
 
-    def stage_3_interference(self, input_data: np.ndarray) -> Tuple[bool, float, Optional[str]]:
+    def stage_3_interference(self, input_data: np.ndarray) -> tuple[bool, float, str | None]:
         """
         Stage 3: Interference - Detect and neutralize matching anomalies.
 
@@ -210,7 +209,7 @@ class CRISPRInspiredSelfHealing:
 
     def load_signature_library(self, filepath: str) -> None:
         """Load signature library from file for heritable immunity."""
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             data = json.load(f)
 
         self.signature_library = {

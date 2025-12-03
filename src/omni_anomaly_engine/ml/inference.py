@@ -20,7 +20,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Production inference utilities for fusion model
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -41,8 +41,8 @@ class FusionInference:
 
     def __init__(
         self,
-        model: Optional[OmniFusionModel] = None,
-        checkpoint_path: Optional[str] = None,
+        model: OmniFusionModel | None = None,
+        checkpoint_path: str | None = None,
         device: str = "cpu",
     ):
         self.device = torch.device(device)
@@ -68,10 +68,10 @@ class FusionInference:
 
     def predict(
         self,
-        detector_features: Dict[str, Union[np.ndarray, torch.Tensor]],
+        detector_features: dict[str, np.ndarray | torch.Tensor],
         return_attention: bool = False,
         batch_size: int = 32,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Run inference on detector features.
 
@@ -116,9 +116,9 @@ class FusionInference:
 
     def predict_batch(
         self,
-        detector_features_list: List[Dict[str, Union[np.ndarray, torch.Tensor]]],
+        detector_features_list: list[dict[str, np.ndarray | torch.Tensor]],
         batch_size: int = 32,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Batch inference for multiple samples.
 
@@ -174,8 +174,8 @@ class FusionInference:
 
     def explain(
         self,
-        detector_features: Dict[str, Union[np.ndarray, torch.Tensor]],
-    ) -> Dict[str, Any]:
+        detector_features: dict[str, np.ndarray | torch.Tensor],
+    ) -> dict[str, Any]:
         """
         Get explanation for a prediction via attention weights.
 

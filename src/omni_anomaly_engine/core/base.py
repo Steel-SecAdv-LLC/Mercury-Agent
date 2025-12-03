@@ -21,33 +21,33 @@ Abstract base classes for detectors, models, and encoders
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class BaseDetector(ABC):
     """Abstract base class for all anomaly detectors"""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.config = config or {}
         self.threshold = self.config.get("threshold", 0.5)
         self._is_fitted = False
 
     @abstractmethod
-    def fit(self, data: Union[np.ndarray, torch.Tensor]) -> "BaseDetector":
+    def fit(self, data: np.ndarray | torch.Tensor) -> "BaseDetector":
         """Fit the detector to normal data"""
         pass
 
     @abstractmethod
-    def detect(self, data: Union[np.ndarray, torch.Tensor]) -> Dict[str, Any]:
+    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies in data"""
         pass
 
     @abstractmethod
-    def extract_features(self, data: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion"""
         pass
 
@@ -59,16 +59,16 @@ class BaseDetector(ABC):
 class BaseModel(ABC):
     """Abstract base class for all models"""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.config = config or {}
 
     @abstractmethod
-    def predict(self, data: Union[np.ndarray, torch.Tensor]) -> Dict[str, Any]:
+    def predict(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
         """Make predictions on data"""
         pass
 
     @abstractmethod
-    def extract_features(self, data: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion"""
         pass
 

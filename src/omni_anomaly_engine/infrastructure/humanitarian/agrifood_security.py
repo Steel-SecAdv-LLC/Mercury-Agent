@@ -37,7 +37,7 @@ Research sources:
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -58,8 +58,8 @@ class AgriFoodSecurityDetector:
         self.price_baseline = {"mean": 100.0, "std": 15.0}
 
     def detect(
-        self, data: np.ndarray, detection_type: str = "yield", crop_type: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, data: np.ndarray, detection_type: str = "yield", crop_type: str | None = None
+    ) -> dict[str, Any]:
         """
         Detect agricultural anomalies.
 
@@ -79,8 +79,8 @@ class AgriFoodSecurityDetector:
             return self.detect_yield_anomaly(data, crop_type)
 
     def detect_yield_anomaly(
-        self, yield_data: np.ndarray, crop_type: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, yield_data: np.ndarray, crop_type: str | None = None
+    ) -> dict[str, Any]:
         """Detect crop yield failures and productivity anomalies."""
         if len(yield_data) == 0:
             return {"anomaly_detected": False}
@@ -121,8 +121,8 @@ class AgriFoodSecurityDetector:
         }
 
     def detect_price_anomaly(
-        self, price_data: np.ndarray, crop_type: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, price_data: np.ndarray, crop_type: str | None = None
+    ) -> dict[str, Any]:
         """Detect food price spikes and market disruptions."""
         if len(price_data) == 0:
             return {"anomaly_detected": False}
@@ -180,8 +180,8 @@ class AgriFoodSecurityDetector:
         return 0
 
     def _generate_agrifood_recommendations(
-        self, threat_type: FoodSecurityThreat, severity: str, crop_type: Optional[str]
-    ) -> List[str]:
+        self, threat_type: FoodSecurityThreat, severity: str, crop_type: str | None
+    ) -> list[str]:
         """Generate food security recommendations."""
         recommendations = []
 

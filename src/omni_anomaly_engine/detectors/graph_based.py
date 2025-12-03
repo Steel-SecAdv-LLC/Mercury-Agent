@@ -28,7 +28,7 @@ Detects anomalies in graph-structured data using:
 
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import networkx as nx
 import numpy as np
@@ -40,13 +40,13 @@ from omni_anomaly_engine.core.base import BaseDetector
 class GraphAnomalyDetector(BaseDetector):
     """Detect anomalies in graph-structured data."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         super().__init__(config)
         self.threshold = self.config.get("threshold", 3.0)
         self.fitted = False
         self.baseline_metrics = {}
 
-    def fit(self, data: Union[np.ndarray, nx.Graph]) -> "GraphAnomalyDetector":
+    def fit(self, data: np.ndarray | nx.Graph) -> "GraphAnomalyDetector":
         """Fit detector on normal graph data."""
         if isinstance(data, nx.Graph):
             graph = data
@@ -57,7 +57,7 @@ class GraphAnomalyDetector(BaseDetector):
         self.fitted = True
         return self
 
-    def detect(self, data: Union[np.ndarray, nx.Graph]) -> Dict[str, Any]:
+    def detect(self, data: np.ndarray | nx.Graph) -> dict[str, Any]:
         """Detect graph anomalies using centrality and community analysis."""
         if isinstance(data, nx.Graph):
             graph = data
@@ -77,7 +77,7 @@ class GraphAnomalyDetector(BaseDetector):
             "metrics": current_metrics,
         }
 
-    def extract_features(self, data: Union[np.ndarray, nx.Graph]) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray | nx.Graph) -> torch.Tensor:
         """Extract graph-based features for ML fusion."""
         if isinstance(data, nx.Graph):
             graph = data
@@ -111,7 +111,7 @@ class GraphAnomalyDetector(BaseDetector):
         graph = nx.from_numpy_array(data)
         return graph
 
-    def _compute_graph_metrics(self, graph: nx.Graph) -> Dict[str, float]:
+    def _compute_graph_metrics(self, graph: nx.Graph) -> dict[str, float]:
         """Compute key graph metrics."""
         if len(graph.nodes()) == 0:
             return {
@@ -126,11 +126,11 @@ class GraphAnomalyDetector(BaseDetector):
         degrees = [d for n, d in graph.degree()]
         clustering = nx.clustering(graph)
 
-        pagerank = nx.pagerank(graph) if len(graph.edges()) > 0 else {n: 0 for n in graph.nodes()}
+        pagerank = nx.pagerank(graph) if len(graph.edges()) > 0 else dict.fromkeys(graph.nodes(), 0)
         betweenness = (
             nx.betweenness_centrality(graph)
             if len(graph.edges()) > 0
-            else {n: 0 for n in graph.nodes()}
+            else dict.fromkeys(graph.nodes(), 0)
         )
 
         return {
@@ -143,7 +143,7 @@ class GraphAnomalyDetector(BaseDetector):
         }
 
     def _compute_anomaly_score(
-        self, current: Dict[str, float], baseline: Dict[str, float]
+        self, current: dict[str, float], baseline: dict[str, float]
     ) -> float:
         """Compute anomaly score from metric differences."""
         if not baseline:

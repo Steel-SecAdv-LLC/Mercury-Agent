@@ -28,7 +28,7 @@ Reference: Mirjalili et al. (2014) - Grey Wolf Optimizer
 
 """
 
-from typing import Callable, Optional, Tuple
+from collections.abc import Callable
 
 import numpy as np
 
@@ -42,8 +42,8 @@ class GreyWolfOptimizer:
         self,
         n_wolves: int = 10,
         max_iter: int = 50,
-        dim: Optional[int] = None,
-        rng: Optional[DeterministicRNG] = None,
+        dim: int | None = None,
+        rng: DeterministicRNG | None = None,
     ):
         self.n_wolves = n_wolves
         self.max_iter = max_iter
@@ -60,7 +60,7 @@ class GreyWolfOptimizer:
 
     def optimize(
         self, objective_func: Callable[[np.ndarray], float], lb: np.ndarray, ub: np.ndarray
-    ) -> Tuple[np.ndarray, float]:
+    ) -> tuple[np.ndarray, float]:
         """
         Optimize using GWO algorithm.
 

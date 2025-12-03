@@ -36,7 +36,7 @@ Research sources:
 """
 
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import numpy as np
 
@@ -57,8 +57,8 @@ class SimulationModule:
 
     def __init__(
         self,
-        config: Optional[Dict[str, Any]] = None,
-        rng: Optional[DeterministicRNG] = None,
+        config: dict[str, Any] | None = None,
+        rng: DeterministicRNG | None = None,
         **kwargs,
     ):
         """
@@ -78,7 +78,7 @@ class SimulationModule:
         self.logger = logging.getLogger(__name__)
         self._rng = rng or get_global_rng()
 
-    def simulate_paradox(self, paradox_type: str, iterations: int = 100) -> Dict[str, Any]:
+    def simulate_paradox(self, paradox_type: str, iterations: int = 100) -> dict[str, Any]:
         """
         Simulate logical paradoxes with resolution attempts.
 
@@ -114,7 +114,7 @@ class SimulationModule:
                 "ethical_flags": [],
             }
 
-    def _simulate_zeno(self, iterations: int) -> Dict[str, Any]:
+    def _simulate_zeno(self, iterations: int) -> dict[str, Any]:
         """Simulate Zeno's dichotomy paradox using convergent series."""
         distance_remaining = 1.0
         steps = []
@@ -141,7 +141,7 @@ class SimulationModule:
             "ethical_flags": [],
         }
 
-    def _simulate_liar_paradox(self, iterations: int) -> Dict[str, Any]:
+    def _simulate_liar_paradox(self, iterations: int) -> dict[str, Any]:
         """Simulate self-referential liar paradox using truth value oscillation."""
         truth_values = []
         current_value = True
@@ -165,7 +165,7 @@ class SimulationModule:
             "ethical_flags": ["self_referential_instability"],
         }
 
-    def _simulate_russell_paradox(self, iterations: int) -> Dict[str, Any]:
+    def _simulate_russell_paradox(self, iterations: int) -> dict[str, Any]:
         """Simulate Russell's paradox using set membership logic."""
         membership_contradictions = 0
 
@@ -189,7 +189,7 @@ class SimulationModule:
             "ethical_flags": ["logical_contradiction"],
         }
 
-    def _simulate_barber_paradox(self, iterations: int) -> Dict[str, Any]:
+    def _simulate_barber_paradox(self, iterations: int) -> dict[str, Any]:
         """Simulate barber paradox (variant of Russell's)."""
         return {
             "paradox_type": "barber",
@@ -203,7 +203,7 @@ class SimulationModule:
             "ethical_flags": ["existence_contradiction"],
         }
 
-    def explore_conjecture(self, conjecture: str, search_space: int = 10000) -> Dict[str, Any]:
+    def explore_conjecture(self, conjecture: str, search_space: int = 10000) -> dict[str, Any]:
         """
         Explore conjectures through probabilistic and numerical methods.
 
@@ -240,7 +240,7 @@ class SimulationModule:
                 "insights": [f"Unknown conjecture: {conjecture}"],
             }
 
-    def _explore_twin_prime(self, search_space: int) -> Dict[str, Any]:
+    def _explore_twin_prime(self, search_space: int) -> dict[str, Any]:
         """Explore Twin Prime conjecture: infinitely many primes p where p+2 is also prime."""
 
         def is_prime(n):
@@ -269,7 +269,7 @@ class SimulationModule:
             ],
         }
 
-    def _explore_collatz(self, search_space: int) -> Dict[str, Any]:
+    def _explore_collatz(self, search_space: int) -> dict[str, Any]:
         """Explore Collatz conjecture: all positive integers reach 1 via 3n+1 or n/2."""
 
         def collatz_sequence(n):
@@ -310,7 +310,7 @@ class SimulationModule:
             ],
         }
 
-    def _explore_goldbach(self, search_space: int) -> Dict[str, Any]:
+    def _explore_goldbach(self, search_space: int) -> dict[str, Any]:
         """Explore Goldbach's conjecture: every even integer > 2 is sum of two primes."""
 
         def is_prime(n):
@@ -354,7 +354,7 @@ class SimulationModule:
             ],
         }
 
-    def _explore_riemann_hypothesis(self, search_space: int) -> Dict[str, Any]:
+    def _explore_riemann_hypothesis(self, search_space: int) -> dict[str, Any]:
         """Explore Riemann Hypothesis: non-trivial zeros of zeta function have real part 1/2."""
         critical_line = 0.5
         zeros_checked = min(search_space, 100)
@@ -389,7 +389,7 @@ class SimulationModule:
             ],
         }
 
-    def analyze_millennium_problem(self, problem: str) -> Dict[str, Any]:
+    def analyze_millennium_problem(self, problem: str) -> dict[str, Any]:
         """
         Analyze Millennium Prize Problems with neural approximations.
 
@@ -430,7 +430,7 @@ class SimulationModule:
                 "insights": [],
             }
 
-    def _analyze_p_vs_np(self) -> Dict[str, Any]:
+    def _analyze_p_vs_np(self) -> dict[str, Any]:
         """Analyze P versus NP problem (computational complexity)."""
         sample_sizes = [10, 20, 50, 100, 200]
         p_times = []
@@ -464,7 +464,7 @@ class SimulationModule:
             "ethical_flags": ["cryptography_impact", "security_implications"],
         }
 
-    def _analyze_navier_stokes(self) -> Dict[str, Any]:
+    def _analyze_navier_stokes(self) -> dict[str, Any]:
         """Analyze Navier-Stokes existence and smoothness."""
         return {
             "problem": "navier_stokes",
@@ -480,7 +480,7 @@ class SimulationModule:
             "applications": ["fluid_dynamics", "weather_modeling", "biomedical"],
         }
 
-    def _analyze_yang_mills(self) -> Dict[str, Any]:
+    def _analyze_yang_mills(self) -> dict[str, Any]:
         """Analyze Yang-Mills existence and mass gap."""
         return {
             "problem": "yang_mills",
@@ -496,7 +496,7 @@ class SimulationModule:
             "applications": ["particle_physics", "quantum_field_theory"],
         }
 
-    def _analyze_birch_swinnerton_dyer(self) -> Dict[str, Any]:
+    def _analyze_birch_swinnerton_dyer(self) -> dict[str, Any]:
         """Analyze Birch and Swinnerton-Dyer conjecture."""
         return {
             "problem": "birch_swinnerton_dyer",
@@ -515,7 +515,7 @@ class SimulationModule:
             "applications": ["number_theory", "cryptography"],
         }
 
-    def _analyze_hodge_conjecture(self) -> Dict[str, Any]:
+    def _analyze_hodge_conjecture(self) -> dict[str, Any]:
         """Analyze Hodge conjecture."""
         return {
             "problem": "hodge_conjecture",
@@ -533,7 +533,7 @@ class SimulationModule:
             "applications": ["algebraic_geometry", "topology"],
         }
 
-    def _analyze_poincare_conjecture(self) -> Dict[str, Any]:
+    def _analyze_poincare_conjecture(self) -> dict[str, Any]:
         """Analyze Poincaré conjecture (SOLVED)."""
         return {
             "problem": "poincare_conjecture",
@@ -552,7 +552,7 @@ class SimulationModule:
             "applications": ["topology", "geometry", "3_manifolds"],
         }
 
-    def extract_features(self, data: Union[np.ndarray, Dict[str, Any]]) -> np.ndarray:
+    def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
         """
         Extract high-dimensional features from simulation data.
 
@@ -598,7 +598,7 @@ class SimulationModule:
 
         return features.astype(np.float32)
 
-    def predict(self, data: Union[np.ndarray, Dict[str, Any]]) -> Dict[str, Any]:
+    def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
         """
         Predict viability/solutions using multiverse branching.
 

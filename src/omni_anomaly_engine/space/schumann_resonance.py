@@ -57,12 +57,12 @@ events require extensive validation. Not a replacement for established monitorin
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
 from scipy.fft import fft, fftfreq
+from torch import nn
 
 
 @dataclass
@@ -76,17 +76,17 @@ class SchumannAnomalyResult:
 
     fundamental_freq: float
     fundamental_deviation: float
-    harmonic_deviations: List[float] = field(default_factory=list)
+    harmonic_deviations: list[float] = field(default_factory=list)
 
     amplitude_anomaly: bool = False
     frequency_anomaly: bool = False
     power_spectrum_shift: bool = False
 
-    correlated_events: List[str] = field(default_factory=list)
-    temporal_pattern: Optional[Dict] = None
+    correlated_events: list[str] = field(default_factory=list)
+    temporal_pattern: dict | None = None
 
-    recommendations: List[str] = field(default_factory=list)
-    ancient_correlation: Optional[Dict] = None
+    recommendations: list[str] = field(default_factory=list)
+    ancient_correlation: dict | None = None
 
 
 class SchumannHarmonicAnalyzer(nn.Module):
@@ -132,8 +132,8 @@ class SchumannHarmonicAnalyzer(nn.Module):
         self.confidence_head = nn.Sequential(nn.Linear(64, 1), nn.Sigmoid())
 
     def forward(
-        self, spectrum: torch.Tensor, temporal_sequence: Optional[torch.Tensor] = None
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        self, spectrum: torch.Tensor, temporal_sequence: torch.Tensor | None = None
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass through harmonic analyzer.
 
@@ -206,7 +206,7 @@ class SchumannResonanceDetector:
 
         self.logger.info(f"Schumann Resonance Detector initialized (fs={sampling_rate}Hz)")
 
-    def _initialize_ancient_correlations(self) -> Dict[str, Any]:
+    def _initialize_ancient_correlations(self) -> dict[str, Any]:
         """
         Initialize ancient knowledge correlations.
 
@@ -241,8 +241,8 @@ class SchumannResonanceDetector:
     def detect_resonance_anomaly(
         self,
         elf_signal: np.ndarray,
-        temporal_history: Optional[List[np.ndarray]] = None,
-        metadata: Optional[Dict] = None,
+        temporal_history: list[np.ndarray] | None = None,
+        metadata: dict | None = None,
     ) -> SchumannAnomalyResult:
         """
         Detect anomalies in Schumann resonance patterns.
@@ -338,7 +338,7 @@ class SchumannResonanceDetector:
 
         return result
 
-    def _compute_power_spectrum(self, elf_signal: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def _compute_power_spectrum(self, elf_signal: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Compute power spectrum using FFT (O(n log n) complexity)"""
         n = len(elf_signal)
 
@@ -352,7 +352,7 @@ class SchumannResonanceDetector:
 
     def _detect_fundamental(
         self, power_spectrum: np.ndarray, frequencies: np.ndarray
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """Detect fundamental Schumann resonance frequency"""
         search_range = (frequencies >= 6.0) & (frequencies <= 10.0)
 
@@ -370,7 +370,7 @@ class SchumannResonanceDetector:
 
     def _analyze_harmonics(
         self, power_spectrum: np.ndarray, frequencies: np.ndarray
-    ) -> List[float]:
+    ) -> list[float]:
         """Analyze deviations in harmonic frequencies"""
         deviations = []
 
@@ -427,7 +427,7 @@ class SchumannResonanceDetector:
 
         return abs(ratio - expected_ratio) > (0.2 * self.golden_ratio)
 
-    def _process_temporal_history(self, temporal_history: List[np.ndarray]) -> torch.Tensor:
+    def _process_temporal_history(self, temporal_history: list[np.ndarray]) -> torch.Tensor:
         """Process temporal history of spectra"""
         sequence_length = min(len(temporal_history), 10)
 
@@ -442,9 +442,9 @@ class SchumannResonanceDetector:
     def _correlate_with_events(
         self,
         fundamental_deviation: float,
-        harmonic_deviations: List[float],
+        harmonic_deviations: list[float],
         amplitude_anomaly: bool,
-    ) -> List[str]:
+    ) -> list[str]:
         """Correlate anomalies with potential geophysical events"""
         events = []
 
@@ -464,7 +464,7 @@ class SchumannResonanceDetector:
 
         return events[:6]
 
-    def _analyze_temporal_pattern(self, temporal_history: List[np.ndarray]) -> Dict[str, Any]:
+    def _analyze_temporal_pattern(self, temporal_history: list[np.ndarray]) -> dict[str, Any]:
         """Analyze temporal evolution of resonance patterns"""
         if not temporal_history or len(temporal_history) < 2:
             return {}
@@ -486,8 +486,8 @@ class SchumannResonanceDetector:
         }
 
     def _generate_recommendations(
-        self, anomaly_type: str, risk_score: float, correlated_events: List[str]
-    ) -> List[str]:
+        self, anomaly_type: str, risk_score: float, correlated_events: list[str]
+    ) -> list[str]:
         """Generate monitoring recommendations"""
         recommendations = []
 
@@ -511,8 +511,8 @@ class SchumannResonanceDetector:
         return recommendations[:6]
 
     def _correlate_ancient_patterns(
-        self, fundamental_freq: float, temporal_pattern: Optional[Dict], metadata: Optional[Dict]
-    ) -> Dict[str, Any]:
+        self, fundamental_freq: float, temporal_pattern: dict | None, metadata: dict | None
+    ) -> dict[str, Any]:
         """Correlate with ancient astronomical/geophysical cycles"""
         correlations = {
             "detected_cycles": [],
@@ -556,7 +556,7 @@ class SchumannResonanceDetector:
         features_array = np.array(features[:8], dtype=np.float32)
         return torch.tensor(features_array, dtype=torch.float32).unsqueeze(0)
 
-    def predict(self, data: np.ndarray) -> Dict[str, Any]:
+    def predict(self, data: np.ndarray) -> dict[str, Any]:
         """Predict for engine integration"""
         result = self.detect_resonance_anomaly(data)
 
@@ -568,7 +568,7 @@ class SchumannResonanceDetector:
         }
 
 
-def create_omni_resonance_scalars() -> Dict[str, float]:
+def create_omni_resonance_scalars() -> dict[str, float]:
     """
     Create doctorate-level Schumann resonance scalars.
 

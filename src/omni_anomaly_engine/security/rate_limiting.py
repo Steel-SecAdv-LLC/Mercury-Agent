@@ -22,7 +22,6 @@ Rate limiting utilities
 
 import time
 from collections import defaultdict
-from typing import Dict
 
 
 class RateLimiter:
@@ -31,7 +30,7 @@ class RateLimiter:
     def __init__(self, max_requests: int = 100, window_seconds: int = 60):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self.requests: Dict[str, list] = defaultdict(list)
+        self.requests: dict[str, list] = defaultdict(list)
 
     def is_allowed(self, identifier: str) -> bool:
         """Check if request is allowed"""

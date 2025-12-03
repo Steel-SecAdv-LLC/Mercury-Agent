@@ -25,7 +25,7 @@ Compare OMNI ♱ AVA with top open-source anomaly detection engines.
 from .pyod_integration import CombinationMethod, PyODAlgorithm, PyODComparison
 
 __all__ = [
-    "PyODComparison",
-    "PyODAlgorithm",
     "CombinationMethod",
+    "PyODAlgorithm",
+    "PyODComparison",
 ]

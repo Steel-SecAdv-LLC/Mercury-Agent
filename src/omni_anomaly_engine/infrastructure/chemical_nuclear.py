@@ -29,7 +29,6 @@ Research sources:
 """
 
 from enum import Enum
-from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -62,9 +61,9 @@ class ChemicalNuclearDetector:
     def detect(
         self,
         sensor_data: np.ndarray,
-        parameter_names: Optional[List[str]] = None,
-        timestamps: Optional[np.ndarray] = None,
-    ) -> Dict:
+        parameter_names: list[str] | None = None,
+        timestamps: np.ndarray | None = None,
+    ) -> dict:
         """
         Detect anomalies in chemical/nuclear process parameters.
 
@@ -86,9 +85,9 @@ class ChemicalNuclearDetector:
     def detect_process_anomaly(
         self,
         sensor_data: np.ndarray,
-        parameter_names: List[str],
-        timestamps: Optional[np.ndarray] = None,
-    ) -> Dict:
+        parameter_names: list[str],
+        timestamps: np.ndarray | None = None,
+    ) -> dict:
         """
         Detect anomalies in chemical/nuclear process parameters.
 
@@ -136,7 +135,7 @@ class ChemicalNuclearDetector:
             "recommended_actions": self._generate_recommendations(anomalies),
         }
 
-    def _init_safety_thresholds(self) -> Dict:
+    def _init_safety_thresholds(self) -> dict:
         """Initialize sector-specific safety thresholds."""
         if self.sector == CISASector.CHEMICAL:
             return {
@@ -154,7 +153,7 @@ class ChemicalNuclearDetector:
             }
         return {}
 
-    def _calculate_severity(self, violations: np.ndarray, threshold: Dict) -> str:
+    def _calculate_severity(self, violations: np.ndarray, threshold: dict) -> str:
         """Calculate severity level based on violation magnitude."""
         if len(violations) == 0:
             return "NONE"
@@ -194,7 +193,7 @@ class ChemicalNuclearDetector:
 
         return param_name in critical_params.get(self.sector, []) and np.sum(violations) > 3
 
-    def _assess_cross_sector_impact(self, anomalies: Dict) -> Dict:
+    def _assess_cross_sector_impact(self, anomalies: dict) -> dict:
         """Assess how anomalies in this sector affect other sectors."""
         if not anomalies:
             return {"affected_sectors": [], "impact_level": "NONE"}
@@ -209,7 +208,7 @@ class ChemicalNuclearDetector:
             "cascading_risk": has_critical and len(affected) > 2,
         }
 
-    def _generate_recommendations(self, anomalies: Dict) -> List[str]:
+    def _generate_recommendations(self, anomalies: dict) -> list[str]:
         """Generate action recommendations based on detected anomalies."""
         if not anomalies:
             return ["Continue normal operations"]

@@ -21,13 +21,12 @@ Harmonic analysis encoder using spherical harmonics and Fourier analysis
 Extracted from Harmonic Analysis Engine with memorial codes removed
 """
 
-from typing import Dict, Optional, Tuple
 
 import numpy as np
 import torch
-import torch.nn as nn
 from scipy.fft import fft, ifft
 from scipy.special import sph_harm
+from torch import nn
 
 
 class SphericalHarmonicDecomposer:
@@ -122,7 +121,7 @@ class SphericalHarmonicDecomposer:
 
         return power_spectrum
 
-    def _cartesian_to_spherical(self, points: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def _cartesian_to_spherical(self, points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
         Convert Cartesian coordinates to spherical (theta, phi)
 
@@ -150,7 +149,7 @@ class FourierHarmonicAnalyzer:
     def __init__(self, num_harmonics: int = 8):
         self.num_harmonics = num_harmonics
 
-    def extract_harmonics(self, signal: np.ndarray) -> Dict[str, np.ndarray]:
+    def extract_harmonics(self, signal: np.ndarray) -> dict[str, np.ndarray]:
         """
         Extract harmonic components from signal using FFT
 
@@ -300,9 +299,9 @@ class HarmonicEncoder(nn.Module):
 
     def forward(
         self,
-        points: Optional[torch.Tensor] = None,
-        values: Optional[torch.Tensor] = None,
-        signal: Optional[torch.Tensor] = None,
+        points: torch.Tensor | None = None,
+        values: torch.Tensor | None = None,
+        signal: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """
         Extract harmonic features from 3D surface or 1D signal

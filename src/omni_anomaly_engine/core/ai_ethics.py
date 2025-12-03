@@ -29,7 +29,7 @@ Competence, and Commitment.
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class EthicalPrinciple(Enum):
@@ -67,9 +67,9 @@ class EthicsResult:
 
     passed: bool
     overall_score: float
-    principle_scores: Dict[str, float]
-    violations: List[str]
-    recommendations: List[str]
+    principle_scores: dict[str, float]
+    violations: list[str]
+    recommendations: list[str]
 
     def __repr__(self) -> str:
         status = "✓ PASSED" if self.passed else "✗ FAILED"
@@ -95,16 +95,16 @@ class EthicalAutonomyGovernor:
     8. COMMITMENT: Dedicate to continuous improvement
     """
 
-    def __init__(self, config: Optional[EthicsConfig] = None):
+    def __init__(self, config: EthicsConfig | None = None):
         self.config = config or EthicsConfig()
-        self.audit_log: List[Dict[str, Any]] = []
+        self.audit_log: list[dict[str, Any]] = []
         logging.info("Ethical Autonomy Governor initialized with 8 principles")
 
     def evaluate_action(
         self,
         action_type: str,
-        action_params: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None,
+        action_params: dict[str, Any],
+        context: dict[str, Any] | None = None,
     ) -> EthicsResult:
         """
         Evaluate an action against all 8 ethical principles.
@@ -118,9 +118,9 @@ class EthicalAutonomyGovernor:
             EthicsResult with pass/fail and detailed scores
         """
         context = context or {}
-        principle_scores: Dict[str, float] = {}
-        violations: List[str] = []
-        recommendations: List[str] = []
+        principle_scores: dict[str, float] = {}
+        violations: list[str] = []
+        recommendations: list[str] = []
 
         if self.config.enable_compassion_checks:
             compassion_score = self._check_compassion(action_type, action_params, context)
@@ -207,7 +207,7 @@ class EthicalAutonomyGovernor:
         )
 
     def _check_compassion(
-        self, action_type: str, params: Dict[str, Any], context: Dict[str, Any]
+        self, action_type: str, params: dict[str, Any], context: dict[str, Any]
     ) -> float:
         """
         Check COMPASSION: Does this minimize harm and prioritize user well-being?
@@ -226,7 +226,7 @@ class EthicalAutonomyGovernor:
         return min(1.0, score)
 
     def _check_evidence(
-        self, action_type: str, params: Dict[str, Any], context: Dict[str, Any]
+        self, action_type: str, params: dict[str, Any], context: dict[str, Any]
     ) -> float:
         """
         Check EVIDENCE: Is this backed by verifiable data, benchmarks, and proofs?
@@ -245,7 +245,7 @@ class EthicalAutonomyGovernor:
         return min(1.0, score)
 
     def _check_justice(
-        self, action_type: str, params: Dict[str, Any], context: Dict[str, Any]
+        self, action_type: str, params: dict[str, Any], context: dict[str, Any]
     ) -> float:
         """
         Check JUSTICE: Is this fair and unbiased across all inputs?
@@ -263,7 +263,7 @@ class EthicalAutonomyGovernor:
         return score
 
     def _check_altruism(
-        self, action_type: str, params: Dict[str, Any], context: Dict[str, Any]
+        self, action_type: str, params: dict[str, Any], context: dict[str, Any]
     ) -> float:
         """
         Check ALTRUISM: Does this have positive societal impact?
@@ -280,7 +280,7 @@ class EthicalAutonomyGovernor:
         return min(1.0, score)
 
     def _check_control(
-        self, action_type: str, params: Dict[str, Any], context: Dict[str, Any]
+        self, action_type: str, params: dict[str, Any], context: dict[str, Any]
     ) -> float:
         """
         Check CONTROL: Are there auditable controls and logging?
@@ -297,7 +297,7 @@ class EthicalAutonomyGovernor:
         return min(1.0, score)
 
     def _check_character(
-        self, action_type: str, params: Dict[str, Any], context: Dict[str, Any]
+        self, action_type: str, params: dict[str, Any], context: dict[str, Any]
     ) -> float:
         """
         Check CHARACTER: Is this transparent with clear intent?
@@ -314,7 +314,7 @@ class EthicalAutonomyGovernor:
         return min(1.0, score)
 
     def _check_competence(
-        self, action_type: str, params: Dict[str, Any], context: Dict[str, Any]
+        self, action_type: str, params: dict[str, Any], context: dict[str, Any]
     ) -> float:
         """
         Check COMPETENCE: Is this well-tested with high coverage?
@@ -334,7 +334,7 @@ class EthicalAutonomyGovernor:
         return min(1.0, score)
 
     def _check_commitment(
-        self, action_type: str, params: Dict[str, Any], context: Dict[str, Any]
+        self, action_type: str, params: dict[str, Any], context: dict[str, Any]
     ) -> float:
         """
         Check COMMITMENT: Does this support continuous improvement?
@@ -350,7 +350,7 @@ class EthicalAutonomyGovernor:
 
         return min(1.0, score)
 
-    def get_audit_log(self) -> List[Dict[str, Any]]:
+    def get_audit_log(self) -> list[dict[str, Any]]:
         """Return the full audit log of ethics evaluations."""
         return self.audit_log.copy()
 
@@ -359,7 +359,7 @@ class EthicalAutonomyGovernor:
         self.audit_log.clear()
         logging.info("Ethics audit log cleared")
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get statistics about ethics evaluations."""
         if not self.audit_log:
             return {

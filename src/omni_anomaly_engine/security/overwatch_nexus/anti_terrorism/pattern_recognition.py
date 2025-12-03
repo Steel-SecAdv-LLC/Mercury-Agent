@@ -25,7 +25,7 @@ Integrates with existing threat knowledge base from intelligence_fusion.py.
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -35,8 +35,8 @@ class TerrorismThreatResult:
     threat_detected: bool
     radicalization_stage: str
     confidence: float
-    threat_indicators: List[str]
-    recommended_actions: List[str]
+    threat_indicators: list[str]
+    recommended_actions: list[str]
 
 
 class TerrorismPatternDetector:
@@ -47,7 +47,7 @@ class TerrorismPatternDetector:
     Uses QBM probabilistic modeling for threat energies.
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.logger = logging.getLogger(__name__)
         self.config = config or {}
 
@@ -63,8 +63,8 @@ class TerrorismPatternDetector:
 
     def detect_radicalization(
         self,
-        osint_data: Optional[Dict[str, Any]] = None,
-        comint_data: Optional[Dict[str, Any]] = None,
+        osint_data: dict[str, Any] | None = None,
+        comint_data: dict[str, Any] | None = None,
     ) -> TerrorismThreatResult:
         """
         Detect radicalization patterns in intelligence data.
@@ -108,7 +108,7 @@ class TerrorismPatternDetector:
 
         return result
 
-    def _classify_radicalization_stage(self, threat_score: float, indicators: List[str]) -> str:
+    def _classify_radicalization_stage(self, threat_score: float, indicators: list[str]) -> str:
         """Classify radicalization stage based on threat score."""
         if threat_score > 0.9:
             return "imminent_action"
@@ -121,7 +121,7 @@ class TerrorismPatternDetector:
         else:
             return "pre_radicalization"
 
-    def _recommend_actions(self, stage: str, threat_score: float) -> List[str]:
+    def _recommend_actions(self, stage: str, threat_score: float) -> list[str]:
         """Recommend counter-terrorism actions."""
         actions = []
 

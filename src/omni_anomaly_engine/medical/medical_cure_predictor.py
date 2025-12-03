@@ -37,12 +37,12 @@ Research sources:
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
 from scipy.ndimage import zoom
+from torch import nn
 
 from omni_anomaly_engine.infrastructure.healthcare_emergency import HealthcareEmergencyDetector
 from omni_anomaly_engine.models.multiverse import MultiverseOmniEngine
@@ -58,10 +58,10 @@ class MedicalPredictionResult:
     risk_score: float
     vital_signs_anomaly: bool
     imaging_anomaly: bool
-    optimal_treatment: Optional[str] = None
-    treatment_pathways: List[Dict] = field(default_factory=list)
-    early_warning_indicators: List[str] = field(default_factory=list)
-    recommendations: List[str] = field(default_factory=list)
+    optimal_treatment: str | None = None
+    treatment_pathways: list[dict] = field(default_factory=list)
+    early_warning_indicators: list[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
 
 class TemporalVitalSignsLSTM(nn.Module):
@@ -98,7 +98,7 @@ class TemporalVitalSignsLSTM(nn.Module):
             nn.Sigmoid(),
         )
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass through LSTM.
 
@@ -133,8 +133,8 @@ class TemporalVitalSignsDetector:
         self.logger = logging.getLogger(__name__)
 
     def detect_temporal_anomaly(
-        self, vital_signs_sequence: np.ndarray, patient_history: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        self, vital_signs_sequence: np.ndarray, patient_history: dict | None = None
+    ) -> dict[str, Any]:
         """
         Detect anomalies in temporal vital signs sequence.
 
@@ -196,8 +196,8 @@ class TemporalVitalSignsDetector:
         return np.clip(normalized, 0, 1)
 
     def _calculate_disease_risk(
-        self, anomaly_score: float, assessment: Dict, vitals_sequence: np.ndarray
-    ) -> Dict[str, float]:
+        self, anomaly_score: float, assessment: dict, vitals_sequence: np.ndarray
+    ) -> dict[str, float]:
         """Calculate disease risk scores."""
         if len(vitals_sequence) >= 3:
             recent_trend = np.mean(np.diff(vitals_sequence[-3:, :], axis=0), axis=0)
@@ -221,8 +221,8 @@ class TemporalVitalSignsDetector:
         return risks
 
     def _generate_temporal_recommendations(
-        self, anomaly_score: float, disease_risk: Dict, assessment: Dict
-    ) -> List[str]:
+        self, anomaly_score: float, disease_risk: dict, assessment: dict
+    ) -> list[str]:
         """Generate recommendations based on temporal analysis."""
         recs = []
 
@@ -276,7 +276,7 @@ class MedicalImagingAnomalyDetector:
 
     def detect_imaging_anomaly(
         self, medical_image: np.ndarray, imaging_type: str = "xray"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Detect anomalies in medical imaging.
 
@@ -322,7 +322,7 @@ class MedicalImagingAnomalyDetector:
 
         return normalized
 
-    def _generate_findings(self, is_anomalous: bool, score: float, imaging_type: str) -> List[str]:
+    def _generate_findings(self, is_anomalous: bool, score: float, imaging_type: str) -> list[str]:
         """Generate findings based on anomaly detection."""
         findings = []
 
@@ -348,7 +348,7 @@ class MedicalImagingAnomalyDetector:
 
     def _generate_imaging_recommendations(
         self, is_anomalous: bool, score: float, imaging_type: str
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate imaging recommendations."""
         recs = []
 
@@ -379,8 +379,8 @@ class TreatmentPathwayOptimizer:
         self.logger = logging.getLogger(__name__)
 
     def optimize_treatment(
-        self, patient_state: Dict[str, Any], disease_type: str
-    ) -> Dict[str, Any]:
+        self, patient_state: dict[str, Any], disease_type: str
+    ) -> dict[str, Any]:
         """
         Optimize treatment pathway using multiverse exploration.
 
@@ -429,8 +429,8 @@ class TreatmentPathwayOptimizer:
         }
 
     def _generate_treatment_recommendations(
-        self, pathways: List[Dict], disease_type: str
-    ) -> List[str]:
+        self, pathways: list[dict], disease_type: str
+    ) -> list[str]:
         """Generate treatment recommendations."""
         recs = []
 
@@ -472,7 +472,7 @@ class MedicalCurePredictor:
 
         self.logger = logging.getLogger(__name__)
 
-    def predict_and_cure(self, patient_data: Dict[str, Any]) -> MedicalPredictionResult:
+    def predict_and_cure(self, patient_data: dict[str, Any]) -> MedicalPredictionResult:
         """
         Comprehensive medical prediction and cure optimization.
 

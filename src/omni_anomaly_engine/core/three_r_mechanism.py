@@ -29,9 +29,10 @@ import tempfile
 import textwrap
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -54,7 +55,7 @@ class RecursionEngine:
 
     def __init__(self, max_depth: int = 5):
         self.max_depth = max_depth
-        self.recursion_cache: Dict[str, Any] = {}
+        self.recursion_cache: dict[str, Any] = {}
 
     def recursive_transform(
         self,
@@ -76,7 +77,7 @@ class RecursionEngine:
 
     def hierarchical_feature_extraction(
         self, data: NDArray[Any], num_levels: int = 3
-    ) -> List[NDArray[Any]]:
+    ) -> list[NDArray[Any]]:
         features = []
         current_data = data
 
@@ -124,7 +125,7 @@ class ResonanceEngine:
 
     def compute_resonance_spectrum(
         self, signal_data: NDArray[Any]
-    ) -> Tuple[NDArray[Any], NDArray[Any]]:
+    ) -> tuple[NDArray[Any], NDArray[Any]]:
         if signal_data.ndim > 1:
             signal_data = signal_data.flatten()
 
@@ -138,7 +139,7 @@ class ResonanceEngine:
     def amplify_resonant_frequencies(
         self,
         signal_data: NDArray[Any],
-        target_frequencies: Optional[List[float]] = None,
+        target_frequencies: list[float] | None = None,
         amplification_factor: float = 2.0,
     ) -> NDArray[Any]:
         if signal_data.ndim > 1:
@@ -162,7 +163,7 @@ class ResonanceEngine:
 
     def _detect_dominant_frequencies(
         self, frequencies: NDArray[Any], magnitudes: NDArray[Any], num_peaks: int = 5
-    ) -> List[float]:
+    ) -> list[float]:
         peaks, _ = signal.find_peaks(magnitudes, height=np.max(magnitudes) * 0.1)
 
         if len(peaks) == 0:
@@ -175,7 +176,7 @@ class ResonanceEngine:
 
     def detect_resonance_anomalies(
         self, signal_data: NDArray[Any], threshold_std: float = 3.0
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         frequencies, magnitudes = self.compute_resonance_spectrum(signal_data)
 
         mean_magnitude = np.mean(magnitudes)
@@ -549,18 +550,18 @@ class RefactoringEngine:
     """
 
     def __init__(
-        self, config: Optional[RefactoringConfig] = None, rng: Optional[DeterministicRNG] = None
+        self, config: RefactoringConfig | None = None, rng: DeterministicRNG | None = None
     ):
         self.config = config or RefactoringConfig()
-        self.optimization_history: List[Dict[str, Any]] = []
-        self._backup_files: Dict[str, str] = {}
+        self.optimization_history: list[dict[str, Any]] = []
+        self._backup_files: dict[str, str] = {}
         self.ethics_governor = EthicalAutonomyGovernor(EthicsConfig())
-        self._analysis_cache: Dict[str, Dict[str, Any]] = {}
+        self._analysis_cache: dict[str, dict[str, Any]] = {}
         self._cache_lock = threading.RLock()
         # Use provided RNG or get global instance
         self._rng = rng or get_global_rng()
 
-    def analyze_function_complexity(self, func: Callable[..., Any]) -> Dict[str, Any]:
+    def analyze_function_complexity(self, func: Callable[..., Any]) -> dict[str, Any]:
         try:
             source = inspect.getsource(func)
             source = textwrap.dedent(source)
@@ -583,7 +584,7 @@ class RefactoringEngine:
             logging.warning(f"Could not analyze function: {e}")
             return {"error": str(e)}
 
-    def analyze_complexity(self, code: str) -> Dict[str, Any]:
+    def analyze_complexity(self, code: str) -> dict[str, Any]:
         """
         Analyze code complexity from string source.
 
@@ -640,7 +641,7 @@ class RefactoringEngine:
         except SyntaxError as e:
             logging.warning(f"Syntax error in code: {e}")
             return {
-                "error": f"Syntax error: {str(e)}",
+                "error": f"Syntax error: {e!s}",
                 "num_nodes": 0,
                 "num_branches": 0,
                 "num_loops": 0,
@@ -660,7 +661,7 @@ class RefactoringEngine:
                 "cyclomatic_complexity": 1,
             }
 
-    def analyze_cognitive_complexity(self, func: Callable[..., Any]) -> Dict[str, Any]:
+    def analyze_cognitive_complexity(self, func: Callable[..., Any]) -> dict[str, Any]:
         """
         Analyze cognitive complexity using full SonarQube algorithm.
 
@@ -731,7 +732,7 @@ class RefactoringEngine:
             ),
         }
 
-    def analyze_full_complexity(self, func: Callable[..., Any]) -> Dict[str, Any]:
+    def analyze_full_complexity(self, func: Callable[..., Any]) -> dict[str, Any]:
         """
         Analyze both cyclomatic and cognitive complexity.
 
@@ -768,7 +769,7 @@ class RefactoringEngine:
             ),
         }
 
-    def suggest_refactorings(self, func: Callable[..., Any]) -> List[Dict[str, str]]:
+    def suggest_refactorings(self, func: Callable[..., Any]) -> list[dict[str, str]]:
         metrics = self.analyze_function_complexity(func)
 
         if "error" in metrics:
@@ -823,9 +824,9 @@ class RefactoringEngine:
     def apply_refactorings(
         self,
         func: Callable[..., Any],
-        suggestions: Optional[List[Dict[str, str]]] = None,
-        require_confirmation: Optional[bool] = None,
-    ) -> Dict[str, Any]:
+        suggestions: list[dict[str, str]] | None = None,
+        require_confirmation: bool | None = None,
+    ) -> dict[str, Any]:
         """
         Apply suggested refactorings to a function automatically.
 
@@ -935,7 +936,7 @@ class RefactoringEngine:
             }
 
     def _apply_ast_transformations(
-        self, source_code: str, suggestions: List[Dict[str, str]], func_name: str
+        self, source_code: str, suggestions: list[dict[str, str]], func_name: str
     ) -> str:
         """
         Apply AST transformations based on suggestions.
@@ -963,7 +964,7 @@ class RefactoringEngine:
         refactored = ast.unparse(new_tree)
         return refactored
 
-    def rollback_refactoring(self, func_name: str) -> Dict[str, Any]:
+    def rollback_refactoring(self, func_name: str) -> dict[str, Any]:
         """
         Rollback a refactoring by restoring from backup.
 
@@ -982,7 +983,7 @@ class RefactoringEngine:
         backup_path = self._backup_files[func_name]
 
         try:
-            with open(backup_path, "r") as f:
+            with open(backup_path) as f:
                 original_code = f.read()
 
             return {
@@ -996,7 +997,7 @@ class RefactoringEngine:
                 "error": f"Failed to restore from backup: {e}",
             }
 
-    def analyze_with_harmonics(self, func: Callable[..., Any]) -> Dict[str, Any]:
+    def analyze_with_harmonics(self, func: Callable[..., Any]) -> dict[str, Any]:
         """
         Analyze function complexity using harmonic (frequency) analysis.
 
@@ -1051,8 +1052,8 @@ class RefactoringEngine:
         return dict(metrics)
 
     def explore_quantum_refactoring_paths(
-        self, func: Callable[..., Any], num_paths: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
+        self, func: Callable[..., Any], num_paths: int | None = None
+    ) -> list[dict[str, Any]]:
         """
         Explore multiple refactoring paths using quantum-inspired superposition.
 
@@ -1106,7 +1107,7 @@ class RefactoringEngine:
 
         return sorted(paths, key=lambda p: p["score"], reverse=True)
 
-    def detect_pattern_resonance(self, func: Callable[..., Any]) -> Dict[str, Any]:
+    def detect_pattern_resonance(self, func: Callable[..., Any]) -> dict[str, Any]:
         """
         Detect recurring patterns in code using resonance analysis.
 
@@ -1120,7 +1121,7 @@ class RefactoringEngine:
         except Exception as e:
             return {"error": str(e)}
 
-        node_type_counts: Dict[str, int] = {}
+        node_type_counts: dict[str, int] = {}
         for node in ast.walk(tree):
             node_type = type(node).__name__
             node_type_counts[node_type] = node_type_counts.get(node_type, 0) + 1
@@ -1146,8 +1147,8 @@ class RefactoringEngine:
         return {"resonance_detected": False}
 
     def _generate_resonance_suggestions(
-        self, resonant_indices: NDArray[Any], node_types: List[str]
-    ) -> List[Dict[str, str]]:
+        self, resonant_indices: NDArray[Any], node_types: list[str]
+    ) -> list[dict[str, str]]:
         """Generate refactoring suggestions based on resonance patterns."""
         suggestions = []
 
@@ -1162,7 +1163,7 @@ class RefactoringEngine:
 
         return suggestions
 
-    def analyze_with_spherical_harmonics(self, func: Callable[..., Any]) -> Dict[str, Any]:
+    def analyze_with_spherical_harmonics(self, func: Callable[..., Any]) -> dict[str, Any]:
         """
         Analyze function complexity using spherical harmonics decomposition.
 
@@ -1229,8 +1230,8 @@ class RefactoringEngine:
             return {"error": str(e), "enabled": True}
 
     def orchestrate_refactoring(
-        self, func: Callable[..., Any], strategies: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+        self, func: Callable[..., Any], strategies: list[str] | None = None
+    ) -> dict[str, Any]:
         """
         Orchestrate multiple refactoring strategies and select the best.
 
@@ -1240,7 +1241,7 @@ class RefactoringEngine:
         if strategies is None:
             strategies = ["complexity", "harmonic", "quantum", "resonance"]
 
-        results: Dict[str, Any] = {}
+        results: dict[str, Any] = {}
 
         if self.config.enable_parallel_processing and len(strategies) > 1:
             from concurrent.futures import ThreadPoolExecutor
@@ -1290,7 +1291,7 @@ class RefactoringEngine:
         func: Callable[..., Any],
         method: AnomalyDetectionMethod = AnomalyDetectionMethod.MULTI_VARIATE,
         threshold: float = 2.0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Detect anomalies in code using multi-dimensional analysis.
 
@@ -1341,7 +1342,7 @@ class RefactoringEngine:
             "metrics": metrics,
         }
 
-    def classify_code_issues(self, func: Callable[..., Any]) -> List[Dict[str, Any]]:
+    def classify_code_issues(self, func: Callable[..., Any]) -> list[dict[str, Any]]:
         """
         Classify code issues by type and severity.
 
@@ -1415,9 +1416,9 @@ class RefactoringEngine:
     def evolve_refactoring_strategy(
         self,
         func: Callable[..., Any],
-        history: List[Dict[str, Any]],
+        history: list[dict[str, Any]],
         strategy: EvolutionStrategy = EvolutionStrategy.ADAPTIVE,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Evolve refactoring strategy based on historical performance.
 
@@ -1463,7 +1464,7 @@ class RefactoringEngine:
             "strategy_justification": "Based on historical performance and current metrics",
         }
 
-    def analyze_with_neurosymbolic(self, func: Callable[..., Any]) -> Dict[str, Any]:
+    def analyze_with_neurosymbolic(self, func: Callable[..., Any]) -> dict[str, Any]:
         """
         Analyze function using neurosymbolic integration.
 
@@ -1497,7 +1498,7 @@ class RefactoringEngine:
 
         return results
 
-    def _select_best_strategy(self, results: Dict[str, Any]) -> str:
+    def _select_best_strategy(self, results: dict[str, Any]) -> str:
         """Select the best refactoring strategy based on analysis results."""
         if results.get("resonance", {}).get("resonance_detected"):
             return "resonance_based_extraction"
@@ -1569,7 +1570,7 @@ class RefactoringEngine:
         num_variants: int = 10,
         alpha: float = 0.7,
         beta: float = 0.3,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Spawn multiple optimization variants and select the best using fitness function.
 
@@ -1650,8 +1651,8 @@ class RefactoringEngine:
         }
 
     def resonance_feedback_loop(
-        self, func: Callable[..., Any], max_iterations: Optional[int] = None
-    ) -> Dict[str, Any]:
+        self, func: Callable[..., Any], max_iterations: int | None = None
+    ) -> dict[str, Any]:
         """
         Auto-evolve refactoring strategy through recursive resonance feedback.
 
@@ -1721,7 +1722,7 @@ class RefactoringTransformer(ast.NodeTransformer):
     - Function call optimization (demonstration only)
     """
 
-    def __init__(self, suggestions: List[Dict[str, str]]):
+    def __init__(self, suggestions: list[dict[str, str]]):
         self.suggestions = suggestions
         self.should_reduce_nesting = any(s.get("type") == "reduce_nesting" for s in suggestions)
         self.should_reduce_complexity = any(
@@ -1791,10 +1792,10 @@ class ThreeRMechanism:
 
     def detect_with_resonance(
         self, signal_data: NDArray[Any], threshold_std: float = 3.0
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         return self.resonance_engine.detect_resonance_anomalies(signal_data, threshold_std)
 
-    def optimize_component(self, component: Callable[..., Any]) -> Dict[str, Any]:
+    def optimize_component(self, component: Callable[..., Any]) -> dict[str, Any]:
         complexity_metrics = self.refactoring_engine.analyze_function_complexity(component)
 
         anomaly_results = self.refactoring_engine.detect_code_anomalies(component)

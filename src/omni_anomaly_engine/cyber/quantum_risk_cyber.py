@@ -34,7 +34,7 @@ Research sources:
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -92,13 +92,13 @@ class QuantumRiskCyber:
         """
         self.threat_timeline_years = threat_timeline_years
         self.preparedness_threshold = preparedness_threshold
-        self.threat_catalog: List[QuantumThreat] = []
+        self.threat_catalog: list[QuantumThreat] = []
         self.preparedness_score = 0.1
-        self.vulnerability_scan_history: List[Dict] = []
+        self.vulnerability_scan_history: list[dict] = []
 
     def assess_quantum_vulnerability(
-        self, system_components: List[str], encryption_methods: List[str]
-    ) -> Dict[str, float]:
+        self, system_components: list[str], encryption_methods: list[str]
+    ) -> dict[str, float]:
         """
         Assess vulnerability to quantum attacks.
 
@@ -128,7 +128,7 @@ class QuantumRiskCyber:
 
     def assess_quantum_threat_level(
         self, current_year: int, cryptosystem: CryptoSystem
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Assess quantum threat level for a specific cryptosystem.
 
@@ -177,7 +177,7 @@ class QuantumRiskCyber:
             "recommended_action": action,
         }
 
-    def evaluate_post_quantum_readiness(self, current_crypto: Dict[str, float]) -> Dict[str, Any]:
+    def evaluate_post_quantum_readiness(self, current_crypto: dict[str, float]) -> dict[str, Any]:
         """
         Evaluate readiness for post-quantum cryptography.
 
@@ -213,7 +213,7 @@ class QuantumRiskCyber:
             "recommendation": recommendation,
         }
 
-    def scan_quantum_vulnerabilities(self, crypto_systems: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def scan_quantum_vulnerabilities(self, crypto_systems: list[dict[str, Any]]) -> dict[str, Any]:
         """
         Scan cryptographic systems for quantum vulnerabilities.
 
@@ -253,7 +253,7 @@ class QuantumRiskCyber:
 
         return scan_result
 
-    def model_risk_timeline(self, current_year: int) -> Dict[str, Any]:
+    def model_risk_timeline(self, current_year: int) -> dict[str, Any]:
         """
         Model quantum risk timeline based on Bain report (95% see threats within 10 years).
 
@@ -279,7 +279,7 @@ class QuantumRiskCyber:
             "bain_statistic": "95% of tech leaders expect quantum risks within 10 years",
         }
 
-    def detect_preparedness_gap(self, awareness: float, preparedness: float) -> Dict[str, Any]:
+    def detect_preparedness_gap(self, awareness: float, preparedness: float) -> dict[str, Any]:
         """
         Detect preparedness gap (Bain finding: 95% aware, only 10% have plans).
 
@@ -306,7 +306,7 @@ class QuantumRiskCyber:
             ),
         }
 
-    def prioritize_crypto_upgrades(self, systems: List[Dict]) -> List[Dict]:
+    def prioritize_crypto_upgrades(self, systems: list[dict]) -> list[dict]:
         """
         Prioritize cryptographic systems for upgrade.
 
@@ -347,8 +347,8 @@ class QuantumRiskCyber:
         return priorities
 
     def post_quantum_readiness_check(
-        self, current_crypto: List[str], pqc_alternatives: Optional[List[str]] = None
-    ) -> Tuple[float, List[str]]:
+        self, current_crypto: list[str], pqc_alternatives: list[str] | None = None
+    ) -> tuple[float, list[str]]:
         """
         Check readiness for post-quantum cryptography transition.
 
@@ -401,7 +401,7 @@ class QuantumRiskCyber:
 
     def threat_timeline_modeling(
         self, threat_type: str, current_year: int = 2025
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Model quantum threat timeline.
 
@@ -432,7 +432,7 @@ class QuantumRiskCyber:
 
     def quantum_threat_detection(
         self, data_patterns: np.ndarray, anomaly_threshold: float = 0.7
-    ) -> Tuple[bool, float, str]:
+    ) -> tuple[bool, float, str]:
         """
         Detect potential quantum-based attacks or anomalies.
 
@@ -465,7 +465,7 @@ class QuantumRiskCyber:
 
         return threat_detected, anomaly_score, description
 
-    def preparedness_gap_analysis(self) -> Dict[str, Any]:
+    def preparedness_gap_analysis(self) -> dict[str, Any]:
         """
         Analyze the preparedness gap.
 
@@ -583,7 +583,7 @@ class PostQuantumMigrationPlanner:
 
     def assess_algorithm_vulnerability(
         self, algorithm: str, key_size: int, usage_context: str = "general"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Assess vulnerability of current cryptographic algorithm.
 
         Args:
@@ -650,7 +650,7 @@ class PostQuantumMigrationPlanner:
 
     def _recommend_pqc_algorithm(
         self, current_algorithm: str, usage_context: str
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Recommend NIST PQC algorithm to replace current algorithm."""
         algorithm_upper = current_algorithm.upper()
 
@@ -687,8 +687,8 @@ class PostQuantumMigrationPlanner:
         }
 
     def create_migration_plan(
-        self, current_systems: List[Dict[str, Any]], timeline_months: int = 24
-    ) -> Dict[str, Any]:
+        self, current_systems: list[dict[str, Any]], timeline_months: int = 24
+    ) -> dict[str, Any]:
         """Create comprehensive migration plan to post-quantum cryptography.
 
         Args:
@@ -791,7 +791,7 @@ class PostQuantumMigrationPlanner:
             ],
         }
 
-    def _estimate_migration_effort(self, system: Dict[str, Any]) -> str:
+    def _estimate_migration_effort(self, system: dict[str, Any]) -> str:
         """Estimate effort required to migrate a system."""
         criticality = system.get("criticality", 0.5)
         usage = system.get("usage", 0.5)
@@ -806,8 +806,8 @@ class PostQuantumMigrationPlanner:
             return "low (1-3 months)"
 
     def monitor_migration_progress(
-        self, plan: Dict[str, Any], completed_milestones: List[str]
-    ) -> Dict[str, Any]:
+        self, plan: dict[str, Any], completed_milestones: list[str]
+    ) -> dict[str, Any]:
         """Monitor progress of PQC migration plan.
 
         Args:
@@ -847,7 +847,7 @@ class PostQuantumMigrationPlanner:
             "next_steps": plan["migration_phases"][current_phase]["activities"],
         }
 
-    def explain_pqc_algorithms(self) -> Dict[str, Any]:
+    def explain_pqc_algorithms(self) -> dict[str, Any]:
         """Provide detailed explanation of NIST PQC algorithms.
 
         Returns:

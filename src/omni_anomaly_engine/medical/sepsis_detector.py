@@ -41,11 +41,11 @@ Research sources:
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class SepsisStage(Enum):
@@ -67,17 +67,17 @@ class SepsisPredictionResult:
     sepsis_stage: str
     risk_score: float
 
-    sofa_score: Optional[int] = None
-    qsofa_score: Optional[int] = None
+    sofa_score: int | None = None
+    qsofa_score: int | None = None
 
     septic_shock_risk: float = 0.0
     mortality_risk: float = 0.0
 
-    organ_dysfunctions: List[str] = field(default_factory=list)
-    time_to_intervention_hours: Optional[float] = None
+    organ_dysfunctions: list[str] = field(default_factory=list)
+    time_to_intervention_hours: float | None = None
 
-    clinical_recommendations: List[str] = field(default_factory=list)
-    bundle_compliance: List[str] = field(default_factory=list)
+    clinical_recommendations: list[str] = field(default_factory=list)
+    bundle_compliance: list[str] = field(default_factory=list)
 
 
 class SOFACalculator:
@@ -90,7 +90,7 @@ class SOFACalculator:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def calculate_sofa(self, patient_data: Dict[str, Any]) -> Dict[str, Any]:
+    def calculate_sofa(self, patient_data: dict[str, Any]) -> dict[str, Any]:
         """
         Calculate SOFA score from patient data.
 
@@ -142,7 +142,7 @@ class SOFACalculator:
             "sepsis_indicated": total_sofa >= 2,
         }
 
-    def _calculate_respiration(self, data: Dict[str, Any]) -> int:
+    def _calculate_respiration(self, data: dict[str, Any]) -> int:
         """Respiration score based on PaO2/FiO2 ratio"""
         pao2_fio2 = data.get("pao2_fio2_ratio")
         vent = data.get("mechanical_ventilation", False)
@@ -161,7 +161,7 @@ class SOFACalculator:
         else:
             return 4
 
-    def _calculate_coagulation(self, data: Dict[str, Any]) -> int:
+    def _calculate_coagulation(self, data: dict[str, Any]) -> int:
         """Coagulation score based on platelets"""
         platelets = data.get("platelets_k_ul", 200)
 
@@ -176,7 +176,7 @@ class SOFACalculator:
         else:
             return 4
 
-    def _calculate_liver(self, data: Dict[str, Any]) -> int:
+    def _calculate_liver(self, data: dict[str, Any]) -> int:
         """Liver score based on bilirubin"""
         bilirubin = data.get("bilirubin_mg_dl", 1.0)
 
@@ -191,7 +191,7 @@ class SOFACalculator:
         else:
             return 4
 
-    def _calculate_cardiovascular(self, data: Dict[str, Any]) -> int:
+    def _calculate_cardiovascular(self, data: dict[str, Any]) -> int:
         """Cardiovascular score based on MAP and vasopressors"""
         map_val = data.get("mean_arterial_pressure", 75)
         dopamine = data.get("dopamine_mcg_kg_min", 0.0)
@@ -208,7 +208,7 @@ class SOFACalculator:
         else:
             return 4
 
-    def _calculate_cns(self, data: Dict[str, Any]) -> int:
+    def _calculate_cns(self, data: dict[str, Any]) -> int:
         """CNS score based on Glasgow Coma Scale"""
         gcs = data.get("gcs_score", 15)
 
@@ -223,7 +223,7 @@ class SOFACalculator:
         else:
             return 4
 
-    def _calculate_renal(self, data: Dict[str, Any]) -> int:
+    def _calculate_renal(self, data: dict[str, Any]) -> int:
         """Renal score based on creatinine and urine output"""
         creatinine = data.get("creatinine_mg_dl", 1.0)
         urine_output = data.get("urine_output_ml_day", 2000)
@@ -250,7 +250,7 @@ class QuickSOFACalculator:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def calculate_qsofa(self, vital_signs: Dict[str, Any]) -> Dict[str, Any]:
+    def calculate_qsofa(self, vital_signs: dict[str, Any]) -> dict[str, Any]:
         """
         Calculate qSOFA score.
 
@@ -340,7 +340,7 @@ class SepsisProgressionPredictor(nn.Module):
 
     def forward(
         self, temporal_sequence: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Forward pass for sepsis progression prediction.
 
@@ -376,7 +376,7 @@ class SepsisDetector:
 
         self.logger = logging.getLogger(__name__)
 
-    def detect_sepsis(self, patient_data: Dict[str, Any]) -> SepsisPredictionResult:
+    def detect_sepsis(self, patient_data: dict[str, Any]) -> SepsisPredictionResult:
         """
         Comprehensive sepsis detection and risk assessment.
 
@@ -446,7 +446,7 @@ class SepsisDetector:
 
         return result
 
-    def _predict_progression(self, temporal_sequence: np.ndarray) -> Dict[str, Any]:
+    def _predict_progression(self, temporal_sequence: np.ndarray) -> dict[str, Any]:
         """Predict sepsis progression using ML model"""
         seq_tensor = torch.tensor(temporal_sequence, dtype=torch.float32).unsqueeze(0)
 
@@ -468,7 +468,7 @@ class SepsisDetector:
             "confidence": confidence,
         }
 
-    def _generate_recommendations(self, result: SepsisPredictionResult) -> List[str]:
+    def _generate_recommendations(self, result: SepsisPredictionResult) -> list[str]:
         """Generate clinical recommendations based on sepsis assessment"""
         recs = []
 
@@ -498,7 +498,7 @@ class SepsisDetector:
 
         return recs
 
-    def _generate_bundle_checklist(self, result: SepsisPredictionResult) -> List[str]:
+    def _generate_bundle_checklist(self, result: SepsisPredictionResult) -> list[str]:
         """Generate Surviving Sepsis Campaign bundle checklist"""
         bundle = []
 
@@ -516,7 +516,7 @@ class SepsisDetector:
 
         return bundle
 
-    def _estimate_intervention_window(self, result: SepsisPredictionResult) -> Optional[float]:
+    def _estimate_intervention_window(self, result: SepsisPredictionResult) -> float | None:
         """Estimate time window for critical interventions"""
         if result.sepsis_stage == "septic_shock":
             return 1.0

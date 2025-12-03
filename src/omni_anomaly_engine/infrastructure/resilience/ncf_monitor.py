@@ -22,7 +22,7 @@ Monitors 55 CISA National Critical Functions for anomalies and models
 interdependencies for cascading failure analysis.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -36,7 +36,7 @@ class NCFMonitor:
     Reference: https://www.cisa.gov/national-critical-functions-set
     """
 
-    def __init__(self, ethical_config: Optional[Dict[str, float]] = None):
+    def __init__(self, ethical_config: dict[str, float] | None = None):
         """Initialize NCF Monitor.
 
         Args:
@@ -111,7 +111,7 @@ class NCFMonitor:
         self.dependencies = self._build_dependency_graph()
         self.ethical_config = ethical_config or {}
 
-    def _build_dependency_graph(self) -> Dict[str, List[str]]:
+    def _build_dependency_graph(self) -> dict[str, list[str]]:
         """Build directed graph of NCF dependencies."""
         return {
             "distribute_electricity": ["generate_electricity"],
@@ -136,8 +136,8 @@ class NCFMonitor:
         }
 
     def detect(
-        self, data: np.ndarray, ncf_id: str, context: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        self, data: np.ndarray, ncf_id: str, context: dict | None = None
+    ) -> dict[str, Any]:
         """Detect anomalies for specific NCF.
 
         Args:
@@ -172,7 +172,7 @@ class NCFMonitor:
             },
         }
 
-    def analyze_cascading_failures(self, initial_failures: List[str]) -> Dict[str, Any]:
+    def analyze_cascading_failures(self, initial_failures: list[str]) -> dict[str, Any]:
         """Model cascading impacts across dependent NCFs.
 
         Args:
@@ -220,7 +220,7 @@ class NCFMonitor:
         std = np.std(data) + 1e-8
         return np.abs((data - mean) / std)
 
-    def _calculate_ethical_impact(self, ncf_id: str, context: Optional[Dict]) -> float:
+    def _calculate_ethical_impact(self, ncf_id: str, context: dict | None) -> float:
         """Calculate ethical impact score based on survivor-first principles."""
         vulnerable_ncfs = {
             "conduct_public_health": 0.95,

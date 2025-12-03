@@ -158,7 +158,7 @@ class InfrastructureCoordinator:
         module_class = self.modules[module_name]["class"]
         return module_class(**kwargs)
 
-    def get_modules_by_category(self, category: str) -> List[str]:
+    def get_modules_by_category(self, category: str) -> list[str]:
         """Get all module names in a category.
 
         Args:
@@ -169,7 +169,7 @@ class InfrastructureCoordinator:
         """
         return [name for name, info in self.modules.items() if info["category"] == category]
 
-    def get_modules_by_priority(self, priority: str) -> List[str]:
+    def get_modules_by_priority(self, priority: str) -> list[str]:
         """Get all module names with a priority level.
 
         Args:
@@ -182,10 +182,10 @@ class InfrastructureCoordinator:
 
     def filter_modules(
         self,
-        categories: Optional[List[str]] = None,
-        priorities: Optional[List[str]] = None,
-        module_names: Optional[List[str]] = None,
-    ) -> List[str]:
+        categories: list[str] | None = None,
+        priorities: list[str] | None = None,
+        module_names: list[str] | None = None,
+    ) -> list[str]:
         """Filter modules based on multiple criteria.
 
         Args:
@@ -217,11 +217,11 @@ class InfrastructureCoordinator:
 
     def instantiate_filtered_modules(
         self,
-        categories: Optional[List[str]] = None,
-        priorities: Optional[List[str]] = None,
-        module_names: Optional[List[str]] = None,
+        categories: list[str] | None = None,
+        priorities: list[str] | None = None,
+        module_names: list[str] | None = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Instantiate all modules matching filters.
 
         Args:
@@ -246,7 +246,7 @@ class InfrastructureCoordinator:
 
         return instances
 
-    def list_all_modules(self) -> Dict[str, Dict[str, str]]:
+    def list_all_modules(self) -> dict[str, dict[str, str]]:
         """List all available modules with metadata.
 
         Returns:
@@ -263,22 +263,22 @@ class InfrastructureCoordinator:
 
 
 __all__ = [
-    "ChemicalNuclearDetector",
     "CISASector",
+    "ChemicalNuclearDetector",
     "CommunicationsITDetector",
+    "CrossBorderIntelligence",
+    "DamType",
+    "EmergencyType",
+    "EmergingTechMonitor",
     "EnergyDamsDetector",
     "EnergySubsector",
-    "DamType",
-    "HealthcareEmergencyDetector",
-    "PatientStatus",
-    "EmergencyType",
-    "NCFMonitor",
-    "SpaceInfrastructureMonitor",
-    "CrossBorderIntelligence",
     "EssentialWorkersMonitor",
     "GovernmentFacilitiesMonitor",
-    "WorldBankSectorsMonitor",
-    "EmergingTechMonitor",
-    "SpaceExplorationAnalyzer",
+    "HealthcareEmergencyDetector",
     "InfrastructureCoordinator",
+    "NCFMonitor",
+    "PatientStatus",
+    "SpaceExplorationAnalyzer",
+    "SpaceInfrastructureMonitor",
+    "WorldBankSectorsMonitor",
 ]

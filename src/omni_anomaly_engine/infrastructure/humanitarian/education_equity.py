@@ -37,7 +37,7 @@ Research sources:
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -62,8 +62,8 @@ class EducationEquityDetector:
         self,
         data: np.ndarray,
         detection_type: str = "achievement",
-        demographic_data: Optional[Dict] = None,
-    ) -> Dict[str, Any]:
+        demographic_data: dict | None = None,
+    ) -> dict[str, Any]:
         """
         Detect educational equity anomalies.
 
@@ -83,8 +83,8 @@ class EducationEquityDetector:
             return self.detect_achievement_gap(data, demographic_data)
 
     def detect_achievement_gap(
-        self, achievement_data: np.ndarray, demographic_data: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        self, achievement_data: np.ndarray, demographic_data: dict | None = None
+    ) -> dict[str, Any]:
         """Detect achievement gaps across student populations."""
         if len(achievement_data) == 0:
             return {"anomaly_detected": False}
@@ -124,8 +124,8 @@ class EducationEquityDetector:
         }
 
     def detect_dropout_risk(
-        self, student_data: np.ndarray, demographic_data: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        self, student_data: np.ndarray, demographic_data: dict | None = None
+    ) -> dict[str, Any]:
         """Detect students at risk of dropping out."""
         if len(student_data) == 0:
             return {"anomaly_detected": False}
@@ -173,7 +173,7 @@ class EducationEquityDetector:
 
     def _generate_education_recommendations(
         self, threat_type: EducationThreat, severity: str, metric: float
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate educational equity recommendations."""
         recommendations = []
 

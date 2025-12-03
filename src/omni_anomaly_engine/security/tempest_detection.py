@@ -40,11 +40,11 @@ Research sources:
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class EmanationType(Enum):
@@ -78,18 +78,18 @@ class TEMPESTAnalysisResult:
     threat_level: str
     risk_score: float
 
-    emanation_types: List[str] = field(default_factory=list)
-    frequency_bands: List[Dict] = field(default_factory=list)
-    signal_strength_dbm: Optional[float] = None
+    emanation_types: list[str] = field(default_factory=list)
+    frequency_bands: list[dict] = field(default_factory=list)
+    signal_strength_dbm: float | None = None
 
     compromising_potential: float = 0.0
     reconstruction_feasibility: float = 0.0
 
-    vulnerable_equipment: List[str] = field(default_factory=list)
-    shielding_effectiveness: Optional[float] = None
+    vulnerable_equipment: list[str] = field(default_factory=list)
+    shielding_effectiveness: float | None = None
 
-    countermeasures: List[str] = field(default_factory=list)
-    compliance_status: Dict[str, bool] = field(default_factory=dict)
+    countermeasures: list[str] = field(default_factory=list)
+    compliance_status: dict[str, bool] = field(default_factory=dict)
 
 
 class RFSpectrumAnalyzer:
@@ -110,7 +110,7 @@ class RFSpectrumAnalyzer:
             "processor": (100e6, 3e9),
         }
 
-    def analyze_spectrum(self, spectrum_data: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze_spectrum(self, spectrum_data: dict[str, Any]) -> dict[str, Any]:
         """
         Analyze RF spectrum for emanations.
 
@@ -156,8 +156,8 @@ class RFSpectrumAnalyzer:
         }
 
     def _detect_band_emanation(
-        self, frequencies: List[float], power_levels: List[float], freq_min: float, freq_max: float
-    ) -> Dict[str, Any]:
+        self, frequencies: list[float], power_levels: list[float], freq_min: float, freq_max: float
+    ) -> dict[str, Any]:
         """Detect emanations in specific frequency band"""
         band_indices = [i for i, f in enumerate(frequencies) if freq_min <= f <= freq_max]
 
@@ -218,7 +218,7 @@ class VideoEmanationDetector(nn.Module):
             nn.Softmax(dim=1),
         )
 
-    def forward(self, emanation_features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, emanation_features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass for video emanation analysis.
 
@@ -246,7 +246,7 @@ class SideChannelVulnerabilityAssessor:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def assess_vulnerabilities(self, equipment_data: Dict[str, Any]) -> Dict[str, Any]:
+    def assess_vulnerabilities(self, equipment_data: dict[str, Any]) -> dict[str, Any]:
         """
         Assess equipment for side-channel vulnerabilities.
 
@@ -289,7 +289,7 @@ class SideChannelVulnerabilityAssessor:
             "compliance_status": self._check_compliance(equipment_data),
         }
 
-    def _check_compliance(self, equipment_data: Dict[str, Any]) -> Dict[str, bool]:
+    def _check_compliance(self, equipment_data: dict[str, Any]) -> dict[str, bool]:
         """Check TEMPEST/EMSEC compliance"""
         compliance = {}
 
@@ -316,8 +316,8 @@ class EMSECCountermeasureGenerator:
         self.logger = logging.getLogger(__name__)
 
     def generate_countermeasures(
-        self, analysis_result: Dict[str, Any], vulnerabilities: List[str]
-    ) -> List[str]:
+        self, analysis_result: dict[str, Any], vulnerabilities: list[str]
+    ) -> list[str]:
         """
         Generate TEMPEST countermeasures.
 
@@ -394,7 +394,7 @@ class TEMPESTDetector:
 
         self.logger = logging.getLogger(__name__)
 
-    def detect_tempest_threats(self, tempest_data: Dict[str, Any]) -> TEMPESTAnalysisResult:
+    def detect_tempest_threats(self, tempest_data: dict[str, Any]) -> TEMPESTAnalysisResult:
         """
         Comprehensive TEMPEST threat detection.
 
@@ -471,7 +471,7 @@ class TEMPESTDetector:
 
         return result
 
-    def _analyze_video_emanation(self, features: np.ndarray) -> Dict[str, Any]:
+    def _analyze_video_emanation(self, features: np.ndarray) -> dict[str, Any]:
         """Analyze video emanation for reconstruction feasibility"""
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 

@@ -46,11 +46,11 @@ Research sources:
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 from omni_anomaly_engine.space.schumann_resonance import SchumannResonanceDetector
 
@@ -64,17 +64,17 @@ class DisasterPrecursorResult:
     disaster_type: str
     risk_level: str
 
-    time_to_event_hours: Optional[float] = None
-    estimated_magnitude: Optional[float] = None
-    affected_region: Optional[str] = None
+    time_to_event_hours: float | None = None
+    estimated_magnitude: float | None = None
+    affected_region: str | None = None
 
-    schumann_anomaly: Optional[Dict[str, Any]] = None
-    seismic_correlation: Optional[float] = None
-    geomagnetic_indicators: List[str] = field(default_factory=list)
+    schumann_anomaly: dict[str, Any] | None = None
+    seismic_correlation: float | None = None
+    geomagnetic_indicators: list[str] = field(default_factory=list)
     ionospheric_disturbance: bool = False
 
-    early_warning_actions: List[str] = field(default_factory=list)
-    monitoring_recommendations: List[str] = field(default_factory=list)
+    early_warning_actions: list[str] = field(default_factory=list)
+    monitoring_recommendations: list[str] = field(default_factory=list)
 
 
 class EarthquakePrecursorAnalyzer(nn.Module):
@@ -109,7 +109,7 @@ class EarthquakePrecursorAnalyzer(nn.Module):
             nn.Linear(128, 32), nn.ReLU(), nn.Linear(32, 1), nn.Sigmoid()
         )
 
-    def forward(self, em_features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, em_features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Predict earthquake from EM precursors.
 
@@ -148,8 +148,8 @@ class GeomageticCorrelator:
         }
 
     def correlate_geomagnetic(
-        self, schumann_anomaly: Dict[str, Any], geomagnetic_data: Optional[Dict[str, float]] = None
-    ) -> Dict[str, Any]:
+        self, schumann_anomaly: dict[str, Any], geomagnetic_data: dict[str, float] | None = None
+    ) -> dict[str, Any]:
         """
         Correlate Schumann anomaly with geomagnetic activity.
 
@@ -229,8 +229,8 @@ class IonosphericDisturbanceDetector:
         self.logger = logging.getLogger(__name__)
 
     def detect_ionospheric_disturbance(
-        self, schumann_data: Dict[str, Any], tec_data: Optional[np.ndarray] = None
-    ) -> Dict[str, Any]:
+        self, schumann_data: dict[str, Any], tec_data: np.ndarray | None = None
+    ) -> dict[str, Any]:
         """
         Detect ionospheric disturbances.
 
@@ -283,8 +283,8 @@ class SeismicCorrelator:
         self.logger = logging.getLogger(__name__)
 
     def correlate_seismic(
-        self, schumann_anomaly: Dict[str, Any], seismic_data: Optional[np.ndarray] = None
-    ) -> Dict[str, Any]:
+        self, schumann_anomaly: dict[str, Any], seismic_data: np.ndarray | None = None
+    ) -> dict[str, Any]:
         """
         Correlate Schumann anomaly with seismic activity.
 
@@ -348,7 +348,7 @@ class DisasterPrecursorDetector:
 
         self.logger = logging.getLogger(__name__)
 
-    def detect_disaster_precursor(self, precursor_data: Dict[str, Any]) -> DisasterPrecursorResult:
+    def detect_disaster_precursor(self, precursor_data: dict[str, Any]) -> DisasterPrecursorResult:
         """
         Comprehensive disaster precursor detection.
 
@@ -444,7 +444,7 @@ class DisasterPrecursorDetector:
 
         return result
 
-    def _predict_earthquake(self, em_features: np.ndarray) -> Dict[str, Any]:
+    def _predict_earthquake(self, em_features: np.ndarray) -> dict[str, Any]:
         """Predict earthquake from EM features"""
 
         features_tensor = torch.tensor(em_features, dtype=torch.float32).unsqueeze(0)
@@ -488,7 +488,7 @@ class DisasterPrecursorDetector:
         else:
             return "low"
 
-    def _generate_early_warning_actions(self, result: DisasterPrecursorResult) -> List[str]:
+    def _generate_early_warning_actions(self, result: DisasterPrecursorResult) -> list[str]:
         """Generate early warning actions"""
 
         actions = []
@@ -512,7 +512,7 @@ class DisasterPrecursorDetector:
 
         return actions
 
-    def _generate_monitoring_recommendations(self, result: DisasterPrecursorResult) -> List[str]:
+    def _generate_monitoring_recommendations(self, result: DisasterPrecursorResult) -> list[str]:
         """Generate monitoring recommendations"""
 
         recs = []

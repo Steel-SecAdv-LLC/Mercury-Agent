@@ -29,7 +29,6 @@ Research sources:
 """
 
 from enum import Enum
-from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -59,7 +58,7 @@ class EnergyDamsDetector:
     - Renewable energy integration
     """
 
-    def __init__(self, subsector: Optional[EnergySubsector] = None):
+    def __init__(self, subsector: EnergySubsector | None = None):
         self.subsector = subsector or EnergySubsector.ELECTRICITY
         self.grid_parameters = {
             "frequency_hz": {"nominal": 60.0, "tolerance": 0.05},
@@ -76,8 +75,8 @@ class EnergyDamsDetector:
         self,
         data: np.ndarray,
         detection_type: str = "grid",
-        timestamps: Optional[np.ndarray] = None,
-    ) -> Dict:
+        timestamps: np.ndarray | None = None,
+    ) -> dict:
         """Generic detection interface for energy/dams infrastructure.
 
         Args:
@@ -102,8 +101,8 @@ class EnergyDamsDetector:
             return self.detect_grid_anomaly(grid_data, timestamps)
 
     def detect_grid_anomaly(
-        self, grid_data: Dict[str, np.ndarray], timestamps: Optional[np.ndarray] = None
-    ) -> Dict:
+        self, grid_data: dict[str, np.ndarray], timestamps: np.ndarray | None = None
+    ) -> dict:
         """
         Detect power grid anomalies.
 
@@ -131,8 +130,8 @@ class EnergyDamsDetector:
         }
 
     def detect_dam_anomaly(
-        self, dam_data: Dict[str, float], dam_type: DamType = DamType.MULTIPURPOSE
-    ) -> Dict:
+        self, dam_data: dict[str, float], dam_type: DamType = DamType.MULTIPURPOSE
+    ) -> dict:
         """
         Detect dam structural and operational anomalies.
 
@@ -183,7 +182,7 @@ class EnergyDamsDetector:
             "recommended_actions": self._generate_dam_recommendations(anomalies),
         }
 
-    def _detect_frequency_deviation(self, frequency: Optional[np.ndarray]) -> Optional[Dict]:
+    def _detect_frequency_deviation(self, frequency: np.ndarray | None) -> dict | None:
         """Detect grid frequency deviations."""
         if frequency is None or len(frequency) == 0:
             return None
@@ -205,7 +204,7 @@ class EnergyDamsDetector:
 
         return None
 
-    def _assess_cascading_impact(self, anomalies: Dict) -> Dict:
+    def _assess_cascading_impact(self, anomalies: dict) -> dict:
         """Assess cascading failure risk to other sectors."""
         if not anomalies:
             return {"risk": "LOW", "probability": 0.0}
@@ -224,7 +223,7 @@ class EnergyDamsDetector:
 
         return {"risk": "LOW", "probability": 0.1}
 
-    def _identify_affected_sectors(self, cascading_risk: Dict) -> List[str]:
+    def _identify_affected_sectors(self, cascading_risk: dict) -> list[str]:
         """Identify which sectors would be affected by energy failure."""
         if cascading_risk["risk"] == "HIGH":
             return [
@@ -246,7 +245,7 @@ class EnergyDamsDetector:
 
         return []
 
-    def _determine_grid_status(self, anomalies: Dict) -> str:
+    def _determine_grid_status(self, anomalies: dict) -> str:
         """Determine overall grid status."""
         if not anomalies:
             return "NORMAL"
@@ -258,7 +257,7 @@ class EnergyDamsDetector:
         else:
             return "WARNING"
 
-    def _assess_downstream_impact(self, anomalies: Dict, water_level: float) -> Dict:
+    def _assess_downstream_impact(self, anomalies: dict, water_level: float) -> dict:
         """Assess impact on downstream communities."""
         if any(a.get("severity") == "CRITICAL" for a in anomalies.values()):
             return {
@@ -269,7 +268,7 @@ class EnergyDamsDetector:
 
         return {"risk": "LOW", "population_at_risk": "LOW"}
 
-    def _generate_grid_recommendations(self, anomalies: Dict, cascading_risk: Dict) -> List[str]:
+    def _generate_grid_recommendations(self, anomalies: dict, cascading_risk: dict) -> list[str]:
         """Generate grid anomaly recommendations."""
         if not anomalies:
             return ["Continue normal operations"]
@@ -286,7 +285,7 @@ class EnergyDamsDetector:
 
         return recommendations
 
-    def _generate_dam_recommendations(self, anomalies: Dict) -> List[str]:
+    def _generate_dam_recommendations(self, anomalies: dict) -> list[str]:
         """Generate dam anomaly recommendations."""
         if not anomalies:
             return ["Continue normal monitoring"]

@@ -23,17 +23,17 @@ Uses lazy imports to avoid circular dependency issues during package initializat
 """
 
 __all__ = [
-    "QuantumAnomalyModel",
+    "AffectiveAnomalyModel",
     "AstrophysicalAnomalyModel",
     "BiometricAnomalyModel",
-    "AffectiveAnomalyModel",
-    "NeuralCognitiveModel",
+    "ChemistryAnomalyDetector",
     "ConsciousnessPreservationModel",
     "MultiverseOmniEngine",
+    "NeuralCognitiveModel",
     "NeurosymbolicEngine",
-    "SimulationModule",
-    "ChemistryAnomalyDetector",
     "ParapsychologyDetector",
+    "QuantumAnomalyModel",
+    "SimulationModule",
 ]
 
 _LAZY_IMPORTS = {

@@ -26,18 +26,18 @@ through reconstruction error and KL divergence.
 
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 
 class VAE(nn.Module):
     """Variational Autoencoder for pattern learning."""
 
     def __init__(
-        self, input_dim: int, latent_dim: int = 32, hidden_dims: Optional[List[int]] = None
+        self, input_dim: int, latent_dim: int = 32, hidden_dims: list[int] | None = None
     ):
         super().__init__()
 
@@ -76,7 +76,7 @@ class VAE(nn.Module):
         decoder_layers.append(nn.Linear(hidden_dims[0], input_dim))
         self.decoder = nn.Sequential(*decoder_layers)
 
-    def encode(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def encode(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Encode input to latent distribution parameters."""
         h = self.encoder(x)
         mu = self.fc_mu(h)
@@ -93,7 +93,7 @@ class VAE(nn.Module):
         """Decode latent vector to reconstruction."""
         return self.decoder(z)
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Forward pass through VAE."""
         mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
@@ -107,7 +107,7 @@ class VAE(nn.Module):
         mu: torch.Tensor,
         logvar: torch.Tensor,
         beta: float = 1.0,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """
         Compute VAE loss (reconstruction + KL divergence).
 
@@ -172,7 +172,7 @@ class VAEPatternLearner:
 
         return self
 
-    def predict(self, X: torch.Tensor) -> Dict[str, Any]:
+    def predict(self, X: torch.Tensor) -> dict[str, Any]:
         """Predict anomalies using VAE reconstruction error."""
         self.vae.eval()
 

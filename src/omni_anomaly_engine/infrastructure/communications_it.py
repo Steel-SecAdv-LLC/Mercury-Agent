@@ -30,7 +30,6 @@ Research sources:
 
 from collections import deque
 from datetime import datetime
-from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -58,7 +57,7 @@ class CommunicationsITDetector:
             "exfiltration_mb_threshold": 1000,
         }
 
-    def detect(self, data: np.ndarray, timestamp: Optional[datetime] = None) -> Dict:
+    def detect(self, data: np.ndarray, timestamp: datetime | None = None) -> dict:
         """Generic detection interface for communications/IT infrastructure.
 
         Args:
@@ -76,8 +75,8 @@ class CommunicationsITDetector:
         return self.detect_network_anomaly(traffic_data, timestamp)
 
     def detect_network_anomaly(
-        self, traffic_data: Dict[str, float], timestamp: Optional[datetime] = None
-    ) -> Dict:
+        self, traffic_data: dict[str, float], timestamp: datetime | None = None
+    ) -> dict:
         """
         Detect network traffic anomalies.
 
@@ -135,7 +134,7 @@ class CommunicationsITDetector:
                     "p99": np.percentile(values, 99),
                 }
 
-    def _detect_ddos(self, traffic_data: Dict) -> float:
+    def _detect_ddos(self, traffic_data: dict) -> float:
         """Detect DDoS attacks based on traffic volume."""
         if "packets_per_sec" not in self.baseline_stats:
             return 0.0
@@ -150,7 +149,7 @@ class CommunicationsITDetector:
 
         return 0.0
 
-    def _assess_comm_it_impact(self, anomalies: Dict) -> Dict:
+    def _assess_comm_it_impact(self, anomalies: dict) -> dict:
         """Assess impact on other critical infrastructure sectors."""
         if not anomalies:
             return {"level": "NONE", "specific_sectors": []}
@@ -175,7 +174,7 @@ class CommunicationsITDetector:
 
         return {"level": "LOW", "specific_sectors": []}
 
-    def _calculate_overall_risk(self, anomalies: Dict) -> str:
+    def _calculate_overall_risk(self, anomalies: dict) -> str:
         """Calculate overall risk level."""
         if not anomalies:
             return "LOW"
@@ -187,7 +186,7 @@ class CommunicationsITDetector:
 
         return "LOW"
 
-    def _generate_recommendations(self, anomalies: Dict) -> List[str]:
+    def _generate_recommendations(self, anomalies: dict) -> list[str]:
         """Generate action recommendations."""
         if not anomalies:
             return ["Continue normal monitoring"]

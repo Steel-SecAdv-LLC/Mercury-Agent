@@ -21,14 +21,14 @@ Dimensional analyzer using PCA, t-SNE, and neural projection
 Enhanced with DB term (dimensional code-breaking via Fourier analysis)
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
 from scipy.fft import fft
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
+from torch import nn
 
 from omni_anomaly_engine.core.base import BaseDetector
 from omni_anomaly_engine.core.exceptions import DetectorException
@@ -67,20 +67,20 @@ class DimensionalAnalyzer(BaseDetector):
     - Neural autoencoder for learned projection
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         super().__init__(config)
         self.n_components = self.config.get("n_components", 10)
         self.reconstruction_threshold = self.config.get("reconstruction_threshold", 2.0)
         self.use_db_term = self.config.get("use_db_term", True)
 
-        self.pca: Optional[PCA] = None
-        self.tsne: Optional[TSNE] = None
-        self.autoencoder: Optional[NeuralProjection] = None
+        self.pca: PCA | None = None
+        self.tsne: TSNE | None = None
+        self.autoencoder: NeuralProjection | None = None
 
-        self.input_dim: Optional[int] = None
-        self.baseline_spectral_signature: Optional[np.ndarray] = None
+        self.input_dim: int | None = None
+        self.baseline_spectral_signature: np.ndarray | None = None
 
-    def fit(self, data: Union[np.ndarray, torch.Tensor]) -> "DimensionalAnalyzer":
+    def fit(self, data: np.ndarray | torch.Tensor) -> "DimensionalAnalyzer":
         """Fit dimensional analyzers to data"""
         if isinstance(data, torch.Tensor):
             data_np = data.cpu().numpy()
@@ -115,7 +115,7 @@ class DimensionalAnalyzer(BaseDetector):
         self._is_fitted = True
         return self
 
-    def detect(self, data: Union[np.ndarray, torch.Tensor]) -> Dict[str, Any]:
+    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
         """Detect dimensional anomalies"""
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
@@ -154,7 +154,7 @@ class DimensionalAnalyzer(BaseDetector):
             "detector_type": "dimensional",
         }
 
-    def extract_features(self, data: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
         """Extract dimensional features for ML fusion"""
         if not self._is_fitted:
             if isinstance(data, torch.Tensor):

@@ -21,7 +21,8 @@ Self-healing engine for autonomous error recovery
 """
 
 import logging
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any
 
 from omni_anomaly_engine.resilience.circuit_breaker import CircuitBreaker
 
@@ -37,15 +38,15 @@ class SelfHealingEngine:
     """
 
     def __init__(self):
-        self.components: Dict[str, Dict[str, Any]] = {}
-        self.circuit_breakers: Dict[str, CircuitBreaker] = {}
+        self.components: dict[str, dict[str, Any]] = {}
+        self.circuit_breakers: dict[str, CircuitBreaker] = {}
         self.logger = logging.getLogger(__name__)
 
     def register_component(
         self,
         name: str,
         health_check: Callable[[], bool],
-        recovery_action: Optional[Callable[[], None]] = None,
+        recovery_action: Callable[[], None] | None = None,
     ) -> None:
         """Register a component for health monitoring"""
         self.components[name] = {
@@ -90,7 +91,7 @@ class SelfHealingEngine:
             self.logger.error(f"Recovery failed for {component_name}: {e}")
             return False
 
-    def get_system_health(self) -> Dict[str, Any]:
+    def get_system_health(self) -> dict[str, Any]:
         """Get overall system health status"""
         health_status = {}
 

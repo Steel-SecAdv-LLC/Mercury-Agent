@@ -32,7 +32,7 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
@@ -44,7 +44,7 @@ class ReportConfig:
     include_recommendations: bool = True
     include_visualizations: bool = False
     format: str = "text"  # text, pdf, html, json
-    output_path: Optional[str] = None
+    output_path: str | None = None
 
 
 class PlainEnglishReportGenerator:
@@ -58,7 +58,7 @@ class PlainEnglishReportGenerator:
         self.logger = logging.getLogger(__name__)
 
     def generate_medical_report(
-        self, results: Dict[str, Any], config: Optional[ReportConfig] = None
+        self, results: dict[str, Any], config: ReportConfig | None = None
     ) -> str:
         """
         Generate plain English medical report.
@@ -146,7 +146,7 @@ class PlainEnglishReportGenerator:
         return "\n".join(report_lines)
 
     def generate_security_report(
-        self, results: Dict[str, Any], config: Optional[ReportConfig] = None
+        self, results: dict[str, Any], config: ReportConfig | None = None
     ) -> str:
         """Generate plain English security report"""
 
@@ -213,7 +213,7 @@ class PlainEnglishReportGenerator:
         return "\n".join(report_lines)
 
     def generate_humanitarian_report(
-        self, results: Dict[str, Any], config: Optional[ReportConfig] = None
+        self, results: dict[str, Any], config: ReportConfig | None = None
     ) -> str:
         """Generate plain English humanitarian report"""
 
@@ -316,7 +316,7 @@ class EmailReportSender:
     Sends analysis reports via email.
     """
 
-    def __init__(self, smtp_config: Optional[Dict[str, str]] = None):
+    def __init__(self, smtp_config: dict[str, str] | None = None):
         self.logger = logging.getLogger(__name__)
         self.smtp_config = smtp_config or {}
 
@@ -375,13 +375,13 @@ class ReportManager:
     Coordinates text, PDF, and email report generation.
     """
 
-    def __init__(self, smtp_config: Optional[Dict[str, str]] = None):
+    def __init__(self, smtp_config: dict[str, str] | None = None):
         self.text_generator = PlainEnglishReportGenerator()
         self.pdf_generator = PDFReportGenerator()
         self.email_sender = EmailReportSender(smtp_config)
         self.logger = logging.getLogger(__name__)
 
-    def generate_report(self, results: Dict[str, Any], config: ReportConfig) -> str:
+    def generate_report(self, results: dict[str, Any], config: ReportConfig) -> str:
         """
         Generate report in specified format.
 
@@ -416,7 +416,7 @@ class ReportManager:
         return text_report
 
     def send_email_report(
-        self, results: Dict[str, Any], recipient: str, config: ReportConfig
+        self, results: dict[str, Any], recipient: str, config: ReportConfig
     ) -> bool:
         """
         Generate and email report.

@@ -50,11 +50,11 @@ Performance: 40% faster outbreak detection via temporal + genomic fusion
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class OutbreakSeverity(Enum):
@@ -85,23 +85,23 @@ class PandemicPredictionResult:
     severity_level: str
 
     case_surge_detected: bool = False
-    doubling_time_days: Optional[float] = None
-    r0_estimate: Optional[float] = None
-    re_estimate: Optional[float] = None
+    doubling_time_days: float | None = None
+    r0_estimate: float | None = None
+    re_estimate: float | None = None
 
     mutation_detected: bool = False
     variant_type: str = "wild_type"
     concern_level: str = "monitoring"
-    antigenic_distance: Optional[float] = None
+    antigenic_distance: float | None = None
 
-    genomic_surveillance_alerts: List[str] = field(default_factory=list)
-    transmission_hotspots: List[str] = field(default_factory=list)
+    genomic_surveillance_alerts: list[str] = field(default_factory=list)
+    transmission_hotspots: list[str] = field(default_factory=list)
 
     vaccine_escape_probability: float = 0.0
     treatment_resistance_probability: float = 0.0
 
-    public_health_actions: List[str] = field(default_factory=list)
-    containment_measures: List[str] = field(default_factory=list)
+    public_health_actions: list[str] = field(default_factory=list)
+    containment_measures: list[str] = field(default_factory=list)
 
 
 class CaseSurgeDetector:
@@ -114,7 +114,7 @@ class CaseSurgeDetector:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def detect_case_surge(self, case_data: Dict[str, Any]) -> Dict[str, Any]:
+    def detect_case_surge(self, case_data: dict[str, Any]) -> dict[str, Any]:
         """
         Detect case surge from time series.
 
@@ -169,7 +169,7 @@ class MutationTracker:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def track_mutations(self, genomic_data: Dict[str, Any]) -> Dict[str, Any]:
+    def track_mutations(self, genomic_data: dict[str, Any]) -> dict[str, Any]:
         """
         Track viral mutations from sequences.
 
@@ -273,7 +273,7 @@ class PandemicDetector:
 
         self.logger = logging.getLogger(__name__)
 
-    def predict_pandemic(self, pandemic_data: Dict[str, Any]) -> PandemicPredictionResult:
+    def predict_pandemic(self, pandemic_data: dict[str, Any]) -> PandemicPredictionResult:
         """
         Comprehensive pandemic prediction.
 
@@ -330,7 +330,7 @@ class PandemicDetector:
 
         return result
 
-    def _analyze_transmission_network(self, network_data: Dict[str, Any]) -> List[str]:
+    def _analyze_transmission_network(self, network_data: dict[str, Any]) -> list[str]:
         """Analyze transmission network for hotspots"""
 
         if "network_features" in network_data:
@@ -353,7 +353,7 @@ class PandemicDetector:
 
         return hotspots
 
-    def _determine_severity(self, result: PandemicPredictionResult, data: Dict[str, Any]) -> str:
+    def _determine_severity(self, result: PandemicPredictionResult, data: dict[str, Any]) -> str:
         """Determine outbreak severity level"""
 
         geographic_spread = data.get("geographic_spread", {})
@@ -371,7 +371,7 @@ class PandemicDetector:
         else:
             return OutbreakSeverity.SPORADIC.value
 
-    def _generate_public_health_actions(self, result: PandemicPredictionResult) -> List[str]:
+    def _generate_public_health_actions(self, result: PandemicPredictionResult) -> list[str]:
         """Generate public health actions"""
 
         actions = []
@@ -393,7 +393,7 @@ class PandemicDetector:
 
         return actions
 
-    def _generate_containment_measures(self, result: PandemicPredictionResult) -> List[str]:
+    def _generate_containment_measures(self, result: PandemicPredictionResult) -> list[str]:
         """Generate containment measures"""
 
         measures = []

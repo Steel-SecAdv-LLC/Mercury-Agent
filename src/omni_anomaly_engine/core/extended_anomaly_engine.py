@@ -22,9 +22,10 @@ Production-ready anomaly detection with 3R mechanism
 """
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -57,7 +58,7 @@ class EvolutionEngine:
         population_size: int = 50,
         mutation_rate: float = 0.1,
         crossover_rate: float = 0.7,
-        rng: Optional[DeterministicRNG] = None,
+        rng: DeterministicRNG | None = None,
     ):
         self.state_dim = state_dim
         self.population_size = population_size
@@ -77,7 +78,7 @@ class EvolutionEngine:
     ) -> float:
         return float(fitness_fn(individual))
 
-    def evolve_generation(self, fitness_fn: Callable[[np.ndarray], float]) -> Dict[str, Any]:
+    def evolve_generation(self, fitness_fn: Callable[[np.ndarray], float]) -> dict[str, Any]:
         fitness_scores = np.array(
             [self.evaluate_fitness(ind, fitness_fn) for ind in self.population]
         )
@@ -139,9 +140,9 @@ class SecurityEngine:
         self.threat_patterns = self._load_threat_patterns()
         self.rate_limit_window = 60
         self.rate_limit_max = 60
-        self.request_history: Dict[str, List[float]] = {}
+        self.request_history: dict[str, list[float]] = {}
 
-    def _load_threat_patterns(self) -> Dict[str, List[str]]:
+    def _load_threat_patterns(self) -> dict[str, list[str]]:
         return {
             "sql_injection": [
                 r"(?i)(union.*select|select.*from|insert.*into|delete.*from)",
@@ -156,7 +157,7 @@ class SecurityEngine:
             "path_traversal": [r"\.\.\/|\.\.\\", r"(?i)(\/etc\/passwd|\/etc\/shadow)"],
         }
 
-    def detect_threats(self, input_data: str) -> Dict[str, Any]:
+    def detect_threats(self, input_data: str) -> dict[str, Any]:
         import re
 
         threats = []
@@ -191,7 +192,7 @@ class SecurityEngine:
 
 class IntegrationEngine:
     def __init__(self) -> None:
-        self.integrations: Dict[str, Dict[str, Any]] = {}
+        self.integrations: dict[str, dict[str, Any]] = {}
 
     def register_integration(
         self,
@@ -213,8 +214,8 @@ class IntegrationEngine:
         integration_id: str,
         method: str,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if integration_id not in self.integrations:
             return {"error": f"Unknown integration: {integration_id}"}
 
@@ -228,24 +229,24 @@ class IntegrationEngine:
 
 
 class OmniAva:
-    def __init__(self, config: Optional[EngineConfig] = None):
+    def __init__(self, config: EngineConfig | None = None):
         self.config = config or EngineConfig()
 
         if self.config.enable_3r_mechanism:
             from .three_r_mechanism import ThreeRMechanism
 
-            self.three_r: Optional["ThreeRMechanism"] = ThreeRMechanism(
+            self.three_r: ThreeRMechanism | None = ThreeRMechanism(
                 max_recursion_depth=self.config.max_recursion_depth,
                 sampling_rate=self.config.resonance_sampling_rate,
             )
         else:
             self.three_r = None
 
-        self.evolution_engine: Optional[EvolutionEngine] = (
+        self.evolution_engine: EvolutionEngine | None = (
             EvolutionEngine() if self.config.enable_evolution else None
         )
 
-        self.security_engine: Optional[SecurityEngine] = (
+        self.security_engine: SecurityEngine | None = (
             SecurityEngine() if self.config.enable_security else None
         )
 
@@ -253,7 +254,7 @@ class OmniAva:
 
         logging.info("OMNI ♱ AVA initialized with full integration")
 
-    def detect_anomaly(self, data: np.ndarray, use_3r_enhancement: bool = True) -> Dict[str, Any]:
+    def detect_anomaly(self, data: np.ndarray, use_3r_enhancement: bool = True) -> dict[str, Any]:
         enhanced_data = data
 
         if use_3r_enhancement and self.config.enable_3r_mechanism and self.three_r:
@@ -294,7 +295,7 @@ class OmniAva:
 
         return float(anomaly_score)
 
-    def validate_input_security(self, input_data: str) -> Dict[str, Any]:
+    def validate_input_security(self, input_data: str) -> dict[str, Any]:
         if not self.config.enable_security or not self.security_engine:
             return {"secure": True, "message": "Security checks disabled"}
 
@@ -302,7 +303,7 @@ class OmniAva:
 
     def evolve_detector(
         self, fitness_fn: Callable[[np.ndarray], float], num_generations: int = 10
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if not self.config.enable_evolution or not self.evolution_engine:
             return {"error": "Evolution disabled"}
 

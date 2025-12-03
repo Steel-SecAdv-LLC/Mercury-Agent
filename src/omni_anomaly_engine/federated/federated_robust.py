@@ -32,7 +32,7 @@ MIT-compatible implementation.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -79,7 +79,7 @@ class FederatedAnomalyDetection:
         byzantine_tolerance: bool = True,
         differential_privacy: bool = False,
         epsilon: float = 1.0,
-        rng: Optional[DeterministicRNG] = None,
+        rng: DeterministicRNG | None = None,
     ):
         """
         Initialize federated anomaly detection.
@@ -106,10 +106,10 @@ class FederatedAnomalyDetection:
             aggregated_loss=0.0,
         )
 
-        self.client_models: Dict[str, ClientModel] = {}
-        self.round_history: List[GlobalModel] = []
+        self.client_models: dict[str, ClientModel] = {}
+        self.round_history: list[GlobalModel] = []
 
-    def register_client(self, client_id: str, initial_weights: Optional[np.ndarray] = None):
+    def register_client(self, client_id: str, initial_weights: np.ndarray | None = None):
         """
         Register new client in federated system.
 
@@ -209,7 +209,7 @@ class FederatedAnomalyDetection:
 
         return float(mse)
 
-    def aggregate(self, selected_clients: Optional[List[str]] = None) -> GlobalModel:
+    def aggregate(self, selected_clients: list[str] | None = None) -> GlobalModel:
         """
         Aggregate client models into global model.
 
@@ -268,7 +268,7 @@ class FederatedAnomalyDetection:
 
         return self.global_model
 
-    def _fedavg_aggregation(self, client_data: List[Tuple[np.ndarray, int]]) -> np.ndarray:
+    def _fedavg_aggregation(self, client_data: list[tuple[np.ndarray, int]]) -> np.ndarray:
         """
         FedAvg: Weighted average by number of samples.
 
@@ -291,7 +291,7 @@ class FederatedAnomalyDetection:
 
         return aggregated
 
-    def _median_aggregation(self, client_data: List[Tuple[np.ndarray, int]]) -> np.ndarray:
+    def _median_aggregation(self, client_data: list[tuple[np.ndarray, int]]) -> np.ndarray:
         """
         Median aggregation for Byzantine tolerance.
 
@@ -310,7 +310,7 @@ class FederatedAnomalyDetection:
 
         return median_weights
 
-    def _fedprox_aggregation(self, client_data: List[Tuple[np.ndarray, int]]) -> np.ndarray:
+    def _fedprox_aggregation(self, client_data: list[tuple[np.ndarray, int]]) -> np.ndarray:
         """
         FedProx: Proximal term for handling heterogeneous data.
 
@@ -331,7 +331,7 @@ class FederatedAnomalyDetection:
         return aggregated
 
     def _apply_byzantine_filter(
-        self, aggregated: np.ndarray, client_data: List[Tuple[np.ndarray, int]]
+        self, aggregated: np.ndarray, client_data: list[tuple[np.ndarray, int]]
     ) -> np.ndarray:
         """
         Apply Byzantine fault tolerance filter.
@@ -383,7 +383,7 @@ class FederatedAnomalyDetection:
 
         return weights + noise
 
-    def get_federation_stats(self) -> Dict[str, Any]:
+    def get_federation_stats(self) -> dict[str, Any]:
         """Get federated learning statistics."""
         return {
             "num_clients": len(self.client_models),

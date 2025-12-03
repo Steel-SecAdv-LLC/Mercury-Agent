@@ -48,11 +48,11 @@ Performance: 40% improved attack detection via multi-sensor fusion
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class EMPType(Enum):
@@ -89,18 +89,18 @@ class EMPPredictionResult:
     e2_component_detected: bool = False
     e3_component_detected: bool = False
 
-    field_strength_vm: Optional[float] = None
-    frequency_mhz: Optional[float] = None
-    pulse_duration_ns: Optional[float] = None
+    field_strength_vm: float | None = None
+    frequency_mhz: float | None = None
+    pulse_duration_ns: float | None = None
 
     grid_impact_assessment: str = "none"
-    affected_infrastructure: List[str] = field(default_factory=list)
+    affected_infrastructure: list[str] = field(default_factory=list)
 
-    source_localization: Optional[Dict[str, float]] = None
+    source_localization: dict[str, float] | None = None
     intentional_attack_probability: float = 0.0
 
-    protective_actions: List[str] = field(default_factory=list)
-    recovery_actions: List[str] = field(default_factory=list)
+    protective_actions: list[str] = field(default_factory=list)
+    recovery_actions: list[str] = field(default_factory=list)
 
 
 class E1PulseDetector:
@@ -113,7 +113,7 @@ class E1PulseDetector:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def detect_e1_pulse(self, sensor_data: Dict[str, Any]) -> Dict[str, Any]:
+    def detect_e1_pulse(self, sensor_data: dict[str, Any]) -> dict[str, Any]:
         """
         Detect E1 pulse component.
 
@@ -160,7 +160,7 @@ class E3PulseDetector:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def detect_e3_pulse(self, magnetometer_data: Dict[str, Any]) -> Dict[str, Any]:
+    def detect_e3_pulse(self, magnetometer_data: dict[str, Any]) -> dict[str, Any]:
         """
         Detect E3 pulse (GIC).
 
@@ -255,7 +255,7 @@ class EMPDetector:
 
         self.logger = logging.getLogger(__name__)
 
-    def predict_emp(self, emp_data: Dict[str, Any]) -> EMPPredictionResult:
+    def predict_emp(self, emp_data: dict[str, Any]) -> EMPPredictionResult:
         """
         Comprehensive EMP prediction.
 
@@ -325,7 +325,7 @@ class EMPDetector:
 
         return result
 
-    def _classify_intentional_attack(self, signature_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _classify_intentional_attack(self, signature_data: dict[str, Any]) -> dict[str, Any]:
         """Classify intentional electromagnetic attack"""
 
         if "signature_features" in signature_data:
@@ -351,9 +351,7 @@ class EMPDetector:
     def _assess_threat_level(self, result: EMPPredictionResult, components: int) -> str:
         """Assess overall threat level"""
 
-        if result.emp_type == "nuclear_emp":
-            return ThreatLevel.CRITICAL.value
-        elif result.intentional_attack_probability > 0.8:
+        if result.emp_type == "nuclear_emp" or result.intentional_attack_probability > 0.8:
             return ThreatLevel.CRITICAL.value
         elif components >= 2:
             return ThreatLevel.THREAT.value
@@ -364,7 +362,7 @@ class EMPDetector:
         else:
             return ThreatLevel.BENIGN.value
 
-    def _identify_affected_infrastructure(self, result: EMPPredictionResult) -> List[str]:
+    def _identify_affected_infrastructure(self, result: EMPPredictionResult) -> list[str]:
         """Identify affected critical infrastructure"""
 
         infrastructure = []
@@ -392,7 +390,7 @@ class EMPDetector:
 
         return list(set(infrastructure))
 
-    def _generate_protective_actions(self, result: EMPPredictionResult) -> List[str]:
+    def _generate_protective_actions(self, result: EMPPredictionResult) -> list[str]:
         """Generate protective actions"""
 
         actions = []
@@ -412,7 +410,7 @@ class EMPDetector:
 
         return actions
 
-    def _generate_recovery_actions(self, result: EMPPredictionResult) -> List[str]:
+    def _generate_recovery_actions(self, result: EMPPredictionResult) -> list[str]:
         """Generate recovery actions"""
 
         recovery = []

@@ -25,7 +25,7 @@ Implements Long short-term memory + Temporal convolution + Graph convolution (LT
 for detecting cascading anomalies across domains (biometrics + quantum simulations).
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
@@ -35,7 +35,7 @@ from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 class MultivariateTSDetector:
     """Multivariate time-series anomaly detector using LTG architecture."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """Initialize multivariate TS detector.
 
         Args:
@@ -54,9 +54,9 @@ class MultivariateTSDetector:
         self.graph_conv_layers = self.config.get("graph_conv_layers", 2)
 
         self.trained = False
-        self.threshold: Optional[float] = None
-        self.mean_features: Optional[np.ndarray] = None
-        self.std_features: Optional[np.ndarray] = None
+        self.threshold: float | None = None
+        self.mean_features: np.ndarray | None = None
+        self.std_features: np.ndarray | None = None
 
     def fit(self, time_series_data: np.ndarray) -> None:
         """Fit LTG model on training time-series data.
@@ -83,7 +83,7 @@ class MultivariateTSDetector:
         self.threshold = float(np.mean(reconstruction_errors) + 3 * np.std(reconstruction_errors))
         self.trained = True
 
-    def predict(self, time_series_data: np.ndarray) -> Dict[str, Any]:
+    def predict(self, time_series_data: np.ndarray) -> dict[str, Any]:
         """Detect anomalies in time-series data.
 
         Args:
@@ -183,9 +183,9 @@ class ChaosMultivariateFusion:
 
     def __init__(
         self,
-        mvts_config: Optional[Dict[str, Any]] = None,
-        chaos_config: Optional[Dict[str, Any]] = None,
-        rng: Optional[DeterministicRNG] = None,
+        mvts_config: dict[str, Any] | None = None,
+        chaos_config: dict[str, Any] | None = None,
+        rng: DeterministicRNG | None = None,
     ):
         """Initialize fusion detector.
 
@@ -204,7 +204,7 @@ class ChaosMultivariateFusion:
         self.mvts_detector.fit(time_series_data)
         self.trained = True
 
-    def predict_with_chaos_refinement(self, time_series_data: np.ndarray) -> Dict[str, Any]:
+    def predict_with_chaos_refinement(self, time_series_data: np.ndarray) -> dict[str, Any]:
         """Detect anomalies with chaos-based threshold refinement."""
         if not self.trained:
             raise ValueError("Model must be fit before prediction")

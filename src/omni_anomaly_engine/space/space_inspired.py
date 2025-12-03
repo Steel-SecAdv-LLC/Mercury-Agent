@@ -38,7 +38,6 @@ Research source: Wikipedia - Space technology
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -57,7 +56,7 @@ class RedundancyConfig:
     """Configuration for redundant detection paths."""
 
     primary_path: str
-    backup_paths: List[str]
+    backup_paths: list[str]
     failover_threshold: float
 
 
@@ -87,11 +86,11 @@ class SpaceInspiredResilience:
         self.degradation_threshold = degradation_threshold
         self.min_operational_components = min_operational_components
         self.state = SystemState.NOMINAL
-        self.component_health: Dict[str, float] = {}
+        self.component_health: dict[str, float] = {}
 
     def graceful_degradation(
-        self, component_failures: List[str], available_components: List[str]
-    ) -> Tuple[SystemState, Dict[str, float]]:
+        self, component_failures: list[str], available_components: list[str]
+    ) -> tuple[SystemState, dict[str, float]]:
         """
         Handle component failures with graceful degradation.
 
@@ -155,8 +154,8 @@ class SpaceInspiredResilience:
         self,
         start_state: np.ndarray,
         goal_state: np.ndarray,
-        constraints: Optional[Dict[str, float]] = None,
-    ) -> List[np.ndarray]:
+        constraints: dict[str, float] | None = None,
+    ) -> list[np.ndarray]:
         """
         Optimize detection pathway analogous to spacecraft trajectory.
 
@@ -194,7 +193,7 @@ class SpaceInspiredResilience:
 
     def reusability_tracking(
         self, component_id: str, usage_count: int, max_reuses: int = 100
-    ) -> Tuple[bool, float]:
+    ) -> tuple[bool, float]:
         """
         Track component reusability inspired by Falcon 9.
 

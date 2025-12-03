@@ -40,11 +40,11 @@ Research sources:
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class ArrhythmiaType(Enum):
@@ -78,11 +78,11 @@ class CardiologyPredictionResult:
     heart_failure_risk: float
     stroke_risk: float
 
-    ecg_anomalies: List[str] = field(default_factory=list)
-    biomarker_alerts: List[str] = field(default_factory=list)
-    clinical_recommendations: List[str] = field(default_factory=list)
+    ecg_anomalies: list[str] = field(default_factory=list)
+    biomarker_alerts: list[str] = field(default_factory=list)
+    clinical_recommendations: list[str] = field(default_factory=list)
 
-    framingham_score: Optional[float] = None
+    framingham_score: float | None = None
     acute_intervention_needed: bool = False
 
 
@@ -130,7 +130,7 @@ class ECGRhythmAnalyzer(nn.Module):
             nn.Linear(128, num_classes),
         )
 
-    def forward(self, ecg_signal: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, ecg_signal: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass for ECG analysis.
 
@@ -181,7 +181,7 @@ class CardiacBiomarkerAnalyzer:
             "nt_probnp_pg_ml": 900.0,
         }
 
-    def analyze_biomarkers(self, biomarkers: Dict[str, float]) -> Dict[str, Any]:
+    def analyze_biomarkers(self, biomarkers: dict[str, float]) -> dict[str, Any]:
         """
         Analyze cardiac biomarkers for anomalies.
 
@@ -231,7 +231,7 @@ class CardiacBiomarkerAnalyzer:
 
     def _generate_biomarker_recommendations(
         self, mi_risk: float, hf_risk: float, acute_mi: bool
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate clinical recommendations based on biomarkers"""
         recs = []
 
@@ -260,7 +260,7 @@ class FraminghamRiskCalculator:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def calculate_risk(self, patient_data: Dict[str, Any]) -> Dict[str, Any]:
+    def calculate_risk(self, patient_data: dict[str, Any]) -> dict[str, Any]:
         """
         Calculate Framingham 10-year CVD risk.
 
@@ -400,9 +400,7 @@ class FraminghamRiskCalculator:
             points += -2
         elif total_chol < 200:
             points += 0
-        elif total_chol < 240:
-            points += 1
-        elif total_chol < 280:
+        elif total_chol < 240 or total_chol < 280:
             points += 1
         else:
             points += 2
@@ -481,7 +479,7 @@ class FraminghamRiskCalculator:
 
         return float(risk_map.get(points, 30 if points > 13 else 1))
 
-    def _interpret_risk(self, risk_percent: float) -> Dict[str, Any]:
+    def _interpret_risk(self, risk_percent: float) -> dict[str, Any]:
         """Interpret Framingham risk score"""
         if risk_percent < 10:
             category = "Low Risk"
@@ -527,7 +525,7 @@ class CardiologyPredictor:
 
         self.logger = logging.getLogger(__name__)
 
-    def predict_cardiac_risk(self, patient_data: Dict[str, Any]) -> CardiologyPredictionResult:
+    def predict_cardiac_risk(self, patient_data: dict[str, Any]) -> CardiologyPredictionResult:
         """
         Comprehensive cardiac risk prediction.
 
@@ -590,7 +588,7 @@ class CardiologyPredictor:
 
         return result
 
-    def _analyze_ecg(self, ecg_signal: np.ndarray) -> Dict[str, Any]:
+    def _analyze_ecg(self, ecg_signal: np.ndarray) -> dict[str, Any]:
         """Analyze ECG signal for arrhythmias"""
         ecg_tensor = torch.tensor(ecg_signal, dtype=torch.float32).unsqueeze(0)
 

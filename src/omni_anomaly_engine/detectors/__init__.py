@@ -31,9 +31,9 @@ from omni_anomaly_engine.detectors.statistical import (
 from omni_anomaly_engine.detectors.temporal import TemporalAnomalyDetector
 
 __all__ = [
-    "StatisticalAnomalyDetector",
-    "TemporalAnomalyDetector",
-    "SpatialAnomalyDetector",
     "DimensionalAnalyzer",
     "SigmaDirectiveDetector",
+    "SpatialAnomalyDetector",
+    "StatisticalAnomalyDetector",
+    "TemporalAnomalyDetector",
 ]

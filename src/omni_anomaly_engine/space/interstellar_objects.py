@@ -55,11 +55,11 @@ anomalies objectively without asserting conclusions about artificial origins.
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class ISOAnomalyType(Enum):
@@ -94,15 +94,15 @@ class InterstellarObjectResult:
     confidence: float
     anomaly_score: float
 
-    orbital_anomalies: List[str] = field(default_factory=list)
-    spectroscopic_anomalies: List[str] = field(default_factory=list)
-    morphological_anomalies: List[str] = field(default_factory=list)
+    orbital_anomalies: list[str] = field(default_factory=list)
+    spectroscopic_anomalies: list[str] = field(default_factory=list)
+    morphological_anomalies: list[str] = field(default_factory=list)
 
     natural_explanation_assessment: str = "uncertain"
-    alternative_hypotheses: List[str] = field(default_factory=list)
+    alternative_hypotheses: list[str] = field(default_factory=list)
 
-    follow_up_observations_recommended: List[str] = field(default_factory=list)
-    comparative_analysis: Optional[Dict[str, Any]] = None
+    follow_up_observations_recommended: list[str] = field(default_factory=list)
+    comparative_analysis: dict[str, Any] | None = None
     scientific_significance: float = 0.0
 
 
@@ -172,7 +172,7 @@ class InterstellarObjectAnalyzer(nn.Module):
 
     def forward(
         self, orbital: torch.Tensor, spectro: torch.Tensor, physical: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass through ISO analyzer.
 
@@ -240,7 +240,7 @@ class InterstellarObjectDetector:
             f"(artificial_origin_test={enable_artificial_origin_test})"
         )
 
-    def _initialize_iso_database(self) -> Dict[str, Dict]:
+    def _initialize_iso_database(self) -> dict[str, dict]:
         """Initialize known interstellar object database"""
         return {
             "1I/Oumuamua": {
@@ -282,7 +282,7 @@ class InterstellarObjectDetector:
         }
 
     def detect_interstellar_anomaly(
-        self, iso_data: Dict[str, Any], comparison_objects: Optional[List[Dict]] = None
+        self, iso_data: dict[str, Any], comparison_objects: list[dict] | None = None
     ) -> InterstellarObjectResult:
         """
         Detect anomalies in interstellar object data.
@@ -368,8 +368,8 @@ class InterstellarObjectDetector:
         return result
 
     def _extract_features(
-        self, iso_data: Dict[str, Any]
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        self, iso_data: dict[str, Any]
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Extract orbital, spectroscopic, and physical features"""
         orbital_params = iso_data.get("orbital_parameters", {})
         orbital_features = np.array(
@@ -460,7 +460,7 @@ class InterstellarObjectDetector:
 
         return orbital_features, spectro_features, physical_features
 
-    def _analyze_orbital_anomalies(self, iso_data: Dict[str, Any]) -> List[str]:
+    def _analyze_orbital_anomalies(self, iso_data: dict[str, Any]) -> list[str]:
         """Analyze orbital parameter anomalies"""
         anomalies = []
         orbital = iso_data.get("orbital_parameters", {})
@@ -483,7 +483,7 @@ class InterstellarObjectDetector:
 
         return anomalies
 
-    def _analyze_spectroscopic_anomalies(self, iso_data: Dict[str, Any]) -> List[str]:
+    def _analyze_spectroscopic_anomalies(self, iso_data: dict[str, Any]) -> list[str]:
         """Analyze spectroscopic anomalies"""
         anomalies = []
         spectro = iso_data.get("spectroscopy", {})
@@ -508,7 +508,7 @@ class InterstellarObjectDetector:
 
         return anomalies
 
-    def _analyze_morphological_anomalies(self, iso_data: Dict[str, Any]) -> List[str]:
+    def _analyze_morphological_anomalies(self, iso_data: dict[str, Any]) -> list[str]:
         """Analyze morphological anomalies"""
         anomalies = []
         morphology = iso_data.get("morphology", {})
@@ -534,10 +534,10 @@ class InterstellarObjectDetector:
 
     def _assess_natural_explanations(
         self,
-        iso_data: Dict[str, Any],
-        orbital_anomalies: List[str],
-        spectro_anomalies: List[str],
-        morphological_anomalies: List[str],
+        iso_data: dict[str, Any],
+        orbital_anomalies: list[str],
+        spectro_anomalies: list[str],
+        morphological_anomalies: list[str],
     ) -> str:
         """Assess confidence in natural explanations"""
         total_anomalies = (
@@ -556,8 +556,8 @@ class InterstellarObjectDetector:
             return NaturalExplanationConfidence.HIGHLY_ANOMALOUS.value
 
     def _generate_alternative_hypotheses(
-        self, iso_data: Dict[str, Any], natural_explanation: str, anomaly_score: float
-    ) -> List[str]:
+        self, iso_data: dict[str, Any], natural_explanation: str, anomaly_score: float
+    ) -> list[str]:
         """Generate alternative hypotheses for unusual observations"""
         hypotheses = []
 
@@ -578,8 +578,8 @@ class InterstellarObjectDetector:
         return hypotheses[:5]
 
     def _recommend_follow_up_observations(
-        self, iso_data: Dict[str, Any], anomaly_type: str
-    ) -> List[str]:
+        self, iso_data: dict[str, Any], anomaly_type: str
+    ) -> list[str]:
         """Recommend follow-up observations"""
         recommendations = []
 
@@ -601,8 +601,8 @@ class InterstellarObjectDetector:
         return recommendations[:6]
 
     def _comparative_analysis(
-        self, iso_data: Dict[str, Any], comparison_objects: List[Dict]
-    ) -> Dict[str, Any]:
+        self, iso_data: dict[str, Any], comparison_objects: list[dict]
+    ) -> dict[str, Any]:
         """Compare ISO with solar system objects"""
         orbital = iso_data.get("orbital_parameters", {})
 
@@ -638,7 +638,7 @@ class InterstellarObjectDetector:
         return min(1.0, base_significance)
 
 
-def create_omni_interstellar_scalars() -> Dict[str, float]:
+def create_omni_interstellar_scalars() -> dict[str, float]:
     """
     Create doctorate-level interstellar object analysis scalars.
 

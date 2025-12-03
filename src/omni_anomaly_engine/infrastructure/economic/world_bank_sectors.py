@@ -24,7 +24,7 @@ on sustainable development and regenerative economic patterns.
 Reference: UN Statistics Division - ISIC Rev 4
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
@@ -36,7 +36,7 @@ class WorldBankSectorsMonitor:
     on sustainable development and regenerative economic patterns.
     """
 
-    def __init__(self, regenerative_config: Optional[Dict] = None):
+    def __init__(self, regenerative_config: dict | None = None):
         """Initialize World Bank Sectors Monitor.
 
         Args:
@@ -85,8 +85,8 @@ class WorldBankSectorsMonitor:
         self.regenerative_config = regenerative_config or {}
 
     def detect(
-        self, data: Dict[str, Any], sector_code: str, region: str = "global"
-    ) -> Dict[str, Any]:
+        self, data: dict[str, Any], sector_code: str, region: str = "global"
+    ) -> dict[str, Any]:
         """Detect economic anomalies in a specific ISIC sector.
 
         Args:
@@ -140,7 +140,7 @@ class WorldBankSectorsMonitor:
             ),
         }
 
-    def analyze_sector_interdependencies(self, affected_sectors: list) -> Dict[str, Any]:
+    def analyze_sector_interdependencies(self, affected_sectors: list) -> dict[str, Any]:
         """Analyze economic impact cascades across sector dependencies.
 
         Args:
@@ -171,7 +171,7 @@ class WorldBankSectorsMonitor:
             ],
         }
 
-    def assess_regional_sustainability(self, regional_data: Dict[str, float]) -> Dict[str, Any]:
+    def assess_regional_sustainability(self, regional_data: dict[str, float]) -> dict[str, Any]:
         """Assess overall economic sustainability for a region.
 
         Args:

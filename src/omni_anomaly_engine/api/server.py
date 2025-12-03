@@ -23,7 +23,8 @@ the OMNI AVA framework. It implements best practices from Azure AI Anomaly
 Detector and provides comprehensive OpenAPI documentation.
 
 API Reference:
-    - Azure AI Anomaly Detector: https://azure.microsoft.com/en-us/products/ai-services/ai-anomaly-detector
+    - Azure AI Anomaly Detector:
+      https://azure.microsoft.com/en-us/products/ai-services/ai-anomaly-detector
 
 Example:
     Start the server with uvicorn::
@@ -38,10 +39,10 @@ Example:
 """
 
 from enum import Enum
-from typing import Annotated, Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, status
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field, field_validator
 
@@ -89,7 +90,8 @@ tags_metadata = [
     },
     {
         "name": "Detection",
-        "description": "Anomaly detection endpoints for univariate and multivariate time series analysis.",
+        "description": "Anomaly detection endpoints for univariate "
+        "and multivariate time series analysis.",
         "externalDocs": {
             "description": "Anomaly Detection Best Practices",
             "url": "https://learn.microsoft.com/en-us/azure/ai-services/anomaly-detector/",
@@ -163,7 +165,7 @@ class UnivariateRequest(BaseModel):
         ```
     """
 
-    data: List[float] = Field(
+    data: list[float] = Field(
         ...,
         min_length=3,
         description="Time series data points. Minimum 3 values required.",
@@ -171,20 +173,20 @@ class UnivariateRequest(BaseModel):
             "example": [1.0, 2.0, 1.5, 10.0, 1.8, 2.1, 1.9, 50.0, 2.0],
         },
     )
-    sensitivity: Optional[float] = Field(
+    sensitivity: float | None = Field(
         default=0.5,
         ge=0.0,
         le=1.0,
         description="Detection sensitivity (0.0-1.0). Higher = more sensitive.",
     )
-    method: Optional[DetectionMethod] = Field(
+    method: DetectionMethod | None = Field(
         default=DetectionMethod.ZSCORE,
         description="Detection method to use.",
     )
 
     @field_validator("data")
     @classmethod
-    def validate_data(cls, v: List[float]) -> List[float]:
+    def validate_data(cls, v: list[float]) -> list[float]:
         """Validate that data contains finite values."""
         if not all(np.isfinite(x) for x in v):
             raise ValueError("Data contains non-finite values (NaN or Inf)")
@@ -225,7 +227,7 @@ class MultivariateRequest(BaseModel):
         ```
     """
 
-    data: List[List[float]] = Field(
+    data: list[list[float]] = Field(
         ...,
         min_length=3,
         description="2D array of time series data. Shape: [n_samples, n_features]",
@@ -233,24 +235,24 @@ class MultivariateRequest(BaseModel):
             "example": [[1.0, 2.0], [1.1, 2.1], [100.0, 2.0], [1.2, 2.2]],
         },
     )
-    features: Optional[List[str]] = Field(
+    features: list[str] | None = Field(
         default=None,
         description="Feature names for result interpretation.",
     )
-    sensitivity: Optional[float] = Field(
+    sensitivity: float | None = Field(
         default=0.5,
         ge=0.0,
         le=1.0,
         description="Detection sensitivity (0.0-1.0).",
     )
-    correlate_features: Optional[bool] = Field(
+    correlate_features: bool | None = Field(
         default=True,
         description="Consider cross-feature correlations in detection.",
     )
 
     @field_validator("data")
     @classmethod
-    def validate_multivariate_data(cls, v: List[List[float]]) -> List[List[float]]:
+    def validate_multivariate_data(cls, v: list[list[float]]) -> list[list[float]]:
         """Validate multivariate data structure and values."""
         if not v:
             raise ValueError("Data cannot be empty")
@@ -292,7 +294,7 @@ class HealthResponse(BaseModel):
         ..., description="Service health status", json_schema_extra={"example": "healthy"}
     )
     version: str = Field(..., description="API version", json_schema_extra={"example": "1.0.0"})
-    uptime_seconds: Optional[float] = Field(default=None, description="Server uptime in seconds")
+    uptime_seconds: float | None = Field(default=None, description="Server uptime in seconds")
 
     model_config = {
         "json_schema_extra": {
@@ -329,16 +331,16 @@ class UnivariateResponse(BaseModel):
         summary: Summary statistics of the detection.
     """
 
-    anomalies: List[bool] = Field(
+    anomalies: list[bool] = Field(
         ..., description="Boolean flags for each data point (True = anomaly)"
     )
-    scores: List[float] = Field(..., description="Anomaly scores for each data point")
-    anomaly_points: List[AnomalyPoint] = Field(
+    scores: list[float] = Field(..., description="Anomaly scores for each data point")
+    anomaly_points: list[AnomalyPoint] = Field(
         default_factory=list, description="Detailed anomaly information"
     )
     method: str = Field(..., description="Detection method used")
     threshold: float = Field(..., description="Detection threshold value")
-    summary: Dict[str, Any] = Field(
+    summary: dict[str, Any] = Field(
         default_factory=dict, description="Detection summary statistics"
     )
 
@@ -373,15 +375,15 @@ class MultivariateResponse(BaseModel):
         summary: Summary statistics of the detection.
     """
 
-    anomalies: List[bool] = Field(..., description="Boolean flags for each time point")
-    scores: List[float] = Field(..., description="Combined anomaly scores")
-    feature_contributions: Optional[Dict[str, List[float]]] = Field(
+    anomalies: list[bool] = Field(..., description="Boolean flags for each time point")
+    scores: list[float] = Field(..., description="Combined anomaly scores")
+    feature_contributions: dict[str, list[float]] | None = Field(
         default=None, description="Per-feature anomaly contributions"
     )
     method: str = Field(..., description="Detection method used")
     threshold: float = Field(..., description="Detection threshold value")
-    features: List[str] = Field(..., description="Feature names")
-    summary: Dict[str, Any] = Field(
+    features: list[str] = Field(..., description="Feature names")
+    summary: dict[str, Any] = Field(
         default_factory=dict, description="Detection summary statistics"
     )
 
@@ -421,8 +423,8 @@ class ErrorResponse(BaseModel):
 
     error: str = Field(..., description="Error type/code")
     message: str = Field(..., description="Human-readable error message")
-    details: Optional[Dict[str, Any]] = Field(default=None, description="Additional error details")
-    request_id: Optional[str] = Field(default=None, description="Request ID for support")
+    details: dict[str, Any] | None = Field(default=None, description="Additional error details")
+    request_id: str | None = Field(default=None, description="Request ID for support")
 
     model_config = {
         "json_schema_extra": {
@@ -639,7 +641,7 @@ async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Detection failed: {str(e)}",
+            detail=f"Detection failed: {e!s}",
         )
 
 
@@ -790,12 +792,12 @@ async def detect_multivariate(request: MultivariateRequest) -> MultivariateRespo
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Detection failed: {str(e)}",
+            detail=f"Detection failed: {e!s}",
         )
 
 
 # Custom OpenAPI schema
-def custom_openapi() -> Dict[str, Any]:
+def custom_openapi() -> dict[str, Any]:
     """Generate custom OpenAPI schema with additional documentation.
 
     Returns:

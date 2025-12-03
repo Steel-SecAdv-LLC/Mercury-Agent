@@ -168,7 +168,7 @@ def compute_complexity(func_code: str) -> int:
 def compress_information(
     data: np.ndarray,
     compression_level: int = 9,
-) -> Tuple[bytes, Dict[str, Any]]:
+) -> tuple[bytes, dict[str, Any]]:
     """
     Extreme data compression inspired by black hole information density
     """
@@ -193,7 +193,7 @@ def compress_information(
 
 def decompress_information(
     compressed: bytes,
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
 ) -> np.ndarray:
     """
     Decompress data compressed by compress_information
@@ -229,7 +229,7 @@ def gravitational_lensing(
 def detect_singularity(
     data: np.ndarray,
     threshold_percentile: float = 99.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Detect singularity points (critical decision points) in data
     """

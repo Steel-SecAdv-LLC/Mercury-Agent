@@ -37,7 +37,7 @@ Research sources:
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -62,8 +62,8 @@ class ClimateResilienceDetector:
         self,
         data: np.ndarray,
         detection_type: str = "temperature",
-        historical_context: Optional[Dict] = None,
-    ) -> Dict[str, Any]:
+        historical_context: dict | None = None,
+    ) -> dict[str, Any]:
         """
         Detect climate anomalies.
 
@@ -83,8 +83,8 @@ class ClimateResilienceDetector:
             return self.detect_temperature_anomaly(data, historical_context)
 
     def detect_temperature_anomaly(
-        self, temperature_series: np.ndarray, historical_context: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        self, temperature_series: np.ndarray, historical_context: dict | None = None
+    ) -> dict[str, Any]:
         """Detect heatwaves, cold snaps, and abnormal warming trends."""
         if len(temperature_series) == 0:
             return {"anomaly_detected": False}
@@ -126,8 +126,8 @@ class ClimateResilienceDetector:
         }
 
     def detect_precipitation_anomaly(
-        self, precipitation_mm: np.ndarray, historical_context: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        self, precipitation_mm: np.ndarray, historical_context: dict | None = None
+    ) -> dict[str, Any]:
         """Detect droughts and floods from precipitation patterns."""
         if len(precipitation_mm) == 0:
             return {"anomaly_detected": False}
@@ -173,7 +173,7 @@ class ClimateResilienceDetector:
 
     def _generate_climate_recommendations(
         self, event_type: ClimateEvent, severity: str
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate climate resilience recommendations."""
         recommendations = []
 

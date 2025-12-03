@@ -24,7 +24,7 @@ Based on: PyReason - Temporal First-Order Logic Explainable AI
 Provides symbolic reasoning layer for explainable anomaly detection outputs.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -32,7 +32,7 @@ import numpy as np
 class SymbolicRule:
     """Represents a symbolic reasoning rule."""
 
-    def __init__(self, name: str, predicate: str, conditions: List[str], confidence: float = 1.0):
+    def __init__(self, name: str, predicate: str, conditions: list[str], confidence: float = 1.0):
         """Initialize symbolic rule.
 
         Args:
@@ -46,7 +46,7 @@ class SymbolicRule:
         self.conditions = conditions
         self.confidence = confidence
 
-    def evaluate(self, context: Dict[str, Any]) -> Tuple[bool, float]:
+    def evaluate(self, context: dict[str, Any]) -> tuple[bool, float]:
         """Evaluate rule against context.
 
         Args:
@@ -58,7 +58,7 @@ class SymbolicRule:
         satisfied = all(self._evaluate_condition(cond, context) for cond in self.conditions)
         return satisfied, self.confidence if satisfied else 0.0
 
-    def _evaluate_condition(self, condition: str, context: Dict[str, Any]) -> bool:
+    def _evaluate_condition(self, condition: str, context: dict[str, Any]) -> bool:
         """Evaluate a single condition."""
         return True
 
@@ -66,7 +66,7 @@ class SymbolicRule:
 class SymbolicReasoningEngine:
     """Symbolic reasoning engine for explainable AI."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """Initialize symbolic reasoning engine.
 
         Args:
@@ -79,7 +79,7 @@ class SymbolicReasoningEngine:
         self.temporal_logic = self.config.get("temporal_logic", True)
         self.graph_based = self.config.get("graph_based", True)
         self.explainability_threshold = self.config.get("explainability_threshold", 0.7)
-        self.rules: List[SymbolicRule] = []
+        self.rules: list[SymbolicRule] = []
         self._initialize_default_rules()
 
     def _initialize_default_rules(self) -> None:
@@ -109,7 +109,7 @@ class SymbolicReasoningEngine:
         """Add a custom reasoning rule."""
         self.rules.append(rule)
 
-    def reason(self, neural_output: np.ndarray, context: Dict[str, Any]) -> Dict[str, Any]:
+    def reason(self, neural_output: np.ndarray, context: dict[str, Any]) -> dict[str, Any]:
         """Perform hybrid neuro-symbolic reasoning.
 
         Combines neural network outputs with symbolic rule-based reasoning
@@ -122,8 +122,8 @@ class SymbolicReasoningEngine:
         Returns:
             Reasoning results with explanations
         """
-        symbolic_rules_fired: List[str] = []
-        explanations: List[str] = []
+        symbolic_rules_fired: list[str] = []
+        explanations: list[str] = []
         neural_score = float(neural_output[0]) if len(neural_output) > 0 else 0.0
 
         for rule in self.rules:
@@ -139,7 +139,7 @@ class SymbolicReasoningEngine:
 
         final_decision = "anomalous" if combined_confidence > 0.5 else "normal"
 
-        results: Dict[str, Any] = {
+        results: dict[str, Any] = {
             "neural_score": neural_score,
             "symbolic_rules_fired": symbolic_rules_fired,
             "explanations": explanations,
@@ -149,7 +149,7 @@ class SymbolicReasoningEngine:
 
         return results
 
-    def explain_decision(self, reasoning_results: Dict[str, Any]) -> str:
+    def explain_decision(self, reasoning_results: dict[str, Any]) -> str:
         """Generate human-readable explanation of reasoning decision.
 
         Args:
@@ -171,8 +171,8 @@ class SymbolicReasoningEngine:
         return explanation
 
     def open_world_detection(
-        self, observations: List[Dict[str, Any]], confidence_threshold: float = 0.7
-    ) -> Dict[str, Any]:
+        self, observations: list[dict[str, Any]], confidence_threshold: float = 0.7
+    ) -> dict[str, Any]:
         """Detect anomalies in open-world settings with novel object types.
 
         Based on: Anomaly Detection in an Open World by a Neuro-symbolic Program
@@ -187,9 +187,9 @@ class SymbolicReasoningEngine:
         Returns:
             Detection results with symbolic explanations
         """
-        detected_anomalies: List[Dict[str, Any]] = []
-        novel_classes: List[Dict[str, Any]] = []
-        symbolic_explanations: List[str] = []
+        detected_anomalies: list[dict[str, Any]] = []
+        novel_classes: list[dict[str, Any]] = []
+        symbolic_explanations: list[str] = []
 
         for obs in observations:
             for rule in self.rules:

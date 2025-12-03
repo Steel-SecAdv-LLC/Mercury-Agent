@@ -39,11 +39,11 @@ Research sources:
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class IsotopeType(Enum):
@@ -77,15 +77,15 @@ class IsotopePredictionResult:
     isotope_type: str
     threat_level: str
 
-    isotope_ratios: Dict[str, float] = field(default_factory=dict)
-    enrichment_level: Optional[float] = None
-    origin_indicators: List[str] = field(default_factory=list)
+    isotope_ratios: dict[str, float] = field(default_factory=dict)
+    enrichment_level: float | None = None
+    origin_indicators: list[str] = field(default_factory=list)
 
-    nuclear_forensics: Dict[str, Any] = field(default_factory=dict)
+    nuclear_forensics: dict[str, Any] = field(default_factory=dict)
     contamination_detected: bool = False
 
-    recommendations: List[str] = field(default_factory=list)
-    regulatory_alerts: List[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
+    regulatory_alerts: list[str] = field(default_factory=list)
 
 
 class IsotopeRatioAnalyzer(nn.Module):
@@ -124,7 +124,7 @@ class IsotopeRatioAnalyzer(nn.Module):
 
     def forward(
         self, isotope_ratios: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Forward pass for isotope analysis.
 
@@ -161,7 +161,7 @@ class NuclearForensicsAnalyzer:
             "depleted": {"U235_U238": 0.0025, "U234_U238": 0.000018},
         }
 
-    def analyze_uranium_signature(self, ratios: Dict[str, float]) -> Dict[str, Any]:
+    def analyze_uranium_signature(self, ratios: dict[str, float]) -> dict[str, Any]:
         """
         Analyze uranium isotope signature for forensics.
 
@@ -227,7 +227,7 @@ class NuclearForensicsAnalyzer:
         else:
             return "chemical_or_unknown"
 
-    def _estimate_material_age(self, ratios: Dict[str, float]) -> float:
+    def _estimate_material_age(self, ratios: dict[str, float]) -> float:
         """Estimate material age from decay products"""
 
         if "Pa231_U235" in ratios:
@@ -240,7 +240,7 @@ class NuclearForensicsAnalyzer:
 
         return 0.0
 
-    def _identify_origin_indicators(self, ratios: Dict[str, float], enrichment: str) -> List[str]:
+    def _identify_origin_indicators(self, ratios: dict[str, float], enrichment: str) -> list[str]:
         """Identify origin indicators from isotope signature"""
 
         indicators = []
@@ -261,7 +261,7 @@ class NuclearForensicsAnalyzer:
 
         return indicators
 
-    def _calculate_forensic_confidence(self, ratios: Dict[str, float]) -> float:
+    def _calculate_forensic_confidence(self, ratios: dict[str, float]) -> float:
         """Calculate confidence in forensic attribution"""
 
         confidence = 0.5
@@ -286,7 +286,7 @@ class RadiologicalThreatAssessor:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def assess_threat(self, isotope_data: Dict[str, Any], enrichment: float) -> Dict[str, Any]:
+    def assess_threat(self, isotope_data: dict[str, Any], enrichment: float) -> dict[str, Any]:
         """
         Assess radiological threat level.
 
@@ -337,7 +337,7 @@ class RadiologicalThreatAssessor:
             "regulatory_alerts": regulatory_alerts,
         }
 
-    def _generate_regulatory_alerts(self, indicators: List[str], enrichment: float) -> List[str]:
+    def _generate_regulatory_alerts(self, indicators: list[str], enrichment: float) -> list[str]:
         """Generate regulatory compliance alerts"""
 
         alerts = []
@@ -378,7 +378,7 @@ class IsotopePredictor:
 
         self.logger = logging.getLogger(__name__)
 
-    def predict_isotope_anomaly(self, isotope_data: Dict[str, Any]) -> IsotopePredictionResult:
+    def predict_isotope_anomaly(self, isotope_data: dict[str, Any]) -> IsotopePredictionResult:
         """
         Comprehensive isotope anomaly prediction.
 
@@ -438,7 +438,7 @@ class IsotopePredictor:
 
         return result
 
-    def _analyze_with_ml(self, features: np.ndarray) -> Dict[str, Any]:
+    def _analyze_with_ml(self, features: np.ndarray) -> dict[str, Any]:
         """Analyze isotopes with ML model"""
 
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
@@ -469,7 +469,7 @@ class IsotopePredictor:
             "confidence": isotope_confidence,
         }
 
-    def _generate_recommendations(self, result: IsotopePredictionResult) -> List[str]:
+    def _generate_recommendations(self, result: IsotopePredictionResult) -> list[str]:
         """Generate recommendations based on isotope analysis"""
 
         recs = []

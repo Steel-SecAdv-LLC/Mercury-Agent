@@ -20,11 +20,10 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Attention mechanisms for detector fusion and cross-modal integration
 """
 
-from typing import Tuple
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 
 class MultiHeadDetectorAttention(nn.Module):
@@ -42,7 +41,7 @@ class MultiHeadDetectorAttention(nn.Module):
 
     def forward(
         self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
             query, key, value: [batch_size, seq_len, embed_dim]
@@ -69,7 +68,7 @@ class TemporalAttention(nn.Module):
         self.value_proj = nn.Linear(hidden_dim, hidden_dim)
         self.out_proj = nn.Linear(hidden_dim, hidden_dim)
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
             x: [batch_size, seq_len, hidden_dim]
@@ -133,7 +132,7 @@ class CrossModalAttention(nn.Module):
             batch_first=True,
         )
 
-    def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
             x1: [batch_size, seq_len1, dim1]

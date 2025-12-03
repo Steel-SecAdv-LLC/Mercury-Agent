@@ -35,10 +35,11 @@ References:
 MIT-compatible implementation.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -71,7 +72,7 @@ class RiskScore:
     likelihood: float
     impact: float
     risk_level: RiskLevel
-    compliance_violations: List[str] = field(default_factory=list)
+    compliance_violations: list[str] = field(default_factory=list)
     mitigation_required: bool = False
     forecast_confidence: float = 0.0
     timestamp: datetime = field(default_factory=datetime.now)
@@ -84,7 +85,7 @@ class ComplianceRule:
     rule_id: str
     regime: ComplianceRegime
     description: str
-    validator: Callable[[Dict[str, Any]], bool]
+    validator: Callable[[dict[str, Any]], bool]
     severity: str = "medium"
 
 
@@ -104,7 +105,7 @@ class USLawPolling:
         self.compliance_rules = self._initialize_us_rules()
         self.last_poll_time = datetime.now()
 
-    def _initialize_us_rules(self) -> List[ComplianceRule]:
+    def _initialize_us_rules(self) -> list[ComplianceRule]:
         """Initialize US federal compliance rules."""
         rules = []
 
@@ -150,7 +151,7 @@ class USLawPolling:
 
         return rules
 
-    def check_compliance(self, context: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    def check_compliance(self, context: dict[str, Any]) -> tuple[bool, list[str]]:
         """
         Check compliance with US federal laws.
 
@@ -167,7 +168,7 @@ class USLawPolling:
                 if not rule.validator(context):
                     violations.append(f"{rule.rule_id}: {rule.description}")
             except Exception as e:
-                violations.append(f"{rule.rule_id}: Validation error - {str(e)}")
+                violations.append(f"{rule.rule_id}: Validation error - {e!s}")
 
         return len(violations) == 0, violations
 
@@ -185,7 +186,7 @@ class GDPRCompliance:
             "right_to_object",
         ]
 
-    def check_gdpr_compliance(self, context: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    def check_gdpr_compliance(self, context: dict[str, Any]) -> tuple[bool, list[str]]:
         """
         Check GDPR compliance.
 
@@ -229,7 +230,7 @@ class HIPAACompliance:
             "device_ids",
         ]
 
-    def check_hipaa_compliance(self, context: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    def check_hipaa_compliance(self, context: dict[str, Any]) -> tuple[bool, list[str]]:
         """
         Check HIPAA compliance.
 
@@ -275,7 +276,7 @@ class AnomalyOracle:
             lookback_window: Number of historical samples for forecasting
         """
         self.lookback_window = lookback_window
-        self.historical_anomalies: List[Tuple[float, float]] = []
+        self.historical_anomalies: list[tuple[float, float]] = []
 
     def record_anomaly(self, anomaly_score: float, impact: float) -> None:
         """
@@ -290,7 +291,7 @@ class AnomalyOracle:
         if len(self.historical_anomalies) > self.lookback_window:
             self.historical_anomalies = self.historical_anomalies[-self.lookback_window :]
 
-    def forecast_risk(self, current_anomaly_score: float) -> Tuple[float, float]:
+    def forecast_risk(self, current_anomaly_score: float) -> tuple[float, float]:
         """
         Forecast future risk based on current anomaly score.
 
@@ -351,15 +352,15 @@ class EthicalRiskMatrix:
         self.enable_hipaa = enable_hipaa
         self.enable_forecasting = enable_forecasting
 
-        self.us_law: Optional[USLawPolling] = USLawPolling() if enable_us_compliance else None
-        self.gdpr: Optional[GDPRCompliance] = GDPRCompliance() if enable_gdpr else None
-        self.hipaa: Optional[HIPAACompliance] = HIPAACompliance() if enable_hipaa else None
-        self.oracle: Optional[AnomalyOracle] = AnomalyOracle() if enable_forecasting else None
+        self.us_law: USLawPolling | None = USLawPolling() if enable_us_compliance else None
+        self.gdpr: GDPRCompliance | None = GDPRCompliance() if enable_gdpr else None
+        self.hipaa: HIPAACompliance | None = HIPAACompliance() if enable_hipaa else None
+        self.oracle: AnomalyOracle | None = AnomalyOracle() if enable_forecasting else None
 
-        self.risk_history: List[RiskScore] = []
+        self.risk_history: list[RiskScore] = []
 
     def assess_risk(
-        self, context: Dict[str, Any], anomaly_score: Optional[float] = None
+        self, context: dict[str, Any], anomaly_score: float | None = None
     ) -> RiskScore:
         """
         Comprehensive risk assessment.
@@ -404,8 +405,8 @@ class EthicalRiskMatrix:
         return risk_score
 
     def _compute_risk_components(
-        self, context: Dict[str, Any], anomaly_score: Optional[float]
-    ) -> Tuple[float, float]:
+        self, context: dict[str, Any], anomaly_score: float | None
+    ) -> tuple[float, float]:
         """
         Compute likelihood and impact components.
 
@@ -461,7 +462,7 @@ class EthicalRiskMatrix:
         else:
             return RiskLevel.NEGLIGIBLE
 
-    def _check_all_compliance(self, context: Dict[str, Any]) -> List[str]:
+    def _check_all_compliance(self, context: dict[str, Any]) -> list[str]:
         """Check all enabled compliance regimes."""
         all_violations = []
 
@@ -479,7 +480,7 @@ class EthicalRiskMatrix:
 
         return all_violations
 
-    def get_risk_matrix_table(self) -> Dict[str, Any]:
+    def get_risk_matrix_table(self) -> dict[str, Any]:
         """
         Generate risk matrix table for visualization.
 
@@ -511,17 +512,17 @@ class EthicalRiskMatrix:
             "compliance_violations": sum(len(r.compliance_violations) for r in recent_risks),
         }
 
-    def generate_compliance_report(self) -> Dict[str, Any]:
+    def generate_compliance_report(self) -> dict[str, Any]:
         """Generate comprehensive compliance report."""
         recent_risks = (
             self.risk_history[-100:] if len(self.risk_history) > 100 else self.risk_history
         )
 
-        all_violations: List[str] = []
+        all_violations: list[str] = []
         for risk in recent_risks:
             all_violations.extend(risk.compliance_violations)
 
-        violation_counts: Dict[str, int] = {}
+        violation_counts: dict[str, int] = {}
         for violation in all_violations:
             violation_counts[violation] = violation_counts.get(violation, 0) + 1
 

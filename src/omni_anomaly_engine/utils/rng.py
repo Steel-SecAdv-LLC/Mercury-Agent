@@ -34,7 +34,7 @@ import random
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional
 
 import numpy as np
 
@@ -59,7 +59,7 @@ class DeterministicRNG:
     - Support for NumPy, Python random, and PyTorch
     """
 
-    def __init__(self, seed: Optional[int] = None):
+    def __init__(self, seed: int | None = None):
         """
         Initialize the RNG with optional seed.
 
@@ -67,7 +67,7 @@ class DeterministicRNG:
             seed: Random seed for reproducibility. If None, uses random initialization.
         """
         self._seed = seed
-        self._numpy_rng: Optional[np.random.Generator] = None
+        self._numpy_rng: np.random.Generator | None = None
         self._initialized = False
 
         if seed is not None:
@@ -124,7 +124,7 @@ class DeterministicRNG:
         self,
         loc: float = 0.0,
         scale: float = 1.0,
-        size: Optional[Union[int, tuple]] = None,
+        size: int | tuple | None = None,
         dtype: type = np.float64,
     ) -> np.ndarray:
         """
@@ -146,7 +146,7 @@ class DeterministicRNG:
         self,
         low: float = 0.0,
         high: float = 1.0,
-        size: Optional[Union[int, tuple]] = None,
+        size: int | tuple | None = None,
         dtype: type = np.float64,
     ) -> np.ndarray:
         """
@@ -164,7 +164,7 @@ class DeterministicRNG:
         rng = self.get_numpy_rng()
         return rng.uniform(low=low, high=high, size=size).astype(dtype)
 
-    def random(self, size: Optional[Union[int, tuple]] = None) -> np.ndarray:
+    def random(self, size: int | tuple | None = None) -> np.ndarray:
         """
         Generate random floats in the half-open interval [0.0, 1.0).
 
@@ -192,8 +192,8 @@ class DeterministicRNG:
         return rng.random(size=shape).astype(dtype)
 
     def randint(
-        self, low: int, high: Optional[int] = None, size: Optional[Union[int, tuple]] = None
-    ) -> Union[int, np.ndarray]:
+        self, low: int, high: int | None = None, size: int | tuple | None = None
+    ) -> int | np.ndarray:
         """
         Generate random integers.
 
@@ -210,10 +210,10 @@ class DeterministicRNG:
 
     def choice(
         self,
-        a: Union[int, np.ndarray],
-        size: Optional[Union[int, tuple]] = None,
+        a: int | np.ndarray,
+        size: int | tuple | None = None,
         replace: bool = True,
-        p: Optional[np.ndarray] = None,
+        p: np.ndarray | None = None,
     ) -> np.ndarray:
         """
         Generate random samples from array.
@@ -244,7 +244,7 @@ class DeterministicRNG:
         rng.shuffle(array)
         return array
 
-    def permutation(self, x: Union[int, np.ndarray]) -> np.ndarray:
+    def permutation(self, x: int | np.ndarray) -> np.ndarray:
         """
         Generate random permutation.
 
@@ -289,7 +289,7 @@ class DeterministicRNG:
             if self._seed is not None:
                 self._numpy_rng = np.random.default_rng(self._seed)
 
-    def get_seed(self) -> Optional[int]:
+    def get_seed(self) -> int | None:
         """
         Get the current seed value.
 
@@ -323,18 +323,20 @@ class RNGState:
     """Serializable RNG state for reproducibility across processes."""
 
     seed: int
-    numpy_state: Optional[Dict[str, Any]] = None
-    python_state: Optional[tuple] = None
-    torch_state: Optional[bytes] = None
+    numpy_state: dict[str, Any] | None = None
+    python_state: tuple | None = None
+    torch_state: bytes | None = None
     version: str = "1.0"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize state to dictionary."""
         return {
             "seed": self.seed,
             "version": self.version,
             "numpy_state_hash": (
-                hashlib.md5(str(self.numpy_state).encode()).hexdigest()
+                hashlib.md5(  # noqa: S324 - not used for security
+                    str(self.numpy_state).encode(), usedforsecurity=False
+                ).hexdigest()
                 if self.numpy_state
                 else None
             ),
@@ -362,11 +364,11 @@ class RNGRegistry:
     """
 
     def __init__(self):
-        self._registry: Dict[str, DeterministicRNG] = {}
+        self._registry: dict[str, DeterministicRNG] = {}
         self._lock = threading.RLock()
 
     def register(
-        self, name: str, seed: Optional[int] = None, parent: Optional[str] = None
+        self, name: str, seed: int | None = None, parent: str | None = None
     ) -> DeterministicRNG:
         """
         Register a new named RNG.
@@ -391,7 +393,7 @@ class RNGRegistry:
             self._registry[name] = rng
             return rng
 
-    def get(self, name: str) -> Optional[DeterministicRNG]:
+    def get(self, name: str) -> DeterministicRNG | None:
         """Get a registered RNG by name."""
         with self._lock:
             return self._registry.get(name)
@@ -435,10 +437,10 @@ class RNGContext:
 
     _context_stack = threading.local()
 
-    def __init__(self, seed: Optional[int] = None, parent: Optional["RNGContext"] = None):
+    def __init__(self, seed: int | None = None, parent: Optional["RNGContext"] = None):
         self._seed = seed
         self._parent = parent
-        self._rng: Optional[DeterministicRNG] = None
+        self._rng: DeterministicRNG | None = None
 
     @property
     def rng(self) -> DeterministicRNG:
@@ -500,7 +502,7 @@ class ThreadSafeRNGManager:
         self._lock = threading.RLock()
         self._thread_local = threading.local()
         self._registry = RNGRegistry()
-        self._global_rng: Optional[DeterministicRNG] = None
+        self._global_rng: DeterministicRNG | None = None
 
     def get_rng(self, thread_local: bool = True) -> DeterministicRNG:
         """
@@ -545,7 +547,7 @@ class ThreadSafeRNGManager:
         if hasattr(self._thread_local, "rng"):
             del self._thread_local.rng
 
-    def get_state(self) -> Optional[RNGState]:
+    def get_state(self) -> RNGState | None:
         """Get serializable state of the global RNG."""
         with self._lock:
             if self._global_rng is None:
@@ -573,7 +575,7 @@ class ThreadSafeRNGManager:
 
 
 # Thread-safe singleton manager
-_rng_manager: Optional[ThreadSafeRNGManager] = None
+_rng_manager: ThreadSafeRNGManager | None = None
 _manager_lock = threading.Lock()
 
 
@@ -588,7 +590,7 @@ def _get_manager() -> ThreadSafeRNGManager:
 
 
 # Legacy API compatibility - now thread-safe
-_global_rng: Optional[DeterministicRNG] = None
+_global_rng: DeterministicRNG | None = None
 _global_lock = threading.RLock()
 
 

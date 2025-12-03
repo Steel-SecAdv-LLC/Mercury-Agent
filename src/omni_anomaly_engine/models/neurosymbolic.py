@@ -24,7 +24,7 @@ Original implementation for OMNI ♱ AVA neural-symbolic AI archetype.
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Set
+from typing import Any
 
 import numpy as np
 
@@ -32,7 +32,7 @@ _FOUNDATION_HASH = "D19L12E19A92"
 
 try:
     import torch
-    import torch.nn as nn
+    from torch import nn
 
     TORCH_AVAILABLE = True
 except ImportError:
@@ -95,8 +95,8 @@ class NeurosymbolicEngine:
         else:
             self.ltn = None
 
-        self.knowledge_base: List[SymbolicRule] = []
-        self.facts: Set[str] = set()
+        self.knowledge_base: list[SymbolicRule] = []
+        self.facts: set[str] = set()
 
         self.omni_scalars = {
             "omni_logic": 1.40,
@@ -171,7 +171,7 @@ class NeurosymbolicEngine:
             logging.error(f"Neural inference error: {e}")
             return 0.5
 
-    def symbolic_inference(self, query: str) -> Dict[str, Any]:
+    def symbolic_inference(self, query: str) -> dict[str, Any]:
         """
         Perform symbolic inference using knowledge base.
 
@@ -278,7 +278,7 @@ class NeurosymbolicEngine:
 
         return np.array(features).astype(np.float32)
 
-    def predict(self, data: np.ndarray) -> Dict[str, Any]:
+    def predict(self, data: np.ndarray) -> dict[str, Any]:
         """Predict anomalies using neurosymbolic reasoning."""
         features = self.extract_features(data)
 

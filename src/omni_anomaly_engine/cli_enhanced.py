@@ -24,7 +24,7 @@ Comprehensive CLI with medical, security, humanitarian, and accessibility featur
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import click
 import numpy as np
@@ -77,11 +77,11 @@ def detect(input: str, detector: str, output: str, threshold: float, report: boo
 @click.option("--report", "-r", is_flag=True, help="Generate clinical report")
 def run_medical(
     subspecialty: str,
-    ecg_file: Optional[str],
-    vitals_file: Optional[str],
-    biomarkers_file: Optional[str],
-    patient_file: Optional[str],
-    output: Optional[str],
+    ecg_file: str | None,
+    vitals_file: str | None,
+    biomarkers_file: str | None,
+    patient_file: str | None,
+    output: str | None,
     report: bool,
 ) -> None:
     """Run medical subspecialty analysis"""
@@ -130,10 +130,10 @@ def run_medical(
 @click.option("--report", "-r", is_flag=True, help="Generate security report")
 def run_security(
     intel_type: str,
-    threat_file: Optional[str],
-    network_file: Optional[str],
-    spectrum_file: Optional[str],
-    output: Optional[str],
+    threat_file: str | None,
+    network_file: str | None,
+    spectrum_file: str | None,
+    output: str | None,
     report: bool,
 ) -> None:
     """Run security intelligence analysis"""
@@ -174,7 +174,7 @@ def run_security(
 @click.option("--data-file", required=True, help="Crisis data file")
 @click.option("--output", "-o", help="Output file for results")
 @click.option("--report", "-r", is_flag=True, help="Generate humanitarian report")
-def run_humanitarian(crisis_type: str, data_file: str, output: Optional[str], report: bool) -> None:
+def run_humanitarian(crisis_type: str, data_file: str, output: str | None, report: bool) -> None:
     """Run humanitarian crisis detection"""
 
     click.echo(f"🌍 Running Humanitarian Analysis - Crisis: {crisis_type.upper()}")
@@ -196,7 +196,7 @@ def run_humanitarian(crisis_type: str, data_file: str, output: Optional[str], re
 @click.option("--output", "-o", help="Output file for results")
 @click.option("--report", "-r", is_flag=True, help="Generate analysis report")
 def run_schumann(
-    resonance_file: str, seismic_file: Optional[str], output: Optional[str], report: bool
+    resonance_file: str, seismic_file: str | None, output: str | None, report: bool
 ) -> None:
     """Run Schumann resonance analysis for disaster precursors"""
 
@@ -237,7 +237,7 @@ def run_schumann(
 @click.option("--output", "-o", help="Output file for results")
 @click.option("--report", "-r", is_flag=True, help="Generate analysis report")
 def run_chemistry(
-    analysis_type: str, sample_file: str, output: Optional[str], report: bool
+    analysis_type: str, sample_file: str, output: str | None, report: bool
 ) -> None:
     """Run chemistry/isotope analysis"""
 
@@ -304,7 +304,7 @@ def run_demo(demo_type: str) -> None:
         _run_humanitarian_demo()
 
 
-def _run_medical_subspecialty(subspecialty: str, patient_data: Dict[str, Any]) -> Dict[str, Any]:
+def _run_medical_subspecialty(subspecialty: str, patient_data: dict[str, Any]) -> dict[str, Any]:
     """Run medical subspecialty analysis"""
 
     if subspecialty == "cardiology":
@@ -359,7 +359,7 @@ def _run_medical_subspecialty(subspecialty: str, patient_data: Dict[str, Any]) -
         }
 
 
-def _run_security_analysis(intel_type: str, security_data: Dict[str, Any]) -> Dict[str, Any]:
+def _run_security_analysis(intel_type: str, security_data: dict[str, Any]) -> dict[str, Any]:
     """Run security intelligence analysis"""
 
     if intel_type == "cybint":
@@ -412,7 +412,7 @@ def _run_security_analysis(intel_type: str, security_data: Dict[str, Any]) -> Di
         }
 
 
-def _run_humanitarian_analysis(crisis_type: str, crisis_data: np.ndarray) -> Dict[str, Any]:
+def _run_humanitarian_analysis(crisis_type: str, crisis_data: np.ndarray) -> dict[str, Any]:
     """Run humanitarian crisis analysis"""
 
     engine = OmniAnomalyEngine()
@@ -426,7 +426,7 @@ def _run_humanitarian_analysis(crisis_type: str, crisis_data: np.ndarray) -> Dic
     }
 
 
-def _run_chemistry_analysis(analysis_type: str, sample_data: np.ndarray) -> Dict[str, Any]:
+def _run_chemistry_analysis(analysis_type: str, sample_data: np.ndarray) -> dict[str, Any]:
     """Run chemistry analysis"""
 
     from omni_anomaly_engine.models.chemistry import ChemistryAnomalyModel
@@ -443,7 +443,7 @@ def _run_chemistry_analysis(analysis_type: str, sample_data: np.ndarray) -> Dict
 
 def _correlate_schumann_seismic(
     resonance_data: np.ndarray, seismic_data: np.ndarray
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Correlate Schumann resonance with seismic activity"""
 
     if len(resonance_data) != len(seismic_data):
@@ -460,7 +460,7 @@ def _correlate_schumann_seismic(
     }
 
 
-def _print_medical_report(results: Dict[str, Any], subspecialty: str) -> None:
+def _print_medical_report(results: dict[str, Any], subspecialty: str) -> None:
     """Print plain English medical report"""
 
     click.echo("\n" + "=" * 60)
@@ -479,7 +479,7 @@ def _print_medical_report(results: Dict[str, Any], subspecialty: str) -> None:
     click.echo("=" * 60 + "\n")
 
 
-def _print_security_report(results: Dict[str, Any], intel_type: str) -> None:
+def _print_security_report(results: dict[str, Any], intel_type: str) -> None:
     """Print plain English security report"""
 
     click.echo("\n" + "=" * 60)
@@ -498,7 +498,7 @@ def _print_security_report(results: Dict[str, Any], intel_type: str) -> None:
     click.echo("=" * 60 + "\n")
 
 
-def _print_humanitarian_report(results: Dict[str, Any], crisis_type: str) -> None:
+def _print_humanitarian_report(results: dict[str, Any], crisis_type: str) -> None:
     """Print plain English humanitarian report"""
 
     click.echo("\n" + "=" * 60)
@@ -511,7 +511,7 @@ def _print_humanitarian_report(results: Dict[str, Any], crisis_type: str) -> Non
     click.echo("=" * 60 + "\n")
 
 
-def _print_chemistry_report(results: Dict[str, Any], analysis_type: str) -> None:
+def _print_chemistry_report(results: dict[str, Any], analysis_type: str) -> None:
     """Print plain English chemistry report"""
 
     click.echo("\n" + "=" * 60)
@@ -524,7 +524,7 @@ def _print_chemistry_report(results: Dict[str, Any], analysis_type: str) -> None
     click.echo("=" * 60 + "\n")
 
 
-def _print_plain_english_report(results: Dict[str, Any], title: str) -> None:
+def _print_plain_english_report(results: dict[str, Any], title: str) -> None:
     """Print plain English analysis report"""
 
     click.echo("\n" + "=" * 60)
@@ -619,7 +619,7 @@ def _load_data(filepath: str) -> np.ndarray:
         raise ValueError(f"Unsupported file format: {path.suffix}")
 
 
-def _save_or_print_results(results: Dict[str, Any], output: Optional[str]) -> None:
+def _save_or_print_results(results: dict[str, Any], output: str | None) -> None:
     """Save results to file or print to console"""
 
     if output:

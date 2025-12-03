@@ -30,17 +30,12 @@ Provides:
 import logging
 import threading
 from abc import ABC  # noqa: F401 - kept for potential future use
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
     Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
     Protocol,
-    Set,
-    Type,
     TypeVar,
     runtime_checkable,
 )
@@ -62,12 +57,12 @@ class Lifecycle(Enum):
 class ServiceDescriptor:
     """Describes a registered service."""
 
-    service_type: Type
-    implementation_type: Optional[Type] = None
-    factory: Optional[Callable[..., Any]] = None
-    instance: Optional[Any] = None
+    service_type: type
+    implementation_type: type | None = None
+    factory: Callable[..., Any] | None = None
+    instance: Any | None = None
     lifecycle: Lifecycle = Lifecycle.SINGLETON
-    dependencies: List[Type] = field(default_factory=list)
+    dependencies: list[type] = field(default_factory=list)
 
 
 class CircularDependencyError(Exception):
@@ -95,17 +90,17 @@ class ServiceContainer:
     """
 
     def __init__(self):
-        self._services: Dict[Type, ServiceDescriptor] = {}
+        self._services: dict[type, ServiceDescriptor] = {}
         self._lock = threading.RLock()
-        self._resolution_stack: Set[Type] = set()
-        self._scoped_instances: Dict[str, Dict[Type, Any]] = {}
+        self._resolution_stack: set[type] = set()
+        self._scoped_instances: dict[str, dict[type, Any]] = {}
 
     def register_singleton(
         self,
-        service_type: Type[T],
-        implementation_type: Optional[Type[T]] = None,
-        factory: Optional[Callable[..., T]] = None,
-        instance: Optional[T] = None,
+        service_type: type[T],
+        implementation_type: type[T] | None = None,
+        factory: Callable[..., T] | None = None,
+        instance: T | None = None,
     ) -> "ServiceContainer":
         """
         Register a singleton service.
@@ -131,9 +126,9 @@ class ServiceContainer:
 
     def register_transient(
         self,
-        service_type: Type[T],
-        implementation_type: Optional[Type[T]] = None,
-        factory: Optional[Callable[..., T]] = None,
+        service_type: type[T],
+        implementation_type: type[T] | None = None,
+        factory: Callable[..., T] | None = None,
     ) -> "ServiceContainer":
         """Register a transient service (new instance per request)."""
         with self._lock:
@@ -147,9 +142,9 @@ class ServiceContainer:
 
     def register_scoped(
         self,
-        service_type: Type[T],
-        implementation_type: Optional[Type[T]] = None,
-        factory: Optional[Callable[..., T]] = None,
+        service_type: type[T],
+        implementation_type: type[T] | None = None,
+        factory: Callable[..., T] | None = None,
     ) -> "ServiceContainer":
         """Register a scoped service (single instance per scope)."""
         with self._lock:
@@ -161,7 +156,7 @@ class ServiceContainer:
             )
         return self
 
-    def resolve(self, service_type: Type[T], scope_id: Optional[str] = None) -> T:
+    def resolve(self, service_type: type[T], scope_id: str | None = None) -> T:
         """
         Resolve a service instance.
 
@@ -229,7 +224,7 @@ class ServiceContainer:
         import inspect
 
         sig = inspect.signature(impl_type.__init__)
-        kwargs: Dict[str, Any] = {}
+        kwargs: dict[str, Any] = {}
 
         for param_name, param in sig.parameters.items():
             if param_name == "self":
@@ -258,7 +253,7 @@ class ServiceScope:
         self._container = container
         self._scope_id = scope_id
 
-    def resolve(self, service_type: Type[T]) -> T:
+    def resolve(self, service_type: type[T]) -> T:
         """Resolve a service within this scope."""
         return self._container.resolve(service_type, self._scope_id)
 
@@ -282,7 +277,7 @@ class DetectorProtocol(Protocol):
         """Fit the detector to normal data."""
         ...
 
-    def detect(self, data: Any) -> Dict[str, Any]:
+    def detect(self, data: Any) -> dict[str, Any]:
         """Detect anomalies in data."""
         ...
 
@@ -299,7 +294,7 @@ class DetectorProtocol(Protocol):
 class ModelProtocol(Protocol):
     """Protocol for prediction models (structural subtyping)."""
 
-    def predict(self, data: Any) -> Dict[str, Any]:
+    def predict(self, data: Any) -> dict[str, Any]:
         """Make predictions on data."""
         ...
 
@@ -324,11 +319,11 @@ class EncoderProtocol(Protocol):
 class ConfigurableProtocol(Protocol):
     """Protocol for configurable components."""
 
-    def configure(self, config: Dict[str, Any]) -> None:
+    def configure(self, config: dict[str, Any]) -> None:
         """Apply configuration to component."""
         ...
 
-    def get_config(self) -> Dict[str, Any]:
+    def get_config(self) -> dict[str, Any]:
         """Get current configuration."""
         ...
 
@@ -350,12 +345,12 @@ class ComponentFactory:
 
     def __init__(self, container: ServiceContainer):
         self._container = container
-        self._registered_plugins: Dict[str, Type] = {}
+        self._registered_plugins: dict[str, type] = {}
 
     def register_plugin(
         self,
         name: str,
-        plugin_type: Type,
+        plugin_type: type,
         version: str = "1.0.0",
     ) -> None:
         """
@@ -372,7 +367,7 @@ class ComponentFactory:
     def create_detector(
         self,
         detector_type: str,
-        config: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ) -> DetectorProtocol:
         """
         Create a detector instance.
@@ -415,7 +410,7 @@ class ComponentFactory:
     def create_model(
         self,
         model_type: str,
-        config: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ) -> ModelProtocol:
         """
         Create a model instance.
@@ -459,7 +454,7 @@ class ComponentFactory:
 # Global Container
 # ============================================================================
 
-_global_container: Optional[ServiceContainer] = None
+_global_container: ServiceContainer | None = None
 
 
 def get_container() -> ServiceContainer:

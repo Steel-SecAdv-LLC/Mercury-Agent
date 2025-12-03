@@ -41,17 +41,17 @@ from omni_anomaly_engine.ml.inference import FusionInference
 from omni_anomaly_engine.ml.training import FusionTrainer
 
 __all__ = [
-    "MultiHeadDetectorAttention",
-    "TemporalAttention",
-    "SpatialAttention",
-    "CrossModalAttention",
-    "StatisticalEncoder",
-    "TemporalEncoder",
-    "BiometricEncoder",
-    "QuantumEncoder",
-    "AstrophysicalEncoder",
     "AffectiveEncoder",
-    "OmniFusionModel",
-    "FusionTrainer",
+    "AstrophysicalEncoder",
+    "BiometricEncoder",
+    "CrossModalAttention",
     "FusionInference",
+    "FusionTrainer",
+    "MultiHeadDetectorAttention",
+    "OmniFusionModel",
+    "QuantumEncoder",
+    "SpatialAttention",
+    "StatisticalEncoder",
+    "TemporalAttention",
+    "TemporalEncoder",
 ]

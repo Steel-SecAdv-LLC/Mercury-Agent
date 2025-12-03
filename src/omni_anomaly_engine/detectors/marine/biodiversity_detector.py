@@ -49,7 +49,7 @@ Performance: 35% improved ecosystem health assessment via multi-modal fusion
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class EcosystemHealth(Enum):
@@ -76,15 +76,15 @@ class BiodiversityPredictionResult:
     ocean_acidification: bool = False
     marine_heatwave: bool = False
 
-    biodiversity_index: Optional[float] = None
-    species_richness: Optional[int] = None
-    population_trend: Optional[str] = None
+    biodiversity_index: float | None = None
+    species_richness: int | None = None
+    population_trend: str | None = None
 
-    ph_level: Optional[float] = None
-    temperature_anomaly_c: Optional[float] = None
+    ph_level: float | None = None
+    temperature_anomaly_c: float | None = None
 
-    threatened_species: List[str] = field(default_factory=list)
-    conservation_actions: List[str] = field(default_factory=list)
+    threatened_species: list[str] = field(default_factory=list)
+    conservation_actions: list[str] = field(default_factory=list)
 
 
 class CoralBleachingDetector:
@@ -93,7 +93,7 @@ class CoralBleachingDetector:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def detect_coral_bleaching(self, coral_data: Dict[str, Any]) -> Dict[str, Any]:
+    def detect_coral_bleaching(self, coral_data: dict[str, Any]) -> dict[str, Any]:
         """Detect coral bleaching events"""
 
         sst_anomaly_c = coral_data.get("sst_anomaly_c", 0.0)
@@ -126,7 +126,7 @@ class MarineBiodiversityDetector:
         self.logger = logging.getLogger(__name__)
 
     def predict_biodiversity_threat(
-        self, marine_data: Dict[str, Any]
+        self, marine_data: dict[str, Any]
     ) -> BiodiversityPredictionResult:
         """Predict marine ecosystem threats"""
 
@@ -168,7 +168,7 @@ class MarineBiodiversityDetector:
 
         return result
 
-    def _generate_conservation_actions(self, result: BiodiversityPredictionResult) -> List[str]:
+    def _generate_conservation_actions(self, result: BiodiversityPredictionResult) -> list[str]:
         """Generate conservation recommendations"""
 
         actions = []
