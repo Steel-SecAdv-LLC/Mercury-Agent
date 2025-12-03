@@ -130,9 +130,7 @@ class EthicalGate:
         """
         if self.gate_network is not None and TORCH_AVAILABLE:
             padded = np.zeros(self.input_dim)
-            padded[: min(len(scalar_vector), self.input_dim)] = scalar_vector[
-                : self.input_dim
-            ]
+            padded[: min(len(scalar_vector), self.input_dim)] = scalar_vector[: self.input_dim]
 
             with torch.no_grad():
                 tensor_input = torch.tensor(padded, dtype=torch.float32).unsqueeze(0)
@@ -152,8 +150,10 @@ class EthicalGate:
         mean_value = np.mean(scalar_vector)
         std_value = np.std(scalar_vector)
 
-        score = 0.4 * positive_ratio + 0.4 * min(mean_value / 2.0, 1.0) + 0.2 * (
-            1.0 / (1.0 + std_value)
+        score = (
+            0.4 * positive_ratio
+            + 0.4 * min(mean_value / 2.0, 1.0)
+            + 0.2 * (1.0 / (1.0 + std_value))
         )
         return float(np.clip(score, 0.0, 1.0))
 
@@ -165,9 +165,7 @@ class MultiHeadAttentionFusion:
     Implements 8-head attention at d_model=512 for fusing scalar dimensions.
     """
 
-    def __init__(
-        self, d_model: int = 512, num_heads: int = 8, max_dimensions: int = 37
-    ):
+    def __init__(self, d_model: int = 512, num_heads: int = 8, max_dimensions: int = 37):
         self.d_model = d_model
         self.num_heads = num_heads
         self.max_dimensions = max_dimensions
@@ -275,9 +273,7 @@ class GlobalOmniScalarNetwork:
         }
 
         self.ethical_gate = EthicalGate(threshold=self.SIGMA_SACRED_THRESHOLD)
-        self.attention_fusion = MultiHeadAttentionFusion(
-            max_dimensions=max_dimensions
-        )
+        self.attention_fusion = MultiHeadAttentionFusion(max_dimensions=max_dimensions)
 
         self._initialize_default_scalars()
         self._initialized = True
@@ -407,20 +403,15 @@ class GlobalOmniScalarNetwork:
                 f"{self.SIGMA_SACRED_THRESHOLD}"
             )
             self.logger.warning(
-                f"Ethical gate triggered for {requesting_component}: "
-                f"score={ethical_score:.3f}"
+                f"Ethical gate triggered for {requesting_component}: " f"score={ethical_score:.3f}"
             )
 
         dimensional_states = self._prepare_dimensional_states(base_scalars, context)
         fused_state = self.attention_fusion.fuse(dimensional_states)
 
-        enhanced_scalars = self._apply_enhancement(
-            base_scalars, fused_state, ethical_score
-        )
+        enhanced_scalars = self._apply_enhancement(base_scalars, fused_state, ethical_score)
 
-        intelligence_contribution = self._compute_intelligence_contribution(
-            enhanced_scalars
-        )
+        intelligence_contribution = self._compute_intelligence_contribution(enhanced_scalars)
 
         return EnhancementResult(
             enhanced_scalars=enhanced_scalars,
@@ -546,17 +537,11 @@ class GlobalOmniScalarNetwork:
         elif boost_ratio < 0.55:
             recommendations.append("Consider increasing boost scalars for balance")
 
-        empathy = self.scalar_groups[ScalarGroup.ETHICAL].get(
-            "empathy_scalar", self.MIN_EMPATHY
-        )
-        morality = self.scalar_groups[ScalarGroup.ETHICAL].get(
-            "morality_scalar", self.MIN_MORALITY
-        )
+        empathy = self.scalar_groups[ScalarGroup.ETHICAL].get("empathy_scalar", self.MIN_EMPATHY)
+        morality = self.scalar_groups[ScalarGroup.ETHICAL].get("morality_scalar", self.MIN_MORALITY)
 
         if empathy < self.MIN_EMPATHY:
-            recommendations.append(
-                f"Empathy scalar {empathy:.2f} below minimum {self.MIN_EMPATHY}"
-            )
+            recommendations.append(f"Empathy scalar {empathy:.2f} below minimum {self.MIN_EMPATHY}")
         if morality < self.MIN_MORALITY:
             recommendations.append(
                 f"Morality scalar {morality:.2f} below minimum {self.MIN_MORALITY}"
@@ -656,9 +641,7 @@ class GlobalOmniScalarNetwork:
 
         return enhanced
 
-    def _compute_intelligence_contribution(
-        self, enhanced_scalars: dict[str, float]
-    ) -> float:
+    def _compute_intelligence_contribution(self, enhanced_scalars: dict[str, float]) -> float:
         """Compute intelligence contribution from enhanced scalars."""
         if not enhanced_scalars:
             return 0.0

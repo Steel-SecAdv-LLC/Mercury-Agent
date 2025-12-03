@@ -166,8 +166,7 @@ class AvaEquationEngine:
         self.current_state: Optional[EvolutionState] = None
 
         logger.info(
-            f"AvaEquationEngine initialized (dim={dimension}, "
-            f"mode={self.config.mode.value})"
+            f"AvaEquationEngine initialized (dim={dimension}, " f"mode={self.config.mode.value})"
         )
 
     def _normalize_weights(self) -> None:
@@ -354,8 +353,8 @@ class AvaEquationEngine:
 
     def _term_helical_curvature(self, state: np.ndarray) -> np.ndarray:
         """Helical curvature term for DNA-like evolution."""
-        radius = np.linalg.norm(state[:self.dimension // 2])
-        pitch = np.linalg.norm(state[self.dimension // 2:])
+        radius = np.linalg.norm(state[: self.dimension // 2])
+        pitch = np.linalg.norm(state[self.dimension // 2 :])
 
         if radius**2 + pitch**2 > 0:
             curvature = radius / (radius**2 + pitch**2)
@@ -364,8 +363,8 @@ class AvaEquationEngine:
 
     def _term_helical_torsion(self, state: np.ndarray) -> np.ndarray:
         """Helical torsion term for DNA-like evolution."""
-        radius = np.linalg.norm(state[:self.dimension // 2])
-        pitch = np.linalg.norm(state[self.dimension // 2:])
+        radius = np.linalg.norm(state[: self.dimension // 2])
+        pitch = np.linalg.norm(state[self.dimension // 2 :])
 
         if radius**2 + pitch**2 > 0:
             torsion = pitch / (radius**2 + pitch**2)
@@ -512,7 +511,9 @@ class AvaEquationEngine:
             "final_lyapunov": lyapunov_values[-1],
             "final_sigma_quadratic": sigma_values[-1],
             "final_convergence_rate": convergence_rates[-1],
-            "lyapunov_trend": "decreasing" if lyapunov_values[-1] < lyapunov_values[0] else "stable",
+            "lyapunov_trend": (
+                "decreasing" if lyapunov_values[-1] < lyapunov_values[0] else "stable"
+            ),
             "sigma_satisfied": sigma_values[-1] >= SIGMA_QUADRATIC_THRESHOLD,
             "converged": convergence_rates[-1] < self.config.convergence_threshold,
         }

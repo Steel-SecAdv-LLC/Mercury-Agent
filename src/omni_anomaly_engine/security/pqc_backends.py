@@ -236,9 +236,7 @@ def generate_kyber_keypair() -> KyberKeyPair:
         KyberKeyPair with public and secret keys
     """
     if require_constant_time() and not LIBOQS_AVAILABLE:
-        raise RuntimeError(
-            "Constant-time implementation required but liboqs not available"
-        )
+        raise RuntimeError("Constant-time implementation required but liboqs not available")
 
     if LIBOQS_AVAILABLE:
         kem = oqs.KeyEncapsulation("Kyber1024")
@@ -248,9 +246,7 @@ def generate_kyber_keypair() -> KyberKeyPair:
 
     if PQCRYPTO_AVAILABLE:
         public_key, secret_key = kyber_fallback.generate_keypair()
-        return KyberKeyPair(
-            public_key=public_key, secret_key=secret_key, algorithm="Kyber512"
-        )
+        return KyberKeyPair(public_key=public_key, secret_key=secret_key, algorithm="Kyber512")
 
     logger.warning("Using simulated Kyber keys (NOT SECURE)")
     return KyberKeyPair(

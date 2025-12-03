@@ -140,16 +140,12 @@ class BiometricFusion:
         self.device = device
 
         if TORCH_AVAILABLE:
-            self.transformer = nn.TransformerEncoderLayer(
-                d_model=dim, nhead=8, batch_first=True
-            )
+            self.transformer = nn.TransformerEncoderLayer(d_model=dim, nhead=8, batch_first=True)
             self.transformer = self.transformer.to(device)
         else:
             self.transformer = None
 
-    def forward(
-        self, neural_emb: np.ndarray, symbolic_score: float = 1.0
-    ) -> np.ndarray:
+    def forward(self, neural_emb: np.ndarray, symbolic_score: float = 1.0) -> np.ndarray:
         """
         Fuse neural embedding with symbolic constraint score.
 
@@ -171,9 +167,7 @@ class BiometricFusion:
         current_dim = neural_emb.shape[-1]
         if current_dim != self.dim:
             if current_dim < self.dim:
-                padding = np.zeros(
-                    (neural_emb.shape[0], self.dim - current_dim), dtype=np.float32
-                )
+                padding = np.zeros((neural_emb.shape[0], self.dim - current_dim), dtype=np.float32)
                 neural_emb = np.concatenate([neural_emb, padding], axis=1)
             else:
                 neural_emb = neural_emb[:, : self.dim]
@@ -397,9 +391,7 @@ class AdvancedBiometricEngine:
             },
         )
 
-    def fuse_with_symbolic(
-        self, image_path: str, symbolic_data: dict[str, Any]
-    ) -> np.ndarray:
+    def fuse_with_symbolic(self, image_path: str, symbolic_data: dict[str, Any]) -> np.ndarray:
         """
         Fuse biometric features with symbolic constraint data.
 
@@ -469,8 +461,7 @@ class AgeProgressionEngine:
             self.facenet = None
 
         logger.info(
-            f"AgeProgressionEngine initialized (device={device}, "
-            f"facenet={FACENET_AVAILABLE})"
+            f"AgeProgressionEngine initialized (device={device}, " f"facenet={FACENET_AVAILABLE})"
         )
 
     def detect_and_align_face(self, image_path: str) -> Optional[np.ndarray]:
@@ -547,9 +538,7 @@ class AgeProgressionEngine:
             logger.error(f"Embedding extraction error: {e}")
             return None
 
-    def apply_polynomial_age_filter(
-        self, face: np.ndarray, age_delta: int
-    ) -> np.ndarray:
+    def apply_polynomial_age_filter(self, face: np.ndarray, age_delta: int) -> np.ndarray:
         """
         Apply polynomial filters for age progression.
 
@@ -613,9 +602,7 @@ class AgeProgressionEngine:
         try:
             face = self.detect_and_align_face(image_path)
             if face is None:
-                return AgeProgressionResult(
-                    success=False, message="Face detection failed"
-                )
+                return AgeProgressionResult(success=False, message="Face detection failed")
 
             original_embedding = self.extract_facenet_embedding(face)
 
@@ -664,9 +651,7 @@ class AgeProgressionEngine:
                 timeline.append(result)
         return timeline
 
-    def _compute_similarity(
-        self, emb1: Optional[np.ndarray], emb2: Optional[np.ndarray]
-    ) -> float:
+    def _compute_similarity(self, emb1: Optional[np.ndarray], emb2: Optional[np.ndarray]) -> float:
         """Compute cosine similarity between embeddings."""
         if emb1 is None or emb2 is None:
             return 0.0

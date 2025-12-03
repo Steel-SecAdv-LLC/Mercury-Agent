@@ -105,9 +105,7 @@ class QuantumGate:
     @staticmethod
     def cnot() -> np.ndarray:
         """Controlled-NOT gate (creates entanglement)."""
-        return np.array(
-            [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex
-        )
+        return np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex)
 
     @staticmethod
     def toffoli() -> np.ndarray:
@@ -119,9 +117,7 @@ class QuantumGate:
     @staticmethod
     def swap() -> np.ndarray:
         """SWAP gate."""
-        return np.array(
-            [[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]], dtype=complex
-        )
+        return np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]], dtype=complex)
 
     @staticmethod
     def t_gate() -> np.ndarray:
@@ -190,9 +186,7 @@ class QuantumCircuit:
 
         self.state.amplitudes = new_amplitudes
 
-    def _apply_two_qubit_gate(
-        self, gate: np.ndarray, control: int, target: int
-    ) -> None:
+    def _apply_two_qubit_gate(self, gate: np.ndarray, control: int, target: int) -> None:
         """Apply two-qubit gate (simplified for CNOT)."""
         new_amplitudes = self.state.amplitudes.copy()
 
@@ -349,9 +343,7 @@ class QuantumEngine:
                 speedup=0.0,
             )
 
-    def _grover_oracle(
-        self, circuit: QuantumCircuit, target: int, num_qubits: int
-    ) -> None:
+    def _grover_oracle(self, circuit: QuantumCircuit, target: int, num_qubits: int) -> None:
         """Oracle for Grover's algorithm (marks target state)."""
         for qubit in range(num_qubits):
             if not (target & (1 << qubit)):
@@ -399,9 +391,7 @@ class QuantumEngine:
             state1 = QuantumState(amplitudes=state_vector[:2].copy(), num_qubits=1)
             state2 = QuantumState(
                 amplitudes=(
-                    state_vector[2:].copy()
-                    if len(state_vector) > 2
-                    else state_vector[:2].copy()
+                    state_vector[2:].copy() if len(state_vector) > 2 else state_vector[:2].copy()
                 ),
                 num_qubits=1,
             )
@@ -451,26 +441,20 @@ class QuantumEngine:
 
             sample_size = min(len(sifted_key) // 2, 50)
             if sample_size > 0:
-                sample_indices = np.random.choice(
-                    len(sifted_key), sample_size, replace=False
-                )
+                sample_indices = np.random.choice(len(sifted_key), sample_size, replace=False)
 
                 alice_sample = sifted_key[sample_indices]
                 bob_sample = bob_bits_arr[matching_bases][sample_indices]
 
                 error_rate = float(np.sum(alice_sample != bob_sample) / sample_size)
 
-                final_key_indices = np.setdiff1d(
-                    np.arange(len(sifted_key)), sample_indices
-                )
+                final_key_indices = np.setdiff1d(np.arange(len(sifted_key)), sample_indices)
                 final_key = sifted_key[final_key_indices][:key_length]
             else:
                 error_rate = 0.0
                 final_key = sifted_key[:key_length]
 
-            security_level = (1.0 - error_rate) * self.omni_scalars[
-                "omni_quantum_coherence"
-            ]
+            security_level = (1.0 - error_rate) * self.omni_scalars["omni_quantum_coherence"]
 
             return QKDResult(
                 key="".join(map(str, final_key)),
@@ -587,9 +571,7 @@ class QuantumEngine:
                 best_state=[], best_cost=float("inf"), confidence=0.0, iterations=0
             )
 
-    def calculate_quantum_fidelity(
-        self, state1: np.ndarray, state2: np.ndarray
-    ) -> float:
+    def calculate_quantum_fidelity(self, state1: np.ndarray, state2: np.ndarray) -> float:
         """
         Calculate quantum fidelity between two states.
 
@@ -681,10 +663,7 @@ class QuantumEngine:
 
             coherence = 1.0 - np.sum(np.abs(normalized) ** 4)
 
-            entropy = -np.sum(
-                np.abs(normalized) ** 2
-                * np.log2(np.abs(normalized) ** 2 + 1e-10)
-            )
+            entropy = -np.sum(np.abs(normalized) ** 2 * np.log2(np.abs(normalized) ** 2 + 1e-10))
 
             fft_result = np.fft.fft(normalized)
             phase_variance = np.var(np.angle(fft_result))

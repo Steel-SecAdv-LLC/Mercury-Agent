@@ -222,9 +222,7 @@ class MaatBalanceEngine:
         is_balanced = deviation <= self.balance_threshold
 
         verdict = self._determine_verdict(heart_weight, feather_weight, deviation)
-        recommendations = self._generate_recommendations(
-            ethical_scores, heart_weight, deviation
-        )
+        recommendations = self._generate_recommendations(ethical_scores, heart_weight, deviation)
 
         omni_scalars = self._compute_omni_scalars(ethical_scores, heart_weight)
 
@@ -238,9 +236,7 @@ class MaatBalanceEngine:
             omni_scalars=omni_scalars,
         )
 
-    def verify_cosmic_order(
-        self, system_state: dict[str, float]
-    ) -> dict[str, Any]:
+    def verify_cosmic_order(self, system_state: dict[str, float]) -> dict[str, Any]:
         """
         Verify alignment with cosmic order (Ma'at as universal principle).
 
@@ -254,9 +250,7 @@ class MaatBalanceEngine:
         stability_score = self._compute_stability(system_state)
         truth_alignment = self._compute_truth_alignment(system_state)
 
-        cosmic_order_score = (
-            0.4 * harmony_score + 0.3 * stability_score + 0.3 * truth_alignment
-        )
+        cosmic_order_score = 0.4 * harmony_score + 0.3 * stability_score + 0.3 * truth_alignment
 
         return {
             "cosmic_order_score": cosmic_order_score,
@@ -311,18 +305,12 @@ class MaatBalanceEngine:
         recommendations = []
 
         if deviation > self.balance_threshold:
-            low_scores = [
-                (k, v) for k, v in ethical_scores.items() if v < 0.7
-            ]
+            low_scores = [(k, v) for k, v in ethical_scores.items() if v < 0.7]
             for dimension, score in sorted(low_scores, key=lambda x: x[1]):
-                recommendations.append(
-                    f"Improve {dimension} (current: {score:.2f}, target: 0.80)"
-                )
+                recommendations.append(f"Improve {dimension} (current: {score:.2f}, target: 0.80)")
 
         if heart_weight > 1.2:
-            recommendations.append(
-                "Consider bias audit to reduce ethical burden"
-            )
+            recommendations.append("Consider bias audit to reduce ethical burden")
 
         if not recommendations:
             recommendations.append("Maintain current ethical alignment")
@@ -412,9 +400,7 @@ class AthenaWisdomEngine:
         tactical = self._compute_tactical_wisdom(performance_metrics)
         ethical = self._compute_ethical_alignment(ethical_scores)
         knowledge = self._compute_knowledge_depth(knowledge_indicators)
-        insight = self._compute_insight_clarity(
-            performance_metrics, knowledge_indicators
-        )
+        insight = self._compute_insight_clarity(performance_metrics, knowledge_indicators)
 
         total_score = (
             self.wisdom_weights["strategic_intelligence"] * strategic
@@ -464,12 +450,14 @@ class AthenaWisdomEngine:
         scored_options = []
         for i, option in enumerate(options):
             score = self._score_option(option, decision_context)
-            scored_options.append({
-                "option_index": i,
-                "option": option,
-                "score": score,
-                "strategic_value": score * self.PHI,
-            })
+            scored_options.append(
+                {
+                    "option_index": i,
+                    "option": option,
+                    "score": score,
+                    "strategic_value": score * self.PHI,
+                }
+            )
 
         scored_options.sort(key=lambda x: x["score"], reverse=True)
 
@@ -480,9 +468,7 @@ class AthenaWisdomEngine:
             "strategic_clarity": self._compute_clarity(scored_options),
         }
 
-    def _compute_strategic_intelligence(
-        self, metrics: dict[str, float]
-    ) -> float:
+    def _compute_strategic_intelligence(self, metrics: dict[str, float]) -> float:
         """Compute strategic intelligence score."""
         indicators = [
             metrics.get("long_term_accuracy", 0.5),
@@ -507,9 +493,7 @@ class AthenaWisdomEngine:
             return 0.5
         return float(np.mean(list(ethical_scores.values())))
 
-    def _compute_knowledge_depth(
-        self, knowledge_indicators: dict[str, float]
-    ) -> float:
+    def _compute_knowledge_depth(self, knowledge_indicators: dict[str, float]) -> float:
         """Compute knowledge depth score."""
         if not knowledge_indicators:
             return 0.5
@@ -525,9 +509,7 @@ class AthenaWisdomEngine:
         know_mean = np.mean(list(knowledge.values())) if knowledge else 0.5
         return float((perf_mean + know_mean) / 2.0)
 
-    def _score_option(
-        self, option: dict[str, Any], context: dict[str, Any]
-    ) -> float:
+    def _score_option(self, option: dict[str, Any], context: dict[str, Any]) -> float:
         """Score a decision option."""
         base_score = option.get("expected_value", 0.5)
         risk_factor = 1.0 - option.get("risk", 0.3)
@@ -588,16 +570,9 @@ class SacredGeometryProcessor:
         vesica = self._compute_vesica_piscis_score(data)
         platonic = self._compute_platonic_harmony(data)
 
-        overall = (
-            0.35 * golden_ratio
-            + 0.25 * fibonacci
-            + 0.20 * vesica
-            + 0.20 * platonic
-        )
+        overall = 0.35 * golden_ratio + 0.25 * fibonacci + 0.20 * vesica + 0.20 * platonic
 
-        patterns = self._detect_patterns(
-            golden_ratio, fibonacci, vesica, platonic
-        )
+        patterns = self._detect_patterns(golden_ratio, fibonacci, vesica, platonic)
 
         return GeometryAnalysis(
             golden_ratio_alignment=golden_ratio,
@@ -706,10 +681,7 @@ class SacredGeometryProcessor:
 
         normalized_ratio = mean_val / (mean_val + std_val)
 
-        best_alignment = max(
-            1.0 / (1.0 + abs(normalized_ratio - pr))
-            for pr in platonic_ratios
-        )
+        best_alignment = max(1.0 / (1.0 + abs(normalized_ratio - pr)) for pr in platonic_ratios)
 
         return float(best_alignment)
 
@@ -823,9 +795,7 @@ class TwelveFoldVerificationSystem:
         else:
             status = "PASSED" if overall_score >= self.OVERALL_THRESHOLD else "FAILED"
 
-        detailed = self._generate_detailed_analysis(
-            normalized_scores, passed, failed, context
-        )
+        detailed = self._generate_detailed_analysis(normalized_scores, passed, failed, context)
 
         return TwelveFoldResult(
             overall_score=overall_score,
@@ -879,14 +849,10 @@ class TwelveFoldVerificationSystem:
 
         for dim_name in passed:
             if scores[dim_name] >= 0.85:
-                analysis["strengths"].append(
-                    f"{dim_name}: Excellent ({scores[dim_name]:.2f})"
-                )
+                analysis["strengths"].append(f"{dim_name}: Excellent ({scores[dim_name]:.2f})")
 
         for dim_name in failed:
-            analysis["weaknesses"].append(
-                f"{dim_name}: Needs improvement ({scores[dim_name]:.2f})"
-            )
+            analysis["weaknesses"].append(f"{dim_name}: Needs improvement ({scores[dim_name]:.2f})")
             analysis["recommendations"].append(
                 f"Improve {dim_name} score from {scores[dim_name]:.2f} to {self.PASSING_THRESHOLD}"
             )
@@ -945,9 +911,7 @@ class SacredWisdomEngine:
         """
         context = context or {}
 
-        maat_result = self.maat_engine.weigh_heart_against_feather(
-            ethical_scores, context
-        )
+        maat_result = self.maat_engine.weigh_heart_against_feather(ethical_scores, context)
 
         wisdom_quotient = self.athena_engine.compute_wisdom_quotient(
             performance_metrics, ethical_scores, knowledge_indicators
@@ -956,13 +920,9 @@ class SacredWisdomEngine:
         dimension_scores = self._map_to_twelve_dimensions(
             ethical_scores, performance_metrics, knowledge_indicators
         )
-        verification_result = self.verification_system.verify(
-            dimension_scores, context
-        )
+        verification_result = self.verification_system.verify(dimension_scores, context)
 
-        geometry_result = self.geometry_processor.analyze_sacred_geometry(
-            data, context
-        )
+        geometry_result = self.geometry_processor.analyze_sacred_geometry(data, context)
 
         overall_alignment = self._compute_overall_alignment(
             maat_result, wisdom_quotient, verification_result, geometry_result
@@ -1076,26 +1036,16 @@ class SacredWisdomEngine:
 
         if wisdom_quotient:
             scalars["wisdom_quotient_scalar"] = wisdom_quotient.total_score * 1.3
-            scalars["strategic_intelligence_scalar"] = (
-                wisdom_quotient.strategic_intelligence * 1.2
-            )
-            scalars["ethical_alignment_scalar"] = (
-                wisdom_quotient.ethical_alignment * 1.3
-            )
+            scalars["strategic_intelligence_scalar"] = wisdom_quotient.strategic_intelligence * 1.2
+            scalars["ethical_alignment_scalar"] = wisdom_quotient.ethical_alignment * 1.3
 
         if verification_result:
             scalars["twelve_fold_scalar"] = verification_result.overall_score * 1.25
-            scalars["verification_pass_rate"] = (
-                len(verification_result.passed_dimensions) / 12.0
-            )
+            scalars["verification_pass_rate"] = len(verification_result.passed_dimensions) / 12.0
 
         if geometry_result:
-            scalars["sacred_geometry_scalar"] = (
-                geometry_result.overall_sacred_score * 1.2
-            )
-            scalars["golden_ratio_scalar"] = (
-                geometry_result.golden_ratio_alignment * 1.618
-            )
+            scalars["sacred_geometry_scalar"] = geometry_result.overall_sacred_score * 1.2
+            scalars["golden_ratio_scalar"] = geometry_result.golden_ratio_alignment * 1.618
             scalars["fibonacci_scalar"] = geometry_result.fibonacci_spiral_score * 1.15
 
         return scalars
@@ -1115,7 +1065,9 @@ class SacredWisdomEngine:
             "healing": performance_metrics.get("recovery", 0.5),
             "judgment": performance_metrics.get("decision_accuracy", 0.5),
             "authority": ethical_scores.get("control", 0.5),
-            "knowledge": np.mean(list(knowledge_indicators.values())) if knowledge_indicators else 0.5,
+            "knowledge": (
+                np.mean(list(knowledge_indicators.values())) if knowledge_indicators else 0.5
+            ),
             "balance": ethical_scores.get("balance", 0.5),
             "strategy": performance_metrics.get("planning", 0.5),
             "order": performance_metrics.get("organization", 0.5),
@@ -1153,22 +1105,14 @@ class SacredWisdomEngine:
         recommendations = []
 
         if dominant == WisdomArchetype.MAAT:
-            recommendations.append(
-                "Strong Ma'at alignment - maintain balance and truth focus"
-            )
+            recommendations.append("Strong Ma'at alignment - maintain balance and truth focus")
         elif dominant == WisdomArchetype.ATHENA:
-            recommendations.append(
-                "Strong Athena alignment - leverage strategic intelligence"
-            )
+            recommendations.append("Strong Athena alignment - leverage strategic intelligence")
         elif dominant == WisdomArchetype.THOTH:
-            recommendations.append(
-                "Strong Thoth alignment - emphasize knowledge and writing"
-            )
+            recommendations.append("Strong Thoth alignment - emphasize knowledge and writing")
 
         low_scores = [(k, v) for k, v in scores.items() if v < 0.5]
         for archetype, score in sorted(low_scores, key=lambda x: x[1]):
-            recommendations.append(
-                f"Consider strengthening {archetype} alignment ({score:.2f})"
-            )
+            recommendations.append(f"Consider strengthening {archetype} alignment ({score:.2f})")
 
         return recommendations

@@ -346,9 +346,7 @@ class HybridSignatureProvider:
                 message, hybrid_sig.classical_signature, classical_public
             )
 
-        pqc_valid = self.pqc_provider.verify(
-            message, hybrid_sig.pqc_signature, pqc_public
-        )
+        pqc_valid = self.pqc_provider.verify(message, hybrid_sig.pqc_signature, pqc_public)
 
         return classical_valid, pqc_valid
 
@@ -392,9 +390,7 @@ class AvaGuardianCrypto:
             f"backend={backend.value})"
         )
 
-    def generate_signing_keypair(
-        self, algorithm: Optional[AlgorithmType] = None
-    ) -> KeyPair:
+    def generate_signing_keypair(self, algorithm: Optional[AlgorithmType] = None) -> KeyPair:
         """Generate signing key pair based on security level."""
         if algorithm:
             if algorithm == AlgorithmType.ED25519:
@@ -520,9 +516,7 @@ class AvaGuardianCrypto:
                     pqc_kp.secret_key,
                 )
             else:
-                result.signature = self.sign(
-                    data_bytes, self._signing_keypair.secret_key
-                )
+                result.signature = self.sign(data_bytes, self._signing_keypair.secret_key)
 
         if config.include_timestamp:
             result.metadata["signed_at"] = time.time()

@@ -227,9 +227,7 @@ class CheckpointCallback(BaseCallback):
                 self.model.save(str(best_path))
 
                 if self.verbose > 0:
-                    logger.info(
-                        f"Saved best model: {best_path} (reward: {mean_reward:.2f})"
-                    )
+                    logger.info(f"Saved best model: {best_path} (reward: {mean_reward:.2f})")
 
         return True
 
@@ -356,9 +354,7 @@ class PPOTrainer:
                 )
 
                 self.stats.total_timesteps = total_timesteps
-                self.stats.convergence_metric = (
-                    self.convergence_monitor.get_convergence_metric()
-                )
+                self.stats.convergence_metric = self.convergence_monitor.get_convergence_metric()
 
                 if len(self.convergence_monitor.reward_history) > 0:
                     recent_rewards = self.convergence_monitor.reward_history[-100:]
@@ -367,9 +363,7 @@ class PPOTrainer:
                     self.stats.best_reward = self.convergence_monitor.best_mean_reward
 
                 if self.checkpoint_callback:
-                    self.stats.checkpoints_saved = (
-                        self.checkpoint_callback.checkpoints_saved
-                    )
+                    self.stats.checkpoints_saved = self.checkpoint_callback.checkpoints_saved
 
             except Exception as e:
                 logger.error(f"Training failed: {e}")
@@ -578,9 +572,7 @@ class MultiEnvPPOTrainer(PPOTrainer):
         )
 
         self.num_envs = len(envs)
-        logger.info(
-            f"Multi-Environment PPO Trainer initialized with {self.num_envs} envs"
-        )
+        logger.info(f"Multi-Environment PPO Trainer initialized with {self.num_envs} envs")
 
     def pretrain_on_benchmarks(
         self,
@@ -613,9 +605,7 @@ class MultiEnvPPOTrainer(PPOTrainer):
             benchmark_stats[benchmark_name] = stats
 
         total_timesteps = sum(s.total_timesteps for s in benchmark_stats.values())
-        mean_convergence = np.mean(
-            [s.convergence_metric for s in benchmark_stats.values()]
-        )
+        mean_convergence = np.mean([s.convergence_metric for s in benchmark_stats.values()])
 
         logger.info(
             f"Multi-benchmark pretraining complete: "

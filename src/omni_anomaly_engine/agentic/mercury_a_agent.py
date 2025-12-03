@@ -223,9 +223,7 @@ class AgentMemory:
         self.episodic[entry_id] = entry
         return entry_id
 
-    def store_semantic(
-        self, fact: str, category: str, confidence: float = 0.8
-    ) -> str:
+    def store_semantic(self, fact: str, category: str, confidence: float = 0.8) -> str:
         """Store a semantic memory (general knowledge)."""
         entry_id = f"sm_{uuid.uuid4().hex[:8]}"
         content = {
@@ -257,19 +255,13 @@ class AgentMemory:
             results.extend([m for m in self.short_term if m.importance >= threshold])
 
         if memory_type in ("all", "long_term"):
-            results.extend(
-                [m for m in self.long_term.values() if m.importance >= threshold]
-            )
+            results.extend([m for m in self.long_term.values() if m.importance >= threshold])
 
         if memory_type in ("all", "episodic"):
-            results.extend(
-                [m for m in self.episodic.values() if m.importance >= threshold]
-            )
+            results.extend([m for m in self.episodic.values() if m.importance >= threshold])
 
         if memory_type in ("all", "semantic"):
-            results.extend(
-                [m for m in self.semantic.values() if m.importance >= threshold]
-            )
+            results.extend([m for m in self.semantic.values() if m.importance >= threshold])
 
         return sorted(results, key=lambda x: x.importance, reverse=True)
 
@@ -325,10 +317,7 @@ class AgentMemory:
             "episodic_count": len(self.episodic),
             "semantic_count": len(self.semantic),
             "total_memories": (
-                len(self.short_term)
-                + len(self.long_term)
-                + len(self.episodic)
-                + len(self.semantic)
+                len(self.short_term) + len(self.long_term) + len(self.episodic) + len(self.semantic)
             ),
         }
 
@@ -392,9 +381,7 @@ class MercuryReasoner:
 
         return self._conclude("Max reasoning steps reached")
 
-    def _generate_thought(
-        self, query: str, context: dict[str, Any], step_num: int
-    ) -> str:
+    def _generate_thought(self, query: str, context: dict[str, Any], step_num: int) -> str:
         """Generate a thought based on query and context."""
         if step_num == 0:
             return f"Analyzing query: {query}"
@@ -405,9 +392,7 @@ class MercuryReasoner:
 
         return f"Step {step_num}: Continuing analysis of {query}"
 
-    def _decide_action(
-        self, thought: str, tools: dict[str, Callable]
-    ) -> tuple[str, Optional[str]]:
+    def _decide_action(self, thought: str, tools: dict[str, Callable]) -> tuple[str, Optional[str]]:
         """Decide what action to take based on thought."""
         if "conclude" in thought.lower() or "final" in thought.lower():
             return "conclude", None
@@ -450,9 +435,7 @@ class MercuryReasoner:
     def _conclude(self, final_thought: str) -> dict[str, Any]:
         """Generate conclusion from reasoning chain."""
         avg_confidence = (
-            np.mean([s.confidence for s in self.reasoning_chain])
-            if self.reasoning_chain
-            else 0.5
+            np.mean([s.confidence for s in self.reasoning_chain]) if self.reasoning_chain else 0.5
         )
 
         return {
@@ -559,9 +542,7 @@ class MercuryPlanner:
             PlanResult with decomposed tasks
         """
         context = context or {}
-        strategy = self.domain_strategies.get(
-            domain, self.domain_strategies[DomainType.GENERAL]
-        )
+        strategy = self.domain_strategies.get(domain, self.domain_strategies[DomainType.GENERAL])
 
         tasks = self._decompose_goal(goal, domain, strategy)
 
@@ -733,14 +714,10 @@ class MercuryPlanner:
         for i in range(1, len(tasks)):
             tasks[i].dependencies.append(tasks[i - 1].task_id)
 
-    def _estimate_duration(
-        self, tasks: list[Task], strategy: dict[str, Any]
-    ) -> float:
+    def _estimate_duration(self, tasks: list[Task], strategy: dict[str, Any]) -> float:
         """Estimate total duration for plan execution."""
         base_duration_per_task = 60.0
-        total = sum(
-            base_duration_per_task * task.priority.value for task in tasks
-        )
+        total = sum(base_duration_per_task * task.priority.value for task in tasks)
 
         max_parallel = strategy.get("max_parallel_tasks", 1)
         if max_parallel > 1:
@@ -748,9 +725,7 @@ class MercuryPlanner:
 
         return total
 
-    def _estimate_plan_confidence(
-        self, tasks: list[Task], domain: DomainType
-    ) -> float:
+    def _estimate_plan_confidence(self, tasks: list[Task], domain: DomainType) -> float:
         """Estimate confidence in plan success."""
         base_confidence = 0.85
 
@@ -921,9 +896,7 @@ class MercuryAgent:
             "execution_history_count": len(self.execution_history),
         }
 
-    def _execute_plan(
-        self, plan: PlanResult, context: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _execute_plan(self, plan: PlanResult, context: dict[str, Any]) -> dict[str, Any]:
         """Execute a plan's tasks."""
         results = {
             "plan_id": plan.plan_id,
@@ -945,16 +918,12 @@ class MercuryAgent:
                 results["tasks_failed"] += 1
 
         results["success_rate"] = (
-            results["tasks_completed"] / len(plan.tasks)
-            if plan.tasks
-            else 0.0
+            results["tasks_completed"] / len(plan.tasks) if plan.tasks else 0.0
         )
 
         return results
 
-    def _execute_task(
-        self, task: Task, context: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _execute_task(self, task: Task, context: dict[str, Any]) -> dict[str, Any]:
         """Execute a single task."""
         task.status = "executing"
 
@@ -979,9 +948,7 @@ class MercuryAgent:
 
         return result
 
-    def _check_dependencies(
-        self, task: Task, completed_results: list[dict]
-    ) -> bool:
+    def _check_dependencies(self, task: Task, completed_results: list[dict]) -> bool:
         """Check if task dependencies are satisfied."""
         completed_ids = {r["task_id"] for r in completed_results if r["status"] == "completed"}
         return all(dep in completed_ids for dep in task.dependencies)

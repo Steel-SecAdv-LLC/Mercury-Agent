@@ -304,25 +304,15 @@ class DifferenceTargetPropagation:
         self.learning_rate = learning_rate
 
         if inverse_layer is None:
-            if hasattr(forward_layer, "in_features") and hasattr(
-                forward_layer, "out_features"
-            ):
-                inverse_layer = nn.Linear(
-                    forward_layer.out_features, forward_layer.in_features
-                )
+            if hasattr(forward_layer, "in_features") and hasattr(forward_layer, "out_features"):
+                inverse_layer = nn.Linear(forward_layer.out_features, forward_layer.in_features)
             else:
-                raise ValueError(
-                    "Must provide inverse_layer or forward_layer must be nn.Linear"
-                )
+                raise ValueError("Must provide inverse_layer or forward_layer must be nn.Linear")
 
         self.inverse_layer = inverse_layer
 
-        self.optimizer_forward = optim.SGD(
-            self.forward_layer.parameters(), lr=learning_rate
-        )
-        self.optimizer_inverse = optim.SGD(
-            self.inverse_layer.parameters(), lr=learning_rate
-        )
+        self.optimizer_forward = optim.SGD(self.forward_layer.parameters(), lr=learning_rate)
+        self.optimizer_inverse = optim.SGD(self.inverse_layer.parameters(), lr=learning_rate)
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """
@@ -338,9 +328,7 @@ class DifferenceTargetPropagation:
         output = self.forward_layer(x_tensor)
         return output.detach().numpy()
 
-    def backward_pass(
-        self, h_current: np.ndarray, target: np.ndarray
-    ) -> np.ndarray:
+    def backward_pass(self, h_current: np.ndarray, target: np.ndarray) -> np.ndarray:
         """
         Compute target for previous layer via inverse mapping.
 
@@ -417,9 +405,7 @@ class AuxiliaryMaxVariance:
             Combined loss
         """
         if TORCH_AVAILABLE:
-            task_losses_tensor = torch.stack(
-                [torch.tensor(l) for l in task_losses]
-            )
+            task_losses_tensor = torch.stack([torch.tensor(l) for l in task_losses])
             weighted_losses = self.task_weights * task_losses_tensor
             mean_loss = weighted_losses.mean()
             variance_loss = -torch.var(task_losses_tensor)
@@ -466,9 +452,7 @@ def estimate_convergence_rate(
 
     half_life = np.log(2) / lambda_est if lambda_est > 0 else float("inf")
 
-    recent_change = abs(smoothed[-1] - smoothed[max(0, len(smoothed) - 10)]) / (
-        smoothed[0] + 1e-8
-    )
+    recent_change = abs(smoothed[-1] - smoothed[max(0, len(smoothed) - 10)]) / (smoothed[0] + 1e-8)
     converged = recent_change < 0.01
 
     return {
