@@ -27,6 +27,8 @@ from dataclasses import dataclass
 import logging
 from enum import Enum
 
+from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
+
 
 @dataclass
 class EngineConfig:
@@ -54,18 +56,20 @@ class EvolutionEngine:
         population_size: int = 50,
         mutation_rate: float = 0.1,
         crossover_rate: float = 0.7,
+        rng: Optional[DeterministicRNG] = None,
     ):
         self.state_dim = state_dim
         self.population_size = population_size
         self.mutation_rate = mutation_rate
         self.crossover_rate = crossover_rate
+        self._rng = rng or get_global_rng()
         self.population = self._initialize_population()
         self.best_fitness = -np.inf
         self.best_solution = None
         self.generation_count = 0
 
     def _initialize_population(self) -> np.ndarray:
-        return np.random.randn(self.population_size, self.state_dim) * 0.1
+        return self._rng.randn(self.population_size, self.state_dim) * 0.1
 
     def evaluate_fitness(
         self, individual: np.ndarray, fitness_fn: Callable[[np.ndarray], float]
@@ -99,7 +103,7 @@ class EvolutionEngine:
     def _selection(self, fitness_scores: np.ndarray) -> np.ndarray:
         selected = []
         for _ in range(self.population_size):
-            tournament_idx = np.random.choice(self.population_size, size=3, replace=False)
+            tournament_idx = self._rng.choice(self.population_size, size=3, replace=False)
             tournament_fitness = fitness_scores[tournament_idx]
             winner_idx = tournament_idx[np.argmax(tournament_fitness)]
             selected.append(self.population[winner_idx])
@@ -111,8 +115,8 @@ class EvolutionEngine:
             parent1 = selected[i]
             parent2 = selected[i + 1] if i + 1 < len(selected) else selected[0]
 
-            if np.random.random() < self.crossover_rate:
-                crossover_point = np.random.randint(1, self.state_dim)
+            if self._rng.rand() < self.crossover_rate:
+                crossover_point = self._rng.randint(1, self.state_dim)
                 child1 = np.concatenate([parent1[:crossover_point], parent2[crossover_point:]])
                 child2 = np.concatenate([parent2[:crossover_point], parent1[crossover_point:]])
                 offspring.extend([child1, child2])
@@ -123,9 +127,9 @@ class EvolutionEngine:
 
     def _mutation(self, offspring: np.ndarray) -> np.ndarray:
         for i in range(len(offspring)):
-            if np.random.random() < self.mutation_rate:
-                mutation_idx = np.random.randint(0, self.state_dim)
-                offspring[i, mutation_idx] += np.random.randn() * 0.1
+            if self._rng.rand() < self.mutation_rate:
+                mutation_idx = self._rng.randint(0, self.state_dim)
+                offspring[i, mutation_idx] += self._rng.randn() * 0.1
         return offspring
 
 

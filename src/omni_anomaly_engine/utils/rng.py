@@ -477,13 +477,19 @@ class ThreadSafeRNGManager:
         with self._lock:
             if self._global_rng is None:
                 return None
+
+            rng_state = np.random.get_state()
+            numpy_state = {
+                "bit_generator": rng_state[0],
+                "state": rng_state[1].tolist(),
+                "pos": rng_state[2],
+                "has_gauss": rng_state[3],
+                "cached_gaussian": float(rng_state[4]),
+            }
+
             return RNGState(
                 seed=self._global_rng.get_seed() or self._default_seed,
-                numpy_state=(
-                    dict(np.random.get_state()._asdict())
-                    if hasattr(np.random.get_state(), "_asdict")
-                    else None
-                ),
+                numpy_state=numpy_state,
                 python_state=random.getstate(),
             )
 

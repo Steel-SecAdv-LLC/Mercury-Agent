@@ -50,11 +50,27 @@ except ImportError:
     MPMATH_AVAILABLE = False
 
 try:
-    import sympy  # noqa: F401 - imported for future symbolic computation support
+    import sympy
 
     SYMPY_AVAILABLE = True
 except ImportError:
+    sympy = None  # type: ignore
     SYMPY_AVAILABLE = False
+
+
+# Mapping of our constants to sympy equivalents for validation
+SYMPY_CONSTANT_MAP: Dict[str, str] = {
+    "PI": "pi",
+    "E": "E",
+    "EULER_MASCHERONI": "EulerGamma",
+    "CATALAN": "Catalan",
+    "GOLDEN_RATIO": "GoldenRatio",
+    "SQRT2": "sqrt(2)",
+    "SQRT3": "sqrt(3)",
+    "SQRT5": "sqrt(5)",
+    "LN2": "log(2)",
+    "LN10": "log(10)",
+}
 
 
 class Precision(Enum):
@@ -107,19 +123,33 @@ class MathConstant:
             return mpmath.mpf(str(self.value))
         return self.value
 
-    def validate(self, tolerance: float = 1e-10) -> bool:
+    def validate(self, tolerance: float = 1e-10, use_sympy: bool = True) -> bool:
         """
         Validate the constant against known values.
 
+        When sympy is available and use_sympy=True, validates against
+        sympy's high-precision symbolic constants for enhanced accuracy.
+
         Args:
             tolerance: Maximum acceptable deviation
+            use_sympy: Whether to use sympy for validation (if available)
 
         Returns:
             True if validation passes
         """
-        # Basic sanity checks
         if not math.isfinite(self.value):
             return False
+
+        if use_sympy and SYMPY_AVAILABLE and sympy is not None:
+            sympy_name = _get_sympy_constant_name(self.name)
+            if sympy_name:
+                try:
+                    sympy_value = _evaluate_sympy_constant(sympy_name)
+                    if sympy_value is not None:
+                        return abs(self.value - sympy_value) < tolerance
+                except Exception:
+                    pass
+
         return True
 
 
@@ -411,3 +441,65 @@ def validate_constant(value: float, name: str, tolerance: float = 1e-10) -> bool
         return abs(value - expected) < tolerance
     except ValueError:
         return False
+
+
+def _get_sympy_constant_name(constant_name: str) -> Optional[str]:
+    """
+    Get the sympy constant name for a given constant.
+
+    Args:
+        constant_name: Our constant name (e.g., "Golden Ratio")
+
+    Returns:
+        Sympy constant name if mapping exists, None otherwise
+    """
+    name_key = constant_name.upper().replace(" ", "_").replace("-", "_")
+    return SYMPY_CONSTANT_MAP.get(name_key)
+
+
+def _evaluate_sympy_constant(sympy_expr: str) -> Optional[float]:
+    """
+    Evaluate a sympy constant expression to float.
+
+    Args:
+        sympy_expr: Sympy expression string (e.g., "pi", "sqrt(2)")
+
+    Returns:
+        Float value of the constant, or None if evaluation fails
+    """
+    if not SYMPY_AVAILABLE or sympy is None:
+        return None
+
+    try:
+        if sympy_expr in ("pi", "E", "EulerGamma", "Catalan", "GoldenRatio"):
+            const = getattr(sympy, sympy_expr, None)
+            if const is not None:
+                return float(const.evalf(50))
+        elif sympy_expr.startswith("sqrt("):
+            num = int(sympy_expr[5:-1])
+            return float(sympy.sqrt(num).evalf(50))
+        elif sympy_expr.startswith("log("):
+            num = int(sympy_expr[4:-1])
+            return float(sympy.log(num).evalf(50))
+        return None
+    except Exception:
+        return None
+
+
+def validate_all_constants_with_sympy(tolerance: float = 1e-10) -> Dict[str, bool]:
+    """
+    Validate all constants against sympy's high-precision values.
+
+    This function provides comprehensive validation of all mathematical
+    constants in the module against sympy's symbolic computation engine.
+
+    Args:
+        tolerance: Maximum acceptable deviation from sympy values
+
+    Returns:
+        Dict mapping constant names to validation results
+    """
+    results: Dict[str, bool] = {}
+    for name, const in MathematicalConstants.get_all().items():
+        results[name] = const.validate(tolerance=tolerance, use_sympy=True)
+    return results
