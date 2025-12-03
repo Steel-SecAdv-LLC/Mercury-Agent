@@ -7,23 +7,23 @@ Tests intelligence source processors (OSINT, COMINT, HUMINT, etc.).
 import pytest
 
 from omni_anomaly_engine.security.int_sources import (
+    COMINTAnalysisResult,
+    COMINTProcessor,
+    CYBINTProcessor,
+    ELINTAnalysisResult,
+    ELINTProcessor,
+    FININTAnalysisResult,
+    FININTProcessor,
+    GEOINTAnalysisResult,
+    GEOINTProcessor,
+    HUMINTAnalysisResult,
+    HUMINTProcessor,
+    MASINTAnalysisResult,
+    MASINTProcessor,
     OSINTAnalysisResult,
     OSINTProcessor,
-    COMINTProcessor,
-    COMINTAnalysisResult,
-    HUMINTProcessor,
-    HUMINTAnalysisResult,
-    GEOINTProcessor,
-    GEOINTAnalysisResult,
-    SIGINTProcessor,
     SIGINTAnalysisResult,
-    ELINTProcessor,
-    ELINTAnalysisResult,
-    MASINTProcessor,
-    MASINTAnalysisResult,
-    CYBINTProcessor,
-    FININTProcessor,
-    FININTAnalysisResult,
+    SIGINTProcessor,
 )
 
 

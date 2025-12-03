@@ -4,15 +4,15 @@ Tests for omni_anomaly_engine.medical.abms_disciplines module.
 Tests ABMS medical specialty-based anomaly detection.
 """
 
-import pytest
 import numpy as np
+import pytest
 import torch
 
 from omni_anomaly_engine.medical.abms_disciplines import (
+    ABMSAnomalyDetector,
     ABMSBoard,
     MedicalAnomalyResult,
     MultiSpecialtyNeuralNet,
-    ABMSAnomalyDetector,
 )
 
 

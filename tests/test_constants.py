@@ -10,8 +10,8 @@ import numpy as np
 import pytest
 
 from omni_anomaly_engine.utils.constants import (
-    MathematicalConstants,
     MathConstant,
+    MathematicalConstants,
     Precision,
     get_constant,
     validate_constant,

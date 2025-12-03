@@ -5,15 +5,16 @@ Tests report generation functionality.
 """
 
 import json
-import pytest
 from datetime import datetime
 
+import pytest
+
 from omni_anomaly_engine.utils.report_generator import (
-    ReportGenerator,
-    ReportFormat,
     AnomalyReport,
-    ReportSection,
     ExecutiveSummary,
+    ReportFormat,
+    ReportGenerator,
+    ReportSection,
     TechnicalDetails,
 )
 

@@ -4,27 +4,27 @@ Tests for ML pipeline modules.
 Tests fusion_network, training, inference, and related ML components.
 """
 
-import pytest
 import numpy as np
+import pytest
 import torch
 import torch.nn as nn
 
 from omni_anomaly_engine.ml.fusion_network import (
-    FusionNetwork,
-    MultimodalFusion,
     AttentionFusion,
+    FusionNetwork,
     GatedFusion,
-)
-from omni_anomaly_engine.ml.training import (
-    TrainingConfig,
-    Trainer,
-    EarlyStopping,
-    LearningRateScheduler,
+    MultimodalFusion,
 )
 from omni_anomaly_engine.ml.inference import (
-    InferenceEngine,
     BatchInference,
+    InferenceEngine,
     ModelEnsemble,
+)
+from omni_anomaly_engine.ml.training import (
+    EarlyStopping,
+    LearningRateScheduler,
+    Trainer,
+    TrainingConfig,
 )
 
 
