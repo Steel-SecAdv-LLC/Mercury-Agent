@@ -130,9 +130,7 @@ class AdaptiveDefenseSystem:
             return signature.feature_vector
         return signature.feature_vector / norm
 
-    def stage_3_interference(
-        self, input_data: np.ndarray
-    ) -> tuple[bool, float, str | None]:
+    def stage_3_interference(self, input_data: np.ndarray) -> tuple[bool, float, str | None]:
         """
         Stage 3: Interference - Detect and neutralize matching anomalies.
 
@@ -369,9 +367,7 @@ class SelfHealingEngine:
         """
         return self.adaptive_defense.stage_1_acquisition(anomaly_data, metadata)
 
-    def check_known_anomaly(
-        self, input_data: np.ndarray
-    ) -> tuple[bool, float, str | None]:
+    def check_known_anomaly(self, input_data: np.ndarray) -> tuple[bool, float, str | None]:
         """
         Check if data matches a known anomaly pattern (CRISPR Stage 3: Interference).
 

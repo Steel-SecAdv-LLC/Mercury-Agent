@@ -36,9 +36,7 @@ from torch import nn
 class VAE(nn.Module):
     """Variational Autoencoder for pattern learning."""
 
-    def __init__(
-        self, input_dim: int, latent_dim: int = 32, hidden_dims: list[int] | None = None
-    ):
+    def __init__(self, input_dim: int, latent_dim: int = 32, hidden_dims: list[int] | None = None):
         super().__init__()
 
         if hidden_dims is None:

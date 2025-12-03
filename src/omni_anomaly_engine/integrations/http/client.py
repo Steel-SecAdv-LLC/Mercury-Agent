@@ -219,13 +219,10 @@ class HTTPCircuitBreaker:
                 self._state = CircuitState.OPEN
                 logger.warning(f"Circuit '{self.name}' re-opened after test failure")
             elif (
-                self._state == CircuitState.CLOSED
-                and self._failure_count >= self.failure_threshold
+                self._state == CircuitState.CLOSED and self._failure_count >= self.failure_threshold
             ):
                 self._state = CircuitState.OPEN
-                logger.warning(
-                    f"Circuit '{self.name}' opened after {self._failure_count} failures"
-                )
+                logger.warning(f"Circuit '{self.name}' opened after {self._failure_count} failures")
 
     def allow_request(self) -> bool:
         """Check if request should be allowed."""
@@ -324,9 +321,7 @@ class HTTPClient:
             return endpoint
         return urljoin(self.config.base_url, endpoint)
 
-    def _merge_headers(
-        self, headers: dict[str, str] | None
-    ) -> dict[str, str]:
+    def _merge_headers(self, headers: dict[str, str] | None) -> dict[str, str]:
         """Merge request headers with defaults."""
         merged = dict(self.config.headers)
         if headers:
@@ -547,14 +542,10 @@ class HTTPClient:
             "total_requests": self._request_count,
             "error_count": self._error_count,
             "error_rate": (
-                self._error_count / self._request_count
-                if self._request_count > 0
-                else 0.0
+                self._error_count / self._request_count if self._request_count > 0 else 0.0
             ),
             "average_latency": (
-                self._total_latency / self._request_count
-                if self._request_count > 0
-                else 0.0
+                self._total_latency / self._request_count if self._request_count > 0 else 0.0
             ),
             "circuit_breakers": {
                 name: {

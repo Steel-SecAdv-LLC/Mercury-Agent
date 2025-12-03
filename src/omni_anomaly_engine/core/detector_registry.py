@@ -220,9 +220,7 @@ class DetectorRegistry:
             tags: Optional tags for filtering
         """
         if not hasattr(detector, "extract_features") and not hasattr(detector, "predict"):
-            logger.warning(
-                f"Detector '{name}' does not have extract_features or predict methods"
-            )
+            logger.warning(f"Detector '{name}' does not have extract_features or predict methods")
 
         info = DetectorInfo(
             name=name,
@@ -396,10 +394,7 @@ class DetectorRegistry:
 
         if parallel and len(names) > 1:
             executor = self._get_executor()
-            futures = {
-                executor.submit(self.extract_features, name, data): name
-                for name in names
-            }
+            futures = {executor.submit(self.extract_features, name, data): name for name in names}
 
             for future in as_completed(futures, timeout=self.timeout_seconds):
                 name = futures[future]
@@ -461,8 +456,10 @@ class DetectorRegistry:
                 else:
                     # Pad with zeros
                     padding = torch.zeros(
-                        *features.shape[:-1], target_dim - current_dim,
-                        device=device, dtype=features.dtype
+                        *features.shape[:-1],
+                        target_dim - current_dim,
+                        device=device,
+                        dtype=features.dtype,
                     )
                     features = torch.cat([features, padding], dim=-1)
 
@@ -481,48 +478,78 @@ class DetectorRegistry:
         # Base detectors
         try:
             from omni_anomaly_engine.detectors.statistical import StatisticalAnomalyDetector
-            self.register("statistical", StatisticalAnomalyDetector(), DetectorCategory.BASE,
-                         description="Z-score, percentile, MAD-based detection")
+
+            self.register(
+                "statistical",
+                StatisticalAnomalyDetector(),
+                DetectorCategory.BASE,
+                description="Z-score, percentile, MAD-based detection",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.detectors.temporal import TemporalAnomalyDetector
-            self.register("temporal", TemporalAnomalyDetector(), DetectorCategory.BASE,
-                         description="Time-series patterns and seasonal anomalies")
+
+            self.register(
+                "temporal",
+                TemporalAnomalyDetector(),
+                DetectorCategory.BASE,
+                description="Time-series patterns and seasonal anomalies",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.detectors.spatial import SpatialAnomalyDetector
-            self.register("spatial", SpatialAnomalyDetector(), DetectorCategory.BASE,
-                         description="Geographic and spatial relationship anomalies")
+
+            self.register(
+                "spatial",
+                SpatialAnomalyDetector(),
+                DetectorCategory.BASE,
+                description="Geographic and spatial relationship anomalies",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.detectors.dimensional import DimensionalAnalyzer
-            self.register("dimensional", DimensionalAnalyzer(), DetectorCategory.BASE,
-                         description="High-dimensional data anomalies")
+
+            self.register(
+                "dimensional",
+                DimensionalAnalyzer(),
+                DetectorCategory.BASE,
+                description="High-dimensional data anomalies",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.detectors.directive import SigmaDirectiveDetector
-            self.register("directive", SigmaDirectiveDetector(), DetectorCategory.BASE,
-                         description="Rule-based sigma detection")
+
+            self.register(
+                "directive",
+                SigmaDirectiveDetector(),
+                DetectorCategory.BASE,
+                description="Rule-based sigma detection",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.detectors.graph_based import GraphAnomalyDetector
-            self.register("graph_based", GraphAnomalyDetector(), DetectorCategory.BASE,
-                         description="Graph structure anomaly detection")
+
+            self.register(
+                "graph_based",
+                GraphAnomalyDetector(),
+                DetectorCategory.BASE,
+                description="Graph structure anomaly detection",
+            )
             registered_count += 1
         except ImportError:
             pass
@@ -530,72 +557,117 @@ class DetectorRegistry:
         # Specialized models
         try:
             from omni_anomaly_engine.models.quantum import QuantumAnomalyModel
-            self.register("quantum", QuantumAnomalyModel(), DetectorCategory.MODEL,
-                         description="Quantum state anomalies")
+
+            self.register(
+                "quantum",
+                QuantumAnomalyModel(),
+                DetectorCategory.MODEL,
+                description="Quantum state anomalies",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.models.astrophysical import AstrophysicalAnomalyModel
-            self.register("astrophysical", AstrophysicalAnomalyModel(), DetectorCategory.MODEL,
-                         description="Cosmic signal anomalies")
+
+            self.register(
+                "astrophysical",
+                AstrophysicalAnomalyModel(),
+                DetectorCategory.MODEL,
+                description="Cosmic signal anomalies",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
-            self.register("biometric", BiometricAnomalyModel(), DetectorCategory.MODEL,
-                         description="Face/biometric anomalies")
+
+            self.register(
+                "biometric",
+                BiometricAnomalyModel(),
+                DetectorCategory.MODEL,
+                description="Face/biometric anomalies",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.models.affective import AffectiveAnomalyModel
-            self.register("affective", AffectiveAnomalyModel(), DetectorCategory.MODEL,
-                         description="Emotional state anomalies")
+
+            self.register(
+                "affective",
+                AffectiveAnomalyModel(),
+                DetectorCategory.MODEL,
+                description="Emotional state anomalies",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.models.neural import NeuralCognitiveModel
-            self.register("neural_cognitive", NeuralCognitiveModel(), DetectorCategory.MODEL,
-                         description="Brain activity anomalies")
+
+            self.register(
+                "neural_cognitive",
+                NeuralCognitiveModel(),
+                DetectorCategory.MODEL,
+                description="Brain activity anomalies",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.models.consciousness import ConsciousnessPreservationModel
-            self.register("consciousness", ConsciousnessPreservationModel(), DetectorCategory.MODEL,
-                         description="Consciousness preservation analysis")
+
+            self.register(
+                "consciousness",
+                ConsciousnessPreservationModel(),
+                DetectorCategory.MODEL,
+                description="Consciousness preservation analysis",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.models.neurosymbolic import NeurosymbolicEngine
-            self.register("neurosymbolic", NeurosymbolicEngine(), DetectorCategory.NEUROSYMBOLIC,
-                         description="Hybrid neural-symbolic reasoning")
+
+            self.register(
+                "neurosymbolic",
+                NeurosymbolicEngine(),
+                DetectorCategory.NEUROSYMBOLIC,
+                description="Hybrid neural-symbolic reasoning",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.models.chemistry import ChemistryAnomalyDetector
-            self.register("chemistry", ChemistryAnomalyDetector(), DetectorCategory.MODEL,
-                         description="Chemical anomaly detection")
+
+            self.register(
+                "chemistry",
+                ChemistryAnomalyDetector(),
+                DetectorCategory.MODEL,
+                description="Chemical anomaly detection",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.models.parapsychology import ParapsychologyDetector
-            self.register("parapsychology", ParapsychologyDetector(), DetectorCategory.MODEL,
-                         description="Psi phenomena detection")
+
+            self.register(
+                "parapsychology",
+                ParapsychologyDetector(),
+                DetectorCategory.MODEL,
+                description="Psi phenomena detection",
+            )
             registered_count += 1
         except ImportError:
             pass
@@ -603,24 +675,39 @@ class DetectorRegistry:
         # Security detectors
         try:
             from omni_anomaly_engine.security.threat_detection import ThreatDetector
-            self.register("threat_detection", ThreatDetector(), DetectorCategory.SECURITY,
-                         description="Security threat detection")
+
+            self.register(
+                "threat_detection",
+                ThreatDetector(),
+                DetectorCategory.SECURITY,
+                description="Security threat detection",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.security.psyop import PSYOPAnalyzer
-            self.register("psyop", PSYOPAnalyzer(), DetectorCategory.INTELLIGENCE,
-                         description="Psychological operations analysis")
+
+            self.register(
+                "psyop",
+                PSYOPAnalyzer(),
+                DetectorCategory.INTELLIGENCE,
+                description="Psychological operations analysis",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.security.intelligence_fusion import IntelligenceFusionEngine
-            self.register("intelligence_fusion", IntelligenceFusionEngine(), DetectorCategory.INTELLIGENCE,
-                         description="Multi-source intelligence fusion")
+
+            self.register(
+                "intelligence_fusion",
+                IntelligenceFusionEngine(),
+                DetectorCategory.INTELLIGENCE,
+                description="Multi-source intelligence fusion",
+            )
             registered_count += 1
         except ImportError:
             pass
@@ -628,16 +715,26 @@ class DetectorRegistry:
         # Space detectors
         try:
             from omni_anomaly_engine.space.schumann_resonance import SchumannResonanceDetector
-            self.register("schumann_resonance", SchumannResonanceDetector(), DetectorCategory.SPACE,
-                         description="Earth resonance detection")
+
+            self.register(
+                "schumann_resonance",
+                SchumannResonanceDetector(),
+                DetectorCategory.SPACE,
+                description="Earth resonance detection",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.space.solar_storm_detector import SolarStormDetector
-            self.register("solar_storm", SolarStormDetector(), DetectorCategory.SPACE,
-                         description="Solar storm prediction")
+
+            self.register(
+                "solar_storm",
+                SolarStormDetector(),
+                DetectorCategory.SPACE,
+                description="Solar storm prediction",
+            )
             registered_count += 1
         except ImportError:
             pass
@@ -645,8 +742,13 @@ class DetectorRegistry:
         # Medical detectors
         try:
             from omni_anomaly_engine.medical.abms_disciplines import ABMSDisciplineDetector
-            self.register("medical_abms", ABMSDisciplineDetector(), DetectorCategory.MEDICAL,
-                         description="Medical discipline detection")
+
+            self.register(
+                "medical_abms",
+                ABMSDisciplineDetector(),
+                DetectorCategory.MEDICAL,
+                description="Medical discipline detection",
+            )
             registered_count += 1
         except ImportError:
             pass
@@ -654,33 +756,55 @@ class DetectorRegistry:
         # Geological detectors
         try:
             from omni_anomaly_engine.detectors.geological.volcanic import VolcanicEruptionDetector
-            self.register("volcanic", VolcanicEruptionDetector(), DetectorCategory.GEOLOGICAL,
-                         description="Volcanic eruption prediction")
+
+            self.register(
+                "volcanic",
+                VolcanicEruptionDetector(),
+                DetectorCategory.GEOLOGICAL,
+                description="Volcanic eruption prediction",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.detectors.geological.landslide import LandslideDetector
-            self.register("landslide", LandslideDetector(), DetectorCategory.GEOLOGICAL,
-                         description="Landslide prediction")
+
+            self.register(
+                "landslide",
+                LandslideDetector(),
+                DetectorCategory.GEOLOGICAL,
+                description="Landslide prediction",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         try:
             from omni_anomaly_engine.detectors.geological.wildfire import WildfireDetector
-            self.register("wildfire", WildfireDetector(), DetectorCategory.GEOLOGICAL,
-                         description="Wildfire prediction")
+
+            self.register(
+                "wildfire",
+                WildfireDetector(),
+                DetectorCategory.GEOLOGICAL,
+                description="Wildfire prediction",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         # Economic detectors
         try:
-            from omni_anomaly_engine.detectors.economic.financial_crisis_detector import FinancialCrisisDetector
-            self.register("financial_crisis", FinancialCrisisDetector(), DetectorCategory.ECONOMIC,
-                         description="Financial crisis prediction")
+            from omni_anomaly_engine.detectors.economic.financial_crisis_detector import (
+                FinancialCrisisDetector,
+            )
+
+            self.register(
+                "financial_crisis",
+                FinancialCrisisDetector(),
+                DetectorCategory.ECONOMIC,
+                description="Financial crisis prediction",
+            )
             registered_count += 1
         except ImportError:
             pass
@@ -688,17 +812,29 @@ class DetectorRegistry:
         # Energy detectors
         try:
             from omni_anomaly_engine.detectors.energy.emp_detector import EMPDetector
-            self.register("emp", EMPDetector(), DetectorCategory.ENERGY,
-                         description="Electromagnetic pulse detection")
+
+            self.register(
+                "emp",
+                EMPDetector(),
+                DetectorCategory.ENERGY,
+                description="Electromagnetic pulse detection",
+            )
             registered_count += 1
         except ImportError:
             pass
 
         # Marine detectors
         try:
-            from omni_anomaly_engine.detectors.marine.biodiversity_detector import MarineBiodiversityDetector
-            self.register("marine_biodiversity", MarineBiodiversityDetector(), DetectorCategory.MARINE,
-                         description="Marine biodiversity threat detection")
+            from omni_anomaly_engine.detectors.marine.biodiversity_detector import (
+                MarineBiodiversityDetector,
+            )
+
+            self.register(
+                "marine_biodiversity",
+                MarineBiodiversityDetector(),
+                DetectorCategory.MARINE,
+                description="Marine biodiversity threat detection",
+            )
             registered_count += 1
         except ImportError:
             pass
@@ -714,17 +850,12 @@ class DetectorRegistry:
         return {
             "total_detectors": len(self._detectors),
             "categories": {
-                cat.value: len(names)
-                for cat, names in self._category_index.items()
-                if names
+                cat.value: len(names) for cat, names in self._category_index.items() if names
             },
             "total_invocations": total_invocations,
             "total_errors": total_errors,
             "error_rate": total_errors / total_invocations if total_invocations > 0 else 0,
-            "detectors": {
-                name: info.to_dict()
-                for name, info in self._detectors.items()
-            },
+            "detectors": {name: info.to_dict() for name, info in self._detectors.items()},
         }
 
     def get_feature_dimensions(self) -> dict[str, int | None]:

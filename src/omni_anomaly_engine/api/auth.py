@@ -30,7 +30,6 @@ Example:
 """
 
 import hashlib
-import hmac
 import logging
 import os
 import secrets
@@ -42,7 +41,7 @@ from enum import Enum
 from functools import wraps
 from typing import Any, Callable
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import HTTPException, Request, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
@@ -228,9 +227,7 @@ class APIKeyStore:
             user_id=user_id,
             permissions=permissions or {Permission.READ, Permission.DETECT},
             expires_at=(
-                datetime.now() + timedelta(days=expires_in_days)
-                if expires_in_days
-                else None
+                datetime.now() + timedelta(days=expires_in_days) if expires_in_days else None
             ),
             rate_limit=rate_limit,
         )

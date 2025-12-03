@@ -170,9 +170,7 @@ class SpaceExplorationAnalyzer:
                 ],
             }
 
-    def analyze_cosmic_rays(
-        self, data: np.ndarray, context: dict | None = None
-    ) -> dict[str, Any]:
+    def analyze_cosmic_rays(self, data: np.ndarray, context: dict | None = None) -> dict[str, Any]:
         """
         Detect cosmic ray anomalies in sensor data.
 

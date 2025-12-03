@@ -226,39 +226,64 @@ class PSYOPAnalyzer:
 
         # Emotional trigger keywords
         self.fear_triggers = [
-            "threat", "danger", "crisis", "urgent", "warning",
-            "attack", "invasion", "collapse", "disaster"
+            "threat",
+            "danger",
+            "crisis",
+            "urgent",
+            "warning",
+            "attack",
+            "invasion",
+            "collapse",
+            "disaster",
         ]
         self.anger_triggers = [
-            "outrage", "betrayal", "injustice", "corrupt", "enemy",
-            "traitor", "exploit", "abuse", "oppression"
+            "outrage",
+            "betrayal",
+            "injustice",
+            "corrupt",
+            "enemy",
+            "traitor",
+            "exploit",
+            "abuse",
+            "oppression",
         ]
         self.hope_triggers = [
-            "victory", "freedom", "justice", "unity", "strength",
-            "future", "change", "progress", "liberation"
+            "victory",
+            "freedom",
+            "justice",
+            "unity",
+            "strength",
+            "future",
+            "change",
+            "progress",
+            "liberation",
         ]
 
         # Propaganda technique indicators
         self.propaganda_indicators = {
             "loaded_language": [
-                "radical", "extremist", "regime", "puppet",
-                "freedom fighter", "terrorist", "patriot"
+                "radical",
+                "extremist",
+                "regime",
+                "puppet",
+                "freedom fighter",
+                "terrorist",
+                "patriot",
             ],
-            "false_dilemma": [
-                "either", "only option", "must choose", "no alternative"
-            ],
+            "false_dilemma": ["either", "only option", "must choose", "no alternative"],
             "appeal_to_authority": [
-                "experts say", "studies show", "scientists agree",
-                "officials confirm"
+                "experts say",
+                "studies show",
+                "scientists agree",
+                "officials confirm",
             ],
             "bandwagon": [
-                "everyone knows", "the people demand", "massive support",
-                "overwhelming majority"
+                "everyone knows",
+                "the people demand",
+                "massive support",
+                "overwhelming majority",
             ],
-            "transfer": [
-                "god-given", "constitutional", "patriotic duty",
-                "national honor"
-            ],
+            "transfer": ["god-given", "constitutional", "patriotic duty", "national honor"],
         }
 
         # Coordination indicators
@@ -325,9 +350,7 @@ class PSYOPAnalyzer:
             source_attribution=source,
         )
 
-    def _classify_narrative_type(
-        self, content: str, data: dict[str, Any]
-    ) -> NarrativeType:
+    def _classify_narrative_type(self, content: str, data: dict[str, Any]) -> NarrativeType:
         """Classify the type of narrative."""
         content_lower = content.lower()
 
@@ -410,15 +433,22 @@ class PSYOPAnalyzer:
         content_lower = content.lower()
 
         # Confirmation bias
-        if any(phrase in content_lower for phrase in ["as we knew", "proves that", "just as expected"]):
+        if any(
+            phrase in content_lower for phrase in ["as we knew", "proves that", "just as expected"]
+        ):
             biases.append(CognitiveBias.CONFIRMATION_BIAS)
 
         # Bandwagon effect
-        if any(phrase in content_lower for phrase in ["everyone", "the people", "massive", "millions"]):
+        if any(
+            phrase in content_lower for phrase in ["everyone", "the people", "massive", "millions"]
+        ):
             biases.append(CognitiveBias.BANDWAGON_EFFECT)
 
         # Authority bias
-        if any(phrase in content_lower for phrase in ["experts", "scientists", "officials", "authorities"]):
+        if any(
+            phrase in content_lower
+            for phrase in ["experts", "scientists", "officials", "authorities"]
+        ):
             biases.append(CognitiveBias.AUTHORITY_BIAS)
 
         # Fear appeal
@@ -426,11 +456,15 @@ class PSYOPAnalyzer:
             biases.append(CognitiveBias.FEAR_APPEAL)
 
         # Social proof
-        if any(phrase in content_lower for phrase in ["trending", "viral", "shared by", "liked by"]):
+        if any(
+            phrase in content_lower for phrase in ["trending", "viral", "shared by", "liked by"]
+        ):
             biases.append(CognitiveBias.SOCIAL_PROOF)
 
         # Scarcity
-        if any(phrase in content_lower for phrase in ["limited time", "last chance", "running out"]):
+        if any(
+            phrase in content_lower for phrase in ["limited time", "last chance", "running out"]
+        ):
             biases.append(CognitiveBias.SCARCITY)
 
         return biases
@@ -471,7 +505,7 @@ class PSYOPAnalyzer:
 
         shares = metrics.get("shares", 0)
         comments = metrics.get("comments", 0)
-        likes = metrics.get("likes", 0)
+        _ = metrics.get("likes", 0)  # Reserved for future use
 
         # Unnatural engagement ratios
         if shares > 0 and comments > 0:
@@ -498,9 +532,7 @@ class PSYOPAnalyzer:
 
         return indicators
 
-    def analyze_target_audience(
-        self, audience_data: dict[str, Any]
-    ) -> TargetAudienceProfile:
+    def analyze_target_audience(self, audience_data: dict[str, Any]) -> TargetAudienceProfile:
         """
         Analyze a target audience for PSYOP susceptibility.
 
@@ -520,17 +552,13 @@ class PSYOPAnalyzer:
         media = audience_data.get("media_consumption", {})
 
         # Identify vulnerabilities
-        vulnerabilities = self._assess_cognitive_vulnerabilities(
-            demographics, behavioral
-        )
+        vulnerabilities = self._assess_cognitive_vulnerabilities(demographics, behavioral)
 
         # Determine effective influence vectors
         vectors = self._determine_influence_vectors(media, demographics)
 
         # Calculate receptivity score
-        receptivity = self._calculate_receptivity(
-            demographics, behavioral, media
-        )
+        receptivity = self._calculate_receptivity(demographics, behavioral, media)
 
         # Identify key influencers
         influencers = audience_data.get("identified_influencers", [])
@@ -613,9 +641,7 @@ class PSYOPAnalyzer:
 
         return vectors
 
-    def _calculate_receptivity(
-        self, demographics: dict, behavioral: dict, media: dict
-    ) -> float:
+    def _calculate_receptivity(self, demographics: dict, behavioral: dict, media: dict) -> float:
         """Calculate receptivity score for influence operations."""
         receptivity = 0.5  # Baseline
 
@@ -661,9 +687,7 @@ class PSYOPAnalyzer:
         network = campaign_data.get("network_data", {})
 
         # Calculate detection confidence
-        confidence = self._calculate_campaign_confidence(
-            messages, accounts, timing, network
-        )
+        confidence = self._calculate_campaign_confidence(messages, accounts, timing, network)
 
         # Classify campaign category
         category = self._classify_campaign_category(campaign_data)
@@ -745,9 +769,7 @@ class PSYOPAnalyzer:
         else:
             return PSYOPCategory.TACTICAL
 
-    def _detect_coordination(
-        self, timing: dict, network: dict, accounts: list
-    ) -> list[str]:
+    def _detect_coordination(self, timing: dict, network: dict, accounts: list) -> list[str]:
         """Detect coordination indicators."""
         indicators = []
 
@@ -796,9 +818,7 @@ class PSYOPAnalyzer:
 
         return vectors
 
-    def _assess_threat_level(
-        self, confidence: float, message_count: int, network: dict
-    ) -> str:
+    def _assess_threat_level(self, confidence: float, message_count: int, network: dict) -> str:
         """Assess overall threat level of campaign."""
         score = confidence * 0.4
 
@@ -903,13 +923,11 @@ class PSYOPAnalyzer:
             information_integrity_score=integrity,
         )
 
-    def _calculate_polarization(
-        self, sentiment: dict, narratives: list
-    ) -> float:
+    def _calculate_polarization(self, sentiment: dict, narratives: list) -> float:
         """Calculate polarization index."""
-        # Sentiment extremity
-        positive = sentiment.get("positive", 0.33)
-        negative = sentiment.get("negative", 0.33)
+        # Sentiment extremity - positive/negative used for future enhancements
+        _ = sentiment.get("positive", 0.33)
+        _ = sentiment.get("negative", 0.33)
         neutral = sentiment.get("neutral", 0.34)
 
         # Higher polarization when less neutral sentiment
@@ -917,15 +935,12 @@ class PSYOPAnalyzer:
 
         # Narrative opposition
         opposing_narratives = sum(
-            1 for n in narratives
-            if n.get("stance") in ["strongly_oppose", "strongly_support"]
+            1 for n in narratives if n.get("stance") in ["strongly_oppose", "strongly_support"]
         ) / max(len(narratives), 1)
 
         return (sentiment_polarization + opposing_narratives) / 2
 
-    def _assess_information_integrity(
-        self, narratives: list, operations: list
-    ) -> float:
+    def _assess_information_integrity(self, narratives: list, operations: list) -> float:
         """Assess overall information integrity."""
         integrity = 0.8  # Baseline
 
@@ -934,8 +949,7 @@ class PSYOPAnalyzer:
 
         # Check narrative quality
         disinfo_count = sum(
-            1 for n in narratives
-            if n.get("type") in ["disinformation", "propaganda"]
+            1 for n in narratives if n.get("type") in ["disinformation", "propaganda"]
         )
         integrity -= (disinfo_count / max(len(narratives), 1)) * 0.3
 
@@ -944,9 +958,7 @@ class PSYOPAnalyzer:
     def _identify_dominant_narratives(self, narratives: list) -> list[str]:
         """Identify dominant narratives by reach/engagement."""
         sorted_narratives = sorted(
-            narratives,
-            key=lambda n: n.get("reach", 0) + n.get("engagement", 0),
-            reverse=True
+            narratives, key=lambda n: n.get("reach", 0) + n.get("engagement", 0), reverse=True
         )
         return [n.get("title", f"narrative_{i}") for i, n in enumerate(sorted_narratives[:5])]
 
@@ -971,7 +983,9 @@ class PSYOPAnalyzer:
                 features[1] = len(narrative.emotional_appeals) / 5
                 features[2] = len(narrative.biases_exploited) / 6
                 features[3] = len(narrative.amplification_indicators) / 5
-                features[4] = 1.0 if narrative.narrative_type == NarrativeType.DISINFORMATION else 0.0
+                features[4] = (
+                    1.0 if narrative.narrative_type == NarrativeType.DISINFORMATION else 0.0
+                )
                 features[5] = 1.0 if narrative.narrative_type == NarrativeType.PROPAGANDA else 0.0
 
             # Audience features

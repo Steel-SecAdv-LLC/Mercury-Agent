@@ -92,7 +92,9 @@ class RegenerativeArchitecture:
         """
         self.enable_closed_loops = enable_closed_loops
         self.feedback_loops: dict[str, FeedbackLoop] = {}
-        self.permaculture_metrics: dict[PermaculturePrinciple, float] = dict.fromkeys(PermaculturePrinciple, 0.0)
+        self.permaculture_metrics: dict[PermaculturePrinciple, float] = dict.fromkeys(
+            PermaculturePrinciple, 0.0
+        )
         self.knowledge_bank: list[dict[str, Any]] = []
         self.waste_log: list[dict[str, Any]] = []
 

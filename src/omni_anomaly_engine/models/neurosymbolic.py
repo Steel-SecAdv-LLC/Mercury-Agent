@@ -106,7 +106,7 @@ class SymbolicRule:
         if not self.name:
             self.name = f"rule_{hash((self.premise, self.conclusion)) % 10000:04d}"
         if not self.explanation_template:
-            self.explanation_template = f"{{conclusion}} derived from: {{premise}}"
+            self.explanation_template = "{conclusion} derived from: {premise}"
 
     def generate_explanation(self) -> str:
         """Generate human-readable explanation for this rule."""
@@ -238,9 +238,7 @@ class SymbolicReasoningLayer:
         is_anomaly = combined_confidence > 0.5
 
         explanation = (
-            "; ".join(explanations)
-            if explanations
-            else "Based on neural network analysis only."
+            "; ".join(explanations) if explanations else "Based on neural network analysis only."
         )
 
         return ReasoningResult(
@@ -611,9 +609,9 @@ class NeurosymbolicEngine:
                 result = self.symbolic_layer.reason(0.5, context)
                 symbolic_results.append(result)
 
-            anomaly_scores = np.array(
-                [1.0 if r.result else 0.0 for r in symbolic_results]
-            ).astype(np.float32)
+            anomaly_scores = np.array([1.0 if r.result else 0.0 for r in symbolic_results]).astype(
+                np.float32
+            )
 
             return {
                 "anomaly_scores": anomaly_scores,
@@ -633,9 +631,7 @@ class NeurosymbolicEngine:
                 result = self.symbolic_layer.reason(neural_score, context)
                 hybrid_results.append(result)
 
-            anomaly_scores = np.array(
-                [r.confidence for r in hybrid_results]
-            ).astype(np.float32)
+            anomaly_scores = np.array([r.confidence for r in hybrid_results]).astype(np.float32)
 
             return {
                 "anomaly_scores": anomaly_scores,

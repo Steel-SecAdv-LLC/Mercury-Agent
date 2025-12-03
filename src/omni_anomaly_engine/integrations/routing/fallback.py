@@ -35,10 +35,10 @@ Example:
 import asyncio
 import logging
 import time
-from collections.abc import Callable, Awaitable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, TypeVar, Generic
+from typing import Any, Generic, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -164,11 +164,7 @@ class FallbackHandler:
             "call_count": self.call_count,
             "success_count": self.success_count,
             "error_count": self.error_count,
-            "success_rate": (
-                self.success_count / self.call_count
-                if self.call_count > 0
-                else 0.0
-            ),
+            "success_rate": (self.success_count / self.call_count if self.call_count > 0 else 0.0),
         }
 
 
@@ -395,9 +391,7 @@ class FallbackChain:
             "execution_count": self._execution_count,
             "fallback_count": self._fallback_count,
             "fallback_rate": (
-                self._fallback_count / self._execution_count
-                if self._execution_count > 0
-                else 0.0
+                self._fallback_count / self._execution_count if self._execution_count > 0 else 0.0
             ),
             "handlers": [h.get_metrics() for h in self._handlers],
         }
