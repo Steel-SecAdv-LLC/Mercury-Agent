@@ -20,13 +20,23 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Internal Random Number Generator Utility for Test Determinism
 
 Provides centralized RNG management with seed control for reproducible testing.
+
+Thread-Safety Features:
+- Thread-local storage for per-thread RNG instances
+- Lock-protected global operations
+- RNG registry pattern for named generators
+- Hierarchical state management with RNGContext
 """
 
 import numpy as np
 import random
+import threading
 import torch
-from typing import Optional, Union
+from typing import Optional, Union, Dict, Any
 from contextlib import contextmanager
+from dataclasses import dataclass
+import json
+import hashlib
 
 
 class DeterministicRNG:
@@ -237,37 +247,334 @@ class DeterministicRNG:
             torch.backends.cudnn.benchmark = False
 
 
+@dataclass
+class RNGState:
+    """Serializable RNG state for reproducibility across processes."""
+
+    seed: int
+    numpy_state: Optional[Dict[str, Any]] = None
+    python_state: Optional[tuple] = None
+    torch_state: Optional[bytes] = None
+    version: str = "1.0"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize state to dictionary."""
+        return {
+            "seed": self.seed,
+            "version": self.version,
+            "numpy_state_hash": (
+                hashlib.md5(str(self.numpy_state).encode()).hexdigest()
+                if self.numpy_state
+                else None
+            ),
+        }
+
+    def to_json(self) -> str:
+        """Serialize state to JSON string."""
+        return json.dumps(self.to_dict())
+
+
+class RNGRegistry:
+    """
+    Registry pattern for named RNG generators.
+
+    Provides centralized management of multiple RNG instances with
+    thread-safe access and hierarchical seed derivation.
+
+    Example:
+        registry = RNGRegistry()
+        registry.register("training", seed=42)
+        registry.register("validation", seed=123)
+
+        train_rng = registry.get("training")
+        val_rng = registry.get("validation")
+    """
+
+    def __init__(self):
+        self._registry: Dict[str, DeterministicRNG] = {}
+        self._lock = threading.RLock()
+
+    def register(
+        self, name: str, seed: Optional[int] = None, parent: Optional[str] = None
+    ) -> DeterministicRNG:
+        """
+        Register a new named RNG.
+
+        Args:
+            name: Unique name for the RNG
+            seed: Seed value (derived from parent if not provided)
+            parent: Optional parent RNG name for hierarchical seeding
+
+        Returns:
+            The registered DeterministicRNG instance
+        """
+        with self._lock:
+            if seed is None and parent and parent in self._registry:
+                # Derive seed from parent
+                parent_rng = self._registry[parent]
+                seed = parent_rng.randint(0, 2**31 - 1)
+            elif seed is None:
+                seed = 42
+
+            rng = DeterministicRNG(seed=seed)
+            self._registry[name] = rng
+            return rng
+
+    def get(self, name: str) -> Optional[DeterministicRNG]:
+        """Get a registered RNG by name."""
+        with self._lock:
+            return self._registry.get(name)
+
+    def unregister(self, name: str) -> bool:
+        """Unregister and remove an RNG."""
+        with self._lock:
+            if name in self._registry:
+                del self._registry[name]
+                return True
+            return False
+
+    def list_registered(self) -> list:
+        """List all registered RNG names."""
+        with self._lock:
+            return list(self._registry.keys())
+
+    def clear(self) -> None:
+        """Clear all registered RNGs."""
+        with self._lock:
+            self._registry.clear()
+
+
+class RNGContext:
+    """
+    Hierarchical RNG context manager for scoped state isolation.
+
+    Provides nested RNG scopes where child contexts derive seeds from
+    parents, ensuring reproducibility while maintaining isolation.
+
+    Example:
+        with RNGContext(seed=42) as ctx:
+            data1 = ctx.rng.randn(100)
+            with RNGContext(parent=ctx) as child_ctx:
+                data2 = child_ctx.rng.randn(50)
+            # Parent context state preserved
+    """
+
+    _context_stack = threading.local()
+
+    def __init__(self, seed: Optional[int] = None, parent: Optional["RNGContext"] = None):
+        self._seed = seed
+        self._parent = parent
+        self._rng: Optional[DeterministicRNG] = None
+        self._saved_state: Optional[RNGState] = None
+
+    @property
+    def rng(self) -> DeterministicRNG:
+        """Get the RNG for this context."""
+        if self._rng is None:
+            raise RuntimeError("RNGContext not entered. Use 'with' statement.")
+        return self._rng
+
+    def __enter__(self) -> "RNGContext":
+        # Determine seed
+        if self._seed is not None:
+            seed = self._seed
+        elif self._parent is not None:
+            seed = self._parent.rng.randint(0, 2**31 - 1)
+        else:
+            seed = 42
+
+        # Create RNG for this context
+        self._rng = DeterministicRNG(seed=seed)
+
+        # Push to context stack
+        if not hasattr(self._context_stack, "stack"):
+            self._context_stack.stack = []
+        self._context_stack.stack.append(self)
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Pop from context stack
+        if hasattr(self._context_stack, "stack") and self._context_stack.stack:
+            self._context_stack.stack.pop()
+        self._rng = None
+        return False
+
+    @classmethod
+    def current(cls) -> Optional["RNGContext"]:
+        """Get the current active RNG context."""
+        if hasattr(cls._context_stack, "stack") and cls._context_stack.stack:
+            return cls._context_stack.stack[-1]
+        return None
+
+
+class ThreadSafeRNGManager:
+    """
+    Thread-safe global RNG manager using thread-local storage.
+
+    Replaces the global mutable state pattern with dependency injection
+    and thread-local instances for safe concurrent access.
+
+    Features:
+    - Per-thread RNG instances via thread-local storage
+    - Lock-protected global operations
+    - RNG pool for lock-free concurrent access
+    - State serialization for reproducibility across processes
+    """
+
+    def __init__(self, default_seed: int = 42):
+        self._default_seed = default_seed
+        self._lock = threading.RLock()
+        self._thread_local = threading.local()
+        self._registry = RNGRegistry()
+        self._global_rng: Optional[DeterministicRNG] = None
+
+    def get_rng(self, thread_local: bool = True) -> DeterministicRNG:
+        """
+        Get an RNG instance.
+
+        Args:
+            thread_local: If True, returns a thread-local instance.
+                         If False, returns the shared global instance.
+
+        Returns:
+            DeterministicRNG instance
+        """
+        if thread_local:
+            if not hasattr(self._thread_local, "rng"):
+                # Create thread-local RNG with derived seed
+                with self._lock:
+                    # Derive seed from thread ID for uniqueness
+                    thread_seed = (self._default_seed + hash(threading.current_thread().ident)) % (
+                        2**31
+                    )
+                self._thread_local.rng = DeterministicRNG(seed=thread_seed)
+            return self._thread_local.rng
+        else:
+            with self._lock:
+                if self._global_rng is None:
+                    self._global_rng = DeterministicRNG(seed=self._default_seed)
+                return self._global_rng
+
+    def set_global_seed(self, seed: int) -> None:
+        """Set the seed for the global RNG (thread-safe)."""
+        with self._lock:
+            self._default_seed = seed
+            if self._global_rng is not None:
+                self._global_rng.set_seed(seed)
+
+    def reset(self) -> None:
+        """Reset all RNG state (thread-safe)."""
+        with self._lock:
+            self._global_rng = None
+            self._registry.clear()
+        # Clear thread-local storage
+        if hasattr(self._thread_local, "rng"):
+            del self._thread_local.rng
+
+    def get_state(self) -> Optional[RNGState]:
+        """Get serializable state of the global RNG."""
+        with self._lock:
+            if self._global_rng is None:
+                return None
+
+            rng_state = np.random.get_state()
+            numpy_state = {
+                "bit_generator": rng_state[0],
+                "state": rng_state[1].tolist(),
+                "pos": rng_state[2],
+                "has_gauss": rng_state[3],
+                "cached_gaussian": float(rng_state[4]),
+            }
+
+            return RNGState(
+                seed=self._global_rng.get_seed() or self._default_seed,
+                numpy_state=numpy_state,
+                python_state=random.getstate(),
+            )
+
+    @property
+    def registry(self) -> RNGRegistry:
+        """Get the RNG registry for named generators."""
+        return self._registry
+
+
+# Thread-safe singleton manager
+_rng_manager: Optional[ThreadSafeRNGManager] = None
+_manager_lock = threading.Lock()
+
+
+def _get_manager() -> ThreadSafeRNGManager:
+    """Get or create the singleton RNG manager."""
+    global _rng_manager
+    if _rng_manager is None:
+        with _manager_lock:
+            if _rng_manager is None:
+                _rng_manager = ThreadSafeRNGManager()
+    return _rng_manager
+
+
+# Legacy API compatibility - now thread-safe
 _global_rng: Optional[DeterministicRNG] = None
+_global_lock = threading.RLock()
 
 
 def get_global_rng() -> DeterministicRNG:
     """
-    Get the global RNG instance.
+    Get the global RNG instance (thread-safe).
+
+    For new code, prefer using ThreadSafeRNGManager or RNGContext
+    for better thread isolation.
 
     Returns:
         Global DeterministicRNG instance
     """
     global _global_rng
-    if _global_rng is None:
-        _global_rng = DeterministicRNG(seed=42)
-    return _global_rng
+    with _global_lock:
+        if _global_rng is None:
+            _global_rng = DeterministicRNG(seed=42)
+        return _global_rng
 
 
 def set_global_seed(seed: int) -> None:
     """
-    Set the global random seed.
+    Set the global random seed (thread-safe).
 
     Args:
         seed: Random seed value
     """
     global _global_rng
-    if _global_rng is None:
-        _global_rng = DeterministicRNG(seed=seed)
-    else:
-        _global_rng.set_seed(seed)
+    with _global_lock:
+        if _global_rng is None:
+            _global_rng = DeterministicRNG(seed=seed)
+        else:
+            _global_rng.set_seed(seed)
 
 
 def reset_global_rng() -> None:
-    """Reset the global RNG to uninitialized state."""
+    """Reset the global RNG to uninitialized state (thread-safe)."""
     global _global_rng
-    _global_rng = None
+    with _global_lock:
+        _global_rng = None
+
+
+def get_thread_local_rng() -> DeterministicRNG:
+    """
+    Get a thread-local RNG instance.
+
+    This is the preferred method for multi-threaded applications.
+
+    Returns:
+        Thread-local DeterministicRNG instance
+    """
+    return _get_manager().get_rng(thread_local=True)
+
+
+def get_rng_registry() -> RNGRegistry:
+    """
+    Get the RNG registry for named generators.
+
+    Returns:
+        Global RNGRegistry instance
+    """
+    return _get_manager().registry

@@ -28,6 +28,8 @@ for dynamic hyperparameter tuning in anomaly detection systems.
 from typing import Optional, Dict, Any, Callable, List, Tuple
 import numpy as np
 
+from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
+
 
 class ChaoticMap:
     """Chaotic map generators for CGO algorithm."""
@@ -78,7 +80,9 @@ class ChaoticMap:
 class ChaosEvolutionOptimizer:
     """Chaos-Evolutionary Optimizer using CGO algorithm."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self, config: Optional[Dict[str, Any]] = None, rng: Optional[DeterministicRNG] = None
+    ):
         """Initialize chaos-evolutionary optimizer.
 
         Args:
@@ -89,6 +93,7 @@ class ChaosEvolutionOptimizer:
                     (default: 'logistic')
                 - alpha: Fractal self-similarity parameter (default: 0.8)
                 - beta: Chaos influence parameter (default: 0.2)
+            rng: Optional DeterministicRNG instance for reproducibility
         """
         self.config = config or {}
         self.population_size = self.config.get("population_size", 30)
@@ -96,6 +101,7 @@ class ChaosEvolutionOptimizer:
         self.chaotic_map_type = self.config.get("chaotic_map", "logistic")
         self.alpha = self.config.get("alpha", 0.8)
         self.beta = self.config.get("beta", 0.2)
+        self._rng = rng or get_global_rng()
 
         self.chaotic_map = self._get_chaotic_map()
         self.best_solution: Optional[np.ndarray] = None
@@ -126,7 +132,7 @@ class ChaosEvolutionOptimizer:
         population = np.zeros((self.population_size, dim))
         for i in range(dim):
             min_val, max_val = bounds[i]
-            population[:, i] = np.random.uniform(min_val, max_val, self.population_size)
+            population[:, i] = self._rng.rand(self.population_size) * (max_val - min_val) + min_val
         return population
 
     def _chaos_game_step(
@@ -187,7 +193,7 @@ class ChaosEvolutionOptimizer:
         self.best_solution = population[best_idx].copy()
         self.best_fitness = float(fitness[best_idx])
 
-        chaos_value = float(np.random.rand())
+        chaos_value = float(self._rng.rand())
 
         for iteration in range(self.max_iterations):
             for i in range(self.population_size):
@@ -213,7 +219,7 @@ class ChaosEvolutionOptimizer:
             self.convergence_history.append(float(self.best_fitness))
 
             if iteration % 10 == 0:
-                chaos_value = np.random.rand()
+                chaos_value = self._rng.rand()
 
         results = {
             "best_solution": self.best_solution,
@@ -282,13 +288,13 @@ class ChaosEvolutionOptimizer:
             List of creative hypothesis solutions
         """
         hypotheses = []
-        chaos_value = np.random.rand()
+        chaos_value = self._rng.rand()
 
         for _ in range(num_hypotheses):
             chaos_value = self.chaotic_map(chaos_value)
             perturbation = chaos_intensity * (2 * chaos_value - 1)
 
-            hypothesis = base_solution + perturbation * np.random.randn(*base_solution.shape)
+            hypothesis = base_solution + perturbation * self._rng.randn(*base_solution.shape)
             hypotheses.append(hypothesis)
 
         return hypotheses

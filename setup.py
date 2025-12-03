@@ -62,6 +62,11 @@ setup(
         "quantum": [
             "qutip>=4.7.3",
         ],
+        # Mathematical computation dependencies
+        "math": [
+            "sympy>=1.12",
+            "mpmath>=1.3.0",
+        ],
         # GUI/visualization dependencies
         "gui": [
             "streamlit>=1.26.0",
@@ -82,6 +87,8 @@ setup(
             "qutip>=4.7.3",
             "streamlit>=1.26.0",
             "plotly>=5.16.0",
+            "sympy>=1.12",
+            "mpmath>=1.3.0",
         ],
     },
     entry_points={

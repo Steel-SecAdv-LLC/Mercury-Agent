@@ -32,13 +32,15 @@ import logging
 import tempfile
 import textwrap
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from omni_anomaly_engine.core.neurosymbolic_engine import (
     NeurosymbolicEngine,
     NeurosymbolicConfig,
 )
 from omni_anomaly_engine.core.ai_ethics import EthicalAutonomyGovernor, EthicsConfig
+from omni_anomaly_engine.utils.rng import get_global_rng, DeterministicRNG
+from omni_anomaly_engine.utils.constants import MathematicalConstants
 
 
 class RecursionEngine:
@@ -233,7 +235,11 @@ class EvolutionStrategy(Enum):
 
 @dataclass
 class RefactoringConfig:
-    """Configuration for automatic refactoring operations."""
+    """Configuration for automatic refactoring operations.
+
+    Mathematical constants are sourced from the centralized
+    MathematicalConstants module for precision and consistency.
+    """
 
     apply_refactorings: bool = False
     create_backup: bool = True
@@ -253,11 +259,18 @@ class RefactoringConfig:
     resonance_feedback_depth: int = 3
     enable_multiverse_optimization: bool = False
 
-    golden_ratio: float = 0.618033988749
-    catalan_constant: float = 0.915965594177219
-    euler_mascheroni: float = 0.5772156649
-    feigenbaum_delta: float = 4.6692016091
-    omega_constant: float = 0.5671432904
+    # Mathematical constants from centralized module
+    golden_ratio: float = field(
+        default_factory=lambda: MathematicalConstants.GOLDEN_RATIO_CONJUGATE.value
+    )
+    catalan_constant: float = field(default_factory=lambda: MathematicalConstants.CATALAN.value)
+    euler_mascheroni: float = field(
+        default_factory=lambda: MathematicalConstants.EULER_MASCHERONI.value
+    )
+    feigenbaum_delta: float = field(
+        default_factory=lambda: MathematicalConstants.FEIGENBAUM_DELTA.value
+    )
+    omega_constant: float = field(default_factory=lambda: MathematicalConstants.OMEGA.value)
 
     enable_spherical_harmonics: bool = False
     spherical_harmonic_degree: int = 4
@@ -312,6 +325,214 @@ class RefactoringConfig:
     chaos_beta: float = 0.2
 
 
+class CognitiveComplexityVisitor(ast.NodeVisitor):
+    """
+    AST visitor that calculates cognitive complexity following SonarQube rules.
+
+    Cognitive complexity is calculated by:
+    1. Structural increment (+1): for control flow breaks (if, for, while, etc.)
+    2. Nesting increment (+nesting_level): for nested structures
+    3. Fundamental increment (+1): for boolean operators, recursion, etc.
+
+    Reference: https://www.sonarsource.com/docs/CognitiveComplexity.pdf
+    """
+
+    def __init__(self, func_name: str = ""):
+        self.func_name = func_name
+        self.complexity = 0
+        self.nesting_level = 0
+
+        # Breakdown tracking
+        self.structural_contribution = 0
+        self.nesting_contribution = 0
+        self.fundamental_contribution = 0
+
+        # Detail counters
+        self.if_count = 0
+        self.loop_count = 0
+        self.boolean_operator_count = 0
+        self.recursion_count = 0
+        self.max_nesting = 0
+
+    def _increment_structural(self, additional_nesting: bool = True) -> None:
+        """Add structural increment (+1) and optional nesting increment."""
+        self.complexity += 1
+        self.structural_contribution += 1
+        if additional_nesting:
+            self.complexity += self.nesting_level
+            self.nesting_contribution += self.nesting_level
+
+    def _increment_fundamental(self) -> None:
+        """Add fundamental increment (+1)."""
+        self.complexity += 1
+        self.fundamental_contribution += 1
+
+    def visit_If(self, node: ast.If) -> None:
+        """Handle if statements with else/elif chains."""
+        self.if_count += 1
+        self._increment_structural()
+        self.max_nesting = max(self.max_nesting, self.nesting_level + 1)
+
+        # Visit the body with increased nesting
+        self.nesting_level += 1
+        for child in node.body:
+            self.visit(child)
+        self.nesting_level -= 1
+
+        # Handle else/elif - elif is an If inside orelse
+        for else_node in node.orelse:
+            if isinstance(else_node, ast.If):
+                # elif - structural increment only (no nesting)
+                self.if_count += 1
+                self.complexity += 1
+                self.structural_contribution += 1
+                self.nesting_level += 1
+                for child in else_node.body:
+                    self.visit(child)
+                self.nesting_level -= 1
+                # Continue with any further elif/else
+                for sub_else in else_node.orelse:
+                    self.visit(sub_else)
+            else:
+                # else clause - no increment, just visit
+                self.nesting_level += 1
+                self.visit(else_node)
+                self.nesting_level -= 1
+
+    def visit_For(self, node: ast.For) -> None:
+        """Handle for loops."""
+        self.loop_count += 1
+        self._increment_structural()
+        self.max_nesting = max(self.max_nesting, self.nesting_level + 1)
+
+        self.nesting_level += 1
+        for child in node.body:
+            self.visit(child)
+        self.nesting_level -= 1
+
+        # Handle else clause (no increment)
+        for else_node in node.orelse:
+            self.visit(else_node)
+
+    def visit_While(self, node: ast.While) -> None:
+        """Handle while loops."""
+        self.loop_count += 1
+        self._increment_structural()
+        self.max_nesting = max(self.max_nesting, self.nesting_level + 1)
+
+        self.nesting_level += 1
+        for child in node.body:
+            self.visit(child)
+        self.nesting_level -= 1
+
+        for else_node in node.orelse:
+            self.visit(else_node)
+
+    def visit_Try(self, node: ast.Try) -> None:
+        """Handle try/except blocks."""
+        self._increment_structural()
+        self.max_nesting = max(self.max_nesting, self.nesting_level + 1)
+
+        self.nesting_level += 1
+        for child in node.body:
+            self.visit(child)
+
+        # Each except handler adds complexity
+        for handler in node.handlers:
+            self.complexity += 1
+            self.structural_contribution += 1
+            for child in handler.body:
+                self.visit(child)
+
+        self.nesting_level -= 1
+
+        # Finally and else clauses (no increment)
+        for child in node.finalbody:
+            self.visit(child)
+        for child in node.orelse:
+            self.visit(child)
+
+    def visit_With(self, node: ast.With) -> None:
+        """Handle with statements (context managers)."""
+        # With statements increase nesting but don't add complexity
+        self.nesting_level += 1
+        for child in node.body:
+            self.visit(child)
+        self.nesting_level -= 1
+
+    def visit_BoolOp(self, node: ast.BoolOp) -> None:
+        """Handle boolean operators (and/or)."""
+        # Each sequence of boolean operators adds +1
+        self.boolean_operator_count += len(node.values) - 1
+        self._increment_fundamental()
+        self.generic_visit(node)
+
+    def visit_IfExp(self, node: ast.IfExp) -> None:
+        """Handle ternary expressions (a if b else c)."""
+        self._increment_structural(additional_nesting=True)
+        self.generic_visit(node)
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        """Handle lambda expressions."""
+        # Lambdas increase nesting but don't add complexity
+        self.nesting_level += 1
+        self.visit(node.body)
+        self.nesting_level -= 1
+
+    def visit_ListComp(self, node: ast.ListComp) -> None:
+        """Handle list comprehensions."""
+        self._increment_structural()
+        self.nesting_level += 1
+        for generator in node.generators:
+            self.visit(generator)
+        self.visit(node.elt)
+        self.nesting_level -= 1
+
+    def visit_DictComp(self, node: ast.DictComp) -> None:
+        """Handle dict comprehensions."""
+        self._increment_structural()
+        self.nesting_level += 1
+        for generator in node.generators:
+            self.visit(generator)
+        self.visit(node.key)
+        self.visit(node.value)
+        self.nesting_level -= 1
+
+    def visit_SetComp(self, node: ast.SetComp) -> None:
+        """Handle set comprehensions."""
+        self._increment_structural()
+        self.nesting_level += 1
+        for generator in node.generators:
+            self.visit(generator)
+        self.visit(node.elt)
+        self.nesting_level -= 1
+
+    def visit_GeneratorExp(self, node: ast.GeneratorExp) -> None:
+        """Handle generator expressions."""
+        self._increment_structural()
+        self.nesting_level += 1
+        for generator in node.generators:
+            self.visit(generator)
+        self.visit(node.elt)
+        self.nesting_level -= 1
+
+    def visit_Call(self, node: ast.Call) -> None:
+        """Handle function calls to detect recursion."""
+        if isinstance(node.func, ast.Name):
+            if node.func.id == self.func_name:
+                self.recursion_count += 1
+                self._increment_fundamental()
+        self.generic_visit(node)
+
+    def visit_Break(self, node: ast.Break) -> None:
+        """Handle break statements."""
+        self._increment_structural(additional_nesting=False)
+
+    def visit_Continue(self, node: ast.Continue) -> None:
+        """Handle continue statements."""
+        self._increment_structural(additional_nesting=False)
+
+
 class RefactoringEngine:
     """
     Implements dynamic code optimization through AST manipulation
@@ -319,14 +540,20 @@ class RefactoringEngine:
 
     Supports both suggestion mode (default) and automatic application mode
     with safeguards including backup, rollback, and user confirmation.
+
+    Uses centralized RNG for reproducible random operations.
     """
 
-    def __init__(self, config: Optional[RefactoringConfig] = None):
+    def __init__(
+        self, config: Optional[RefactoringConfig] = None, rng: Optional[DeterministicRNG] = None
+    ):
         self.config = config or RefactoringConfig()
         self.optimization_history: List[Dict[str, Any]] = []
         self._backup_files: Dict[str, str] = {}
         self.ethics_governor = EthicalAutonomyGovernor(EthicsConfig())
         self._analysis_cache: Dict[str, Dict[str, Any]] = {}
+        # Use provided RNG or get global instance
+        self._rng = rng or get_global_rng()
 
     def analyze_function_complexity(self, func: Callable[..., Any]) -> Dict[str, Any]:
         try:
@@ -424,6 +651,114 @@ class RefactoringEngine:
                 "num_function_calls": 0,
                 "cyclomatic_complexity": 1,
             }
+
+    def analyze_cognitive_complexity(self, func: Callable[..., Any]) -> Dict[str, Any]:
+        """
+        Analyze cognitive complexity using full SonarQube algorithm.
+
+        Cognitive complexity measures how difficult code is to understand,
+        as opposed to cyclomatic complexity which measures the number of
+        independent paths through the code.
+
+        The algorithm accounts for:
+        - Structural increments: breaks in linear flow (if, for, while, etc.)
+        - Nesting increments: nested control structures add to complexity
+        - Fundamental increments: logical operators, recursion, etc.
+
+        Args:
+            func: Function to analyze
+
+        Returns:
+            Dict with cognitive complexity metrics:
+                - cognitive_complexity: Total cognitive complexity score
+                - breakdown: Detailed breakdown by category
+                - recommendations: Suggestions if complexity is high
+        """
+        try:
+            source = inspect.getsource(func)
+            source = textwrap.dedent(source)
+            tree = ast.parse(source)
+            func_name = func.__name__
+        except Exception as e:
+            return {"error": str(e), "cognitive_complexity": 0}
+
+        # Calculate cognitive complexity using visitor pattern
+        visitor = CognitiveComplexityVisitor(func_name)
+        visitor.visit(tree)
+
+        total_complexity = visitor.complexity
+
+        # Generate recommendations based on complexity
+        recommendations = []
+        if total_complexity > 15:
+            recommendations.append(
+                "High cognitive complexity. Consider breaking into smaller functions."
+            )
+        if visitor.nesting_contribution > total_complexity * 0.5:
+            recommendations.append("Heavy nesting detected. Use early returns or guard clauses.")
+        if visitor.recursion_count > 0:
+            recommendations.append(
+                "Recursion detected. Consider iterative alternatives if appropriate."
+            )
+
+        return {
+            "cognitive_complexity": total_complexity,
+            "breakdown": {
+                "structural": visitor.structural_contribution,
+                "nesting": visitor.nesting_contribution,
+                "fundamental": visitor.fundamental_contribution,
+            },
+            "details": {
+                "if_statements": visitor.if_count,
+                "loops": visitor.loop_count,
+                "boolean_operators": visitor.boolean_operator_count,
+                "recursion_calls": visitor.recursion_count,
+                "max_nesting_level": visitor.max_nesting,
+            },
+            "recommendations": recommendations,
+            "threshold_status": (
+                "OK"
+                if total_complexity <= 10
+                else "WARNING" if total_complexity <= 15 else "CRITICAL"
+            ),
+        }
+
+    def analyze_full_complexity(self, func: Callable[..., Any]) -> Dict[str, Any]:
+        """
+        Analyze both cyclomatic and cognitive complexity.
+
+        Combines cyclomatic complexity (McCabe) with cognitive complexity
+        (SonarQube) for comprehensive code analysis.
+
+        Args:
+            func: Function to analyze
+
+        Returns:
+            Dict with combined complexity metrics
+        """
+        cyclomatic = self.analyze_function_complexity(func)
+        cognitive = self.analyze_cognitive_complexity(func)
+
+        if "error" in cyclomatic or "error" in cognitive:
+            return {
+                "error": cyclomatic.get("error") or cognitive.get("error"),
+                "cyclomatic": cyclomatic,
+                "cognitive": cognitive,
+            }
+
+        # Combined score - weighted average
+        combined_score = 0.4 * cyclomatic.get("cyclomatic_complexity", 0) + 0.6 * cognitive.get(
+            "cognitive_complexity", 0
+        )
+
+        return {
+            "cyclomatic": cyclomatic,
+            "cognitive": cognitive,
+            "combined_score": combined_score,
+            "overall_status": (
+                "OK" if combined_score <= 8 else "WARNING" if combined_score <= 12 else "CRITICAL"
+            ),
+        }
 
     def suggest_refactorings(self, func: Callable[..., Any]) -> List[Dict[str, str]]:
         metrics = self.analyze_function_complexity(func)
@@ -738,11 +1073,11 @@ class RefactoringEngine:
         paths = []
 
         for path_id in range(num_paths):
-            path_weight = np.random.random()
+            path_weight = self._rng.rand(1)[0]
 
             path_suggestions = []
             for suggestion in base_suggestions:
-                if np.random.random() < (0.5 + 0.5 * path_weight):
+                if self._rng.rand(1)[0] < (0.5 + 0.5 * path_weight):
                     path_suggestions.append(suggestion)
 
             complexity_reduction = len(path_suggestions)
@@ -1247,10 +1582,10 @@ class RefactoringEngine:
 
         for i in range(num_variants):
             config = RefactoringConfig(
-                enable_harmonics=bool(np.random.choice([True, False])),
-                enable_quantum_paths=bool(np.random.choice([True, False])),
-                enable_pattern_resonance=bool(np.random.choice([True, False])),
-                quantum_num_paths=int(np.random.choice([1, 2, 3])),
+                enable_harmonics=bool(self._rng.choice([True, False])),
+                enable_quantum_paths=bool(self._rng.choice([True, False])),
+                enable_pattern_resonance=bool(self._rng.choice([True, False])),
+                quantum_num_paths=int(self._rng.choice([1, 2, 3])),
                 enable_caching=True,
             )
 

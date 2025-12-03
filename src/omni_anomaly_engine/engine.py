@@ -331,17 +331,239 @@ class OmniAnomalyEngine:
         validation_split: float = 0.2,
         epochs: int = 50,
         batch_size: int = 32,
-    ) -> None:
+        learning_rate: float = 0.001,
+        optimizer_type: str = "adamw",
+        early_stopping_patience: int = 10,
+        checkpoint_dir: Optional[str] = None,
+        use_mixed_precision: bool = False,
+        gradient_accumulation_steps: int = 1,
+    ) -> Dict[str, Any]:
         """
         Train the fusion model on custom data.
 
+        Implements complete training pipeline with:
+        - Data loading and preprocessing
+        - Learning rate scheduling (ReduceLROnPlateau)
+        - Early stopping with patience mechanism
+        - Checkpoint saving with best model tracking
+        - Optional mixed-precision training for performance
+        - Gradient accumulation for effective larger batch sizes
+
         Args:
-            training_data: Path to training data
-            validation_split: Validation split ratio
-            epochs: Number of training epochs
-            batch_size: Batch size
+            training_data: Path to training data (numpy .npz or pickle file)
+            validation_split: Validation split ratio (default 0.2)
+            epochs: Number of training epochs (default 50)
+            batch_size: Batch size (default 32)
+            learning_rate: Learning rate (default 0.001)
+            optimizer_type: Optimizer type ('adamw', 'ava_base', 'ava_momentum',
+                           'ava_exp_decay', 'ava_harmonic')
+            early_stopping_patience: Epochs to wait before early stopping (default 10)
+            checkpoint_dir: Directory to save checkpoints (default None uses temp)
+            use_mixed_precision: Enable mixed-precision training (default False)
+            gradient_accumulation_steps: Steps for gradient accumulation (default 1)
+
+        Returns:
+            Dict containing training results with:
+                - final_loss: Final validation loss
+                - best_loss: Best validation loss achieved
+                - epochs_trained: Number of epochs completed
+                - checkpoint_path: Path to best model checkpoint
+                - training_history: List of loss values per epoch
+
+        Raises:
+            ValueError: If training data path is invalid or data format unsupported
+            RuntimeError: If training fails due to data or model issues
         """
-        pass
+        import os
+        import pickle
+        import tempfile
+        from torch.utils.data import DataLoader, random_split
+        from omni_anomaly_engine.ml.training import FusionTrainer, AnomalyDataset
+
+        if self.mode != "fusion":
+            raise ValueError("Training requires fusion mode. Initialize with mode='fusion'")
+
+        # Load training data
+        if not os.path.exists(training_data):
+            raise ValueError(f"Training data path does not exist: {training_data}")
+
+        try:
+            if training_data.endswith(".npz"):
+                data = np.load(training_data, allow_pickle=True)
+                features_dict = {
+                    k: torch.tensor(v, dtype=torch.float32)
+                    for k, v in data.items()
+                    if k != "labels"
+                }
+                labels = torch.tensor(data["labels"], dtype=torch.long)
+            elif training_data.endswith(".pkl") or training_data.endswith(".pickle"):
+                with open(training_data, "rb") as f:
+                    loaded = pickle.load(f)
+                features_dict = {
+                    k: torch.tensor(v, dtype=torch.float32) for k, v in loaded["features"].items()
+                }
+                labels = torch.tensor(loaded["labels"], dtype=torch.long)
+            else:
+                raise ValueError(f"Unsupported data format. Use .npz or .pkl: {training_data}")
+        except Exception as e:
+            raise RuntimeError(f"Failed to load training data: {e}")
+
+        # Create dataset and split
+        dataset = AnomalyDataset(features_dict, labels)
+        total_size = len(dataset)
+        val_size = int(total_size * validation_split)
+        train_size = total_size - val_size
+
+        train_dataset, val_dataset = random_split(
+            dataset, [train_size, val_size], generator=torch.Generator().manual_seed(42)
+        )
+
+        # Create data loaders
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=0,
+            pin_memory=True if self.device.type == "cuda" else False,
+        )
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=0,
+            pin_memory=True if self.device.type == "cuda" else False,
+        )
+
+        # Setup checkpoint directory
+        if checkpoint_dir is None:
+            checkpoint_dir = tempfile.mkdtemp(prefix="omni_fusion_")
+        os.makedirs(checkpoint_dir, exist_ok=True)
+
+        # Create trainer module
+        trainer_module = FusionTrainer(
+            model=self.fusion_model,
+            learning_rate=learning_rate,
+        )
+        trainer_module.optimizer_type = optimizer_type
+
+        # Training state
+        best_val_loss = float("inf")
+        best_epoch = 0
+        epochs_without_improvement = 0
+        training_history: List[Dict[str, float]] = []
+        best_checkpoint_path = os.path.join(checkpoint_dir, "best_model.pt")
+
+        # Setup mixed precision if requested
+        scaler = (
+            torch.cuda.amp.GradScaler()
+            if use_mixed_precision and self.device.type == "cuda"
+            else None
+        )
+
+        # Configure optimizer
+        optimizer_config = trainer_module.configure_optimizers()
+        optimizer = optimizer_config["optimizer"]
+        scheduler = optimizer_config["lr_scheduler"]["scheduler"]
+
+        self.fusion_model.train()
+
+        for epoch in range(epochs):
+            # Training phase
+            train_losses = []
+            self.fusion_model.train()
+
+            for batch_idx, batch in enumerate(train_loader):
+                if use_mixed_precision and scaler is not None:
+                    with torch.cuda.amp.autocast():
+                        loss = trainer_module.training_step(batch, batch_idx)
+                    scaler.scale(loss / gradient_accumulation_steps).backward()
+
+                    if (batch_idx + 1) % gradient_accumulation_steps == 0:
+                        scaler.step(optimizer)
+                        scaler.update()
+                        optimizer.zero_grad()
+                else:
+                    loss = trainer_module.training_step(batch, batch_idx)
+                    (loss / gradient_accumulation_steps).backward()
+
+                    if (batch_idx + 1) % gradient_accumulation_steps == 0:
+                        optimizer.step()
+                        optimizer.zero_grad()
+
+                train_losses.append(loss.item())
+
+            avg_train_loss = np.mean(train_losses)
+
+            # Validation phase
+            val_losses = []
+            self.fusion_model.eval()
+
+            with torch.no_grad():
+                for batch_idx, batch in enumerate(val_loader):
+                    trainer_module.validation_step(batch, batch_idx)
+                    # Calculate validation loss manually
+                    features, labels_batch = batch
+                    outputs = self.fusion_model(features, return_attention=True)
+                    anomaly_labels = (labels_batch > 0).float().unsqueeze(1)
+                    val_loss = torch.nn.functional.binary_cross_entropy(
+                        outputs["anomaly_probs"], anomaly_labels
+                    )
+                    val_losses.append(val_loss.item())
+
+            avg_val_loss = np.mean(val_losses) if val_losses else avg_train_loss
+
+            # Update learning rate scheduler
+            scheduler.step(avg_val_loss)
+
+            # Track history
+            training_history.append(
+                {
+                    "epoch": epoch + 1,
+                    "train_loss": avg_train_loss,
+                    "val_loss": avg_val_loss,
+                    "learning_rate": optimizer.param_groups[0]["lr"],
+                }
+            )
+
+            # Check for improvement and save best model
+            if avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
+                best_epoch = epoch + 1
+                epochs_without_improvement = 0
+                torch.save(
+                    {
+                        "epoch": epoch,
+                        "model_state_dict": self.fusion_model.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                        "val_loss": best_val_loss,
+                    },
+                    best_checkpoint_path,
+                )
+            else:
+                epochs_without_improvement += 1
+
+            # Early stopping
+            if epochs_without_improvement >= early_stopping_patience:
+                break
+
+        # Load best model
+        if os.path.exists(best_checkpoint_path):
+            checkpoint = torch.load(
+                best_checkpoint_path, map_location=self.device, weights_only=True
+            )
+            self.fusion_model.load_state_dict(checkpoint["model_state_dict"])
+
+        self.fusion_model.eval()
+
+        return {
+            "final_loss": training_history[-1]["val_loss"] if training_history else 0.0,
+            "best_loss": best_val_loss,
+            "epochs_trained": len(training_history),
+            "best_epoch": best_epoch,
+            "checkpoint_path": best_checkpoint_path,
+            "training_history": training_history,
+            "early_stopped": epochs_without_improvement >= early_stopping_patience,
+        }
 
     def save_model(self, path: str) -> None:
         """Save fusion model to file"""
