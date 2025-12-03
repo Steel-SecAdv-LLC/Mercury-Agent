@@ -1003,18 +1003,20 @@ class RefactoringEngine:
         """
         func_id = f"{func.__module__}.{func.__name__}"
 
-        if self.config.enable_caching and func_id in self._analysis_cache:
-            if "complexity" in self._analysis_cache[func_id]:
-                metrics = self._analysis_cache[func_id]["complexity"].copy()
-            else:
-                metrics = self.analyze_function_complexity(func)
-                self._analysis_cache[func_id]["complexity"] = metrics.copy()
+        if self.config.enable_caching:
+            with self._cache_lock:
+                if func_id in self._analysis_cache:
+                    if "complexity" in self._analysis_cache[func_id]:
+                        metrics = self._analysis_cache[func_id]["complexity"].copy()
+                    else:
+                        metrics = self.analyze_function_complexity(func)
+                        self._analysis_cache[func_id]["complexity"] = metrics.copy()
+                else:
+                    metrics = self.analyze_function_complexity(func)
+                    self._analysis_cache[func_id] = {}
+                    self._analysis_cache[func_id]["complexity"] = metrics.copy()
         else:
             metrics = self.analyze_function_complexity(func)
-            if self.config.enable_caching:
-                if func_id not in self._analysis_cache:
-                    self._analysis_cache[func_id] = {}
-                self._analysis_cache[func_id]["complexity"] = metrics.copy()
 
         if "error" in metrics:
             return dict(metrics)
@@ -1060,18 +1062,20 @@ class RefactoringEngine:
 
         func_id = f"{func.__module__}.{func.__name__}"
 
-        if self.config.enable_caching and func_id in self._analysis_cache:
-            if "suggestions" in self._analysis_cache[func_id]:
-                base_suggestions = self._analysis_cache[func_id]["suggestions"]
-            else:
-                base_suggestions = self.suggest_refactorings(func)
-                self._analysis_cache[func_id]["suggestions"] = base_suggestions
+        if self.config.enable_caching:
+            with self._cache_lock:
+                if func_id in self._analysis_cache:
+                    if "suggestions" in self._analysis_cache[func_id]:
+                        base_suggestions = self._analysis_cache[func_id]["suggestions"]
+                    else:
+                        base_suggestions = self.suggest_refactorings(func)
+                        self._analysis_cache[func_id]["suggestions"] = base_suggestions
+                else:
+                    base_suggestions = self.suggest_refactorings(func)
+                    self._analysis_cache[func_id] = {}
+                    self._analysis_cache[func_id]["suggestions"] = base_suggestions
         else:
             base_suggestions = self.suggest_refactorings(func)
-            if self.config.enable_caching:
-                if func_id not in self._analysis_cache:
-                    self._analysis_cache[func_id] = {}
-                self._analysis_cache[func_id]["suggestions"] = base_suggestions
 
         if not base_suggestions:
             return [{"path_id": 0, "suggestions": [], "score": 1.0}]
