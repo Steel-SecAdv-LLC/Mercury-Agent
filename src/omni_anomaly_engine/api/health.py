@@ -26,7 +26,6 @@ import asyncio
 import logging
 import os
 import platform
-import sys
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -560,9 +559,8 @@ async def health_metrics() -> Response:
 
     for component in components:
         if component.latency_ms is not None:
-            lines.append(
-                f'omni_ava_component_latency_ms{{component="{component.name}"}} {component.latency_ms}'
-            )
+            metric = f'omni_ava_component_latency_ms{{component="{component.name}"}}'
+            lines.append(f"{metric} {component.latency_ms}")
 
     content = "\n".join(lines) + "\n"
     return Response(

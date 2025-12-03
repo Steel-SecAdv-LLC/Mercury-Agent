@@ -18,7 +18,7 @@ Example:
 import asyncio
 import random
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 

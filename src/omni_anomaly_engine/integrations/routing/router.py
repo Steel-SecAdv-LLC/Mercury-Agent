@@ -31,7 +31,6 @@ Example:
 
 import logging
 import re
-import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum
@@ -300,7 +299,6 @@ class RequestRouter:
         self._request_count += 1
         method = method.upper()
         matched_route: Route | None = None
-        matched_params: dict[str, str] | None = None
 
         for route in self._routes:
             params = route.match(path)
@@ -322,7 +320,7 @@ class RequestRouter:
                 else:
                     # Path matches but method doesn't
                     matched_route = route
-                    matched_params = params
+                    _ = params  # Params captured for potential future use
 
         if matched_route:
             raise MethodNotAllowedError(path, method, matched_route.methods)

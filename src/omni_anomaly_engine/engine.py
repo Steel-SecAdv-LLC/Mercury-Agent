@@ -16,14 +16,14 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
-"""Main OmniAnomalyEngine orchestrating all detectors and models.
+"""Main OmniAvaEngine orchestrating all detectors and models.
 
 This module provides the core anomaly detection engine that integrates
 13 specialized detection models through neural network fusion. It supports
 multiple detection modes, batch processing, and configurable sensitivity.
 
 Architecture:
-    The OmniAnomalyEngine combines multiple specialized detectors:
+    The OmniAvaEngine combines multiple specialized detectors:
 
     Base Detectors (5):
         - Statistical: Z-score, percentile, MAD-based detection
@@ -55,11 +55,11 @@ Performance Characteristics:
 Example:
     Basic usage with fusion mode::
 
-        from omni_anomaly_engine.engine import OmniAnomalyEngine
+        from omni_anomaly_engine.engine import OmniAvaEngine
         import numpy as np
 
         # Initialize engine
-        engine = OmniAnomalyEngine(mode="fusion", device="cuda")
+        engine = OmniAvaEngine(mode="fusion", device="cuda")
 
         # Detect anomalies
         data = np.random.randn(100, 10)
@@ -70,7 +70,7 @@ Example:
 
     Batch processing for large datasets::
 
-        engine = OmniAnomalyEngine(mode="fusion")
+        engine = OmniAvaEngine(mode="fusion")
         large_data = np.random.randn(10000, 50)
 
         # Process in batches for memory efficiency
@@ -338,7 +338,7 @@ class MemoryMonitor:
         }
 
 
-class OmniAnomalyEngine:
+class OmniAvaEngine:
     """Unified anomaly detection engine with ML-Centric Hybrid Fusion.
 
     This is the main entry point for the OMNI AVA anomaly detection system.
@@ -365,13 +365,13 @@ class OmniAnomalyEngine:
     Example:
         Basic detection::
 
-            engine = OmniAnomalyEngine()
+            engine = OmniAvaEngine()
             data = np.random.randn(100, 10)
             result = engine.detect(data)
 
         Fusion mode with GPU::
 
-            engine = OmniAnomalyEngine(mode="fusion", device="cuda")
+            engine = OmniAvaEngine(mode="fusion", device="cuda")
             result = engine.detect_with_fusion(data)
 
         Batch processing::
@@ -418,7 +418,7 @@ class OmniAnomalyEngine:
             ValueError: If device is 'cuda' but CUDA is not available.
 
         Example:
-            >>> engine = OmniAnomalyEngine(
+            >>> engine = OmniAvaEngine(
             ...     mode="fusion",
             ...     device="cuda",
             ...     cache_size=256
@@ -445,7 +445,7 @@ class OmniAnomalyEngine:
         self._init_fusion()
         self._init_resilience()
 
-        logger.info(f"OmniAnomalyEngine initialized (mode={mode}, device={self.device})")
+        logger.info(f"OmniAvaEngine initialized (mode={mode}, device={self.device})")
 
     def _init_detectors(self) -> None:
         """Initialize all base anomaly detectors.
@@ -546,7 +546,7 @@ class OmniAnomalyEngine:
                 - is_anomaly: Boolean indicating if any detector found anomaly
 
         Example:
-            >>> engine = OmniAnomalyEngine()
+            >>> engine = OmniAvaEngine()
             >>> data = np.random.randn(100, 10)
             >>> result = engine.detect(data, detector_types=["statistical"])
             >>> print(result["is_anomaly"])
@@ -611,7 +611,7 @@ class OmniAnomalyEngine:
             ValueError: If data has invalid shape.
 
         Example:
-            >>> engine = OmniAnomalyEngine(mode="fusion")
+            >>> engine = OmniAvaEngine(mode="fusion")
             >>> large_data = np.random.randn(10000, 50)
             >>> results = engine.detect_batch(large_data, batch_size=64)
             >>> anomaly_indices = [i for i, r in enumerate(results)
@@ -862,7 +862,7 @@ class OmniAnomalyEngine:
                 - mode: Detection mode ('fusion')
 
         Example:
-            >>> engine = OmniAnomalyEngine(mode="fusion")
+            >>> engine = OmniAvaEngine(mode="fusion")
             >>> data = np.random.randn(100, 10)
             >>> result = engine.detect_with_fusion(data)
             >>> print(f"Anomaly: {result['is_anomaly']}, "
@@ -928,7 +928,7 @@ class OmniAnomalyEngine:
                 - anomaly_scores: Biometric anomaly scores
 
         Example:
-            >>> engine = OmniAnomalyEngine()
+            >>> engine = OmniAvaEngine()
             >>> result = engine.detect_biometric(
             ...     "reference.jpg",
             ...     "test.jpg"
@@ -970,7 +970,7 @@ class OmniAnomalyEngine:
                 - source_ip: Source IP (if provided)
 
         Example:
-            >>> engine = OmniAnomalyEngine()
+            >>> engine = OmniAvaEngine()
             >>> result = engine.detect_security_threat(
             ...     "<script>alert('xss')</script>",
             ...     source_ip="192.168.1.1"
@@ -1048,7 +1048,7 @@ class OmniAnomalyEngine:
             RuntimeError: If training data loading fails.
 
         Example:
-            >>> engine = OmniAnomalyEngine(mode="fusion")
+            >>> engine = OmniAvaEngine(mode="fusion")
             >>> result = engine.train_fusion_model(
             ...     "training_data.npz",
             ...     epochs=100,
@@ -1322,3 +1322,7 @@ class OmniAnomalyEngine:
         """Cleanup resources on deletion."""
         if self._executor is not None:
             self._executor.shutdown(wait=False)
+
+
+# Backward compatibility alias
+OmniAnomalyEngine = OmniAvaEngine

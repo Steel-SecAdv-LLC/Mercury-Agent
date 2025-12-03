@@ -39,10 +39,8 @@ from numpy.typing import NDArray
 from scipy import fft, signal
 
 from omni_anomaly_engine.core.ai_ethics import EthicalAutonomyGovernor, EthicsConfig
-from omni_anomaly_engine.core.neurosymbolic_engine import (
-    NeurosymbolicConfig,
-    NeurosymbolicEngine,
-)
+from omni_anomaly_engine.core.code_analysis import NeurosymbolicConfig as CodeAnalysisConfig
+from omni_anomaly_engine.core.code_analysis import NeurosymbolicEngine as CodeAnalysisEngine
 from omni_anomaly_engine.utils.constants import MathematicalConstants
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -1483,8 +1481,8 @@ class RefactoringEngine:
         except Exception as e:
             return {"error": f"Could not parse function: {e}"}
 
-        ns_engine = NeurosymbolicEngine(
-            config=NeurosymbolicConfig(
+        code_engine = CodeAnalysisEngine(
+            config=CodeAnalysisConfig(
                 enable_neural=False,
                 enable_symbolic=True,
                 bias_check_enabled=True,
@@ -1492,9 +1490,9 @@ class RefactoringEngine:
             )
         )
 
-        results = ns_engine.hybrid_analysis(tree)
+        results = code_engine.hybrid_analysis(tree)
 
-        results["readiness_level"] = ns_engine.get_readiness_level().value
+        results["readiness_level"] = code_engine.get_readiness_level().value
 
         return results
 
