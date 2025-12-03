@@ -31,13 +31,12 @@ Key Features:
 - Polynomial age filters with 10-20% accuracy improvement
 - Quantum variant uncertainty modeling for age estimation
 
-Research Sources:
+References:
     - FaceNet: A Unified Embedding for Face Recognition (Schroff et al., 2015)
     - DeepFace: Closing the Gap to Human-Level Performance (Taigman et al., 2014)
     - Age Progression/Regression by Conditional Adversarial Autoencoder (Zhang et al., 2017)
 
-Original Implementation: FIND-YOU-ARC-CODE (Steel Security Advisors LLC)
-Integrated into OMNI ♱ AVA for humanitarian missing persons applications.
+Designed for humanitarian missing persons applications.
 """
 
 import logging

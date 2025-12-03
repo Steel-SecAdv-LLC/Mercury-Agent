@@ -38,8 +38,8 @@ _SYSTEM_INVARIANT_C = "C19V11C20V15"
 @dataclass
 class EthicalScalars:
     """
-    Comprehensive ethical scalar configuration from Aether_Halo integration
-    expanded with ancient cultural wisdom (Thoth, Ma'at, Athena) and modern
+    Comprehensive ethical scalar configuration incorporating
+    ancient cultural wisdom (Thoth, Ma'at, Athena) and modern
     technological principles (CRISPR, quantum resilience, regenerative design).
     Doctorate-level omni- variations organized thematically.
     ~150+ key scalars (135 existing + 20 PhD-inspired) from research.
@@ -326,7 +326,7 @@ class EngineConfig:
         return {
             "scalars": scalars_dict,
             "framework_version": "1.0",
-            "source": "Aether_Halo Integration",
+            "source": "OMNI-AVA Ethical Framework",
             "principles": [
                 "Compassion - Prioritizing well-being and harm minimization",
                 "Evidence - Requiring verifiable data and mathematical proofs",

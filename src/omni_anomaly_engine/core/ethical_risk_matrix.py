@@ -263,7 +263,7 @@ class HIPAACompliance:
 
 class AnomalyOracle:
     """
-    Anomaly oracle for risk forecasting via Aether Halo-inspired simulations.
+    Anomaly oracle for risk forecasting via pattern-based simulations.
 
     Uses historical patterns to predict future anomalies and risks.
     """

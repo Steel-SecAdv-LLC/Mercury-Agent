@@ -40,14 +40,11 @@ Mathematical Foundation:
     where S is the system state, wᵢ are term weights, and λ is the
     Lyapunov decay rate ensuring convergence to equilibrium S*.
 
-Research Sources:
+References:
     - Lyapunov Stability Theory: Khalil (2002)
     - Golden Ratio in Nature: Livio (2002)
     - Quantum-Inspired Optimization: Kadowaki & Nishimori (1998)
     - Fractal Geometry: Mandelbrot (1982)
-
-Original Implementation: Ava-Guardian (Steel Security Advisors LLC)
-Integrated into OMNI ♱ AVA for adaptive anomaly detection evolution.
 """
 
 import logging

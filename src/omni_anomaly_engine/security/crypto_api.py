@@ -35,13 +35,10 @@ Security Levels:
 - POST_QUANTUM: ML-DSA-65/Kyber-1024 (quantum-resistant)
 - HYBRID: Both classical and post-quantum (maximum security)
 
-Research Sources:
+References:
     - NIST SP 800-208: Recommendation for Stateful Hash-Based Signatures
     - NIST FIPS 204: Module-Lattice-Based Digital Signature Standard
     - NIST FIPS 203: Module-Lattice-Based Key-Encapsulation Mechanism
-
-Original Implementation: Ava-Guardian (Steel Security Advisors LLC)
-Integrated into OMNI ♱ AVA for securing anomaly detection results.
 """
 
 import hashlib

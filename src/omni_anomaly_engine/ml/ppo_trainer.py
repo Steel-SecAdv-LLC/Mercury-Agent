@@ -28,12 +28,9 @@ Key Features:
 - Multi-environment training support
 - Ethics-weighted reward computation
 
-Research Sources:
+References:
     - Schulman et al. (2017): Proximal Policy Optimization Algorithms
     - Stable Baselines3: https://stable-baselines3.readthedocs.io/
-
-Original Implementation: OMNI-HALO (Steel Security Advisors LLC)
-Integrated into OMNI ♱ AVA for autonomous anomaly detection evolution.
 """
 
 import logging

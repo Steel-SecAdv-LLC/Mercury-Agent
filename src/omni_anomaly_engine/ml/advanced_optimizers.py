@@ -29,13 +29,10 @@ Key Features:
 - Biologically plausible updates without weight transport
 - Multi-task optimization preventing gradient collapse
 
-Research Sources:
+References:
     - Jaderberg et al. (2017): Decoupled Neural Interfaces using Synthetic Gradients
     - Lee et al. (2015): Difference Target Propagation
     - Multi-task learning variance maximization
-
-Original Implementation: Omni-AXA-Engine (Steel Security Advisors LLC)
-Integrated into OMNI ♱ AVA for accelerated anomaly detection training.
 """
 
 import logging

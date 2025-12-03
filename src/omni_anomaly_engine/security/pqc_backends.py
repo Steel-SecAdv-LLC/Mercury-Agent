@@ -33,14 +33,11 @@ Security Note:
     Set AVA_REQUIRE_CONSTANT_TIME=true in production to enforce
     constant-time implementations only.
 
-Research Sources:
+References:
     - NIST PQC Standardization: https://csrc.nist.gov/projects/post-quantum-cryptography
     - liboqs: https://openquantumsafe.org/
     - Dilithium: https://pq-crystals.org/dilithium/
     - Kyber: https://pq-crystals.org/kyber/
-
-Original Implementation: Ava-Guardian (Steel Security Advisors LLC)
-Integrated into OMNI ♱ AVA for quantum-resistant anomaly detection security.
 """
 
 import hashlib

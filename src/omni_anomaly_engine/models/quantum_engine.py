@@ -32,13 +32,10 @@ Key Features:
 - Quantum-inspired optimization for anomaly detection
 - Quantum random number generation
 
-Research Sources:
+References:
     - Grover, L.K. (1996): A fast quantum mechanical algorithm for database search
     - Bennett, C.H. & Brassard, G. (1984): Quantum cryptography (BB84)
     - Nielsen & Chuang: Quantum Computation and Quantum Information
-
-Original Implementation: FIND-YOU-ARC-CODE (Steel Security Advisors LLC)
-Integrated into OMNI ♱ AVA for quantum-enhanced anomaly detection.
 """
 
 import logging

@@ -19,22 +19,21 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 Global Omni-Scalar Network (GOSNN) - Intelligence Fusion Hub
 
-Implements a comprehensive scalar monitoring and fusion system inspired by
-Aether Halo NSN's ~700 omni-scalars architecture. Provides:
+Implements a comprehensive scalar monitoring and fusion system with
+~700 omni-scalars architecture. Provides:
 
 - 37-dimensional quantum fusion with multi-head attention
-- Ethical gating with σ_Sacred threshold enforcement
+- Ethical gating with sigma_Sacred threshold enforcement
 - Component-based scalar registration and enhancement
 - Global intelligence score computation
-- Triadic harmony computation using golden ratio (φ = 1.618)
+- Triadic harmony computation using golden ratio (phi = 1.618)
 
 The GOSNN serves as a central hub for aggregating insights from multiple
 specialized engines and maintaining system-wide ethical alignment.
 
-Research sources:
-- Aether Halo NSN v2.0 (Steel-SecAdv-LLC)
-- Multi-head attention: Vaswani et al. (2017) "Attention Is All You Need"
-- Golden ratio applications: Livio (2002) "The Golden Ratio"
+References:
+    - Multi-head attention: Vaswani et al. (2017) "Attention Is All You Need"
+    - Golden ratio applications: Livio (2002) "The Golden Ratio"
 """
 
 import logging

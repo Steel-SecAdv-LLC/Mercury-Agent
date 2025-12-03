@@ -29,10 +29,9 @@ Key Components:
 - MercuryReasoner: Chain-of-thought reasoning with correlation graph building
 - AgentMemory: Short-term, long-term, episodic, semantic memory systems
 
-Research sources:
-- Omni-AXA-Engine Mercury A. Agent (Steel-SecAdv-LLC)
-- ReAct: Yao et al. (2022) "ReAct: Synergizing Reasoning and Acting"
-- Memory systems: Tulving (1972) episodic/semantic distinction
+References:
+    - ReAct: Yao et al. (2022) "ReAct: Synergizing Reasoning and Acting"
+    - Memory systems: Tulving (1972) episodic/semantic distinction
 """
 
 import logging

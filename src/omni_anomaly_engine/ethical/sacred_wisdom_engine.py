@@ -28,11 +28,10 @@ Integrates ancient wisdom traditions with modern AI ethics for:
 This module provides bias detection, fairness verification, and ethical constraint
 enforcement using mathematically grounded archetypal patterns.
 
-Research sources:
-- FIND-YOU-ARC-CODE Sacred Wisdom Engine (Steel-SecAdv-LLC)
-- Ma'at concept: Ancient Egyptian goddess of truth, justice, and cosmic order
-- Athena: Greek goddess of wisdom, strategic warfare, and crafts
-- Sacred geometry: Livio (2002), Schneider (1994)
+References:
+    - Ma'at concept: Ancient Egyptian goddess of truth, justice, and cosmic order
+    - Athena: Greek goddess of wisdom, strategic warfare, and crafts
+    - Sacred geometry: Livio (2002), Schneider (1994)
 """
 
 import logging
