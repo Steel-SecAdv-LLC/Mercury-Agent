@@ -383,6 +383,12 @@ class OmniAnomalyEngine:
         if self.mode != "fusion":
             raise ValueError("Training requires fusion mode. Initialize with mode='fusion'")
 
+        # Validate parameters
+        if gradient_accumulation_steps < 1:
+            raise ValueError("gradient_accumulation_steps must be >= 1")
+        if not (0.0 < validation_split < 1.0):
+            raise ValueError("validation_split must be between 0 and 1 (exclusive)")
+
         # Load training data
         if not os.path.exists(training_data):
             raise ValueError(f"Training data path does not exist: {training_data}")

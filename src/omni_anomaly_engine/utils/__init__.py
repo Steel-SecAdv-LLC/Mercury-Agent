@@ -22,9 +22,17 @@ Enhanced with Black Hole Engine compression and gravitational lensing utilities
 """
 
 import numpy as np
-import torch
 import zlib
 from typing import Union, Dict, Any, Tuple
+
+# Make torch optional to support environments without ML dependencies
+try:
+    import torch
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    torch = None  # type: ignore[assignment]
+    TORCH_AVAILABLE = False
 
 from omni_anomaly_engine.utils.comm import (
     Message,
@@ -57,20 +65,20 @@ from omni_anomaly_engine.utils.constants import (
 
 
 def normalize_data(
-    data: Union[np.ndarray, torch.Tensor],
+    data: Union[np.ndarray, "torch.Tensor"],
     method: str = "standard",
-) -> Union[np.ndarray, torch.Tensor]:
+) -> Union[np.ndarray, "torch.Tensor"]:
     """
     Normalize data using specified method.
 
     Args:
-        data: Input data
+        data: Input data (numpy array or torch tensor if torch is available)
         method: Normalization method ('standard', 'minmax', 'robust')
 
     Returns:
         Normalized data
     """
-    is_torch = isinstance(data, torch.Tensor)
+    is_torch = TORCH_AVAILABLE and torch is not None and isinstance(data, torch.Tensor)
 
     if is_torch:
         data_np = data.cpu().numpy()

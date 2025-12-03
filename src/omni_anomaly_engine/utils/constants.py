@@ -176,7 +176,7 @@ class MathematicalConstants:
         description="Ratio where (a+b)/a = a/b. Appears in art, architecture, and nature.",
         oeis_id="A001622",
         reference="Livio, M. (2002). The Golden Ratio. Broadway Books.",
-        precision_digits=20,
+        precision_digits=15,
     )
 
     GOLDEN_RATIO_CONJUGATE = MathConstant(
@@ -186,7 +186,7 @@ class MathematicalConstants:
         description="Reciprocal of golden ratio minus 1. φ - 1 = 1/φ.",
         oeis_id="A094214",
         reference="Same as Golden Ratio",
-        precision_digits=20,
+        precision_digits=15,
     )
 
     PI = MathConstant(
@@ -196,7 +196,7 @@ class MathematicalConstants:
         description="Ratio of circle's circumference to diameter.",
         oeis_id="A000796",
         reference="NIST Digital Library of Mathematical Functions",
-        precision_digits=20,
+        precision_digits=15,
     )
 
     E = MathConstant(
@@ -206,7 +206,7 @@ class MathematicalConstants:
         description="Base of natural logarithm. lim(1+1/n)^n as n→∞.",
         oeis_id="A001113",
         reference="NIST Digital Library of Mathematical Functions",
-        precision_digits=20,
+        precision_digits=15,
     )
 
     EULER_MASCHERONI = MathConstant(
@@ -216,7 +216,7 @@ class MathematicalConstants:
         description="Limiting difference between harmonic series and natural logarithm.",
         oeis_id="A001620",
         reference="Havil, J. (2003). Gamma: Exploring Euler's Constant. Princeton.",
-        precision_digits=20,
+        precision_digits=15,
     )
 
     # === Catalan and Related Constants ===
@@ -228,7 +228,7 @@ class MathematicalConstants:
         description="Sum of (-1)^n/(2n+1)^2 for n=0 to infinity.",
         oeis_id="A006752",
         reference="Adamchik, V. (2002). On the Catalan constant. Ramanujan J.",
-        precision_digits=20,
+        precision_digits=15,
     )
 
     # === Chaos Theory Constants ===
@@ -240,7 +240,7 @@ class MathematicalConstants:
         description="Rate of approach to chaos in period-doubling bifurcations.",
         oeis_id="A006890",
         reference="Feigenbaum, M.J. (1978). Quantitative universality. J. Stat. Phys.",
-        precision_digits=20,
+        precision_digits=15,
     )
 
     FEIGENBAUM_ALPHA = MathConstant(
@@ -250,7 +250,7 @@ class MathematicalConstants:
         description="Scaling factor for amplitude in period-doubling.",
         oeis_id="A006891",
         reference="Feigenbaum, M.J. (1978). Quantitative universality. J. Stat. Phys.",
-        precision_digits=20,
+        precision_digits=15,
     )
 
     # === Omega and Lambert W ===
@@ -262,7 +262,7 @@ class MathematicalConstants:
         description="W(1) where W is the Lambert W function. Satisfies Ω·e^Ω = 1.",
         oeis_id="A030178",
         reference="Corless, R.M. et al. (1996). On the Lambert W function. Adv. Comp. Math.",
-        precision_digits=20,
+        precision_digits=15,
     )
 
     # === Apéry's Constant ===
@@ -274,7 +274,7 @@ class MathematicalConstants:
         description="Riemann zeta function at 3. Sum of 1/n^3 for n=1 to infinity.",
         oeis_id="A002117",
         reference="Apéry, R. (1979). Irrationalité de ζ(2) et ζ(3). Astérisque.",
-        precision_digits=20,
+        precision_digits=15,
     )
 
     # === Plastic Ratio ===
@@ -286,7 +286,7 @@ class MathematicalConstants:
         description="Real solution to x³ = x + 1. Related to Padovan sequence.",
         oeis_id="A060006",
         reference="Stewart, I. (1996). Tales of a Neglected Number. Scientific American.",
-        precision_digits=20,
+        precision_digits=15,
     )
 
     # === Square Root Constants ===
@@ -298,7 +298,7 @@ class MathematicalConstants:
         description="Pythagoras's constant. Diagonal of unit square.",
         oeis_id="A002193",
         reference="NIST Digital Library of Mathematical Functions",
-        precision_digits=20,
+        precision_digits=15,
     )
 
     SQRT3 = MathConstant(
@@ -308,7 +308,7 @@ class MathematicalConstants:
         description="Theodorus's constant. Related to equilateral triangle.",
         oeis_id="A002194",
         reference="NIST Digital Library of Mathematical Functions",
-        precision_digits=20,
+        precision_digits=15,
     )
 
     SQRT5 = MathConstant(
@@ -318,7 +318,7 @@ class MathematicalConstants:
         description="Appears in golden ratio: φ = (1 + √5)/2.",
         oeis_id="A002163",
         reference="NIST Digital Library of Mathematical Functions",
-        precision_digits=20,
+        precision_digits=15,
     )
 
     # === Natural Logarithm Constants ===
@@ -330,7 +330,7 @@ class MathematicalConstants:
         description="Alternating harmonic series sum.",
         oeis_id="A002162",
         reference="NIST Digital Library of Mathematical Functions",
-        precision_digits=20,
+        precision_digits=15,
     )
 
     LN10 = MathConstant(
@@ -340,7 +340,7 @@ class MathematicalConstants:
         description="Conversion factor between natural and common logarithms.",
         oeis_id="A002392",
         reference="NIST Digital Library of Mathematical Functions",
-        precision_digits=20,
+        precision_digits=15,
     )
 
     # === Physical Constants (Dimensionless) ===
