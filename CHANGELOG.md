@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - VAE for unsupervised pattern learning
 - HATCN-AD for multi-scale temporal prediction
 - 5 new civilization modules: Climate Resilience, AgriFood Security, Education Equity, Economic Resilience, Neuroscience
-- 150+ doctorate-level ethical scalars
+- 150+ domain-specific ethical scalars
 
 ### Changed
 - Renamed from OMNI ♱ AVA to OMNI ♱ AVA

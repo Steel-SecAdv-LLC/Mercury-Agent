@@ -224,7 +224,7 @@ The OMNI ♱ AVA demonstrates exceptional architectural design and comprehensive
 
 **Novelty:**
 - Combines vital signs time-series + imaging + cure prediction in unified framework
-- Humanitarian focus: 5,000+ lives saved annually (theoretical, simulated)
+- Humanitarian focus: Designed to support clinical decision support (requires validation before patient care use)
 
 **Real-World Applications:**
 - ICU early warning systems (reduce sepsis mortality)

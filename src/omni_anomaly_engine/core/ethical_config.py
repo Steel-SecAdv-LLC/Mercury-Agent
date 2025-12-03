@@ -39,10 +39,10 @@ _SYSTEM_INVARIANT_C = "C19V11C20V15"
 class EthicalScalars:
     """
     Comprehensive ethical scalar configuration from Aether_Halo integration
-    expanded with ancient cultural wisdom (Thoth, Ma'at, Athena) and modern
+    expanded with historical wisdom traditions (Thoth, Ma'at, Athena) and modern
     technological principles (CRISPR, quantum resilience, regenerative design).
-    Doctorate-level omni- variations organized thematically.
-    ~150+ key scalars (135 existing + 20 PhD-inspired) from research.
+    Domain-specific omni- variations organized thematically.
+    ~150+ key scalars (135 existing + 20 research-inspired) from research.
 
     Research sources: Wikipedia (verified October 2025)
     - Ancient Egyptian deities: Thoth (wisdom, writing), Ma'at (truth, justice, balance)
