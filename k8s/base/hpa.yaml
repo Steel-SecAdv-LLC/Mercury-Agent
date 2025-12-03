@@ -1,0 +1,183 @@
+# OMNI-AVA Horizontal Pod Autoscaler Configuration
+# Automatically scales pods based on CPU/memory utilization and custom metrics
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: omni-ava-api-hpa
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: omni-ava-api
+  minReplicas: 3
+  maxReplicas: 20
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      selectPolicy: Min
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 4
+          periodSeconds: 15
+      selectPolicy: Max
+  metrics:
+    # CPU-based scaling
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    # Memory-based scaling
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+    # Custom metric: Request rate (requires Prometheus adapter)
+    - type: Pods
+      pods:
+        metric:
+          name: http_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: "100"
+    # Custom metric: Response latency
+    - type: Pods
+      pods:
+        metric:
+          name: http_request_duration_seconds_p95
+        target:
+          type: AverageValue
+          averageValue: "500m"
+---
+# HPA for Engine Workers
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: omni-ava-engine-hpa
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: engine
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: omni-ava-engine
+  minReplicas: 2
+  maxReplicas: 10
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 600
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 120
+      selectPolicy: Min
+    scaleUp:
+      stabilizationWindowSeconds: 120
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      selectPolicy: Max
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 85
+    # Custom metric: Detection queue depth
+    - type: External
+      external:
+        metric:
+          name: omni_detection_queue_depth
+          selector:
+            matchLabels:
+              app: omni-ava
+        target:
+          type: Value
+          value: "50"
+---
+# Vertical Pod Autoscaler (VPA) for right-sizing recommendations
+# Requires VPA controller to be installed
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: omni-ava-api-vpa
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: api
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: omni-ava-api
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: api
+        minAllowed:
+          cpu: "200m"
+          memory: "512Mi"
+        maxAllowed:
+          cpu: "4"
+          memory: "8Gi"
+        controlledResources: ["cpu", "memory"]
+        controlledValues: RequestsAndLimits
+---
+# VPA for Engine
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: omni-ava-engine-vpa
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: engine
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: omni-ava-engine
+  updatePolicy:
+    updateMode: "Off"  # Recommend only, don't auto-update
+  resourcePolicy:
+    containerPolicies:
+      - containerName: engine
+        minAllowed:
+          cpu: "500m"
+          memory: "2Gi"
+        maxAllowed:
+          cpu: "8"
+          memory: "32Gi"

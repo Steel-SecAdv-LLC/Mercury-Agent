@@ -1,0 +1,72 @@
+# OMNI-AVA Pod Disruption Budget Configuration
+# Ensures minimum availability during voluntary disruptions (upgrades, node drains)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: omni-ava-api-pdb
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: api
+spec:
+  # At least 2 pods must be available at all times
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: omni-ava
+      app.kubernetes.io/component: api
+  # Unhealthy pod eviction policy (K8s 1.26+)
+  unhealthyPodEvictionPolicy: IfHealthyBudget
+---
+# PDB for Engine Workers
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: omni-ava-engine-pdb
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: engine
+spec:
+  # Allow at most 1 engine pod to be unavailable
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: omni-ava
+      app.kubernetes.io/component: engine
+---
+# Priority Class for critical components
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: omni-ava-critical
+  labels:
+    app.kubernetes.io/name: omni-ava
+value: 1000000
+globalDefault: false
+description: "Critical OMNI-AVA components that should not be preempted"
+preemptionPolicy: PreemptLowerPriority
+---
+# Priority Class for standard workloads
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: omni-ava-standard
+  labels:
+    app.kubernetes.io/name: omni-ava
+value: 100000
+globalDefault: false
+description: "Standard OMNI-AVA workloads"
+preemptionPolicy: PreemptLowerPriority
+---
+# Priority Class for batch jobs
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: omni-ava-batch
+  labels:
+    app.kubernetes.io/name: omni-ava
+value: 10000
+globalDefault: false
+description: "OMNI-AVA batch processing jobs"
+preemptionPolicy: Never

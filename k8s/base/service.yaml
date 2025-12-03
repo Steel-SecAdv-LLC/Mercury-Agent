@@ -1,0 +1,124 @@
+# OMNI-AVA Service Configurations
+# Exposes the API and internal services within the cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: omni-ava-api
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: api
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+  sessionAffinity: None
+---
+# Headless service for StatefulSet (if needed)
+apiVersion: v1
+kind: Service
+metadata:
+  name: omni-ava-api-headless
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: api
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+---
+# Engine service for internal communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: omni-ava-engine
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: engine
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: engine
+  ports:
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+---
+# NodePort service for development/testing access
+apiVersion: v1
+kind: Service
+metadata:
+  name: omni-ava-api-nodeport
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: api
+    environment: development
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      nodePort: 30080
+      protocol: TCP
+---
+# LoadBalancer service for cloud deployments
+# Uncomment and configure based on cloud provider
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: omni-ava-api-lb
+#   namespace: omni-ava
+#   labels:
+#     app.kubernetes.io/name: omni-ava
+#     app.kubernetes.io/component: api
+#   annotations:
+#     # AWS
+#     service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+#     service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+#     # GCP
+#     # cloud.google.com/load-balancer-type: "Internal"
+#     # Azure
+#     # service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+# spec:
+#   type: LoadBalancer
+#   selector:
+#     app.kubernetes.io/name: omni-ava
+#     app.kubernetes.io/component: api
+#   ports:
+#     - name: http
+#       port: 80
+#       targetPort: 8000
+#       protocol: TCP
+#     - name: https
+#       port: 443
+#       targetPort: 8000
+#       protocol: TCP

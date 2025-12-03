@@ -1,0 +1,139 @@
+# OMNI-AVA RBAC Configuration
+# Role-Based Access Control for secure pod operations
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: omni-ava-api
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: api
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: omni-ava-engine
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: engine
+automountServiceAccountToken: false
+---
+# Role for API pods
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: omni-ava-api-role
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: api
+rules:
+  # Read ConfigMaps and Secrets
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  # Read pod information
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  # Read events for debugging
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+---
+# Role for Engine pods
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: omni-ava-engine-role
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: engine
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list"]
+---
+# RoleBinding for API
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: omni-ava-api-rolebinding
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: api
+subjects:
+  - kind: ServiceAccount
+    name: omni-ava-api
+    namespace: omni-ava
+roleRef:
+  kind: Role
+  name: omni-ava-api-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# RoleBinding for Engine
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: omni-ava-engine-rolebinding
+  namespace: omni-ava
+  labels:
+    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/component: engine
+subjects:
+  - kind: ServiceAccount
+    name: omni-ava-engine
+    namespace: omni-ava
+roleRef:
+  kind: Role
+  name: omni-ava-engine-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Pod Security Policy (for clusters with PSP enabled)
+# Note: PSP is deprecated in K8s 1.21+, use Pod Security Standards instead
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: omni-ava-restricted
+  labels:
+    app.kubernetes.io/name: omni-ava
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  runAsUser:
+    rule: MustRunAsNonRoot
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: MustRunAs
+    ranges:
+      - min: 1
+        max: 65535
+  fsGroup:
+    rule: MustRunAs
+    ranges:
+      - min: 1
+        max: 65535
+  readOnlyRootFilesystem: true

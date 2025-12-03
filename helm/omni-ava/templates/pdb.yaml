@@ -1,0 +1,39 @@
+{{- if and .Values.api.enabled .Values.api.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "omni-ava.fullname" . }}-api
+  namespace: {{ include "omni-ava.namespace" . }}
+  labels:
+    {{- include "omni-ava.api.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.api.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.api.podDisruptionBudget.minAvailable }}
+  {{- end }}
+  {{- if .Values.api.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.api.podDisruptionBudget.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "omni-ava.api.selectorLabels" . | nindent 6 }}
+{{- end }}
+---
+{{- if and .Values.engine.enabled .Values.engine.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "omni-ava.fullname" . }}-engine
+  namespace: {{ include "omni-ava.namespace" . }}
+  labels:
+    {{- include "omni-ava.engine.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.engine.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.engine.podDisruptionBudget.minAvailable }}
+  {{- end }}
+  {{- if .Values.engine.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.engine.podDisruptionBudget.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "omni-ava.engine.selectorLabels" . | nindent 6 }}
+{{- end }}

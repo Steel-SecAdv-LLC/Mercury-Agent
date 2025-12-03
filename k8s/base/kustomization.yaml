@@ -1,0 +1,30 @@
+# Kustomize base configuration for OMNI-AVA
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: omni-ava-base
+
+commonLabels:
+  app.kubernetes.io/name: omni-ava
+  app.kubernetes.io/managed-by: kustomize
+
+resources:
+  - namespace.yaml
+  - rbac.yaml
+  - configmap.yaml
+  - secret.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - networkpolicy.yaml
+  - ingress.yaml
+
+configMapGenerator:
+  - name: omni-ava-app-info
+    literals:
+      - app-name=omni-ava
+      - version=1.0.0
+      - environment=base
