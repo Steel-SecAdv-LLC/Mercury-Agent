@@ -5,6 +5,5 @@ black==25.1.0
 flake8==6.1.0
 mypy==1.18.2
 bandit==1.7.5
-safety==2.3.5
 tensorboard==2.14.0
 fastapi==0.104.0
