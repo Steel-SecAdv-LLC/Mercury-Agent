@@ -82,9 +82,7 @@ class BaseFoundationModel(BaseModel):
         else:
             self.foundation_config = config
 
-        super().__init__(
-            config if isinstance(config, dict) else vars(self.foundation_config)
-        )
+        super().__init__(config if isinstance(config, dict) else vars(self.foundation_config))
 
         self.device = torch.device(self.foundation_config.device)
         self._model: Any = None
@@ -215,30 +213,106 @@ class BaseFoundationModel(BaseModel):
         features = []
 
         # Series statistics
-        features.extend([
-            np.mean(series),
-            np.std(series),
-            np.min(series),
-            np.max(series),
-            np.median(series),
-        ])
+        features.extend(
+            [
+                np.mean(series),
+                np.std(series),
+                np.min(series),
+                np.max(series),
+                np.median(series),
+            ]
+        )
 
         # Score statistics
-        features.extend([
-            np.mean(scores),
-            np.std(scores),
-            np.max(scores),
-            np.sum(results.get("is_anomaly", np.zeros_like(series))) / len(series),
-        ])
+        features.extend(
+            [
+                np.mean(scores),
+                np.std(scores),
+                np.max(scores),
+                np.sum(results.get("is_anomaly", np.zeros_like(series))) / len(series),
+            ]
+        )
 
         # Trend features
         if len(series) > 1:
             diff = np.diff(series)
-            features.extend([
-                np.mean(diff),
-                np.std(diff),
-            ])
+            features.extend(
+                [
+                    np.mean(diff),
+                    np.std(diff),
+                ]
+            )
         else:
             features.extend([0.0, 0.0])
 
         return np.array(features)
+
+
+class BaseFoundationAdapter(BaseFoundationModel):
+    """Concrete adapter class for foundation models.
+
+    Provides a non-abstract implementation that can be instantiated
+    for testing and as a base for custom adapters.
+
+    This class provides default implementations of abstract methods
+    that return mock/placeholder results.
+    """
+
+    def _initialize_model(self) -> None:
+        """Initialize the underlying model (no-op for base adapter)."""
+        pass
+
+    def forecast(
+        self,
+        series: np.ndarray | torch.Tensor,
+        horizon: int | None = None,
+    ) -> dict[str, np.ndarray]:
+        """Generate mock forecasts for time series."""
+        if isinstance(series, torch.Tensor):
+            series = series.cpu().numpy()
+
+        if series.ndim == 1:
+            series = series.reshape(1, -1)
+
+        h = horizon or self.foundation_config.prediction_length
+        last_values = series[:, -1:]
+        forecast = np.tile(last_values, (1, h))
+
+        return {
+            "forecast": forecast,
+            "lower": forecast * 0.9,
+            "upper": forecast * 1.1,
+        }
+
+    def detect_anomalies(
+        self,
+        series: np.ndarray | torch.Tensor,
+    ) -> dict[str, Any]:
+        """Detect anomalies using simple statistical method."""
+        if isinstance(series, torch.Tensor):
+            series = series.cpu().numpy()
+
+        if series.ndim == 1:
+            series = series.reshape(1, -1)
+
+        mean = np.mean(series, axis=1, keepdims=True)
+        std = np.std(series, axis=1, keepdims=True) + 1e-8
+        z_scores = np.abs((series - mean) / std)
+
+        threshold = 2.0
+        is_anomaly = z_scores > threshold
+        scores = z_scores / (z_scores.max() + 1e-8)
+
+        return {
+            "scores": scores.squeeze(),
+            "is_anomaly": is_anomaly.squeeze(),
+            "threshold": threshold,
+        }
+
+    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+        """Detect anomalies (alias for detect_anomalies)."""
+        return self.detect_anomalies(data)
+
+    def fit(self, data: np.ndarray | torch.Tensor) -> "BaseFoundationAdapter":
+        """Fit the adapter (no-op for base adapter)."""
+        return self

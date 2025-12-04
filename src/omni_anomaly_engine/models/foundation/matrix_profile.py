@@ -57,6 +57,7 @@ class MatrixProfileConfig(FoundationModelConfig):
         n_discords: Number of discords (anomalies) to find
         n_motifs: Number of motifs to find
         normalize: Whether to z-normalize subsequences
+        discord_threshold: Threshold for discord detection (z-score)
         use_gpu: Use GPU acceleration (requires stumpy.gpu)
     """
 
@@ -64,6 +65,7 @@ class MatrixProfileConfig(FoundationModelConfig):
     n_discords: int = 10
     n_motifs: int = 3
     normalize: bool = True
+    discord_threshold: float = 2.0
     use_gpu: bool = True
     model_name: str = "matrix_profile"
 
@@ -104,6 +106,19 @@ class MatrixProfileDetector(BaseFoundationModel):
         self._stumpy_available = False
         self._gpu_available = False
 
+    @property
+    def config(self) -> MatrixProfileConfig:
+        """Return the typed Matrix Profile configuration."""
+        return self.mp_config
+
+    @config.setter
+    def config(self, value: dict[str, Any] | MatrixProfileConfig) -> None:
+        """Set config (required for base class compatibility)."""
+        # Base class sets this as dict, we store it but return typed config
+        if isinstance(value, MatrixProfileConfig):
+            self.mp_config = value
+        # If dict, it's from base class init - ignore since we already have typed config
+
     def _initialize_model(self) -> None:
         """Check STUMPY availability."""
         try:
@@ -123,9 +138,7 @@ class MatrixProfileDetector(BaseFoundationModel):
                     logger.info("STUMPY GPU not available, using CPU")
 
         except ImportError:
-            logger.warning(
-                "STUMPY not installed. Install with: pip install stumpy"
-            )
+            logger.warning("STUMPY not installed. Install with: pip install stumpy")
             self._stumpy_available = False
 
     def compute_matrix_profile(
@@ -174,24 +187,42 @@ class MatrixProfileDetector(BaseFoundationModel):
 
     def find_discords(
         self,
-        matrix_profile: np.ndarray,
-        n_discords: int | None = None,
+        series_or_mp: np.ndarray | torch.Tensor,
+        top_k: int | None = None,
         exclusion_zone: int | None = None,
     ) -> list[dict[str, Any]]:
-        """Find discords (anomalies) in the Matrix Profile.
+        """Find discords (anomalies) in a time series or Matrix Profile.
 
         Discords are subsequences with the largest Matrix Profile values,
         meaning they have no close neighbors (unusual patterns).
 
         Args:
-            matrix_profile: Matrix Profile array
-            n_discords: Number of discords to find
+            series_or_mp: Time series or pre-computed Matrix Profile array
+            top_k: Number of discords to find (alias for n_discords)
             exclusion_zone: Exclusion zone size (default: window_size // 2)
 
         Returns:
-            List of discord info dicts
+            List of discord info dicts with index and score
         """
-        n_discords = n_discords or self.mp_config.n_discords
+        self._ensure_initialized()
+
+        # Convert torch tensor if needed
+        if isinstance(series_or_mp, torch.Tensor):
+            series_or_mp = series_or_mp.cpu().numpy()
+
+        # Determine if input is a series or matrix profile
+        # Matrix profiles are typically shorter than the original series
+        # and have specific value ranges
+        is_series = len(series_or_mp) > self.mp_config.window_size * 2
+
+        if is_series:
+            # Compute matrix profile from series
+            mp_result = self.compute_matrix_profile(series_or_mp)
+            matrix_profile = mp_result["matrix_profile"]
+        else:
+            matrix_profile = series_or_mp
+
+        n_discords = top_k or self.mp_config.n_discords
         exclusion_zone = exclusion_zone or self.mp_config.window_size // 2
 
         discords = []
@@ -208,10 +239,12 @@ class MatrixProfileDetector(BaseFoundationModel):
             if np.isinf(score):
                 break
 
-            discords.append({
-                "index": int(idx),
-                "score": float(score),
-            })
+            discords.append(
+                {
+                    "index": int(idx),
+                    "score": float(score),
+                }
+            )
 
             # Apply exclusion zone
             start = max(0, idx - exclusion_zone)
@@ -222,10 +255,10 @@ class MatrixProfileDetector(BaseFoundationModel):
 
     def find_motifs(
         self,
-        series: np.ndarray,
-        matrix_profile: np.ndarray,
-        profile_index: np.ndarray,
-        n_motifs: int | None = None,
+        series: np.ndarray | torch.Tensor,
+        top_k: int | None = None,
+        matrix_profile: np.ndarray | None = None,
+        profile_index: np.ndarray | None = None,
     ) -> list[dict[str, Any]]:
         """Find motifs (repeated patterns) in the time series.
 
@@ -234,19 +267,29 @@ class MatrixProfileDetector(BaseFoundationModel):
 
         Args:
             series: Original time series
-            matrix_profile: Matrix Profile array
-            profile_index: Profile index array
-            n_motifs: Number of motifs to find
+            top_k: Number of motifs to find (alias for n_motifs)
+            matrix_profile: Pre-computed Matrix Profile array (optional)
+            profile_index: Pre-computed Profile index array (optional)
 
         Returns:
-            List of motif info dicts
+            List of motif info dicts with index1, index2, and distance
         """
-        n_motifs = n_motifs or self.mp_config.n_motifs
+        self._ensure_initialized()
 
-        if not self._stumpy_available:
-            return []
+        # Convert torch tensor if needed
+        if isinstance(series, torch.Tensor):
+            series = series.cpu().numpy()
 
-        import stumpy
+        if series.ndim > 1:
+            series = series.flatten()
+
+        # Compute matrix profile if not provided
+        if matrix_profile is None or profile_index is None:
+            mp_result = self.compute_matrix_profile(series)
+            matrix_profile = mp_result["matrix_profile"]
+            profile_index = mp_result["profile_index"]
+
+        n_motifs = top_k or self.mp_config.n_motifs
 
         try:
             motifs = []
@@ -261,11 +304,13 @@ class MatrixProfileDetector(BaseFoundationModel):
                 if np.isinf(mp_copy[idx]):
                     break
 
-                motifs.append({
-                    "index1": int(idx),
-                    "index2": int(partner_idx),
-                    "distance": float(mp_copy[idx]),
-                })
+                motifs.append(
+                    {
+                        "index1": int(idx),
+                        "index2": int(partner_idx),
+                        "distance": float(mp_copy[idx]),
+                    }
+                )
 
                 # Exclude both motif locations
                 for loc in [idx, partner_idx]:
@@ -395,8 +440,8 @@ class MatrixProfileDetector(BaseFoundationModel):
         # Find motifs too
         motifs = self.find_motifs(
             series,
-            mp_result["matrix_profile"],
-            mp_result["profile_index"],
+            matrix_profile=mp_result["matrix_profile"],
+            profile_index=mp_result["profile_index"],
         )
 
         return {
@@ -408,6 +453,23 @@ class MatrixProfileDetector(BaseFoundationModel):
             "matrix_profile": mp,
             "discord_indices": [d["index"] for d in discords],
         }
+
+    def detect(
+        self,
+        series: np.ndarray | torch.Tensor,
+    ) -> dict[str, Any]:
+        """Detect anomalies in time series data.
+
+        This is the primary detection interface that wraps detect_anomalies
+        for a consistent API across all foundation model adapters.
+
+        Args:
+            series: Input time series [T] or [B, T]
+
+        Returns:
+            Dict with scores, is_anomaly flags, discords, and threshold
+        """
+        return self.detect_anomalies(series)
 
     def _mock_matrix_profile(
         self,

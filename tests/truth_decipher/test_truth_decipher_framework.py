@@ -19,8 +19,15 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 Integration tests for Truth Deciphering Framework.
 
-Tests all 4 phases (Discovery, Identification, Ethics, Resolution)
+Tests all 5 phases (Discovery, Cognitive Analysis, Identification, Ethics, Resolution)
 independently and as an integrated pipeline.
+
+Five-Phase Architecture (Enhanced with Cognitive Layer):
+1. Discovery: Multi-dimensional anomaly detection + novel class discovery
+2. Cognitive Analysis: Uncertainty quantification, causal discovery, reasoning
+3. Identification: Classification by type/severity with detailed analysis
+4. Ethical Course: Evaluation against 8 ethical principles
+5. Resolution: Automated fixes with self-healing and autonomous execution
 """
 
 import numpy as np
@@ -166,7 +173,7 @@ class TestTruthDecipherFramework:
         assert result["signature_id"] is None
 
     def test_full_pipeline_with_anomaly(self):
-        """Test complete pipeline: All 4 phases with anomaly."""
+        """Test complete pipeline: All 5 phases with anomaly."""
         framework = TruthDecipherFramework()
 
         normal_data = np.random.randn(80, 10) * 0.5
@@ -184,7 +191,7 @@ class TestTruthDecipherFramework:
             assert len(result.recommendations) > 0
 
             if result.ethics_passed:
-                assert result.phase_completed == 4
+                assert result.phase_completed == 5  # Updated for 5-phase architecture
                 assert result.resolution_applied is True
 
     def test_full_pipeline_without_anomaly(self):
@@ -197,7 +204,8 @@ class TestTruthDecipherFramework:
         result = framework.decipher_truth(normal_data)
 
         assert isinstance(result, TruthDecipherResult)
-        assert result.phase_completed in [1, 4]
+        # Phase 1 = early exit (no anomaly), Phase 5 = full pipeline completed
+        assert result.phase_completed in [1, 5]
         if result.phase_completed == 1:
             assert result.resolution_applied is False
 

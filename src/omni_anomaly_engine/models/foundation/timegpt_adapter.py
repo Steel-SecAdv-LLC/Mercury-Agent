@@ -57,14 +57,21 @@ class TimeGPTConfig(FoundationModelConfig):
         api_key: Nixtla API key
         model: Model variant ('timegpt-1', 'timegpt-1-long-horizon')
         freq: Time series frequency (e.g., 'H', 'D', 'M')
+        fh: Forecast horizon (alias for prediction_length)
         finetune_steps: Steps for fine-tuning (0 = no fine-tuning)
     """
 
     api_key: str | None = None
     model: str = "timegpt-1"
     freq: str = "H"
+    fh: int = 24  # Forecast horizon
     finetune_steps: int = 0
     model_name: str = "timegpt-1"
+
+    def __post_init__(self) -> None:
+        """Sync fh with prediction_length."""
+        if self.fh != 24:
+            self.prediction_length = self.fh
 
 
 class TimeGPTAdapter(BaseFoundationModel):
@@ -101,6 +108,19 @@ class TimeGPTAdapter(BaseFoundationModel):
 
         self._client: Any = None
 
+    @property
+    def config(self) -> TimeGPTConfig:
+        """Return the typed TimeGPT configuration."""
+        return self.timegpt_config
+
+    @config.setter
+    def config(self, value: dict[str, Any] | TimeGPTConfig) -> None:
+        """Set config (required for base class compatibility)."""
+        # Base class sets this as dict, we store it but return typed config
+        if isinstance(value, TimeGPTConfig):
+            self.timegpt_config = value
+        # If dict, it's from base class init - ignore since we already have typed config
+
     def _initialize_model(self) -> None:
         """Initialize Nixtla client."""
         try:
@@ -110,22 +130,18 @@ class TimeGPTAdapter(BaseFoundationModel):
             if api_key is None:
                 # Try environment variable
                 import os
+
                 api_key = os.environ.get("NIXTLA_API_KEY")
 
             if api_key is None:
-                logger.warning(
-                    "No Nixtla API key provided. TimeGPT will use mock mode."
-                )
+                logger.warning("No Nixtla API key provided. TimeGPT will use mock mode.")
                 self._client = None
             else:
                 self._client = NixtlaClient(api_key=api_key)
                 logger.info("TimeGPT client initialized successfully")
 
         except ImportError:
-            logger.warning(
-                "nixtla package not installed. "
-                "Install with: pip install nixtla"
-            )
+            logger.warning("nixtla package not installed. " "Install with: pip install nixtla")
             self._client = None
 
     def _to_dataframe(
@@ -161,10 +177,12 @@ class TimeGPTAdapter(BaseFoundationModel):
             freq=freq,
         )
 
-        return pd.DataFrame({
-            "ds": timestamps,
-            "y": series,
-        })
+        return pd.DataFrame(
+            {
+                "ds": timestamps,
+                "y": series,
+            }
+        )
 
     def forecast(
         self,
@@ -272,10 +290,7 @@ class TimeGPTAdapter(BaseFoundationModel):
 
                     # Extract anomaly column
                     is_anomaly = result["anomaly"].values.astype(bool)
-                    scores = result.get(
-                        "anomaly_score",
-                        is_anomaly.astype(float)
-                    )
+                    scores = result.get("anomaly_score", is_anomaly.astype(float))
 
                     if hasattr(scores, "values"):
                         scores = scores.values
@@ -336,7 +351,7 @@ class TimeGPTAdapter(BaseFoundationModel):
 
         for i in range(len(series)):
             start = max(0, i - window)
-            window_data = series[start:i + 1]
+            window_data = series[start : i + 1]
 
             if len(window_data) < 2:
                 scores[i] = 0.0
@@ -357,6 +372,23 @@ class TimeGPTAdapter(BaseFoundationModel):
         is_anomaly = scores > threshold
 
         return scores, is_anomaly
+
+    def detect(
+        self,
+        series: np.ndarray | torch.Tensor,
+    ) -> dict[str, Any]:
+        """Detect anomalies in time series data.
+
+        This is the primary detection interface that wraps detect_anomalies
+        for a consistent API across all foundation model adapters.
+
+        Args:
+            series: Input time series [T] or [B, T]
+
+        Returns:
+            Dict with scores, is_anomaly flags, and threshold
+        """
+        return self.detect_anomalies(series)
 
     def fine_tune(
         self,

@@ -106,6 +106,19 @@ class ChronosAdapter(BaseFoundationModel):
 
         self._pipeline: Any = None
 
+    @property
+    def config(self) -> ChronosConfig:
+        """Return the typed Chronos configuration."""
+        return self.chronos_config
+
+    @config.setter
+    def config(self, value: dict[str, Any] | ChronosConfig) -> None:
+        """Set config (required for base class compatibility)."""
+        # Base class sets this as dict, we store it but return typed config
+        if isinstance(value, ChronosConfig):
+            self.chronos_config = value
+        # If dict, it's from base class init - ignore since we already have typed config
+
     def _initialize_model(self) -> None:
         """Initialize Chronos pipeline."""
         try:
@@ -212,13 +225,10 @@ class ChronosAdapter(BaseFoundationModel):
             scores = np.zeros(seq_len)
 
             # Use rolling window prediction
-            context_len = min(
-                self.foundation_config.context_length,
-                seq_len // 2
-            )
+            context_len = min(self.foundation_config.context_length, seq_len // 2)
 
             for t in range(context_len, seq_len):
-                context = torch.from_numpy(s[t - context_len:t]).float().unsqueeze(0)
+                context = torch.from_numpy(s[t - context_len : t]).float().unsqueeze(0)
 
                 try:
                     if self._pipeline is not None:
@@ -237,8 +247,8 @@ class ChronosAdapter(BaseFoundationModel):
                         scores[t] = abs(s[t] - median) / iqr
                     else:
                         # Mock: use z-score
-                        mean = np.mean(s[t - context_len:t])
-                        std = max(np.std(s[t - context_len:t]), 1e-6)
+                        mean = np.mean(s[t - context_len : t])
+                        std = max(np.std(s[t - context_len : t]), 1e-6)
                         scores[t] = abs(s[t] - mean) / std
 
                 except Exception as e:
@@ -251,8 +261,7 @@ class ChronosAdapter(BaseFoundationModel):
 
             # Threshold
             threshold = np.percentile(
-                scores[context_len:],
-                self.foundation_config.anomaly_threshold * 100
+                scores[context_len:], self.foundation_config.anomaly_threshold * 100
             )
             is_anomaly = scores > threshold
 
@@ -304,6 +313,26 @@ class ChronosAdapter(BaseFoundationModel):
             "lower": np.stack(lowers),
             "upper": np.stack(uppers),
         }
+
+    def detect(
+        self,
+        series: np.ndarray | torch.Tensor,
+    ) -> dict[str, Any]:
+        """Detect anomalies in time series data.
+
+        This is the primary detection interface that wraps detect_anomalies
+        for a consistent API across all foundation model adapters.
+
+        Args:
+            series: Input time series [T] or [B, T]
+
+        Returns:
+            Dict with scores, is_anomaly flags, forecasts, and threshold
+        """
+        result = self.detect_anomalies(series)
+        # Add forecasts for compatibility with tests
+        result["forecasts"] = result.get("forecasts", result.get("scores", []))
+        return result
 
     def get_model_info(self) -> dict[str, Any]:
         """Get information about the loaded model.

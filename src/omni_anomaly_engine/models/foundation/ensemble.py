@@ -56,14 +56,26 @@ class EnsembleConfig(FoundationModelConfig):
 
     Attributes:
         models: List of model names to include
-        weights: Optional weights for each model
+        adapters: Alias for models (for compatibility with tests)
+        weights: Optional weights for each model (list or dict)
         aggregation: Aggregation method ('mean', 'max', 'vote', 'weighted')
     """
 
     models: list[str] = field(default_factory=lambda: ["matrix_profile"])
-    weights: list[float] | None = None
+    adapters: list[str] | None = None  # Compatibility alias for models
+    weights: list[float] | dict[str, float] | None = None
     aggregation: str = "mean"
     model_name: str = "foundation_ensemble"
+
+    def __post_init__(self) -> None:
+        """Handle compatibility aliases."""
+        # If adapters is provided and models is default, use adapters
+        if self.adapters is not None:
+            if self.models == ["matrix_profile"]:
+                self.models = list(self.adapters)
+        # Convert dict weights to list if needed
+        if isinstance(self.weights, dict):
+            self.weights = [self.weights.get(m, 1.0) for m in self.models]
 
 
 class FoundationEnsemble(BaseFoundationModel):
@@ -114,6 +126,19 @@ class FoundationEnsemble(BaseFoundationModel):
             self._weights = self._weights / self._weights.sum()
 
         self._models: dict[str, BaseFoundationModel] = {}
+
+    @property
+    def config(self) -> EnsembleConfig:
+        """Return the typed Ensemble configuration."""
+        return self.ensemble_config
+
+    @config.setter
+    def config(self, value: dict[str, Any] | EnsembleConfig) -> None:
+        """Set config (required for base class compatibility)."""
+        # Base class sets this as dict, we store it but return typed config
+        if isinstance(value, EnsembleConfig):
+            self.ensemble_config = value
+        # If dict, it's from base class init - ignore since we already have typed config
 
     def _initialize_model(self) -> None:
         """Initialize all ensemble models."""
@@ -181,8 +206,14 @@ class FoundationEnsemble(BaseFoundationModel):
                 all_uppers.append(result.get("upper", forecast * 1.1))
 
                 # Get weight for this model
-                idx = self.ensemble_config.models.index(name) if name in self.ensemble_config.models else 0
-                valid_weights.append(self._weights[idx] if idx < len(self._weights) else 1.0 / len(self._models))
+                idx = (
+                    self.ensemble_config.models.index(name)
+                    if name in self.ensemble_config.models
+                    else 0
+                )
+                valid_weights.append(
+                    self._weights[idx] if idx < len(self._weights) else 1.0 / len(self._models)
+                )
 
             except Exception as e:
                 logger.warning(f"Forecast from {name} failed: {e}")
@@ -246,8 +277,14 @@ class FoundationEnsemble(BaseFoundationModel):
                 all_scores.append(scores)
                 all_anomalies.append(is_anomaly.astype(float))
 
-                idx = self.ensemble_config.models.index(name) if name in self.ensemble_config.models else 0
-                valid_weights.append(self._weights[idx] if idx < len(self._weights) else 1.0 / len(self._models))
+                idx = (
+                    self.ensemble_config.models.index(name)
+                    if name in self.ensemble_config.models
+                    else 0
+                )
+                valid_weights.append(
+                    self._weights[idx] if idx < len(self._weights) else 1.0 / len(self._models)
+                )
 
             except Exception as e:
                 logger.warning(f"Detection from {name} failed: {e}")
@@ -281,8 +318,30 @@ class FoundationEnsemble(BaseFoundationModel):
             "scores": scores,
             "is_anomaly": is_anomaly,
             "threshold": self.foundation_config.anomaly_threshold,
-            "model_results": {name: model.detect_anomalies(series) for name, model in self._models.items()},
+            "model_results": {
+                name: model.detect_anomalies(series) for name, model in self._models.items()
+            },
         }
+
+    def detect(
+        self,
+        series: np.ndarray | torch.Tensor,
+    ) -> dict[str, Any]:
+        """Detect anomalies using ensemble.
+
+        This is the primary detection interface that provides compatibility
+        with the expected test interface.
+
+        Args:
+            series: Input time series
+
+        Returns:
+            Detection results with adapter_scores for compatibility
+        """
+        result = self.detect_anomalies(series)
+        # Add adapter_scores for test compatibility
+        result["adapter_scores"] = result.get("model_results", {})
+        return result
 
     def _aggregate(
         self,
