@@ -36,21 +36,13 @@ from omni_anomaly_engine.medical.abms_disciplines import (
     ABMSDisciplineDetector,
     MedicalAnomalyResult,
 )
-from omni_anomaly_engine.medical.medical_cure_predictor import (
-    MedicalCurePredictor,
-    MedicalImagingAnomalyDetector,
-    MedicalPredictionResult,
-    TemporalVitalSignsDetector,
-    TemporalVitalSignsLSTM,
-    TreatmentPathwayOptimizer,
-)
 
 # Cardiology
 from omni_anomaly_engine.medical.cardiology import (
     ArrhythmiaType,
     CardiacBiomarkerAnalyzer,
-    CardiologyPredictor,
     CardiologyPredictionResult,
+    CardiologyPredictor,
     ECGRhythmAnalyzer,
     FraminghamRiskCalculator,
 )
@@ -71,6 +63,14 @@ from omni_anomaly_engine.medical.critical_care import (
     SOFACalculator,
     StrokeDetector,
     StrokeType,
+)
+from omni_anomaly_engine.medical.medical_cure_predictor import (
+    MedicalCurePredictor,
+    MedicalImagingAnomalyDetector,
+    MedicalPredictionResult,
+    TemporalVitalSignsDetector,
+    TemporalVitalSignsLSTM,
+    TreatmentPathwayOptimizer,
 )
 
 # Pandemic

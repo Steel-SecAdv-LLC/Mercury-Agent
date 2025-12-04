@@ -32,6 +32,18 @@ Includes SecurityCoordinator for flexible module selection and filtering.
 
 from typing import Any
 
+# Anti-Terrorism
+from omni_anomaly_engine.security.anti_terrorism import (
+    TerrorismPatternDetector,
+    TerrorismThreatResult,
+)
+
+# Counterintelligence
+from omni_anomaly_engine.security.counterintelligence import (
+    OverwatchNexus,
+    OverwatchNexusResult,
+)
+
 # Cryptographic API
 from omni_anomaly_engine.security.crypto_api import (
     AlgorithmType,
@@ -48,6 +60,15 @@ from omni_anomaly_engine.security.crypto_api import (
     SecurityLevel,
     Signature,
     SphincsProvider,
+)
+
+# Cyber Fortress
+from omni_anomaly_engine.security.cyber_fortress import (
+    CyberFortress,
+    EncryptedTrafficAnomalyDetector,
+    FortressResult,
+    MultiverseZeroDaySimulator,
+    ResonanceHashIntegrityChecker,
 )
 from omni_anomaly_engine.security.encryption import SecureDataHandler
 from omni_anomaly_engine.security.intelligence_fusion import IntelligenceFusionEngine
@@ -73,23 +94,6 @@ from omni_anomaly_engine.security.pqc_backends import (
     sphincs_sign,
     sphincs_verify,
 )
-from omni_anomaly_engine.security.rate_limiting import RateLimiter
-from omni_anomaly_engine.security.threat_detection import ThreatDetector
-
-# Counterintelligence
-from omni_anomaly_engine.security.counterintelligence import (
-    OverwatchNexus,
-    OverwatchNexusResult,
-)
-
-# Cyber Fortress
-from omni_anomaly_engine.security.cyber_fortress import (
-    CyberFortress,
-    EncryptedTrafficAnomalyDetector,
-    FortressResult,
-    MultiverseZeroDaySimulator,
-    ResonanceHashIntegrityChecker,
-)
 
 # Quantum Risk
 from omni_anomaly_engine.security.quantum_risk_cyber import (
@@ -99,12 +103,8 @@ from omni_anomaly_engine.security.quantum_risk_cyber import (
     QuantumThreat,
     ThreatLevel,
 )
-
-# Anti-Terrorism
-from omni_anomaly_engine.security.anti_terrorism import (
-    TerrorismPatternDetector,
-    TerrorismThreatResult,
-)
+from omni_anomaly_engine.security.rate_limiting import RateLimiter
+from omni_anomaly_engine.security.threat_detection import ThreatDetector
 
 
 class SecurityCoordinator:

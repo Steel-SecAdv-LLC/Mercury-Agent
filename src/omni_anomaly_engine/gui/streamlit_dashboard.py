@@ -151,7 +151,9 @@ def cardiology_interface():
     if st.button("🔍 Analyze Cardiac Risk", type="primary"):
         with st.spinner("Analyzing cardiac risk..."):
 
-            from omni_anomaly_engine.medical.cardiology.cardiology_predictor import CardiologyPredictor
+            from omni_anomaly_engine.medical.cardiology.cardiology_predictor import (
+                CardiologyPredictor,
+            )
 
             predictor = CardiologyPredictor(enable_ecg=bool(ecg_file), enable_biomarkers=True)
 

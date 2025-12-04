@@ -319,7 +319,9 @@ def _run_medical_subspecialty(subspecialty: str, patient_data: dict[str, Any]) -
         }
 
     elif subspecialty == "neurocritical":
-        from omni_anomaly_engine.medical.critical_care.neurocritical_care import NeurocriticalCarePredictor
+        from omni_anomaly_engine.medical.critical_care.neurocritical_care import (
+            NeurocriticalCarePredictor,
+        )
 
         predictor = NeurocriticalCarePredictor()
         result = predictor.predict_neurocritical_emergency(patient_data)

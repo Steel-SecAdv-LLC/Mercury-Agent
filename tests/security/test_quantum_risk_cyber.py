@@ -18,7 +18,11 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Tests for Quantum Risk Cyber module"""
 
-from omni_anomaly_engine.security.quantum_risk_cyber import CryptoSystem, QuantumRiskCyber, ThreatLevel
+from omni_anomaly_engine.security.quantum_risk_cyber import (
+    CryptoSystem,
+    QuantumRiskCyber,
+    ThreatLevel,
+)
 
 
 def test_quantum_risk_initialization():

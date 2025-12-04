@@ -30,8 +30,8 @@ Part of OMNI ♱ AVA Medical framework.
 from omni_anomaly_engine.medical.cardiology.cardiology_predictor import (
     ArrhythmiaType,
     CardiacBiomarkerAnalyzer,
-    CardiologyPredictor,
     CardiologyPredictionResult,
+    CardiologyPredictor,
     ECGRhythmAnalyzer,
     FraminghamRiskCalculator,
 )
