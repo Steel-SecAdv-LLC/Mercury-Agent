@@ -24,13 +24,86 @@ used in anomaly detection.
 """
 
 from abc import abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 import torch
+from numpy.typing import NDArray
 
 from omni_anomaly_engine.core.base import BaseModel
+
+
+class ForecastResult(dict[str, Any]):
+    """Result container for time-series forecasts.
+
+    A dict-like container that holds forecast results with additional
+    metadata for debugging and analysis. Provides a clean __repr__
+    for better debugging experience.
+
+    Attributes:
+        _horizon: The forecast horizon used for prediction
+
+    Example:
+        >>> result = ForecastResult(
+        ...     forecast=np.array([1.0, 2.0, 3.0]),
+        ...     lower=np.array([0.5, 1.5, 2.5]),
+        ...     upper=np.array([1.5, 2.5, 3.5]),
+        ...     horizon=3
+        ... )
+        >>> print(result)
+        ForecastResult(horizon=3, keys=['forecast', 'lower', 'upper'])
+    """
+
+    def __init__(
+        self,
+        *args: Any,
+        horizon: int | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize ForecastResult.
+
+        Args:
+            *args: Positional arguments passed to dict
+            horizon: The forecast horizon (number of steps predicted)
+            **kwargs: Keyword arguments passed to dict
+        """
+        super().__init__(*args, **kwargs)
+        self._horizon = horizon
+
+    def __repr__(self) -> str:
+        """Return a string representation for debugging."""
+        return f"ForecastResult(horizon={self._horizon}, keys={list(self.keys())})"
+
+    @property
+    def horizon(self) -> int | None:
+        """Return the forecast horizon."""
+        return self._horizon
+
+    @property
+    def forecast(self) -> NDArray[np.floating[Any]] | None:
+        """Return the point forecast if available."""
+        return self.get("forecast")
+
+    @property
+    def lower(self) -> NDArray[np.floating[Any]] | None:
+        """Return the lower prediction interval if available."""
+        return self.get("lower")
+
+    @property
+    def upper(self) -> NDArray[np.floating[Any]] | None:
+        """Return the upper prediction interval if available."""
+        return self.get("upper")
+
+    @property
+    def samples(self) -> NDArray[np.floating[Any]] | None:
+        """Return the forecast samples if available."""
+        return self.get("samples")
+
+    def __iter__(self) -> Iterator[str]:
+        """Iterate over keys."""
+        return super().__iter__()
 
 
 @dataclass

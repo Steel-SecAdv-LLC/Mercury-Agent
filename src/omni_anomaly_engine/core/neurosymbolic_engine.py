@@ -17,8 +17,12 @@ Note:
 
     For AST-based code analysis:
         from omni_anomaly_engine.core.code_analysis import CodeAnalysisEngine
+
+    To suppress this deprecation warning, set the environment variable:
+        OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS=1
 """
 
+import os
 import warnings
 
 # Re-export from code_analysis (the AST-focused implementation that was here)
@@ -38,11 +42,39 @@ __all__ = [
     "TrainingPhase",
 ]
 
-# Issue deprecation warning on import
-warnings.warn(
-    "omni_anomaly_engine.core.neurosymbolic_engine is deprecated. "
-    "Use omni_anomaly_engine.core.code_analysis for AST analysis or "
-    "omni_anomaly_engine.models.neurosymbolic for LTN-based detection.",
-    DeprecationWarning,
-    stacklevel=2,
-)
+
+class NeurosymbolicEngineDeprecationWarning(DeprecationWarning):
+    """Custom deprecation warning for neurosymbolic_engine module.
+
+    This warning is issued when importing from the deprecated
+    omni_anomaly_engine.core.neurosymbolic_engine module.
+
+    To suppress this warning:
+        - Set OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS=1 environment variable
+        - Use warnings.filterwarnings('ignore', category=NeurosymbolicEngineDeprecationWarning)
+        - Import from the new locations directly
+    """
+
+    pass
+
+
+def _emit_deprecation_warning() -> None:
+    """Emit deprecation warning if not suppressed."""
+    if os.environ.get("OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    ):
+        return
+
+    warnings.warn(
+        "omni_anomaly_engine.core.neurosymbolic_engine is deprecated. "
+        "Use omni_anomaly_engine.core.code_analysis for AST analysis or "
+        "omni_anomaly_engine.models.neurosymbolic for LTN-based detection. "
+        "Set OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS=1 to suppress this warning.",
+        NeurosymbolicEngineDeprecationWarning,
+        stacklevel=3,
+    )
+
+
+_emit_deprecation_warning()
