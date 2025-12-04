@@ -1,0 +1,88 @@
+# OMNI-AVA Docker Build Context Exclusions
+# Reduces build context size for faster, more efficient builds
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# GitHub
+.github
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Tests and benchmarks
+tests/
+benchmarks/
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+.pytest_cache/
+.hypothesis/
+
+# Development tools
+.venv/
+venv/
+env/
+.env
+.env.*
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+wheels/
+sdist/
+
+# Jupyter notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# Data and models (should be mounted at runtime)
+data/
+models/
+*.pkl
+*.h5
+*.pt
+*.pth
+*.onnx
+
+# Logs
+logs/
+*.log
+
+# Security reports
+*-report.json
+*-report.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.docker/
+
+# CI/CD artifacts
+*.sarif
