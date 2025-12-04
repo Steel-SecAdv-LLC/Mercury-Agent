@@ -25,9 +25,10 @@ Research Sources:
 
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 
@@ -240,9 +241,7 @@ class CaseBasedReasoner:
         similarities: list[tuple[Case, float]] = []
         for case_id in candidate_ids:
             case = self._cases[case_id]
-            similarity = self._compute_similarity(
-                query_features, query_vector, case
-            )
+            similarity = self._compute_similarity(query_features, query_vector, case)
             if similarity >= self.retrieval_threshold:
                 similarities.append((case, similarity))
                 case.retrieval_count += 1
@@ -284,9 +283,7 @@ class CaseBasedReasoner:
         adaptations_made = []
 
         # Identify differences
-        differences = self._identify_differences(
-            source_case.problem_features, target_problem
-        )
+        differences = self._identify_differences(source_case.problem_features, target_problem)
 
         # Apply adaptation rules
         if adaptation_rules:
@@ -315,15 +312,11 @@ class CaseBasedReasoner:
                                 )
 
         # Calculate confidence based on similarity and outcome history
-        similarity = self._compute_similarity(
-            target_problem, None, source_case
-        )
+        similarity = self._compute_similarity(target_problem, None, source_case)
         confidence = similarity * source_case.outcome_score
 
         # Record adaptation
-        source_case.adaptation_history.append(
-            f"Adapted for problem at {time.time()}"
-        )
+        source_case.adaptation_history.append(f"Adapted for problem at {time.time()}")
 
         return AdaptationResult(
             source_case=source_case,
@@ -428,7 +421,9 @@ class CaseBasedReasoner:
         if self.similarity_metric == SimilarityMetric.EUCLIDEAN:
             return self._euclidean_similarity(query_features, case.problem_features)
         elif self.similarity_metric == SimilarityMetric.COSINE:
-            return self._cosine_similarity(query_vector, case.feature_vector, query_features, case.problem_features)
+            return self._cosine_similarity(
+                query_vector, case.feature_vector, query_features, case.problem_features
+            )
         elif self.similarity_metric == SimilarityMetric.MANHATTAN:
             return self._manhattan_similarity(query_features, case.problem_features)
         else:  # WEIGHTED

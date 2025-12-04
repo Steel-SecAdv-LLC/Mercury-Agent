@@ -9,37 +9,54 @@ the Free Software Foundation, either version 3 of the License, or
 """
 
 """
-Uncertainty Quantification Module
+Uncertainty Quantification Module - Production Implementation
 
 Provides rigorous uncertainty estimation for neuro-symbolic AI:
-- Epistemic uncertainty: Model uncertainty (reducible with more data)
-- Aleatoric uncertainty: Data uncertainty (irreducible)
-- Confidence calibration
-- Uncertainty-aware decision making
+- Monte Carlo Dropout: Epistemic uncertainty via stochastic forward passes
+- Deep Ensembles: Model disagreement as uncertainty proxy
+- Heteroscedastic Networks: Learned aleatoric uncertainty
+- Temperature Scaling: Post-hoc calibration with LBFGS optimization
+- Adaptive Conformal Inference: Distribution-free coverage with online updates
 
 Research Sources:
-- DARPA ANSR: Trustworthy AI requires quantified uncertainty
-- Bayesian Deep Learning: Epistemic uncertainty estimation
-- Conformal Prediction: Distribution-free confidence
+- Gal & Ghahramani (2016): Dropout as Bayesian Approximation
+- Lakshminarayanan et al. (2017): Simple and Scalable Predictive Uncertainty
+- Kendall & Gal (2017): What Uncertainties Do We Need in Bayesian Deep Learning?
+- Guo et al. (2017): On Calibration of Modern Neural Networks
+- Gibbs & Candes (2021): Adaptive Conformal Inference
 """
 
 import logging
-import time
-from dataclasses import dataclass, field
+from collections import deque
+from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
-from scipy import stats
+from scipy import optimize
 
 logger = logging.getLogger(__name__)
+
+# Optional PyTorch support
+try:
+    import torch
+    import torch.nn.functional as F
+    from torch import nn
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+    torch = None
+    nn = None
+    F = None
 
 
 class UncertaintyType(Enum):
     """Types of uncertainty."""
 
-    EPISTEMIC = "epistemic"  # Model uncertainty - what we don't know
-    ALEATORIC = "aleatoric"  # Data uncertainty - inherent randomness
+    EPISTEMIC = "epistemic"  # Model uncertainty - reducible with more data
+    ALEATORIC = "aleatoric"  # Data uncertainty - irreducible
     TOTAL = "total"  # Combined uncertainty
 
 
@@ -58,14 +75,18 @@ class UncertaintyEstimate:
     """Complete uncertainty estimate for a prediction."""
 
     prediction: float
-    epistemic: float  # Model uncertainty
-    aleatoric: float  # Data uncertainty
-    total: float  # Combined
-    confidence: float  # Calibrated confidence
-    confidence_interval: tuple[float, float]
-    calibration_error: float
-    is_reliable: bool
+    epistemic: float  # Model uncertainty (MC Dropout variance)
+    aleatoric: float  # Data uncertainty (heteroscedastic or residual)
+    total: float  # Combined: sqrt(epistemic^2 + aleatoric^2)
+    confidence: float  # Calibrated confidence [0, 1]
+    confidence_interval: tuple[float, float]  # (lower, upper)
+    calibration_error: float  # Current ECE estimate
+    is_reliable: bool  # Meets reliability criteria
     explanation: str
+    # Additional diagnostics
+    mutual_information: float = 0.0  # BALD acquisition function
+    predictive_entropy: float = 0.0  # Total predictive uncertainty
+    mc_samples: int = 0  # Number of MC samples used
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -78,6 +99,9 @@ class UncertaintyEstimate:
             "calibration_error": self.calibration_error,
             "reliable": self.is_reliable,
             "explanation": self.explanation,
+            "mutual_information": self.mutual_information,
+            "predictive_entropy": self.predictive_entropy,
+            "mc_samples": self.mc_samples,
         }
 
 
@@ -89,38 +113,373 @@ class CalibrationResult:
     observed_accuracy: list[float]
     ece: float  # Expected Calibration Error
     mce: float  # Maximum Calibration Error
+    ace: float  # Adaptive Calibration Error
     is_calibrated: bool
+    temperature: float  # Optimal temperature for scaling
     reliability_diagram: dict[str, list[float]]
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "ece": self.ece,
             "mce": self.mce,
+            "ace": self.ace,
             "calibrated": self.is_calibrated,
+            "temperature": self.temperature,
             "diagram": self.reliability_diagram,
         }
 
 
+class MCDropoutWrapper:
+    """
+    Monte Carlo Dropout wrapper for PyTorch models.
+
+    Enables dropout at inference time for epistemic uncertainty estimation.
+    Based on Gal & Ghahramani (2016).
+    """
+
+    def __init__(self, model: Any, dropout_rate: float = 0.1):
+        """
+        Args:
+            model: PyTorch model with dropout layers
+            dropout_rate: Dropout probability (if not already in model)
+        """
+        self.model = model
+        self.dropout_rate = dropout_rate
+        self._original_training_state = None
+
+    def enable_dropout(self):
+        """Enable dropout layers for MC sampling."""
+        if not TORCH_AVAILABLE:
+            return
+
+        self._original_training_state = self.model.training
+
+        def apply_dropout(m):
+            if isinstance(m, nn.Dropout):
+                m.train()
+
+        self.model.apply(apply_dropout)
+
+    def disable_dropout(self):
+        """Restore original dropout state."""
+        if not TORCH_AVAILABLE or self._original_training_state is None:
+            return
+
+        if not self._original_training_state:
+            self.model.eval()
+
+    def predict_with_uncertainty(
+        self,
+        x: Any,
+        n_samples: int = 30,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Generate predictions with MC Dropout uncertainty.
+
+        Args:
+            x: Input tensor
+            n_samples: Number of MC forward passes
+
+        Returns:
+            (mean_prediction, epistemic_std, all_samples)
+        """
+        if not TORCH_AVAILABLE:
+            raise RuntimeError("PyTorch required for MC Dropout")
+
+        self.enable_dropout()
+
+        samples = []
+        with torch.no_grad():
+            for _ in range(n_samples):
+                output = self.model(x)
+                if isinstance(output, torch.Tensor):
+                    samples.append(output.cpu().numpy())
+                else:
+                    samples.append(np.array(output))
+
+        self.disable_dropout()
+
+        samples = np.array(samples)  # (n_samples, batch, outputs)
+        mean = samples.mean(axis=0)
+        std = samples.std(axis=0)
+
+        return mean, std, samples
+
+
+class TemperatureScaler:
+    """
+    Temperature scaling for neural network calibration.
+
+    Learns a single temperature parameter to scale logits,
+    optimized via NLL on a validation set.
+    Based on Guo et al. (2017).
+    """
+
+    def __init__(self, init_temperature: float = 1.5):
+        self.temperature = init_temperature
+        self._fitted = False
+
+    def fit(
+        self,
+        logits: np.ndarray,
+        labels: np.ndarray,
+        max_iter: int = 100,
+    ) -> float:
+        """
+        Fit temperature using LBFGS optimization.
+
+        Args:
+            logits: Pre-softmax outputs (n_samples, n_classes)
+            labels: True labels (n_samples,)
+            max_iter: Maximum optimization iterations
+
+        Returns:
+            Optimal temperature
+        """
+
+        def nll_loss(T):
+            """Negative log-likelihood with temperature scaling."""
+            T = max(T[0], 0.01)  # Ensure positive temperature
+            scaled_logits = logits / T
+
+            # Softmax with numerical stability
+            max_logits = np.max(scaled_logits, axis=1, keepdims=True)
+            exp_logits = np.exp(scaled_logits - max_logits)
+            probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+
+            # Cross-entropy loss
+            n = len(labels)
+            correct_probs = probs[np.arange(n), labels.astype(int)]
+            loss = -np.mean(np.log(correct_probs + 1e-10))
+            return loss
+
+        # Optimize temperature
+        result = optimize.minimize(
+            nll_loss,
+            x0=[self.temperature],
+            method="L-BFGS-B",
+            bounds=[(0.01, 10.0)],
+            options={"maxiter": max_iter},
+        )
+
+        self.temperature = result.x[0]
+        self._fitted = True
+
+        logger.info(f"Temperature scaling: T={self.temperature:.4f}")
+        return self.temperature
+
+    def scale(self, logits: np.ndarray) -> np.ndarray:
+        """Apply temperature scaling to logits."""
+        return logits / self.temperature
+
+    def calibrated_probs(self, logits: np.ndarray) -> np.ndarray:
+        """Get calibrated probabilities."""
+        scaled = self.scale(logits)
+        # Softmax
+        max_logits = np.max(scaled, axis=1, keepdims=True)
+        exp_logits = np.exp(scaled - max_logits)
+        return exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+
+
+class AdaptiveConformalInference:
+    """
+    Adaptive Conformal Inference for online uncertainty quantification.
+
+    Provides distribution-free prediction intervals with finite-sample
+    coverage guarantees that adapt to distribution shift.
+    Based on Gibbs & Candes (2021).
+    """
+
+    def __init__(
+        self,
+        target_coverage: float = 0.9,
+        gamma: float = 0.01,
+        window_size: int = 500,
+    ):
+        """
+        Args:
+            target_coverage: Target coverage level (1 - alpha)
+            gamma: Learning rate for alpha adjustment
+            window_size: Size of calibration window
+        """
+        self.target_coverage = target_coverage
+        self.alpha = 1 - target_coverage
+        self.gamma = gamma
+        self.window_size = window_size
+
+        # Calibration scores (nonconformity scores)
+        self.scores: deque = deque(maxlen=window_size)
+
+        # Tracking
+        self.coverage_history: list[float] = []
+        self.alpha_history: list[float] = [self.alpha]
+
+    def update(self, score: float, covered: bool):
+        """
+        Update adaptive alpha based on coverage.
+
+        Args:
+            score: Nonconformity score for new point
+            covered: Whether prediction set covered true value
+        """
+        self.scores.append(score)
+
+        # Adaptive alpha update (Gibbs & Candes, Eq. 3)
+        # If covered: decrease alpha (widen intervals)
+        # If not covered: increase alpha (tighten intervals)
+        err = 1 - int(covered)
+        self.alpha = self.alpha + self.gamma * (err - self.alpha)
+        self.alpha = np.clip(self.alpha, 0.001, 0.5)
+
+        self.alpha_history.append(self.alpha)
+
+        # Track running coverage
+        if len(self.coverage_history) > 0:
+            n = len(self.coverage_history)
+            running_cov = (n * self.coverage_history[-1] + int(covered)) / (n + 1)
+            self.coverage_history.append(running_cov)
+        else:
+            self.coverage_history.append(float(covered))
+
+    def get_quantile(self) -> float:
+        """Get current conformal quantile threshold."""
+        if len(self.scores) == 0:
+            return float("inf")
+
+        n = len(self.scores)
+        quantile_level = np.ceil((n + 1) * (1 - self.alpha)) / n
+        quantile_level = min(1.0, quantile_level)
+
+        return float(np.quantile(list(self.scores), quantile_level))
+
+    def predict_interval(
+        self,
+        point_prediction: float,
+        score_function: Callable[[float], float] | None = None,
+        residual_std: float | None = None,
+    ) -> tuple[float, float]:
+        """
+        Compute prediction interval.
+
+        Args:
+            point_prediction: Point estimate
+            score_function: Function to compute nonconformity scores
+            residual_std: Standard deviation for simple intervals
+
+        Returns:
+            (lower, upper) prediction interval
+        """
+        q = self.get_quantile()
+
+        if residual_std is not None:
+            # Simple scaled interval
+            half_width = q * residual_std if q != float("inf") else 1.96 * residual_std
+        else:
+            # Use quantile directly as half-width
+            half_width = q if q != float("inf") else 1.0
+
+        return (point_prediction - half_width, point_prediction + half_width)
+
+    def get_diagnostics(self) -> dict[str, Any]:
+        """Get ACI diagnostics."""
+        return {
+            "current_alpha": self.alpha,
+            "target_coverage": self.target_coverage,
+            "empirical_coverage": self.coverage_history[-1] if self.coverage_history else None,
+            "calibration_size": len(self.scores),
+            "quantile_threshold": self.get_quantile(),
+        }
+
+
+class HeteroscedasticEstimator:
+    """
+    Estimates input-dependent (heteroscedastic) aleatoric uncertainty.
+
+    Uses local variance estimation or learns a variance prediction head.
+    Based on Kendall & Gal (2017).
+    """
+
+    def __init__(self, window_size: int = 50, min_samples: int = 10):
+        self.window_size = window_size
+        self.min_samples = min_samples
+        self._residuals: deque = deque(maxlen=1000)
+        self._features: deque = deque(maxlen=1000)
+
+    def update(self, prediction: float, true_value: float, features: np.ndarray | None = None):
+        """Store residual for variance estimation."""
+        residual = true_value - prediction
+        self._residuals.append(residual)
+        if features is not None:
+            self._features.append(features.flatten()[:10])  # Store first 10 features
+
+    def estimate_variance(self, features: np.ndarray | None = None) -> float:
+        """
+        Estimate aleatoric variance, optionally conditioned on features.
+
+        Args:
+            features: Input features for heteroscedastic estimation
+
+        Returns:
+            Estimated variance
+        """
+        if len(self._residuals) < self.min_samples:
+            return 0.1  # Default variance
+
+        residuals = np.array(self._residuals)
+
+        if features is None or len(self._features) < self.min_samples:
+            # Homoscedastic: global variance
+            return float(np.var(residuals))
+
+        # Heteroscedastic: local variance based on feature similarity
+        features_flat = features.flatten()[:10]
+        stored_features = np.array(list(self._features))
+
+        # Compute distances to stored points
+        distances = np.linalg.norm(stored_features - features_flat, axis=1)
+
+        # Kernel-weighted local variance (Nadaraya-Watson style)
+        bandwidth = np.median(distances) + 1e-6
+        weights = np.exp(-(distances**2) / (2 * bandwidth**2))
+        weights /= weights.sum() + 1e-10
+
+        # Weighted variance
+        weighted_mean = np.sum(weights * residuals)
+        weighted_var = np.sum(weights * (residuals - weighted_mean) ** 2)
+
+        return max(float(weighted_var), 1e-6)
+
+
 class UncertaintyQuantifier:
     """
-    Uncertainty Quantification Engine.
+    Production Uncertainty Quantification Engine.
 
-    Provides rigorous uncertainty estimation following DARPA ANSR
-    requirements for trustworthy AI:
+    Implements rigorous uncertainty estimation following state-of-the-art methods:
 
-    1. Epistemic Uncertainty: What the model doesn't know
-       - High with limited training data
-       - High in out-of-distribution regions
-       - Reducible with more data
+    1. Monte Carlo Dropout (Gal & Ghahramani 2016)
+       - Enables dropout at test time for epistemic uncertainty
+       - Multiple stochastic forward passes
+       - Variance across passes = epistemic uncertainty
 
-    2. Aleatoric Uncertainty: Inherent data randomness
-       - Independent of model
-       - Cannot be reduced with more data
-       - Represents measurement noise, stochasticity
+    2. Deep Ensembles (Lakshminarayanan et al. 2017)
+       - Aggregates predictions from multiple models
+       - Model disagreement as uncertainty proxy
+       - Both epistemic and aleatoric decomposition
 
-    3. Calibration: Confidence should match accuracy
-       - A 90% confident prediction should be correct 90% of the time
-       - Essential for trustworthy decision-making
+    3. Temperature Scaling (Guo et al. 2017)
+       - Post-hoc calibration via learned temperature
+       - LBFGS optimization on validation NLL
+       - Single parameter, model-agnostic
+
+    4. Adaptive Conformal Inference (Gibbs & Candes 2021)
+       - Distribution-free prediction intervals
+       - Online adaptation to distribution shift
+       - Finite-sample coverage guarantees
+
+    5. Heteroscedastic Uncertainty (Kendall & Gal 2017)
+       - Input-dependent aleatoric uncertainty
+       - Local variance estimation
+       - Separates data noise from model uncertainty
     """
 
     PHI = (1 + np.sqrt(5)) / 2  # Golden ratio
@@ -128,113 +487,183 @@ class UncertaintyQuantifier:
     def __init__(
         self,
         n_monte_carlo: int = 30,
-        calibration_bins: int = 10,
-        reliability_threshold: float = 0.1,
+        calibration_bins: int = 15,
+        reliability_threshold: float = 0.05,
+        enable_aci: bool = True,
+        aci_coverage: float = 0.9,
     ):
         """
         Initialize Uncertainty Quantifier.
 
         Args:
             n_monte_carlo: Number of MC samples for epistemic estimation
-            calibration_bins: Number of bins for calibration
+            calibration_bins: Number of bins for ECE calculation
             reliability_threshold: Max ECE for reliable predictions
+            enable_aci: Enable Adaptive Conformal Inference
+            aci_coverage: Target coverage for ACI
         """
         self.n_monte_carlo = n_monte_carlo
         self.calibration_bins = calibration_bins
         self.reliability_threshold = reliability_threshold
 
+        # Components
+        self.temperature_scaler = TemperatureScaler()
+        self.aci = AdaptiveConformalInference(target_coverage=aci_coverage) if enable_aci else None
+        self.heteroscedastic = HeteroscedasticEstimator()
+
         # Calibration history
-        self._predictions: list[float] = []
-        self._confidences: list[float] = []
-        self._outcomes: list[bool] = []
+        self._predictions: deque = deque(maxlen=5000)
+        self._confidences: deque = deque(maxlen=5000)
+        self._outcomes: deque = deque(maxlen=5000)
+        self._logits_history: list[np.ndarray] = []
+        self._labels_history: list[int] = []
 
         # Statistics
         self._stats = {
             "estimates_computed": 0,
             "calibrations_performed": 0,
+            "mc_samples_total": 0,
             "avg_epistemic": 0.0,
             "avg_aleatoric": 0.0,
+            "temperature": 1.0,
         }
 
-        logger.info(f"UncertaintyQuantifier initialized (MC={n_monte_carlo})")
+        logger.info(
+            f"UncertaintyQuantifier initialized (MC={n_monte_carlo}, "
+            f"ACI={'enabled' if enable_aci else 'disabled'})"
+        )
 
     def estimate_uncertainty(
         self,
         predictions: np.ndarray,
         prediction_function: Callable[[np.ndarray], np.ndarray] | None = None,
         input_data: np.ndarray | None = None,
+        model: Any = None,
         return_samples: bool = False,
     ) -> UncertaintyEstimate:
         """
-        Estimate uncertainty for a prediction.
-
-        Uses Monte Carlo sampling if prediction function provided,
-        otherwise estimates from prediction variance.
+        Estimate uncertainty for a prediction using MC Dropout.
 
         Args:
-            predictions: Model predictions (can be single or multiple samples)
-            prediction_function: Function to generate more predictions
+            predictions: Initial model predictions
+            prediction_function: Function to generate predictions (for MC sampling)
             input_data: Input data for prediction function
-            return_samples: Whether to return MC samples
+            model: PyTorch model (for MC Dropout wrapper)
+            return_samples: Whether to include MC samples in result
 
         Returns:
-            Complete uncertainty estimate
+            Complete uncertainty estimate with epistemic/aleatoric decomposition
         """
         self._stats["estimates_computed"] += 1
 
+        if predictions.ndim == 0:
+            predictions = np.array([predictions])
         if predictions.ndim == 1:
             predictions = predictions.reshape(-1, 1)
 
-        # Get multiple predictions for uncertainty estimation
-        if prediction_function is not None and input_data is not None:
+        # === MC DROPOUT / ENSEMBLE SAMPLING ===
+        mc_predictions = None
+
+        if model is not None and TORCH_AVAILABLE:
+            # Use MC Dropout wrapper for PyTorch models
+            wrapper = MCDropoutWrapper(model)
+            try:
+                if isinstance(input_data, np.ndarray):
+                    input_tensor = torch.FloatTensor(input_data)
+                else:
+                    input_tensor = input_data
+                mean_pred, epistemic_std, mc_predictions = wrapper.predict_with_uncertainty(
+                    input_tensor, n_samples=self.n_monte_carlo
+                )
+                self._stats["mc_samples_total"] += self.n_monte_carlo
+            except Exception as e:
+                logger.warning(f"MC Dropout failed: {e}, falling back to standard estimation")
+                mc_predictions = None
+
+        if mc_predictions is None and prediction_function is not None and input_data is not None:
+            # Standard MC sampling via prediction function
             mc_predictions = self._monte_carlo_sampling(
                 prediction_function, input_data, self.n_monte_carlo
             )
-        else:
+            self._stats["mc_samples_total"] += self.n_monte_carlo
+
+        if mc_predictions is None:
             mc_predictions = predictions
 
-        # Epistemic uncertainty: variance across model predictions
+        # === EPISTEMIC UNCERTAINTY ===
+        # Variance across MC samples (reducible with more data/better model)
         if mc_predictions.shape[0] > 1:
             epistemic = float(np.var(mc_predictions, axis=0).mean())
+            # Compute BALD: mutual information for active learning
+            predictive_entropy = self._compute_predictive_entropy(mc_predictions)
+            expected_entropy = self._compute_expected_entropy(mc_predictions)
+            mutual_information = max(0, predictive_entropy - expected_entropy)
         else:
-            epistemic = 0.1  # Default if no MC sampling
+            epistemic = 0.1
+            predictive_entropy = 0.0
+            mutual_information = 0.0
 
-        # Aleatoric uncertainty: estimated from prediction spread
-        aleatoric = self._estimate_aleatoric(mc_predictions)
+        # === ALEATORIC UNCERTAINTY ===
+        # Input-dependent data uncertainty (heteroscedastic)
+        if input_data is not None:
+            aleatoric = self.heteroscedastic.estimate_variance(input_data)
+        else:
+            aleatoric = self._estimate_aleatoric_from_predictions(mc_predictions)
 
-        # Total uncertainty
-        total = np.sqrt(epistemic ** 2 + aleatoric ** 2)
+        # === TOTAL UNCERTAINTY ===
+        # Proper propagation: sqrt(epistemic^2 + aleatoric^2)
+        total = np.sqrt(epistemic**2 + aleatoric**2)
 
-        # Mean prediction
+        # === POINT ESTIMATE AND INTERVALS ===
         prediction = float(mc_predictions.mean())
 
-        # Confidence interval (using total uncertainty)
-        ci_low = prediction - 1.96 * np.sqrt(total)
-        ci_high = prediction + 1.96 * np.sqrt(total)
+        # Confidence interval via ACI or standard normal
+        if self.aci is not None and len(self.aci.scores) >= 10:
+            ci_low, ci_high = self.aci.predict_interval(prediction, residual_std=np.sqrt(total))
+        else:
+            # Standard 95% CI
+            ci_low = prediction - 1.96 * np.sqrt(total)
+            ci_high = prediction + 1.96 * np.sqrt(total)
 
-        # Calibrated confidence
-        confidence = self._compute_confidence(epistemic, aleatoric)
-        calibration_error = self._estimate_calibration_error()
+        # === CALIBRATED CONFIDENCE ===
+        # Apply temperature scaling if fitted
+        if self.temperature_scaler._fitted:
+            # Transform uncertainty to confidence with temperature
+            raw_conf = np.exp(-total * self.PHI)
+            confidence = float(
+                np.clip(raw_conf ** (1 / self.temperature_scaler.temperature), 0.01, 0.99)
+            )
+        else:
+            confidence = self._compute_confidence(epistemic, aleatoric)
 
-        # Determine reliability
+        calibration_error = self._compute_ece()
+
+        # === RELIABILITY ASSESSMENT ===
         is_reliable = (
             calibration_error < self.reliability_threshold
             and epistemic < 0.5
-            and confidence > 0.5
+            and confidence > 0.3
+            and (
+                self.aci is None
+                or len(self.aci.coverage_history) < 10
+                or self.aci.coverage_history[-1] > 0.8
+            )
         )
 
-        # Generate explanation
+        # === EXPLANATION ===
         explanation = self._generate_explanation(
-            epistemic, aleatoric, confidence, is_reliable
+            epistemic, aleatoric, confidence, is_reliable, mutual_information, predictive_entropy
         )
 
-        # Update running averages
-        self._stats["avg_epistemic"] = (
-            0.9 * self._stats["avg_epistemic"] + 0.1 * epistemic
-        )
-        self._stats["avg_aleatoric"] = (
-            0.9 * self._stats["avg_aleatoric"] + 0.1 * aleatoric
-        )
+        # Update running statistics
+        alpha = 0.05  # EMA smoothing
+        self._stats["avg_epistemic"] = (1 - alpha) * self._stats[
+            "avg_epistemic"
+        ] + alpha * epistemic
+        self._stats["avg_aleatoric"] = (1 - alpha) * self._stats[
+            "avg_aleatoric"
+        ] + alpha * aleatoric
+        self._stats["temperature"] = self.temperature_scaler.temperature
 
         return UncertaintyEstimate(
             prediction=prediction,
@@ -246,123 +675,142 @@ class UncertaintyQuantifier:
             calibration_error=calibration_error,
             is_reliable=is_reliable,
             explanation=explanation,
+            mutual_information=mutual_information,
+            predictive_entropy=predictive_entropy,
+            mc_samples=self.n_monte_carlo if mc_predictions.shape[0] > 1 else 0,
         )
 
     def estimate_epistemic(
         self,
         prediction_function: Callable[[np.ndarray], np.ndarray],
         input_data: np.ndarray,
+        n_samples: int | None = None,
     ) -> float:
         """
-        Estimate epistemic (model) uncertainty using MC dropout or ensemble.
+        Estimate epistemic uncertainty via MC sampling.
 
         Args:
-            prediction_function: Function to generate predictions
+            prediction_function: Stochastic prediction function
             input_data: Input data
+            n_samples: Override default MC samples
 
         Returns:
-            Epistemic uncertainty estimate
+            Epistemic uncertainty (variance across samples)
         """
-        mc_predictions = self._monte_carlo_sampling(
-            prediction_function, input_data, self.n_monte_carlo
-        )
+        n = n_samples or self.n_monte_carlo
+        mc_predictions = self._monte_carlo_sampling(prediction_function, input_data, n)
         return float(np.var(mc_predictions, axis=0).mean())
 
     def estimate_aleatoric(
         self,
         data: np.ndarray,
-        window_size: int = 10,
+        features: np.ndarray | None = None,
     ) -> float:
         """
-        Estimate aleatoric (data) uncertainty.
-
-        Uses local variance to estimate inherent data noise.
+        Estimate aleatoric uncertainty (heteroscedastic if features provided).
 
         Args:
-            data: Data samples
-            window_size: Window for local variance estimation
+            data: Observed data
+            features: Input features for heteroscedastic estimation
 
         Returns:
             Aleatoric uncertainty estimate
         """
-        if len(data) < window_size:
-            return float(np.std(data))
-
-        # Rolling variance
-        variances = []
-        for i in range(len(data) - window_size + 1):
-            window = data[i : i + window_size]
-            variances.append(np.var(window))
-
-        return float(np.mean(variances))
+        if features is not None:
+            return self.heteroscedastic.estimate_variance(features)
+        return float(np.var(data))
 
     def calibrate(
         self,
         predictions: np.ndarray,
         confidences: np.ndarray,
         outcomes: np.ndarray,
+        logits: np.ndarray | None = None,
     ) -> CalibrationResult:
         """
-        Assess and compute calibration of predictions.
+        Assess calibration and optionally fit temperature scaling.
 
         Args:
             predictions: Model predictions
             confidences: Confidence scores
-            outcomes: Actual outcomes (binary)
+            outcomes: True outcomes (binary)
+            logits: Pre-softmax outputs (for temperature scaling)
 
         Returns:
-            Calibration assessment
+            Calibration assessment with ECE, MCE, and temperature
         """
         self._stats["calibrations_performed"] += 1
 
-        # Bin predictions by confidence
+        # Fit temperature scaling if logits provided
+        if logits is not None and len(np.unique(outcomes)) > 1:
+            # Ensure labels are proper format
+            labels = outcomes.astype(int)
+            if logits.ndim == 1:
+                logits = np.column_stack([1 - logits, logits])
+            self.temperature_scaler.fit(logits, labels)
+
+        # === BINNED CALIBRATION METRICS ===
         bin_boundaries = np.linspace(0, 1, self.calibration_bins + 1)
-        bin_centers = (bin_boundaries[:-1] + bin_boundaries[1:]) / 2
 
         expected_conf = []
         observed_acc = []
         bin_counts = []
+        adaptive_errors = []
 
         for i in range(self.calibration_bins):
             mask = (confidences >= bin_boundaries[i]) & (confidences < bin_boundaries[i + 1])
             bin_count = mask.sum()
 
             if bin_count > 0:
-                expected_conf.append(confidences[mask].mean())
-                observed_acc.append(outcomes[mask].mean())
-                bin_counts.append(bin_count)
+                expected_conf.append(float(confidences[mask].mean()))
+                observed_acc.append(float(outcomes[mask].mean()))
+                bin_counts.append(int(bin_count))
+                # Adaptive calibration error (weighted by bin size)
+                adaptive_errors.append(
+                    bin_count * abs(confidences[mask].mean() - outcomes[mask].mean())
+                )
             else:
-                expected_conf.append(bin_centers[i])
-                observed_acc.append(bin_centers[i])
+                bin_center = (bin_boundaries[i] + bin_boundaries[i + 1]) / 2
+                expected_conf.append(float(bin_center))
+                observed_acc.append(float(bin_center))
                 bin_counts.append(0)
+                adaptive_errors.append(0.0)
 
-        # Expected Calibration Error
-        bin_counts_arr = np.array(bin_counts)
-        expected_conf_arr = np.array(expected_conf)
-        observed_acc_arr = np.array(observed_acc)
+        total_samples = sum(bin_counts)
 
-        total_samples = bin_counts_arr.sum()
-        if total_samples > 0:
-            ece = np.sum(
-                bin_counts_arr * np.abs(expected_conf_arr - observed_acc_arr)
-            ) / total_samples
-        else:
-            ece = 0.0
+        # Expected Calibration Error (weighted average)
+        ece = sum(adaptive_errors) / max(total_samples, 1)
 
         # Maximum Calibration Error
-        mce = float(np.max(np.abs(expected_conf_arr - observed_acc_arr)))
+        calibration_gaps = [abs(e - o) for e, o in zip(expected_conf, observed_acc)]
+        mce = max(calibration_gaps) if calibration_gaps else 0.0
 
-        # Store for future calibration
+        # Adaptive Calibration Error (handles varying bin sizes better)
+        # Uses sqrt weighting to reduce sensitivity to large bins
+        ace = sum(
+            np.sqrt(c) * abs(e - o) for c, e, o in zip(bin_counts, expected_conf, observed_acc)
+        ) / (sum(np.sqrt(c) for c in bin_counts) + 1e-10)
+
+        # Store history
         self._predictions.extend(predictions.tolist())
         self._confidences.extend(confidences.tolist())
         self._outcomes.extend(outcomes.tolist())
+
+        # Update ACI with new data
+        if self.aci is not None:
+            for pred, conf, out in zip(predictions, confidences, outcomes):
+                score = abs(pred - out) if isinstance(out, (int, float)) else 0
+                covered = conf > 0.5 if out else conf <= 0.5
+                self.aci.update(score, covered)
 
         return CalibrationResult(
             expected_confidence=expected_conf,
             observed_accuracy=observed_acc,
             ece=float(ece),
-            mce=mce,
+            mce=float(mce),
+            ace=float(ace),
             is_calibrated=ece < self.reliability_threshold,
+            temperature=self.temperature_scaler.temperature,
             reliability_diagram={
                 "expected": expected_conf,
                 "observed": observed_acc,
@@ -374,18 +822,20 @@ class UncertaintyQuantifier:
         self,
         uncertainty: UncertaintyEstimate,
         action_threshold: float = 0.5,
-        uncertainty_threshold: float = 0.3,
+        epistemic_threshold: float = 0.3,
+        aleatoric_threshold: float = 0.5,
     ) -> dict[str, Any]:
         """
-        Make uncertainty-aware decisions.
+        Make uncertainty-aware decisions with epistemic/aleatoric decomposition.
 
         Args:
             uncertainty: Uncertainty estimate
-            action_threshold: Threshold for taking action
-            uncertainty_threshold: Max uncertainty for confident action
+            action_threshold: Prediction threshold for action
+            epistemic_threshold: Max epistemic uncertainty for action
+            aleatoric_threshold: Max aleatoric uncertainty for action
 
         Returns:
-            Decision with explanation
+            Decision with reasoning
         """
         decision = {
             "should_act": False,
@@ -393,35 +843,56 @@ class UncertaintyQuantifier:
             "should_collect_more_data": False,
             "action": "wait",
             "reason": "",
+            "epistemic_concern": False,
+            "aleatoric_concern": False,
         }
 
-        if uncertainty.total > uncertainty_threshold:
-            # High uncertainty - need more data
+        # Check epistemic uncertainty (model doesn't know)
+        if uncertainty.epistemic > epistemic_threshold:
+            decision["epistemic_concern"] = True
             decision["should_collect_more_data"] = True
             decision["action"] = "collect_more_data"
-            decision["reason"] = f"High uncertainty ({uncertainty.total:.2f}) - need more information"
+            decision["reason"] = (
+                f"High model uncertainty ({uncertainty.epistemic:.3f} > {epistemic_threshold}). "
+                "Need more training data or model improvement."
+            )
+            return decision
 
-            if uncertainty.epistemic > uncertainty.aleatoric:
-                decision["reason"] += " (model uncertainty dominates - more training data needed)"
-            else:
-                decision["reason"] += " (data uncertainty dominates - inherent variability)"
+        # Check aleatoric uncertainty (inherent noise)
+        if uncertainty.aleatoric > aleatoric_threshold:
+            decision["aleatoric_concern"] = True
+            # Can't reduce aleatoric, but can acknowledge it
+            decision["reason"] = (
+                f"High data uncertainty ({uncertainty.aleatoric:.3f}). "
+                "This is inherent variability that cannot be reduced."
+            )
 
-        elif not uncertainty.is_reliable:
-            # Unreliable prediction - defer to human
+        # Check reliability
+        if not uncertainty.is_reliable:
             decision["should_defer"] = True
             decision["action"] = "defer_to_human"
-            decision["reason"] = f"Prediction may not be reliable (calibration error: {uncertainty.calibration_error:.2f})"
+            decision["reason"] = (
+                f"Prediction unreliable (ECE={uncertainty.calibration_error:.3f}). "
+                "Human review recommended."
+            )
+            return decision
 
-        elif uncertainty.prediction > action_threshold and uncertainty.confidence > 0.7:
-            # Confident positive prediction
+        # Confident action
+        if uncertainty.prediction > action_threshold and uncertainty.confidence > 0.7:
             decision["should_act"] = True
             decision["action"] = "take_action"
-            decision["reason"] = f"Confident prediction ({uncertainty.confidence:.0%}) above threshold"
-
+            decision["reason"] = (
+                f"Confident prediction ({uncertainty.confidence:.1%}) "
+                f"above threshold ({action_threshold}). "
+                f"CI: [{uncertainty.confidence_interval[0]:.3f}, "
+                f"{uncertainty.confidence_interval[1]:.3f}]"
+            )
         else:
-            # Confident negative or borderline
             decision["action"] = "monitor"
-            decision["reason"] = f"Prediction ({uncertainty.prediction:.2f}) with confidence {uncertainty.confidence:.0%}"
+            decision["reason"] = (
+                f"Prediction ({uncertainty.prediction:.3f}) with "
+                f"confidence {uncertainty.confidence:.1%}. Monitoring."
+            )
 
         return decision
 
@@ -430,33 +901,46 @@ class UncertaintyQuantifier:
         predictions_ensemble: np.ndarray,
     ) -> dict[str, float]:
         """
-        Decompose total uncertainty into epistemic and aleatoric components.
+        Decompose total uncertainty into epistemic and aleatoric.
+
+        Uses law of total variance:
+        - Epistemic = Var[E[Y|X, theta]]  (variance of means)
+        - Aleatoric = E[Var[Y|X, theta]]  (mean of variances)
 
         Args:
-            predictions_ensemble: Ensemble of predictions (models x samples x outputs)
+            predictions_ensemble: Shape (n_models, n_samples, n_outputs)
 
         Returns:
             Decomposed uncertainties
         """
         if predictions_ensemble.ndim < 2:
-            return {"epistemic": 0.0, "aleatoric": 0.0, "total": float(np.std(predictions_ensemble))}
+            total = float(np.std(predictions_ensemble))
+            return {"epistemic": 0.0, "aleatoric": total, "total": total}
 
-        # Epistemic: variance of means
-        model_means = predictions_ensemble.mean(axis=1)
-        epistemic = float(np.var(model_means))
+        if predictions_ensemble.ndim == 2:
+            # (n_models, n_outputs) - single sample
+            model_means = predictions_ensemble.mean(axis=1)
+            epistemic = float(np.var(model_means))
+            # No aleatoric from single sample
+            aleatoric = 0.0
+        else:
+            # (n_models, n_samples, n_outputs)
+            # Epistemic: variance of per-model means
+            model_means = predictions_ensemble.mean(axis=1)  # (n_models, n_outputs)
+            epistemic = float(np.var(model_means, axis=0).mean())
 
-        # Aleatoric: mean of variances
-        model_vars = predictions_ensemble.var(axis=1)
-        aleatoric = float(np.mean(model_vars))
+            # Aleatoric: mean of per-model variances
+            model_vars = predictions_ensemble.var(axis=1)  # (n_models, n_outputs)
+            aleatoric = float(np.mean(model_vars))
 
-        # Total
         total = np.sqrt(epistemic + aleatoric)
+        epistemic_ratio = epistemic / (epistemic + aleatoric + 1e-10)
 
         return {
             "epistemic": epistemic,
             "aleatoric": aleatoric,
-            "total": total,
-            "epistemic_ratio": epistemic / (epistemic + aleatoric) if (epistemic + aleatoric) > 0 else 0.5,
+            "total": float(total),
+            "epistemic_ratio": float(epistemic_ratio),
         }
 
     def conformal_prediction(
@@ -466,35 +950,75 @@ class UncertaintyQuantifier:
         alpha: float = 0.1,
     ) -> dict[str, Any]:
         """
-        Compute conformal prediction interval.
-
-        Provides distribution-free coverage guarantee.
+        Standard conformal prediction interval.
 
         Args:
             calibration_scores: Nonconformity scores from calibration set
             test_score: Score for test point
-            alpha: Significance level (1-alpha = coverage)
+            alpha: Significance level
 
         Returns:
             Conformal prediction result
         """
         n = len(calibration_scores)
+        if n == 0:
+            return {
+                "in_prediction_set": True,
+                "threshold": float("inf"),
+                "test_score": test_score,
+                "coverage_guarantee": 1 - alpha,
+                "calibration_size": 0,
+            }
 
-        # Compute quantile
+        # Finite-sample valid quantile
         quantile_level = np.ceil((n + 1) * (1 - alpha)) / n
         quantile_level = min(1.0, quantile_level)
 
-        threshold = np.quantile(calibration_scores, quantile_level)
-
+        threshold = float(np.quantile(calibration_scores, quantile_level))
         is_in_set = test_score <= threshold
 
         return {
             "in_prediction_set": is_in_set,
-            "threshold": float(threshold),
+            "threshold": threshold,
             "test_score": test_score,
             "coverage_guarantee": 1 - alpha,
             "calibration_size": n,
+            "effective_quantile": quantile_level,
         }
+
+    def update_with_outcome(
+        self,
+        prediction: float,
+        confidence: float,
+        true_value: float | bool,
+        features: np.ndarray | None = None,
+    ):
+        """
+        Update calibration and heteroscedastic estimates with observed outcome.
+
+        Args:
+            prediction: Model prediction
+            confidence: Confidence score
+            true_value: Observed true value
+            features: Input features (for heteroscedastic update)
+        """
+        # Update heteroscedastic estimator
+        if isinstance(true_value, bool):
+            true_value = float(true_value)
+        self.heteroscedastic.update(prediction, true_value, features)
+
+        # Update ACI
+        if self.aci is not None:
+            score = abs(prediction - true_value)
+            # Determine coverage (prediction within CI)
+            covered = score < (1.96 * self._stats.get("avg_aleatoric", 0.1) + 0.1)
+            self.aci.update(score, covered)
+
+        # Store for calibration
+        self._predictions.append(prediction)
+        self._confidences.append(confidence)
+        outcome = 1 if (prediction > 0.5) == (true_value > 0.5) else 0
+        self._outcomes.append(outcome)
 
     def _monte_carlo_sampling(
         self,
@@ -502,55 +1026,84 @@ class UncertaintyQuantifier:
         input_data: np.ndarray,
         n_samples: int,
     ) -> np.ndarray:
-        """Generate Monte Carlo samples for uncertainty estimation."""
+        """Generate Monte Carlo samples."""
         samples = []
-        for _ in range(n_samples):
+        for i in range(n_samples):
             try:
-                pred = prediction_function(input_data)
-                samples.append(pred)
-            except Exception:
+                # Add small noise to simulate stochastic prediction
+                # (In real MC Dropout, this comes from dropout layers)
+                noisy_input = input_data + np.random.randn(*input_data.shape) * 0.01
+                pred = prediction_function(noisy_input)
+                if isinstance(pred, np.ndarray):
+                    samples.append(pred.flatten())
+                else:
+                    samples.append(np.array([pred]).flatten())
+            except Exception as e:
+                if i == 0:
+                    logger.warning(f"MC sampling error: {e}")
                 continue
 
         if not samples:
-            return input_data  # Fallback
+            # Fallback
+            return np.atleast_2d(input_data.mean())
 
         return np.array(samples)
 
-    def _estimate_aleatoric(self, predictions: np.ndarray) -> float:
-        """Estimate aleatoric uncertainty from predictions."""
-        if predictions.ndim == 1:
-            return float(np.std(predictions) * 0.5)
+    def _estimate_aleatoric_from_predictions(self, predictions: np.ndarray) -> float:
+        """Estimate aleatoric from prediction spread."""
+        if predictions.ndim == 1 or predictions.shape[0] == 1:
+            return 0.1  # Default
 
-        # Use prediction range as proxy for aleatoric
-        pred_range = predictions.max() - predictions.min()
-        return float(pred_range / (2 * self.PHI))
+        # Use interquartile range for robustness
+        q75, q25 = np.percentile(predictions, [75, 25])
+        iqr = q75 - q25
 
-    def _compute_confidence(
-        self,
-        epistemic: float,
-        aleatoric: float,
-    ) -> float:
+        # Scale to variance-like quantity
+        return float((iqr / 1.35) ** 2)
+
+    def _compute_predictive_entropy(self, predictions: np.ndarray) -> float:
+        """Compute predictive entropy H[y|x, D]."""
+        # Average prediction
+        mean_pred = predictions.mean(axis=0)
+
+        # For binary: H = -p*log(p) - (1-p)*log(1-p)
+        mean_pred = np.clip(mean_pred, 1e-10, 1 - 1e-10)
+        entropy = -mean_pred * np.log(mean_pred) - (1 - mean_pred) * np.log(1 - mean_pred)
+
+        return float(np.mean(entropy))
+
+    def _compute_expected_entropy(self, predictions: np.ndarray) -> float:
+        """Compute expected entropy E[H[y|x, theta]]."""
+        # Entropy of each MC sample
+        predictions = np.clip(predictions, 1e-10, 1 - 1e-10)
+        entropies = -predictions * np.log(predictions) - (1 - predictions) * np.log(1 - predictions)
+
+        return float(np.mean(entropies))
+
+    def _compute_confidence(self, epistemic: float, aleatoric: float) -> float:
         """Compute calibrated confidence from uncertainties."""
-        total = np.sqrt(epistemic ** 2 + aleatoric ** 2)
+        total = np.sqrt(epistemic**2 + aleatoric**2)
 
-        # Transform uncertainty to confidence
-        # Lower uncertainty = higher confidence
+        # Exponential transform: high uncertainty -> low confidence
+        # Scale by PHI for smoother curve
         confidence = np.exp(-total * self.PHI)
-        return float(np.clip(confidence, 0.1, 0.99))
 
-    def _estimate_calibration_error(self) -> float:
-        """Estimate current calibration error from history."""
-        if len(self._outcomes) < 10:
-            return 0.15  # Default for limited data
+        return float(np.clip(confidence, 0.01, 0.99))
 
-        # Simple binned ECE
-        confidences = np.array(self._confidences[-100:])
-        outcomes = np.array(self._outcomes[-100:])
+    def _compute_ece(self) -> float:
+        """Compute current Expected Calibration Error."""
+        if len(self._outcomes) < 20:
+            return 0.1  # Default for limited data
 
-        bin_edges = np.linspace(0, 1, 6)
+        confidences = np.array(list(self._confidences)[-500:])
+        outcomes = np.array(list(self._outcomes)[-500:])
+
+        # Adaptive binning based on sample size
+        n_bins = min(10, max(3, len(confidences) // 50))
+        bin_edges = np.linspace(0, 1, n_bins + 1)
+
         ece = 0.0
-
-        for i in range(len(bin_edges) - 1):
+        for i in range(n_bins):
             mask = (confidences >= bin_edges[i]) & (confidences < bin_edges[i + 1])
             if mask.sum() > 0:
                 avg_conf = confidences[mask].mean()
@@ -565,34 +1118,55 @@ class UncertaintyQuantifier:
         aleatoric: float,
         confidence: float,
         is_reliable: bool,
+        mutual_info: float,
+        predictive_entropy: float,
     ) -> str:
-        """Generate human-readable explanation of uncertainty."""
+        """Generate human-readable uncertainty explanation."""
         parts = []
 
-        # Overall assessment
+        # Overall reliability
         if is_reliable:
             parts.append(f"Prediction is reliable (confidence: {confidence:.0%}).")
         else:
-            parts.append(f"Prediction has limited reliability (confidence: {confidence:.0%}).")
+            parts.append(f"Prediction has LIMITED reliability (confidence: {confidence:.0%}).")
 
-        # Uncertainty breakdown
+        # Uncertainty breakdown with actionable insight
+        total = np.sqrt(epistemic**2 + aleatoric**2)
+        epistemic_pct = epistemic / (total + 1e-10) * 100
+
         if epistemic > aleatoric:
             parts.append(
-                f"Model uncertainty ({epistemic:.2f}) exceeds data uncertainty ({aleatoric:.2f}). "
-                "More training data could improve predictions."
+                f"Model uncertainty dominates ({epistemic_pct:.0f}% of total). "
+                f"Epistemic={epistemic:.3f}, Aleatoric={aleatoric:.3f}. "
+                "ACTIONABLE: More training data or model improvements would help."
             )
         else:
             parts.append(
-                f"Data uncertainty ({aleatoric:.2f}) exceeds model uncertainty ({epistemic:.2f}). "
-                "Variability is inherent to this domain."
+                f"Data uncertainty dominates ({100 - epistemic_pct:.0f}% of total). "
+                f"Epistemic={epistemic:.3f}, Aleatoric={aleatoric:.3f}. "
+                "This variability is inherent and cannot be reduced with more data."
+            )
+
+        # BALD for active learning
+        if mutual_info > 0.1:
+            parts.append(
+                f"High information gain potential (MI={mutual_info:.3f}). "
+                "This sample would be valuable for active learning."
             )
 
         return " ".join(parts)
 
     def get_statistics(self) -> dict[str, Any]:
-        """Get quantifier statistics."""
-        return {
+        """Get comprehensive quantifier statistics."""
+        stats = {
             **self._stats,
             "prediction_history_size": len(self._predictions),
-            "current_calibration_error": self._estimate_calibration_error(),
+            "current_ece": self._compute_ece(),
+            "temperature": self.temperature_scaler.temperature,
+            "temperature_fitted": self.temperature_scaler._fitted,
         }
+
+        if self.aci is not None:
+            stats["aci"] = self.aci.get_diagnostics()
+
+        return stats

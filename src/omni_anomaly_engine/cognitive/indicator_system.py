@@ -25,10 +25,10 @@ Research Sources:
 
 import logging
 import time
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
-from collections import defaultdict
+from typing import Any
 
 import numpy as np
 
@@ -211,7 +211,7 @@ class IndicatorDevelopmentSystem:
             "false_positives": 0,
         }
 
-        logger.info(f"IndicatorDevelopmentSystem initialized")
+        logger.info("IndicatorDevelopmentSystem initialized")
 
     def develop_indicator(
         self,
@@ -455,22 +455,26 @@ class IndicatorDevelopmentSystem:
 
         for pir in pirs:
             for task in pir.collection_tasks:
-                priorities.append({
-                    "task": task,
-                    "priority": pir.priority,
-                    "source": f"PIR: {pir.question[:50]}...",
-                    "domain": pir.domain,
-                })
+                priorities.append(
+                    {
+                        "task": task,
+                        "priority": pir.priority,
+                        "source": f"PIR: {pir.question[:50]}...",
+                        "domain": pir.domain,
+                    }
+                )
 
         # From indicators needing validation
         for ind in self._indicators.values():
             if ind.status == IndicatorStatus.VALIDATING:
-                priorities.append({
-                    "task": f"Validate indicator: {ind.name}",
-                    "priority": 3,
-                    "source": f"Indicator validation",
-                    "domain": ind.domain,
-                })
+                priorities.append(
+                    {
+                        "task": f"Validate indicator: {ind.name}",
+                        "priority": 3,
+                        "source": "Indicator validation",
+                        "domain": ind.domain,
+                    }
+                )
 
         return priorities
 
@@ -659,8 +663,7 @@ class IndicatorDevelopmentSystem:
     def get_statistics(self) -> dict[str, Any]:
         """Get system statistics."""
         active_indicators = sum(
-            1 for i in self._indicators.values()
-            if i.status == IndicatorStatus.ACTIVE
+            1 for i in self._indicators.values() if i.status == IndicatorStatus.ACTIVE
         )
 
         return {
@@ -670,8 +673,8 @@ class IndicatorDevelopmentSystem:
             "total_warnings": len(self._warnings),
             "open_pirs": sum(1 for p in self._pirs.values() if p.status == "active"),
             "overall_precision": (
-                self._stats["true_positives"] /
-                (self._stats["true_positives"] + self._stats["false_positives"])
+                self._stats["true_positives"]
+                / (self._stats["true_positives"] + self._stats["false_positives"])
                 if (self._stats["true_positives"] + self._stats["false_positives"]) > 0
                 else 0.5
             ),

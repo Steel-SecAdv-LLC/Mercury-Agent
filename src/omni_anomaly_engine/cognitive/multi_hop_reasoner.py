@@ -25,10 +25,11 @@ Research Sources:
 
 import logging
 import time
+from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
-from collections import defaultdict
+from typing import Any
 
 import numpy as np
 
@@ -301,11 +302,14 @@ class MultiHopReasoner:
                     if conclusion_id not in working_memory:
                         # Calculate confidence
                         premise_confidences = [
-                            working_memory[binding[p]].confidence * working_memory[binding[p]].truth_value
+                            working_memory[binding[p]].confidence
+                            * working_memory[binding[p]].truth_value
                             for p in rule.premises
                             if p in binding
                         ]
-                        confidence = min(premise_confidences) * rule.confidence if premise_confidences else 0
+                        confidence = (
+                            min(premise_confidences) * rule.confidence if premise_confidences else 0
+                        )
 
                         if confidence >= self.min_confidence_threshold:
                             # Create conclusion proposition
@@ -323,9 +327,7 @@ class MultiHopReasoner:
                             step_count += 1
 
                             # Create reasoning step
-                            explanation = self._generate_explanation(
-                                rule, binding, working_memory
-                            )
+                            explanation = self._generate_explanation(rule, binding, working_memory)
                             steps.append(
                                 ReasoningStep(
                                     step_id=step_count,
@@ -463,7 +465,9 @@ class MultiHopReasoner:
         if not candidate_hypotheses:
             return None
 
-        priors = prior_probabilities or {h.prop_id: 1.0 / len(candidate_hypotheses) for h in candidate_hypotheses}
+        priors = prior_probabilities or {
+            h.prop_id: 1.0 / len(candidate_hypotheses) for h in candidate_hypotheses
+        }
 
         # Score each hypothesis
         scores = []
@@ -678,8 +682,12 @@ class MultiHopReasoner:
 
         # Generate overall explanation
         if self.enable_explanation:
-            explanation = f"{reasoning_type.value.capitalize()} reasoning chain with {len(steps)} steps. "
-            explanation += f"From {len(initial_premises)} premises, derived: {final_conclusion.content}"
+            explanation = (
+                f"{reasoning_type.value.capitalize()} reasoning chain with {len(steps)} steps. "
+            )
+            explanation += (
+                f"From {len(initial_premises)} premises, derived: {final_conclusion.content}"
+            )
         else:
             explanation = ""
 

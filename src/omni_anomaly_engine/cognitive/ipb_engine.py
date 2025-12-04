@@ -27,10 +27,10 @@ Research Sources:
 
 import logging
 import time
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
-from collections import defaultdict
 
 import numpy as np
 
@@ -267,24 +267,68 @@ class IPBEngine:
         """Initialize domain-specific templates."""
         self._domain_templates = {
             EnvironmentDomain.CYBER: {
-                "key_terrain": ["network_perimeter", "authentication_systems", "data_stores", "critical_applications"],
-                "critical_assets": ["credentials", "encryption_keys", "customer_data", "intellectual_property"],
-                "threat_indicators": ["unusual_traffic", "failed_logins", "privilege_escalation", "data_exfiltration"],
+                "key_terrain": [
+                    "network_perimeter",
+                    "authentication_systems",
+                    "data_stores",
+                    "critical_applications",
+                ],
+                "critical_assets": [
+                    "credentials",
+                    "encryption_keys",
+                    "customer_data",
+                    "intellectual_property",
+                ],
+                "threat_indicators": [
+                    "unusual_traffic",
+                    "failed_logins",
+                    "privilege_escalation",
+                    "data_exfiltration",
+                ],
             },
             EnvironmentDomain.INFRASTRUCTURE: {
                 "key_terrain": ["power_grid", "water_systems", "communications", "transportation"],
-                "critical_assets": ["scada_systems", "control_networks", "backup_power", "emergency_systems"],
-                "threat_indicators": ["sensor_anomalies", "control_deviations", "communication_disruption"],
+                "critical_assets": [
+                    "scada_systems",
+                    "control_networks",
+                    "backup_power",
+                    "emergency_systems",
+                ],
+                "threat_indicators": [
+                    "sensor_anomalies",
+                    "control_deviations",
+                    "communication_disruption",
+                ],
             },
             EnvironmentDomain.MEDICAL: {
                 "key_terrain": ["hospitals", "supply_chains", "data_systems", "emergency_response"],
                 "critical_assets": ["patient_data", "medical_devices", "pharmaceuticals", "staff"],
-                "threat_indicators": ["patient_spikes", "supply_shortages", "system_failures", "outbreak_patterns"],
+                "threat_indicators": [
+                    "patient_spikes",
+                    "supply_shortages",
+                    "system_failures",
+                    "outbreak_patterns",
+                ],
             },
             EnvironmentDomain.FINANCIAL: {
-                "key_terrain": ["payment_systems", "trading_platforms", "banking_networks", "regulatory_interfaces"],
-                "critical_assets": ["transaction_data", "customer_accounts", "trading_algorithms", "audit_trails"],
-                "threat_indicators": ["unusual_transactions", "market_manipulation", "fraud_patterns", "insider_trading"],
+                "key_terrain": [
+                    "payment_systems",
+                    "trading_platforms",
+                    "banking_networks",
+                    "regulatory_interfaces",
+                ],
+                "critical_assets": [
+                    "transaction_data",
+                    "customer_accounts",
+                    "trading_algorithms",
+                    "audit_trails",
+                ],
+                "threat_indicators": [
+                    "unusual_transactions",
+                    "market_manipulation",
+                    "fraud_patterns",
+                    "insider_trading",
+                ],
             },
         }
 
@@ -410,7 +454,9 @@ class IPBEngine:
                 category=category,
                 capabilities=capabilities,
                 intent=report.get("intent", "unknown"),
-                resources=report.get("resources", {"technical": 0.5, "financial": 0.5, "human": 0.5}),
+                resources=report.get(
+                    "resources", {"technical": 0.5, "financial": 0.5, "human": 0.5}
+                ),
                 historical_actions=report.get("history", []),
                 indicators=report.get("indicators", []),
                 overall_rating=rating,
@@ -481,9 +527,7 @@ class IPBEngine:
         self._stats["assessments_conducted"] += 1
 
         # Phase 1: Define
-        environment = self.define_environment(
-            domain, area_of_interest, critical_assets
-        )
+        environment = self.define_environment(domain, area_of_interest, critical_assets)
 
         # Phase 2: Describe
         effects = self.describe_effects(domain, observations)
@@ -642,9 +686,18 @@ class IPBEngine:
 
         # Generate phases
         phases = [
-            {"phase": "Preparation", "activities": threat.capabilities[:2] if threat.capabilities else []},
-            {"phase": "Execution", "activities": threat.capabilities[2:4] if len(threat.capabilities) > 2 else []},
-            {"phase": "Exploitation", "activities": threat.capabilities[4:] if len(threat.capabilities) > 4 else []},
+            {
+                "phase": "Preparation",
+                "activities": threat.capabilities[:2] if threat.capabilities else [],
+            },
+            {
+                "phase": "Execution",
+                "activities": threat.capabilities[2:4] if len(threat.capabilities) > 2 else [],
+            },
+            {
+                "phase": "Exploitation",
+                "activities": threat.capabilities[4:] if len(threat.capabilities) > 4 else [],
+            },
         ]
 
         # Generate indicators and warnings
@@ -654,9 +707,10 @@ class IPBEngine:
         ]
 
         # Generate countermeasures
-        countermeasures = [
-            f"block_{cap.replace(' ', '_')}" for cap in threat.capabilities[:3]
-        ] + ["increase_monitoring", "activate_defenses"]
+        countermeasures = [f"block_{cap.replace(' ', '_')}" for cap in threat.capabilities[:3]] + [
+            "increase_monitoring",
+            "activate_defenses",
+        ]
 
         return ThreatCOA(
             coa_id=f"coa_{threat.threat_id}_{coa_type.value}",
@@ -688,7 +742,9 @@ class IPBEngine:
         # Based on most dangerous COAs
         dangerous_coas = [c for c in coas if c.coa_type == CourseOfAction.MOST_DANGEROUS][:2]
         for coa in dangerous_coas:
-            pirs.append(f"What would indicate {coa.threat.threat_name} executing {coa.coa_type.value}?")
+            pirs.append(
+                f"What would indicate {coa.threat.threat_name} executing {coa.coa_type.value}?"
+            )
 
         return pirs[:10]
 
@@ -701,7 +757,7 @@ class IPBEngine:
         priorities = []
 
         for i, pir in enumerate(pirs[:5]):
-            priorities.append(f"Priority {i+1}: Collect on {pir[:50]}...")
+            priorities.append(f"Priority {i + 1}: Collect on {pir[:50]}...")
 
         # Add gap-filling collection
         priorities.append("Fill gaps: Emerging threat indicators")

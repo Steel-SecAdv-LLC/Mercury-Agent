@@ -40,30 +40,27 @@ from typing import Any
 
 import numpy as np
 
-from omni_anomaly_engine.cognitive.plasticity_engine import PlasticityEngine, AdaptationType
+from omni_anomaly_engine.cognitive.case_based_reasoning import (
+    Case,
+    CaseBasedReasoner,
+    CaseOutcome,
+)
+from omni_anomaly_engine.cognitive.causal_discovery import CausalDiscoveryEngine
+from omni_anomaly_engine.cognitive.indicator_system import (
+    IndicatorDevelopmentSystem,
+)
+from omni_anomaly_engine.cognitive.ipb_engine import EnvironmentDomain, IPBEngine
 from omni_anomaly_engine.cognitive.knowledge_graph import (
-    KnowledgeGraph,
-    KnowledgeNode,
-    NodeType,
     EdgeType,
+    KnowledgeGraph,
+    NodeType,
 )
 from omni_anomaly_engine.cognitive.multi_hop_reasoner import (
     MultiHopReasoner,
     Proposition,
-    ReasoningType,
 )
-from omni_anomaly_engine.cognitive.ipb_engine import IPBEngine, EnvironmentDomain
-from omni_anomaly_engine.cognitive.causal_discovery import CausalDiscoveryEngine
+from omni_anomaly_engine.cognitive.plasticity_engine import AdaptationType, PlasticityEngine
 from omni_anomaly_engine.cognitive.uncertainty import UncertaintyQuantifier
-from omni_anomaly_engine.cognitive.case_based_reasoning import (
-    CaseBasedReasoner,
-    Case,
-    CaseOutcome,
-)
-from omni_anomaly_engine.cognitive.indicator_system import (
-    IndicatorDevelopmentSystem,
-    IndicatorType,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -228,17 +225,19 @@ class CognitiveOrchestrator:
 
         # Add fundamental relationships
         self.knowledge_graph.add_node(
-            "anomaly", NodeType.CONCEPT, "Anomaly",
-            attributes={"definition": "Deviation from expected behavior"}
+            "anomaly",
+            NodeType.CONCEPT,
+            "Anomaly",
+            attributes={"definition": "Deviation from expected behavior"},
         )
         self.knowledge_graph.add_node(
-            "threat", NodeType.CONCEPT, "Threat",
-            attributes={"definition": "Potential source of harm"}
+            "threat",
+            NodeType.CONCEPT,
+            "Threat",
+            attributes={"definition": "Potential source of harm"},
         )
 
-        self.knowledge_graph.add_edge(
-            "threat", "anomaly", EdgeType.CAUSES, weight=0.8
-        )
+        self.knowledge_graph.add_edge("threat", "anomaly", EdgeType.CAUSES, weight=0.8)
 
     def analyze(
         self,
@@ -305,9 +304,7 @@ class CognitiveOrchestrator:
             # Link to domain if specified
             domain = context.get("domain")
             if domain:
-                self.knowledge_graph.add_edge(
-                    obs_id, f"domain_{domain}", EdgeType.INSTANCE_OF
-                )
+                self.knowledge_graph.add_edge(obs_id, f"domain_{domain}", EdgeType.INSTANCE_OF)
                 result.knowledge_updates.append(f"Added observation to {domain} domain")
 
         # === STEP 3: MULTI-HOP REASONING ===
@@ -418,12 +415,14 @@ class CognitiveOrchestrator:
                 }
 
         # Store in history for future CBR
-        self._anomaly_history.append({
-            "score": anomaly_score,
-            "severity": severity,
-            "domain": context.get("domain"),
-            "timestamp": time.time(),
-        })
+        self._anomaly_history.append(
+            {
+                "score": anomaly_score,
+                "severity": severity,
+                "domain": context.get("domain"),
+                "timestamp": time.time(),
+            }
+        )
 
         # Limit history size
         if len(self._anomaly_history) > 1000:
@@ -482,8 +481,7 @@ class CognitiveOrchestrator:
 
         # Filter by domain if specified
         anomalies = [
-            a for a in self._anomaly_history
-            if domain is None or a.get("domain") == domain
+            a for a in self._anomaly_history if domain is None or a.get("domain") == domain
         ]
 
         indicators = self.indicators.develop_from_anomalies(
