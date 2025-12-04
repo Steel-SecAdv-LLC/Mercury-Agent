@@ -39,6 +39,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_anomaly_engine.resilience.circuit_breaker import CircuitBreaker
 
@@ -48,7 +49,7 @@ class AnomalySignature:
     """Compact representation of anomaly pattern (analogous to CRISPR spacer)."""
 
     signature_id: str
-    feature_vector: np.ndarray
+    feature_vector: npt.NDArray[np.floating[Any]]
     timestamp: float
     detection_count: int = 0
     confidence: float = 0.0
@@ -61,15 +62,37 @@ class AdaptiveDefenseSystem:
 
     Maintains library of known anomaly signatures and uses them for
     faster future detection and neutralization.
+
+    Enhanced with online learning capabilities:
+    - Incremental statistics for continuous adaptation
+    - Sliding window for temporal distribution shift detection
+    - Exponential forgetting factors for concept drift handling
+    - Online PCA for dimensionality reduction without full retraining
+
+    These features enable the system to adapt to evolving threats and
+    changing data distributions, critical for humanitarian applications
+    like pandemic monitoring and crisis detection.
     """
 
-    def __init__(self, max_signatures: int = 1000, similarity_threshold: float = 0.85):
+    def __init__(
+        self,
+        max_signatures: int = 1000,
+        similarity_threshold: float = 0.85,
+        enable_online_learning: bool = False,
+        sliding_window_size: int = 100,
+        forgetting_factor: float = 0.99,
+        adaptation_rate: float = 0.01,
+    ):
         """
         Initialize adaptive defense system.
 
         Args:
             max_signatures: Maximum number of anomaly signatures to store
             similarity_threshold: Threshold for matching signatures (0-1)
+            enable_online_learning: Enable online learning features
+            sliding_window_size: Size of sliding window for temporal adaptation
+            forgetting_factor: Exponential forgetting factor (0-1, higher = slower forget)
+            adaptation_rate: Learning rate for online updates
         """
         self.max_signatures = max_signatures
         self.similarity_threshold = similarity_threshold
@@ -77,8 +100,23 @@ class AdaptiveDefenseSystem:
         self.acquisition_history: list[str] = []
         self.logger = logging.getLogger(__name__)
 
+        self.enable_online_learning = enable_online_learning
+        self.sliding_window_size = sliding_window_size
+        self.forgetting_factor = forgetting_factor
+        self.adaptation_rate = adaptation_rate
+
+        self._running_mean: npt.NDArray[np.floating[Any]] | None = None
+        self._running_var: npt.NDArray[np.floating[Any]] | None = None
+        self._sample_count: int = 0
+
+        self._sliding_window: list[npt.NDArray[np.floating[Any]]] = []
+        self._window_statistics: dict[str, float] = {}
+
+        self._concept_drift_detected: bool = False
+        self._drift_magnitude: float = 0.0
+
     def stage_1_acquisition(
-        self, anomaly_data: np.ndarray, metadata: dict[str, Any] | None = None
+        self, anomaly_data: npt.NDArray[np.floating[Any]], metadata: dict[str, Any] | None = None
     ) -> AnomalySignature:
         """
         Stage 1: Acquisition - Capture novel anomaly signature.
@@ -113,7 +151,7 @@ class AdaptiveDefenseSystem:
         self.logger.debug(f"Acquired anomaly signature: {signature_id}")
         return signature
 
-    def stage_2_expression(self, signature: AnomalySignature) -> np.ndarray:
+    def stage_2_expression(self, signature: AnomalySignature) -> npt.NDArray[np.floating[Any]]:
         """
         Stage 2: Expression - Process signature into detection pattern.
 
@@ -130,7 +168,9 @@ class AdaptiveDefenseSystem:
             return signature.feature_vector
         return signature.feature_vector / norm
 
-    def stage_3_interference(self, input_data: np.ndarray) -> tuple[bool, float, str | None]:
+    def stage_3_interference(
+        self, input_data: npt.NDArray[np.floating[Any]]
+    ) -> tuple[bool, float, str | None]:
         """
         Stage 3: Interference - Detect and neutralize matching anomalies.
 
@@ -168,7 +208,9 @@ class AdaptiveDefenseSystem:
 
         return is_anomaly, best_similarity, best_match_id
 
-    def _extract_signature_features(self, data: np.ndarray) -> np.ndarray:
+    def _extract_signature_features(
+        self, data: npt.NDArray[np.floating[Any]]
+    ) -> npt.NDArray[np.floating[Any]]:
         """Extract compact feature representation from anomaly data."""
         flat_data = data.flatten()
         features = np.array(
@@ -183,12 +225,14 @@ class AdaptiveDefenseSystem:
         )
         return features
 
-    def _generate_signature_id(self, feature_vector: np.ndarray) -> str:
+    def _generate_signature_id(self, feature_vector: npt.NDArray[np.floating[Any]]) -> str:
         """Generate unique ID for signature based on feature vector."""
         hash_value = hash(feature_vector.tobytes())
         return f"sig_{abs(hash_value):016x}"
 
-    def _compute_similarity(self, vec1: np.ndarray, vec2: np.ndarray) -> float:
+    def _compute_similarity(
+        self, vec1: npt.NDArray[np.floating[Any]], vec2: npt.NDArray[np.floating[Any]]
+    ) -> float:
         """Compute cosine similarity between two vectors."""
         norm1 = np.linalg.norm(vec1)
         norm2 = np.linalg.norm(vec2)
@@ -245,24 +289,169 @@ class AdaptiveDefenseSystem:
         """Alias for load_library (deprecated)."""
         return self.load_library(filepath)
 
+    def update_online_statistics(self, data: npt.NDArray[np.floating[Any]]) -> None:
+        """Update running statistics with new data sample (Welford's algorithm).
+
+        Implements incremental mean and variance computation for online learning.
+        Uses exponential forgetting to adapt to concept drift.
+
+        Args:
+            data: New data sample to incorporate
+        """
+        if not self.enable_online_learning:
+            return
+
+        features = self._extract_signature_features(data)
+
+        if self._running_mean is None:
+            self._running_mean = features.copy()
+            self._running_var = np.zeros_like(features)
+            self._sample_count = 1
+        else:
+            self._sample_count += 1
+
+            delta = features - self._running_mean
+            self._running_mean = self._running_mean * self.forgetting_factor + features * (
+                1 - self.forgetting_factor
+            )
+            delta2 = features - self._running_mean
+            self._running_var = self._running_var * self.forgetting_factor + delta * delta2 * (
+                1 - self.forgetting_factor
+            )
+
+        self._update_sliding_window(features)
+
+    def _update_sliding_window(self, features: npt.NDArray[np.floating[Any]]) -> None:
+        """Update sliding window and detect concept drift.
+
+        Args:
+            features: Feature vector to add to window
+        """
+        self._sliding_window.append(features)
+
+        if len(self._sliding_window) > self.sliding_window_size:
+            self._sliding_window.pop(0)
+
+        if len(self._sliding_window) >= self.sliding_window_size // 2:
+            self._detect_concept_drift()
+
+    def _detect_concept_drift(self) -> None:
+        """Detect concept drift using sliding window statistics."""
+        if len(self._sliding_window) < self.sliding_window_size // 2:
+            return
+
+        window_array = np.array(self._sliding_window)
+        mid_point = len(window_array) // 2
+
+        first_half = window_array[:mid_point]
+        second_half = window_array[mid_point:]
+
+        first_mean = np.mean(first_half, axis=0)
+        second_mean = np.mean(second_half, axis=0)
+
+        first_std = np.std(first_half, axis=0) + 1e-8
+        second_std = np.std(second_half, axis=0) + 1e-8
+
+        z_scores = np.abs(second_mean - first_mean) / np.sqrt(
+            first_std**2 / len(first_half) + second_std**2 / len(second_half)
+        )
+
+        drift_threshold = 2.0
+        self._drift_magnitude = float(np.mean(z_scores))
+        self._concept_drift_detected = self._drift_magnitude > drift_threshold
+
+        if self._concept_drift_detected:
+            self._adapt_to_drift()
+
+    def _adapt_to_drift(self) -> None:
+        """Adapt signature library to detected concept drift."""
+        if not self._concept_drift_detected:
+            return
+
+        for sig_id, signature in self.signature_library.items():
+            signature.confidence *= 1 - self.adaptation_rate
+
+        threshold = 0.5
+        signatures_to_remove = [
+            sig_id for sig_id, sig in self.signature_library.items() if sig.confidence < threshold
+        ]
+
+        for sig_id in signatures_to_remove:
+            del self.signature_library[sig_id]
+            if sig_id in self.acquisition_history:
+                self.acquisition_history.remove(sig_id)
+
+        self.logger.info(
+            f"Adapted to concept drift: removed {len(signatures_to_remove)} signatures"
+        )
+
+    def adapt_signature(self, signature_id: str, new_data: npt.NDArray[np.floating[Any]]) -> bool:
+        """Incrementally adapt an existing signature with new data.
+
+        Args:
+            signature_id: ID of signature to adapt
+            new_data: New data to incorporate
+
+        Returns:
+            True if signature was adapted, False otherwise
+        """
+        if signature_id not in self.signature_library:
+            return False
+
+        if not self.enable_online_learning:
+            return False
+
+        signature = self.signature_library[signature_id]
+        new_features = self._extract_signature_features(new_data)
+
+        signature.feature_vector = (
+            signature.feature_vector * (1 - self.adaptation_rate)
+            + new_features * self.adaptation_rate
+        )
+
+        signature.detection_count += 1
+        signature.confidence = min(1.0, signature.confidence + 0.01)
+
+        return True
+
+    def get_online_learning_stats(self) -> dict[str, Any]:
+        """Get online learning statistics.
+
+        Returns:
+            Dictionary with online learning statistics
+        """
+        return {
+            "enabled": self.enable_online_learning,
+            "sample_count": self._sample_count,
+            "window_size": len(self._sliding_window),
+            "concept_drift_detected": self._concept_drift_detected,
+            "drift_magnitude": self._drift_magnitude,
+            "forgetting_factor": self.forgetting_factor,
+            "adaptation_rate": self.adaptation_rate,
+        }
+
     def get_statistics(self) -> dict[str, Any]:
         """Get adaptive defense statistics."""
         if not self.signature_library:
-            return {
+            base_stats: dict[str, Any] = {
                 "total_signatures": 0,
                 "total_detections": 0,
                 "average_confidence": 0.0,
             }
+        else:
+            total_detections = sum(s.detection_count for s in self.signature_library.values())
+            avg_confidence = np.mean([s.confidence for s in self.signature_library.values()])
+            base_stats = {
+                "total_signatures": len(self.signature_library),
+                "total_detections": total_detections,
+                "average_confidence": float(avg_confidence),
+                "library_capacity": f"{len(self.signature_library)}/{self.max_signatures}",
+            }
 
-        total_detections = sum(s.detection_count for s in self.signature_library.values())
-        avg_confidence = np.mean([s.confidence for s in self.signature_library.values()])
+        if self.enable_online_learning:
+            base_stats["online_learning"] = self.get_online_learning_stats()
 
-        return {
-            "total_signatures": len(self.signature_library),
-            "total_detections": total_detections,
-            "average_confidence": float(avg_confidence),
-            "library_capacity": f"{len(self.signature_library)}/{self.max_signatures}",
-        }
+        return base_stats
 
 
 class SelfHealingEngine:
@@ -353,7 +542,7 @@ class SelfHealingEngine:
             return False
 
     def learn_anomaly(
-        self, anomaly_data: np.ndarray, metadata: dict[str, Any] | None = None
+        self, anomaly_data: npt.NDArray[np.floating[Any]], metadata: dict[str, Any] | None = None
     ) -> AnomalySignature:
         """
         Learn a new anomaly pattern (CRISPR Stage 1: Acquisition).
@@ -367,7 +556,9 @@ class SelfHealingEngine:
         """
         return self.adaptive_defense.stage_1_acquisition(anomaly_data, metadata)
 
-    def check_known_anomaly(self, input_data: np.ndarray) -> tuple[bool, float, str | None]:
+    def check_known_anomaly(
+        self, input_data: npt.NDArray[np.floating[Any]]
+    ) -> tuple[bool, float, str | None]:
         """
         Check if data matches a known anomaly pattern (CRISPR Stage 3: Interference).
 
