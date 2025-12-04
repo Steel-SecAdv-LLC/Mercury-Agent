@@ -22,14 +22,16 @@ Truth Deciphering Framework for OMNI ♱ AVA
 Orchestrates anomaly discovery, identification, ethical evaluation, and resolution
 across major infrastructures using integrated detection and self-healing components.
 
-Four-Phase Architecture:
+Five-Phase Architecture (Enhanced with Cognitive Layer):
 1. Discovery: Multi-dimensional anomaly detection + novel class discovery
-2. Identification: Classification by type/severity with detailed analysis
-3. Ethical Course: Evaluation against 8 ethical principles
-4. Resolution: Automated fixes with self-healing and autonomous execution
+2. Cognitive Analysis: Uncertainty quantification, causal discovery, reasoning
+3. Identification: Classification by type/severity with detailed analysis
+4. Ethical Course: Evaluation against 8 ethical principles
+5. Resolution: Automated fixes with self-healing and autonomous execution
 
 Integrates:
 - OmniAnomalyEngine: 13 detection engines with fusion
+- CognitiveOrchestrator: Knowledge graph, reasoning, causality, uncertainty
 - NovelClassDiscovery: Unsupervised clustering for novel anomaly classes
 - RefactoringEngine: Z-score analysis and issue classification
 - EthicalAutonomyGovernor: 8-principle ethical evaluation
@@ -45,6 +47,8 @@ import numpy as np
 import torch
 
 from omni_anomaly_engine.agentic.agentic_autonomy import AgenticAutonomy
+from omni_anomaly_engine.cognitive.case_based_reasoning import CaseOutcome
+from omni_anomaly_engine.cognitive.orchestrator import CognitiveOrchestrator, CognitiveAnalysisResult
 from omni_anomaly_engine.core.ai_ethics import EthicalAutonomyGovernor, EthicsResult
 from omni_anomaly_engine.core.config import EngineConfig
 from omni_anomaly_engine.core.novel_class_discovery import NovelClassDiscovery
@@ -57,18 +61,32 @@ from omni_anomaly_engine.engine import OmniAnomalyEngine
 class TruthDecipherResult:
     """Result from Truth Deciphering Framework analysis."""
 
+    # Phase 1: Discovery
     anomaly_detected: bool
     anomaly_score: float
     novel_classes: list[str] = field(default_factory=list)
 
+    # Phase 2: Cognitive Analysis (NEW - integrated from CognitiveOrchestrator)
+    confidence: float = 0.0
+    is_reliable: bool = True
+    epistemic_uncertainty: float = 0.0
+    aleatoric_uncertainty: float = 0.0
+    reasoning_chain: list[dict[str, Any]] = field(default_factory=list)
+    causal_factors: list[str] = field(default_factory=list)
+    similar_cases: list[str] = field(default_factory=list)
+    triggered_indicators: list[str] = field(default_factory=list)
+
+    # Phase 3: Identification
     issue_type: str | None = None
     severity: float | None = None
     recommendations: list[str] = field(default_factory=list)
 
+    # Phase 4: Ethical Course
     ethics_passed: bool = False
     ethics_score: float = 0.0
     ethical_violations: list[str] = field(default_factory=list)
 
+    # Phase 5: Resolution
     resolution_applied: bool = False
     resolution_type: str | None = None
     autonomous_actions: list[str] = field(default_factory=list)
@@ -92,6 +110,7 @@ class TruthDecipherFramework:
         config: EngineConfig | None = None,
         enable_novel_discovery: bool = True,
         enable_self_healing: bool = True,
+        enable_cognitive: bool = True,
         autonomy_level: float = 0.8,
     ):
         """
@@ -101,14 +120,28 @@ class TruthDecipherFramework:
             config: Engine configuration (uses default if None)
             enable_novel_discovery: Enable novel class discovery
             enable_self_healing: Enable CRISPR-inspired self-healing
+            enable_cognitive: Enable cognitive analysis layer (uncertainty, causality, reasoning)
             autonomy_level: Level of autonomous operation (0-1)
         """
         self.config = config or EngineConfig()
         self.enable_novel_discovery = enable_novel_discovery
         self.enable_self_healing = enable_self_healing
+        self.enable_cognitive = enable_cognitive
 
+        # Core detection
         self.anomaly_engine = OmniAnomalyEngine(config=self.config)
         self.novel_discovery = NovelClassDiscovery() if enable_novel_discovery else None
+
+        # Cognitive layer - integrates knowledge graph, reasoning, causality, uncertainty
+        self.cognitive = CognitiveOrchestrator(
+            enable_plasticity=enable_cognitive,
+            enable_causal=enable_cognitive,
+            enable_ipb=enable_cognitive,
+            enable_cbr=enable_cognitive,
+            enable_indicators=enable_cognitive,
+        ) if enable_cognitive else None
+
+        # Optimization and healing
         self.three_r = ThreeRMechanism(
             max_recursion_depth=5, sampling_rate=1.0, enable_auto_optimize=True
         )
@@ -122,8 +155,15 @@ class TruthDecipherFramework:
         context: dict[str, Any] | None = None,
     ) -> TruthDecipherResult:
         """
-        Main orchestrator: Run all 4 phases to discover, identify,
-        ethically evaluate, and resolve anomalies.
+        Main orchestrator: Run all 5 phases to discover, analyze,
+        identify, ethically evaluate, and resolve anomalies.
+
+        Enhanced with cognitive layer for:
+        - Uncertainty quantification (epistemic vs aleatoric)
+        - Causal discovery (WHY anomalies occur)
+        - Multi-hop reasoning chains
+        - Case-based historical matching
+        - Indicator evaluation
 
         Args:
             data_stream: Input data (array, tensor, or dict)
@@ -135,6 +175,7 @@ class TruthDecipherFramework:
         context = context or {}
         result = TruthDecipherResult(anomaly_detected=False, anomaly_score=0.0)
 
+        # === PHASE 1: DISCOVERY ===
         discovery_result = self.detect_anomalies(data_stream, context)
         result.anomaly_detected = discovery_result["anomaly_detected"]
         result.anomaly_score = discovery_result["anomaly_score"]
@@ -144,28 +185,73 @@ class TruthDecipherFramework:
         if not result.anomaly_detected:
             return result
 
+        # === PHASE 2: COGNITIVE ANALYSIS ===
+        # This integrates: knowledge graph, uncertainty, causality, reasoning, CBR, indicators
+        if self.enable_cognitive and self.cognitive:
+            # Get raw data as numpy for cognitive analysis
+            if isinstance(data_stream, torch.Tensor):
+                raw_data = data_stream.cpu().numpy()
+            elif isinstance(data_stream, dict):
+                raw_data = np.array(list(data_stream.values()))
+            else:
+                raw_data = data_stream
+
+            cognitive_result = self.cognitive.analyze(
+                detection_result=discovery_result,
+                raw_data=raw_data,
+                context=context,
+            )
+
+            # Integrate cognitive insights into result
+            result.confidence = cognitive_result.confidence
+            result.is_reliable = cognitive_result.is_reliable
+            result.epistemic_uncertainty = cognitive_result.epistemic_uncertainty
+            result.aleatoric_uncertainty = cognitive_result.aleatoric_uncertainty
+            result.reasoning_chain = cognitive_result.reasoning_chain
+            result.causal_factors = cognitive_result.causal_factors
+            result.similar_cases = cognitive_result.similar_historical_cases
+            result.triggered_indicators = cognitive_result.triggered_indicators
+
+            # Add cognitive recommendations to the mix
+            result.recommendations.extend(cognitive_result.recommended_actions)
+
+        result.phase_completed = 2
+
+        # === PHASE 3: IDENTIFICATION ===
         identification_result = self.classify_and_identify(discovery_result, context)
         result.issue_type = identification_result.get("issue_type")
         result.severity = identification_result.get("severity")
-        result.recommendations = identification_result.get("recommendations", [])
-        result.phase_completed = 2
+        result.recommendations.extend(identification_result.get("recommendations", []))
+        result.phase_completed = 3
 
+        # === PHASE 4: ETHICAL COURSE ===
         ethics_result = self.determine_ethics(identification_result, context)
         result.ethics_passed = ethics_result.passed
         result.ethics_score = ethics_result.overall_score
         result.ethical_violations = ethics_result.violations
-        result.phase_completed = 3
+        result.phase_completed = 4
 
         if not result.ethics_passed:
             result.blocked_reason = "Ethical violations prevent automated resolution"
             return result
 
+        # === PHASE 5: RESOLUTION ===
         resolution_result = self.resolve_with_measures(identification_result, data_stream, context)
         result.resolution_applied = resolution_result["applied"]
         result.resolution_type = resolution_result.get("type")
         result.autonomous_actions = resolution_result.get("actions", [])
         result.self_healing_signature = resolution_result.get("signature_id")
-        result.phase_completed = 4
+        result.phase_completed = 5
+
+        # Learn from this resolution for future CBR
+        if self.enable_cognitive and self.cognitive and result.resolution_applied:
+            self.cognitive.add_case_from_resolution(
+                problem={"score": result.anomaly_score, "severity": result.severity},
+                solution={"type": result.resolution_type, "actions": result.autonomous_actions},
+                outcome=CaseOutcome.SUCCESS if result.resolution_applied else CaseOutcome.UNKNOWN,
+                outcome_score=1.0 if result.resolution_applied else 0.5,
+                domain=context.get("domain", "general"),
+            )
 
         return result
 
@@ -345,12 +431,18 @@ class TruthDecipherFramework:
         Get statistics about framework operations.
 
         Returns:
-            Statistics including ethical evaluations, autonomous actions, etc.
+            Statistics including ethical evaluations, autonomous actions, cognitive stats, etc.
         """
-        return {
+        stats = {
             "ethics_stats": self.ethics_governor.get_statistics(),
             "autonomy_metrics": self.autonomy.get_autonomy_metrics(),
             "self_healing_signatures": (
                 len(self.self_healing.signature_library) if self.self_healing else 0
             ),
         }
+
+        # Add cognitive layer statistics
+        if self.enable_cognitive and self.cognitive:
+            stats["cognitive"] = self.cognitive.get_statistics()
+
+        return stats
