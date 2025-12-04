@@ -1107,7 +1107,9 @@ class EthicalAlignmentEngine:
         elif dominant == AlignmentArchetype.STRATEGY:
             recommendations.append("Strong strategy alignment - leverage strategic intelligence")
         elif dominant == AlignmentArchetype.KNOWLEDGE:
-            recommendations.append("Strong knowledge alignment - emphasize evidence-based decisions")
+            recommendations.append(
+                "Strong knowledge alignment - emphasize evidence-based decisions"
+            )
 
         low_scores = [(k, v) for k, v in scores.items() if v < 0.5]
         for pattern, score in sorted(low_scores, key=lambda x: x[1]):

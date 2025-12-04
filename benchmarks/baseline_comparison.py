@@ -268,14 +268,14 @@ def benchmark_memory_usage(
 def benchmark_accuracy(engine_class, functions: List[Tuple]) -> np.ndarray:
     """
     Note on accuracy measurement for code complexity analysis.
-    
+
     True accuracy measurement would require ground truth complexity labels,
     which don't exist for arbitrary code. The RefactoringEngine computes
     cyclomatic complexity and suggests refactorings based on heuristics.
-    
+
     This function returns a placeholder indicating that accuracy is not
     directly measurable without labeled ground truth data.
-    
+
     For meaningful evaluation, consider:
     - Comparing against established tools (radon, pylint complexity)
     - User studies on refactoring suggestion quality

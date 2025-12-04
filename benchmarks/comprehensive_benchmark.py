@@ -61,7 +61,7 @@ def benchmark_module_instantiation() -> Dict[str, float]:
 
 def benchmark_space_exploration() -> Dict[str, Any]:
     """Benchmark SpaceExplorationAnalyzer performance.
-    
+
     Note: This benchmark uses synthetic data without per-sample ground truth labels.
     Metrics are based on aggregate detection capability, not per-sample classification.
     For rigorous evaluation, use real datasets with labeled anomalies.
@@ -80,7 +80,7 @@ def benchmark_space_exploration() -> Dict[str, Any]:
     # rather than per-sample predictions. For proper precision/recall, we would need
     # per-sample anomaly scores and ground truth labels.
     anomaly_detected = result["anomaly_detected"]
-    
+
     # Report detection capability rather than fake precision/recall
     # True evaluation requires per-sample predictions vs ground truth
     return {
@@ -120,7 +120,7 @@ def benchmark_simulation_module() -> Dict[str, Any]:
 
 def benchmark_cosmic_ray_detection() -> Dict[str, Any]:
     """Benchmark cosmic ray anomaly detection.
-    
+
     Note: This benchmark uses synthetic data. The detector returns event counts,
     not per-sample classifications. For proper precision/recall metrics, use
     real datasets with labeled cosmic ray events (e.g., from telescope archives).
@@ -179,7 +179,9 @@ def run_all_benchmarks() -> Dict[str, Any]:
     print("\n[4/4] Benchmarking cosmic ray detection...")
     results["benchmarks"]["cosmic_ray"] = benchmark_cosmic_ray_detection()
     print(f"  ✓ Runtime: {results['benchmarks']['cosmic_ray']['runtime_ms']:.2f} ms")
-    print(f"  ✓ Events detected: {results['benchmarks']['cosmic_ray']['cosmic_ray_events_detected']}")
+    print(
+        f"  ✓ Events detected: {results['benchmarks']['cosmic_ray']['cosmic_ray_events_detected']}"
+    )
 
     print("\n" + "=" * 70)
     print("BENCHMARK COMPLETE")
