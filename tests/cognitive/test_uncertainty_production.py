@@ -264,8 +264,8 @@ class TestUncertaintyAwareDecision:
     def test_decision_confident(self):
         """Test decision with confident prediction."""
         from omni_anomaly_engine.cognitive.uncertainty import (
-            UncertaintyQuantifier,
             UncertaintyEstimate,
+            UncertaintyQuantifier,
         )
 
         uq = UncertaintyQuantifier()
@@ -290,8 +290,8 @@ class TestUncertaintyAwareDecision:
     def test_decision_high_epistemic(self):
         """Test decision with high epistemic uncertainty."""
         from omni_anomaly_engine.cognitive.uncertainty import (
-            UncertaintyQuantifier,
             UncertaintyEstimate,
+            UncertaintyQuantifier,
         )
 
         uq = UncertaintyQuantifier()
