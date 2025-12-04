@@ -7,28 +7,47 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-Ethical AI Module - Sacred Wisdom and Ma'at Balance Integration
+Ethical AI Module - Ethical Alignment and Balance Verification
 
 This module provides ethical constraint systems for bias detection,
-fairness verification, and archetypal pattern recognition.
+fairness verification, and pattern recognition.
 """
 
+# New technical names (preferred)
+from omni_anomaly_engine.ethical.ethical_alignment_engine import (
+    AlignmentArchetype,
+    EthicalPrinciple,
+    GeometricPatternProcessor,
+    IndivisibleEngine,
+    PercipienceEngine,
+    StrategicEngine,
+    TwelveFoldVerificationSystem,
+    VerificationDimension,
+)
+
+# Backward compatibility aliases (deprecated - use new names above)
 from omni_anomaly_engine.ethical.sacred_wisdom_engine import (
     AthenaWisdomEngine,
     MaatBalanceEngine,
     SacredGeometryProcessor,
     SacredWisdomEngine,
-    TwelveFoldVerificationSystem,
-    VerificationDimension,
     WisdomArchetype,
 )
 
 __all__ = [
+    # New names (preferred)
+    "PercipienceEngine",
+    "IndivisibleEngine",
+    "StrategicEngine",
+    "GeometricPatternProcessor",
+    "AlignmentArchetype",
+    "EthicalPrinciple",
+    "TwelveFoldVerificationSystem",
+    "VerificationDimension",
+    # Backward compatibility (deprecated)
     "SacredWisdomEngine",
     "MaatBalanceEngine",
     "AthenaWisdomEngine",
-    "TwelveFoldVerificationSystem",
     "SacredGeometryProcessor",
     "WisdomArchetype",
-    "VerificationDimension",
 ]

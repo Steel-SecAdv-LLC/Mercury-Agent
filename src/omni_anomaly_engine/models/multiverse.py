@@ -17,12 +17,14 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Multiverse Omni Engine - Quantum State Exploration and Parallel Reality Analysis
+Multi-Hypothesis Optimization Engine - Parallel Solution Space Exploration
 
 Original implementation for OMNI ♱ AVA neural-symbolic AI archetype.
 
-This engine explores multiple solution pathways simultaneously, using quantum-inspired
-algorithms and multi-dimensional state space exploration to find optimal strategies.
+This engine explores multiple solution pathways simultaneously using ensemble
+optimization and multi-dimensional state space exploration to find optimal strategies.
+The approach is inspired by population-based optimization methods like genetic
+algorithms and particle swarm optimization.
 """
 
 import hashlib
@@ -65,10 +67,11 @@ class Universe:
 
 class MultiverseOmniEngine:
     """
-    Multi-Universe Omni Engine - Quantum-Inspired Parallel Exploration.
+    Multi-Hypothesis Optimization Engine - Parallel Solution Exploration.
 
     Explores multiple solution pathways simultaneously to maximize
-    the probability of successful outcomes through quantum-inspired algorithms.
+    the probability of successful outcomes through ensemble optimization.
+    Similar to population-based methods like genetic algorithms.
     """
 
     def __init__(
@@ -147,15 +150,15 @@ class MultiverseOmniEngine:
 
         return fitness
 
-    def quantum_superposition(self, universes_to_superpose: list[str]) -> Universe:
+    def combine_hypotheses(self, universes_to_superpose: list[str]) -> Universe:
         """
-        Create quantum superposition of multiple universes.
+        Combine multiple solution hypotheses into a weighted average.
 
         Args:
-            universes_to_superpose: List of universe IDs to superpose
+            universes_to_superpose: List of universe IDs to combine
 
         Returns:
-            New superposed universe
+            New combined universe representing the weighted average
         """
         if len(universes_to_superpose) < 2:
             raise ValueError("Need at least 2 universes for superposition")
@@ -216,7 +219,7 @@ class MultiverseOmniEngine:
 
         top_universes = sorted_universes[: max(3, self.num_universes // 3)]
         top_universe_ids = [u.universe_id for u in top_universes]
-        converged_universe = self.quantum_superposition(top_universe_ids)
+        converged_universe = self.combine_hypotheses(top_universe_ids)
 
         converged_universe.state = UniverseState.CONVERGED
         converged_universe.metadata["type"] = "converged"
@@ -305,23 +308,19 @@ class MultiverseOmniEngine:
             "system_version": _VITALITY_HASH,
         }
 
-    def _apply_mayan_base20_scaling(self, state: np.ndarray) -> np.ndarray:
+    def _apply_hierarchical_scaling(self, state: np.ndarray) -> np.ndarray:
         """
-        Apply Mayan base-20 (vigesimal) scaling for multi-dimensional exploration.
+        Apply hierarchical base-20 scaling for multi-dimensional exploration.
 
-        Inspired by Mayan mathematics (Classical Period ~200-900 CE):
-        - Vigesimal (base-20) positional numeral system
-        - Powers of 20 instead of 10 for hierarchical representations
-        - Modified vigesimal (18×20=360) for cyclical patterns
-
-        Research source: Wikipedia - Maya numerals
-        (https://en.wikipedia.org/wiki/Maya_numerals)
+        Uses base-20 (vigesimal) scaling to create hierarchical representations
+        of state vectors, allowing different components to operate at different
+        scales for multi-resolution optimization.
 
         Args:
             state: Current universe state vector
 
         Returns:
-            State vector scaled by base-20 hierarchical factors
+            State vector scaled by hierarchical factors
         """
         powers_of_20 = np.array([20**i for i in range(min(len(state), 5))])
         scaled_state = state[: len(powers_of_20)] * powers_of_20 / 20**2
@@ -331,22 +330,19 @@ class MultiverseOmniEngine:
 
         return scaled_state
 
-    def _apply_egyptian_unit_fractions(self, value: float) -> list[float]:
+    def _decompose_to_unit_fractions(self, value: float) -> list[float]:
         """
-        Decompose value into Egyptian unit fractions (1/n form).
+        Decompose value into unit fractions (1/n form).
 
-        Inspired by Egyptian mathematics (3000 BC - 300 BCE):
-        - Unit fractions (1/2, 2/3, 1/n) as fundamental building blocks
-        - Used in Rhind Mathematical Papyrus (1650 BC)
-
-        Research source: Wikipedia - Ancient Egyptian mathematics
-        (https://en.wikipedia.org/wiki/Ancient_Egyptian_mathematics)
+        Uses greedy algorithm to represent a value as a sum of unit fractions,
+        which can be useful for certain numerical representations and
+        approximation schemes.
 
         Args:
             value: Value to decompose
 
         Returns:
-            List of unit fraction denominators
+            List of unit fractions that sum to approximately the input value
         """
         fractions = []
         remaining = abs(value)
