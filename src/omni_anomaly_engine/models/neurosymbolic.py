@@ -195,6 +195,7 @@ class SymbolicReasoningLayer:
         neural_weight: float = 0.6,
         symbolic_weight: float = 0.4,
         use_confidence_weights: bool = False,
+        humanitarian_boost_factor: float = 1.1,
     ):
         """Initialize symbolic reasoning layer.
 
@@ -202,16 +203,28 @@ class SymbolicReasoningLayer:
             explainability_threshold: Min confidence for explanations
             temporal_logic: Enable temporal reasoning
             graph_based: Enable graph-based reasoning
-            neural_weight: Weight for neural component (default 0.6)
-            symbolic_weight: Weight for symbolic component (default 0.4)
+            neural_weight: Weight for neural component (default 0.6, must be >= 0)
+            symbolic_weight: Weight for symbolic component (default 0.4, must be >= 0)
             use_confidence_weights: Use rule confidences for symbolic scoring
+            humanitarian_boost_factor: Multiplier for humanitarian contexts (default 1.1)
+
+        Raises:
+            ValueError: If neural_weight or symbolic_weight is negative
         """
+        # Validate weights are non-negative
+        if neural_weight < 0 or symbolic_weight < 0:
+            raise ValueError(
+                f"Weights must be non-negative: neural_weight={neural_weight}, "
+                f"symbolic_weight={symbolic_weight}"
+            )
+
         self.explainability_threshold = explainability_threshold
         self.temporal_logic = temporal_logic
         self.graph_based = graph_based
         self.neural_weight = neural_weight
         self.symbolic_weight = symbolic_weight
         self.use_confidence_weights = use_confidence_weights
+        self.humanitarian_boost_factor = humanitarian_boost_factor
         self.rules: list[SymbolicRule] = []
 
     def add_rule(self, rule: SymbolicRule) -> None:
@@ -268,8 +281,8 @@ class SymbolicReasoningLayer:
 
         # Apply humanitarian context boost for survivor-first principles
         if context.get("humanitarian_context") or context.get("missing_person"):
-            # Increase sensitivity for humanitarian applications
-            combined_confidence = min(1.0, combined_confidence * 1.1)
+            # Increase sensitivity for humanitarian applications using configurable factor
+            combined_confidence = min(1.0, combined_confidence * self.humanitarian_boost_factor)
 
         is_anomaly = combined_confidence > 0.5
 
@@ -403,6 +416,7 @@ class NeurosymbolicEngine:
         neural_weight: float = 0.6,
         symbolic_weight: float = 0.4,
         use_confidence_weights: bool = False,
+        humanitarian_boost_factor: float = 1.1,
     ):
         """Initialize Neurosymbolic Engine.
 
@@ -414,6 +428,7 @@ class NeurosymbolicEngine:
             neural_weight: Weight for neural component in hybrid reasoning (default 0.6)
             symbolic_weight: Weight for symbolic component in hybrid reasoning (default 0.4)
             use_confidence_weights: Use rule confidences for symbolic scoring
+            humanitarian_boost_factor: Multiplier for humanitarian contexts (default 1.1)
         """
         self.input_dim = input_dim
         self.reasoning_mode = reasoning_mode
@@ -435,6 +450,7 @@ class NeurosymbolicEngine:
             neural_weight=neural_weight,
             symbolic_weight=symbolic_weight,
             use_confidence_weights=use_confidence_weights,
+            humanitarian_boost_factor=humanitarian_boost_factor,
         )
 
         self.omni_scalars = {
@@ -915,6 +931,7 @@ def create_neurosymbolic_engine(
     neural_weight: float = 0.6,
     symbolic_weight: float = 0.4,
     use_confidence_weights: bool = False,
+    humanitarian_boost_factor: float = 1.1,
     **kwargs: Any,
 ) -> NeurosymbolicEngine:
     """Factory function to create neurosymbolic engines.
@@ -922,16 +939,43 @@ def create_neurosymbolic_engine(
     Provides a unified interface for creating either the standard NeurosymbolicEngine
     or the EnhancedNeurosymbolicEngine with advanced capabilities.
 
+    Engine Type Differences:
+        Standard Engine:
+        - Exposes ethical alignment via PercipienceEngine integration
+        - Configurable neural/symbolic weighting (default 60/40)
+        - Humanitarian context boost for survivor-first principles
+        - Uses original feature layout with robust indexing
+
+        Enhanced Engine:
+        - Full LTN + temporal/KG/meta-cognition/causal/probabilistic stack
+        - Does NOT integrate PercipienceEngine directly (ethics-agnostic)
+        - Uses its own feature extraction semantics
+        - Best for deep multi-layer neuro-symbolic reasoning
+
     Args:
         engine_type: Type of engine - "standard" or "enhanced"
         input_dim: Input feature dimension for LTN
         reasoning_mode: Default reasoning mode (HYBRID, NEURAL_ONLY, SYMBOLIC_ONLY)
+            Note: Only used by standard engine
         explainability_threshold: Minimum confidence for explanations
+            Note: Only used by standard engine
         ethical_alignment_engine: Optional PercipienceEngine for ethical verification
+            Note: Only used by standard engine
         neural_weight: Weight for neural component in hybrid reasoning (default 0.6)
+            Note: Only used by standard engine
         symbolic_weight: Weight for symbolic component in hybrid reasoning (default 0.4)
+            Note: Only used by standard engine
         use_confidence_weights: Use rule confidences for symbolic scoring
-        **kwargs: Additional arguments for EnhancedNeurosymbolicEngine
+            Note: Only used by standard engine
+        humanitarian_boost_factor: Multiplier for humanitarian contexts (default 1.1)
+            Note: Only used by standard engine
+        **kwargs: Additional arguments for EnhancedNeurosymbolicEngine:
+            - hidden_dim: Hidden dimension for LTN (default 256)
+            - num_predicates: Number of predicates (default 16)
+            - fuzzy_semantics: FuzzySemantics enum (PRODUCT, GODEL, LUKASIEWICZ)
+            - use_knowledge_graph: Enable KG integration (default True)
+            - use_meta_cognition: Enable meta-cognition (default True)
+            - use_causal: Enable causal reasoning (default True)
 
     Returns:
         NeurosymbolicEngine or EnhancedNeurosymbolicEngine instance
@@ -940,8 +984,16 @@ def create_neurosymbolic_engine(
         ValueError: If engine_type is not "standard" or "enhanced"
 
     Example:
-        >>> # Standard engine
+        >>> # Standard engine with ethical alignment
         >>> engine = create_neurosymbolic_engine("standard")
+        >>>
+        >>> # Standard engine with custom weights for humanitarian use
+        >>> engine = create_neurosymbolic_engine(
+        ...     "standard",
+        ...     neural_weight=0.5,
+        ...     symbolic_weight=0.5,
+        ...     humanitarian_boost_factor=1.2,
+        ... )
         >>>
         >>> # Enhanced engine with all capabilities
         >>> engine = create_neurosymbolic_engine(
@@ -960,6 +1012,7 @@ def create_neurosymbolic_engine(
             neural_weight=neural_weight,
             symbolic_weight=symbolic_weight,
             use_confidence_weights=use_confidence_weights,
+            humanitarian_boost_factor=humanitarian_boost_factor,
         )
     elif engine_type == "enhanced":
         # Import EnhancedNeurosymbolicEngine lazily to avoid circular imports
