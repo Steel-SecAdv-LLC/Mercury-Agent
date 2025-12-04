@@ -164,7 +164,7 @@ class SecurityCoordinator:
                 "class": CyberFortress,
                 "category": "cyber_defense",
                 "priority": "high",
-                "description": "Unified cyber defense (hash integrity, zero-day sim, traffic analysis)",
+                "description": "Unified cyber defense (hash integrity, zero-day, traffic)",
             },
             "quantum_risk": {
                 "class": QuantumRiskCyber,

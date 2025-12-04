@@ -120,7 +120,7 @@ class MedicalCoordinator:
                 "class": PandemicDetector,
                 "category": "pandemic",
                 "priority": "high",
-                "description": "Comprehensive pandemic detection with case surveillance and mutation tracking",
+                "description": "Pandemic detection with case surveillance and mutation tracking",
             },
             "epidemic_forecaster": {
                 "class": EpidemicForecaster,

@@ -69,7 +69,11 @@ Three-stage adaptive immunity:
 
 ## 7. Overwatch Nexus and Response (Medical Interdiction and Intervention)
 
-**Status**: ✅ Implemented in `omni_anomaly_engine/security/overwatch_nexus/`
+**Status**: ✅ Implemented across reorganized modules:
+- Counterintelligence: `omni_anomaly_engine/security/counterintelligence.py`
+- Cyber Defense: `omni_anomaly_engine/security/cyber_fortress.py`, `quantum_risk_cyber.py`
+- Medical/Pandemic: `omni_anomaly_engine/medical/pandemic/`
+- Humanitarian: `omni_anomaly_engine/infrastructure/humanitarian/crisis_monitoring/`
 
 Proactive counterintelligence with humanitarian focus and medical-field equivalence.
 
@@ -90,12 +94,12 @@ Proactive counterintelligence with humanitarian focus and medical-field equivale
 - `omni_proactive_psi_p`: 1.30+0.15j (non-local detection via phase correlation)
 - `omni_chaos_lambda_bifurcation`: 1.28 (threat trajectory bifurcation threshold)
 
-**Sub-Modules**:
-- `bio_threats/`: PathogenDetector with Ising model energy computation
-- `pandemic_forecasting/`: EpidemicForecaster with scipy.integrate SEIR solver
-- `humanitarian_ci/`: CrisisMonitor for natural disaster/crisis response
-- `anti_terrorism/`: TerrorismPatternDetector for radicalization indicators
-- `intel_types/`: OSINT/SIGINT/MASINT/CYBINT/HUMINT/GEOINT/IMINT wrappers
+**Sub-Modules** (reorganized by domain):
+- `medical/pandemic/bio_threats/`: PathogenDetector with Ising model energy computation
+- `medical/pandemic/forecasting/`: EpidemicForecaster with scipy.integrate SEIR solver
+- `infrastructure/humanitarian/crisis_monitoring/`: CrisisMonitor for natural disaster/crisis response
+- `security/anti_terrorism/`: TerrorismPatternDetector for radicalization indicators
+- `security/intelligence_fusion.py`: OSINT/SIGINT/MASINT/CYBINT/HUMINT/GEOINT/IMINT fusion
 
 **Integration**:
 - Leverages existing IntelligenceFusionEngine (all-source fusion with attention weighting)
