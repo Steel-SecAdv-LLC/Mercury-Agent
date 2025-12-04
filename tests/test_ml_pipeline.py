@@ -7,7 +7,7 @@ Tests fusion_network, training, inference, and related ML components.
 import numpy as np
 import pytest
 import torch
-import torch.nn as nn
+from torch import nn
 
 from omni_anomaly_engine.ml.fusion_network import (
     AttentionFusion,

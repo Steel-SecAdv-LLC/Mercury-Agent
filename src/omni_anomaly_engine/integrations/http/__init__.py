@@ -12,6 +12,6 @@ from omni_anomaly_engine.integrations.http.client import (
 __all__ = [
     "HTTPClient",
     "HTTPClientConfig",
-    "HTTPResponse",
     "HTTPError",
+    "HTTPResponse",
 ]

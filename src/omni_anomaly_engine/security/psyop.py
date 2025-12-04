@@ -854,7 +854,7 @@ class PSYOPAnalyzer:
             "suspected_origin": data.get("suspected_origin", "unknown"),
             "confidence": data.get("attribution_confidence", 0.3),
             "indicators": data.get("attribution_indicators", []),
-            "known_actor_match": data.get("known_actor_match", None),
+            "known_actor_match": data.get("known_actor_match"),
         }
 
     def _detect_campaign_anomalies(self, data: dict) -> list[str]:

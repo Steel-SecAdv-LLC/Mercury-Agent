@@ -28,18 +28,17 @@ Integrates ancient wisdom traditions with modern AI ethics for:
 This module provides bias detection, fairness verification, and ethical constraint
 enforcement using mathematically grounded archetypal patterns.
 
-Research sources:
-- FIND-YOU-ARC-CODE Sacred Wisdom Engine (Steel-SecAdv-LLC)
-- Ma'at concept: Ancient Egyptian goddess of truth, justice, and cosmic order
-- Athena: Greek goddess of wisdom, strategic warfare, and crafts
-- Sacred geometry: Livio (2002), Schneider (1994)
+References:
+    - Ma'at concept: Ancient Egyptian goddess of truth, justice, and cosmic order
+    - Athena: Greek goddess of wisdom, strategic warfare, and crafts
+    - Sacred geometry: Livio (2002), Schneider (1994)
 """
 
 import logging
 import math
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -193,7 +192,7 @@ class MaatBalanceEngine:
     def weigh_heart_against_feather(
         self,
         ethical_scores: dict[str, float],
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> BalanceResult:
         """
         Weigh the heart (ethical burden) against the feather of Ma'at.
@@ -553,7 +552,7 @@ class SacredGeometryProcessor:
         return fib
 
     def analyze_sacred_geometry(
-        self, data: np.ndarray, context: Optional[dict[str, Any]] = None
+        self, data: np.ndarray, context: dict[str, Any] | None = None
     ) -> GeometryAnalysis:
         """
         Perform comprehensive sacred geometry analysis.
@@ -762,7 +761,7 @@ class TwelveFoldVerificationSystem:
     def verify(
         self,
         dimension_scores: dict[str, float],
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> TwelveFoldResult:
         """
         Perform twelve-fold verification.
@@ -894,7 +893,7 @@ class SacredWisdomEngine:
         ethical_scores: dict[str, float],
         performance_metrics: dict[str, float],
         knowledge_indicators: dict[str, float],
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Perform comprehensive sacred wisdom analysis.
@@ -962,7 +961,7 @@ class SacredWisdomEngine:
     def archetypal_analysis(
         self,
         data: np.ndarray,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> ArchetypalAnalysis:
         """
         Perform archetypal pattern analysis.
@@ -1002,7 +1001,7 @@ class SacredWisdomEngine:
         )
 
     def sacred_geometric_analysis(
-        self, data: np.ndarray, context: Optional[dict[str, Any]] = None
+        self, data: np.ndarray, context: dict[str, Any] | None = None
     ) -> GeometryAnalysis:
         """
         Perform sacred geometry analysis.
@@ -1018,10 +1017,10 @@ class SacredWisdomEngine:
 
     def get_omni_scalars(
         self,
-        maat_result: Optional[BalanceResult] = None,
-        wisdom_quotient: Optional[WisdomQuotient] = None,
-        verification_result: Optional[TwelveFoldResult] = None,
-        geometry_result: Optional[GeometryAnalysis] = None,
+        maat_result: BalanceResult | None = None,
+        wisdom_quotient: WisdomQuotient | None = None,
+        verification_result: TwelveFoldResult | None = None,
+        geometry_result: GeometryAnalysis | None = None,
     ) -> dict[str, float]:
         """
         Get omni-scalars from all wisdom components.

@@ -334,7 +334,7 @@ class RNGState:
             "seed": self.seed,
             "version": self.version,
             "numpy_state_hash": (
-                hashlib.md5(  # noqa: S324 - not used for security
+                hashlib.md5(
                     str(self.numpy_state).encode(), usedforsecurity=False
                 ).hexdigest()
                 if self.numpy_state

@@ -33,14 +33,11 @@ Security Note:
     Set AVA_REQUIRE_CONSTANT_TIME=true in production to enforce
     constant-time implementations only.
 
-Research Sources:
+References:
     - NIST PQC Standardization: https://csrc.nist.gov/projects/post-quantum-cryptography
     - liboqs: https://openquantumsafe.org/
     - Dilithium: https://pq-crystals.org/dilithium/
     - Kyber: https://pq-crystals.org/kyber/
-
-Original Implementation: Ava-Guardian (Steel Security Advisors LLC)
-Integrated into OMNI ♱ AVA for quantum-resistant anomaly detection security.
 """
 
 import hashlib
@@ -48,7 +45,6 @@ import logging
 import os
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -370,24 +366,24 @@ def get_pqc_capabilities() -> dict:
 
 
 __all__ = [
-    "PQCBackend",
-    "DilithiumKeyPair",
-    "KyberKeyPair",
-    "KyberEncapsulation",
-    "SphincsKeyPair",
-    "get_active_backend",
-    "get_pqc_capabilities",
-    "generate_dilithium_keypair",
-    "dilithium_sign",
-    "dilithium_verify",
-    "generate_kyber_keypair",
-    "kyber_encapsulate",
-    "kyber_decapsulate",
-    "generate_sphincs_keypair",
-    "sphincs_sign",
-    "sphincs_verify",
     "DILITHIUM_AVAILABLE",
     "KYBER_AVAILABLE",
-    "SPHINCS_AVAILABLE",
     "LIBOQS_AVAILABLE",
+    "SPHINCS_AVAILABLE",
+    "DilithiumKeyPair",
+    "KyberEncapsulation",
+    "KyberKeyPair",
+    "PQCBackend",
+    "SphincsKeyPair",
+    "dilithium_sign",
+    "dilithium_verify",
+    "generate_dilithium_keypair",
+    "generate_kyber_keypair",
+    "generate_sphincs_keypair",
+    "get_active_backend",
+    "get_pqc_capabilities",
+    "kyber_decapsulate",
+    "kyber_encapsulate",
+    "sphincs_sign",
+    "sphincs_verify",
 ]

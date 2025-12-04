@@ -17,8 +17,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Astrophysical anomaly detection model
-Enhanced with black hole physics from FIND-YOU-ARC-CODE
+Astrophysical anomaly detection model with black hole physics.
 """
 
 from typing import Any

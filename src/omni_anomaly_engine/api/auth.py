@@ -35,11 +35,12 @@ import os
 import secrets
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
 
 from fastapi import HTTPException, Request, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer

@@ -17,8 +17,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Quantum-inspired anomaly detection model
-Enhanced with real quantum algorithms from FIND-YOU-ARC-CODE
+Quantum-inspired anomaly detection model with real quantum algorithms.
 """
 
 from typing import Any

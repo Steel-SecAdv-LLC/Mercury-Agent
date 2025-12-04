@@ -32,10 +32,10 @@ from omni_anomaly_engine.resilience.self_healing import (
 CRISPRInspiredSelfHealing = AdaptiveDefenseSystem
 
 __all__ = [
-    "SelfHealingEngine",
     "AdaptiveDefenseSystem",
     "AnomalySignature",
     "CRISPRInspiredSelfHealing",
+    "SelfHealingEngine",
 ]
 
 # Issue deprecation warning on import

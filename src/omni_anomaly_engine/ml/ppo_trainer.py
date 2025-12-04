@@ -28,20 +28,17 @@ Key Features:
 - Multi-environment training support
 - Ethics-weighted reward computation
 
-Research Sources:
+References:
     - Schulman et al. (2017): Proximal Policy Optimization Algorithms
     - Stable Baselines3: https://stable-baselines3.readthedocs.io/
-
-Original Implementation: OMNI-HALO (Steel Security Advisors LLC)
-Integrated into OMNI ♱ AVA for autonomous anomaly detection evolution.
 """
 
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from importlib.util import find_spec
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -69,7 +66,7 @@ class PPOConfig:
     ent_coef: float = 0.01
     vf_coef: float = 0.5
     max_grad_norm: float = 0.5
-    target_kl: Optional[float] = None
+    target_kl: float | None = None
     verbose: int = 1
 
 
@@ -248,9 +245,9 @@ class PPOTrainer:
     def __init__(
         self,
         env: Any,
-        config: Optional[PPOConfig] = None,
+        config: PPOConfig | None = None,
         checkpoint_dir: str = "./checkpoints",
-        tensorboard_log: Optional[str] = None,
+        tensorboard_log: str | None = None,
     ):
         """
         Initialize PPO Trainer.
@@ -266,11 +263,11 @@ class PPOTrainer:
         self.checkpoint_dir = checkpoint_dir
         self.tensorboard_log = tensorboard_log
 
-        self.model: Optional[Any] = None
+        self.model: Any | None = None
         self.stats = TrainingStats()
 
-        self.convergence_monitor: Optional[ConvergenceMonitor] = None
-        self.checkpoint_callback: Optional[CheckpointCallback] = None
+        self.convergence_monitor: ConvergenceMonitor | None = None
+        self.checkpoint_callback: CheckpointCallback | None = None
 
         self._initialize_model()
 
@@ -545,9 +542,9 @@ class MultiEnvPPOTrainer(PPOTrainer):
     def __init__(
         self,
         envs: list[Any],
-        config: Optional[PPOConfig] = None,
+        config: PPOConfig | None = None,
         checkpoint_dir: str = "./checkpoints",
-        tensorboard_log: Optional[str] = None,
+        tensorboard_log: str | None = None,
     ):
         """
         Initialize Multi-Environment PPO Trainer.
@@ -618,7 +615,7 @@ class MultiEnvPPOTrainer(PPOTrainer):
 
 def create_ppo_trainer(
     env: Any,
-    config: Optional[PPOConfig] = None,
+    config: PPOConfig | None = None,
     **kwargs: Any,
 ) -> PPOTrainer:
     """
@@ -637,7 +634,7 @@ def create_ppo_trainer(
 
 def create_multi_env_trainer(
     envs: list[Any],
-    config: Optional[PPOConfig] = None,
+    config: PPOConfig | None = None,
     **kwargs: Any,
 ) -> MultiEnvPPOTrainer:
     """
@@ -655,13 +652,13 @@ def create_multi_env_trainer(
 
 
 __all__ = [
-    "PPOConfig",
-    "TrainingStats",
-    "ConvergenceMonitor",
-    "CheckpointCallback",
-    "PPOTrainer",
-    "MultiEnvPPOTrainer",
-    "create_ppo_trainer",
-    "create_multi_env_trainer",
     "HAS_STABLE_BASELINES",
+    "CheckpointCallback",
+    "ConvergenceMonitor",
+    "MultiEnvPPOTrainer",
+    "PPOConfig",
+    "PPOTrainer",
+    "TrainingStats",
+    "create_multi_env_trainer",
+    "create_ppo_trainer",
 ]
