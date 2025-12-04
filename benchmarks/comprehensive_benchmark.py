@@ -60,7 +60,12 @@ def benchmark_module_instantiation() -> Dict[str, float]:
 
 
 def benchmark_space_exploration() -> Dict[str, Any]:
-    """Benchmark SpaceExplorationAnalyzer performance."""
+    """Benchmark SpaceExplorationAnalyzer performance.
+    
+    Note: This benchmark uses synthetic data without per-sample ground truth labels.
+    Metrics are based on aggregate detection capability, not per-sample classification.
+    For rigorous evaluation, use real datasets with labeled anomalies.
+    """
     analyzer = SpaceExplorationAnalyzer()
 
     normal_orbit = np.random.randn(500, 3) * 5 + np.array([7000, 0, 0])
@@ -71,21 +76,19 @@ def benchmark_space_exploration() -> Dict[str, Any]:
     result = analyzer.detect(data, "satellite_position", {"orbit_type": "leo"})
     elapsed = (time.time() - start) * 1000
 
-    true_positives = 100
-    detected_anomalies = sum(1 for i in range(500, 600) if result["anomaly_detected"])
-
-    precision = detected_anomalies / max(detected_anomalies, 1)
-    recall = detected_anomalies / true_positives if true_positives > 0 else 0
-    f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-
+    # Note: This is a simplified evaluation since the detector returns aggregate results
+    # rather than per-sample predictions. For proper precision/recall, we would need
+    # per-sample anomaly scores and ground truth labels.
+    anomaly_detected = result["anomaly_detected"]
+    
+    # Report detection capability rather than fake precision/recall
+    # True evaluation requires per-sample predictions vs ground truth
     return {
         "runtime_ms": elapsed,
         "throughput_samples_per_sec": len(data) / (elapsed / 1000),
-        "anomaly_detected": result["anomaly_detected"],
+        "anomaly_detected": anomaly_detected,
         "severity": result["severity"],
-        "precision": precision,
-        "recall": recall,
-        "f1_score": f1_score,
+        "detection_note": "Aggregate detection - per-sample metrics require labeled dataset",
     }
 
 
@@ -116,7 +119,12 @@ def benchmark_simulation_module() -> Dict[str, Any]:
 
 
 def benchmark_cosmic_ray_detection() -> Dict[str, Any]:
-    """Benchmark cosmic ray anomaly detection."""
+    """Benchmark cosmic ray anomaly detection.
+    
+    Note: This benchmark uses synthetic data. The detector returns event counts,
+    not per-sample classifications. For proper precision/recall metrics, use
+    real datasets with labeled cosmic ray events (e.g., from telescope archives).
+    """
     analyzer = SpaceExplorationAnalyzer(config={"cosmic_ray_threshold": 3.0})
 
     normal_data = np.random.randn(900, 5) * 0.5 + 1.0
@@ -127,21 +135,18 @@ def benchmark_cosmic_ray_detection() -> Dict[str, Any]:
     result = analyzer.analyze_cosmic_rays(data, {"telescope": "hubble_sim"})
     elapsed = (time.time() - start) * 1000
 
-    true_positives = 100
+    # Note: The detector returns aggregate event counts, not per-sample predictions.
+    # True precision/recall requires per-sample ground truth labels.
     detected = result["cosmic_ray_events"]
-
-    precision = min(detected / max(detected, 1), 1.0)
-    recall = detected / true_positives if true_positives > 0 else 0
-    f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+    expected_anomalies = 100  # We injected 100 anomalous samples
 
     return {
         "runtime_ms": elapsed,
         "throughput_samples_per_sec": len(data) / (elapsed / 1000),
         "cosmic_ray_events_detected": detected,
-        "precision": precision,
-        "recall": recall,
-        "f1_score": f1_score,
+        "expected_anomalies": expected_anomalies,
         "severity": result["severity"],
+        "detection_note": "Event count detection - per-sample metrics require labeled dataset",
     }
 
 
@@ -164,7 +169,7 @@ def run_all_benchmarks() -> Dict[str, Any]:
     print("\n[2/4] Benchmarking space exploration analyzer...")
     results["benchmarks"]["space_exploration"] = benchmark_space_exploration()
     print(f"  ✓ Runtime: {results['benchmarks']['space_exploration']['runtime_ms']:.2f} ms")
-    print(f"  ✓ F1-Score: {results['benchmarks']['space_exploration']['f1_score']:.3f}")
+    print(f"  ✓ Anomaly detected: {results['benchmarks']['space_exploration']['anomaly_detected']}")
 
     print("\n[3/4] Benchmarking simulation module...")
     results["benchmarks"]["simulation"] = benchmark_simulation_module()
@@ -174,7 +179,7 @@ def run_all_benchmarks() -> Dict[str, Any]:
     print("\n[4/4] Benchmarking cosmic ray detection...")
     results["benchmarks"]["cosmic_ray"] = benchmark_cosmic_ray_detection()
     print(f"  ✓ Runtime: {results['benchmarks']['cosmic_ray']['runtime_ms']:.2f} ms")
-    print(f"  ✓ F1-Score: {results['benchmarks']['cosmic_ray']['f1_score']:.3f}")
+    print(f"  ✓ Events detected: {results['benchmarks']['cosmic_ray']['cosmic_ray_events_detected']}")
 
     print("\n" + "=" * 70)
     print("BENCHMARK COMPLETE")

@@ -266,13 +266,24 @@ def benchmark_memory_usage(
 
 
 def benchmark_accuracy(engine_class, functions: List[Tuple]) -> np.ndarray:
-    """Benchmark accuracy of complexity analysis."""
-    accuracy_scores = []
-
-    for func_name, func_node, file_path in functions:
-        accuracy_scores.append(1.0)
-
-    return np.array(accuracy_scores)
+    """
+    Note on accuracy measurement for code complexity analysis.
+    
+    True accuracy measurement would require ground truth complexity labels,
+    which don't exist for arbitrary code. The RefactoringEngine computes
+    cyclomatic complexity and suggests refactorings based on heuristics.
+    
+    This function returns a placeholder indicating that accuracy is not
+    directly measurable without labeled ground truth data.
+    
+    For meaningful evaluation, consider:
+    - Comparing against established tools (radon, pylint complexity)
+    - User studies on refactoring suggestion quality
+    - Correlation with bug density or maintainability metrics
+    """
+    # Return NaN to indicate accuracy is not measurable without ground truth
+    # This is more honest than returning fake 100% accuracy
+    return np.full(len(functions), np.nan)
 
 
 def run_comprehensive_comparison(
@@ -295,7 +306,7 @@ def run_comprehensive_comparison(
         f"  Execution time: {baseline_times.mean()*1000:.3f}ms ± {baseline_times.std()*1000:.3f}ms"
     )
     print(f"  Memory usage: {baseline_memory.mean():.2f}KB ± {baseline_memory.std():.2f}KB")
-    print(f"  Accuracy: {baseline_accuracy.mean()*100:.1f}%")
+    print("  Accuracy: N/A (requires ground truth labels)")
 
     print("\n[2/2] Benchmarking IMPROVED (PR #3, 1018 lines, +5 methods)...")
     print("  Methods tested: Basic methods + analyze_with_harmonics(),")
@@ -311,7 +322,7 @@ def run_comprehensive_comparison(
         f"  Execution time: {improved_times.mean()*1000:.3f}ms ± {improved_times.std()*1000:.3f}ms"
     )
     print(f"  Memory usage: {improved_memory.mean():.2f}KB ± {improved_memory.std():.2f}KB")
-    print(f"  Accuracy: {improved_accuracy.mean()*100:.1f}%")
+    print("  Accuracy: N/A (requires ground truth labels)")
 
     print("\n" + "=" * 60)
     print("STATISTICAL VALIDATION")
@@ -427,7 +438,7 @@ if __name__ == "__main__":
         baseline_mem_mean = results["baseline"]["memory"].mean()
         baseline_mem_std = results["baseline"]["memory"].std()
         f.write(f"  Memory usage: {baseline_mem_mean:.2f}KB ± {baseline_mem_std:.2f}KB\n")
-        f.write(f"  Accuracy: {results['baseline']['accuracy'].mean()*100:.1f}%\n\n")
+        f.write("  Accuracy: N/A (requires ground truth labels)\n\n")
 
         f.write("IMPROVED (PR #3, 1018 lines, +5 analysis methods):\n")
         improved_time_mean = results["improved"]["times"].mean() * 1000
@@ -436,7 +447,7 @@ if __name__ == "__main__":
         improved_mem_mean = results["improved"]["memory"].mean()
         improved_mem_std = results["improved"]["memory"].std()
         f.write(f"  Memory usage: {improved_mem_mean:.2f}KB ± {improved_mem_std:.2f}KB\n")
-        f.write(f"  Accuracy: {results['improved']['accuracy'].mean()*100:.1f}%\n\n")
+        f.write("  Accuracy: N/A (requires ground truth labels)\n\n")
 
         f.write("STATISTICAL VALIDATION:\n")
         time_stats = results["statistics"]["time"]
