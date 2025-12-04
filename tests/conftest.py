@@ -166,6 +166,92 @@ def schumann_resonance(deterministic_rng):
     return signal
 
 
+# =============================================================================
+# Visual Anomaly Detection Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def sample_image(deterministic_rng):
+    """Generate sample image tensor for visual anomaly detection tests."""
+    if not HAS_TORCH:
+        pytest.skip("torch not installed - skipping visual test")
+    # [B, C, H, W] format - 1 batch, 3 channels, 224x224
+    return torch.randn(1, 3, 224, 224)
+
+
+@pytest.fixture
+def sample_image_batch(deterministic_rng):
+    """Generate batch of sample images for visual anomaly detection tests."""
+    if not HAS_TORCH:
+        pytest.skip("torch not installed - skipping visual test")
+    # [B, C, H, W] format - 4 batch, 3 channels, 224x224
+    return torch.randn(4, 3, 224, 224)
+
+
+@pytest.fixture
+def sample_video_frames(deterministic_rng):
+    """Generate sample video frames for VLM tests."""
+    if not HAS_TORCH:
+        pytest.skip("torch not installed - skipping VLM test")
+    # List of frames [T, H, W, C]
+    return [torch.randn(224, 224, 3) for _ in range(16)]
+
+
+@pytest.fixture
+def time_series_with_anomaly(deterministic_rng):
+    """Generate time series with known anomaly for foundation model tests."""
+    # Normal data with spike anomaly
+    data = deterministic_rng.randn(200)
+    # Insert anomaly spike at position 150
+    data[150] = 10.0  # Clear anomaly
+    return data
+
+
+@pytest.fixture
+def time_series_multivariate(deterministic_rng):
+    """Generate multivariate time series for foundation model tests."""
+    return deterministic_rng.randn(200, 5)
+
+
+@pytest.fixture
+def binary_labels(deterministic_rng):
+    """Generate binary labels for metric testing."""
+    # 90 normal (0) + 10 anomalies (1)
+    labels = np.zeros(100)
+    labels[90:] = 1
+    return labels
+
+
+@pytest.fixture
+def anomaly_scores(deterministic_rng):
+    """Generate anomaly scores corresponding to binary_labels."""
+    # Lower scores for normal, higher for anomalies
+    scores = deterministic_rng.rand(100)
+    scores[90:] += 0.5  # Anomalies have higher scores
+    return scores
+
+
+@pytest.fixture
+def pixel_masks(deterministic_rng):
+    """Generate pixel-level masks for localization metrics."""
+    # [N, H, W] binary masks
+    masks = np.zeros((10, 64, 64))
+    # Add some anomalous regions
+    masks[:, 20:40, 20:40] = 1
+    return masks
+
+
+@pytest.fixture
+def pixel_scores(deterministic_rng):
+    """Generate pixel-level anomaly scores."""
+    # [N, H, W] score maps
+    scores = deterministic_rng.rand(10, 64, 64) * 0.3
+    # Higher scores in anomalous regions
+    scores[:, 20:40, 20:40] += 0.5
+    return scores
+
+
 # Marker for slow tests
 def pytest_configure(config):
     """Configure pytest with custom markers."""
@@ -174,3 +260,6 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "security: marks security tests")
     config.addinivalue_line("markers", "medical: marks medical domain tests")
     config.addinivalue_line("markers", "geological: marks geological domain tests")
+    config.addinivalue_line("markers", "visual: marks visual anomaly detection tests")
+    config.addinivalue_line("markers", "vlm: marks vision-language model tests")
+    config.addinivalue_line("markers", "foundation: marks foundation model tests")
