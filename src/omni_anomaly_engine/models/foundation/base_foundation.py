@@ -246,3 +246,106 @@ class BaseFoundationModel(BaseModel):
             features.extend([0.0, 0.0])
 
         return np.array(features)
+
+
+class BaseFoundationAdapter(BaseFoundationModel):
+    """Concrete adapter class for foundation models.
+
+    Provides a non-abstract implementation that can be instantiated
+    for testing and as a base for custom adapters.
+
+    This class provides default implementations of abstract methods
+    that return mock/placeholder results.
+    """
+
+    def _initialize_model(self) -> None:
+        """Initialize the underlying model (no-op for base adapter)."""
+        pass
+
+    def forecast(
+        self,
+        series: np.ndarray | torch.Tensor,
+        horizon: int | None = None,
+    ) -> dict[str, np.ndarray]:
+        """Generate mock forecasts for time series.
+
+        Args:
+            series: Input time series [T] or [B, T]
+            horizon: Forecast horizon (default from config)
+
+        Returns:
+            Dict containing mock forecast results
+        """
+        if isinstance(series, torch.Tensor):
+            series = series.cpu().numpy()
+
+        if series.ndim == 1:
+            series = series.reshape(1, -1)
+
+        h = horizon or self.foundation_config.prediction_length
+        batch_size = series.shape[0]
+
+        # Generate mock forecasts based on series statistics
+        last_values = series[:, -1:]
+        forecast = np.tile(last_values, (1, h))
+
+        return {
+            "forecast": forecast,
+            "lower": forecast * 0.9,
+            "upper": forecast * 1.1,
+        }
+
+    def detect_anomalies(
+        self,
+        series: np.ndarray | torch.Tensor,
+    ) -> dict[str, Any]:
+        """Detect anomalies using simple statistical method.
+
+        Args:
+            series: Input time series [T] or [B, T]
+
+        Returns:
+            Dict containing anomaly detection results
+        """
+        if isinstance(series, torch.Tensor):
+            series = series.cpu().numpy()
+
+        if series.ndim == 1:
+            series = series.reshape(1, -1)
+
+        # Simple z-score based anomaly detection
+        mean = np.mean(series, axis=1, keepdims=True)
+        std = np.std(series, axis=1, keepdims=True) + 1e-8
+        z_scores = np.abs((series - mean) / std)
+
+        threshold = 2.0
+        is_anomaly = z_scores > threshold
+        scores = z_scores / (z_scores.max() + 1e-8)
+
+        return {
+            "scores": scores.squeeze(),
+            "is_anomaly": is_anomaly.squeeze(),
+            "threshold": threshold,
+        }
+
+    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+        """Detect anomalies (alias for detect_anomalies).
+
+        Args:
+            data: Input time series
+
+        Returns:
+            Anomaly detection results
+        """
+        return self.detect_anomalies(data)
+
+    def fit(self, data: np.ndarray | torch.Tensor) -> "BaseFoundationAdapter":
+        """Fit the adapter (no-op for base adapter).
+
+        Args:
+            data: Training data
+
+        Returns:
+            Self for method chaining
+        """
+        return self

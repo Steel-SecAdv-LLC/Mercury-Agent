@@ -47,6 +47,7 @@ Example:
 """
 
 from omni_anomaly_engine.models.foundation.base_foundation import (
+    BaseFoundationAdapter,
     BaseFoundationModel,
     FoundationModelConfig,
 )
@@ -57,14 +58,19 @@ from omni_anomaly_engine.models.foundation.matrix_profile import (
 )
 from omni_anomaly_engine.models.foundation.timegpt_adapter import TimeGPTAdapter
 
+# Compatibility aliases for tests
+MatrixProfileAdapter = MatrixProfileDetector
+
 __all__ = [
     # Base classes
+    "BaseFoundationAdapter",
     "BaseFoundationModel",
     "FoundationModelConfig",
     # Adapters
     "TimeGPTAdapter",
     "ChronosAdapter",
     "MatrixProfileDetector",
+    "MatrixProfileAdapter",  # Compatibility alias
     # Ensemble
     "FoundationEnsemble",
 ]

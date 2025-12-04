@@ -56,14 +56,26 @@ class EnsembleConfig(FoundationModelConfig):
 
     Attributes:
         models: List of model names to include
-        weights: Optional weights for each model
+        adapters: Alias for models (for compatibility)
+        weights: Optional weights for each model (list or dict)
         aggregation: Aggregation method ('mean', 'max', 'vote', 'weighted')
     """
 
     models: list[str] = field(default_factory=lambda: ["matrix_profile"])
-    weights: list[float] | None = None
+    adapters: list[str] | None = None  # Compatibility alias for models
+    weights: list[float] | dict[str, float] | None = None
     aggregation: str = "mean"
     model_name: str = "foundation_ensemble"
+
+    def __post_init__(self) -> None:
+        """Handle compatibility aliases."""
+        # If adapters is provided and models is default, use adapters
+        if self.adapters is not None:
+            if self.models == ["matrix_profile"]:
+                self.models = list(self.adapters)
+        # Convert dict weights to list if needed
+        if isinstance(self.weights, dict):
+            self.weights = [self.weights.get(m, 1.0) for m in self.models]
 
 
 class FoundationEnsemble(BaseFoundationModel):
@@ -297,6 +309,27 @@ class FoundationEnsemble(BaseFoundationModel):
                 name: model.detect_anomalies(series) for name, model in self._models.items()
             },
         }
+
+    def detect(
+        self,
+        series: np.ndarray | torch.Tensor,
+    ) -> dict[str, Any]:
+        """Detect anomalies using ensemble (alias for detect_anomalies).
+
+        This method provides compatibility with the expected test interface.
+
+        Args:
+            series: Input time series
+
+        Returns:
+            Detection results with adapter_scores for compatibility
+        """
+        result = self.detect_anomalies(series)
+
+        # Add adapter_scores for test compatibility
+        result["adapter_scores"] = result.get("model_results", {})
+
+        return result
 
     def _aggregate(
         self,
