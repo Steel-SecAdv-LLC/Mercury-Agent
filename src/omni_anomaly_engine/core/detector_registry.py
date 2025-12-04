@@ -95,6 +95,11 @@ class DetectorCategory(Enum):
     MODEL = "model"
     NEUROSYMBOLIC = "neurosymbolic"
     INTELLIGENCE = "intelligence"
+    # New SOTA categories
+    VISUAL = "visual"  # Visual anomaly detection (PatchCore, PaDiM, etc.)
+    VLM = "vlm"  # Vision-Language Models (AnyAnomaly, LAVAD)
+    FOUNDATION = "foundation"  # Foundation model adapters (TimeGPT, Chronos)
+    DISTILLATION = "distillation"  # Knowledge distillation methods
 
 
 class DetectorProtocol(Protocol):
@@ -1004,6 +1009,186 @@ class DetectorRegistry:
                 MarineBiodiversityDetector(),
                 DetectorCategory.MARINE,
                 description="Marine biodiversity threat detection",
+            )
+            registered_count += 1
+        except ImportError:
+            pass
+
+        # =====================================================================
+        # SOTA Visual Anomaly Detection (PatchCore, PaDiM, STFPM, etc.)
+        # =====================================================================
+        try:
+            from omni_anomaly_engine.detectors.visual import PatchCoreDetector
+
+            self.register(
+                "patchcore",
+                PatchCoreDetector(),
+                DetectorCategory.VISUAL,
+                description="Memory bank + coreset subsampling anomaly detection",
+                tags=["visual", "sota", "memory-bank"],
+            )
+            registered_count += 1
+        except ImportError:
+            pass
+
+        try:
+            from omni_anomaly_engine.detectors.visual import PaDiMDetector
+
+            self.register(
+                "padim",
+                PaDiMDetector(),
+                DetectorCategory.VISUAL,
+                description="Patch-wise Mahalanobis distance anomaly detection",
+                tags=["visual", "sota", "mahalanobis"],
+            )
+            registered_count += 1
+        except ImportError:
+            pass
+
+        try:
+            from omni_anomaly_engine.detectors.visual import STFPMDetector
+
+            self.register(
+                "stfpm",
+                STFPMDetector(),
+                DetectorCategory.VISUAL,
+                description="Student-Teacher Feature Pyramid Matching",
+                tags=["visual", "sota", "teacher-student"],
+            )
+            registered_count += 1
+        except ImportError:
+            pass
+
+        try:
+            from omni_anomaly_engine.detectors.visual import ReverseDistillationDetector
+
+            self.register(
+                "reverse_distillation",
+                ReverseDistillationDetector(),
+                DetectorCategory.VISUAL,
+                description="Reverse knowledge distillation with OCE bottleneck",
+                tags=["visual", "sota", "distillation"],
+            )
+            registered_count += 1
+        except ImportError:
+            pass
+
+        try:
+            from omni_anomaly_engine.detectors.visual import CFlowDetector
+
+            self.register(
+                "cflow",
+                CFlowDetector(),
+                DetectorCategory.VISUAL,
+                description="Conditional normalizing flow anomaly detection",
+                tags=["visual", "sota", "normalizing-flow"],
+            )
+            registered_count += 1
+        except ImportError:
+            pass
+
+        # =====================================================================
+        # Vision-Language Model (VLM) Detectors
+        # =====================================================================
+        try:
+            from omni_anomaly_engine.detectors.vlm import AnyAnomalyDetector
+
+            self.register(
+                "anyanomaly",
+                AnyAnomalyDetector(),
+                DetectorCategory.VLM,
+                description="Zero-shot customizable VAD with LVLM (WACV 2026)",
+                tags=["vlm", "zero-shot", "lvlm", "sota"],
+            )
+            registered_count += 1
+        except ImportError:
+            pass
+
+        try:
+            from omni_anomaly_engine.detectors.vlm import LAVADDetector
+
+            self.register(
+                "lavad",
+                LAVADDetector(),
+                DetectorCategory.VLM,
+                description="Training-free LLM-based VAD (CVPR 2024)",
+                tags=["vlm", "training-free", "llm", "sota"],
+            )
+            registered_count += 1
+        except ImportError:
+            pass
+
+        # =====================================================================
+        # Foundation Model Adapters (TimeGPT, Chronos, Matrix Profile)
+        # =====================================================================
+        try:
+            from omni_anomaly_engine.models.foundation import TimeGPTAdapter
+
+            self.register(
+                "timegpt",
+                TimeGPTAdapter(),
+                DetectorCategory.FOUNDATION,
+                description="Nixtla TimeGPT foundation model adapter",
+                tags=["foundation", "time-series", "api"],
+            )
+            registered_count += 1
+        except ImportError:
+            pass
+
+        try:
+            from omni_anomaly_engine.models.foundation import ChronosAdapter
+
+            self.register(
+                "chronos",
+                ChronosAdapter(),
+                DetectorCategory.FOUNDATION,
+                description="Amazon Chronos time-series foundation model",
+                tags=["foundation", "time-series", "local"],
+            )
+            registered_count += 1
+        except ImportError:
+            pass
+
+        try:
+            from omni_anomaly_engine.models.foundation import MatrixProfileAdapter
+
+            self.register(
+                "matrix_profile",
+                MatrixProfileAdapter(),
+                DetectorCategory.FOUNDATION,
+                description="STUMPY Matrix Profile for time-series anomalies",
+                tags=["foundation", "time-series", "matrix-profile"],
+            )
+            registered_count += 1
+        except ImportError:
+            pass
+
+        try:
+            from omni_anomaly_engine.models.foundation import FoundationEnsemble
+
+            self.register(
+                "foundation_ensemble",
+                FoundationEnsemble(),
+                DetectorCategory.FOUNDATION,
+                description="Ensemble of foundation model adapters",
+                tags=["foundation", "ensemble"],
+            )
+            registered_count += 1
+        except ImportError:
+            pass
+
+        # =====================================================================
+        # Knowledge Distillation Methods
+        # =====================================================================
+        try:
+            from omni_anomaly_engine.ml.distillation import DualStudentDistillation
+
+            self.register(
+                "dual_student",
+                DualStudentDistillation(),
+                DetectorCategory.DISTILLATION,
+                description="Dual-student knowledge distillation for AD",
+                tags=["distillation", "sota", "dual-student"],
             )
             registered_count += 1
         except ImportError:
