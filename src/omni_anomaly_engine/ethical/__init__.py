@@ -19,8 +19,8 @@ from omni_anomaly_engine.ethical.ethical_alignment_engine import (
     EthicalPrinciple,
     GeometricPatternProcessor,
     IndivisibleEngine,
-    PercipenceEngine,
-    StrategicWisdomEngine,
+    PercipienceEngine,
+    StrategicEngine,
     TwelveFoldVerificationSystem,
     VerificationDimension,
 )
@@ -36,9 +36,9 @@ from omni_anomaly_engine.ethical.sacred_wisdom_engine import (
 
 __all__ = [
     # New names (preferred)
-    "PercipenceEngine",
+    "PercipienceEngine",
     "IndivisibleEngine",
-    "StrategicWisdomEngine",
+    "StrategicEngine",
     "GeometricPatternProcessor",
     "AlignmentArchetype",
     "EthicalPrinciple",

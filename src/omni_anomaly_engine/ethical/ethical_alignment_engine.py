@@ -17,11 +17,11 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Percipence Engine - Multi-Dimensional Ethical Verification System
+Percipience Engine - Multi-Dimensional Ethical Verification System
 
 Provides comprehensive ethical alignment verification for AI systems:
 - IndivisibleEngine: Weighted scoring for ethical principle compliance
-- StrategicWisdomEngine: Decision quality and strategic intelligence metrics
+- StrategicEngine: Decision quality and strategic intelligence metrics
 - TwelveFoldVerificationSystem: 12-dimensional validation across ethical domains
 - GeometricPatternProcessor: Mathematical pattern detection (golden ratio, Fibonacci)
 
@@ -348,9 +348,9 @@ class IndivisibleEngine:
         return float(np.mean(scores)) if scores else 0.5
 
 
-class StrategicWisdomEngine:
+class StrategicEngine:
     """
-    Strategic Wisdom Engine - Decision Quality Assessment.
+    Strategic Engine - Decision Quality Assessment.
 
     Implements wisdom quotient computation for evaluating
     decision-making quality and strategic intelligence.
@@ -857,13 +857,13 @@ class TwelveFoldVerificationSystem:
         return analysis
 
 
-class PercipenceEngine:
+class PercipienceEngine:
     """
-    Percipence Engine - Unified Ethical AI Framework.
+    Percipience Engine - Unified Ethical AI Framework.
 
     Integrates all alignment components:
     - IndivisibleEngine for weighted ethical principle verification
-    - StrategicWisdomEngine for decision quality assessment
+    - StrategicEngine for decision quality assessment
     - TwelveFoldVerificationSystem for multi-dimensional validation
     - GeometricPatternProcessor for mathematical pattern analysis
 
@@ -872,7 +872,7 @@ class PercipenceEngine:
 
     def __init__(self, strict_mode: bool = False):
         """
-        Initialize Percipence Engine.
+        Initialize Percipience Engine.
 
         Args:
             strict_mode: If True, apply stricter verification requirements
@@ -881,7 +881,7 @@ class PercipenceEngine:
         self.logger = logging.getLogger(__name__)
 
         self.balance_engine = IndivisibleEngine(strict_mode=strict_mode)
-        self.wisdom_engine = StrategicWisdomEngine()
+        self.wisdom_engine = StrategicEngine()
         self.verification_system = TwelveFoldVerificationSystem(strict_mode=strict_mode)
         self.geometry_processor = GeometricPatternProcessor()
 
