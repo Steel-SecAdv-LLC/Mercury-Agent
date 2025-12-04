@@ -151,7 +151,7 @@ def cardiology_interface():
     if st.button("🔍 Analyze Cardiac Risk", type="primary"):
         with st.spinner("Analyzing cardiac risk..."):
 
-            from omni_anomaly_engine.medical.cardiology_predictor import CardiologyPredictor
+            from omni_anomaly_engine.medical.cardiology.cardiology_predictor import CardiologyPredictor
 
             predictor = CardiologyPredictor(enable_ecg=bool(ecg_file), enable_biomarkers=True)
 
@@ -238,7 +238,7 @@ def sepsis_interface():
     if st.button("🔍 Detect Sepsis", type="primary"):
         with st.spinner("Analyzing for sepsis..."):
 
-            from omni_anomaly_engine.medical.sepsis_detector import SepsisDetector
+            from omni_anomaly_engine.medical.critical_care.sepsis_detector import SepsisDetector
 
             detector = SepsisDetector()
 

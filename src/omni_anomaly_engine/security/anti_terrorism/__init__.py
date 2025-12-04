@@ -17,17 +17,17 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Bio-Threat Detection Module (Medical Interdiction)
+Anti-Terrorism Pattern Recognition Module
 
-Detects biological threats using QBM-based pathogen energy modeling
-and multi-INT fusion (MASINT bio-signatures, OSINT disease outbreaks).
+Detects radicalization patterns using QBM and OSINT anomalies.
+Integrates with existing threat knowledge base.
 
-Part of Medical Interdiction and Intervention framework.
-Part of Overwatch Nexus and Response system.
+Part of OMNI ♱ AVA Security module.
 """
 
-from omni_anomaly_engine.security.overwatch_nexus.bio_threats.pathogen_detector import (
-    PathogenDetector,
+from omni_anomaly_engine.security.anti_terrorism.pattern_recognition import (
+    TerrorismPatternDetector,
+    TerrorismThreatResult,
 )
 
-__all__ = ["PathogenDetector"]
+__all__ = ["TerrorismPatternDetector", "TerrorismThreatResult"]

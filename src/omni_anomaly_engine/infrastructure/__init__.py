@@ -37,6 +37,7 @@ from .cyber.space_infrastructure import SpaceInfrastructureMonitor
 from .economic.world_bank_sectors import WorldBankSectorsMonitor
 from .energy_dams import DamType, EnergyDamsDetector, EnergySubsector
 from .healthcare_emergency import EmergencyType, HealthcareEmergencyDetector, PatientStatus
+from .humanitarian.crisis_monitoring import CrisisAlert, CrisisMonitor
 from .humanitarian.essential_workers import EssentialWorkersMonitor
 from .humanitarian.government_facilities import GovernmentFacilitiesMonitor
 from .resilience.ncf_monitor import NCFMonitor
@@ -266,6 +267,8 @@ __all__ = [
     "CISASector",
     "ChemicalNuclearDetector",
     "CommunicationsITDetector",
+    "CrisisAlert",
+    "CrisisMonitor",
     "CrossBorderIntelligence",
     "DamType",
     "EmergencyType",

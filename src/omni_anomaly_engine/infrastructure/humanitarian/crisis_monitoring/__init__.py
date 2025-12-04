@@ -16,6 +16,18 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
-"""Intel Types Wrappers for Overwatch Nexus and Response Module"""
+"""
+Crisis Monitoring Module for Humanitarian CI
 
-__all__ = []
+Integrates GEOINT (Geospatial Intelligence) for natural disaster,
+humanitarian crisis, and essential worker protection monitoring.
+
+Part of OMNI ♱ AVA Infrastructure module.
+"""
+
+from omni_anomaly_engine.infrastructure.humanitarian.crisis_monitoring.crisis_monitor import (
+    CrisisAlert,
+    CrisisMonitor,
+)
+
+__all__ = ["CrisisMonitor", "CrisisAlert"]

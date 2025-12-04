@@ -20,7 +20,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 import numpy as np
 
-from omni_anomaly_engine.cyber.cyber_fortress import (
+from omni_anomaly_engine.security.cyber_fortress import (
     CyberFortress,
     FortressResult,
     MultiverseZeroDaySimulator,

@@ -17,17 +17,30 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Pandemic Forecasting Module (Medical Interdiction)
+Cardiology Module
 
-Real-time epidemiological modeling with chaos detection for
-multi-stage progression analysis.
+Advanced cardiac anomaly detection for humanitarian healthcare:
+- ECG rhythm analysis
+- Arrhythmia classification
+- Cardiac risk prediction
 
-Part of Medical Interdiction and Intervention framework.
-Part of Overwatch Nexus and Response system.
+Part of OMNI ♱ AVA Medical framework.
 """
 
-from omni_anomaly_engine.security.overwatch_nexus.pandemic_forecasting.epidemic_model import (
-    EpidemicForecaster,
+from omni_anomaly_engine.medical.cardiology.cardiology_predictor import (
+    ArrhythmiaType,
+    CardiacBiomarkerAnalyzer,
+    CardiologyPredictor,
+    CardiologyPredictionResult,
+    ECGRhythmAnalyzer,
+    FraminghamRiskCalculator,
 )
 
-__all__ = ["EpidemicForecaster"]
+__all__ = [
+    "CardiologyPredictor",
+    "CardiologyPredictionResult",
+    "ArrhythmiaType",
+    "ECGRhythmAnalyzer",
+    "CardiacBiomarkerAnalyzer",
+    "FraminghamRiskCalculator",
+]
