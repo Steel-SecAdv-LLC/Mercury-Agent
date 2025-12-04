@@ -82,9 +82,7 @@ class BaseFoundationModel(BaseModel):
         else:
             self.foundation_config = config
 
-        super().__init__(
-            config if isinstance(config, dict) else vars(self.foundation_config)
-        )
+        super().__init__(config if isinstance(config, dict) else vars(self.foundation_config))
 
         self.device = torch.device(self.foundation_config.device)
         self._model: Any = None
@@ -215,29 +213,35 @@ class BaseFoundationModel(BaseModel):
         features = []
 
         # Series statistics
-        features.extend([
-            np.mean(series),
-            np.std(series),
-            np.min(series),
-            np.max(series),
-            np.median(series),
-        ])
+        features.extend(
+            [
+                np.mean(series),
+                np.std(series),
+                np.min(series),
+                np.max(series),
+                np.median(series),
+            ]
+        )
 
         # Score statistics
-        features.extend([
-            np.mean(scores),
-            np.std(scores),
-            np.max(scores),
-            np.sum(results.get("is_anomaly", np.zeros_like(series))) / len(series),
-        ])
+        features.extend(
+            [
+                np.mean(scores),
+                np.std(scores),
+                np.max(scores),
+                np.sum(results.get("is_anomaly", np.zeros_like(series))) / len(series),
+            ]
+        )
 
         # Trend features
         if len(series) > 1:
             diff = np.diff(series)
-            features.extend([
-                np.mean(diff),
-                np.std(diff),
-            ])
+            features.extend(
+                [
+                    np.mean(diff),
+                    np.std(diff),
+                ]
+            )
         else:
             features.extend([0.0, 0.0])
 

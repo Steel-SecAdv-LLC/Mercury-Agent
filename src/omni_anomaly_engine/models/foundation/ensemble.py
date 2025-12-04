@@ -181,8 +181,14 @@ class FoundationEnsemble(BaseFoundationModel):
                 all_uppers.append(result.get("upper", forecast * 1.1))
 
                 # Get weight for this model
-                idx = self.ensemble_config.models.index(name) if name in self.ensemble_config.models else 0
-                valid_weights.append(self._weights[idx] if idx < len(self._weights) else 1.0 / len(self._models))
+                idx = (
+                    self.ensemble_config.models.index(name)
+                    if name in self.ensemble_config.models
+                    else 0
+                )
+                valid_weights.append(
+                    self._weights[idx] if idx < len(self._weights) else 1.0 / len(self._models)
+                )
 
             except Exception as e:
                 logger.warning(f"Forecast from {name} failed: {e}")
@@ -246,8 +252,14 @@ class FoundationEnsemble(BaseFoundationModel):
                 all_scores.append(scores)
                 all_anomalies.append(is_anomaly.astype(float))
 
-                idx = self.ensemble_config.models.index(name) if name in self.ensemble_config.models else 0
-                valid_weights.append(self._weights[idx] if idx < len(self._weights) else 1.0 / len(self._models))
+                idx = (
+                    self.ensemble_config.models.index(name)
+                    if name in self.ensemble_config.models
+                    else 0
+                )
+                valid_weights.append(
+                    self._weights[idx] if idx < len(self._weights) else 1.0 / len(self._models)
+                )
 
             except Exception as e:
                 logger.warning(f"Detection from {name} failed: {e}")
@@ -281,7 +293,9 @@ class FoundationEnsemble(BaseFoundationModel):
             "scores": scores,
             "is_anomaly": is_anomaly,
             "threshold": self.foundation_config.anomaly_threshold,
-            "model_results": {name: model.detect_anomalies(series) for name, model in self._models.items()},
+            "model_results": {
+                name: model.detect_anomalies(series) for name, model in self._models.items()
+            },
         }
 
     def _aggregate(

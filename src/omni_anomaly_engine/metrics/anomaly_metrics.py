@@ -297,7 +297,7 @@ def compute_pro(
             labeled, num_features = connected_components(mask)
 
             for region_id in range(1, num_features + 1):
-                region_mask = (labeled == region_id)
+                region_mask = labeled == region_id
                 region_pred = pred * region_mask
 
                 # Overlap = intersection / region size

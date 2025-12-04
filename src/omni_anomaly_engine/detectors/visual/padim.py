@@ -109,9 +109,7 @@ class PaDiMDetector(BaseVisualDetector):
         # Spatial info
         self._spatial_shape: tuple[int, int] | None = None
 
-    def _get_random_projection(
-        self, input_dim: int, output_dim: int
-    ) -> torch.Tensor:
+    def _get_random_projection(self, input_dim: int, output_dim: int) -> torch.Tensor:
         """Generate random projection matrix for dimensionality reduction.
 
         Uses random Gaussian projection following Johnson-Lindenstrauss lemma.
@@ -214,12 +212,9 @@ class PaDiMDetector(BaseVisualDetector):
             ).to(self.device)
 
             # Apply projection
-            all_features_tensor = torch.matmul(
-                all_features_tensor, self.projection
-            )
+            all_features_tensor = torch.matmul(all_features_tensor, self.projection)
             logger.info(
-                f"Applied random projection: {feature_dim} -> "
-                f"{self.padim_config.d_reduced}"
+                f"Applied random projection: {feature_dim} -> " f"{self.padim_config.d_reduced}"
             )
 
         d = all_features_tensor.shape[2]
@@ -396,9 +391,7 @@ class PaDiMDetector(BaseVisualDetector):
         # Project to 128D
         if features.shape[1] != 128:
             if not hasattr(self, "_fusion_projection"):
-                self._fusion_projection = nn.Linear(
-                    features.shape[1], 128
-                ).to(features.device)
+                self._fusion_projection = nn.Linear(features.shape[1], 128).to(features.device)
             features = self._fusion_projection(features)
 
         features = nn.functional.normalize(features, p=2, dim=1)

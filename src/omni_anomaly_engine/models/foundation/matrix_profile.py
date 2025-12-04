@@ -123,9 +123,7 @@ class MatrixProfileDetector(BaseFoundationModel):
                     logger.info("STUMPY GPU not available, using CPU")
 
         except ImportError:
-            logger.warning(
-                "STUMPY not installed. Install with: pip install stumpy"
-            )
+            logger.warning("STUMPY not installed. Install with: pip install stumpy")
             self._stumpy_available = False
 
     def compute_matrix_profile(
@@ -208,10 +206,12 @@ class MatrixProfileDetector(BaseFoundationModel):
             if np.isinf(score):
                 break
 
-            discords.append({
-                "index": int(idx),
-                "score": float(score),
-            })
+            discords.append(
+                {
+                    "index": int(idx),
+                    "score": float(score),
+                }
+            )
 
             # Apply exclusion zone
             start = max(0, idx - exclusion_zone)
@@ -261,11 +261,13 @@ class MatrixProfileDetector(BaseFoundationModel):
                 if np.isinf(mp_copy[idx]):
                     break
 
-                motifs.append({
-                    "index1": int(idx),
-                    "index2": int(partner_idx),
-                    "distance": float(mp_copy[idx]),
-                })
+                motifs.append(
+                    {
+                        "index1": int(idx),
+                        "index2": int(partner_idx),
+                        "distance": float(mp_copy[idx]),
+                    }
+                )
 
                 # Exclude both motif locations
                 for loc in [idx, partner_idx]:

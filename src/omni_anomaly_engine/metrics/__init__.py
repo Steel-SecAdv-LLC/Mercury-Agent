@@ -30,8 +30,8 @@ All metrics are compatible with both numpy and torch tensors.
 
 from omni_anomaly_engine.metrics.anomaly_metrics import (
     AnomalyMetrics,
-    compute_auroc,
     compute_auprc,
+    compute_auroc,
     compute_f1_max,
     compute_optimal_threshold,
     compute_pixel_auroc,

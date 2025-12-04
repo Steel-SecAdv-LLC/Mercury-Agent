@@ -305,9 +305,7 @@ class TemporalContextProvider(BaseContextProvider):
         events = self._detect_events(motion_magnitude)
 
         # Build description
-        description = self._build_temporal_description(
-            motion_pattern, events, t
-        )
+        description = self._build_temporal_description(motion_pattern, events, t)
 
         return ContextInfo(
             context_type="temporal",
@@ -365,22 +363,26 @@ class TemporalContextProvider(BaseContextProvider):
         for i in range(1, len(motion) - 1):
             if motion[i] > threshold:
                 if motion[i] > motion[i - 1] and motion[i] > motion[i + 1]:
-                    events.append({
-                        "frame": i,
-                        "magnitude": float(motion[i]),
-                        "type": "sudden_motion",
-                    })
+                    events.append(
+                        {
+                            "frame": i,
+                            "magnitude": float(motion[i]),
+                            "type": "sudden_motion",
+                        }
+                    )
 
         # Detect start/stop of motion
         for i in range(len(motion) - 1):
             diff = motion[i + 1] - motion[i]
             if abs(diff) > threshold:
                 event_type = "motion_start" if diff > 0 else "motion_stop"
-                events.append({
-                    "frame": i,
-                    "magnitude": float(abs(diff)),
-                    "type": event_type,
-                })
+                events.append(
+                    {
+                        "frame": i,
+                        "magnitude": float(abs(diff)),
+                        "type": event_type,
+                    }
+                )
 
         return events[:5]  # Limit to top 5 events
 
@@ -467,13 +469,9 @@ class CombinedContextProvider:
         parts = []
 
         if "position" in contexts:
-            parts.append(
-                self.position_provider.format_context_prompt(contexts["position"])
-            )
+            parts.append(self.position_provider.format_context_prompt(contexts["position"]))
 
         if "temporal" in contexts:
-            parts.append(
-                self.temporal_provider.format_context_prompt(contexts["temporal"])
-            )
+            parts.append(self.temporal_provider.format_context_prompt(contexts["temporal"]))
 
         return "\n".join(parts)

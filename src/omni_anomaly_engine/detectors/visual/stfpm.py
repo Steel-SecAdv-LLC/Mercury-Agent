@@ -276,7 +276,9 @@ class STFPMDetector(BaseVisualDetector):
 
             if (epoch + 1) % 10 == 0:
                 avg_loss = epoch_loss / max(n_batches, 1)
-                logger.info(f"Epoch {epoch + 1}/{self.stfpm_config.num_epochs}, Loss: {avg_loss:.6f}")
+                logger.info(
+                    f"Epoch {epoch + 1}/{self.stfpm_config.num_epochs}, Loss: {avg_loss:.6f}"
+                )
 
         self.student.eval()
         self._is_fitted = True
@@ -449,9 +451,7 @@ class STFPMDetector(BaseVisualDetector):
         # Project to 128D
         if features.shape[1] != 128:
             if not hasattr(self, "_fusion_projection"):
-                self._fusion_projection = nn.Linear(
-                    features.shape[1], 128
-                ).to(features.device)
+                self._fusion_projection = nn.Linear(features.shape[1], 128).to(features.device)
             features = self._fusion_projection(features)
 
         features = nn.functional.normalize(features, p=2, dim=1)

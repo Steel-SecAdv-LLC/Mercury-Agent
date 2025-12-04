@@ -110,22 +110,18 @@ class TimeGPTAdapter(BaseFoundationModel):
             if api_key is None:
                 # Try environment variable
                 import os
+
                 api_key = os.environ.get("NIXTLA_API_KEY")
 
             if api_key is None:
-                logger.warning(
-                    "No Nixtla API key provided. TimeGPT will use mock mode."
-                )
+                logger.warning("No Nixtla API key provided. TimeGPT will use mock mode.")
                 self._client = None
             else:
                 self._client = NixtlaClient(api_key=api_key)
                 logger.info("TimeGPT client initialized successfully")
 
         except ImportError:
-            logger.warning(
-                "nixtla package not installed. "
-                "Install with: pip install nixtla"
-            )
+            logger.warning("nixtla package not installed. " "Install with: pip install nixtla")
             self._client = None
 
     def _to_dataframe(
@@ -161,10 +157,12 @@ class TimeGPTAdapter(BaseFoundationModel):
             freq=freq,
         )
 
-        return pd.DataFrame({
-            "ds": timestamps,
-            "y": series,
-        })
+        return pd.DataFrame(
+            {
+                "ds": timestamps,
+                "y": series,
+            }
+        )
 
     def forecast(
         self,
@@ -272,10 +270,7 @@ class TimeGPTAdapter(BaseFoundationModel):
 
                     # Extract anomaly column
                     is_anomaly = result["anomaly"].values.astype(bool)
-                    scores = result.get(
-                        "anomaly_score",
-                        is_anomaly.astype(float)
-                    )
+                    scores = result.get("anomaly_score", is_anomaly.astype(float))
 
                     if hasattr(scores, "values"):
                         scores = scores.values
@@ -336,7 +331,7 @@ class TimeGPTAdapter(BaseFoundationModel):
 
         for i in range(len(series)):
             start = max(0, i - window)
-            window_data = series[start:i + 1]
+            window_data = series[start : i + 1]
 
             if len(window_data) < 2:
                 scores[i] = 0.0

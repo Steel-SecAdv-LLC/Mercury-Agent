@@ -148,9 +148,8 @@ class Qwen2VLBackend(LVLMBackend):
         messages = [
             {
                 "role": "user",
-                "content": [
-                    {"type": "image", "image": img} for img in pil_images
-                ] + [{"type": "text", "text": prompt}],
+                "content": [{"type": "image", "image": img} for img in pil_images]
+                + [{"type": "text", "text": prompt}],
             }
         ]
 
@@ -176,7 +175,7 @@ class Qwen2VLBackend(LVLMBackend):
 
         # Decode
         response = self.processor.batch_decode(
-            outputs[:, inputs["input_ids"].shape[1]:],
+            outputs[:, inputs["input_ids"].shape[1] :],
             skip_special_tokens=True,
         )[0]
 
@@ -208,8 +207,7 @@ class MiniCPMVBackend(LVLMBackend):
 
         except ImportError:
             raise ImportError(
-                "transformers required for MiniCPM-V. "
-                "Install with: pip install transformers"
+                "transformers required for MiniCPM-V. " "Install with: pip install transformers"
             )
 
     def generate(
@@ -259,8 +257,7 @@ class LLaVABackend(LVLMBackend):
 
         except ImportError:
             raise ImportError(
-                "transformers required for LLaVA. "
-                "Install with: pip install transformers"
+                "transformers required for LLaVA. " "Install with: pip install transformers"
             )
 
     def generate(
@@ -277,15 +274,12 @@ class LLaVABackend(LVLMBackend):
         conversation = [
             {
                 "role": "user",
-                "content": [
-                    {"type": "image"} for _ in pil_images
-                ] + [{"type": "text", "text": prompt}],
+                "content": [{"type": "image"} for _ in pil_images]
+                + [{"type": "text", "text": prompt}],
             }
         ]
 
-        text = self.processor.apply_chat_template(
-            conversation, add_generation_prompt=True
-        )
+        text = self.processor.apply_chat_template(conversation, add_generation_prompt=True)
         inputs = self.processor(
             text=text,
             images=pil_images,
@@ -301,7 +295,7 @@ class LLaVABackend(LVLMBackend):
             )
 
         response = self.processor.decode(
-            outputs[0][inputs["input_ids"].shape[1]:],
+            outputs[0][inputs["input_ids"].shape[1] :],
             skip_special_tokens=True,
         )
 

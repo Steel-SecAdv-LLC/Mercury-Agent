@@ -212,13 +212,10 @@ class ChronosAdapter(BaseFoundationModel):
             scores = np.zeros(seq_len)
 
             # Use rolling window prediction
-            context_len = min(
-                self.foundation_config.context_length,
-                seq_len // 2
-            )
+            context_len = min(self.foundation_config.context_length, seq_len // 2)
 
             for t in range(context_len, seq_len):
-                context = torch.from_numpy(s[t - context_len:t]).float().unsqueeze(0)
+                context = torch.from_numpy(s[t - context_len : t]).float().unsqueeze(0)
 
                 try:
                     if self._pipeline is not None:
@@ -237,8 +234,8 @@ class ChronosAdapter(BaseFoundationModel):
                         scores[t] = abs(s[t] - median) / iqr
                     else:
                         # Mock: use z-score
-                        mean = np.mean(s[t - context_len:t])
-                        std = max(np.std(s[t - context_len:t]), 1e-6)
+                        mean = np.mean(s[t - context_len : t])
+                        std = max(np.std(s[t - context_len : t]), 1e-6)
                         scores[t] = abs(s[t] - mean) / std
 
                 except Exception as e:
@@ -251,8 +248,7 @@ class ChronosAdapter(BaseFoundationModel):
 
             # Threshold
             threshold = np.percentile(
-                scores[context_len:],
-                self.foundation_config.anomaly_threshold * 100
+                scores[context_len:], self.foundation_config.anomaly_threshold * 100
             )
             is_anomaly = scores > threshold
 

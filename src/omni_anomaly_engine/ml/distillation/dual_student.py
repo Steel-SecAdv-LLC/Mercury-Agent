@@ -263,19 +263,17 @@ class DualStudentDistillation(nn.Module):
         self._feature_dim = total_channels
 
         # Initialize students
-        self.student1 = EncoderDecoderStudent(
-            total_channels, self.config.hidden_dim
-        ).to(self.device)
+        self.student1 = EncoderDecoderStudent(total_channels, self.config.hidden_dim).to(
+            self.device
+        )
 
-        self.student2 = EncoderEncoderStudent(
-            total_channels, self.config.hidden_dim
-        ).to(self.device)
+        self.student2 = EncoderEncoderStudent(total_channels, self.config.hidden_dim).to(
+            self.device
+        )
 
         logger.info(f"Initialized dual-student networks (feature_dim={total_channels})")
 
-    def _aggregate_features(
-        self, features: dict[str, torch.Tensor]
-    ) -> torch.Tensor:
+    def _aggregate_features(self, features: dict[str, torch.Tensor]) -> torch.Tensor:
         """Aggregate multi-scale teacher features.
 
         Args:
@@ -347,9 +345,7 @@ class DualStudentDistillation(nn.Module):
         # Setup optimizer
         params = list(self.student1.parameters()) + list(self.student2.parameters())
         optimizer = optim.Adam(params, lr=self.config.learning_rate)
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=self.config.num_epochs
-        )
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.config.num_epochs)
 
         # Data loader
         dataset = torch.utils.data.TensorDataset(data)
