@@ -430,13 +430,8 @@ class RealWorldBenchmarkSuite:
                 total_neg = np.sum(labels == 0)
 
                 for i in range(len(sorted_labels) + 1):
-                    pred_pos = i
-                    pred_neg = len(sorted_labels) - i
-
                     tp_i = np.sum(sorted_labels[:i] == 1)
                     fp_i = np.sum(sorted_labels[:i] == 0)
-                    fn_i = total_pos - tp_i
-                    tn_i = total_neg - fp_i
 
                     tpr = tp_i / (total_pos + 1e-10)
                     fpr = fp_i / (total_neg + 1e-10)
@@ -449,11 +444,11 @@ class RealWorldBenchmarkSuite:
                     recall_list.append(rec_i)
 
                 # AUC-ROC (trapezoidal)
-                auc_roc = np.trapz(tpr_list, fpr_list)
+                auc_roc = np.trapezoid(tpr_list, fpr_list)
                 metrics["auc_roc"] = float(abs(auc_roc))
 
                 # AUC-PR
-                auc_pr = np.trapz(precision_list, recall_list)
+                auc_pr = np.trapezoid(precision_list, recall_list)
                 metrics["auc_pr"] = float(abs(auc_pr))
 
             except Exception as e:
@@ -520,19 +515,22 @@ class RealWorldBenchmarkSuite:
         overall_precision = np.mean([r.precision for r in results])
         overall_recall = np.mean([r.recall for r in results])
         lines.append(
-            f"OVERALL: Precision={overall_precision:.4f}, Recall={overall_recall:.4f}, F1={overall_f1:.4f}"
+            f"OVERALL: Precision={overall_precision:.4f}, "
+            f"Recall={overall_recall:.4f}, F1={overall_f1:.4f}"
         )
 
         # Comparison summary
         if comparison:
             lines.append(
-                f"\nVs {comparison.baseline_name}: +{comparison.overall_improvement:.4f} F1 improvement"
+                f"\nVs {comparison.baseline_name}: "
+                f"+{comparison.overall_improvement:.4f} F1 improvement"
             )
             sig_count = sum(
                 1 for t in comparison.statistical_tests.values() if t.get("significant")
             )
+            n_tests = len(comparison.statistical_tests)
             lines.append(
-                f"Statistically significant improvements: {sig_count}/{len(comparison.statistical_tests)}"
+                f"Statistically significant improvements: {sig_count}/{n_tests}"
             )
 
         lines.append("=" * 80)

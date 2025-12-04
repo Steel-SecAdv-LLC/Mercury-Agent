@@ -19,10 +19,11 @@ from typing import Any
 import numpy as np
 
 try:
-    import pandas as pd
+    import pandas as pd  # noqa: F401
 
     PANDAS_AVAILABLE = True
 except ImportError:
+    pd = None  # noqa: F841
     PANDAS_AVAILABLE = False
 
 try:
