@@ -248,7 +248,9 @@ class SymbolicReasoningLayer:
         # Calculate symbolic confidence - optionally weighted by rule confidences
         if self.use_confidence_weights and self.rules:
             # Confidence-weighted scoring: sum of fired rule confidences / total possible
-            eligible_rules = [r for r in self.rules if r.confidence >= self.explainability_threshold]
+            eligible_rules = [
+                r for r in self.rules if r.confidence >= self.explainability_threshold
+            ]
             total_weight = sum(r.confidence for r in eligible_rules) if eligible_rules else 1.0
             fired_weight = sum(r.confidence for r in rules_fired) if rules_fired else 0.0
             symbolic_confidence = fired_weight / total_weight if total_weight > 0 else 0.0
@@ -825,43 +827,58 @@ class NeurosymbolicEngine:
         if self.ethical_alignment_engine is None:
             # Return basic ethical verification using symbolic rules
             ethical_facts = {
-                fact for fact in self.facts if "ethical" in fact.lower() or "consent" in fact.lower()
+                fact
+                for fact in self.facts
+                if "ethical" in fact.lower() or "consent" in fact.lower()
             }
             return {
                 "ethical_alignment_enabled": False,
                 "basic_verification": True,
                 "ethical_facts_count": len(ethical_facts),
                 "ethical_rules_count": len(
-                    [r for r in self.knowledge_base if "consent" in r.premise.lower() or "privacy" in r.premise.lower()]
+                    [
+                        r
+                        for r in self.knowledge_base
+                        if "consent" in r.premise.lower() or "privacy" in r.premise.lower()
+                    ]
                 ),
                 "omni_scalars": self.omni_scalars,
             }
 
         # Use PercipienceEngine for comprehensive ethical verification
-        ethical_scores = context.get("ethical_scores", {
-            "compassion": 0.8,
-            "evidence": 0.85,
-            "justice": 0.9,
-            "altruism": 0.75,
-            "control": 0.8,
-            "character": 0.85,
-            "competence": 0.9,
-            "commitment": 0.85,
-        })
+        ethical_scores = context.get(
+            "ethical_scores",
+            {
+                "compassion": 0.8,
+                "evidence": 0.85,
+                "justice": 0.9,
+                "altruism": 0.75,
+                "control": 0.8,
+                "character": 0.85,
+                "competence": 0.9,
+                "commitment": 0.85,
+            },
+        )
 
-        performance_metrics = context.get("performance_metrics", {
-            "security": 0.9,
-            "recovery": 0.85,
-            "decision_accuracy": 0.88,
-            "planning": 0.8,
-            "organization": 0.85,
-        })
+        performance_metrics = context.get(
+            "performance_metrics",
+            {
+                "security": 0.9,
+                "recovery": 0.85,
+                "decision_accuracy": 0.88,
+                "planning": 0.8,
+                "organization": 0.85,
+            },
+        )
 
-        knowledge_indicators = context.get("knowledge_indicators", {
-            "wisdom": 0.85,
-            "expertise": 0.9,
-            "learning_rate": 0.8,
-        })
+        knowledge_indicators = context.get(
+            "knowledge_indicators",
+            {
+                "wisdom": 0.85,
+                "expertise": 0.9,
+                "learning_rate": 0.8,
+            },
+        )
 
         try:
             result = self.ethical_alignment_engine.comprehensive_analysis(
@@ -972,6 +989,4 @@ def create_neurosymbolic_engine(
 
         return EnhancedNeurosymbolicEngine(**enhanced_kwargs)
     else:
-        raise ValueError(
-            f"Unknown engine_type: {engine_type}. Must be 'standard' or 'enhanced'."
-        )
+        raise ValueError(f"Unknown engine_type: {engine_type}. Must be 'standard' or 'enhanced'.")
