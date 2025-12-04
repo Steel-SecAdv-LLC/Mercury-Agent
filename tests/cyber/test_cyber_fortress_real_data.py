@@ -25,7 +25,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
-from omni_anomaly_engine.cyber.cyber_fortress import (
+from omni_anomaly_engine.security.cyber_fortress import (
     CyberFortress,
     ResonanceHashIntegrityChecker,
 )

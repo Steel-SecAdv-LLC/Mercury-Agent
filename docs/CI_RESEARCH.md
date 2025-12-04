@@ -464,18 +464,20 @@ This document summarizes findings from reliable .gov and .edu sources on counter
 
 ## 10. Implementation Notes for Overwatch Nexus
 
-### Code Structure
+### Code Structure (Reorganized by Domain)
 
-**Core Module:**
-- `omni_anomaly_engine/security/overwatch_nexus/core.py`
-- OverwatchNexus class with proactive_ci() method
-- σ_Sacred Purity Invariant enforcement
-
-**Sub-Modules:**
-- `bio_threats/pathogen_detector.py` - QBM-based bio-threat detection
-- `pandemic_forecasting/epidemic_model.py` - SEIR with chaos Λ
-- `humanitarian_ci/crisis_monitor.py` - GEOINT fusion for crisis prevention
+**Security Module** (`omni_anomaly_engine/security/`):
+- `counterintelligence.py` - OverwatchNexus class with proactive_ci() method, σ_Sacred Purity Invariant enforcement
 - `anti_terrorism/pattern_recognition.py` - Radicalization pattern detection
+- `cyber_fortress.py` - Unified cyber defense capabilities
+- `quantum_risk_cyber.py` - Quantum threat assessment
+
+**Medical Module** (`omni_anomaly_engine/medical/pandemic/`):
+- `bio_threats/pathogen_detector.py` - QBM-based bio-threat detection
+- `forecasting/epidemic_model.py` - SEIR with chaos Λ
+
+**Infrastructure Module** (`omni_anomaly_engine/infrastructure/humanitarian/`):
+- `crisis_monitoring/crisis_monitor.py` - GEOINT fusion for crisis prevention
 
 **Ethical Scalars:**
 - `omni_ci_ethical_threshold`: 0.85 (non-discriminatory gate)

@@ -17,12 +17,17 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Anti-Terrorism Pattern Recognition Module
-Part of Overwatch Nexus and Response system.
+Pandemic Forecasting Module (Medical Interdiction)
+
+Real-time epidemiological modeling with chaos detection for
+multi-stage progression analysis using SEIR models.
+
+Part of Medical Interdiction and Intervention framework.
 """
 
-from omni_anomaly_engine.security.overwatch_nexus.anti_terrorism.pattern_recognition import (
-    TerrorismPatternDetector,
+from omni_anomaly_engine.medical.pandemic.forecasting.epidemic_model import (
+    EpidemicForecaster,
+    PandemicForecast,
 )
 
-__all__ = ["TerrorismPatternDetector"]
+__all__ = ["EpidemicForecaster", "PandemicForecast"]

@@ -73,6 +73,7 @@ class SeizureType(Enum):
 class NeurocriticalPredictionResult:
     """Neurocritical care prediction results"""
 
+    # Required fields (no defaults) - must come first
     neurological_emergency_detected: bool
     confidence: float
     emergency_type: str
@@ -80,10 +81,12 @@ class NeurocriticalPredictionResult:
 
     stroke_detected: bool
     stroke_type: str
-    nihss_score: int | None = None
 
     seizure_detected: bool
     seizure_type: str
+
+    # Optional fields (with defaults) - must come after required fields
+    nihss_score: int | None = None
     seizure_risk_score: float = 0.0
 
     icp_elevated: bool = False

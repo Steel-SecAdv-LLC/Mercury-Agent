@@ -16,8 +16,18 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
-"""Cybersecurity and quantum risk modules."""
+"""
+Bio-Threat Detection Module (Medical Interdiction)
 
-from omni_anomaly_engine.cyber.quantum_risk_cyber import QuantumRiskCyber
+Detects biological threats using QBM-based pathogen energy modeling
+and multi-INT fusion (MASINT bio-signatures, OSINT disease outbreaks).
 
-__all__ = ["QuantumRiskCyber"]
+Part of Medical Interdiction and Intervention framework.
+"""
+
+from omni_anomaly_engine.medical.pandemic.bio_threats.pathogen_detector import (
+    BioThreatResult,
+    PathogenDetector,
+)
+
+__all__ = ["PathogenDetector", "BioThreatResult"]

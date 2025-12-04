@@ -27,7 +27,7 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
-from omni_anomaly_engine.cyber.cyber_fortress import ResonanceHashIntegrityChecker
+from omni_anomaly_engine.security.cyber_fortress import ResonanceHashIntegrityChecker
 from assets.loaders import generate_pcap_data
 
 

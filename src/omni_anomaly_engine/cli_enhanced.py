@@ -306,7 +306,7 @@ def _run_medical_subspecialty(subspecialty: str, patient_data: dict[str, Any]) -
     """Run medical subspecialty analysis"""
 
     if subspecialty == "cardiology":
-        from omni_anomaly_engine.medical.cardiology_predictor import CardiologyPredictor
+        from omni_anomaly_engine.medical.cardiology.cardiology_predictor import CardiologyPredictor
 
         predictor = CardiologyPredictor()
         result = predictor.predict_cardiac_risk(patient_data)
@@ -319,7 +319,9 @@ def _run_medical_subspecialty(subspecialty: str, patient_data: dict[str, Any]) -
         }
 
     elif subspecialty == "neurocritical":
-        from omni_anomaly_engine.medical.neurocritical_care import NeurocriticalCarePredictor
+        from omni_anomaly_engine.medical.critical_care.neurocritical_care import (
+            NeurocriticalCarePredictor,
+        )
 
         predictor = NeurocriticalCarePredictor()
         result = predictor.predict_neurocritical_emergency(patient_data)
@@ -332,7 +334,7 @@ def _run_medical_subspecialty(subspecialty: str, patient_data: dict[str, Any]) -
         }
 
     elif subspecialty == "sepsis":
-        from omni_anomaly_engine.medical.sepsis_detector import SepsisDetector
+        from omni_anomaly_engine.medical.critical_care.sepsis_detector import SepsisDetector
 
         detector = SepsisDetector()
         result = detector.detect_sepsis(patient_data)
