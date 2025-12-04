@@ -22,9 +22,10 @@ Tests for Benchmark Dataset Loaders.
 Tests MVTec AD, UCF-Crime, and Shanghai Tech Campus dataset loaders.
 """
 
-import pytest
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+import pytest
 
 try:
     import torch
@@ -203,11 +204,11 @@ class TestBenchmarkModuleImports:
     def test_module_imports(self):
         """Test all benchmark datasets can be imported."""
         from omni_anomaly_engine.data.benchmarks import (
-            MVTecADDataset,
-            UCFCrimeDataset,
-            ShanghaiTechDataset,
             BaseImageDataset,
             BaseVideoDataset,
+            MVTecADDataset,
+            ShanghaiTechDataset,
+            UCFCrimeDataset,
         )
 
         assert MVTecADDataset is not None

@@ -37,19 +37,19 @@ from omni_anomaly_engine.detectors.temporal import TemporalAnomalyDetector
 
 # SOTA Visual Anomaly Detection
 from omni_anomaly_engine.detectors.visual import (
-    PatchCoreDetector,
-    PaDiMDetector,
-    STFPMDetector,
-    ReverseDistillationDetector,
-    CFlowDetector,
     BaseVisualDetector,
+    CFlowDetector,
+    PaDiMDetector,
+    PatchCoreDetector,
+    ReverseDistillationDetector,
+    STFPMDetector,
 )
 
 # Vision-Language Model Detectors
 from omni_anomaly_engine.detectors.vlm import (
     AnyAnomalyDetector,
-    LAVADDetector,
     BaseVLMDetector,
+    LAVADDetector,
 )
 
 __all__ = [

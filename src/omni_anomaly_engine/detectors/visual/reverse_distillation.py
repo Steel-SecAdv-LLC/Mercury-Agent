@@ -125,9 +125,7 @@ class MultiScaleDecoder(nn.Module):
 
         self.spatial_sizes = spatial_sizes
 
-    def forward(
-        self, bottleneck: torch.Tensor
-    ) -> list[torch.Tensor]:
+    def forward(self, bottleneck: torch.Tensor) -> list[torch.Tensor]:
         """Decode bottleneck to multi-scale features.
 
         Args:
@@ -209,9 +207,9 @@ class ReverseDistillationDetector(BaseVisualDetector):
         total_channels = sum(self._layer_channels.values())
 
         # Initialize bottleneck
-        self.bottleneck = OCEBottleneck(
-            total_channels, self.rd_config.bottleneck_dim
-        ).to(self.device)
+        self.bottleneck = OCEBottleneck(total_channels, self.rd_config.bottleneck_dim).to(
+            self.device
+        )
 
         # Initialize decoder
         output_channels = [self._layer_channels[l] for l in self.rd_config.layers]
@@ -228,9 +226,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
             f"layers={list(self._layer_channels.keys())}"
         )
 
-    def _aggregate_student_features(
-        self, features: dict[str, torch.Tensor]
-    ) -> torch.Tensor:
+    def _aggregate_student_features(self, features: dict[str, torch.Tensor]) -> torch.Tensor:
         """Aggregate multi-scale student features for bottleneck.
 
         Args:
@@ -286,9 +282,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
             weight_decay=self.rd_config.weight_decay,
         )
 
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=self.rd_config.num_epochs
-        )
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.rd_config.num_epochs)
 
         # Data loader
         dataset = torch.utils.data.TensorDataset(data)
@@ -350,9 +344,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
 
             if (epoch + 1) % 20 == 0:
                 avg_loss = epoch_loss / max(n_batches, 1)
-                logger.info(
-                    f"Epoch {epoch + 1}/{self.rd_config.num_epochs}, Loss: {avg_loss:.6f}"
-                )
+                logger.info(f"Epoch {epoch + 1}/{self.rd_config.num_epochs}, Loss: {avg_loss:.6f}")
 
         self.student_encoder.eval()
         self.bottleneck.eval()
@@ -515,9 +507,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         # Project to 128D
         if features.shape[1] != 128:
             if not hasattr(self, "_fusion_projection"):
-                self._fusion_projection = nn.Linear(
-                    features.shape[1], 128
-                ).to(features.device)
+                self._fusion_projection = nn.Linear(features.shape[1], 128).to(features.device)
             features = self._fusion_projection(features)
 
         features = nn.functional.normalize(features, p=2, dim=1)

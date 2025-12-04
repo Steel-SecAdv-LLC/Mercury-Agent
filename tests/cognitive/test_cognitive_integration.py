@@ -66,9 +66,9 @@ class TestKnowledgeGraph:
 
     def test_add_node_and_edge(self):
         from omni_anomaly_engine.cognitive.knowledge_graph import (
+            EdgeType,
             KnowledgeGraph,
             NodeType,
-            EdgeType,
         )
 
         graph = KnowledgeGraph()
@@ -83,9 +83,9 @@ class TestKnowledgeGraph:
 
     def test_spreading_activation(self):
         from omni_anomaly_engine.cognitive.knowledge_graph import (
+            EdgeType,
             KnowledgeGraph,
             NodeType,
-            EdgeType,
         )
 
         graph = KnowledgeGraph()
@@ -137,9 +137,7 @@ class TestMultiHopReasoner:
 
         reasoner = MultiHopReasoner()
 
-        observation = Proposition(
-            prop_id="obs", content="Ground is wet", truth_value=1.0
-        )
+        observation = Proposition(prop_id="obs", content="Ground is wet", truth_value=1.0)
         hypotheses = [
             Proposition(prop_id="h1", content="It rained", truth_value=0.8),
             Proposition(prop_id="h2", content="Sprinkler was on", truth_value=0.7),
@@ -161,8 +159,8 @@ class TestIPBEngine:
 
     def test_environment_definition(self):
         from omni_anomaly_engine.cognitive.ipb_engine import (
-            IPBEngine,
             EnvironmentDomain,
+            IPBEngine,
         )
 
         ipb = IPBEngine()
@@ -236,8 +234,8 @@ class TestCaseBasedReasoner:
 
     def test_add_and_retrieve_case(self):
         from omni_anomaly_engine.cognitive.case_based_reasoning import (
-            CaseBasedReasoner,
             Case,
+            CaseBasedReasoner,
             CaseOutcome,
         )
 

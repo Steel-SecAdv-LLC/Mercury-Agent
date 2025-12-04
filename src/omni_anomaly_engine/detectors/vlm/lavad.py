@@ -143,9 +143,7 @@ class LAVADDetector(BaseVLMDetector):
         Returns:
             Reasoning prompt for LLM
         """
-        caption_text = "\n".join(
-            f"Frame {i + 1}: {cap}" for i, cap in enumerate(captions)
-        )
+        caption_text = "\n".join(f"Frame {i + 1}: {cap}" for i, cap in enumerate(captions))
 
         prompt = f"""You are analyzing a sequence of surveillance video frame descriptions to detect anomalies.
 
@@ -293,9 +291,7 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
                     anomaly_frames = []
             else:
                 # Simple heuristic based on caption keywords
-                is_anomaly, confidence, explanation = self._simple_analysis(
-                    window_captions
-                )
+                is_anomaly, confidence, explanation = self._simple_analysis(window_captions)
                 anomaly_frames = list(range(window_size)) if is_anomaly else []
 
             # Update frame scores
@@ -309,11 +305,13 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
                 frame_counts[frame_idx] += 1
 
             if is_anomaly:
-                all_explanations.append({
-                    "window": (start, end),
-                    "explanation": explanation,
-                    "confidence": confidence,
-                })
+                all_explanations.append(
+                    {
+                        "window": (start, end),
+                        "explanation": explanation,
+                        "confidence": confidence,
+                    }
+                )
 
         # Average overlapping window scores
         frame_counts = np.maximum(frame_counts, 1)
@@ -352,13 +350,34 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
         """
         # Anomaly keywords
         anomaly_keywords = [
-            "fight", "violence", "attack", "hit", "punch", "kick",
-            "fall", "falling", "fell", "collapse",
-            "run", "running", "chase", "flee",
-            "weapon", "gun", "knife", "blood",
-            "fire", "smoke", "explosion",
-            "accident", "crash", "collision",
-            "suspicious", "unusual", "strange", "abnormal",
+            "fight",
+            "violence",
+            "attack",
+            "hit",
+            "punch",
+            "kick",
+            "fall",
+            "falling",
+            "fell",
+            "collapse",
+            "run",
+            "running",
+            "chase",
+            "flee",
+            "weapon",
+            "gun",
+            "knife",
+            "blood",
+            "fire",
+            "smoke",
+            "explosion",
+            "accident",
+            "crash",
+            "collision",
+            "suspicious",
+            "unusual",
+            "strange",
+            "abnormal",
         ]
 
         # Check target anomaly description
@@ -396,14 +415,16 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
         features = []
 
         # Score statistics
-        features.extend([
-            np.mean(scores),
-            np.std(scores),
-            np.max(scores),
-            np.min(scores),
-            np.percentile(scores, 75),
-            np.percentile(scores, 25),
-        ])
+        features.extend(
+            [
+                np.mean(scores),
+                np.std(scores),
+                np.max(scores),
+                np.min(scores),
+                np.percentile(scores, 75),
+                np.percentile(scores, 25),
+            ]
+        )
 
         # Caption statistics (simple)
         avg_caption_len = np.mean([len(c.split()) for c in captions])

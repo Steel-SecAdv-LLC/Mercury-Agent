@@ -22,8 +22,8 @@ Tests for Knowledge Distillation modules.
 Tests Dual-Student Knowledge Distillation for anomaly detection.
 """
 
-import pytest
 import numpy as np
+import pytest
 
 try:
     import torch
@@ -149,8 +149,8 @@ class TestDualStudentDistillation:
     def test_initialization_with_dataclass_config(self):
         """Test initialization with dataclass config."""
         from omni_anomaly_engine.ml.distillation import (
-            DualStudentDistillation,
             DualStudentConfig,
+            DualStudentDistillation,
         )
 
         config = DualStudentConfig(hidden_dim=512)
@@ -170,8 +170,8 @@ class TestDualStudentDistillation:
     def test_fit_and_detect(self, sample_image_batch, sample_image):
         """Test fitting and detection workflow."""
         from omni_anomaly_engine.ml.distillation import (
-            DualStudentDistillation,
             DualStudentConfig,
+            DualStudentDistillation,
         )
 
         # Use minimal config for fast testing
@@ -234,8 +234,8 @@ class TestDistillationModule:
     def test_module_imports(self):
         """Test that all exports are available."""
         from omni_anomaly_engine.ml.distillation import (
-            DualStudentDistillation,
             DualStudentConfig,
+            DualStudentDistillation,
         )
 
         assert DualStudentDistillation is not None

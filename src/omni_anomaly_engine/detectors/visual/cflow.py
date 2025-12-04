@@ -93,10 +93,7 @@ class PositionalEncoding2D(nn.Module):
         y_pos = torch.arange(max_size).unsqueeze(1).float()
         x_pos = torch.arange(max_size).unsqueeze(0).float()
 
-        div_term = torch.exp(
-            torch.arange(0, channels, 2).float()
-            * (-math.log(10000.0) / channels)
-        )
+        div_term = torch.exp(torch.arange(0, channels, 2).float() * (-math.log(10000.0) / channels))
 
         # Alternate between sin and cos for x and y
         for i in range(channels // 4):
@@ -233,13 +230,9 @@ class ConditionalNormalizingFlow(nn.Module):
 
         self.flows = nn.ModuleList()
         for _ in range(num_flows):
-            self.flows.append(
-                AffineCoupling(in_channels, cond_channels, hidden_dim, clamp)
-            )
+            self.flows.append(AffineCoupling(in_channels, cond_channels, hidden_dim, clamp))
 
-    def forward(
-        self, x: torch.Tensor, cond: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, cond: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass through all flows.
 
         Args:
@@ -261,9 +254,7 @@ class ConditionalNormalizingFlow(nn.Module):
 
         return z, total_log_det
 
-    def inverse(
-        self, z: torch.Tensor, cond: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def inverse(self, z: torch.Tensor, cond: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Inverse pass (sampling direction).
 
         Args:
@@ -283,9 +274,7 @@ class ConditionalNormalizingFlow(nn.Module):
 
         return x, total_log_det
 
-    def log_prob(
-        self, x: torch.Tensor, cond: torch.Tensor
-    ) -> torch.Tensor:
+    def log_prob(self, x: torch.Tensor, cond: torch.Tensor) -> torch.Tensor:
         """Compute log probability of x.
 
         Args:
@@ -298,7 +287,7 @@ class ConditionalNormalizingFlow(nn.Module):
         z, log_det = self.forward(x, cond)
 
         # Standard normal prior
-        log_prior = -0.5 * (z ** 2 + math.log(2 * math.pi)).sum(dim=[1, 2, 3])
+        log_prior = -0.5 * (z**2 + math.log(2 * math.pi)).sum(dim=[1, 2, 3])
 
         return log_prior + log_det
 
@@ -353,9 +342,9 @@ class CFlowDetector(BaseVisualDetector):
 
             # Position encoding (same dimension as features)
             cond_channels = in_channels
-            self.position_encodings[layer] = PositionalEncoding2D(
-                cond_channels, max(h, w)
-            ).to(self.device)
+            self.position_encodings[layer] = PositionalEncoding2D(cond_channels, max(h, w)).to(
+                self.device
+            )
 
             # Normalizing flow
             self.flows[layer] = ConditionalNormalizingFlow(
@@ -367,8 +356,7 @@ class CFlowDetector(BaseVisualDetector):
             ).to(self.device)
 
             logger.info(
-                f"Initialized flow for {layer}: "
-                f"in_channels={in_channels}, spatial=({h}, {w})"
+                f"Initialized flow for {layer}: " f"in_channels={in_channels}, spatial=({h}, {w})"
             )
 
         self._initialized = True
@@ -459,8 +447,7 @@ class CFlowDetector(BaseVisualDetector):
             if (epoch + 1) % 10 == 0:
                 avg_loss = epoch_loss / max(n_batches, 1)
                 logger.info(
-                    f"Epoch {epoch + 1}/{self.cflow_config.num_epochs}, "
-                    f"NLL: {avg_loss:.4f}"
+                    f"Epoch {epoch + 1}/{self.cflow_config.num_epochs}, " f"NLL: {avg_loss:.4f}"
                 )
 
         for flow in self.flows.values():
@@ -520,7 +507,7 @@ class CFlowDetector(BaseVisualDetector):
                 z, _ = self.flows[layer].forward(feat, pos_enc)
 
                 # Anomaly score = sum of squared latent (negative log prior)
-                pixel_scores = 0.5 * (z ** 2).sum(dim=1)  # [B, H, W]
+                pixel_scores = 0.5 * (z**2).sum(dim=1)  # [B, H, W]
 
                 # Upsample to original size
                 pixel_scores_up = nn.functional.interpolate(
@@ -605,9 +592,7 @@ class CFlowDetector(BaseVisualDetector):
         # Project to 128D
         if features.shape[1] != 128:
             if not hasattr(self, "_fusion_projection"):
-                self._fusion_projection = nn.Linear(
-                    features.shape[1], 128
-                ).to(features.device)
+                self._fusion_projection = nn.Linear(features.shape[1], 128).to(features.device)
             features = self._fusion_projection(features)
 
         features = nn.functional.normalize(features, p=2, dim=1)

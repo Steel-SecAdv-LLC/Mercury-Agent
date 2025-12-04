@@ -4,7 +4,6 @@ Tests for omni_anomaly_engine.security.int_sources module.
 Tests intelligence source processors (OSINT, COMINT, HUMINT, etc.).
 """
 
-
 from omni_anomaly_engine.security.int_sources import (
     COMINTAnalysisResult,
     COMINTProcessor,

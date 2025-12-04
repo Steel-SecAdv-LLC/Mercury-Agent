@@ -22,8 +22,8 @@ Tests for Anomaly Detection Metrics module.
 Tests AUROC, AUPRC, F1-max, pixel-level metrics, and PRO score.
 """
 
-import pytest
 import numpy as np
+import pytest
 
 
 class TestAUROC:
@@ -126,18 +126,14 @@ class TestOptimalThreshold:
         """Test optimal threshold for accuracy metric."""
         from omni_anomaly_engine.metrics import compute_optimal_threshold
 
-        threshold = compute_optimal_threshold(
-            binary_labels, anomaly_scores, metric="accuracy"
-        )
+        threshold = compute_optimal_threshold(binary_labels, anomaly_scores, metric="accuracy")
         assert threshold is not None
 
     def test_optimal_threshold_youden(self, binary_labels, anomaly_scores):
         """Test optimal threshold using Youden's J."""
         from omni_anomaly_engine.metrics import compute_optimal_threshold
 
-        threshold = compute_optimal_threshold(
-            binary_labels, anomaly_scores, metric="youden"
-        )
+        threshold = compute_optimal_threshold(binary_labels, anomaly_scores, metric="youden")
         assert threshold is not None
 
 
@@ -209,17 +205,13 @@ class TestAnomalyMetrics:
 
         y_pred = (anomaly_scores > 0.5).astype(int)
 
-        results = AnomalyMetrics.compute_all(
-            binary_labels, anomaly_scores, y_pred=y_pred
-        )
+        results = AnomalyMetrics.compute_all(binary_labels, anomaly_scores, y_pred=y_pred)
 
         assert "accuracy" in results
         assert "precision" in results
         assert "recall" in results
 
-    def test_compute_all_with_masks(
-        self, binary_labels, anomaly_scores, pixel_masks, pixel_scores
-    ):
+    def test_compute_all_with_masks(self, binary_labels, anomaly_scores, pixel_masks, pixel_scores):
         """Test computing metrics with pixel masks."""
         from omni_anomaly_engine.metrics import AnomalyMetrics
 
@@ -240,9 +232,7 @@ class TestAnomalyMetrics:
 
         categories = ["cat_a"] * 50 + ["cat_b"] * 50
 
-        results = AnomalyMetrics.compute_per_category(
-            binary_labels, anomaly_scores, categories
-        )
+        results = AnomalyMetrics.compute_per_category(binary_labels, anomaly_scores, categories)
 
         assert "cat_a" in results
         assert "cat_b" in results

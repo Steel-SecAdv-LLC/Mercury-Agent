@@ -208,8 +208,7 @@ class PatchCoreDetector(BaseVisualDetector):
             return embeddings
 
         logger.info(
-            f"Coreset sampling: {num_samples} -> {target_size} "
-            f"({sampling_ratio * 100:.1f}%)"
+            f"Coreset sampling: {num_samples} -> {target_size} " f"({sampling_ratio * 100:.1f}%)"
         )
 
         # Move to CPU for sampling (memory intensive)
@@ -224,15 +223,13 @@ class PatchCoreDetector(BaseVisualDetector):
 
         for _ in range(target_size - 1):
             # Update minimum distances to selected set
-            distances = np.linalg.norm(
-                embeddings_np - selected[-1:], axis=1
-            )
+            distances = np.linalg.norm(embeddings_np - selected[-1:], axis=1)
             min_distances = np.minimum(min_distances, distances)
 
             # Select point with maximum minimum distance
             next_idx = np.argmax(min_distances)
             indices.append(next_idx)
-            selected = np.vstack([selected, embeddings_np[next_idx:next_idx + 1]])
+            selected = np.vstack([selected, embeddings_np[next_idx : next_idx + 1]])
 
         return torch.from_numpy(selected).to(embeddings.device)
 
@@ -273,9 +270,7 @@ class PatchCoreDetector(BaseVisualDetector):
             )
             self._nn_index.fit(embeddings_np)
 
-    def _query_nn(
-        self, query: torch.Tensor, k: int
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def _query_nn(self, query: torch.Tensor, k: int) -> tuple[np.ndarray, np.ndarray]:
         """Query k-nearest neighbors.
 
         Args:
@@ -335,9 +330,7 @@ class PatchCoreDetector(BaseVisualDetector):
             patches = patches.reshape(-1, patches.shape[-1])
             all_patches.append(patches)
 
-            self._patch_shapes = {
-                layer: features[layer].shape[-2:] for layer in features
-            }
+            self._patch_shapes = {layer: features[layer].shape[-2:] for layer in features}
 
         # Concatenate all patches
         all_patches_tensor = torch.cat(all_patches, dim=0)
@@ -440,9 +433,7 @@ class PatchCoreDetector(BaseVisualDetector):
 
         # Query nearest neighbors for each patch
         patches_flat = patches.reshape(-1, dim)
-        distances, _ = self._query_nn(
-            patches_flat, k=self.patchcore_config.anomaly_score_num_nn
-        )
+        distances, _ = self._query_nn(patches_flat, k=self.patchcore_config.anomaly_score_num_nn)
 
         # Use mean distance to k neighbors
         patch_scores = distances.mean(axis=1)
@@ -505,9 +496,7 @@ class PatchCoreDetector(BaseVisualDetector):
         # Project to 128D for fusion compatibility
         if features.shape[1] != 128:
             if not hasattr(self, "_fusion_projection"):
-                self._fusion_projection = nn.Linear(
-                    features.shape[1], 128
-                ).to(features.device)
+                self._fusion_projection = nn.Linear(features.shape[1], 128).to(features.device)
             features = self._fusion_projection(features)
 
         # L2 normalize

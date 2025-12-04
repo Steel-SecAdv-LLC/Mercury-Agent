@@ -111,12 +111,8 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         self._feature_dim: int = 0
 
         # Image normalization (ImageNet stats)
-        self.register_buffer(
-            "mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
-        )
-        self.register_buffer(
-            "std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
-        )
+        self.register_buffer("mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
+        self.register_buffer("std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
 
     @property
     def backbone(self) -> nn.Module:
@@ -207,9 +203,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         kernel_size = 33
         sigma = 4.0
         kernel = self._get_gaussian_kernel(kernel_size, sigma).to(anomaly_map.device)
-        anomaly_map = torch.nn.functional.conv2d(
-            anomaly_map, kernel, padding=kernel_size // 2
-        )
+        anomaly_map = torch.nn.functional.conv2d(anomaly_map, kernel, padding=kernel_size // 2)
 
         # Resize to original size
         if original_size is not None:

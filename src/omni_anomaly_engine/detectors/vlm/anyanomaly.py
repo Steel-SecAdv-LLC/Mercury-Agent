@@ -320,13 +320,15 @@ EXPLANATION: [Your detailed explanation]
                 is_anomaly, confidence, explanation = False, 0.0, "Error processing segment"
 
             # Store segment result
-            segment_results.append({
-                "start": start,
-                "end": end,
-                "is_anomaly": is_anomaly,
-                "confidence": confidence,
-                "explanation": explanation,
-            })
+            segment_results.append(
+                {
+                    "start": start,
+                    "end": end,
+                    "is_anomaly": is_anomaly,
+                    "confidence": confidence,
+                    "explanation": explanation,
+                }
+            )
 
             # Update frame scores
             score = confidence if is_anomaly else 1 - confidence
@@ -342,9 +344,7 @@ EXPLANATION: [Your detailed explanation]
         is_anomaly = scores > self.vlm_config.confidence_threshold
 
         # Collect explanations for anomalous segments
-        explanations = [
-            r["explanation"] for r in segment_results if r["is_anomaly"]
-        ]
+        explanations = [r["explanation"] for r in segment_results if r["is_anomaly"]]
 
         # Generate features (simple encoding of scores and metadata)
         features = self._generate_features(scores, segment_results)
@@ -418,20 +418,24 @@ EXPLANATION: [Your detailed explanation]
         features = []
 
         # Score statistics
-        features.extend([
-            np.mean(scores),
-            np.std(scores),
-            np.max(scores),
-            np.min(scores),
-        ])
+        features.extend(
+            [
+                np.mean(scores),
+                np.std(scores),
+                np.max(scores),
+                np.min(scores),
+            ]
+        )
 
         # Segment statistics
         anomaly_count = sum(1 for r in segment_results if r["is_anomaly"])
         avg_confidence = np.mean([r["confidence"] for r in segment_results])
-        features.extend([
-            anomaly_count / max(len(segment_results), 1),
-            avg_confidence,
-        ])
+        features.extend(
+            [
+                anomaly_count / max(len(segment_results), 1),
+                avg_confidence,
+            ]
+        )
 
         # Pad to 128D
         features = np.array(features)

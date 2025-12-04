@@ -202,9 +202,7 @@ class BenchmarkEvaluator:
         # Per-category metrics
         per_category = {}
         if len(set(all_categories)) > 1:
-            per_category = AnomalyMetrics.compute_per_category(
-                labels, scores, all_categories
-            )
+            per_category = AnomalyMetrics.compute_per_category(labels, scores, all_categories)
 
         # Create result
         result = EvaluationResult(
@@ -268,8 +266,7 @@ class BenchmarkEvaluator:
             for dataset in datasets:
                 # Find matching result
                 matching = [
-                    r for r in results
-                    if r.detector_name == detector and r.dataset_name == dataset
+                    r for r in results if r.detector_name == detector and r.dataset_name == dataset
                 ]
                 if matching:
                     value = matching[0].metrics.get(metric, 0.0)

@@ -22,8 +22,8 @@ Tests for Vision-Language Model (VLM) anomaly detectors.
 Tests AnyAnomaly and LAVAD zero-shot/training-free detectors.
 """
 
-import pytest
 import numpy as np
+import pytest
 
 try:
     import torch
@@ -68,9 +68,7 @@ class TestAnyAnomalyDetector:
         from omni_anomaly_engine.detectors.vlm import AnyAnomalyDetector
 
         detector = AnyAnomalyDetector()
-        detector.set_anomaly_definition(
-            "A person falling down or collapsing on the ground"
-        )
+        detector.set_anomaly_definition("A person falling down or collapsing on the ground")
         assert detector.anomaly_definition is not None
 
     def test_anyanomaly_set_reference_normal(self, sample_image_batch):

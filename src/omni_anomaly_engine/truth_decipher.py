@@ -48,7 +48,10 @@ import torch
 
 from omni_anomaly_engine.agentic.agentic_autonomy import AgenticAutonomy
 from omni_anomaly_engine.cognitive.case_based_reasoning import CaseOutcome
-from omni_anomaly_engine.cognitive.orchestrator import CognitiveOrchestrator, CognitiveAnalysisResult
+from omni_anomaly_engine.cognitive.orchestrator import (
+    CognitiveAnalysisResult,
+    CognitiveOrchestrator,
+)
 from omni_anomaly_engine.core.ai_ethics import EthicalAutonomyGovernor, EthicsResult
 from omni_anomaly_engine.core.config import EngineConfig
 from omni_anomaly_engine.core.novel_class_discovery import NovelClassDiscovery
@@ -133,13 +136,17 @@ class TruthDecipherFramework:
         self.novel_discovery = NovelClassDiscovery() if enable_novel_discovery else None
 
         # Cognitive layer - integrates knowledge graph, reasoning, causality, uncertainty
-        self.cognitive = CognitiveOrchestrator(
-            enable_plasticity=enable_cognitive,
-            enable_causal=enable_cognitive,
-            enable_ipb=enable_cognitive,
-            enable_cbr=enable_cognitive,
-            enable_indicators=enable_cognitive,
-        ) if enable_cognitive else None
+        self.cognitive = (
+            CognitiveOrchestrator(
+                enable_plasticity=enable_cognitive,
+                enable_causal=enable_cognitive,
+                enable_ipb=enable_cognitive,
+                enable_cbr=enable_cognitive,
+                enable_indicators=enable_cognitive,
+            )
+            if enable_cognitive
+            else None
+        )
 
         # Optimization and healing
         self.three_r = ThreeRMechanism(

@@ -106,8 +106,7 @@ def get_backbone(
         logger.warning("timm not available for extended backbone support")
 
     raise ValueError(
-        f"Unsupported backbone: {backbone_name}. "
-        f"Supported: {list(backbone_map.keys())}"
+        f"Unsupported backbone: {backbone_name}. " f"Supported: {list(backbone_map.keys())}"
     )
 
 
@@ -158,8 +157,7 @@ class FeatureExtractor(nn.Module):
         # Get layer info
         if backbone_name in BACKBONE_CONFIGS:
             self.feature_dims = {
-                layer: BACKBONE_CONFIGS[backbone_name].get(layer, 512)
-                for layer in self.layers
+                layer: BACKBONE_CONFIGS[backbone_name].get(layer, 512) for layer in self.layers
             }
         else:
             # Infer dimensions from forward pass

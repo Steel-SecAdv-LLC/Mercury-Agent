@@ -1122,9 +1122,11 @@ class CausalDiscoveryEngine:
             cf_parents = np.array(
                 [1]
                 + [
-                    int_value
-                    if variable_names[i] == int_var
-                    else factual_observation.get(variable_names[i], data[:, i].mean())
+                    (
+                        int_value
+                        if variable_names[i] == int_var
+                        else factual_observation.get(variable_names[i], data[:, i].mean())
+                    )
                     for i in parent_indices
                 ]
             )

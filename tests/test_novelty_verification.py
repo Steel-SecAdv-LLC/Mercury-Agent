@@ -26,7 +26,7 @@ class TestDoubleHelixEngine:
 
     def test_golden_ratio_constants(self):
         """Verify phi constants are correctly defined."""
-        from omni_anomaly_engine.core.double_helix_engine import PHI, PHI_SQUARED, PHI_CUBED
+        from omni_anomaly_engine.core.double_helix_engine import PHI, PHI_CUBED, PHI_SQUARED
 
         expected_phi = (1 + np.sqrt(5)) / 2
         assert abs(PHI - expected_phi) < 1e-10, "PHI should be golden ratio"

@@ -29,8 +29,8 @@ maintaining detection accuracy.
 """
 
 from omni_anomaly_engine.ml.distillation.dual_student import (
-    DualStudentDistillation,
     DualStudentConfig,
+    DualStudentDistillation,
 )
 
 __all__ = [
