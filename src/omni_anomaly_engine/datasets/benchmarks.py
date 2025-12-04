@@ -529,9 +529,7 @@ class RealWorldBenchmarkSuite:
                 1 for t in comparison.statistical_tests.values() if t.get("significant")
             )
             n_tests = len(comparison.statistical_tests)
-            lines.append(
-                f"Statistically significant improvements: {sig_count}/{n_tests}"
-            )
+            lines.append(f"Statistically significant improvements: {sig_count}/{n_tests}")
 
         lines.append("=" * 80)
 
