@@ -29,19 +29,19 @@ Key Components:
 - MercuryReasoner: Chain-of-thought reasoning with correlation graph building
 - AgentMemory: Short-term, long-term, episodic, semantic memory systems
 
-Research sources:
-- Omni-AXA-Engine Mercury A. Agent (Steel-SecAdv-LLC)
-- ReAct: Yao et al. (2022) "ReAct: Synergizing Reasoning and Acting"
-- Memory systems: Tulving (1972) episodic/semantic distinction
+References:
+    - ReAct: Yao et al. (2022) "ReAct: Synergizing Reasoning and Acting"
+    - Memory systems: Tulving (1972) episodic/semantic distinction
 """
 
 import logging
 import time
 import uuid
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any
 
 import numpy as np
 
@@ -103,9 +103,9 @@ class Task:
     priority: TaskPriority
     dependencies: list[str] = field(default_factory=list)
     status: str = "pending"
-    result: Optional[Any] = None
+    result: Any | None = None
     created_at: float = field(default_factory=time.time)
-    completed_at: Optional[float] = None
+    completed_at: float | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -115,8 +115,8 @@ class ReasoningStep:
 
     step_id: str
     thought: str
-    action: Optional[str] = None
-    observation: Optional[str] = None
+    action: str | None = None
+    observation: str | None = None
     confidence: float = 0.5
     timestamp: float = field(default_factory=time.time)
 
@@ -160,7 +160,7 @@ class AgentMemory:
         self.logger = logging.getLogger(__name__)
 
     def store_short_term(
-        self, content: Any, importance: float = 0.5, metadata: Optional[dict] = None
+        self, content: Any, importance: float = 0.5, metadata: dict | None = None
     ) -> str:
         """Store content in short-term memory."""
         entry_id = f"st_{uuid.uuid4().hex[:8]}"
@@ -180,7 +180,7 @@ class AgentMemory:
         return entry_id
 
     def store_long_term(
-        self, content: Any, importance: float = 0.5, metadata: Optional[dict] = None
+        self, content: Any, importance: float = 0.5, metadata: dict | None = None
     ) -> str:
         """Store content in long-term memory."""
         entry_id = f"lt_{uuid.uuid4().hex[:8]}"
@@ -203,7 +203,7 @@ class AgentMemory:
         self,
         event: str,
         context: dict[str, Any],
-        outcome: Optional[str] = None,
+        outcome: str | None = None,
         importance: float = 0.5,
     ) -> str:
         """Store an episodic memory (specific experience)."""
@@ -339,7 +339,7 @@ class MercuryReasoner:
         self,
         query: str,
         context: dict[str, Any],
-        tools: Optional[dict[str, Callable]] = None,
+        tools: dict[str, Callable] | None = None,
     ) -> dict[str, Any]:
         """
         Perform chain-of-thought reasoning on a query.
@@ -392,7 +392,7 @@ class MercuryReasoner:
 
         return f"Step {step_num}: Continuing analysis of {query}"
 
-    def _decide_action(self, thought: str, tools: dict[str, Callable]) -> tuple[str, Optional[str]]:
+    def _decide_action(self, thought: str, tools: dict[str, Callable]) -> tuple[str, str | None]:
         """Decide what action to take based on thought."""
         if "conclude" in thought.lower() or "final" in thought.lower():
             return "conclude", None
@@ -406,7 +406,7 @@ class MercuryReasoner:
     def _execute_action(
         self,
         action: str,
-        action_input: Optional[str],
+        action_input: str | None,
         tools: dict[str, Callable],
     ) -> str:
         """Execute an action and return observation."""
@@ -528,7 +528,7 @@ class MercuryPlanner:
         self,
         goal: str,
         domain: DomainType = DomainType.GENERAL,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> PlanResult:
         """
         Create a plan to achieve a goal.
@@ -598,19 +598,19 @@ class MercuryPlanner:
             ),
             Task(
                 task_id=f"task_{uuid.uuid4().hex[:8]}",
-                description=f"Preprocess and validate data",
+                description="Preprocess and validate data",
                 domain=domain,
                 priority=priority,
             ),
             Task(
                 task_id=f"task_{uuid.uuid4().hex[:8]}",
-                description=f"Run analysis algorithms",
+                description="Run analysis algorithms",
                 domain=domain,
                 priority=priority,
             ),
             Task(
                 task_id=f"task_{uuid.uuid4().hex[:8]}",
-                description=f"Generate analysis report",
+                description="Generate analysis report",
                 domain=domain,
                 priority=TaskPriority.MEDIUM,
             ),
@@ -779,7 +779,7 @@ class MercuryAgent:
         self.planner = MercuryPlanner()
         self.reasoner = MercuryReasoner()
 
-        self.current_plan: Optional[PlanResult] = None
+        self.current_plan: PlanResult | None = None
         self.execution_history: list[dict[str, Any]] = []
         self.tools: dict[str, Callable] = {}
 
@@ -795,8 +795,8 @@ class MercuryAgent:
         self,
         data: Any,
         domain: DomainType = DomainType.GENERAL,
-        goal: Optional[str] = None,
-        context: Optional[dict[str, Any]] = None,
+        goal: str | None = None,
+        context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Analyze data with autonomous planning and reasoning.

@@ -31,19 +31,18 @@ Key Features:
 - Polynomial age filters with 10-20% accuracy improvement
 - Quantum variant uncertainty modeling for age estimation
 
-Research Sources:
+References:
     - FaceNet: A Unified Embedding for Face Recognition (Schroff et al., 2015)
     - DeepFace: Closing the Gap to Human-Level Performance (Taigman et al., 2014)
     - Age Progression/Regression by Conditional Adversarial Autoencoder (Zhang et al., 2017)
 
-Original Implementation: FIND-YOU-ARC-CODE (Steel Security Advisors LLC)
-Integrated into OMNI ♱ AVA for humanitarian missing persons applications.
+Designed for humanitarian missing persons applications.
 """
 
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -52,7 +51,7 @@ logger = logging.getLogger(__name__)
 TORCH_AVAILABLE = False
 try:
     import torch
-    import torch.nn as nn
+    from torch import nn
 
     TORCH_AVAILABLE = True
 except ImportError:
@@ -104,7 +103,7 @@ class BiometricResult:
     """Result from biometric analysis."""
 
     success: bool
-    embedding: Optional[np.ndarray] = None
+    embedding: np.ndarray | None = None
     attributes: dict[str, Any] = field(default_factory=dict)
     similarity: float = 0.0
     mzss_score: float = 0.0
@@ -117,12 +116,12 @@ class AgeProgressionResult:
     """Result from age progression."""
 
     success: bool
-    original_face: Optional[np.ndarray] = None
-    progressed_face: Optional[np.ndarray] = None
+    original_face: np.ndarray | None = None
+    progressed_face: np.ndarray | None = None
     age_delta: int = 0
     similarity: float = 0.0
-    original_embedding: Optional[np.ndarray] = None
-    progressed_embedding: Optional[np.ndarray] = None
+    original_embedding: np.ndarray | None = None
+    progressed_embedding: np.ndarray | None = None
     quantum_factor: float = 1.2
     message: str = ""
 
@@ -210,7 +209,7 @@ class AdvancedBiometricEngine:
             f"deepface={DEEPFACE_AVAILABLE}, facenet={FACENET_AVAILABLE})"
         )
 
-    def extract_features(self, image_path: str) -> Optional[np.ndarray]:
+    def extract_features(self, image_path: str) -> np.ndarray | None:
         """
         Extract facial features from image.
 
@@ -245,7 +244,7 @@ class AdvancedBiometricEngine:
             logger.error(f"Feature extraction error: {e}")
             return None
 
-    def extract_features_from_array(self, image_data: np.ndarray) -> Optional[np.ndarray]:
+    def extract_features_from_array(self, image_data: np.ndarray) -> np.ndarray | None:
         """
         Extract features from numpy array image data.
 
@@ -464,7 +463,7 @@ class AgeProgressionEngine:
             f"AgeProgressionEngine initialized (device={device}, " f"facenet={FACENET_AVAILABLE})"
         )
 
-    def detect_and_align_face(self, image_path: str) -> Optional[np.ndarray]:
+    def detect_and_align_face(self, image_path: str) -> np.ndarray | None:
         """
         Detect and align face from image.
 
@@ -512,7 +511,7 @@ class AgeProgressionEngine:
             logger.error(f"Face detection error: {e}")
             return None
 
-    def extract_facenet_embedding(self, face: np.ndarray) -> Optional[np.ndarray]:
+    def extract_facenet_embedding(self, face: np.ndarray) -> np.ndarray | None:
         """
         Extract 512-dimensional FaceNet embedding.
 
@@ -651,7 +650,7 @@ class AgeProgressionEngine:
                 timeline.append(result)
         return timeline
 
-    def _compute_similarity(self, emb1: Optional[np.ndarray], emb2: Optional[np.ndarray]) -> float:
+    def _compute_similarity(self, emb1: np.ndarray | None, emb2: np.ndarray | None) -> float:
         """Compute cosine similarity between embeddings."""
         if emb1 is None or emb2 is None:
             return 0.0
@@ -713,14 +712,14 @@ class QuantumAgeVariant:
 
 
 __all__ = [
-    "MatchCategory",
-    "BiometricResult",
-    "AgeProgressionResult",
-    "BiometricFusion",
+    "DEEPFACE_AVAILABLE",
+    "FACENET_AVAILABLE",
+    "FACE_RECOGNITION_AVAILABLE",
     "AdvancedBiometricEngine",
     "AgeProgressionEngine",
+    "AgeProgressionResult",
+    "BiometricFusion",
+    "BiometricResult",
+    "MatchCategory",
     "QuantumAgeVariant",
-    "DEEPFACE_AVAILABLE",
-    "FACE_RECOGNITION_AVAILABLE",
-    "FACENET_AVAILABLE",
 ]

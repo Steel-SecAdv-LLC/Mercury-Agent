@@ -19,22 +19,21 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 Global Omni-Scalar Network (GOSNN) - Intelligence Fusion Hub
 
-Implements a comprehensive scalar monitoring and fusion system inspired by
-Aether Halo NSN's ~700 omni-scalars architecture. Provides:
+Implements a comprehensive scalar monitoring and fusion system with
+~700 omni-scalars architecture. Provides:
 
 - 37-dimensional quantum fusion with multi-head attention
-- Ethical gating with σ_Sacred threshold enforcement
+- Ethical gating with sigma_Sacred threshold enforcement
 - Component-based scalar registration and enhancement
 - Global intelligence score computation
-- Triadic harmony computation using golden ratio (φ = 1.618)
+- Triadic harmony computation using golden ratio (phi = 1.618)
 
 The GOSNN serves as a central hub for aggregating insights from multiple
 specialized engines and maintaining system-wide ethical alignment.
 
-Research sources:
-- Aether Halo NSN v2.0 (Steel-SecAdv-LLC)
-- Multi-head attention: Vaswani et al. (2017) "Attention Is All You Need"
-- Golden ratio applications: Livio (2002) "The Golden Ratio"
+References:
+    - Multi-head attention: Vaswani et al. (2017) "Attention Is All You Need"
+    - Golden ratio applications: Livio (2002) "The Golden Ratio"
 """
 
 import logging
@@ -47,7 +46,7 @@ import numpy as np
 
 try:
     import torch
-    import torch.nn as nn
+    from torch import nn
 
     TORCH_AVAILABLE = True
 except ImportError:
@@ -342,7 +341,7 @@ class GlobalOmniScalarNetwork:
         component_name: str,
         scalars: dict[str, float],
         group: ScalarGroup = ScalarGroup.ETHICAL,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Register scalars from a component.
@@ -376,7 +375,7 @@ class GlobalOmniScalarNetwork:
         self,
         requesting_component: str,
         base_scalars: dict[str, float],
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> EnhancementResult:
         """
         Get enhanced scalars with GOSNN fusion and ethical gating.
@@ -651,7 +650,7 @@ class GlobalOmniScalarNetwork:
         return float(np.clip(contribution, 0.0, 1.0))
 
 
-_global_network: Optional[GlobalOmniScalarNetwork] = None
+_global_network: GlobalOmniScalarNetwork | None = None
 
 
 def get_global_scalar_network(

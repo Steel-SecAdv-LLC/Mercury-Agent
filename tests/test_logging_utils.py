@@ -446,9 +446,8 @@ class TestLogFunctionCall:
         def failing_function():
             raise ValueError("Test error")
 
-        with caplog.at_level(logging.DEBUG):
-            with pytest.raises(ValueError):
-                failing_function()
+        with caplog.at_level(logging.DEBUG), pytest.raises(ValueError):
+            failing_function()
 
     def test_decorator_with_custom_logger(self, caplog):
         """Test decorator with custom logger."""

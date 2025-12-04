@@ -343,7 +343,7 @@ class FallbackChain:
                     degraded=degraded,
                 )
 
-            except asyncio.TimeoutError as e:
+            except TimeoutError as e:
                 fallback_count += 1
                 reason_msg = f"timeout after {handler.timeout}s"
                 reasons.append((handler.name, FallbackReason.TIMEOUT, reason_msg))

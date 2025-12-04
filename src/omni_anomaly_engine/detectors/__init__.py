@@ -20,6 +20,11 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Detector module for OMNI ♱ AVA
 
 Provides specialized anomaly detectors for different data types and domains.
+
+Includes:
+    - Base detectors (statistical, temporal, spatial, dimensional)
+    - Visual anomaly detectors (PatchCore, PaDiM, STFPM, Reverse Distillation, CFlow)
+    - Vision-Language Model detectors (AnyAnomaly, LAVAD)
 """
 
 from omni_anomaly_engine.detectors.dimensional import DimensionalAnalyzer
@@ -30,10 +35,39 @@ from omni_anomaly_engine.detectors.statistical import (
 )
 from omni_anomaly_engine.detectors.temporal import TemporalAnomalyDetector
 
+# SOTA Visual Anomaly Detection
+from omni_anomaly_engine.detectors.visual import (
+    BaseVisualDetector,
+    CFlowDetector,
+    PaDiMDetector,
+    PatchCoreDetector,
+    ReverseDistillationDetector,
+    STFPMDetector,
+)
+
+# Vision-Language Model Detectors
+from omni_anomaly_engine.detectors.vlm import (
+    AnyAnomalyDetector,
+    BaseVLMDetector,
+    LAVADDetector,
+)
+
 __all__ = [
+    # Base detectors
     "DimensionalAnalyzer",
     "SigmaDirectiveDetector",
     "SpatialAnomalyDetector",
     "StatisticalAnomalyDetector",
     "TemporalAnomalyDetector",
+    # Visual detectors
+    "PatchCoreDetector",
+    "PaDiMDetector",
+    "STFPMDetector",
+    "ReverseDistillationDetector",
+    "CFlowDetector",
+    "BaseVisualDetector",
+    # VLM detectors
+    "AnyAnomalyDetector",
+    "LAVADDetector",
+    "BaseVLMDetector",
 ]

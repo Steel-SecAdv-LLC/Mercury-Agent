@@ -16,12 +16,12 @@ from omni_anomaly_engine.integrations.routing.router import (
 )
 
 __all__ = [
+    "FallbackChain",
+    "FallbackError",
+    "FallbackHandler",
+    "FallbackResult",
     "RequestRouter",
     "Route",
     "RouteMatch",
     "RouteNotFoundError",
-    "FallbackHandler",
-    "FallbackChain",
-    "FallbackResult",
-    "FallbackError",
 ]

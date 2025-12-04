@@ -29,13 +29,10 @@ Key Features:
 - Biologically plausible updates without weight transport
 - Multi-task optimization preventing gradient collapse
 
-Research Sources:
+References:
     - Jaderberg et al. (2017): Decoupled Neural Interfaces using Synthetic Gradients
     - Lee et al. (2015): Difference Target Propagation
     - Multi-task learning variance maximization
-
-Original Implementation: Omni-AXA-Engine (Steel Security Advisors LLC)
-Integrated into OMNI ♱ AVA for accelerated anomaly detection training.
 """
 
 import logging
@@ -49,8 +46,7 @@ logger = logging.getLogger(__name__)
 TORCH_AVAILABLE = False
 try:
     import torch
-    import torch.nn as nn
-    import torch.optim as optim
+    from torch import nn, optim
 
     TORCH_AVAILABLE = True
 except ImportError:
@@ -82,7 +78,7 @@ class SyntheticGradientPredictor:
         self,
         input_dim: int,
         hidden_dim: int = 128,
-        output_dim: Optional[int] = None,
+        output_dim: int | None = None,
     ) -> None:
         """
         Initialize synthetic gradient predictor.
@@ -233,8 +229,8 @@ class SyntheticGradientModule:
             self.gradient_predictor = None
 
         self.training_steps = 0
-        self.last_output: Optional[np.ndarray] = None
-        self.true_grad: Optional[np.ndarray] = None
+        self.last_output: np.ndarray | None = None
+        self.true_grad: np.ndarray | None = None
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """
@@ -463,10 +459,10 @@ def estimate_convergence_rate(
 
 
 __all__ = [
-    "SyntheticGradientPredictor",
-    "SyntheticGradientModule",
-    "DifferenceTargetPropagation",
-    "AuxiliaryMaxVariance",
-    "estimate_convergence_rate",
     "TORCH_AVAILABLE",
+    "AuxiliaryMaxVariance",
+    "DifferenceTargetPropagation",
+    "SyntheticGradientModule",
+    "SyntheticGradientPredictor",
+    "estimate_convergence_rate",
 ]
