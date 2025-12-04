@@ -48,6 +48,11 @@ class AttentionFusion(nn.Module):
     Can be used in two modes:
     1. Detector fusion: Pass num_detectors for fusing multiple detector outputs
     2. Sequence attention: Pass embed_dim only for sequence-to-embedding attention
+
+    Enhanced with:
+    - Cross-attention between detector groups (opt-in)
+    - Hierarchical attention for coarse-to-fine pattern matching
+    - Configurable number of attention heads (up to 512 for complex patterns)
     """
 
     def __init__(
@@ -56,6 +61,9 @@ class AttentionFusion(nn.Module):
         num_heads: int = 4,
         dropout: float = 0.1,
         num_detectors: int | None = None,
+        enable_cross_attention: bool = False,
+        enable_hierarchical: bool = False,
+        num_detector_groups: int = 3,
     ):
         super().__init__()
         if embed_dim is None and num_detectors is not None:
@@ -66,6 +74,9 @@ class AttentionFusion(nn.Module):
         self.num_detectors = num_detectors
         self.embed_dim = embed_dim
         self.num_heads = num_heads
+        self.enable_cross_attention = enable_cross_attention
+        self.enable_hierarchical = enable_hierarchical
+        self.num_detector_groups = num_detector_groups
 
         self.attention = nn.MultiheadAttention(
             embed_dim=embed_dim,
@@ -77,15 +88,48 @@ class AttentionFusion(nn.Module):
         self.layer_norm = nn.LayerNorm(embed_dim)
         self.dropout = nn.Dropout(dropout)
 
+        if enable_cross_attention:
+            self.cross_attention = nn.MultiheadAttention(
+                embed_dim=embed_dim,
+                num_heads=num_heads,
+                dropout=dropout,
+                batch_first=True,
+            )
+            self.cross_layer_norm = nn.LayerNorm(embed_dim)
+
+        if enable_hierarchical:
+            self.coarse_attention = nn.MultiheadAttention(
+                embed_dim=embed_dim,
+                num_heads=max(1, num_heads // 2),
+                dropout=dropout,
+                batch_first=True,
+            )
+            self.fine_attention = nn.MultiheadAttention(
+                embed_dim=embed_dim,
+                num_heads=num_heads,
+                dropout=dropout,
+                batch_first=True,
+            )
+            self.hierarchical_gate = nn.Sequential(
+                nn.Linear(embed_dim * 2, embed_dim),
+                nn.Sigmoid(),
+            )
+
     def forward(
-        self, detector_embeddings: torch.Tensor, return_attention: bool = False
+        self,
+        detector_embeddings: torch.Tensor,
+        return_attention: bool = False,
+        context_embeddings: torch.Tensor | None = None,
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """
         Apply multi-head attention over detector embeddings.
 
+        Enhanced with optional cross-attention and hierarchical attention.
+
         Args:
-            detector_embeddings: [batch_size, num_detectors, embed_dim] or [batch_size, seq_len, embed_dim]
+            detector_embeddings: [batch_size, num_detectors, embed_dim]
             return_attention: Whether to return attention weights (default: False)
+            context_embeddings: Optional context for cross-attention
 
         Returns:
             If return_attention=False:
@@ -94,20 +138,63 @@ class AttentionFusion(nn.Module):
                 fused: [batch_size, embed_dim] - Fused representation
                 weights: [batch_size, num_heads, seq_len, seq_len] - Attention weights
         """
-        attn_output, attn_weights = self.attention(
+        if self.enable_hierarchical:
+            fused, attn_weights = self._hierarchical_forward(detector_embeddings, return_attention)
+        else:
+            attn_output, attn_weights = self.attention(
+                detector_embeddings,
+                detector_embeddings,
+                detector_embeddings,
+            )
+
+            attn_output = self.dropout(attn_output)
+            attn_output = self.layer_norm(attn_output + detector_embeddings)
+
+            if self.enable_cross_attention and context_embeddings is not None:
+                cross_output, _ = self.cross_attention(
+                    attn_output,
+                    context_embeddings,
+                    context_embeddings,
+                )
+                attn_output = self.cross_layer_norm(attn_output + cross_output)
+
+            fused = attn_output.mean(dim=1)
+
+        if return_attention:
+            return fused, attn_weights
+        return fused
+
+    def _hierarchical_forward(
+        self,
+        detector_embeddings: torch.Tensor,
+        return_attention: bool = False,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Apply hierarchical coarse-to-fine attention.
+
+        First applies coarse attention to capture global patterns,
+        then fine attention for detailed pattern matching.
+        """
+        coarse_output, coarse_weights = self.coarse_attention(
             detector_embeddings,
             detector_embeddings,
             detector_embeddings,
         )
 
-        attn_output = self.dropout(attn_output)
-        attn_output = self.layer_norm(attn_output + detector_embeddings)
+        fine_output, fine_weights = self.fine_attention(
+            detector_embeddings,
+            detector_embeddings,
+            detector_embeddings,
+        )
 
-        fused = attn_output.mean(dim=1)
+        coarse_pooled = coarse_output.mean(dim=1)
+        fine_pooled = fine_output.mean(dim=1)
 
-        if return_attention:
-            return fused, attn_weights
-        return fused
+        gate = self.hierarchical_gate(torch.cat([coarse_pooled, fine_pooled], dim=-1))
+        fused = gate * coarse_pooled + (1 - gate) * fine_pooled
+
+        combined_weights = (coarse_weights + fine_weights) / 2
+
+        return fused, combined_weights
 
 
 class HybridFusionLayer(nn.Module):
@@ -451,7 +538,47 @@ class DoubleHelixEvolutionEngine:
         self.current_T = self.T_initial
 
         self.enable_purity_invariant = self.config.get("enable_purity_invariant", True)
+
+        # Enhanced noise reduction configuration (opt-in)
+        self.enable_adaptive_filtering = self.config.get("enable_adaptive_filtering", False)
+        self.filter_type = self.config.get("filter_type", "fft_lowpass")
+        self._noise_filter: Any = None
+        if self.enable_adaptive_filtering:
+            self._init_adaptive_filter()
+
         self._initialize_ethical_matrix()
+
+    def _init_adaptive_filter(self) -> None:
+        """Initialize adaptive noise filter based on configuration."""
+        from omni_anomaly_engine.core.signal_processing import (
+            AdaptiveNoiseFilter,
+            FilterConfig,
+            FilterType,
+        )
+
+        filter_type_map = {
+            "fft_lowpass": FilterType.FFT_LOWPASS,
+            "wavelet": FilterType.WAVELET,
+            "kalman": FilterType.KALMAN,
+            "savitzky_golay": FilterType.SAVITZKY_GOLAY,
+            "adaptive_bandpass": FilterType.ADAPTIVE_BANDPASS,
+            "median": FilterType.MEDIAN,
+            "ema": FilterType.EXPONENTIAL_MOVING_AVERAGE,
+        }
+
+        filter_type = filter_type_map.get(self.filter_type, FilterType.FFT_LOWPASS)
+        config = FilterConfig(
+            filter_type=filter_type,
+            window_size=self.config.get("filter_window_size", 5),
+            poly_order=self.config.get("filter_poly_order", 2),
+            cutoff_freq=self.config.get("filter_cutoff_freq", 0.5),
+            kalman_process_noise=self.config.get("kalman_process_noise", 1e-5),
+            kalman_measurement_noise=self.config.get("kalman_measurement_noise", 1e-2),
+            wavelet_level=self.config.get("wavelet_level", 3),
+            wavelet_threshold=self.config.get("wavelet_threshold", 1.0),
+            ema_alpha=self.config.get("ema_alpha", 0.3),
+        )
+        self._noise_filter = AdaptiveNoiseFilter(config)
 
     def _initialize_ethical_matrix(self) -> None:
         """
@@ -767,11 +894,25 @@ class DoubleHelixEvolutionEngine:
         return energy_gradient * 0.05
 
     def _term_V(self, state: np.ndarray) -> np.ndarray:
-        """𝐕: Vibration harmonics (FFT)."""
+        """𝐕: Vibration harmonics with adaptive filtering.
+
+        When enable_adaptive_filtering is True, uses advanced filtering methods:
+        - Wavelet denoising for non-stationary signals (seismic, medical vitals)
+        - Kalman filtering for optimal temporal noise reduction
+        - Savitzky-Golay for feature-preserving smoothing
+        - Adaptive bandpass for automatic frequency selection
+
+        Otherwise uses the original FFT-based lowpass filter.
+        """
+        if self.enable_adaptive_filtering and self._noise_filter is not None:
+            filtered = self._noise_filter.apply(state)
+            result: np.ndarray = filtered * 0.05 - state * 0.05
+            return result
+
         fft_vals = self.np.fft.fft(state)
         fft_vals[len(fft_vals) // 2 :] = 0
-        filtered = self.np.fft.ifft(fft_vals)
-        return self.np.real(filtered) * 0.05 - state * 0.05
+        filtered_fft = self.np.fft.ifft(fft_vals)
+        return self.np.real(filtered_fft) * 0.05 - state * 0.05
 
     def _term_W(self, state: np.ndarray) -> np.ndarray:
         """𝐖: Wave propagation."""

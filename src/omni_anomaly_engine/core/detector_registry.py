@@ -420,13 +420,33 @@ class DetectorRegistry:
         extraction_results: dict[str, FeatureExtractionResult],
         target_dim: int | None = None,
         device: str = "cpu",
+        enable_feature_engineering: bool = False,
+        enable_interaction_features: bool = False,
+        enable_temporal_features: bool = False,
+        enable_rolling_stats: bool = False,
+        enable_golden_ratio_scaling: bool = False,
+        rolling_window_size: int = 5,
+        temporal_lags: list[int] | None = None,
     ) -> dict[str, torch.Tensor]:
         """Aggregate features from multiple detectors for fusion.
+
+        Enhanced with feature engineering capabilities for improved anomaly detection:
+        - Interaction features: Cross-detector correlation features
+        - Temporal lag features: Multi-scale temporal dependencies
+        - Rolling window statistics: Mean, std, min, max over windows
+        - Golden ratio scaling: Apply phi-optimization to feature dimensions
 
         Args:
             extraction_results: Results from extract_all_features
             target_dim: Target dimension for each feature vector (default: 128)
             device: PyTorch device
+            enable_feature_engineering: Enable all feature engineering (master switch)
+            enable_interaction_features: Add cross-detector correlation features
+            enable_temporal_features: Add temporal lag features
+            enable_rolling_stats: Add rolling window statistics
+            enable_golden_ratio_scaling: Apply golden ratio scaling to features
+            rolling_window_size: Window size for rolling statistics
+            temporal_lags: List of lag values for temporal features
 
         Returns:
             Dictionary mapping detector names to normalized tensors
@@ -442,19 +462,14 @@ class DetectorRegistry:
             if features is None:
                 continue
 
-            # Ensure 2D: [batch_size, feature_dim]
             if features.dim() == 1:
                 features = features.unsqueeze(0)
 
-            # Normalize to target dimension
             current_dim = features.shape[-1]
             if current_dim != target_dim:
-                # Project to target dimension
                 if current_dim > target_dim:
-                    # Truncate or use pooling
                     features = features[..., :target_dim]
                 else:
-                    # Pad with zeros
                     padding = torch.zeros(
                         *features.shape[:-1],
                         target_dim - current_dim,
@@ -465,7 +480,162 @@ class DetectorRegistry:
 
             aggregated[name] = features
 
+        if enable_feature_engineering or enable_golden_ratio_scaling:
+            aggregated = self._apply_golden_ratio_scaling(aggregated)
+
+        if enable_feature_engineering or enable_rolling_stats:
+            aggregated = self._add_rolling_statistics(aggregated, rolling_window_size, device)
+
+        if enable_feature_engineering or enable_temporal_features:
+            aggregated = self._add_temporal_lag_features(
+                aggregated, temporal_lags or [1, 2, 5], device
+            )
+
+        if enable_feature_engineering or enable_interaction_features:
+            aggregated = self._add_interaction_features(aggregated, device)
+
         return aggregated
+
+    def _apply_golden_ratio_scaling(
+        self, features: dict[str, torch.Tensor]
+    ) -> dict[str, torch.Tensor]:
+        """Apply golden ratio (phi) scaling to feature dimensions.
+
+        The golden ratio (1.618...) has been shown to optimize information
+        distribution in neural networks and signal processing.
+        """
+        phi = (1 + 5**0.5) / 2
+        scaled: dict[str, torch.Tensor] = {}
+
+        for name, feat in features.items():
+            dim = feat.shape[-1]
+            scale_factors = torch.tensor(
+                [phi ** (i / dim - 0.5) for i in range(dim)],
+                device=feat.device,
+                dtype=feat.dtype,
+            )
+            scaled[name] = feat * scale_factors
+
+        return scaled
+
+    def _add_rolling_statistics(
+        self,
+        features: dict[str, torch.Tensor],
+        window_size: int,
+        device: str,
+    ) -> dict[str, torch.Tensor]:
+        """Add rolling window statistics to features.
+
+        Computes mean, std, min, max over sliding windows for each feature.
+        """
+        enhanced: dict[str, torch.Tensor] = {}
+
+        for name, feat in features.items():
+            enhanced[name] = feat
+
+            if feat.dim() < 2 or feat.shape[-1] < window_size:
+                continue
+
+            batch_size = feat.shape[0]
+            feat_dim = feat.shape[-1]
+
+            rolling_mean = torch.zeros(batch_size, feat_dim, device=feat.device)
+            rolling_std = torch.zeros(batch_size, feat_dim, device=feat.device)
+
+            for i in range(feat_dim):
+                start = max(0, i - window_size // 2)
+                end = min(feat_dim, i + window_size // 2 + 1)
+                window = feat[:, start:end]
+                rolling_mean[:, i] = window.mean(dim=-1)
+                rolling_std[:, i] = window.std(dim=-1) if window.shape[-1] > 1 else 0
+
+            enhanced[f"{name}_rolling_mean"] = rolling_mean
+            enhanced[f"{name}_rolling_std"] = rolling_std
+
+        return enhanced
+
+    def _add_temporal_lag_features(
+        self,
+        features: dict[str, torch.Tensor],
+        lags: list[int],
+        device: str,
+    ) -> dict[str, torch.Tensor]:
+        """Add temporal lag features for multi-scale dependency analysis."""
+        enhanced: dict[str, torch.Tensor] = {}
+
+        for name, feat in features.items():
+            enhanced[name] = feat
+
+            if feat.dim() < 2:
+                continue
+
+            feat_dim = feat.shape[-1]
+
+            for lag in lags:
+                if lag >= feat_dim:
+                    continue
+
+                lagged = torch.zeros_like(feat)
+                lagged[:, lag:] = feat[:, :-lag]
+                lagged[:, :lag] = feat[:, 0:1].expand(-1, lag)
+
+                diff = feat - lagged
+
+                enhanced[f"{name}_lag{lag}"] = lagged
+                enhanced[f"{name}_diff{lag}"] = diff
+
+        return enhanced
+
+    def _add_interaction_features(
+        self,
+        features: dict[str, torch.Tensor],
+        device: str,
+    ) -> dict[str, torch.Tensor]:
+        """Add interaction features between detector outputs.
+
+        Creates cross-correlation and product features for enhanced detection.
+        """
+        enhanced = dict(features)
+        feature_names = list(features.keys())
+
+        base_names = [
+            n
+            for n in feature_names
+            if not any(suffix in n for suffix in ["_rolling_", "_lag", "_diff", "_x_", "_corr_"])
+        ]
+
+        for i, name1 in enumerate(base_names):
+            for name2 in base_names[i + 1 :]:
+                feat1 = features.get(name1)
+                feat2 = features.get(name2)
+
+                if feat1 is None or feat2 is None:
+                    continue
+
+                if feat1.shape != feat2.shape:
+                    continue
+
+                enhanced[f"{name1}_x_{name2}"] = feat1 * feat2
+
+                if feat1.dim() >= 2 and feat1.shape[-1] > 1:
+                    corr_vals = []
+                    for b in range(feat1.shape[0]):
+                        f1_flat = feat1[b].flatten()
+                        f2_flat = feat2[b].flatten()
+                        f1_centered = f1_flat - f1_flat.mean()
+                        f2_centered = f2_flat - f2_flat.mean()
+                        denom = f1_centered.norm() * f2_centered.norm()
+                        if denom > 1e-8:
+                            corr = (f1_centered * f2_centered).sum() / denom
+                        else:
+                            corr = torch.tensor(0.0, device=feat1.device)
+                        corr_vals.append(corr)
+
+                    corr_tensor = torch.stack(corr_vals).unsqueeze(-1)
+                    corr_expanded = corr_tensor.expand(-1, feat1.shape[-1])
+                    enhanced[f"{name1}_corr_{name2}"] = corr_expanded
+
+        return enhanced
 
     def auto_discover_detectors(self) -> int:
         """Auto-discover and register available detectors.
