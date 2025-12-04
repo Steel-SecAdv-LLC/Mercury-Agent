@@ -16,10 +16,10 @@ fairness verification, and pattern recognition.
 # New technical names (preferred)
 from omni_anomaly_engine.ethical.ethical_alignment_engine import (
     AlignmentArchetype,
-    EthicalAlignmentEngine,
-    EthicalBalanceEngine,
     EthicalPrinciple,
     GeometricPatternProcessor,
+    IndivisibleEngine,
+    PercipenceEngine,
     StrategicWisdomEngine,
     TwelveFoldVerificationSystem,
     VerificationDimension,
@@ -36,8 +36,8 @@ from omni_anomaly_engine.ethical.sacred_wisdom_engine import (
 
 __all__ = [
     # New names (preferred)
-    "EthicalAlignmentEngine",
-    "EthicalBalanceEngine",
+    "PercipenceEngine",
+    "IndivisibleEngine",
     "StrategicWisdomEngine",
     "GeometricPatternProcessor",
     "AlignmentArchetype",

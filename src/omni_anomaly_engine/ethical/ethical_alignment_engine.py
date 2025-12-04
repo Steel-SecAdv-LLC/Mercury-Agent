@@ -17,10 +17,10 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Ethical Alignment Engine - Multi-Dimensional Ethical Verification System
+Percipence Engine - Multi-Dimensional Ethical Verification System
 
 Provides comprehensive ethical alignment verification for AI systems:
-- EthicalBalanceEngine: Weighted scoring for ethical principle compliance
+- IndivisibleEngine: Weighted scoring for ethical principle compliance
 - StrategicWisdomEngine: Decision quality and strategic intelligence metrics
 - TwelveFoldVerificationSystem: 12-dimensional validation across ethical domains
 - GeometricPatternProcessor: Mathematical pattern detection (golden ratio, Fibonacci)
@@ -145,9 +145,9 @@ class TwelveFoldResult:
     detailed_analysis: dict[str, Any] = field(default_factory=dict)
 
 
-class EthicalBalanceEngine:
+class IndivisibleEngine:
     """
-    Ethical Balance Engine - Weighted Ethical Principle Verification.
+    Indivisible Engine - Weighted Ethical Principle Verification.
 
     Implements ethical balance verification by computing weighted scores
     across multiple ethical principles and comparing against a baseline.
@@ -857,12 +857,12 @@ class TwelveFoldVerificationSystem:
         return analysis
 
 
-class EthicalAlignmentEngine:
+class PercipenceEngine:
     """
-    Ethical Alignment Engine - Unified Ethical AI Framework.
+    Percipence Engine - Unified Ethical AI Framework.
 
     Integrates all alignment components:
-    - EthicalBalanceEngine for weighted ethical principle verification
+    - IndivisibleEngine for weighted ethical principle verification
     - StrategicWisdomEngine for decision quality assessment
     - TwelveFoldVerificationSystem for multi-dimensional validation
     - GeometricPatternProcessor for mathematical pattern analysis
@@ -872,7 +872,7 @@ class EthicalAlignmentEngine:
 
     def __init__(self, strict_mode: bool = False):
         """
-        Initialize Ethical Alignment Engine.
+        Initialize Percipence Engine.
 
         Args:
             strict_mode: If True, apply stricter verification requirements
@@ -880,7 +880,7 @@ class EthicalAlignmentEngine:
         self.strict_mode = strict_mode
         self.logger = logging.getLogger(__name__)
 
-        self.balance_engine = EthicalBalanceEngine(strict_mode=strict_mode)
+        self.balance_engine = IndivisibleEngine(strict_mode=strict_mode)
         self.wisdom_engine = StrategicWisdomEngine()
         self.verification_system = TwelveFoldVerificationSystem(strict_mode=strict_mode)
         self.geometry_processor = GeometricPatternProcessor()
