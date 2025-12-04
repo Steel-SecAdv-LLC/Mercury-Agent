@@ -85,7 +85,7 @@ class AttentionFusion(nn.Module):
 
         Args:
             detector_embeddings: [batch_size, num_detectors, embed_dim] or [batch_size, seq_len, embed_dim]
-            return_attention: Whether to return attention weights
+            return_attention: Whether to return attention weights (default: False)
 
         Returns:
             If return_attention=False:
@@ -199,7 +199,7 @@ class HybridFusionLayer(nn.Module):
 
         stacked_features = torch.stack(projected_features, dim=1)
 
-        attended_features, attn_weights = self.attention(stacked_features)
+        attended_features, attn_weights = self.attention(stacked_features, return_attention=True)
 
         fused_representation = attended_features
 
@@ -289,7 +289,7 @@ class HybridFusionLayer(nn.Module):
                 projected_features.append(torch.zeros(batch_size, self.hidden_dim))
 
         stacked_features = torch.stack(projected_features, dim=1)
-        attended_features, attn_weights = self.attention(stacked_features)
+        attended_features, attn_weights = self.attention(stacked_features, return_attention=True)
 
         attention_dict = {
             "detector_weights": F.softmax(self.late_fusion_weights, dim=0).detach(),
