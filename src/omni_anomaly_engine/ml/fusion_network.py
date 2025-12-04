@@ -28,7 +28,7 @@ from typing import Any
 import torch
 from torch import nn
 
-from omni_anomaly_engine.core.fusion import HybridFusionLayer
+from omni_anomaly_engine.core.fusion import AttentionFusion, HybridFusionLayer
 from omni_anomaly_engine.ml.encoders import (
     AffectiveEncoder,
     AstrophysicalEncoder,

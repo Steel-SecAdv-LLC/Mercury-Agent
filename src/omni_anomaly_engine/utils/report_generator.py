@@ -30,9 +30,224 @@ Automated report generation for non-technical users:
 
 import json
 import logging
-from dataclasses import dataclass
+import os
+from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
+from html import escape
 from typing import Any
+
+
+class ReportFormat(str, Enum):
+    """Report output format enumeration."""
+
+    JSON = "json"
+    HTML = "html"
+    MARKDOWN = "markdown"
+    PDF = "pdf"
+
+
+@dataclass
+class AnomalyReport:
+    """Anomaly detection report dataclass."""
+
+    title: str
+    timestamp: datetime
+    anomaly_count: int
+    total_datapoints: int
+
+    @property
+    def anomaly_rate(self) -> float:
+        """Calculate anomaly rate as ratio of anomalies to total datapoints."""
+        if self.total_datapoints == 0:
+            return 0.0
+        return self.anomaly_count / self.total_datapoints
+
+    @property
+    def severity(self) -> str:
+        """Calculate severity level based on anomaly rate."""
+        rate = self.anomaly_rate
+        if rate >= 0.15:
+            return "critical"
+        elif rate >= 0.08:
+            return "high"
+        elif rate >= 0.03:
+            return "medium"
+        return "low"
+
+
+@dataclass
+class ReportSection:
+    """Report section with optional subsections."""
+
+    title: str
+    content: str
+    subsections: list["ReportSection"] | None = None
+
+
+@dataclass
+class ExecutiveSummary:
+    """Executive summary for reports."""
+
+    key_findings: list[str]
+    risk_assessment: str
+    recommendations: list[str]
+    confidence_score: float
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert executive summary to dictionary."""
+        return {
+            "key_findings": self.key_findings,
+            "risk_assessment": self.risk_assessment,
+            "recommendations": self.recommendations,
+            "confidence_score": self.confidence_score,
+        }
+
+
+@dataclass
+class TechnicalDetails:
+    """Technical details for reports."""
+
+    methodology: str
+    algorithms_used: list[str]
+    parameters: dict[str, Any]
+    data_sources: list[str]
+
+
+class ReportGenerator:
+    """General-purpose report generator with multiple format support."""
+
+    def __init__(self, template: str | None = None):
+        self._template = template
+        self._sections: list[ReportSection] = []
+        self._charts: dict[str, dict[str, Any]] = {}
+        self._tables: dict[str, dict[str, Any]] = {}
+        self._metadata: dict[str, Any] = {}
+        self.logger = logging.getLogger(__name__)
+
+    def add_section(self, title: str, content: str) -> None:
+        """Add a section to the report."""
+        self._sections.append(ReportSection(title=title, content=content))
+
+    def add_chart(self, name: str, chart_data: dict[str, Any]) -> None:
+        """Add a chart placeholder to the report."""
+        self._charts[name] = chart_data
+
+    def add_table(self, name: str, table_data: dict[str, Any]) -> None:
+        """Add a table to the report."""
+        self._tables[name] = table_data
+
+    def set_metadata(self, **kwargs: Any) -> None:
+        """Set report metadata."""
+        self._metadata.update(kwargs)
+
+    def generate(self, data: dict[str, Any], format: ReportFormat) -> str:
+        """Generate report in specified format."""
+        if format == ReportFormat.JSON:
+            return self._generate_json(data)
+        elif format == ReportFormat.HTML:
+            return self._generate_html(data)
+        elif format == ReportFormat.MARKDOWN:
+            return self._generate_markdown(data)
+        elif format == ReportFormat.PDF:
+            return self._generate_markdown(data)
+        return self._generate_json(data)
+
+    def _generate_json(self, data: dict[str, Any]) -> str:
+        """Generate JSON report."""
+        output = dict(data)
+        output["generated_at"] = datetime.now().isoformat()
+        if self._metadata:
+            output["metadata"] = self._metadata
+        if self._sections:
+            output["sections"] = [{"title": s.title, "content": s.content} for s in self._sections]
+        if self._charts:
+            output["charts"] = self._charts
+        if self._tables:
+            output["tables"] = self._tables
+        return json.dumps(output, indent=2, default=str)
+
+    def _generate_html(self, data: dict[str, Any]) -> str:
+        """Generate HTML report with sanitized content."""
+        title = escape(str(data.get("title", "Report")))
+        content = escape(str(data.get("content", "")))
+
+        sections_html = ""
+        for section in self._sections:
+            sections_html += f"<h2>{escape(section.title)}</h2>\n"
+            sections_html += f"<p>{escape(section.content)}</p>\n"
+
+        tables_html = ""
+        for name, table_data in self._tables.items():
+            headers = table_data.get("headers", [])
+            rows = table_data.get("rows", [])
+            tables_html += f"<h3>{escape(name)}</h3>\n<table border='1'>\n"
+            tables_html += (
+                "<tr>" + "".join(f"<th>{escape(str(h))}</th>" for h in headers) + "</tr>\n"
+            )
+            for row in rows:
+                tables_html += (
+                    "<tr>" + "".join(f"<td>{escape(str(c))}</td>" for c in row) + "</tr>\n"
+                )
+            tables_html += "</table>\n"
+
+        return f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>{title}</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 40px; }}
+        table {{ border-collapse: collapse; margin: 20px 0; }}
+        th, td {{ padding: 8px; text-align: left; }}
+    </style>
+</head>
+<body>
+    <h1>{title}</h1>
+    <p>{content}</p>
+    {sections_html}
+    {tables_html}
+</body>
+</html>"""
+
+    def _generate_markdown(self, data: dict[str, Any]) -> str:
+        """Generate Markdown report."""
+        if self._template:
+            try:
+                return self._template.replace("{{ title }}", str(data.get("title", "")))
+            except Exception:
+                pass
+
+        lines = []
+        title = data.get("title", "Report")
+        lines.append(f"# {title}")
+        lines.append("")
+
+        if data.get("content"):
+            lines.append(str(data["content"]))
+            lines.append("")
+
+        for section in self._sections:
+            lines.append(f"## {section.title}")
+            lines.append(section.content)
+            lines.append("")
+
+        if data.get("sections"):
+            for section in data["sections"]:
+                lines.append(f"## {section.get('heading', section.get('title', ''))}")
+                lines.append(section.get("content", ""))
+                lines.append("")
+
+        return "\n".join(lines)
+
+    def export(self, data: dict[str, Any], path: str, format: ReportFormat) -> None:
+        """Export report to file, creating directories if needed."""
+        parent_dir = os.path.dirname(path)
+        if parent_dir:
+            os.makedirs(parent_dir, exist_ok=True)
+
+        content = self.generate(data, format)
+        with open(path, "w") as f:
+            f.write(content)
 
 
 @dataclass

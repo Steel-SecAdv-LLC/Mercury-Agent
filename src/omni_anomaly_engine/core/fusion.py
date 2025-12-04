@@ -1014,3 +1014,6 @@ class DoubleHelixEvolutionEngine:
             "convergence_history": history,
             "convergence_steps": len(history),
         }
+
+
+OmniAvaEngine = DoubleHelixEvolutionEngine
