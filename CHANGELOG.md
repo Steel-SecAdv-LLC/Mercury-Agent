@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Real-world dataset benchmarking framework with multi-domain support
+  - Medical loaders: MIMIC-III/IV, PhysioNet, Sepsis, Cardiology (with PhysioNet credential support)
+  - Security loaders: NSL-KDD, CICIDS, ThreatIntel for network intrusion detection
+  - Environmental loaders: USGS Earthquake, NOAA Weather, Wildfire data
+  - Space loaders: SETI signals, NASA Exoplanet, Solar Dynamics
+- `RealWorldBenchmarkSuite` with comprehensive metrics (precision, recall, F1, AUC-ROC, AUC-PR)
+- Statistical significance testing for baseline comparisons
+- Synthetic data generation fallback when real datasets unavailable
+- Enhanced Neuro-Symbolic AI engine (`EnhancedNeurosymbolicEngine`)
+  - Fuzzy logic with multiple semantics (Gödel, Product, Łukasiewicz)
+  - Temporal reasoning via `TemporalGraphReasoner` with open/closed world assumptions
+  - Knowledge graph integration via `KnowledgeGraphBridge` for commonsense reasoning
+  - Meta-cognition layer with uncertainty quantification and strategy selection
+  - Causal reasoning module with do-calculus interventions and counterfactuals
+  - Probabilistic logic layer with Fréchet bounds
+  - Logic Tensor Networks (PyTorch-based, optional dependency)
+
+### Changed
+- CI/CD: ML Tests now run on PRs to main/develop (previously only scheduled/manual)
+- CI/CD: Documentation builds on all pushes and PRs (previously only main branch)
+
+### Fixed
+- Replaced deprecated `np.trapz` with `np.trapezoid` in benchmark metrics
+
 ## [0.1.0] - 2025-10-14
 
 ### Added

@@ -44,16 +44,25 @@ class AttentionFusion(nn.Module):
 
     Learns which detectors are most relevant for each input sample,
     providing interpretability via attention weights.
+
+    Can be used in two modes:
+    1. Detector fusion: Pass num_detectors for fusing multiple detector outputs
+    2. Sequence attention: Pass embed_dim only for sequence-to-embedding attention
     """
 
     def __init__(
         self,
-        num_detectors: int,
-        embed_dim: int,
+        embed_dim: int | None = None,
         num_heads: int = 4,
         dropout: float = 0.1,
+        num_detectors: int | None = None,
     ):
         super().__init__()
+        if embed_dim is None and num_detectors is not None:
+            embed_dim = num_detectors
+        elif embed_dim is None:
+            embed_dim = 128
+
         self.num_detectors = num_detectors
         self.embed_dim = embed_dim
         self.num_heads = num_heads
@@ -68,16 +77,22 @@ class AttentionFusion(nn.Module):
         self.layer_norm = nn.LayerNorm(embed_dim)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, detector_embeddings: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, detector_embeddings: torch.Tensor, return_attention: bool = False
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """
         Apply multi-head attention over detector embeddings.
 
         Args:
-            detector_embeddings: [batch_size, num_detectors, embed_dim]
+            detector_embeddings: [batch_size, num_detectors, embed_dim] or [batch_size, seq_len, embed_dim]
+            return_attention: Whether to return attention weights (default: False)
 
         Returns:
-            attended: [batch_size, embed_dim] - Fused representation
-            weights: [batch_size, num_heads, num_detectors, num_detectors] - Attention weights
+            If return_attention=False:
+                fused: [batch_size, embed_dim] - Fused representation
+            If return_attention=True:
+                fused: [batch_size, embed_dim] - Fused representation
+                weights: [batch_size, num_heads, seq_len, seq_len] - Attention weights
         """
         attn_output, attn_weights = self.attention(
             detector_embeddings,
@@ -90,7 +105,9 @@ class AttentionFusion(nn.Module):
 
         fused = attn_output.mean(dim=1)
 
-        return fused, attn_weights
+        if return_attention:
+            return fused, attn_weights
+        return fused
 
 
 class HybridFusionLayer(nn.Module):
@@ -182,7 +199,7 @@ class HybridFusionLayer(nn.Module):
 
         stacked_features = torch.stack(projected_features, dim=1)
 
-        attended_features, attn_weights = self.attention(stacked_features)
+        attended_features, attn_weights = self.attention(stacked_features, return_attention=True)
 
         fused_representation = attended_features
 
@@ -272,7 +289,7 @@ class HybridFusionLayer(nn.Module):
                 projected_features.append(torch.zeros(batch_size, self.hidden_dim))
 
         stacked_features = torch.stack(projected_features, dim=1)
-        attended_features, attn_weights = self.attention(stacked_features)
+        attended_features, attn_weights = self.attention(stacked_features, return_attention=True)
 
         attention_dict = {
             "detector_weights": F.softmax(self.late_fusion_weights, dim=0).detach(),
@@ -1014,3 +1031,6 @@ class DoubleHelixEvolutionEngine:
             "convergence_history": history,
             "convergence_steps": len(history),
         }
+
+
+OmniAvaEngine = DoubleHelixEvolutionEngine

@@ -210,6 +210,8 @@ class ABMSDisciplineDetector:
             "omni_holistic_assessment": 1.37 * self.golden_ratio,
         }
 
+        self.specialty_thresholds = {board.value: 0.5 * self.golden_ratio for board in ABMSBoard}
+
         self.logger.info(f"ABMS Disciplines Detector initialized with {len(ABMSBoard)} boards")
 
     def _initialize_subspecialties(self) -> dict[str, list[str]]:
@@ -691,14 +693,14 @@ class ABMSDisciplineDetector:
         critical_indicators = ["chest_pain", "altered_consciousness", "severe_bleeding", "stroke"]
 
         if any(ind in indicators for ind in critical_indicators):
-            return "CRITICAL"
+            return "critical"
 
         if risk_score > 0.8:
-            return "URGENT"
+            return "urgent"
         elif risk_score > 0.6:
-            return "SEMI-URGENT"
+            return "emergent"
         else:
-            return "ROUTINE"
+            return "routine"
 
     def _apply_symbolic_reasoning(
         self, patient_data: dict[str, Any], primary_board: str, indicators: list[str]
@@ -737,6 +739,102 @@ class ABMSDisciplineDetector:
             "recommendations": result.treatment_considerations,
         }
 
+    def detect(
+        self,
+        data: np.ndarray | torch.Tensor,
+        specialty: str,
+        include_reasoning: bool = False,
+    ) -> MedicalAnomalyResult:
+        """Detect anomalies for a specific specialty.
+
+        Args:
+            data: Input data as numpy array or tensor (shape: [features])
+            specialty: ABMS specialty to evaluate (supports common aliases)
+            include_reasoning: Whether to include neurosymbolic reasoning
+
+        Returns:
+            MedicalAnomalyResult with detection results
+        """
+        specialty_aliases = {
+            "cardiology": "internal_medicine",
+            "neurology": "internal_medicine",
+            "gastroenterology": "internal_medicine",
+            "pulmonology": "internal_medicine",
+            "nephrology": "internal_medicine",
+            "endocrinology": "internal_medicine",
+            "rheumatology": "internal_medicine",
+            "hematology": "internal_medicine",
+            "oncology": "internal_medicine",
+            "infectious_disease": "internal_medicine",
+        }
+
+        mapped_specialty = specialty_aliases.get(specialty, specialty)
+
+        if mapped_specialty not in [b.value for b in ABMSBoard]:
+            raise ValueError(f"Invalid specialty: {specialty}")
+
+        if isinstance(data, torch.Tensor):
+            data_np = data.detach().cpu().numpy()
+        else:
+            data_np = np.asarray(data, dtype=np.float32)
+
+        data_np = np.nan_to_num(data_np, nan=0.0, posinf=1e6, neginf=-1e6)
+
+        patient_data = {
+            "vitals": {
+                "heart_rate_bpm": float(data_np[0]) if len(data_np) > 0 else 75.0,
+                "blood_pressure_systolic": float(data_np[1]) if len(data_np) > 1 else 120.0,
+                "blood_pressure_diastolic": float(data_np[2]) if len(data_np) > 2 else 80.0,
+                "respiratory_rate_bpm": float(data_np[3]) if len(data_np) > 3 else 16.0,
+                "temperature_f": float(data_np[4]) if len(data_np) > 4 else 98.6,
+                "oxygen_saturation_pct": float(data_np[5]) if len(data_np) > 5 else 98.0,
+            },
+            "labs": {
+                "wbc_count": float(data_np[6]) if len(data_np) > 6 else 7.5,
+                "hemoglobin": float(data_np[7]) if len(data_np) > 7 else 14.0,
+                "platelet_count": float(data_np[8]) if len(data_np) > 8 else 250.0,
+                "glucose": float(data_np[9]) if len(data_np) > 9 else 100.0,
+                "creatinine": float(data_np[10]) if len(data_np) > 10 else 1.0,
+                "bilirubin": float(data_np[11]) if len(data_np) > 11 else 0.8,
+            },
+            "symptoms": [],
+            "history": {
+                "chronic_conditions": 0,
+                "prior_surgeries": 0,
+                "medication_count": 0,
+                "age": 50,
+            },
+        }
+
+        result = self.detect_medical_anomaly(patient_data)
+
+        result = MedicalAnomalyResult(
+            primary_board=specialty,
+            confidence=result.confidence,
+            risk_score=result.risk_score,
+            urgency_level=result.urgency_level,
+            clinical_indicators=result.clinical_indicators,
+            recommended_consultations=result.recommended_consultations,
+            treatment_considerations=result.treatment_considerations,
+            neurosymbolic_reasoning=result.neurosymbolic_reasoning if include_reasoning else None,
+        )
+
+        return result
+
+    def detect_all(self, data: np.ndarray | torch.Tensor) -> dict[str, MedicalAnomalyResult]:
+        """Detect anomalies across all ABMS specialties.
+
+        Args:
+            data: Input data as numpy array or tensor
+
+        Returns:
+            Dictionary mapping specialty names to MedicalAnomalyResult
+        """
+        results = {}
+        for board in ABMSBoard:
+            results[board.value] = self.detect(data, board.value)
+        return results
+
 
 def create_omni_medical_scalars() -> dict[str, float]:
     """
@@ -764,3 +862,6 @@ def create_omni_medical_scalars() -> dict[str, float]:
         "omni_imaging_interpretation": 1.41 * phi,
         "omni_laboratory_correlation": 1.34 * phi,
     }
+
+
+ABMSAnomalyDetector = ABMSDisciplineDetector

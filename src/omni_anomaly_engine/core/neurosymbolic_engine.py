@@ -27,6 +27,7 @@ from omni_anomaly_engine.core.code_analysis import (
     CodeAnalysisEngine,
     NeurosymbolicConfig,
     NeurosymbolicEngine,
+    ReadinessLevel,
     TrainingPhase,
 )
 
@@ -36,6 +37,7 @@ __all__ = [
     "TrainingPhase",
     "CodeAnalysisEngine",
     "CodeAnalysisConfig",
+    "ReadinessLevel",
 ]
 
 # Issue deprecation warning on import

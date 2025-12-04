@@ -167,8 +167,8 @@ class UnivariateRequest(BaseModel):
 
     data: list[float] = Field(
         ...,
-        min_length=3,
-        description="Time series data points. Minimum 3 values required.",
+        min_length=0,
+        description="Time series data points.",
         json_schema_extra={
             "example": [1.0, 2.0, 1.5, 10.0, 1.8, 2.1, 1.9, 50.0, 2.0],
         },
@@ -629,7 +629,7 @@ async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
             anomalies=anomalies,
             scores=scores,
             anomaly_points=anomaly_points,
-            method="zscore",
+            method="univariate",
             threshold=threshold,
             summary=summary,
         )

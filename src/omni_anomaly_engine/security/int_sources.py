@@ -182,11 +182,13 @@ class COMINTAnalysisResult:
     """Communications Intelligence analysis result"""
 
     intercept_quality: float
-    communication_pattern_score: float
-    encryption_detected: bool
+    communication_pattern_score: float = 0.0
+    encryption_detected: bool = False
     anomaly_indicators: list[str] = field(default_factory=list)
     participant_analysis: dict[str, Any] | None = None
     frequency_patterns: dict[str, float] | None = None
+    anomaly_score: float = 0.0
+    communication_type: str | None = None
 
 
 class COMINTProcessor:
@@ -221,6 +223,8 @@ class COMINTProcessor:
             anomaly_indicators=anomalies,
             participant_analysis=participants,
             frequency_patterns=frequencies,
+            anomaly_score=pattern_score,
+            communication_type=comint_data.get("communication_type"),
         )
 
     def _assess_intercept_quality(self, data: dict) -> float:
@@ -277,12 +281,15 @@ class COMINTProcessor:
 class HUMINTAnalysisResult:
     """Human Intelligence analysis result"""
 
-    source_reliability: float
-    information_criticality: float
-    corroboration_available: bool
+    source_reliability: float = 0.0
+    information_criticality: float = 0.5
+    corroboration_available: bool = False
     anomaly_indicators: list[str] = field(default_factory=list)
     source_motivation_assessment: dict[str, float] | None = None
     access_level: str = "unknown"
+    source_reliability_score: float = 0.0
+    information_credibility_score: float = 0.0
+    report_assessment: str | None = None
 
 
 class HUMINTProcessor:
@@ -326,6 +333,9 @@ class HUMINTProcessor:
             anomaly_indicators=anomalies,
             source_motivation_assessment=motivation,
             access_level=access,
+            source_reliability_score=reliability,
+            information_credibility_score=criticality,
+            report_assessment=humint_data.get("report_assessment"),
         )
 
     def _assess_criticality(self, data: dict) -> float:
@@ -369,11 +379,12 @@ class GEOINTAnalysisResult:
     """Geospatial Intelligence analysis result"""
 
     spatial_precision: float
-    temporal_relevance: float
-    activity_density_score: float
+    temporal_relevance: float = 1.0
+    activity_density_score: float = 0.0
     anomaly_indicators: list[str] = field(default_factory=list)
     location_context: dict[str, Any] | None = None
     movement_patterns: dict[str, Any] | None = None
+    spatial_anomalies: list[str] = field(default_factory=list)
 
 
 class GEOINTProcessor:
@@ -410,6 +421,7 @@ class GEOINTProcessor:
             anomaly_indicators=anomalies,
             location_context=location_context,
             movement_patterns=movement,
+            spatial_anomalies=anomalies,
         )
 
     def _assess_activity_density(self, data: dict) -> float:
@@ -607,11 +619,12 @@ class FININTAnalysisResult:
     """Financial Intelligence analysis result"""
 
     transaction_risk_score: float
-    pattern_anomaly_score: float
-    money_laundering_indicators: int
+    pattern_anomaly_score: float = 0.0
+    money_laundering_indicators: int = 0
     anomaly_indicators: list[str] = field(default_factory=list)
     entity_network: dict[str, Any] | None = None
     jurisdiction_risks: list[str] = field(default_factory=list)
+    risk_score: float = 0.0
 
 
 class FININTProcessor:
@@ -646,15 +659,21 @@ class FININTProcessor:
             anomaly_indicators=anomalies,
             entity_network=network,
             jurisdiction_risks=jurisdiction_risks,
+            risk_score=risk_score,
         )
 
     def _calculate_transaction_risk(self, data: dict) -> float:
         """Calculate transaction risk score"""
-        amount = data.get("transaction_amount", 0)
+        amount = data.get("transaction_amount", data.get("amount", 0))
         frequency = data.get("transaction_frequency", 1)
 
-        risk = min(1.0, (amount / 1000000.0) * (frequency / 100.0))
-        return risk
+        base_risk = min(1.0, (amount / 1000000.0) * (frequency / 100.0))
+
+        structuring = data.get("structuring_pattern", False)
+        if structuring:
+            base_risk = max(base_risk, 0.7)
+
+        return base_risk
 
     def _analyze_transaction_patterns(self, data: dict) -> float:
         """Analyze transaction patterns for anomalies"""
@@ -707,11 +726,12 @@ class SIGINTAnalysisResult:
     """Signals Intelligence analysis result"""
 
     signal_strength: float
-    intercept_confidence: float
-    decryption_success: bool
+    intercept_confidence: float = 0.7
+    decryption_success: bool = False
     anomaly_indicators: list[str] = field(default_factory=list)
     signal_characteristics: dict[str, Any] | None = None
     emitter_identification: str | None = None
+    signal_classification: str | None = None
 
 
 class SIGINTProcessor:
@@ -746,6 +766,7 @@ class SIGINTProcessor:
             anomaly_indicators=anomalies,
             signal_characteristics=characteristics,
             emitter_identification=emitter,
+            signal_classification=sigint_data.get("signal_classification"),
         )
 
     def _detect_anomalies(self, data: dict) -> list[str]:
@@ -781,11 +802,12 @@ class ELINTAnalysisResult:
     """Electronic Intelligence analysis result"""
 
     radar_type_confidence: float
-    emitter_threat_level: float
-    tracking_detected: bool
+    emitter_threat_level: float = 0.5
+    tracking_detected: bool = False
     anomaly_indicators: list[str] = field(default_factory=list)
     radar_parameters: dict[str, Any] | None = None
     targeting_assessment: dict[str, Any] | None = None
+    emitter_classification: str | None = None
 
 
 class ELINTProcessor:
@@ -826,6 +848,7 @@ class ELINTProcessor:
             anomaly_indicators=anomalies,
             radar_parameters=parameters,
             targeting_assessment=targeting,
+            emitter_classification=elint_data.get("emitter_classification"),
         )
 
     def _detect_anomalies(self, data: dict) -> list[str]:
@@ -868,11 +891,12 @@ class MASINTAnalysisResult:
     """Measurement & Signature Intelligence analysis result"""
 
     signature_match_confidence: float
-    technical_specificity: float
-    collection_quality: float
+    technical_specificity: float = 0.6
+    collection_quality: float = 0.7
     anomaly_indicators: list[str] = field(default_factory=list)
     signature_type: str = "unknown"
     measurements: dict[str, float] | None = None
+    signature_classification: str | None = None
 
 
 class MASINTProcessor:
@@ -906,6 +930,7 @@ class MASINTProcessor:
             anomaly_indicators=anomalies,
             signature_type=sig_type,
             measurements=measurements,
+            signature_classification=masint_data.get("signature_classification"),
         )
 
     def _detect_anomalies(self, data: dict) -> list[str]:

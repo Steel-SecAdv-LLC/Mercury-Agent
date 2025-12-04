@@ -28,7 +28,7 @@ from typing import Any
 import torch
 from torch import nn
 
-from omni_anomaly_engine.core.fusion import HybridFusionLayer
+from omni_anomaly_engine.core.fusion import AttentionFusion, HybridFusionLayer
 from omni_anomaly_engine.ml.encoders import (
     AffectiveEncoder,
     AstrophysicalEncoder,
@@ -37,6 +37,180 @@ from omni_anomaly_engine.ml.encoders import (
     StatisticalEncoder,
     TemporalEncoder,
 )
+
+__all__ = [
+    "AttentionFusion",
+    "FusionNetwork",
+    "GatedFusion",
+    "MultimodalFusion",
+    "OmniFusionModel",
+    "STEMDisciplineRouter",
+]
+
+
+class FusionNetwork(nn.Module):
+    """Multi-modality fusion network for combining features from multiple input sources.
+
+    Implements a flexible architecture that encodes each modality separately
+    then fuses them through a learned fusion layer for unified representation.
+    """
+
+    def __init__(self, input_dims: list[int], output_dim: int, hidden_dim: int | None = None):
+        """Initialize fusion network.
+
+        Args:
+            input_dims: List of input dimensions for each modality
+            output_dim: Output dimension after fusion
+            hidden_dim: Hidden dimension for encoders (defaults to output_dim)
+        """
+        super().__init__()
+        self.input_dims = input_dims
+        self.output_dim = output_dim
+        self.hidden_dim = hidden_dim or output_dim
+
+        self.encoders = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Linear(dim, self.hidden_dim),
+                    nn.ReLU(),
+                    nn.LayerNorm(self.hidden_dim),
+                )
+                for dim in input_dims
+            ]
+        )
+
+        total_encoded = self.hidden_dim * len(input_dims)
+        self.fusion_layer = nn.Sequential(
+            nn.Linear(total_encoded, self.hidden_dim),
+            nn.ReLU(),
+            nn.LayerNorm(self.hidden_dim),
+            nn.Linear(self.hidden_dim, output_dim),
+        )
+
+    def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
+        """Forward pass through fusion network.
+
+        Args:
+            inputs: List of tensors, one per modality [batch_size, input_dim_i]
+
+        Returns:
+            Fused output tensor [batch_size, output_dim]
+        """
+        encoded = [encoder(x) for encoder, x in zip(self.encoders, inputs)]
+        concatenated = torch.cat(encoded, dim=-1)
+        return self.fusion_layer(concatenated)
+
+
+class GatedFusion(nn.Module):
+    """Gated fusion mechanism for combining two input tensors.
+
+    Uses a learned gating mechanism to dynamically weight the contribution
+    of each input based on their content.
+    """
+
+    def __init__(self, input_dim: int, hidden_dim: int):
+        """Initialize gated fusion.
+
+        Args:
+            input_dim: Dimension of each input tensor
+            hidden_dim: Hidden dimension for gate computation
+        """
+        super().__init__()
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+
+        self.gate_network = nn.Sequential(
+            nn.Linear(input_dim * 2, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, input_dim),
+            nn.Sigmoid(),
+        )
+
+    def forward(
+        self, x1: torch.Tensor, x2: torch.Tensor, return_gate: bool = False
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+        """Forward pass through gated fusion.
+
+        Args:
+            x1: First input tensor [batch_size, input_dim]
+            x2: Second input tensor [batch_size, input_dim]
+            return_gate: Whether to return gate values
+
+        Returns:
+            Fused output [batch_size, input_dim], optionally with gate values
+        """
+        combined = torch.cat([x1, x2], dim=-1)
+        gate = self.gate_network(combined)
+        output = gate * x1 + (1 - gate) * x2
+
+        if return_gate:
+            return output, gate
+        return output
+
+
+class MultimodalFusion(nn.Module):
+    """Multimodal fusion with named modalities and optional learned weights.
+
+    Supports dictionary-based input where each key is a modality name
+    and handles missing modalities gracefully.
+    """
+
+    def __init__(self, modality_dims: dict[str, int], output_dim: int):
+        """Initialize multimodal fusion.
+
+        Args:
+            modality_dims: Dict mapping modality names to their dimensions
+            output_dim: Output dimension after fusion
+        """
+        super().__init__()
+        self.modality_dims = modality_dims
+        self.output_dim = output_dim
+        self.modality_names = list(modality_dims.keys())
+
+        self.encoders = nn.ModuleDict(
+            {
+                name: nn.Sequential(
+                    nn.Linear(dim, output_dim),
+                    nn.ReLU(),
+                    nn.LayerNorm(output_dim),
+                )
+                for name, dim in modality_dims.items()
+            }
+        )
+
+        self.modality_weights = nn.Parameter(torch.ones(len(modality_dims)))
+
+        self.fusion_layer = nn.Sequential(
+            nn.Linear(output_dim, output_dim),
+            nn.ReLU(),
+            nn.Linear(output_dim, output_dim),
+        )
+
+    def forward(self, inputs: dict[str, torch.Tensor]) -> torch.Tensor:
+        """Forward pass through multimodal fusion.
+
+        Args:
+            inputs: Dict mapping modality names to tensors [batch_size, modality_dim]
+
+        Returns:
+            Fused output tensor [batch_size, output_dim]
+        """
+        encoded_list = []
+        weight_list = []
+
+        for i, name in enumerate(self.modality_names):
+            if name in inputs:
+                encoded = self.encoders[name](inputs[name])
+                encoded_list.append(encoded)
+                weight_list.append(self.modality_weights[i])
+
+        if not encoded_list:
+            raise KeyError("No valid modalities provided in inputs")
+
+        weights = torch.softmax(torch.stack(weight_list), dim=0)
+        weighted_sum = sum(w * e for w, e in zip(weights, encoded_list))
+
+        return self.fusion_layer(weighted_sum)
 
 
 class OmniFusionModel(nn.Module):
