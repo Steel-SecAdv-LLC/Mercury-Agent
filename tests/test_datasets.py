@@ -5,35 +5,36 @@ Copyright (C) 2025 Steel Security Advisory LLC
 Tests for real-world dataset loaders and benchmarks.
 """
 
+import os
+import tempfile
+
 import numpy as np
 import pytest
-import tempfile
-import os
 
 from omni_anomaly_engine.datasets.base import (
-    DatasetLoader,
     DatasetConfig,
-    DatasetSplit,
+    DatasetLoader,
     DatasetRegistry,
+    DatasetSplit,
+)
+from omni_anomaly_engine.datasets.benchmarks import (
+    BenchmarkResult,
+    RealWorldBenchmarkSuite,
+    random_baseline,
+)
+from omni_anomaly_engine.datasets.environmental import (
+    NOAAWeatherLoader,
+    USGSEarthquakeLoader,
+    WildfireDataLoader,
 )
 from omni_anomaly_engine.datasets.medical import (
+    CardiologyDataset,
     MIMICLoader,
     PhysioNetLoader,
     SepsisDataset,
-    CardiologyDataset,
 )
-from omni_anomaly_engine.datasets.space import SETILoader, NASAExoplanetLoader, SolarDynamicsLoader
-from omni_anomaly_engine.datasets.environmental import (
-    USGSEarthquakeLoader,
-    NOAAWeatherLoader,
-    WildfireDataLoader,
-)
-from omni_anomaly_engine.datasets.security import NSLKDDLoader, CICIDSLoader, ThreatIntelLoader
-from omni_anomaly_engine.datasets.benchmarks import (
-    RealWorldBenchmarkSuite,
-    BenchmarkResult,
-    random_baseline,
-)
+from omni_anomaly_engine.datasets.security import CICIDSLoader, NSLKDDLoader, ThreatIntelLoader
+from omni_anomaly_engine.datasets.space import NASAExoplanetLoader, SETILoader, SolarDynamicsLoader
 
 
 class TestDatasetConfig:

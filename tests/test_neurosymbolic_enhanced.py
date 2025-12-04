@@ -10,17 +10,17 @@ import pytest
 
 # Import components
 from omni_anomaly_engine.models.neurosymbolic_enhanced import (
-    FuzzySemantics,
+    CausalReasoningModule,
+    EnhancedNeurosymbolicEngine,
     FuzzyOperators,
-    TemporalGraphReasoner,
-    TemporalRule,
+    FuzzySemantics,
     GraphNode,
     KnowledgeGraphBridge,
     MetaCognitionLayer,
-    ReasoningState,
-    CausalReasoningModule,
     ProbabilisticLogicLayer,
-    EnhancedNeurosymbolicEngine,
+    ReasoningState,
+    TemporalGraphReasoner,
+    TemporalRule,
 )
 
 # Check if PyTorch is available
