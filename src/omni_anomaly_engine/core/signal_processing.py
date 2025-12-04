@@ -54,6 +54,7 @@ class FilterType(Enum):
     ADAPTIVE_BANDPASS = "adaptive_bandpass"
     MEDIAN = "median"
     EXPONENTIAL_MOVING_AVERAGE = "ema"
+    EMA = "ema"
 
 
 @dataclass
@@ -189,11 +190,14 @@ class AdaptiveNoiseFilter:
         self, coeffs: list[np.ndarray], original_length: int
     ) -> np.ndarray:
         """Simple Haar wavelet reconstruction."""
+        if len(coeffs) == 0:
+            return np.zeros(original_length)
+
         current = coeffs[0]
 
-        for i in range(1, len(coeffs)):
+        for i in range(len(coeffs) - 1, 0, -1):
             detail = coeffs[i]
-            n = len(current)
+            n = min(len(current), len(detail))
             reconstructed = np.zeros(2 * n)
 
             for j in range(n):
