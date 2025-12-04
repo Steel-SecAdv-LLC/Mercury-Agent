@@ -20,12 +20,206 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Production inference utilities for fusion model
 """
 
+from collections.abc import Iterator
 from typing import Any
 
 import numpy as np
 import torch
+from torch import nn
 
 from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
+
+__all__ = [
+    "BatchInference",
+    "FusionInference",
+    "InferenceEngine",
+    "ModelEnsemble",
+]
+
+
+class InferenceEngine:
+    """General-purpose inference engine for PyTorch models.
+
+    Provides efficient inference with automatic device handling,
+    numpy/tensor conversion, and no_grad context management.
+    """
+
+    def __init__(self, model: nn.Module, device: str = "cpu"):
+        """Initialize inference engine.
+
+        Args:
+            model: PyTorch model for inference
+            device: Device to run inference on ('cpu', 'cuda', etc.)
+        """
+        self.device = torch.device(device)
+        self.model = model.to(self.device)
+        self.model.eval()
+
+    def predict(self, x: torch.Tensor | np.ndarray) -> torch.Tensor:
+        """Run inference on input data.
+
+        Args:
+            x: Input tensor or numpy array
+
+        Returns:
+            Model output tensor
+        """
+        if isinstance(x, np.ndarray):
+            x = torch.tensor(x, dtype=torch.float32)
+
+        x = x.to(self.device)
+
+        with torch.no_grad():
+            output = self.model(x)
+
+        return output
+
+    def predict_proba(self, x: torch.Tensor | np.ndarray) -> torch.Tensor:
+        """Run inference and apply softmax for probabilities.
+
+        Args:
+            x: Input tensor or numpy array
+
+        Returns:
+            Probability tensor
+        """
+        output = self.predict(x)
+        return torch.softmax(output, dim=-1)
+
+
+class BatchInference:
+    """Batch inference processor for large datasets.
+
+    Handles memory-efficient processing of large inputs by
+    splitting into batches and optionally streaming results.
+    """
+
+    def __init__(self, model: nn.Module, batch_size: int = 32, device: str = "cpu"):
+        """Initialize batch inference.
+
+        Args:
+            model: PyTorch model for inference
+            batch_size: Size of batches for processing
+            device: Device to run inference on
+        """
+        self.engine = InferenceEngine(model, device)
+        self.batch_size = batch_size
+        self.device = torch.device(device)
+
+    def predict(self, x: torch.Tensor | np.ndarray) -> torch.Tensor:
+        """Run batched inference on input data.
+
+        Args:
+            x: Input tensor or numpy array
+
+        Returns:
+            Concatenated output tensor
+        """
+        if isinstance(x, np.ndarray):
+            x = torch.tensor(x, dtype=torch.float32)
+
+        outputs = []
+        for i in range(0, len(x), self.batch_size):
+            batch = x[i : i + self.batch_size]
+            output = self.engine.predict(batch)
+            outputs.append(output)
+
+        return torch.cat(outputs, dim=0)
+
+    def predict_stream(self, data_stream: Iterator[torch.Tensor]) -> Iterator[torch.Tensor]:
+        """Stream inference results for iterable input.
+
+        Args:
+            data_stream: Iterator of input tensors
+
+        Yields:
+            Output tensors for each input batch
+        """
+        for batch in data_stream:
+            yield self.engine.predict(batch)
+
+
+class ModelEnsemble:
+    """Ensemble of models with aggregation strategies.
+
+    Combines predictions from multiple models using mean,
+    voting, or other aggregation methods. Supports uncertainty
+    estimation from ensemble disagreement.
+    """
+
+    def __init__(
+        self,
+        models: list[nn.Module],
+        aggregation: str = "mean",
+        device: str = "cpu",
+    ):
+        """Initialize model ensemble.
+
+        Args:
+            models: List of PyTorch models
+            aggregation: Aggregation method ('mean', 'voting', 'median')
+            device: Device to run inference on
+        """
+        self.device = torch.device(device)
+        self.models = [model.to(self.device) for model in models]
+        self.aggregation = aggregation
+
+        for model in self.models:
+            model.eval()
+
+    def predict(self, x: torch.Tensor | np.ndarray) -> torch.Tensor:
+        """Run ensemble inference with aggregation.
+
+        Args:
+            x: Input tensor or numpy array
+
+        Returns:
+            Aggregated output tensor
+        """
+        if isinstance(x, np.ndarray):
+            x = torch.tensor(x, dtype=torch.float32)
+
+        x = x.to(self.device)
+
+        with torch.no_grad():
+            outputs = [model(x) for model in self.models]
+
+        stacked = torch.stack(outputs, dim=0)
+
+        if self.aggregation == "mean":
+            return stacked.mean(dim=0)
+        elif self.aggregation == "voting":
+            votes = torch.stack([torch.sign(out) for out in outputs], dim=0)
+            return votes.mean(dim=0)
+        elif self.aggregation == "median":
+            return stacked.median(dim=0).values
+        else:
+            return stacked.mean(dim=0)
+
+    def predict_with_uncertainty(
+        self, x: torch.Tensor | np.ndarray
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Run ensemble inference with uncertainty estimation.
+
+        Args:
+            x: Input tensor or numpy array
+
+        Returns:
+            Tuple of (aggregated output, uncertainty estimate)
+        """
+        if isinstance(x, np.ndarray):
+            x = torch.tensor(x, dtype=torch.float32)
+
+        x = x.to(self.device)
+
+        with torch.no_grad():
+            outputs = [model(x) for model in self.models]
+
+        stacked = torch.stack(outputs, dim=0)
+        mean_output = stacked.mean(dim=0)
+        uncertainty = stacked.std(dim=0)
+
+        return mean_output, uncertainty
 
 
 class FusionInference:

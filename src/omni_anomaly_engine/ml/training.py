@@ -21,14 +21,294 @@ Training utilities for fusion model using PyTorch Lightning
 Enhanced with Ava Equation state evolution optimizers
 """
 
+from dataclasses import dataclass, field
+from typing import Any, Iterator
 
 import numpy as np
 import pytorch_lightning as pl
 import torch
 from torch import nn, optim
+from torch.optim import lr_scheduler
 from torch.utils.data import Dataset
 
 from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
+
+__all__ = [
+    "AnomalyDataset",
+    "AvaExponentialDecayOptimizer",
+    "AvaHarmonicOptimizer",
+    "AvaMomentumOptimizer",
+    "AvaOptimizer",
+    "EarlyStopping",
+    "FusionTrainer",
+    "LearningRateScheduler",
+    "Trainer",
+    "TrainingConfig",
+    "create_ava_optimizer",
+]
+
+
+@dataclass
+class TrainingConfig:
+    """Configuration for model training.
+
+    Validates parameters and provides sensible defaults for training loops.
+    """
+
+    learning_rate: float = 0.001
+    batch_size: int = 32
+    epochs: int = 10
+    weight_decay: float = 0.0
+    device: str = "cpu"
+    optimizer: str = "adam"
+    scheduler: str | None = None
+    gradient_clip: float | None = None
+    early_stopping_patience: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.learning_rate <= 0:
+            raise ValueError("learning_rate must be positive")
+        if self.batch_size <= 0:
+            raise ValueError("batch_size must be positive")
+        if self.epochs <= 0:
+            raise ValueError("epochs must be positive")
+
+
+class EarlyStopping:
+    """Early stopping callback to prevent overfitting.
+
+    Monitors a metric and stops training when no improvement is seen
+    for a specified number of epochs (patience).
+    """
+
+    def __init__(self, patience: int = 5, min_delta: float = 0.0, mode: str = "min"):
+        """Initialize early stopping.
+
+        Args:
+            patience: Number of epochs to wait for improvement
+            min_delta: Minimum change to qualify as improvement
+            mode: 'min' for loss (lower is better), 'max' for accuracy
+        """
+        self.patience = patience
+        self.min_delta = min_delta
+        self.mode = mode
+        self.counter = 0
+        self.best_score: float | None = None
+        self.early_stop = False
+
+    def __call__(self, metric: float) -> bool:
+        """Check if training should stop.
+
+        Args:
+            metric: Current metric value to evaluate
+
+        Returns:
+            True if training should stop, False otherwise
+        """
+        score = -metric if self.mode == "min" else metric
+
+        if self.best_score is None:
+            self.best_score = score
+        elif score <= self.best_score + self.min_delta:
+            self.counter += 1
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.best_score = score
+            self.counter = 0
+
+        return self.early_stop
+
+
+class LearningRateScheduler:
+    """Wrapper for PyTorch learning rate schedulers.
+
+    Provides a unified interface for different scheduler types
+    including step decay and cosine annealing.
+    """
+
+    def __init__(
+        self,
+        optimizer: optim.Optimizer,
+        mode: str = "step",
+        step_size: int = 10,
+        gamma: float = 0.1,
+        T_max: int = 100,
+        eta_min: float = 0.0,
+        **kwargs: Any,
+    ):
+        """Initialize learning rate scheduler.
+
+        Args:
+            optimizer: PyTorch optimizer to schedule
+            mode: Scheduler type ('step', 'cosine', 'plateau')
+            step_size: Period of learning rate decay (for step mode)
+            gamma: Multiplicative factor of learning rate decay
+            T_max: Maximum number of iterations (for cosine mode)
+            eta_min: Minimum learning rate (for cosine mode)
+        """
+        self.optimizer = optimizer
+        self.mode = mode
+
+        if mode == "step":
+            self._scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
+        elif mode == "cosine":
+            self._scheduler = lr_scheduler.CosineAnnealingLR(
+                optimizer, T_max=T_max, eta_min=eta_min
+            )
+        elif mode == "plateau":
+            self._scheduler = lr_scheduler.ReduceLROnPlateau(
+                optimizer, mode="min", factor=gamma, patience=step_size
+            )
+        else:
+            raise ValueError(f"Unknown scheduler mode: {mode}")
+
+    def step(self, metric: float | None = None) -> None:
+        """Advance the scheduler by one step.
+
+        Args:
+            metric: Metric value for plateau scheduler
+        """
+        if self.mode == "plateau" and metric is not None:
+            self._scheduler.step(metric)
+        else:
+            self._scheduler.step()
+
+    def get_last_lr(self) -> list[float]:
+        """Get the last computed learning rate."""
+        return self._scheduler.get_last_lr()
+
+
+class Trainer:
+    """General-purpose trainer for PyTorch models.
+
+    Provides training loop, validation, checkpointing, and
+    integration with early stopping and learning rate scheduling.
+    """
+
+    def __init__(
+        self,
+        model: nn.Module,
+        config: TrainingConfig,
+        criterion: nn.Module | None = None,
+    ):
+        """Initialize trainer.
+
+        Args:
+            model: PyTorch model to train
+            config: Training configuration
+            criterion: Loss function (defaults to MSELoss)
+        """
+        self.model = model
+        self.config = config
+        self.criterion = criterion or nn.MSELoss()
+        self.device = torch.device(config.device)
+
+        self.model.to(self.device)
+
+        if config.optimizer == "adam":
+            self.optimizer = optim.Adam(
+                model.parameters(),
+                lr=config.learning_rate,
+                weight_decay=config.weight_decay,
+            )
+        elif config.optimizer == "adamw":
+            self.optimizer = optim.AdamW(
+                model.parameters(),
+                lr=config.learning_rate,
+                weight_decay=config.weight_decay,
+            )
+        elif config.optimizer == "sgd":
+            self.optimizer = optim.SGD(
+                model.parameters(),
+                lr=config.learning_rate,
+                weight_decay=config.weight_decay,
+            )
+        else:
+            self.optimizer = optim.Adam(
+                model.parameters(),
+                lr=config.learning_rate,
+                weight_decay=config.weight_decay,
+            )
+
+        self.scheduler = None
+        self.early_stopping = None
+        self.epoch = 0
+
+    def train_step(self, x: torch.Tensor, y: torch.Tensor) -> float:
+        """Execute a single training step.
+
+        Args:
+            x: Input tensor
+            y: Target tensor
+
+        Returns:
+            Loss value as float
+        """
+        self.model.train()
+        x = x.to(self.device)
+        y = y.to(self.device)
+
+        self.optimizer.zero_grad()
+        output = self.model(x)
+        loss = self.criterion(output, y)
+        loss.backward()
+
+        if self.config.gradient_clip is not None:
+            nn.utils.clip_grad_norm_(self.model.parameters(), self.config.gradient_clip)
+
+        self.optimizer.step()
+
+        return loss.item()
+
+    def validate_step(self, x: torch.Tensor, y: torch.Tensor) -> float:
+        """Execute a single validation step.
+
+        Args:
+            x: Input tensor
+            y: Target tensor
+
+        Returns:
+            Loss value as float
+        """
+        self.model.eval()
+        x = x.to(self.device)
+        y = y.to(self.device)
+
+        with torch.no_grad():
+            output = self.model(x)
+            loss = self.criterion(output, y)
+
+        return loss.item()
+
+    def save_checkpoint(self, path: str) -> None:
+        """Save model checkpoint.
+
+        Args:
+            path: Path to save checkpoint
+        """
+        checkpoint = {
+            "epoch": self.epoch,
+            "model_state_dict": self.model.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "config": {
+                "learning_rate": self.config.learning_rate,
+                "batch_size": self.config.batch_size,
+                "epochs": self.config.epochs,
+            },
+        }
+        torch.save(checkpoint, path)
+
+    def load_checkpoint(self, path: str) -> None:
+        """Load model checkpoint.
+
+        Args:
+            path: Path to checkpoint file
+        """
+        checkpoint = torch.load(path, map_location=self.device, weights_only=False)
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        self.epoch = checkpoint.get("epoch", 0)
 
 
 class AvaOptimizer(optim.Optimizer):

@@ -6,3 +6,7 @@ pytorch-lightning>=2.0.0
 deepface>=0.0.79
 opencv-python>=4.8.0
 pillow>=10.0.0
+
+# API dependencies for integration tests
+fastapi>=0.109.0
+httpx>=0.25.0
