@@ -200,7 +200,11 @@ EXPLANATION: [Your detailed explanation]
 
         # Extract anomaly decision
         is_anomaly = False
-        if "ANOMALY_DETECTED: YES" in response_upper or "ANOMALY_DETECTED:YES" in response_upper or "YES" in response_upper[:50]:
+        if (
+            "ANOMALY_DETECTED: YES" in response_upper
+            or "ANOMALY_DETECTED:YES" in response_upper
+            or "YES" in response_upper[:50]
+        ):
             is_anomaly = True
 
         # Extract confidence

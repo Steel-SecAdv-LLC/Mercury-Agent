@@ -438,9 +438,7 @@ class TestFinancialCrisisDetector:
 
     def test_partial_data_handling(self, detector):
         """Test handling of partial financial data."""
-        partial_data = {
-            "market_data": {"price_change_pct": -6.0, "vix": 40.0}
-        }
+        partial_data = {"market_data": {"price_change_pct": -6.0, "vix": 40.0}}
         result = detector.predict_financial_crisis(partial_data)
 
         assert result.market_crash_detected is True

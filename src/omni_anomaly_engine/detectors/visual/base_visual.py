@@ -296,9 +296,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
             checkpoints from trusted sources to prevent arbitrary code execution.
             See: https://pytorch.org/docs/stable/generated/torch.load.html
         """
-        checkpoint = torch.load(  # nosec B614
-            path, map_location=self.device, weights_only=False
-        )
+        checkpoint = torch.load(path, map_location=self.device, weights_only=False)  # nosec B614
         self.visual_config = checkpoint["config"]
         self.load_state_dict(checkpoint["state_dict"])
         self._is_fitted = checkpoint["is_fitted"]

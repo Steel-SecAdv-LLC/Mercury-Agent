@@ -788,7 +788,8 @@ class UncertaintyQuantifier:
         # Adaptive Calibration Error (handles varying bin sizes better)
         # Uses sqrt weighting to reduce sensitivity to large bins
         ace = sum(
-            np.sqrt(c) * abs(e - o) for c, e, o in zip(bin_counts, expected_conf, observed_acc, strict=False)
+            np.sqrt(c) * abs(e - o)
+            for c, e, o in zip(bin_counts, expected_conf, observed_acc, strict=False)
         ) / (sum(np.sqrt(c) for c in bin_counts) + 1e-10)
 
         # Store history

@@ -85,20 +85,24 @@ class TestChemicalSectorDetection:
     @pytest.fixture
     def normal_chemical_data(self):
         """Create normal chemical sensor data."""
-        return np.array([
-            [25.0, 500.0, 7.0, 10.0],  # temp, pressure, pH, leak_rate
-            [30.0, 550.0, 6.5, 15.0],
-            [28.0, 480.0, 7.5, 12.0],
-        ])
+        return np.array(
+            [
+                [25.0, 500.0, 7.0, 10.0],  # temp, pressure, pH, leak_rate
+                [30.0, 550.0, 6.5, 15.0],
+                [28.0, 480.0, 7.5, 12.0],
+            ]
+        )
 
     @pytest.fixture
     def anomalous_chemical_data(self):
         """Create anomalous chemical sensor data (temperature violation)."""
-        return np.array([
-            [25.0, 500.0, 7.0, 10.0],
-            [250.0, 550.0, 6.5, 15.0],  # Temperature above 200°C threshold
-            [28.0, 480.0, 7.5, 12.0],
-        ])
+        return np.array(
+            [
+                [25.0, 500.0, 7.0, 10.0],
+                [250.0, 550.0, 6.5, 15.0],  # Temperature above 200°C threshold
+                [28.0, 480.0, 7.5, 12.0],
+            ]
+        )
 
     def test_detect_normal_conditions(self, chemical_detector, normal_chemical_data):
         """Test detection with normal chemical conditions."""
@@ -119,9 +123,11 @@ class TestChemicalSectorDetection:
 
     def test_detect_multiple_violations(self, chemical_detector):
         """Test detection of multiple violations."""
-        data = np.array([
-            [250.0, 1500.0, 1.0, 150.0],  # All params violate thresholds
-        ])
+        data = np.array(
+            [
+                [250.0, 1500.0, 1.0, 150.0],  # All params violate thresholds
+            ]
+        )
         param_names = ["temperature_celsius", "pressure_psi", "ph_level", "leak_rate_ppm"]
         result = chemical_detector.detect(data, parameter_names=param_names)
 
@@ -130,12 +136,14 @@ class TestChemicalSectorDetection:
 
     def test_detect_leak_rate_violation(self, chemical_detector):
         """Test detection of high leak rate (emergency condition)."""
-        data = np.array([
-            [25.0, 500.0, 7.0, 150.0],  # Leak rate above 100 ppm
-            [25.0, 500.0, 7.0, 180.0],
-            [25.0, 500.0, 7.0, 200.0],
-            [25.0, 500.0, 7.0, 220.0],
-        ])
+        data = np.array(
+            [
+                [25.0, 500.0, 7.0, 150.0],  # Leak rate above 100 ppm
+                [25.0, 500.0, 7.0, 180.0],
+                [25.0, 500.0, 7.0, 200.0],
+                [25.0, 500.0, 7.0, 220.0],
+            ]
+        )
         param_names = ["temperature_celsius", "pressure_psi", "ph_level", "leak_rate_ppm"]
         result = chemical_detector.detect(data, parameter_names=param_names)
 
@@ -161,25 +169,34 @@ class TestNuclearSectorDetection:
     @pytest.fixture
     def normal_nuclear_data(self):
         """Create normal nuclear sensor data."""
-        return np.array([
-            [2.0, 300.0, 100000.0, 1.0],  # radiation, core_temp, coolant_flow, neutron_flux
-            [3.0, 310.0, 95000.0, 1.05],
-            [2.5, 305.0, 98000.0, 0.95],
-        ])
+        return np.array(
+            [
+                [2.0, 300.0, 100000.0, 1.0],  # radiation, core_temp, coolant_flow, neutron_flux
+                [3.0, 310.0, 95000.0, 1.05],
+                [2.5, 305.0, 98000.0, 0.95],
+            ]
+        )
 
     @pytest.fixture
     def anomalous_nuclear_data(self):
         """Create anomalous nuclear sensor data (radiation spike)."""
-        return np.array([
-            [2.0, 300.0, 100000.0, 1.0],
-            [10.0, 340.0, 45000.0, 1.5],  # Multiple violations
-            [2.5, 305.0, 98000.0, 0.95],
-            [15.0, 350.0, 40000.0, 1.6],  # More violations
-        ])
+        return np.array(
+            [
+                [2.0, 300.0, 100000.0, 1.0],
+                [10.0, 340.0, 45000.0, 1.5],  # Multiple violations
+                [2.5, 305.0, 98000.0, 0.95],
+                [15.0, 350.0, 40000.0, 1.6],  # More violations
+            ]
+        )
 
     def test_detect_normal_conditions(self, nuclear_detector, normal_nuclear_data):
         """Test detection with normal nuclear conditions."""
-        param_names = ["radiation_mrem_hr", "core_temperature_celsius", "coolant_flow_gpm", "neutron_flux"]
+        param_names = [
+            "radiation_mrem_hr",
+            "core_temperature_celsius",
+            "coolant_flow_gpm",
+            "neutron_flux",
+        ]
         result = nuclear_detector.detect(normal_nuclear_data, parameter_names=param_names)
 
         assert result["safety_status"] == "NORMAL"
@@ -187,7 +204,12 @@ class TestNuclearSectorDetection:
 
     def test_detect_radiation_spike(self, nuclear_detector, anomalous_nuclear_data):
         """Test detection of radiation threshold violation."""
-        param_names = ["radiation_mrem_hr", "core_temperature_celsius", "coolant_flow_gpm", "neutron_flux"]
+        param_names = [
+            "radiation_mrem_hr",
+            "core_temperature_celsius",
+            "coolant_flow_gpm",
+            "neutron_flux",
+        ]
         result = nuclear_detector.detect(anomalous_nuclear_data, parameter_names=param_names)
 
         assert result["safety_status"] in ["WARNING", "CRITICAL"]
@@ -195,13 +217,20 @@ class TestNuclearSectorDetection:
 
     def test_detect_coolant_flow_loss(self, nuclear_detector):
         """Test detection of coolant flow loss (emergency condition)."""
-        data = np.array([
-            [2.0, 300.0, 40000.0, 1.0],  # Low coolant flow
-            [2.0, 310.0, 35000.0, 1.0],
-            [2.0, 320.0, 30000.0, 1.0],
-            [2.0, 330.0, 25000.0, 1.0],
-        ])
-        param_names = ["radiation_mrem_hr", "core_temperature_celsius", "coolant_flow_gpm", "neutron_flux"]
+        data = np.array(
+            [
+                [2.0, 300.0, 40000.0, 1.0],  # Low coolant flow
+                [2.0, 310.0, 35000.0, 1.0],
+                [2.0, 320.0, 30000.0, 1.0],
+                [2.0, 330.0, 25000.0, 1.0],
+            ]
+        )
+        param_names = [
+            "radiation_mrem_hr",
+            "core_temperature_celsius",
+            "coolant_flow_gpm",
+            "neutron_flux",
+        ]
         result = nuclear_detector.detect(data, parameter_names=param_names)
 
         assert "coolant_flow_gpm" in result["anomalies"]
@@ -209,10 +238,17 @@ class TestNuclearSectorDetection:
 
     def test_detect_core_temperature_high(self, nuclear_detector):
         """Test detection of high core temperature."""
-        data = np.array([
-            [2.0, 340.0, 100000.0, 1.0],  # Above 330°C threshold
-        ])
-        param_names = ["radiation_mrem_hr", "core_temperature_celsius", "coolant_flow_gpm", "neutron_flux"]
+        data = np.array(
+            [
+                [2.0, 340.0, 100000.0, 1.0],  # Above 330°C threshold
+            ]
+        )
+        param_names = [
+            "radiation_mrem_hr",
+            "core_temperature_celsius",
+            "coolant_flow_gpm",
+            "neutron_flux",
+        ]
         result = nuclear_detector.detect(data, parameter_names=param_names)
 
         assert "core_temperature_celsius" in result["anomalies"]
@@ -273,9 +309,7 @@ class TestCrossSectorImpact:
 
     def test_medium_impact(self, detector):
         """Test medium impact with non-critical anomalies."""
-        anomalies = {
-            "temperature_celsius": {"severity": "MEDIUM"}
-        }
+        anomalies = {"temperature_celsius": {"severity": "MEDIUM"}}
         impact = detector._assess_cross_sector_impact(anomalies)
 
         assert len(impact["affected_sectors"]) > 0
@@ -283,9 +317,7 @@ class TestCrossSectorImpact:
 
     def test_high_impact_critical_anomaly(self, detector):
         """Test high impact with critical anomalies."""
-        anomalies = {
-            "leak_rate_ppm": {"severity": "CRITICAL"}
-        }
+        anomalies = {"leak_rate_ppm": {"severity": "CRITICAL"}}
         impact = detector._assess_cross_sector_impact(anomalies)
 
         assert impact["impact_level"] == "HIGH"

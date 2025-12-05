@@ -103,24 +103,30 @@ class TestCoralBleachingDetector:
     def test_bleaching_severity_levels(self, detector):
         """Test different bleaching severity levels."""
         # Mild severity
-        result = detector.detect_coral_bleaching({
-            "sst_anomaly_c": 1.5,
-            "degree_heating_weeks": 1.0,
-        })
+        result = detector.detect_coral_bleaching(
+            {
+                "sst_anomaly_c": 1.5,
+                "degree_heating_weeks": 1.0,
+            }
+        )
         assert result["severity"] == "mild"
 
         # Moderate severity
-        result = detector.detect_coral_bleaching({
-            "sst_anomaly_c": 1.5,
-            "degree_heating_weeks": 3.0,
-        })
+        result = detector.detect_coral_bleaching(
+            {
+                "sst_anomaly_c": 1.5,
+                "degree_heating_weeks": 3.0,
+            }
+        )
         assert result["severity"] == "moderate"
 
         # Severe severity
-        result = detector.detect_coral_bleaching({
-            "sst_anomaly_c": 1.5,
-            "degree_heating_weeks": 5.0,
-        })
+        result = detector.detect_coral_bleaching(
+            {
+                "sst_anomaly_c": 1.5,
+                "degree_heating_weeks": 5.0,
+            }
+        )
         assert result["severity"] == "severe"
 
     def test_dhw_captured_in_result(self, detector):
@@ -251,16 +257,16 @@ class TestMarineBiodiversityDetector:
         assert result.health_status == "healthy"
 
         # Stressed - one threat
-        result = detector.predict_biodiversity_threat({
-            "chemistry_data": {"ph": 7.7}
-        })
+        result = detector.predict_biodiversity_threat({"chemistry_data": {"ph": 7.7}})
         assert result.health_status == "stressed"
 
         # Critical - multiple threats
-        result = detector.predict_biodiversity_threat({
-            "chemistry_data": {"ph": 7.7},
-            "temperature_data": {"anomaly_c": 3.0},
-        })
+        result = detector.predict_biodiversity_threat(
+            {
+                "chemistry_data": {"ph": 7.7},
+                "temperature_data": {"anomaly_c": 3.0},
+            }
+        )
         assert result.health_status == "critical"
 
     def test_conservation_actions_generated(self, detector, stressed_marine_data):
@@ -283,9 +289,7 @@ class TestMarineBiodiversityDetector:
 
     def test_conservation_actions_for_acidification(self, detector):
         """Test conservation actions for ocean acidification."""
-        data = {
-            "chemistry_data": {"ph": 7.7}
-        }
+        data = {"chemistry_data": {"ph": 7.7}}
         result = detector.predict_biodiversity_threat(data)
 
         assert any("CO2" in action for action in result.conservation_actions)
@@ -303,12 +307,14 @@ class TestMarineBiodiversityDetector:
     def test_partial_data_handling(self, detector):
         """Test handling of partial marine data."""
         # Only coral data provided
-        result = detector.predict_biodiversity_threat({
-            "coral_data": {
-                "sst_anomaly_c": 1.5,
-                "degree_heating_weeks": 5.0,
+        result = detector.predict_biodiversity_threat(
+            {
+                "coral_data": {
+                    "sst_anomaly_c": 1.5,
+                    "degree_heating_weeks": 5.0,
+                }
             }
-        })
+        )
 
         assert result.coral_bleaching_detected is True
         assert result.ph_level is None

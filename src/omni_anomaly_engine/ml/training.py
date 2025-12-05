@@ -311,9 +311,7 @@ class Trainer:
             to prevent arbitrary code execution.
             See: https://pytorch.org/docs/stable/generated/torch.load.html
         """
-        checkpoint = torch.load(  # nosec B614
-            path, map_location=self.device, weights_only=False
-        )
+        checkpoint = torch.load(path, map_location=self.device, weights_only=False)  # nosec B614
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.epoch = checkpoint.get("epoch", 0)

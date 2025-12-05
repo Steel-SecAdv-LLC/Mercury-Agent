@@ -701,7 +701,11 @@ class IPBEngine:
         ]
 
         # Generate indicators and warnings
-        iaw = [*threat.indicators, f"changes_in_{threat.category.value}_behavior", f"targeting_of_{environment.domain.value if environment else 'assets'}"]
+        iaw = [
+            *threat.indicators,
+            f"changes_in_{threat.category.value}_behavior",
+            f"targeting_of_{environment.domain.value if environment else 'assets'}",
+        ]
 
         # Generate countermeasures
         countermeasures = [f"block_{cap.replace(' ', '_')}" for cap in threat.capabilities[:3]] + [

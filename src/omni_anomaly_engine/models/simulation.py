@@ -246,7 +246,7 @@ class SimulationModule:
         def is_prime(n):
             if n < 2:
                 return False
-            return all(n % i != 0 for i in range(2, int(n ** 0.5) + 1))
+            return all(n % i != 0 for i in range(2, int(n**0.5) + 1))
 
         twin_primes = []
         for n in range(2, min(search_space, 10000)):
@@ -310,7 +310,7 @@ class SimulationModule:
         def is_prime(n):
             if n < 2:
                 return False
-            return all(n % i != 0 for i in range(2, int(n ** 0.5) + 1))
+            return all(n % i != 0 for i in range(2, int(n**0.5) + 1))
 
         primes = [i for i in range(2, min(search_space, 10000)) if is_prime(i)]
         prime_set = set(primes)

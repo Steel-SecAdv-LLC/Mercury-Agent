@@ -29,6 +29,7 @@ import pytest
 try:
     import torch
     from torch import nn
+
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False

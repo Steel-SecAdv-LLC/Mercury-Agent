@@ -414,9 +414,7 @@ class ConfigurationManager:
             import hashlib
 
             user_hash = int(
-                hashlib.md5(
-                    f"{name}:{user_id}".encode(), usedforsecurity=False
-                ).hexdigest()[:8],
+                hashlib.md5(f"{name}:{user_id}".encode(), usedforsecurity=False).hexdigest()[:8],
                 16,
             )
             return (user_hash % 100) < flag.rollout_percentage
@@ -436,9 +434,7 @@ class ConfigurationManager:
             import hashlib
 
             user_hash = int(
-                hashlib.md5(
-                    f"{name}:{user_id}".encode(), usedforsecurity=False
-                ).hexdigest()[:8],
+                hashlib.md5(f"{name}:{user_id}".encode(), usedforsecurity=False).hexdigest()[:8],
                 16,
             )
             variant_names = list(flag.variants.keys())

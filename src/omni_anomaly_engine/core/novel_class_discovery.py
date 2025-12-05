@@ -228,7 +228,9 @@ class NovelClassDiscovery:
         unique_classes, counts = np.unique(class_assignments, return_counts=True)
 
         stats = {
-            "num_samples_per_class": dict(zip(unique_classes.tolist(), counts.tolist(), strict=False)),
+            "num_samples_per_class": dict(
+                zip(unique_classes.tolist(), counts.tolist(), strict=False)
+            ),
             "total_samples": len(class_assignments),
             "class_distribution": (counts / len(class_assignments)).tolist(),
             "most_common_class": int(unique_classes[np.argmax(counts)]),
