@@ -80,7 +80,7 @@ class HealthMonitor:
 
     def get_ecosystem_health(self) -> dict[str, Any]:
         """Get overall ecosystem health"""
-        component_health = {name: self.get_current_health(name) for name in self.metrics.keys()}
+        component_health = {name: self.get_current_health(name) for name in self.metrics}
 
         healthy_count = sum(1 for h in component_health.values() if h.get("status") == "healthy")
 

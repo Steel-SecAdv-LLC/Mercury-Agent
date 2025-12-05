@@ -34,6 +34,6 @@ from omni_anomaly_engine.ml.distillation.dual_student import (
 )
 
 __all__ = [
-    "DualStudentDistillation",
     "DualStudentConfig",
+    "DualStudentDistillation",
 ]

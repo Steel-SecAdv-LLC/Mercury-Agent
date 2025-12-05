@@ -68,16 +68,16 @@ from omni_anomaly_engine.detectors.vlm.lvlm_backends import (
 )
 
 __all__ = [
-    # Base classes
-    "BaseVLMDetector",
-    "VLMConfig",
     # Detectors
     "AnyAnomalyDetector",
+    # Base classes
+    "BaseVLMDetector",
     "LAVADDetector",
+    # Backends
+    "LVLMBackend",
     # Context providers
     "PositionContextProvider",
     "TemporalContextProvider",
-    # Backends
-    "LVLMBackend",
+    "VLMConfig",
     "get_lvlm_backend",
 ]

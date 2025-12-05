@@ -135,7 +135,7 @@ class MultiScaleDecoder(nn.Module):
             List of decoded features at each scale
         """
         outputs = []
-        for decoder, size in zip(self.decoders, self.spatial_sizes):
+        for decoder, size in zip(self.decoders, self.spatial_sizes, strict=False):
             # Upsample bottleneck to target size
             x = nn.functional.interpolate(
                 bottleneck, size=size, mode="bilinear", align_corners=False
@@ -212,8 +212,8 @@ class ReverseDistillationDetector(BaseVisualDetector):
         )
 
         # Initialize decoder
-        output_channels = [self._layer_channels[l] for l in self.rd_config.layers]
-        spatial_sizes = [self._layer_sizes[l] for l in self.rd_config.layers]
+        output_channels = [self._layer_channels[layer] for layer in self.rd_config.layers]
+        spatial_sizes = [self._layer_sizes[layer] for layer in self.rd_config.layers]
 
         self.decoder = MultiScaleDecoder(
             self.rd_config.bottleneck_dim,
@@ -437,7 +437,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         Returns:
             Anomaly map [B, H, W]
         """
-        batch_size = list(teacher_features.values())[0].shape[0]
+        batch_size = next(iter(teacher_features.values())).shape[0]
         anomaly_map = torch.zeros(batch_size, *original_size, device=self.device)
 
         for i, layer in enumerate(self.rd_config.layers):

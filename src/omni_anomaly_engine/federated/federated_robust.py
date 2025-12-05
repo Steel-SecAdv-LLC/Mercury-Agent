@@ -150,7 +150,7 @@ class FederatedAnomalyDetection:
 
         weights = client.model_weights.copy()
 
-        for epoch in range(local_epochs):
+        for _epoch in range(local_epochs):
             gradient = self._compute_gradient(weights, local_data)
             weights = weights - learning_rate * gradient
 
@@ -356,7 +356,7 @@ class FederatedAnomalyDetection:
 
         filtered_data = [
             (weights, num)
-            for (weights, num), dist in zip(client_data, distances)
+            for (weights, num), dist in zip(client_data, distances, strict=False)
             if dist < threshold
         ]
 

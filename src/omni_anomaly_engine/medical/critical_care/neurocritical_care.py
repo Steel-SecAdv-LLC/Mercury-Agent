@@ -513,7 +513,7 @@ class NeurocriticalCarePredictor:
 
         self.stroke_detector.eval()
         with torch.no_grad():
-            classification, severity = self.stroke_detector(features_tensor)
+            classification, _severity = self.stroke_detector(features_tensor)
 
         probs = torch.softmax(classification[0], dim=0)
         stroke_idx = torch.argmax(probs).item()
@@ -545,7 +545,7 @@ class NeurocriticalCarePredictor:
 
         self.seizure_predictor.eval()
         with torch.no_grad():
-            classification, risk, attention = self.seizure_predictor(seq_tensor)
+            classification, risk, _attention = self.seizure_predictor(seq_tensor)
 
         probs = torch.softmax(classification[0], dim=0)
         seizure_idx = torch.argmax(probs).item()

@@ -255,10 +255,7 @@ class ThreatDetector:
         Returns:
             Ethical alignment score (0-1)
         """
-        if context.get("source_type") == "user_input":
-            alignment = 0.8
-        else:
-            alignment = 0.5
+        alignment = 0.8 if context.get("source_type") == "user_input" else 0.5
 
         threat_types = [t.get("threat_type", "") for t in threats]
         if "sql_injection" in threat_types or "xss" in threat_types:

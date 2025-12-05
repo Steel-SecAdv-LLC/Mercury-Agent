@@ -69,7 +69,7 @@ class FourierAnalyzer:
 class BiometricAnomalyModel:
     """Biometric anomaly detection for facial recognition and analysis."""
 
-    def __init__(self, config: dict[str, Any] = None, **kwargs):
+    def __init__(self, config: dict[str, Any] | None = None, **kwargs):
         self.config = config or {}
         self.model_name = self.config.get("model_name", "Facenet")
         self.use_harmonic_features = self.config.get("use_harmonic_features", True)
@@ -179,10 +179,7 @@ class BiometricAnomalyModel:
     ) -> Union[np.ndarray, "torch.Tensor"]:
         """Extract biometric features from image data."""
         if isinstance(data, dict):
-            if "reference" in data:
-                data = data["reference"]
-            else:
-                data = np.array(list(data.values())[0])
+            data = data["reference"] if "reference" in data else np.array(next(iter(data.values())))
 
         if not isinstance(data, np.ndarray):
             data = np.array(data)
@@ -229,7 +226,7 @@ class BiometricAnomalyModel:
             if "reference" in data:
                 data = data["reference"]
             elif len(data) > 0:
-                data = list(data.values())[0]
+                data = next(iter(data.values()))
             else:
                 data = np.array([])
 

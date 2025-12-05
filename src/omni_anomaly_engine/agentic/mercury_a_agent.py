@@ -398,7 +398,7 @@ class MercuryReasoner:
             return "conclude", None
 
         if tools:
-            tool_name = list(tools.keys())[0]
+            tool_name = next(iter(tools.keys()))
             return tool_name, thought
 
         return "observe", thought

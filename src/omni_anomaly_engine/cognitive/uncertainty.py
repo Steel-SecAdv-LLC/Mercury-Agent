@@ -572,7 +572,7 @@ class UncertaintyQuantifier:
                     input_tensor = torch.FloatTensor(input_data)
                 else:
                     input_tensor = input_data
-                mean_pred, epistemic_std, mc_predictions = wrapper.predict_with_uncertainty(
+                _mean_pred, _epistemic_std, mc_predictions = wrapper.predict_with_uncertainty(
                     input_tensor, n_samples=self.n_monte_carlo
                 )
                 self._stats["mc_samples_total"] += self.n_monte_carlo
@@ -782,13 +782,13 @@ class UncertaintyQuantifier:
         ece = sum(adaptive_errors) / max(total_samples, 1)
 
         # Maximum Calibration Error
-        calibration_gaps = [abs(e - o) for e, o in zip(expected_conf, observed_acc)]
+        calibration_gaps = [abs(e - o) for e, o in zip(expected_conf, observed_acc, strict=False)]
         mce = max(calibration_gaps) if calibration_gaps else 0.0
 
         # Adaptive Calibration Error (handles varying bin sizes better)
         # Uses sqrt weighting to reduce sensitivity to large bins
         ace = sum(
-            np.sqrt(c) * abs(e - o) for c, e, o in zip(bin_counts, expected_conf, observed_acc)
+            np.sqrt(c) * abs(e - o) for c, e, o in zip(bin_counts, expected_conf, observed_acc, strict=False)
         ) / (sum(np.sqrt(c) for c in bin_counts) + 1e-10)
 
         # Store history
@@ -798,7 +798,7 @@ class UncertaintyQuantifier:
 
         # Update ACI with new data
         if self.aci is not None:
-            for pred, conf, out in zip(predictions, confidences, outcomes):
+            for pred, conf, out in zip(predictions, confidences, outcomes, strict=False):
                 score = abs(pred - out) if isinstance(out, (int, float)) else 0
                 covered = conf > 0.5 if out else conf <= 0.5
                 self.aci.update(score, covered)

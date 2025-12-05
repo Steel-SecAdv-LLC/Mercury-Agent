@@ -34,16 +34,16 @@ from .health import (
 from .server import app
 
 __all__ = [
-    "app",
     # Auth
     "APIKeyAuth",
+    "HealthChecker",
     "JWTAuth",
-    "User",
     "Permission",
-    "require_permission",
-    "require_role",
+    "User",
+    "app",
+    "get_health_checker",
     # Health
     "health_router",
-    "HealthChecker",
-    "get_health_checker",
+    "require_permission",
+    "require_role",
 ]

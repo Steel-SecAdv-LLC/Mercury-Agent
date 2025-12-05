@@ -126,7 +126,7 @@ def cardiology_interface():
                         y=ecg_data[:1000].flatten() if len(ecg_data.shape) > 1 else ecg_data[:1000],
                         mode="lines",
                         name="ECG Lead I",
-                        line=dict(color="red", width=1),
+                        line={"color": "red", "width": 1},
                     )
                 )
                 fig.update_layout(
@@ -451,7 +451,7 @@ def schumann_analysis_page():
                     y=data.flatten()[:500],
                     mode="lines",
                     name="Schumann Frequency",
-                    line=dict(color="blue", width=2),
+                    line={"color": "blue", "width": 2},
                 )
             )
             fig.update_layout(

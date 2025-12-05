@@ -276,7 +276,7 @@ class HealthChecker:
         # Determine overall status
         has_critical_failure = any(
             result.status == ComponentStatus.DOWN
-            for result, check in zip(results, checks_to_run)
+            for result, check in zip(results, checks_to_run, strict=False)
             if check.critical
         )
 

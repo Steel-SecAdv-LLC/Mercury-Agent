@@ -131,7 +131,7 @@ class NovelClassDiscovery:
         """
         features = []
 
-        for img, mask in zip(images, masks):
+        for img, mask in zip(images, masks, strict=False):
             if self.enable_mebin and self.mebin is not None:
                 binary_mask = self.mebin.binarize(mask)
             else:
@@ -228,7 +228,7 @@ class NovelClassDiscovery:
         unique_classes, counts = np.unique(class_assignments, return_counts=True)
 
         stats = {
-            "num_samples_per_class": dict(zip(unique_classes.tolist(), counts.tolist())),
+            "num_samples_per_class": dict(zip(unique_classes.tolist(), counts.tolist(), strict=False)),
             "total_samples": len(class_assignments),
             "class_distribution": (counts / len(class_assignments)).tolist(),
             "most_common_class": int(unique_classes[np.argmax(counts)]),

@@ -53,21 +53,21 @@ from omni_anomaly_engine.detectors.vlm import (
 )
 
 __all__ = [
+    # VLM detectors
+    "AnyAnomalyDetector",
+    "BaseVLMDetector",
+    "BaseVisualDetector",
+    "CFlowDetector",
     # Base detectors
     "DimensionalAnalyzer",
+    "LAVADDetector",
+    "PaDiMDetector",
+    # Visual detectors
+    "PatchCoreDetector",
+    "ReverseDistillationDetector",
+    "STFPMDetector",
     "SigmaDirectiveDetector",
     "SpatialAnomalyDetector",
     "StatisticalAnomalyDetector",
     "TemporalAnomalyDetector",
-    # Visual detectors
-    "PatchCoreDetector",
-    "PaDiMDetector",
-    "STFPMDetector",
-    "ReverseDistillationDetector",
-    "CFlowDetector",
-    "BaseVisualDetector",
-    # VLM detectors
-    "AnyAnomalyDetector",
-    "LAVADDetector",
-    "BaseVLMDetector",
 ]

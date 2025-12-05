@@ -45,13 +45,13 @@ from omni_anomaly_engine.metrics.benchmark_evaluator import (
 __all__ = [
     # Core metrics
     "AnomalyMetrics",
-    "compute_auroc",
+    # Evaluation
+    "BenchmarkEvaluator",
+    "EvaluationResult",
     "compute_auprc",
+    "compute_auroc",
     "compute_f1_max",
     "compute_optimal_threshold",
     "compute_pixel_auroc",
     "compute_pro",
-    # Evaluation
-    "BenchmarkEvaluator",
-    "EvaluationResult",
 ]

@@ -37,10 +37,10 @@ from omni_anomaly_engine.medical.cardiology.cardiology_predictor import (
 )
 
 __all__ = [
-    "CardiologyPredictor",
-    "CardiologyPredictionResult",
     "ArrhythmiaType",
-    "ECGRhythmAnalyzer",
     "CardiacBiomarkerAnalyzer",
+    "CardiologyPredictionResult",
+    "CardiologyPredictor",
+    "ECGRhythmAnalyzer",
     "FraminghamRiskCalculator",
 ]

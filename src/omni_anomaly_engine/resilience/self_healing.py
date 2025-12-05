@@ -378,7 +378,7 @@ class AdaptiveDefenseSystem:
         if not self._concept_drift_detected:
             return
 
-        for sig_id, signature in self.signature_library.items():
+        for _sig_id, signature in self.signature_library.items():
             signature.confidence *= 1 - self.adaptation_rate
 
         threshold = 0.5

@@ -119,7 +119,7 @@ class SimulationModule:
         distance_remaining = 1.0
         steps = []
 
-        for i in range(iterations):
+        for _i in range(iterations):
             step = distance_remaining / 2
             steps.append(step)
             distance_remaining -= step
@@ -146,7 +146,7 @@ class SimulationModule:
         truth_values = []
         current_value = True
 
-        for i in range(iterations):
+        for _i in range(iterations):
             current_value = not current_value
             truth_values.append(current_value)
 
@@ -246,10 +246,7 @@ class SimulationModule:
         def is_prime(n):
             if n < 2:
                 return False
-            for i in range(2, int(n**0.5) + 1):
-                if n % i == 0:
-                    return False
-            return True
+            return all(n % i != 0 for i in range(2, int(n ** 0.5) + 1))
 
         twin_primes = []
         for n in range(2, min(search_space, 10000)):
@@ -276,10 +273,7 @@ class SimulationModule:
             steps = 0
             max_val = n
             while n != 1 and steps < 10000:
-                if n % 2 == 0:
-                    n = n // 2
-                else:
-                    n = 3 * n + 1
+                n = n // 2 if n % 2 == 0 else 3 * n + 1
                 max_val = max(max_val, n)
                 steps += 1
             return steps, max_val, (n == 1)
@@ -316,10 +310,7 @@ class SimulationModule:
         def is_prime(n):
             if n < 2:
                 return False
-            for i in range(2, int(n**0.5) + 1):
-                if n % i == 0:
-                    return False
-            return True
+            return all(n % i != 0 for i in range(2, int(n ** 0.5) + 1))
 
         primes = [i for i in range(2, min(search_space, 10000)) if is_prime(i)]
         prime_set = set(primes)
@@ -563,7 +554,7 @@ class SimulationModule:
             Feature array of shape (batch_size, embedding_dim)
         """
         if isinstance(data, dict):
-            data = np.array(list(data.values())[0])
+            data = np.array(next(iter(data.values())))
         elif not isinstance(data, np.ndarray):
             data = np.array(data)
 
@@ -614,7 +605,7 @@ class SimulationModule:
         features = self.extract_features(data)
 
         branch_predictions = []
-        for branch in range(self.num_branches):
+        for _branch in range(self.num_branches):
             branch_noise = self._rng.randn(*features.shape) * 0.1
             branch_features = features + branch_noise
 

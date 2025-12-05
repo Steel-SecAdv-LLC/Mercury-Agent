@@ -302,7 +302,7 @@ class RegenerativeArchitecture:
 
     def _calculate_diversity(self, models: list[Any]) -> float:
         """Calculate diversity score for ensemble (Principle 10)."""
-        return len(set(str(m) for m in models)) / max(len(models), 1)
+        return len({str(m) for m in models}) / max(len(models), 1)
 
     def _identify_edges(self, data: np.ndarray) -> np.ndarray:
         """Identify edge cases (marginal data points) (Principle 11)."""

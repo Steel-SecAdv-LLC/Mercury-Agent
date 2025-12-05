@@ -589,7 +589,7 @@ class ChemistryAnomalyDetector:
         }
 
         if "elemental_composition" in chemical_data:
-            for element_symbol in chemical_data["elemental_composition"].keys():
+            for element_symbol in chemical_data["elemental_composition"]:
                 for metal_name, metal_info in self.alchemical_knowledge[
                     "alchemical_metals"
                 ].items():

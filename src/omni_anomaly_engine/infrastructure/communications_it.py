@@ -123,7 +123,7 @@ class CommunicationsITDetector:
         """Update baseline statistics from recent traffic history."""
         recent_data = list(self.traffic_history)[-min(len(self.traffic_history), 1000) :]
 
-        for metric in recent_data[0].keys():
+        for metric in recent_data[0]:
             values = [d[metric] for d in recent_data if metric in d]
             if values:
                 self.baseline_stats[metric] = {

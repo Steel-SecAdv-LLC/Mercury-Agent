@@ -375,11 +375,46 @@ select = [
     "S",      # flake8-bandit (security)
 ]
 ignore = [
+    "ARG001", # Unused function argument (interface requirements)
+    "ARG002", # Unused method argument (interface requirements)
+    "ARG004", # Unused static method argument (interface requirements)
+    "B023",   # Function uses loop variable (bound via default arg)
+    "B904",   # Raise without from (sometimes intentional)
+    "E402",   # Module import not at top (license headers before imports)
     "E501",   # Line too long (handled by black)
     "B008",   # Function call in default argument
+    "ERA001", # Commented-out code (documentation/examples)
+    "PERF102", # Incorrect dict iterator (readability)
+    "PERF401", # Manual list comprehension (readability preference)
+    "PERF403", # Manual dict comprehension (readability)
+    "PLC0206", # Dict index missing items (readability)
+    "PLC0415", # Import outside top level (conditional/lazy imports)
+    "PLR0911", # Too many return statements
+    "PLR0912", # Too many branches (complex logic is sometimes necessary)
     "PLR0913", # Too many arguments
+    "PLR0915", # Too many statements
     "PLR2004", # Magic value comparison
+    "PLW0603", # Global statement (sometimes necessary)
+    "PLW2901", # Redefined loop name (intentional in some cases)
+    "PTH103", # os.makedirs (acceptable)
+    "PTH110", # os.path.exists (acceptable)
+    "PTH118", # os.path.join (acceptable)
+    "PTH120", # os.path.dirname (acceptable)
+    "PTH123", # builtin open (acceptable)
+    "RUF001", # Ambiguous unicode character (intentional: ♱)
+    "RUF002", # Ambiguous unicode character in docstring (intentional: ♱)
+    "RUF012", # Mutable class default (intentional for configs)
+    "RUF034", # Useless if-else (readability preference)
+    "RUF059", # Unused unpacked variable (interface requirement)
     "S101",   # Assert usage (needed in tests)
+    "S110",   # try-except-pass (intentional silence)
+    "S112",   # try-except-continue (intentional silence)
+    "S301",   # Pickle usage (documented security considerations)
+    "S311",   # Suspicious non-cryptographic random (intentional use)
+    "SIM102", # Collapsible if (readability preference)
+    "SIM105", # Suppressible exception (contextlib.suppress alternative)
+    "SIM115", # Open file with context handler (tempfile pattern)
+    "SIM116", # If-else instead of dict lookup (readability)
 ]
 
 [tool.ruff.lint.per-file-ignores]

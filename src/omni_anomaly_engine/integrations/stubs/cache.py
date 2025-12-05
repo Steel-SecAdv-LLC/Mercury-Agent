@@ -383,7 +383,7 @@ class CacheStub:
         for key in expired:
             del self._cache[key]
 
-        return [k for k in self._cache.keys() if fnmatch.fnmatch(k, pattern)]
+        return [k for k in self._cache if fnmatch.fnmatch(k, pattern)]
 
     async def flush(self) -> int:
         """Clear all entries from cache.

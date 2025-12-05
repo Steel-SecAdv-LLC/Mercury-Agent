@@ -75,7 +75,7 @@ class USGSEarthquakeLoader(DatasetLoader):
         features = []
         labels = []
 
-        for i in range(n_samples):
+        for _i in range(n_samples):
             # Spatial distribution (clustered around fault zones)
             zone = np.random.choice(["pacific_rim", "mediterranean", "himalayan", "mid_atlantic"])
 
@@ -312,7 +312,7 @@ class WildfireDataLoader(DatasetLoader):
         features = []
         labels = []
 
-        for i in range(n_samples):
+        for _i in range(n_samples):
             # Fire-prone regions
             region = np.random.choice(["western_us", "australia", "amazon", "mediterranean"])
 

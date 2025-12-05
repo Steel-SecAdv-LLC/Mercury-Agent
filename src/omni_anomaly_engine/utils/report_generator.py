@@ -147,9 +147,7 @@ class ReportGenerator:
             return self._generate_json(data)
         elif format == ReportFormat.HTML:
             return self._generate_html(data)
-        elif format == ReportFormat.MARKDOWN:
-            return self._generate_markdown(data)
-        elif format == ReportFormat.PDF:
+        elif format in (ReportFormat.MARKDOWN, ReportFormat.PDF):
             return self._generate_markdown(data)
         return self._generate_json(data)
 

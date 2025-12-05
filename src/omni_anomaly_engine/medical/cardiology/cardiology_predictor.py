@@ -594,7 +594,7 @@ class CardiologyPredictor:
 
         self.ecg_analyzer.eval()
         with torch.no_grad():
-            classification, attention = self.ecg_analyzer(ecg_tensor)
+            classification, _attention = self.ecg_analyzer(ecg_tensor)
 
         probs = torch.softmax(classification[0], dim=0)
         rhythm_idx = torch.argmax(probs).item()

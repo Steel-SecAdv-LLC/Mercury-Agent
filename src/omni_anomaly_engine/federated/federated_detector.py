@@ -196,7 +196,7 @@ class FederatedAnomalyDetector:
 
         local_model = self.global_model_weights.copy()
 
-        for epoch in range(epochs):
+        for _epoch in range(epochs):
             gradient = self._rng.randn(len(local_model)) * 0.01
             local_model -= 0.01 * gradient
 
@@ -211,7 +211,7 @@ class FederatedAnomalyDetector:
         total_weight = sum(client_weights)
         weighted_updates = [
             update * (weight / total_weight)
-            for update, weight in zip(client_updates, client_weights)
+            for update, weight in zip(client_updates, client_weights, strict=False)
         ]
 
         aggregated = np.sum(weighted_updates, axis=0)

@@ -227,7 +227,7 @@ class MIMICLoader(DatasetLoader):
             stay_data = chartevents[chartevents["icustay_id"] == icustay_id]
 
             feature_vec = []
-            for itemid, feature_name in itemid_map.items():
+            for itemid in itemid_map:
                 vals = stay_data[stay_data["itemid"] == itemid]["valuenum"]
                 feature_vec.append(vals.mean() if len(vals) > 0 else 0)
 
@@ -303,7 +303,7 @@ class PhysioNetLoader(DatasetLoader):
         features = []
         labels = []
 
-        for i in range(n_samples):
+        for _i in range(n_samples):
             # Normal sinus rhythm
             t = np.linspace(0, 1, signal_length)
             heart_rate = np.random.uniform(60, 100)

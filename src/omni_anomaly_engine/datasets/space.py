@@ -211,7 +211,7 @@ class NASAExoplanetLoader(DatasetLoader):
         features = []
         labels = []
 
-        for i in range(n_samples):
+        for _i in range(n_samples):
             # Generate realistic exoplanet parameters
             params = {
                 "orbital_period": np.random.lognormal(2, 1.5),  # days

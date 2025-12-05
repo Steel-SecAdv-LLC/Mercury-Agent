@@ -252,7 +252,7 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
         if data.ndim == 3:
             data = data[np.newaxis, ...]
 
-        t, c, h, w = data.shape
+        t, _c, _h, _w = data.shape
 
         # Stage 1: Generate captions for each frame
         logger.info(f"Generating captions for {t} frames...")
@@ -296,7 +296,7 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
 
             # Update frame scores
             base_score = confidence if is_anomaly else 0.0
-            for i, frame_idx in enumerate(range(start, end)):
+            for _i, frame_idx in enumerate(range(start, end)):
                 local_idx = frame_idx - start
                 if local_idx in anomaly_frames:
                     frame_scores[frame_idx] += confidence
