@@ -61,6 +61,14 @@ except ImportError:
         def booleans():
             return None
 
+        @staticmethod
+        def characters(*args, **kwargs):
+            return None
+
+        @staticmethod
+        def tuples(*args, **kwargs):
+            return None
+
     class npst:
         @staticmethod
         def arrays(*args, **kwargs):
