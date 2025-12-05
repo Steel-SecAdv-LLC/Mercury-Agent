@@ -20,9 +20,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Test neural and consciousness models
 """
 
-from omni_anomaly_engine.models.consciousness import (
-    ConsciousnessPreservationModel,
-)
+from omni_anomaly_engine.models.consciousness import ConsciousnessPreservationModel
 from omni_anomaly_engine.models.neural import NeuralCognitiveModel
 
 

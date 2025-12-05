@@ -1,7 +1,7 @@
 # Counterintelligence Research Summary - Overwatch Nexus and Response
 
-**Document Version**: 1.0  
-**Last Updated**: 2025-10-15  
+**Document Version**: 1.0
+**Last Updated**: 2025-10-15
 **Module**: Overwatch Nexus and Response (Medical Interdiction and Intervention)
 
 ## Executive Summary
@@ -416,7 +416,7 @@ This document summarizes findings from reliable .gov and .edu sources on counter
 1. **Department of Homeland Security (DHS)**
    - https://www.dhs.gov/ - Counter-terrorism mission
    - https://www.cisa.gov/ - Cybersecurity and Infrastructure Security Agency
-   
+
 2. **Department of Defense (DoD)**
    - https://www.defense.gov/ - Defense CI enterprise
    - https://www.dcsa.mil/ - Defense Counterintelligence and Security Agency
@@ -527,8 +527,8 @@ The Overwatch Nexus and Response module integrates authoritative .gov and .edu r
 
 ---
 
-**Document Maintainer**: Devin (AI Software Engineer)  
-**Review Cycle**: Quarterly  
+**Document Maintainer**: Devin (AI Software Engineer)
+**Review Cycle**: Quarterly
 **Next Review**: 2026-01-15
 
 **Attribution**: All government and academic sources cited in-line. No Wikipedia references used. Original GPL v3 licensed implementation by Steel Security Advisory LLC.

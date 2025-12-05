@@ -22,12 +22,7 @@ Test communication utilities
 
 import asyncio
 
-from omni_anomaly_engine.utils.comm import (
-    AsyncMessageQueue,
-    Message,
-    MessagePriority,
-    SimplePubSub,
-)
+from omni_anomaly_engine.utils.comm import AsyncMessageQueue, Message, MessagePriority, SimplePubSub
 
 
 def test_message_creation():

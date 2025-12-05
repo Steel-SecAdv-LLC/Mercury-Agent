@@ -40,25 +40,12 @@ from typing import Any
 
 import numpy as np
 
-from omni_anomaly_engine.cognitive.case_based_reasoning import (
-    Case,
-    CaseBasedReasoner,
-    CaseOutcome,
-)
+from omni_anomaly_engine.cognitive.case_based_reasoning import Case, CaseBasedReasoner, CaseOutcome
 from omni_anomaly_engine.cognitive.causal_discovery import CausalDiscoveryEngine
-from omni_anomaly_engine.cognitive.indicator_system import (
-    IndicatorDevelopmentSystem,
-)
+from omni_anomaly_engine.cognitive.indicator_system import IndicatorDevelopmentSystem
 from omni_anomaly_engine.cognitive.ipb_engine import EnvironmentDomain, IPBEngine
-from omni_anomaly_engine.cognitive.knowledge_graph import (
-    EdgeType,
-    KnowledgeGraph,
-    NodeType,
-)
-from omni_anomaly_engine.cognitive.multi_hop_reasoner import (
-    MultiHopReasoner,
-    Proposition,
-)
+from omni_anomaly_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGraph, NodeType
+from omni_anomaly_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
 from omni_anomaly_engine.cognitive.plasticity_engine import AdaptationType, PlasticityEngine
 from omni_anomaly_engine.cognitive.uncertainty import UncertaintyQuantifier
 

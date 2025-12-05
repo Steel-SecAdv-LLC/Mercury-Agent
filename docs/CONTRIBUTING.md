@@ -51,10 +51,10 @@ When opening issues, use provided templates:
    ```bash
    # Core dependencies
    pip install -r requirements.txt
-   
+
    # Development dependencies
    pip install -r requirements-dev.txt
-   
+
    # Optional dependencies (biometric, quantum, etc.)
    pip install -r requirements-optional.txt
    ```
@@ -108,11 +108,11 @@ We follow PEP 8 with some modifications:
 def detect_anomaly(data: np.ndarray, threshold: float = 0.5) -> Dict[str, Any]:
     """
     Detect anomalies in data.
-    
+
     Args:
         data: Input data array
         threshold: Detection threshold
-        
+
     Returns:
         Dictionary with anomaly scores and metadata
     """
@@ -211,18 +211,18 @@ from omni_anomaly_engine.ml.harmonic_encoder import SphericalHarmonicDecomposer
 def test_spherical_harmonic_decomposition():
     """Test spherical harmonic decomposition."""
     decomposer = SphericalHarmonicDecomposer(l_max=5)
-    
+
     # Create test data
     points = np.random.randn(100, 3)
     values = np.random.randn(100)
-    
+
     # Decompose
     coeffs = decomposer.decompose_surface(points, values)
-    
+
     # Assertions
     assert coeffs.shape == (36,)  # (l_max + 1)^2
     assert coeffs.dtype == np.complex128
-    
+
     # Test power spectrum
     power = decomposer.compute_rotation_invariant_features(coeffs)
     assert power.shape == (6,)  # l_max + 1
@@ -238,19 +238,19 @@ from omni_anomaly_engine.engine import OmniAnomalyEngine
 def test_full_pipeline():
     """Test end-to-end anomaly detection."""
     engine = OmniAnomalyEngine()
-    
+
     # Normal data
     normal_data = np.random.randn(100, 10)
     result = engine.detect(normal_data)
-    
+
     assert "anomaly_score" in result
     assert "component_scores" in result
     assert result["anomaly_score"] < 0.5  # Should be low for normal data
-    
+
     # Anomalous data
     anomalous_data = np.random.randn(100, 10) * 10  # Much larger scale
     result = engine.detect(anomalous_data)
-    
+
     assert result["anomaly_score"] > 0.5  # Should be high for anomalous data
 ```
 
@@ -271,12 +271,12 @@ def test_biometric_model_without_deepface(mock_deepface):
     """Test biometric model with mocked DeepFace."""
     # Mock DeepFace.represent
     mock_deepface.represent.return_value = [{"embedding": [0.1] * 128}]
-    
+
     from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
-    
+
     model = BiometricAnomalyModel()
     features = model.extract_features(np.zeros((224, 224, 3), dtype=np.uint8))
-    
+
     assert features.shape == (1, 128)
 ```
 
@@ -307,12 +307,12 @@ def bench_inference_latency():
     """Benchmark inference latency."""
     engine = OmniAnomalyEngine()
     data = np.random.randn(1000, 10)
-    
+
     start = time.time()
     for i in range(100):
         _ = engine.detect(data[i:i+10])
     elapsed = time.time() - start
-    
+
     print(f"Average latency: {elapsed / 100 * 1000:.2f}ms")
 
 
@@ -333,16 +333,16 @@ python benchmarks/bench_fusion.py
    ```bash
    # Format code
    black omni_anomaly_engine/ tests/ examples/
-   
+
    # Lint
    flake8 omni_anomaly_engine/ tests/
-   
+
    # Type check
    mypy omni_anomaly_engine/
-   
+
    # Test with coverage
    pytest tests/ --cov=omni_anomaly_engine --cov-report=term
-   
+
    # Security scan
    bandit -r omni_anomaly_engine/
    ```
@@ -435,7 +435,7 @@ from omni_anomaly_engine.core.base import BaseModel
 class NewEngineModel(BaseModel):
     """
     Description of new engine.
-    
+
     Features:
     - Feature 1
     - Feature 2
@@ -449,10 +449,10 @@ class NewEngineModel(BaseModel):
         """Predict anomalies."""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
-        
+
         # Your logic here
         scores = self._compute_scores(data)
-        
+
         return {
             "anomaly_scores": scores,
             "model_type": "new_engine",
@@ -462,7 +462,7 @@ class NewEngineModel(BaseModel):
         """Extract features for ML fusion."""
         # Extract features
         features = ...
-        
+
         return torch.tensor(features, dtype=torch.float32)
 
     def _compute_scores(self, data: np.ndarray) -> np.ndarray:

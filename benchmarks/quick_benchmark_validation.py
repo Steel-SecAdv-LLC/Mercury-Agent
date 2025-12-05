@@ -26,11 +26,12 @@ Quick validation on synthetic data - comprehensive benchmarks on actual repos
 (requests/flask/numpy/pandas/scikit-learn) can be done separately if needed.
 """
 
-import numpy as np
-import time
-from typing import Dict
 import json
+import time
 from pathlib import Path
+from typing import Dict
+
+import numpy as np
 
 
 def generate_synthetic_anomaly_data(n_samples: int = 1000, anomaly_ratio: float = 0.05):

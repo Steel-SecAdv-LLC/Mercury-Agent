@@ -27,9 +27,10 @@ Validates OmniAvaEngine convergence properties symbolically:
 Run on initialization to confirm mathematical properties.
 """
 
-import sympy as sp
+from typing import Any, Dict
+
 import numpy as np
-from typing import Dict, Any
+import sympy as sp
 
 
 def prove_exponential_convergence() -> Dict[str, Any]:

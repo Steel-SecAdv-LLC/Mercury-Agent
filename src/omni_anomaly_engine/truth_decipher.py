@@ -48,9 +48,7 @@ import torch
 
 from omni_anomaly_engine.agentic.agentic_autonomy import AgenticAutonomy
 from omni_anomaly_engine.cognitive.case_based_reasoning import CaseOutcome
-from omni_anomaly_engine.cognitive.orchestrator import (
-    CognitiveOrchestrator,
-)
+from omni_anomaly_engine.cognitive.orchestrator import CognitiveOrchestrator
 from omni_anomaly_engine.core.ai_ethics import EthicalAutonomyGovernor, EthicsResult
 from omni_anomaly_engine.core.config import EngineConfig
 from omni_anomaly_engine.core.novel_class_discovery import NovelClassDiscovery

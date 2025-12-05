@@ -26,15 +26,15 @@ import sys
 import time
 import tracemalloc
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from omni_anomaly_engine.core.three_r_mechanism import (  # noqa: E402
-    RefactoringEngine,
     RefactoringConfig,
+    RefactoringEngine,
 )
 
 

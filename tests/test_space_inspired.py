@@ -20,10 +20,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 import numpy as np
 
-from omni_anomaly_engine.space.space_inspired import (
-    SpaceInspiredResilience,
-    SystemState,
-)
+from omni_anomaly_engine.space.space_inspired import SpaceInspiredResilience, SystemState
 
 
 def test_space_resilience_initialization():

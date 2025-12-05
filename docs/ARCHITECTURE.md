@@ -133,7 +133,7 @@ if self.use_harmonic_features:
 
 #### Quantum Pattern Containment Protocol (QPCP)
 ```
-Normalize data → Create superposition state → 
+Normalize data → Create superposition state →
 Measure coherence & entanglement → Pattern scores
 ```
 
@@ -455,7 +455,7 @@ result = coordinator.detect_with_modules(
     data=sensor_data,
     module_names=[
         'ncf_monitor',
-        'space_infrastructure', 
+        'space_infrastructure',
         'essential_workers',
         'world_bank_sectors',
         'emerging_tech_monitor'
@@ -565,8 +565,8 @@ The infrastructure modules implement several **first-of-their-kind** capabilitie
 
 ### Performance Characteristics
 
-**Module Loading**: All 11 modules load in <100ms at initialization  
-**Detection Latency**: 
+**Module Loading**: All 11 modules load in <100ms at initialization
+**Detection Latency**:
 - Single module: ~10-50ms per detection
 - 5 modules: ~50-200ms aggregate
 - All 11 modules: ~200-500ms aggregate (parallelizable)
@@ -809,54 +809,54 @@ if delta_V > 0 and t > 5:  # Stability violation
    ```
 
 2. **Lyapunov Decrease Condition**:
-   
+
    Given the double-helix structure with ethical constraints (Helix_2), we can show:
-   
+
    ```
    V(𝔄_{t+1}) - V(𝔄_t) = ||𝔄_{t+1} - 𝔄_target||² - ||𝔄_t - 𝔄_target||²
                         = ||f(𝔄_t) - 𝔄_target||² - ||𝔄_t - 𝔄_target||²
    ```
-   
+
    where f(𝔄_t) is the combined update function.
 
 3. **Contraction Mapping**:
-   
+
    The double-helix intertwining acts as a contraction operator. For each term in Helix_1, there exists a corresponding ethical constraint in Helix_2 that bounds the update magnitude:
-   
+
    ```
    ||f(𝔄_t) - 𝔄_target|| ≤ α ||𝔄_t - 𝔄_target||
    ```
-   
+
    where α < 1 is the contraction factor (approximately 0.87 empirically).
 
 4. **Exponential Convergence Rate**:
-   
+
    From the contraction property:
-   
+
    ```
    V(𝔄_t) ≤ α² V(𝔄_{t-1}) ≤ α^{2t} V(𝔄_0)
    ```
-   
+
    Taking the square root:
-   
+
    ```
    ||𝔄_t - 𝔄_target|| ≤ α^t ||𝔄_0 - 𝔄_target||
    ```
 
 5. **Convergence Rate Eigenvalue Analysis**:
-   
+
    The dominant eigenvalue λ_max of the Jacobian ∂f/∂𝔄 determines convergence rate. Empirically measured:
-   
+
    ```
    λ_max ≈ 0.87
    ```
-   
+
    This yields the exponential decay rate:
-   
+
    ```
    Rate = O(e^{-0.13t})
    ```
-   
+
    where 0.13 ≈ -ln(0.87).
 
 ### Stability Guarantees

@@ -30,9 +30,7 @@ Includes:
 from omni_anomaly_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_anomaly_engine.detectors.directive import SigmaDirectiveDetector
 from omni_anomaly_engine.detectors.spatial import SpatialAnomalyDetector
-from omni_anomaly_engine.detectors.statistical import (
-    StatisticalAnomalyDetector,
-)
+from omni_anomaly_engine.detectors.statistical import StatisticalAnomalyDetector
 from omni_anomaly_engine.detectors.temporal import TemporalAnomalyDetector
 
 # SOTA Visual Anomaly Detection
@@ -46,11 +44,7 @@ from omni_anomaly_engine.detectors.visual import (
 )
 
 # Vision-Language Model Detectors
-from omni_anomaly_engine.detectors.vlm import (
-    AnyAnomalyDetector,
-    BaseVLMDetector,
-    LAVADDetector,
-)
+from omni_anomaly_engine.detectors.vlm import AnyAnomalyDetector, BaseVLMDetector, LAVADDetector
 
 __all__ = [
     # VLM detectors

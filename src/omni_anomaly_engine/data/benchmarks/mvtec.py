@@ -33,7 +33,6 @@ from typing import Any
 
 from .base_dataset import BaseDatasetConfig, BaseImageDataset
 
-
 MVTEC_CATEGORIES: list[str] = [
     "bottle",
     "cable",
@@ -131,9 +130,7 @@ class MVTecADDataset(BaseImageDataset):
                 is_normal = defect_type.name == "good"
                 label = 0 if is_normal else 1
 
-                mask_dir = (
-                    self.root / self.category / "ground_truth" / defect_type.name
-                )
+                mask_dir = self.root / self.category / "ground_truth" / defect_type.name
 
                 for img_path in sorted(defect_type.glob("*.png")):
                     mask_path = None

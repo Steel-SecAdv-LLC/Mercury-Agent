@@ -35,7 +35,6 @@ import numpy as np
 
 from .base_dataset import BaseDatasetConfig, BaseVideoDataset
 
-
 UCF_ANOMALY_TYPES: list[str] = [
     "Abuse",
     "Arrest",
@@ -195,9 +194,7 @@ class UCFCrimeDataset(BaseVideoDataset):
         for video_path, label, _ in self._videos:
             if label == 1:
                 anomaly_type = video_path.parent.name
-                stats["by_type"][anomaly_type] = (
-                    stats["by_type"].get(anomaly_type, 0) + 1
-                )
+                stats["by_type"][anomaly_type] = stats["by_type"].get(anomaly_type, 0) + 1
 
         return stats
 

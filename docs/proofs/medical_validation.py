@@ -20,15 +20,17 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Medical Cure Predictor validation with statistical tests.
 """
 
+import os
+import sys
+
 import numpy as np
 from scipy import stats
-import sys
-import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
-from omni_anomaly_engine.medical.medical_cure_predictor import MedicalCurePredictor
 from assets.loaders import generate_mimic_vitals
+
+from omni_anomaly_engine.medical.medical_cure_predictor import MedicalCurePredictor
 
 
 def validate_medical_predictor():

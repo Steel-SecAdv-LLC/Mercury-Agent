@@ -37,10 +37,7 @@ from omni_anomaly_engine.metrics.anomaly_metrics import (
     compute_pixel_auroc,
     compute_pro,
 )
-from omni_anomaly_engine.metrics.benchmark_evaluator import (
-    BenchmarkEvaluator,
-    EvaluationResult,
-)
+from omni_anomaly_engine.metrics.benchmark_evaluator import BenchmarkEvaluator, EvaluationResult
 
 __all__ = [
     # Core metrics

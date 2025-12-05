@@ -133,9 +133,7 @@ class ShanghaiTechDataset(BaseVideoDataset):
 
                 self._videos.append((video_dir, label, temporal_annotations))
 
-            for video_file in sorted(scene_path.glob("*.avi")) + sorted(
-                scene_path.glob("*.mp4")
-            ):
+            for video_file in sorted(scene_path.glob("*.avi")) + sorted(scene_path.glob("*.mp4")):
                 temporal_annotations = self._load_frame_annotations(video_file)
                 label = 1 if temporal_annotations is not None else 0
                 self._videos.append((video_file, label, temporal_annotations))

@@ -163,7 +163,7 @@ ROC curves saved to: assets/data/roc_threshold_validation.png
 
 Proof scripts available in:
 - `docs/proofs/cyber_validation.py`: PCAP tampering detection validation
-- `docs/proofs/medical_validation.py`: MIMIC-III vital signs validation  
+- `docs/proofs/medical_validation.py`: MIMIC-III vital signs validation
 - `docs/proofs/seti_validation.py`: Cosmic signal validation
 
 All scripts include:

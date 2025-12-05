@@ -137,9 +137,7 @@ class TestMatrixProfileAdapter:
     def test_matrix_profile_config(self):
         """Test Matrix Profile with custom config."""
         from omni_anomaly_engine.models.foundation import MatrixProfileAdapter
-        from omni_anomaly_engine.models.foundation.matrix_profile import (
-            MatrixProfileConfig,
-        )
+        from omni_anomaly_engine.models.foundation.matrix_profile import MatrixProfileConfig
 
         config = MatrixProfileConfig(
             window_size=50,
@@ -235,18 +233,14 @@ class TestBaseFoundationAdapter:
 
     def test_base_adapter_initialization(self):
         """Test BaseFoundationAdapter can be initialized."""
-        from omni_anomaly_engine.models.foundation.base_foundation import (
-            BaseFoundationAdapter,
-        )
+        from omni_anomaly_engine.models.foundation.base_foundation import BaseFoundationAdapter
 
         adapter = BaseFoundationAdapter()
         assert adapter is not None
 
     def test_base_adapter_interface(self):
         """Test base adapter has required interface."""
-        from omni_anomaly_engine.models.foundation.base_foundation import (
-            BaseFoundationAdapter,
-        )
+        from omni_anomaly_engine.models.foundation.base_foundation import BaseFoundationAdapter
 
         adapter = BaseFoundationAdapter()
 

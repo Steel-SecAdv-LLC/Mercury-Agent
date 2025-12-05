@@ -18,11 +18,11 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Verification script to test imports and scalar counts."""
 
-from omni_anomaly_engine.models import multiverse as _multiverse  # noqa: F401
-from omni_anomaly_engine.models import astrophysical as _astrophysical  # noqa: F401
-from omni_anomaly_engine.models import neurosymbolic as _neurosymbolic  # noqa: F401
 from omni_anomaly_engine.core import ethical_config as _ethical_config  # noqa: F401
 from omni_anomaly_engine.core.ethical_config import EthicalScalars
+from omni_anomaly_engine.models import astrophysical as _astrophysical  # noqa: F401
+from omni_anomaly_engine.models import multiverse as _multiverse  # noqa: F401
+from omni_anomaly_engine.models import neurosymbolic as _neurosymbolic  # noqa: F401
 
 print("✅ All imports successful")
 

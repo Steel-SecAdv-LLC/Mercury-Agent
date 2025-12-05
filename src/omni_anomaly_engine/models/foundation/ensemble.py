@@ -34,18 +34,12 @@ from omni_anomaly_engine.models.foundation.base_foundation import (
     BaseFoundationModel,
     FoundationModelConfig,
 )
-from omni_anomaly_engine.models.foundation.chronos_adapter import (
-    ChronosAdapter,
-    ChronosConfig,
-)
+from omni_anomaly_engine.models.foundation.chronos_adapter import ChronosAdapter, ChronosConfig
 from omni_anomaly_engine.models.foundation.matrix_profile import (
     MatrixProfileConfig,
     MatrixProfileDetector,
 )
-from omni_anomaly_engine.models.foundation.timegpt_adapter import (
-    TimeGPTAdapter,
-    TimeGPTConfig,
-)
+from omni_anomaly_engine.models.foundation.timegpt_adapter import TimeGPTAdapter, TimeGPTConfig
 
 logger = logging.getLogger(__name__)
 

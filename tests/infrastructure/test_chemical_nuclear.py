@@ -21,10 +21,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.infrastructure.chemical_nuclear import (
-    ChemicalNuclearDetector,
-    CISASector,
-)
+from omni_anomaly_engine.infrastructure.chemical_nuclear import ChemicalNuclearDetector, CISASector
 
 
 class TestCISASector:

@@ -28,12 +28,13 @@ Tests the 20-24% reductions applied in commit f2eea48:
 - omni_justitia: 1.20 → 1.10 (8.3% reduction)
 """
 
-import numpy as np
-import time
-from typing import Dict, List
 import json
-from pathlib import Path
+import time
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List
+
+import numpy as np
 
 
 @dataclass

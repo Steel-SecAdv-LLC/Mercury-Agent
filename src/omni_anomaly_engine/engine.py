@@ -104,9 +104,7 @@ from omni_anomaly_engine.core.config import EngineConfig
 from omni_anomaly_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_anomaly_engine.detectors.directive import SigmaDirectiveDetector
 from omni_anomaly_engine.detectors.spatial import SpatialAnomalyDetector
-from omni_anomaly_engine.detectors.statistical import (
-    StatisticalAnomalyDetector,
-)
+from omni_anomaly_engine.detectors.statistical import StatisticalAnomalyDetector
 from omni_anomaly_engine.detectors.temporal import TemporalAnomalyDetector
 from omni_anomaly_engine.medical.abms_disciplines import ABMSDisciplineDetector
 from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
@@ -115,9 +113,7 @@ from omni_anomaly_engine.models.affective import AffectiveAnomalyModel
 from omni_anomaly_engine.models.astrophysical import AstrophysicalAnomalyModel
 from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
 from omni_anomaly_engine.models.chemistry import ChemistryAnomalyDetector
-from omni_anomaly_engine.models.consciousness import (
-    ConsciousnessPreservationModel,
-)
+from omni_anomaly_engine.models.consciousness import ConsciousnessPreservationModel
 from omni_anomaly_engine.models.neural import NeuralCognitiveModel
 from omni_anomaly_engine.models.parapsychology import ParapsychologyDetector
 from omni_anomaly_engine.models.quantum import QuantumAnomalyModel

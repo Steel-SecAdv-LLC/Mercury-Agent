@@ -253,9 +253,7 @@ class BaseVideoDataset(ABC):
         frames = []
 
         if video_path.is_dir():
-            frame_files = sorted(video_path.glob("*.jpg")) + sorted(
-                video_path.glob("*.png")
-            )
+            frame_files = sorted(video_path.glob("*.jpg")) + sorted(video_path.glob("*.png"))
             for i, frame_path in enumerate(frame_files):
                 if max_frames is not None and i >= max_frames:
                     break
