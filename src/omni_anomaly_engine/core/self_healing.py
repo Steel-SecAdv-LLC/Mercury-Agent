@@ -17,8 +17,12 @@ Note:
         AdaptiveDefenseSystem,
         AnomalySignature,
     )
+
+    To suppress this deprecation warning, set the environment variable:
+        OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS=1
 """
 
+import os
 import warnings
 
 # Re-export from new location
@@ -38,10 +42,38 @@ __all__ = [
     "SelfHealingEngine",
 ]
 
-# Issue deprecation warning on import
-warnings.warn(
-    "omni_anomaly_engine.core.self_healing is deprecated. "
-    "Use omni_anomaly_engine.resilience.self_healing instead.",
-    DeprecationWarning,
-    stacklevel=2,
-)
+
+class SelfHealingDeprecationWarning(DeprecationWarning):
+    """Custom deprecation warning for self_healing module.
+
+    This warning is issued when importing from the deprecated
+    omni_anomaly_engine.core.self_healing module.
+
+    To suppress this warning:
+        - Set OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS=1 environment variable
+        - Use warnings.filterwarnings('ignore', category=SelfHealingDeprecationWarning)
+        - Import from omni_anomaly_engine.resilience.self_healing directly
+    """
+
+    pass
+
+
+def _emit_deprecation_warning() -> None:
+    """Emit deprecation warning if not suppressed."""
+    if os.environ.get("OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    ):
+        return
+
+    warnings.warn(
+        "omni_anomaly_engine.core.self_healing is deprecated. "
+        "Use omni_anomaly_engine.resilience.self_healing instead. "
+        "Set OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS=1 to suppress this warning.",
+        SelfHealingDeprecationWarning,
+        stacklevel=3,
+    )
+
+
+_emit_deprecation_warning()

@@ -49,6 +49,7 @@ Example:
 from omni_anomaly_engine.models.foundation.base_foundation import (
     BaseFoundationAdapter,
     BaseFoundationModel,
+    ForecastResult,
     FoundationModelConfig,
 )
 from omni_anomaly_engine.models.foundation.chronos_adapter import ChronosAdapter
@@ -65,6 +66,7 @@ __all__ = [
     # Base classes
     "BaseFoundationAdapter",
     "BaseFoundationModel",
+    "ForecastResult",
     "FoundationModelConfig",
     # Adapters
     "TimeGPTAdapter",
