@@ -457,9 +457,7 @@ class JWTAuth:
         try:
             import jwt
         except ImportError:
-            logger.error(
-                "PyJWT not installed. Install with: pip install PyJWT"
-            )
+            logger.error("PyJWT not installed. Install with: pip install PyJWT")
             return None
 
         try:

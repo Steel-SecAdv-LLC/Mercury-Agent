@@ -409,9 +409,7 @@ class InputValidator:
 
         # Check scheme
         if parsed.scheme not in allowed_schemes:
-            errors.append(
-                f"{field_name}: Scheme must be one of: {', '.join(allowed_schemes)}"
-            )
+            errors.append(f"{field_name}: Scheme must be one of: {', '.join(allowed_schemes)}")
 
         # Check for host
         if not parsed.netloc:

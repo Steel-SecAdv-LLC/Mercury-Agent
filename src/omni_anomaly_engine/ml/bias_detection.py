@@ -187,9 +187,7 @@ class BiasDetector:
         # Compute fairness results for each metric
         fairness_results = []
         for metric in metrics:
-            result = self._compute_metric(
-                y_true, y_pred, sensitive_features, feature_name, metric
-            )
+            result = self._compute_metric(y_true, y_pred, sensitive_features, feature_name, metric)
             fairness_results.append(result)
 
         # Aggregate results
@@ -200,9 +198,7 @@ class BiasDetector:
         high_risk_groups = self._identify_high_risk_groups(fairness_results)
 
         # Generate recommendations
-        recommendations = self._generate_recommendations(
-            fairness_results, high_risk_groups
-        )
+        recommendations = self._generate_recommendations(fairness_results, high_risk_groups)
 
         return BiasReport(
             model_name=model_name,
@@ -232,9 +228,7 @@ class BiasDetector:
             return self._compute_with_fairlearn(
                 y_true, y_pred, sensitive_features, feature_name, metric
             )
-        return self._compute_builtin(
-            y_true, y_pred, sensitive_features, feature_name, metric
-        )
+        return self._compute_builtin(y_true, y_pred, sensitive_features, feature_name, metric)
 
     def _compute_with_fairlearn(
         self,
@@ -262,9 +256,7 @@ class BiasDetector:
 
         if metric == FairnessMetric.DEMOGRAPHIC_PARITY:
             disparity = abs(
-                demographic_parity_difference(
-                    y_true, y_pred, sensitive_features=sensitive_features
-                )
+                demographic_parity_difference(y_true, y_pred, sensitive_features=sensitive_features)
             )
             # Compute per-group selection rates
             mf = MetricFrame(
@@ -281,9 +273,7 @@ class BiasDetector:
 
         elif metric == FairnessMetric.EQUALIZED_ODDS:
             disparity = abs(
-                equalized_odds_difference(
-                    y_true, y_pred, sensitive_features=sensitive_features
-                )
+                equalized_odds_difference(y_true, y_pred, sensitive_features=sensitive_features)
             )
             # Get TPR and FPR by group
             mf_fpr = MetricFrame(
@@ -308,9 +298,7 @@ class BiasDetector:
             is_fair = disparity <= threshold
 
         elif metric == FairnessMetric.DISPARATE_IMPACT:
-            ratio = demographic_parity_ratio(
-                y_true, y_pred, sensitive_features=sensitive_features
-            )
+            ratio = demographic_parity_ratio(y_true, y_pred, sensitive_features=sensitive_features)
             disparity = abs(1.0 - ratio) if ratio else 1.0
             # Per-group selection rates
             mf = MetricFrame(
@@ -357,18 +345,12 @@ class BiasDetector:
 
         else:
             # Fallback for unimplemented metrics
-            return self._compute_builtin(
-                y_true, y_pred, sensitive_features, feature_name, metric
-            )
+            return self._compute_builtin(y_true, y_pred, sensitive_features, feature_name, metric)
 
         recommendations = []
         if not is_fair:
-            recommendations.append(
-                f"Consider rebalancing training data for {feature_name}"
-            )
-            recommendations.append(
-                "Apply fairness constraints during model training"
-            )
+            recommendations.append(f"Consider rebalancing training data for {feature_name}")
+            recommendations.append("Apply fairness constraints during model training")
 
         return FairnessResult(
             metric=metric,
@@ -464,9 +446,7 @@ class BiasDetector:
 
         recommendations = []
         if not is_fair:
-            recommendations.append(
-                f"Model shows unfair treatment across {feature_name}"
-            )
+            recommendations.append(f"Model shows unfair treatment across {feature_name}")
             recommendations.append(
                 "Consider using Fairlearn's ThresholdOptimizer or ExponentiatedGradient"
             )
@@ -510,9 +490,7 @@ class BiasDetector:
         unfair_metrics = [r.metric.value for r in results if not r.is_fair]
 
         if unfair_metrics:
-            recommendations.append(
-                f"Unfair metrics detected: {', '.join(unfair_metrics)}"
-            )
+            recommendations.append(f"Unfair metrics detected: {', '.join(unfair_metrics)}")
 
             if FairnessMetric.DEMOGRAPHIC_PARITY.value in unfair_metrics:
                 recommendations.append(
@@ -533,12 +511,8 @@ class BiasDetector:
                 )
 
         if high_risk_groups:
-            recommendations.append(
-                f"High-risk groups identified: {', '.join(high_risk_groups)}"
-            )
-            recommendations.append(
-                "Collect more data for underrepresented groups"
-            )
+            recommendations.append(f"High-risk groups identified: {', '.join(high_risk_groups)}")
+            recommendations.append("Collect more data for underrepresented groups")
 
         if not recommendations:
             recommendations.append("Model passes all fairness checks")

@@ -22,33 +22,41 @@ try:
     from hypothesis.extra import numpy as npst
 except ImportError:
     hypothesis_available = False
+
     # Create dummy decorators for when hypothesis isn't available
     def given(*args, **kwargs):
         def decorator(func):
             return pytest.mark.skip(reason="Hypothesis not installed")(func)
+
         return decorator
 
     def settings(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
 
     class st:
         @staticmethod
         def floats(*args, **kwargs):
             return None
+
         @staticmethod
         def integers(*args, **kwargs):
             return None
+
         @staticmethod
         def text(*args, **kwargs):
             return None
+
         @staticmethod
         def lists(*args, **kwargs):
             return None
+
         @staticmethod
         def dictionaries(*args, **kwargs):
             return None
+
         @staticmethod
         def booleans():
             return None
@@ -102,11 +110,12 @@ class TestInputValidationProperties:
         # Property: Strict mode only allows safe characters
         if result.sanitized_value:
             import re
+
             # Only alphanumeric, underscore, hyphen, at, dot, space
-            assert re.match(r'^[a-zA-Z0-9_\-@. ]*$', result.sanitized_value)
+            assert re.match(r"^[a-zA-Z0-9_\-@. ]*$", result.sanitized_value)
 
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
-    @given(st.integers(min_value=-10**15, max_value=10**15))
+    @given(st.integers(min_value=-(10**15), max_value=10**15))
     @settings(max_examples=100)
     def test_integer_validation_roundtrip(self, value: int):
         """Integer validation should preserve valid integers."""
@@ -198,10 +207,7 @@ class TestBiasDetectorProperties:
     """Property-based tests for bias detection."""
 
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
-    @given(
-        st.integers(min_value=100, max_value=1000),
-        st.integers(min_value=2, max_value=5)
-    )
+    @given(st.integers(min_value=100, max_value=1000), st.integers(min_value=2, max_value=5))
     @settings(max_examples=20, suppress_health_check=[HealthCheck.too_slow])
     def test_perfect_predictor_is_fair(self, n_samples: int, n_groups: int):
         """A perfect predictor should pass fairness checks."""
@@ -214,8 +220,7 @@ class TestBiasDetectorProperties:
 
         detector = BiasDetector(use_fairlearn=False)
         report = detector.evaluate(
-            y_true, y_pred, sensitive_features,
-            metrics=[FairnessMetric.EQUALIZED_ODDS]
+            y_true, y_pred, sensitive_features, metrics=[FairnessMetric.EQUALIZED_ODDS]
         )
 
         # Property: Perfect predictor should have no equalized odds disparity
@@ -240,14 +245,12 @@ class TestBiasDetectorProperties:
 
         detector = BiasDetector(use_fairlearn=False)
         report = detector.evaluate(
-            y_true, y_pred, sensitive_features,
-            metrics=[FairnessMetric.DEMOGRAPHIC_PARITY]
+            y_true, y_pred, sensitive_features, metrics=[FairnessMetric.DEMOGRAPHIC_PARITY]
         )
 
         # Property: Extreme bias should be detected
         dp_result = next(
-            r for r in report.fairness_results
-            if r.metric == FairnessMetric.DEMOGRAPHIC_PARITY
+            r for r in report.fairness_results if r.metric == FairnessMetric.DEMOGRAPHIC_PARITY
         )
         assert dp_result.disparity > 0.5 or not dp_result.is_fair
 
@@ -256,7 +259,9 @@ class TestThreatDetectorProperties:
     """Property-based tests for threat detection."""
 
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
-    @given(st.text(alphabet=st.characters(whitelist_categories=('L', 'N')), min_size=1, max_size=100))
+    @given(
+        st.text(alphabet=st.characters(whitelist_categories=("L", "N")), min_size=1, max_size=100)
+    )
     @settings(max_examples=100)
     def test_clean_input_not_flagged(self, text: str):
         """Alphanumeric text should not be flagged as threats."""
@@ -315,12 +320,16 @@ class TestEthicalEngineProperties:
     """Property-based tests for ethical constraint engine."""
 
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
-    @given(st.dictionaries(
-        keys=st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=('L',))),
-        values=st.floats(min_value=0.0, max_value=1.0, allow_nan=False),
-        min_size=1,
-        max_size=10
-    ))
+    @given(
+        st.dictionaries(
+            keys=st.text(
+                min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L",))
+            ),
+            values=st.floats(min_value=0.0, max_value=1.0, allow_nan=False),
+            min_size=1,
+            max_size=10,
+        )
+    )
     @settings(max_examples=50)
     def test_maat_balance_bounded_output(self, ethical_scores: dict):
         """Ma'at balance should always produce bounded heart weight."""
@@ -334,11 +343,15 @@ class TestEthicalEngineProperties:
         assert 0.0 <= result.deviation <= 1.0
 
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
-    @given(npst.arrays(
-        dtype=np.float64,
-        shape=st.tuples(st.integers(min_value=2, max_value=10), st.integers(min_value=2, max_value=10)),
-        elements=st.floats(min_value=-10, max_value=10, allow_nan=False, allow_infinity=False)
-    ))
+    @given(
+        npst.arrays(
+            dtype=np.float64,
+            shape=st.tuples(
+                st.integers(min_value=2, max_value=10), st.integers(min_value=2, max_value=10)
+            ),
+            elements=st.floats(min_value=-10, max_value=10, allow_nan=False, allow_infinity=False),
+        )
+    )
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
     def test_sacred_geometry_bounded_scores(self, data: np.ndarray):
         """Sacred geometry analysis should produce scores in [0, 1]."""
