@@ -206,6 +206,18 @@ class SchumannResonanceDetector:
 
         self.logger.info(f"Schumann Resonance Detector initialized (fs={sampling_rate}Hz)")
 
+    @property
+    def fundamental_freq(self) -> float:
+        """Return the fundamental Schumann resonance frequency (~7.83 Hz).
+
+        The fundamental frequency of the Earth-ionosphere cavity resonance.
+        This is the first mode of the Schumann resonances.
+
+        Returns:
+            Fundamental frequency in Hz (approximately 7.83 Hz)
+        """
+        return self.schumann_frequencies[0]
+
     def _initialize_ancient_correlations(self) -> dict[str, Any]:
         """
         Initialize ancient knowledge correlations.
