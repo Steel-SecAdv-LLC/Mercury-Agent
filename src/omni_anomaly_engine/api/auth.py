@@ -440,29 +440,120 @@ class JWTAuth:
         return user
 
     async def _validate_jwt(self, token: str) -> User | None:
-        """Validate JWT token (stub implementation).
+        """Validate JWT token using PyJWT.
 
-        In production, use proper JWT validation with python-jose or PyJWT.
+        Requires PyJWT package: pip install PyJWT
+
+        Token payload expected format:
+        {
+            "sub": "user_id",
+            "username": "user_name",
+            "email": "user@example.com",
+            "roles": ["user"],
+            "permissions": ["read", "detect"],
+            "exp": 1234567890
+        }
         """
-        # Stub: Accept any token for development
-        # In production, decode and validate the JWT properly
         try:
-            # Simulate JWT validation
-            # In real implementation:
-            # payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
-            # user_id = payload.get("sub")
-            # etc.
+            import jwt
+        except ImportError:
+            logger.error(
+                "PyJWT not installed. Install with: pip install PyJWT"
+            )
+            return None
+
+        try:
+            # Decode and validate the JWT
+            payload = jwt.decode(
+                token,
+                self.secret_key,
+                algorithms=[self.algorithm],
+                options={
+                    "require": ["exp", "sub"],  # Require expiration and subject
+                    "verify_exp": True,
+                    "verify_signature": True,
+                },
+            )
+
+            # Extract user information from payload
+            user_id = payload.get("sub")
+            if not user_id:
+                logger.warning("JWT missing subject claim")
+                return None
+
+            # Parse permissions from payload
+            permission_names = payload.get("permissions", ["read"])
+            permissions = set()
+            for perm_name in permission_names:
+                try:
+                    permissions.add(Permission(perm_name))
+                except ValueError:
+                    logger.warning(f"Unknown permission in JWT: {perm_name}")
 
             return User(
-                id="jwt_user_1",
-                username="jwt_user",
-                email="user@example.com",
-                roles=["user"],
-                permissions={Permission.READ, Permission.DETECT},
-                metadata={"auth_method": "jwt"},
+                id=user_id,
+                username=payload.get("username", f"user_{user_id}"),
+                email=payload.get("email"),
+                roles=payload.get("roles", ["user"]),
+                permissions=permissions or {Permission.READ},
+                metadata={"auth_method": "jwt", "token_id": payload.get("jti")},
             )
-        except Exception:
+
+        except jwt.ExpiredSignatureError:
+            logger.warning("JWT token expired")
             return None
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"Invalid JWT token: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"JWT validation error: {e}")
+            return None
+
+    @staticmethod
+    def create_token(
+        user_id: str,
+        username: str,
+        secret_key: str,
+        email: str | None = None,
+        roles: list[str] | None = None,
+        permissions: list[str] | None = None,
+        algorithm: str = "HS256",
+        expires_in_hours: int = 24,
+    ) -> str:
+        """Create a new JWT token.
+
+        Args:
+            user_id: Unique user identifier
+            username: User's username
+            secret_key: Secret key for signing
+            email: User's email (optional)
+            roles: User's roles (default: ["user"])
+            permissions: User's permissions (default: ["read"])
+            algorithm: Signing algorithm
+            expires_in_hours: Token validity duration
+
+        Returns:
+            Signed JWT token string
+        """
+        try:
+            import jwt
+        except ImportError:
+            raise ImportError("PyJWT required. Install with: pip install PyJWT")
+
+        payload = {
+            "sub": user_id,
+            "username": username,
+            "roles": roles or ["user"],
+            "permissions": permissions or ["read"],
+            "iat": datetime.now(),
+            "exp": datetime.now() + timedelta(hours=expires_in_hours),
+            "jti": secrets.token_hex(16),  # Unique token ID
+        }
+
+        if email:
+            payload["email"] = email
+
+        return jwt.encode(payload, secret_key, algorithm=algorithm)
 
 
 class RateLimiter:
