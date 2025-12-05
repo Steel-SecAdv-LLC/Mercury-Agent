@@ -63,12 +63,20 @@ class AnyAnomalyConfig(VLMConfig):
         use_segment_voting: Aggregate votes across segments
         action_focused: Emphasize action-based anomalies
         appearance_focused: Emphasize appearance-based anomalies
+        backend: LVLM backend type (for test compatibility)
+        context_window: Number of context frames
+        enable_positional_context: Enable positional context
+        enable_temporal_context: Enable temporal context
     """
 
     segment_overlap: int = 4
     use_segment_voting: bool = True
     action_focused: bool = True
     appearance_focused: bool = True
+    backend: str = "qwen2_vl"  # LVLM backend type
+    context_window: int = 4  # Number of context frames
+    enable_positional_context: bool = True  # Enable positional context
+    enable_temporal_context: bool = True  # Enable temporal context
 
 
 class AnyAnomalyDetector(BaseVLMDetector):
@@ -104,6 +112,8 @@ class AnyAnomalyDetector(BaseVLMDetector):
 
         super().__init__(config)
         self.any_config: AnyAnomalyConfig = config
+        # Override _config to use the specific AnyAnomaly config
+        self._config = config
 
         # Context providers
         self.context_provider = CombinedContextProvider(
@@ -113,6 +123,37 @@ class AnyAnomalyDetector(BaseVLMDetector):
 
         # LVLM backend
         self._backend = None
+
+        # Anomaly definition and reference frames for test compatibility
+        self._anomaly_definition: str | None = None
+        self._reference_frames: list[Any] = []
+
+    @property
+    def anomaly_definition(self) -> str | None:
+        """Get the current anomaly definition."""
+        return self._anomaly_definition or self.vlm_config.anomaly_description
+
+    @property
+    def reference_frames(self) -> list[Any]:
+        """Get the reference normal frames."""
+        return self._reference_frames
+
+    def set_anomaly_definition(self, definition: str) -> None:
+        """Set the anomaly definition for detection.
+
+        Args:
+            definition: Natural language description of anomaly
+        """
+        self._anomaly_definition = definition
+        self.vlm_config.anomaly_description = definition
+
+    def set_reference_normal(self, frames: list[Any]) -> None:
+        """Set reference normal frames for comparison.
+
+        Args:
+            frames: List of normal reference frames
+        """
+        self._reference_frames = frames
 
     def _initialize_model(self) -> None:
         """Initialize LVLM backend."""
@@ -351,6 +392,13 @@ EXPLANATION: [Your detailed explanation]
         # Generate features (simple encoding of scores and metadata)
         features = self._generate_features(scores, segment_results)
 
+        # Build reasoning summary from segment results
+        reasoning_parts = []
+        for i, r in enumerate(segment_results):
+            if r["is_anomaly"]:
+                reasoning_parts.append(f"Segment {i}: {r['explanation']}")
+        reasoning = "; ".join(reasoning_parts) if reasoning_parts else "No anomalies detected"
+
         return {
             "scores": scores,
             "is_anomaly": is_anomaly,
@@ -358,6 +406,7 @@ EXPLANATION: [Your detailed explanation]
             "features": features,
             "segment_results": segment_results,
             "anomaly_frames": np.where(is_anomaly)[0].tolist(),
+            "reasoning": reasoning,
         }
 
     def _sample_key_frames(
@@ -389,15 +438,18 @@ EXPLANATION: [Your detailed explanation]
         from PIL import Image
 
         # Handle CHW format
-        if frame.shape[0] in [1, 3]:
+        if frame.ndim == 3 and frame.shape[0] in [1, 3]:
             frame = np.transpose(frame, (1, 2, 0))
 
         # Normalize to uint8
-        if frame.max() <= 1.0:
-            frame = (frame * 255).astype(np.uint8)
+        if frame.dtype != np.uint8:
+            if frame.max() <= 1.0:
+                frame = (frame * 255).astype(np.uint8)
+            else:
+                frame = frame.astype(np.uint8)
 
         # Handle grayscale
-        if frame.shape[-1] == 1:
+        if frame.ndim == 3 and frame.shape[-1] == 1:
             frame = np.squeeze(frame, axis=-1)
 
         return Image.fromarray(frame)

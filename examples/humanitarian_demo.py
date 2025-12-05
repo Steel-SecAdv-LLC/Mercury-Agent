@@ -25,13 +25,13 @@ Humanitarian Demo - OMNI ♱ AVA Novel Extensions
 Demonstrates fortress mode, early disease detection, and SETI signal analysis.
 """
 
+import argparse
+
 import numpy as np
-from omni_anomaly_engine.security.cyber_fortress import CyberFortress
+
 from omni_anomaly_engine.emergent.emergent_life_detector import EmergentLifeDetector
 from omni_anomaly_engine.medical.medical_cure_predictor import MedicalCurePredictor
-
-
-import argparse
+from omni_anomaly_engine.security.cyber_fortress import CyberFortress
 
 
 def parse_args():

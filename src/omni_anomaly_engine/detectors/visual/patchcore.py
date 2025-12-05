@@ -56,13 +56,17 @@ class PatchCoreConfig(VisualDetectorConfig):
 
     Attributes:
         coreset_sampling_ratio: Fraction of patches to keep in memory bank
+        coreset_ratio: Alias for coreset_sampling_ratio (for test compatibility)
         num_neighbors: Number of neighbors for anomaly scoring
+        k_nearest: Alias for num_neighbors (for test compatibility)
         faiss_on_gpu: Whether to use GPU for nearest neighbor search
         anomaly_score_num_nn: Number of neighbors for anomaly score computation
     """
 
     coreset_sampling_ratio: float = 0.1  # Keep 10% of patches
+    coreset_ratio: float = 0.1  # Alias for test compatibility
     num_neighbors: int = 9
+    k_nearest: int = 9  # Alias for test compatibility
     faiss_on_gpu: bool = True
     anomaly_score_num_nn: int = 1
     layers: list[str] = field(default_factory=lambda: ["layer2", "layer3"])
@@ -99,6 +103,8 @@ class PatchCoreDetector(BaseVisualDetector):
 
         super().__init__(config)
         self.patchcore_config: PatchCoreConfig = config
+        # Override _config to use the specific PatchCore config
+        self._config = config
 
         # Initialize backbone
         self._init_backbone()

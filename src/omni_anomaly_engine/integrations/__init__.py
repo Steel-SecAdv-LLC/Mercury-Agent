@@ -15,21 +15,13 @@ This package provides:
 - Request routing and fallback handling
 """
 
-from omni_anomaly_engine.integrations.http.client import (
-    HTTPClient,
-    HTTPClientConfig,
-    HTTPResponse,
-)
+from omni_anomaly_engine.integrations.http.client import HTTPClient, HTTPClientConfig, HTTPResponse
 from omni_anomaly_engine.integrations.routing.fallback import (
     FallbackChain,
     FallbackHandler,
     FallbackResult,
 )
-from omni_anomaly_engine.integrations.routing.router import (
-    RequestRouter,
-    Route,
-    RouteMatch,
-)
+from omni_anomaly_engine.integrations.routing.router import RequestRouter, Route, RouteMatch
 
 __all__ = [
     "FallbackChain",

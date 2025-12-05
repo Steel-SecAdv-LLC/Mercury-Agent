@@ -25,10 +25,7 @@ import pytest
 
 from omni_anomaly_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_anomaly_engine.detectors.directive import SigmaDirectiveDetector
-from omni_anomaly_engine.security.encryption import (
-    QuantumResistantEncryption,
-    SecureDataHandler,
-)
+from omni_anomaly_engine.security.encryption import QuantumResistantEncryption, SecureDataHandler
 from omni_anomaly_engine.utils.rng import (
     DeterministicRNG,
     get_global_rng,

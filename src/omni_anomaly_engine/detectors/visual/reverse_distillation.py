@@ -54,12 +54,22 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ReverseDistillationConfig(VisualDetectorConfig):
-    """Configuration for Reverse Distillation detector."""
+    """Configuration for Reverse Distillation detector.
+
+    Attributes:
+        bottleneck_dim: Dimension of the one-class embedding bottleneck
+        learning_rate: Learning rate for training
+        num_epochs: Number of training epochs
+        weight_decay: Weight decay for optimizer
+        oce_gamma: Gamma parameter for one-class embedding loss
+        layers: Feature extraction layers to use
+    """
 
     bottleneck_dim: int = 256
     learning_rate: float = 0.005
     num_epochs: int = 200
     weight_decay: float = 1e-5
+    oce_gamma: float = 0.1  # One-class embedding gamma parameter
     layers: list[str] = field(default_factory=lambda: ["layer1", "layer2", "layer3"])
 
 
@@ -165,6 +175,8 @@ class ReverseDistillationDetector(BaseVisualDetector):
 
         super().__init__(config)
         self.rd_config: ReverseDistillationConfig = config
+        # Override _config to use the specific ReverseDistillation config
+        self._config = config
 
         # Initialize teacher (pretrained, frozen)
         self._init_backbone()

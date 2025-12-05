@@ -23,7 +23,6 @@ Provides unified interface for all visual anomaly detection algorithms,
 ensuring consistent API across PatchCore, PaDiM, STFPM, and other methods.
 """
 
-from abc import abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -61,7 +60,7 @@ class VisualDetectorConfig:
         pool_strategy: Feature pooling strategy ('avg', 'max', 'adaptive')
     """
 
-    backbone: str = "wide_resnet50_2"
+    backbone: str = "resnet18"
     image_size: tuple[int, int] = (224, 224)
     layers: list[str] = field(default_factory=lambda: ["layer2", "layer3"])
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
@@ -94,6 +93,9 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         Args:
             config: Detector configuration (VisualDetectorConfig or dict)
         """
+        # Initialize nn.Module first (required for PyTorch)
+        nn.Module.__init__(self)
+
         # Handle config conversion
         if config is None:
             self.visual_config = VisualDetectorConfig()
@@ -102,17 +104,25 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         else:
             self.visual_config = config
 
-        # Initialize parent classes
-        BaseDetector.__init__(self, config if isinstance(config, dict) else None)
-        nn.Module.__init__(self)
+        # Expose config property for test compatibility
+        self._config = self.visual_config
+
+        # Initialize BaseDetector attributes manually (avoid calling __init__ which sets self.config)
+        self.threshold = self.visual_config.threshold
+        self._is_fitted = False
 
         self.device = torch.device(self.visual_config.device)
         self._backbone: nn.Module | None = None
         self._feature_dim: int = 0
 
-        # Image normalization (ImageNet stats)
-        self.register_buffer("mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
-        self.register_buffer("std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
+        # Image normalization (ImageNet stats) - use _norm prefix to avoid conflicts with subclass attributes
+        self.register_buffer("_norm_mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
+        self.register_buffer("_norm_std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
+
+    @property
+    def config(self) -> VisualDetectorConfig:
+        """Get the detector configuration."""
+        return self._config
 
     @property
     def backbone(self) -> nn.Module:
@@ -178,7 +188,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
 
         # Apply ImageNet normalization
         images = images.to(self.device)
-        images = (images - self.mean) / self.std
+        images = (images - self._norm_mean) / self._norm_std
 
         return images
 
@@ -216,6 +226,22 @@ class BaseVisualDetector(BaseDetector, nn.Module):
 
         return anomaly_map.squeeze(1)
 
+    def postprocess(
+        self,
+        anomaly_map: torch.Tensor,
+        original_size: tuple[int, int] | None = None,
+    ) -> torch.Tensor:
+        """Alias for postprocess_anomaly_map for API compatibility.
+
+        Args:
+            anomaly_map: Raw anomaly map from detector
+            original_size: Target size (H, W) for resizing
+
+        Returns:
+            Smoothed and resized anomaly map
+        """
+        return self.postprocess_anomaly_map(anomaly_map, original_size)
+
     @staticmethod
     def _get_gaussian_kernel(kernel_size: int, sigma: float) -> torch.Tensor:
         """Create 2D Gaussian kernel for smoothing."""
@@ -225,7 +251,6 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         kernel = kernel / kernel.sum()
         return kernel.view(1, 1, kernel_size, kernel_size)
 
-    @abstractmethod
     def fit(self, data: np.ndarray | torch.Tensor) -> "BaseVisualDetector":
         """Fit detector to normal (non-anomalous) images.
 
@@ -234,10 +259,12 @@ class BaseVisualDetector(BaseDetector, nn.Module):
 
         Returns:
             Self for method chaining
-        """
-        pass
 
-    @abstractmethod
+        Note:
+            Subclasses must override this method.
+        """
+        raise NotImplementedError("Subclasses must implement fit() for visual detectors.")
+
     def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies in images.
 
@@ -250,10 +277,12 @@ class BaseVisualDetector(BaseDetector, nn.Module):
                 - anomaly_maps: Pixel-level anomaly maps [N, H, W]
                 - is_anomaly: Binary anomaly flags [N]
                 - features: Extracted features for fusion [N, D]
-        """
-        pass
 
-    @abstractmethod
+        Note:
+            Subclasses must override this method.
+        """
+        raise NotImplementedError("Subclasses must implement detect() for visual detectors.")
+
     def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion pipeline.
 
@@ -262,8 +291,13 @@ class BaseVisualDetector(BaseDetector, nn.Module):
 
         Returns:
             Feature tensor [N, feature_dim] normalized for fusion
+
+        Note:
+            Subclasses must override this method.
         """
-        pass
+        raise NotImplementedError(
+            "Subclasses must implement extract_features() for visual detectors."
+        )
 
     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward pass for integration with PyTorch pipelines.

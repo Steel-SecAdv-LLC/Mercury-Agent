@@ -182,9 +182,7 @@ class TestContextProviders:
 
     def test_positional_context_extractor(self, sample_image):
         """Test positional context extraction."""
-        from omni_anomaly_engine.detectors.vlm.context_providers import (
-            PositionalContextExtractor,
-        )
+        from omni_anomaly_engine.detectors.vlm.context_providers import PositionalContextExtractor
 
         extractor = PositionalContextExtractor()
         context = extractor.extract(sample_image)
@@ -192,9 +190,7 @@ class TestContextProviders:
 
     def test_temporal_context_extractor(self, sample_video_frames):
         """Test temporal context extraction."""
-        from omni_anomaly_engine.detectors.vlm.context_providers import (
-            TemporalContextExtractor,
-        )
+        from omni_anomaly_engine.detectors.vlm.context_providers import TemporalContextExtractor
 
         extractor = TemporalContextExtractor(window_size=4)
         context = extractor.extract(sample_video_frames)

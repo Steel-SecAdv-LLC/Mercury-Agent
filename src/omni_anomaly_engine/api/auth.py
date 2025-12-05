@@ -382,7 +382,14 @@ class JWTAuth:
         algorithm: str = "HS256",
         auto_error: bool = True,
     ):
-        self.secret_key = secret_key or os.getenv("JWT_SECRET_KEY", "dev-secret-key")
+        # Security: Require explicit JWT_SECRET_KEY - no insecure defaults
+        self.secret_key = secret_key or os.getenv("JWT_SECRET_KEY")
+        if self.secret_key is None:
+            raise ValueError(
+                "JWT_SECRET_KEY environment variable is required for JWT authentication. "
+                "Generate a secure random key (e.g., `openssl rand -hex 32`) and set "
+                "JWT_SECRET_KEY in your environment or .env file."
+            )
         self.algorithm = algorithm
         self.auto_error = auto_error
         self.bearer = HTTPBearer(auto_error=auto_error)

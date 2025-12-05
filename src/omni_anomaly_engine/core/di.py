@@ -33,12 +33,7 @@ from abc import ABC  # noqa: F401 - kept for potential future use
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import (
-    Any,
-    Protocol,
-    TypeVar,
-    runtime_checkable,
-)
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
 logger = logging.getLogger(__name__)
 

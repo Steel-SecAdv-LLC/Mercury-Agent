@@ -20,15 +20,17 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Emergent Life Detector validation with statistical tests.
 """
 
+import os
+import sys
+
 import numpy as np
 from scipy import stats
-import sys
-import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
-from omni_anomaly_engine.emergent.emergent_life_detector import EmergentLifeDetector
 from assets.loaders import generate_seti_signal
+
+from omni_anomaly_engine.emergent.emergent_life_detector import EmergentLifeDetector
 
 
 def validate_life_detector():

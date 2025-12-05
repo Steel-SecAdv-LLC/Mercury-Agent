@@ -1,8 +1,8 @@
 # Proposed Enhancements for OMNI ♱ AVA
 
-**Document Version:** 1.0  
-**Date:** October 14, 2025  
-**Author:** Devin (AI Assistant) for Andrew Averett  
+**Document Version:** 1.0
+**Date:** October 14, 2025
+**Author:** Devin (AI Assistant) for Andrew Averett
 **Status:** Research & Design Proposal
 
 ## Executive Summary
@@ -279,26 +279,26 @@ def detect_interstellar_anomalies(observations):
     predicted_orbit = jpl_horizons_predict(observations)
     residuals = observations - predicted_orbit
     traj_score = score_non_grav_acceleration(residuals)
-    
+
     # 2. Light curve anomaly
     light_curve = extract_brightness_time_series(observations)
     fft_anomaly = fft_chaos_score(light_curve)
-    
+
     # 3. Spectral anomaly
     spectrum = extract_spectrum(observations)
     spectral_score = compare_to_solar_system_templates(spectrum)
-    
+
     # 4. Mass anomaly (3I/ATLAS-like)
     estimated_mass = infer_mass_from_brightness(observations)
     mass_anomaly = score_mass_vs_expected(estimated_mass)
-    
+
     # Fusion
     anomaly_score = fusion_network([traj_score, fft_anomaly, spectral_score, mass_anomaly])
-    
+
     if anomaly_score > threshold:
         alert = generate_alert(observations, "Potential ISO with anomalous properties")
         prioritize_for_follow_up(alert)
-    
+
     return anomaly_score
 ```
 

@@ -20,15 +20,17 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Cyber Fortress validation with statistical tests.
 """
 
+import os
+import sys
+
 import numpy as np
 from scipy import stats
-import sys
-import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
-from omni_anomaly_engine.security.cyber_fortress import ResonanceHashIntegrityChecker
 from assets.loaders import generate_pcap_data
+
+from omni_anomaly_engine.security.cyber_fortress import ResonanceHashIntegrityChecker
 
 
 def validate_cyber_fortress():

@@ -23,9 +23,7 @@ Test detector modules
 from omni_anomaly_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_anomaly_engine.detectors.directive import SigmaDirectiveDetector
 from omni_anomaly_engine.detectors.spatial import SpatialAnomalyDetector
-from omni_anomaly_engine.detectors.statistical import (
-    StatisticalAnomalyDetector,
-)
+from omni_anomaly_engine.detectors.statistical import StatisticalAnomalyDetector
 from omni_anomaly_engine.detectors.temporal import TemporalAnomalyDetector
 
 

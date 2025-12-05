@@ -147,10 +147,7 @@ class TestDualStudentDistillation:
 
     def test_initialization_with_dataclass_config(self):
         """Test initialization with dataclass config."""
-        from omni_anomaly_engine.ml.distillation import (
-            DualStudentConfig,
-            DualStudentDistillation,
-        )
+        from omni_anomaly_engine.ml.distillation import DualStudentConfig, DualStudentDistillation
 
         config = DualStudentConfig(hidden_dim=512)
         distiller = DualStudentDistillation(config=config)
@@ -168,10 +165,7 @@ class TestDualStudentDistillation:
     @pytest.mark.slow
     def test_fit_and_detect(self, sample_image_batch, sample_image):
         """Test fitting and detection workflow."""
-        from omni_anomaly_engine.ml.distillation import (
-            DualStudentConfig,
-            DualStudentDistillation,
-        )
+        from omni_anomaly_engine.ml.distillation import DualStudentConfig, DualStudentDistillation
 
         # Use minimal config for fast testing
         config = DualStudentConfig(
@@ -232,10 +226,7 @@ class TestDistillationModule:
 
     def test_module_imports(self):
         """Test that all exports are available."""
-        from omni_anomaly_engine.ml.distillation import (
-            DualStudentConfig,
-            DualStudentDistillation,
-        )
+        from omni_anomaly_engine.ml.distillation import DualStudentConfig, DualStudentDistillation
 
         assert DualStudentDistillation is not None
         assert DualStudentConfig is not None

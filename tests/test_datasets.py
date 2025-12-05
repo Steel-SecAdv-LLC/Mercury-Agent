@@ -11,11 +11,7 @@ import tempfile
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.datasets.base import (
-    DatasetConfig,
-    DatasetRegistry,
-    DatasetSplit,
-)
+from omni_anomaly_engine.datasets.base import DatasetConfig, DatasetRegistry, DatasetSplit
 from omni_anomaly_engine.datasets.benchmarks import (
     BenchmarkResult,
     RealWorldBenchmarkSuite,
@@ -26,11 +22,7 @@ from omni_anomaly_engine.datasets.environmental import (
     USGSEarthquakeLoader,
     WildfireDataLoader,
 )
-from omni_anomaly_engine.datasets.medical import (
-    MIMICLoader,
-    PhysioNetLoader,
-    SepsisDataset,
-)
+from omni_anomaly_engine.datasets.medical import MIMICLoader, PhysioNetLoader, SepsisDataset
 from omni_anomaly_engine.datasets.security import CICIDSLoader, NSLKDDLoader, ThreatIntelLoader
 from omni_anomaly_engine.datasets.space import NASAExoplanetLoader, SETILoader, SolarDynamicsLoader
 

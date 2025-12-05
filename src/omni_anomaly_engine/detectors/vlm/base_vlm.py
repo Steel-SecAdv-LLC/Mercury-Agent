@@ -23,7 +23,6 @@ Provides unified interface for zero-shot VLM-based anomaly detection
 using Large Vision-Language Models (LVLMs).
 """
 
-from abc import abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -111,14 +110,21 @@ class BaseVLMDetector(BaseDetector):
         else:
             self.vlm_config = config
 
-        BaseDetector.__init__(self, {})
+        # Expose config property for test compatibility
+        self._config = self.vlm_config
+
+        # Initialize BaseDetector attributes manually (avoid calling __init__ which sets self.config)
+        self.threshold = 0.5
+        self._is_fitted = True  # VLM doesn't need fitting - mark as ready
 
         self.device = torch.device(self.vlm_config.device)
         self._model: Any = None
         self._processor: Any = None
 
-        # VLM doesn't need fitting - mark as ready
-        self._is_fitted = True
+    @property
+    def config(self) -> VLMConfig:
+        """Get the detector configuration."""
+        return self._config
 
     @property
     def model(self) -> Any:
@@ -134,12 +140,16 @@ class BaseVLMDetector(BaseDetector):
             self._initialize_model()
         return self._processor
 
-    @abstractmethod
     def _initialize_model(self) -> None:
-        """Initialize the LVLM model and processor."""
-        pass
+        """Initialize the LVLM model and processor.
 
-    @abstractmethod
+        Note:
+            Subclasses must override this method.
+        """
+        raise NotImplementedError(
+            "Subclasses must implement _initialize_model() for VLM detectors."
+        )
+
     def _create_prompt(
         self,
         anomaly_description: str,
@@ -153,10 +163,12 @@ class BaseVLMDetector(BaseDetector):
 
         Returns:
             Formatted prompt string
-        """
-        pass
 
-    @abstractmethod
+        Note:
+            Subclasses must override this method.
+        """
+        raise NotImplementedError("Subclasses must implement _create_prompt() for VLM detectors.")
+
     def _parse_response(self, response: str) -> tuple[bool, float, str]:
         """Parse LVLM response to extract anomaly decision.
 
@@ -165,8 +177,11 @@ class BaseVLMDetector(BaseDetector):
 
         Returns:
             Tuple of (is_anomaly, confidence, explanation)
+
+        Note:
+            Subclasses must override this method.
         """
-        pass
+        raise NotImplementedError("Subclasses must implement _parse_response() for VLM detectors.")
 
     def fit(self, data: np.ndarray | torch.Tensor) -> "BaseVLMDetector":
         """VLM detectors are zero-shot - no fitting required.
@@ -181,7 +196,6 @@ class BaseVLMDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    @abstractmethod
     def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using VLM.
 
@@ -194,10 +208,12 @@ class BaseVLMDetector(BaseDetector):
                 - is_anomaly: Binary anomaly flags
                 - explanations: Natural language explanations
                 - features: Extracted features for fusion
-        """
-        pass
 
-    @abstractmethod
+        Note:
+            Subclasses must override this method.
+        """
+        raise NotImplementedError("Subclasses must implement detect() for VLM detectors.")
+
     def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion pipeline.
 
@@ -206,8 +222,35 @@ class BaseVLMDetector(BaseDetector):
 
         Returns:
             Feature tensor for fusion
+
+        Note:
+            Subclasses must override this method.
         """
-        pass
+        raise NotImplementedError("Subclasses must implement extract_features() for VLM detectors.")
+
+    def _sample_frames(
+        self,
+        video: torch.Tensor,
+        n_frames: int = 8,
+    ) -> list[torch.Tensor]:
+        """Sample frames uniformly from video for VLM processing.
+
+        Args:
+            video: Video tensor [T, H, W, C] or [T, C, H, W]
+            n_frames: Number of frames to sample
+
+        Returns:
+            List of sampled frame tensors
+        """
+        total_frames = video.shape[0]
+
+        if total_frames <= n_frames:
+            # Return all frames if video is shorter than requested
+            return [video[i] for i in range(total_frames)]
+
+        # Uniform sampling
+        indices = torch.linspace(0, total_frames - 1, n_frames).long()
+        return [video[idx] for idx in indices]
 
     def set_anomaly_description(self, description: str) -> None:
         """Update the anomaly description for detection.

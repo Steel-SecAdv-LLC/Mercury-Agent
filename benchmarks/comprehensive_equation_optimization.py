@@ -34,11 +34,12 @@ Research-backed approach inspired by:
 - Regenerative feedback loops
 """
 
-import numpy as np
-import json
-from pathlib import Path
 import itertools
+import json
 from datetime import datetime
+from pathlib import Path
+
+import numpy as np
 
 
 def optimize_ava_equation():

@@ -64,11 +64,7 @@ class TestKnowledgeGraph:
         assert stats["total_nodes"] == 0
 
     def test_add_node_and_edge(self):
-        from omni_anomaly_engine.cognitive.knowledge_graph import (
-            EdgeType,
-            KnowledgeGraph,
-            NodeType,
-        )
+        from omni_anomaly_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGraph, NodeType
 
         graph = KnowledgeGraph()
 
@@ -81,11 +77,7 @@ class TestKnowledgeGraph:
         assert len(neighbors) == 1
 
     def test_spreading_activation(self):
-        from omni_anomaly_engine.cognitive.knowledge_graph import (
-            EdgeType,
-            KnowledgeGraph,
-            NodeType,
-        )
+        from omni_anomaly_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGraph, NodeType
 
         graph = KnowledgeGraph()
 
@@ -113,10 +105,7 @@ class TestMultiHopReasoner:
         assert stats["total_rules"] > 0  # Core rules initialized
 
     def test_deduction(self):
-        from omni_anomaly_engine.cognitive.multi_hop_reasoner import (
-            MultiHopReasoner,
-            Proposition,
-        )
+        from omni_anomaly_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
 
         reasoner = MultiHopReasoner()
 
@@ -129,10 +118,7 @@ class TestMultiHopReasoner:
         # May or may not find derivations depending on knowledge base
 
     def test_abduction(self):
-        from omni_anomaly_engine.cognitive.multi_hop_reasoner import (
-            MultiHopReasoner,
-            Proposition,
-        )
+        from omni_anomaly_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
 
         reasoner = MultiHopReasoner()
 
@@ -157,10 +143,7 @@ class TestIPBEngine:
         assert ipb is not None
 
     def test_environment_definition(self):
-        from omni_anomaly_engine.cognitive.ipb_engine import (
-            EnvironmentDomain,
-            IPBEngine,
-        )
+        from omni_anomaly_engine.cognitive.ipb_engine import EnvironmentDomain, IPBEngine
 
         ipb = IPBEngine()
         env = ipb.define_environment(
@@ -261,9 +244,7 @@ class TestIndicatorSystem:
     """Tests for IndicatorDevelopmentSystem."""
 
     def test_initialization(self):
-        from omni_anomaly_engine.cognitive.indicator_system import (
-            IndicatorDevelopmentSystem,
-        )
+        from omni_anomaly_engine.cognitive.indicator_system import IndicatorDevelopmentSystem
 
         ids = IndicatorDevelopmentSystem()
         assert ids is not None

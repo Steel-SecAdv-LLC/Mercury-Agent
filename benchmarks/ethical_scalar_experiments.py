@@ -24,13 +24,14 @@ This script systematically varies key ethical scalar weights and measures their 
 on engine performance metrics including execution time, memory usage, and ethical alignment.
 """
 
-import numpy as np
 import json
+import os
+import sys
 import time
 from itertools import product
-from typing import Dict, List, Any
-import sys
-import os
+from typing import Any, Dict, List
+
+import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 

@@ -23,10 +23,7 @@ import pytest
 import torch
 
 from omni_anomaly_engine.core.exceptions import DetectorException
-from omni_anomaly_engine.detectors.dimensional import (
-    DimensionalAnalyzer,
-    NeuralProjection,
-)
+from omni_anomaly_engine.detectors.dimensional import DimensionalAnalyzer, NeuralProjection
 
 
 class TestNeuralProjection:

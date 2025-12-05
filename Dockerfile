@@ -123,8 +123,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 # Expose API port
 EXPOSE 8000
 
-# Default entrypoint
-ENTRYPOINT ["omni-anomaly"]
+# Default entrypoint (omni-ava as defined in setup.py console_scripts)
+ENTRYPOINT ["omni-ava"]
 CMD ["--help"]
 
 # =============================================================================

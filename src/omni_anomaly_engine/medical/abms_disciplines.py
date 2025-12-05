@@ -865,3 +865,6 @@ def create_omni_medical_scalars() -> dict[str, float]:
 
 
 ABMSAnomalyDetector = ABMSDisciplineDetector
+
+# Alias for test compatibility - ABMSSpecialty is an alias for ABMSBoard
+ABMSSpecialty = ABMSBoard

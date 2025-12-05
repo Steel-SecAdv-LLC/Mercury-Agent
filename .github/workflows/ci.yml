@@ -424,13 +424,14 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
-        continue-on-error: true
+          exit-code: '1'
+        # Security: Block CI on CRITICAL/HIGH vulnerabilities
 
       - name: Upload Trivy results
         uses: github/codeql-action/upload-sarif@v3
+        if: always()
         with:
           sarif_file: 'trivy-results.sarif'
-        continue-on-error: true
 
   # ===========================================================================
   # Stage 9: Documentation Build

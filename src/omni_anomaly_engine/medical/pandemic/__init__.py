@@ -27,14 +27,8 @@ Comprehensive pandemic detection integrating:
 Part of OMNI ♱ AVA Medical Interdiction framework.
 """
 
-from omni_anomaly_engine.medical.pandemic.bio_threats import (
-    BioThreatResult,
-    PathogenDetector,
-)
-from omni_anomaly_engine.medical.pandemic.forecasting import (
-    EpidemicForecaster,
-    PandemicForecast,
-)
+from omni_anomaly_engine.medical.pandemic.bio_threats import BioThreatResult, PathogenDetector
+from omni_anomaly_engine.medical.pandemic.forecasting import EpidemicForecaster, PandemicForecast
 from omni_anomaly_engine.medical.pandemic.pandemic_detector import (
     CaseSurgeDetector,
     MutationTracker,

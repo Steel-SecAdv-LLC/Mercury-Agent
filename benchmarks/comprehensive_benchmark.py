@@ -24,11 +24,12 @@ Benchmarks module instantiation, detection performance, and scalability
 across 1, 5, and all 12 infrastructure modules.
 """
 
-import time
-import numpy as np
-from typing import Dict, Any
 import json
-from sklearn.metrics import precision_score, recall_score, f1_score
+import time
+from typing import Any, Dict
+
+import numpy as np
+from sklearn.metrics import f1_score, precision_score, recall_score
 
 from omni_anomaly_engine.infrastructure import InfrastructureCoordinator
 from omni_anomaly_engine.models.simulation import SimulationModule

@@ -54,9 +54,7 @@ from omni_anomaly_engine.models.foundation.base_foundation import (
 )
 from omni_anomaly_engine.models.foundation.chronos_adapter import ChronosAdapter
 from omni_anomaly_engine.models.foundation.ensemble import FoundationEnsemble
-from omni_anomaly_engine.models.foundation.matrix_profile import (
-    MatrixProfileDetector,
-)
+from omni_anomaly_engine.models.foundation.matrix_profile import MatrixProfileDetector
 from omni_anomaly_engine.models.foundation.timegpt_adapter import TimeGPTAdapter
 
 # Compatibility aliases for tests

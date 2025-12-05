@@ -5,14 +5,8 @@ These stubs provide mock implementations of external services,
 allowing development and testing without actual service dependencies.
 """
 
-from omni_anomaly_engine.integrations.stubs.cache import (
-    CacheEntry,
-    CacheStub,
-)
-from omni_anomaly_engine.integrations.stubs.database import (
-    DatabaseStub,
-    QueryResult,
-)
+from omni_anomaly_engine.integrations.stubs.cache import CacheEntry, CacheStub
+from omni_anomaly_engine.integrations.stubs.database import DatabaseStub, QueryResult
 from omni_anomaly_engine.integrations.stubs.financial import (
     FinancialServiceStub,
     MarketData,

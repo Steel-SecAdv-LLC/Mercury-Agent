@@ -35,12 +35,7 @@ except ImportError:
     torch = None  # type: ignore[assignment]
     TORCH_AVAILABLE = False
 
-from omni_anomaly_engine.utils.comm import (
-    AsyncMessageQueue,
-    Message,
-    MessagePriority,
-    SimplePubSub,
-)
+from omni_anomaly_engine.utils.comm import AsyncMessageQueue, Message, MessagePriority, SimplePubSub
 from omni_anomaly_engine.utils.constants import (
     MPMATH_AVAILABLE,
     SYMPY_AVAILABLE,

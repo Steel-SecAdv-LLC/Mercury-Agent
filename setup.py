@@ -2,8 +2,9 @@
 Setup configuration for OMNI ♱ AVA
 """
 
-from setuptools import setup, find_packages
 from pathlib import Path
+
+from setuptools import find_packages, setup
 
 readme_path = Path(__file__).parent / "README.md"
 long_description = readme_path.read_text(encoding="utf-8") if readme_path.exists() else ""
@@ -36,6 +37,10 @@ setup(
         "requests>=2.31.0",
         "tqdm>=4.65.0",
         "networkx>=3.0",
+        "cryptography>=41.0.0",
+        "fastapi>=0.109.0",
+        "uvicorn[standard]>=0.27.0",
+        "httpx>=0.25.0",
     ],
     extras_require={
         # ML dependencies - heavy ML stack (torch, deepface, opencv)

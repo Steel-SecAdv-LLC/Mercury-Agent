@@ -26,17 +26,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import json  # noqa: E402
+from typing import Dict, List, Tuple  # noqa: E402
+
+import numpy as np  # noqa: E402
 import torch  # noqa: E402
 import torch.nn as nn  # noqa: E402
-import numpy as np  # noqa: E402
-from typing import Dict, List, Tuple  # noqa: E402
-import json  # noqa: E402
 
 from omni_anomaly_engine.ml.training import (  # noqa: E402
-    AvaOptimizer,
-    AvaMomentumOptimizer,
     AvaExponentialDecayOptimizer,
     AvaHarmonicOptimizer,
+    AvaMomentumOptimizer,
+    AvaOptimizer,
 )
 
 

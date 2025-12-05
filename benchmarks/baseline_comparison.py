@@ -26,17 +26,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import time
 import ast
+import importlib.util
 import os
 import subprocess
-import importlib.util
+import time
 import tracemalloc
-from typing import Dict, Any, List, Tuple
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
 
-from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine as ImprovedEngine
 from benchmarks.statistical_validation import statistical_analysis
+from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine as ImprovedEngine
 
 
 def load_baseline_engine():

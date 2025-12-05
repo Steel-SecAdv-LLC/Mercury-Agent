@@ -56,10 +56,7 @@ Example:
         print(f"Anomaly maps: {results['anomaly_maps'].shape}")
 """
 
-from omni_anomaly_engine.detectors.visual.backbone import (
-    FeatureExtractor,
-    get_backbone,
-)
+from omni_anomaly_engine.detectors.visual.backbone import FeatureExtractor, get_backbone
 from omni_anomaly_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
     VisualDetectorConfig,
@@ -67,9 +64,7 @@ from omni_anomaly_engine.detectors.visual.base_visual import (
 from omni_anomaly_engine.detectors.visual.cflow import CFlowDetector
 from omni_anomaly_engine.detectors.visual.padim import PaDiMDetector
 from omni_anomaly_engine.detectors.visual.patchcore import PatchCoreDetector
-from omni_anomaly_engine.detectors.visual.reverse_distillation import (
-    ReverseDistillationDetector,
-)
+from omni_anomaly_engine.detectors.visual.reverse_distillation import ReverseDistillationDetector
 from omni_anomaly_engine.detectors.visual.stfpm import STFPMDetector
 
 __all__ = [

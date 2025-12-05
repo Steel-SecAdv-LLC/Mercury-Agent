@@ -163,6 +163,8 @@ class STFPMDetector(BaseVisualDetector):
 
         super().__init__(config)
         self.stfpm_config: STFPMConfig = config
+        # Override _config to use the specific STFPM config
+        self._config = config
 
         # Initialize teacher (pretrained, frozen)
         self._init_backbone()

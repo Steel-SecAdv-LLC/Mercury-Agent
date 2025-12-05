@@ -31,11 +31,7 @@ if HAS_TORCH:
         GatedFusion,
         MultimodalFusion,
     )
-    from omni_anomaly_engine.ml.inference import (
-        BatchInference,
-        InferenceEngine,
-        ModelEnsemble,
-    )
+    from omni_anomaly_engine.ml.inference import BatchInference, InferenceEngine, ModelEnsemble
     from omni_anomaly_engine.ml.training import (
         EarlyStopping,
         LearningRateScheduler,

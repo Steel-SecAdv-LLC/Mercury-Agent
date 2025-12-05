@@ -59,13 +59,17 @@ class CFlowConfig(VisualDetectorConfig):
 
     Attributes:
         num_flows: Number of flow layers
+        n_flows: Alias for num_flows (for test compatibility)
         hidden_dim: Hidden dimension in flow networks
+        hidden_ratio: Ratio for hidden dimension (for test compatibility)
         learning_rate: Learning rate for training
         num_epochs: Number of training epochs
     """
 
     num_flows: int = 8
+    n_flows: int = 8  # Alias for test compatibility
     hidden_dim: int = 256
+    hidden_ratio: float = 1.0  # Alias for test compatibility
     learning_rate: float = 1e-4
     num_epochs: int = 100
     clamp_value: float = 3.0
@@ -312,6 +316,8 @@ class CFlowDetector(BaseVisualDetector):
 
         super().__init__(config)
         self.cflow_config: CFlowConfig = config
+        # Override _config to use the specific CFlow config
+        self._config = config
 
         # Initialize backbone
         self._init_backbone()

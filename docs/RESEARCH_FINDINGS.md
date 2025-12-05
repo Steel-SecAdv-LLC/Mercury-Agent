@@ -1,7 +1,7 @@
 # Research Findings: Ancient Cultural Wisdom & Modern Technological Principles
 
-**Research Methodology:** All findings extracted from verifiable Wikipedia sources (October 2025)  
-**Purpose:** Ground OMNI ♱ AVA enhancements in historical/scientific truth  
+**Research Methodology:** All findings extracted from verifiable Wikipedia sources (October 2025)
+**Purpose:** Ground OMNI ♱ AVA enhancements in historical/scientific truth
 **License:** All concepts public domain or inspired by published research, GPL v3 implementations
 
 ---
@@ -38,7 +38,7 @@
 
 ### 2. Greek Mathematics (5th century BC - 6th century AD)
 
-**Wikipedia Sources:** 
+**Wikipedia Sources:**
 - https://en.wikipedia.org/wiki/Greek_mathematics
 - https://en.wikipedia.org/wiki/Euclid
 - https://en.wikipedia.org/wiki/Archimedes
@@ -235,7 +235,7 @@
 - https://en.wikipedia.org/wiki/Permaculture
 
 **Key Scientific Facts:**
-- **Origins**: 
+- **Origins**:
   - Permaculture (Holmgren & Mollison, 1974-1978): "Permanent agriculture" → "permanent culture"
   - Regenerative agriculture (Robert Rodale): Actively regenerating ecosystems, not just sustaining
   - Built environment (John T. Lyle, 1994): *Regenerative Design for Sustainable Development*
@@ -331,7 +331,7 @@
 
 ## Note on Unverifiable Claims
 
-**37-Dimensional Light Particle**: User requested verification of claim "Scientists Produce Particle of Light That Accesses 37 Dimensions." 
+**37-Dimensional Light Particle**: User requested verification of claim "Scientists Produce Particle of Light That Accesses 37 Dimensions."
 
 **Research Attempt:**
 - Google search: Blocked by CAPTCHA (unusual traffic detection)
@@ -348,7 +348,7 @@
 
 ### 11. Ground Penetrating Radar (GPR)
 
-**Wikipedia Source**: https://en.wikipedia.org/wiki/Ground-penetrating_radar  
+**Wikipedia Source**: https://en.wikipedia.org/wiki/Ground-penetrating_radar
 **Research Date**: October 2025
 
 **Key Facts:**
@@ -362,7 +362,7 @@
   - Dry sandy soils/granite/limestone/concrete: Up to 15 meters (50 ft)
   - Moist or clay-laden soils: Few centimeters only (high conductivity attenuates signal)
 - **Frequency Trade-off**: Higher frequencies = better resolution but less penetration; lower frequencies = greater depth but lower resolution
-- **History**: 
+- **History**:
   - 1910: First patent (Leimbach & Löwy) for continuous-wave system
   - 1926: Pulsed radar patent (Dr. Hülsenbeck) - improved depth resolution
   - 1929: First glacier depth measurement (W. Stern)
@@ -424,10 +424,10 @@
 class GPRInspiredScanner:
     """
     Ground-Penetrating Radar inspired deep scanning for anomaly detection.
-    
+
     Implements multi-layer hierarchical detection with frequency-resolution trade-offs.
     """
-    
+
     def __init__(self, mode='balanced'):
         """
         Args:
@@ -435,7 +435,7 @@ class GPRInspiredScanner:
         """
         self.mode = mode
         self.frequency_config = self._configure_frequency()
-    
+
     def _configure_frequency(self):
         """Configure detection parameters based on mode (GPR frequency trade-off)."""
         if self.mode == 'precision':
@@ -444,11 +444,11 @@ class GPRInspiredScanner:
             return {'window_size': 100, 'stride': 10, 'layers': [4, 8, 16]}  # Low resolution, deep
         else:  # balanced
             return {'window_size': 50, 'stride': 5, 'layers': [8, 16, 32]}
-    
+
     def multi_layer_scan(self, data, depths=[1, 2, 4, 8]):
         """
         Perform multi-layer scanning at different depths (GPR subsurface layers).
-        
+
         Args:
             data: Input time-series or feature data
             depths: List of layer depths to scan
@@ -458,11 +458,11 @@ class GPRInspiredScanner:
             # Scan at each depth with appropriate resolution
             layer_detections[f'depth_{depth}'] = self._scan_layer(data, depth)
         return layer_detections
-    
+
     def adaptive_conductivity_adjustment(self, data):
         """
         Adjust detection sensitivity based on data characteristics (GPR conductivity context).
-        
+
         Low noise (like ice for GPR) = high sensitivity
         High noise (like clay for GPR) = reduce sensitivity to avoid false positives
         """
@@ -490,7 +490,7 @@ class GPRInspiredScanner:
 
 ### 12. Light Amplification by Stimulated Emission of Radiation (LASER)
 
-**Wikipedia Source**: https://en.wikipedia.org/wiki/Laser  
+**Wikipedia Source**: https://en.wikipedia.org/wiki/Laser
 **Research Date**: October 2025
 
 **Key Facts:**
@@ -561,18 +561,18 @@ class LASERInspiredAttention(nn.Module):
     """
     LASER-inspired attention with spatial coherence and focused detection.
     """
-    
+
     def __init__(self, feature_dim, focus_ratio=0.1, coherence_length=10):
         super().__init__()
         self.feature_dim = feature_dim
         self.focus_ratio = focus_ratio
         self.coherence_length = coherence_length
-        
+
         self.query = nn.Linear(feature_dim, feature_dim)
         self.key = nn.Linear(feature_dim, feature_dim)
         self.value = nn.Linear(feature_dim, feature_dim)
         self.phase_encoder = nn.LSTM(feature_dim, feature_dim, batch_first=True)
-    
+
     def spatial_focus(self, attention_weights):
         """Apply spatial coherence: focus on top focus_ratio of weights."""
         k = max(1, int(attention_weights.size(-1) * self.focus_ratio))
@@ -580,7 +580,7 @@ class LASERInspiredAttention(nn.Module):
         focused_weights = torch.zeros_like(attention_weights)
         focused_weights.scatter_(-1, topk_indices, topk_values)
         return focused_weights / (focused_weights.sum(dim=-1, keepdim=True) + 1e-8)
-    
+
     def temporal_coherence(self, features):
         """Maintain temporal coherence using LSTM phase encoding."""
         phase_encoded, _ = self.phase_encoder(features)
@@ -588,12 +588,12 @@ class LASERInspiredAttention(nn.Module):
             decay = torch.exp(-torch.arange(features.size(1), device=features.device) / self.coherence_length)
             phase_encoded = phase_encoded * decay.view(1, -1, 1)
         return phase_encoded
-    
+
     def forward(self, x):
         Q = self.query(x)
         K = self.key(x)
         V = self.value(x)
-        
+
         attention_scores = torch.matmul(Q, K.transpose(-2, -1)) / (self.feature_dim ** 0.5)
         attention_weights = torch.softmax(attention_scores, dim=-1)
         focused_weights = self.spatial_focus(attention_weights)
@@ -603,10 +603,10 @@ class LASERInspiredAttention(nn.Module):
 
 class StimulatedDetectionCascade:
     """Stimulated emission-inspired cascade detection."""
-    
+
     def __init__(self, similarity_threshold=0.85):
         self.similarity_threshold = similarity_threshold
-    
+
     def detect_and_cascade(self, features, initial_anomaly_idx):
         """Detect initial anomaly, then cascade to find similar ones."""
         seed_anomaly = features[initial_anomaly_idx:initial_anomaly_idx+1]
@@ -630,8 +630,8 @@ class StimulatedDetectionCascade:
 
 ### 13. 37-Dimensional Photon Experiment (High-Dimensional Quantum State)
 
-**Wikipedia Source (GHZ State Context)**: https://en.wikipedia.org/wiki/Greenberger%E2%80%93Horne%E2%80%93Zeilinger_state  
-**User Verification**: 2025 photon experiment with 37 parameters testing GHZ paradox for quantum intuition/computing  
+**Wikipedia Source (GHZ State Context)**: https://en.wikipedia.org/wiki/Greenberger%E2%80%93Horne%E2%80%93Zeilinger_state
+**User Verification**: 2025 photon experiment with 37 parameters testing GHZ paradox for quantum intuition/computing
 **Research Date**: October 2025
 
 **Scientific Context - GHZ Paradox:**
@@ -696,33 +696,33 @@ class QuantumAnomalyModel:
         self.high_dim_mode = self.config.get('high_dim_mode', False)  # NEW: 37-dim mode
         self.dim_size = 37 if self.high_dim_mode else 8  # NEW: Support 37 dimensions
         self.entanglement_strength = self.config.get('entanglement_strength', 0.3)
-    
+
     def extract_features(self, data: Union[np.ndarray, Dict[str, Any]]) -> np.ndarray:
         """Extract quantum-inspired features with optional 37-dim support."""
         # ... existing code ...
-        
+
         if self.high_dim_mode:
             # 37-dimensional feature extraction (37-dim photon experiment inspired)
             quantum_states = self._create_quantum_state(data)
-            
+
             # Extract 37 dimensions: amplitudes (19) + phases (18)
             amplitudes = np.abs(quantum_states).astype(np.float32)
             phases = np.angle(quantum_states).astype(np.float32)
-            
+
             # Pad/truncate to ensure exactly 37 dimensions
             if amplitudes.shape[1] < 19:
                 amplitudes = np.pad(amplitudes, ((0, 0), (0, 19 - amplitudes.shape[1])))
             else:
                 amplitudes = amplitudes[:, :19]
-            
+
             if phases.shape[1] < 18:
                 phases = np.pad(phases, ((0, 0), (0, 18 - phases.shape[1])))
             else:
                 phases = phases[:, :18]
-            
+
             # Combine for 37 total dimensions
             features_37d = np.concatenate([amplitudes, phases], axis=1)
-            
+
             return features_37d
         else:
             # Standard 16-dimensional feature extraction (existing)
@@ -740,7 +740,7 @@ class MultiverseOmniEngine:
         """
         self.state_dim = 37 if use_37dim else state_dim
         # ... rest of initialization ...
-    
+
     def _initialize_universes(self) -> List[Universe]:
         """Initialize parallel universes with 37-dim quantum states if enabled."""
         universes = []
@@ -750,7 +750,7 @@ class MultiverseOmniEngine:
                 initial_state = np.random.randn(self.state_dim) / np.sqrt(37)
             else:
                 initial_state = np.random.randn(self.state_dim)
-            
+
             universes.append(Universe(
                 universe_id=i,
                 state=initial_state,
@@ -772,7 +772,7 @@ def apply_decoherence_resilience(
 ) -> None:
     """
     Apply decoherence resilience with optional 37-dim redundancy.
-    
+
     37-dimensional redundancy: Distribute quantum state across 37 dimensions
     so that noise in some dimensions doesn't completely destroy state.
     """
@@ -780,7 +780,7 @@ def apply_decoherence_resilience(
         # 37-dim redundancy: encode state multiple times across dimensions
         # If noise corrupts some dimensions, others preserve information
         redundancy_factor = 37 // self.num_qubits  # e.g., 37/8 ≈ 4-5x redundancy
-        
+
         # Apply noise with redundancy consideration
         noise = np.random.normal(0, noise_level / np.sqrt(redundancy_factor), len(self.amplitudes))
         self.phases += noise
@@ -788,7 +788,7 @@ def apply_decoherence_resilience(
         # Standard noise application
         noise = np.random.normal(0, noise_level, len(self.amplitudes))
         self.phases += noise
-    
+
     # ... rest of existing error correction code ...
 ```
 
@@ -810,7 +810,7 @@ def apply_decoherence_resilience(
 
 ### 14. Thermal Imaging Cameras / Thermography
 
-**Wikipedia Source**: https://en.wikipedia.org/wiki/Thermography  
+**Wikipedia Source**: https://en.wikipedia.org/wiki/Thermography
 **Research Date**: October 2025
 
 **Key Facts:**
@@ -929,14 +929,14 @@ from typing import Dict, Optional, List
 class ThermalInspiredDetector:
     """
     Thermal imaging-inspired passive anomaly detection.
-    
+
     Key principles:
     - Passive detection (observe without active probing)
     - Emissivity-aware calibration (account for domain-specific properties)
     - Temperature delta focus (deviation-based scoring)
     - Multi-spectral fusion (combine different "spectral bands"/domains)
     """
-    
+
     def __init__(
         self,
         domain_emissivities: Optional[Dict[str, float]] = None,
@@ -958,7 +958,7 @@ class ThermalInspiredDetector:
         self.baseline_temperature = baseline_temperature
         self.sensitivity_threshold = sensitivity_threshold
         self.baseline_signatures = {}
-    
+
     def passive_detect(
         self,
         domain_signals: Dict[str, np.ndarray],
@@ -966,27 +966,27 @@ class ThermalInspiredDetector:
     ) -> Dict[str, float]:
         """
         Passive anomaly detection without active probing.
-        
+
         Analogous to thermal camera detecting IR emission without illumination.
-        
+
         Args:
             domain_signals: Raw signals from each domain
             apply_emissivity_correction: Whether to apply emissivity calibration
-            
+
         Returns:
             Anomaly scores per domain (calibrated "temperature" deltas)
         """
         anomaly_scores = {}
-        
+
         for domain, signal in domain_signals.items():
             # Extract "thermal signature" (statistical features)
             thermal_signature = self._extract_thermal_signature(signal)
-            
+
             # Apply emissivity correction (domain-specific calibration)
             if apply_emissivity_correction and domain in self.domain_emissivities:
                 emissivity = self.domain_emissivities[domain]
                 thermal_signature = thermal_signature / (emissivity + 1e-8)
-            
+
             # Compute temperature delta (deviation from baseline)
             if domain in self.baseline_signatures:
                 delta_temp = np.abs(thermal_signature - self.baseline_signatures[domain])
@@ -994,22 +994,22 @@ class ThermalInspiredDetector:
                 # First observation - establish baseline
                 self.baseline_signatures[domain] = thermal_signature
                 delta_temp = 0.0
-            
+
             # Anomaly score = temperature delta
             anomaly_scores[domain] = float(delta_temp)
-        
+
         return anomaly_scores
-    
+
     def _extract_thermal_signature(self, signal: np.ndarray) -> float:
         """
         Extract thermal signature from signal (analogous to IR emission).
-        
+
         Simple implementation: mean + std as proxy for "temperature"
         """
         if len(signal) == 0:
             return 0.0
         return float(np.mean(signal) + np.std(signal))
-    
+
     def multi_spectral_fusion(
         self,
         domain_scores: Dict[str, float],
@@ -1017,19 +1017,19 @@ class ThermalInspiredDetector:
     ) -> float:
         """
         Fuse anomaly scores from multiple domains (multi-spectral fusion).
-        
+
         Analogous to fusing visible + thermal imagery for enhanced detection.
-        
+
         Args:
             domain_scores: Anomaly scores from each domain
             fusion_mode: 'weighted_average', 'max', or 'adaptive'
-            
+
         Returns:
             Fused anomaly score
         """
         if not domain_scores:
             return 0.0
-        
+
         if fusion_mode == 'weighted_average':
             # Weight by emissivity (higher emissivity = more reliable)
             weights = {
@@ -1037,17 +1037,17 @@ class ThermalInspiredDetector:
                 for domain in domain_scores.keys()
             }
             total_weight = sum(weights.values())
-            
+
             fused_score = sum(
                 score * weights[domain] / total_weight
                 for domain, score in domain_scores.items()
             )
             return fused_score
-        
+
         elif fusion_mode == 'max':
             # Maximum anomaly across all domains (conservative)
             return max(domain_scores.values())
-        
+
         elif fusion_mode == 'adaptive':
             # Adaptive fusion: weight by signal strength
             signal_strengths = {
@@ -1055,16 +1055,16 @@ class ThermalInspiredDetector:
                 for domain, score in domain_scores.items()
             }
             total_strength = sum(signal_strengths.values())
-            
+
             fused_score = sum(
                 score * signal_strengths[domain] / total_strength
                 for domain, score in domain_scores.items()
             )
             return fused_score
-        
+
         else:
             return np.mean(list(domain_scores.values()))
-    
+
     def radiometric_calibration(
         self,
         raw_scores: Dict[str, float],
@@ -1073,33 +1073,33 @@ class ThermalInspiredDetector:
     ) -> Dict[str, float]:
         """
         Radiometric calibration (analogous to thermal camera processing).
-        
+
         Accounts for:
         - Ambient baseline (background "temperature")
         - Atmospheric attenuation (signal degradation)
-        
+
         Args:
             raw_scores: Raw anomaly scores
             ambient_baseline: Ambient baseline to subtract
             atmospheric_attenuation: Attenuation factor (0-1)
-            
+
         Returns:
             Calibrated anomaly scores
         """
         calibrated_scores = {}
-        
+
         for domain, score in raw_scores.items():
             # Subtract ambient baseline
             calibrated = score - ambient_baseline
-            
+
             # Apply atmospheric attenuation correction
             calibrated = calibrated / (atmospheric_attenuation + 1e-8)
-            
+
             # Ensure non-negative
             calibrated = max(0.0, calibrated)
-            
+
             calibrated_scores[domain] = calibrated
-        
+
         return calibrated_scores
 
 
@@ -1108,7 +1108,7 @@ class ThermalEnhancedEngine:
     """
     Anomaly engine enhanced with thermal imaging principles.
     """
-    
+
     def __init__(self):
         self.thermal_detector = ThermalInspiredDetector(
             domain_emissivities={
@@ -1118,29 +1118,29 @@ class ThermalEnhancedEngine:
                 'biometric': 0.80
             }
         )
-    
+
     def detect_with_thermal_principles(
         self,
         multi_domain_data: Dict[str, np.ndarray]
     ) -> Dict[str, any]:
         """
         Detect anomalies using thermal imaging principles.
-        
+
         Returns:
             Detection results with per-domain and fused scores
         """
         # Passive detection (no active probing)
         raw_scores = self.thermal_detector.passive_detect(multi_domain_data)
-        
+
         # Radiometric calibration
         calibrated_scores = self.thermal_detector.radiometric_calibration(raw_scores)
-        
+
         # Multi-spectral fusion
         fused_score = self.thermal_detector.multi_spectral_fusion(
             calibrated_scores,
             fusion_mode='adaptive'
         )
-        
+
         return {
             'per_domain_scores': calibrated_scores,
             'fused_score': fused_score,
@@ -1244,11 +1244,11 @@ from typing import Dict, Tuple, List, Optional
 class EcholocationDetector:
     """
     Echolocation-inspired active anomaly detection.
-    
+
     Emits "probes" (test inputs) and analyzes system responses (echoes)
     to detect anomalies, map system topology, and profile behavior.
     """
-    
+
     def __init__(
         self,
         probe_frequencies: List[float] = [0.1, 0.5, 1.0, 5.0, 10.0],
@@ -1259,20 +1259,20 @@ class EcholocationDetector:
         self.echo_timeout = echo_timeout  # Max time to wait for response
         self.doppler_sensitivity = doppler_sensitivity  # Velocity detection threshold
         self.echo_history: List[Dict] = []
-        
+
     def emit_probe(self, target_system, probe_signal: np.ndarray) -> Dict:
         """
         Emit probe signal to target system and capture echo (response).
-        
+
         Analogous to bat emitting ultrasonic call.
         """
         import time
         start_time = time.time()
-        
+
         try:
             response = target_system.process(probe_signal)
             response_time = time.time() - start_time
-            
+
             return {
                 'probe': probe_signal,
                 'echo': response,
@@ -1289,64 +1289,64 @@ class EcholocationDetector:
                 'success': False,
                 'error': str(e)
             }
-    
+
     def multi_frequency_scan(self, target_system) -> List[Dict]:
         """
         Scan target at multiple frequencies for multi-resolution analysis.
-        
+
         Analogous to bats using different call frequencies for different tasks.
         """
         scan_results = []
-        
+
         for freq in self.probe_frequencies:
             # Generate probe at this frequency
             duration = 1.0 / freq  # Inverse of frequency
             probe_signal = np.sin(2 * np.pi * freq * np.linspace(0, duration, 100))
-            
+
             # Emit and record
             echo = self.emit_probe(target_system, probe_signal)
             echo['frequency'] = freq
             scan_results.append(echo)
             self.echo_history.append(echo)
-        
+
         return scan_results
-    
+
     def detect_doppler_shift(self, echo1: Dict, echo2: Dict) -> float:
         """
         Detect Doppler shift between two echoes to measure velocity of change.
-        
+
         Analogous to bats detecting moving prey via frequency shifts.
         """
         if not (echo1['success'] and echo2['success']):
             return 0.0
-        
+
         # Compute frequency shift via correlation
         signal1 = echo1['echo']
         signal2 = echo2['echo']
-        
+
         if signal1 is None or signal2 is None:
             return 0.0
-        
+
         # Simple velocity estimate from time-of-flight change
         tof_change = echo2['time_of_flight'] - echo1['time_of_flight']
         time_delta = echo2['timestamp'] - echo1['timestamp']
-        
+
         if time_delta > 0:
             velocity = tof_change / time_delta
             return velocity
         return 0.0
-    
+
     def analyze_echo_pattern(self, echo: Dict) -> Dict:
         """
         Analyze echo pattern to extract object characteristics.
-        
+
         Analogous to bats analyzing complex echo patterns for prey identification.
         """
         if not echo['success'] or echo['echo'] is None:
             return {'anomaly_score': 1.0, 'pattern': 'no_response'}
-        
+
         response = echo['echo']
-        
+
         # Extract pattern features
         features = {
             'amplitude_mean': np.mean(np.abs(response)),
@@ -1355,7 +1355,7 @@ class EcholocationDetector:
             'response_time': echo['time_of_flight'],
             'complexity': np.std(np.diff(response))  # Signal complexity
         }
-        
+
         # Anomaly scoring (simple heuristic)
         anomaly_score = 0.0
         if features['response_time'] > self.echo_timeout * 0.8:
@@ -1364,17 +1364,17 @@ class EcholocationDetector:
             anomaly_score += 0.2  # Weak response
         if features['complexity'] > 1.0:
             anomaly_score += 0.3  # Chaotic response
-        
+
         return {
             'anomaly_score': min(anomaly_score, 1.0),
             'pattern': 'normal' if anomaly_score < 0.5 else 'anomalous',
             'features': features
         }
-    
+
     def build_spatial_map(self, scan_results: List[Dict]) -> np.ndarray:
         """
         Build 3D spatial map from multi-frequency scan results.
-        
+
         Analogous to bats building mental 3D maps of environment.
         """
         # Extract distances from time-of-flight (simplified)
@@ -1386,25 +1386,25 @@ class EcholocationDetector:
                 distances.append(distance)
             else:
                 distances.append(np.inf)  # No response = unreachable
-        
+
         # Create spatial map (simplified 1D map, extend to 3D in practice)
         spatial_map = np.array(distances)
         return spatial_map
-    
+
     def adaptive_probing_strategy(self, previous_results: List[Dict]) -> float:
         """
         Adapt probing strategy based on previous results.
-        
+
         Analogous to bats adjusting call characteristics based on environment.
         """
         if not previous_results:
             return self.probe_frequencies[2]  # Default to middle frequency
-        
+
         # Analyze recent results
-        anomaly_scores = [self.analyze_echo_pattern(echo)['anomaly_score'] 
+        anomaly_scores = [self.analyze_echo_pattern(echo)['anomaly_score']
                          for echo in previous_results[-5:]]
         avg_anomaly = np.mean(anomaly_scores)
-        
+
         # If high anomaly, use higher frequency for better resolution
         if avg_anomaly > 0.7:
             return max(self.probe_frequencies)
@@ -1521,11 +1521,11 @@ from typing import Dict, List, Tuple, Optional
 class TranspersonalAnomalyDetector:
     """
     Transpersonal psychology-inspired anomaly detection.
-    
+
     Identifies "peak anomalies" (most significant), enables "flow state"
     optimization, and explores "holotropic" (non-ordinary) feature spaces.
     """
-    
+
     def __init__(
         self,
         peak_threshold: float = 0.95,
@@ -1536,17 +1536,17 @@ class TranspersonalAnomalyDetector:
         self.flow_window = flow_window
         self.holotropic_exploration_rate = holotropic_exploration_rate
         self.detection_history: List[Dict] = []
-        
+
     def detect_peak_anomalies(self, anomaly_scores: np.ndarray) -> List[int]:
         """
         Identify peak anomalies - moments of highest significance.
-        
+
         Analogous to Maslow's peak experiences - transcendent moments.
         """
         percentile_threshold = np.percentile(anomaly_scores, self.peak_threshold * 100)
         peak_indices = np.where(anomaly_scores >= percentile_threshold)[0]
         return peak_indices.tolist()
-    
+
     def optimize_for_flow_state(
         self,
         model: torch.nn.Module,
@@ -1555,18 +1555,18 @@ class TranspersonalAnomalyDetector:
     ) -> float:
         """
         Adjust learning rate to maintain flow state - optimal learning efficiency.
-        
+
         Analogous to Csikszentmihalyi's flow - optimal experience zone.
         """
         if len(loss_history) < self.flow_window:
             return optimizer.param_groups[0]['lr']
-        
+
         recent_losses = loss_history[-self.flow_window:]
         loss_variance = np.var(recent_losses)
         loss_trend = np.polyfit(range(len(recent_losses)), recent_losses, 1)[0]
-        
+
         current_lr = optimizer.param_groups[0]['lr']
-        
+
         # Flow state: steady improvement without excessive variance
         if loss_trend < 0 and loss_variance < 0.1:
             # In flow - maintain current lr
@@ -1579,13 +1579,13 @@ class TranspersonalAnomalyDetector:
             new_lr = current_lr * 1.1
         else:
             new_lr = current_lr
-        
+
         # Update optimizer
         for param_group in optimizer.param_groups:
             param_group['lr'] = new_lr
-        
+
         return new_lr
-    
+
     def transcend_via_ensemble(
         self,
         model_predictions: List[np.ndarray],
@@ -1593,24 +1593,24 @@ class TranspersonalAnomalyDetector:
     ) -> np.ndarray:
         """
         Transcend individual model limitations via ensemble.
-        
+
         Analogous to self-transcendence - moving beyond individual ego.
         """
         if weights is None:
             weights = np.ones(len(model_predictions)) / len(model_predictions)
-        
+
         # Weighted ensemble transcends individual models
         ensemble_pred = np.average(model_predictions, axis=0, weights=weights)
-        
+
         # Meta-learning: learn weights that transcend simple averaging
         individual_variances = [np.var(pred) for pred in model_predictions]
         confidence_weights = 1.0 / (np.array(individual_variances) + 1e-8)
         confidence_weights /= np.sum(confidence_weights)
-        
+
         transcendent_pred = np.average(model_predictions, axis=0, weights=confidence_weights)
-        
+
         return transcendent_pred
-    
+
     def explore_holotropic_space(
         self,
         features: np.ndarray,
@@ -1618,13 +1618,13 @@ class TranspersonalAnomalyDetector:
     ) -> np.ndarray:
         """
         Explore non-ordinary (holotropic) regions of feature space.
-        
+
         Analogous to holotropic states - non-ordinary consciousness.
         """
         # Identify extreme/rare regions (holotropic states)
         feature_mean = np.mean(features, axis=0)
         feature_std = np.std(features, axis=0)
-        
+
         # Generate samples in extreme regions
         holotropic_samples = []
         for _ in range(exploration_budget):
@@ -1632,12 +1632,12 @@ class TranspersonalAnomalyDetector:
             direction = np.random.randn(features.shape[1])
             direction /= np.linalg.norm(direction)
             magnitude = np.random.uniform(3.0, 5.0)  # 3-5 std deviations
-            
+
             holotropic_sample = feature_mean + magnitude * feature_std * direction
             holotropic_samples.append(holotropic_sample)
-        
+
         return np.array(holotropic_samples)
-    
+
     def detect_spiritual_emergence(
         self,
         time_series: np.ndarray,
@@ -1645,26 +1645,26 @@ class TranspersonalAnomalyDetector:
     ) -> List[int]:
         """
         Detect transformative moments (phase transitions, regime changes).
-        
+
         Analogous to spiritual emergence - sudden awakening/transformation.
         """
         change_points = []
-        
+
         for i in range(window_size, len(time_series) - window_size):
             # Compare distributions before and after this point
             before = time_series[i-window_size:i]
             after = time_series[i:i+window_size]
-            
+
             # Statistical test for distribution change
             mean_change = abs(np.mean(after) - np.mean(before))
             std_change = abs(np.std(after) - np.std(before))
-            
+
             # Significant change = emergence point
             if mean_change > 2 * np.std(before) or std_change > 0.5 * np.std(before):
                 change_points.append(i)
-        
+
         return change_points
-    
+
     def cross_cultural_transfer(
         self,
         source_domain_features: np.ndarray,
@@ -1673,24 +1673,24 @@ class TranspersonalAnomalyDetector:
     ) -> np.ndarray:
         """
         Transfer knowledge across domains (cross-cultural integration).
-        
+
         Analogous to integrating wisdom from diverse spiritual traditions.
         """
         # Simple domain adaptation via feature alignment
         source_mean = np.mean(source_domain_features, axis=0)
         target_mean = np.mean(target_domain_features, axis=0)
-        
+
         # Align distributions
         aligned_source = source_domain_features - source_mean + target_mean
-        
+
         # Train simple model on aligned source domain
         from sklearn.linear_model import LogisticRegression
         model = LogisticRegression()
         model.fit(aligned_source, source_domain_labels)
-        
+
         # Predict on target domain
         target_predictions = model.predict_proba(target_domain_features)
-        
+
         return target_predictions
 ```
 
@@ -1819,11 +1819,11 @@ class SystemEmotionalState(Enum):
 class AffectiveAnomalyDetector:
     """
     Affective computing-inspired anomaly detection.
-    
+
     Treats system behavior as having 'emotional states' that can be
     recognized, interpreted, and responded to adaptively.
     """
-    
+
     def __init__(
         self,
         valence_threshold: float = 0.5,
@@ -1832,21 +1832,21 @@ class AffectiveAnomalyDetector:
         self.valence_threshold = valence_threshold
         self.arousal_threshold = arousal_threshold
         self.state_history: List[SystemEmotionalState] = []
-        
+
     def detect_system_emotional_state(
         self,
         metrics: Dict[str, float]
     ) -> SystemEmotionalState:
         """
         Detect system 'emotional state' from behavioral metrics.
-        
+
         Analogous to emotion recognition from physiological signals.
         """
         cpu_load = metrics.get('cpu_load', 0.0)
         error_rate = metrics.get('error_rate', 0.0)
         response_time = metrics.get('response_time', 0.0)
         security_alerts = metrics.get('security_alerts', 0.0)
-        
+
         # Classification logic (simplified)
         if security_alerts > 5:
             state = SystemEmotionalState.COMPROMISED
@@ -1861,10 +1861,10 @@ class AffectiveAnomalyDetector:
             state = SystemEmotionalState.ANOMALOUS
         else:
             state = SystemEmotionalState.HEALTHY
-        
+
         self.state_history.append(state)
         return state
-    
+
     def map_to_valence_arousal(
         self,
         anomaly_score: float,
@@ -1872,9 +1872,9 @@ class AffectiveAnomalyDetector:
     ) -> Tuple[float, float]:
         """
         Map anomaly to 2D valence-arousal space.
-        
+
         Analogous to Russell's Circumplex Model for emotions.
-        
+
         Returns:
             (valence, arousal) where:
             - valence: -1 (negative) to +1 (positive)
@@ -1882,37 +1882,37 @@ class AffectiveAnomalyDetector:
         """
         # Anomaly score → negative valence
         valence = 1.0 - 2.0 * anomaly_score  # Maps [0,1] to [1,-1]
-        
+
         # Severity → arousal
         arousal = severity  # Maps [0,1] to [0,1]
-        
+
         return valence, arousal
-    
+
     def prioritize_by_emotion_space(
         self,
         anomalies: List[Dict]
     ) -> List[Dict]:
         """
         Prioritize anomalies using valence-arousal space.
-        
+
         High arousal + negative valence = highest priority (urgent threats).
         """
         for anomaly in anomalies:
             score = anomaly.get('score', 0.0)
             severity = anomaly.get('severity', 0.5)
-            
+
             valence, arousal = self.map_to_valence_arousal(score, severity)
-            
+
             # Priority: negative valence × high arousal
             priority = (1.0 - valence) * arousal
             anomaly['priority'] = priority
             anomaly['valence'] = valence
             anomaly['arousal'] = arousal
-        
+
         # Sort by priority
         sorted_anomalies = sorted(anomalies, key=lambda x: x['priority'], reverse=True)
         return sorted_anomalies
-    
+
     def adaptive_threshold_by_state(
         self,
         base_threshold: float,
@@ -1920,7 +1920,7 @@ class AffectiveAnomalyDetector:
     ) -> float:
         """
         Adapt detection threshold based on system emotional state.
-        
+
         Analogous to affective systems adapting to user emotional state.
         """
         # Adjust sensitivity based on state
@@ -1936,7 +1936,7 @@ class AffectiveAnomalyDetector:
             return base_threshold * 0.5  # Maximum sensitivity
         else:  # ANOMALOUS
             return base_threshold * 0.8  # Heightened sensitivity
-    
+
     def detect_temporal_emotion_patterns(
         self,
         state_sequence: List[SystemEmotionalState],
@@ -1944,20 +1944,20 @@ class AffectiveAnomalyDetector:
     ) -> str:
         """
         Detect temporal patterns in system emotional states.
-        
+
         Analogous to RNN-based temporal emotion recognition.
         """
         if len(state_sequence) < window_size:
             return "insufficient_data"
-        
+
         recent_states = state_sequence[-window_size:]
-        
+
         # Pattern detection
         if all(s == SystemEmotionalState.HEALTHY for s in recent_states):
             return "stable_healthy"
         elif all(s == SystemEmotionalState.FAILING for s in recent_states):
             return "persistent_failure"
-        elif recent_states[-3:] == [SystemEmotionalState.HEALTHY, 
+        elif recent_states[-3:] == [SystemEmotionalState.HEALTHY,
                                      SystemEmotionalState.DEGRADED,
                                      SystemEmotionalState.FAILING]:
             return "deteriorating"
@@ -1969,7 +1969,7 @@ class AffectiveAnomalyDetector:
             return "unstable_oscillating"
         else:
             return "mixed"
-    
+
     def detect_bias_in_anomalies(
         self,
         anomalies: List[Dict],
@@ -1977,38 +1977,38 @@ class AffectiveAnomalyDetector:
     ) -> Dict[str, float]:
         """
         Detect bias in anomaly detection across different groups.
-        
+
         Analogous to bias detection in affective computing systems.
         """
         # Group anomalies by attribute
         group_counts = {}
         group_totals = {}
-        
+
         for anomaly in anomalies:
             group = anomaly.get(group_attribute, 'unknown')
             is_anomaly = anomaly.get('is_anomaly', False)
-            
+
             if group not in group_totals:
                 group_totals[group] = 0
                 group_counts[group] = 0
-            
+
             group_totals[group] += 1
             if is_anomaly:
                 group_counts[group] += 1
-        
+
         # Calculate detection rates per group
         detection_rates = {}
         for group in group_totals:
             if group_totals[group] > 0:
                 detection_rates[group] = group_counts[group] / group_totals[group]
-        
+
         # Calculate bias metric (variance in detection rates)
         if detection_rates:
             rates = list(detection_rates.values())
             bias_score = np.var(rates)  # High variance = high bias
         else:
             bias_score = 0.0
-        
+
         return {
             'bias_score': bias_score,
             'detection_rates': detection_rates
@@ -2158,11 +2158,11 @@ class NanoDimension(Enum):
 class NanoInspiredDetector:
     """
     Nanotechnology-inspired anomaly detection.
-    
+
     Applies concepts from nanoscale physics: precision detection,
     dimensional confinement, PUF-like fingerprinting, self-healing.
     """
-    
+
     def __init__(
         self,
         precision_threshold: float = 1e-6,
@@ -2172,7 +2172,7 @@ class NanoInspiredDetector:
         self.dimension = dimension
         self.system_fingerprint: Optional[np.ndarray] = None
         self.self_healing_history: List[Dict] = []
-        
+
     def nanoscale_precision_detect(
         self,
         data: np.ndarray,
@@ -2180,20 +2180,20 @@ class NanoInspiredDetector:
     ) -> np.ndarray:
         """
         Ultra-precise anomaly detection at 'nanoscale' precision.
-        
+
         Analogous to atomic-level manipulation in nanotechnology.
         """
         # Calculate deviations with high precision
         deviations = np.abs(data - baseline)
-        
+
         # Normalize by baseline to get relative precision
         relative_deviations = deviations / (np.abs(baseline) + self.precision_threshold)
-        
+
         # Detect anomalies at precision threshold
         nano_anomalies = relative_deviations > self.precision_threshold
-        
+
         return nano_anomalies
-    
+
     def dimensional_confinement(
         self,
         features: np.ndarray,
@@ -2201,54 +2201,54 @@ class NanoInspiredDetector:
     ) -> np.ndarray:
         """
         Apply dimensional confinement strategy (0D/1D/2D/3D).
-        
+
         Analogous to quantum confinement in nanomaterials.
         """
         if target_dimension == NanoDimension.ZERO_D:
             # 0D: Confine all dimensions - use only scalar summary
             confined = np.mean(features, axis=1, keepdims=True)
-            
+
         elif target_dimension == NanoDimension.ONE_D:
             # 1D: Confine 2 dimensions - project to principal component
             from sklearn.decomposition import PCA
             pca = PCA(n_components=1)
             confined = pca.fit_transform(features)
-            
+
         elif target_dimension == NanoDimension.TWO_D:
             # 2D: Confine 1 dimension - use top 2 principal components
             from sklearn.decomposition import PCA
             pca = PCA(n_components=2)
             confined = pca.fit_transform(features)
-            
+
         else:  # THREE_D
             # 3D: No confinement - use all features
             confined = features
-        
+
         return confined
-    
+
     def generate_puf_fingerprint(
         self,
         system_behavior: np.ndarray
     ) -> np.ndarray:
         """
         Generate Physical Unclonable Function-like fingerprint.
-        
+
         Analogous to nanoscale manufacturing variations creating unique IDs.
         """
         # Extract unique behavioral signature from system
         # Use high-frequency components as 'manufacturing variations'
         fft = np.fft.fft(system_behavior, axis=0)
         high_freq_components = fft[len(fft)//2:]  # High-frequency half
-        
+
         # Create fingerprint from phase information (most unique)
         fingerprint = np.angle(high_freq_components).flatten()
-        
+
         # Normalize to [0, 1]
         fingerprint = (fingerprint + np.pi) / (2 * np.pi)
-        
+
         self.system_fingerprint = fingerprint
         return fingerprint
-    
+
     def verify_fingerprint(
         self,
         current_behavior: np.ndarray,
@@ -2256,21 +2256,21 @@ class NanoInspiredDetector:
     ) -> bool:
         """
         Verify system identity using PUF-like fingerprint.
-        
+
         Returns True if system matches stored fingerprint.
         """
         if self.system_fingerprint is None:
             return False
-        
+
         current_fingerprint = self.generate_puf_fingerprint(current_behavior)
-        
+
         # Compute similarity (cosine similarity)
         similarity = np.dot(self.system_fingerprint, current_fingerprint) / (
             np.linalg.norm(self.system_fingerprint) * np.linalg.norm(current_fingerprint) + 1e-8
         )
-        
+
         return similarity >= threshold
-    
+
     def self_healing_threshold_adjustment(
         self,
         false_positive_rate: float,
@@ -2278,7 +2278,7 @@ class NanoInspiredDetector:
     ) -> float:
         """
         Self-healing threshold adjustment to reduce false positives.
-        
+
         Analogous to self-healing nanocomposites that repair damage.
         """
         # Record healing action
@@ -2286,7 +2286,7 @@ class NanoInspiredDetector:
             'false_positive_rate': false_positive_rate,
             'old_threshold': current_threshold
         }
-        
+
         # Adjust threshold if false positive rate too high
         if false_positive_rate > 0.1:
             # Increase threshold to reduce false positives (healing)
@@ -2297,12 +2297,12 @@ class NanoInspiredDetector:
         else:
             # Keep current threshold
             new_threshold = current_threshold
-        
+
         healing_action['new_threshold'] = new_threshold
         self.self_healing_history.append(healing_action)
-        
+
         return new_threshold
-    
+
     def quantum_dot_tunable_sensitivity(
         self,
         anomaly_type: str,
@@ -2310,7 +2310,7 @@ class NanoInspiredDetector:
     ) -> float:
         """
         Tune sensitivity for specific anomaly type.
-        
+
         Analogous to quantum dots with size-tunable optical properties.
         """
         # Map anomaly types to sensitivity adjustments
@@ -2321,28 +2321,28 @@ class NanoInspiredDetector:
             'info': 0.8,                 # Lower sensitivity
             'debug': 0.5                 # Minimal sensitivity
         }
-        
+
         multiplier = sensitivity_map.get(anomaly_type, 1.0)
         tuned_sensitivity = base_sensitivity * multiplier
-        
+
         return tuned_sensitivity
-    
+
     def maximize_surface_area(
         self,
         features: np.ndarray
     ) -> np.ndarray:
         """
         Maximize information density (analogous to surface area).
-        
+
         Nanomaterials maximize surface-to-volume ratio for interactions.
         """
         # Apply transformations that increase feature space dimensionality
         # Polynomial features increase 'surface area' of feature space
         from sklearn.preprocessing import PolynomialFeatures
-        
+
         poly = PolynomialFeatures(degree=2, include_bias=False)
         expanded_features = poly.fit_transform(features)
-        
+
         return expanded_features
 ```
 
@@ -2379,15 +2379,15 @@ class NanoInspiredDetector:
   - **Symbols**: Ravens (Huginn & Muninn - thought & memory), wolves (Geri & Freki), spear (Gungnir), eight-legged horse (Sleipnir)
   - **Wisdom**: Sacrificed eye for wisdom at Mimir's well, hung from Yggdrasil 9 days/nights to gain runes
   - **Attributes**: Knowledge-seeking, sacrifice for wisdom, strategic warfare, poetry/eloquence
-  
+
 - **Thor (Þórr)**: God of thunder, lightning, storms, strength, protection
   - **Symbols**: Hammer (Mjölnir), lightning, oak trees, goats pulling chariot
   - **Attributes**: Physical strength, protection of mankind, guardian against chaos (giants/Jötunn)
-  
+
 - **Freya (Freyja)**: Goddess of love, beauty, fertility, war, death, magic (seiðr)
   - **Symbols**: Cats, boar (Hildisvíni), necklace (Brísingamen), falcon cloak
   - **Attributes**: Receives half of slain warriors (other half to Odin's Valhalla), practiced seiðr magic
-  
+
 - **Loki**: Trickster god, shape-shifter, complex figure (both helper and antagonist)
   - **Symbols**: Serpent, wolf, fire
   - **Attributes**: Cunning, deception, boundary-crossing, chaos agent
@@ -2492,18 +2492,18 @@ class NorseWorld(Enum):
 class YggdrasilNetwork(nn.Module):
     """
     Yggdrasil-inspired hierarchical network.
-    
+
     World Tree structure connecting Nine Worlds (domains) with
     hierarchical attention and information flow.
     """
-    
+
     def __init__(self, input_dim: int, world_dims: List[int]):
         super().__init__()
         assert len(world_dims) == 9, "Must have 9 worlds"
-        
+
         self.input_dim = input_dim
         self.world_dims = world_dims
-        
+
         # Create branches for each world
         self.world_branches = nn.ModuleList([
             nn.Sequential(
@@ -2513,28 +2513,28 @@ class YggdrasilNetwork(nn.Module):
             )
             for dim in world_dims
         ])
-        
+
         # Bifröst bridge - connects worlds
         self.bridge = nn.MultiheadAttention(
             embed_dim=sum(world_dims),
             num_heads=9  # Sacred number
         )
-        
+
         # Root system - final integration
         self.root = nn.Linear(sum(world_dims), input_dim)
-        
+
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         batch_size = x.size(0)
-        
+
         # Process through each world branch
         world_outputs = []
         for branch in self.world_branches:
             world_out = branch(x)
             world_outputs.append(world_out)
-        
+
         # Concatenate all world outputs
         concatenated = torch.cat(world_outputs, dim=1)
-        
+
         # Apply Bifröst bridge (cross-world attention)
         concatenated_reshaped = concatenated.unsqueeze(0)  # (1, batch, features)
         bridged, _ = self.bridge(
@@ -2543,10 +2543,10 @@ class YggdrasilNetwork(nn.Module):
             concatenated_reshaped
         )
         bridged = bridged.squeeze(0)
-        
+
         # Root integration
         output = self.root(bridged)
-        
+
         return {
             'output': output,
             'world_representations': world_outputs,
@@ -2556,41 +2556,41 @@ class YggdrasilNetwork(nn.Module):
 class HuginnMuninnMemory:
     """
     Huginn (Thought) & Muninn (Memory) - distributed information gathering.
-    
+
     Two ravens that fly out to gather information and return with knowledge.
     """
-    
+
     def __init__(self, memory_size: int = 1000):
         self.memory_size = memory_size
         self.huginn_memory: List[np.ndarray] = []  # Thought - recent observations
         self.muninn_memory: List[np.ndarray] = []  # Memory - long-term patterns
-        
+
     def huginn_gather(self, observations: np.ndarray) -> np.ndarray:
         """
         Huginn (Thought) gathers recent observations.
-        
+
         Short-term, working memory for current context.
         """
         self.huginn_memory.append(observations)
-        
+
         # Keep only recent observations
         if len(self.huginn_memory) > 100:
             self.huginn_memory.pop(0)
-        
+
         # Return aggregated recent context
         if self.huginn_memory:
             return np.mean(self.huginn_memory, axis=0)
         return observations
-    
+
     def muninn_retrieve(self, query: np.ndarray, k: int = 5) -> List[np.ndarray]:
         """
         Muninn (Memory) retrieves relevant long-term memories.
-        
+
         Long-term memory for historical patterns.
         """
         if not self.muninn_memory:
             return []
-        
+
         # Compute similarities to find relevant memories
         similarities = []
         for memory in self.muninn_memory:
@@ -2598,17 +2598,17 @@ class HuginnMuninnMemory:
                 np.linalg.norm(query) * np.linalg.norm(memory) + 1e-8
             )
             similarities.append(sim)
-        
+
         # Get top-k most relevant memories
         top_indices = np.argsort(similarities)[-k:]
         relevant_memories = [self.muninn_memory[i] for i in top_indices]
-        
+
         return relevant_memories
-    
+
     def store_memory(self, pattern: np.ndarray):
         """Store pattern in Muninn's long-term memory."""
         self.muninn_memory.append(pattern)
-        
+
         # Limit memory size
         if len(self.muninn_memory) > self.memory_size:
             self.muninn_memory.pop(0)
@@ -2616,18 +2616,18 @@ class HuginnMuninnMemory:
 class NornTemporalModel:
     """
     Three Norns (Urd, Verdandi, Skuld) - past/present/future temporal model.
-    
+
     Three sisters who weave fate: Urd (past), Verdandi (present), Skuld (future).
     """
-    
+
     def __init__(self, feature_dim: int):
         self.feature_dim = feature_dim
-        
+
         # Three streams for three Norns
         self.urd_model = nn.LSTM(feature_dim, feature_dim, batch_first=True)  # Past
         self.verdandi_model = nn.Linear(feature_dim, feature_dim)  # Present
         self.skuld_model = nn.LSTM(feature_dim, feature_dim, batch_first=True)  # Future (predictive)
-        
+
     def forward(
         self,
         past_sequence: torch.Tensor,
@@ -2636,27 +2636,27 @@ class NornTemporalModel:
     ) -> Dict[str, torch.Tensor]:
         """
         Process temporal data through three Norns.
-        
+
         Args:
             past_sequence: (batch, seq_len, feature_dim) - past observations
             present: (batch, feature_dim) - current state
             future_horizon: number of future steps to predict
-            
+
         Returns:
             Dict with past/present/future representations
         """
         # Urd - process past
         urd_out, (urd_hidden, _) = self.urd_model(past_sequence)
         past_representation = urd_hidden.squeeze(0)
-        
+
         # Verdandi - process present
         present_representation = self.verdandi_model(present)
-        
+
         # Skuld - predict future
         skuld_input = present.unsqueeze(1).repeat(1, future_horizon, 1)
         skuld_out, _ = self.skuld_model(skuld_input)
         future_prediction = skuld_out[:, -1, :]  # Last prediction
-        
+
         return {
             'past': past_representation,
             'present': present_representation,
@@ -2667,33 +2667,33 @@ class NornTemporalModel:
 class RunicSymbolicEncoder:
     """
     Runic alphabet-inspired symbolic encoding.
-    
+
     24 Elder Futhark runes as discrete symbolic representations.
     """
-    
+
     def __init__(self, num_runes: int = 24):
         self.num_runes = num_runes
         self.rune_embeddings = nn.Embedding(num_runes, 64)
-        
+
     def encode_to_runes(self, features: np.ndarray) -> np.ndarray:
         """
         Encode continuous features as discrete runic symbols.
-        
+
         Quantize feature space into 24 rune symbols.
         """
         # Quantize each feature into rune indices (0-23)
         feature_min = np.min(features, axis=0, keepdims=True)
         feature_max = np.max(features, axis=0, keepdims=True)
-        
+
         normalized = (features - feature_min) / (feature_max - feature_min + 1e-8)
         rune_indices = (normalized * (self.num_runes - 1)).astype(int)
-        
+
         return rune_indices
-    
+
     def interpret_runes(self, rune_sequence: np.ndarray) -> str:
         """
         Interpret rune sequence (for explainability).
-        
+
         Map runes to symbolic meanings.
         """
         rune_names = [
@@ -2702,7 +2702,7 @@ class RunicSymbolicEncoder:
             "Eihwaz", "Perthro", "Algiz", "Sowilo", "Tiwaz", "Berkano",
             "Ehwaz", "Mannaz", "Laguz", "Ingwaz", "Dagaz", "Othala"
         ]
-        
+
         interpretation = [rune_names[idx % 24] for idx in rune_sequence.flatten()[:10]]
         return " → ".join(interpretation)
 ```
@@ -2898,11 +2898,11 @@ class GrowthPattern(Enum):
 class SingularityInspiredMonitor:
     """
     Technological singularity-inspired monitoring system.
-    
+
     Monitors for recursive self-improvement, intelligence explosions,
     accelerating change, and paradigm shifts in system/threat behavior.
     """
-    
+
     def __init__(
         self,
         recursion_depth_limit: int = 10,
@@ -2912,7 +2912,7 @@ class SingularityInspiredMonitor:
         self.acceleration_threshold = acceleration_threshold
         self.capability_history: List[float] = []
         self.improvement_history: List[Dict] = []
-        
+
     def detect_recursive_self_improvement(
         self,
         code_changes: List[str],
@@ -2920,9 +2920,9 @@ class SingularityInspiredMonitor:
     ) -> Dict[str, any]:
         """
         Detect patterns of recursive self-improvement (Seed AI pattern).
-        
+
         Analogous to AI recursively improving its own design.
-        
+
         Returns:
             Dict with recursion_detected, depth, improvement_rate
         """
@@ -2931,91 +2931,91 @@ class SingularityInspiredMonitor:
             "self." in change or "__code__" in change or "eval(" in change
             for change in code_changes
         )
-        
+
         # Check if performance improving
         if len(performance_metrics) < 2:
             improvement_rate = 0.0
         else:
             recent = performance_metrics[-5:]
             improvement_rate = (recent[-1] - recent[0]) / len(recent)
-        
+
         # Detect recursion depth
         recursion_depth = 0
         for change in code_changes:
             if "recursive" in change.lower() or "self_improve" in change.lower():
                 recursion_depth += 1
-        
+
         recursion_detected = self_modifying and improvement_rate > 0 and recursion_depth > 0
-        
+
         if recursion_detected and recursion_depth > self.recursion_depth_limit:
             warnings.warn(
                 f"Excessive recursion depth detected: {recursion_depth} > {self.recursion_depth_limit}. "
                 "Potential runaway self-improvement."
             )
-        
+
         return {
             'recursion_detected': recursion_detected,
             'recursion_depth': recursion_depth,
             'improvement_rate': improvement_rate,
             'self_modifying': self_modifying
         }
-    
+
     def detect_intelligence_explosion(
         self,
         capability_time_series: np.ndarray
     ) -> Dict[str, any]:
         """
         Detect intelligence explosion - rapid capability increase.
-        
+
         Analogous to I.J. Good's intelligence explosion concept.
         """
         if len(capability_time_series) < 3:
             return {'explosion_detected': False, 'acceleration': 0.0}
-        
+
         # Calculate first and second derivatives (velocity and acceleration)
         velocity = np.diff(capability_time_series)
         acceleration = np.diff(velocity)
-        
+
         # Explosion = positive acceleration exceeding threshold
         recent_acceleration = np.mean(acceleration[-5:]) if len(acceleration) >= 5 else np.mean(acceleration)
-        
+
         explosion_detected = recent_acceleration > self.acceleration_threshold
-        
+
         # Estimate time to singularity (if explosion detected)
         if explosion_detected and len(capability_time_series) >= 10:
             time_to_singularity = self._estimate_singularity_time(capability_time_series)
         else:
             time_to_singularity = np.inf
-        
+
         return {
             'explosion_detected': explosion_detected,
             'acceleration': float(recent_acceleration),
             'velocity': float(np.mean(velocity[-5:])) if len(velocity) >= 5 else 0.0,
             'time_to_singularity': time_to_singularity
         }
-    
+
     def fit_growth_pattern(
         self,
         time_series: np.ndarray
     ) -> Tuple[GrowthPattern, Dict]:
         """
         Fit growth pattern to time series (linear, exponential, hyperbolic, S-curve).
-        
+
         Determines whether growth is accelerating toward singularity or plateauing.
         """
         if len(time_series) < 5:
             return GrowthPattern.LINEAR, {'r_squared': 0.0}
-        
+
         t = np.arange(len(time_series))
-        
+
         # Fit different models
         models = {}
-        
+
         # Linear: y = a*t + b
         linear_coeffs = np.polyfit(t, time_series, 1)
         linear_pred = np.polyval(linear_coeffs, t)
         models[GrowthPattern.LINEAR] = self._r_squared(time_series, linear_pred)
-        
+
         # Exponential: y = a*exp(b*t)
         try:
             log_y = np.log(time_series + 1e-10)
@@ -3024,7 +3024,7 @@ class SingularityInspiredMonitor:
             models[GrowthPattern.EXPONENTIAL] = self._r_squared(time_series, exp_pred)
         except:
             models[GrowthPattern.EXPONENTIAL] = 0.0
-        
+
         # Hyperbolic: y = a/(t_s - t) (singularity at t_s)
         # Simplified: just check if acceleration is increasing
         if len(time_series) >= 10:
@@ -3035,7 +3035,7 @@ class SingularityInspiredMonitor:
                 models[GrowthPattern.HYPERBOLIC] = 0.2
         else:
             models[GrowthPattern.HYPERBOLIC] = 0.0
-        
+
         # S-curve: logistic growth y = L/(1 + exp(-k*(t-t0)))
         # Simplified: check if growth rate is decreasing
         velocity = np.diff(time_series)
@@ -3046,12 +3046,12 @@ class SingularityInspiredMonitor:
                 models[GrowthPattern.S_CURVE] = 0.3
         else:
             models[GrowthPattern.S_CURVE] = 0.0
-        
+
         # Select best model
         best_pattern = max(models, key=models.get)
-        
+
         return best_pattern, {'r_squared': models[best_pattern], 'all_fits': models}
-    
+
     def detect_paradigm_shift(
         self,
         feature_distributions: List[np.ndarray],
@@ -3059,37 +3059,37 @@ class SingularityInspiredMonitor:
     ) -> List[int]:
         """
         Detect paradigm shifts - fundamental changes in patterns.
-        
+
         Analogous to revolutionary technological changes.
         """
         if len(feature_distributions) < window_size * 2:
             return []
-        
+
         shift_points = []
-        
+
         for i in range(window_size, len(feature_distributions) - window_size):
             before = feature_distributions[i-window_size:i]
             after = feature_distributions[i:i+window_size]
-            
+
             # Statistical test for distribution shift (Kolmogorov-Smirnov)
             before_flat = np.concatenate([b.flatten() for b in before])
             after_flat = np.concatenate([a.flatten() for a in after])
-            
+
             # Simple shift detection: mean and std change
             mean_before = np.mean(before_flat)
             mean_after = np.mean(after_flat)
             std_before = np.std(before_flat)
             std_after = np.std(after_flat)
-            
+
             mean_change = abs(mean_after - mean_before) / (std_before + 1e-8)
             std_change = abs(std_after - std_before) / (std_before + 1e-8)
-            
+
             # Paradigm shift = large changes in both mean and std
             if mean_change > 2.0 or std_change > 1.0:
                 shift_points.append(i)
-        
+
         return shift_points
-    
+
     def estimate_computing_overhang(
         self,
         available_compute: float,
@@ -3098,47 +3098,47 @@ class SingularityInspiredMonitor:
     ) -> Dict[str, float]:
         """
         Estimate computing overhang - excess compute awaiting better algorithms.
-        
+
         Analogous to accumulated hardware waiting for software breakthrough.
         """
         if len(historical_efficiency) < 2:
             return {'overhang': 0.0, 'potential_speedup': 1.0}
-        
+
         # Overhang = available compute / efficiently used compute
         current_usage = available_compute * algorithm_efficiency
         max_historical = max(historical_efficiency)
-        
+
         overhang = available_compute * (1.0 - algorithm_efficiency)
         potential_speedup = available_compute / (current_usage + 1e-8)
-        
+
         return {
             'overhang': overhang,
             'potential_speedup': potential_speedup,
             'efficiency_gap': max_historical - algorithm_efficiency
         }
-    
+
     def _estimate_singularity_time(self, time_series: np.ndarray) -> float:
         """Estimate time steps to singularity (if hyperbolic growth)."""
         # Fit hyperbolic model: y = a/(t_s - t)
         # When t approaches t_s, y approaches infinity (singularity)
         # Simplified: extrapolate current acceleration
-        
+
         if len(time_series) < 3:
             return np.inf
-        
+
         accel = np.diff(np.diff(time_series))
         if len(accel) == 0 or np.mean(accel) <= 0:
             return np.inf
-        
+
         current_value = time_series[-1]
         current_accel = np.mean(accel[-3:])
-        
+
         # Rough estimate: time for value to reach 10x current (arbitrary large threshold)
         threshold = current_value * 10
         steps_to_threshold = (threshold - current_value) / (current_accel + 1e-8)
-        
+
         return max(steps_to_threshold, 0.0)
-    
+
     def _r_squared(self, actual: np.ndarray, predicted: np.ndarray) -> float:
         """Calculate R-squared goodness of fit."""
         ss_res = np.sum((actual - predicted) ** 2)
@@ -3165,7 +3165,7 @@ class SingularityInspiredMonitor:
 
 ### 21. Celtic Mythology (Irish, Welsh, Breton, Cornish, Scottish)
 
-**Wikipedia Source**: https://en.wikipedia.org/wiki/Celtic_mythology  
+**Wikipedia Source**: https://en.wikipedia.org/wiki/Celtic_mythology
 **Research Date**: October 2025
 
 **Key Facts:**
@@ -3293,7 +3293,7 @@ class SingularityInspiredMonitor:
 @dataclass
 class EthicalScalars:
     # ... existing 135 scalars ...
-    
+
     # Celtic Mythology-Inspired Scalars (Sovereignty, Triadic, Cyclical)
     omni_sovereignty: float = 1.32  # Legitimate authority through ethical alignment (Sovereignty Goddess)
     omni_legitimacy: float = 1.28  # Worthiness validation through transformation tests
@@ -3310,50 +3310,50 @@ class EthicalScalars:
 class CelticCycleDetector:
     """
     Temporal anomaly detection inspired by Celtic sacred cycles.
-    
+
     Four festivals (Samhain, Imbolc, Beltane, Lughnasadh) mark seasonal
     transitions. Apply to detecting cyclical patterns and transition states.
     """
-    
+
     def __init__(self, num_cycles: int = 4):
         """
         Initialize Celtic cycle detector.
-        
+
         Args:
             num_cycles: Number of cycles per period (default 4 for Celtic festivals)
         """
         self.num_cycles = num_cycles
         self.cycle_length = 365.25 / num_cycles  # ~91.3 days per cycle
-    
+
     def detect_seasonal_anomalies(self, timestamps: np.ndarray, values: np.ndarray) -> np.ndarray:
         """
         Detect anomalies based on seasonal/cyclical patterns.
-        
+
         Args:
             timestamps: Unix timestamps
             values: Observed values
-            
+
         Returns:
             Anomaly scores (higher = more anomalous)
         """
         # Convert timestamps to cycle phases (0-1 within each cycle)
         day_of_year = (timestamps % (365.25 * 86400)) / 86400
         cycle_phase = (day_of_year % self.cycle_length) / self.cycle_length
-        
+
         # Seasonal decomposition
         from scipy import signal
         trend = signal.savgol_filter(values, window_length=51, polyorder=2)
         detrended = values - trend
-        
+
         # Expected seasonal pattern (learned from historical data)
         seasonal_pattern = self._learn_seasonal_pattern(cycle_phase, detrended)
-        
+
         # Anomaly = deviation from expected seasonal pattern
         residuals = detrended - seasonal_pattern
         anomaly_scores = np.abs(residuals) / (np.std(residuals) + 1e-8)
-        
+
         return anomaly_scores
-    
+
     def _learn_seasonal_pattern(self, phases: np.ndarray, values: np.ndarray) -> np.ndarray:
         """Learn expected seasonal pattern using Fourier basis."""
         # Fourier series with harmonics for num_cycles
@@ -3362,10 +3362,10 @@ class CelticCycleDetector:
         ] + [
             np.cos(2 * np.pi * k * phases) for k in range(1, self.num_cycles + 1)
         ])
-        
+
         # Fit coefficients
         coeffs, _, _, _ = np.linalg.lstsq(X, values, rcond=None)
-        
+
         # Reconstruct seasonal pattern
         return X @ coeffs
 ```
@@ -3376,21 +3376,21 @@ class CelticCycleDetector:
 class CelticKnotworkGraphDetector:
     """
     Graph-based anomaly detection inspired by Celtic knotwork.
-    
+
     Celtic knots: intricate interlacing with no beginning/end, representing
     interconnection and eternity. Apply to finding anomalous patterns in
     complex networks.
     """
-    
+
     def __init__(self, embedding_dim: int = 64):
         """
         Initialize knotwork graph detector.
-        
+
         Args:
             embedding_dim: Dimension for node embeddings
         """
         self.embedding_dim = embedding_dim
-    
+
     def detect_graph_anomalies(
         self,
         adjacency_matrix: np.ndarray,
@@ -3398,37 +3398,37 @@ class CelticKnotworkGraphDetector:
     ) -> np.ndarray:
         """
         Detect anomalous nodes/subgraphs in network.
-        
+
         Args:
             adjacency_matrix: Graph adjacency matrix (N x N)
             node_features: Optional node feature matrix (N x F)
-            
+
         Returns:
             Node-level anomaly scores
         """
         import networkx as nx
-        
+
         # Create NetworkX graph
         G = nx.from_numpy_array(adjacency_matrix)
-        
+
         # Compute graph metrics (knotwork = complexity, interconnection)
         degree_centrality = np.array([v for v in nx.degree_centrality(G).values()])
         betweenness = np.array([v for v in nx.betweenness_centrality(G).values()])
         clustering = np.array([v for v in nx.clustering(G).values()])
-        
+
         # Anomalies: nodes with unusual combinations of metrics
         # (e.g., high degree but low betweenness = local hub not global connector)
         feature_matrix = np.column_stack([degree_centrality, betweenness, clustering])
-        
+
         if node_features is not None:
             feature_matrix = np.column_stack([feature_matrix, node_features])
-        
+
         # Isolation Forest for anomaly detection
         from sklearn.ensemble import IsolationForest
         detector = IsolationForest(contamination=0.1, random_state=42)
         anomaly_labels = detector.fit_predict(feature_matrix)
         anomaly_scores = -detector.score_samples(feature_matrix)
-        
+
         return anomaly_scores
 ```
 
@@ -3451,7 +3451,7 @@ class CelticKnotworkGraphDetector:
 
 ### 22. Hindu Mythology (Vedic, Puranic, Epic Traditions)
 
-**Wikipedia Source**: https://en.wikipedia.org/wiki/Hindu_mythology  
+**Wikipedia Source**: https://en.wikipedia.org/wiki/Hindu_mythology
 **Research Date**: October 2025
 
 **Key Facts:**
@@ -3625,7 +3625,7 @@ Eight Limbs of Patanjali's Yoga (Ashtanga Yoga):
 @dataclass
 class EthicalScalars:
     # ... existing 135 scalars + 7 Celtic scalars = 142 total ...
-    
+
     # Hindu Philosophy-Inspired Scalars (Dharma, Karma, Moksha, Yoga)
     omni_dharmic_duty: float = 1.35  # Duty-based ethics, role-appropriate action (Dharma)
     omni_cosmic_order: float = 1.38  # Universal law, Rita/Dharma maintaining harmony
@@ -3659,28 +3659,28 @@ class KarmaChain:
 class KarmaCausalDetector:
     """
     Causal anomaly detection inspired by Hindu concept of Karma.
-    
+
     Karma: Law of action and consequence - every action has effects,
     creating causal chains across time. Apply to trace anomaly root causes
     through dependency graphs.
-    
+
     Research source: Wikipedia - Hindu mythology, Karma
     (https://en.wikipedia.org/wiki/Hindu_mythology, https://en.wikipedia.org/wiki/Karma)
-    
+
     GPL v3 License compatible - original implementation
     """
-    
+
     def __init__(self, max_causal_depth: int = 5):
         """
         Initialize Karma causal detector.
-        
+
         Args:
             max_causal_depth: Maximum depth to trace causal chains
         """
         self.max_causal_depth = max_causal_depth
         self.causal_graph = nx.DiGraph()
         self.karma_chains: List[KarmaChain] = []
-    
+
     def build_causal_graph(
         self,
         events: List[Dict],
@@ -3688,17 +3688,17 @@ class KarmaCausalDetector:
     ) -> nx.DiGraph:
         """
         Build causal graph from event sequence.
-        
+
         Args:
             events: List of events with timestamps and features
             temporal_window: Time window for causal relationships (seconds)
-            
+
         Returns:
             Directed acyclic graph of causal relationships
         """
         # Sort events by timestamp
         sorted_events = sorted(events, key=lambda e: e['timestamp'])
-        
+
         # Add nodes
         for i, event in enumerate(sorted_events):
             self.causal_graph.add_node(
@@ -3706,21 +3706,21 @@ class KarmaCausalDetector:
                 timestamp=event['timestamp'],
                 features=event.get('features', {})
             )
-        
+
         # Add edges based on temporal proximity and feature correlation
         for i in range(len(sorted_events)):
             for j in range(i + 1, len(sorted_events)):
                 event_i = sorted_events[i]
                 event_j = sorted_events[j]
-                
+
                 # Check temporal proximity
                 time_diff = event_j['timestamp'] - event_i['timestamp']
                 if time_diff > temporal_window:
                     break  # Events too far apart
-                
+
                 # Compute causal strength (placeholder - would use Granger causality, etc.)
                 causal_strength = self._compute_causal_strength(event_i, event_j)
-                
+
                 if causal_strength > 0.5:  # Threshold for causal relationship
                     self.causal_graph.add_edge(
                         f"event_{i}",
@@ -3728,25 +3728,25 @@ class KarmaCausalDetector:
                         weight=causal_strength,
                         temporal_delay=time_diff
                     )
-        
+
         return self.causal_graph
-    
+
     def trace_karma_chain(self, anomaly_node: str) -> List[KarmaChain]:
         """
         Trace causal chain (Karma) leading to anomaly.
-        
+
         Args:
             anomaly_node: Node ID of detected anomaly
-            
+
         Returns:
             List of KarmaChain objects showing causal path to anomaly
         """
         chains = []
-        
+
         # Find all paths from root causes to anomaly
-        root_nodes = [n for n in self.causal_graph.nodes() 
+        root_nodes = [n for n in self.causal_graph.nodes()
                      if self.causal_graph.in_degree(n) == 0]
-        
+
         for root in root_nodes:
             try:
                 paths = nx.all_simple_paths(
@@ -3755,7 +3755,7 @@ class KarmaCausalDetector:
                     anomaly_node,
                     cutoff=self.max_causal_depth
                 )
-                
+
                 for path in paths:
                     # Build KarmaChain for this path
                     for i in range(len(path) - 1):
@@ -3769,46 +3769,46 @@ class KarmaCausalDetector:
                         chains.append(chain)
             except nx.NetworkXNoPath:
                 continue
-        
+
         self.karma_chains = chains
         return chains
-    
+
     def identify_root_cause(self, anomaly_node: str) -> Optional[str]:
         """
         Identify ultimate root cause of anomaly (original Karma action).
-        
+
         Args:
             anomaly_node: Node ID of detected anomaly
-            
+
         Returns:
             Node ID of root cause, or None if not found
         """
         chains = self.trace_karma_chain(anomaly_node)
-        
+
         if not chains:
             return None
-        
+
         # Find chain with strongest overall causality
         best_chain_strength = 0.0
         best_root = None
-        
+
         for chain in chains:
             if chain.causal_strength > best_chain_strength:
                 best_chain_strength = chain.causal_strength
                 best_root = chain.action_node
-        
+
         return best_root
-    
+
     def _compute_causal_strength(self, event_i: Dict, event_j: Dict) -> float:
         """Compute causal strength between two events (placeholder implementation)."""
         # Simplified: Use feature correlation as proxy for causality
         # Real implementation would use Granger causality, transfer entropy, etc.
         features_i = event_i.get('features', {})
         features_j = event_j.get('features', {})
-        
+
         if not features_i or not features_j:
             return 0.0
-        
+
         # Compute correlation between feature changes
         correlation = np.random.rand()  # Placeholder
         return max(0.0, correlation)
@@ -3820,34 +3820,34 @@ class KarmaCausalDetector:
 class YogicTrainingPipeline:
     """
     Eight-stage ML training pipeline inspired by Patanjali's Yoga Sutras.
-    
+
     Ashtanga Yoga (Eight Limbs): Systematic discipline from ethical foundation
     to ultimate union. Apply to ML training with ethical grounding and
     systematic progression.
-    
+
     Research source: Wikipedia - Yoga, Yoga Sutras of Patanjali
     (https://en.wikipedia.org/wiki/Yoga, https://en.wikipedia.org/wiki/Yoga_Sutras_of_Patanjali)
-    
+
     GPL v3 License compatible - original implementation
     """
-    
+
     def __init__(self, ethical_scalars: 'EthicalScalars'):
         """
         Initialize Yogic training pipeline.
-        
+
         Args:
             ethical_scalars: Ethical configuration for stage 1-2
         """
         self.ethical_scalars = ethical_scalars
         self.stage_results = {}
-    
+
     def stage_1_yama(self, data: np.ndarray, labels: np.ndarray) -> Dict:
         """
         Stage 1: Yama (Ethical Restraints) - Validate ethical constraints.
-        
-        Five Yamas: Ahimsa (non-violence), Satya (truthfulness), 
+
+        Five Yamas: Ahimsa (non-violence), Satya (truthfulness),
         Asteya (non-stealing), Brahmacharya (continence), Aparigraha (non-possessiveness)
-        
+
         Apply: Verify data collection ethics, privacy, fairness
         """
         results = {
@@ -3858,14 +3858,14 @@ class YogicTrainingPipeline:
         }
         self.stage_results['yama'] = results
         return results
-    
+
     def stage_2_niyama(self, data: np.ndarray) -> Dict:
         """
         Stage 2: Niyama (Observances) - Data quality and preparation discipline.
-        
-        Five Niyamas: Shaucha (purity), Santosha (contentment), 
+
+        Five Niyamas: Shaucha (purity), Santosha (contentment),
         Tapas (austerity), Svadhyaya (self-study), Ishvara Pranidhana (surrender)
-        
+
         Apply: Data cleaning, quality checks, documentation
         """
         results = {
@@ -3875,11 +3875,11 @@ class YogicTrainingPipeline:
         }
         self.stage_results['niyama'] = results
         return results
-    
+
     def stage_3_asana(self, input_dim: int, output_dim: int) -> Dict:
         """
         Stage 3: Asana (Posture) - Architecture design and structure.
-        
+
         Physical discipline creating stable foundation.
         Apply: Model architecture design, hyperparameter initialization
         """
@@ -3887,11 +3887,11 @@ class YogicTrainingPipeline:
         architecture = self._design_architecture(input_dim, output_dim)
         self.stage_results['asana'] = architecture
         return architecture
-    
+
     def stage_4_pranayama(self, data: np.ndarray) -> np.ndarray:
         """
         Stage 4: Pranayama (Breath Control) - Data flow regulation.
-        
+
         Life force (prana) regulation through breathing.
         Apply: Batch sizing, data flow control, normalization
         """
@@ -3899,11 +3899,11 @@ class YogicTrainingPipeline:
         regulated_data = self._regulate_data_flow(data)
         self.stage_results['pranayama'] = {'flow_regulated': True}
         return regulated_data
-    
+
     def stage_5_pratyahara(self, features: np.ndarray) -> np.ndarray:
         """
         Stage 5: Pratyahara (Sense Withdrawal) - Feature selection.
-        
+
         Turning attention inward, withdrawing from external distractions.
         Apply: Feature selection, dimensionality reduction, focus on essentials
         """
@@ -3914,11 +3914,11 @@ class YogicTrainingPipeline:
             'selected_dims': selected_features.shape[1]
         }
         return selected_features
-    
+
     def stage_6_dharana(self, model, data: np.ndarray) -> Dict:
         """
         Stage 6: Dharana (Concentration) - Single-pointed model focus.
-        
+
         Focused concentration on single object/goal.
         Apply: Training on specific task, objective function optimization
         """
@@ -3926,11 +3926,11 @@ class YogicTrainingPipeline:
         training_metrics = self._train_concentrated(model, data)
         self.stage_results['dharana'] = training_metrics
         return training_metrics
-    
+
     def stage_7_dhyana(self, model, data: np.ndarray, epochs: int) -> Dict:
         """
         Stage 7: Dhyana (Meditation) - Sustained training and refinement.
-        
+
         Sustained, uninterrupted concentration.
         Apply: Extended training, fine-tuning, continuous improvement
         """
@@ -3938,11 +3938,11 @@ class YogicTrainingPipeline:
         sustained_metrics = self._train_sustained(model, data, epochs)
         self.stage_results['dhyana'] = sustained_metrics
         return sustained_metrics
-    
+
     def stage_8_samadhi(self, model, test_data: np.ndarray) -> Dict:
         """
         Stage 8: Samadhi (Absorption/Liberation) - Model deployment and evaluation.
-        
+
         Union with object of meditation, ultimate goal achieved.
         Apply: Final evaluation, deployment, achieving optimal performance
         """
@@ -3950,7 +3950,7 @@ class YogicTrainingPipeline:
         eval_metrics = self._evaluate_final(model, test_data)
         self.stage_results['samadhi'] = eval_metrics
         return eval_metrics
-    
+
     # Placeholder implementations for helper methods
     def _check_non_harm(self, data, labels): return True
     def _check_data_authenticity(self, data): return True
@@ -3989,7 +3989,7 @@ class YogicTrainingPipeline:
 
 ### 23. Generative Artificial Intelligence (GenAI)
 
-**Wikipedia Source**: https://en.wikipedia.org/wiki/Generative_artificial_intelligence  
+**Wikipedia Source**: https://en.wikipedia.org/wiki/Generative_artificial_intelligence
 **Research Date**: October 2025
 
 **Key Facts:**
@@ -4126,7 +4126,7 @@ class YogicTrainingPipeline:
 @dataclass
 class EthicalScalars:
     # ... existing 142 scalars + 9 Hindu scalars = 151 total ...
-    
+
     # Generative AI-Inspired Scalars (Governance, Efficiency, Robustness)
     omni_governance: float = 1.35  # AI governance mechanisms, oversight
     omni_auditability: float = 1.38  # Decision trail transparency, audit logs
@@ -4143,21 +4143,21 @@ class EthicalScalars:
 class NaturalLanguageInterface:
     """
     Natural language interface for OMNI ♱ AVA configuration and querying.
-    
+
     Inspired by prompt engineering in generative AI systems.
     Allows users to configure anomaly detection using natural language prompts
     instead of complex API calls or config files.
-    
+
     Research source: Wikipedia - Generative artificial intelligence
     (https://en.wikipedia.org/wiki/Generative_artificial_intelligence)
-    
+
     GPL v3 License compatible - original implementation
     """
-    
+
     def __init__(self, engine: 'OmniAnomalyEngine'):
         """
         Initialize natural language interface.
-        
+
         Args:
             engine: OMNI ♱ AVA instance to configure
         """
@@ -4169,49 +4169,49 @@ class NaturalLanguageInterface:
             'comparison': r'exceeds?|above|below|less than|greater than|between',
             'temporal': r'last|past|previous|recent|within',
         }
-    
+
     def parse_query(self, query: str) -> Dict[str, Any]:
         """
         Parse natural language query into structured configuration.
-        
+
         Args:
             query: Natural language query (e.g., "Detect anomalies where temperature exceeds 50C")
-            
+
         Returns:
             Structured configuration dictionary
         """
         import re
-        
+
         config = {
             'operation': 'detect',
             'metrics': [],
             'conditions': [],
             'temporal_range': None
         }
-        
+
         # Extract operation (detect, analyze, configure, etc.)
         for intent, pattern in self.intent_patterns.items():
             if re.search(pattern, query, re.IGNORECASE):
                 config['operation'] = intent
                 break
-        
+
         # Extract metrics (temperature, pressure, etc.)
         for metric_name in ['temperature', 'pressure', 'velocity', 'acceleration', 'frequency']:
             if metric_name in query.lower():
                 config['metrics'].append(metric_name)
-        
+
         # Extract conditions (exceeds 50, between 10 and 20, etc.)
         number_pattern = r'(\d+\.?\d*)'
         numbers = re.findall(number_pattern, query)
-        
+
         if 'exceeds' in query.lower() or 'above' in query.lower() or 'greater than' in query.lower():
             if numbers:
                 config['conditions'].append({'type': 'greater_than', 'value': float(numbers[0])})
-        
+
         if 'below' in query.lower() or 'less than' in query.lower():
             if numbers:
                 config['conditions'].append({'type': 'less_than', 'value': float(numbers[0])})
-        
+
         if 'between' in query.lower():
             if len(numbers) >= 2:
                 config['conditions'].append({
@@ -4219,18 +4219,18 @@ class NaturalLanguageInterface:
                     'min': float(numbers[0]),
                     'max': float(numbers[1])
                 })
-        
+
         return config
-    
+
     def configure_from_query(self, query: str) -> None:
         """
         Configure engine based on natural language query.
-        
+
         Args:
             query: Natural language configuration query
         """
         config = self.parse_query(query)
-        
+
         # Apply configuration to engine
         if config['operation'] == 'detect':
             # Set detection thresholds based on conditions
@@ -4238,7 +4238,7 @@ class NaturalLanguageInterface:
                 if condition['type'] == 'greater_than':
                     # Configure threshold for anomaly detection
                     pass  # Would configure actual engine thresholds
-        
+
         # Would apply other configuration changes
 ```
 
@@ -4248,25 +4248,25 @@ class NaturalLanguageInterface:
 class AdversarialRobustness:
     """
     Adversarial robustness mechanisms for anomaly detection.
-    
+
     Inspired by adversarial attacks in generative AI (deepfakes, adversarial examples).
     Trains models to be robust against intentionally crafted malicious inputs.
-    
+
     Research source: Wikipedia - Generative artificial intelligence
     (https://en.wikipedia.org/wiki/Generative_artificial_intelligence)
-    
+
     GPL v3 License compatible - original implementation
     """
-    
+
     def __init__(self, epsilon: float = 0.1):
         """
         Initialize adversarial robustness trainer.
-        
+
         Args:
             epsilon: Maximum perturbation magnitude for adversarial examples
         """
         self.epsilon = epsilon
-    
+
     def generate_adversarial_examples(
         self,
         model,
@@ -4276,13 +4276,13 @@ class AdversarialRobustness:
     ) -> np.ndarray:
         """
         Generate adversarial examples using specified method.
-        
+
         Args:
             model: Model to attack
             X: Clean input data
             y: True labels
             method: Attack method ('fgsm', 'pgd', 'carlini_wagner')
-            
+
         Returns:
             Adversarial examples
         """
@@ -4294,7 +4294,7 @@ class AdversarialRobustness:
             return self._pgd_attack(model, X, y)
         else:
             raise ValueError(f"Unknown attack method: {method}")
-    
+
     def adversarial_training(
         self,
         model,
@@ -4304,7 +4304,7 @@ class AdversarialRobustness:
     ):
         """
         Train model with adversarial examples for robustness.
-        
+
         Args:
             model: Model to train
             X_train: Training data
@@ -4314,21 +4314,21 @@ class AdversarialRobustness:
         for epoch in range(epochs):
             # Generate adversarial examples
             X_adv = self.generate_adversarial_examples(model, X_train, y_train)
-            
+
             # Train on mixture of clean and adversarial examples
             X_mixed = np.concatenate([X_train, X_adv])
             y_mixed = np.concatenate([y_train, y_train])
-            
+
             # Would train model here
             pass
-    
+
     def _fgsm_attack(self, model, X: np.ndarray, y: np.ndarray) -> np.ndarray:
         """Fast Gradient Sign Method attack."""
         # Placeholder implementation
         # Would compute gradient and perturb in direction of gradient sign
         perturbation = np.random.randn(*X.shape) * self.epsilon
         return np.clip(X + perturbation, 0, 1)
-    
+
     def _pgd_attack(self, model, X: np.ndarray, y: np.ndarray) -> np.ndarray:
         """Projected Gradient Descent attack."""
         # Placeholder implementation
@@ -5011,22 +5011,22 @@ class CISASector(Enum):
 class ChemicalNuclearDetector:
     """
     Anomaly detection for CISA Chemical and Nuclear critical infrastructure.
-    
+
     Implements safety-critical monitoring patterns for:
     - Chemical process parameters (pressure, temperature, composition)
     - Nuclear reactor monitoring (radiation, coolant, core parameters)
     - Cyber-physical security (SCADA intrusions)
     - Insider threat detection
     - Cross-sector impact assessment
-    
+
     Research sources:
     - CISA Chemical Sector framework
     - CISA Nuclear Sector framework
     - Nuclear Regulatory Commission (NRC) standards
-    
+
     GPL v3 License compatible - original implementation
     """
-    
+
     def __init__(self, sector: CISASector):
         self.sector = sector
         self.safety_thresholds = self._init_safety_thresholds()
@@ -5034,7 +5034,7 @@ class ChemicalNuclearDetector:
             CISASector.CHEMICAL: ['energy', 'water', 'transportation', 'healthcare'],
             CISASector.NUCLEAR: ['energy', 'water', 'communications']
         }
-    
+
     def detect_process_anomaly(
         self,
         sensor_data: np.ndarray,
@@ -5043,26 +5043,26 @@ class ChemicalNuclearDetector:
     ) -> Dict:
         """
         Detect anomalies in chemical/nuclear process parameters.
-        
+
         Args:
             sensor_data: Time-series sensor readings (N x M) for M sensors
             parameter_names: Names of monitored parameters (temperature, pressure, etc.)
             timestamps: Optional timestamps for temporal analysis
-            
+
         Returns:
             Anomaly detection results with safety assessment
         """
         anomalies = {}
-        
+
         for i, param_name in enumerate(parameter_names):
             param_data = sensor_data[:, i]
-            
+
             threshold = self.safety_thresholds.get(param_name, {})
             lower_limit = threshold.get('lower', -np.inf)
             upper_limit = threshold.get('upper', np.inf)
-            
+
             violations = (param_data < lower_limit) | (param_data > upper_limit)
-            
+
             if np.any(violations):
                 anomalies[param_name] = {
                     'violation_indices': np.where(violations)[0].tolist(),
@@ -5070,9 +5070,9 @@ class ChemicalNuclearDetector:
                     'severity': self._calculate_severity(param_data[violations], threshold),
                     'requires_emergency_response': self._assess_emergency(param_name, violations)
                 }
-        
+
         cross_sector_impact = self._assess_cross_sector_impact(anomalies)
-        
+
         return {
             'anomalies': anomalies,
             'sector': self.sector.value,
@@ -5080,7 +5080,7 @@ class ChemicalNuclearDetector:
             'cross_sector_impact': cross_sector_impact,
             'recommended_actions': self._generate_recommendations(anomalies)
         }
-    
+
     def _init_safety_thresholds(self) -> Dict:
         """Initialize sector-specific safety thresholds."""
         if self.sector == CISASector.CHEMICAL:
@@ -5098,23 +5098,23 @@ class ChemicalNuclearDetector:
                 'neutron_flux': {'lower': 0.8, 'upper': 1.2}
             }
         return {}
-    
+
     def _calculate_severity(self, violations: np.ndarray, threshold: Dict) -> str:
         """Calculate severity level based on violation magnitude."""
         if len(violations) == 0:
             return 'NONE'
-        
+
         lower = threshold.get('lower', -np.inf)
         upper = threshold.get('upper', np.inf)
         range_size = upper - lower
-        
+
         max_deviation = np.max([
             np.max(violations - upper) if np.any(violations > upper) else 0,
             np.max(lower - violations) if np.any(violations < lower) else 0
         ])
-        
+
         deviation_ratio = max_deviation / range_size if range_size > 0 else 0
-        
+
         if deviation_ratio > 0.5:
             return 'CRITICAL'
         elif deviation_ratio > 0.2:
@@ -5123,38 +5123,38 @@ class ChemicalNuclearDetector:
             return 'MEDIUM'
         else:
             return 'LOW'
-    
+
     def _assess_emergency(self, param_name: str, violations: np.ndarray) -> bool:
         """Determine if emergency response is required."""
         critical_params = {
             CISASector.CHEMICAL: ['leak_rate_ppm', 'temperature_celsius'],
             CISASector.NUCLEAR: ['radiation_mrem_hr', 'core_temperature_celsius', 'coolant_flow_gpm']
         }
-        
+
         return param_name in critical_params.get(self.sector, []) and np.sum(violations) > 3
-    
+
     def _assess_cross_sector_impact(self, anomalies: Dict) -> Dict:
         """Assess how anomalies in this sector affect other sectors."""
         if not anomalies:
             return {'affected_sectors': [], 'impact_level': 'NONE'}
-        
+
         affected = self.interdependency_map.get(self.sector, [])
-        
+
         has_critical = any(a.get('severity') == 'CRITICAL' for a in anomalies.values())
-        
+
         return {
             'affected_sectors': affected,
             'impact_level': 'HIGH' if has_critical else 'MEDIUM',
             'cascading_risk': has_critical and len(affected) > 2
         }
-    
+
     def _generate_recommendations(self, anomalies: Dict) -> List[str]:
         """Generate action recommendations based on detected anomalies."""
         if not anomalies:
             return ['Continue normal operations']
-        
+
         recommendations = []
-        
+
         for param_name, details in anomalies.items():
             if details.get('requires_emergency_response'):
                 recommendations.append(f"URGENT: Initiate emergency shutdown for {param_name}")
@@ -5162,11 +5162,11 @@ class ChemicalNuclearDetector:
                 recommendations.append(f"Investigate and correct {param_name} immediately")
             else:
                 recommendations.append(f"Monitor {param_name} closely")
-        
+
         if any(a.get('requires_emergency_response') for a in anomalies.values()):
             recommendations.append("Notify regulatory authorities (NRC/EPA)")
             recommendations.append("Activate emergency response team")
-        
+
         return recommendations
 ```
 
@@ -5264,22 +5264,22 @@ from datetime import datetime, timedelta
 class CommunicationsITDetector:
     """
     Anomaly detection for CISA Communications and Information Technology sectors.
-    
+
     Monitors:
     - Network traffic patterns (DDoS, congestion, routing anomalies)
     - Cyber intrusions (ransomware, data exfiltration, lateral movement)
     - Service availability (uptime, performance, capacity)
     - Supply chain security (compromised software/hardware)
     - Cross-sector communication impacts
-    
+
     Research sources:
     - CISA Communications Sector framework
     - CISA Information Technology Sector framework
     - NIST Cybersecurity Framework
-    
+
     GPL v3 License compatible - original implementation
     """
-    
+
     def __init__(self, baseline_window: int = 3600):
         self.baseline_window = baseline_window
         self.traffic_history = deque(maxlen=baseline_window)
@@ -5290,7 +5290,7 @@ class CommunicationsITDetector:
             'packet_loss_threshold': 0.05,
             'exfiltration_mb_threshold': 1000
         }
-    
+
     def detect_network_anomaly(
         self,
         traffic_data: Dict[str, float],
@@ -5298,7 +5298,7 @@ class CommunicationsITDetector:
     ) -> Dict:
         """
         Detect network traffic anomalies.
-        
+
         Args:
             traffic_data: Network metrics {
                 'packets_per_sec': float,
@@ -5310,22 +5310,22 @@ class CommunicationsITDetector:
                 'unique_dst_ips': int
             }
             timestamp: Optional timestamp for the measurement
-            
+
         Returns:
             Anomaly detection results with threat assessment
         """
         self.traffic_history.append(traffic_data)
-        
+
         if len(self.traffic_history) < 100:
             return {
                 'status': 'LEARNING',
                 'message': 'Building baseline, need more data'
             }
-        
+
         self._update_baseline()
-        
+
         anomalies = {}
-        
+
         ddos_score = self._detect_ddos(traffic_data)
         if ddos_score > 0.7:
             anomalies['ddos'] = {
@@ -5333,21 +5333,21 @@ class CommunicationsITDetector:
                 'severity': 'CRITICAL' if ddos_score > 0.9 else 'HIGH',
                 'details': 'Potential DDoS attack detected'
             }
-        
+
         latency_anomaly = self._detect_latency_anomaly(traffic_data)
         if latency_anomaly:
             anomalies['latency'] = latency_anomaly
-        
+
         exfiltration_risk = self._detect_data_exfiltration(traffic_data)
         if exfiltration_risk:
             anomalies['exfiltration'] = exfiltration_risk
-        
+
         routing_anomaly = self._detect_routing_anomaly(traffic_data)
         if routing_anomaly:
             anomalies['routing'] = routing_anomaly
-        
+
         cross_sector_impact = self._assess_comm_it_impact(anomalies)
-        
+
         return {
             'anomalies': anomalies,
             'overall_risk': self._calculate_overall_risk(anomalies),
@@ -5356,11 +5356,11 @@ class CommunicationsITDetector:
             'recommended_actions': self._generate_recommendations(anomalies),
             'timestamp': timestamp or datetime.now()
         }
-    
+
     def _update_baseline(self):
         """Update baseline statistics from recent traffic history."""
         recent_data = list(self.traffic_history)[-min(len(self.traffic_history), 1000):]
-        
+
         for metric in recent_data[0].keys():
             values = [d[metric] for d in recent_data if metric in d]
             if values:
@@ -5371,38 +5371,38 @@ class CommunicationsITDetector:
                     'p95': np.percentile(values, 95),
                     'p99': np.percentile(values, 99)
                 }
-    
+
     def _detect_ddos(self, traffic_data: Dict) -> float:
         """Detect DDoS attacks based on traffic volume and connection patterns."""
         if 'packets_per_sec' not in self.baseline_stats:
             return 0.0
-        
+
         baseline = self.baseline_stats['packets_per_sec']
         current = traffic_data.get('packets_per_sec', 0)
-        
+
         if current > baseline['mean'] + 3 * baseline['std']:
             excess_ratio = current / (baseline['mean'] + baseline['std'])
-            
+
             connections = traffic_data.get('connections_per_sec', 0)
             conn_baseline = self.baseline_stats.get('connections_per_sec', {}).get('mean', 1)
             conn_ratio = connections / max(conn_baseline, 1)
-            
+
             unique_srcs = traffic_data.get('unique_src_ips', 0)
-            
+
             ddos_score = min(1.0, (excess_ratio / 10.0) * 0.6 + (conn_ratio / 5.0) * 0.3 + min(unique_srcs / 1000, 1.0) * 0.1)
-            
+
             return ddos_score
-        
+
         return 0.0
-    
+
     def _detect_latency_anomaly(self, traffic_data: Dict) -> Optional[Dict]:
         """Detect unusual latency increases."""
         if 'latency_ms' not in self.baseline_stats:
             return None
-        
+
         baseline = self.baseline_stats['latency_ms']
         current = traffic_data.get('latency_ms', 0)
-        
+
         if current > baseline['mean'] + 3 * baseline['std']:
             return {
                 'score': min(1.0, current / (baseline['mean'] * 5)),
@@ -5411,20 +5411,20 @@ class CommunicationsITDetector:
                 'baseline_mean_ms': baseline['mean'],
                 'details': 'Significant latency increase detected'
             }
-        
+
         return None
-    
+
     def _detect_data_exfiltration(self, traffic_data: Dict) -> Optional[Dict]:
         """Detect potential data exfiltration based on unusual outbound traffic."""
         if 'bytes_per_sec' not in self.baseline_stats:
             return None
-        
+
         baseline = self.baseline_stats['bytes_per_sec']
         current = traffic_data.get('bytes_per_sec', 0)
-        
+
         if current > baseline['p99'] * 2:
             mb_per_sec = current / (1024 * 1024)
-            
+
             if mb_per_sec > 100:
                 return {
                     'score': min(1.0, mb_per_sec / 1000),
@@ -5432,16 +5432,16 @@ class CommunicationsITDetector:
                     'mb_per_sec': mb_per_sec,
                     'details': 'Potential data exfiltration - unusually high outbound traffic'
                 }
-        
+
         return None
-    
+
     def _detect_routing_anomaly(self, traffic_data: Dict) -> Optional[Dict]:
         """Detect routing anomalies like BGP hijacking."""
         unique_dsts = traffic_data.get('unique_dst_ips', 0)
-        
+
         if 'unique_dst_ips' in self.baseline_stats:
             baseline = self.baseline_stats['unique_dst_ips']
-            
+
             if unique_dsts > baseline['p99'] * 2:
                 return {
                     'score': 0.7,
@@ -5450,16 +5450,16 @@ class CommunicationsITDetector:
                     'baseline_p99': baseline['p99'],
                     'details': 'Unusual number of destination IPs - possible routing anomaly'
                 }
-        
+
         return None
-    
+
     def _assess_comm_it_impact(self, anomalies: Dict) -> Dict:
         """Assess impact on other critical infrastructure sectors."""
         if not anomalies:
             return {'level': 'NONE', 'specific_sectors': []}
-        
+
         severity_count = sum(1 for a in anomalies.values() if a.get('severity') in ['CRITICAL', 'HIGH'])
-        
+
         if severity_count >= 2 or any(a.get('severity') == 'CRITICAL' for a in anomalies.values()):
             return {
                 'level': 'CRITICAL',
@@ -5475,17 +5475,17 @@ class CommunicationsITDetector:
                 'specific_sectors': ['emergency_services', 'financial_services', 'healthcare'],
                 'message': 'Communications/IT issues may impact time-sensitive sectors'
             }
-        
+
         return {'level': 'LOW', 'specific_sectors': []}
-    
+
     def _calculate_overall_risk(self, anomalies: Dict) -> str:
         """Calculate overall risk level."""
         if not anomalies:
             return 'LOW'
-        
+
         critical_count = sum(1 for a in anomalies.values() if a.get('severity') == 'CRITICAL')
         high_count = sum(1 for a in anomalies.values() if a.get('severity') == 'HIGH')
-        
+
         if critical_count >= 1:
             return 'CRITICAL'
         elif high_count >= 2:
@@ -5494,32 +5494,32 @@ class CommunicationsITDetector:
             return 'MEDIUM'
         else:
             return 'LOW'
-    
+
     def _generate_recommendations(self, anomalies: Dict) -> List[str]:
         """Generate action recommendations."""
         if not anomalies:
             return ['Continue normal monitoring']
-        
+
         recommendations = []
-        
+
         if 'ddos' in anomalies:
             recommendations.append("Activate DDoS mitigation - enable rate limiting and traffic filtering")
             recommendations.append("Contact upstream ISP for assistance")
-        
+
         if 'exfiltration' in anomalies:
             recommendations.append("URGENT: Investigate potential data breach - isolate affected systems")
             recommendations.append("Review firewall logs and identify exfiltration destination")
-        
+
         if 'latency' in anomalies:
             recommendations.append("Investigate network congestion - check router/switch performance")
             recommendations.append("Consider rerouting traffic through alternate paths")
-        
+
         if 'routing' in anomalies:
             recommendations.append("Verify BGP routing tables for hijacking")
             recommendations.append("Contact network peers to confirm routing integrity")
-        
+
         recommendations.append("Notify affected critical infrastructure sectors")
-        
+
         return recommendations
 ```
 
@@ -5628,22 +5628,22 @@ class DamType(Enum):
 class EnergyDamsDetector:
     """
     Anomaly detection for CISA Energy and Dams critical infrastructure.
-    
+
     Monitors:
     - Power grid stability (frequency, voltage, load)
     - SCADA/ICS security (control system intrusions)
     - Dam structural integrity (seepage, displacement, water levels)
     - Cascading failure risks (energy outage impacts)
     - Renewable energy integration
-    
+
     Research sources:
     - CISA Energy Sector framework
     - CISA Dams Sector framework
     - NERC (North American Electric Reliability Corporation) standards
-    
+
     GPL v3 License compatible - original implementation
     """
-    
+
     def __init__(self, subsector: Optional[EnergySubsector] = None):
         self.subsector = subsector or EnergySubsector.ELECTRICITY
         self.grid_parameters = {
@@ -5656,7 +5656,7 @@ class EnergyDamsDetector:
             'displacement_mm': {'max': 10},
             'water_level_ft': {'min': 100, 'max': 500}
         }
-    
+
     def detect_grid_anomaly(
         self,
         grid_data: Dict[str, np.ndarray],
@@ -5664,7 +5664,7 @@ class EnergyDamsDetector:
     ) -> Dict:
         """
         Detect power grid anomalies.
-        
+
         Args:
             grid_data: Grid measurements {
                 'frequency_hz': array of frequency readings,
@@ -5673,29 +5673,29 @@ class EnergyDamsDetector:
                 'generation_mw': array of generation readings
             }
             timestamps: Optional timestamps
-            
+
         Returns:
             Anomaly detection results with cascading impact assessment
         """
         anomalies = {}
-        
+
         freq_anomaly = self._detect_frequency_deviation(grid_data.get('frequency_hz'))
         if freq_anomaly:
             anomalies['frequency'] = freq_anomaly
-        
+
         voltage_anomaly = self._detect_voltage_anomaly(grid_data.get('voltage_kv'))
         if voltage_anomaly:
             anomalies['voltage'] = voltage_anomaly
-        
+
         load_anomaly = self._detect_load_imbalance(
             grid_data.get('load_mw'),
             grid_data.get('generation_mw')
         )
         if load_anomaly:
             anomalies['load_imbalance'] = load_anomaly
-        
+
         cascading_risk = self._assess_cascading_impact(anomalies)
-        
+
         return {
             'anomalies': anomalies,
             'grid_status': self._determine_grid_status(anomalies),
@@ -5703,7 +5703,7 @@ class EnergyDamsDetector:
             'affected_sectors': self._identify_affected_sectors(cascading_risk),
             'recommended_actions': self._generate_grid_recommendations(anomalies, cascading_risk)
         }
-    
+
     def detect_dam_anomaly(
         self,
         dam_data: Dict[str, float],
@@ -5711,7 +5711,7 @@ class EnergyDamsDetector:
     ) -> Dict:
         """
         Detect dam structural and operational anomalies.
-        
+
         Args:
             dam_data: Dam measurements {
                 'seepage_gpm': seepage rate in gallons per minute,
@@ -5721,12 +5721,12 @@ class EnergyDamsDetector:
                 'generation_mw': power generation if hydroelectric
             }
             dam_type: Type of dam
-            
+
         Returns:
             Anomaly detection results with safety assessment
         """
         anomalies = {}
-        
+
         seepage = dam_data.get('seepage_gpm', 0)
         if seepage > self.dam_thresholds['seepage_gpm']['max']:
             anomalies['seepage'] = {
@@ -5735,7 +5735,7 @@ class EnergyDamsDetector:
                 'severity': 'CRITICAL' if seepage > 100 else 'HIGH',
                 'details': 'Excessive seepage - potential structural failure risk'
             }
-        
+
         displacement = dam_data.get('displacement_mm', 0)
         if displacement > self.dam_thresholds['displacement_mm']['max']:
             anomalies['displacement'] = {
@@ -5744,7 +5744,7 @@ class EnergyDamsDetector:
                 'severity': 'CRITICAL',
                 'details': 'Structural displacement detected - immediate inspection required'
             }
-        
+
         water_level = dam_data.get('water_level_ft', 250)
         thresholds = self.dam_thresholds['water_level_ft']
         if water_level < thresholds['min'] or water_level > thresholds['max']:
@@ -5755,11 +5755,11 @@ class EnergyDamsDetector:
                 'severity': 'HIGH' if water_level > thresholds['max'] else 'MEDIUM',
                 'details': 'Flood risk' if water_level > thresholds['max'] else 'Low water supply'
             }
-        
+
         if dam_type == DamType.HYDROELECTRIC:
             generation = dam_data.get('generation_mw', 0)
             flow_rate = dam_data.get('flow_rate_cfs', 0)
-            
+
             if generation > 0 and flow_rate < 1000:
                 anomalies['generation_efficiency'] = {
                     'generation_mw': generation,
@@ -5767,9 +5767,9 @@ class EnergyDamsDetector:
                     'severity': 'MEDIUM',
                     'details': 'Low flow rate for power generation - efficiency issue'
                 }
-        
+
         downstream_impact = self._assess_downstream_impact(anomalies, water_level)
-        
+
         return {
             'anomalies': anomalies,
             'dam_type': dam_type.value,
@@ -5778,18 +5778,18 @@ class EnergyDamsDetector:
             'evacuation_recommended': any(a.get('severity') == 'CRITICAL' for a in anomalies.values()) and downstream_impact['risk'] == 'HIGH',
             'recommended_actions': self._generate_dam_recommendations(anomalies)
         }
-    
+
     def _detect_frequency_deviation(self, frequency: Optional[np.ndarray]) -> Optional[Dict]:
         """Detect grid frequency deviations."""
         if frequency is None or len(frequency) == 0:
             return None
-        
+
         nominal = self.grid_parameters['frequency_hz']['nominal']
         tolerance = self.grid_parameters['frequency_hz']['tolerance']
-        
+
         deviations = np.abs(frequency - nominal)
         max_deviation = np.max(deviations)
-        
+
         if max_deviation > tolerance:
             return {
                 'current_hz': float(frequency[-1]),
@@ -5798,21 +5798,21 @@ class EnergyDamsDetector:
                 'severity': 'CRITICAL' if max_deviation > 2 * tolerance else 'HIGH',
                 'details': 'Grid frequency instability - generation/load imbalance'
             }
-        
+
         return None
-    
+
     def _detect_voltage_anomaly(self, voltage: Optional[np.ndarray]) -> Optional[Dict]:
         """Detect voltage anomalies."""
         if voltage is None or len(voltage) == 0:
             return None
-        
+
         nominal = self.grid_parameters['voltage_kv']['nominal']
         tolerance_pct = self.grid_parameters['voltage_kv']['tolerance_pct']
         tolerance = nominal * tolerance_pct / 100
-        
+
         deviations = np.abs(voltage - nominal)
         max_deviation = np.max(deviations)
-        
+
         if max_deviation > tolerance:
             return {
                 'current_kv': float(voltage[-1]),
@@ -5821,9 +5821,9 @@ class EnergyDamsDetector:
                 'severity': 'HIGH' if max_deviation > 2 * tolerance else 'MEDIUM',
                 'details': 'Voltage instability detected'
             }
-        
+
         return None
-    
+
     def _detect_load_imbalance(
         self,
         load: Optional[np.ndarray],
@@ -5832,12 +5832,12 @@ class EnergyDamsDetector:
         """Detect load-generation imbalances."""
         if load is None or generation is None or len(load) == 0 or len(generation) == 0:
             return None
-        
+
         imbalance = generation - load
         imbalance_pct = (imbalance / np.maximum(load, 1)) * 100
-        
+
         max_imbalance_pct = np.max(np.abs(imbalance_pct))
-        
+
         if max_imbalance_pct > 10:
             return {
                 'load_mw': float(load[-1]),
@@ -5846,17 +5846,17 @@ class EnergyDamsDetector:
                 'severity': 'CRITICAL' if max_imbalance_pct > 20 else 'HIGH',
                 'details': 'Overgeneration' if imbalance[-1] > 0 else 'Undergeneration'
             }
-        
+
         return None
-    
+
     def _assess_cascading_impact(self, anomalies: Dict) -> Dict:
         """Assess cascading failure risk to other sectors."""
         if not anomalies:
             return {'risk': 'LOW', 'probability': 0.0}
-        
+
         critical_count = sum(1 for a in anomalies.values() if a.get('severity') == 'CRITICAL')
         high_count = sum(1 for a in anomalies.values() if a.get('severity') == 'HIGH')
-        
+
         if critical_count >= 1 or high_count >= 2:
             return {
                 'risk': 'HIGH',
@@ -5869,9 +5869,9 @@ class EnergyDamsDetector:
                 'probability': 0.3,
                 'message': 'Potential localized impacts on dependent sectors'
             }
-        
+
         return {'risk': 'LOW', 'probability': 0.1}
-    
+
     def _identify_affected_sectors(self, cascading_risk: Dict) -> List[str]:
         """Identify which sectors would be affected by energy failure."""
         if cascading_risk['risk'] == 'HIGH':
@@ -5884,21 +5884,21 @@ class EnergyDamsDetector:
             ]
         elif cascading_risk['risk'] == 'MEDIUM':
             return ['healthcare', 'emergency_services', 'communications', 'water']
-        
+
         return []
-    
+
     def _determine_grid_status(self, anomalies: Dict) -> str:
         """Determine overall grid status."""
         if not anomalies:
             return 'NORMAL'
-        
+
         if any(a.get('severity') == 'CRITICAL' for a in anomalies.values()):
             return 'EMERGENCY'
         elif any(a.get('severity') == 'HIGH' for a in anomalies.values()):
             return 'ALERT'
         else:
             return 'WARNING'
-    
+
     def _assess_downstream_impact(self, anomalies: Dict, water_level: float) -> Dict:
         """Assess impact on downstream communities."""
         if any(a.get('severity') == 'CRITICAL' for a in anomalies.values()):
@@ -5913,54 +5913,54 @@ class EnergyDamsDetector:
                 'population_at_risk': 'MEDIUM',
                 'message': 'High water levels - monitor for spillway operation'
             }
-        
+
         return {'risk': 'LOW', 'population_at_risk': 'LOW'}
-    
+
     def _generate_grid_recommendations(self, anomalies: Dict, cascading_risk: Dict) -> List[str]:
         """Generate grid anomaly recommendations."""
         if not anomalies:
             return ['Continue normal operations']
-        
+
         recommendations = []
-        
+
         if 'frequency' in anomalies:
             recommendations.append("URGENT: Balance generation and load immediately")
             recommendations.append("Activate spinning reserves or load shedding")
-        
+
         if 'voltage' in anomalies:
             recommendations.append("Adjust transformer taps and reactive power compensation")
-        
+
         if 'load_imbalance' in anomalies:
             recommendations.append("Adjust generation dispatch or implement demand response")
-        
+
         if cascading_risk['risk'] == 'HIGH':
             recommendations.append("CRITICAL: Notify all critical infrastructure sectors of potential outage")
             recommendations.append("Activate emergency response coordination")
-        
+
         return recommendations
-    
+
     def _generate_dam_recommendations(self, anomalies: Dict) -> List[str]:
         """Generate dam anomaly recommendations."""
         if not anomalies:
             return ['Continue normal monitoring']
-        
+
         recommendations = []
-        
+
         if 'seepage' in anomalies or 'displacement' in anomalies:
             recommendations.append("URGENT: Conduct immediate structural inspection")
             recommendations.append("Consider lowering reservoir level as precaution")
             recommendations.append("Notify downstream communities of potential risk")
-        
+
         if 'water_level' in anomalies:
             level_anomaly = anomalies['water_level']
             if level_anomaly['value'] > level_anomaly['max']:
                 recommendations.append("Increase spillway releases to reduce flood risk")
             else:
                 recommendations.append("Reduce releases to conserve water supply")
-        
+
         if 'generation_efficiency' in anomalies:
             recommendations.append("Inspect turbines and water intake systems")
-        
+
         return recommendations
 ```
 
@@ -6071,23 +6071,23 @@ class EmergencyType(Enum):
 class HealthcareEmergencyDetector:
     """
     Anomaly detection for CISA Healthcare and Emergency Services sectors.
-    
+
     Monitors:
     - Patient vital signs (early warning for deterioration)
     - Healthcare cybersecurity (ransomware, device security)
     - Emergency call patterns (mass casualty, disaster prediction)
     - Disease outbreak detection (syndromic surveillance)
     - Medical supply chain disruptions
-    
+
     Research sources:
     - CISA Healthcare Sector framework
     - CISA Emergency Services Sector framework
     - CDC surveillance guidelines
     - HIPAA security rules
-    
+
     GPL v3 License compatible - original implementation
     """
-    
+
     def __init__(self):
         self.vital_sign_ranges = {
             'heart_rate_bpm': {'min': 60, 'max': 100, 'critical_min': 40, 'critical_max': 130},
@@ -6097,7 +6097,7 @@ class HealthcareEmergencyDetector:
             'respiratory_rate_bpm': {'min': 12, 'max': 20, 'critical_min': 8, 'critical_max': 30}
         }
         self.call_baseline = {'avg_per_hour': 100, 'std_per_hour': 20}
-    
+
     def detect_patient_deterioration(
         self,
         vital_signs: Dict[str, float],
@@ -6106,7 +6106,7 @@ class HealthcareEmergencyDetector:
     ) -> Dict:
         """
         Detect patient deterioration from vital signs.
-        
+
         Args:
             vital_signs: Current vital sign readings {
                 'heart_rate_bpm': float,
@@ -6118,19 +6118,19 @@ class HealthcareEmergencyDetector:
             }
             patient_history: Optional patient context (age, conditions, baseline vitals)
             time_series: Optional historical vital signs for trend analysis
-            
+
         Returns:
             Patient status assessment with early warning scores
         """
         anomalies = {}
         early_warning_score = 0
-        
+
         for vital_name, value in vital_signs.items():
             if vital_name not in self.vital_sign_ranges:
                 continue
-            
+
             ranges = self.vital_sign_ranges[vital_name]
-            
+
             if value < ranges['critical_min'] or value > ranges['critical_max']:
                 anomalies[vital_name] = {
                     'value': value,
@@ -6147,13 +6147,13 @@ class HealthcareEmergencyDetector:
                     'details': f"{vital_name} abnormal"
                 }
                 early_warning_score += 2
-        
+
         if time_series:
             trend_score = self._analyze_vital_trends(time_series)
             early_warning_score += trend_score
-        
+
         patient_status = self._determine_patient_status(early_warning_score)
-        
+
         return {
             'anomalies': anomalies,
             'early_warning_score': early_warning_score,
@@ -6163,7 +6163,7 @@ class HealthcareEmergencyDetector:
             'recommended_actions': self._generate_clinical_recommendations(anomalies, early_warning_score),
             'timestamp': datetime.now()
         }
-    
+
     def detect_emergency_call_anomaly(
         self,
         call_data: Dict[str, int],
@@ -6171,7 +6171,7 @@ class HealthcareEmergencyDetector:
     ) -> Dict:
         """
         Detect anomalies in 911/emergency call patterns.
-        
+
         Args:
             call_data: Emergency call counts {
                 'total_calls': int,
@@ -6181,18 +6181,18 @@ class HealthcareEmergencyDetector:
                 'geographic_area': str
             }
             time_window: Time window for aggregation
-            
+
         Returns:
             Emergency call anomaly assessment
         """
         total_calls = call_data.get('total_calls', 0)
         baseline = self.call_baseline['avg_per_hour']
         std = self.call_baseline['std_per_hour']
-        
+
         z_score = (total_calls - baseline) / std if std > 0 else 0
-        
+
         anomalies = {}
-        
+
         if z_score > 3:
             anomalies['call_surge'] = {
                 'total_calls': total_calls,
@@ -6201,13 +6201,13 @@ class HealthcareEmergencyDetector:
                 'severity': 'CRITICAL' if z_score > 5 else 'HIGH',
                 'details': 'Significant increase in emergency calls - possible mass casualty event'
             }
-        
+
         call_distribution = self._analyze_call_distribution(call_data)
         if call_distribution.get('is_anomalous'):
             anomalies['call_pattern'] = call_distribution
-        
+
         event_type = self._classify_emergency_event(call_data, z_score)
-        
+
         return {
             'anomalies': anomalies,
             'call_volume_status': 'CRITICAL' if z_score > 5 else 'HIGH' if z_score > 3 else 'NORMAL',
@@ -6216,7 +6216,7 @@ class HealthcareEmergencyDetector:
             'mutual_aid_needed': z_score > 5,
             'recommended_actions': self._generate_emergency_recommendations(anomalies, event_type)
         }
-    
+
     def detect_disease_outbreak(
         self,
         syndromic_data: Dict[str, List],
@@ -6225,7 +6225,7 @@ class HealthcareEmergencyDetector:
     ) -> Dict:
         """
         Detect disease outbreaks from syndromic surveillance.
-        
+
         Args:
             syndromic_data: Symptom data {
                 'fever_cases': [counts over time],
@@ -6235,21 +6235,21 @@ class HealthcareEmergencyDetector:
             }
             geographic_data: Optional geographic distribution
             temporal_window: Days to analyze for clustering
-            
+
         Returns:
             Outbreak detection results
         """
         anomalies = {}
-        
+
         for syndrome, cases in syndromic_data.items():
             if len(cases) < temporal_window:
                 continue
-            
+
             recent = np.array(cases[-temporal_window:])
             baseline = np.mean(cases[:-temporal_window]) if len(cases) > temporal_window else np.mean(recent)
-            
+
             increase_ratio = np.mean(recent) / baseline if baseline > 0 else 1.0
-            
+
             if increase_ratio > 2.0:
                 anomalies[syndrome] = {
                     'recent_avg': float(np.mean(recent)),
@@ -6258,14 +6258,14 @@ class HealthcareEmergencyDetector:
                     'severity': 'CRITICAL' if increase_ratio > 3.0 else 'HIGH',
                     'details': f"Significant increase in {syndrome} - possible outbreak"
                 }
-        
+
         if geographic_data:
             clusters = self._detect_geographic_clusters(geographic_data)
             if clusters:
                 anomalies['geographic_clustering'] = clusters
-        
+
         outbreak_probability = self._calculate_outbreak_probability(anomalies)
-        
+
         return {
             'anomalies': anomalies,
             'outbreak_probability': outbreak_probability,
@@ -6274,26 +6274,26 @@ class HealthcareEmergencyDetector:
             'recommended_public_health_actions': self._generate_public_health_recommendations(anomalies),
             'cdc_notification_required': outbreak_probability > 0.8
         }
-    
+
     def _analyze_vital_trends(self, time_series: Dict[str, np.ndarray]) -> int:
         """Analyze trends in vital signs over time."""
         trend_score = 0
-        
+
         for vital_name, values in time_series.items():
             if len(values) < 3:
                 continue
-            
+
             slope = np.polyfit(range(len(values)), values, 1)[0]
-            
+
             if vital_name == 'oxygen_saturation_pct' and slope < -2:
                 trend_score += 2
             elif vital_name == 'heart_rate_bpm' and abs(slope) > 10:
                 trend_score += 1
             elif vital_name == 'respiratory_rate_bpm' and slope > 2:
                 trend_score += 2
-        
+
         return trend_score
-    
+
     def _determine_patient_status(self, early_warning_score: int) -> PatientStatus:
         """Determine patient status from early warning score."""
         if early_warning_score >= 7:
@@ -6304,21 +6304,21 @@ class HealthcareEmergencyDetector:
             return PatientStatus.EMERGENCY
         else:
             return PatientStatus.STABLE
-    
+
     def _generate_clinical_recommendations(self, anomalies: Dict, score: int) -> List[str]:
         """Generate clinical action recommendations."""
         if score < 3:
             return ['Continue routine monitoring']
-        
+
         recommendations = []
-        
+
         if score >= 7:
             recommendations.append("CRITICAL: Activate rapid response team immediately")
             recommendations.append("Consider ICU transfer")
         elif score >= 5:
             recommendations.append("Increase monitoring frequency to every 15 minutes")
             recommendations.append("Notify attending physician immediately")
-        
+
         for vital, details in anomalies.items():
             if details['severity'] == 'CRITICAL':
                 if 'oxygen' in vital.lower():
@@ -6327,17 +6327,17 @@ class HealthcareEmergencyDetector:
                     recommendations.append("Assess for cardiac emergency - prepare crash cart")
                 elif 'blood_pressure' in vital.lower():
                     recommendations.append("Assess for shock or hypertensive emergency")
-        
+
         return recommendations
-    
+
     def _analyze_call_distribution(self, call_data: Dict) -> Dict:
         """Analyze distribution of emergency call types."""
         total = call_data.get('total_calls', 1)
-        
+
         medical_pct = (call_data.get('medical_calls', 0) / total) * 100
         fire_pct = (call_data.get('fire_calls', 0) / total) * 100
         police_pct = (call_data.get('police_calls', 0) / total) * 100
-        
+
         if fire_pct > 50:
             return {
                 'is_anomalous': True,
@@ -6352,17 +6352,17 @@ class HealthcareEmergencyDetector:
                 'percentage': medical_pct,
                 'details': 'Medical calls dominate - possible disease outbreak or mass casualty'
             }
-        
+
         return {'is_anomalous': False}
-    
+
     def _classify_emergency_event(self, call_data: Dict, z_score: float) -> str:
         """Classify type of emergency event."""
         if z_score <= 3:
             return 'normal_operations'
-        
+
         medical_ratio = call_data.get('medical_calls', 0) / max(call_data.get('total_calls', 1), 1)
         fire_ratio = call_data.get('fire_calls', 0) / max(call_data.get('total_calls', 1), 1)
-        
+
         if fire_ratio > 0.5:
             return 'major_fire'
         elif medical_ratio > 0.8:
@@ -6371,16 +6371,16 @@ class HealthcareEmergencyDetector:
             return 'major_disaster'
         else:
             return 'elevated_activity'
-    
+
     def _recommend_resource_allocation(self, call_data: Dict, event_type: str) -> Dict:
         """Recommend emergency resource allocation."""
         if event_type == 'normal_operations':
             return {'status': 'normal', 'additional_units': 0}
-        
+
         total_calls = call_data.get('total_calls', 0)
         baseline = self.call_baseline['avg_per_hour']
         excess = max(0, total_calls - baseline)
-        
+
         return {
             'additional_ambulances': int(excess * 0.3) if 'medical' in event_type else int(excess * 0.1),
             'additional_fire_units': int(excess * 0.4) if 'fire' in event_type else int(excess * 0.1),
@@ -6388,14 +6388,14 @@ class HealthcareEmergencyDetector:
             'activate_mutual_aid': excess > 50,
             'activate_emergency_operations_center': event_type == 'major_disaster'
         }
-    
+
     def _generate_emergency_recommendations(self, anomalies: Dict, event_type: str) -> List[str]:
         """Generate emergency response recommendations."""
         if not anomalies:
             return ['Continue normal operations']
-        
+
         recommendations = []
-        
+
         if event_type == 'major_disaster':
             recommendations.append("CRITICAL: Activate Emergency Operations Center")
             recommendations.append("Request mutual aid from neighboring jurisdictions")
@@ -6408,29 +6408,29 @@ class HealthcareEmergencyDetector:
             recommendations.append("Activate multi-alarm fire response")
             recommendations.append("Request mutual aid fire departments")
             recommendations.append("Prepare for potential evacuations")
-        
+
         return recommendations
-    
+
     def _detect_geographic_clusters(self, geographic_data: Dict) -> Optional[Dict]:
         """Detect geographic disease clusters."""
         return None
-    
+
     def _calculate_outbreak_probability(self, anomalies: Dict) -> float:
         """Calculate probability of disease outbreak."""
         if not anomalies:
             return 0.0
-        
+
         syndrome_count = len([a for a in anomalies.values() if isinstance(a, dict) and 'increase_ratio' in a])
-        
+
         if syndrome_count >= 3:
             return 0.9
         elif syndrome_count >= 2:
             return 0.7
         elif syndrome_count >= 1:
             return 0.5
-        
+
         return 0.3
-    
+
     def _estimate_affected_population(self, anomalies: Dict) -> int:
         """Estimate affected population from outbreak data."""
         total = 0
@@ -6438,16 +6438,16 @@ class HealthcareEmergencyDetector:
             if isinstance(anomaly, dict) and 'recent_avg' in anomaly:
                 total += int(anomaly['recent_avg'])
         return total
-    
+
     def _generate_public_health_recommendations(self, anomalies: Dict) -> List[str]:
         """Generate public health action recommendations."""
         if not anomalies:
             return ['Continue routine surveillance']
-        
+
         recommendations = []
-        
+
         outbreak_prob = self._calculate_outbreak_probability(anomalies)
-        
+
         if outbreak_prob > 0.8:
             recommendations.append("URGENT: Notify CDC and state health department")
             recommendations.append("Activate disease investigation team")
@@ -6457,7 +6457,7 @@ class HealthcareEmergencyDetector:
             recommendations.append("Enhance surveillance in affected areas")
             recommendations.append("Alert healthcare providers")
             recommendations.append("Prepare public health response resources")
-        
+
         return recommendations
 ```
 
@@ -6604,29 +6604,29 @@ class PrivacyLevel(Enum):
 class FederatedAnomalyDetector:
     """
     Privacy-preserving federated anomaly detection inspired by Flower/PySyft.
-    
+
     Enables collaborative anomaly detection across CISA critical infrastructure
     sectors without sharing sensitive data. Implements:
     - Federated averaging (FedAvg) for model aggregation
     - Differential privacy for privacy guarantees
     - Secure aggregation to prevent server from seeing individual updates
     - Byzantine-robust aggregation for malicious client detection
-    
+
     Use Cases:
     - Multi-hospital patient anomaly detection (HIPAA compliant)
     - Cross-bank fraud detection (without sharing transactions)
     - Smart grid optimization (without exposing consumption patterns)
     - IoT sensor networks (edge computing, privacy-preserving)
-    
+
     Research sources:
     - Flower Framework (https://flower.dev/)
     - PySyft (https://github.com/OpenMined/PySyft)
     - McMahan et al. "Communication-Efficient Learning" (2017)
     - Google Federated Learning (2016-present)
-    
+
     GPL v3 License compatible - original implementation
     """
-    
+
     def __init__(
         self,
         strategy: FederatedStrategy = FederatedStrategy.FEDAVG,
@@ -6643,7 +6643,7 @@ class FederatedAnomalyDetector:
         self.global_model_weights = None
         self.client_models = {}
         self.round_number = 0
-    
+
     def federated_train(
         self,
         client_data: Dict[str, np.ndarray],
@@ -6652,12 +6652,12 @@ class FederatedAnomalyDetector:
     ) -> Dict:
         """
         Train federated anomaly detection model across clients.
-        
+
         Args:
             client_data: Dictionary mapping client_id to local training data
             local_epochs: Number of epochs each client trains locally
             num_rounds: Number of federated rounds (aggregations)
-            
+
         Returns:
             Training results with global model and metrics
         """
@@ -6666,32 +6666,32 @@ class FederatedAnomalyDetector:
             'global_loss': [],
             'privacy_budget_spent': 0.0
         }
-        
+
         for round_idx in range(num_rounds):
             self.round_number = round_idx + 1
             print(f"Federated Round {self.round_number}/{num_rounds}")
-            
+
             client_updates = []
             client_weights = []
-            
+
             for client_id, data in client_data.items():
                 print(f"  Client {client_id}: Local training...")
-                
+
                 local_model_update = self._local_train(
                     client_id=client_id,
                     data=data,
                     epochs=local_epochs
                 )
-                
+
                 if self.privacy_level == PrivacyLevel.DIFFERENTIAL_PRIVACY:
                     local_model_update = self._add_differential_privacy_noise(
                         local_model_update
                     )
                     training_history['privacy_budget_spent'] += self.epsilon
-                
+
                 client_updates.append(local_model_update)
                 client_weights.append(len(data))
-            
+
             if self.privacy_level == PrivacyLevel.SECURE_AGGREGATION:
                 aggregated_update = self._secure_aggregate(client_updates, client_weights)
             elif self.strategy == FederatedStrategy.FEDAVG:
@@ -6700,16 +6700,16 @@ class FederatedAnomalyDetector:
                 aggregated_update = self._federated_proximal(client_updates, client_weights)
             else:
                 aggregated_update = self._federated_averaging(client_updates, client_weights)
-            
+
             self.global_model_weights = aggregated_update
-            
+
             global_loss = self._evaluate_global_model(client_data)
-            
+
             training_history['rounds'].append(self.round_number)
             training_history['global_loss'].append(global_loss)
-            
+
             print(f"  Round {self.round_number} complete. Global loss: {global_loss:.4f}")
-        
+
         return {
             'global_model': self.global_model_weights,
             'training_history': training_history,
@@ -6717,7 +6717,7 @@ class FederatedAnomalyDetector:
             'num_clients': len(client_data),
             'final_loss': training_history['global_loss'][-1]
         }
-    
+
     def federated_detect(
         self,
         client_data: Dict[str, np.ndarray],
@@ -6725,16 +6725,16 @@ class FederatedAnomalyDetector:
     ) -> Dict[str, Dict]:
         """
         Perform federated anomaly detection across clients.
-        
+
         Args:
             client_data: Dictionary mapping client_id to local data for detection
             use_personalization: Whether to personalize global model to each client
-            
+
         Returns:
             Anomaly detection results for each client
         """
         detection_results = {}
-        
+
         for client_id, data in client_data.items():
             if use_personalization:
                 personalized_model = self._personalize_model(
@@ -6745,10 +6745,10 @@ class FederatedAnomalyDetector:
                 anomaly_scores = self._compute_anomaly_scores(personalized_model, data)
             else:
                 anomaly_scores = self._compute_anomaly_scores(self.global_model_weights, data)
-            
+
             threshold = np.percentile(anomaly_scores, 95)
             anomalies = anomaly_scores > threshold
-            
+
             detection_results[client_id] = {
                 'anomaly_scores': anomaly_scores,
                 'anomalies_detected': np.sum(anomalies),
@@ -6756,9 +6756,9 @@ class FederatedAnomalyDetector:
                 'threshold': float(threshold),
                 'privacy_preserved': True
             }
-        
+
         return detection_results
-    
+
     def _local_train(
         self,
         client_id: str,
@@ -6768,17 +6768,17 @@ class FederatedAnomalyDetector:
         """Simulate local training on client device."""
         if self.global_model_weights is None:
             self.global_model_weights = np.random.randn(data.shape[1])
-        
+
         local_model = self.global_model_weights.copy()
-        
+
         for epoch in range(epochs):
             gradient = np.random.randn(len(local_model)) * 0.01
             local_model -= 0.01 * gradient
-        
+
         model_update = local_model - self.global_model_weights
-        
+
         return model_update
-    
+
     def _federated_averaging(
         self,
         client_updates: List[np.ndarray],
@@ -6786,7 +6786,7 @@ class FederatedAnomalyDetector:
     ) -> np.ndarray:
         """
         FedAvg: Weighted average of client model updates.
-        
+
         Original paper: McMahan et al. 2017
         """
         total_weight = sum(client_weights)
@@ -6794,14 +6794,14 @@ class FederatedAnomalyDetector:
             update * (weight / total_weight)
             for update, weight in zip(client_updates, client_weights)
         ]
-        
+
         aggregated = sum(weighted_updates)
-        
+
         if self.global_model_weights is not None:
             return self.global_model_weights + aggregated
         else:
             return aggregated
-    
+
     def _federated_proximal(
         self,
         client_updates: List[np.ndarray],
@@ -6810,17 +6810,17 @@ class FederatedAnomalyDetector:
     ) -> np.ndarray:
         """
         FedProx: Handles system heterogeneity with proximal term.
-        
+
         Original paper: Li et al. "Federated Optimization" (2018)
         """
         aggregated = self._federated_averaging(client_updates, client_weights)
-        
+
         if self.global_model_weights is not None:
             proximal_term = mu * (aggregated - self.global_model_weights)
             return aggregated - proximal_term
-        
+
         return aggregated
-    
+
     def _secure_aggregate(
         self,
         client_updates: List[np.ndarray],
@@ -6828,24 +6828,24 @@ class FederatedAnomalyDetector:
     ) -> np.ndarray:
         """
         Secure aggregation: Server cannot see individual client updates.
-        
+
         Simplified implementation (production would use cryptographic protocols).
         """
         return self._federated_averaging(client_updates, client_weights)
-    
+
     def _add_differential_privacy_noise(self, model_update: np.ndarray) -> np.ndarray:
         """
         Add Gaussian noise for differential privacy guarantee.
-        
+
         Implements (ε, δ)-differential privacy.
         """
         sensitivity = 1.0
         sigma = sensitivity * np.sqrt(2 * np.log(1.25 / self.delta)) / self.epsilon
-        
+
         noise = np.random.normal(0, sigma, size=model_update.shape)
-        
+
         return model_update + noise
-    
+
     def _personalize_model(
         self,
         client_id: str,
@@ -6857,13 +6857,13 @@ class FederatedAnomalyDetector:
         Personalize global model to client's local data distribution.
         """
         personalized_model = global_model.copy()
-        
+
         for _ in range(personalization_epochs):
             gradient = np.random.randn(len(personalized_model)) * 0.01
             personalized_model -= 0.01 * gradient
-        
+
         return personalized_model
-    
+
     def _compute_anomaly_scores(
         self,
         model: np.ndarray,
@@ -6872,30 +6872,30 @@ class FederatedAnomalyDetector:
         """Compute anomaly scores for data using model."""
         reconstruction_errors = np.linalg.norm(data - model, axis=1)
         return reconstruction_errors
-    
+
     def _evaluate_global_model(self, client_data: Dict[str, np.ndarray]) -> float:
         """Evaluate global model across all clients."""
         total_loss = 0.0
         total_samples = 0
-        
+
         for data in client_data.values():
             scores = self._compute_anomaly_scores(self.global_model_weights, data)
             total_loss += np.sum(scores)
             total_samples += len(data)
-        
+
         return total_loss / total_samples if total_samples > 0 else 0.0
 
 class CISAFederatedCoordinator:
     """
     Coordinates federated learning across CISA critical infrastructure sectors.
-    
+
     Enables:
     - Multi-sector anomaly pattern learning without data sharing
     - Privacy-preserving cross-sector threat intelligence
     - Sector-specific model personalization
     - Differential privacy for sensitive sectors (Healthcare, Nuclear, Financial)
     """
-    
+
     def __init__(self, sectors: List[str]):
         self.sectors = sectors
         self.sector_detectors = {
@@ -6905,7 +6905,7 @@ class CISAFederatedCoordinator:
             )
             for sector in sectors
         }
-    
+
     def coordinate_cross_sector_training(
         self,
         sector_data: Dict[str, Dict[str, np.ndarray]],
@@ -6913,16 +6913,16 @@ class CISAFederatedCoordinator:
     ) -> Dict:
         """
         Coordinate federated training across multiple CISA sectors.
-        
+
         Args:
             sector_data: {sector_name: {client_id: data}}
             rounds: Number of federated rounds
-            
+
         Returns:
             Cross-sector training results
         """
         results = {}
-        
+
         for sector, clients in sector_data.items():
             if sector in self.sector_detectors:
                 print(f"Training federated model for {sector} sector...")
@@ -6930,7 +6930,7 @@ class CISAFederatedCoordinator:
                     client_data=clients,
                     num_rounds=rounds
                 )
-        
+
         return results
 ```
 
@@ -7106,25 +7106,25 @@ class CombinationMethod(Enum):
 class PyODComparison:
     """
     Compare OMNI ♱ AVA with PyOD algorithms.
-    
+
     Enables:
     - Benchmarking OMNI ♱ AVA's 13 engines against PyOD's 40+ algorithms
     - Learning from PyOD's ensemble combination methods
     - Identifying complementary detection approaches
     - Algorithm selection guidance
-    
+
     Research sources:
     - PyOD GitHub (github.com/yzhao062/pyod)
     - Zhao et al. "PyOD: A Python Toolbox" (JMLR 2019)
-    
+
     GPL v3 License compatible - original implementation
     Note: This compares approaches, doesn't copy PyOD code
     """
-    
+
     def __init__(self):
         self.algorithm_characteristics = self._init_algorithm_profiles()
         self.benchmark_results = {}
-    
+
     def _init_algorithm_profiles(self) -> Dict:
         """Initialize algorithm characteristics for selection guidance."""
         return {
@@ -7177,7 +7177,7 @@ class PyODComparison:
                 'parameters': ['hidden_neurons', 'epochs', 'batch_size', 'learning_rate']
             }
         }
-    
+
     def recommend_algorithm(
         self,
         data_characteristics: Dict[str, any],
@@ -7185,7 +7185,7 @@ class PyODComparison:
     ) -> Dict:
         """
         Recommend best algorithm(s) based on data characteristics.
-        
+
         Args:
             data_characteristics: {
                 'num_samples': int,
@@ -7199,22 +7199,22 @@ class PyODComparison:
                 'max_memory_mb': float,
                 'interpretability_required': bool
             }
-            
+
         Returns:
             Recommended algorithms with rationale
         """
         recommendations = []
-        
+
         num_samples = data_characteristics.get('num_samples', 1000)
         num_features = data_characteristics.get('num_features', 10)
         has_clusters = data_characteristics.get('has_clusters', False)
         density_varies = data_characteristics.get('density_varies', False)
         anomaly_type = data_characteristics.get('expected_anomaly_type', 'global')
-        
+
         constraints = constraints or {}
         max_time = constraints.get('max_time_seconds', float('inf'))
         needs_interpretability = constraints.get('interpretability_required', False)
-        
+
         if num_samples > 100000 and max_time < 60:
             recommendations.append({
                 'algorithm': PyODAlgorithm.COPOD,
@@ -7226,7 +7226,7 @@ class PyODComparison:
                 'rationale': 'No hyperparameters, fast, interpretable',
                 'priority': 2
             })
-        
+
         if density_varies or anomaly_type == 'local':
             if num_samples < 10000:
                 recommendations.append({
@@ -7234,36 +7234,36 @@ class PyODComparison:
                     'rationale': 'Best for local density deviations, varying density',
                     'priority': 1
                 })
-        
+
         if not has_clusters and anomaly_type == 'global':
             recommendations.append({
                 'algorithm': PyODAlgorithm.ISOLATION_FOREST,
                 'rationale': 'Efficient for global anomalies, high-dimensional data',
                 'priority': 1
             })
-        
+
         if needs_interpretability:
             recommendations.append({
                 'algorithm': PyODAlgorithm.ECOD,
                 'rationale': 'Interpretable, no hyperparameters',
                 'priority': 1
             })
-        
+
         if not recommendations:
             recommendations.append({
                 'algorithm': PyODAlgorithm.ISOLATION_FOREST,
                 'rationale': 'General-purpose, robust default',
                 'priority': 1
             })
-        
+
         recommendations.sort(key=lambda x: x['priority'])
-        
+
         return {
             'recommendations': recommendations,
             'data_summary': data_characteristics,
             'constraints': constraints
         }
-    
+
     def combine_predictions(
         self,
         predictions: Dict[str, np.ndarray],
@@ -7271,44 +7271,44 @@ class PyODComparison:
     ) -> np.ndarray:
         """
         Combine predictions from multiple detectors using PyOD-inspired methods.
-        
+
         Args:
             predictions: {detector_name: anomaly_scores} for multiple detectors
             method: Combination method (Average, Maximum, AOM, MOA)
-            
+
         Returns:
             Combined anomaly scores
         """
         scores_matrix = np.array(list(predictions.values()))
-        
+
         if method == CombinationMethod.AVERAGE:
             return np.mean(scores_matrix, axis=0)
-        
+
         elif method == CombinationMethod.MAXIMUM:
             return np.max(scores_matrix, axis=0)
-        
+
         elif method == CombinationMethod.AOM:
             num_detectors = len(predictions)
             k = max(1, num_detectors // 2)
-            
+
             partitions = np.array_split(scores_matrix, num_detectors // k)
-            
+
             max_scores = [np.max(partition, axis=0) for partition in partitions]
-            
+
             return np.mean(max_scores, axis=0)
-        
+
         elif method == CombinationMethod.MOA:
             num_detectors = len(predictions)
             k = max(1, num_detectors // 2)
-            
+
             partitions = np.array_split(scores_matrix, num_detectors // k)
-            
+
             avg_scores = [np.mean(partition, axis=0) for partition in partitions]
-            
+
             return np.max(avg_scores, axis=0)
-        
+
         return np.mean(scores_matrix, axis=0)
-    
+
     def benchmark_against_pyod(
         self,
         omni_engine,
@@ -7318,13 +7318,13 @@ class PyODComparison:
     ) -> Dict:
         """
         Benchmark OMNI ♱ AVA against PyOD algorithms.
-        
+
         Args:
             omni_engine: OMNI ♱ AVA instance
             test_data: Test dataset
             ground_truth: True anomaly labels
             pyod_algorithms: PyOD algorithms to compare
-            
+
         Returns:
             Benchmark results with metrics for each algorithm
         """
@@ -7332,35 +7332,35 @@ class PyODComparison:
             'omni_ava': self._evaluate_detector(omni_engine, test_data, ground_truth),
             'pyod_algorithms': {}
         }
-        
+
         for algo in pyod_algorithms:
             print(f"Benchmarking {algo.value}...")
-            
+
             results['pyod_algorithms'][algo.value] = {
                 'characteristics': self.algorithm_characteristics.get(algo, {}),
                 'note': 'Would run actual PyOD algorithm here if library installed'
             }
-        
+
         results['comparison_summary'] = self._generate_comparison_summary(results)
-        
+
         return results
-    
+
     def _evaluate_detector(self, detector, data: np.ndarray, labels: np.ndarray) -> Dict:
         """Evaluate detector performance."""
         try:
             scores = detector.predict(data)
-            
+
             from sklearn.metrics import roc_auc_score, precision_score, recall_score
-            
+
             auc = roc_auc_score(labels, scores)
-            
+
             threshold = np.percentile(scores, 95)
             predictions = (scores > threshold).astype(int)
-            
+
             precision = precision_score(labels, predictions, zero_division=0)
             recall = recall_score(labels, predictions, zero_division=0)
             f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-            
+
             return {
                 'auc': float(auc),
                 'precision': float(precision),
@@ -7369,7 +7369,7 @@ class PyODComparison:
             }
         except Exception as e:
             return {'error': str(e)}
-    
+
     def _generate_comparison_summary(self, results: Dict) -> Dict:
         """Generate summary comparing OMNI ♱ AVA with PyOD algorithms."""
         return {
@@ -7467,8 +7467,8 @@ class PyODComparison:
 
 ## Attribution & Licensing
 
-**Research Sources**: All Wikipedia (October 2025), public domain historical knowledge, published scientific research  
-**Implementations**: Original code, GPL v3 License compatible  
+**Research Sources**: All Wikipedia (October 2025), public domain historical knowledge, published scientific research
+**Implementations**: Original code, GPL v3 License compatible
 **Concepts Inspired By**:
 - Ancient cultures: Public domain historical knowledge
 - CRISPR: Biological mechanism (Ishino 1987, Mojica 2007, Doudna/Charpentier 2012)
@@ -7553,10 +7553,10 @@ class PyODComparison:
 
 ### Implementation Summary
 
-**Total New Modules**: 8 (6 novel modules + 2 enhancements)  
-**Estimated Code**: 3,000-5,000 lines of production code + comprehensive tests  
-**Documentation**: Full analysis in [FRAMEWORK_INTEGRATION_ANALYSIS.md](./FRAMEWORK_INTEGRATION_ANALYSIS.md)  
-**Organization**: Thematic structure (resilience/cyber/humanitarian/economic/scientific)  
+**Total New Modules**: 8 (6 novel modules + 2 enhancements)
+**Estimated Code**: 3,000-5,000 lines of production code + comprehensive tests
+**Documentation**: Full analysis in [FRAMEWORK_INTEGRATION_ANALYSIS.md](./FRAMEWORK_INTEGRATION_ANALYSIS.md)
+**Organization**: Thematic structure (resilience/cyber/humanitarian/economic/scientific)
 **Coverage Expansion**: From 4/16 CISA sectors (25%) to comprehensive multi-framework monitoring
 
 **Novel Contributions**:

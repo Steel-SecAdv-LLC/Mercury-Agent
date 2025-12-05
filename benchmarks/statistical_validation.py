@@ -18,9 +18,10 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Statistical validation of benchmark results using t-tests and confidence intervals."""
 
+from typing import Any, Dict
+
 import numpy as np
 from scipy import stats
-from typing import Dict, Any
 
 
 def statistical_analysis(

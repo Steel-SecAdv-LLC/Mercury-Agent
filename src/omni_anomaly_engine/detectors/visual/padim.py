@@ -94,6 +94,8 @@ class PaDiMDetector(BaseVisualDetector):
 
         super().__init__(config)
         self.padim_config: PaDiMConfig = config
+        # Override _config to use the specific PaDiM config
+        self._config = config
 
         # Initialize backbone
         self._init_backbone()
@@ -107,6 +109,11 @@ class PaDiMDetector(BaseVisualDetector):
 
         # Spatial info
         self._spatial_shape: tuple[int, int] | None = None
+
+    @property
+    def inv_covariance(self) -> torch.Tensor | None:
+        """Alias for cov_inv for test compatibility."""
+        return self.cov_inv
 
     def _get_random_projection(self, input_dim: int, output_dim: int) -> torch.Tensor:
         """Generate random projection matrix for dimensionality reduction.
