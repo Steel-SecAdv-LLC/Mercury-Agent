@@ -65,7 +65,7 @@ class GraphAnomalyDetector(BaseDetector):
         cascade_risk = self._detect_cascade_failure_risk(graph)
 
         return {
-            "is_anomaly": anomaly_score > self.threshold,
+            "is_anomaly": bool(anomaly_score > self.threshold),
             "anomaly_score": float(anomaly_score),
             "cascade_failure_risk": cascade_risk,
             "metrics": current_metrics,
