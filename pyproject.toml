@@ -378,8 +378,11 @@ ignore = [
     "ARG001", # Unused function argument (interface requirements)
     "ARG002", # Unused method argument (interface requirements)
     "ARG004", # Unused static method argument (interface requirements)
+    "B007",   # Unused loop control variable (intentional)
     "B023",   # Function uses loop variable (bound via default arg)
     "B904",   # Raise without from (sometimes intentional)
+    "B905",   # zip without strict (backwards compatibility)
+    "C416",   # Unnecessary dict comprehension (readability)
     "E402",   # Module import not at top (license headers before imports)
     "E501",   # Line too long (handled by black)
     "B008",   # Function call in default argument
@@ -393,6 +396,7 @@ ignore = [
     "PLR0912", # Too many branches (complex logic is sometimes necessary)
     "PLR0913", # Too many arguments
     "PLR0915", # Too many statements
+    "PLR1714", # Repeated equality comparison (readability)
     "PLR2004", # Magic value comparison
     "PLW0603", # Global statement (sometimes necessary)
     "PLW2901", # Redefined loop name (intentional in some cases)
@@ -403,6 +407,7 @@ ignore = [
     "PTH123", # builtin open (acceptable)
     "RUF001", # Ambiguous unicode character (intentional: ♱)
     "RUF002", # Ambiguous unicode character in docstring (intentional: ♱)
+    "RUF005", # Collection literal concatenation (readability)
     "RUF012", # Mutable class default (intentional for configs)
     "RUF034", # Useless if-else (readability preference)
     "RUF059", # Unused unpacked variable (interface requirement)
@@ -413,8 +418,10 @@ ignore = [
     "S311",   # Suspicious non-cryptographic random (intentional use)
     "SIM102", # Collapsible if (readability preference)
     "SIM105", # Suppressible exception (contextlib.suppress alternative)
+    "SIM108", # If-else instead of ternary (readability preference)
     "SIM115", # Open file with context handler (tempfile pattern)
     "SIM116", # If-else instead of dict lookup (readability)
+    "TC004",  # Move import out of type-checking block (conditional imports)
 ]
 
 [tool.ruff.lint.per-file-ignores]
