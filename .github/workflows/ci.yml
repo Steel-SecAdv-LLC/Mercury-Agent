@@ -249,14 +249,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: [core-tests]
-    # DISABLED: ML tests have pre-existing failures that need to be fixed
-    # Original condition preserved for reference:
-    # if: |
-    #   github.event_name == 'schedule' ||
-    #   (github.event_name == 'workflow_dispatch' && github.event.inputs.run_ml_tests == 'true') ||
-    #   (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')) ||
-    #   (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'develop'))
-    if: false
+    # Re-enabled: ML test imports fixed with conditional torch loading
+    # Runs on schedule (weekly), manual trigger, or PRs to main/develop
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_ml_tests == 'true') ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')) ||
+      (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'develop'))
 
     steps:
       - name: Checkout code
