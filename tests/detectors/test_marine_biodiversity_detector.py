@@ -21,9 +21,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 import pytest
 
 from omni_anomaly_engine.detectors.marine.biodiversity_detector import (
-    EcosystemHealth,
     BiodiversityPredictionResult,
     CoralBleachingDetector,
+    EcosystemHealth,
     MarineBiodiversityDetector,
 )
 

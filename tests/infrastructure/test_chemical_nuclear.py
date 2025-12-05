@@ -22,8 +22,8 @@ import numpy as np
 import pytest
 
 from omni_anomaly_engine.infrastructure.chemical_nuclear import (
-    CISASector,
     ChemicalNuclearDetector,
+    CISASector,
 )
 
 

@@ -22,8 +22,8 @@ import numpy as np
 import pytest
 import torch
 
-from omni_anomaly_engine.detectors.spatial import SpatialAnomalyDetector
 from omni_anomaly_engine.core.exceptions import DetectorException
+from omni_anomaly_engine.detectors.spatial import SpatialAnomalyDetector
 
 
 class TestSpatialAnomalyDetector:

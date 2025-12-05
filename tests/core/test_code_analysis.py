@@ -19,16 +19,17 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """Tests for Code Analysis Engine."""
 
 import ast
+
 import numpy as np
 import pytest
 
 from omni_anomaly_engine.core.code_analysis import (
-    ReadinessLevel,
-    TrainingPhase,
-    NeurosymbolicConfig,
-    TrainingMetrics,
-    NeurosymbolicEngine,
     CodeAnalysisEngine,
+    NeurosymbolicConfig,
+    NeurosymbolicEngine,
+    ReadinessLevel,
+    TrainingMetrics,
+    TrainingPhase,
 )
 from omni_anomaly_engine.utils.rng import DeterministicRNG
 

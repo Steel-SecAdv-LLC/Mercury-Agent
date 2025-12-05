@@ -23,13 +23,13 @@ import pytest
 import torch
 
 from omni_anomaly_engine.detectors.energy.emp_detector import (
-    EMPType,
-    ThreatLevel,
-    EMPPredictionResult,
     E1PulseDetector,
     E3PulseDetector,
-    IntentionalEMIDetector,
     EMPDetector,
+    EMPPredictionResult,
+    EMPType,
+    IntentionalEMIDetector,
+    ThreatLevel,
 )
 
 

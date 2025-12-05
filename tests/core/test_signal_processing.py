@@ -22,13 +22,13 @@ import numpy as np
 import pytest
 
 from omni_anomaly_engine.core.signal_processing import (
-    FilterType,
-    FilterConfig,
     AdaptiveNoiseFilter,
+    FilterConfig,
+    FilterType,
     MultiStageFilter,
+    compute_interaction_features,
     compute_rolling_statistics,
     compute_temporal_lag_features,
-    compute_interaction_features,
 )
 
 

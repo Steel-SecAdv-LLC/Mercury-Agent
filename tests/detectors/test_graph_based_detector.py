@@ -18,10 +18,10 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Tests for GraphAnomalyDetector."""
 
+import networkx as nx
 import numpy as np
 import pytest
 import torch
-import networkx as nx
 
 from omni_anomaly_engine.detectors.graph_based import GraphAnomalyDetector
 

@@ -23,14 +23,14 @@ import pytest
 import torch
 
 from omni_anomaly_engine.detectors.economic.financial_crisis_detector import (
-    CrisisType,
-    CrisisSeverity,
-    FinancialCrisisPredictionResult,
-    MarketCrashDetector,
     BankingStressDetector,
-    FraudDetector,
-    SystemicRiskAnalyzer,
+    CrisisSeverity,
+    CrisisType,
     FinancialCrisisDetector,
+    FinancialCrisisPredictionResult,
+    FraudDetector,
+    MarketCrashDetector,
+    SystemicRiskAnalyzer,
 )
 
 
