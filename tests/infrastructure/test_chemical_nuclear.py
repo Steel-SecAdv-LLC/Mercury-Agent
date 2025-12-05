@@ -205,7 +205,7 @@ class TestNuclearSectorDetection:
         result = nuclear_detector.detect(data, parameter_names=param_names)
 
         assert "coolant_flow_gpm" in result["anomalies"]
-        assert result["anomalies"]["coolant_flow_gpm"]["requires_emergency_response"] is True
+        assert bool(result["anomalies"]["coolant_flow_gpm"]["requires_emergency_response"]) is True
 
     def test_detect_core_temperature_high(self, nuclear_detector):
         """Test detection of high core temperature."""

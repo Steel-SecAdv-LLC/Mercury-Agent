@@ -238,11 +238,18 @@ class TestFraudDetector:
 
     def test_batch_processing(self, detector):
         """Test processing of batched inputs."""
-        batch_sizes = [1, 5, 20]
+        # batch_size > 1 required for BatchNorm during training
+        batch_sizes = [2, 5, 20]
         for batch_size in batch_sizes:
             input_tensor = torch.randn(batch_size, 64)
             output = detector(input_tensor)
             assert output.shape == (batch_size, 1)
+
+        # batch_size=1 works in eval mode
+        detector.eval()
+        single_input = torch.randn(1, 64)
+        single_output = detector(single_input)
+        assert single_output.shape == (1, 1)
 
 
 class TestSystemicRiskAnalyzer:
