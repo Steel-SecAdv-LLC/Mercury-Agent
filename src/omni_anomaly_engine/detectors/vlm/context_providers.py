@@ -471,3 +471,56 @@ class CombinedContextProvider:
             parts.append(self.temporal_provider.format_context_prompt(contexts["temporal"]))
 
         return "\n".join(parts)
+
+
+# Aliases for test compatibility
+class PositionalContextExtractor(PositionContextProvider):
+    """Alias for PositionContextProvider for test compatibility."""
+
+    def extract(self, image: np.ndarray | torch.Tensor) -> dict[str, Any]:
+        """Extract positional context from image.
+
+        Args:
+            image: Input image [C, H, W]
+
+        Returns:
+            Context dictionary
+        """
+        context = self.extract_context(image)
+        return {
+            "type": context.context_type,
+            "description": context.description,
+            "features": context.features,
+            "metadata": context.metadata,
+        }
+
+
+class TemporalContextExtractor(TemporalContextProvider):
+    """Alias for TemporalContextProvider for test compatibility."""
+
+    def extract(self, frames: list[Any] | np.ndarray | torch.Tensor) -> dict[str, Any]:
+        """Extract temporal context from frames.
+
+        Args:
+            frames: List of frames or video tensor
+
+        Returns:
+            Context dictionary
+        """
+        if isinstance(frames, list):
+            # Convert list of tensors to numpy array
+            if len(frames) > 0:
+                if isinstance(frames[0], torch.Tensor):
+                    frames = torch.stack(frames).cpu().numpy()
+                else:
+                    frames = np.stack(frames)
+            else:
+                frames = np.array([])
+
+        context = self.extract_context(frames)
+        return {
+            "type": context.context_type,
+            "description": context.description,
+            "features": context.features,
+            "metadata": context.metadata,
+        }

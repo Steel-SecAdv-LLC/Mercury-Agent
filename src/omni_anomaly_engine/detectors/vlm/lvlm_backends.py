@@ -332,10 +332,26 @@ class MockLVLMBackend(LVLMBackend):
             )
         return "The image shows a typical scene with no unusual elements."
 
+    def vqa(
+        self,
+        image: Image.Image | np.ndarray | torch.Tensor,
+        question: str,
+    ) -> str:
+        """Visual Question Answering for test compatibility.
+
+        Args:
+            image: Input image
+            question: Question about the image
+
+        Returns:
+            Answer string
+        """
+        return self.generate([image] if not isinstance(image, list) else image, question)
+
 
 def get_lvlm_backend(
     model_type: str,
-    model_name: str,
+    model_name: str | None = None,
     device: str = "cuda",
     **kwargs: Any,
 ) -> LVLMBackend:
@@ -343,7 +359,7 @@ def get_lvlm_backend(
 
     Args:
         model_type: Type of LVLM ('qwen2_vl', 'minicpm_v', 'llava', 'mock')
-        model_name: HuggingFace model identifier
+        model_name: HuggingFace model identifier (optional, defaults to model_type)
         device: Computation device
         **kwargs: Additional backend arguments
 
@@ -356,6 +372,10 @@ def get_lvlm_backend(
         "llava": LLaVABackend,
         "mock": MockLVLMBackend,
     }
+
+    # If model_name not provided, use model_type as model_name
+    if model_name is None:
+        model_name = model_type
 
     if model_type not in backends:
         logger.warning(f"Unknown model type {model_type}, using mock backend")

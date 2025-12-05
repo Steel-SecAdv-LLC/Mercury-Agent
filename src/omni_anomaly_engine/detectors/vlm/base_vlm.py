@@ -111,14 +111,21 @@ class BaseVLMDetector(BaseDetector):
         else:
             self.vlm_config = config
 
-        BaseDetector.__init__(self, {})
+        # Expose config property for test compatibility
+        self._config = self.vlm_config
+
+        # Initialize BaseDetector attributes manually (avoid calling __init__ which sets self.config)
+        self.threshold = 0.5
+        self._is_fitted = True  # VLM doesn't need fitting - mark as ready
 
         self.device = torch.device(self.vlm_config.device)
         self._model: Any = None
         self._processor: Any = None
 
-        # VLM doesn't need fitting - mark as ready
-        self._is_fitted = True
+    @property
+    def config(self) -> VLMConfig:
+        """Get the detector configuration."""
+        return self._config
 
     @property
     def model(self) -> Any:

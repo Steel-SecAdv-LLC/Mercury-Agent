@@ -61,7 +61,7 @@ class VisualDetectorConfig:
         pool_strategy: Feature pooling strategy ('avg', 'max', 'adaptive')
     """
 
-    backbone: str = "wide_resnet50_2"
+    backbone: str = "resnet18"
     image_size: tuple[int, int] = (224, 224)
     layers: list[str] = field(default_factory=lambda: ["layer2", "layer3"])
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
@@ -94,6 +94,9 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         Args:
             config: Detector configuration (VisualDetectorConfig or dict)
         """
+        # Initialize nn.Module first (required for PyTorch)
+        nn.Module.__init__(self)
+
         # Handle config conversion
         if config is None:
             self.visual_config = VisualDetectorConfig()
@@ -102,17 +105,25 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         else:
             self.visual_config = config
 
-        # Initialize parent classes
-        BaseDetector.__init__(self, config if isinstance(config, dict) else None)
-        nn.Module.__init__(self)
+        # Expose config property for test compatibility
+        self._config = self.visual_config
+
+        # Initialize BaseDetector attributes manually (avoid calling __init__ which sets self.config)
+        self.threshold = self.visual_config.threshold
+        self._is_fitted = False
 
         self.device = torch.device(self.visual_config.device)
         self._backbone: nn.Module | None = None
         self._feature_dim: int = 0
 
-        # Image normalization (ImageNet stats)
-        self.register_buffer("mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
-        self.register_buffer("std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
+        # Image normalization (ImageNet stats) - use _norm prefix to avoid conflicts with subclass attributes
+        self.register_buffer("_norm_mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
+        self.register_buffer("_norm_std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
+
+    @property
+    def config(self) -> VisualDetectorConfig:
+        """Get the detector configuration."""
+        return self._config
 
     @property
     def backbone(self) -> nn.Module:
@@ -178,7 +189,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
 
         # Apply ImageNet normalization
         images = images.to(self.device)
-        images = (images - self.mean) / self.std
+        images = (images - self._norm_mean) / self._norm_std
 
         return images
 
