@@ -146,7 +146,9 @@ class BaseVLMDetector(BaseDetector):
         Note:
             Subclasses must override this method.
         """
-        raise NotImplementedError("Subclasses must implement _initialize_model() for VLM detectors.")
+        raise NotImplementedError(
+            "Subclasses must implement _initialize_model() for VLM detectors."
+        )
 
     def _create_prompt(
         self,

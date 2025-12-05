@@ -295,7 +295,9 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         Note:
             Subclasses must override this method.
         """
-        raise NotImplementedError("Subclasses must implement extract_features() for visual detectors.")
+        raise NotImplementedError(
+            "Subclasses must implement extract_features() for visual detectors."
+        )
 
     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward pass for integration with PyTorch pipelines.
