@@ -13,7 +13,6 @@ import pytest
 
 from omni_anomaly_engine.datasets.base import (
     DatasetConfig,
-    DatasetLoader,
     DatasetRegistry,
     DatasetSplit,
 )
@@ -28,7 +27,6 @@ from omni_anomaly_engine.datasets.environmental import (
     WildfireDataLoader,
 )
 from omni_anomaly_engine.datasets.medical import (
-    CardiologyDataset,
     MIMICLoader,
     PhysioNetLoader,
     SepsisDataset,
@@ -53,13 +51,12 @@ class TestDatasetConfig:
 
     def test_config_split_ratios_validation(self):
         """Test split ratio validation."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with pytest.raises(ValueError):
-                DatasetConfig(
-                    name="test",
-                    data_dir=tmpdir,
-                    split_ratios=(0.5, 0.3, 0.3),  # Sums to 1.1
-                )
+        with tempfile.TemporaryDirectory() as tmpdir, pytest.raises(ValueError):
+            DatasetConfig(
+                name="test",
+                data_dir=tmpdir,
+                split_ratios=(0.5, 0.3, 0.3),  # Sums to 1.1
+            )
 
     def test_cache_key_generation(self):
         """Test unique cache key generation."""

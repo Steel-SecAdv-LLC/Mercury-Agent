@@ -22,7 +22,6 @@ Tests for SOTA Visual Anomaly Detection modules.
 Tests PatchCore, PaDiM, STFPM, Reverse Distillation, and CFlow detectors.
 """
 
-import numpy as np
 import pytest
 
 try:

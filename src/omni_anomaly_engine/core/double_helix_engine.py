@@ -339,7 +339,7 @@ class AvaEquationEngine:
         """Lyapunov stability enforcement term."""
         target = np.ones(self.dimension) / np.sqrt(self.dimension)
         # Lyapunov function value (unused, kept for documentation)
-        _V = np.sum((state - target) ** 2)  # noqa: F841
+        _V = np.sum((state - target) ** 2)
         gradient = 2 * (state - target)
         return -LAMBDA_DECAY * gradient * 0.1
 

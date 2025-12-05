@@ -212,8 +212,8 @@ class ReverseDistillationDetector(BaseVisualDetector):
         )
 
         # Initialize decoder
-        output_channels = [self._layer_channels[l] for l in self.rd_config.layers]
-        spatial_sizes = [self._layer_sizes[l] for l in self.rd_config.layers]
+        output_channels = [self._layer_channels[layer] for layer in self.rd_config.layers]
+        spatial_sizes = [self._layer_sizes[layer] for layer in self.rd_config.layers]
 
         self.decoder = MultiScaleDecoder(
             self.rd_config.bottleneck_dim,

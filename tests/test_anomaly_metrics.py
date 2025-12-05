@@ -23,7 +23,6 @@ Tests AUROC, AUPRC, F1-max, pixel-level metrics, and PRO score.
 """
 
 import numpy as np
-import pytest
 
 
 class TestAUROC:

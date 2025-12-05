@@ -30,4 +30,4 @@ from omni_anomaly_engine.medical.pandemic.bio_threats.pathogen_detector import (
     PathogenDetector,
 )
 
-__all__ = ["PathogenDetector", "BioThreatResult"]
+__all__ = ["BioThreatResult", "PathogenDetector"]

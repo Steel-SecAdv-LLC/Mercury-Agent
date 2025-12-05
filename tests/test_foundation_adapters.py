@@ -22,7 +22,6 @@ Tests for Foundation Model Adapters.
 Tests TimeGPT, Chronos, Matrix Profile, and Foundation Ensemble adapters.
 """
 
-import numpy as np
 import pytest
 
 try:

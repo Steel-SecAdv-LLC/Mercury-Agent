@@ -132,10 +132,7 @@ class CircuitBreaker:
         self._total_failures += 1
         self.last_failure_time = time.time()
 
-        if self.state == CircuitState.HALF_OPEN:
-            self.state = CircuitState.OPEN
-            self.open_count += 1
-        elif self.failure_count >= self.failure_threshold:
+        if self.state == CircuitState.HALF_OPEN or self.failure_count >= self.failure_threshold:
             self.state = CircuitState.OPEN
             self.open_count += 1
 

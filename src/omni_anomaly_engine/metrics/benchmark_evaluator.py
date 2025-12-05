@@ -79,7 +79,7 @@ class EvaluationResult:
     @classmethod
     def load(cls, path: str | Path) -> "EvaluationResult":
         """Load results from JSON file."""
-        with open(path, "r") as f:
+        with open(path) as f:
             data = json.load(f)
         return cls(**data)
 
@@ -300,7 +300,7 @@ class BenchmarkEvaluator:
         lines = [
             "# Anomaly Detection Evaluation Report",
             f"\nGenerated: {datetime.now().isoformat()}",
-            f"\n## Summary",
+            "\n## Summary",
             f"\n- Detectors evaluated: {len(set(r.detector_name for r in results))}",
             f"- Datasets used: {len(set(r.dataset_name for r in results))}",
             f"- Total evaluations: {len(results)}",

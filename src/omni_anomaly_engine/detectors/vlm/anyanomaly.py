@@ -36,7 +36,7 @@ Reference:
 
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -200,9 +200,7 @@ EXPLANATION: [Your detailed explanation]
 
         # Extract anomaly decision
         is_anomaly = False
-        if "ANOMALY_DETECTED: YES" in response_upper or "ANOMALY_DETECTED:YES" in response_upper:
-            is_anomaly = True
-        elif "YES" in response_upper[:50]:  # Check beginning of response
+        if "ANOMALY_DETECTED: YES" in response_upper or "ANOMALY_DETECTED:YES" in response_upper or "YES" in response_upper[:50]:
             is_anomaly = True
 
         # Extract confidence

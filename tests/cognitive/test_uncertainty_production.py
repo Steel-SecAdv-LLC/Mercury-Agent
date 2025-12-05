@@ -10,7 +10,6 @@ Tests the real implementations:
 """
 
 import numpy as np
-import pytest
 
 
 class TestMCDropout:

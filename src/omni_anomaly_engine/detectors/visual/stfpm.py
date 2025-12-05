@@ -43,7 +43,6 @@ import torch
 from scipy.ndimage import gaussian_filter
 from torch import nn, optim
 
-from omni_anomaly_engine.detectors.visual.backbone import FeatureExtractor
 from omni_anomaly_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
     VisualDetectorConfig,
@@ -92,7 +91,7 @@ class StudentNetwork(nn.Module):
 
         # Create student backbone (not pretrained)
         try:
-            import torchvision.models as models
+            from torchvision import models
 
             backbone_map = {
                 "resnet18": models.resnet18,

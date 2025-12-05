@@ -401,7 +401,7 @@ class AuxiliaryMaxVariance:
             Combined loss
         """
         if TORCH_AVAILABLE:
-            task_losses_tensor = torch.stack([torch.tensor(l) for l in task_losses])
+            task_losses_tensor = torch.stack([torch.tensor(loss) for loss in task_losses])
             weighted_losses = self.task_weights * task_losses_tensor
             mean_loss = weighted_losses.mean()
             variance_loss = -torch.var(task_losses_tensor)

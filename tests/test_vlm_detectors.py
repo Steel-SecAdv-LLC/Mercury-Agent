@@ -22,7 +22,6 @@ Tests for Vision-Language Model (VLM) anomaly detectors.
 Tests AnyAnomaly and LAVAD zero-shot/training-free detectors.
 """
 
-import numpy as np
 import pytest
 
 try:

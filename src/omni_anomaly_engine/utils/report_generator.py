@@ -31,7 +31,7 @@ Automated report generation for non-technical users:
 import json
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from html import escape
@@ -147,9 +147,7 @@ class ReportGenerator:
             return self._generate_json(data)
         elif format == ReportFormat.HTML:
             return self._generate_html(data)
-        elif format == ReportFormat.MARKDOWN:
-            return self._generate_markdown(data)
-        elif format == ReportFormat.PDF:
+        elif format == ReportFormat.MARKDOWN or format == ReportFormat.PDF:
             return self._generate_markdown(data)
         return self._generate_json(data)
 

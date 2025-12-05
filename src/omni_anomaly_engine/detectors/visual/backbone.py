@@ -77,7 +77,7 @@ def get_backbone(
         ValueError: If backbone_name is not supported
     """
     try:
-        import torchvision.models as models
+        from torchvision import models
     except ImportError:
         raise ImportError("torchvision is required for backbone models")
 

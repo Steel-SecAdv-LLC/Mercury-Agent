@@ -22,7 +22,6 @@ Tests for Benchmark Dataset Loaders.
 Tests MVTec AD, UCF-Crime, and Shanghai Tech Campus dataset loaders.
 """
 
-from pathlib import Path
 
 import numpy as np
 import pytest

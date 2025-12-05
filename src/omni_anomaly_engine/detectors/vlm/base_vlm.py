@@ -24,13 +24,12 @@ using Large Vision-Language Models (LVLMs).
 """
 
 from abc import abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
 import numpy as np
 import torch
-from torch import nn
 
 from omni_anomaly_engine.core.base import BaseDetector
 

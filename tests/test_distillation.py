@@ -22,7 +22,6 @@ Tests for Knowledge Distillation modules.
 Tests Dual-Student Knowledge Distillation for anomaly detection.
 """
 
-import numpy as np
 import pytest
 
 try:
