@@ -23,7 +23,6 @@ Provides unified interface for all visual anomaly detection algorithms,
 ensuring consistent API across PatchCore, PaDiM, STFPM, and other methods.
 """
 
-from abc import abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -227,6 +226,22 @@ class BaseVisualDetector(BaseDetector, nn.Module):
 
         return anomaly_map.squeeze(1)
 
+    def postprocess(
+        self,
+        anomaly_map: torch.Tensor,
+        original_size: tuple[int, int] | None = None,
+    ) -> torch.Tensor:
+        """Alias for postprocess_anomaly_map for API compatibility.
+
+        Args:
+            anomaly_map: Raw anomaly map from detector
+            original_size: Target size (H, W) for resizing
+
+        Returns:
+            Smoothed and resized anomaly map
+        """
+        return self.postprocess_anomaly_map(anomaly_map, original_size)
+
     @staticmethod
     def _get_gaussian_kernel(kernel_size: int, sigma: float) -> torch.Tensor:
         """Create 2D Gaussian kernel for smoothing."""
@@ -236,7 +251,6 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         kernel = kernel / kernel.sum()
         return kernel.view(1, 1, kernel_size, kernel_size)
 
-    @abstractmethod
     def fit(self, data: np.ndarray | torch.Tensor) -> "BaseVisualDetector":
         """Fit detector to normal (non-anomalous) images.
 
@@ -245,10 +259,12 @@ class BaseVisualDetector(BaseDetector, nn.Module):
 
         Returns:
             Self for method chaining
-        """
-        pass
 
-    @abstractmethod
+        Note:
+            Subclasses must override this method.
+        """
+        raise NotImplementedError("Subclasses must implement fit() for visual detectors.")
+
     def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies in images.
 
@@ -261,10 +277,12 @@ class BaseVisualDetector(BaseDetector, nn.Module):
                 - anomaly_maps: Pixel-level anomaly maps [N, H, W]
                 - is_anomaly: Binary anomaly flags [N]
                 - features: Extracted features for fusion [N, D]
-        """
-        pass
 
-    @abstractmethod
+        Note:
+            Subclasses must override this method.
+        """
+        raise NotImplementedError("Subclasses must implement detect() for visual detectors.")
+
     def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion pipeline.
 
@@ -273,8 +291,11 @@ class BaseVisualDetector(BaseDetector, nn.Module):
 
         Returns:
             Feature tensor [N, feature_dim] normalized for fusion
+
+        Note:
+            Subclasses must override this method.
         """
-        pass
+        raise NotImplementedError("Subclasses must implement extract_features() for visual detectors.")
 
     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward pass for integration with PyTorch pipelines.
