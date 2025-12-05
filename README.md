@@ -368,16 +368,31 @@ pip install -e ".[all]"
 ### Basic Usage
 
 ```python
-from omni_anomaly_engine import OmniAvaEngine
+from omni_anomaly_engine import OmniAnomalyEngine
+import numpy as np
 
 # Initialize engine
-engine = OmniAvaEngine(mode="fusion", device="cuda")
+engine = OmniAnomalyEngine(mode="fusion")
 
-# Detect anomalies
+# Create sample data (100 samples, 50 features)
+data = np.random.randn(100, 50).astype(np.float32)
+
+# Detect anomalies with fusion (requires trained model for accuracy)
 result = engine.detect_with_fusion(data)
-print(f"Anomaly Score: {result['anomaly_score']:.3f}")
+print(f"Anomaly Probability: {result['anomaly_prob']:.3f}")
 print(f"Is Anomaly: {result['is_anomaly']}")
+print(f"Severity: {result['severity']:.3f}")
+
+# Get per-detector results (no training required)
+result = engine.detect(data)
+print(f"Statistical detector: {result['detectors']['statistical']['is_anomaly'].sum()} anomalies")
+print(f"Temporal detector: {result['detectors']['temporal']['is_anomaly'].sum()} anomalies")
 ```
+
+> **Important:** The neural fusion model (`detect_with_fusion`) is randomly initialized.
+> For accurate detection, you must either:
+> 1. Train on your dataset using `engine.train_fusion_model(train_data, labels)`
+> 2. Use `engine.detect()` for ensemble of classical detectors (no training required)
 
 ### Docker Deployment
 
