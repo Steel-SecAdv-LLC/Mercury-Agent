@@ -17,20 +17,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Statistical significance testing for baseline comparisons
 - Synthetic data generation fallback when real datasets unavailable
 - Enhanced Neuro-Symbolic AI engine (`EnhancedNeurosymbolicEngine`)
-  - Fuzzy logic with multiple semantics (Gödel, Product, Łukasiewicz)
+  - Fuzzy logic with multiple semantics (Godel, Product, Lukasiewicz)
   - Temporal reasoning via `TemporalGraphReasoner` with open/closed world assumptions
   - Knowledge graph integration via `KnowledgeGraphBridge` for commonsense reasoning
   - Meta-cognition layer with uncertainty quantification and strategy selection
   - Causal reasoning module with do-calculus interventions and counterfactuals
-  - Probabilistic logic layer with Fréchet bounds
+  - Probabilistic logic layer with Frechet bounds
   - Logic Tensor Networks (PyTorch-based, optional dependency)
+- `.pre-commit-config.yaml` with comprehensive hooks for security, formatting, and linting
+- `.env.example` with complete configuration template and documentation
+
+### Security
+- **BREAKING**: JWT authentication now requires `JWT_SECRET_KEY` environment variable
+  - Removed insecure default `"dev-secret-key"` (P0 security fix)
+  - Clear error message with instructions for secure key generation
+- Rate limiting middleware enforced on FastAPI server
+  - Token bucket algorithm: 100 requests/min, burst of 20
+  - Configurable via `OMNI_RATE_LIMIT_*` environment variables
+  - Standard rate limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`)
+- CI/CD Trivy security scans now blocking for CRITICAL/HIGH vulnerabilities
+- Pre-commit hooks for secret detection (detect-secrets) and security linting (bandit)
 
 ### Changed
+- **Docker**: Fixed entrypoint from `omni-anomaly` to `omni-ava` (matches setup.py console_scripts)
+- **Dependencies**: Added cryptography, fastapi, uvicorn, httpx, pydantic-settings to core requirements
 - CI/CD: ML Tests now run on PRs to main/develop (previously only scheduled/manual)
 - CI/CD: Documentation builds on all pushes and PRs (previously only main branch)
 
 ### Fixed
 - Replaced deprecated `np.trapz` with `np.trapezoid` in benchmark metrics
+- Dockerfile entrypoint mismatch with package console script
 
 ## [0.1.0] - 2025-10-14
 
