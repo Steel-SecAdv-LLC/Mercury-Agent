@@ -215,12 +215,11 @@ def print_baseline_table(dataset: str, your_results: Optional[dict] = None) -> s
     # Add your results if provided
     if your_results:
         lines.append(f"{'-'*70}")
+        prec = f"{your_results.get('precision', 0):.4f}"
+        rec = f"{your_results.get('recall', 0):.4f}"
+        f1_val = f"{your_results.get('f1', 0):.4f}"
         lines.append(
-            f"{'** YOUR MODEL **':<25} "
-            f"{your_results.get('precision', 0):.4f:>12} "
-            f"{your_results.get('recall', 0):.4f:>12} "
-            f"{your_results.get('f1', 0):.4f:>12} "
-            f"{'This work':>10}"
+            f"{'** YOUR MODEL **':<25} {prec:>12} {rec:>12} {f1_val:>12} {'This work':>10}"
         )
 
     lines.append(f"{'='*70}\n")
