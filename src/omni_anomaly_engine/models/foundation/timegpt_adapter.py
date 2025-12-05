@@ -416,7 +416,7 @@ class TimeGPTAdapter(BaseFoundationModel):
         if series.ndim == 2:
             series = series.flatten()
 
-        _df = self._to_dataframe(series)  # noqa: F841 - prepared for API call
+        _df = self._to_dataframe(series)
 
         try:
             # Fine-tune (updates internal state)

@@ -378,7 +378,7 @@ class GNNMessagePassing:
         Returns:
             Updated node embeddings (n_nodes, hidden_dim)
         """
-        _n_nodes = node_features.shape[0]  # noqa: F841 - reserved for future use
+        _n_nodes = node_features.shape[0]
         feature_dim = node_features.shape[1]
 
         # Initialize weights if needed
@@ -451,7 +451,7 @@ class GNNMessagePassing:
         features: np.ndarray,
     ) -> np.ndarray:
         """Max aggregation over neighbors."""
-        _n_nodes = features.shape[0]  # noqa: F841 - reserved for future use
+        _n_nodes = features.shape[0]
         result = np.zeros_like(features)
 
         adj_coo = adjacency.tocoo()

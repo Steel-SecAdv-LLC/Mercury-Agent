@@ -130,7 +130,7 @@ class MatrixProfileDetector(BaseFoundationModel):
             # Check GPU support
             if self.mp_config.use_gpu:
                 try:
-                    import stumpy.gpu as _stumpy_gpu  # noqa: F401 - test import
+                    import stumpy.gpu as _stumpy_gpu
 
                     del _stumpy_gpu  # Clean up after import check
                     self._gpu_available = True
