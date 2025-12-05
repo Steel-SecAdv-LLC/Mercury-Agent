@@ -38,7 +38,7 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, TypeVar, Generic
+from typing import Any, Generic, TypeVar
 
 logger = logging.getLogger(__name__)
 

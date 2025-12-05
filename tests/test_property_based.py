@@ -17,7 +17,7 @@ import pytest
 # Check if hypothesis is available
 hypothesis_available = True
 try:
-    from hypothesis import given, settings, assume, HealthCheck
+    from hypothesis import HealthCheck, assume, given, settings
     from hypothesis import strategies as st
     from hypothesis.extra import numpy as npst
 except ImportError:
