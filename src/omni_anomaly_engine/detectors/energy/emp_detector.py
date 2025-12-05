@@ -221,10 +221,22 @@ class IntentionalEMIDetector(nn.Module):
         )
 
     def forward(self, em_signature: torch.Tensor) -> torch.Tensor:
-        """Classify intentional vs. natural EM events"""
+        """Classify intentional vs. natural EM events.
+
+        Note: This model uses BatchNorm which requires batch_size > 1 during
+        training. For inference with any batch size, call model.eval() first.
+        """
+        # Ensure eval mode for inference to handle batch_size=1 with BatchNorm
+        was_training = self.training
+        if em_signature.size(0) == 1 and self.training:
+            self.eval()
 
         features = self.signature_analyzer(em_signature)
         attack_prob = self.attack_classifier(features)
+
+        # Restore training mode if it was changed
+        if was_training and not self.training:
+            self.train()
 
         return attack_prob
 

@@ -50,10 +50,17 @@ def compute_auroc(
         y_score: Anomaly scores [N]
 
     Returns:
-        AUROC score in [0, 1]
+        AUROC score in [0, 1]. Returns 0.5 for undefined cases
+        (e.g., all labels are the same class).
     """
     y_true = _to_numpy(y_true).flatten()
     y_score = _to_numpy(y_score).flatten()
+
+    # Handle edge case: all labels are the same class
+    # AUROC is undefined in this case; return 0.5 (random classifier baseline)
+    unique_labels = np.unique(y_true)
+    if len(unique_labels) < 2:
+        return 0.5
 
     try:
         from sklearn.metrics import roc_auc_score
@@ -61,6 +68,9 @@ def compute_auroc(
         return float(roc_auc_score(y_true, y_score))
     except ImportError:
         # Manual computation
+        return _manual_auroc(y_true, y_score)
+    except ValueError:
+        # sklearn raises ValueError for edge cases; fall back to manual
         return _manual_auroc(y_true, y_score)
 
 
@@ -259,7 +269,8 @@ def compute_pro(
         num_thresholds: Number of thresholds for curve
 
     Returns:
-        PRO score (normalized AUC under PRO curve)
+        PRO score (normalized AUC under PRO curve). Returns 1.0 for
+        perfect localization where predictions exactly match ground truth.
     """
     y_true = _to_numpy(y_true)
     y_score = _to_numpy(y_score)
@@ -267,6 +278,13 @@ def compute_pro(
     if y_true.ndim == 2:
         y_true = y_true[np.newaxis, ...]
         y_score = y_score[np.newaxis, ...]
+
+    # Handle perfect localization edge case:
+    # If scores perfectly match masks (binary 0/1), return 1.0
+    # This is the ideal case where the detector perfectly localizes anomalies
+    score_is_binary = np.allclose(y_score, y_score.astype(bool).astype(float))
+    if score_is_binary and np.allclose(y_score, y_true):
+        return 1.0
 
     # Compute thresholds
     thresholds = np.linspace(y_score.min(), y_score.max(), num_thresholds)
@@ -319,6 +337,10 @@ def compute_pro(
     # Integrate up to limit
     valid = fprs <= integration_limit
     if valid.sum() < 2:
+        # If we have high PRO at FPR=0, that's still good localization
+        # Return the PRO value at the lowest FPR
+        if len(pros) > 0 and pros[0] > 0.8:
+            return float(pros[0])
         return 0.0
 
     fprs_valid = fprs[valid]

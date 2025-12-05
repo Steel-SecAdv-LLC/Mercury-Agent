@@ -14,7 +14,6 @@ Verifies that all cognitive components integrate properly:
 """
 
 import numpy as np
-import pytest
 
 
 class TestPlasticityEngine:

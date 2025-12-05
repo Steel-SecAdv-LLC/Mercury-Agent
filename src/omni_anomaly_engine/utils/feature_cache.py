@@ -391,7 +391,8 @@ class IncrementalFeatureComputer:
         if isinstance(data, torch.Tensor):
             data = data.detach().cpu().numpy()
 
-        return hashlib.md5(data.tobytes(), usedforsecurity=False).hexdigest()
+        # Use SHA-256 instead of MD5 for better security (non-cryptographic use for cache keys)
+        return hashlib.sha256(data.tobytes()).hexdigest()
 
     def needs_update(self, key: str, data: np.ndarray | torch.Tensor) -> bool:
         """Check if features need to be recomputed.
