@@ -21,17 +21,19 @@ Dimensional analyzer using PCA, t-SNE, and neural projection
 Enhanced with DB term (dimensional code-breaking via Fourier analysis)
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
 from scipy.fft import fft
 from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
 from torch import nn
 
 from omni_anomaly_engine.core.base import BaseDetector
 from omni_anomaly_engine.core.exceptions import DetectorException
+
+if TYPE_CHECKING:
+    from sklearn.manifold import TSNE
 
 
 class NeuralProjection(nn.Module):
@@ -82,10 +84,7 @@ class DimensionalAnalyzer(BaseDetector):
 
     def fit(self, data: np.ndarray | torch.Tensor) -> "DimensionalAnalyzer":
         """Fit dimensional analyzers to data"""
-        if isinstance(data, torch.Tensor):
-            data_np = data.cpu().numpy()
-        else:
-            data_np = data
+        data_np = data.cpu().numpy() if isinstance(data, torch.Tensor) else data
 
         self.input_dim = data_np.shape[1]
         n_comp = min(self.n_components, data_np.shape[1])

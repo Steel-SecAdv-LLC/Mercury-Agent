@@ -375,7 +375,7 @@ class EthicalAutonomyGovernor:
 
         sample_scores = [ethical_score] * 10 + self._rng.normal(baseline_score, 0.1, 20).tolist()
 
-        t_stat, p_value = stats.ttest_1samp(sample_scores, baseline_score)
+        _t_stat, p_value = stats.ttest_1samp(sample_scores, baseline_score)
 
         return float(p_value)
 
@@ -398,10 +398,7 @@ class EthicalAutonomyGovernor:
         if decision.p_value < self.p_value_threshold and decision.ethical_score < 1.0:
             return True
 
-        if decision.sigma_directive_applied:
-            return True
-
-        return False
+        return bool(decision.sigma_directive_applied)
 
     def get_governance_report(self) -> dict[str, Any]:
         """Generate comprehensive governance report."""

@@ -883,7 +883,7 @@ class DoubleHelixEvolutionEngine:
         if len(state) < 2:
             return self.np.zeros_like(state)
         reshaped = state.reshape(-1, 1)
-        U, s, Vt = self.np.linalg.svd(reshaped @ reshaped.T, full_matrices=False)
+        U, s, _Vt = self.np.linalg.svd(reshaped @ reshaped.T, full_matrices=False)
         projected = U[:, 0] * s[0] if len(s) > 0 else self.np.zeros_like(state)
         result: np.ndarray = (projected - state) * 0.1
         return result
@@ -1078,10 +1078,7 @@ class DoubleHelixEvolutionEngine:
             return final_result
         except ImportError:
             n_pairs = len(state) // 2
-            if len(state) % 2 != 0:
-                state_padded = self.np.pad(state, (0, 1))
-            else:
-                state_padded = state
+            state_padded = self.np.pad(state, (0, 1)) if len(state) % 2 != 0 else state
 
             pairs = state_padded.reshape(-1, 2)
 
@@ -1155,10 +1152,7 @@ class DoubleHelixEvolutionEngine:
         Returns:
             Dictionary with anomaly detection results
         """
-        if len(data) != self.state_dim:
-            data_resized = self.np.resize(data, self.state_dim)
-        else:
-            data_resized = data
+        data_resized = self.np.resize(data, self.state_dim) if len(data) != self.state_dim else data
 
         final_state, history = self.converge(data_resized)
 

@@ -354,7 +354,7 @@ class NeurosymbolicEngine:
         weights = self._rng.randn(4) * 0.1
         losses = []
 
-        for i in range(iterations):
+        for _i in range(iterations):
             prediction = np.dot(weights, padded_features)
 
             if len(ground_truth.shape) == 0:

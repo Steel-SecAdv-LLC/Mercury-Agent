@@ -364,7 +364,7 @@ class PatchEmbedding(nn.Module):
                 - Patch embeddings [B, num_patches, output_dim]
                 - Patch grid size (h_patches, w_patches)
         """
-        batch_size, channels, height, width = features.shape
+        _batch_size, _channels, height, width = features.shape
 
         # Calculate output grid size
         h_patches = (height - self.patch_size) // self.stride + 1

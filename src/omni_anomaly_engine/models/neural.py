@@ -27,7 +27,7 @@ import numpy as np
 class NeuralCognitiveModel:
     """Neural cognitive model for brain activity anomaly detection."""
 
-    def __init__(self, config: dict[str, Any] = None, **kwargs):
+    def __init__(self, config: dict[str, Any] | None = None, **kwargs):
         self.config = config or {}
         self.memory_capacity = self.config.get("memory_capacity", 100)
         self.memory_buffer = deque(maxlen=self.memory_capacity)
@@ -130,7 +130,7 @@ class NeuralCognitiveModel:
     def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
         """Extract neural cognitive features from data."""
         if isinstance(data, dict):
-            data = np.array(list(data.values())[0])
+            data = np.array(next(iter(data.values())))
         elif not isinstance(data, np.ndarray):
             data = np.array(data)
 
@@ -146,7 +146,7 @@ class NeuralCognitiveModel:
     def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
         """Predict neural cognitive anomalies."""
         if isinstance(data, dict):
-            data_array = np.array(list(data.values())[0])
+            data_array = np.array(next(iter(data.values())))
         elif not isinstance(data, np.ndarray):
             data_array = np.array(data)
         else:

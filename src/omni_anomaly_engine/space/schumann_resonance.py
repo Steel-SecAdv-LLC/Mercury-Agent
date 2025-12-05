@@ -257,7 +257,7 @@ class SchumannResonanceDetector:
         """
         power_spectrum, frequencies = self._compute_power_spectrum(elf_signal)
 
-        fundamental_freq, fundamental_power = self._detect_fundamental(power_spectrum, frequencies)
+        fundamental_freq, _fundamental_power = self._detect_fundamental(power_spectrum, frequencies)
 
         fundamental_deviation = abs(fundamental_freq - 7.83)
 
@@ -434,7 +434,7 @@ class SchumannResonanceDetector:
         temporal_spectra = np.zeros((1, sequence_length, 103), dtype=np.float32)
 
         for i, hist_signal in enumerate(temporal_history[-sequence_length:]):
-            power, freqs = self._compute_power_spectrum(hist_signal)
+            power, _freqs = self._compute_power_spectrum(hist_signal)
             temporal_spectra[0, i, :] = power[:103]
 
         return torch.tensor(temporal_spectra, dtype=torch.float32)

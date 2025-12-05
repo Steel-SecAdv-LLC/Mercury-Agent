@@ -513,7 +513,7 @@ class IndicatorDevelopmentSystem:
         frequent = []
         min_count = int(len(anomalies) * min_support)
 
-        for key, occurrences in pattern_counts.items():
+        for _key, occurrences in pattern_counts.items():
             if len(occurrences) >= max(min_count, self.min_pattern_occurrences):
                 # Extract common features
                 pattern = self._extract_common_features(occurrences)

@@ -122,7 +122,7 @@ class MatrixProfileDetector(BaseFoundationModel):
     def _initialize_model(self) -> None:
         """Check STUMPY availability."""
         try:
-            import stumpy
+            import stumpy  # noqa: F401 - availability check
 
             self._stumpy_available = True
             logger.info("STUMPY library loaded")
@@ -130,8 +130,9 @@ class MatrixProfileDetector(BaseFoundationModel):
             # Check GPU support
             if self.mp_config.use_gpu:
                 try:
-                    import stumpy.gpu
+                    import stumpy.gpu as _stumpy_gpu
 
+                    del _stumpy_gpu  # Clean up after import check
                     self._gpu_available = True
                     logger.info("STUMPY GPU acceleration available")
                 except ImportError:

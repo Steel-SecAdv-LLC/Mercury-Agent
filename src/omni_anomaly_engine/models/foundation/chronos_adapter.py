@@ -297,10 +297,7 @@ class ChronosAdapter(BaseFoundationModel):
             s = series[i]
 
             # Simple seasonal naive + trend
-            if len(s) > horizon:
-                seasonal = s[-horizon:]
-            else:
-                seasonal = np.full(horizon, s[-1])
+            seasonal = s[-horizon:] if len(s) > horizon else np.full(horizon, s[-1])
 
             # Add small noise for intervals
             noise = np.std(s) * 0.1

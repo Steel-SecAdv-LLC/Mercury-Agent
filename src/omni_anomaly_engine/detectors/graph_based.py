@@ -48,10 +48,7 @@ class GraphAnomalyDetector(BaseDetector):
 
     def fit(self, data: np.ndarray | nx.Graph) -> "GraphAnomalyDetector":
         """Fit detector on normal graph data."""
-        if isinstance(data, nx.Graph):
-            graph = data
-        else:
-            graph = self._array_to_graph(data)
+        graph = data if isinstance(data, nx.Graph) else self._array_to_graph(data)
 
         self.baseline_metrics = self._compute_graph_metrics(graph)
         self.fitted = True
@@ -59,10 +56,7 @@ class GraphAnomalyDetector(BaseDetector):
 
     def detect(self, data: np.ndarray | nx.Graph) -> dict[str, Any]:
         """Detect graph anomalies using centrality and community analysis."""
-        if isinstance(data, nx.Graph):
-            graph = data
-        else:
-            graph = self._array_to_graph(data)
+        graph = data if isinstance(data, nx.Graph) else self._array_to_graph(data)
 
         current_metrics = self._compute_graph_metrics(graph)
 
@@ -79,10 +73,7 @@ class GraphAnomalyDetector(BaseDetector):
 
     def extract_features(self, data: np.ndarray | nx.Graph) -> torch.Tensor:
         """Extract graph-based features for ML fusion."""
-        if isinstance(data, nx.Graph):
-            graph = data
-        else:
-            graph = self._array_to_graph(data)
+        graph = data if isinstance(data, nx.Graph) else self._array_to_graph(data)
 
         metrics = self._compute_graph_metrics(graph)
 

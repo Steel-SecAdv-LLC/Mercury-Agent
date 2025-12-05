@@ -184,11 +184,10 @@ class HTTPCircuitBreaker:
     def state(self) -> CircuitState:
         """Get current circuit state, transitioning if needed."""
         with self._lock:
-            if self._state == CircuitState.OPEN:
-                if self._should_attempt_reset():
-                    self._state = CircuitState.HALF_OPEN
-                    self._success_count = 0
-                    logger.info(f"Circuit '{self.name}' transitioning to half-open")
+            if self._state == CircuitState.OPEN and self._should_attempt_reset():
+                self._state = CircuitState.HALF_OPEN
+                self._success_count = 0
+                logger.info(f"Circuit '{self.name}' transitioning to half-open")
             return self._state
 
     def _should_attempt_reset(self) -> bool:

@@ -150,7 +150,7 @@ class PositionContextProvider(BaseContextProvider):
         if frames.ndim == 3:  # [C, H, W]
             frames = frames[np.newaxis, ...]  # Add time dim
 
-        t, c, h, w = frames.shape
+        _t, _c, _h, _w = frames.shape
 
         # Compute activity/saliency per region
         region_activity = self._compute_region_activity(frames)
@@ -176,7 +176,7 @@ class PositionContextProvider(BaseContextProvider):
 
         Uses frame difference and gradient magnitude as activity proxy.
         """
-        t, c, h, w = frames.shape
+        t, _c, h, w = frames.shape
         gh, gw = self.grid_size
 
         region_h = h // gh
@@ -192,10 +192,7 @@ class PositionContextProvider(BaseContextProvider):
                 region = frames[:, :, y1:y2, x1:x2]
 
                 # Temporal difference (if multiple frames)
-                if t > 1:
-                    temp_diff = np.abs(np.diff(region, axis=0)).mean()
-                else:
-                    temp_diff = 0
+                temp_diff = np.abs(np.diff(region, axis=0)).mean() if t > 1 else 0
 
                 # Spatial gradient (edge/texture)
                 gray = region.mean(axis=1)  # [T, H, W]
@@ -294,7 +291,7 @@ class TemporalContextProvider(BaseContextProvider):
                 metadata={"num_frames": 1},
             )
 
-        t, c, h, w = frames.shape
+        t, _c, _h, _w = frames.shape
 
         # Compute motion features
         motion_magnitude = self._compute_motion(frames)

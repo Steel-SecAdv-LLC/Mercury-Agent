@@ -23,9 +23,25 @@ Additional biometric tests to boost coverage
 from unittest.mock import patch
 
 import numpy as np
-import torch
+import pytest
 
-from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
+# Conditional torch import
+try:
+    import torch
+    from torch import nn
+
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
+    torch = None  # type: ignore
+    nn = None  # type: ignore
+
+# Skip all tests in this module if torch is not available
+pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
+
+# Conditional imports - only when torch is available
+if HAS_TORCH:
+    from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
 
 
 def test_biometric_with_different_models():

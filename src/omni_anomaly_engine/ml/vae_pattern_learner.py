@@ -133,7 +133,7 @@ class VAE(nn.Module):
     def anomaly_score(self, x: torch.Tensor) -> torch.Tensor:
         """Compute anomaly score based on reconstruction error."""
         with torch.no_grad():
-            recon, mu, logvar = self.forward(x)
+            recon, _mu, _logvar = self.forward(x)
             score = F.mse_loss(recon, x, reduction="none").mean(dim=1)
             return score
 
@@ -152,7 +152,7 @@ class VAEPatternLearner:
         """Fit VAE on normal training data."""
         self.vae.train()
 
-        for epoch in range(epochs):
+        for _epoch in range(epochs):
             for i in range(0, len(X_train), batch_size):
                 batch = X_train[i : i + batch_size]
 

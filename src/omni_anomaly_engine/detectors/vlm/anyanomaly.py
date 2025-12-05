@@ -289,7 +289,7 @@ EXPLANATION: [Your detailed explanation]
         if data.ndim == 3:
             data = data[np.newaxis, ...]
 
-        t, c, h, w = data.shape
+        t, _c, _h, _w = data.shape
 
         # Segment video
         segments = self._segment_video(data)

@@ -427,7 +427,7 @@ class PatchCoreDetector(BaseVisualDetector):
                 - Image-level scores [B]
                 - Pixel-level anomaly maps [B, H, W]
         """
-        batch_size, num_patches, dim = patches.shape
+        batch_size, _num_patches, dim = patches.shape
         h, w = patch_shape
 
         # Query nearest neighbors for each patch
@@ -484,7 +484,7 @@ class PatchCoreDetector(BaseVisualDetector):
             with torch.no_grad():
                 features = self.backbone(batch)
 
-            patches, patch_shape = self._aggregate_features(features)
+            patches, _patch_shape = self._aggregate_features(features)
 
             # Global average pooling
             global_feat = patches.mean(dim=1)  # [B, D]

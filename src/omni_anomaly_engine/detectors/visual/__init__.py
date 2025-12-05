@@ -75,13 +75,13 @@ from omni_anomaly_engine.detectors.visual.stfpm import STFPMDetector
 __all__ = [
     # Base classes
     "BaseVisualDetector",
-    "VisualDetectorConfig",
+    "CFlowDetector",
     "FeatureExtractor",
-    "get_backbone",
+    "PaDiMDetector",
     # Detectors
     "PatchCoreDetector",
-    "PaDiMDetector",
-    "STFPMDetector",
     "ReverseDistillationDetector",
-    "CFlowDetector",
+    "STFPMDetector",
+    "VisualDetectorConfig",
+    "get_backbone",
 ]

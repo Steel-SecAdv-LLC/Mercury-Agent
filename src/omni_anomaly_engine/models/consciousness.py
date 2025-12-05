@@ -26,7 +26,7 @@ import numpy as np
 class ConsciousnessPreservationModel:
     """Model for consciousness state preservation and anomaly detection."""
 
-    def __init__(self, config: dict[str, Any] = None, **kwargs):
+    def __init__(self, config: dict[str, Any] | None = None, **kwargs):
         self.config = config or {}
         self.coherence_threshold = self.config.get("coherence_threshold", 0.5)
 
@@ -35,16 +35,13 @@ class ConsciousnessPreservationModel:
         if data.ndim == 1:
             data = data.reshape(1, -1)
 
-        batch_size, dim = data.shape
+        batch_size, _dim = data.shape
         pattern_states = np.zeros((batch_size, 16), dtype=np.complex64)
 
         for i in range(batch_size):
             pattern = data[i]
             norm = np.linalg.norm(pattern)
-            if norm > 0:
-                normalized = pattern / norm
-            else:
-                normalized = pattern
+            normalized = pattern / norm if norm > 0 else pattern
 
             fft_result = np.fft.fft(normalized)
             pattern_states[i, : min(16, len(fft_result))] = fft_result[: min(16, len(fft_result))]
@@ -91,7 +88,7 @@ class ConsciousnessPreservationModel:
     def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
         """Extract consciousness-related features from data."""
         if isinstance(data, dict):
-            data = np.array(list(data.values())[0])
+            data = np.array(next(iter(data.values())))
         elif not isinstance(data, np.ndarray):
             data = np.array(data)
 
@@ -120,7 +117,7 @@ class ConsciousnessPreservationModel:
     def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
         """Predict consciousness state anomalies."""
         if isinstance(data, dict):
-            data_array = np.array(list(data.values())[0])
+            data_array = np.array(next(iter(data.values())))
         elif not isinstance(data, np.ndarray):
             data_array = np.array(data)
         else:

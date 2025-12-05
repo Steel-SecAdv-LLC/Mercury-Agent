@@ -164,7 +164,7 @@ class GreyWolfOptimizer:
         lb = np.zeros(n_total_features)
         ub = np.ones(n_total_features)
 
-        best_pos, best_score = self.optimize(objective, lb, ub)
+        best_pos, _best_score = self.optimize(objective, lb, ub)
 
         indices = np.argsort(best_pos)[-n_features:]
         mask = np.zeros(n_total_features, dtype=bool)

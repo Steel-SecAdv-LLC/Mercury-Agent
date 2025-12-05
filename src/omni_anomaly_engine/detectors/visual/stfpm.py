@@ -368,7 +368,7 @@ class STFPMDetector(BaseVisualDetector):
         Returns:
             Anomaly maps [B, H, W]
         """
-        batch_size = list(teacher_features.values())[0].shape[0]
+        batch_size = next(iter(teacher_features.values())).shape[0]
         anomaly_map = torch.zeros(batch_size, *original_size, device=self.device)
 
         for layer in self.stfpm_config.layers:

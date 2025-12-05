@@ -114,7 +114,7 @@ class SphericalHarmonicDecomposer:
         idx = 0
         for degree in range(self.l_max + 1):
             power = 0.0
-            for order in range(-degree, degree + 1):
+            for _order in range(-degree, degree + 1):
                 power += np.abs(coefficients[idx]) ** 2
                 idx += 1
             power_spectrum[degree] = power / (2 * degree + 1)

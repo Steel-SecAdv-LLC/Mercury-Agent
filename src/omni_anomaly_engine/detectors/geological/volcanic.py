@@ -296,10 +296,7 @@ class InSARDeformationDetector:
 
         deformation_detected = total_displacement > 5.0  # 5 cm threshold
 
-        if vertical_displacement_cm > 0:
-            deformation_type = "inflation"
-        else:
-            deformation_type = "deflation"
+        deformation_type = "inflation" if vertical_displacement_cm > 0 else "deflation"
 
         deformation_rate_cm_day = insar_data.get("deformation_rate_cm_day", 0.0)
 

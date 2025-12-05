@@ -255,10 +255,7 @@ class SigmaDirectiveDetector(BaseDetector):
         """
         Harmonic anomaly detection using FFT
         """
-        if data.ndim == 1:
-            signal = data
-        else:
-            signal = data.flatten()
+        signal = data if data.ndim == 1 else data.flatten()
 
         if len(signal) < 8:
             return 0.0
@@ -315,7 +312,7 @@ class SigmaDirectiveDetector(BaseDetector):
         current = data
         checksum = 0.0
 
-        for i in range(4):
+        for _i in range(4):
             hash_obj = hashlib.sha256(current)
             current = hash_obj.digest()
 
@@ -374,10 +371,7 @@ class SigmaDirectiveDetector(BaseDetector):
         N Term Enhancement: Dimensional downsampling for micro-anomaly detection
         Downsample to low dimensions to detect subtle micro-patterns
         """
-        if data.ndim == 1:
-            data_2d = data.reshape(-1, 1)
-        else:
-            data_2d = data
+        data_2d = data.reshape(-1, 1) if data.ndim == 1 else data
 
         if data_2d.shape[1] < 2:
             return 0.0

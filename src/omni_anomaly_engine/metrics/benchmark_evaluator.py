@@ -254,13 +254,13 @@ class BenchmarkEvaluator:
         lines = ["Comparison Results", "=" * 60]
 
         # Header
-        datasets = sorted(set(r.dataset_name for r in results))
+        datasets = sorted({r.dataset_name for r in results})
         header = f"{'Detector':<20} " + " ".join(f"{d[:10]:>12}" for d in datasets)
         lines.append(header)
         lines.append("-" * len(header))
 
         # Group by detector
-        detectors = sorted(set(r.detector_name for r in results))
+        detectors = sorted({r.detector_name for r in results})
         for detector in detectors:
             row = f"{detector[:20]:<20}"
             for dataset in datasets:
@@ -301,8 +301,8 @@ class BenchmarkEvaluator:
             "# Anomaly Detection Evaluation Report",
             f"\nGenerated: {datetime.now().isoformat()}",
             "\n## Summary",
-            f"\n- Detectors evaluated: {len(set(r.detector_name for r in results))}",
-            f"- Datasets used: {len(set(r.dataset_name for r in results))}",
+            f"\n- Detectors evaluated: {len({r.detector_name for r in results})}",
+            f"- Datasets used: {len({r.dataset_name for r in results})}",
             f"- Total evaluations: {len(results)}",
         ]
 
@@ -315,7 +315,7 @@ class BenchmarkEvaluator:
         # Per-dataset details
         lines.append("\n## Detailed Results")
 
-        for dataset in sorted(set(r.dataset_name for r in results)):
+        for dataset in sorted({r.dataset_name for r in results}):
             lines.append(f"\n### {dataset}")
 
             dataset_results = [r for r in results if r.dataset_name == dataset]

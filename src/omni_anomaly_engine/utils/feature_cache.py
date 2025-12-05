@@ -228,10 +228,7 @@ class MemoryEfficientFeatureCache:
         Returns:
             Tuple of (processed_data, is_sparse, sparse_indices)
         """
-        if isinstance(data, torch.Tensor):
-            np_data = data.detach().cpu().numpy()
-        else:
-            np_data = data.copy()
+        np_data = data.detach().cpu().numpy() if isinstance(data, torch.Tensor) else data.copy()
 
         is_sparse = False
         sparse_indices = None

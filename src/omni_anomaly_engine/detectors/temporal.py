@@ -70,10 +70,7 @@ class TemporalAnomalyDetector(BaseDetector):
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
 
-        if isinstance(data, torch.Tensor):
-            data_np = data.cpu().numpy()
-        else:
-            data_np = data
+        data_np = data.cpu().numpy() if isinstance(data, torch.Tensor) else data
 
         trend_anomalies = self._detect_trend_anomalies(data_np)
         change_anomalies = self._detect_sudden_changes(data_np)
@@ -91,10 +88,7 @@ class TemporalAnomalyDetector(BaseDetector):
 
     def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
         """Extract temporal features for ML fusion"""
-        if isinstance(data, torch.Tensor):
-            data_np = data.cpu().numpy()
-        else:
-            data_np = data
+        data_np = data.cpu().numpy() if isinstance(data, torch.Tensor) else data
 
         if not self._is_fitted:
             self.fit(data_np)

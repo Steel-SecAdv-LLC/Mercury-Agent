@@ -86,7 +86,7 @@ class TemporalEncoder(nn.Module):
             embedding: [batch_size, output_dim]
         """
         if x.dim() == 3:
-            lstm_out, (hidden, _) = self.lstm(x)
+            _lstm_out, (hidden, _) = self.lstm(x)
             last_hidden = hidden[-1]
             embedding = self.projection(last_hidden)
         elif x.dim() == 2:
@@ -250,7 +250,7 @@ class AffectiveEncoder(nn.Module):
             embedding: [batch_size, output_dim]
         """
         if x.dim() == 3:
-            lstm_out, (hidden, _) = self.bilstm(x)
+            _lstm_out, (hidden, _) = self.bilstm(x)
             forward_hidden = hidden[-2]
             backward_hidden = hidden[-1]
             combined = torch.cat([forward_hidden, backward_hidden], dim=1)

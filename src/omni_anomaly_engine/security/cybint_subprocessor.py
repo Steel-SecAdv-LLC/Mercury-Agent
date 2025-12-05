@@ -519,7 +519,7 @@ class CYBINTSubProcessor:
 
         self.apt_recognizer.eval()
         with torch.no_grad():
-            apt_logits, confidence = self.apt_recognizer(features_tensor)
+            apt_logits, _confidence = self.apt_recognizer(features_tensor)
 
         probs = torch.softmax(apt_logits[0], dim=0)
         apt_idx = torch.argmax(probs).item()

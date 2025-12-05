@@ -96,7 +96,7 @@ class FusionNetwork(nn.Module):
         Returns:
             Fused output tensor [batch_size, output_dim]
         """
-        encoded = [encoder(x) for encoder, x in zip(self.encoders, inputs)]
+        encoded = [encoder(x) for encoder, x in zip(self.encoders, inputs, strict=False)]
         concatenated = torch.cat(encoded, dim=-1)
         return self.fusion_layer(concatenated)
 
@@ -208,7 +208,7 @@ class MultimodalFusion(nn.Module):
             raise KeyError("No valid modalities provided in inputs")
 
         weights = torch.softmax(torch.stack(weight_list), dim=0)
-        weighted_sum = sum(w * e for w, e in zip(weights, encoded_list))
+        weighted_sum = sum(w * e for w, e in zip(weights, encoded_list, strict=False))
 
         return self.fusion_layer(weighted_sum)
 

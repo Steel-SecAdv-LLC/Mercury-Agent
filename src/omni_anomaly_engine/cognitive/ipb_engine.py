@@ -701,7 +701,8 @@ class IPBEngine:
         ]
 
         # Generate indicators and warnings
-        iaw = threat.indicators + [
+        iaw = [
+            *threat.indicators,
             f"changes_in_{threat.category.value}_behavior",
             f"targeting_of_{environment.domain.value if environment else 'assets'}",
         ]

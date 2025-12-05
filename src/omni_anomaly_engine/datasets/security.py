@@ -116,7 +116,7 @@ class NSLKDDLoader(DatasetLoader):
             "u2r": 0.05,
         }
 
-        for i in range(n_samples):
+        for _i in range(n_samples):
             attack_type = np.random.choice(list(attack_probs.keys()), p=list(attack_probs.values()))
 
             if attack_type == "normal":
@@ -377,7 +377,7 @@ class CICIDSLoader(DatasetLoader):
         features = []
         labels = []
 
-        for i in range(n_samples):
+        for _i in range(n_samples):
             attack_type = np.random.choice(
                 self.ATTACK_TYPES,
                 p=[
@@ -542,7 +542,7 @@ class ThreatIntelLoader(DatasetLoader):
         features = []
         labels = []
 
-        for i in range(n_samples):
+        for _i in range(n_samples):
             is_threat = np.random.random() < 0.4
 
             if is_threat:

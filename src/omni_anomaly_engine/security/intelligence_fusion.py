@@ -489,7 +489,7 @@ class IntelligenceFusionEngine:
         """Identify primary and corroborating intelligence sources"""
         source_scores = []
 
-        for i, discipline in enumerate(IntelligenceDiscipline):
+        for _i, discipline in enumerate(IntelligenceDiscipline):
             if discipline.value in intel_reports:
                 score = intel_reports[discipline.value].get("confidence", 0.0)
                 source_scores.append((discipline.value, score))
@@ -507,7 +507,7 @@ class IntelligenceFusionEngine:
         """Extract key threat indicators from reports"""
         indicators = set()
 
-        for disc_key, report in intel_reports.items():
+        for report in intel_reports.values():
             if "indicators" in report:
                 indicators.update(report["indicators"][:5])
 
@@ -592,10 +592,10 @@ class IntelligenceFusionEngine:
         for source in primary_sources:
             priorities.append(f"Sustain {source} collection")
 
-        gaps = set(IntelligenceDiscipline) - set(
+        gaps = set(IntelligenceDiscipline) - {
             IntelligenceDiscipline(s) if s in [d.value for d in IntelligenceDiscipline] else None
             for s in primary_sources
-        )
+        }
         gaps.discard(None)
 
         for gap in list(gaps)[:2]:

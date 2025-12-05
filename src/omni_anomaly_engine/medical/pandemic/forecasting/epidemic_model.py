@@ -126,23 +126,23 @@ class EpidemicForecaster:
 
         solution = odeint(self._seir_derivatives, y0, t)
 
-        S, E, I, R = solution.T
+        susceptible, exposed, infected, recovered = solution.T
 
         r0 = self._estimate_r0()
 
-        peak_infections = int(np.max(I))
-        peak_day = int(np.argmax(I))
+        peak_infections = int(np.max(infected))
+        peak_day = int(np.argmax(infected))
 
         outbreak_detected = peak_infections > (0.01 * self.population)
 
-        chaos_score = self._detect_chaos(I)
+        chaos_score = self._detect_chaos(infected)
         bifurcation_detected = chaos_score > self.chaos_threshold
 
         seir_trajectory = {
-            "susceptible": S,
-            "exposed": E,
-            "infected": I,
-            "recovered": R,
+            "susceptible": susceptible,
+            "exposed": exposed,
+            "infected": infected,
+            "recovered": recovered,
             "time_days": t,
         }
 
@@ -189,13 +189,13 @@ class EpidemicForecaster:
         Returns:
             [dS/dt, dE/dt, dI/dt, dR/dt] derivatives
         """
-        S, E, I, R = y
-        N = self.population
+        susceptible, exposed, infected, _recovered = y
+        total_pop = self.population
 
-        dS_dt = -self.beta * S * I / N
-        dE_dt = self.beta * S * I / N - self.sigma * E
-        dI_dt = self.sigma * E - self.gamma * I
-        dR_dt = self.gamma * I
+        dS_dt = -self.beta * susceptible * infected / total_pop
+        dE_dt = self.beta * susceptible * infected / total_pop - self.sigma * exposed
+        dI_dt = self.sigma * exposed - self.gamma * infected
+        dR_dt = self.gamma * infected
 
         return [dS_dt, dE_dt, dI_dt, dR_dt]
 

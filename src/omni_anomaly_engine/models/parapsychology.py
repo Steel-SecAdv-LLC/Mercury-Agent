@@ -468,7 +468,7 @@ class ParapsychologyDetector:
                 ]
             )
 
-            chi2, ctrl_p, _, _ = stats.chi2_contingency(contingency_table)
+            _chi2, ctrl_p, _, _ = stats.chi2_contingency(contingency_table)
             comparison["control_p_value"] = ctrl_p
             comparison["difference_significant"] = ctrl_p < self.significance_threshold
 

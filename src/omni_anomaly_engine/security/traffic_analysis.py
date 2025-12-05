@@ -299,10 +299,7 @@ class EncryptedTrafficFingerprinter:
         if weak_ciphers:
             return True
 
-        if len(extensions) > 20:
-            return True
-
-        return False
+        return len(extensions) > 20
 
     def _identify_risk_indicators(self, handshake: dict[str, Any]) -> list[str]:
         """Identify TLS risk indicators"""
@@ -433,7 +430,7 @@ class CovertChannelDetector:
             return 0.0
 
         data_array = np.array(data)
-        unique, counts = np.unique(data_array, return_counts=True)
+        _unique, counts = np.unique(data_array, return_counts=True)
         probabilities = counts / len(data_array)
 
         entropy = -np.sum(probabilities * np.log2(probabilities + 1e-10))

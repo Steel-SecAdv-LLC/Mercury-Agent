@@ -20,17 +20,33 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Training module smoke tests to boost coverage
 """
 
-import torch
+import pytest
 
-from omni_anomaly_engine.ml.training import (
-    AnomalyDataset,
-    AvaExponentialDecayOptimizer,
-    AvaHarmonicOptimizer,
-    AvaMomentumOptimizer,
-    AvaOptimizer,
-    FusionTrainer,
-    create_ava_optimizer,
-)
+# Conditional torch import
+try:
+    import torch
+    from torch import nn
+
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
+    torch = None  # type: ignore
+    nn = None  # type: ignore
+
+# Skip all tests in this module if torch is not available
+pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
+
+# Conditional imports - only when torch is available
+if HAS_TORCH:
+    from omni_anomaly_engine.ml.training import (
+        AnomalyDataset,
+        AvaExponentialDecayOptimizer,
+        AvaHarmonicOptimizer,
+        AvaMomentumOptimizer,
+        AvaOptimizer,
+        FusionTrainer,
+        create_ava_optimizer,
+    )
 
 
 def test_anomaly_dataset_initialization():

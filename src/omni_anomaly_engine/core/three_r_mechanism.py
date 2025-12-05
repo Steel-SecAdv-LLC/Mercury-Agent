@@ -520,10 +520,9 @@ class CognitiveComplexityVisitor(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         """Handle function calls to detect recursion."""
-        if isinstance(node.func, ast.Name):
-            if node.func.id == self.func_name:
-                self.recursion_count += 1
-                self._increment_fundamental()
+        if isinstance(node.func, ast.Name) and node.func.id == self.func_name:
+            self.recursion_count += 1
+            self._increment_fundamental()
         self.generic_visit(node)
 
     def visit_Break(self, node: ast.Break) -> None:
@@ -1551,9 +1550,8 @@ class RefactoringEngine:
         elif target_operation == "iteration":
             if isinstance(data, set):
                 return list(data)
-        elif target_operation == "insertion":
-            if isinstance(data, tuple):
-                return list(data)
+        elif target_operation == "insertion" and isinstance(data, tuple):
+            return list(data)
 
         return data
 

@@ -596,20 +596,19 @@ class PostQuantumMigrationPlanner:
         """
         algorithm_upper = algorithm.upper()
 
-        is_vulnerable = any(vuln in algorithm_upper for vuln in self.vulnerable_algorithms.keys())
+        is_vulnerable = any(vuln in algorithm_upper for vuln in self.vulnerable_algorithms)
 
-        if not is_vulnerable:
-            if "AES" in algorithm_upper and key_size >= 256:
-                return {
-                    "algorithm": algorithm,
-                    "vulnerable_to_quantum": False,
-                    "threat_level": "low",
-                    "explanation": (
-                        "AES-256 provides adequate security against quantum attacks "
-                        "(Grover's algorithm)"
-                    ),
-                    "action_required": "none",
-                }
+        if not is_vulnerable and "AES" in algorithm_upper and key_size >= 256:
+            return {
+                "algorithm": algorithm,
+                "vulnerable_to_quantum": False,
+                "threat_level": "low",
+                "explanation": (
+                    "AES-256 provides adequate security against quantum attacks "
+                    "(Grover's algorithm)"
+                ),
+                "action_required": "none",
+            }
 
         threat_timeline = self._calculate_threat_timeline(algorithm, key_size)
         recommended_pqc = self._recommend_pqc_algorithm(algorithm, usage_context)

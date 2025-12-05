@@ -187,10 +187,7 @@ class WorldBankSectorsMonitor:
                 sdg_priority = self.isic_sectors[sector_code]["sdg_priority"]
                 weighted_scores.append(sustainability_score * sdg_priority)
 
-        if not weighted_scores:
-            overall_score = 0.50
-        else:
-            overall_score = np.mean(weighted_scores)
+        overall_score = 0.5 if not weighted_scores else np.mean(weighted_scores)
 
         sdg_alignment = (
             "high" if overall_score > 0.75 else "medium" if overall_score > 0.60 else "low"
