@@ -23,6 +23,7 @@ Uses lazy imports to avoid circular dependency issues during package initializat
 """
 
 __all__ = [
+    # Core Models
     "AdvancedBiometricEngine",
     "AffectiveAnomalyModel",
     "AgeProgressionEngine",
@@ -40,9 +41,23 @@ __all__ = [
     "QuantumEngine",
     "QuantumGate",
     "SimulationModule",
+    # SOTA Models (State-of-the-Art Anomaly Detection)
+    "AssociationDiscrepancyModule",
+    "AnomalyTransformerEncoder",
+    "PriorAssociation",
+    "SeriesAssociation",
+    "TranADModel",
+    "FocusScoreConditioning",
+    "AdversarialTrainer",
+    "MAMLOptimizer",
+    "MAATModel",
+    "SparseAttention",
+    "MambaSSM",
+    "GatedFeatureFusion",
 ]
 
 _LAZY_IMPORTS = {
+    # Core Models
     "QuantumAnomalyModel": "omni_anomaly_engine.models.quantum",
     "AstrophysicalAnomalyModel": "omni_anomaly_engine.models.astrophysical",
     "BiometricAnomalyModel": "omni_anomaly_engine.models.biometric",
@@ -60,6 +75,21 @@ _LAZY_IMPORTS = {
     "QuantumEngine": "omni_anomaly_engine.models.quantum_engine",
     "QuantumCircuit": "omni_anomaly_engine.models.quantum_engine",
     "QuantumGate": "omni_anomaly_engine.models.quantum_engine",
+    # SOTA - Association Discrepancy (Anomaly Transformer, ICLR 2022)
+    "AssociationDiscrepancyModule": "omni_anomaly_engine.models.sota.association_discrepancy",
+    "AnomalyTransformerEncoder": "omni_anomaly_engine.models.sota.association_discrepancy",
+    "PriorAssociation": "omni_anomaly_engine.models.sota.association_discrepancy",
+    "SeriesAssociation": "omni_anomaly_engine.models.sota.association_discrepancy",
+    # SOTA - TranAD (VLDB 2022)
+    "TranADModel": "omni_anomaly_engine.models.sota.tranad",
+    "FocusScoreConditioning": "omni_anomaly_engine.models.sota.tranad",
+    "AdversarialTrainer": "omni_anomaly_engine.models.sota.tranad",
+    "MAMLOptimizer": "omni_anomaly_engine.models.sota.tranad",
+    # SOTA - MAAT (arXiv 2025)
+    "MAATModel": "omni_anomaly_engine.models.sota.maat",
+    "SparseAttention": "omni_anomaly_engine.models.sota.maat",
+    "MambaSSM": "omni_anomaly_engine.models.sota.maat",
+    "GatedFeatureFusion": "omni_anomaly_engine.models.sota.maat",
 }
 
 
