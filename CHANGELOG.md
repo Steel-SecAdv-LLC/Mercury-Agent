@@ -31,6 +31,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING**: JWT authentication now requires `JWT_SECRET_KEY` environment variable
   - Removed insecure default `"dev-secret-key"` (P0 security fix)
   - Clear error message with instructions for secure key generation
+  
+  **Migration Guide for JWT_SECRET_KEY:**
+  1. Generate a secure random key: `openssl rand -hex 32`
+  2. Set the environment variable before starting the server:
+     - Linux/macOS: `export JWT_SECRET_KEY="your-generated-key"`
+     - Windows: `set JWT_SECRET_KEY=your-generated-key`
+     - Docker: Add `-e JWT_SECRET_KEY="your-generated-key"` to docker run
+     - .env file: Add `JWT_SECRET_KEY=your-generated-key`
+  3. For production, use a secrets manager (AWS Secrets Manager, HashiCorp Vault, etc.)
+  4. **Important**: Never commit your JWT secret to version control
+  
 - Rate limiting middleware enforced on FastAPI server
   - Token bucket algorithm: 100 requests/min, burst of 20
   - Configurable via `OMNI_RATE_LIMIT_*` environment variables
