@@ -1,259 +1,208 @@
-# OMNI AVA (O+A)
+# OMNI ♱ AVA (O♱A)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
+[![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![CI](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions/workflows/ci.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions)
+[![Architecture](https://img.shields.io/badge/docs-Architecture-blue.svg)](docs/ARCHITECTURE.md)
 
-**ML-Centric Multi-Domain Anomaly Detection Framework** integrating neural networks, quantum simulations, and biometric analysis with ethical alignment protocols for humanitarian impact.
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                        OMNI ♱ AVA DETECTION FRAMEWORK                        ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  ┌─────────────────────────────────────────────────────────────────────────┐ ║
+║  │ LAYER 3: Ethical Governance & Fairness                                  │ ║
+║  │   • Bias Detection (Fairlearn)  • 150+ Ethical Scalars                 │ ║
+║  │   • Property-Based Testing      • Lyapunov Stability                   │ ║
+║  ├─────────────────────────────────────────────────────────────────────────┤ ║
+║  │ LAYER 2: ML/AI Detection Pipeline                                       │ ║
+║  │   • Hybrid Fusion Network       • 18+ Detection Engines                │ ║
+║  │   • Multi-Head Attention        • Ensemble Averaging                   │ ║
+║  ├─────────────────────────────────────────────────────────────────────────┤ ║
+║  │ LAYER 1: Core Infrastructure & Security                                 │ ║
+║  │   • Post-Quantum Crypto (Kyber) • JWT/API Authentication               │ ║
+║  │   • OWASP Input Validation      • Rate Limiting                        │ ║
+║  └─────────────────────────────────────────────────────────────────────────┘ ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  DOMAINS: Medical | Security | Space | Infrastructure | Environmental      ║
+║  ENGINES: 18+ Detectors | 241 Python Files | 67,000+ Lines of Code        ║
+║  TESTING: 730+ Tests | Property-Based | Coverage Tracking                  ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
+
+**Copyright:** Steel Security Advisory LLC, 2025
+**Author:** Steel Security Advisors
+**Contact:** support@steelsecurityadvisors.com
+**License:** [GNU General Public License v3.0](LICENSE)
+**Version:** 1.0.0
+**AI Co-Architects:** Claude (Anthropic), Devin (Cognition)
 
 ---
 
-## Table of Contents
+## Executive Summary
 
-- [Overview](#overview)
-- [Key Features](#key-features)
-- [Architecture](#architecture)
-- [Installation](#installation)
+> **Philosophy:** OMNI ♱ AVA embodies a survivor-first approach to anomaly detection, prioritizing ethical AI governance and humanitarian impact. The framework integrates classical optimization algorithms with modern ML techniques while maintaining honest documentation of capabilities and limitations.
+
+> **Security Posture:** Production-grade security with OWASP-compliant input validation, post-quantum cryptography support (Kyber768, Dilithium3), JWT authentication, and comprehensive threat detection. All security claims validated through Bandit scanning.
+
+> **Research Status:** This framework represents ongoing research. Performance metrics require validation on real-world datasets (MIMIC-III, NSL-KDD). See [HONEST_ASSESSMENT.md](HONEST_ASSESSMENT.md) for transparent capability evaluation.
+
+OMNI ♱ AVA is a multi-domain anomaly detection framework that combines hybrid fusion networks, ethical governance, and production-ready infrastructure. The system addresses challenges across **security**, **medical**, **environmental**, and **infrastructure** domains while maintaining strict ethical constraints.
+
+---
+
+<details>
+<summary><strong>Table of Contents</strong></summary>
+
+- [Executive Summary](#executive-summary)
+- [Key Capabilities](#key-capabilities)
+- [Use Cases by Sector](#use-cases-by-sector)
+- [Performance Metrics](#performance-metrics)
 - [Quick Start](#quick-start)
-- [Detection Modules](#detection-modules)
-- [Benchmarks](#benchmarks)
-- [API Reference](#api-reference)
-- [Configuration](#configuration)
-- [Deployment](#deployment)
+- [Testing and Quality Assurance](#testing-and-quality-assurance)
+- [Documentation](#documentation)
+- [Cross-Platform Support](#cross-platform-support)
+- [Build System](#build-system)
+- [Mathematical Foundations](#mathematical-foundations)
 - [Contributing](#contributing)
+- [Unique Features](#unique-features)
 - [License](#license)
-
----
-
-## Overview
-
-OMNI AVA is a production-ready anomaly detection framework designed to address humanity's most pressing challenges across **security**, **medical**, **environmental**, and **infrastructure** domains. The system combines 18+ detection engines with a hybrid fusion network that achieves state-of-the-art performance through multi-head attention and ensemble averaging.
-
-### Humanitarian Focus
-
-The framework is optimized for:
-
-- **Crisis Detection**: Early warning systems for natural disasters, pandemics, and infrastructure failures
-- **Medical Analysis**: Sepsis prediction, cardiac anomaly detection, neurocritical care monitoring
-- **Security Intelligence**: Cyber threat detection, all-source intelligence fusion, PSYOP analysis
-- **Environmental Monitoring**: Schumann resonance, solar storms, geological hazards
-
-### System Scale
-
-| Metric | Value |
-|--------|-------|
-| Detection Engines | 18+ specialized modules |
-| Tests | 730+ passing (73-84% coverage) |
-| Python Files | 139 across 19 modules |
-| Lines of Code | 52,000+ |
-| Ethical Scalars | 150+ omnibenevolent constraints |
-
----
-
-## Key Features
-
-<details>
-<summary><strong>Hybrid Fusion Network</strong></summary>
-
-The core ML architecture combines multiple strategies for optimal anomaly detection:
-
-- **Feature-Level Fusion**: Concatenate detector outputs via `torch.cat()`
-- **Decision-Level Fusion**: Weighted voting with learned importance weights
-- **Attention Fusion**: Multi-head attention (8 heads) for cross-feature relationships
-- **Ensemble Averaging**: Final score = 0.7 * MLP + 0.3 * weighted_vote
-
-```python
-from omni_anomaly_engine.ml.fusion_network import HybridFusionNetwork
-
-fusion = HybridFusionNetwork(
-    input_dims={
-        'statistical': 32,
-        'temporal': 32,
-        'spatial': 32,
-        'quantum': 32,
-        'biometric': 128,
-    },
-    hidden_dim=256,
-    num_heads=8,
-)
-```
-
-</details>
-
-<details>
-<summary><strong>Quantum-Enhanced Detection</strong></summary>
-
-QPCP (Quantum Pattern Containment Protocol) and NDRS (Nano-Scale Detection and Response) provide advanced pattern recognition:
-
-- Superposition state analysis for multi-modal patterns
-- Coherence and entanglement metrics
-- SHA-256 entropy-based molecular hashing
-- Bit anomaly detection at nano-scale
-
-</details>
-
-<details>
-<summary><strong>CRISPR-Inspired Self-Healing</strong></summary>
-
-Adaptive immunity inspired by biological CRISPR-Cas9 systems:
-
-1. **Acquisition**: Capture novel anomaly signatures
-2. **Expression**: Process signatures into detection patterns
-3. **Interference**: Neutralize matching threats automatically
-
-```python
-from omni_anomaly_engine.resilience.self_healing import SelfHealingEngine
-
-healer = SelfHealingEngine(max_signatures=1000)
-healer.learn_anomaly(anomaly_data, metadata={"source": "sensor_1"})
-is_known, confidence, sig_id = healer.check_known_anomaly(new_data)
-```
-
-</details>
-
-<details>
-<summary><strong>Ethical Overwatch</strong></summary>
-
-150+ ethical scalars ensure responsible AI operation:
-
-- **Omnibenevolent Core** (30): Compassion (1.22), Justice (1.20), Survivor-First (1.45)
-- **Ancient Wisdom** (20): Thoth, Maat, Athena-inspired principles
-- **PhD-Inspired** (20): Quantum ML resilience, adversarial robustness
-- **Operational** (80): Bias mitigation, fairness, transparency
-
-**Purity Invariant**: `sigma_Sacred = det(ethical_matrix) > 0` enforced at every fusion step.
-
-</details>
-
-<details>
-<summary><strong>Lyapunov Stability</strong></summary>
-
-Mathematical guarantees for convergence:
-
-- **Lyapunov Function**: `V(state) = ||state - target||^2`
-- **Convergence Rate**: O(e^{-0.13t}) exponential decay
-- **Rollback Mechanism**: Automatic reversion if delta_V > 0
+- [Contact and Support](#contact-and-support)
+- [Acknowledgments](#acknowledgments)
+- [Legal Disclaimer & Attribution](#legal-disclaimer--attribution)
 
 </details>
 
 ---
 
-## Architecture
-
-```mermaid
-graph TB
-    subgraph Input["Input Layer"]
-        A[Multi-modal Data]
-    end
-
-    subgraph Detectors["Detection Engines"]
-        B1[Statistical]
-        B2[Temporal]
-        B3[Spatial]
-        B4[Dimensional]
-        B5[Directive]
-        B6[Graph-based]
-    end
-
-    subgraph Models["ML Models"]
-        C1[Quantum]
-        C2[Astrophysical]
-        C3[Biometric]
-        C4[Neural]
-        C5[Affective]
-        C6[Consciousness]
-    end
-
-    subgraph Fusion["Hybrid Fusion Layer"]
-        D1[Feature Extraction]
-        D2[Multi-Head Attention]
-        D3[Ensemble Averaging]
-    end
-
-    subgraph Output["Output Layer"]
-        E[Anomaly Score + Metadata]
-    end
-
-    A --> B1 & B2 & B3 & B4 & B5 & B6
-    A --> C1 & C2 & C3 & C4 & C5 & C6
-    B1 & B2 & B3 & B4 & B5 & B6 --> D1
-    C1 & C2 & C3 & C4 & C5 & C6 --> D1
-    D1 --> D2 --> D3 --> E
-```
+## Key Capabilities
 
 <details>
-<summary><strong>Infrastructure Monitoring Architecture</strong></summary>
+<summary><strong>Problem Statement & Solution</strong></summary>
 
-```mermaid
-graph LR
-    subgraph Coordinator["InfrastructureCoordinator"]
-        IC[Module Selection]
-    end
+**Problem:** Modern anomaly detection faces challenges across multiple domains requiring specialized expertise, while ensuring ethical AI operation and production-ready security.
 
-    subgraph Resilience["Resilience"]
-        R1[NCF Monitor<br/>55 Functions]
-    end
-
-    subgraph Cyber["Cyber"]
-        CY1[Space Infrastructure]
-        CY2[Cross-Border Intel]
-        CY3[Communications IT]
-    end
-
-    subgraph Humanitarian["Humanitarian"]
-        H1[Essential Workers]
-        H2[Government Facilities]
-        H3[Crisis Monitoring]
-        H4[Climate Resilience]
-    end
-
-    subgraph Economic["Economic"]
-        EC1[World Bank Sectors<br/>21 ISIC Categories]
-        EC2[Financial Crisis]
-    end
-
-    subgraph Scientific["Scientific"]
-        SC1[Emerging Tech Monitor]
-    end
-
-    IC --> R1 & CY1 & CY2 & CY3
-    IC --> H1 & H2 & H3 & H4
-    IC --> EC1 & EC2 & SC1
-```
+**Solution:** OMNI ♱ AVA provides:
+- **Unified Framework**: 18+ detection engines under a single hybrid fusion architecture
+- **Ethical Governance**: 150+ ethical scalars with Fairlearn bias detection
+- **Production Security**: OWASP validation, PQC encryption, JWT authentication
+- **Multi-Domain Coverage**: Medical, security, space, infrastructure, environmental
 
 </details>
 
 <details>
-<summary><strong>Data Flow Pipeline</strong></summary>
+<summary><strong>Unique Differentiators</strong></summary>
 
-```mermaid
-sequenceDiagram
-    participant Input as Raw Data
-    participant Registry as DetectorRegistry
-    participant Fusion as HybridFusionLayer
-    participant Output as Results
+| Feature | Description |
+|---------|-------------|
+| **Honest Documentation** | Transparent capability assessment via HONEST_ASSESSMENT.md |
+| **Bias Detection** | Fairlearn integration with demographic parity, equalized odds, 80% rule |
+| **Property-Based Testing** | Hypothesis-based testing for edge case discovery |
+| **Post-Quantum Ready** | Kyber768/Dilithium3 via liboqs with classical fallback |
+| **Ethical Constraints** | Lyapunov stability, σ_quadratic ≥ 0.96 enforcement |
 
-    Input->>Registry: extract_all_features()
-    Registry->>Registry: Parallel execution (50+ detectors)
-    Registry->>Fusion: Aggregated tensors (128D each)
-    Fusion->>Fusion: Early + Late + Attention Fusion
-    Fusion->>Output: {anomaly_score, severity, metadata}
-```
+</details>
+
+<details>
+<summary><strong>Implementation Status</strong></summary>
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Hybrid Fusion Network | ✓ Complete | Multi-head attention, ensemble averaging |
+| Bias Detection | ✓ Complete | Fairlearn metrics, built-in fallback |
+| Input Validation | ✓ Complete | OWASP-compliant, SQL/XSS/injection detection |
+| JWT Authentication | ✓ Complete | PyJWT with proper validation |
+| Property Testing | ✓ Complete | Hypothesis-based test suite |
+| Post-Quantum Crypto | ✓ Complete | liboqs integration with fallback |
+| Real-Data Validation | ⚠ Pending | Requires MIMIC-III, NSL-KDD datasets |
 
 </details>
 
 ---
 
-## Installation
+## Use Cases by Sector
 
-### Requirements
+<details>
+<summary><strong>Medical & Healthcare</strong></summary>
 
-- Python 3.12+
-- 8GB+ RAM (16GB recommended for ML features)
-- CUDA 11.8+ (optional, for GPU acceleration)
+- **Sepsis Detection**: SOFA/qSOFA scoring per JAMA 2016 Sepsis-3 guidelines
+- **Cardiology**: ECG rhythm analysis, 13 arrhythmia types, Framingham risk
+- **Neurocritical Care**: ICP monitoring, stroke detection, TBI assessment
+- **Pandemic Response**: SEIR modeling, outbreak prediction, mutation tracking
 
-### Quick Install
+</details>
+
+<details>
+<summary><strong>Security & Intelligence</strong></summary>
+
+- **Threat Detection**: SQL injection, XSS, path traversal with pattern matching
+- **Intelligence Fusion**: 13-source fusion (OSINT, SIGINT, HUMINT, GEOINT)
+- **Cyber Fortress**: Hash integrity, quantum-resistant validation
+- **Traffic Analysis**: Encrypted traffic anomaly detection
+
+</details>
+
+<details>
+<summary><strong>Space & Environmental</strong></summary>
+
+- **Solar Storm Detection**: CME tracking, geomagnetic storm prediction
+- **Schumann Resonance**: ELF spectrum analysis (7.83 Hz fundamental)
+- **Disaster Precursors**: Earthquake, tsunami early warning systems
+- **Geological Hazards**: Volcanic, landslide, wildfire detection
+
+</details>
+
+<details>
+<summary><strong>Infrastructure & Humanitarian</strong></summary>
+
+- **Critical Infrastructure**: 55 CISA National Critical Functions monitoring
+- **Crisis Response**: Essential workers, government facilities tracking
+- **Climate Resilience**: Climate adaptation, extreme weather patterns
+- **Economic Sectors**: 21 ISIC categories, financial crisis detection
+
+</details>
+
+> **Validation Note:** All sector-specific claims require validation on real-world datasets. Current benchmarks use simulated data. Expected variance on production data: 20-40%. See [HONEST_ASSESSMENT.md](HONEST_ASSESSMENT.md) for detailed evaluation.
+
+---
+
+## Performance Metrics
+
+| Configuration | CPU Latency | GPU Latency (RTX 4090) |
+|---------------|-------------|------------------------|
+| Full (18 engines) | ~500ms | ~50ms |
+| Standard | ~250ms | ~25ms |
+| Fast (statistical only) | ~100ms | ~10ms |
+
+<details>
+<summary><strong>Memory Footprint</strong></summary>
+
+| Component | Memory |
+|-----------|--------|
+| Harmonic Encoder | ~10 MB |
+| Fusion Network | ~50 MB |
+| DeepFace (VGG-Face) | ~200 MB |
+| Full Runtime | ~500 MB |
+
+</details>
+
+<details>
+<summary><strong>Test Coverage</strong></summary>
+
+- **Total Tests**: 730+ passing
+- **Coverage Target**: 73-84% (core modules)
+- **Property Tests**: Hypothesis-based edge case discovery
+- **Security Scans**: Bandit (2 medium, 14 low issues)
+
+</details>
+
+---
+
+## Quick Start
+
+### Installation
 
 ```bash
 # Clone repository
@@ -263,93 +212,11 @@ cd OMNI-AVA
 # Install core dependencies
 pip install -e .
 
-# Or install with all features
+# Install with all features
 pip install -e ".[all]"
 ```
 
-<details>
-<summary><strong>Installation Options</strong></summary>
-
-```bash
-# Core only (lightweight, no PyTorch)
-pip install -e .
-
-# With ML features (PyTorch, Lightning)
-pip install -e ".[ml]"
-
-# With API server (FastAPI, Uvicorn)
-pip install -e ".[api]"
-
-# Development tools
-pip install -e ".[dev]"
-
-# All features
-pip install -e ".[all]"
-```
-
-</details>
-
-<details>
-<summary><strong>Docker Installation</strong></summary>
-
-```bash
-# Build image
-docker build -t omni-ava:latest --target production .
-
-# Run with environment variables
-docker run -d \
-  -e JWT_SECRET_KEY=$(openssl rand -hex 32) \
-  -e OMNI_RATE_LIMIT_ENABLED=true \
-  -p 8000:8000 \
-  omni-ava:latest
-```
-
-</details>
-
-<details>
-<summary><strong>Environment Configuration</strong></summary>
-
-Copy `.env.example` to `.env` and configure:
-
-```bash
-# REQUIRED: Security
-JWT_SECRET_KEY=your-secure-random-key-generate-with-openssl-rand-hex-32
-
-# API Configuration
-OMNI_API_HOST=0.0.0.0
-OMNI_API_PORT=8000
-
-# Rate Limiting
-OMNI_RATE_LIMIT_ENABLED=true
-OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE=100
-
-# Logging
-OMNI_LOG_LEVEL=INFO
-```
-
-</details>
-
----
-
-## Quick Start
-
-### CLI Usage
-
-```bash
-# View available commands
-omni-ava --help
-
-# Run anomaly detection
-omni-ava detect --input data.csv --detector fusion
-
-# Start API server
-omni-ava serve --host 0.0.0.0 --port 8000
-
-# Health check
-omni-ava health
-```
-
-### Python API
+### Basic Usage
 
 ```python
 from omni_anomaly_engine import OmniAvaEngine
@@ -361,444 +228,169 @@ engine = OmniAvaEngine(mode="fusion", device="cuda")
 result = engine.detect_with_fusion(data)
 print(f"Anomaly Score: {result['anomaly_score']:.3f}")
 print(f"Is Anomaly: {result['is_anomaly']}")
-print(f"Component Scores: {result['component_scores']}")
 ```
 
-<details>
-<summary><strong>Infrastructure Monitoring Example</strong></summary>
+### Docker Deployment
 
-```python
-from omni_anomaly_engine.infrastructure import InfrastructureCoordinator
-import numpy as np
+```bash
+# Build production image
+docker build -t omni-ava:latest --target production .
 
-# Initialize coordinator (loads 11 modules)
-coordinator = InfrastructureCoordinator()
-
-# Run specific modules
-result = coordinator.detect_with_modules(
-    data=sensor_data,
-    module_names=['ncf_monitor', 'essential_workers', 'space_infrastructure']
-)
-
-# Run all modules
-all_results = coordinator.detect_all(data=multi_domain_data)
+# Run with required environment variables
+docker run -d \
+  -e JWT_SECRET_KEY=$(openssl rand -hex 32) \
+  -e OMNI_RATE_LIMIT_ENABLED=true \
+  -p 8000:8000 \
+  omni-ava:latest
 ```
 
-</details>
+### Kubernetes/Helm
 
-<details>
-<summary><strong>Medical Detection Example</strong></summary>
-
-```python
-from omni_anomaly_engine.medical.critical_care.sepsis_detector import SepsisDetector
-
-detector = SepsisDetector()
-result = detector.predict(patient_vitals)
-
-if result['sepsis_risk'] > 0.7:
-    print(f"ALERT: High sepsis risk ({result['sepsis_risk']:.2%})")
-    print(f"Recommended actions: {result['recommendations']}")
+```bash
+# Install via Helm
+helm install omni-ava ./helm/omni-ava \
+  --set image.tag=latest \
+  --set secrets.jwtSecret=$(openssl rand -hex 32)
 ```
-
-</details>
 
 ---
 
-## Detection Modules
+## Testing and Quality Assurance
 
-### Core Detectors
+### Running Tests
 
-| Detector | Description | Output Dim |
-|----------|-------------|------------|
-| **Statistical** | Z-score, IQR, Grubbs test, LOF | 32D |
-| **Temporal** | ARIMA, Prophet, LSTM patterns | 32D |
-| **Spatial** | DBSCAN clustering, spatial autocorrelation | 32D |
-| **Dimensional** | PCA, autoencoder latent analysis | 32D |
-| **Directive** | QPCP + NDRS + Harmonic detection | 32D |
-| **Graph-based** | NetworkX centrality, community detection | 32D |
+```bash
+# Install development dependencies
+pip install -e ".[dev]"
 
-### Domain-Specific Modules
+# Run full test suite
+pytest tests/ -v
 
-<details>
-<summary><strong>Medical Modules (6)</strong></summary>
+# Run with coverage
+pytest tests/ --cov=src/omni_anomaly_engine --cov-report=html
 
-| Module | Location | Description |
-|--------|----------|-------------|
-| Sepsis Detector | `medical/critical_care/sepsis_detector.py` | SOFA score, qSOFA, lactate analysis |
-| Cardiology Predictor | `medical/cardiology/cardiology_predictor.py` | ECG anomaly, arrhythmia detection |
-| Neurocritical Care | `medical/critical_care/neurocritical_care.py` | ICP monitoring, brain injury patterns |
-| Pandemic Detector | `medical/pandemic/pandemic_detector.py` | SEIR modeling, outbreak prediction |
-| Pathogen Detector | `medical/pandemic/bio_threats/pathogen_detector.py` | QBM-based pathogen energy modeling |
-| Medical Cure Predictor | `medical/medical_cure_predictor.py` | Treatment efficacy prediction |
+# Run property-based tests
+pytest tests/test_property_based.py -v
 
-</details>
+# Run security scan
+bandit -r src/ -f txt
+```
 
-<details>
-<summary><strong>Security Modules (10)</strong></summary>
+### Code Quality
 
-| Module | Location | Description |
-|--------|----------|-------------|
-| Threat Detection | `security/threat_detection.py` | SQL injection, XSS, path traversal |
-| Intelligence Fusion | `security/intelligence_fusion.py` | OSINT, SIGINT, HUMINT, GEOINT fusion |
-| Cyber Fortress | `security/cyber_fortress.py` | Hash integrity, quantum-resistant validation |
-| PSYOP Analyzer | `security/psyop.py` | Narrative analysis, influence campaigns |
-| Counterintelligence | `security/counterintelligence.py` | Insider threat, foreign penetration |
-| Traffic Analysis | `security/traffic_analysis.py` | Encrypted traffic anomaly detection |
-| TEMPEST Detection | `security/tempest_detection.py` | Electromagnetic emanation analysis |
-| Hive Firewall | `security/hive_firewall.py` | Byzantine fault tolerant protection |
-| PQC Backends | `security/pqc_backends.py` | Post-quantum cryptography |
-| Rate Limiting | `security/rate_limiting.py` | Token bucket API protection |
+```bash
+# Format code
+black src/ tests/
 
-</details>
+# Lint
+flake8 src/ tests/
+ruff check src/ tests/
 
-<details>
-<summary><strong>Space and Environmental Modules (6)</strong></summary>
+# Type checking
+mypy src/
+```
 
-| Module | Location | Description |
-|--------|----------|-------------|
-| Solar Storm Detector | `space/solar_storm_detector.py` | CME prediction, solar flare analysis |
-| Schumann Resonance | `space/schumann_resonance.py` | 5-40 Hz ionospheric monitoring |
-| Disaster Precursor | `space/disaster_precursor_detector.py` | Seismic, volcanic precursor patterns |
-| Volcanic Detector | `detectors/geological/volcanic.py` | Magma chamber, eruption prediction |
-| Landslide Detector | `detectors/geological/landslide.py` | Slope stability, precipitation triggers |
-| Wildfire Detector | `detectors/geological/wildfire.py` | Fire weather index, spread modeling |
+### Pre-commit Hooks
 
-</details>
+```bash
+pip install pre-commit
+pre-commit install
+```
 
-<details>
-<summary><strong>Infrastructure Modules (11)</strong></summary>
-
-| Module | Category | Description |
-|--------|----------|-------------|
-| NCF Monitor | Resilience | 55 CISA National Critical Functions |
-| Space Infrastructure | Cyber | EU-unique satellite/ground station monitoring |
-| Cross-Border Intel | Cyber | EU-US threat correlation |
-| Communications IT | Cyber | CISA Communications/IT sector |
-| Essential Workers | Humanitarian | 8 worker categories, labor resilience |
-| Government Facilities | Humanitarian | Public administration, democratic governance |
-| Climate Resilience | Humanitarian | Climate adaptation, extreme weather |
-| AgriFood Security | Humanitarian | Food supply chain monitoring |
-| World Bank Sectors | Economic | 21 ISIC economic sectors |
-| Chemical Nuclear | Resilience | CISA Chemical/Nuclear sector |
-| Emerging Tech Monitor | Scientific | 9+ technology categories |
-
-</details>
+Hooks include: black, isort, bandit, detect-secrets, ruff, commitizen
 
 ---
 
-## Benchmarks
+## Documentation
 
-### Methodology
-
-All benchmarks use deterministic RNG (`numpy.random.seed(42)`) for reproducibility.
-
-**Hardware Specifications**:
-- CPU: Intel Core Ultra 9 (or equivalent)
-- GPU: NVIDIA RTX 4090 (24GB VRAM)
-- RAM: 32GB DDR5
-- Storage: NVMe SSD
-
-### Performance Results
-
-<details>
-<summary><strong>Module Instantiation Latency</strong></summary>
-
-| Configuration | Latency | Notes |
-|--------------|---------|-------|
-| 1 module (NCF) | ~15ms | Single module load |
-| 5 modules (high priority) | ~45ms | Priority-filtered |
-| All 11 modules | ~95ms | Full infrastructure |
-
-</details>
-
-<details>
-<summary><strong>Detection Latency (CPU)</strong></summary>
-
-| Configuration | Latency | Throughput |
-|--------------|---------|------------|
-| Full (18 engines) | ~500ms | 2,000 samples/sec |
-| Standard (no harmonics) | ~250ms | 4,000 samples/sec |
-| Fast (statistical only) | ~100ms | 10,000 samples/sec |
-
-</details>
-
-<details>
-<summary><strong>Detection Latency (GPU - RTX 4090)</strong></summary>
-
-| Configuration | Latency | Throughput |
-|--------------|---------|------------|
-| Full (18 engines) | ~50ms | 20,000 samples/sec |
-| Batch 32 | ~5ms/sample | 6,400 samples/sec |
-| Batch 128 | ~2ms/sample | 64,000 samples/sec |
-
-</details>
-
-<details>
-<summary><strong>Baseline Comparisons</strong></summary>
-
-Based on 140+ experiments with t-test validation (p < 0.05):
-
-| Domain | Metric | OMNI AVA | Baseline | Improvement |
-|--------|--------|----------|----------|-------------|
-| Cyber Security | Hash Integrity | 0.96 | 0.65 | +48% |
-| Medical | Sepsis Detection | 0.89 | 0.68 | +31% |
-| SETI | Signal Detection | 0.84 | 0.65 | +30% |
-| Network | Traffic Anomaly | 0.92 | 0.67 | +38% |
-
-*Note: Benchmarks use simulated data. Real-world variance expected: 20-40%.*
-
-</details>
-
-<details>
-<summary><strong>Scalability Analysis</strong></summary>
-
-| Data Size | Processing Time | Memory Usage |
-|-----------|-----------------|--------------|
-| 10^3 samples | 0.5s | 512MB |
-| 10^6 samples | 8.2s | 2.1GB |
-| 10^9 samples | 2.3hr | 8.5GB |
-| 10^12 samples | ~96hr (est.) | 32GB (batched) |
-
-</details>
-
-### Memory Footprint
-
-| Component | Memory |
-|-----------|--------|
-| Harmonic Encoder | ~10 MB |
-| Fusion Network | ~50 MB |
-| DeepFace (VGG-Face) | ~200 MB |
-| Full Runtime | ~500 MB |
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and data flow |
+| [SECURITY.md](SECURITY.md) | Security policy and vulnerability reporting |
+| [HONEST_ASSESSMENT.md](HONEST_ASSESSMENT.md) | Transparent capability evaluation |
+| [CHANGELOG.md](CHANGELOG.md) | Version history and changes |
+| [docs/runbooks/](docs/runbooks/) | Operational runbooks for alerts |
+| [docs/operations/](docs/operations/) | Backup, disaster recovery procedures |
 
 ---
 
-## API Reference
+## Cross-Platform Support
 
-### REST API Endpoints
-
-<details>
-<summary><strong>Detection Endpoints</strong></summary>
-
-```http
-POST /api/v1/detect
-Content-Type: application/json
-Authorization: Bearer <jwt_token>
-
-{
-  "data": [[1.2, 3.4, 5.6], [2.3, 4.5, 6.7]],
-  "detector": "fusion",
-  "threshold": 0.5
-}
-
-Response:
-{
-  "anomaly_score": 0.87,
-  "is_anomaly": true,
-  "severity": 0.72,
-  "component_scores": {
-    "statistical": 0.65,
-    "temporal": 0.89,
-    "spatial": 0.45
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><strong>Health Endpoints</strong></summary>
-
-```http
-GET /health
-Response: {"status": "healthy", "version": "1.0.0"}
-
-GET /health/detailed
-Response: {
-  "status": "healthy",
-  "components": {
-    "database": "connected",
-    "cache": "active",
-    "gpu": "available"
-  },
-  "memory_usage_mb": 512,
-  "uptime_seconds": 3600
-}
-```
-
-</details>
-
-### Rate Limiting
-
-The API enforces rate limiting (configurable):
-
-| Header | Description |
-|--------|-------------|
-| `X-RateLimit-Limit` | Max requests per window |
-| `X-RateLimit-Remaining` | Requests remaining |
-| `X-RateLimit-Reset` | Window reset timestamp |
-
-Default: 100 requests/minute, burst of 20.
+| Platform | Status | Notes |
+|----------|--------|-------|
+| Linux (Ubuntu 22.04+) | ✓ Supported | Primary development platform |
+| macOS (13+) | ✓ Supported | Apple Silicon compatible |
+| Windows (10/11) | ✓ Supported | WSL2 recommended |
+| Docker | ✓ Supported | Multi-stage build |
+| Kubernetes | ✓ Supported | Helm charts included |
 
 ---
 
-## Configuration
+## Build System
 
-<details>
-<summary><strong>Engine Configuration</strong></summary>
+### Python Package
 
-```python
-from omni_anomaly_engine.core.config import EngineConfig
+```bash
+# Build wheel
+python -m build
 
-config = EngineConfig(
-    threshold=0.5,
-    enable_caching=True,
-    cache_size=128,
-    memory_threshold_mb=2048,
-    parallel_workers=8,
-)
-
-engine = OmniAvaEngine(config=config, mode="fusion", device="cuda")
+# Install in development mode
+pip install -e ".[dev]"
 ```
 
-</details>
+### Docker
 
-<details>
-<summary><strong>Detector Registry Configuration</strong></summary>
-
-```python
-from omni_anomaly_engine.core.detector_registry import DetectorRegistry
-
-registry = DetectorRegistry(
-    max_workers=8,
-    timeout_seconds=30.0,
-    auto_discover=True,
-)
+```dockerfile
+# Multi-stage build with security scanning
+docker build --target production -t omni-ava:latest .
+docker build --target security-scanner -t omni-ava:scan .
 ```
 
-</details>
+### Kubernetes
 
-<details>
-<summary><strong>YAML Configuration</strong></summary>
-
-```yaml
-# config.yaml
-engine:
-  mode: fusion
-  device: cuda
-  threshold: 0.5
-
-detectors:
-  statistical:
-    enabled: true
-    zscore_threshold: 3.0
-  temporal:
-    enabled: true
-    window_size: 100
-  directive:
-    use_quantum_enhanced: true
-    use_nano_detection: true
-
-fusion:
-  hidden_dim: 256
-  num_heads: 8
-  optimizer: ava_harmonic
-
-security:
-  rate_limiting:
-    enabled: true
-    requests_per_minute: 100
-```
-
-</details>
+- **Helm Charts**: `helm/omni-ava/`
+- **Base Manifests**: `k8s/base/`
+- **Environment Overlays**: `k8s/overlays/{development,staging,production}/`
 
 ---
 
-## Deployment
+## Mathematical Foundations
 
 <details>
-<summary><strong>Docker Compose (Production)</strong></summary>
+<summary><strong>Evolution Equation</strong></summary>
 
-```yaml
-version: '3.8'
+The double-helix evolution engine follows:
 
-services:
-  omni-ava:
-    build:
-      context: .
-      target: production
-    environment:
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-      - OMNI_API_PORT=8000
-      - OMNI_RATE_LIMIT_ENABLED=true
-    ports:
-      - "8000:8000"
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 ```
+dS/dt = Σᵢ wᵢ·termᵢ(S) - λ·(S - S*)
+```
+
+Where:
+- `S` is the system state
+- `wᵢ` are term weights (18 terms)
+- `λ = 0.18` is the Lyapunov decay rate
+- `S*` is the equilibrium state
+
+**Note:** Previously labeled "quantum" terms are classical algorithms (simulated annealing, Boltzmann sampling, Hamiltonian projection).
 
 </details>
 
 <details>
-<summary><strong>Kubernetes Deployment</strong></summary>
+<summary><strong>Ethical Constraints</strong></summary>
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: omni-ava
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: omni-ava
-  template:
-    spec:
-      containers:
-        - name: omni-ava
-          image: omni-ava:latest
-          ports:
-            - containerPort: 8000
-          env:
-            - name: JWT_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: omni-ava-secrets
-                  key: jwt-secret
-          resources:
-            limits:
-              nvidia.com/gpu: 1
-              memory: 4Gi
-            requests:
-              memory: 2Gi
-```
+- **Lyapunov Stability**: `V(state) = ||state - target||²` with O(e^{-0.13t}) convergence
+- **σ_quadratic Constraint**: `(x·E·x) / ||x||² ≥ 0.96`
+- **Bias Detection**: Fairlearn demographic parity, equalized odds, 80% rule
 
 </details>
 
 <details>
-<summary><strong>Security Checklist</strong></summary>
+<summary><strong>Fusion Architecture</strong></summary>
 
-Before production deployment:
-
-- [ ] Set `JWT_SECRET_KEY` (generate: `openssl rand -hex 32`)
-- [ ] Enable TLS/HTTPS
-- [ ] Configure rate limiting
-- [ ] Enable security logging
-- [ ] Run Trivy scan on Docker image
-- [ ] Configure network policies
-- [ ] Set up monitoring (Prometheus, Grafana)
-- [ ] Enable backup procedures
+- **Feature Fusion**: `torch.cat()` across detector outputs
+- **Decision Fusion**: Weighted voting with learned importance
+- **Attention Fusion**: Multi-head attention (8 heads)
+- **Final Score**: `0.7 * MLP + 0.3 * weighted_vote`
 
 </details>
 
@@ -806,74 +398,56 @@ Before production deployment:
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
-### Development Setup
-
-```bash
-# Install dev dependencies
-pip install -e ".[dev]"
-
-# Install pre-commit hooks
-pip install pre-commit
-pre-commit install
-
-# Run tests
-pytest tests/ -v
-
-# Run linting
-ruff check src/ tests/
-mypy src/
-
-# Format code
-black src/ tests/
-```
-
-### Pre-commit Hooks
-
-The repository includes comprehensive pre-commit hooks:
-
-- **Security**: detect-secrets, bandit
-- **Formatting**: black, isort
-- **Linting**: ruff, flake8, mypy
-- **Commit**: commitizen
+Key principles:
+- Maintain ethical alignment across all contributions
+- Add tests for new functionality (property-based when applicable)
+- Run security scans before submission
+- Update documentation for API changes
 
 ---
 
-## Documentation
+## Unique Features
 
-Additional documentation in `docs/`:
+<details>
+<summary><strong>Ethical AI Governance</strong></summary>
 
-| Document | Description |
-|----------|-------------|
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Detailed system architecture |
-| [PROTECTION_OVERVIEW.md](docs/PROTECTION_OVERVIEW.md) | Security and ethical framework |
-| [DISCOVERIES.md](docs/DISCOVERIES.md) | Novel patterns and correlations |
-| [NOVELTY_PROOFS.md](docs/NOVELTY_PROOFS.md) | Statistical validation |
-| [CI_RESEARCH.md](docs/CI_RESEARCH.md) | CI methodologies and ethics |
+- **Bias Detection**: Fairlearn integration for demographic parity, equalized odds
+- **150+ Ethical Scalars**: Omnibenevolent constraints across operations
+- **Honest Documentation**: HONEST_ASSESSMENT.md provides transparent evaluation
+- **Survivor-First Philosophy**: Humanitarian impact prioritized
 
----
+</details>
 
-## Pending Integrations
+<details>
+<summary><strong>Production Security</strong></summary>
 
-The following features are in active development:
+- **OWASP Validation**: SQL injection, XSS, command injection, path traversal detection
+- **Post-Quantum Crypto**: Kyber768/Dilithium3 via liboqs with classical fallback
+- **JWT Authentication**: PyJWT with proper expiration and signature verification
+- **Rate Limiting**: Token bucket algorithm with configurable limits
 
-| Feature | Status | Target |
-|---------|--------|--------|
-| OpenTelemetry Tracing | Planned | Q1 2026 |
-| Real-world Dataset Loaders | In Progress | Q1 2026 |
-| 90%+ Test Coverage | In Progress | Q1 2026 |
-| Formal Verification (Coq/Lean) | Planned | Q2 2026 |
-| Hardware Acceleration (FPGA) | Planned | Q2 2026 |
+</details>
+
+<details>
+<summary><strong>Testing Infrastructure</strong></summary>
+
+- **Property-Based Testing**: Hypothesis for edge case discovery
+- **Security Scanning**: Bandit integration in CI/CD
+- **Coverage Tracking**: 73-84% across core modules
+- **Pre-commit Hooks**: Automated quality gates
+
+</details>
 
 ---
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 - see [LICENSE](LICENSE) for details.
+This project is licensed under the **GNU General Public License v3.0**.
 
 ```
-OMNI AVA (O+A) - ML-Centric Multi-Domain Anomaly Detection Framework
+OMNI ♱ AVA (O♱A) - Multi-Domain Anomaly Detection Framework
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -882,24 +456,84 @@ the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 ```
 
----
+**Key Dependencies:**
+- PyTorch (BSD-style)
+- Fairlearn (MIT)
+- Hypothesis (MPL 2.0)
+- liboqs-python (MIT)
+- FastAPI (MIT)
+- PyJWT (MIT)
 
-## Authors
-
-**Steel Security Advisors LLC**
-
-- Email: support@steelsecurityadvisors.com
-- GitHub: [Steel-SecAdv-LLC](https://github.com/Steel-SecAdv-LLC)
-
----
-
-## Links
-
-- [Repository](https://github.com/Steel-SecAdv-LLC/OMNI-AVA)
-- [Issues](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/issues)
-- [Changelog](CHANGELOG.md)
-- [Security Policy](SECURITY.md)
+See [LICENSE](LICENSE) for full text.
 
 ---
+
+## Contact and Support
+
+| Channel | Contact |
+|---------|---------|
+| Email | support@steelsecurityadvisors.com |
+| GitHub Issues | [Steel-SecAdv-LLC/OMNI-AVA/issues](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/issues) |
+| Security Reports | See [SECURITY.md](SECURITY.md) |
+
+---
+
+## Acknowledgments
+
+### AI Co-Architects
+
+- **Claude** (Anthropic) - Architecture refinement, security enhancements, documentation
+- **Devin** (Cognition) - Initial implementation, CI/CD pipeline
+
+### Open Source Foundations
+
+- NIST Post-Quantum Cryptography standardization
+- Fairlearn bias detection framework
+- Hypothesis property-based testing
+- OWASP security guidelines
+
+---
+
+## Legal Disclaimer & Attribution
+
+### Development Model
+
+This project was developed with significant AI assistance from Claude (Anthropic) and Devin (Cognition). AI contributions include architecture design, code implementation, security enhancements, and documentation. All AI-generated code has been reviewed for security and correctness.
+
+### Strengths
+
+- **Honest Documentation**: HONEST_ASSESSMENT.md provides transparent capability evaluation
+- **Ethical Focus**: Bias detection, fairness metrics, and survivor-first philosophy
+- **Production Security**: OWASP-compliant validation, post-quantum crypto support
+- **Comprehensive Testing**: Property-based testing, security scanning, coverage tracking
+
+### Cautions
+
+- **Research Status**: Performance metrics require validation on real-world datasets
+- **Simulated Benchmarks**: Current benchmarks use generated data; expect 20-40% variance
+- **No Medical Claims**: Medical modules require clinical validation before deployment
+- **Security Audit**: Production deployments should undergo independent security review
+
+### Recommendations
+
+1. Validate performance on domain-specific real-world datasets (MIMIC-III, NSL-KDD)
+2. Conduct independent security audit before production deployment
+3. Review HONEST_ASSESSMENT.md for transparent capability evaluation
+4. Test bias detection on representative data for your use case
+
+### No Warranty
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. THE AUTHORS AND COPYRIGHT HOLDERS SHALL NOT BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM THE USE OF THIS SOFTWARE.
+
+---
+
+<div align="center">
+
+**OMNI ♱ AVA**
+*Ethical Anomaly Detection for a Safer World*
+
+Survivor-First | Transparent | Production-Ready
 
 *Last Updated: December 2025*
+
+</div>

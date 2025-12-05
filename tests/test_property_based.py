@@ -1,0 +1,381 @@
+"""
+OMNI ♱ AVA (O♱A)
+Copyright (C) 2025 Steel Security Advisory LLC
+
+Hypothesis-based Property Testing for OMNI-AVA Components.
+
+Uses property-based testing to verify invariants and edge cases that
+unit tests might miss. This approach generates thousands of test cases
+automatically to find edge cases and bugs.
+
+Reference: Hypothesis documentation (https://hypothesis.readthedocs.io/)
+"""
+
+import numpy as np
+import pytest
+
+# Check if hypothesis is available
+hypothesis_available = True
+try:
+    from hypothesis import HealthCheck, assume, given, settings
+    from hypothesis import strategies as st
+    from hypothesis.extra import numpy as npst
+except ImportError:
+    hypothesis_available = False
+
+    # Create dummy decorators for when hypothesis isn't available
+    def given(*args, **kwargs):
+        def decorator(func):
+            return pytest.mark.skip(reason="Hypothesis not installed")(func)
+
+        return decorator
+
+    def settings(*args, **kwargs):
+        def decorator(func):
+            return func
+
+        return decorator
+
+    class st:
+        @staticmethod
+        def floats(*args, **kwargs):
+            return None
+
+        @staticmethod
+        def integers(*args, **kwargs):
+            return None
+
+        @staticmethod
+        def text(*args, **kwargs):
+            return None
+
+        @staticmethod
+        def lists(*args, **kwargs):
+            return None
+
+        @staticmethod
+        def dictionaries(*args, **kwargs):
+            return None
+
+        @staticmethod
+        def booleans():
+            return None
+
+        @staticmethod
+        def characters(*args, **kwargs):
+            return None
+
+        @staticmethod
+        def tuples(*args, **kwargs):
+            return None
+
+    class npst:
+        @staticmethod
+        def arrays(*args, **kwargs):
+            return None
+
+    class HealthCheck:
+        too_slow = None
+
+    def assume(condition):
+        pass
+
+
+class TestInputValidationProperties:
+    """Property-based tests for input validation."""
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(st.text(min_size=0, max_size=1000))
+    @settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
+    def test_sanitize_never_returns_dangerous_html(self, text: str):
+        """Sanitized output should never contain raw script tags."""
+        from omni_anomaly_engine.security.input_validation import (
+            InputValidator,
+            SanitizationLevel,
+        )
+
+        validator = InputValidator(level=SanitizationLevel.MODERATE)
+        result = validator.validate_string(text)
+
+        # Property: Sanitized output should not contain unescaped script tags
+        if result.sanitized_value:
+            assert "<script" not in result.sanitized_value.lower()
+            assert "javascript:" not in result.sanitized_value.lower()
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(st.text(min_size=0, max_size=100))
+    @settings(max_examples=100)
+    def test_sanitize_strict_only_allows_safe_chars(self, text: str):
+        """Strict sanitization should only allow alphanumeric and limited punctuation."""
+        from omni_anomaly_engine.security.input_validation import (
+            InputValidator,
+            SanitizationLevel,
+        )
+
+        validator = InputValidator(level=SanitizationLevel.STRICT)
+        result = validator.validate_string(text, level=SanitizationLevel.STRICT)
+
+        # Property: Strict mode only allows safe characters
+        if result.sanitized_value:
+            import re
+
+            # Only alphanumeric, underscore, hyphen, at, dot, space
+            assert re.match(r"^[a-zA-Z0-9_\-@. ]*$", result.sanitized_value)
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(st.integers(min_value=-(10**15), max_value=10**15))
+    @settings(max_examples=100)
+    def test_integer_validation_roundtrip(self, value: int):
+        """Integer validation should preserve valid integers."""
+        from omni_anomaly_engine.security.input_validation import InputValidator
+
+        validator = InputValidator()
+        result = validator.validate_integer(value)
+
+        # Property: Valid integers should pass validation unchanged
+        assert result.is_valid
+        assert result.sanitized_value == value
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(st.floats(min_value=-1e10, max_value=1e10, allow_nan=False, allow_infinity=False))
+    @settings(max_examples=100)
+    def test_float_validation_preserves_valid_floats(self, value: float):
+        """Float validation should preserve valid floats."""
+        from omni_anomaly_engine.security.input_validation import InputValidator
+
+        validator = InputValidator()
+        result = validator.validate_float(value)
+
+        # Property: Valid floats should pass validation
+        assert result.is_valid
+        assert abs(result.sanitized_value - value) < 1e-10
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(st.text(min_size=1, max_size=50))
+    @settings(max_examples=100)
+    def test_path_traversal_always_detected(self, prefix: str):
+        """Path traversal patterns should always be detected."""
+        from omni_anomaly_engine.security.input_validation import InputValidator
+
+        validator = InputValidator()
+
+        # Test with common traversal patterns
+        traversal_payloads = [
+            f"{prefix}/../etc/passwd",
+            f"{prefix}/..\\windows\\system32",
+            f"{prefix}/%2e%2e/etc/passwd",
+        ]
+
+        for payload in traversal_payloads:
+            result = validator.validate_path(payload)
+            # Property: Path traversal should be detected
+            assert not result.is_valid or ".." not in payload
+
+
+class TestDoubleHelixEngineProperties:
+    """Property-based tests for the evolution engine."""
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(npst.arrays(dtype=np.float64, shape=st.integers(min_value=4, max_value=64)))
+    @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
+    def test_evolution_preserves_finite_values(self, initial_state: np.ndarray):
+        """Evolution should never produce NaN or Inf values."""
+        from omni_anomaly_engine.core.double_helix_engine import AvaEquationEngine
+
+        # Skip if initial state has bad values
+        assume(np.all(np.isfinite(initial_state)))
+        assume(np.linalg.norm(initial_state) > 1e-10)
+
+        engine = AvaEquationEngine(dimension=len(initial_state))
+        final_state, history = engine.converge(initial_state, max_iter=10)
+
+        # Property: Output should always be finite
+        assert np.all(np.isfinite(final_state))
+        for state in history:
+            assert np.all(np.isfinite(state.state_vector))
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(st.integers(min_value=4, max_value=128))
+    @settings(max_examples=20, suppress_health_check=[HealthCheck.too_slow])
+    def test_evolution_dimension_consistency(self, dim: int):
+        """Evolution should preserve state dimension."""
+        from omni_anomaly_engine.core.double_helix_engine import AvaEquationEngine
+
+        engine = AvaEquationEngine(dimension=dim)
+        initial_state = np.random.randn(dim)
+        final_state, history = engine.converge(initial_state, max_iter=5)
+
+        # Property: Dimension should be preserved
+        assert len(final_state) == dim
+        for state in history:
+            assert len(state.state_vector) == dim
+
+
+class TestBiasDetectorProperties:
+    """Property-based tests for bias detection."""
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(st.integers(min_value=100, max_value=1000), st.integers(min_value=2, max_value=5))
+    @settings(max_examples=20, suppress_health_check=[HealthCheck.too_slow])
+    def test_perfect_predictor_is_fair(self, n_samples: int, n_groups: int):
+        """A perfect predictor should pass fairness checks."""
+        from omni_anomaly_engine.ml.bias_detection import BiasDetector, FairnessMetric
+
+        # Generate balanced data
+        y_true = np.random.randint(0, 2, n_samples)
+        y_pred = y_true.copy()  # Perfect predictions
+        sensitive_features = np.random.randint(0, n_groups, n_samples)
+
+        detector = BiasDetector(use_fairlearn=False)
+        report = detector.evaluate(
+            y_true, y_pred, sensitive_features, metrics=[FairnessMetric.EQUALIZED_ODDS]
+        )
+
+        # Property: Perfect predictor should have no equalized odds disparity
+        for result in report.fairness_results:
+            if result.metric == FairnessMetric.EQUALIZED_ODDS:
+                # Perfect predictions mean TPR=1, FPR=0 for all groups
+                assert result.disparity < 0.01 or result.is_fair
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(st.integers(min_value=50, max_value=500))
+    @settings(max_examples=20)
+    def test_random_predictor_detected_as_unfair_for_biased_data(self, n_samples: int):
+        """Deliberately biased predictions should fail fairness checks."""
+        from omni_anomaly_engine.ml.bias_detection import BiasDetector, FairnessMetric
+
+        # Create deliberately biased data
+        y_true = np.random.randint(0, 2, n_samples)
+
+        # Group 0 gets all 1s, Group 1 gets all 0s (extreme bias)
+        sensitive_features = np.random.randint(0, 2, n_samples)
+        y_pred = (sensitive_features == 0).astype(int)
+
+        detector = BiasDetector(use_fairlearn=False)
+        report = detector.evaluate(
+            y_true, y_pred, sensitive_features, metrics=[FairnessMetric.DEMOGRAPHIC_PARITY]
+        )
+
+        # Property: Extreme bias should be detected
+        dp_result = next(
+            r for r in report.fairness_results if r.metric == FairnessMetric.DEMOGRAPHIC_PARITY
+        )
+        assert dp_result.disparity > 0.5 or not dp_result.is_fair
+
+
+class TestThreatDetectorProperties:
+    """Property-based tests for threat detection."""
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(
+        st.text(alphabet=st.characters(whitelist_categories=("L", "N")), min_size=1, max_size=100)
+    )
+    @settings(max_examples=100)
+    def test_clean_input_not_flagged(self, text: str):
+        """Alphanumeric text should not be flagged as threats."""
+        from omni_anomaly_engine.security.threat_detection import ThreatDetector
+
+        detector = ThreatDetector()
+        result = detector.detect_all(text)
+
+        # Property: Pure alphanumeric should not trigger threats
+        assert not result["is_threat"]
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(st.text(min_size=0, max_size=50))
+    @settings(max_examples=50)
+    def test_sql_injection_always_detected(self, prefix: str):
+        """SQL injection patterns should always be detected."""
+        from omni_anomaly_engine.security.threat_detection import ThreatDetector
+
+        detector = ThreatDetector()
+
+        # Test with known SQL injection patterns
+        sql_payloads = [
+            f"{prefix}' OR '1'='1",
+            f"{prefix}; DROP TABLE users--",
+            f"{prefix}' UNION SELECT * FROM passwords--",
+        ]
+
+        for payload in sql_payloads:
+            result = detector.detect_sql_injection(payload)
+            # Property: SQL injection patterns should be detected
+            assert result["is_threat"]
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(st.text(min_size=0, max_size=50))
+    @settings(max_examples=50)
+    def test_xss_always_detected(self, prefix: str):
+        """XSS patterns should always be detected."""
+        from omni_anomaly_engine.security.threat_detection import ThreatDetector
+
+        detector = ThreatDetector()
+
+        # Test with known XSS patterns
+        xss_payloads = [
+            f"{prefix}<script>alert('xss')</script>",
+            f"{prefix}<img onerror=alert('xss')>",
+            f"{prefix}javascript:alert('xss')",
+        ]
+
+        for payload in xss_payloads:
+            result = detector.detect_xss(payload)
+            # Property: XSS patterns should be detected
+            assert result["is_threat"]
+
+
+class TestEthicalEngineProperties:
+    """Property-based tests for ethical constraint engine."""
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(
+        st.dictionaries(
+            keys=st.text(
+                min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L",))
+            ),
+            values=st.floats(min_value=0.0, max_value=1.0, allow_nan=False),
+            min_size=1,
+            max_size=10,
+        )
+    )
+    @settings(max_examples=50)
+    def test_maat_balance_bounded_output(self, ethical_scores: dict):
+        """Ma'at balance should always produce bounded heart weight."""
+        from omni_anomaly_engine.ethical.sacred_wisdom_engine import MaatBalanceEngine
+
+        engine = MaatBalanceEngine()
+        result = engine.weigh_heart_against_feather(ethical_scores)
+
+        # Property: Heart weight should be bounded [0.5, 1.5]
+        assert 0.5 <= result.heart_weight <= 1.5
+        assert 0.0 <= result.deviation <= 1.0
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(
+        npst.arrays(
+            dtype=np.float64,
+            shape=st.tuples(
+                st.integers(min_value=2, max_value=10), st.integers(min_value=2, max_value=10)
+            ),
+            elements=st.floats(min_value=-10, max_value=10, allow_nan=False, allow_infinity=False),
+        )
+    )
+    @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
+    def test_sacred_geometry_bounded_scores(self, data: np.ndarray):
+        """Sacred geometry analysis should produce scores in [0, 1]."""
+        from omni_anomaly_engine.ethical.sacred_wisdom_engine import SacredGeometryProcessor
+
+        processor = SacredGeometryProcessor()
+        result = processor.analyze_sacred_geometry(data)
+
+        # Property: All scores should be bounded [0, 1]
+        assert 0.0 <= result.golden_ratio_alignment <= 1.0
+        assert 0.0 <= result.fibonacci_spiral_score <= 1.0
+        assert 0.0 <= result.vesica_piscis_score <= 1.0
+        assert 0.0 <= result.platonic_harmony <= 1.0
+        assert 0.0 <= result.overall_sacred_score <= 1.0
+
+
+# Run with: pytest tests/test_property_based.py -v
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

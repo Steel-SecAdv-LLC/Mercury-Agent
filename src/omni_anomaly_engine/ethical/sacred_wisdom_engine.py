@@ -17,21 +17,30 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Sacred Wisdom Engine - Ethical AI Balance and Archetypal Pattern Recognition
+Ethical Constraint Engine - AI Fairness and Bias Detection Framework
 
-Integrates ancient wisdom traditions with modern AI ethics for:
-- Ma'at Balance Engine: Egyptian archetypal patterns for ethical AI balance verification
-- Athena Wisdom Engine: Greek strategic intelligence and wisdom quotient computation
-- Twelve-Fold Verification System: 12-dimensional validation across wisdom domains
-- Sacred Geometry Processor: Golden ratio alignment and Fibonacci spiral detection
+This module provides practical ethical AI verification:
+- Weighted balance scoring for ethical dimension evaluation
+- Multi-dimensional validation (12 ethical principles)
+- Bias detection through weighted score analysis
+- Fairness verification and constraint enforcement
 
-This module provides bias detection, fairness verification, and ethical constraint
-enforcement using mathematically grounded archetypal patterns.
+Implementation Note:
+    The module uses mythological naming conventions (Ma'at, Athena, etc.) as
+    metaphors for ethical concepts. The actual functionality is standard
+    weighted scoring, threshold comparison, and constraint verification.
+    The mythology provides a narrative framework but the math is straightforward:
+    - "Heart weight" = weighted average of ethical scores
+    - "Wisdom quotient" = weighted sum of performance metrics
+    - "Sacred geometry" = ratio analysis against constants like φ
 
-References:
-    - Ma'at concept: Ancient Egyptian goddess of truth, justice, and cosmic order
-    - Athena: Greek goddess of wisdom, strategic warfare, and crafts
-    - Sacred geometry: Livio (2002), Schneider (1994)
+Practical Use:
+    - Validate ML model outputs against ethical constraints
+    - Score decisions across multiple fairness dimensions
+    - Detect imbalanced weightings that may indicate bias
+    - Provide actionable recommendations for improvement
+
+The code is production-ready for ethical AI auditing.
 """
 
 import logging

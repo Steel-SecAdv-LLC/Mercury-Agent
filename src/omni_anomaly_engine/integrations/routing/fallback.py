@@ -38,7 +38,7 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, TypeVar
+from typing import Any, Generic, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class FallbackReason(Enum):
 
 
 @dataclass
-class FallbackResult[T]:
+class FallbackResult(Generic[T]):
     """Result from fallback chain execution.
 
     Attributes:

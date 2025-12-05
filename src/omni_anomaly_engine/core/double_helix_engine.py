@@ -19,12 +19,14 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 Double-Helix Evolution Engine for OMNI ♱ AVA
 
-Implements the Ava Equation framework with 18+ variant terms for
-adaptive anomaly detection evolution. The double-helix structure
-represents two complementary strands:
+Implements a weighted gradient descent framework with 18+ variant terms for
+adaptive anomaly detection evolution. The double-helix structure represents
+two complementary optimization strands:
 
 Helix 1 (Discovery/Exploration):
-    - Quantum-inspired terms (VQE, QBM, quantum annealing)
+    - Hamiltonian projection (matrix-based gradient descent)
+    - Boltzmann sampling (temperature-scheduled noise)
+    - Simulated annealing (classical optimization with schedule)
     - Self-attention mechanisms for pattern recognition
     - Fractal patterns for multi-scale analysis
     - Chaos/entropy terms for novelty detection
@@ -32,7 +34,7 @@ Helix 1 (Discovery/Exploration):
 Helix 2 (Ethical Verification):
     - Lyapunov stability enforcement (λ = 0.18)
     - σ_quadratic ≥ 0.96 constraint
-    - Golden ratio harmonics (φ³-amplification)
+    - Scaled layer dimensions (φ as scaling factor)
     - Ethical matrix constraints
 
 Mathematical Foundation:
@@ -40,10 +42,12 @@ Mathematical Foundation:
     where S is the system state, wᵢ are term weights, and λ is the
     Lyapunov decay rate ensuring convergence to equilibrium S*.
 
+Note: Terms previously labeled "quantum" are classical algorithms.
+The naming reflects optimization techniques, not quantum computing.
+
 References:
     - Lyapunov Stability Theory: Khalil (2002)
-    - Golden Ratio in Nature: Livio (2002)
-    - Quantum-Inspired Optimization: Kadowaki & Nishimori (1998)
+    - Simulated Annealing: Kirkpatrick et al. (1983)
     - Fractal Geometry: Mandelbrot (1982)
 """
 
@@ -75,7 +79,7 @@ class EvolutionMode(Enum):
 class TermType(Enum):
     """Types of evolution terms."""
 
-    QUANTUM = "quantum"
+    OPTIMIZATION = "optimization"  # Renamed from QUANTUM - these are classical
     ATTENTION = "attention"
     FRACTAL = "fractal"
     CHAOS = "chaos"
@@ -106,10 +110,21 @@ class EvolutionConfig:
     lambda_decay: float = LAMBDA_DECAY
     sigma_threshold: float = SIGMA_QUADRATIC_THRESHOLD
     mode: EvolutionMode = EvolutionMode.BALANCED
-    enable_quantum_terms: bool = True
+    enable_optimization_terms: bool = True  # Renamed from enable_quantum_terms
     enable_attention_terms: bool = True
     enable_fractal_terms: bool = True
     enable_chaos_terms: bool = True
+
+    # Backward compatibility aliases
+    @property
+    def enable_quantum_terms(self) -> bool:
+        """Deprecated: Use enable_optimization_terms instead."""
+        return self.enable_optimization_terms
+
+    @enable_quantum_terms.setter
+    def enable_quantum_terms(self, value: bool) -> None:
+        """Deprecated: Use enable_optimization_terms instead."""
+        self.enable_optimization_terms = value
 
 
 class AvaEquationEngine:
@@ -136,18 +151,19 @@ class AvaEquationEngine:
 
         self.ethical_matrix = self._initialize_ethical_matrix()
 
+        # Term weights - renamed from misleading "quantum" terminology to honest names
         self.term_weights = {
-            "vqe": 0.15,
-            "qbm": 0.12,
-            "quantum_annealing": 0.10,
+            "hamiltonian_projection": 0.15,  # Was "vqe" - matrix gradient descent
+            "boltzmann_sampling": 0.12,  # Was "qbm" - temperature-scheduled noise
+            "simulated_annealing": 0.10,  # Was "quantum_annealing" - classical SA
             "self_attention": 0.18,
             "cross_attention": 0.12,
             "fractal_dimension": 0.08,
             "fractal_recursion": 0.06,
             "lyapunov_chaos": 0.05,
             "entropy_gradient": 0.07,
-            "golden_ratio": 0.10,
-            "phi_cubed": 0.08,
+            "scaled_layer": 0.10,  # Was "golden_ratio" - just scaling by φ
+            "phi_amplification": 0.08,  # Was "phi_cubed" - scaling factor
             "sigma_quadratic": 0.12,
             "lyapunov_stability": 0.15,
             "ethical_constraint": 0.20,
@@ -183,24 +199,26 @@ class AvaEquationEngine:
             E += np.eye(self.dimension) * (abs(min_eig) + 0.1 * PHI_CUBED)
         return E
 
-    def _term_vqe(self, state: np.ndarray) -> np.ndarray:
-        """Variational Quantum Eigensolver inspired term."""
-        if not self.config.enable_quantum_terms:
+    def _term_hamiltonian_projection(self, state: np.ndarray) -> np.ndarray:
+        """Matrix-based gradient descent term (formerly 'VQE' - not quantum)."""
+        if not self.config.enable_optimization_terms:
             return np.zeros_like(state)
 
+        # Create symmetric matrix for optimization landscape
         H = np.random.randn(self.dimension, self.dimension)
-        H = (H + H.T) / 2
+        H = (H + H.T) / 2  # Symmetrize
 
         expectation = state @ H @ state
         gradient = 2 * H @ state
 
         return -0.1 * gradient * np.tanh(expectation)
 
-    def _term_qbm(self, state: np.ndarray) -> np.ndarray:
-        """Quantum Boltzmann Machine inspired term."""
-        if not self.config.enable_quantum_terms:
+    def _term_boltzmann_sampling(self, state: np.ndarray) -> np.ndarray:
+        """Temperature-scheduled noise sampling (formerly 'QBM' - not quantum)."""
+        if not self.config.enable_optimization_terms:
             return np.zeros_like(state)
 
+        # Temperature decay schedule
         temperature = 1.0 / (1 + len(self.evolution_history) * 0.01)
         energy = -0.5 * state @ state
         boltzmann_factor = np.exp(-energy / max(temperature, 0.01))
@@ -208,18 +226,20 @@ class AvaEquationEngine:
         noise = np.random.randn(self.dimension) * temperature
         return boltzmann_factor * noise * 0.1
 
-    def _term_quantum_annealing(self, state: np.ndarray) -> np.ndarray:
-        """Quantum annealing inspired term for optimization."""
-        if not self.config.enable_quantum_terms:
+    def _term_simulated_annealing(self, state: np.ndarray) -> np.ndarray:
+        """Classical simulated annealing (formerly 'quantum_annealing' - not quantum)."""
+        if not self.config.enable_optimization_terms:
             return np.zeros_like(state)
 
         iteration = len(self.evolution_history)
-        schedule = 1.0 / (1 + iteration * 0.1)
+        schedule = 1.0 / (1 + iteration * 0.1)  # Cooling schedule
 
-        transverse_field = np.random.randn(self.dimension) * schedule
-        classical_gradient = -2 * state
+        # Random exploration term (decays with temperature)
+        exploration = np.random.randn(self.dimension) * schedule
+        # Gradient descent term (increases as temperature drops)
+        gradient = -2 * state
 
-        return schedule * transverse_field + (1 - schedule) * classical_gradient * 0.1
+        return schedule * exploration + (1 - schedule) * gradient * 0.1
 
     def _term_self_attention(self, state: np.ndarray) -> np.ndarray:
         """Self-attention mechanism for pattern recognition."""
@@ -308,13 +328,13 @@ class AvaEquationEngine:
         gradient = -np.sign(state) * np.log(probs + 1e-10)
         return gradient * entropy * 0.01
 
-    def _term_golden_ratio(self, state: np.ndarray) -> np.ndarray:
-        """Golden ratio harmonic term."""
+    def _term_scaled_layer(self, state: np.ndarray) -> np.ndarray:
+        """Scaling term using φ (1.618) as scaling factor - not mathematically special."""
         phi_scaled = state * PHI
         return (phi_scaled - state) * 0.05
 
-    def _term_phi_cubed(self, state: np.ndarray) -> np.ndarray:
-        """φ³-amplification term."""
+    def _term_phi_amplification(self, state: np.ndarray) -> np.ndarray:
+        """Amplification with norm preservation using φ³ scaling factor."""
         amplified = state * PHI_CUBED
         norm = np.linalg.norm(amplified)
         if norm > 0:
@@ -399,17 +419,17 @@ class AvaEquationEngine:
             Tuple of (new_state, term_contributions)
         """
         term_methods = {
-            "vqe": self._term_vqe,
-            "qbm": self._term_qbm,
-            "quantum_annealing": self._term_quantum_annealing,
+            "hamiltonian_projection": self._term_hamiltonian_projection,
+            "boltzmann_sampling": self._term_boltzmann_sampling,
+            "simulated_annealing": self._term_simulated_annealing,
             "self_attention": self._term_self_attention,
             "cross_attention": self._term_cross_attention,
             "fractal_dimension": self._term_fractal_dimension,
             "fractal_recursion": self._term_fractal_recursion,
             "lyapunov_chaos": self._term_lyapunov_chaos,
             "entropy_gradient": self._term_entropy_gradient,
-            "golden_ratio": self._term_golden_ratio,
-            "phi_cubed": self._term_phi_cubed,
+            "scaled_layer": self._term_scaled_layer,
+            "phi_amplification": self._term_phi_amplification,
             "sigma_quadratic": self._term_sigma_quadratic,
             "lyapunov_stability": self._term_lyapunov_stability,
             "ethical_constraint": self._term_ethical_constraint,
