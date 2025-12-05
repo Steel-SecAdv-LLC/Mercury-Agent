@@ -184,11 +184,10 @@ class HTTPCircuitBreaker:
     def state(self) -> CircuitState:
         """Get current circuit state, transitioning if needed."""
         with self._lock:
-            if self._state == CircuitState.OPEN:
-                if self._should_attempt_reset():
-                    self._state = CircuitState.HALF_OPEN
-                    self._success_count = 0
-                    logger.info(f"Circuit '{self.name}' transitioning to half-open")
+            if self._state == CircuitState.OPEN and self._should_attempt_reset():
+                self._state = CircuitState.HALF_OPEN
+                self._success_count = 0
+                logger.info(f"Circuit '{self.name}' transitioning to half-open")
             return self._state
 
     def _should_attempt_reset(self) -> bool:
@@ -304,7 +303,7 @@ class HTTPClient:
         """Get or create circuit breaker for endpoint."""
         # Create a key based on the endpoint pattern (ignore query params)
         pattern = endpoint.split("?")[0]
-        pattern_hash = hashlib.md5(pattern.encode()).hexdigest()[:8]
+        pattern_hash = hashlib.md5(pattern.encode(), usedforsecurity=False).hexdigest()[:8]
 
         with self._cb_lock:
             if pattern_hash not in self._circuit_breakers:

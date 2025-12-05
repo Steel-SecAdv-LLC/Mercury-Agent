@@ -21,8 +21,8 @@ Training utilities for fusion model using PyTorch Lightning
 Enhanced with Ava Equation state evolution optimizers
 """
 
-from dataclasses import dataclass, field
-from typing import Any, Iterator
+from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import pytorch_lightning as pl
@@ -304,8 +304,14 @@ class Trainer:
 
         Args:
             path: Path to checkpoint file
+
+        Security Note:
+            This method uses torch.load with weights_only=False to support
+            loading optimizer state. Only load checkpoints from trusted sources
+            to prevent arbitrary code execution.
+            See: https://pytorch.org/docs/stable/generated/torch.load.html
         """
-        checkpoint = torch.load(path, map_location=self.device, weights_only=False)
+        checkpoint = torch.load(path, map_location=self.device, weights_only=False)  # nosec B614
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.epoch = checkpoint.get("epoch", 0)
@@ -317,7 +323,7 @@ class AvaOptimizer(optim.Optimizer):
     """
 
     def __init__(self, params, lr=0.001, alpha=0.1, beta=0.9, quantum_noise=0.0):
-        defaults = dict(lr=lr, alpha=alpha, beta=beta, quantum_noise=quantum_noise)
+        defaults = {"lr": lr, "alpha": alpha, "beta": beta, "quantum_noise": quantum_noise}
         super().__init__(params, defaults)
 
     def step(self, closure=None):
@@ -363,7 +369,7 @@ class AvaMomentumOptimizer(optim.Optimizer):
     """
 
     def __init__(self, params, lr=0.001, alpha=0.1, momentum=0.9):
-        defaults = dict(lr=lr, alpha=alpha, momentum=momentum)
+        defaults = {"lr": lr, "alpha": alpha, "momentum": momentum}
         super().__init__(params, defaults)
 
     def step(self, closure=None):
@@ -402,7 +408,7 @@ class AvaExponentialDecayOptimizer(optim.Optimizer):
     """
 
     def __init__(self, params, lr=0.001, alpha=0.1, decay_rate=0.99):
-        defaults = dict(lr=lr, alpha=alpha, decay_rate=decay_rate)
+        defaults = {"lr": lr, "alpha": alpha, "decay_rate": decay_rate}
         super().__init__(params, defaults)
 
     def step(self, closure=None):
@@ -443,7 +449,7 @@ class AvaHarmonicOptimizer(optim.Optimizer):
     """
 
     def __init__(self, params, lr=0.001, alpha=0.1, omega=0.1):
-        defaults = dict(lr=lr, alpha=alpha, omega=omega)
+        defaults = {"lr": lr, "alpha": alpha, "omega": omega}
         super().__init__(params, defaults)
 
     def step(self, closure=None):

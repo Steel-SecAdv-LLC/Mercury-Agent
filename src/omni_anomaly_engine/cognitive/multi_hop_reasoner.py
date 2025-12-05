@@ -509,7 +509,7 @@ class MultiHopReasoner:
             "abductive",
             ReasoningType.ABDUCTIVE,
             [step],
-            [observation] + candidate_hypotheses,
+            [observation, *candidate_hypotheses],
             conclusion,
             time.time() - start_time,
         )
@@ -541,7 +541,7 @@ class MultiHopReasoner:
         all_steps: list[ReasoningStep] = []
         current_knowledge = {p.prop_id: p for p in initial_premises}
 
-        for hop in range(self.max_chain_depth):
+        for _hop in range(self.max_chain_depth):
             made_progress = False
 
             # Try deductive reasoning

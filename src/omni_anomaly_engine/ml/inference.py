@@ -329,7 +329,7 @@ class FusionInference:
             batch = detector_features_list[i : i + batch_size]
 
             batch_features = {}
-            for key in batch[0].keys():
+            for key in batch[0]:
                 batch_features[key] = torch.stack(
                     [
                         (

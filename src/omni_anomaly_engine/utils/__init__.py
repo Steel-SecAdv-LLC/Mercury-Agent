@@ -105,10 +105,7 @@ def normalize_data(
     """
     is_torch = TORCH_AVAILABLE and torch is not None and isinstance(data, torch.Tensor)
 
-    if is_torch:
-        data_np = data.cpu().numpy()
-    else:
-        data_np = data
+    data_np = data.cpu().numpy() if is_torch else data
 
     if method == "standard":
         mean = np.mean(data_np, axis=0)
@@ -281,59 +278,59 @@ def compute_time_dilation(
 
 
 __all__ = [
-    # Communication utilities
-    "Message",
-    "MessagePriority",
-    "AsyncMessageQueue",
-    "SimplePubSub",
-    # RNG utilities
-    "DeterministicRNG",
-    "RNGState",
-    "RNGRegistry",
-    "RNGContext",
-    "ThreadSafeRNGManager",
-    "get_global_rng",
-    "set_global_seed",
-    "reset_global_rng",
-    "get_thread_local_rng",
-    "get_rng_registry",
-    # Constants
-    "MathematicalConstants",
-    "MathConstant",
-    "Precision",
-    "get_constant",
-    "validate_constant",
-    "validate_all_constants_with_sympy",
-    "SYMPY_AVAILABLE",
     "MPMATH_AVAILABLE",
-    # Logging utilities
-    "get_logger",
-    "configure_logging",
-    "correlation_context",
-    "get_correlation_id",
-    "set_correlation_id",
-    "StructuredFormatter",
-    "ColoredFormatter",
-    "PerformanceLogger",
-    "log_function_call",
+    "SYMPY_AVAILABLE",
+    "AsyncMessageQueue",
+    "Bulkhead",
+    "BulkheadFullError",
     # Resilience utilities
     "CircuitBreaker",
     "CircuitBreakerOpenError",
     "CircuitState",
-    "retry",
+    "ColoredFormatter",
+    # RNG utilities
+    "DeterministicRNG",
     "GracefulShutdown",
-    "ShutdownInProgressError",
-    "Bulkhead",
-    "BulkheadFullError",
     "HealthChecker",
     "HealthStatus",
-    "timeout",
+    "MathConstant",
+    # Constants
+    "MathematicalConstants",
+    # Communication utilities
+    "Message",
+    "MessagePriority",
+    "PerformanceLogger",
+    "Precision",
+    "RNGContext",
+    "RNGRegistry",
+    "RNGState",
+    "ShutdownInProgressError",
+    "SimplePubSub",
+    "StructuredFormatter",
+    "ThreadSafeRNGManager",
+    "compress_information",
+    "compute_complexity",
+    "compute_time_dilation",
+    "configure_logging",
+    "correlation_context",
+    "decompress_information",
+    "detect_singularity",
+    "get_constant",
+    "get_correlation_id",
+    "get_global_rng",
+    # Logging utilities
+    "get_logger",
+    "get_rng_registry",
+    "get_thread_local_rng",
+    "gravitational_lensing",
+    "log_function_call",
     # Data utilities
     "normalize_data",
-    "compute_complexity",
-    "compress_information",
-    "decompress_information",
-    "gravitational_lensing",
-    "detect_singularity",
-    "compute_time_dilation",
+    "reset_global_rng",
+    "retry",
+    "set_correlation_id",
+    "set_global_seed",
+    "timeout",
+    "validate_all_constants_with_sympy",
+    "validate_constant",
 ]

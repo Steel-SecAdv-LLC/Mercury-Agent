@@ -358,7 +358,7 @@ class PSYOPAnalyzer:
         disinfo_score = 0
 
         # Check propaganda techniques
-        for technique, indicators in self.propaganda_indicators.items():
+        for indicators in self.propaganda_indicators.values():
             for indicator in indicators:
                 if indicator.lower() in content_lower:
                     disinfo_score += 1
@@ -791,7 +791,7 @@ class PSYOPAnalyzer:
             indicators.append("bot_network_behavior")
 
         # Cross-platform presence
-        platforms = set(a.get("platform") for a in accounts if a.get("platform"))
+        platforms = {a.get("platform") for a in accounts if a.get("platform")}
         if len(platforms) > 2:
             indicators.append("cross_platform_amplification")
 

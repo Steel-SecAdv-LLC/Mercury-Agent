@@ -45,8 +45,8 @@ from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 
 class CompressionMethod(Enum):
@@ -511,9 +511,9 @@ class ModelCompressor:
         fused_count = 0
         modules_list = list(model_copy.named_modules())
 
-        for i, (name, module) in enumerate(modules_list[:-1]):
+        for i, (_name, module) in enumerate(modules_list[:-1]):
             if isinstance(module, nn.Linear):
-                next_name, next_module = modules_list[i + 1]
+                _next_name, next_module = modules_list[i + 1]
                 if isinstance(next_module, nn.ReLU):
                     fused_count += 1
 

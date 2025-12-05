@@ -137,10 +137,7 @@ class E1PulseDetector:
             and e1_freq_range[0] < frequency_mhz < e1_freq_range[1]
         )
 
-        if e1_detected:
-            severity = "critical"
-        else:
-            severity = "low"
+        severity = "critical" if e1_detected else "low"
 
         return {
             "e1_detected": e1_detected,

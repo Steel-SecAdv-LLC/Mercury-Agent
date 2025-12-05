@@ -829,9 +829,7 @@ class MetaCognitionLayer:
             return False
         if state.confidence >= self.confidence_threshold:
             return False
-        if state.uncertainty < self.uncertainty_threshold:
-            return False
-        return True
+        return not state.uncertainty < self.uncertainty_threshold
 
     def select_reasoning_strategy(self, state: ReasoningState) -> str:
         """Select optimal reasoning strategy based on state."""
@@ -1102,16 +1100,10 @@ class ProbabilisticLogicLayer:
         p_given = self.get_probability(given)
 
         # Lower bound
-        if p_given[1] > 0:
-            lower = max(0, (p_effect[0] + p_given[0] - 1) / p_given[1])
-        else:
-            lower = 0
+        lower = max(0, (p_effect[0] + p_given[0] - 1) / p_given[1]) if p_given[1] > 0 else 0
 
         # Upper bound
-        if p_given[0] > 0:
-            upper = min(1, p_effect[1] / p_given[0])
-        else:
-            upper = 1
+        upper = min(1, p_effect[1] / p_given[0]) if p_given[0] > 0 else 1
 
         return (lower, upper)
 

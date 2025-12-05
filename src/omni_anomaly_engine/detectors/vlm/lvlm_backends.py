@@ -24,6 +24,13 @@ Provides unified interface for various Large Vision-Language Models:
 - MiniCPM-V
 - LLaVA
 - InternVL
+
+Security Note:
+    When loading models from HuggingFace Hub, consider using specific revision
+    hashes (e.g., "model-name@abc123") instead of branch names to ensure
+    reproducibility and prevent supply chain attacks. Model names without
+    revisions will load the latest version which may change unexpectedly.
+    See: https://huggingface.co/docs/hub/security
 """
 
 import logging
@@ -117,8 +124,8 @@ class Qwen2VLBackend(LVLMBackend):
 
             logger.info(f"Loading Qwen2-VL: {self.model_name}")
 
-            self.processor = AutoProcessor.from_pretrained(self.model_name)
-            self.model = Qwen2VLForConditionalGeneration.from_pretrained(
+            self.processor = AutoProcessor.from_pretrained(self.model_name)  # nosec B615
+            self.model = Qwen2VLForConditionalGeneration.from_pretrained(  # nosec B615
                 self.model_name,
                 torch_dtype=torch.float16,
                 device_map="auto",
@@ -192,12 +199,13 @@ class MiniCPMVBackend(LVLMBackend):
 
             logger.info(f"Loading MiniCPM-V: {self.model_name}")
 
-            self.model = AutoModel.from_pretrained(
+            # nosec B615 - model_name is user-configured; see module docstring for security guidance
+            self.model = AutoModel.from_pretrained(  # nosec B615
                 self.model_name,
                 trust_remote_code=True,
                 torch_dtype=torch.float16,
             ).to(self.device)
-            self.processor = AutoTokenizer.from_pretrained(
+            self.processor = AutoTokenizer.from_pretrained(  # nosec B615
                 self.model_name,
                 trust_remote_code=True,
             )
@@ -221,7 +229,7 @@ class MiniCPMVBackend(LVLMBackend):
         pil_images = [self._to_pil(img) for img in images]
 
         # MiniCPM-V specific chat format
-        msgs = [{"role": "user", "content": pil_images + [prompt]}]
+        msgs = [{"role": "user", "content": [*pil_images, prompt]}]
 
         with torch.no_grad():
             response = self.model.chat(
@@ -245,8 +253,8 @@ class LLaVABackend(LVLMBackend):
 
             logger.info(f"Loading LLaVA: {self.model_name}")
 
-            self.processor = AutoProcessor.from_pretrained(self.model_name)
-            self.model = LlavaForConditionalGeneration.from_pretrained(
+            self.processor = AutoProcessor.from_pretrained(self.model_name)  # nosec B615
+            self.model = LlavaForConditionalGeneration.from_pretrained(  # nosec B615
                 self.model_name,
                 torch_dtype=torch.float16,
                 device_map="auto",

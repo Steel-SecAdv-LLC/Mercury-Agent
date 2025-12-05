@@ -40,7 +40,7 @@ from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class EnsembleMethod(Enum):
@@ -283,7 +283,7 @@ class EnsembleOmniFusionModel(nn.Module):
         context = torch.zeros(batch_size, getattr(self.base_model, "hidden_dim", 128))
         context = context.to(device)
 
-        for name, feat in detector_features.items():
+        for _name, feat in detector_features.items():
             if feat.dim() == 2:
                 context = context + feat.mean(dim=-1, keepdim=True).expand_as(context)
                 break

@@ -43,7 +43,6 @@ import torch
 from scipy.ndimage import gaussian_filter
 from torch import nn, optim
 
-from omni_anomaly_engine.detectors.visual.backbone import FeatureExtractor
 from omni_anomaly_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
     VisualDetectorConfig,
@@ -92,7 +91,7 @@ class StudentNetwork(nn.Module):
 
         # Create student backbone (not pretrained)
         try:
-            import torchvision.models as models
+            from torchvision import models
 
             backbone_map = {
                 "resnet18": models.resnet18,
@@ -369,7 +368,7 @@ class STFPMDetector(BaseVisualDetector):
         Returns:
             Anomaly maps [B, H, W]
         """
-        batch_size = list(teacher_features.values())[0].shape[0]
+        batch_size = next(iter(teacher_features.values())).shape[0]
         anomaly_map = torch.zeros(batch_size, *original_size, device=self.device)
 
         for layer in self.stfpm_config.layers:

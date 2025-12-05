@@ -654,10 +654,7 @@ class QuantumEngine:
 
         for sample in data:
             norm = np.linalg.norm(sample)
-            if norm > 0:
-                normalized = sample / norm
-            else:
-                normalized = sample
+            normalized = sample / norm if norm > 0 else sample
 
             coherence = 1.0 - np.sum(np.abs(normalized) ** 4)
 

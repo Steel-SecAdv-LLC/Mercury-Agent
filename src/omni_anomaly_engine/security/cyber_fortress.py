@@ -131,7 +131,7 @@ class ResonanceHashIntegrityChecker:
                 ],
                 dtype=np.float32,
             )
-            ref_freq, ref_mag = self.resonance.compute_resonance_spectrum(ref_signal)
+            _ref_freq, ref_mag = self.resonance.compute_resonance_spectrum(ref_signal)
 
             min_len = min(len(magnitudes), len(ref_mag))
             drift_score = float(np.mean(np.abs(magnitudes[:min_len] - ref_mag[:min_len])))

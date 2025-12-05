@@ -603,7 +603,7 @@ async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
 
         # Build detailed anomaly points
         anomaly_points = []
-        for i, (is_anomaly, score, value) in enumerate(zip(anomalies, scores, data)):
+        for i, (is_anomaly, score, value) in enumerate(zip(anomalies, scores, data, strict=False)):
             if is_anomaly:
                 anomaly_points.append(
                     AnomalyPoint(

@@ -351,12 +351,12 @@ class GrangerCausalityTest:
             try:
                 # Restricted model: Y ~ Y_lagged
                 Z_r = np.column_stack([np.ones(min_len), Y_lagged])
-                beta_r, residuals_r, _, _ = linalg.lstsq(Z_r, Y)
+                beta_r, _residuals_r, _, _ = linalg.lstsq(Z_r, Y)
                 rss_r = np.sum((Y - Z_r @ beta_r) ** 2)
 
                 # Unrestricted model: Y ~ Y_lagged + X_lagged
                 Z_u = np.column_stack([np.ones(min_len), Y_lagged, X_lagged])
-                beta_u, residuals_u, _, _ = linalg.lstsq(Z_u, Y)
+                beta_u, _residuals_u, _, _ = linalg.lstsq(Z_u, Y)
                 rss_u = np.sum((Y - Z_u @ beta_u) ** 2)
 
                 # F-test
@@ -701,7 +701,7 @@ class CausalDiscoveryEngine:
                     for cond_set in combinations(neighbors, cond_size):
                         cond_data = data[:, list(cond_set)] if cond_set else None
 
-                        partial_r, z_stat, p_value = PartialCorrelationTest.test(
+                        _partial_r, _z_stat, p_value = PartialCorrelationTest.test(
                             data[:, i], data[:, j], cond_data, n_samples
                         )
                         self._stats["ci_tests_performed"] += 1
@@ -831,7 +831,7 @@ class CausalDiscoveryEngine:
         Returns:
             Temporal causal graph with lag information
         """
-        n_time, n_vars = time_series.shape
+        _n_time, n_vars = time_series.shape
         names = variable_names or [f"X{i}" for i in range(n_vars)]
         edges = []
 
@@ -840,7 +840,7 @@ class CausalDiscoveryEngine:
                 if i == j:
                     continue
 
-                is_causal, f_stat, opt_lag, p_value = GrangerCausalityTest.test(
+                is_causal, _f_stat, opt_lag, p_value = GrangerCausalityTest.test(
                     time_series[:, i],
                     time_series[:, j],
                     self.max_lag,
@@ -932,7 +932,7 @@ class CausalDiscoveryEngine:
         elif method == "regression":
             ate, se, p_value = self._regression_adjustment(treatment_binary, outcome, covariates)
         else:  # doubly_robust
-            ate, se, p_value = ps_estimator.doubly_robust_ate(outcome)
+            ate, _se, p_value = ps_estimator.doubly_robust_ate(outcome)
 
         # Bootstrap CI
         ci = self._bootstrap_ci(data, cause_idx, effect_idx, adjustment_set, method)
@@ -1066,7 +1066,7 @@ class CausalDiscoveryEngine:
         factual_outcome = factual_observation.get(target_var, float(data[:, target_idx].mean()))
 
         # Intervention details
-        int_var = list(counterfactual_intervention.keys())[0]
+        int_var = next(iter(counterfactual_intervention.keys()))
         int_value = counterfactual_intervention[int_var]
         factual_value = factual_observation.get(int_var, 0)
 
@@ -1326,7 +1326,7 @@ class CausalDiscoveryEngine:
 
         E[Y|do(X=x)] = sum_z E[Y|X=x,Z=z] P(Z=z)
         """
-        X = data[:, [x_idx] + z_indices]
+        X = data[:, [x_idx, *z_indices]]
         y = data[:, y_idx]
 
         X_with_intercept = np.column_stack([np.ones(len(X)), X])
@@ -1336,7 +1336,7 @@ class CausalDiscoveryEngine:
 
             # Predict at x=x_value with marginal Z distribution (average)
             z_means = data[:, z_indices].mean(axis=0)
-            x_point = np.array([1, x_value] + list(z_means))
+            x_point = np.array([1, x_value, *list(z_means)])
 
             expected_y = float(x_point @ beta)
 

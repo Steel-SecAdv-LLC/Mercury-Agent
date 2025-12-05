@@ -157,7 +157,9 @@ class QuantumResistantEncryption:
         encrypted = bytes(
             a ^ b
             for a, b in zip(
-                data, (shared_secret * (len(data) // len(shared_secret) + 1))[: len(data)]
+                data,
+                (shared_secret * (len(data) // len(shared_secret) + 1))[: len(data)],
+                strict=False,
             )
         )
 
@@ -204,6 +206,7 @@ class QuantumResistantEncryption:
             for a, b in zip(
                 ciphertext,
                 (shared_secret * (len(ciphertext) // len(shared_secret) + 1))[: len(ciphertext)],
+                strict=False,
             )
         )
 
@@ -226,7 +229,9 @@ class QuantumResistantEncryption:
         encrypted = bytes(
             a ^ b
             for a, b in zip(
-                data, (shared_secret * (len(data) // len(shared_secret) + 1))[: len(data)]
+                data,
+                (shared_secret * (len(data) // len(shared_secret) + 1))[: len(data)],
+                strict=False,
             )
         )
 
@@ -255,6 +260,7 @@ class QuantumResistantEncryption:
                 (shared_secret * (len(encrypted_content) // len(shared_secret) + 1))[
                     : len(encrypted_content)
                 ],
+                strict=False,
             )
         )
 

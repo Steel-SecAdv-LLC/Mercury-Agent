@@ -30,4 +30,4 @@ from omni_anomaly_engine.infrastructure.humanitarian.crisis_monitoring.crisis_mo
     CrisisMonitor,
 )
 
-__all__ = ["CrisisMonitor", "CrisisAlert"]
+__all__ = ["CrisisAlert", "CrisisMonitor"]

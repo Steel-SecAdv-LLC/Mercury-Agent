@@ -139,10 +139,7 @@ class CaseSurgeDetector:
 
         if surge_detected and baseline_mean > 0:
             growth_rate = (recent_mean / baseline_mean) ** (1 / 7.0) - 1
-            if growth_rate > 0:
-                doubling_time_days = np.log(2) / np.log(1 + growth_rate)
-            else:
-                doubling_time_days = None
+            doubling_time_days = np.log(2) / np.log(1 + growth_rate) if growth_rate > 0 else None
         else:
             doubling_time_days = None
 

@@ -30,7 +30,7 @@ class AffectiveAnomalyModel:
 
     def __init__(
         self,
-        config: dict[str, Any] = None,
+        config: dict[str, Any] | None = None,
         rng: DeterministicRNG | None = None,
         **kwargs,
     ):
@@ -40,7 +40,7 @@ class AffectiveAnomalyModel:
     def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
         """Extract affective features from data."""
         if isinstance(data, dict):
-            data = np.array(list(data.values())[0])
+            data = np.array(next(iter(data.values())))
         elif not isinstance(data, np.ndarray):
             data = np.array(data)
 

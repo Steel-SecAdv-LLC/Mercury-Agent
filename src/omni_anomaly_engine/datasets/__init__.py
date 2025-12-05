@@ -36,29 +36,29 @@ from .security import CICIDSLoader, NSLKDDLoader, ThreatIntelLoader
 from .space import NASAExoplanetLoader, SETILoader, SolarDynamicsLoader
 
 __all__ = [
+    "BenchmarkResult",
+    "CICIDSLoader",
+    "CardiologyDataset",
+    "DatasetConfig",
     # Base
     "DatasetLoader",
-    "DatasetConfig",
-    "DatasetSplit",
     "DatasetRegistry",
+    "DatasetSplit",
     # Medical
     "MIMICLoader",
-    "PhysioNetLoader",
-    "SepsisDataset",
-    "CardiologyDataset",
-    # Space
-    "SETILoader",
     "NASAExoplanetLoader",
-    "SolarDynamicsLoader",
-    # Environmental
-    "USGSEarthquakeLoader",
     "NOAAWeatherLoader",
-    "WildfireDataLoader",
     # Security
     "NSLKDDLoader",
-    "CICIDSLoader",
-    "ThreatIntelLoader",
+    "PhysioNetLoader",
     # Benchmarks
     "RealWorldBenchmarkSuite",
-    "BenchmarkResult",
+    # Space
+    "SETILoader",
+    "SepsisDataset",
+    "SolarDynamicsLoader",
+    "ThreatIntelLoader",
+    # Environmental
+    "USGSEarthquakeLoader",
+    "WildfireDataLoader",
 ]

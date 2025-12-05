@@ -413,7 +413,10 @@ class ConfigurationManager:
             # Deterministic hash for consistent user experience
             import hashlib
 
-            user_hash = int(hashlib.md5(f"{name}:{user_id}".encode()).hexdigest()[:8], 16)
+            user_hash = int(
+                hashlib.md5(f"{name}:{user_id}".encode(), usedforsecurity=False).hexdigest()[:8],
+                16,
+            )
             return (user_hash % 100) < flag.rollout_percentage
 
         return flag.rollout_percentage >= 100.0 or flag.rollout_percentage == 0.0
@@ -430,11 +433,14 @@ class ConfigurationManager:
         if user_id:
             import hashlib
 
-            user_hash = int(hashlib.md5(f"{name}:{user_id}".encode()).hexdigest()[:8], 16)
+            user_hash = int(
+                hashlib.md5(f"{name}:{user_id}".encode(), usedforsecurity=False).hexdigest()[:8],
+                16,
+            )
             variant_names = list(flag.variants.keys())
             return variant_names[user_hash % len(variant_names)]
 
-        return list(flag.variants.keys())[0]
+        return next(iter(flag.variants.keys()))
 
 
 # Global configuration manager instance

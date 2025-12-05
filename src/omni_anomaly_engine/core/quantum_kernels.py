@@ -89,13 +89,10 @@ class QuantumKernelMachine:
             Transformed feature vector
         """
         feature_dim = 2**self.num_qubits
-        if len(x) < feature_dim:
-            x_padded = np.pad(x, (0, feature_dim - len(x)))
-        else:
-            x_padded = x[:feature_dim]
+        x_padded = np.pad(x, (0, feature_dim - len(x))) if len(x) < feature_dim else x[:feature_dim]
 
         phi = x_padded.copy()
-        for layer in range(depth):
+        for _layer in range(depth):
             phi = np.cos(phi * np.pi) + 1j * np.sin(phi * np.pi)
             phi = np.abs(phi)
 

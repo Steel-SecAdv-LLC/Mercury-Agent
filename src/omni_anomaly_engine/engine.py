@@ -642,7 +642,7 @@ class OmniAvaEngine:
                 if use_fusion and self.mode == "fusion":
                     batch_result = self.detect_with_fusion(batch_data)
                     # Expand batch result to individual results
-                    for i in range(len(batch_data)):
+                    for _i in range(len(batch_data)):
                         results.append(
                             {
                                 "anomaly_prob": batch_result.get("anomaly_prob", 0.0),
@@ -653,7 +653,7 @@ class OmniAvaEngine:
                         )
                 else:
                     batch_result = self.detect(batch_data)
-                    for i in range(len(batch_data)):
+                    for _i in range(len(batch_data)):
                         results.append(batch_result)
 
                 # Check memory and potentially trigger GC
@@ -751,9 +751,9 @@ class OmniAvaEngine:
                     data if not isinstance(data, dict) else np.array([0]), prefix=f"detector_{name}"
                 )
 
-                def compute_features() -> tuple:
-                    features = detector.extract_features(data)
-                    result = detector.detect(data)
+                def compute_features(det=detector, d=data) -> tuple:
+                    features = det.extract_features(d)
+                    result = det.detect(d)
                     return features, result
 
                 cached = self.feature_cache.get_or_compute(cache_key, compute_features)
@@ -796,9 +796,9 @@ class OmniAvaEngine:
                     data if not isinstance(data, dict) else np.array([0]), prefix=f"model_{name}"
                 )
 
-                def compute_features() -> tuple:
-                    features = model.extract_features(data)
-                    prediction = model.predict(data)
+                def compute_features(mdl=model, d=data) -> tuple:
+                    features = mdl.extract_features(d)
+                    prediction = mdl.predict(d)
                     return features, prediction
 
                 cached = self.feature_cache.get_or_compute(cache_key, compute_features)
@@ -874,8 +874,8 @@ class OmniAvaEngine:
         if self.mode != "fusion":
             return self.detect(data)
 
-        det_features, det_scores = self._extract_detector_features(data)
-        mod_features, mod_scores = self._extract_model_features(data)
+        det_features, _det_scores = self._extract_detector_features(data)
+        mod_features, _mod_scores = self._extract_model_features(data)
 
         all_features = {**det_features, **mod_features}
 
@@ -1089,8 +1089,11 @@ class OmniAvaEngine:
                 }
                 labels = torch.tensor(data["labels"], dtype=torch.long)
             elif training_data.endswith(".pkl") or training_data.endswith(".pickle"):
+                # nosec B301 - pickle required for legacy data format compatibility
+                # Security Note: Only load pickle files from trusted sources to
+                # prevent arbitrary code execution during deserialization.
                 with open(training_data, "rb") as f:
-                    loaded = pickle.load(f)
+                    loaded = pickle.load(f)  # nosec B301
                 features_dict = {
                     k: torch.tensor(v, dtype=torch.float32) for k, v in loaded["features"].items()
                 }
@@ -1116,14 +1119,14 @@ class OmniAvaEngine:
             batch_size=batch_size,
             shuffle=True,
             num_workers=0,
-            pin_memory=True if self.device.type == "cuda" else False,
+            pin_memory=self.device.type == "cuda",
         )
         val_loader = DataLoader(
             val_dataset,
             batch_size=batch_size,
             shuffle=False,
             num_workers=0,
-            pin_memory=True if self.device.type == "cuda" else False,
+            pin_memory=self.device.type == "cuda",
         )
 
         # Setup checkpoint directory

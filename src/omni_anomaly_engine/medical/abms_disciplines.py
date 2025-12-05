@@ -159,7 +159,7 @@ class MultiSpecialtyNeuralNet(nn.Module):
         encoded = self.shared_encoder(x)
 
         encoded_seq = encoded.unsqueeze(1)
-        attended, attention_weights = self.attention(encoded_seq, encoded_seq, encoded_seq)
+        attended, _attention_weights = self.attention(encoded_seq, encoded_seq, encoded_seq)
         attended = attended.squeeze(1)
 
         predictions = {}
@@ -710,7 +710,7 @@ class ABMSDisciplineDetector:
 
         symptoms = patient_data.get("symptoms", [])
 
-        for category, mappings in self.medical_knowledge_base.items():
+        for mappings in self.medical_knowledge_base.values():
             for symptom, specialties in mappings.items():
                 if symptom in [s.lower() for s in symptoms]:
                     reasoning["rules_applied"].append(f"Rule: {symptom} → {', '.join(specialties)}")

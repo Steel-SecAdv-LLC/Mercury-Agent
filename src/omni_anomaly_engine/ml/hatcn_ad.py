@@ -156,7 +156,7 @@ class HATCN_AD(nn.Module):
         Returns:
             Dict with anomaly scores and attention weights
         """
-        batch_size, seq_len, _ = x.shape
+        _batch_size, _seq_len, _ = x.shape
 
         x = self.input_proj(x)
 

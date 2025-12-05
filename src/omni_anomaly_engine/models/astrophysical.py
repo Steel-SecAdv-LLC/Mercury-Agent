@@ -63,7 +63,7 @@ class AstrophysicalAnomalyModel:
     def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
         """Extract astrophysical features from data."""
         if isinstance(data, dict):
-            data = np.array(list(data.values())[0])
+            data = np.array(next(iter(data.values())))
         elif not isinstance(data, np.ndarray):
             data = np.array(data)
 

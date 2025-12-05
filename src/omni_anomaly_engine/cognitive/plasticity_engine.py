@@ -473,7 +473,7 @@ class PlasticityEngine:
                 self._stats["connections_created"] += 1
 
             connection = self._connections[connection_key]
-            old_weight = connection.weight
+            _old_weight = connection.weight
 
             # Record spike times
             current_time = time.time()

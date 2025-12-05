@@ -450,10 +450,7 @@ class GlobalOmniScalarNetwork:
         penalty_count = np.sum(scalar_values < 1.0)
         total = boost_count + penalty_count
 
-        if total == 0:
-            boost_ratio = 0.5
-        else:
-            boost_ratio = boost_count / total
+        boost_ratio = 0.5 if total == 0 else boost_count / total
 
         mean_value = np.mean(scalar_values)
         std_value = np.std(scalar_values)
@@ -630,10 +627,7 @@ class GlobalOmniScalarNetwork:
         ethical_factor = ethical_score
 
         for i, (name, value) in enumerate(base_scalars.items()):
-            if i < len(fused_state):
-                enhancement = fused_state[i] * 0.1
-            else:
-                enhancement = 0.0
+            enhancement = fused_state[i] * 0.1 if i < len(fused_state) else 0.0
 
             enhanced_value = value * fusion_factor * ethical_factor + enhancement
             enhanced[name] = float(enhanced_value)

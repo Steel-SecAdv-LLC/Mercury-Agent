@@ -110,7 +110,7 @@ def constant_time_bytes_eq(a: bytes, b: bytes) -> bool:
         return False
 
     result = 0
-    for x, y in zip(a, b):
+    for x, y in zip(a, b, strict=False):
         result |= x ^ y
 
     return result == 0

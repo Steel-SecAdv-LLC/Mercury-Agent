@@ -19,11 +19,11 @@ from typing import Any
 import numpy as np
 
 try:
-    import pandas as pd  # noqa: F401
+    import pandas as pd
 
     PANDAS_AVAILABLE = True
 except ImportError:
-    pd = None  # noqa: F841
+    pd = None
     PANDAS_AVAILABLE = False
 
 try:
@@ -88,7 +88,7 @@ class DatasetConfig:
         """Generate unique cache key for this configuration."""
         key_data = f"{self.name}_{self.version}_{self.max_samples}_{self.random_seed}"
         key_data += json.dumps(self.preprocessing, sort_keys=True)
-        return hashlib.md5(key_data.encode()).hexdigest()[:16]
+        return hashlib.md5(key_data.encode(), usedforsecurity=False).hexdigest()[:16]
 
 
 @dataclass
@@ -324,7 +324,7 @@ class DatasetLoader(ABC):
                 num_features=features.shape[1] if len(features.shape) > 1 else 1,
                 feature_names=self._get_feature_names(),
                 target_names=self._get_target_names(),
-                class_distribution={str(k): int(v) for k, v in zip(unique, counts)},
+                class_distribution={str(k): int(v) for k, v in zip(unique, counts, strict=False)},
                 source_url=self.DATASET_URL,
                 license=self.LICENSE,
                 citation=self.CITATION,

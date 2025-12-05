@@ -62,23 +62,23 @@ from omni_anomaly_engine.cognitive.plasticity_engine import PlasticityEngine
 from omni_anomaly_engine.cognitive.uncertainty import UncertaintyEstimate, UncertaintyQuantifier
 
 __all__ = [
+    "BattlefieldAssessment",
+    "Case",
+    "CaseBasedReasoner",
+    "CausalDiscoveryEngine",
+    "CausalGraph",
+    "CognitiveAnalysisResult",
     # Main integration point
     "CognitiveOrchestrator",
-    "CognitiveAnalysisResult",
-    # Individual components
-    "PlasticityEngine",
+    "IPBEngine",
+    "Indicator",
+    "IndicatorDevelopmentSystem",
     "KnowledgeGraph",
     "KnowledgeNode",
     "MultiHopReasoner",
+    # Individual components
+    "PlasticityEngine",
     "ReasoningChain",
-    "IPBEngine",
-    "BattlefieldAssessment",
-    "CausalDiscoveryEngine",
-    "CausalGraph",
-    "UncertaintyQuantifier",
     "UncertaintyEstimate",
-    "CaseBasedReasoner",
-    "Case",
-    "IndicatorDevelopmentSystem",
-    "Indicator",
+    "UncertaintyQuantifier",
 ]

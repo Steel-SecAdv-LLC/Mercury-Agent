@@ -32,6 +32,10 @@ from omni_anomaly_engine.integrations.routing.router import (
 )
 
 __all__ = [
+    "FallbackChain",
+    # Fallback
+    "FallbackHandler",
+    "FallbackResult",
     # HTTP Client
     "HTTPClient",
     "HTTPClientConfig",
@@ -40,8 +44,4 @@ __all__ = [
     "RequestRouter",
     "Route",
     "RouteMatch",
-    # Fallback
-    "FallbackHandler",
-    "FallbackChain",
-    "FallbackResult",
 ]

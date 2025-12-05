@@ -70,9 +70,8 @@ class EnsembleConfig(FoundationModelConfig):
     def __post_init__(self) -> None:
         """Handle compatibility aliases."""
         # If adapters is provided and models is default, use adapters
-        if self.adapters is not None:
-            if self.models == ["matrix_profile"]:
-                self.models = list(self.adapters)
+        if self.adapters is not None and self.models == ["matrix_profile"]:
+            self.models = list(self.adapters)
         # Convert dict weights to list if needed
         if isinstance(self.weights, dict):
             self.weights = [self.weights.get(m, 1.0) for m in self.models]
@@ -192,7 +191,7 @@ class FoundationEnsemble(BaseFoundationModel):
         all_uppers = []
         valid_weights = []
 
-        for i, (name, model) in enumerate(self._models.items()):
+        for _i, (name, model) in enumerate(self._models.items()):
             try:
                 result = model.forecast(series, horizon)
                 forecast = result["forecast"]
@@ -262,7 +261,7 @@ class FoundationEnsemble(BaseFoundationModel):
         all_anomalies = []
         valid_weights = []
 
-        for i, (name, model) in enumerate(self._models.items()):
+        for _i, (name, model) in enumerate(self._models.items()):
             try:
                 result = model.detect_anomalies(series)
                 scores = result["scores"]

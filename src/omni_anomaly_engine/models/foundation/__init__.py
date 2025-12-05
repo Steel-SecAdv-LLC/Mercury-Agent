@@ -66,13 +66,13 @@ __all__ = [
     # Base classes
     "BaseFoundationAdapter",
     "BaseFoundationModel",
-    "ForecastResult",
-    "FoundationModelConfig",
-    # Adapters
-    "TimeGPTAdapter",
     "ChronosAdapter",
-    "MatrixProfileDetector",
-    "MatrixProfileAdapter",  # Compatibility alias
+    "ForecastResult",
     # Ensemble
     "FoundationEnsemble",
+    "FoundationModelConfig",
+    "MatrixProfileAdapter",  # Compatibility alias
+    "MatrixProfileDetector",
+    # Adapters
+    "TimeGPTAdapter",
 ]

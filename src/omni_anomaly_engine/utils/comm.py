@@ -22,6 +22,7 @@ Extracted from Communication Engine for future scalability
 """
 
 import asyncio
+import contextlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -212,10 +213,8 @@ class SimplePubSub:
         """
         if topic in self.subscribers:
             for callback in self.subscribers[topic]:
-                try:
+                with contextlib.suppress(Exception):
                     callback(message)
-                except Exception:
-                    pass
 
     async def publish_async(self, topic: str, message: Any):
         """
