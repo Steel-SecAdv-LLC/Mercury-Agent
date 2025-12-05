@@ -38,13 +38,17 @@ Example:
             -d '{"data": [1.0, 2.0, 1.5, 10.0, 1.8], "sensitivity": 0.5}'
 """
 
+import os
+import time
+from collections import defaultdict
 from enum import Enum
 from typing import Any
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field, field_validator
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # API version information
 API_VERSION = "1.0.0"
@@ -122,6 +126,107 @@ app = FastAPI(
         {"url": "https://api.omni-ava.org", "description": "Production server"},
     ],
 )
+
+
+# =============================================================================
+# Rate Limiting Middleware
+# =============================================================================
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Token bucket rate limiting middleware.
+
+    Enforces rate limits per client IP to prevent API abuse.
+    Configurable via environment variables:
+        - OMNI_RATE_LIMIT_ENABLED: Enable/disable rate limiting (default: true)
+        - OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE: Max requests per minute (default: 100)
+        - OMNI_RATE_LIMIT_BURST: Burst size (default: 20)
+    """
+
+    def __init__(
+        self,
+        app: FastAPI,
+        requests_per_minute: int | None = None,
+        burst_size: int | None = None,
+    ):
+        super().__init__(app)
+        self.enabled = os.getenv("OMNI_RATE_LIMIT_ENABLED", "true").lower() == "true"
+        self.requests_per_minute = requests_per_minute or int(
+            os.getenv("OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE", "100")
+        )
+        self.burst_size = burst_size or int(os.getenv("OMNI_RATE_LIMIT_BURST", "20"))
+        self._buckets: dict[str, tuple[float, int]] = defaultdict(
+            lambda: (time.time(), self.burst_size)
+        )
+
+    def _get_client_id(self, request: Request) -> str:
+        """Extract client identifier from request."""
+        # Prefer X-Forwarded-For for clients behind proxies
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        # Fall back to direct client IP
+        if request.client:
+            return request.client.host
+        return "unknown"
+
+    def _check_rate_limit(self, client_id: str) -> tuple[bool, dict[str, int]]:
+        """Check if request is within rate limit using token bucket algorithm."""
+        now = time.time()
+        last_time, tokens = self._buckets[client_id]
+
+        # Refill tokens based on elapsed time
+        elapsed = now - last_time
+        refill_rate = self.requests_per_minute / 60.0
+        new_tokens = int(elapsed * refill_rate)
+        tokens = min(self.burst_size, tokens + new_tokens)
+
+        # Rate limit info for headers
+        info = {
+            "limit": self.requests_per_minute,
+            "remaining": max(0, tokens - 1),
+            "reset": int(now) + 60,
+        }
+
+        if tokens > 0:
+            self._buckets[client_id] = (now, tokens - 1)
+            return True, info
+        else:
+            self._buckets[client_id] = (now, 0)
+            return False, info
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        """Process request with rate limiting."""
+        # Skip rate limiting if disabled or for health checks
+        if not self.enabled or request.url.path in ["/health", "/docs", "/redoc", "/openapi.json"]:
+            return await call_next(request)
+
+        client_id = self._get_client_id(request)
+        allowed, info = self._check_rate_limit(client_id)
+
+        if not allowed:
+            return Response(
+                content='{"error": "rate_limit_exceeded", "message": "Too many requests. Please retry later."}',
+                status_code=429,
+                media_type="application/json",
+                headers={
+                    "X-RateLimit-Limit": str(info["limit"]),
+                    "X-RateLimit-Remaining": str(info["remaining"]),
+                    "X-RateLimit-Reset": str(info["reset"]),
+                    "Retry-After": "60",
+                },
+            )
+
+        response = await call_next(request)
+
+        # Add rate limit headers to all responses
+        response.headers["X-RateLimit-Limit"] = str(info["limit"])
+        response.headers["X-RateLimit-Remaining"] = str(info["remaining"])
+        response.headers["X-RateLimit-Reset"] = str(info["reset"])
+
+        return response
+
+
+# Register rate limiting middleware
+app.add_middleware(RateLimitMiddleware)
 
 
 # Enums for API parameters

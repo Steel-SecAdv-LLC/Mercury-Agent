@@ -11,3 +11,14 @@ bcrypt>=4.0.1
 requests>=2.31.0
 tqdm>=4.65.0
 networkx>=3.0
+
+# Cryptography (required for security features, JWT)
+cryptography>=41.0.0
+
+# API Server Dependencies
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+httpx>=0.25.0
+
+# Pydantic Settings (for configuration management)
+pydantic-settings>=2.0.0

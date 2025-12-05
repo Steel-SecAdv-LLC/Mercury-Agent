@@ -36,6 +36,10 @@ setup(
         "requests>=2.31.0",
         "tqdm>=4.65.0",
         "networkx>=3.0",
+        "cryptography>=41.0.0",
+        "fastapi>=0.109.0",
+        "uvicorn[standard]>=0.27.0",
+        "httpx>=0.25.0",
     ],
     extras_require={
         # ML dependencies - heavy ML stack (torch, deepface, opencv)
