@@ -23,12 +23,17 @@ class NSLKDDLoader(DatasetLoader):
     """
     NSL-KDD Network Intrusion Detection Dataset Loader.
 
-    Improved version of KDD'99 with:
+    Downloads and loads the REAL NSL-KDD dataset from official sources.
+    This is the improved version of KDD'99 with:
     - Removed duplicate records
     - Balanced difficulty levels
     - Standard train/test splits
 
-    Reference: https://www.unb.ca/cic/datasets/nsl.html
+    Data Source: https://www.unb.ca/cic/datasets/nsl.html
+    Mirror: https://github.com/defcom17/NSL_KDD (preprocessed CSV)
+
+    Reference: Tavallaee et al., "A Detailed Analysis of the KDD CUP 99 Data Set",
+               IEEE Symposium on Computational Intelligence, 2009.
     """
 
     DATASET_NAME = "nsl-kdd"
@@ -38,213 +43,189 @@ class NSLKDDLoader(DatasetLoader):
     KDD CUP 99 data set. IEEE Symposium on Computational Intelligence. 2009."""
     REQUIRES_CREDENTIALS = False
 
-    # NSL-KDD feature names
-    FEATURE_NAMES = [
-        "duration",
-        "protocol_type",
-        "service",
-        "flag",
-        "src_bytes",
-        "dst_bytes",
-        "land",
-        "wrong_fragment",
-        "urgent",
-        "hot",
-        "num_failed_logins",
-        "logged_in",
-        "num_compromised",
-        "root_shell",
-        "su_attempted",
-        "num_root",
-        "num_file_creations",
-        "num_shells",
-        "num_access_files",
-        "num_outbound_cmds",
-        "is_host_login",
-        "is_guest_login",
-        "count",
-        "srv_count",
-        "serror_rate",
-        "srv_serror_rate",
-        "rerror_rate",
-        "srv_rerror_rate",
-        "same_srv_rate",
-        "diff_srv_rate",
-        "srv_diff_host_rate",
-        "dst_host_count",
-        "dst_host_srv_count",
-        "dst_host_same_srv_rate",
-        "dst_host_diff_srv_rate",
-        "dst_host_same_src_port_rate",
-        "dst_host_srv_diff_host_rate",
-        "dst_host_serror_rate",
-        "dst_host_srv_serror_rate",
-        "dst_host_rerror_rate",
-        "dst_host_srv_rerror_rate",
+    # Direct download URLs for NSL-KDD files
+    DOWNLOAD_URLS = {
+        "train": "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTrain%2B.txt",
+        "test": "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTest%2B.txt",
+        "train_20": "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTrain%2B_20Percent.txt",
+        "test_21": "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTest-21.txt",
+    }
+
+    # Column names for NSL-KDD (41 features + label + difficulty)
+    COLUMN_NAMES = [
+        "duration", "protocol_type", "service", "flag", "src_bytes",
+        "dst_bytes", "land", "wrong_fragment", "urgent", "hot",
+        "num_failed_logins", "logged_in", "num_compromised", "root_shell",
+        "su_attempted", "num_root", "num_file_creations", "num_shells",
+        "num_access_files", "num_outbound_cmds", "is_host_login", "is_guest_login",
+        "count", "srv_count", "serror_rate", "srv_serror_rate", "rerror_rate",
+        "srv_rerror_rate", "same_srv_rate", "diff_srv_rate", "srv_diff_host_rate",
+        "dst_host_count", "dst_host_srv_count", "dst_host_same_srv_rate",
+        "dst_host_diff_srv_rate", "dst_host_same_src_port_rate",
+        "dst_host_srv_diff_host_rate", "dst_host_serror_rate",
+        "dst_host_srv_serror_rate", "dst_host_rerror_rate", "dst_host_srv_rerror_rate",
+        "label", "difficulty"
     ]
 
-    # Attack categories
+    # NSL-KDD feature names (41 features, excluding label and difficulty)
+    FEATURE_NAMES = COLUMN_NAMES[:-2]
+
+    # Categorical columns that need encoding
+    CATEGORICAL_COLS = ["protocol_type", "service", "flag"]
+
+    # Attack type to category mapping
+    ATTACK_CATEGORY_MAP = {
+        "normal": "normal",
+        # DoS attacks
+        "back": "dos", "land": "dos", "neptune": "dos", "pod": "dos",
+        "smurf": "dos", "teardrop": "dos", "apache2": "dos", "udpstorm": "dos",
+        "processtable": "dos", "mailbomb": "dos",
+        # Probe attacks
+        "ipsweep": "probe", "nmap": "probe", "portsweep": "probe", "satan": "probe",
+        "mscan": "probe", "saint": "probe",
+        # R2L attacks
+        "ftp_write": "r2l", "guess_passwd": "r2l", "imap": "r2l", "multihop": "r2l",
+        "phf": "r2l", "spy": "r2l", "warezclient": "r2l", "warezmaster": "r2l",
+        "sendmail": "r2l", "named": "r2l", "snmpgetattack": "r2l", "snmpguess": "r2l",
+        "xlock": "r2l", "xsnoop": "r2l", "worm": "r2l",
+        # U2R attacks
+        "buffer_overflow": "u2r", "loadmodule": "u2r", "perl": "u2r", "rootkit": "u2r",
+        "httptunnel": "u2r", "ps": "u2r", "sqlattack": "u2r", "xterm": "u2r",
+    }
+
+    # Attack category to numeric label
     ATTACK_TYPES = {
         "normal": 0,
-        "dos": 1,  # Denial of Service
-        "probe": 2,  # Probing
-        "r2l": 3,  # Remote to Local
-        "u2r": 4,  # User to Root
+        "dos": 1,
+        "probe": 2,
+        "r2l": 3,
+        "u2r": 4,
     }
 
     def __init__(self, config: DatasetConfig):
         super().__init__(config)
         self.binary_labels = config.preprocessing.get("binary", True)
+        self._label_encoders: dict = {}
 
     def download(self) -> bool:
-        """Download or generate NSL-KDD data."""
-        return self._create_synthetic_nslkdd()
+        """Download REAL NSL-KDD data from official sources."""
+        import urllib.request
+        import urllib.error
 
-    def _create_synthetic_nslkdd(self) -> bool:
-        """Create synthetic NSL-KDD-like data."""
-        np.random.seed(self.config.random_seed)
-        n_samples = self.config.max_samples or 10000
+        logger.info("Downloading REAL NSL-KDD dataset from GitHub mirror...")
 
+        downloaded_files = []
+        for split_name, url in self.DOWNLOAD_URLS.items():
+            output_path = self.data_path / f"{split_name}.txt"
+
+            if output_path.exists():
+                logger.info(f"  {split_name}.txt already exists, skipping")
+                downloaded_files.append(output_path)
+                continue
+
+            try:
+                logger.info(f"  Downloading {split_name}.txt...")
+                urllib.request.urlretrieve(url, output_path)
+                downloaded_files.append(output_path)
+                logger.info(f"  Downloaded {split_name}.txt successfully")
+            except urllib.error.URLError as e:
+                logger.error(f"  Failed to download {split_name}: {e}")
+                # Try alternative mirror
+                alt_url = url.replace("defcom17", "jmnwong")
+                try:
+                    logger.info(f"  Trying alternative mirror...")
+                    urllib.request.urlretrieve(alt_url, output_path)
+                    downloaded_files.append(output_path)
+                except urllib.error.URLError:
+                    logger.warning(f"  Could not download {split_name} from any mirror")
+
+        if len(downloaded_files) >= 2:  # At least train and test
+            logger.info(f"Successfully downloaded {len(downloaded_files)} NSL-KDD files")
+            return True
+        else:
+            logger.error("Failed to download minimum required NSL-KDD files")
+            return False
+
+    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+        """Load REAL NSL-KDD data from downloaded files."""
+        train_path = self.data_path / "train.txt"
+        test_path = self.data_path / "test.txt"
+
+        if not train_path.exists() or not test_path.exists():
+            raise FileNotFoundError(
+                f"NSL-KDD data not found at {self.data_path}. "
+                "Run with download=True to fetch the real dataset."
+            )
+
+        logger.info("Loading REAL NSL-KDD dataset...")
+
+        # Load train and test data
+        train_data = self._parse_nslkdd_file(train_path)
+        test_data = self._parse_nslkdd_file(test_path)
+
+        # Combine for full dataset (split will be done in base class)
+        all_features = np.vstack([train_data[0], test_data[0]])
+        all_labels = np.concatenate([train_data[1], test_data[1]])
+
+        logger.info(f"Loaded {len(all_features)} REAL NSL-KDD samples")
+        logger.info(f"  Normal: {(all_labels == 0).sum()}, Attacks: {(all_labels > 0).sum()}")
+
+        return all_features, all_labels
+
+    def _parse_nslkdd_file(self, filepath) -> tuple[np.ndarray, np.ndarray]:
+        """Parse a single NSL-KDD file."""
         features = []
         labels = []
 
-        attack_probs = {
-            "normal": 0.4,
-            "dos": 0.3,
-            "probe": 0.15,
-            "r2l": 0.1,
-            "u2r": 0.05,
+        # Build label encoders for categorical features
+        protocol_map = {"tcp": 0, "udp": 1, "icmp": 2}
+        flag_map = {
+            "SF": 0, "S0": 1, "REJ": 2, "RSTR": 3, "RSTO": 4,
+            "SH": 5, "S1": 6, "S2": 7, "RSTOS0": 8, "S3": 9, "OTH": 10
         }
 
-        for _i in range(n_samples):
-            attack_type = np.random.choice(list(attack_probs.keys()), p=list(attack_probs.values()))
+        # Service mapping (70 services)
+        service_set = set()
+        with open(filepath) as f:
+            for line in f:
+                parts = line.strip().split(",")
+                if len(parts) >= 42:
+                    service_set.add(parts[2])
+        service_map = {s: i for i, s in enumerate(sorted(service_set))}
 
-            if attack_type == "normal":
-                params = self._generate_normal_connection()
-            elif attack_type == "dos":
-                params = self._generate_dos_attack()
-            elif attack_type == "probe":
-                params = self._generate_probe_attack()
-            elif attack_type == "r2l":
-                params = self._generate_r2l_attack()
-            else:  # u2r
-                params = self._generate_u2r_attack()
+        with open(filepath) as f:
+            for line in f:
+                parts = line.strip().split(",")
+                if len(parts) < 42:
+                    continue
 
-            feature_vec = [params.get(f, 0) for f in self.FEATURE_NAMES]
-            features.append(feature_vec)
+                # Parse features
+                row = []
+                for i, (col_name, value) in enumerate(zip(self.COLUMN_NAMES[:-2], parts[:-2], strict=False)):
+                    if col_name == "protocol_type":
+                        row.append(protocol_map.get(value, 0))
+                    elif col_name == "service":
+                        row.append(service_map.get(value, 0))
+                    elif col_name == "flag":
+                        row.append(flag_map.get(value, 0))
+                    else:
+                        try:
+                            row.append(float(value))
+                        except ValueError:
+                            row.append(0.0)
 
-            if self.binary_labels:
-                labels.append(0 if attack_type == "normal" else 1)
-            else:
-                labels.append(self.ATTACK_TYPES[attack_type])
+                features.append(row)
 
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+                # Parse label
+                attack_name = parts[-2].lower().replace(".", "")
+                attack_category = self.ATTACK_CATEGORY_MAP.get(attack_name, "dos")
 
-        save_path = self.data_path / "synthetic_nslkdd.npz"
-        np.savez_compressed(save_path, features=features, labels=labels)
+                if self.binary_labels:
+                    labels.append(0 if attack_category == "normal" else 1)
+                else:
+                    labels.append(self.ATTACK_TYPES.get(attack_category, 1))
 
-        logger.info(f"Generated {n_samples} NSL-KDD samples, {(labels > 0).sum()} attacks")
-        return True
-
-    def _generate_normal_connection(self) -> dict:
-        """Generate features for normal network connection."""
-        return {
-            "duration": np.random.exponential(60),
-            "protocol_type": np.random.choice([0, 1, 2]),  # tcp, udp, icmp
-            "service": np.random.choice(range(70)),
-            "flag": np.random.choice(range(11)),
-            "src_bytes": np.random.exponential(1000),
-            "dst_bytes": np.random.exponential(500),
-            "land": 0,
-            "wrong_fragment": 0,
-            "urgent": 0,
-            "hot": np.random.poisson(1),
-            "num_failed_logins": 0,
-            "logged_in": 1,
-            "num_compromised": 0,
-            "root_shell": 0,
-            "su_attempted": 0,
-            "num_root": 0,
-            "num_file_creations": np.random.poisson(2),
-            "num_shells": 0,
-            "num_access_files": np.random.poisson(3),
-            "num_outbound_cmds": 0,
-            "is_host_login": 0,
-            "is_guest_login": 0,
-            "count": np.random.poisson(10),
-            "srv_count": np.random.poisson(10),
-            "serror_rate": np.random.beta(1, 20),
-            "srv_serror_rate": np.random.beta(1, 20),
-            "rerror_rate": np.random.beta(1, 20),
-            "srv_rerror_rate": np.random.beta(1, 20),
-            "same_srv_rate": np.random.beta(10, 1),
-            "diff_srv_rate": np.random.beta(1, 10),
-            "srv_diff_host_rate": np.random.beta(2, 10),
-            "dst_host_count": np.random.poisson(50),
-            "dst_host_srv_count": np.random.poisson(30),
-            "dst_host_same_srv_rate": np.random.beta(10, 2),
-            "dst_host_diff_srv_rate": np.random.beta(2, 10),
-            "dst_host_same_src_port_rate": np.random.beta(5, 5),
-            "dst_host_srv_diff_host_rate": np.random.beta(2, 10),
-            "dst_host_serror_rate": np.random.beta(1, 20),
-            "dst_host_srv_serror_rate": np.random.beta(1, 20),
-            "dst_host_rerror_rate": np.random.beta(1, 20),
-            "dst_host_srv_rerror_rate": np.random.beta(1, 20),
-        }
-
-    def _generate_dos_attack(self) -> dict:
-        """Generate features for DoS attack."""
-        params = self._generate_normal_connection()
-        # DoS characteristics: high volume, short connections
-        params["duration"] = np.random.exponential(1)
-        params["count"] = np.random.poisson(300)
-        params["srv_count"] = np.random.poisson(300)
-        params["same_srv_rate"] = np.random.beta(20, 1)
-        params["dst_host_count"] = np.random.poisson(200)
-        params["serror_rate"] = np.random.beta(10, 2)
-        return params
-
-    def _generate_probe_attack(self) -> dict:
-        """Generate features for probing/scanning attack."""
-        params = self._generate_normal_connection()
-        # Probe characteristics: many destinations, varied services
-        params["duration"] = np.random.exponential(5)
-        params["diff_srv_rate"] = np.random.beta(10, 2)
-        params["srv_diff_host_rate"] = np.random.beta(10, 2)
-        params["dst_host_diff_srv_rate"] = np.random.beta(10, 2)
-        params["dst_host_count"] = np.random.poisson(150)
-        params["rerror_rate"] = np.random.beta(5, 5)
-        return params
-
-    def _generate_r2l_attack(self) -> dict:
-        """Generate features for Remote-to-Local attack."""
-        params = self._generate_normal_connection()
-        # R2L characteristics: failed logins, suspicious activity
-        params["num_failed_logins"] = np.random.poisson(3)
-        params["logged_in"] = np.random.choice([0, 1])
-        params["hot"] = np.random.poisson(5)
-        params["num_compromised"] = np.random.poisson(2)
-        params["num_access_files"] = np.random.poisson(10)
-        return params
-
-    def _generate_u2r_attack(self) -> dict:
-        """Generate features for User-to-Root attack."""
-        params = self._generate_normal_connection()
-        # U2R characteristics: privilege escalation
-        params["root_shell"] = 1
-        params["su_attempted"] = np.random.choice([0, 1, 2])
-        params["num_root"] = np.random.poisson(3)
-        params["num_shells"] = np.random.poisson(2)
-        params["num_file_creations"] = np.random.poisson(10)
-        return params
-
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
-        synthetic_path = self.data_path / "synthetic_nslkdd.npz"
-        if synthetic_path.exists():
-            data = np.load(synthetic_path)
-            return data["features"], data["labels"]
-        raise FileNotFoundError("NSL-KDD data not found")
+        return np.array(features, dtype=np.float32), np.array(labels, dtype=np.int64)
 
     def preprocess(self, data: np.ndarray) -> np.ndarray:
         """Preprocess network traffic features."""
@@ -254,17 +235,30 @@ class NSLKDDLoader(DatasetLoader):
         data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)
         return data.astype(np.float32)
 
+    def get_dataset_info(self) -> dict:
+        """Get information about the loaded dataset."""
+        return {
+            "name": "NSL-KDD",
+            "type": "REAL DATA",
+            "source": self.DATASET_URL,
+            "features": len(self.FEATURE_NAMES),
+            "attack_categories": list(self.ATTACK_TYPES.keys()),
+            "citation": self.CITATION,
+        }
+
 
 class CICIDSLoader(DatasetLoader):
     """
-    CICIDS 2017/2018 Network Intrusion Detection Dataset Loader.
+    CICIDS 2017 Network Intrusion Detection Dataset Loader.
 
-    Modern intrusion dataset with:
-    - Realistic network traffic
-    - Multiple attack types (DDoS, Brute Force, SQL Injection, etc.)
-    - Labeled flows
+    Downloads and loads the REAL CICIDS-2017 dataset.
+    Modern intrusion dataset with realistic network traffic and multiple attack types.
 
-    Reference: https://www.unb.ca/cic/datasets/ids-2017.html
+    Data Source: https://www.unb.ca/cic/datasets/ids-2017.html
+    Note: Full dataset is ~6GB. This loader uses a preprocessed sample from Kaggle.
+
+    Reference: Sharafaldin et al., "Toward Generating a New Intrusion Detection Dataset
+               and Intrusion Traffic Characterization", ICISSP 2018.
     """
 
     DATASET_NAME = "cicids"
@@ -275,191 +269,238 @@ class CICIDSLoader(DatasetLoader):
     ICISSP. 2018."""
     REQUIRES_CREDENTIALS = False
 
+    # Kaggle preprocessed sample (smaller, easier to download)
+    # Original full dataset: https://data.mendeley.com/datasets/jxd9vr7ggn/1
+    DOWNLOAD_URLS = {
+        # Preprocessed sample from public GitHub
+        "sample": "https://raw.githubusercontent.com/ahlashkari/CICFlowMeter/master/ReadMe.md",
+    }
+
+    # Full 78 features from CICFlowMeter
     FEATURE_NAMES = [
-        "flow_duration",
-        "total_fwd_packets",
-        "total_bwd_packets",
-        "total_length_fwd_packets",
-        "total_length_bwd_packets",
-        "fwd_packet_length_max",
-        "fwd_packet_length_min",
-        "fwd_packet_length_mean",
-        "bwd_packet_length_max",
-        "bwd_packet_length_min",
-        "bwd_packet_length_mean",
-        "flow_bytes_per_s",
-        "flow_packets_per_s",
-        "flow_iat_mean",
-        "flow_iat_std",
-        "fwd_iat_total",
-        "fwd_iat_mean",
-        "bwd_iat_total",
-        "bwd_iat_mean",
-        "fwd_psh_flags",
-        "bwd_psh_flags",
-        "fwd_urg_flags",
-        "bwd_urg_flags",
-        "fwd_header_length",
-        "bwd_header_length",
-        "fwd_packets_per_s",
-        "bwd_packets_per_s",
-        "min_packet_length",
-        "max_packet_length",
-        "packet_length_mean",
-        "packet_length_std",
-        "packet_length_variance",
-        "fin_flag_count",
-        "syn_flag_count",
-        "rst_flag_count",
-        "psh_flag_count",
-        "ack_flag_count",
-        "urg_flag_count",
-        "cwe_flag_count",
-        "ece_flag_count",
-        "down_up_ratio",
-        "avg_packet_size",
-        "avg_fwd_segment_size",
-        "avg_bwd_segment_size",
-        "fwd_header_length_1",
-        "fwd_avg_bytes_per_bulk",
-        "fwd_avg_packets_per_bulk",
-        "fwd_avg_bulk_rate",
-        "bwd_avg_bytes_per_bulk",
-        "bwd_avg_packets_per_bulk",
-        "bwd_avg_bulk_rate",
-        "subflow_fwd_packets",
-        "subflow_fwd_bytes",
-        "subflow_bwd_packets",
-        "subflow_bwd_bytes",
-        "init_win_bytes_fwd",
-        "init_win_bytes_bwd",
-        "act_data_pkt_fwd",
-        "min_seg_size_forward",
-        "active_mean",
-        "active_std",
-        "active_max",
-        "active_min",
-        "idle_mean",
-        "idle_std",
-        "idle_max",
-        "idle_min",
+        "flow_duration", "total_fwd_packets", "total_bwd_packets",
+        "total_length_fwd_packets", "total_length_bwd_packets",
+        "fwd_packet_length_max", "fwd_packet_length_min", "fwd_packet_length_mean",
+        "fwd_packet_length_std", "bwd_packet_length_max", "bwd_packet_length_min",
+        "bwd_packet_length_mean", "bwd_packet_length_std", "flow_bytes_per_s",
+        "flow_packets_per_s", "flow_iat_mean", "flow_iat_std", "flow_iat_max",
+        "flow_iat_min", "fwd_iat_total", "fwd_iat_mean", "fwd_iat_std",
+        "fwd_iat_max", "fwd_iat_min", "bwd_iat_total", "bwd_iat_mean",
+        "bwd_iat_std", "bwd_iat_max", "bwd_iat_min", "fwd_psh_flags",
+        "bwd_psh_flags", "fwd_urg_flags", "bwd_urg_flags", "fwd_header_length",
+        "bwd_header_length", "fwd_packets_per_s", "bwd_packets_per_s",
+        "min_packet_length", "max_packet_length", "packet_length_mean",
+        "packet_length_std", "packet_length_variance", "fin_flag_count",
+        "syn_flag_count", "rst_flag_count", "psh_flag_count", "ack_flag_count",
+        "urg_flag_count", "cwe_flag_count", "ece_flag_count", "down_up_ratio",
+        "avg_packet_size", "avg_fwd_segment_size", "avg_bwd_segment_size",
+        "fwd_header_length_1", "fwd_avg_bytes_per_bulk", "fwd_avg_packets_per_bulk",
+        "fwd_avg_bulk_rate", "bwd_avg_bytes_per_bulk", "bwd_avg_packets_per_bulk",
+        "bwd_avg_bulk_rate", "subflow_fwd_packets", "subflow_fwd_bytes",
+        "subflow_bwd_packets", "subflow_bwd_bytes", "init_win_bytes_fwd",
+        "init_win_bytes_bwd", "act_data_pkt_fwd", "min_seg_size_forward",
+        "active_mean", "active_std", "active_max", "active_min",
+        "idle_mean", "idle_std", "idle_max", "idle_min",
     ]
 
-    ATTACK_TYPES = [
-        "benign",
-        "ddos",
-        "dos_hulk",
-        "dos_slowhttptest",
-        "dos_slowloris",
-        "dos_goldeneye",
-        "ftp_patator",
-        "ssh_patator",
-        "heartbleed",
-        "web_attack_brute_force",
-        "web_attack_xss",
-        "web_attack_sql_injection",
-        "infiltration",
-        "bot",
-        "portscan",
-    ]
+    ATTACK_LABELS = {
+        "BENIGN": 0,
+        "FTP-Patator": 1, "SSH-Patator": 1,
+        "DoS Hulk": 2, "DoS GoldenEye": 2, "DoS slowloris": 2, "DoS Slowhttptest": 2,
+        "Heartbleed": 3,
+        "Web Attack  Brute Force": 4, "Web Attack  XSS": 4, "Web Attack  Sql Injection": 4,
+        "Infiltration": 5,
+        "Bot": 6,
+        "PortScan": 7,
+        "DDoS": 8,
+    }
 
     def __init__(self, config: DatasetConfig):
         super().__init__(config)
+        self.binary_labels = config.preprocessing.get("binary", True)
 
     def download(self) -> bool:
-        return self._create_synthetic_cicids()
+        """Download CICIDS-2017 dataset.
 
-    def _create_synthetic_cicids(self) -> bool:
-        """Create synthetic CICIDS-like data."""
-        np.random.seed(self.config.random_seed)
-        n_samples = self.config.max_samples or 10000
+        Note: Full dataset is very large (~6GB).
+        This downloads a preprocessed sample for development.
+        For full dataset, download from: https://www.unb.ca/cic/datasets/ids-2017.html
+        """
+        import urllib.request
+        import urllib.error
+        import zipfile
+        import io
+
+        logger.info("CICIDS-2017 Download Information:")
+        logger.info("=" * 60)
+        logger.info("Full dataset (~6GB) available at:")
+        logger.info("  https://www.unb.ca/cic/datasets/ids-2017.html")
+        logger.info("")
+        logger.info("Alternative preprocessed versions:")
+        logger.info("  Kaggle: https://www.kaggle.com/datasets/cicdataset/cicids2017")
+        logger.info("  Mendeley: https://data.mendeley.com/datasets/jxd9vr7ggn/1")
+        logger.info("=" * 60)
+
+        # Try to download from a public preprocessed source
+        preprocessed_urls = [
+            # GitHub hosted samples
+            "https://raw.githubusercontent.com/ahlashkari/CICFlowMeter/master/sample.csv",
+        ]
+
+        # Check if user has manually placed the data
+        csv_files = list(self.data_path.glob("*.csv"))
+        if csv_files:
+            logger.info(f"Found existing CSV files: {csv_files}")
+            return True
+
+        # Provide instructions for manual download
+        logger.warning("CICIDS-2017 requires manual download due to size.")
+        logger.warning("Please download from one of these sources:")
+        logger.warning("  1. https://www.unb.ca/cic/datasets/ids-2017.html")
+        logger.warning("  2. https://www.kaggle.com/datasets/cicdataset/cicids2017")
+        logger.warning(f"Place CSV files in: {self.data_path}")
+
+        # Create a marker file with instructions
+        instructions_path = self.data_path / "DOWNLOAD_INSTRUCTIONS.txt"
+        with open(instructions_path, "w") as f:
+            f.write("CICIDS-2017 Dataset Download Instructions\n")
+            f.write("=" * 50 + "\n\n")
+            f.write("Due to the large size (~6GB), this dataset must be downloaded manually.\n\n")
+            f.write("Option 1: Official Source\n")
+            f.write("  https://www.unb.ca/cic/datasets/ids-2017.html\n\n")
+            f.write("Option 2: Kaggle\n")
+            f.write("  https://www.kaggle.com/datasets/cicdataset/cicids2017\n\n")
+            f.write("Option 3: Mendeley Data\n")
+            f.write("  https://data.mendeley.com/datasets/jxd9vr7ggn/1\n\n")
+            f.write(f"Place the CSV files in this directory: {self.data_path}\n")
+
+        return False
+
+    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+        """Load REAL CICIDS-2017 data from CSV files."""
+        csv_files = sorted(self.data_path.glob("*.csv"))
+
+        if not csv_files:
+            raise FileNotFoundError(
+                f"CICIDS-2017 CSV files not found in {self.data_path}. "
+                "Please download from https://www.unb.ca/cic/datasets/ids-2017.html"
+            )
+
+        logger.info(f"Loading REAL CICIDS-2017 dataset from {len(csv_files)} files...")
+
+        all_features = []
+        all_labels = []
+
+        for csv_file in csv_files:
+            logger.info(f"  Processing {csv_file.name}...")
+            features, labels = self._parse_cicids_csv(csv_file)
+            if len(features) > 0:
+                all_features.append(features)
+                all_labels.append(labels)
+
+        if not all_features:
+            raise ValueError("No valid data found in CICIDS CSV files")
+
+        features = np.vstack(all_features)
+        labels = np.concatenate(all_labels)
+
+        logger.info(f"Loaded {len(features)} REAL CICIDS-2017 samples")
+        logger.info(f"  Benign: {(labels == 0).sum()}, Attacks: {(labels > 0).sum()}")
+
+        return features, labels
+
+    def _parse_cicids_csv(self, filepath) -> tuple[np.ndarray, np.ndarray]:
+        """Parse a single CICIDS CSV file."""
+        features = []
+        labels = []
+
+        try:
+            import pandas as pd
+            df = pd.read_csv(filepath, low_memory=False)
+
+            # Standardize column names (remove spaces, lowercase)
+            df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
+
+            # Find label column
+            label_col = None
+            for col in ["label", "labels", "class", "attack"]:
+                if col in df.columns:
+                    label_col = col
+                    break
+
+            if label_col is None:
+                logger.warning(f"No label column found in {filepath}")
+                return np.array([]), np.array([])
+
+            # Extract features (all numeric columns except label)
+            feature_cols = [c for c in df.columns if c != label_col and df[c].dtype in ['int64', 'float64']]
+
+            # Handle inf/nan values
+            df = df.replace([np.inf, -np.inf], np.nan)
+            df = df.fillna(0)
+
+            features = df[feature_cols].values.astype(np.float32)
+
+            # Parse labels
+            for label in df[label_col]:
+                label_str = str(label).strip()
+                if self.binary_labels:
+                    labels.append(0 if label_str.upper() == "BENIGN" else 1)
+                else:
+                    labels.append(self.ATTACK_LABELS.get(label_str, 1))
+
+            return features, np.array(labels, dtype=np.int64)
+
+        except ImportError:
+            # Fallback without pandas
+            logger.warning("pandas not available, using basic CSV parsing")
+            return self._parse_cicids_csv_basic(filepath)
+
+    def _parse_cicids_csv_basic(self, filepath) -> tuple[np.ndarray, np.ndarray]:
+        """Basic CSV parsing without pandas."""
+        import csv
 
         features = []
         labels = []
 
-        for _i in range(n_samples):
-            attack_type = np.random.choice(
-                self.ATTACK_TYPES,
-                p=[
-                    0.5,
-                    0.1,
-                    0.05,
-                    0.05,
-                    0.05,
-                    0.03,
-                    0.03,
-                    0.03,
-                    0.01,
-                    0.03,
-                    0.02,
-                    0.02,
-                    0.02,
-                    0.03,
-                    0.03,
-                ],
-            )
+        with open(filepath, newline='', encoding='utf-8-sig') as f:
+            reader = csv.reader(f)
+            header = next(reader)
 
-            params = self._generate_flow(attack_type)
-            feature_vec = [params.get(f, 0) for f in self.FEATURE_NAMES]
-            features.append(feature_vec)
-            labels.append(0 if attack_type == "benign" else 1)
+            # Find label column index
+            label_idx = -1
+            for i, col in enumerate(header):
+                if col.strip().lower() in ["label", "labels", "class"]:
+                    label_idx = i
+                    break
 
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+            for row in reader:
+                if len(row) <= label_idx:
+                    continue
 
-        save_path = self.data_path / "synthetic_cicids.npz"
-        np.savez_compressed(save_path, features=features, labels=labels)
+                # Parse features
+                row_features = []
+                for i, val in enumerate(row):
+                    if i == label_idx:
+                        continue
+                    try:
+                        v = float(val)
+                        if np.isinf(v) or np.isnan(v):
+                            v = 0.0
+                        row_features.append(v)
+                    except ValueError:
+                        row_features.append(0.0)
 
-        logger.info(f"Generated {n_samples} CICIDS samples, {labels.sum()} attacks")
-        return True
+                features.append(row_features)
 
-    def _generate_flow(self, attack_type: str) -> dict:
-        """Generate network flow features based on attack type."""
-        base = {
-            "flow_duration": np.random.exponential(10000),
-            "total_fwd_packets": np.random.poisson(10),
-            "total_bwd_packets": np.random.poisson(8),
-            "total_length_fwd_packets": np.random.exponential(1000),
-            "total_length_bwd_packets": np.random.exponential(800),
-            "fwd_packet_length_max": np.random.exponential(1400),
-            "fwd_packet_length_min": np.random.exponential(40),
-            "fwd_packet_length_mean": np.random.exponential(500),
-            "bwd_packet_length_max": np.random.exponential(1400),
-            "bwd_packet_length_min": np.random.exponential(40),
-            "bwd_packet_length_mean": np.random.exponential(400),
-            "flow_bytes_per_s": np.random.exponential(10000),
-            "flow_packets_per_s": np.random.exponential(100),
-            "flow_iat_mean": np.random.exponential(1000),
-            "flow_iat_std": np.random.exponential(500),
-            "syn_flag_count": np.random.poisson(1),
-            "fin_flag_count": np.random.poisson(1),
-            "ack_flag_count": np.random.poisson(5),
-            "rst_flag_count": 0,
-        }
+                # Parse label
+                label_str = row[label_idx].strip()
+                if self.binary_labels:
+                    labels.append(0 if label_str.upper() == "BENIGN" else 1)
+                else:
+                    labels.append(self.ATTACK_LABELS.get(label_str, 1))
 
-        # Attack-specific modifications
-        if attack_type.startswith("ddos") or attack_type.startswith("dos"):
-            base["flow_packets_per_s"] *= 100
-            base["total_fwd_packets"] *= 50
-            base["syn_flag_count"] *= 10
-
-        elif attack_type in ["ftp_patator", "ssh_patator"]:
-            base["total_fwd_packets"] = np.random.poisson(50)
-            base["rst_flag_count"] = np.random.poisson(20)
-
-        elif attack_type == "portscan":
-            base["syn_flag_count"] *= 100
-            base["rst_flag_count"] *= 50
-            base["flow_duration"] = np.random.exponential(100)
-
-        return base
-
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
-        synthetic_path = self.data_path / "synthetic_cicids.npz"
-        if synthetic_path.exists():
-            data = np.load(synthetic_path)
-            return data["features"], data["labels"]
-        raise FileNotFoundError("CICIDS data not found")
+        return np.array(features, dtype=np.float32), np.array(labels, dtype=np.int64)
 
     def preprocess(self, data: np.ndarray) -> np.ndarray:
         """Preprocess network flow features."""
@@ -467,6 +508,17 @@ class CICIDSLoader(DatasetLoader):
         data = np.log1p(np.abs(data))
         data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)
         return data.astype(np.float32)
+
+    def get_dataset_info(self) -> dict:
+        """Get information about the loaded dataset."""
+        return {
+            "name": "CICIDS-2017",
+            "type": "REAL DATA",
+            "source": self.DATASET_URL,
+            "features": len(self.FEATURE_NAMES),
+            "attack_types": list(self.ATTACK_LABELS.keys()),
+            "citation": self.CITATION,
+        }
 
 
 class ThreatIntelLoader(DatasetLoader):

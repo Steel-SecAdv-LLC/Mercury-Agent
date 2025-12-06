@@ -30,10 +30,10 @@ and multi-dimensional data using neural network fusion of specialized detectors.
 
 def __getattr__(name: str):
     """Lazy import for OmniAnomalyEngine to defer torch dependency."""
-    if name == "OmniAnomalyEngine":
-        from omni_anomaly_engine.engine import OmniAnomalyEngine
+    if name in ("OmniAnomalyEngine", "OmniAvaEngine"):
+        from omni_anomaly_engine.engine import OmniAvaEngine
 
-        return OmniAnomalyEngine
+        return OmniAvaEngine
     elif name == "EngineConfig":
         from omni_anomaly_engine.core.config import EngineConfig
 
@@ -65,5 +65,6 @@ __all__ = [
     "FusionException",
     "ModelException",
     "OmniAnomalyEngine",
+    "OmniAvaEngine",  # Alias for OmniAnomalyEngine
     "OmniAnomalyException",
 ]

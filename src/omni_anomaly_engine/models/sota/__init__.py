@@ -1,0 +1,60 @@
+"""
+OMNI ♱ AVA (O♱A)
+Copyright (C) 2025 Steel Security Advisory LLC
+
+State-of-the-Art Anomaly Detection Models
+
+This module integrates cutting-edge architectures from academic research:
+- Association Discrepancy (Anomaly Transformer, ICLR 2022)
+- TranAD (VLDB 2022)
+- MAAT (Mamba Adaptive Anomaly Transformer, 2025)
+
+All implementations respect OMNI-AVA's ethical scalars and survivor-first philosophy.
+
+References:
+    - Xu et al., "Anomaly Transformer: Time Series Anomaly Detection with
+      Association Discrepancy", ICLR 2022
+    - Tuli et al., "TranAD: Deep Transformer Networks for Anomaly Detection
+      in Multivariate Time Series Data", VLDB 2022
+    - Benaissa et al., "MAAT: Mamba Adaptive Anomaly Transformer", arXiv 2025
+"""
+
+from omni_anomaly_engine.models.sota.association_discrepancy import (
+    AssociationDiscrepancyModule,
+    AnomalyTransformerEncoder,
+    PriorAssociation,
+    SeriesAssociation,
+)
+from omni_anomaly_engine.models.sota.tranad import (
+    TranADModel,
+    FocusScoreConditioning,
+    AdversarialTrainer,
+    MAMLOptimizer,
+)
+from omni_anomaly_engine.models.sota.maat import (
+    MAATModel,
+    SparseAttention,
+    MambaSSM,
+    GatedFeatureFusion,
+)
+
+__all__ = [
+    # Association Discrepancy (Anomaly Transformer)
+    "AssociationDiscrepancyModule",
+    "AnomalyTransformerEncoder",
+    "PriorAssociation",
+    "SeriesAssociation",
+    # TranAD
+    "TranADModel",
+    "FocusScoreConditioning",
+    "AdversarialTrainer",
+    "MAMLOptimizer",
+    # MAAT
+    "MAATModel",
+    "SparseAttention",
+    "MambaSSM",
+    "GatedFeatureFusion",
+]
+
+__version__ = "1.0.0"
+__author__ = "Steel Security Advisory LLC"
