@@ -14,7 +14,6 @@ All datasets download from official sources or mirrors.
 
 import json
 import logging
-import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -508,7 +507,7 @@ class SMAPMSLLoader(DatasetLoader):
                         anomaly_seqs = row.get("anomaly_sequences", "[]")
                         try:
                             anomaly_info[chan_id] = eval(anomaly_seqs)
-                        except:
+                        except (SyntaxError, ValueError, NameError):
                             anomaly_info[chan_id] = []
 
         all_features = []
@@ -548,7 +547,6 @@ class SMAPMSLLoader(DatasetLoader):
             )
 
         # Pad to same length and stack
-        max_len = max(len(f) for f in all_features)
         padded_features = []
         padded_labels = []
 

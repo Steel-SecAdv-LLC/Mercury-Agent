@@ -21,7 +21,6 @@ These metrics are used in papers like:
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 
@@ -51,8 +50,8 @@ class AnomalyMetrics:
     false_negatives: int
 
     # Optional time-series adjusted metrics
-    point_adjusted_f1: Optional[float] = None
-    range_based_f1: Optional[float] = None
+    point_adjusted_f1: float | None = None
+    range_based_f1: float | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -381,7 +380,7 @@ def _range_recall(gt_segs, pred_segs, alpha, cardinality, bias) -> float:
 def evaluate_anomaly_detection(
     y_true: np.ndarray,
     y_score: np.ndarray,
-    threshold: Optional[float] = None,
+    threshold: float | None = None,
     is_timeseries: bool = False,
 ) -> AnomalyMetrics:
     """
@@ -461,7 +460,7 @@ def print_metrics_report(metrics: AnomalyMetrics, dataset_name: str = "Unknown")
     """
     lines = [
         f"\n{'='*60}",
-        f"ANOMALY DETECTION EVALUATION REPORT",
+        "ANOMALY DETECTION EVALUATION REPORT",
         f"Dataset: {dataset_name}",
         f"{'='*60}",
         "",

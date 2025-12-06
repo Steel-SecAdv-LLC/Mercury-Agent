@@ -575,7 +575,7 @@ class SOTAEnsemble(nn.Module):
 
         # Output projection for final anomaly score
         anomaly_output = self.output_proj(
-            (ad_repr * gates[:, 0:1] + tranad_repr * gates[:, 1:2] + maat_repr * gates[:, 2:3])
+            ad_repr * gates[:, 0:1] + tranad_repr * gates[:, 1:2] + maat_repr * gates[:, 2:3]
         )
 
         output = {

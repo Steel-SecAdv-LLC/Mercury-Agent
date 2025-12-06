@@ -26,7 +26,6 @@ Methods included:
 """
 
 from dataclasses import dataclass
-from typing import Optional
 
 # Published baseline results from papers
 # Format: (Precision, Recall, F1) or (F1,) when others not reported
@@ -263,7 +262,7 @@ def compare_to_baselines(
     )
 
 
-def print_baseline_table(dataset: str, your_results: Optional[dict] = None) -> str:
+def print_baseline_table(dataset: str, your_results: dict | None = None) -> str:
     """
     Print a formatted table comparing your results to baselines.
 

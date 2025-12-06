@@ -28,7 +28,7 @@ from __future__ import annotations
 import copy
 import math
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 import torch
 import torch.nn.functional as F
@@ -36,13 +36,13 @@ from torch import nn
 from torch.optim import Adam
 
 __all__ = [
-    "TranADModel",
-    "TranADConfig",
-    "FocusScoreConditioning",
     "AdversarialTrainer",
+    "FocusScoreConditioning",
     "MAMLOptimizer",
-    "TransformerEncoder",
+    "TranADConfig",
+    "TranADModel",
     "TransformerDecoder",
+    "TransformerEncoder",
 ]
 
 

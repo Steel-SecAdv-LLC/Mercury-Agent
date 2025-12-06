@@ -38,12 +38,12 @@ import torch.nn.functional as F
 from torch import nn
 
 __all__ = [
-    "MAATModel",
-    "MAATConfig",
-    "SparseAttention",
-    "MambaSSM",
     "GatedFeatureFusion",
+    "MAATConfig",
+    "MAATModel",
+    "MambaSSM",
     "SelectiveSSM",
+    "SparseAttention",
 ]
 
 
@@ -851,7 +851,7 @@ class MAATLoss(nn.Module):
             disc_loss = discrepancy.mean()
 
         # Pathway balance (encourage use of both pathways)
-        if "gates" in result and result["gates"]:
+        if result.get("gates"):
             gates = torch.stack(result["gates"], dim=0)
             # Penalize extreme gates (0 or 1)
             balance_loss = ((gates - 0.5) ** 2).mean()

@@ -6,7 +6,6 @@ Tests for evaluation metrics module.
 """
 
 import numpy as np
-import pytest
 
 from omni_anomaly_engine.evaluation.metrics import (
     AnomalyMetrics,

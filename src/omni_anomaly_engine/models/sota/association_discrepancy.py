@@ -38,11 +38,11 @@ import torch.nn.functional as F
 from torch import nn
 
 __all__ = [
-    "AssociationDiscrepancyModule",
     "AnomalyTransformerEncoder",
+    "AssociationDiscrepancyLoss",
+    "AssociationDiscrepancyModule",
     "PriorAssociation",
     "SeriesAssociation",
-    "AssociationDiscrepancyLoss",
 ]
 
 

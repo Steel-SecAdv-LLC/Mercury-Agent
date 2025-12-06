@@ -19,8 +19,6 @@ from __future__ import annotations
 import logging
 import os
 import zipfile
-from pathlib import Path
-from typing import Any
 
 import numpy as np
 
@@ -29,10 +27,10 @@ from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    "UCRLoader",
+    "CWRUBearingLoader",
     "MBALoader",
     "MSDSLoader",
-    "CWRUBearingLoader",
+    "UCRLoader",
 ]
 
 
@@ -107,7 +105,7 @@ class UCRLoader(DatasetLoader):
 
         try:
             zip_path = self.data_path / f"{self.dataset_name}.zip"
-            logger.info(f"  Trying dataset-specific download...")
+            logger.info("  Trying dataset-specific download...")
             urllib.request.urlretrieve(specific_url, zip_path)
 
             # Extract
@@ -119,7 +117,7 @@ class UCRLoader(DatasetLoader):
             return True
 
         except urllib.error.URLError:
-            logger.warning(f"  Dataset-specific download failed")
+            logger.warning("  Dataset-specific download failed")
 
         # Provide instructions for full archive
         logger.info("")
@@ -268,8 +266,6 @@ class MBALoader(DatasetLoader):
         """Download CWRU bearing data."""
         import urllib.error
         import urllib.request
-
-        from scipy.io import loadmat
 
         logger.info("Downloading CWRU Bearing Dataset (MBA)...")
 

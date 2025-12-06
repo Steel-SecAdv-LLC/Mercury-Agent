@@ -405,7 +405,7 @@ class NOAAWeatherLoader(DatasetLoader):
                     is_severe = deaths > 0 or injuries > 5 or damage > 100000
                     labels.append(1 if is_severe else 0)
 
-                except (ValueError, KeyError) as e:
+                except (ValueError, KeyError):
                     continue
 
         return features, labels
@@ -654,7 +654,7 @@ class WildfireDataLoader(DatasetLoader):
                     is_significant = confidence >= 80 or frp >= 50
                     labels.append(1 if is_significant else 0)
 
-                except (ValueError, KeyError) as e:
+                except (ValueError, KeyError):
                     continue
 
         return features, labels

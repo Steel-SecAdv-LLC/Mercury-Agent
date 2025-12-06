@@ -192,7 +192,7 @@ class NSLKDDLoader(DatasetLoader):
                 # Try alternative mirror
                 alt_url = url.replace("defcom17", "jmnwong")
                 try:
-                    logger.info(f"  Trying alternative mirror...")
+                    logger.info("  Trying alternative mirror...")
                     urllib.request.urlretrieve(alt_url, output_path)
                     downloaded_files.append(output_path)
                 except urllib.error.URLError:
@@ -456,10 +456,6 @@ class CICIDSLoader(DatasetLoader):
         This downloads a preprocessed sample for development.
         For full dataset, download from: https://www.unb.ca/cic/datasets/ids-2017.html
         """
-        import io
-        import urllib.error
-        import urllib.request
-        import zipfile
 
         logger.info("CICIDS-2017 Download Information:")
         logger.info("=" * 60)
@@ -471,11 +467,9 @@ class CICIDSLoader(DatasetLoader):
         logger.info("  Mendeley: https://data.mendeley.com/datasets/jxd9vr7ggn/1")
         logger.info("=" * 60)
 
-        # Try to download from a public preprocessed source
-        preprocessed_urls = [
-            # GitHub hosted samples
-            "https://raw.githubusercontent.com/ahlashkari/CICFlowMeter/master/sample.csv",
-        ]
+        # Note: Full dataset URLs available at:
+        # - GitHub: https://raw.githubusercontent.com/ahlashkari/CICFlowMeter/master/sample.csv
+        # - Kaggle: https://www.kaggle.com/datasets/cicdataset/cicids2017
 
         # Check if user has manually placed the data
         csv_files = list(self.data_path.glob("*.csv"))

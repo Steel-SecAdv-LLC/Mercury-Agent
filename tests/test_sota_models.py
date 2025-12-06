@@ -5,9 +5,7 @@ Copyright (C) 2025 Steel Security Advisory LLC
 Tests for SOTA anomaly detection models.
 """
 
-import pytest
 import torch
-import torch.nn as nn
 
 from omni_anomaly_engine.models.sota.association_discrepancy import (
     AnomalyTransformerEncoder,
@@ -33,7 +31,6 @@ from omni_anomaly_engine.models.sota.tranad import (
     FocusScoreConditioning,
     MAMLOptimizer,
     TranADConfig,
-    TranADLoss,
     TranADModel,
     TransformerDecoder,
     TransformerEncoder,
