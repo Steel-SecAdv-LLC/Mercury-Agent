@@ -427,7 +427,9 @@ jobs:
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
+          scanners: 'vuln'
         # Security: Block CI on CRITICAL/HIGH vulnerabilities
+        # Note: Secret scanning disabled here for performance (handled by security-scan job)
 
       - name: Upload Trivy results
         uses: github/codeql-action/upload-sarif@v3
