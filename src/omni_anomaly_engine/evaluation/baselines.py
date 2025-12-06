@@ -289,11 +289,11 @@ def print_baseline_table(dataset: str, your_results: dict[str, float] | None = N
     ]
 
     # Add baselines sorted by F1
-    sorted_baselines = sorted(
-        baselines.items(),
-        key=lambda x: float(x[1].get("f1", 0)) if isinstance(x[1].get("f1", 0), (int, float)) else 0,
-        reverse=True,
-    )
+    def get_f1_score(item: tuple[str, dict[str, object]]) -> float:
+        f1_val = item[1].get("f1", 0)
+        return float(f1_val) if isinstance(f1_val, (int, float)) else 0.0
+
+    sorted_baselines = sorted(baselines.items(), key=get_f1_score, reverse=True)
 
     for name, metrics in sorted_baselines:
         prec = metrics.get("precision", "-")
