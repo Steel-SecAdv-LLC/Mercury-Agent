@@ -81,6 +81,8 @@ class MAATConfig:
     use_sparse_attention: bool = True
     gate_bias: float = 0.0
     window_size: int = 100
+    anomaly_threshold_percentile: float = 0.95  # Configurable threshold for detection
+    gate_threshold: float = 0.5  # Configurable gate interpretation threshold
     ethical_scalars: dict[str, float] = field(
         default_factory=lambda: {
             "maat_balance": 1.35,  # Ma'at: goddess of truth and balance
@@ -673,8 +675,22 @@ class MAATModel(nn.Module):
 
         Returns:
             Dictionary with reconstruction, anomaly scores, etc.
+
+        Raises:
+            ValueError: If input shape is invalid
         """
-        batch_size, seq_len, _ = x.shape
+        # Input validation
+        if x.dim() != 3:
+            raise ValueError(f"Expected 3D input [batch, seq, features], got {x.dim()}D")
+        batch_size, seq_len, input_dim = x.shape
+        if input_dim != self.config.input_dim:
+            raise ValueError(
+                f"Input dim {input_dim} doesn't match config {self.config.input_dim}"
+            )
+
+        # Handle NaN/Inf in input
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            x = torch.nan_to_num(x, nan=0.0, posinf=1e6, neginf=-1e6)
 
         # Project and add positional encoding
         h = self.input_proj(x)
@@ -731,7 +747,7 @@ class MAATModel(nn.Module):
 
         Args:
             x: Input tensor [batch, seq_len, input_dim]
-            threshold: Detection threshold (auto-computed if None)
+            threshold: Detection threshold (auto-computed if None using config percentile)
 
         Returns:
             Detection results
@@ -741,8 +757,10 @@ class MAATModel(nn.Module):
 
         anomaly_score = result["anomaly_score"]
 
+        # Auto-threshold using configurable percentile
         if threshold is None:
-            threshold = torch.quantile(anomaly_score.flatten(), 0.95).item()
+            percentile = self.config.anomaly_threshold_percentile
+            threshold = torch.quantile(anomaly_score.flatten(), percentile).item()
 
         predictions = (anomaly_score > threshold).float()
 
@@ -768,8 +786,9 @@ class MAATModel(nn.Module):
 
         gates = torch.stack(result["gates"], dim=0)  # [layers, batch, seq, d_model]
 
-        # Gate > 0.5 means attention preferred
-        attention_ratio = (gates > 0.5).float().mean()
+        # Gate > threshold means attention preferred (configurable)
+        gate_threshold = self.config.gate_threshold
+        attention_ratio = (gates > gate_threshold).float().mean()
 
         return {
             "attention_ratio": attention_ratio,

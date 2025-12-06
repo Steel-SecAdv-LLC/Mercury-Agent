@@ -59,6 +59,7 @@ class AssociationConfig:
         lambda_: Weight for association discrepancy in loss
         window_size: Local context window for prior
         enable_ethical_guard: Enable ethical scalar constraints
+        anomaly_threshold_percentile: Percentile for auto-threshold detection
     """
 
     d_model: int = 512
@@ -69,6 +70,7 @@ class AssociationConfig:
     lambda_: float = 3.0
     window_size: int = 100
     enable_ethical_guard: bool = True
+    anomaly_threshold_percentile: float = 0.95  # Configurable threshold for detection
 
 
 class PriorAssociation(nn.Module):
@@ -262,8 +264,23 @@ class AssociationDiscrepancyModule(nn.Module):
                 - 'discrepancy': Per-timestep discrepancy [batch, seq_len]
                 - 'prior': Prior distribution (if return_components)
                 - 'series': Series distribution (if return_components)
+
+        Raises:
+            ValueError: If input shape is invalid
         """
-        batch_size, seq_len, _ = x.shape
+        # Input validation
+        if x.dim() != 3:
+            raise ValueError(f"Expected 3D input [batch, seq, d_model], got {x.dim()}D")
+        batch_size, seq_len, d_model = x.shape
+        if d_model != self.config.d_model:
+            raise ValueError(
+                f"Input d_model {d_model} doesn't match config {self.config.d_model}"
+            )
+
+        # Handle NaN/Inf in input
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            x = torch.nan_to_num(x, nan=0.0, posinf=1e6, neginf=-1e6)
+
         device = x.device
 
         # Get Prior-Association (temporal proximity)
@@ -307,20 +324,24 @@ class AssociationDiscrepancyModule(nn.Module):
         Returns:
             Per-timestep discrepancy [batch, seq]
         """
-        # Ensure valid probability distributions
-        series = series.clamp(min=eps)
-        prior = prior.clamp(min=eps)
+        # Ensure valid probability distributions with clamping
+        series = series.clamp(min=eps, max=1.0)
+        prior = prior.clamp(min=eps, max=1.0)
 
         # KL(Series || Prior) = sum(S * log(S/P))
-        kl_sp = series * (torch.log(series) - torch.log(prior))
+        # Use log(x + eps) pattern for extra numerical safety
+        log_series = torch.log(series + eps)
+        log_prior = torch.log(prior + eps)
+        kl_sp = series * (log_series - log_prior)
         kl_sp = kl_sp.sum(dim=-1)  # Sum over j
 
         # KL(Prior || Series) = sum(P * log(P/S))
-        kl_ps = prior * (torch.log(prior) - torch.log(series))
+        kl_ps = prior * (log_prior - log_series)
         kl_ps = kl_ps.sum(dim=-1)  # Sum over j
 
-        # Symmetric KL divergence
+        # Symmetric KL divergence with NaN protection
         discrepancy = (kl_sp + kl_ps) / 2
+        discrepancy = torch.nan_to_num(discrepancy, nan=0.0, posinf=1e6, neginf=0.0)
 
         return discrepancy
 

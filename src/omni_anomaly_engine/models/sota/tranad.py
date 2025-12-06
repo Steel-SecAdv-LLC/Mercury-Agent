@@ -80,6 +80,7 @@ class TranADConfig:
     adversarial_weight: float = 1.0
     focus_temperature: float = 1.0
     learning_rate: float = 1e-4
+    anomaly_threshold_percentile: float = 0.95  # Configurable threshold for detection
     ethical_scalars: dict[str, float] = field(
         default_factory=lambda: {
             "harm_prevention": 1.50,
@@ -387,8 +388,22 @@ class TranADModel(nn.Module):
 
         Returns:
             Dictionary with reconstructions and anomaly scores
+
+        Raises:
+            ValueError: If input shape is invalid
         """
-        batch_size, seq_len, _ = x.shape
+        # Input validation
+        if x.dim() != 3:
+            raise ValueError(f"Expected 3D input [batch, seq, features], got {x.dim()}D")
+        batch_size, seq_len, input_dim = x.shape
+        if input_dim != self.config.input_dim:
+            raise ValueError(
+                f"Input dim {input_dim} doesn't match config {self.config.input_dim}"
+            )
+
+        # Handle NaN/Inf in input
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            x = torch.nan_to_num(x, nan=0.0, posinf=1e6, neginf=-1e6)
 
         # Focus score conditioning
         if self.focus_conditioning is not None:
@@ -444,7 +459,7 @@ class TranADModel(nn.Module):
 
         Args:
             x: Input tensor [batch, window_size, input_dim]
-            threshold: Detection threshold (auto-computed if None)
+            threshold: Detection threshold (auto-computed if None using config percentile)
 
         Returns:
             Detection results with scores and predictions
@@ -454,9 +469,10 @@ class TranADModel(nn.Module):
 
         anomaly_score = result["anomaly_score"]
 
-        # Auto-threshold using percentile
+        # Auto-threshold using configurable percentile
         if threshold is None:
-            threshold = torch.quantile(anomaly_score.flatten(), 0.95).item()
+            percentile = self.config.anomaly_threshold_percentile
+            threshold = torch.quantile(anomaly_score.flatten(), percentile).item()
 
         predictions = (anomaly_score > threshold).float()
 
