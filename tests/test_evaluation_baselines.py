@@ -65,13 +65,13 @@ class TestCompareToBaselines:
 
     def test_compare_rank_calculation(self):
         """Should correctly calculate rank."""
-        # TranAD has highest F1 on SMD (~0.9149)
-        # Our score of 0.95 should be rank 1
+        # TranAD has highest F1 on SMD (~0.9605)
+        # Our score of 0.97 should be rank 1 (higher than all baselines)
         result = compare_to_baselines(
             dataset="SMD",
-            your_precision=0.95,
-            your_recall=0.95,
-            your_f1=0.95,
+            your_precision=0.97,
+            your_recall=0.97,
+            your_f1=0.97,
         )
         assert result.rank == 1
 

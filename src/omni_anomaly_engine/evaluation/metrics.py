@@ -94,8 +94,16 @@ def compute_auc_roc(y_true: np.ndarray, y_score: np.ndarray) -> float:
         y_score: Anomaly scores (higher = more anomalous)
 
     Returns:
-        AUC-ROC score in [0, 1]
+        AUC-ROC score in [0, 1]. Returns 0.5 if all labels are the same class
+        (undefined case where ROC curve cannot be computed).
     """
+    # Handle edge case: all labels are the same class
+    # In this case, AUC-ROC is undefined; we return 0.5 (random classifier baseline)
+    n_pos = np.sum(y_true)
+    n_neg = len(y_true) - n_pos
+    if n_pos == 0 or n_neg == 0:
+        return 0.5
+
     try:
         from sklearn.metrics import roc_auc_score
 
