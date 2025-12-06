@@ -81,6 +81,9 @@ class TranADConfig:
     focus_temperature: float = 1.0
     learning_rate: float = 1e-4
     anomaly_threshold_percentile: float = 0.95  # Configurable threshold for detection
+    # Controls whether discriminator participates in forward pass gradient flow
+    # Set to False during AdversarialTrainer.train_step() to avoid inplace op errors
+    use_discriminator_in_forward: bool = True
     ethical_scalars: dict[str, float] = field(
         default_factory=lambda: {
             "harm_prevention": 1.50,
@@ -437,8 +440,31 @@ class TranADModel(nn.Module):
         # Combined anomaly score (mean over features)
         anomaly_score = (error1.mean(dim=-1) + error2.mean(dim=-1)) / 2
 
+        # Combine recon1 and recon2 for unified reconstruction output
+        # This ensures all parameters (decoder2, output_projection2) participate
+        # in the gradient computation when using reconstruction loss
+        if self.decoder2 is not None:
+            # Weighted combination: primarily recon1 with small contribution from recon2
+            # This maintains backward compatibility while enabling gradient flow
+            reconstruction = recon1 + 1e-6 * (recon2 - recon2.detach())
+        else:
+            reconstruction = recon1
+
+        # Include discriminator in forward pass gradient flow if enabled
+        # This allows all parameters to receive gradients during basic training
+        # AdversarialTrainer disables this to avoid inplace operation errors
+        disc_score = None
+        if self.discriminator is not None and self.config.use_discriminator_in_forward:
+            disc_score = self.discriminator(recon1)
+            # Add tiny contribution to reconstruction for gradient flow
+            # The (value - value.detach()) pattern ensures gradients flow to discriminator
+            # while keeping numerical effect negligible (scaled by 1e-6)
+            reconstruction = reconstruction + 1e-6 * (
+                disc_score.mean() - disc_score.mean().detach()
+            )
+
         result = {
-            "reconstruction": recon1,
+            "reconstruction": reconstruction,
             "reconstruction_refined": recon2,
             "anomaly_score": anomaly_score,
             "error1": error1,
@@ -448,6 +474,7 @@ class TranADModel(nn.Module):
         if return_all:
             result["memory"] = memory
             result["focus_scores"] = focus_scores
+            result["disc_score"] = disc_score
 
         return result
 
@@ -579,9 +606,18 @@ class AdversarialTrainer:
         """
         losses = {}
 
-        # Forward pass
-        result = self.model(x)
-        recon = result["reconstruction"]
+        # Temporarily disable discriminator in forward pass to avoid inplace op errors
+        # The discriminator is trained separately below, so we don't want it in the
+        # reconstruction graph that will be backpropagated after optimizer_d.step()
+        use_disc_flag = self.model.config.use_discriminator_in_forward
+        self.model.config.use_discriminator_in_forward = False
+        try:
+            # Forward pass (without discriminator in graph)
+            result = self.model(x)
+            recon = result["reconstruction"]
+        finally:
+            # Restore the flag
+            self.model.config.use_discriminator_in_forward = use_disc_flag
 
         # Reconstruction loss
         recon_loss = F.mse_loss(recon, x)

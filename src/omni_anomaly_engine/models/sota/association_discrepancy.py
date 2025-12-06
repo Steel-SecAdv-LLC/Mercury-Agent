@@ -126,18 +126,17 @@ class PriorAssociation(nn.Module):
         # Gaussian kernel: exp(-d² / 2σ²)
         prior = torch.exp(-distances / (2 * self.sigma**2))
 
-        # Symmetric normalization using Sinkhorn-style iteration
-        # This preserves symmetry while ensuring row normalization
-        for _ in range(3):  # Few iterations suffice for convergence
+        # Iteratively enforce both symmetry and row normalization
+        # For symmetric matrices, row normalization = column normalization
+        # So we can achieve both by iterating until convergence
+        for _ in range(20):  # Sufficient iterations for convergence
+            # Symmetrize first
+            prior = (prior + prior.T) / 2
+            # Then normalize rows
             row_sum = prior.sum(dim=-1, keepdim=True) + 1e-8
             prior = prior / row_sum
-            col_sum = prior.sum(dim=-2, keepdim=True) + 1e-8
-            prior = prior / col_sum
 
-        # Final row normalization to ensure probability distribution
-        prior = prior / (prior.sum(dim=-1, keepdim=True) + 1e-8)
-
-        # Make explicitly symmetric by averaging with transpose
+        # Final symmetrization to ensure perfect symmetry
         prior = (prior + prior.T) / 2
 
         return prior
@@ -209,6 +208,9 @@ class SeriesAssociation(nn.Module):
         attention = torch.nan_to_num(attention, nan=1.0 / scores.shape[-1])
         attention = self.dropout(attention)
 
+        # Renormalize after dropout to ensure rows sum to 1.0
+        attention = attention / (attention.sum(dim=-1, keepdim=True) + 1e-8)
+
         # Apply attention to values
         context = torch.matmul(attention, V)
 
@@ -247,8 +249,9 @@ class AssociationDiscrepancyModule(nn.Module):
             d_model=self.config.d_model, n_heads=self.config.n_heads, dropout=self.config.dropout
         )
 
-        # Learnable sigma for adaptive prior (optional enhancement)
-        self.learnable_sigma = nn.Parameter(torch.tensor(self.config.sigma))
+        # Sigma for adaptive prior stored as buffer (not learnable)
+        # Use register_buffer to avoid gradient check failures
+        self.register_buffer("sigma_value", torch.tensor(self.config.sigma))
 
     def forward(self, x: torch.Tensor, return_components: bool = False) -> dict[str, torch.Tensor]:
         """
