@@ -226,10 +226,12 @@ def compare_to_baselines(
     baselines = BASELINE_RESULTS[dataset]
 
     # Extract F1 scores for comparison
-    baseline_f1s = []
+    baseline_f1s: list[tuple[str, float]] = []
     for name, metrics in baselines.items():
         if "f1" in metrics:
-            baseline_f1s.append((name, metrics["f1"]))
+            f1_val = metrics["f1"]
+            if isinstance(f1_val, (int, float)):
+                baseline_f1s.append((name, float(f1_val)))
 
     if not baseline_f1s:
         raise ValueError(f"No F1 baselines available for {dataset}")
@@ -262,7 +264,7 @@ def compare_to_baselines(
     )
 
 
-def print_baseline_table(dataset: str, your_results: dict | None = None) -> str:
+def print_baseline_table(dataset: str, your_results: dict[str, float] | None = None) -> str:
     """
     Print a formatted table comparing your results to baselines.
 
@@ -287,7 +289,11 @@ def print_baseline_table(dataset: str, your_results: dict | None = None) -> str:
     ]
 
     # Add baselines sorted by F1
-    sorted_baselines = sorted(baselines.items(), key=lambda x: x[1].get("f1", 0), reverse=True)
+    sorted_baselines = sorted(
+        baselines.items(),
+        key=lambda x: float(x[1].get("f1", 0)) if isinstance(x[1].get("f1", 0), (int, float)) else 0,
+        reverse=True,
+    )
 
     for name, metrics in sorted_baselines:
         prec = metrics.get("precision", "-")
@@ -377,19 +383,22 @@ def list_available_datasets() -> list[str]:
     return list(BASELINE_RESULTS.keys())
 
 
-def get_sota_for_dataset(dataset: str) -> tuple[str, dict]:
+def get_sota_for_dataset(dataset: str) -> tuple[str | None, dict[str, object]]:
     """Get the state-of-the-art result for a dataset."""
     if dataset not in BASELINE_RESULTS:
         raise ValueError(f"Unknown dataset: {dataset}")
 
     baselines = BASELINE_RESULTS[dataset]
-    best_name = None
-    best_f1 = 0
+    best_name: str | None = None
+    best_f1: float = 0.0
 
     for name, metrics in baselines.items():
-        f1 = metrics.get("f1", 0)
+        f1_val = metrics.get("f1", 0)
+        f1 = float(f1_val) if isinstance(f1_val, (int, float)) else 0.0
         if f1 > best_f1:
             best_f1 = f1
             best_name = name
 
+    if best_name is None:
+        raise ValueError(f"No baselines with F1 scores found for {dataset}")
     return best_name, baselines[best_name]
