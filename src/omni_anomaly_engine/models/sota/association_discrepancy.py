@@ -273,9 +273,7 @@ class AssociationDiscrepancyModule(nn.Module):
             raise ValueError(f"Expected 3D input [batch, seq, d_model], got {x.dim()}D")
         batch_size, seq_len, d_model = x.shape
         if d_model != self.config.d_model:
-            raise ValueError(
-                f"Input d_model {d_model} doesn't match config {self.config.d_model}"
-            )
+            raise ValueError(f"Input d_model {d_model} doesn't match config {self.config.d_model}")
 
         # Handle NaN/Inf in input
         if torch.isnan(x).any() or torch.isinf(x).any():

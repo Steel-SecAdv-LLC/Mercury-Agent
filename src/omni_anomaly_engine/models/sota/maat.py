@@ -684,9 +684,7 @@ class MAATModel(nn.Module):
             raise ValueError(f"Expected 3D input [batch, seq, features], got {x.dim()}D")
         batch_size, seq_len, input_dim = x.shape
         if input_dim != self.config.input_dim:
-            raise ValueError(
-                f"Input dim {input_dim} doesn't match config {self.config.input_dim}"
-            )
+            raise ValueError(f"Input dim {input_dim} doesn't match config {self.config.input_dim}")
 
         # Handle NaN/Inf in input
         if torch.isnan(x).any() or torch.isinf(x).any():

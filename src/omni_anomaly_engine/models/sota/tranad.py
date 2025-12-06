@@ -397,9 +397,7 @@ class TranADModel(nn.Module):
             raise ValueError(f"Expected 3D input [batch, seq, features], got {x.dim()}D")
         batch_size, seq_len, input_dim = x.shape
         if input_dim != self.config.input_dim:
-            raise ValueError(
-                f"Input dim {input_dim} doesn't match config {self.config.input_dim}"
-            )
+            raise ValueError(f"Input dim {input_dim} doesn't match config {self.config.input_dim}")
 
         # Handle NaN/Inf in input
         if torch.isnan(x).any() or torch.isinf(x).any():
@@ -742,9 +740,7 @@ class MAMLOptimizer:
 
             # Inner loop adaptation on support set with create_graph=True
             # This enables second-order gradient computation for meta-learning
-            adapted_model = self.inner_loop(
-                adapted_model, support_x, support_y, create_graph=True
-            )
+            adapted_model = self.inner_loop(adapted_model, support_x, support_y, create_graph=True)
 
             # Evaluate on query set
             result = adapted_model(query_x)
