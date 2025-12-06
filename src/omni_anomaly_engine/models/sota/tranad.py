@@ -659,6 +659,7 @@ class MAMLOptimizer:
         model: TranADModel,
         support_x: torch.Tensor,
         support_y: torch.Tensor | None = None,
+        create_graph: bool = False,
     ) -> TranADModel:
         """
         Inner loop adaptation on support set.
@@ -667,10 +668,14 @@ class MAMLOptimizer:
             model: Model to adapt
             support_x: Support set inputs
             support_y: Support set labels (optional, for supervised)
+            create_graph: Whether to create graph for higher-order gradients
 
         Returns:
             Adapted model
         """
+        # Get list of parameters for gradient computation
+        params = list(model.parameters())
+
         for _ in range(self.n_inner_steps):
             result = model(support_x)
             recon = result["reconstruction"]
@@ -684,9 +689,18 @@ class MAMLOptimizer:
                 loss += F.binary_cross_entropy_with_logits(anomaly_score, support_y.float())
 
             # Manual gradient update (MAML inner loop)
-            grads = torch.autograd.grad(loss, model.parameters())
-            for param, grad in zip(model.parameters(), grads):
-                param.data -= self.inner_lr * grad
+            # create_graph=True enables second-order gradient computation for meta-learning
+            grads = torch.autograd.grad(
+                loss,
+                params,
+                create_graph=create_graph,
+                allow_unused=True,
+            )
+
+            # Update parameters with gradients
+            for param, grad in zip(params, grads, strict=False):
+                if grad is not None:
+                    param.data = param.data - self.inner_lr * grad
 
         return model
 
@@ -704,14 +718,17 @@ class MAMLOptimizer:
         Returns:
             Dictionary with meta-loss
         """
-        meta_loss = 0.0
+        meta_loss = torch.tensor(0.0, requires_grad=True)
 
         for support_x, support_y, query_x, query_y in tasks:
             # Clone model for this task
             adapted_model = self.clone_model()
 
-            # Inner loop adaptation on support set
-            adapted_model = self.inner_loop(adapted_model, support_x, support_y)
+            # Inner loop adaptation on support set with create_graph=True
+            # This enables second-order gradient computation for meta-learning
+            adapted_model = self.inner_loop(
+                adapted_model, support_x, support_y, create_graph=True
+            )
 
             # Evaluate on query set
             result = adapted_model(query_x)
@@ -722,7 +739,7 @@ class MAMLOptimizer:
                 anomaly_score = result["anomaly_score"].mean(dim=-1)
                 task_loss += F.binary_cross_entropy_with_logits(anomaly_score, query_y.float())
 
-            meta_loss += task_loss
+            meta_loss = meta_loss + task_loss
 
         # Meta-update
         meta_loss = meta_loss / len(tasks)
