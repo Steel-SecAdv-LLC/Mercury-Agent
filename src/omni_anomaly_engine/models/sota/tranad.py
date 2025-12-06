@@ -124,9 +124,16 @@ class FocusScoreConditioning(nn.Module):
         self.tau = nn.Parameter(torch.tensor(temperature))
 
         # Feature attention
+        # Ensure num_heads divides embed_dim (input_dim)
+        # Find the largest divisor of input_dim that is <= 4
+        num_heads = 1
+        for h in [4, 3, 2, 1]:
+            if input_dim % h == 0:
+                num_heads = h
+                break
         self.feature_attention = nn.MultiheadAttention(
             embed_dim=input_dim,
-            num_heads=min(4, input_dim),
+            num_heads=num_heads,
             dropout=0.1,
             batch_first=True,
         )
