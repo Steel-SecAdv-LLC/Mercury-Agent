@@ -131,8 +131,7 @@ class TestPrintBaselineTable:
     def test_includes_your_results(self):
         """Should include user's results in table."""
         table = print_baseline_table(
-            "SMD",
-            your_results={"precision": 0.85, "recall": 0.90, "f1": 0.87}
+            "SMD", your_results={"precision": 0.85, "recall": 0.90, "f1": 0.87}
         )
         assert "YOUR MODEL" in table
 

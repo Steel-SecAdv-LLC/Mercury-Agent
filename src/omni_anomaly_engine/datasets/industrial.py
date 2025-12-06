@@ -76,21 +76,62 @@ class SWaTLoader(DatasetLoader):
     # Feature names for SWaT
     FEATURE_NAMES = [
         # Process 1: Raw Water (P1)
-        "FIT101", "LIT101", "MV101", "P101", "P102",
+        "FIT101",
+        "LIT101",
+        "MV101",
+        "P101",
+        "P102",
         # Process 2: Chemical Dosing (P2)
-        "AIT201", "AIT202", "AIT203", "FIT201", "MV201", "P201", "P202",
-        "P203", "P204", "P205", "P206",
+        "AIT201",
+        "AIT202",
+        "AIT203",
+        "FIT201",
+        "MV201",
+        "P201",
+        "P202",
+        "P203",
+        "P204",
+        "P205",
+        "P206",
         # Process 3: Ultrafiltration (P3)
-        "DPIT301", "FIT301", "LIT301", "MV301", "MV302", "MV303", "MV304",
-        "P301", "P302",
+        "DPIT301",
+        "FIT301",
+        "LIT301",
+        "MV301",
+        "MV302",
+        "MV303",
+        "MV304",
+        "P301",
+        "P302",
         # Process 4: Dechlorination (P4)
-        "AIT401", "AIT402", "FIT401", "LIT401", "P401", "P402", "P403",
-        "P404", "UV401",
+        "AIT401",
+        "AIT402",
+        "FIT401",
+        "LIT401",
+        "P401",
+        "P402",
+        "P403",
+        "P404",
+        "UV401",
         # Process 5: Reverse Osmosis (P5)
-        "AIT501", "AIT502", "AIT503", "AIT504", "FIT501", "FIT502", "FIT503",
-        "FIT504", "P501", "P502", "PIT501", "PIT502", "PIT503",
+        "AIT501",
+        "AIT502",
+        "AIT503",
+        "AIT504",
+        "FIT501",
+        "FIT502",
+        "FIT503",
+        "FIT504",
+        "P501",
+        "P502",
+        "PIT501",
+        "PIT502",
+        "PIT503",
         # Process 6: Backwash (P6)
-        "FIT601", "P601", "P602", "P603",
+        "FIT601",
+        "P601",
+        "P602",
+        "P603",
     ]
 
     NUM_FEATURES = 51
@@ -99,14 +140,36 @@ class SWaTLoader(DatasetLoader):
     # Feature groups by process
     FEATURE_GROUPS = {
         "P1": ["FIT101", "LIT101", "MV101", "P101", "P102"],
-        "P2": ["AIT201", "AIT202", "AIT203", "FIT201", "MV201", "P201", "P202",
-               "P203", "P204", "P205", "P206"],
-        "P3": ["DPIT301", "FIT301", "LIT301", "MV301", "MV302", "MV303", "MV304",
-               "P301", "P302"],
-        "P4": ["AIT401", "AIT402", "FIT401", "LIT401", "P401", "P402", "P403",
-               "P404", "UV401"],
-        "P5": ["AIT501", "AIT502", "AIT503", "AIT504", "FIT501", "FIT502", "FIT503",
-               "FIT504", "P501", "P502", "PIT501", "PIT502", "PIT503"],
+        "P2": [
+            "AIT201",
+            "AIT202",
+            "AIT203",
+            "FIT201",
+            "MV201",
+            "P201",
+            "P202",
+            "P203",
+            "P204",
+            "P205",
+            "P206",
+        ],
+        "P3": ["DPIT301", "FIT301", "LIT301", "MV301", "MV302", "MV303", "MV304", "P301", "P302"],
+        "P4": ["AIT401", "AIT402", "FIT401", "LIT401", "P401", "P402", "P403", "P404", "UV401"],
+        "P5": [
+            "AIT501",
+            "AIT502",
+            "AIT503",
+            "AIT504",
+            "FIT501",
+            "FIT502",
+            "FIT503",
+            "FIT504",
+            "P501",
+            "P502",
+            "PIT501",
+            "PIT502",
+            "PIT503",
+        ],
         "P6": ["FIT601", "P601", "P602", "P603"],
     }
 
@@ -194,8 +257,7 @@ class SWaTLoader(DatasetLoader):
         if data_file is None:
             self.download()
             raise FileNotFoundError(
-                f"SWaT data not found in {self.data_path}. "
-                "Please download from iTrust Labs."
+                f"SWaT data not found in {self.data_path}. " "Please download from iTrust Labs."
             )
 
         logger.info(f"Loading SWaT data from {data_file}")
@@ -348,8 +410,7 @@ class WADILoader(DatasetLoader):
         if data_file is None:
             self.download()
             raise FileNotFoundError(
-                f"WADI data not found in {self.data_path}. "
-                "Please download from iTrust Labs."
+                f"WADI data not found in {self.data_path}. " "Please download from iTrust Labs."
             )
 
         logger.info(f"Loading WADI data from {data_file}")
@@ -357,8 +418,11 @@ class WADILoader(DatasetLoader):
         df = pd.read_csv(data_file)
 
         # Extract features
-        feature_cols = [c for c in df.columns
-                       if c not in ["Row", "Date", "Time", "Attack LABLE (1:No Attack, -1:Attack)"]]
+        feature_cols = [
+            c
+            for c in df.columns
+            if c not in ["Row", "Date", "Time", "Attack LABLE (1:No Attack, -1:Attack)"]
+        ]
         features = df[feature_cols].values.astype(np.float32)
 
         # Get labels
@@ -428,8 +492,8 @@ class BATADALLoader(DatasetLoader):
 
     def download(self) -> bool:
         """Download BATADAL dataset from official source."""
-        import urllib.request
         import urllib.error
+        import urllib.request
 
         logger.info("Downloading BATADAL dataset...")
 

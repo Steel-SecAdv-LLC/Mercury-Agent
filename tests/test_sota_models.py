@@ -10,39 +10,39 @@ import torch
 import torch.nn as nn
 
 from omni_anomaly_engine.models.sota.association_discrepancy import (
-    AssociationDiscrepancyModule,
     AnomalyTransformerEncoder,
-    PriorAssociation,
-    SeriesAssociation,
     AssociationConfig,
     AssociationDiscrepancyLoss,
+    AssociationDiscrepancyModule,
+    PriorAssociation,
+    SeriesAssociation,
     apply_ethical_constraints,
 )
-from omni_anomaly_engine.models.sota.tranad import (
-    TranADModel,
-    TranADConfig,
-    FocusScoreConditioning,
-    AdversarialTrainer,
-    MAMLOptimizer,
-    TransformerEncoder,
-    TransformerDecoder,
-    TranADLoss,
-)
 from omni_anomaly_engine.models.sota.maat import (
-    MAATModel,
-    MAATConfig,
-    SparseAttention,
-    MambaSSM,
-    SelectiveSSM,
     GatedFeatureFusion,
+    MAATConfig,
     MAATEncoderLayer,
     MAATLoss,
+    MAATModel,
+    MambaSSM,
+    SelectiveSSM,
+    SparseAttention,
 )
-
+from omni_anomaly_engine.models.sota.tranad import (
+    AdversarialTrainer,
+    FocusScoreConditioning,
+    MAMLOptimizer,
+    TranADConfig,
+    TranADLoss,
+    TranADModel,
+    TransformerDecoder,
+    TransformerEncoder,
+)
 
 # ============================================================================
 # Association Discrepancy (Anomaly Transformer) Tests
 # ============================================================================
+
 
 class TestPriorAssociation:
     """Tests for Prior-Association (Gaussian kernel)."""
@@ -108,9 +108,9 @@ class TestAssociationDiscrepancyModule:
 
         result = module(x)
 
-        assert 'output' in result
-        assert 'discrepancy' in result
-        assert 'series_attention' in result
+        assert "output" in result
+        assert "discrepancy" in result
+        assert "series_attention" in result
 
     def test_discrepancy_shape(self):
         """Discrepancy should be [batch, seq_len]."""
@@ -120,7 +120,7 @@ class TestAssociationDiscrepancyModule:
 
         result = module(x)
 
-        assert result['discrepancy'].shape == (2, 20)
+        assert result["discrepancy"].shape == (2, 20)
 
     def test_discrepancy_non_negative(self):
         """KL divergence should be non-negative."""
@@ -130,7 +130,7 @@ class TestAssociationDiscrepancyModule:
 
         result = module(x)
 
-        assert (result['discrepancy'] >= -1e-5).all()
+        assert (result["discrepancy"] >= -1e-5).all()
 
     def test_anomaly_score_computation(self):
         """Anomaly score should be computed correctly."""
@@ -158,9 +158,9 @@ class TestAnomalyTransformerEncoder:
 
         result = encoder(x)
 
-        assert 'reconstruction' in result
-        assert 'discrepancy' in result
-        assert 'anomaly_score' in result
+        assert "reconstruction" in result
+        assert "discrepancy" in result
+        assert "anomaly_score" in result
 
     def test_reconstruction_shape(self):
         """Reconstruction should match input shape."""
@@ -174,7 +174,7 @@ class TestAnomalyTransformerEncoder:
 
         result = encoder(x)
 
-        assert result['reconstruction'].shape == x.shape
+        assert result["reconstruction"].shape == x.shape
 
     def test_detect_method(self):
         """Detect should return predictions."""
@@ -188,8 +188,8 @@ class TestAnomalyTransformerEncoder:
 
         result = encoder.detect(x)
 
-        assert 'predictions' in result
-        assert 'threshold' in result
+        assert "predictions" in result
+        assert "threshold" in result
 
 
 class TestAssociationDiscrepancyLoss:
@@ -204,9 +204,9 @@ class TestAssociationDiscrepancyLoss:
 
         losses = loss_fn(x, recon, discrepancy, phase="minimize")
 
-        assert 'total_loss' in losses
-        assert 'reconstruction_loss' in losses
-        assert 'association_loss' in losses
+        assert "total_loss" in losses
+        assert "reconstruction_loss" in losses
+        assert "association_loss" in losses
 
     def test_minimax_phases(self):
         """Maximize phase should have different loss."""
@@ -219,12 +219,13 @@ class TestAssociationDiscrepancyLoss:
         max_losses = loss_fn(x, recon, discrepancy, phase="maximize")
 
         # Association contribution should differ
-        assert min_losses['total_loss'] != max_losses['total_loss']
+        assert min_losses["total_loss"] != max_losses["total_loss"]
 
 
 # ============================================================================
 # TranAD Tests
 # ============================================================================
+
 
 class TestFocusScoreConditioning:
     """Tests for Focus Score-Based Self-Conditioning."""
@@ -298,8 +299,8 @@ class TestTranADModel:
 
         result = model(x)
 
-        assert 'reconstruction' in result
-        assert 'anomaly_score' in result
+        assert "reconstruction" in result
+        assert "anomaly_score" in result
 
     def test_reconstruction_shape(self):
         """Reconstruction should match input shape."""
@@ -309,7 +310,7 @@ class TestTranADModel:
 
         result = model(x)
 
-        assert result['reconstruction'].shape == x.shape
+        assert result["reconstruction"].shape == x.shape
 
     def test_detect_method(self):
         """Detect should return predictions."""
@@ -319,15 +320,12 @@ class TestTranADModel:
 
         result = model.detect(x)
 
-        assert 'predictions' in result
-        assert 'threshold' in result
+        assert "predictions" in result
+        assert "threshold" in result
 
     def test_adversarial_mode(self):
         """Should work with adversarial training enabled."""
-        config = TranADConfig(
-            input_dim=25, d_model=64, n_heads=4,
-            use_adversarial=True
-        )
+        config = TranADConfig(input_dim=25, d_model=64, n_heads=4, use_adversarial=True)
         model = TranADModel(config)
 
         assert model.discriminator is not None
@@ -339,18 +337,15 @@ class TestAdversarialTrainer:
 
     def test_train_step(self):
         """Should complete training step without errors."""
-        config = TranADConfig(
-            input_dim=25, d_model=64, n_heads=4,
-            use_adversarial=True
-        )
+        config = TranADConfig(input_dim=25, d_model=64, n_heads=4, use_adversarial=True)
         model = TranADModel(config)
         trainer = AdversarialTrainer(model)
         x = torch.randn(2, 10, 25)
 
         losses = trainer.train_step(x)
 
-        assert 'reconstruction' in losses
-        assert 'total' in losses
+        assert "reconstruction" in losses
+        assert "total" in losses
 
 
 class TestMAMLOptimizer:
@@ -379,12 +374,13 @@ class TestMAMLOptimizer:
 
         # Adapted model should work
         result = adapted(support_x)
-        assert 'reconstruction' in result
+        assert "reconstruction" in result
 
 
 # ============================================================================
 # MAAT Tests
 # ============================================================================
+
 
 class TestSparseAttention:
     """Tests for Sparse Attention module."""
@@ -485,9 +481,9 @@ class TestMAATModel:
 
         result = model(x)
 
-        assert 'reconstruction' in result
-        assert 'anomaly_score' in result
-        assert 'discrepancy' in result
+        assert "reconstruction" in result
+        assert "anomaly_score" in result
+        assert "discrepancy" in result
 
     def test_reconstruction_shape(self):
         """Reconstruction should match input shape."""
@@ -497,7 +493,7 @@ class TestMAATModel:
 
         result = model(x)
 
-        assert result['reconstruction'].shape == x.shape
+        assert result["reconstruction"].shape == x.shape
 
     def test_detect_method(self):
         """Detect should return predictions."""
@@ -507,8 +503,8 @@ class TestMAATModel:
 
         result = model.detect(x)
 
-        assert 'predictions' in result
-        assert 'threshold' in result
+        assert "predictions" in result
+        assert "threshold" in result
 
     def test_pathway_importance(self):
         """Should analyze pathway importance."""
@@ -518,7 +514,7 @@ class TestMAATModel:
 
         importance = model.get_pathway_importance(x)
 
-        assert 'attention_ratio' in importance
+        assert "attention_ratio" in importance
 
 
 class TestMAATLoss:
@@ -534,13 +530,14 @@ class TestMAATLoss:
         result = model(x, return_all=True)
         losses = loss_fn(x, result)
 
-        assert 'total' in losses
-        assert 'reconstruction' in losses
+        assert "total" in losses
+        assert "reconstruction" in losses
 
 
 # ============================================================================
 # Ethical Constraints Tests
 # ============================================================================
+
 
 class TestEthicalConstraints:
     """Tests for ethical constraint functions."""
@@ -559,9 +556,7 @@ class TestEthicalConstraints:
         scores = torch.rand(10, 20)
 
         adjusted = apply_ethical_constraints(
-            scores,
-            harm_prevention_scalar=1.50,
-            min_recall_threshold=0.95
+            scores, harm_prevention_scalar=1.50, min_recall_threshold=0.95
         )
 
         # Adjusted scores should have a floor
@@ -571,6 +566,7 @@ class TestEthicalConstraints:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestModelIntegration:
     """Integration tests across SOTA models."""
@@ -590,7 +586,7 @@ class TestModelIntegration:
             result = model(x)
 
             # Check gradient flow
-            loss = result['reconstruction'].mean()
+            loss = result["reconstruction"].mean()
             loss.backward()
 
             # Check gradients exist
@@ -619,8 +615,8 @@ class TestModelIntegration:
                 result_anomaly = model(x_anomaly)
 
             # Anomaly at position 10 should have higher score
-            score_normal = result_normal['anomaly_score'][:, 10].mean()
-            score_anomaly = result_anomaly['anomaly_score'][:, 10].mean()
+            score_normal = result_normal["anomaly_score"][:, 10].mean()
+            score_anomaly = result_anomaly["anomaly_score"][:, 10].mean()
 
             # Not guaranteed but likely with obvious anomaly
             # (models are untrained, so just check they produce valid output)

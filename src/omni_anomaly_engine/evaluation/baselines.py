@@ -42,7 +42,12 @@ BASELINE_RESULTS = {
         "MSCRED": {"precision": 0.6728, "recall": 0.8321, "f1": 0.7440, "paper": "AAAI 2019"},
         # Results from TranAD paper (VLDB 2022) - Updated with benchmark image
         "TranAD": {"precision": 0.9317, "recall": 0.9917, "f1": 0.9605, "paper": "VLDB 2022"},
-        "Anomaly_Transformer": {"precision": 0.8858, "recall": 0.9236, "f1": 0.9043, "paper": "ICLR 2022"},
+        "Anomaly_Transformer": {
+            "precision": 0.8858,
+            "recall": 0.9236,
+            "f1": 0.9043,
+            "paper": "ICLR 2022",
+        },
         "GDN": {"precision": 0.8512, "recall": 0.9134, "f1": 0.8812, "paper": "AAAI 2021"},
         "USAD": {"precision": 0.8623, "recall": 0.9012, "f1": 0.8813, "paper": "KDD 2020"},
     },
@@ -55,7 +60,12 @@ BASELINE_RESULTS = {
         "MSCRED": {"precision": 0.6412, "recall": 0.7897, "f1": 0.7077, "paper": "AAAI 2019"},
         # Results from TranAD paper - Updated
         "TranAD": {"precision": 0.8891, "recall": 0.9957, "f1": 0.9394, "paper": "VLDB 2022"},
-        "Anomaly_Transformer": {"precision": 0.8156, "recall": 0.9715, "f1": 0.8868, "paper": "ICLR 2022"},
+        "Anomaly_Transformer": {
+            "precision": 0.8156,
+            "recall": 0.9715,
+            "f1": 0.8868,
+            "paper": "ICLR 2022",
+        },
         "GDN": {"precision": 0.7823, "recall": 0.9412, "f1": 0.8544, "paper": "AAAI 2021"},
     },
     "MSL": {
@@ -66,14 +76,24 @@ BASELINE_RESULTS = {
         "MSCRED": {"precision": 0.7621, "recall": 0.8324, "f1": 0.7957, "paper": "AAAI 2019"},
         # Results from TranAD paper - Updated
         "TranAD": {"precision": 0.9154, "recall": 0.9523, "f1": 0.9335, "paper": "VLDB 2022"},
-        "Anomaly_Transformer": {"precision": 0.9016, "recall": 0.9289, "f1": 0.9151, "paper": "ICLR 2022"},
+        "Anomaly_Transformer": {
+            "precision": 0.9016,
+            "recall": 0.9289,
+            "f1": 0.9151,
+            "paper": "ICLR 2022",
+        },
         "GDN": {"precision": 0.8712, "recall": 0.9156, "f1": 0.8929, "paper": "AAAI 2021"},
     },
     "SWaT": {
         # Secure Water Treatment - ICS/SCADA benchmark
         # Results from TranAD paper (VLDB 2022) and benchmark table
         "TranAD": {"precision": 0.8023, "recall": 0.8282, "f1": 0.8151, "paper": "VLDB 2022"},
-        "Anomaly_Transformer": {"precision": 0.7856, "recall": 0.8123, "f1": 0.7987, "paper": "ICLR 2022"},
+        "Anomaly_Transformer": {
+            "precision": 0.7856,
+            "recall": 0.8123,
+            "f1": 0.7987,
+            "paper": "ICLR 2022",
+        },
         "OmniAnomaly": {"precision": 0.7412, "recall": 0.8534, "f1": 0.7934, "paper": "KDD 2019"},
         "DAGMM": {"precision": 0.6523, "recall": 0.7012, "f1": 0.6759, "paper": "ICLR 2018"},
         "LSTM-VAE": {"precision": 0.7123, "recall": 0.7856, "f1": 0.7472, "paper": "ICML 2015"},
@@ -84,7 +104,12 @@ BASELINE_RESULTS = {
         # Water Distribution - ICS/SCADA benchmark
         # Results from TranAD paper (VLDB 2022)
         "TranAD": {"precision": 0.4523, "recall": 0.5412, "f1": 0.4951, "paper": "VLDB 2022"},
-        "Anomaly_Transformer": {"precision": 0.4312, "recall": 0.5234, "f1": 0.4728, "paper": "ICLR 2022"},
+        "Anomaly_Transformer": {
+            "precision": 0.4312,
+            "recall": 0.5234,
+            "f1": 0.4728,
+            "paper": "ICLR 2022",
+        },
         "OmniAnomaly": {"precision": 0.3856, "recall": 0.4912, "f1": 0.4321, "paper": "KDD 2019"},
         "DAGMM": {"precision": 0.2912, "recall": 0.3856, "f1": 0.3318, "paper": "ICLR 2018"},
         "LSTM-VAE": {"precision": 0.3412, "recall": 0.4234, "f1": 0.3778, "paper": "ICML 2015"},
@@ -94,7 +119,12 @@ BASELINE_RESULTS = {
         # UCR Time Series Archive - Aggregated results
         # Results from TranAD paper and benchmark table
         "TranAD": {"precision": 0.9612, "recall": 0.9778, "f1": 0.9694, "paper": "VLDB 2022"},
-        "Anomaly_Transformer": {"precision": 0.9456, "recall": 0.9634, "f1": 0.9544, "paper": "ICLR 2022"},
+        "Anomaly_Transformer": {
+            "precision": 0.9456,
+            "recall": 0.9634,
+            "f1": 0.9544,
+            "paper": "ICLR 2022",
+        },
         "LSTM-AE": {"precision": 0.9123, "recall": 0.9312, "f1": 0.9217, "paper": "Various"},
         "OmniAnomaly": {"precision": 0.9234, "recall": 0.9456, "f1": 0.9344, "paper": "KDD 2019"},
         "DAGMM": {"precision": 0.8512, "recall": 0.8712, "f1": 0.8611, "paper": "ICLR 2018"},
@@ -103,7 +133,12 @@ BASELINE_RESULTS = {
         # Machine Bearing Anomaly (CWRU Bearing) - Multiple fault types
         # Results from TranAD paper and bearing datasets
         "TranAD": {"precision": 0.9823, "recall": 0.9912, "f1": 0.9867, "paper": "VLDB 2022"},
-        "Anomaly_Transformer": {"precision": 0.9756, "recall": 0.9845, "f1": 0.9800, "paper": "ICLR 2022"},
+        "Anomaly_Transformer": {
+            "precision": 0.9756,
+            "recall": 0.9845,
+            "f1": 0.9800,
+            "paper": "ICLR 2022",
+        },
         "CNN-LSTM": {"precision": 0.9612, "recall": 0.9723, "f1": 0.9667, "paper": "Various"},
         "1D-CNN": {"precision": 0.9534, "recall": 0.9645, "f1": 0.9589, "paper": "Various"},
         "DAGMM": {"precision": 0.8912, "recall": 0.9123, "f1": 0.9016, "paper": "ICLR 2018"},
@@ -112,7 +147,12 @@ BASELINE_RESULTS = {
         # Multi-Source Data Stream - Multi-domain benchmark
         # Results from TranAD paper
         "TranAD": {"precision": 0.9134, "recall": 0.9394, "f1": 0.9262, "paper": "VLDB 2022"},
-        "Anomaly_Transformer": {"precision": 0.8923, "recall": 0.9212, "f1": 0.9065, "paper": "ICLR 2022"},
+        "Anomaly_Transformer": {
+            "precision": 0.8923,
+            "recall": 0.9212,
+            "f1": 0.9065,
+            "paper": "ICLR 2022",
+        },
         "OmniAnomaly": {"precision": 0.8612, "recall": 0.8934, "f1": 0.8770, "paper": "KDD 2019"},
         "MSCRED": {"precision": 0.8234, "recall": 0.8612, "f1": 0.8419, "paper": "AAAI 2019"},
         "DAGMM": {"precision": 0.7812, "recall": 0.8123, "f1": 0.7964, "paper": "ICLR 2018"},
@@ -248,11 +288,7 @@ def print_baseline_table(dataset: str, your_results: Optional[dict] = None) -> s
     ]
 
     # Add baselines sorted by F1
-    sorted_baselines = sorted(
-        baselines.items(),
-        key=lambda x: x[1].get("f1", 0),
-        reverse=True
-    )
+    sorted_baselines = sorted(baselines.items(), key=lambda x: x[1].get("f1", 0), reverse=True)
 
     for name, metrics in sorted_baselines:
         prec = metrics.get("precision", "-")

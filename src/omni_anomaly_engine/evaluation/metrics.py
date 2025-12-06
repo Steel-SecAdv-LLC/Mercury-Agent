@@ -99,6 +99,7 @@ def compute_auc_roc(y_true: np.ndarray, y_score: np.ndarray) -> float:
     """
     try:
         from sklearn.metrics import roc_auc_score
+
         return float(roc_auc_score(y_true, y_score))
     except ImportError:
         # Fallback implementation without sklearn
@@ -144,6 +145,7 @@ def compute_auc_pr(y_true: np.ndarray, y_score: np.ndarray) -> float:
     """
     try:
         from sklearn.metrics import average_precision_score
+
         return float(average_precision_score(y_true, y_score))
     except ImportError:
         return _auc_pr_numpy(y_true, y_score)
@@ -168,7 +170,9 @@ def _auc_pr_numpy(y_true: np.ndarray, y_score: np.ndarray) -> float:
     return float(auc)
 
 
-def compute_best_f1(y_true: np.ndarray, y_score: np.ndarray, n_thresholds: int = 100) -> tuple[float, float]:
+def compute_best_f1(
+    y_true: np.ndarray, y_score: np.ndarray, n_thresholds: int = 100
+) -> tuple[float, float]:
     """
     Find the threshold that maximizes F1-score.
 
@@ -237,9 +241,7 @@ def compute_precision_at_k(y_true: np.ndarray, y_score: np.ndarray, k: int) -> f
 
 
 def compute_point_adjusted_f1(
-    y_true: np.ndarray,
-    y_pred: np.ndarray,
-    adjust_predicts: bool = True
+    y_true: np.ndarray, y_pred: np.ndarray, adjust_predicts: bool = True
 ) -> float:
     """
     Compute Point-Adjusted F1 for time-series anomaly detection.
@@ -352,9 +354,9 @@ def _range_precision(gt_segs, pred_segs, alpha, cardinality, bias) -> float:
         if not overlapping:
             scores.append(0.0)
         else:
-            overlap_score = sum(
-                min(e, pred_end) - max(s, pred_start) for s, e in overlapping
-            ) / (pred_end - pred_start)
+            overlap_score = sum(min(e, pred_end) - max(s, pred_start) for s, e in overlapping) / (
+                pred_end - pred_start
+            )
             scores.append(min(1.0, overlap_score))
 
     return sum(scores) / len(scores) if scores else 0.0
@@ -368,9 +370,9 @@ def _range_recall(gt_segs, pred_segs, alpha, cardinality, bias) -> float:
         if not overlapping:
             scores.append(alpha)  # Existence reward only
         else:
-            overlap_score = sum(
-                min(e, gt_end) - max(s, gt_start) for s, e in overlapping
-            ) / (gt_end - gt_start)
+            overlap_score = sum(min(e, gt_end) - max(s, gt_start) for s, e in overlapping) / (
+                gt_end - gt_start
+            )
             scores.append(alpha + (1 - alpha) * min(1.0, overlap_score))
 
     return sum(scores) / len(scores) if scores else 0.0
@@ -485,11 +487,13 @@ def print_metrics_report(metrics: AnomalyMetrics, dataset_name: str = "Unknown")
     ]
 
     if metrics.point_adjusted_f1 is not None:
-        lines.extend([
-            "",
-            "Time-Series Adjusted Metrics:",
-            f"  Point-Adjusted F1: {metrics.point_adjusted_f1:.4f}",
-        ])
+        lines.extend(
+            [
+                "",
+                "Time-Series Adjusted Metrics:",
+                f"  Point-Adjusted F1: {metrics.point_adjusted_f1:.4f}",
+            ]
+        )
         if metrics.range_based_f1 is not None:
             lines.append(f"  Range-Based F1:    {metrics.range_based_f1:.4f}")
 

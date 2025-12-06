@@ -506,11 +506,13 @@ class SOTAEnsemble(nn.Module):
         )
 
         # Ethical constraint scalars (from OMNI-AVA philosophy)
-        self.ethical_scalars = nn.ParameterDict({
-            "harm_prevention": nn.Parameter(torch.tensor(1.50)),
-            "non_discriminatory": nn.Parameter(torch.tensor(1.40)),
-            "survivor_first": nn.Parameter(torch.tensor(1.45)),
-        })
+        self.ethical_scalars = nn.ParameterDict(
+            {
+                "harm_prevention": nn.Parameter(torch.tensor(1.50)),
+                "non_discriminatory": nn.Parameter(torch.tensor(1.40)),
+                "survivor_first": nn.Parameter(torch.tensor(1.45)),
+            }
+        )
 
     def forward(
         self,
@@ -573,9 +575,7 @@ class SOTAEnsemble(nn.Module):
 
         # Output projection for final anomaly score
         anomaly_output = self.output_proj(
-            (ad_repr * gates[:, 0:1] +
-             tranad_repr * gates[:, 1:2] +
-             maat_repr * gates[:, 2:3])
+            (ad_repr * gates[:, 0:1] + tranad_repr * gates[:, 1:2] + maat_repr * gates[:, 2:3])
         )
 
         output = {
@@ -971,11 +971,7 @@ class STEMDisciplineRouter:
 
         return weights
 
-    def _adjust_sota_for_domain(
-        self,
-        weights: dict[str, float],
-        domain: str
-    ) -> dict[str, float]:
+    def _adjust_sota_for_domain(self, weights: dict[str, float], domain: str) -> dict[str, float]:
         """Adjust SOTA weights based on domain characteristics."""
         adjusted = weights.copy()
 
@@ -1074,10 +1070,7 @@ class STEMDisciplineRouter:
 
         return {
             "dataset": dataset,
-            "description": dataset_descriptions.get(
-                dataset.upper(),
-                f"Custom dataset: {dataset}"
-            ),
+            "description": dataset_descriptions.get(dataset.upper(), f"Custom dataset: {dataset}"),
             "recommended_model": sorted_models[0][0],
             "model_weights": dict(sorted_models),
             "model_descriptions": model_descriptions,
