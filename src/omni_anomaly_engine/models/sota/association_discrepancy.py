@@ -124,8 +124,19 @@ class PriorAssociation(nn.Module):
         # Gaussian kernel: exp(-d² / 2σ²)
         prior = torch.exp(-distances / (2 * self.sigma**2))
 
-        # Row-wise normalization to get probability distribution
+        # Symmetric normalization using Sinkhorn-style iteration
+        # This preserves symmetry while ensuring row normalization
+        for _ in range(3):  # Few iterations suffice for convergence
+            row_sum = prior.sum(dim=-1, keepdim=True) + 1e-8
+            prior = prior / row_sum
+            col_sum = prior.sum(dim=-2, keepdim=True) + 1e-8
+            prior = prior / col_sum
+
+        # Final row normalization to ensure probability distribution
         prior = prior / (prior.sum(dim=-1, keepdim=True) + 1e-8)
+
+        # Make explicitly symmetric by averaging with transpose
+        prior = (prior + prior.T) / 2
 
         return prior
 
@@ -188,7 +199,12 @@ class SeriesAssociation(nn.Module):
             scores = scores.masked_fill(mask == 0, float("-inf"))
 
         # Series-Association distribution (learned from data)
+        # Use numerically stable softmax with clamping to avoid NaN
+        scores = scores.clamp(min=-1e9, max=1e9)
         attention = F.softmax(scores, dim=-1)
+
+        # Handle potential NaN values from softmax (all -inf inputs)
+        attention = torch.nan_to_num(attention, nan=1.0 / scores.shape[-1])
         attention = self.dropout(attention)
 
         # Apply attention to values
