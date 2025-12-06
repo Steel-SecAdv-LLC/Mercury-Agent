@@ -409,6 +409,7 @@ jobs:
           file: ./Dockerfile
           target: production
           push: false
+          load: true
           tags: omni-ava:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -425,13 +426,12 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
-          exit-code: '0'
-        # Note: exit-code set to 0 to allow SARIF upload even when vulnerabilities found
-        # The upload step will still report findings to GitHub Security tab
+          exit-code: '1'
+        # Security: Block CI on CRITICAL/HIGH vulnerabilities
 
       - name: Upload Trivy results
         uses: github/codeql-action/upload-sarif@v3
-        if: always() && hashFiles('trivy-results.sarif') != ''
+        if: ${{ always() && hashFiles('trivy-results.sarif') != '' }}
         with:
           sarif_file: 'trivy-results.sarif'
 
