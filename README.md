@@ -52,7 +52,7 @@ OMNI ♱ AVA is a production-grade anomaly detection framework that unifies 18+ 
 | **Domains** | Security, Medical, Space, Environmental, Industrial Control Systems |
 | **Ethics** | Fairlearn bias detection, demographic parity, 150+ ethical scalars |
 | **Security** | Post-quantum cryptography, OWASP validation, JWT authentication |
-| **Benchmarks** | Validated on SMD, SMAP/MSL, SWaT, WADI, UCR, NAB, NSL-KDD |
+| **Datasets** | SMD, SMAP/MSL, SWaT, WADI, UCR, NAB, NSL-KDD loaders included |
 
 ---
 
@@ -99,44 +99,20 @@ OMNI ♱ AVA implements a three-tier detection system:
 
 ---
 
-## Benchmarks
+## Supported Datasets
 
-Performance validated against published academic baselines:
+OMNI ♱ AVA includes data loaders for standard anomaly detection benchmarks:
 
-<details>
-<summary><strong>Server Machine Dataset (SMD)</strong></summary>
+| Dataset | Type | Description |
+|---------|------|-------------|
+| **SMD** | Server Metrics | Server Machine Dataset (28 machines) |
+| **SMAP/MSL** | Spacecraft | NASA telemetry from Mars rovers |
+| **SWaT/WADI** | ICS/SCADA | Secure Water Treatment testbeds |
+| **UCR** | Time-Series | 128 univariate datasets |
+| **NAB** | Streaming | Numenta Anomaly Benchmark |
+| **NSL-KDD** | Network | Intrusion detection dataset |
 
-| Method | F1 Score | Paper |
-|--------|----------|-------|
-| TranAD | **0.9605** | VLDB 2022 |
-| Anomaly Transformer | 0.9043 | ICLR 2022 |
-| USAD | 0.8813 | KDD 2020 |
-| OmniAnomaly | 0.8752 | KDD 2019 |
-
-</details>
-
-<details>
-<summary><strong>Spacecraft Telemetry (SMAP/MSL)</strong></summary>
-
-| Method | SMAP F1 | MSL F1 |
-|--------|---------|--------|
-| TranAD | **0.9394** | **0.9335** |
-| Anomaly Transformer | 0.8868 | 0.9151 |
-| GDN | 0.8544 | 0.8929 |
-| OmniAnomaly | 0.8434 | 0.8886 |
-
-</details>
-
-<details>
-<summary><strong>Industrial Control Systems (SWaT/WADI)</strong></summary>
-
-| Method | SWaT F1 | WADI F1 |
-|--------|---------|---------|
-| TranAD | **0.8151** | **0.4951** |
-| Anomaly Transformer | 0.7987 | 0.4728 |
-| OmniAnomaly | 0.7934 | 0.4321 |
-
-</details>
+Use `from omni_anomaly_engine.evaluation import compare_to_baselines` to evaluate against published results.
 
 ---
 
