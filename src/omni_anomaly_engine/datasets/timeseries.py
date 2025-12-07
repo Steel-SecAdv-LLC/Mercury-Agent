@@ -14,7 +14,6 @@ All datasets download from official sources or mirrors.
 
 import json
 import logging
-import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -54,7 +53,9 @@ class NABLoader(DatasetLoader):
 
     # GitHub raw URLs for NAB data
     NAB_DATA_URL = "https://raw.githubusercontent.com/numenta/NAB/master/data/"
-    NAB_LABELS_URL = "https://raw.githubusercontent.com/numenta/NAB/master/labels/combined_windows.json"
+    NAB_LABELS_URL = (
+        "https://raw.githubusercontent.com/numenta/NAB/master/labels/combined_windows.json"
+    )
 
     # NAB data categories and files
     NAB_FILES = {
@@ -107,8 +108,8 @@ class NABLoader(DatasetLoader):
 
     def download(self) -> bool:
         """Download REAL NAB data from GitHub."""
-        import urllib.request
         import urllib.error
+        import urllib.request
 
         logger.info("Downloading REAL NAB (Numenta Anomaly Benchmark) data...")
 
@@ -203,7 +204,7 @@ class NABLoader(DatasetLoader):
             except (ValueError, IndexError):
                 pass
 
-        with open(filepath, newline='') as f:
+        with open(filepath, newline="") as f:
             reader = csv.DictReader(f)
 
             for row in reader:
@@ -282,12 +283,16 @@ class SMDLoader(DatasetLoader):
     REQUIRES_CREDENTIALS = False
 
     # GitHub raw URLs for SMD data
-    SMD_BASE_URL = "https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/ServerMachineDataset/"
+    SMD_BASE_URL = (
+        "https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/ServerMachineDataset/"
+    )
 
     # SMD has 28 machines, each with train/test splits
-    MACHINES = [f"machine-1-{i}" for i in range(1, 9)] + \
-               [f"machine-2-{i}" for i in range(1, 10)] + \
-               [f"machine-3-{i}" for i in range(1, 12)]
+    MACHINES = (
+        [f"machine-1-{i}" for i in range(1, 9)]
+        + [f"machine-2-{i}" for i in range(1, 10)]
+        + [f"machine-3-{i}" for i in range(1, 12)]
+    )
 
     def __init__(self, config: DatasetConfig):
         super().__init__(config)
@@ -295,8 +300,8 @@ class SMDLoader(DatasetLoader):
 
     def download(self) -> bool:
         """Download REAL SMD data from GitHub."""
-        import urllib.request
         import urllib.error
+        import urllib.request
 
         logger.info("Downloading REAL SMD (Server Machine Dataset)...")
 
@@ -318,7 +323,7 @@ class SMDLoader(DatasetLoader):
                 try:
                     urllib.request.urlretrieve(url, txt_path)
                     # Convert txt to npy
-                    data = np.loadtxt(txt_path, delimiter=',')
+                    data = np.loadtxt(txt_path, delimiter=",")
                     np.save(file_path, data)
                     downloaded_count += 1
                     logger.info(f"  Downloaded {machine}/{split}")
@@ -348,7 +353,7 @@ class SMDLoader(DatasetLoader):
                 # Try loading from txt
                 txt_path = machine_dir / "test.txt"
                 if txt_path.exists():
-                    data = np.loadtxt(txt_path, delimiter=',')
+                    data = np.loadtxt(txt_path, delimiter=",")
                     np.save(test_path, data)
                 else:
                     logger.warning(f"  No data for {machine}")
@@ -423,7 +428,9 @@ class SMAPMSLLoader(DatasetLoader):
 
     # Data URLs
     SMAP_MSL_BASE_URL = "https://raw.githubusercontent.com/khundman/telemanom/master/data/"
-    LABELED_ANOMALIES_URL = "https://raw.githubusercontent.com/khundman/telemanom/master/labeled_anomalies.csv"
+    LABELED_ANOMALIES_URL = (
+        "https://raw.githubusercontent.com/khundman/telemanom/master/labeled_anomalies.csv"
+    )
 
     def __init__(self, config: DatasetConfig):
         super().__init__(config)
@@ -431,8 +438,8 @@ class SMAPMSLLoader(DatasetLoader):
 
     def download(self) -> bool:
         """Download REAL SMAP/MSL data from GitHub."""
-        import urllib.request
         import urllib.error
+        import urllib.request
 
         logger.info(f"Downloading REAL NASA {self.dataset} spacecraft telemetry...")
 
@@ -491,7 +498,8 @@ class SMAPMSLLoader(DatasetLoader):
         anomaly_info = {}
         if labels_path.exists():
             import csv
-            with open(labels_path, newline='') as f:
+
+            with open(labels_path, newline="") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     if row.get("spacecraft") == self.dataset:
@@ -499,7 +507,7 @@ class SMAPMSLLoader(DatasetLoader):
                         anomaly_seqs = row.get("anomaly_sequences", "[]")
                         try:
                             anomaly_info[chan_id] = eval(anomaly_seqs)
-                        except:
+                        except (SyntaxError, ValueError, NameError):
                             anomaly_info[chan_id] = []
 
         all_features = []
@@ -510,9 +518,13 @@ class SMAPMSLLoader(DatasetLoader):
             chan_id = npy_file.stem
 
             # Filter by dataset type
-            if self.dataset == "SMAP" and not chan_id.startswith(("A-", "B-", "C-", "D-", "E-", "F-", "G-", "P-", "R-", "S-", "T-")):
+            if self.dataset == "SMAP" and not chan_id.startswith(
+                ("A-", "B-", "C-", "D-", "E-", "F-", "G-", "P-", "R-", "S-", "T-")
+            ):
                 continue
-            if self.dataset == "MSL" and not chan_id.startswith(("M-", "C-", "D-", "F-", "P-", "T-")):
+            if self.dataset == "MSL" and not chan_id.startswith(
+                ("M-", "C-", "D-", "F-", "P-", "T-")
+            ):
                 # MSL channels have different prefix pattern
                 pass
 
@@ -535,7 +547,6 @@ class SMAPMSLLoader(DatasetLoader):
             )
 
         # Pad to same length and stack
-        max_len = max(len(f) for f in all_features)
         padded_features = []
         padded_labels = []
 

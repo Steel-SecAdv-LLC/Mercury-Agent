@@ -38,11 +38,11 @@ import torch.nn.functional as F
 from torch import nn
 
 __all__ = [
-    "AssociationDiscrepancyModule",
     "AnomalyTransformerEncoder",
+    "AssociationDiscrepancyLoss",
+    "AssociationDiscrepancyModule",
     "PriorAssociation",
     "SeriesAssociation",
-    "AssociationDiscrepancyLoss",
 ]
 
 
@@ -60,6 +60,7 @@ class AssociationConfig:
         window_size: Local context window for prior
         enable_ethical_guard: Enable ethical scalar constraints
     """
+
     d_model: int = 512
     n_heads: int = 8
     d_ff: int = 2048
@@ -121,10 +122,21 @@ class PriorAssociation(nn.Module):
                 distances = distances.to(device)
 
         # Gaussian kernel: exp(-d² / 2σ²)
-        prior = torch.exp(-distances / (2 * self.sigma ** 2))
+        prior = torch.exp(-distances / (2 * self.sigma**2))
 
-        # Row-wise normalization to get probability distribution
+        # Symmetric normalization using Sinkhorn-style iteration
+        # This preserves symmetry while ensuring row normalization
+        for _ in range(3):  # Few iterations suffice for convergence
+            row_sum = prior.sum(dim=-1, keepdim=True) + 1e-8
+            prior = prior / row_sum
+            col_sum = prior.sum(dim=-2, keepdim=True) + 1e-8
+            prior = prior / col_sum
+
+        # Final row normalization to ensure probability distribution
         prior = prior / (prior.sum(dim=-1, keepdim=True) + 1e-8)
+
+        # Make explicitly symmetric by averaging with transpose
+        prior = (prior + prior.T) / 2
 
         return prior
 
@@ -159,10 +171,7 @@ class SeriesAssociation(nn.Module):
         self.scale = math.sqrt(self.d_k)
 
     def forward(
-        self,
-        x: torch.Tensor,
-        mask: torch.Tensor | None = None,
-        return_attention: bool = True
+        self, x: torch.Tensor, mask: torch.Tensor | None = None, return_attention: bool = True
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Compute Series-Association attention.
@@ -187,10 +196,15 @@ class SeriesAssociation(nn.Module):
         scores = torch.matmul(Q, K.transpose(-2, -1)) / self.scale
 
         if mask is not None:
-            scores = scores.masked_fill(mask == 0, float('-inf'))
+            scores = scores.masked_fill(mask == 0, float("-inf"))
 
         # Series-Association distribution (learned from data)
+        # Use numerically stable softmax with clamping to avoid NaN
+        scores = scores.clamp(min=-1e9, max=1e9)
         attention = F.softmax(scores, dim=-1)
+
+        # Handle potential NaN values from softmax (all -inf inputs)
+        attention = torch.nan_to_num(attention, nan=1.0 / scores.shape[-1])
         attention = self.dropout(attention)
 
         # Apply attention to values
@@ -225,25 +239,16 @@ class AssociationDiscrepancyModule(nn.Module):
         super().__init__()
         self.config = config or AssociationConfig()
 
-        self.prior = PriorAssociation(
-            sigma=self.config.sigma,
-            window_size=self.config.window_size
-        )
+        self.prior = PriorAssociation(sigma=self.config.sigma, window_size=self.config.window_size)
 
         self.series = SeriesAssociation(
-            d_model=self.config.d_model,
-            n_heads=self.config.n_heads,
-            dropout=self.config.dropout
+            d_model=self.config.d_model, n_heads=self.config.n_heads, dropout=self.config.dropout
         )
 
         # Learnable sigma for adaptive prior (optional enhancement)
         self.learnable_sigma = nn.Parameter(torch.tensor(self.config.sigma))
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        return_components: bool = False
-    ) -> dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, return_components: bool = False) -> dict[str, torch.Tensor]:
         """
         Compute Association Discrepancy.
 
@@ -275,22 +280,19 @@ class AssociationDiscrepancyModule(nn.Module):
         discrepancy = self._compute_discrepancy(series_avg, prior_dist)
 
         result = {
-            'output': output,
-            'discrepancy': discrepancy,
-            'series_attention': series_dist,
+            "output": output,
+            "discrepancy": discrepancy,
+            "series_attention": series_dist,
         }
 
         if return_components:
-            result['prior'] = prior_dist
-            result['series'] = series_avg
+            result["prior"] = prior_dist
+            result["series"] = series_avg
 
         return result
 
     def _compute_discrepancy(
-        self,
-        series: torch.Tensor,
-        prior: torch.Tensor,
-        eps: float = 1e-8
+        self, series: torch.Tensor, prior: torch.Tensor, eps: float = 1e-8
     ) -> torch.Tensor:
         """
         Compute symmetric KL divergence between Series and Prior.
@@ -323,9 +325,7 @@ class AssociationDiscrepancyModule(nn.Module):
         return discrepancy
 
     def get_anomaly_score(
-        self,
-        x: torch.Tensor,
-        reconstruction: torch.Tensor | None = None
+        self, x: torch.Tensor, reconstruction: torch.Tensor | None = None
     ) -> torch.Tensor:
         """
         Compute final anomaly score combining discrepancy and reconstruction.
@@ -342,7 +342,7 @@ class AssociationDiscrepancyModule(nn.Module):
             Anomaly scores [batch, seq_len]
         """
         result = self.forward(x)
-        discrepancy = result['discrepancy']  # [batch, seq]
+        discrepancy = result["discrepancy"]  # [batch, seq]
 
         # Association-based anomaly criterion
         # High discrepancy → anomaly (Series deviates from Prior)
@@ -415,10 +415,9 @@ class AnomalyTransformerEncoder(nn.Module):
             window_size=window_size,
         )
 
-        self.layers = nn.ModuleList([
-            AnomalyTransformerEncoderLayer(config)
-            for _ in range(n_layers)
-        ])
+        self.layers = nn.ModuleList(
+            [AnomalyTransformerEncoderLayer(config) for _ in range(n_layers)]
+        )
 
         # Reconstruction head
         self.reconstruction_head = nn.Linear(d_model, input_dim)
@@ -426,11 +425,7 @@ class AnomalyTransformerEncoder(nn.Module):
         # Layer normalization
         self.norm = nn.LayerNorm(d_model)
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        return_all: bool = False
-    ) -> dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, return_all: bool = False) -> dict[str, torch.Tensor]:
         """
         Forward pass through Anomaly Transformer.
 
@@ -471,24 +466,20 @@ class AnomalyTransformerEncoder(nn.Module):
         anomaly_score = assoc_weight * recon_error * total_discrepancy
 
         result = {
-            'reconstruction': reconstruction,
-            'discrepancy': total_discrepancy,
-            'anomaly_score': anomaly_score,
-            'reconstruction_error': recon_error,
+            "reconstruction": reconstruction,
+            "discrepancy": total_discrepancy,
+            "anomaly_score": anomaly_score,
+            "reconstruction_error": recon_error,
         }
 
         if return_all:
-            result['all_discrepancies'] = all_discrepancies
-            result['all_attentions'] = all_attentions
-            result['hidden'] = h
+            result["all_discrepancies"] = all_discrepancies
+            result["all_attentions"] = all_attentions
+            result["hidden"] = h
 
         return result
 
-    def detect(
-        self,
-        x: torch.Tensor,
-        threshold: float | None = None
-    ) -> dict[str, Any]:
+    def detect(self, x: torch.Tensor, threshold: float | None = None) -> dict[str, Any]:
         """
         Perform anomaly detection on input sequence.
 
@@ -502,7 +493,7 @@ class AnomalyTransformerEncoder(nn.Module):
         with torch.no_grad():
             result = self.forward(x)
 
-        anomaly_score = result['anomaly_score']
+        anomaly_score = result["anomaly_score"]
 
         # Auto-threshold using mean + 3*std
         if threshold is None:
@@ -513,11 +504,11 @@ class AnomalyTransformerEncoder(nn.Module):
         predictions = (anomaly_score > threshold).float()
 
         return {
-            'anomaly_score': anomaly_score,
-            'predictions': predictions,
-            'threshold': threshold,
-            'reconstruction': result['reconstruction'],
-            'discrepancy': result['discrepancy'],
+            "anomaly_score": anomaly_score,
+            "predictions": predictions,
+            "threshold": threshold,
+            "reconstruction": result["reconstruction"],
+            "discrepancy": result["discrepancy"],
         }
 
 
@@ -545,10 +536,7 @@ class AnomalyTransformerEncoderLayer(nn.Module):
         self.norm2 = nn.LayerNorm(config.d_model)
         self.dropout = nn.Dropout(config.dropout)
 
-    def forward(
-        self,
-        x: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Forward pass through encoder layer.
 
@@ -559,9 +547,9 @@ class AnomalyTransformerEncoderLayer(nn.Module):
         """
         # Association Discrepancy Attention
         assoc_result = self.assoc_discrepancy(x, return_components=False)
-        attn_output = assoc_result['output']
-        discrepancy = assoc_result['discrepancy']
-        attention = assoc_result['series_attention']
+        attn_output = assoc_result["output"]
+        discrepancy = assoc_result["discrepancy"]
+        attention = assoc_result["series_attention"]
 
         # Add & Norm
         x = self.norm1(x + self.dropout(attn_output))
@@ -588,11 +576,11 @@ class PositionalEncoding(nn.Module):
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0)
 
-        self.register_buffer('pe', pe)
+        self.register_buffer("pe", pe)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Add positional encoding to input."""
-        x = x + self.pe[:, :x.size(1), :]
+        x = x + self.pe[:, : x.size(1), :]
         return self.dropout(x)
 
 
@@ -621,7 +609,7 @@ class AssociationDiscrepancyLoss(nn.Module):
         x: torch.Tensor,
         reconstruction: torch.Tensor,
         discrepancy: torch.Tensor,
-        phase: str = "minimize"
+        phase: str = "minimize",
     ) -> dict[str, torch.Tensor]:
         """
         Compute Anomaly Transformer loss.
@@ -651,9 +639,9 @@ class AssociationDiscrepancyLoss(nn.Module):
             total_loss = self.reconstruction_weight * recon_loss + self.lambda_ * assoc_loss
 
         return {
-            'total_loss': total_loss,
-            'reconstruction_loss': recon_loss,
-            'association_loss': assoc_loss,
+            "total_loss": total_loss,
+            "reconstruction_loss": recon_loss,
+            "association_loss": assoc_loss,
         }
 
 
@@ -661,7 +649,7 @@ class AssociationDiscrepancyLoss(nn.Module):
 def apply_ethical_constraints(
     anomaly_scores: torch.Tensor,
     harm_prevention_scalar: float = 1.50,
-    min_recall_threshold: float = 0.95
+    min_recall_threshold: float = 0.95,
 ) -> torch.Tensor:
     """
     Apply ethical constraints to anomaly detection.

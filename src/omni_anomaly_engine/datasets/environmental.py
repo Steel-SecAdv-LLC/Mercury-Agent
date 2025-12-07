@@ -78,8 +78,8 @@ class USGSEarthquakeLoader(DatasetLoader):
 
     def download(self) -> bool:
         """Download REAL earthquake data from USGS API."""
-        import urllib.request
         import urllib.error
+        import urllib.request
 
         logger.info("Downloading REAL earthquake data from USGS API...")
 
@@ -243,10 +243,22 @@ class NOAAWeatherLoader(DatasetLoader):
 
     # Event type to code mapping
     EVENT_TYPES = {
-        "Tornado": 1, "Hail": 2, "Thunderstorm Wind": 3, "Flash Flood": 4,
-        "Flood": 5, "Winter Storm": 6, "Heavy Snow": 7, "High Wind": 8,
-        "Blizzard": 9, "Ice Storm": 10, "Drought": 11, "Hurricane": 12,
-        "Tropical Storm": 13, "Heat": 14, "Wildfire": 15, "Lightning": 16,
+        "Tornado": 1,
+        "Hail": 2,
+        "Thunderstorm Wind": 3,
+        "Flash Flood": 4,
+        "Flood": 5,
+        "Winter Storm": 6,
+        "Heavy Snow": 7,
+        "High Wind": 8,
+        "Blizzard": 9,
+        "Ice Storm": 10,
+        "Drought": 11,
+        "Hurricane": 12,
+        "Tropical Storm": 13,
+        "Heat": 14,
+        "Wildfire": 15,
+        "Lightning": 16,
     }
 
     def __init__(self, config: DatasetConfig):
@@ -255,10 +267,10 @@ class NOAAWeatherLoader(DatasetLoader):
 
     def download(self) -> bool:
         """Download REAL storm events data from NOAA."""
-        import urllib.request
-        import urllib.error
         import gzip
         import io
+        import urllib.error
+        import urllib.request
 
         logger.info("Downloading REAL NOAA Storm Events data...")
 
@@ -284,7 +296,7 @@ class NOAAWeatherLoader(DatasetLoader):
                     # Decompress gzip
                     compressed = response.read()
                     with gzip.GzipFile(fileobj=io.BytesIO(compressed)) as gz:
-                        data = gz.read().decode('utf-8', errors='ignore')
+                        data = gz.read().decode("utf-8", errors="ignore")
 
                 with open(output_path, "w") as f:
                     f.write(data)
@@ -351,7 +363,7 @@ class NOAAWeatherLoader(DatasetLoader):
         features = []
         labels = []
 
-        with open(filepath, newline='', encoding='utf-8', errors='ignore') as f:
+        with open(filepath, newline="", encoding="utf-8", errors="ignore") as f:
             reader = csv.DictReader(f)
 
             for row in reader:
@@ -383,13 +395,17 @@ class NOAAWeatherLoader(DatasetLoader):
                     features.append(feature_row)
 
                     # Label: severe event (deaths, injuries, or significant damage)
-                    deaths = int(row.get("DEATHS_DIRECT", 0) or 0) + int(row.get("DEATHS_INDIRECT", 0) or 0)
-                    injuries = int(row.get("INJURIES_DIRECT", 0) or 0) + int(row.get("INJURIES_INDIRECT", 0) or 0)
+                    deaths = int(row.get("DEATHS_DIRECT", 0) or 0) + int(
+                        row.get("DEATHS_INDIRECT", 0) or 0
+                    )
+                    injuries = int(row.get("INJURIES_DIRECT", 0) or 0) + int(
+                        row.get("INJURIES_INDIRECT", 0) or 0
+                    )
                     damage = self._parse_damage(row.get("DAMAGE_PROPERTY", "0"))
                     is_severe = deaths > 0 or injuries > 5 or damage > 100000
                     labels.append(1 if is_severe else 0)
 
-                except (ValueError, KeyError) as e:
+                except (ValueError, KeyError):
                     continue
 
         return features, labels
@@ -493,8 +509,8 @@ class WildfireDataLoader(DatasetLoader):
 
     def download(self) -> bool:
         """Download REAL fire detection data from NASA FIRMS."""
-        import urllib.request
         import urllib.error
+        import urllib.request
 
         logger.info("Downloading REAL NASA FIRMS fire detection data...")
 
@@ -514,13 +530,13 @@ class WildfireDataLoader(DatasetLoader):
             try:
                 logger.info(f"  Trying: {url}")
                 with urllib.request.urlopen(url, timeout=120) as response:
-                    data = response.read().decode('utf-8', errors='ignore')
+                    data = response.read().decode("utf-8", errors="ignore")
 
                 with open(output_path, "w") as f:
                     f.write(data)
 
                 # Count lines
-                n_fires = data.count('\n') - 1
+                n_fires = data.count("\n") - 1
                 logger.info(f"  Downloaded {n_fires} fire detections from {filename}")
                 downloaded = True
                 break
@@ -589,7 +605,7 @@ class WildfireDataLoader(DatasetLoader):
         # Satellite code mapping
         satellite_map = {"Terra": 0, "Aqua": 1, "N": 2, "1": 3}
 
-        with open(filepath, newline='', encoding='utf-8', errors='ignore') as f:
+        with open(filepath, newline="", encoding="utf-8", errors="ignore") as f:
             reader = csv.DictReader(f)
 
             for row in reader:
@@ -598,14 +614,19 @@ class WildfireDataLoader(DatasetLoader):
                     acq_date = row.get("acq_date", "2020-01-01")
                     try:
                         from datetime import datetime
-                        date_val = (datetime.strptime(acq_date, "%Y-%m-%d") - datetime(2020, 1, 1)).days
+
+                        date_val = (
+                            datetime.strptime(acq_date, "%Y-%m-%d") - datetime(2020, 1, 1)
+                        ).days
                     except ValueError:
                         date_val = 0
 
                     # Parse time as minutes since midnight
                     acq_time = row.get("acq_time", "0")
                     try:
-                        time_val = int(acq_time[:2]) * 60 + int(acq_time[2:]) if len(acq_time) >= 4 else 0
+                        time_val = (
+                            int(acq_time[:2]) * 60 + int(acq_time[2:]) if len(acq_time) >= 4 else 0
+                        )
                     except ValueError:
                         time_val = 0
 
@@ -633,7 +654,7 @@ class WildfireDataLoader(DatasetLoader):
                     is_significant = confidence >= 80 or frp >= 50
                     labels.append(1 if is_significant else 0)
 
-                except (ValueError, KeyError) as e:
+                except (ValueError, KeyError):
                     continue
 
         return features, labels

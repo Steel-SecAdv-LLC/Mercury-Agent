@@ -19,8 +19,6 @@ from __future__ import annotations
 import logging
 import os
 import zipfile
-from pathlib import Path
-from typing import Any
 
 import numpy as np
 
@@ -29,10 +27,10 @@ from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    "UCRLoader",
+    "CWRUBearingLoader",
     "MBALoader",
     "MSDSLoader",
-    "CWRUBearingLoader",
+    "UCRLoader",
 ]
 
 
@@ -92,8 +90,8 @@ class UCRLoader(DatasetLoader):
 
     def download(self) -> bool:
         """Download UCR archive (or specific dataset)."""
-        import urllib.request
         import urllib.error
+        import urllib.request
 
         logger.info(f"Downloading UCR dataset: {self.dataset_name}")
 
@@ -107,11 +105,11 @@ class UCRLoader(DatasetLoader):
 
         try:
             zip_path = self.data_path / f"{self.dataset_name}.zip"
-            logger.info(f"  Trying dataset-specific download...")
+            logger.info("  Trying dataset-specific download...")
             urllib.request.urlretrieve(specific_url, zip_path)
 
             # Extract
-            with zipfile.ZipFile(zip_path, 'r') as zf:
+            with zipfile.ZipFile(zip_path, "r") as zf:
                 zf.extractall(self.data_path)
 
             os.remove(zip_path)
@@ -119,7 +117,7 @@ class UCRLoader(DatasetLoader):
             return True
 
         except urllib.error.URLError:
-            logger.warning(f"  Dataset-specific download failed")
+            logger.warning("  Dataset-specific download failed")
 
         # Provide instructions for full archive
         logger.info("")
@@ -159,8 +157,8 @@ class UCRLoader(DatasetLoader):
                 )
 
         # Load train and test
-        train_data = np.loadtxt(train_file, delimiter='\t')
-        test_data = np.loadtxt(test_file, delimiter='\t')
+        train_data = np.loadtxt(train_file, delimiter="\t")
+        test_data = np.loadtxt(test_file, delimiter="\t")
 
         # First column is label
         train_labels = train_data[:, 0].astype(int)
@@ -179,9 +177,7 @@ class UCRLoader(DatasetLoader):
             return features, labels
 
     def convert_to_anomaly_labels(
-        self,
-        labels: np.ndarray,
-        anomaly_class: int | None = None
+        self, labels: np.ndarray, anomaly_class: int | None = None
     ) -> np.ndarray:
         """
         Convert classification labels to binary anomaly labels.
@@ -268,9 +264,8 @@ class MBALoader(DatasetLoader):
 
     def download(self) -> bool:
         """Download CWRU bearing data."""
-        import urllib.request
         import urllib.error
-        from scipy.io import loadmat
+        import urllib.request
 
         logger.info("Downloading CWRU Bearing Dataset (MBA)...")
 
@@ -338,7 +333,7 @@ class MBALoader(DatasetLoader):
                 # Find the vibration data key
                 data_key = None
                 for key in mat_data.keys():
-                    if not key.startswith('_') and isinstance(mat_data[key], np.ndarray):
+                    if not key.startswith("_") and isinstance(mat_data[key], np.ndarray):
                         if mat_data[key].size > 1000:
                             data_key = key
                             break
@@ -351,7 +346,7 @@ class MBALoader(DatasetLoader):
                     n_windows = len(signal) // window_size
 
                     for i in range(n_windows):
-                        window = signal[i * window_size:(i + 1) * window_size]
+                        window = signal[i * window_size : (i + 1) * window_size]
                         features_list.append(window)
                         labels_list.append(label)
 
@@ -385,6 +380,7 @@ class MBALoader(DatasetLoader):
 
 class CWRUBearingLoader(MBALoader):
     """Alias for MBA loader (CWRU Bearing Data)."""
+
     DATASET_NAME = "cwru_bearing"
 
 
@@ -466,9 +462,7 @@ class MSDSLoader(DatasetLoader):
             # Random anomaly type
             anomaly_type = np.random.choice(["spike", "drift", "noise"])
             affected_sources = np.random.choice(
-                self.n_sources,
-                np.random.randint(1, self.n_sources + 1),
-                replace=False
+                self.n_sources, np.random.randint(1, self.n_sources + 1), replace=False
             )
 
             for source in affected_sources:
@@ -515,9 +509,7 @@ class MSDSLoader(DatasetLoader):
             version="synthetic",
             num_samples=self.n_samples,
             num_features=self.n_sources * 10,
-            feature_names=[f"source{s}_feat{f}"
-                          for s in range(self.n_sources)
-                          for f in range(10)],
+            feature_names=[f"source{s}_feat{f}" for s in range(self.n_sources) for f in range(10)],
             target_names=["Normal", "Anomaly"],
             class_distribution={"normal": 1 - self.anomaly_ratio, "anomaly": self.anomaly_ratio},
             source_url=self.DATASET_URL,

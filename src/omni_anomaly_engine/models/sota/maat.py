@@ -38,12 +38,12 @@ import torch.nn.functional as F
 from torch import nn
 
 __all__ = [
-    "MAATModel",
-    "MAATConfig",
-    "SparseAttention",
-    "MambaSSM",
     "GatedFeatureFusion",
+    "MAATConfig",
+    "MAATModel",
+    "MambaSSM",
     "SelectiveSSM",
+    "SparseAttention",
 ]
 
 
@@ -66,6 +66,7 @@ class MAATConfig:
         use_sparse_attention: Enable sparse attention
         gate_bias: Initial bias for gating mechanism
     """
+
     input_dim: int = 25
     d_model: int = 256
     d_state: int = 16
@@ -80,11 +81,13 @@ class MAATConfig:
     use_sparse_attention: bool = True
     gate_bias: float = 0.0
     window_size: int = 100
-    ethical_scalars: dict[str, float] = field(default_factory=lambda: {
-        "maat_balance": 1.35,  # Ma'at: goddess of truth and balance
-        "harm_prevention": 1.50,
-        "non_discriminatory": 1.40,
-    })
+    ethical_scalars: dict[str, float] = field(
+        default_factory=lambda: {
+            "maat_balance": 1.35,  # Ma'at: goddess of truth and balance
+            "harm_prevention": 1.50,
+            "non_discriminatory": 1.40,
+        }
+    )
 
 
 class SparseAttention(nn.Module):
@@ -131,17 +134,13 @@ class SparseAttention(nn.Module):
         self.W_O = nn.Linear(d_model, d_model)
 
         # Global tokens (learnable anchor points)
-        self.global_tokens = nn.Parameter(
-            torch.randn(1, n_global_tokens, d_model) * 0.02
-        )
+        self.global_tokens = nn.Parameter(torch.randn(1, n_global_tokens, d_model) * 0.02)
 
         self.dropout = nn.Dropout(dropout)
         self.scale = math.sqrt(self.d_k)
 
     def forward(
-        self,
-        x: torch.Tensor,
-        return_attention: bool = False
+        self, x: torch.Tensor, return_attention: bool = False
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """
         Apply sparse attention.
@@ -172,7 +171,7 @@ class SparseAttention(nn.Module):
         sparse_mask = self._create_sparse_mask(seq_len, x.device)
 
         # Apply sparse mask
-        scores = scores.masked_fill(~sparse_mask.unsqueeze(0).unsqueeze(0), float('-inf'))
+        scores = scores.masked_fill(~sparse_mask.unsqueeze(0).unsqueeze(0), float("-inf"))
 
         # Softmax and apply
         attention = F.softmax(scores, dim=-1)
@@ -198,7 +197,7 @@ class SparseAttention(nn.Module):
         mask = torch.zeros(seq_len, total_len, dtype=torch.bool, device=device)
 
         # Global tokens are always attended
-        mask[:, :self.n_global_tokens] = True
+        mask[:, : self.n_global_tokens] = True
 
         # Local window attention
         for i in range(seq_len):
@@ -395,6 +394,7 @@ class MambaSSM(nn.Module):
         # Try to use native Mamba implementation
         try:
             from mamba_ssm import Mamba
+
             self.mamba = Mamba(
                 d_model=d_model,
                 d_state=d_state,
@@ -468,10 +468,7 @@ class GatedFeatureFusion(nn.Module):
         self.norm = nn.LayerNorm(d_model)
 
     def forward(
-        self,
-        x_attn: torch.Tensor,
-        x_ssm: torch.Tensor,
-        return_gate: bool = False
+        self, x_attn: torch.Tensor, x_ssm: torch.Tensor, return_gate: bool = False
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """
         Fuse attention and SSM features.
@@ -522,21 +519,29 @@ class MAATEncoderLayer(nn.Module):
         self.config = config
 
         # Sparse attention pathway
-        self.sparse_attn = SparseAttention(
-            d_model=config.d_model,
-            n_heads=config.n_heads,
-            sparsity=config.sparsity,
-            dropout=config.dropout,
-        ) if config.use_sparse_attention else None
+        self.sparse_attn = (
+            SparseAttention(
+                d_model=config.d_model,
+                n_heads=config.n_heads,
+                sparsity=config.sparsity,
+                dropout=config.dropout,
+            )
+            if config.use_sparse_attention
+            else None
+        )
 
         # Mamba-SSM pathway
-        self.mamba = MambaSSM(
-            d_model=config.d_model,
-            d_state=config.d_state,
-            d_conv=config.d_conv,
-            expand=config.expand,
-            dropout=config.dropout,
-        ) if config.use_mamba else None
+        self.mamba = (
+            MambaSSM(
+                d_model=config.d_model,
+                d_state=config.d_state,
+                d_conv=config.d_conv,
+                expand=config.expand,
+                dropout=config.dropout,
+            )
+            if config.use_mamba
+            else None
+        )
 
         # Gated fusion
         self.gate_fusion = GatedFeatureFusion(
@@ -558,9 +563,7 @@ class MAATEncoderLayer(nn.Module):
         self.norm2 = nn.LayerNorm(config.d_model)
 
     def forward(
-        self,
-        x: torch.Tensor,
-        return_gates: bool = False
+        self, x: torch.Tensor, return_gates: bool = False
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """
         Forward through MAAT layer.
@@ -626,23 +629,17 @@ class MAATModel(nn.Module):
         self.config = config or MAATConfig()
 
         # Input projection
-        self.input_proj = nn.Linear(
-            self.config.input_dim,
-            self.config.d_model
-        )
+        self.input_proj = nn.Linear(self.config.input_dim, self.config.d_model)
 
         # Positional encoding
         self.pos_encoding = PositionalEncoding(
-            self.config.d_model,
-            self.config.dropout,
-            max_len=self.config.window_size * 2
+            self.config.d_model, self.config.dropout, max_len=self.config.window_size * 2
         )
 
         # MAAT encoder layers
-        self.layers = nn.ModuleList([
-            MAATEncoderLayer(self.config)
-            for _ in range(self.config.n_layers)
-        ])
+        self.layers = nn.ModuleList(
+            [MAATEncoderLayer(self.config) for _ in range(self.config.n_layers)]
+        )
 
         # Reconstruction head
         self.reconstruction_head = nn.Sequential(
@@ -663,16 +660,10 @@ class MAATModel(nn.Module):
         from omni_anomaly_engine.models.sota.association_discrepancy import (
             PriorAssociation,
         )
-        self.prior_assoc = PriorAssociation(
-            sigma=1.0,
-            window_size=self.config.window_size
-        )
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        return_all: bool = False
-    ) -> dict[str, torch.Tensor]:
+        self.prior_assoc = PriorAssociation(sigma=1.0, window_size=self.config.window_size)
+
+    def forward(self, x: torch.Tensor, return_all: bool = False) -> dict[str, torch.Tensor]:
         """
         Forward pass through MAAT.
 
@@ -715,32 +706,26 @@ class MAATModel(nn.Module):
 
         # KL divergence as discrepancy
         discrepancy = F.kl_div(
-            torch.log(error_dist + 1e-8),
-            prior_flat.expand(batch_size, -1),
-            reduction='none'
+            torch.log(error_dist + 1e-8), prior_flat.expand(batch_size, -1), reduction="none"
         ).sum(dim=-1)
 
         # Combined anomaly score
         anomaly_score = recon_error * (1 + discrepancy.unsqueeze(-1))
 
         result = {
-            'reconstruction': reconstruction,
-            'anomaly_score': anomaly_score,
-            'reconstruction_error': recon_error,
-            'discrepancy': discrepancy,
+            "reconstruction": reconstruction,
+            "anomaly_score": anomaly_score,
+            "reconstruction_error": recon_error,
+            "discrepancy": discrepancy,
         }
 
         if return_all:
-            result['hidden'] = h
-            result['gates'] = all_gates
+            result["hidden"] = h
+            result["gates"] = all_gates
 
         return result
 
-    def detect(
-        self,
-        x: torch.Tensor,
-        threshold: float | None = None
-    ) -> dict[str, Any]:
+    def detect(self, x: torch.Tensor, threshold: float | None = None) -> dict[str, Any]:
         """
         Perform anomaly detection.
 
@@ -754,7 +739,7 @@ class MAATModel(nn.Module):
         with torch.no_grad():
             result = self.forward(x)
 
-        anomaly_score = result['anomaly_score']
+        anomaly_score = result["anomaly_score"]
 
         if threshold is None:
             threshold = torch.quantile(anomaly_score.flatten(), 0.95).item()
@@ -762,17 +747,14 @@ class MAATModel(nn.Module):
         predictions = (anomaly_score > threshold).float()
 
         return {
-            'anomaly_score': anomaly_score,
-            'predictions': predictions,
-            'threshold': threshold,
-            'reconstruction': result['reconstruction'],
-            'discrepancy': result['discrepancy'],
+            "anomaly_score": anomaly_score,
+            "predictions": predictions,
+            "threshold": threshold,
+            "reconstruction": result["reconstruction"],
+            "discrepancy": result["discrepancy"],
         }
 
-    def get_pathway_importance(
-        self,
-        x: torch.Tensor
-    ) -> dict[str, torch.Tensor]:
+    def get_pathway_importance(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """
         Analyze importance of attention vs SSM pathways.
 
@@ -781,19 +763,19 @@ class MAATModel(nn.Module):
         with torch.no_grad():
             result = self.forward(x, return_all=True)
 
-        if 'gates' not in result or not result['gates']:
-            return {'attention_ratio': torch.tensor(0.5)}
+        if "gates" not in result or not result["gates"]:
+            return {"attention_ratio": torch.tensor(0.5)}
 
-        gates = torch.stack(result['gates'], dim=0)  # [layers, batch, seq, d_model]
+        gates = torch.stack(result["gates"], dim=0)  # [layers, batch, seq, d_model]
 
         # Gate > 0.5 means attention preferred
         attention_ratio = (gates > 0.5).float().mean()
 
         return {
-            'attention_ratio': attention_ratio,
-            'ssm_ratio': 1 - attention_ratio,
-            'gate_mean': gates.mean(),
-            'gate_std': gates.std(),
+            "attention_ratio": attention_ratio,
+            "ssm_ratio": 1 - attention_ratio,
+            "gate_mean": gates.mean(),
+            "gate_std": gates.std(),
         }
 
 
@@ -806,18 +788,16 @@ class PositionalEncoding(nn.Module):
 
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
-        )
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
 
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0)
 
-        self.register_buffer('pe', pe)
+        self.register_buffer("pe", pe)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.pe[:, :x.size(1), :]
+        x = x + self.pe[:, : x.size(1), :]
         return self.dropout(x)
 
 
@@ -845,10 +825,7 @@ class MAATLoss(nn.Module):
         self.balance_weight = balance_weight
 
     def forward(
-        self,
-        x: torch.Tensor,
-        result: dict[str, torch.Tensor],
-        phase: str = "minimize"
+        self, x: torch.Tensor, result: dict[str, torch.Tensor], phase: str = "minimize"
     ) -> dict[str, torch.Tensor]:
         """
         Compute MAAT loss.
@@ -861,8 +838,8 @@ class MAATLoss(nn.Module):
         Returns:
             Dictionary with loss components
         """
-        recon = result['reconstruction']
-        discrepancy = result.get('discrepancy', torch.tensor(0.0))
+        recon = result["reconstruction"]
+        discrepancy = result.get("discrepancy", torch.tensor(0.0))
 
         # Reconstruction loss
         recon_loss = F.mse_loss(recon, x)
@@ -874,18 +851,20 @@ class MAATLoss(nn.Module):
             disc_loss = discrepancy.mean()
 
         # Pathway balance (encourage use of both pathways)
-        if 'gates' in result and result['gates']:
-            gates = torch.stack(result['gates'], dim=0)
+        if result.get("gates"):
+            gates = torch.stack(result["gates"], dim=0)
             # Penalize extreme gates (0 or 1)
             balance_loss = ((gates - 0.5) ** 2).mean()
         else:
             balance_loss = torch.tensor(0.0, device=recon.device)
 
-        total_loss = recon_loss + self.discrepancy_weight * disc_loss + self.balance_weight * balance_loss
+        total_loss = (
+            recon_loss + self.discrepancy_weight * disc_loss + self.balance_weight * balance_loss
+        )
 
         return {
-            'total': total_loss,
-            'reconstruction': recon_loss,
-            'discrepancy': disc_loss,
-            'balance': balance_loss,
+            "total": total_loss,
+            "reconstruction": recon_loss,
+            "discrepancy": disc_loss,
+            "balance": balance_loss,
         }

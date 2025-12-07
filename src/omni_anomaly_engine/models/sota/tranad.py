@@ -28,7 +28,7 @@ from __future__ import annotations
 import copy
 import math
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 import torch
 import torch.nn.functional as F
@@ -36,13 +36,13 @@ from torch import nn
 from torch.optim import Adam
 
 __all__ = [
-    "TranADModel",
-    "TranADConfig",
-    "FocusScoreConditioning",
     "AdversarialTrainer",
+    "FocusScoreConditioning",
     "MAMLOptimizer",
-    "TransformerEncoder",
+    "TranADConfig",
+    "TranADModel",
     "TransformerDecoder",
+    "TransformerEncoder",
 ]
 
 
@@ -65,6 +65,7 @@ class TranADConfig:
         adversarial_weight: Weight for adversarial loss
         focus_temperature: Temperature for focus score softmax
     """
+
     input_dim: int = 25
     d_model: int = 256
     n_heads: int = 8
@@ -79,11 +80,13 @@ class TranADConfig:
     adversarial_weight: float = 1.0
     focus_temperature: float = 1.0
     learning_rate: float = 1e-4
-    ethical_scalars: dict[str, float] = field(default_factory=lambda: {
-        "harm_prevention": 1.50,
-        "non_discriminatory": 1.40,
-        "survivor_first": 1.45,
-    })
+    ethical_scalars: dict[str, float] = field(
+        default_factory=lambda: {
+            "harm_prevention": 1.50,
+            "non_discriminatory": 1.40,
+            "survivor_first": 1.45,
+        }
+    )
 
 
 class FocusScoreConditioning(nn.Module):
@@ -104,12 +107,7 @@ class FocusScoreConditioning(nn.Module):
         temperature: Softmax temperature (lower = sharper focus)
     """
 
-    def __init__(
-        self,
-        input_dim: int,
-        d_model: int = 256,
-        temperature: float = 1.0
-    ):
+    def __init__(self, input_dim: int, d_model: int = 256, temperature: float = 1.0):
         super().__init__()
         self.input_dim = input_dim
         self.d_model = d_model
@@ -126,17 +124,22 @@ class FocusScoreConditioning(nn.Module):
         self.tau = nn.Parameter(torch.tensor(temperature))
 
         # Feature attention
+        # Ensure num_heads divides embed_dim (input_dim)
+        # Find the largest divisor of input_dim that is <= 4
+        num_heads = 1
+        for h in [4, 3, 2, 1]:
+            if input_dim % h == 0:
+                num_heads = h
+                break
         self.feature_attention = nn.MultiheadAttention(
             embed_dim=input_dim,
-            num_heads=min(4, input_dim),
+            num_heads=num_heads,
             dropout=0.1,
             batch_first=True,
         )
 
     def forward(
-        self,
-        x: torch.Tensor,
-        return_scores: bool = False
+        self, x: torch.Tensor, return_scores: bool = False
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """
         Compute focus-conditioned features.
@@ -207,7 +210,7 @@ class TransformerEncoder(nn.Module):
             nhead=n_heads,
             dim_feedforward=d_ff,
             dropout=dropout,
-            activation='gelu',
+            activation="gelu",
             batch_first=True,
         )
         self.transformer_encoder = nn.TransformerEncoder(
@@ -217,11 +220,7 @@ class TransformerEncoder(nn.Module):
 
         self.norm = nn.LayerNorm(d_model)
 
-    def forward(
-        self,
-        src: torch.Tensor,
-        src_mask: torch.Tensor | None = None
-    ) -> torch.Tensor:
+    def forward(self, src: torch.Tensor, src_mask: torch.Tensor | None = None) -> torch.Tensor:
         """
         Encode input sequence.
 
@@ -263,7 +262,7 @@ class TransformerDecoder(nn.Module):
             nhead=n_heads,
             dim_feedforward=d_ff,
             dropout=dropout,
-            activation='gelu',
+            activation="gelu",
             batch_first=True,
         )
         self.transformer_decoder = nn.TransformerDecoder(
@@ -293,11 +292,7 @@ class TransformerDecoder(nn.Module):
             Decoded output [batch, seq_len, d_model]
         """
         tgt = self.pos_decoder(tgt)
-        output = self.transformer_decoder(
-            tgt, memory,
-            tgt_mask=tgt_mask,
-            memory_mask=memory_mask
-        )
+        output = self.transformer_decoder(tgt, memory, tgt_mask=tgt_mask, memory_mask=memory_mask)
         return self.norm(output)
 
 
@@ -323,17 +318,18 @@ class TranADModel(nn.Module):
         self.config = config or TranADConfig()
 
         # Input projection
-        self.input_projection = nn.Linear(
-            self.config.input_dim,
-            self.config.d_model
-        )
+        self.input_projection = nn.Linear(self.config.input_dim, self.config.d_model)
 
         # Focus score conditioning (optional)
-        self.focus_conditioning = FocusScoreConditioning(
-            input_dim=self.config.input_dim,
-            d_model=self.config.d_model,
-            temperature=self.config.focus_temperature,
-        ) if self.config.use_focus_score else None
+        self.focus_conditioning = (
+            FocusScoreConditioning(
+                input_dim=self.config.input_dim,
+                d_model=self.config.d_model,
+                temperature=self.config.focus_temperature,
+            )
+            if self.config.use_focus_score
+            else None
+        )
 
         # Transformer encoder
         self.encoder = TransformerEncoder(
@@ -354,35 +350,34 @@ class TranADModel(nn.Module):
         )
 
         # Secondary decoder (adversarial refinement)
-        self.decoder2 = TransformerDecoder(
-            d_model=self.config.d_model,
-            n_heads=self.config.n_heads,
-            n_layers=self.config.n_decoder_layers,
-            d_ff=self.config.d_ff,
-            dropout=self.config.dropout,
-        ) if self.config.use_adversarial else None
+        self.decoder2 = (
+            TransformerDecoder(
+                d_model=self.config.d_model,
+                n_heads=self.config.n_heads,
+                n_layers=self.config.n_decoder_layers,
+                d_ff=self.config.d_ff,
+                dropout=self.config.dropout,
+            )
+            if self.config.use_adversarial
+            else None
+        )
 
         # Output projections
-        self.output_projection1 = nn.Linear(
-            self.config.d_model,
-            self.config.input_dim
+        self.output_projection1 = nn.Linear(self.config.d_model, self.config.input_dim)
+        self.output_projection2 = (
+            nn.Linear(self.config.d_model, self.config.input_dim)
+            if self.config.use_adversarial
+            else None
         )
-        self.output_projection2 = nn.Linear(
-            self.config.d_model,
-            self.config.input_dim
-        ) if self.config.use_adversarial else None
 
         # Discriminator for adversarial training
-        self.discriminator = Discriminator(
-            self.config.input_dim,
-            self.config.d_model
-        ) if self.config.use_adversarial else None
+        self.discriminator = (
+            Discriminator(self.config.input_dim, self.config.d_model)
+            if self.config.use_adversarial
+            else None
+        )
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        return_all: bool = False
-    ) -> dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, return_all: bool = False) -> dict[str, torch.Tensor]:
         """
         Forward pass through TranAD.
 
@@ -430,24 +425,20 @@ class TranADModel(nn.Module):
         anomaly_score = (error1.mean(dim=-1) + error2.mean(dim=-1)) / 2
 
         result = {
-            'reconstruction': recon1,
-            'reconstruction_refined': recon2,
-            'anomaly_score': anomaly_score,
-            'error1': error1,
-            'error2': error2,
+            "reconstruction": recon1,
+            "reconstruction_refined": recon2,
+            "anomaly_score": anomaly_score,
+            "error1": error1,
+            "error2": error2,
         }
 
         if return_all:
-            result['memory'] = memory
-            result['focus_scores'] = focus_scores
+            result["memory"] = memory
+            result["focus_scores"] = focus_scores
 
         return result
 
-    def detect(
-        self,
-        x: torch.Tensor,
-        threshold: float | None = None
-    ) -> dict[str, Any]:
+    def detect(self, x: torch.Tensor, threshold: float | None = None) -> dict[str, Any]:
         """
         Perform anomaly detection.
 
@@ -461,7 +452,7 @@ class TranADModel(nn.Module):
         with torch.no_grad():
             result = self.forward(x)
 
-        anomaly_score = result['anomaly_score']
+        anomaly_score = result["anomaly_score"]
 
         # Auto-threshold using percentile
         if threshold is None:
@@ -470,10 +461,10 @@ class TranADModel(nn.Module):
         predictions = (anomaly_score > threshold).float()
 
         return {
-            'anomaly_score': anomaly_score,
-            'predictions': predictions,
-            'threshold': threshold,
-            'reconstruction': result['reconstruction'],
+            "anomaly_score": anomaly_score,
+            "predictions": predictions,
+            "threshold": threshold,
+            "reconstruction": result["reconstruction"],
         }
 
     def get_feature_importance(self, x: torch.Tensor) -> torch.Tensor:
@@ -543,9 +534,11 @@ class AdversarialTrainer:
         self.adversarial_weight = adversarial_weight
 
         # Separate optimizers for generator and discriminator
-        gen_params = list(model.encoder.parameters()) + \
-                     list(model.decoder1.parameters()) + \
-                     list(model.output_projection1.parameters())
+        gen_params = (
+            list(model.encoder.parameters())
+            + list(model.decoder1.parameters())
+            + list(model.output_projection1.parameters())
+        )
         if model.decoder2 is not None:
             gen_params += list(model.decoder2.parameters())
             gen_params += list(model.output_projection2.parameters())
@@ -559,11 +552,7 @@ class AdversarialTrainer:
         else:
             self.optimizer_d = None
 
-    def train_step(
-        self,
-        x: torch.Tensor,
-        train_discriminator: bool = True
-    ) -> dict[str, float]:
+    def train_step(self, x: torch.Tensor, train_discriminator: bool = True) -> dict[str, float]:
         """
         Single training step with adversarial learning.
 
@@ -578,11 +567,11 @@ class AdversarialTrainer:
 
         # Forward pass
         result = self.model(x)
-        recon = result['reconstruction']
+        recon = result["reconstruction"]
 
         # Reconstruction loss
         recon_loss = F.mse_loss(recon, x)
-        losses['reconstruction'] = recon_loss.item()
+        losses["reconstruction"] = recon_loss.item()
 
         # Adversarial training
         if self.model.discriminator is not None and self.optimizer_d is not None:
@@ -593,30 +582,27 @@ class AdversarialTrainer:
                 # Real samples
                 real_scores = self.model.discriminator(x)
                 d_real_loss = F.binary_cross_entropy_with_logits(
-                    real_scores,
-                    torch.ones_like(real_scores)
+                    real_scores, torch.ones_like(real_scores)
                 )
 
                 # Fake samples (reconstructed)
                 fake_scores = self.model.discriminator(recon.detach())
                 d_fake_loss = F.binary_cross_entropy_with_logits(
-                    fake_scores,
-                    torch.zeros_like(fake_scores)
+                    fake_scores, torch.zeros_like(fake_scores)
                 )
 
                 d_loss = (d_real_loss + d_fake_loss) / 2
                 d_loss.backward()
                 self.optimizer_d.step()
 
-                losses['discriminator'] = d_loss.item()
+                losses["discriminator"] = d_loss.item()
 
             # Generator adversarial loss (fool discriminator)
             fake_scores = self.model.discriminator(recon)
             g_adv_loss = F.binary_cross_entropy_with_logits(
-                fake_scores,
-                torch.ones_like(fake_scores)  # Want discriminator to think it's real
+                fake_scores, torch.ones_like(fake_scores)  # Want discriminator to think it's real
             )
-            losses['generator_adversarial'] = g_adv_loss.item()
+            losses["generator_adversarial"] = g_adv_loss.item()
 
             # Total generator loss
             g_loss = recon_loss + self.adversarial_weight * g_adv_loss
@@ -628,7 +614,7 @@ class AdversarialTrainer:
         g_loss.backward()
         self.optimizer_g.step()
 
-        losses['total'] = g_loss.item()
+        losses["total"] = g_loss.item()
 
         return losses
 
@@ -673,6 +659,7 @@ class MAMLOptimizer:
         model: TranADModel,
         support_x: torch.Tensor,
         support_y: torch.Tensor | None = None,
+        create_graph: bool = False,
     ) -> TranADModel:
         """
         Inner loop adaptation on support set.
@@ -681,29 +668,39 @@ class MAMLOptimizer:
             model: Model to adapt
             support_x: Support set inputs
             support_y: Support set labels (optional, for supervised)
+            create_graph: Whether to create graph for higher-order gradients
 
         Returns:
             Adapted model
         """
+        # Get list of parameters for gradient computation
+        params = list(model.parameters())
+
         for _ in range(self.n_inner_steps):
             result = model(support_x)
-            recon = result['reconstruction']
+            recon = result["reconstruction"]
 
             # Unsupervised: reconstruction loss
             loss = F.mse_loss(recon, support_x)
 
             # Supervised: add classification loss if labels provided
             if support_y is not None:
-                anomaly_score = result['anomaly_score'].mean(dim=-1)
-                loss += F.binary_cross_entropy_with_logits(
-                    anomaly_score,
-                    support_y.float()
-                )
+                anomaly_score = result["anomaly_score"].mean(dim=-1)
+                loss += F.binary_cross_entropy_with_logits(anomaly_score, support_y.float())
 
             # Manual gradient update (MAML inner loop)
-            grads = torch.autograd.grad(loss, model.parameters())
-            for param, grad in zip(model.parameters(), grads):
-                param.data -= self.inner_lr * grad
+            # create_graph=True enables second-order gradient computation for meta-learning
+            grads = torch.autograd.grad(
+                loss,
+                params,
+                create_graph=create_graph,
+                allow_unused=True,
+            )
+
+            # Update parameters with gradients
+            for param, grad in zip(params, grads, strict=False):
+                if grad is not None:
+                    param.data = param.data - self.inner_lr * grad
 
         return model
 
@@ -721,28 +718,28 @@ class MAMLOptimizer:
         Returns:
             Dictionary with meta-loss
         """
-        meta_loss = 0.0
+        meta_loss = torch.tensor(0.0, requires_grad=True)
 
         for support_x, support_y, query_x, query_y in tasks:
             # Clone model for this task
             adapted_model = self.clone_model()
 
-            # Inner loop adaptation on support set
-            adapted_model = self.inner_loop(adapted_model, support_x, support_y)
+            # Inner loop adaptation on support set with create_graph=True
+            # This enables second-order gradient computation for meta-learning
+            adapted_model = self.inner_loop(
+                adapted_model, support_x, support_y, create_graph=True
+            )
 
             # Evaluate on query set
             result = adapted_model(query_x)
-            recon = result['reconstruction']
+            recon = result["reconstruction"]
             task_loss = F.mse_loss(recon, query_x)
 
             if query_y is not None:
-                anomaly_score = result['anomaly_score'].mean(dim=-1)
-                task_loss += F.binary_cross_entropy_with_logits(
-                    anomaly_score,
-                    query_y.float()
-                )
+                anomaly_score = result["anomaly_score"].mean(dim=-1)
+                task_loss += F.binary_cross_entropy_with_logits(anomaly_score, query_y.float())
 
-            meta_loss += task_loss
+            meta_loss = meta_loss + task_loss
 
         # Meta-update
         meta_loss = meta_loss / len(tasks)
@@ -751,7 +748,7 @@ class MAMLOptimizer:
         meta_loss.backward()
         self.meta_optimizer.step()
 
-        return {'meta_loss': meta_loss.item()}
+        return {"meta_loss": meta_loss.item()}
 
     def adapt(
         self,
@@ -781,18 +778,16 @@ class PositionalEncoding(nn.Module):
 
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
-        )
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
 
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0)
 
-        self.register_buffer('pe', pe)
+        self.register_buffer("pe", pe)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.pe[:, :x.size(1), :]
+        x = x + self.pe[:, : x.size(1), :]
         return self.dropout(x)
 
 
@@ -834,8 +829,8 @@ class TranADLoss(nn.Module):
         Returns:
             Dictionary with loss components
         """
-        recon1 = result['reconstruction']
-        recon2 = result['reconstruction_refined']
+        recon1 = result["reconstruction"]
+        recon2 = result["reconstruction_refined"]
 
         # Reconstruction losses
         l1 = F.mse_loss(recon1, x)
@@ -844,28 +839,25 @@ class TranADLoss(nn.Module):
         total_loss = l1 + l2
 
         losses = {
-            'l1': l1,
-            'l2': l2,
+            "l1": l1,
+            "l2": l2,
         }
 
         # Adversarial loss
         if discriminator is not None:
             fake_scores = discriminator(recon1)
-            l_adv = F.binary_cross_entropy_with_logits(
-                fake_scores,
-                torch.ones_like(fake_scores)
-            )
+            l_adv = F.binary_cross_entropy_with_logits(fake_scores, torch.ones_like(fake_scores))
             total_loss += self.adversarial_weight * l_adv
-            losses['adversarial'] = l_adv
+            losses["adversarial"] = l_adv
 
         # Focus score regularization
-        if 'focus_scores' in result and result['focus_scores'] is not None:
+        if "focus_scores" in result and result["focus_scores"] is not None:
             # Encourage sparse focus (entropy minimization)
-            focus = result['focus_scores']
+            focus = result["focus_scores"]
             entropy = -(focus * torch.log(focus + 1e-8)).sum(dim=-1).mean()
             total_loss += self.focus_weight * entropy
-            losses['focus_entropy'] = entropy
+            losses["focus_entropy"] = entropy
 
-        losses['total'] = total_loss
+        losses["total"] = total_loss
 
         return losses

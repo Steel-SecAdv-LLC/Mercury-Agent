@@ -7,13 +7,12 @@ Tests for Dataset Loaders
 Comprehensive tests for industrial and UCR archive dataset loaders.
 """
 
-import numpy as np
-import pytest
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 import tempfile
 
-from omni_anomaly_engine.datasets.base import DatasetConfig, DatasetSplit, DatasetLoader
+import numpy as np
+import pytest
+
+from omni_anomaly_engine.datasets.base import DatasetConfig, DatasetSplit
 
 
 class TestDatasetImports:
@@ -22,10 +21,11 @@ class TestDatasetImports:
     def test_import_industrial_loaders(self):
         """Test importing industrial loaders."""
         from omni_anomaly_engine.datasets.industrial import (
+            BATADALLoader,
             SWaTLoader,
             WADILoader,
-            BATADALLoader,
         )
+
         assert SWaTLoader is not None
         assert WADILoader is not None
         assert BATADALLoader is not None
@@ -33,11 +33,12 @@ class TestDatasetImports:
     def test_import_ucr_loaders(self):
         """Test importing UCR archive loaders."""
         from omni_anomaly_engine.datasets.ucr_archive import (
-            UCRLoader,
-            MBALoader,
             CWRUBearingLoader,
+            MBALoader,
             MSDSLoader,
+            UCRLoader,
         )
+
         assert UCRLoader is not None
         assert MBALoader is not None
         assert CWRUBearingLoader is not None
@@ -46,6 +47,17 @@ class TestDatasetImports:
     def test_import_from_package(self):
         """Test importing from main datasets package."""
         from omni_anomaly_engine.datasets import (
+            BATADALLoader,
+            CWRUBearingLoader,
+            MBALoader,
+            MSDSLoader,
+            SWaTLoader,
+            UCRLoader,
+            WADILoader,
+        )
+
+        # Verify all are accessible
+        loaders = [
             SWaTLoader,
             WADILoader,
             BATADALLoader,
@@ -53,11 +65,6 @@ class TestDatasetImports:
             MBALoader,
             CWRUBearingLoader,
             MSDSLoader,
-        )
-        # Verify all are accessible
-        loaders = [
-            SWaTLoader, WADILoader, BATADALLoader,
-            UCRLoader, MBALoader, CWRUBearingLoader, MSDSLoader
         ]
         assert all(loader is not None for loader in loaders)
 
@@ -176,9 +183,7 @@ class TestUCRLoader:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(
-                name="ucr",
-                data_dir=str(tmpdir),
-                preprocessing={"dataset_name": "ECG5000"}
+                name="ucr", data_dir=str(tmpdir), preprocessing={"dataset_name": "ECG5000"}
             )
             loader = UCRLoader(config)
 
@@ -292,8 +297,8 @@ class TestCWRUBearingLoader:
     def test_cwru_is_mba_alias(self):
         """Test that CWRUBearingLoader is an alias for MBALoader."""
         from omni_anomaly_engine.datasets.ucr_archive import (
-            MBALoader,
             CWRUBearingLoader,
+            MBALoader,
         )
 
         assert issubclass(CWRUBearingLoader, MBALoader)
@@ -311,11 +316,7 @@ class TestMSDSLoader:
             config = DatasetConfig(
                 name="msds",
                 data_dir=str(tmpdir),
-                preprocessing={
-                    "n_sources": 4,
-                    "n_samples": 5000,
-                    "anomaly_ratio": 0.03
-                }
+                preprocessing={"n_sources": 4, "n_samples": 5000, "anomaly_ratio": 0.03},
             )
             loader = MSDSLoader(config)
 
@@ -344,11 +345,7 @@ class TestMSDSLoader:
             config = DatasetConfig(
                 name="msds",
                 data_dir=str(tmpdir),
-                preprocessing={
-                    "n_sources": 2,
-                    "n_samples": 1000,
-                    "anomaly_ratio": 0.1
-                }
+                preprocessing={"n_sources": 2, "n_samples": 1000, "anomaly_ratio": 0.1},
             )
             loader = MSDSLoader(config)
 
@@ -357,7 +354,7 @@ class TestMSDSLoader:
 
             # Check shapes
             assert features.shape[0] == 1000  # n_samples
-            assert features.shape[1] == 20   # n_sources * 10 features
+            assert features.shape[1] == 20  # n_sources * 10 features
             assert labels.shape[0] == 1000
 
             # Check anomaly ratio (should be close to 10%)
@@ -370,9 +367,7 @@ class TestMSDSLoader:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(
-                name="msds",
-                data_dir=str(tmpdir),
-                preprocessing={"n_sources": 3}
+                name="msds", data_dir=str(tmpdir), preprocessing={"n_sources": 3}
             )
             loader = MSDSLoader(config)
 
@@ -435,10 +430,7 @@ class TestBaselineResults:
 
         # Test with SWaT
         result = compare_to_baselines(
-            dataset="SWaT",
-            your_precision=0.85,
-            your_recall=0.87,
-            your_f1=0.86
+            dataset="SWaT", your_precision=0.85, your_recall=0.87, your_f1=0.86
         )
         assert result.dataset == "SWaT"
         assert result.your_f1 == 0.86
@@ -446,10 +438,7 @@ class TestBaselineResults:
 
         # Test with MSDS
         result = compare_to_baselines(
-            dataset="MSDS",
-            your_precision=0.95,
-            your_recall=0.96,
-            your_f1=0.955
+            dataset="MSDS", your_precision=0.95, your_recall=0.96, your_f1=0.955
         )
         assert result.rank == 1  # Should beat TranAD (0.9262)
 
@@ -473,9 +462,7 @@ class TestDatasetSplits:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(
-                name="msds",
-                data_dir=str(tmpdir),
-                preprocessing={"n_samples": 500}
+                name="msds", data_dir=str(tmpdir), preprocessing={"n_samples": 500}
             )
             loader = MSDSLoader(config)
 
@@ -525,7 +512,7 @@ class TestIndustrialDatasetDomains:
             loader = WADILoader(config)
 
             # WADI has multiple stages
-            assert hasattr(loader, 'STAGES') or loader.NUM_FEATURES == 123
+            assert hasattr(loader, "STAGES") or loader.NUM_FEATURES == 123
 
 
 class TestUCRDatasetVariants:
@@ -540,9 +527,7 @@ class TestUCRDatasetVariants:
         for ds_name in datasets_to_test:
             with tempfile.TemporaryDirectory() as tmpdir:
                 config = DatasetConfig(
-                    name="ucr",
-                    data_dir=str(tmpdir),
-                    preprocessing={"dataset_name": ds_name}
+                    name="ucr", data_dir=str(tmpdir), preprocessing={"dataset_name": ds_name}
                 )
                 loader = UCRLoader(config)
 

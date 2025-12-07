@@ -7,12 +7,12 @@ Tests for time-series dataset loaders.
 
 import pytest
 
+from omni_anomaly_engine.datasets.base import DatasetConfig
 from omni_anomaly_engine.datasets.timeseries import (
     NABLoader,
-    SMDLoader,
     SMAPMSLLoader,
+    SMDLoader,
 )
-from omni_anomaly_engine.datasets.base import DatasetConfig
 
 
 class TestNABLoader:
@@ -50,7 +50,9 @@ class TestNABLoader:
 
     def test_no_synthetic_fallback(self, nab_loader):
         """NAB loader should NOT have synthetic fallback."""
-        synthetic_methods = [m for m in dir(nab_loader) if "synthetic" in m.lower() or "fake" in m.lower()]
+        synthetic_methods = [
+            m for m in dir(nab_loader) if "synthetic" in m.lower() or "fake" in m.lower()
+        ]
         assert len(synthetic_methods) == 0
 
     def test_real_url_references(self, nab_loader):
@@ -92,7 +94,9 @@ class TestSMDLoader:
 
     def test_no_synthetic_fallback(self, smd_loader):
         """SMD loader should NOT have synthetic fallback."""
-        synthetic_methods = [m for m in dir(smd_loader) if "synthetic" in m.lower() or "fake" in m.lower()]
+        synthetic_methods = [
+            m for m in dir(smd_loader) if "synthetic" in m.lower() or "fake" in m.lower()
+        ]
         assert len(synthetic_methods) == 0
 
     def test_real_url_references(self, smd_loader):
@@ -144,7 +148,9 @@ class TestSMAPMSLLoader:
 
     def test_no_synthetic_fallback(self, smap_loader):
         """SMAP/MSL loader should NOT have synthetic fallback."""
-        synthetic_methods = [m for m in dir(smap_loader) if "synthetic" in m.lower() or "fake" in m.lower()]
+        synthetic_methods = [
+            m for m in dir(smap_loader) if "synthetic" in m.lower() or "fake" in m.lower()
+        ]
         assert len(synthetic_methods) == 0
 
     def test_real_url_references(self, smap_loader):
@@ -162,7 +168,11 @@ class TestDataLoaderIntegration:
         loaders = [
             NABLoader(config),
             SMDLoader(config),
-            SMAPMSLLoader(DatasetConfig(name="SMAP", data_dir=str(tmp_path), preprocessing={"dataset": "SMAP"})),
+            SMAPMSLLoader(
+                DatasetConfig(
+                    name="SMAP", data_dir=str(tmp_path), preprocessing={"dataset": "SMAP"}
+                )
+            ),
         ]
 
         for loader in loaders:
@@ -176,7 +186,11 @@ class TestDataLoaderIntegration:
         loaders = [
             NABLoader(config),
             SMDLoader(config),
-            SMAPMSLLoader(DatasetConfig(name="SMAP", data_dir=str(tmp_path), preprocessing={"dataset": "SMAP"})),
+            SMAPMSLLoader(
+                DatasetConfig(
+                    name="SMAP", data_dir=str(tmp_path), preprocessing={"dataset": "SMAP"}
+                )
+            ),
         ]
 
         for loader in loaders:
@@ -221,10 +235,7 @@ class TestDatasetConfig:
 
     def test_preprocessing_dict(self):
         """Should accept preprocessing config."""
-        config = DatasetConfig(
-            name="test",
-            preprocessing={"normalize": True, "window_size": 100}
-        )
+        config = DatasetConfig(name="test", preprocessing={"normalize": True, "window_size": 100})
         assert config.preprocessing["normalize"] is True
         assert config.preprocessing["window_size"] == 100
 
@@ -238,7 +249,9 @@ class TestRealDataRequirement:
         loader = NABLoader(config)
 
         # Check there's no _create_synthetic or _generate_fake method
-        synthetic_methods = [m for m in dir(loader) if "synthetic" in m.lower() or "fake" in m.lower()]
+        synthetic_methods = [
+            m for m in dir(loader) if "synthetic" in m.lower() or "fake" in m.lower()
+        ]
         assert len(synthetic_methods) == 0
 
     def test_smd_no_fallback(self, tmp_path):
@@ -246,13 +259,19 @@ class TestRealDataRequirement:
         config = DatasetConfig(name="SMD", data_dir=str(tmp_path))
         loader = SMDLoader(config)
 
-        synthetic_methods = [m for m in dir(loader) if "synthetic" in m.lower() or "fake" in m.lower()]
+        synthetic_methods = [
+            m for m in dir(loader) if "synthetic" in m.lower() or "fake" in m.lower()
+        ]
         assert len(synthetic_methods) == 0
 
     def test_smap_no_fallback(self, tmp_path):
         """SMAP should not silently fall back to synthetic data."""
-        config = DatasetConfig(name="SMAP", data_dir=str(tmp_path), preprocessing={"dataset": "SMAP"})
+        config = DatasetConfig(
+            name="SMAP", data_dir=str(tmp_path), preprocessing={"dataset": "SMAP"}
+        )
         loader = SMAPMSLLoader(config)
 
-        synthetic_methods = [m for m in dir(loader) if "synthetic" in m.lower() or "fake" in m.lower()]
+        synthetic_methods = [
+            m for m in dir(loader) if "synthetic" in m.lower() or "fake" in m.lower()
+        ]
         assert len(synthetic_methods) == 0

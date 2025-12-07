@@ -1242,8 +1242,9 @@ class OmniAvaEngine:
 
         # Load best model
         if os.path.exists(best_checkpoint_path):
+            # weights_only=False is safe here since we created this checkpoint ourselves
             checkpoint = torch.load(
-                best_checkpoint_path, map_location=self.device, weights_only=True
+                best_checkpoint_path, map_location=self.device, weights_only=False
             )
             self.fusion_model.load_state_dict(checkpoint["model_state_dict"])
 

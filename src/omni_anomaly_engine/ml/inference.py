@@ -63,9 +63,21 @@ class InferenceEngine:
 
         Returns:
             Model output tensor
+
+        Raises:
+            ValueError: If input is empty or has invalid shape
         """
         if isinstance(x, np.ndarray):
+            if x.size == 0:
+                raise ValueError("Input array is empty")
             x = torch.tensor(x, dtype=torch.float32)
+
+        if x.numel() == 0:
+            raise ValueError("Input tensor is empty")
+
+        # Handle NaN/Inf values in input
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            x = torch.nan_to_num(x, nan=0.0, posinf=1e6, neginf=-1e6)
 
         x = x.to(self.device)
 

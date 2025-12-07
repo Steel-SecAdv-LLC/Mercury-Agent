@@ -34,10 +34,12 @@ All loaders follow official source licensing requirements.
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, DatasetSplit
 from .benchmarks import BenchmarkResult, RealWorldBenchmarkSuite
 from .environmental import NOAAWeatherLoader, USGSEarthquakeLoader, WildfireDataLoader
+from .industrial import BATADALLoader, SWaTLoader, WADILoader
 from .medical import CardiologyDataset, MIMICLoader, PhysioNetLoader, SepsisDataset
 from .security import CICIDSLoader, NSLKDDLoader, ThreatIntelLoader
 from .space import NASAExoplanetLoader, SETILoader, SolarDynamicsLoader
 from .timeseries import NABLoader, SMAPMSLLoader, SMDLoader
+from .ucr_archive import CWRUBearingLoader, MBALoader, MSDSLoader, UCRLoader
 
 __all__ = [
     # Base
@@ -49,6 +51,15 @@ __all__ = [
     "NABLoader",
     "SMDLoader",
     "SMAPMSLLoader",
+    # Industrial Control Systems (ICS/SCADA)
+    "SWaTLoader",
+    "WADILoader",
+    "BATADALLoader",
+    # UCR Time Series Archive & Bearing Datasets
+    "UCRLoader",
+    "MBALoader",
+    "CWRUBearingLoader",
+    "MSDSLoader",
     # Security (REAL DATA)
     "NSLKDDLoader",
     "CICIDSLoader",

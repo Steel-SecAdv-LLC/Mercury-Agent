@@ -82,7 +82,9 @@ class VAE(nn.Module):
         return mu, logvar
 
     def reparameterize(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
-        """Reparameterization trick for sampling."""
+        """Reparameterization trick for sampling with numerical stability."""
+        # Clamp logvar to prevent exp overflow/underflow
+        logvar = torch.clamp(logvar, min=-20.0, max=20.0)
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
         return mu + eps * std
@@ -120,7 +122,12 @@ class VAE(nn.Module):
             Dict with total loss and components
         """
         recon_loss = F.mse_loss(recon, x, reduction="mean")
-        kl_loss = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
+
+        # KL divergence with numerical stability
+        # Clamp logvar to prevent exp overflow and mu to prevent large squared values
+        logvar_clamped = torch.clamp(logvar, min=-20.0, max=20.0)
+        mu_clamped = torch.clamp(mu, min=-100.0, max=100.0)
+        kl_loss = -0.5 * torch.mean(1 + logvar_clamped - mu_clamped.pow(2) - logvar_clamped.exp())
 
         total_loss = recon_loss + beta * kl_loss
 

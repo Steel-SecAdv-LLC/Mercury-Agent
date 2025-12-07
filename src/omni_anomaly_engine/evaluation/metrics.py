@@ -21,7 +21,6 @@ These metrics are used in papers like:
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 
@@ -51,8 +50,8 @@ class AnomalyMetrics:
     false_negatives: int
 
     # Optional time-series adjusted metrics
-    point_adjusted_f1: Optional[float] = None
-    range_based_f1: Optional[float] = None
+    point_adjusted_f1: float | None = None
+    range_based_f1: float | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -95,10 +94,19 @@ def compute_auc_roc(y_true: np.ndarray, y_score: np.ndarray) -> float:
         y_score: Anomaly scores (higher = more anomalous)
 
     Returns:
-        AUC-ROC score in [0, 1]
+        AUC-ROC score in [0, 1]. Returns 0.5 if all labels are the same class
+        (undefined case where ROC curve cannot be computed).
     """
+    # Handle edge case: all labels are the same class
+    # In this case, AUC-ROC is undefined; we return 0.5 (random classifier baseline)
+    n_pos = np.sum(y_true)
+    n_neg = len(y_true) - n_pos
+    if n_pos == 0 or n_neg == 0:
+        return 0.5
+
     try:
         from sklearn.metrics import roc_auc_score
+
         return float(roc_auc_score(y_true, y_score))
     except ImportError:
         # Fallback implementation without sklearn
@@ -144,6 +152,7 @@ def compute_auc_pr(y_true: np.ndarray, y_score: np.ndarray) -> float:
     """
     try:
         from sklearn.metrics import average_precision_score
+
         return float(average_precision_score(y_true, y_score))
     except ImportError:
         return _auc_pr_numpy(y_true, y_score)
@@ -168,7 +177,9 @@ def _auc_pr_numpy(y_true: np.ndarray, y_score: np.ndarray) -> float:
     return float(auc)
 
 
-def compute_best_f1(y_true: np.ndarray, y_score: np.ndarray, n_thresholds: int = 100) -> tuple[float, float]:
+def compute_best_f1(
+    y_true: np.ndarray, y_score: np.ndarray, n_thresholds: int = 100
+) -> tuple[float, float]:
     """
     Find the threshold that maximizes F1-score.
 
@@ -237,9 +248,7 @@ def compute_precision_at_k(y_true: np.ndarray, y_score: np.ndarray, k: int) -> f
 
 
 def compute_point_adjusted_f1(
-    y_true: np.ndarray,
-    y_pred: np.ndarray,
-    adjust_predicts: bool = True
+    y_true: np.ndarray, y_pred: np.ndarray, adjust_predicts: bool = True
 ) -> float:
     """
     Compute Point-Adjusted F1 for time-series anomaly detection.
@@ -352,9 +361,9 @@ def _range_precision(gt_segs, pred_segs, alpha, cardinality, bias) -> float:
         if not overlapping:
             scores.append(0.0)
         else:
-            overlap_score = sum(
-                min(e, pred_end) - max(s, pred_start) for s, e in overlapping
-            ) / (pred_end - pred_start)
+            overlap_score = sum(min(e, pred_end) - max(s, pred_start) for s, e in overlapping) / (
+                pred_end - pred_start
+            )
             scores.append(min(1.0, overlap_score))
 
     return sum(scores) / len(scores) if scores else 0.0
@@ -368,9 +377,9 @@ def _range_recall(gt_segs, pred_segs, alpha, cardinality, bias) -> float:
         if not overlapping:
             scores.append(alpha)  # Existence reward only
         else:
-            overlap_score = sum(
-                min(e, gt_end) - max(s, gt_start) for s, e in overlapping
-            ) / (gt_end - gt_start)
+            overlap_score = sum(min(e, gt_end) - max(s, gt_start) for s, e in overlapping) / (
+                gt_end - gt_start
+            )
             scores.append(alpha + (1 - alpha) * min(1.0, overlap_score))
 
     return sum(scores) / len(scores) if scores else 0.0
@@ -379,7 +388,7 @@ def _range_recall(gt_segs, pred_segs, alpha, cardinality, bias) -> float:
 def evaluate_anomaly_detection(
     y_true: np.ndarray,
     y_score: np.ndarray,
-    threshold: Optional[float] = None,
+    threshold: float | None = None,
     is_timeseries: bool = False,
 ) -> AnomalyMetrics:
     """
@@ -459,7 +468,7 @@ def print_metrics_report(metrics: AnomalyMetrics, dataset_name: str = "Unknown")
     """
     lines = [
         f"\n{'='*60}",
-        f"ANOMALY DETECTION EVALUATION REPORT",
+        "ANOMALY DETECTION EVALUATION REPORT",
         f"Dataset: {dataset_name}",
         f"{'='*60}",
         "",
@@ -485,11 +494,13 @@ def print_metrics_report(metrics: AnomalyMetrics, dataset_name: str = "Unknown")
     ]
 
     if metrics.point_adjusted_f1 is not None:
-        lines.extend([
-            "",
-            "Time-Series Adjusted Metrics:",
-            f"  Point-Adjusted F1: {metrics.point_adjusted_f1:.4f}",
-        ])
+        lines.extend(
+            [
+                "",
+                "Time-Series Adjusted Metrics:",
+                f"  Point-Adjusted F1: {metrics.point_adjusted_f1:.4f}",
+            ]
+        )
         if metrics.range_based_f1 is not None:
             lines.append(f"  Range-Based F1:    {metrics.range_based_f1:.4f}")
 
