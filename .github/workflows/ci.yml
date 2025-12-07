@@ -419,6 +419,13 @@ jobs:
             VERSION=1.0.0
             CACHEBUST=${{ github.run_id }}
 
+      - name: Diagnostic Trivy scan (table format for debugging)
+        if: always()
+        run: |
+          echo "=== DIAGNOSTIC: Trivy scan with table output to identify specific CVEs ==="
+          trivy image omni-ava:${{ github.sha }} --scanners vuln --severity CRITICAL,HIGH --format table --pkg-types os,library || true
+          echo "=== END DIAGNOSTIC ==="
+
       - name: Scan Docker image with Trivy
         id: trivy-scan
         uses: aquasecurity/trivy-action@master
