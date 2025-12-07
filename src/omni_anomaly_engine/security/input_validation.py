@@ -552,8 +552,8 @@ def sanitize_input(
 
 __all__ = [
     "InputValidator",
-    "ValidationResult",
-    "ValidationError",
     "SanitizationLevel",
+    "ValidationError",
+    "ValidationResult",
     "sanitize_input",
 ]
