@@ -60,7 +60,7 @@ class TestPriorAssociation:
 
     def test_symmetry(self):
         """Prior kernel is symmetric before row normalization.
-        
+
         Note: After row normalization (to make valid probability distribution),
         the output is NOT symmetric. This is correct behavior per the Anomaly
         Transformer paper - each row should sum to 1 for KL divergence computation.
