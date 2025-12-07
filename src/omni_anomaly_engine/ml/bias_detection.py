@@ -548,6 +548,6 @@ class BiasDetector:
 __all__ = [
     "BiasDetector",
     "BiasReport",
-    "FairnessResult",
     "FairnessMetric",
+    "FairnessResult",
 ]

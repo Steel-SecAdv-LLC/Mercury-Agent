@@ -1,0 +1,365 @@
+{
+  "timestamp": "2025-12-07T22:23:16.769112+00:00",
+  "epochs_completed": 30,
+  "scenarios_per_epoch": 8,
+  "total_executions": 240,
+  "final_metrics": {
+    "avg_success_rate": 1.0,
+    "avg_plan_confidence": 0.755,
+    "improvement_from_start": 0.0
+  },
+  "memory_accumulated": {
+    "short_term": 100,
+    "long_term": 0,
+    "episodic": 240,
+    "semantic": 240
+  },
+  "epoch_summaries": [
+    {
+      "epoch": 1,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 2.387989999988349
+    },
+    {
+      "epoch": 2,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4409660000183067
+    },
+    {
+      "epoch": 3,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4758400000118854
+    },
+    {
+      "epoch": 4,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.42255099990507
+    },
+    {
+      "epoch": 5,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4162889999624895
+    },
+    {
+      "epoch": 6,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4956070001517219
+    },
+    {
+      "epoch": 7,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4513349999560887
+    },
+    {
+      "epoch": 8,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4852279998649465
+    },
+    {
+      "epoch": 9,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4106799999353825
+    },
+    {
+      "epoch": 10,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.3678889999937383
+    },
+    {
+      "epoch": 11,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.5166470000167465
+    },
+    {
+      "epoch": 12,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.3736399998833804
+    },
+    {
+      "epoch": 13,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.437549999991461
+    },
+    {
+      "epoch": 14,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4213389999895298
+    },
+    {
+      "epoch": 15,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.3731490000736812
+    },
+    {
+      "epoch": 16,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4273609999690962
+    },
+    {
+      "epoch": 17,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4219800000319083
+    },
+    {
+      "epoch": 18,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4238139999633859
+    },
+    {
+      "epoch": 19,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4032349999979488
+    },
+    {
+      "epoch": 20,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4077730002099997
+    },
+    {
+      "epoch": 21,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.422892000164211
+    },
+    {
+      "epoch": 22,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.46009100012634
+    },
+    {
+      "epoch": 23,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.3968429998385545
+    },
+    {
+      "epoch": 24,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.405088999945292
+    },
+    {
+      "epoch": 25,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.407953000125417
+    },
+    {
+      "epoch": 26,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4497619999929157
+    },
+    {
+      "epoch": 27,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.3729489999150246
+    },
+    {
+      "epoch": 28,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4475979999133415
+    },
+    {
+      "epoch": 29,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4093360000515531
+    },
+    {
+      "epoch": 30,
+      "avg_success_rate": 1.0,
+      "avg_plan_confidence": 0.755,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.4427290000185167
+    }
+  ],
+  "final_epoch_details": [
+    {
+      "scenario_name": "medical_vital_signs",
+      "domain": "medical",
+      "goal": "Analyze patient vital signs for anomalies",
+      "plan_confidence": 0.7,
+      "tasks_completed": 5,
+      "tasks_failed": 0,
+      "success_rate": 1.0,
+      "reasoning_steps": 0,
+      "memory_entries": 566,
+      "execution_time_ms": 0.18094799997925293,
+      "passed": true
+    },
+    {
+      "scenario_name": "security_network_traffic",
+      "domain": "security",
+      "goal": "Detect potential intrusion patterns in network traffic",
+      "plan_confidence": 0.72,
+      "tasks_completed": 5,
+      "tasks_failed": 0,
+      "success_rate": 1.0,
+      "reasoning_steps": 0,
+      "memory_entries": 568,
+      "execution_time_ms": 0.16926600005717773,
+      "passed": true
+    },
+    {
+      "scenario_name": "humanitarian_crisis_detection",
+      "domain": "humanitarian",
+      "goal": "Monitor humanitarian crisis indicators",
+      "plan_confidence": 0.81,
+      "tasks_completed": 3,
+      "tasks_failed": 0,
+      "success_rate": 1.0,
+      "reasoning_steps": 0,
+      "memory_entries": 570,
+      "execution_time_ms": 0.14823600008639914,
+      "passed": true
+    },
+    {
+      "scenario_name": "infrastructure_monitoring",
+      "domain": "infrastructure",
+      "goal": "Assess critical infrastructure health",
+      "plan_confidence": 0.79,
+      "tasks_completed": 3,
+      "tasks_failed": 0,
+      "success_rate": 1.0,
+      "reasoning_steps": 0,
+      "memory_entries": 572,
+      "execution_time_ms": 0.1943019999544049,
+      "passed": true
+    },
+    {
+      "scenario_name": "energy_grid_analysis",
+      "domain": "energy",
+      "goal": "Optimize energy distribution and detect anomalies",
+      "plan_confidence": 0.75,
+      "tasks_completed": 5,
+      "tasks_failed": 0,
+      "success_rate": 1.0,
+      "reasoning_steps": 0,
+      "memory_entries": 574,
+      "execution_time_ms": 0.16185200001928024,
+      "passed": true
+    },
+    {
+      "scenario_name": "scientific_data_analysis",
+      "domain": "scientific",
+      "goal": "Analyze experimental data for significant findings",
+      "plan_confidence": 0.75,
+      "tasks_completed": 5,
+      "tasks_failed": 0,
+      "success_rate": 1.0,
+      "reasoning_steps": 0,
+      "memory_entries": 576,
+      "execution_time_ms": 0.16389600000366045,
+      "passed": true
+    },
+    {
+      "scenario_name": "financial_fraud_detection",
+      "domain": "financial",
+      "goal": "Detect potential fraudulent transactions",
+      "plan_confidence": 0.75,
+      "tasks_completed": 5,
+      "tasks_failed": 0,
+      "success_rate": 1.0,
+      "reasoning_steps": 0,
+      "memory_entries": 578,
+      "execution_time_ms": 0.2372720000494155,
+      "passed": true
+    },
+    {
+      "scenario_name": "general_anomaly_detection",
+      "domain": "general",
+      "goal": "Perform general anomaly detection on mixed data",
+      "plan_confidence": 0.77,
+      "tasks_completed": 4,
+      "tasks_failed": 0,
+      "success_rate": 1.0,
+      "reasoning_steps": 0,
+      "memory_entries": 580,
+      "execution_time_ms": 0.15590100019835518,
+      "passed": true
+    }
+  ]
+}

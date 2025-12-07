@@ -19,46 +19,65 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 Real-World Dataset Loaders for OMNI ♱ AVA
 
-Provides unified access to real-world datasets for benchmarking:
-- Medical: MIMIC-III, MIMIC-IV, PhysioNet
-- Space: SETI signal archives, NASA exoplanet data
-- Environmental: USGS earthquake, NOAA weather
-- Security: NSL-KDD, CICIDS network intrusion
+All loaders fetch REAL DATA from official sources - NO synthetic fallbacks.
 
-All loaders follow PhysioNet and source licensing requirements.
+Provides unified access to real-world datasets for benchmarking:
+- Time-Series: NAB, SMD, SMAP/MSL (standard anomaly detection benchmarks)
+- Medical: MIMIC-III, MIMIC-IV, PhysioNet (credentialed access)
+- Space: SETI signal archives, NASA exoplanet data
+- Environmental: USGS earthquake API, NOAA storm events, NASA FIRMS
+- Security: NSL-KDD, CICIDS-2017 network intrusion
+
+All loaders follow official source licensing requirements.
 """
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, DatasetSplit
 from .benchmarks import BenchmarkResult, RealWorldBenchmarkSuite
 from .environmental import NOAAWeatherLoader, USGSEarthquakeLoader, WildfireDataLoader
+from .industrial import BATADALLoader, SWaTLoader, WADILoader
 from .medical import CardiologyDataset, MIMICLoader, PhysioNetLoader, SepsisDataset
 from .security import CICIDSLoader, NSLKDDLoader, ThreatIntelLoader
 from .space import NASAExoplanetLoader, SETILoader, SolarDynamicsLoader
+from .timeseries import NABLoader, SMAPMSLLoader, SMDLoader
+from .ucr_archive import CWRUBearingLoader, MBALoader, MSDSLoader, UCRLoader
 
 __all__ = [
-    "BenchmarkResult",
-    "CICIDSLoader",
-    "CardiologyDataset",
-    "DatasetConfig",
     # Base
+    "DatasetConfig",
     "DatasetLoader",
     "DatasetRegistry",
     "DatasetSplit",
-    # Medical
-    "MIMICLoader",
-    "NASAExoplanetLoader",
-    "NOAAWeatherLoader",
-    # Security
+    # Time-Series Benchmarks (REAL DATA)
+    "NABLoader",
+    "SMDLoader",
+    "SMAPMSLLoader",
+    # Industrial Control Systems (ICS/SCADA)
+    "SWaTLoader",
+    "WADILoader",
+    "BATADALLoader",
+    # UCR Time Series Archive & Bearing Datasets
+    "UCRLoader",
+    "MBALoader",
+    "CWRUBearingLoader",
+    "MSDSLoader",
+    # Security (REAL DATA)
     "NSLKDDLoader",
+    "CICIDSLoader",
+    "ThreatIntelLoader",
+    # Environmental (REAL DATA - API)
+    "USGSEarthquakeLoader",
+    "NOAAWeatherLoader",
+    "WildfireDataLoader",
+    # Medical (REAL DATA - Credentialed)
+    "MIMICLoader",
     "PhysioNetLoader",
-    # Benchmarks
-    "RealWorldBenchmarkSuite",
+    "SepsisDataset",
+    "CardiologyDataset",
     # Space
     "SETILoader",
-    "SepsisDataset",
+    "NASAExoplanetLoader",
     "SolarDynamicsLoader",
-    "ThreatIntelLoader",
-    # Environmental
-    "USGSEarthquakeLoader",
-    "WildfireDataLoader",
+    # Benchmarks
+    "BenchmarkResult",
+    "RealWorldBenchmarkSuite",
 ]
