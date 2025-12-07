@@ -690,9 +690,9 @@ THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPL
 **OMNI ♱ AVA**
 *Ethical Anomaly Detection for a Safer World*
 
-**O♱A - Protecting Ethics, Earth, and a Civilized Evolution with Anomalous AI.
+O♱A - Protecting Ethics, Earth, and a Civilized Evolution with Anomalous AI.
 
-*Architected with inherent radical honesty, unconventional methodology, protective servitude, and ethical immutability.
+Architected with inherent radical honesty, unconventional methodology, protective servitude, and ethical immutability.
 
 <img src="assets/ama_logo.png" alt="AMA" height="24">
 
