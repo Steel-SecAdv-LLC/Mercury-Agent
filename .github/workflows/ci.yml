@@ -419,15 +419,6 @@ jobs:
             VERSION=1.0.0
             CACHEBUST=${{ github.run_id }}
 
-      - name: Diagnostic Trivy scan (table format for debugging)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: omni-ava:${{ github.sha }}
-          format: 'table'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'
-          scanners: 'vuln'
-
       - name: Scan Docker image with Trivy
         id: trivy-scan
         uses: aquasecurity/trivy-action@master
@@ -438,7 +429,9 @@ jobs:
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
           scanners: 'vuln'
-        # Security: Block CI on CRITICAL/HIGH vulnerabilities
+          limit-severities-for-sarif: 'true'
+        # Security: Block CI on CRITICAL/HIGH vulnerabilities only
+        # Note: limit-severities-for-sarif ensures exit code is based on severity filter
         # Note: Secret scanning disabled here for performance (handled by security-scan job)
 
       - name: Upload Trivy results
