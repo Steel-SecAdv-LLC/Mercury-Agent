@@ -14,24 +14,25 @@
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  ┌─────────────────────────────────────────────────────────────────────────┐ ║
 ║  │ LAYER 3: Ethical Governance & Fairness                                  │ ║
-║  │   • Bias Detection (Fairlearn)  • 150+ Ethical Scalars                 │ ║
-║  │   • Property-Based Testing      • Lyapunov Stability                   │ ║
+║  │   • Bias Detection (Fairlearn)  • 150+ Ethical Scalars                  │ ║
+║  │   • Property-Based Testing      • Lyapunov Stability                    │ ║
 ║  ├─────────────────────────────────────────────────────────────────────────┤ ║
 ║  │ LAYER 2: ML/AI Detection Pipeline                                       │ ║
-║  │   • Hybrid Fusion Network       • 18+ Detection Engines                │ ║
-║  │   • Multi-Head Attention        • Ensemble Averaging                   │ ║
+║  │   • Hybrid Fusion Network       • 18+ Detection Engines                 │ ║
+║  │   • Multi-Head Attention        • Ensemble Averaging                    │ ║
 ║  ├─────────────────────────────────────────────────────────────────────────┤ ║
 ║  │ LAYER 1: Core Infrastructure & Security                                 │ ║
-║  │   • Post-Quantum Crypto (Kyber) • JWT/API Authentication               │ ║
-║  │   • OWASP Input Validation      • Rate Limiting                        │ ║
+║  │   • Post-Quantum Crypto (Kyber) • JWT/API Authentication                │ ║
+║  │   • OWASP Input Validation      • Rate Limiting                         │ ║
 ║  └─────────────────────────────────────────────────────────────────────────┘ ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
-║  DOMAINS: Medical | Security | Space | Infrastructure | Environmental      ║
-║  ENGINES: 18+ Detectors | 241 Python Files | 67,000+ Lines of Code        ║
-║  TESTING: 730+ Tests | Property-Based | Coverage Tracking                  ║
+║  DOMAINS: Medical | Security | Space | Infrastructure | Environmental        ║
+║  ENGINES: 18+ Detectors | 241 Python Files | 67,000+ Lines of Code           ║
+║  TESTING: 730+ Tests | Property-Based | Coverage Tracking                    ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 THIS PROJECT IS STILL UNDER HEAVY CONSTRUCTION AND OPERATIONAL PLANNING: STEEL SECURITY ADVISORS LLC DOES NOT ENDORSE THE USE OF THIS PRODUCT AND IS ONLY MAKING IT PUBLIC FOR OPERATIONAL AT THIS TIME FOR CONTINUITY, INTEGRITY, AND FURTHERING OPERATIONS. 
+
 **Copyright:** Steel Security Advisory LLC, 2025
 **Author:** Steel Security Advisors
 **Contact:** support@steelsecurityadvisors.com
