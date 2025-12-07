@@ -83,9 +83,10 @@ RUN groupadd --gid 1000 omniava && \
 WORKDIR /app
 
 # Install only runtime dependencies (no build tools)
+# Note: python:3.12-slim is based on Debian 12 (Bookworm) which has OpenCV 4.6
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libopencv-core410 \
-    libopencv-imgproc410 \
+    libopencv-core4.6d \
+    libopencv-imgproc4.6d \
     libgomp1 \
     curl \
     && rm -rf /var/lib/apt/lists/* \
