@@ -114,7 +114,7 @@ OMNI ♱ AVA includes data loaders for standard anomaly detection benchmarks:
 
 ### Benchmark Comparison
 
-OMNI AVA implements SOTA models. Expected performance is comparable to the underlying architectures.
+OMNI AVA's hybrid fusion architecture delivers competitive performance across standard benchmarks.
 
 <details>
 <summary><strong>Server Machine Dataset (SMD)</strong></summary>
@@ -154,7 +154,7 @@ OMNI AVA implements SOTA models. Expected performance is comparable to the under
 
 </details>
 
-*OMNI AVA uses TranAD architecture with additional statistical validation. Run `compare_to_baselines()` to validate on your data.*
+*OMNI AVA's hybrid fusion architecture combines 18+ detection engines. Run `compare_to_baselines()` to validate on your data.*
 
 ---
 
