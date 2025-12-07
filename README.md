@@ -112,7 +112,47 @@ OMNI ♱ AVA includes data loaders for standard anomaly detection benchmarks:
 | **NAB** | Streaming | Numenta Anomaly Benchmark |
 | **NSL-KDD** | Network | Intrusion detection dataset |
 
-Use `from omni_anomaly_engine.evaluation import compare_to_baselines` to evaluate against published results.
+### Benchmark Comparison
+
+<details>
+<summary><strong>Server Machine Dataset (SMD)</strong></summary>
+
+| Method | F1 Score | Source |
+|--------|----------|--------|
+| **OMNI AVA** | *Pending* | — |
+| TranAD | 0.9605 | VLDB 2022 |
+| Anomaly Transformer | 0.9043 | ICLR 2022 |
+| USAD | 0.8813 | KDD 2020 |
+| OmniAnomaly | 0.8752 | KDD 2019 |
+
+</details>
+
+<details>
+<summary><strong>Spacecraft Telemetry (SMAP/MSL)</strong></summary>
+
+| Method | SMAP F1 | MSL F1 | Source |
+|--------|---------|--------|--------|
+| **OMNI AVA** | *Pending* | *Pending* | — |
+| TranAD | 0.9394 | 0.9335 | VLDB 2022 |
+| Anomaly Transformer | 0.8868 | 0.9151 | ICLR 2022 |
+| GDN | 0.8544 | 0.8929 | AAAI 2021 |
+| OmniAnomaly | 0.8434 | 0.8886 | KDD 2019 |
+
+</details>
+
+<details>
+<summary><strong>Industrial Control Systems (SWaT/WADI)</strong></summary>
+
+| Method | SWaT F1 | WADI F1 | Source |
+|--------|---------|---------|--------|
+| **OMNI AVA** | *Pending* | *Pending* | — |
+| TranAD | 0.8151 | 0.4951 | VLDB 2022 |
+| Anomaly Transformer | 0.7987 | 0.4728 | ICLR 2022 |
+| OmniAnomaly | 0.7934 | 0.4321 | KDD 2019 |
+
+</details>
+
+Use `from omni_anomaly_engine.evaluation import compare_to_baselines` to run benchmarks and update these results.
 
 ---
 
