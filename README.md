@@ -44,7 +44,7 @@
 
 ## Executive Summary
 
-OMNI ♱ AVA is a production-grade anomaly detection framework that unifies 18+ detection engines under a hybrid fusion architecture. Built with a survivor-first philosophy, it prioritizes ethical AI governance while delivering state-of-the-art detection across security, medical, environmental, and infrastructure domains.
+OMNI ♱ AVA is a production-grade anomaly detection framework that unifies 18+ detection engines under a hybrid fusion architecture. It prioritizes ethical AI governance while delivering state-of-the-art detection across security, medical, environmental, and infrastructure domains.
 
 | Capability | Description |
 |------------|-------------|
@@ -249,20 +249,49 @@ the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 ```
 
+**Key Dependencies:** PyTorch (BSD) | Fairlearn (MIT) | Hypothesis (MPL 2.0) | liboqs-python (MIT) | FastAPI (MIT)
+
 ---
 
-## Disclaimer
+## Contact
 
-This software is provided "as is" without warranty. Medical modules require clinical validation. Production deployments should undergo independent security review. AI contributions from Claude (Anthropic) and Devin (Cognition) have been reviewed for security and correctness.
+| Channel | Contact |
+|---------|---------|
+| Email | support@steelsecurityadvisors.com |
+| GitHub Issues | [Steel-SecAdv-LLC/OMNI-AVA/issues](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/issues) |
+| Security Reports | See [SECURITY.md](SECURITY.md) |
+
+---
+
+## Acknowledgments
+
+**AI Co-Architects:** Claude (Anthropic) for architecture refinement, security enhancements, and documentation. Devin (Cognition) for initial implementation and CI/CD pipeline.
+
+**Open Source Foundations:** NIST Post-Quantum Cryptography, Fairlearn, Hypothesis, OWASP
+
+---
+
+## Legal Disclaimer
+
+This project was developed with significant AI assistance. All AI-generated code has been reviewed for security and correctness.
+
+**Cautions:**
+- Medical modules require clinical validation before deployment
+- Production deployments should undergo independent security review
+
+**No Warranty:** This software is provided "as is" without warranty of any kind. The authors shall not be liable for any damages arising from use of this software.
 
 ---
 
 <div align="center">
 
 **OMNI ♱ AVA**
+
 *Ethical Anomaly Detection for a Safer World*
 
-Survivor-First | Transparent | Production-Ready
+O♱A - Protecting Ethics, Earth, and a Civilized Evolution with Anomalous AI.
+
+Architected with inherent radical honesty, unconventional methodology, protective servitude, and ethical immutability.
 
 Steel Security Advisory LLC | December 2025
 
