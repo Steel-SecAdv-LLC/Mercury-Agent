@@ -7,18 +7,19 @@
 # =============================================================================
 FROM python:3.12-slim AS builder
 
-# Build arguments for version tracking
+# Build arguments for version tracking and cache busting
 ARG BUILD_DATE
 ARG VCS_REF
 ARG VERSION=1.0.0
+ARG CACHEBUST=1
 
 LABEL maintainer="Steel Security Advisors LLC <support@steelsecurityadvisors.com>"
 LABEL description="OMNI ♱ AVA: ML-Centric anomaly detection framework - Builder Stage"
 
 WORKDIR /build
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install build dependencies and upgrade OS packages for security
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     git \
@@ -37,7 +38,9 @@ COPY requirements-core.txt ./
 
 # Install core dependencies (lightweight, no ML frameworks)
 # For ML capabilities, use the ml-enabled stage or install torch separately
-RUN pip install --no-cache-dir -r requirements-core.txt
+RUN pip install --no-cache-dir -r requirements-core.txt && \
+    pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip list --outdated --format=json | python -c "import sys, json; pkgs = json.load(sys.stdin); [print(p['name']) for p in pkgs]" | xargs -r pip install --no-cache-dir --upgrade || true
 
 # Copy application code
 COPY src/ ./src/
@@ -82,8 +85,8 @@ RUN groupadd --gid 1000 omniava && \
 
 WORKDIR /app
 
-# Install only runtime dependencies (no build tools)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install only runtime dependencies (no build tools) and upgrade OS packages for security
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     libopencv-core410 \
     libopencv-imgproc410 \
     libgomp1 \
