@@ -417,6 +417,7 @@ jobs:
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             VCS_REF=${{ github.sha }}
             VERSION=1.0.0
+            CACHEBUST=${{ github.run_id }}
 
       - name: Scan Docker image with Trivy
         id: trivy-scan

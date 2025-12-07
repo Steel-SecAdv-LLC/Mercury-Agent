@@ -71,6 +71,9 @@ RUN mkdir -p /security-reports && \
 # =============================================================================
 FROM python:3.12-slim AS production
 
+# Cache busting argument to force fresh package installations
+ARG CACHEBUST=1
+
 # Labels following OCI Image Spec
 LABEL org.opencontainers.image.title="OMNI ♱ AVA"
 LABEL org.opencontainers.image.description="ML-Centric multi-domain anomaly detection framework"
