@@ -385,6 +385,9 @@ jobs:
     timeout-minutes: 45
     needs: [core-tests, security-scan]
     if: github.event_name != 'schedule'
+    permissions:
+      contents: read
+      security-events: write
 
     steps:
       - name: Checkout code
