@@ -7,12 +7,13 @@ LSTM-Autoencoder for Time-Series Anomaly Detection
 A working anomaly detector that actually trains and detects.
 """
 
+import os
+from typing import Optional, Tuple
+
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-from typing import Tuple, Optional
-import os
 
 
 class LSTMAutoencoder(nn.Module):
@@ -346,12 +347,12 @@ def evaluate_detector(
         Dictionary with precision, recall, f1, auc_roc, auc_pr
     """
     from sklearn.metrics import (
+        average_precision_score,
+        f1_score,
+        precision_recall_curve,
         precision_score,
         recall_score,
-        f1_score,
         roc_auc_score,
-        average_precision_score,
-        precision_recall_curve,
     )
 
     # Handle edge cases
