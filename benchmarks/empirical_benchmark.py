@@ -232,9 +232,7 @@ def prepare_kddcup_dataset(n_samples: int = 5000) -> DatasetInfo:
         y_anomaly = (y != b"normal.").astype(int)
 
         if len(X_numeric) > n_samples * 3:
-            indices = np.random.RandomState(42).choice(
-                len(X_numeric), n_samples * 3, replace=False
-            )
+            indices = np.random.RandomState(42).choice(len(X_numeric), n_samples * 3, replace=False)
             X_numeric, y_anomaly = X_numeric[indices], y_anomaly[indices]
 
         X_train, X_test, y_train, y_test = train_test_split(
@@ -439,7 +437,9 @@ def run_full_benchmark() -> dict[str, Any]:
 
     bc_data = prepare_breast_cancer_dataset()
     datasets.append(bc_data)
-    print(f"  [OK] {bc_data.name}: {bc_data.X_train.shape[0]} train, {bc_data.X_test.shape[0]} test")
+    print(
+        f"  [OK] {bc_data.name}: {bc_data.X_train.shape[0]} train, {bc_data.X_test.shape[0]} test"
+    )
 
     digits_data = prepare_digits_dataset()
     datasets.append(digits_data)
@@ -562,9 +562,11 @@ def generate_summary(results: list[BenchmarkResult]) -> dict[str, Any]:
             "avg_baseline_roc_auc": float(avg_baseline_roc),
             "vs_best_baseline": omni_roc - best_baseline_roc,
             "vs_avg_baseline": omni_roc - avg_baseline_roc,
-            "rank_by_roc_auc": rankings["mean_roc_auc"].index("OMNI-AVA") + 1
-            if "OMNI-AVA" in rankings["mean_roc_auc"]
-            else None,
+            "rank_by_roc_auc": (
+                rankings["mean_roc_auc"].index("OMNI-AVA") + 1
+                if "OMNI-AVA" in rankings["mean_roc_auc"]
+                else None
+            ),
         }
     else:
         comparison = {}
@@ -601,7 +603,9 @@ def generate_honest_assessment(
         vs_best = comparison.get("vs_best_baseline", 0)
 
         if rank == 1:
-            assessment["performance_verdict"] = "OMNI-AVA achieved best ROC-AUC among tested detectors"
+            assessment["performance_verdict"] = (
+                "OMNI-AVA achieved best ROC-AUC among tested detectors"
+            )
         elif vs_best >= -0.02:
             assessment["performance_verdict"] = "OMNI-AVA performs comparably to best baseline"
         else:
@@ -649,7 +653,9 @@ def save_results(results: dict[str, Any], output_dir: Path) -> None:
         f.write("|----------|--------------|---------|-------------------|\n")
 
         summary = results["summary"]["per_detector"]
-        for detector, stats in sorted(summary.items(), key=lambda x: x[1]["mean_roc_auc"], reverse=True):
+        for detector, stats in sorted(
+            summary.items(), key=lambda x: x[1]["mean_roc_auc"], reverse=True
+        ):
             f.write(
                 f"| {detector} | {stats['mean_roc_auc']:.3f} | "
                 f"{stats['mean_f1']:.3f} | {stats['mean_latency_ms']:.3f} |\n"

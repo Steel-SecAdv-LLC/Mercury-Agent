@@ -222,9 +222,7 @@ def register_mock_tools(agent: MercuryAgent) -> None:
     agent.register_tool("query_database", query_database)
 
 
-def run_training_scenario(
-    agent: MercuryAgent, scenario: TrainingScenario
-) -> TrainingResult:
+def run_training_scenario(agent: MercuryAgent, scenario: TrainingScenario) -> TrainingResult:
     """Run a single training scenario."""
     start_time = time.perf_counter()
 
