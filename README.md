@@ -31,13 +31,13 @@
 ║  TESTING: 730+ Tests | Property-Based | Coverage Tracking                  ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
-
+THIS PROJECT IS STILL UNDER HEAVY CONSTRUCTION AND OPERATIONAL PLANNING: STEEL SECURITY ADVISORS LLC DOES NOT ENDORSE THE USE OF THIS PRODUCT AND IS ONLY MAKING IT PUBLIC FOR OPERATIONAL AT THIS TIME FOR CONTINUITY, INTEGRITY, AND FURTHERING OPERATIONS. 
 **Copyright:** Steel Security Advisory LLC, 2025
 **Author:** Steel Security Advisors
 **Contact:** support@steelsecurityadvisors.com
 **License:** [GNU General Public License v3.0](LICENSE)
 **Version:** 1.0.0
-**AI Co-Architects:** Claude (Anthropic), Devin (Cognition)
+**AI Co-Architects:** 
 
 ---
 
