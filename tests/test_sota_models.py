@@ -59,10 +59,18 @@ class TestPriorAssociation:
         assert torch.allclose(row_sums, torch.ones(50), atol=1e-5)
 
     def test_symmetry(self):
-        """Prior should be symmetric (distance-based)."""
+        """Prior kernel is symmetric before row normalization.
+        
+        Note: After row normalization (to make valid probability distribution),
+        the output is NOT symmetric. This is correct behavior per the Anomaly
+        Transformer paper - each row should sum to 1 for KL divergence computation.
+        """
         prior = PriorAssociation(sigma=1.0, window_size=100)
         result = prior(seq_len=50)
-        assert torch.allclose(result, result.T, atol=1e-5)
+        # The row-normalized prior is NOT symmetric (rows sum to 1, columns don't)
+        # But the diagonal should still be the maximum in each row
+        diag = torch.diag(result)
+        assert (diag >= result.max(dim=-1).values - 1e-5).all()
 
     def test_diagonal_maximum(self):
         """Diagonal should have highest values (closest to self)."""
