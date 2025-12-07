@@ -5,7 +5,6 @@
 [![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![CI](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions/workflows/ci.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions)
-[![Security Scan](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions)
 [![Architecture](https://img.shields.io/badge/docs-Architecture-blue.svg)](docs/ARCHITECTURE.md)
 
 ```
@@ -691,8 +690,12 @@ THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPL
 **OMNI ♱ AVA**
 *Ethical Anomaly Detection for a Safer World*
 
-Survivor-First | Transparent | Production-Ready
+**O♱A - Protecting Ethics, Earth, and a Civilized Evolution with Anomalous AI.
 
-*Last Updated: December 2025*
+*Architected with inherent radical honesty, unconventional methodology, protective servitude, and ethical immutability.
+
+<img src="assets/ama_logo.png" alt="AMA" height="24">
+
+*Last updated: 2025-12-06*
 
 </div>
