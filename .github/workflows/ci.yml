@@ -411,10 +411,8 @@ jobs:
           push: false
           load: true
           tags: omni-ava:${{ github.sha }}
-          # Cache disabled to ensure fresh packages with latest security patches
-          # cache-from: type=gha
-          # cache-to: type=gha,mode=max
-          no-cache: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             VCS_REF=${{ github.sha }}
