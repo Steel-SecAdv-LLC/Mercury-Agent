@@ -80,9 +80,15 @@ class DatasetConfig:
         if abs(sum(self.split_ratios) - 1.0) > 1e-6:
             raise ValueError("Split ratios must sum to 1.0")
 
-        # Create directories
-        os.makedirs(self.data_dir, exist_ok=True)
-        os.makedirs(self.cache_dir, exist_ok=True)
+        # Create directories if possible (may fail for system paths like /custom)
+        for dir_path in [self.data_dir, self.cache_dir]:
+            try:
+                os.makedirs(dir_path, exist_ok=True)
+            except PermissionError:
+                # Directory creation will be attempted again when actually needed
+                logger.debug(f"Cannot create directory {dir_path} (permission denied)")
+            except OSError as e:
+                logger.debug(f"Cannot create directory {dir_path}: {e}")
 
     def get_cache_key(self) -> str:
         """Generate unique cache key for this configuration."""
