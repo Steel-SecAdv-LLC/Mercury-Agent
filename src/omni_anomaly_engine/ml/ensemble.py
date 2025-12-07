@@ -348,8 +348,13 @@ class EnsembleOmniFusionModel(nn.Module):
             errors = (predictions.round() != targets).float()
             error_rate = errors.mean().item()
 
-            if error_rate > 0 and error_rate < 1:
-                alpha = 0.5 * np.log((1 - error_rate) / (error_rate + 1e-8))
+            # Clamp error rate to avoid log(0) issues on both numerator and denominator
+            eps = 1e-8
+            if error_rate > eps and error_rate < (1.0 - eps):
+                # Safe log computation: clamp both numerator and denominator
+                numerator = max(1.0 - error_rate, eps)
+                denominator = max(error_rate, eps)
+                alpha = 0.5 * np.log(numerator / denominator)
                 self._training_errors.append(error_rate)
 
                 if detector_idx < len(self.detector_weights):
