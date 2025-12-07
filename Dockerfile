@@ -19,7 +19,8 @@ LABEL description="OMNI ♱ AVA: ML-Centric anomaly detection framework - Builde
 WORKDIR /build
 
 # Install build dependencies and upgrade OS packages for security
-RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+# CACHEBUST arg forces rebuild when changed to ensure latest security patches
+RUN echo "Cache bust: ${CACHEBUST}" && apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     git \
@@ -89,7 +90,8 @@ RUN groupadd --gid 1000 omniava && \
 WORKDIR /app
 
 # Install only runtime dependencies (no build tools) and upgrade OS packages for security
-RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+# CACHEBUST arg forces rebuild when changed to ensure latest security patches
+RUN echo "Cache bust: ${CACHEBUST}" && apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     libopencv-core410 \
     libopencv-imgproc410 \
     libgomp1 \
