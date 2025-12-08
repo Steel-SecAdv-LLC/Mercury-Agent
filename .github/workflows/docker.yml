@@ -1,0 +1,49 @@
+name: Docker & Security
+
+on:
+  push:
+    branches: [ main, neuro-symbolic-v1 ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: write
+
+    steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          df -h
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build --no-cache -t omni-ava-mercury:latest .
+
+      - name: Run Trivy vulnerability scanner in standalone mode
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: omni-ava-mercury:latest
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN
+          exit-code: 0
+          timeout: 10m
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
