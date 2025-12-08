@@ -1104,7 +1104,7 @@ class SolarFlareDetector:
             confidence=confidence,
             flare_class=flare_class,
             x_ray_flux=current_flux,
-            proton_flux=proton_flux if proton_flux else 0.0,
+            proton_flux=float(np.mean(proton_flux)) if proton_flux is not None else 0.0,
             geomagnetic_storm_probability=storm_prob,
             kp_index_predicted=kp_predicted,
             dst_index_predicted=dst_predicted,
@@ -1210,8 +1210,11 @@ class SolarFlareDetector:
             features[0] = x_ray_flux
             features[3] = np.log10(x_ray_flux + 1e-10) + 10
 
-        if proton_flux:
-            features[4] = proton_flux
+        if proton_flux is not None:
+            if isinstance(proton_flux, np.ndarray):
+                features[4] = np.mean(proton_flux)
+            else:
+                features[4] = proton_flux
 
         result = self.predict_solar_flare(x_ray_flux, proton_flux)
         features[5] = result.confidence
