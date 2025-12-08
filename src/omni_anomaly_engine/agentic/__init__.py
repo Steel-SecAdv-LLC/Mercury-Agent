@@ -19,6 +19,11 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """Agentic AI autonomy modules."""
 
 from omni_anomaly_engine.agentic.agentic_autonomy import AgentAction, AgenticAutonomy, AgentState
+from omni_anomaly_engine.agentic.bayesian_calibrator import (
+    BayesianConfidenceCalibrator,
+    CalibrationConfig,
+    ContextStats,
+)
 from omni_anomaly_engine.agentic.mercury_a_agent import (
     AgentMemory,
     AgentMode,
@@ -39,6 +44,9 @@ __all__ = [
     "AgentMode",
     "AgentState",
     "AgenticAutonomy",
+    "BayesianConfidenceCalibrator",
+    "CalibrationConfig",
+    "ContextStats",
     "DomainType",
     "MercuryAgent",
     "MercuryPlanner",

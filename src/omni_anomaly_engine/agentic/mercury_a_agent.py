@@ -465,11 +465,15 @@ class MercuryPlanner:
 
     Supports specialized planning for medical, security, energy, infrastructure,
     humanitarian, scientific, and financial domains.
+
+    Now includes Bayesian confidence calibration that replaces the fixed 0.76
+    heuristic with a learned, continuously improving confidence model.
     """
 
-    def __init__(self):
+    def __init__(self, calibrator: "BayesianConfidenceCalibrator | None" = None):
         self.logger = logging.getLogger(__name__)
         self.domain_strategies = self._initialize_domain_strategies()
+        self.calibrator = calibrator  # Bayesian confidence calibrator
 
     def _initialize_domain_strategies(self) -> dict[DomainType, dict[str, Any]]:
         """Initialize domain-specific planning strategies."""
@@ -550,7 +554,13 @@ class MercuryPlanner:
 
         estimated_duration = self._estimate_duration(tasks, strategy)
 
-        confidence = self._estimate_plan_confidence(tasks, domain)
+        # Use Bayesian calibrator if available, otherwise fall back to heuristic
+        if self.calibrator is not None:
+            confidence = self.calibrator.get_confidence(domain.value, goal)
+            legacy_confidence = self._estimate_plan_confidence(tasks, domain)
+        else:
+            confidence = self._estimate_plan_confidence(tasks, domain)
+            legacy_confidence = confidence
 
         return PlanResult(
             plan_id=f"plan_{uuid.uuid4().hex[:8]}",
@@ -562,6 +572,7 @@ class MercuryPlanner:
                 "strategy": strategy,
                 "context": context,
                 "goal": goal,
+                "legacy_confidence_heuristic": legacy_confidence,
             },
         )
 
@@ -754,6 +765,7 @@ class MercuryAgent:
     - Chain-of-thought reasoning
     - Four-tier memory system
     - Ethical constraint enforcement
+    - Bayesian confidence calibration (replaces fixed 0.76 heuristic)
     """
 
     def __init__(
@@ -761,6 +773,7 @@ class MercuryAgent:
         name: str = "Mercury",
         autonomy_level: float = 0.8,
         ethical_threshold: float = 0.93,
+        enable_calibration: bool = True,
     ):
         """
         Initialize Mercury Agent.
@@ -769,14 +782,26 @@ class MercuryAgent:
             name: Agent name
             autonomy_level: Level of autonomous operation (0-1)
             ethical_threshold: Minimum ethical score for operations
+            enable_calibration: Enable Bayesian confidence calibration
         """
+        from omni_anomaly_engine.agentic.bayesian_calibrator import (
+            BayesianConfidenceCalibrator,
+        )
+
         self.name = name
         self.autonomy_level = autonomy_level
         self.ethical_threshold = ethical_threshold
 
         self.mode = AgentMode.DORMANT
         self.memory = AgentMemory()
-        self.planner = MercuryPlanner()
+
+        # Initialize Bayesian confidence calibrator
+        self.confidence_calibrator: BayesianConfidenceCalibrator | None = (
+            BayesianConfidenceCalibrator() if enable_calibration else None
+        )
+
+        # Pass calibrator to planner for confidence estimation
+        self.planner = MercuryPlanner(calibrator=self.confidence_calibrator)
         self.reasoner = MercuryReasoner()
 
         self.current_plan: PlanResult | None = None
@@ -784,7 +809,9 @@ class MercuryAgent:
         self.tools: dict[str, Callable] = {}
 
         self.logger = logging.getLogger(__name__)
-        self.logger.info(f"Mercury Agent '{name}' initialized")
+        self.logger.info(
+            f"Mercury Agent '{name}' initialized (calibration={'enabled' if enable_calibration else 'disabled'})"
+        )
 
     def register_tool(self, name: str, tool: Callable) -> None:
         """Register a tool for agent use."""
@@ -877,7 +904,7 @@ class MercuryAgent:
         Returns:
             Current state information
         """
-        return {
+        state = {
             "name": self.name,
             "mode": self.mode.value,
             "autonomy_level": self.autonomy_level,
@@ -895,6 +922,12 @@ class MercuryAgent:
             "memory": self.memory.get_statistics(),
             "execution_history_count": len(self.execution_history),
         }
+
+        # Include calibrator statistics if available
+        if self.confidence_calibrator is not None:
+            state["confidence_calibrator"] = self.confidence_calibrator.get_summary()
+
+        return state
 
     def _execute_plan(self, plan: PlanResult, context: dict[str, Any]) -> dict[str, Any]:
         """Execute a plan's tasks."""
@@ -954,12 +987,24 @@ class MercuryAgent:
         return all(dep in completed_ids for dep in task.dependencies)
 
     def _learn_from_execution(self, execution_results: dict[str, Any]) -> None:
-        """Learn from execution results."""
+        """Learn from execution results and update confidence calibrator."""
         success_rate = execution_results.get("success_rate", 0.0)
 
+        # Update Bayesian confidence calibrator with execution outcome
+        if self.confidence_calibrator is not None and self.current_plan is not None:
+            goal = self.current_plan.metadata.get("goal", "")
+            domain = self.current_plan.domain.value
+            success = success_rate >= 0.99  # Consider 99%+ as success
+            self.confidence_calibrator.update(domain, goal, success, time.time())
+
+        # Store episodic memory with domain/goal for future retrieval
         self.memory.store_episodic(
             event="plan_execution",
-            context={"plan_id": execution_results.get("plan_id")},
+            context={
+                "plan_id": execution_results.get("plan_id"),
+                "domain": self.current_plan.domain.value if self.current_plan else "unknown",
+                "goal": self.current_plan.metadata.get("goal", "") if self.current_plan else "",
+            },
             outcome=f"success_rate={success_rate:.2f}",
             importance=0.7 if success_rate > 0.8 else 0.5,
         )
