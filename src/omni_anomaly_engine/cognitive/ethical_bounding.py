@@ -191,10 +191,7 @@ class HarmReducer:
             harm_level = self._assess_category_harm(action, context, category)
             breakdown[category.value] = harm_level
 
-        weighted_sum = sum(
-            breakdown[cat.value] * self.HARM_WEIGHTS[cat]
-            for cat in HarmCategory
-        )
+        weighted_sum = sum(breakdown[cat.value] * self.HARM_WEIGHTS[cat] for cat in HarmCategory)
         max_weighted = sum(self.HARM_WEIGHTS.values())
         overall_harm = weighted_sum / max_weighted
 
@@ -278,8 +275,7 @@ class BenefitMaximizer:
             breakdown[category.value] = benefit_level
 
         weighted_sum = sum(
-            breakdown[cat.value] * self.BENEFIT_WEIGHTS[cat]
-            for cat in BenefitCategory
+            breakdown[cat.value] * self.BENEFIT_WEIGHTS[cat] for cat in BenefitCategory
         )
         max_weighted = sum(self.BENEFIT_WEIGHTS.values())
         overall_benefit = weighted_sum / max_weighted
@@ -432,9 +428,7 @@ class EmpathyModule:
         vulnerability_factors = self._identify_vulnerabilities(context)
         mitigation_suggestions = self._generate_mitigations(vulnerability_factors)
 
-        overall_score = self._calculate_overall_empathy(
-            impact_scores, vulnerability_factors
-        )
+        overall_score = self._calculate_overall_empathy(impact_scores, vulnerability_factors)
 
         return EmpathyAssessment(
             assessment_id=assessment_id,
@@ -821,11 +815,11 @@ class BenevolenceScorer:
         long_term_component = long_term_score * 0.10
 
         benevolence = (
-            harm_component +
-            benefit_component +
-            equity_component +
-            principles_component +
-            long_term_component
+            harm_component
+            + benefit_component
+            + equity_component
+            + principles_component
+            + long_term_component
         )
 
         return max(0.0, min(1.0, benevolence))
@@ -859,15 +853,11 @@ class BenevolenceScorer:
         if not is_permissible:
             recommendations.append("Action does not meet benevolence threshold")
 
-        high_harm_categories = [
-            cat for cat, score in harm_breakdown.items() if score > 0.3
-        ]
+        high_harm_categories = [cat for cat, score in harm_breakdown.items() if score > 0.3]
         for cat in high_harm_categories:
             recommendations.append(f"Reduce {cat} harm potential")
 
-        low_benefit_categories = [
-            cat for cat, score in benefit_breakdown.items() if score < 0.3
-        ]
+        low_benefit_categories = [cat for cat, score in benefit_breakdown.items() if score < 0.3]
         if low_benefit_categories:
             recommendations.append("Consider ways to increase positive impact")
 
@@ -898,10 +888,14 @@ class BenevolenceScorer:
         failure_reasons = []
 
         if not ethical_score.is_permissible:
-            failure_reasons.append(f"Benevolence score {ethical_score.benevolence_score:.2%} below threshold")
+            failure_reasons.append(
+                f"Benevolence score {ethical_score.benevolence_score:.2%} below threshold"
+            )
 
         if empathy_assessment.overall_empathy_score < 0.7:
-            failure_reasons.append(f"Empathy score {empathy_assessment.overall_empathy_score:.2%} too low")
+            failure_reasons.append(
+                f"Empathy score {empathy_assessment.overall_empathy_score:.2%} too low"
+            )
 
         if not value_preservation.default_to_positive:
             failure_reasons.append("Action does not default to positive outcomes")

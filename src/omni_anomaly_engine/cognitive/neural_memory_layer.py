@@ -441,7 +441,9 @@ class PatternDetector:
                         pattern_type=PatternType.TREND,
                         confidence=min(1.0, abs(slope) * 10),
                         description=f"{direction.capitalize()} importance trend detected (slope={slope:.4f})",
-                        supporting_memories=[e.entry_id for e in sorted_embs[i : i + self.trend_window]],
+                        supporting_memories=[
+                            e.entry_id for e in sorted_embs[i : i + self.trend_window]
+                        ],
                         temporal_span=(
                             sorted_embs[i].timestamp,
                             sorted_embs[i + self.trend_window - 1].timestamp,
@@ -476,7 +478,9 @@ class PatternDetector:
                             pattern_type=PatternType.ESCALATION,
                             confidence=min(1.0, acceleration * 5),
                             description=f"Escalation detected: importance accelerating (acc={acceleration:.4f})",
-                            supporting_memories=[e.entry_id for e in sorted_embs[max(0, i - 2) : i + 1]],
+                            supporting_memories=[
+                                e.entry_id for e in sorted_embs[max(0, i - 2) : i + 1]
+                            ],
                             temporal_span=(
                                 sorted_embs[max(0, i - 2)].timestamp,
                                 sorted_embs[i].timestamp,
@@ -713,9 +717,7 @@ class NeuralMemoryLayer:
         self.predictions: list[AnomalyPrediction] = []
 
         self._fitted = False
-        logger.info(
-            f"NeuralMemoryLayer initialized (dim={embedding_dim}, clusters={n_clusters})"
-        )
+        logger.info(f"NeuralMemoryLayer initialized (dim={embedding_dim}, clusters={n_clusters})")
 
     def ingest_memories(
         self,

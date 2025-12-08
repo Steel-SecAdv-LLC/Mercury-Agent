@@ -10,8 +10,8 @@ import time
 import pytest
 
 from omni_anomaly_engine.cognitive.autonomous_agent import (
-    ActionRisk,
     ActionResult,
+    ActionRisk,
     AgentState,
     ApprovalStatus,
     Decision,
@@ -188,10 +188,7 @@ class TestSelfMaintenance:
     def test_prune_memories(self):
         """Test memory pruning."""
         maintenance = SelfMaintenance(memory_limit=5)
-        memories = [
-            {"id": f"m{i}", "importance": i * 0.1}
-            for i in range(10)
-        ]
+        memories = [{"id": f"m{i}", "importance": i * 0.1} for i in range(10)]
 
         pruned, removed = maintenance.prune_memories(memories)
 

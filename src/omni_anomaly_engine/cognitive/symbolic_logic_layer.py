@@ -763,7 +763,9 @@ class SymbolicReasoner:
                 parts.append("Reasoning:")
                 parts.extend(rule_explanations)
 
-        key_facts = [f for f in derived_facts if f in ["is_anomaly", "high_priority", "action_blocked"]]
+        key_facts = [
+            f for f in derived_facts if f in ["is_anomaly", "high_priority", "action_blocked"]
+        ]
         if key_facts:
             parts.append(f"Key findings: {', '.join(key_facts)}")
 

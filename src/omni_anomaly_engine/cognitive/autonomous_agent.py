@@ -329,7 +329,9 @@ class UserSyncInterface:
     def get_statistics(self) -> dict[str, Any]:
         """Get interface statistics."""
         return {
-            "pending_approvals": len([r for r in self.pending_approvals.values() if r.status == ApprovalStatus.PENDING]),
+            "pending_approvals": len(
+                [r for r in self.pending_approvals.values() if r.status == ApprovalStatus.PENDING]
+            ),
             "total_approvals": len(self.pending_approvals),
             "user_inputs": len(self.user_inputs),
             "preferences_set": len(self.user_preferences),
@@ -459,14 +461,17 @@ class SelfMaintenance:
             reverse=True,
         )
 
-        pruned = sorted_memories[:self.memory_limit]
+        pruned = sorted_memories[: self.memory_limit]
         removed = len(memories) - len(pruned)
 
-        self._log_maintenance("memory_prune", {
-            "original_count": len(memories),
-            "pruned_count": len(pruned),
-            "removed": removed,
-        })
+        self._log_maintenance(
+            "memory_prune",
+            {
+                "original_count": len(memories),
+                "pruned_count": len(pruned),
+                "removed": removed,
+            },
+        )
 
         return pruned, removed
 
@@ -557,10 +562,13 @@ class SelfMaintenance:
             repaired.append(rule)
 
         if repair_log:
-            self._log_maintenance("rule_repair", {
-                "repairs": len(repair_log),
-                "details": repair_log,
-            })
+            self._log_maintenance(
+                "rule_repair",
+                {
+                    "repairs": len(repair_log),
+                    "details": repair_log,
+                },
+            )
 
         return repaired, repair_log
 
@@ -587,11 +595,13 @@ class SelfMaintenance:
 
     def _log_maintenance(self, action: str, details: dict[str, Any]) -> None:
         """Log a maintenance action."""
-        self.maintenance_log.append({
-            "action": action,
-            "details": details,
-            "timestamp": time.time(),
-        })
+        self.maintenance_log.append(
+            {
+                "action": action,
+                "details": details,
+                "timestamp": time.time(),
+            }
+        )
 
     def get_statistics(self) -> dict[str, Any]:
         """Get maintenance statistics."""
@@ -742,11 +752,14 @@ class OODAAgent:
         )
 
         self.orientations.append(orientation)
-        self._audit("orient", {
-            "orientation_id": orientation_id,
-            "patterns_found": len(patterns),
-            "threats_found": len(threats),
-        })
+        self._audit(
+            "orient",
+            {
+                "orientation_id": orientation_id,
+                "patterns_found": len(patterns),
+                "threats_found": len(threats),
+            },
+        )
 
         return orientation
 
@@ -787,7 +800,9 @@ class OODAAgent:
         else:
             ethical_score = self._default_ethical_score(action, context)
 
-        requires_approval = self._requires_approval(risk_level, ethical_score, orientation.confidence)
+        requires_approval = self._requires_approval(
+            risk_level, ethical_score, orientation.confidence
+        )
 
         reasoning = self._generate_reasoning(orientation, action, ethical_score)
 
@@ -803,13 +818,16 @@ class OODAAgent:
         )
 
         self.decisions.append(decision)
-        self._audit("decide", {
-            "decision_id": decision_id,
-            "action": action,
-            "risk_level": risk_level.value,
-            "ethical_score": ethical_score,
-            "requires_approval": requires_approval,
-        })
+        self._audit(
+            "decide",
+            {
+                "decision_id": decision_id,
+                "action": action,
+                "risk_level": risk_level.value,
+                "ethical_score": ethical_score,
+                "requires_approval": requires_approval,
+            },
+        )
 
         return decision
 
@@ -834,11 +852,14 @@ class OODAAgent:
         self._check_paused()
 
         if decision.ethical_score < self.ethical_threshold:
-            self._audit("act_blocked", {
-                "decision_id": decision.decision_id,
-                "reason": "ethical_score_below_threshold",
-                "score": decision.ethical_score,
-            })
+            self._audit(
+                "act_blocked",
+                {
+                    "decision_id": decision.decision_id,
+                    "reason": "ethical_score_below_threshold",
+                    "score": decision.ethical_score,
+                },
+            )
             return None
 
         if decision.requires_approval:
@@ -853,10 +874,13 @@ class OODAAgent:
             status = self._wait_for_approval(request.request_id)
 
             if status != ApprovalStatus.APPROVED:
-                self._audit("act_blocked", {
-                    "decision_id": decision.decision_id,
-                    "reason": f"approval_{status.value}",
-                })
+                self._audit(
+                    "act_blocked",
+                    {
+                        "decision_id": decision.decision_id,
+                        "reason": f"approval_{status.value}",
+                    },
+                )
                 return None
 
         self.state = AgentState.ACTING
@@ -887,11 +911,14 @@ class OODAAgent:
         )
 
         self.actions.append(result)
-        self._audit("act", {
-            "result_id": result_id,
-            "action": decision.action,
-            "success": success,
-        })
+        self._audit(
+            "act",
+            {
+                "result_id": result_id,
+                "action": decision.action,
+                "success": success,
+            },
+        )
 
         return result
 
@@ -943,17 +970,23 @@ class OODAAgent:
         )
 
         self.reflections.append(reflection)
-        self._audit("reflect", {
-            "reflection_id": reflection_id,
-            "lessons_count": len(lessons),
-            "confidence_adjustment": confidence_adjustment,
-        })
+        self._audit(
+            "reflect",
+            {
+                "reflection_id": reflection_id,
+                "lessons_count": len(lessons),
+                "confidence_adjustment": confidence_adjustment,
+            },
+        )
 
         if self.maintenance.should_trigger_reflection(decision.confidence + confidence_adjustment):
-            self._audit("maintenance_triggered", {
-                "reason": "low_confidence",
-                "confidence": decision.confidence + confidence_adjustment,
-            })
+            self._audit(
+                "maintenance_triggered",
+                {
+                    "reason": "low_confidence",
+                    "confidence": decision.confidence + confidence_adjustment,
+                },
+            )
 
         self.state = AgentState.IDLE
         return reflection
@@ -1141,7 +1174,9 @@ class OODAAgent:
         if result is None:
             lessons.append("Action was blocked - review approval criteria")
         elif result.success:
-            lessons.append(f"Action '{decision.action}' succeeded with confidence {decision.confidence:.2%}")
+            lessons.append(
+                f"Action '{decision.action}' succeeded with confidence {decision.confidence:.2%}"
+            )
         else:
             lessons.append(f"Action '{decision.action}' failed - investigate causes")
 
@@ -1159,17 +1194,21 @@ class OODAAgent:
         updates = []
 
         if result and result.success:
-            updates.append({
-                "type": "reinforce",
-                "action": decision.action,
-                "confidence_boost": 0.01,
-            })
+            updates.append(
+                {
+                    "type": "reinforce",
+                    "action": decision.action,
+                    "confidence_boost": 0.01,
+                }
+            )
         elif result and not result.success:
-            updates.append({
-                "type": "weaken",
-                "action": decision.action,
-                "confidence_reduction": 0.02,
-            })
+            updates.append(
+                {
+                    "type": "weaken",
+                    "action": decision.action,
+                    "confidence_reduction": 0.02,
+                }
+            )
 
         return updates
 
@@ -1179,15 +1218,17 @@ class OODAAgent:
         result: ActionResult | None,
     ) -> list[dict[str, Any]]:
         """Generate memory updates based on outcome."""
-        return [{
-            "type": "episodic",
-            "content": {
-                "action": decision.action,
-                "success": result.success if result else False,
-                "ethical_score": decision.ethical_score,
-            },
-            "importance": 0.7 if result and result.success else 0.5,
-        }]
+        return [
+            {
+                "type": "episodic",
+                "content": {
+                    "action": decision.action,
+                    "success": result.success if result else False,
+                    "ethical_score": decision.ethical_score,
+                },
+                "importance": 0.7 if result and result.success else 0.5,
+            }
+        ]
 
     def _wait_for_approval(
         self,
@@ -1203,12 +1244,14 @@ class OODAAgent:
 
     def _audit(self, action: str, details: dict[str, Any]) -> None:
         """Add entry to audit log."""
-        self.audit_log.append({
-            "action": action,
-            "details": details,
-            "state": self.state.value,
-            "timestamp": time.time(),
-        })
+        self.audit_log.append(
+            {
+                "action": action,
+                "details": details,
+                "state": self.state.value,
+                "timestamp": time.time(),
+            }
+        )
 
     def get_statistics(self) -> dict[str, Any]:
         """Get agent statistics."""

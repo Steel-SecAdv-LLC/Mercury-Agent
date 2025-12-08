@@ -476,7 +476,7 @@ class RuleMutator:
             new_condition = rule.condition + "_extended"
             new_action = rule.action
         elif mutation_type == MutationType.DELETION:
-            new_condition = rule.condition[:max(1, len(rule.condition) - 3)]
+            new_condition = rule.condition[: max(1, len(rule.condition) - 3)]
             new_action = rule.action
         elif mutation_type == MutationType.INVERSION:
             new_condition = rule.condition[::-1]
@@ -1172,8 +1172,7 @@ class SuperintelligenceBootstrap:
         self._safety_violations = 0
 
         logger.info(
-            f"SuperintelligenceBootstrap initialized with "
-            f"safety_threshold={safety_threshold}"
+            f"SuperintelligenceBootstrap initialized with " f"safety_threshold={safety_threshold}"
         )
 
     def run_improvement_cycle(

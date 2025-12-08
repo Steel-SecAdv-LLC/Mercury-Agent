@@ -217,10 +217,7 @@ class TestNeurosymbolicFusionEngine:
         """Test scoring a single data point."""
         engine = NeurosymbolicFusionEngine(embedding_dim=16, n_clusters=3)
 
-        data = [
-            {"id": f"d{i}", "event": "baseline", "timestamp": time.time()}
-            for i in range(10)
-        ]
+        data = [{"id": f"d{i}", "event": "baseline", "timestamp": time.time()} for i in range(10)]
         engine.ingest_data(data)
 
         score = engine.score_single(
@@ -357,7 +354,12 @@ class TestIntegration:
         )
 
         training_data = [
-            {"id": f"train_{i}", "event": "normal_operation", "value": i, "timestamp": time.time() + i}
+            {
+                "id": f"train_{i}",
+                "event": "normal_operation",
+                "value": i,
+                "timestamp": time.time() + i,
+            }
             for i in range(20)
         ]
         engine.ingest_data(training_data, MemoryType.SEMANTIC)
@@ -402,7 +404,12 @@ class TestIntegration:
         engine = NeurosymbolicFusionEngine(embedding_dim=16, n_clusters=3)
 
         data = [
-            {"id": f"d{i}", "event": "escalating", "importance": 0.3 + i * 0.07, "timestamp": time.time() + i * 100}
+            {
+                "id": f"d{i}",
+                "event": "escalating",
+                "importance": 0.3 + i * 0.07,
+                "timestamp": time.time() + i * 100,
+            }
             for i in range(15)
         ]
         engine.ingest_data(data)

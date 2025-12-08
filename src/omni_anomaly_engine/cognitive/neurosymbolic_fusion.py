@@ -238,9 +238,7 @@ class GatedFusion:
 
         fused_score = gate * neural_score + (1 - gate) * symbolic_score
 
-        fused_confidence = (
-            gate * neural_confidence + (1 - gate) * symbolic_confidence
-        )
+        fused_confidence = gate * neural_confidence + (1 - gate) * symbolic_confidence
 
         return float(fused_score), float(fused_confidence)
 
@@ -377,21 +375,25 @@ class NeurosymbolicFusionEngine:
 
         audit_trail: list[dict[str, Any]] = []
 
-        audit_trail.append({
-            "step": "start",
-            "timestamp": time.time(),
-            "context": context,
-        })
+        audit_trail.append(
+            {
+                "step": "start",
+                "timestamp": time.time(),
+                "context": context,
+            }
+        )
 
         neural_analysis = self.neural_layer.analyze()
         neural_features = self.neural_layer.get_neural_features()
 
-        audit_trail.append({
-            "step": "neural_analysis",
-            "timestamp": time.time(),
-            "patterns_detected": neural_analysis.get("patterns_detected", 0),
-            "predictions_made": neural_analysis.get("predictions_made", 0),
-        })
+        audit_trail.append(
+            {
+                "step": "neural_analysis",
+                "timestamp": time.time(),
+                "patterns_detected": neural_analysis.get("patterns_detected", 0),
+                "predictions_made": neural_analysis.get("predictions_made", 0),
+            }
+        )
 
         context_facts = self._extract_facts_from_patterns(neural_analysis)
 
@@ -403,12 +405,14 @@ class NeurosymbolicFusionEngine:
         )
         symbolic_features = self.symbolic_layer.get_symbolic_features()
 
-        audit_trail.append({
-            "step": "symbolic_analysis",
-            "timestamp": time.time(),
-            "decision_type": symbolic_decision.decision_type.value,
-            "rules_fired": len(symbolic_decision.rules_fired),
-        })
+        audit_trail.append(
+            {
+                "step": "symbolic_analysis",
+                "timestamp": time.time(),
+                "decision_type": symbolic_decision.decision_type.value,
+                "rules_fired": len(symbolic_decision.rules_fired),
+            }
+        )
 
         anomaly_scores = self._compute_hybrid_scores(
             neural_analysis,
@@ -435,12 +439,14 @@ class NeurosymbolicFusionEngine:
             overall_score,
         )
 
-        audit_trail.append({
-            "step": "fusion_complete",
-            "timestamp": time.time(),
-            "overall_score": overall_score,
-            "overall_confidence": overall_confidence,
-        })
+        audit_trail.append(
+            {
+                "step": "fusion_complete",
+                "timestamp": time.time(),
+                "overall_score": overall_score,
+                "overall_confidence": overall_confidence,
+            }
+        )
 
         return FusionResult(
             result_id=result_id,
@@ -629,19 +635,21 @@ class NeurosymbolicFusionEngine:
 
             explanation = f"Pattern '{pattern.get('id', 'unknown')}': {pattern.get('description', 'No description')}"
 
-            scores.append(HybridAnomalyScore(
-                score_id=score_id,
-                anomaly_score=fused_score,
-                neural_score=neural_score,
-                symbolic_score=symbolic_score,
-                confidence=fused_confidence,
-                category=category,
-                is_anomaly=is_anomaly,
-                explanation=explanation,
-                neural_patterns=[pattern.get("id", "")],
-                symbolic_rules=symbolic_decision.rules_fired,
-                fusion_strategy=self.fusion_strategy,
-            ))
+            scores.append(
+                HybridAnomalyScore(
+                    score_id=score_id,
+                    anomaly_score=fused_score,
+                    neural_score=neural_score,
+                    symbolic_score=symbolic_score,
+                    confidence=fused_confidence,
+                    category=category,
+                    is_anomaly=is_anomaly,
+                    explanation=explanation,
+                    neural_patterns=[pattern.get("id", "")],
+                    symbolic_rules=symbolic_decision.rules_fired,
+                    fusion_strategy=self.fusion_strategy,
+                )
+            )
 
         return scores
 
@@ -654,13 +662,9 @@ class NeurosymbolicFusionEngine:
     ) -> tuple[float, float]:
         """Fuse neural and symbolic scores based on strategy."""
         if self.fusion_strategy == FusionStrategy.WEIGHTED_AVERAGE:
-            fused_score = (
-                self.neural_weight * neural_score +
-                self.symbolic_weight * symbolic_score
-            )
+            fused_score = self.neural_weight * neural_score + self.symbolic_weight * symbolic_score
             fused_confidence = (
-                self.neural_weight * neural_confidence +
-                self.symbolic_weight * symbolic_confidence
+                self.neural_weight * neural_confidence + self.symbolic_weight * symbolic_confidence
             )
 
         elif self.fusion_strategy == FusionStrategy.ATTENTION:
@@ -674,8 +678,7 @@ class NeurosymbolicFusionEngine:
 
         elif self.fusion_strategy == FusionStrategy.GATED:
             fused_score, fused_confidence = self.gated_fusion.fuse(
-                neural_score, symbolic_score,
-                neural_confidence, symbolic_confidence
+                neural_score, symbolic_score, neural_confidence, symbolic_confidence
             )
 
         elif self.fusion_strategy == FusionStrategy.CONFIDENCE_WEIGHTED:

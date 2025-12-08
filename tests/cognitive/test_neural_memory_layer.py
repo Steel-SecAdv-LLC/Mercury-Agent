@@ -305,8 +305,7 @@ class TestNeuralMemoryLayer:
         """Test analysis with sufficient data."""
         layer = NeuralMemoryLayer(embedding_dim=16, n_clusters=3)
         memories = [
-            {"id": f"m{i}", "event": f"event_{i}", "timestamp": time.time() + i}
-            for i in range(20)
+            {"id": f"m{i}", "event": f"event_{i}", "timestamp": time.time() + i} for i in range(20)
         ]
         layer.ingest_memories(memories)
         result = layer.analyze()
@@ -318,8 +317,7 @@ class TestNeuralMemoryLayer:
         """Test similarity search."""
         layer = NeuralMemoryLayer(embedding_dim=16, n_clusters=3)
         memories = [
-            {"id": f"m{i}", "event": "similar_event", "timestamp": time.time()}
-            for i in range(10)
+            {"id": f"m{i}", "event": "similar_event", "timestamp": time.time()} for i in range(10)
         ]
         layer.ingest_memories(memories)
         query = layer.embeddings[0].embedding
@@ -330,10 +328,7 @@ class TestNeuralMemoryLayer:
     def test_get_anomaly_score(self):
         """Test anomaly scoring."""
         layer = NeuralMemoryLayer(embedding_dim=16, n_clusters=3)
-        memories = [
-            {"id": f"m{i}", "event": "normal", "timestamp": time.time()}
-            for i in range(15)
-        ]
+        memories = [{"id": f"m{i}", "event": "normal", "timestamp": time.time()} for i in range(15)]
         layer.ingest_memories(memories)
         score = layer.get_anomaly_score(np.random.randn(16) * 10)
         assert 0 <= score <= 1
@@ -342,8 +337,7 @@ class TestNeuralMemoryLayer:
         """Test neural feature extraction."""
         layer = NeuralMemoryLayer(embedding_dim=16, n_clusters=3)
         memories = [
-            {"id": f"m{i}", "event": f"event_{i}", "timestamp": time.time()}
-            for i in range(10)
+            {"id": f"m{i}", "event": f"event_{i}", "timestamp": time.time()} for i in range(10)
         ]
         layer.ingest_memories(memories)
         features = layer.get_neural_features()

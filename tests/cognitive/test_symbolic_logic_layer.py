@@ -251,9 +251,7 @@ class TestLogicGraph:
         """Test statistics retrieval."""
         graph = LogicGraph()
         graph.create_rule("A", "B")
-        graph.add_threshold_rule(
-            ThresholdRule("t1", "x", ">", 0.5, "high")
-        )
+        graph.add_threshold_rule(ThresholdRule("t1", "x", ">", 0.5, "high"))
 
         stats = graph.get_statistics()
         assert stats["num_rules"] == 1
@@ -288,7 +286,11 @@ class TestSymbolicReasoner:
             values={"anomaly_score": 0.9, "deviation_score": 3.0},
             neural_score=0.8,
         )
-        assert decision.decision_type in [DecisionType.ANOMALY, DecisionType.ESCALATE, DecisionType.UNCERTAIN]
+        assert decision.decision_type in [
+            DecisionType.ANOMALY,
+            DecisionType.ESCALATE,
+            DecisionType.UNCERTAIN,
+        ]
         assert decision.confidence > 0.5
 
     def test_reason_blocked(self):

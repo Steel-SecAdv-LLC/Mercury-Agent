@@ -242,9 +242,7 @@ class MemoryKnowledgeGraph:
 
             for depth in range(1, max_depth + 1):
                 try:
-                    paths = nx.single_source_shortest_path_length(
-                        self.graph, node_id, cutoff=depth
-                    )
+                    paths = nx.single_source_shortest_path_length(self.graph, node_id, cutoff=depth)
                     for target, dist in paths.items():
                         if target != node_id:
                             relevance = 1.0 / (dist + 1)
@@ -418,9 +416,7 @@ class HiddenMarkovPredictor:
             Most likely current state
         """
         if observation not in self.emission_probs:
-            self.emission_probs[observation] = np.random.dirichlet(
-                np.ones(self.n_states)
-            )
+            self.emission_probs[observation] = np.random.dirichlet(np.ones(self.n_states))
 
         if not self.state_history:
             state_probs = self.initial_probs * self.emission_probs[observation]
@@ -590,7 +586,7 @@ class ExternalDataIntegrator:
 
         self.data_buffer.extend(all_data)
         if len(self.data_buffer) > self.max_buffer_size:
-            self.data_buffer = self.data_buffer[-self.max_buffer_size:]
+            self.data_buffer = self.data_buffer[-self.max_buffer_size :]
 
         return all_data
 
@@ -613,12 +609,14 @@ class ExternalDataIntegrator:
             for internal in internal_patterns:
                 similarity = self._compute_similarity(external, internal)
                 if similarity > 0.5:
-                    alignments.append({
-                        "external": external,
-                        "internal": internal,
-                        "similarity": similarity,
-                        "timestamp": time.time(),
-                    })
+                    alignments.append(
+                        {
+                            "external": external,
+                            "internal": internal,
+                            "similarity": similarity,
+                            "timestamp": time.time(),
+                        }
+                    )
 
         return alignments
 
