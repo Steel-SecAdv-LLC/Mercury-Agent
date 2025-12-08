@@ -1,819 +1,2182 @@
 {
-  "timestamp": "2025-12-07T23:33:38.494818+00:00",
-  "epochs_completed": 100,
+  "timestamp": "2025-12-08T00:37:58.087863+00:00",
+  "epochs_completed": 30,
   "scenarios_per_epoch": 8,
-  "total_executions": 800,
+  "total_executions": 240,
   "final_metrics": {
     "avg_success_rate": 1.0,
-    "avg_plan_confidence": 0.755,
+    "avg_plan_confidence": 0.9920000000000001,
+    "avg_legacy_confidence": 0.755,
+    "confidence_vs_legacy": 0.2370000000000001,
+    "confidence_growth": 0.2320000000000001,
     "improvement_from_start": 0.0
   },
   "memory_accumulated": {
     "short_term": 100,
     "long_term": 0,
-    "episodic": 800,
-    "semantic": 800
+    "episodic": 240,
+    "semantic": 240
+  },
+  "calibrator_final_state": {
+    "total_contexts": 8,
+    "total_observations": 240,
+    "avg_posterior_mean": 0.9922580645161291,
+    "config": {
+      "prior_mean": 0.76,
+      "prior_kappa": 1.0,
+      "familiarity_target": 5
+    },
+    "contexts": {
+      "medical:analysis": {
+        "observations": 30,
+        "successes": 30,
+        "failures": 0,
+        "posterior_mean": 0.9922580645161291
+      },
+      "security:analysis": {
+        "observations": 30,
+        "successes": 30,
+        "failures": 0,
+        "posterior_mean": 0.9922580645161291
+      },
+      "humanitarian:monitoring": {
+        "observations": 30,
+        "successes": 30,
+        "failures": 0,
+        "posterior_mean": 0.9922580645161291
+      },
+      "infrastructure:generic": {
+        "observations": 30,
+        "successes": 30,
+        "failures": 0,
+        "posterior_mean": 0.9922580645161291
+      },
+      "energy:analysis": {
+        "observations": 30,
+        "successes": 30,
+        "failures": 0,
+        "posterior_mean": 0.9922580645161291
+      },
+      "scientific:analysis": {
+        "observations": 30,
+        "successes": 30,
+        "failures": 0,
+        "posterior_mean": 0.9922580645161291
+      },
+      "financial:analysis": {
+        "observations": 30,
+        "successes": 30,
+        "failures": 0,
+        "posterior_mean": 0.9922580645161291
+      },
+      "general:analysis": {
+        "observations": 30,
+        "successes": 30,
+        "failures": 0,
+        "posterior_mean": 0.9922580645161291
+      }
+    }
   },
   "epoch_summaries": [
     {
       "epoch": 1,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.76,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.0050000000000000044,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 2.3167890000195257
+      "epoch_time_ms": 2.085188000819471,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 8,
+        "avg_posterior_mean": 0.88,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 1,
+            "successes": 1,
+            "failures": 0,
+            "posterior_mean": 0.88
+          },
+          "security:analysis": {
+            "observations": 1,
+            "successes": 1,
+            "failures": 0,
+            "posterior_mean": 0.88
+          },
+          "humanitarian:monitoring": {
+            "observations": 1,
+            "successes": 1,
+            "failures": 0,
+            "posterior_mean": 0.88
+          },
+          "infrastructure:generic": {
+            "observations": 1,
+            "successes": 1,
+            "failures": 0,
+            "posterior_mean": 0.88
+          },
+          "energy:analysis": {
+            "observations": 1,
+            "successes": 1,
+            "failures": 0,
+            "posterior_mean": 0.88
+          },
+          "scientific:analysis": {
+            "observations": 1,
+            "successes": 1,
+            "failures": 0,
+            "posterior_mean": 0.88
+          },
+          "financial:analysis": {
+            "observations": 1,
+            "successes": 1,
+            "failures": 0,
+            "posterior_mean": 0.88
+          },
+          "general:analysis": {
+            "observations": 1,
+            "successes": 1,
+            "failures": 0,
+            "posterior_mean": 0.88
+          }
+        }
+      }
     },
     {
       "epoch": 2,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.784,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.029000000000000026,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.4659830000027796
+      "epoch_time_ms": 1.5266969994627289,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 16,
+        "avg_posterior_mean": 0.9199999999999999,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 2,
+            "successes": 2,
+            "failures": 0,
+            "posterior_mean": 0.9199999999999999
+          },
+          "security:analysis": {
+            "observations": 2,
+            "successes": 2,
+            "failures": 0,
+            "posterior_mean": 0.9199999999999999
+          },
+          "humanitarian:monitoring": {
+            "observations": 2,
+            "successes": 2,
+            "failures": 0,
+            "posterior_mean": 0.9199999999999999
+          },
+          "infrastructure:generic": {
+            "observations": 2,
+            "successes": 2,
+            "failures": 0,
+            "posterior_mean": 0.9199999999999999
+          },
+          "energy:analysis": {
+            "observations": 2,
+            "successes": 2,
+            "failures": 0,
+            "posterior_mean": 0.9199999999999999
+          },
+          "scientific:analysis": {
+            "observations": 2,
+            "successes": 2,
+            "failures": 0,
+            "posterior_mean": 0.9199999999999999
+          },
+          "financial:analysis": {
+            "observations": 2,
+            "successes": 2,
+            "failures": 0,
+            "posterior_mean": 0.9199999999999999
+          },
+          "general:analysis": {
+            "observations": 2,
+            "successes": 2,
+            "failures": 0,
+            "posterior_mean": 0.9199999999999999
+          }
+        }
+      }
     },
     {
       "epoch": 3,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.824,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.06899999999999995,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.4368590000231052
+      "epoch_time_ms": 1.5249739999489975,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 24,
+        "avg_posterior_mean": 0.94,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 3,
+            "successes": 3,
+            "failures": 0,
+            "posterior_mean": 0.94
+          },
+          "security:analysis": {
+            "observations": 3,
+            "successes": 3,
+            "failures": 0,
+            "posterior_mean": 0.94
+          },
+          "humanitarian:monitoring": {
+            "observations": 3,
+            "successes": 3,
+            "failures": 0,
+            "posterior_mean": 0.94
+          },
+          "infrastructure:generic": {
+            "observations": 3,
+            "successes": 3,
+            "failures": 0,
+            "posterior_mean": 0.94
+          },
+          "energy:analysis": {
+            "observations": 3,
+            "successes": 3,
+            "failures": 0,
+            "posterior_mean": 0.94
+          },
+          "scientific:analysis": {
+            "observations": 3,
+            "successes": 3,
+            "failures": 0,
+            "posterior_mean": 0.94
+          },
+          "financial:analysis": {
+            "observations": 3,
+            "successes": 3,
+            "failures": 0,
+            "posterior_mean": 0.94
+          },
+          "general:analysis": {
+            "observations": 3,
+            "successes": 3,
+            "failures": 0,
+            "posterior_mean": 0.94
+          }
+        }
+      }
     },
     {
       "epoch": 4,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.868,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.11299999999999999,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.9914130000415753
+      "epoch_time_ms": 1.6481630000271252,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 32,
+        "avg_posterior_mean": 0.952,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 4,
+            "successes": 4,
+            "failures": 0,
+            "posterior_mean": 0.952
+          },
+          "security:analysis": {
+            "observations": 4,
+            "successes": 4,
+            "failures": 0,
+            "posterior_mean": 0.952
+          },
+          "humanitarian:monitoring": {
+            "observations": 4,
+            "successes": 4,
+            "failures": 0,
+            "posterior_mean": 0.952
+          },
+          "infrastructure:generic": {
+            "observations": 4,
+            "successes": 4,
+            "failures": 0,
+            "posterior_mean": 0.952
+          },
+          "energy:analysis": {
+            "observations": 4,
+            "successes": 4,
+            "failures": 0,
+            "posterior_mean": 0.952
+          },
+          "scientific:analysis": {
+            "observations": 4,
+            "successes": 4,
+            "failures": 0,
+            "posterior_mean": 0.952
+          },
+          "financial:analysis": {
+            "observations": 4,
+            "successes": 4,
+            "failures": 0,
+            "posterior_mean": 0.952
+          },
+          "general:analysis": {
+            "observations": 4,
+            "successes": 4,
+            "failures": 0,
+            "posterior_mean": 0.952
+          }
+        }
+      }
     },
     {
       "epoch": 5,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9136,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.15859999999999996,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.4044089999742937
+      "epoch_time_ms": 1.5393599996968987,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 40,
+        "avg_posterior_mean": 0.96,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 5,
+            "successes": 5,
+            "failures": 0,
+            "posterior_mean": 0.96
+          },
+          "security:analysis": {
+            "observations": 5,
+            "successes": 5,
+            "failures": 0,
+            "posterior_mean": 0.96
+          },
+          "humanitarian:monitoring": {
+            "observations": 5,
+            "successes": 5,
+            "failures": 0,
+            "posterior_mean": 0.96
+          },
+          "infrastructure:generic": {
+            "observations": 5,
+            "successes": 5,
+            "failures": 0,
+            "posterior_mean": 0.96
+          },
+          "energy:analysis": {
+            "observations": 5,
+            "successes": 5,
+            "failures": 0,
+            "posterior_mean": 0.96
+          },
+          "scientific:analysis": {
+            "observations": 5,
+            "successes": 5,
+            "failures": 0,
+            "posterior_mean": 0.96
+          },
+          "financial:analysis": {
+            "observations": 5,
+            "successes": 5,
+            "failures": 0,
+            "posterior_mean": 0.96
+          },
+          "general:analysis": {
+            "observations": 5,
+            "successes": 5,
+            "failures": 0,
+            "posterior_mean": 0.96
+          }
+        }
+      }
     },
     {
       "epoch": 6,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.96,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.20499999999999996,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.4726150000115013
+      "epoch_time_ms": 1.628796999284532,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 48,
+        "avg_posterior_mean": 0.9657142857142856,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 6,
+            "successes": 6,
+            "failures": 0,
+            "posterior_mean": 0.9657142857142856
+          },
+          "security:analysis": {
+            "observations": 6,
+            "successes": 6,
+            "failures": 0,
+            "posterior_mean": 0.9657142857142856
+          },
+          "humanitarian:monitoring": {
+            "observations": 6,
+            "successes": 6,
+            "failures": 0,
+            "posterior_mean": 0.9657142857142856
+          },
+          "infrastructure:generic": {
+            "observations": 6,
+            "successes": 6,
+            "failures": 0,
+            "posterior_mean": 0.9657142857142856
+          },
+          "energy:analysis": {
+            "observations": 6,
+            "successes": 6,
+            "failures": 0,
+            "posterior_mean": 0.9657142857142856
+          },
+          "scientific:analysis": {
+            "observations": 6,
+            "successes": 6,
+            "failures": 0,
+            "posterior_mean": 0.9657142857142856
+          },
+          "financial:analysis": {
+            "observations": 6,
+            "successes": 6,
+            "failures": 0,
+            "posterior_mean": 0.9657142857142856
+          },
+          "general:analysis": {
+            "observations": 6,
+            "successes": 6,
+            "failures": 0,
+            "posterior_mean": 0.9657142857142856
+          }
+        }
+      }
     },
     {
       "epoch": 7,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9657142857142856,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.21071428571428563,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.438673000052404
+      "epoch_time_ms": 1.478197000324144,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 56,
+        "avg_posterior_mean": 0.97,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 7,
+            "successes": 7,
+            "failures": 0,
+            "posterior_mean": 0.97
+          },
+          "security:analysis": {
+            "observations": 7,
+            "successes": 7,
+            "failures": 0,
+            "posterior_mean": 0.97
+          },
+          "humanitarian:monitoring": {
+            "observations": 7,
+            "successes": 7,
+            "failures": 0,
+            "posterior_mean": 0.97
+          },
+          "infrastructure:generic": {
+            "observations": 7,
+            "successes": 7,
+            "failures": 0,
+            "posterior_mean": 0.97
+          },
+          "energy:analysis": {
+            "observations": 7,
+            "successes": 7,
+            "failures": 0,
+            "posterior_mean": 0.97
+          },
+          "scientific:analysis": {
+            "observations": 7,
+            "successes": 7,
+            "failures": 0,
+            "posterior_mean": 0.97
+          },
+          "financial:analysis": {
+            "observations": 7,
+            "successes": 7,
+            "failures": 0,
+            "posterior_mean": 0.97
+          },
+          "general:analysis": {
+            "observations": 7,
+            "successes": 7,
+            "failures": 0,
+            "posterior_mean": 0.97
+          }
+        }
+      }
     },
     {
       "epoch": 8,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.97,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.21499999999999997,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.496610000003784
+      "epoch_time_ms": 1.5426260006279335,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 64,
+        "avg_posterior_mean": 0.9733333333333333,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 8,
+            "successes": 8,
+            "failures": 0,
+            "posterior_mean": 0.9733333333333333
+          },
+          "security:analysis": {
+            "observations": 8,
+            "successes": 8,
+            "failures": 0,
+            "posterior_mean": 0.9733333333333333
+          },
+          "humanitarian:monitoring": {
+            "observations": 8,
+            "successes": 8,
+            "failures": 0,
+            "posterior_mean": 0.9733333333333333
+          },
+          "infrastructure:generic": {
+            "observations": 8,
+            "successes": 8,
+            "failures": 0,
+            "posterior_mean": 0.9733333333333333
+          },
+          "energy:analysis": {
+            "observations": 8,
+            "successes": 8,
+            "failures": 0,
+            "posterior_mean": 0.9733333333333333
+          },
+          "scientific:analysis": {
+            "observations": 8,
+            "successes": 8,
+            "failures": 0,
+            "posterior_mean": 0.9733333333333333
+          },
+          "financial:analysis": {
+            "observations": 8,
+            "successes": 8,
+            "failures": 0,
+            "posterior_mean": 0.9733333333333333
+          },
+          "general:analysis": {
+            "observations": 8,
+            "successes": 8,
+            "failures": 0,
+            "posterior_mean": 0.9733333333333333
+          }
+        }
+      }
     },
     {
       "epoch": 9,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9733333333333333,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.21833333333333327,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.398537000000033
+      "epoch_time_ms": 1.545651999549591,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 72,
+        "avg_posterior_mean": 0.976,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 9,
+            "successes": 9,
+            "failures": 0,
+            "posterior_mean": 0.976
+          },
+          "security:analysis": {
+            "observations": 9,
+            "successes": 9,
+            "failures": 0,
+            "posterior_mean": 0.976
+          },
+          "humanitarian:monitoring": {
+            "observations": 9,
+            "successes": 9,
+            "failures": 0,
+            "posterior_mean": 0.976
+          },
+          "infrastructure:generic": {
+            "observations": 9,
+            "successes": 9,
+            "failures": 0,
+            "posterior_mean": 0.976
+          },
+          "energy:analysis": {
+            "observations": 9,
+            "successes": 9,
+            "failures": 0,
+            "posterior_mean": 0.976
+          },
+          "scientific:analysis": {
+            "observations": 9,
+            "successes": 9,
+            "failures": 0,
+            "posterior_mean": 0.976
+          },
+          "financial:analysis": {
+            "observations": 9,
+            "successes": 9,
+            "failures": 0,
+            "posterior_mean": 0.976
+          },
+          "general:analysis": {
+            "observations": 9,
+            "successes": 9,
+            "failures": 0,
+            "posterior_mean": 0.976
+          }
+        }
+      }
     },
     {
       "epoch": 10,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.976,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.22099999999999997,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.3805539999793837
+      "epoch_time_ms": 1.5340600002673455,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 80,
+        "avg_posterior_mean": 0.9781818181818182,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 10,
+            "successes": 10,
+            "failures": 0,
+            "posterior_mean": 0.9781818181818182
+          },
+          "security:analysis": {
+            "observations": 10,
+            "successes": 10,
+            "failures": 0,
+            "posterior_mean": 0.9781818181818182
+          },
+          "humanitarian:monitoring": {
+            "observations": 10,
+            "successes": 10,
+            "failures": 0,
+            "posterior_mean": 0.9781818181818182
+          },
+          "infrastructure:generic": {
+            "observations": 10,
+            "successes": 10,
+            "failures": 0,
+            "posterior_mean": 0.9781818181818182
+          },
+          "energy:analysis": {
+            "observations": 10,
+            "successes": 10,
+            "failures": 0,
+            "posterior_mean": 0.9781818181818182
+          },
+          "scientific:analysis": {
+            "observations": 10,
+            "successes": 10,
+            "failures": 0,
+            "posterior_mean": 0.9781818181818182
+          },
+          "financial:analysis": {
+            "observations": 10,
+            "successes": 10,
+            "failures": 0,
+            "posterior_mean": 0.9781818181818182
+          },
+          "general:analysis": {
+            "observations": 10,
+            "successes": 10,
+            "failures": 0,
+            "posterior_mean": 0.9781818181818182
+          }
+        }
+      }
     },
     {
       "epoch": 11,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9781818181818182,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.22318181818181815,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.509723999902235
+      "epoch_time_ms": 1.59881099989434,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 88,
+        "avg_posterior_mean": 0.98,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 11,
+            "successes": 11,
+            "failures": 0,
+            "posterior_mean": 0.98
+          },
+          "security:analysis": {
+            "observations": 11,
+            "successes": 11,
+            "failures": 0,
+            "posterior_mean": 0.98
+          },
+          "humanitarian:monitoring": {
+            "observations": 11,
+            "successes": 11,
+            "failures": 0,
+            "posterior_mean": 0.98
+          },
+          "infrastructure:generic": {
+            "observations": 11,
+            "successes": 11,
+            "failures": 0,
+            "posterior_mean": 0.98
+          },
+          "energy:analysis": {
+            "observations": 11,
+            "successes": 11,
+            "failures": 0,
+            "posterior_mean": 0.98
+          },
+          "scientific:analysis": {
+            "observations": 11,
+            "successes": 11,
+            "failures": 0,
+            "posterior_mean": 0.98
+          },
+          "financial:analysis": {
+            "observations": 11,
+            "successes": 11,
+            "failures": 0,
+            "posterior_mean": 0.98
+          },
+          "general:analysis": {
+            "observations": 11,
+            "successes": 11,
+            "failures": 0,
+            "posterior_mean": 0.98
+          }
+        }
+      }
     },
     {
       "epoch": 12,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.98,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.22499999999999998,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.369582999927843
+      "epoch_time_ms": 1.4741990007678396,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 96,
+        "avg_posterior_mean": 0.9815384615384615,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 12,
+            "successes": 12,
+            "failures": 0,
+            "posterior_mean": 0.9815384615384615
+          },
+          "security:analysis": {
+            "observations": 12,
+            "successes": 12,
+            "failures": 0,
+            "posterior_mean": 0.9815384615384615
+          },
+          "humanitarian:monitoring": {
+            "observations": 12,
+            "successes": 12,
+            "failures": 0,
+            "posterior_mean": 0.9815384615384615
+          },
+          "infrastructure:generic": {
+            "observations": 12,
+            "successes": 12,
+            "failures": 0,
+            "posterior_mean": 0.9815384615384615
+          },
+          "energy:analysis": {
+            "observations": 12,
+            "successes": 12,
+            "failures": 0,
+            "posterior_mean": 0.9815384615384615
+          },
+          "scientific:analysis": {
+            "observations": 12,
+            "successes": 12,
+            "failures": 0,
+            "posterior_mean": 0.9815384615384615
+          },
+          "financial:analysis": {
+            "observations": 12,
+            "successes": 12,
+            "failures": 0,
+            "posterior_mean": 0.9815384615384615
+          },
+          "general:analysis": {
+            "observations": 12,
+            "successes": 12,
+            "failures": 0,
+            "posterior_mean": 0.9815384615384615
+          }
+        }
+      }
     },
     {
       "epoch": 13,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9815384615384615,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.22653846153846147,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.4084860000593835
+      "epoch_time_ms": 1.5267070002664695,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 104,
+        "avg_posterior_mean": 0.9828571428571429,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 13,
+            "successes": 13,
+            "failures": 0,
+            "posterior_mean": 0.9828571428571429
+          },
+          "security:analysis": {
+            "observations": 13,
+            "successes": 13,
+            "failures": 0,
+            "posterior_mean": 0.9828571428571429
+          },
+          "humanitarian:monitoring": {
+            "observations": 13,
+            "successes": 13,
+            "failures": 0,
+            "posterior_mean": 0.9828571428571429
+          },
+          "infrastructure:generic": {
+            "observations": 13,
+            "successes": 13,
+            "failures": 0,
+            "posterior_mean": 0.9828571428571429
+          },
+          "energy:analysis": {
+            "observations": 13,
+            "successes": 13,
+            "failures": 0,
+            "posterior_mean": 0.9828571428571429
+          },
+          "scientific:analysis": {
+            "observations": 13,
+            "successes": 13,
+            "failures": 0,
+            "posterior_mean": 0.9828571428571429
+          },
+          "financial:analysis": {
+            "observations": 13,
+            "successes": 13,
+            "failures": 0,
+            "posterior_mean": 0.9828571428571429
+          },
+          "general:analysis": {
+            "observations": 13,
+            "successes": 13,
+            "failures": 0,
+            "posterior_mean": 0.9828571428571429
+          }
+        }
+      }
     },
     {
       "epoch": 14,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9828571428571429,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.22785714285714287,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.4514959999587518
+      "epoch_time_ms": 1.5360639999926207,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 112,
+        "avg_posterior_mean": 0.984,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 14,
+            "successes": 14,
+            "failures": 0,
+            "posterior_mean": 0.984
+          },
+          "security:analysis": {
+            "observations": 14,
+            "successes": 14,
+            "failures": 0,
+            "posterior_mean": 0.984
+          },
+          "humanitarian:monitoring": {
+            "observations": 14,
+            "successes": 14,
+            "failures": 0,
+            "posterior_mean": 0.984
+          },
+          "infrastructure:generic": {
+            "observations": 14,
+            "successes": 14,
+            "failures": 0,
+            "posterior_mean": 0.984
+          },
+          "energy:analysis": {
+            "observations": 14,
+            "successes": 14,
+            "failures": 0,
+            "posterior_mean": 0.984
+          },
+          "scientific:analysis": {
+            "observations": 14,
+            "successes": 14,
+            "failures": 0,
+            "posterior_mean": 0.984
+          },
+          "financial:analysis": {
+            "observations": 14,
+            "successes": 14,
+            "failures": 0,
+            "posterior_mean": 0.984
+          },
+          "general:analysis": {
+            "observations": 14,
+            "successes": 14,
+            "failures": 0,
+            "posterior_mean": 0.984
+          }
+        }
+      }
     },
     {
       "epoch": 15,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.984,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.22899999999999998,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.3724990000127946
+      "epoch_time_ms": 1.5305839997381554,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 120,
+        "avg_posterior_mean": 0.985,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 15,
+            "successes": 15,
+            "failures": 0,
+            "posterior_mean": 0.985
+          },
+          "security:analysis": {
+            "observations": 15,
+            "successes": 15,
+            "failures": 0,
+            "posterior_mean": 0.985
+          },
+          "humanitarian:monitoring": {
+            "observations": 15,
+            "successes": 15,
+            "failures": 0,
+            "posterior_mean": 0.985
+          },
+          "infrastructure:generic": {
+            "observations": 15,
+            "successes": 15,
+            "failures": 0,
+            "posterior_mean": 0.985
+          },
+          "energy:analysis": {
+            "observations": 15,
+            "successes": 15,
+            "failures": 0,
+            "posterior_mean": 0.985
+          },
+          "scientific:analysis": {
+            "observations": 15,
+            "successes": 15,
+            "failures": 0,
+            "posterior_mean": 0.985
+          },
+          "financial:analysis": {
+            "observations": 15,
+            "successes": 15,
+            "failures": 0,
+            "posterior_mean": 0.985
+          },
+          "general:analysis": {
+            "observations": 15,
+            "successes": 15,
+            "failures": 0,
+            "posterior_mean": 0.985
+          }
+        }
+      }
     },
     {
       "epoch": 16,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.985,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.22999999999999998,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.5267169999333419
+      "epoch_time_ms": 1.7756209999788553,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 128,
+        "avg_posterior_mean": 0.9858823529411765,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 16,
+            "successes": 16,
+            "failures": 0,
+            "posterior_mean": 0.9858823529411765
+          },
+          "security:analysis": {
+            "observations": 16,
+            "successes": 16,
+            "failures": 0,
+            "posterior_mean": 0.9858823529411765
+          },
+          "humanitarian:monitoring": {
+            "observations": 16,
+            "successes": 16,
+            "failures": 0,
+            "posterior_mean": 0.9858823529411765
+          },
+          "infrastructure:generic": {
+            "observations": 16,
+            "successes": 16,
+            "failures": 0,
+            "posterior_mean": 0.9858823529411765
+          },
+          "energy:analysis": {
+            "observations": 16,
+            "successes": 16,
+            "failures": 0,
+            "posterior_mean": 0.9858823529411765
+          },
+          "scientific:analysis": {
+            "observations": 16,
+            "successes": 16,
+            "failures": 0,
+            "posterior_mean": 0.9858823529411765
+          },
+          "financial:analysis": {
+            "observations": 16,
+            "successes": 16,
+            "failures": 0,
+            "posterior_mean": 0.9858823529411765
+          },
+          "general:analysis": {
+            "observations": 16,
+            "successes": 16,
+            "failures": 0,
+            "posterior_mean": 0.9858823529411765
+          }
+        }
+      }
     },
     {
       "epoch": 17,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9858823529411765,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.23088235294117654,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.3720379999995203
+      "epoch_time_ms": 1.4759820005565416,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 136,
+        "avg_posterior_mean": 0.9866666666666668,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 17,
+            "successes": 17,
+            "failures": 0,
+            "posterior_mean": 0.9866666666666668
+          },
+          "security:analysis": {
+            "observations": 17,
+            "successes": 17,
+            "failures": 0,
+            "posterior_mean": 0.9866666666666668
+          },
+          "humanitarian:monitoring": {
+            "observations": 17,
+            "successes": 17,
+            "failures": 0,
+            "posterior_mean": 0.9866666666666668
+          },
+          "infrastructure:generic": {
+            "observations": 17,
+            "successes": 17,
+            "failures": 0,
+            "posterior_mean": 0.9866666666666668
+          },
+          "energy:analysis": {
+            "observations": 17,
+            "successes": 17,
+            "failures": 0,
+            "posterior_mean": 0.9866666666666668
+          },
+          "scientific:analysis": {
+            "observations": 17,
+            "successes": 17,
+            "failures": 0,
+            "posterior_mean": 0.9866666666666668
+          },
+          "financial:analysis": {
+            "observations": 17,
+            "successes": 17,
+            "failures": 0,
+            "posterior_mean": 0.9866666666666668
+          },
+          "general:analysis": {
+            "observations": 17,
+            "successes": 17,
+            "failures": 0,
+            "posterior_mean": 0.9866666666666668
+          }
+        }
+      }
     },
     {
       "epoch": 18,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9866666666666668,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.2316666666666668,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.4256179999847518
+      "epoch_time_ms": 1.5516229996137554,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 144,
+        "avg_posterior_mean": 0.9873684210526317,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 18,
+            "successes": 18,
+            "failures": 0,
+            "posterior_mean": 0.9873684210526317
+          },
+          "security:analysis": {
+            "observations": 18,
+            "successes": 18,
+            "failures": 0,
+            "posterior_mean": 0.9873684210526317
+          },
+          "humanitarian:monitoring": {
+            "observations": 18,
+            "successes": 18,
+            "failures": 0,
+            "posterior_mean": 0.9873684210526317
+          },
+          "infrastructure:generic": {
+            "observations": 18,
+            "successes": 18,
+            "failures": 0,
+            "posterior_mean": 0.9873684210526317
+          },
+          "energy:analysis": {
+            "observations": 18,
+            "successes": 18,
+            "failures": 0,
+            "posterior_mean": 0.9873684210526317
+          },
+          "scientific:analysis": {
+            "observations": 18,
+            "successes": 18,
+            "failures": 0,
+            "posterior_mean": 0.9873684210526317
+          },
+          "financial:analysis": {
+            "observations": 18,
+            "successes": 18,
+            "failures": 0,
+            "posterior_mean": 0.9873684210526317
+          },
+          "general:analysis": {
+            "observations": 18,
+            "successes": 18,
+            "failures": 0,
+            "posterior_mean": 0.9873684210526317
+          }
+        }
+      }
     },
     {
       "epoch": 19,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9873684210526317,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.23236842105263167,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.5882310000279176
+      "epoch_time_ms": 1.5671519995521521,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 152,
+        "avg_posterior_mean": 0.9880000000000001,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 19,
+            "successes": 19,
+            "failures": 0,
+            "posterior_mean": 0.9880000000000001
+          },
+          "security:analysis": {
+            "observations": 19,
+            "successes": 19,
+            "failures": 0,
+            "posterior_mean": 0.9880000000000001
+          },
+          "humanitarian:monitoring": {
+            "observations": 19,
+            "successes": 19,
+            "failures": 0,
+            "posterior_mean": 0.9880000000000001
+          },
+          "infrastructure:generic": {
+            "observations": 19,
+            "successes": 19,
+            "failures": 0,
+            "posterior_mean": 0.9880000000000001
+          },
+          "energy:analysis": {
+            "observations": 19,
+            "successes": 19,
+            "failures": 0,
+            "posterior_mean": 0.9880000000000001
+          },
+          "scientific:analysis": {
+            "observations": 19,
+            "successes": 19,
+            "failures": 0,
+            "posterior_mean": 0.9880000000000001
+          },
+          "financial:analysis": {
+            "observations": 19,
+            "successes": 19,
+            "failures": 0,
+            "posterior_mean": 0.9880000000000001
+          },
+          "general:analysis": {
+            "observations": 19,
+            "successes": 19,
+            "failures": 0,
+            "posterior_mean": 0.9880000000000001
+          }
+        }
+      }
     },
     {
       "epoch": 20,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9880000000000001,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.2330000000000001,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 2.349590999983775
+      "epoch_time_ms": 1.5209160001177224,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 160,
+        "avg_posterior_mean": 0.9885714285714287,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 20,
+            "successes": 20,
+            "failures": 0,
+            "posterior_mean": 0.9885714285714287
+          },
+          "security:analysis": {
+            "observations": 20,
+            "successes": 20,
+            "failures": 0,
+            "posterior_mean": 0.9885714285714287
+          },
+          "humanitarian:monitoring": {
+            "observations": 20,
+            "successes": 20,
+            "failures": 0,
+            "posterior_mean": 0.9885714285714287
+          },
+          "infrastructure:generic": {
+            "observations": 20,
+            "successes": 20,
+            "failures": 0,
+            "posterior_mean": 0.9885714285714287
+          },
+          "energy:analysis": {
+            "observations": 20,
+            "successes": 20,
+            "failures": 0,
+            "posterior_mean": 0.9885714285714287
+          },
+          "scientific:analysis": {
+            "observations": 20,
+            "successes": 20,
+            "failures": 0,
+            "posterior_mean": 0.9885714285714287
+          },
+          "financial:analysis": {
+            "observations": 20,
+            "successes": 20,
+            "failures": 0,
+            "posterior_mean": 0.9885714285714287
+          },
+          "general:analysis": {
+            "observations": 20,
+            "successes": 20,
+            "failures": 0,
+            "posterior_mean": 0.9885714285714287
+          }
+        }
+      }
     },
     {
       "epoch": 21,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9885714285714287,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.23357142857142865,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 2.356002999931661
+      "epoch_time_ms": 1.6703750006854534,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 168,
+        "avg_posterior_mean": 0.9890909090909091,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 21,
+            "successes": 21,
+            "failures": 0,
+            "posterior_mean": 0.9890909090909091
+          },
+          "security:analysis": {
+            "observations": 21,
+            "successes": 21,
+            "failures": 0,
+            "posterior_mean": 0.9890909090909091
+          },
+          "humanitarian:monitoring": {
+            "observations": 21,
+            "successes": 21,
+            "failures": 0,
+            "posterior_mean": 0.9890909090909091
+          },
+          "infrastructure:generic": {
+            "observations": 21,
+            "successes": 21,
+            "failures": 0,
+            "posterior_mean": 0.9890909090909091
+          },
+          "energy:analysis": {
+            "observations": 21,
+            "successes": 21,
+            "failures": 0,
+            "posterior_mean": 0.9890909090909091
+          },
+          "scientific:analysis": {
+            "observations": 21,
+            "successes": 21,
+            "failures": 0,
+            "posterior_mean": 0.9890909090909091
+          },
+          "financial:analysis": {
+            "observations": 21,
+            "successes": 21,
+            "failures": 0,
+            "posterior_mean": 0.9890909090909091
+          },
+          "general:analysis": {
+            "observations": 21,
+            "successes": 21,
+            "failures": 0,
+            "posterior_mean": 0.9890909090909091
+          }
+        }
+      }
     },
     {
       "epoch": 22,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9890909090909091,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.23409090909090913,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.8448600000056103
+      "epoch_time_ms": 1.4834950006843428,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 176,
+        "avg_posterior_mean": 0.9895652173913044,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 22,
+            "successes": 22,
+            "failures": 0,
+            "posterior_mean": 0.9895652173913044
+          },
+          "security:analysis": {
+            "observations": 22,
+            "successes": 22,
+            "failures": 0,
+            "posterior_mean": 0.9895652173913044
+          },
+          "humanitarian:monitoring": {
+            "observations": 22,
+            "successes": 22,
+            "failures": 0,
+            "posterior_mean": 0.9895652173913044
+          },
+          "infrastructure:generic": {
+            "observations": 22,
+            "successes": 22,
+            "failures": 0,
+            "posterior_mean": 0.9895652173913044
+          },
+          "energy:analysis": {
+            "observations": 22,
+            "successes": 22,
+            "failures": 0,
+            "posterior_mean": 0.9895652173913044
+          },
+          "scientific:analysis": {
+            "observations": 22,
+            "successes": 22,
+            "failures": 0,
+            "posterior_mean": 0.9895652173913044
+          },
+          "financial:analysis": {
+            "observations": 22,
+            "successes": 22,
+            "failures": 0,
+            "posterior_mean": 0.9895652173913044
+          },
+          "general:analysis": {
+            "observations": 22,
+            "successes": 22,
+            "failures": 0,
+            "posterior_mean": 0.9895652173913044
+          }
+        }
+      }
     },
     {
       "epoch": 23,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9895652173913044,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.23456521739130443,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.559677999921405
+      "epoch_time_ms": 1.5336389997173683,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 184,
+        "avg_posterior_mean": 0.9900000000000001,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 23,
+            "successes": 23,
+            "failures": 0,
+            "posterior_mean": 0.9900000000000001
+          },
+          "security:analysis": {
+            "observations": 23,
+            "successes": 23,
+            "failures": 0,
+            "posterior_mean": 0.9900000000000001
+          },
+          "humanitarian:monitoring": {
+            "observations": 23,
+            "successes": 23,
+            "failures": 0,
+            "posterior_mean": 0.9900000000000001
+          },
+          "infrastructure:generic": {
+            "observations": 23,
+            "successes": 23,
+            "failures": 0,
+            "posterior_mean": 0.9900000000000001
+          },
+          "energy:analysis": {
+            "observations": 23,
+            "successes": 23,
+            "failures": 0,
+            "posterior_mean": 0.9900000000000001
+          },
+          "scientific:analysis": {
+            "observations": 23,
+            "successes": 23,
+            "failures": 0,
+            "posterior_mean": 0.9900000000000001
+          },
+          "financial:analysis": {
+            "observations": 23,
+            "successes": 23,
+            "failures": 0,
+            "posterior_mean": 0.9900000000000001
+          },
+          "general:analysis": {
+            "observations": 23,
+            "successes": 23,
+            "failures": 0,
+            "posterior_mean": 0.9900000000000001
+          }
+        }
+      }
     },
     {
       "epoch": 24,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9900000000000001,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.2350000000000001,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.3928159999068157
+      "epoch_time_ms": 1.5649180004402297,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 192,
+        "avg_posterior_mean": 0.9904000000000001,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 24,
+            "successes": 24,
+            "failures": 0,
+            "posterior_mean": 0.9904000000000001
+          },
+          "security:analysis": {
+            "observations": 24,
+            "successes": 24,
+            "failures": 0,
+            "posterior_mean": 0.9904000000000001
+          },
+          "humanitarian:monitoring": {
+            "observations": 24,
+            "successes": 24,
+            "failures": 0,
+            "posterior_mean": 0.9904000000000001
+          },
+          "infrastructure:generic": {
+            "observations": 24,
+            "successes": 24,
+            "failures": 0,
+            "posterior_mean": 0.9904000000000001
+          },
+          "energy:analysis": {
+            "observations": 24,
+            "successes": 24,
+            "failures": 0,
+            "posterior_mean": 0.9904000000000001
+          },
+          "scientific:analysis": {
+            "observations": 24,
+            "successes": 24,
+            "failures": 0,
+            "posterior_mean": 0.9904000000000001
+          },
+          "financial:analysis": {
+            "observations": 24,
+            "successes": 24,
+            "failures": 0,
+            "posterior_mean": 0.9904000000000001
+          },
+          "general:analysis": {
+            "observations": 24,
+            "successes": 24,
+            "failures": 0,
+            "posterior_mean": 0.9904000000000001
+          }
+        }
+      }
     },
     {
       "epoch": 25,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9904000000000001,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.23540000000000005,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.3861349999615413
+      "epoch_time_ms": 1.4895370004524011,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 200,
+        "avg_posterior_mean": 0.9907692307692308,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 25,
+            "successes": 25,
+            "failures": 0,
+            "posterior_mean": 0.9907692307692308
+          },
+          "security:analysis": {
+            "observations": 25,
+            "successes": 25,
+            "failures": 0,
+            "posterior_mean": 0.9907692307692308
+          },
+          "humanitarian:monitoring": {
+            "observations": 25,
+            "successes": 25,
+            "failures": 0,
+            "posterior_mean": 0.9907692307692308
+          },
+          "infrastructure:generic": {
+            "observations": 25,
+            "successes": 25,
+            "failures": 0,
+            "posterior_mean": 0.9907692307692308
+          },
+          "energy:analysis": {
+            "observations": 25,
+            "successes": 25,
+            "failures": 0,
+            "posterior_mean": 0.9907692307692308
+          },
+          "scientific:analysis": {
+            "observations": 25,
+            "successes": 25,
+            "failures": 0,
+            "posterior_mean": 0.9907692307692308
+          },
+          "financial:analysis": {
+            "observations": 25,
+            "successes": 25,
+            "failures": 0,
+            "posterior_mean": 0.9907692307692308
+          },
+          "general:analysis": {
+            "observations": 25,
+            "successes": 25,
+            "failures": 0,
+            "posterior_mean": 0.9907692307692308
+          }
+        }
+      }
     },
     {
       "epoch": 26,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9907692307692308,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.23576923076923084,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.4669959999764615
+      "epoch_time_ms": 1.581809000526846,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 208,
+        "avg_posterior_mean": 0.9911111111111112,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 26,
+            "successes": 26,
+            "failures": 0,
+            "posterior_mean": 0.9911111111111112
+          },
+          "security:analysis": {
+            "observations": 26,
+            "successes": 26,
+            "failures": 0,
+            "posterior_mean": 0.9911111111111112
+          },
+          "humanitarian:monitoring": {
+            "observations": 26,
+            "successes": 26,
+            "failures": 0,
+            "posterior_mean": 0.9911111111111112
+          },
+          "infrastructure:generic": {
+            "observations": 26,
+            "successes": 26,
+            "failures": 0,
+            "posterior_mean": 0.9911111111111112
+          },
+          "energy:analysis": {
+            "observations": 26,
+            "successes": 26,
+            "failures": 0,
+            "posterior_mean": 0.9911111111111112
+          },
+          "scientific:analysis": {
+            "observations": 26,
+            "successes": 26,
+            "failures": 0,
+            "posterior_mean": 0.9911111111111112
+          },
+          "financial:analysis": {
+            "observations": 26,
+            "successes": 26,
+            "failures": 0,
+            "posterior_mean": 0.9911111111111112
+          },
+          "general:analysis": {
+            "observations": 26,
+            "successes": 26,
+            "failures": 0,
+            "posterior_mean": 0.9911111111111112
+          }
+        }
+      }
     },
     {
       "epoch": 27,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9911111111111112,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.23611111111111116,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.425066999900082
+      "epoch_time_ms": 1.8027020005320082,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 216,
+        "avg_posterior_mean": 0.9914285714285714,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 27,
+            "successes": 27,
+            "failures": 0,
+            "posterior_mean": 0.9914285714285714
+          },
+          "security:analysis": {
+            "observations": 27,
+            "successes": 27,
+            "failures": 0,
+            "posterior_mean": 0.9914285714285714
+          },
+          "humanitarian:monitoring": {
+            "observations": 27,
+            "successes": 27,
+            "failures": 0,
+            "posterior_mean": 0.9914285714285714
+          },
+          "infrastructure:generic": {
+            "observations": 27,
+            "successes": 27,
+            "failures": 0,
+            "posterior_mean": 0.9914285714285714
+          },
+          "energy:analysis": {
+            "observations": 27,
+            "successes": 27,
+            "failures": 0,
+            "posterior_mean": 0.9914285714285714
+          },
+          "scientific:analysis": {
+            "observations": 27,
+            "successes": 27,
+            "failures": 0,
+            "posterior_mean": 0.9914285714285714
+          },
+          "financial:analysis": {
+            "observations": 27,
+            "successes": 27,
+            "failures": 0,
+            "posterior_mean": 0.9914285714285714
+          },
+          "general:analysis": {
+            "observations": 27,
+            "successes": 27,
+            "failures": 0,
+            "posterior_mean": 0.9914285714285714
+          }
+        }
+      }
     },
     {
       "epoch": 28,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9914285714285714,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.23642857142857143,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.4595210000152292
+      "epoch_time_ms": 1.4811909995842143,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 224,
+        "avg_posterior_mean": 0.9917241379310345,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 28,
+            "successes": 28,
+            "failures": 0,
+            "posterior_mean": 0.9917241379310345
+          },
+          "security:analysis": {
+            "observations": 28,
+            "successes": 28,
+            "failures": 0,
+            "posterior_mean": 0.9917241379310345
+          },
+          "humanitarian:monitoring": {
+            "observations": 28,
+            "successes": 28,
+            "failures": 0,
+            "posterior_mean": 0.9917241379310345
+          },
+          "infrastructure:generic": {
+            "observations": 28,
+            "successes": 28,
+            "failures": 0,
+            "posterior_mean": 0.9917241379310345
+          },
+          "energy:analysis": {
+            "observations": 28,
+            "successes": 28,
+            "failures": 0,
+            "posterior_mean": 0.9917241379310345
+          },
+          "scientific:analysis": {
+            "observations": 28,
+            "successes": 28,
+            "failures": 0,
+            "posterior_mean": 0.9917241379310345
+          },
+          "financial:analysis": {
+            "observations": 28,
+            "successes": 28,
+            "failures": 0,
+            "posterior_mean": 0.9917241379310345
+          },
+          "general:analysis": {
+            "observations": 28,
+            "successes": 28,
+            "failures": 0,
+            "posterior_mean": 0.9917241379310345
+          }
+        }
+      }
     },
     {
       "epoch": 29,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
+      "avg_plan_confidence": 0.9917241379310345,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.23672413793103453,
       "scenarios_passed": 8,
       "total_scenarios": 8,
-      "epoch_time_ms": 1.3784400000531605
+      "epoch_time_ms": 1.5336099995693075,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 232,
+        "avg_posterior_mean": 0.9920000000000001,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 29,
+            "successes": 29,
+            "failures": 0,
+            "posterior_mean": 0.9920000000000001
+          },
+          "security:analysis": {
+            "observations": 29,
+            "successes": 29,
+            "failures": 0,
+            "posterior_mean": 0.9920000000000001
+          },
+          "humanitarian:monitoring": {
+            "observations": 29,
+            "successes": 29,
+            "failures": 0,
+            "posterior_mean": 0.9920000000000001
+          },
+          "infrastructure:generic": {
+            "observations": 29,
+            "successes": 29,
+            "failures": 0,
+            "posterior_mean": 0.9920000000000001
+          },
+          "energy:analysis": {
+            "observations": 29,
+            "successes": 29,
+            "failures": 0,
+            "posterior_mean": 0.9920000000000001
+          },
+          "scientific:analysis": {
+            "observations": 29,
+            "successes": 29,
+            "failures": 0,
+            "posterior_mean": 0.9920000000000001
+          },
+          "financial:analysis": {
+            "observations": 29,
+            "successes": 29,
+            "failures": 0,
+            "posterior_mean": 0.9920000000000001
+          },
+          "general:analysis": {
+            "observations": 29,
+            "successes": 29,
+            "failures": 0,
+            "posterior_mean": 0.9920000000000001
+          }
+        }
+      }
     },
     {
       "epoch": 30,
       "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3741820000632288
-    },
-    {
-      "epoch": 31,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.52531399999134
-    },
-    {
-      "epoch": 32,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3723689999096678
-    },
-    {
-      "epoch": 33,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.376897000000099
-    },
-    {
-      "epoch": 34,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.798372999928688
-    },
-    {
-      "epoch": 35,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 2.2288159999561685
-    },
-    {
-      "epoch": 36,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 2.3136940000085815
-    },
-    {
-      "epoch": 37,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 2.2118540000519715
-    },
-    {
-      "epoch": 38,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.403135999908045
-    },
-    {
-      "epoch": 39,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3991890000397689
-    },
-    {
-      "epoch": 40,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4462460000004285
-    },
-    {
-      "epoch": 41,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4339939999672424
-    },
-    {
-      "epoch": 42,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3651250000066284
-    },
-    {
-      "epoch": 43,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4943360000643224
-    },
-    {
-      "epoch": 44,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3906720000704809
-    },
-    {
-      "epoch": 45,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4779260000068462
-    },
-    {
-      "epoch": 46,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4133649999621412
-    },
-    {
-      "epoch": 47,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4049599999452766
-    },
-    {
-      "epoch": 48,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.429836000056639
-    },
-    {
-      "epoch": 49,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4314389999299237
-    },
-    {
-      "epoch": 50,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3806739999608908
-    },
-    {
-      "epoch": 51,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.5160169999717255
-    },
-    {
-      "epoch": 52,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3738119999970877
-    },
-    {
-      "epoch": 53,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3579620000427894
-    },
-    {
-      "epoch": 54,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4769140000225889
-    },
-    {
-      "epoch": 55,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3564590000214594
-    },
-    {
-      "epoch": 56,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4721549999876515
-    },
-    {
-      "epoch": 57,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3877370000727751
-    },
-    {
-      "epoch": 58,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4040180000165492
-    },
-    {
-      "epoch": 59,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4524979999350762
-    },
-    {
-      "epoch": 60,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4149879999649784
-    },
-    {
-      "epoch": 61,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.388939999969807
-    },
-    {
-      "epoch": 62,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4804500000309417
-    },
-    {
-      "epoch": 63,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3651250000066284
-    },
-    {
-      "epoch": 64,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.6631400000051144
-    },
-    {
-      "epoch": 65,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3943700000709214
-    },
-    {
-      "epoch": 66,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4087069999959567
-    },
-    {
-      "epoch": 67,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4497629999823403
-    },
-    {
-      "epoch": 68,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3550669999631282
-    },
-    {
-      "epoch": 69,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4060009999639078
-    },
-    {
-      "epoch": 70,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4208290000397028
-    },
-    {
-      "epoch": 71,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4327910000702104
-    },
-    {
-      "epoch": 72,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4058509999586022
-    },
-    {
-      "epoch": 73,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4719849999664802
-    },
-    {
-      "epoch": 74,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4092879999907382
-    },
-    {
-      "epoch": 75,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4038780000191764
-    },
-    {
-      "epoch": 76,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4064519999692493
-    },
-    {
-      "epoch": 77,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.553856999976233
-    },
-    {
-      "epoch": 78,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 2.3759700000027806
-    },
-    {
-      "epoch": 79,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.7368480000641284
-    },
-    {
-      "epoch": 80,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4545919999591206
-    },
-    {
-      "epoch": 81,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4115919999539983
-    },
-    {
-      "epoch": 82,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.394659999959913
-    },
-    {
-      "epoch": 83,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4783560000068974
-    },
-    {
-      "epoch": 84,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.359153999942464
-    },
-    {
-      "epoch": 85,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.5199139999140243
-    },
-    {
-      "epoch": 86,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4065929999560467
-    },
-    {
-      "epoch": 87,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4231229999950301
-    },
-    {
-      "epoch": 88,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4359770000282879
-    },
-    {
-      "epoch": 89,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3941890000523927
-    },
-    {
-      "epoch": 90,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3853939999535214
-    },
-    {
-      "epoch": 91,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.458800000023075
-    },
-    {
-      "epoch": 92,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3787599999659506
-    },
-    {
-      "epoch": 93,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3804540000137422
-    },
-    {
-      "epoch": 94,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.5142030000561135
-    },
-    {
-      "epoch": 95,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.6894499999580148
-    },
-    {
-      "epoch": 96,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.450513999998293
-    },
-    {
-      "epoch": 97,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.42456600008245
-    },
-    {
-      "epoch": 98,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.3444370000570416
-    },
-    {
-      "epoch": 99,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.4189659999601645
-    },
-    {
-      "epoch": 100,
-      "avg_success_rate": 1.0,
-      "avg_plan_confidence": 0.755,
-      "scenarios_passed": 8,
-      "total_scenarios": 8,
-      "epoch_time_ms": 1.415419000068141
+      "avg_plan_confidence": 0.9920000000000001,
+      "avg_legacy_confidence": 0.755,
+      "confidence_improvement": 0.2370000000000001,
+      "scenarios_passed": 8,
+      "total_scenarios": 8,
+      "epoch_time_ms": 1.497463000305288,
+      "calibrator_stats": {
+        "total_contexts": 8,
+        "total_observations": 240,
+        "avg_posterior_mean": 0.9922580645161291,
+        "config": {
+          "prior_mean": 0.76,
+          "prior_kappa": 1.0,
+          "familiarity_target": 5
+        },
+        "contexts": {
+          "medical:analysis": {
+            "observations": 30,
+            "successes": 30,
+            "failures": 0,
+            "posterior_mean": 0.9922580645161291
+          },
+          "security:analysis": {
+            "observations": 30,
+            "successes": 30,
+            "failures": 0,
+            "posterior_mean": 0.9922580645161291
+          },
+          "humanitarian:monitoring": {
+            "observations": 30,
+            "successes": 30,
+            "failures": 0,
+            "posterior_mean": 0.9922580645161291
+          },
+          "infrastructure:generic": {
+            "observations": 30,
+            "successes": 30,
+            "failures": 0,
+            "posterior_mean": 0.9922580645161291
+          },
+          "energy:analysis": {
+            "observations": 30,
+            "successes": 30,
+            "failures": 0,
+            "posterior_mean": 0.9922580645161291
+          },
+          "scientific:analysis": {
+            "observations": 30,
+            "successes": 30,
+            "failures": 0,
+            "posterior_mean": 0.9922580645161291
+          },
+          "financial:analysis": {
+            "observations": 30,
+            "successes": 30,
+            "failures": 0,
+            "posterior_mean": 0.9922580645161291
+          },
+          "general:analysis": {
+            "observations": 30,
+            "successes": 30,
+            "failures": 0,
+            "posterior_mean": 0.9922580645161291
+          }
+        }
+      }
     }
   ],
   "final_epoch_details": [
@@ -821,104 +2184,112 @@
       "scenario_name": "medical_vital_signs",
       "domain": "medical",
       "goal": "Analyze patient vital signs for anomalies",
-      "plan_confidence": 0.7,
+      "plan_confidence": 0.9920000000000001,
+      "legacy_confidence": 0.7,
       "tasks_completed": 5,
       "tasks_failed": 0,
       "success_rate": 1.0,
       "reasoning_steps": 0,
-      "memory_entries": 1686,
-      "execution_time_ms": 0.20681499995589547,
+      "memory_entries": 566,
+      "execution_time_ms": 0.18637799985299353,
       "passed": true
     },
     {
       "scenario_name": "security_network_traffic",
       "domain": "security",
       "goal": "Detect potential intrusion patterns in network traffic",
-      "plan_confidence": 0.72,
+      "plan_confidence": 0.9920000000000001,
+      "legacy_confidence": 0.72,
       "tasks_completed": 5,
       "tasks_failed": 0,
       "success_rate": 1.0,
       "reasoning_steps": 0,
-      "memory_entries": 1688,
-      "execution_time_ms": 0.16331399990576756,
+      "memory_entries": 568,
+      "execution_time_ms": 0.1854759993875632,
       "passed": true
     },
     {
       "scenario_name": "humanitarian_crisis_detection",
       "domain": "humanitarian",
       "goal": "Monitor humanitarian crisis indicators",
-      "plan_confidence": 0.81,
+      "plan_confidence": 0.9920000000000001,
+      "legacy_confidence": 0.81,
       "tasks_completed": 3,
       "tasks_failed": 0,
       "success_rate": 1.0,
       "reasoning_steps": 0,
-      "memory_entries": 1690,
-      "execution_time_ms": 0.15458799998668837,
+      "memory_entries": 570,
+      "execution_time_ms": 0.16367599982913816,
       "passed": true
     },
     {
       "scenario_name": "infrastructure_monitoring",
       "domain": "infrastructure",
       "goal": "Assess critical infrastructure health",
-      "plan_confidence": 0.79,
+      "plan_confidence": 0.9920000000000001,
+      "legacy_confidence": 0.79,
       "tasks_completed": 3,
       "tasks_failed": 0,
       "success_rate": 1.0,
       "reasoning_steps": 0,
-      "memory_entries": 1692,
-      "execution_time_ms": 0.17521699999178963,
+      "memory_entries": 572,
+      "execution_time_ms": 0.20011300057376502,
       "passed": true
     },
     {
       "scenario_name": "energy_grid_analysis",
       "domain": "energy",
       "goal": "Optimize energy distribution and detect anomalies",
-      "plan_confidence": 0.75,
+      "plan_confidence": 0.9920000000000001,
+      "legacy_confidence": 0.75,
       "tasks_completed": 5,
       "tasks_failed": 0,
       "success_rate": 1.0,
       "reasoning_steps": 0,
-      "memory_entries": 1694,
-      "execution_time_ms": 0.16370600008031033,
+      "memory_entries": 574,
+      "execution_time_ms": 0.18462400021235226,
       "passed": true
     },
     {
       "scenario_name": "scientific_data_analysis",
       "domain": "scientific",
       "goal": "Analyze experimental data for significant findings",
-      "plan_confidence": 0.75,
+      "plan_confidence": 0.9920000000000001,
+      "legacy_confidence": 0.75,
       "tasks_completed": 5,
       "tasks_failed": 0,
       "success_rate": 1.0,
       "reasoning_steps": 0,
-      "memory_entries": 1696,
-      "execution_time_ms": 0.1886819999299405,
+      "memory_entries": 576,
+      "execution_time_ms": 0.1749359998939326,
       "passed": true
     },
     {
       "scenario_name": "financial_fraud_detection",
       "domain": "financial",
       "goal": "Detect potential fraudulent transactions",
-      "plan_confidence": 0.75,
+      "plan_confidence": 0.9920000000000001,
+      "legacy_confidence": 0.75,
       "tasks_completed": 5,
       "tasks_failed": 0,
       "success_rate": 1.0,
       "reasoning_steps": 0,
-      "memory_entries": 1698,
-      "execution_time_ms": 0.17310300006556645,
+      "memory_entries": 578,
+      "execution_time_ms": 0.17915399985213298,
       "passed": true
     },
     {
       "scenario_name": "general_anomaly_detection",
       "domain": "general",
       "goal": "Perform general anomaly detection on mixed data",
-      "plan_confidence": 0.77,
+      "plan_confidence": 0.9920000000000001,
+      "legacy_confidence": 0.77,
       "tasks_completed": 4,
       "tasks_failed": 0,
       "success_rate": 1.0,
       "reasoning_steps": 0,
-      "memory_entries": 1700,
-      "execution_time_ms": 0.15931699999782722,
+      "memory_entries": 580,
+      "execution_time_ms": 0.1678730004641693,
       "passed": true
     }
   ]
