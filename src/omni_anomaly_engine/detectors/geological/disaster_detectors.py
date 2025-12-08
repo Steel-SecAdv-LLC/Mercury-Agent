@@ -226,9 +226,7 @@ class WaveformFFTAnalyzer(nn.Module):
             nn.ReLU(),
         )
 
-    def forward(
-        self, x: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass for waveform analysis.
 
         Args:
@@ -387,9 +385,8 @@ class BayesianMeteorFilter:
         p_evidence_given_meteor = p_optical_given_meteor * p_radar_given_meteor
         p_evidence_given_no_meteor = p_optical_given_no_meteor * p_radar_given_no_meteor
 
-        p_evidence = (
-            p_evidence_given_meteor * p_meteor
-            + p_evidence_given_no_meteor * (1 - p_meteor)
+        p_evidence = p_evidence_given_meteor * p_meteor + p_evidence_given_no_meteor * (
+            1 - p_meteor
         )
 
         if p_evidence > 0:
@@ -641,7 +638,7 @@ class TsunamiDetector:
         power = np.abs(fft_result) ** 2
         features[3:8] = power[: min(5, len(power))] / (power.sum() + 1e-10)
 
-        features[8] = float(np.argmax(power[:len(power)//2])) / len(power)
+        features[8] = float(np.argmax(power[: len(power) // 2])) / len(power)
 
         result = self.predict_tsunami(waveform_data)
         features[9] = result.confidence
@@ -733,9 +730,11 @@ class EarthquakeDetector:
             s_arrival = self._detect_wave_arrival(seismic_data[0], "s")
             if p_arrival is not None and s_arrival is not None:
                 time_diff = (s_arrival - p_arrival) / self.sampling_rate
-                epicenter_distance = time_diff * (
-                    self.p_wave_velocity * self.s_wave_velocity
-                ) / (self.p_wave_velocity - self.s_wave_velocity)
+                epicenter_distance = (
+                    time_diff
+                    * (self.p_wave_velocity * self.s_wave_velocity)
+                    / (self.p_wave_velocity - self.s_wave_velocity)
+                )
 
         warnings = self._generate_warnings(earthquake_detected, magnitude_class)
 
@@ -835,7 +834,10 @@ class EarthquakeDetector:
                     "Check for gas leaks after shaking stops",
                 ]
             )
-        elif magnitude_class in [EarthquakeMagnitude.STRONG.value, EarthquakeMagnitude.MODERATE.value]:
+        elif magnitude_class in [
+            EarthquakeMagnitude.STRONG.value,
+            EarthquakeMagnitude.MODERATE.value,
+        ]:
             warnings.extend(
                 [
                     "Take protective action",
@@ -1125,9 +1127,7 @@ class SolarFlareDetector:
         else:
             return SolarFlareClass.A.value
 
-    def _compute_confidence(
-        self, flux: float, state: int, trend: float
-    ) -> float:
+    def _compute_confidence(self, flux: float, state: int, trend: float) -> float:
         """Compute detection confidence."""
         base_confidence = state / 4.0
 
@@ -1151,9 +1151,7 @@ class SolarFlareDetector:
         base_dst = [0, -10, -30, -100, -300]
         return base_dst[state] - storm_prob * 50
 
-    def _generate_warnings(
-        self, detected: bool, flare_class: str, storm_prob: float
-    ) -> list[str]:
+    def _generate_warnings(self, detected: bool, flare_class: str, storm_prob: float) -> list[str]:
         """Generate warning actions."""
         if not detected:
             return []
@@ -1180,9 +1178,7 @@ class SolarFlareDetector:
 
         return warnings
 
-    def _identify_affected_systems(
-        self, flare_class: str, storm_prob: float
-    ) -> list[str]:
+    def _identify_affected_systems(self, flare_class: str, storm_prob: float) -> list[str]:
         """Identify systems potentially affected."""
         affected = []
 

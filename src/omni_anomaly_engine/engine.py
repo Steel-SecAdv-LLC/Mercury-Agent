@@ -102,7 +102,6 @@ import torch
 
 from omni_anomaly_engine.core.config import EngineConfig
 from omni_anomaly_engine.core.global_omni_scalar_network import (
-    GlobalOmniScalarNetwork,
     ScalarGroup,
     get_global_scalar_network,
 )
@@ -842,7 +841,8 @@ class OmniAvaEngine:
         )
 
     def detect_with_fusion(
-        self, data: np.ndarray | torch.Tensor | dict[str, Any],
+        self,
+        data: np.ndarray | torch.Tensor | dict[str, Any],
         domain: str | None = None,
         enable_gosnn: bool = True,
     ) -> dict[str, Any]:

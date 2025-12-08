@@ -210,9 +210,9 @@ class AvaDominanceEquation:
 
         # Exponential moving average update
         for i, key in enumerate(["w_R", "w_H", "w_O"]):
-            self.weights[key] = (
-                (1 - learning_rate) * self.weights[key] + learning_rate * attention_weights[i]
-            )
+            self.weights[key] = (1 - learning_rate) * self.weights[
+                key
+            ] + learning_rate * attention_weights[i]
 
         # Renormalize to sum to 1
         total = sum(self.weights.values())
@@ -240,7 +240,9 @@ class AvaDominanceEquation:
 
         # Estimate decay rate from variance
         variance = np.var(recent)
-        initial_variance = np.var(self.convergence_history[: min(window_size, len(self.convergence_history))])
+        initial_variance = np.var(
+            self.convergence_history[: min(window_size, len(self.convergence_history))]
+        )
 
         if initial_variance > 0:
             # Estimated decay: V(t) / V(0) = e^(-lambda*t)
@@ -2129,7 +2131,9 @@ class ThreeRMechanism:
             )
             # Normalize recursion score based on feature variance
             all_features = np.concatenate([f.flatten() for f in hierarchical_features])
-            recursion_score = float(np.clip(1.0 - np.var(all_features) / (np.var(all_features) + 1), 0, 1))
+            recursion_score = float(
+                np.clip(1.0 - np.var(all_features) / (np.var(all_features) + 1), 0, 1)
+            )
         else:
             recursion_score = 0.5
 

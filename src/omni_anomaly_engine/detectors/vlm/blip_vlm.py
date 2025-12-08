@@ -35,7 +35,6 @@ Reference:
 """
 
 import logging
-import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -47,7 +46,6 @@ from omni_anomaly_engine.detectors.vlm.base_vlm import (
     BaseVLMDetector,
     LVLMType,
     VLMConfig,
-    VQAResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -322,9 +320,7 @@ class BLIPVLMDetector(BaseVLMDetector):
 
         return is_anomaly, confidence, explanation
 
-    def _preprocess_image(
-        self, data: np.ndarray | torch.Tensor
-    ) -> list[Any]:
+    def _preprocess_image(self, data: np.ndarray | torch.Tensor) -> list[Any]:
         """Preprocess image data for BLIP.
 
         Args:
@@ -385,7 +381,6 @@ class BLIPVLMDetector(BaseVLMDetector):
             self._initialize_model()
 
         images = self._preprocess_image(data)
-        n_images = len(images)
 
         scores = []
         is_anomaly_list = []
@@ -478,9 +473,12 @@ class BLIPVLMDetector(BaseVLMDetector):
             self._initialize_model()
 
         images = self._preprocess_image(data)
-        n_images = len(images)
 
-        if self._model is not None and self._processor is not None and self._feature_projection is not None:
+        if (
+            self._model is not None
+            and self._processor is not None
+            and self._feature_projection is not None
+        ):
             # Extract features from BLIP encoder
             features_list = []
 

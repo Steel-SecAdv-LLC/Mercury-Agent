@@ -350,8 +350,6 @@ class MultiHeadAttentionFusion:
 
                 # Apply triadic phi-weighting if enabled
                 if self.triadic_weighting is not None and attn_weights is not None:
-                    attn_weights_np = attn_weights.numpy()
-                    weighted_attn = self.triadic_weighting.apply(attn_weights_np)
                     harmonic_synergy = self.triadic_weighting.compute_harmonic_synergy(
                         attn_output.numpy()
                     )
