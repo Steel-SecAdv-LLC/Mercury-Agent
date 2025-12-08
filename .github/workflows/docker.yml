@@ -1,0 +1,37 @@
+name: Docker & Security
+
+on:
+  push:
+    branches: [ main, neuro-symbolic-v1 ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t omni-ava-mercury:latest .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: omni-ava-mercury:latest
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          timeout: 10m
+
+      - name: Upload Trivy scan results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
