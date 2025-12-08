@@ -220,9 +220,7 @@ class WindPatternAnalyzer(nn.Module):
             nn.Linear(64, 8),
         )
 
-    def forward(
-        self, wind_field: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, wind_field: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Analyze wind field patterns.
 
@@ -303,7 +301,7 @@ class PressureTracker:
         if pressure >= 1013:
             return 0.0
         deficit = 1013 - pressure
-        wind = 6.7 * (deficit ** 0.644)
+        wind = 6.7 * (deficit**0.644)
         return min(wind, 200.0)
 
 
@@ -437,9 +435,7 @@ class HurricaneDetector:
                 indicators_detected += 0.5
 
         if self.enable_pressure and "pressure_data" in cyclone_data:
-            pressure_result = self.pressure_tracker.analyze_pressure(
-                cyclone_data["pressure_data"]
-            )
+            pressure_result = self.pressure_tracker.analyze_pressure(cyclone_data["pressure_data"])
             result.min_pressure_mb = pressure_result["central_pressure_mb"]
             result.max_wind_speed_kt = pressure_result["estimated_max_wind_kt"]
             result.rapid_intensification = pressure_result["rapid_intensification"]
@@ -454,9 +450,7 @@ class HurricaneDetector:
                 indicators_detected += 1
 
         if self.enable_resonance and "signal_data" in cyclone_data:
-            resonance_result = self.resonance_amplifier.amplify_signals(
-                cyclone_data["signal_data"]
-            )
+            resonance_result = self.resonance_amplifier.amplify_signals(cyclone_data["signal_data"])
             result.resonance_score = resonance_result["resonance_score"]
             result.frequency_amplification = resonance_result["amplification_factor"]
             result.harmonic_patterns = resonance_result["harmonic_patterns"]
@@ -466,9 +460,7 @@ class HurricaneDetector:
         result.cyclone_detected = indicators_detected >= 2
         result.confidence = min(indicators_detected / 5.0, 1.0)
         result.category = self._classify_category(result.max_wind_speed_kt)
-        result.cyclone_type = self._determine_cyclone_type(
-            cyclone_data.get("basin", "atlantic")
-        )
+        result.cyclone_type = self._determine_cyclone_type(cyclone_data.get("basin", "atlantic"))
 
         result.storm_surge_risk = self._assess_storm_surge(result)
         result.rainfall_potential_inches = self._estimate_rainfall(result)
@@ -591,18 +583,22 @@ class HurricaneDetector:
 
         if self.enable_resonance:
             resonance = self.resonance_amplifier.amplify_signals(data)
-            features.extend([
-                resonance["resonance_score"],
-                resonance["amplification_factor"],
-                resonance["spectral_energy"] / 1e6,
-            ])
+            features.extend(
+                [
+                    resonance["resonance_score"],
+                    resonance["amplification_factor"],
+                    resonance["spectral_energy"] / 1e6,
+                ]
+            )
 
-        features.extend([
-            np.mean(data),
-            np.std(data),
-            np.min(data),
-            np.max(data),
-        ])
+        features.extend(
+            [
+                np.mean(data),
+                np.std(data),
+                np.min(data),
+                np.max(data),
+            ]
+        )
 
         while len(features) < 20:
             features.append(0.0)

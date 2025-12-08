@@ -237,9 +237,7 @@ class AtmosphericInstabilityAnalyzer:
             "lcl_height_m": float(lcl_height),
         }
 
-    def _compute_stp(
-        self, cape: float, helicity: float, shear: float, lcl: float
-    ) -> float:
+    def _compute_stp(self, cape: float, helicity: float, shear: float, lcl: float) -> float:
         """
         Compute Significant Tornado Parameter (STP).
 
@@ -404,9 +402,7 @@ class RecursiveFeatureExtractor:
         current_features = self._base_features(data)
 
         downsampled = data[::2] if len(data) > 1 else data
-        recursive_features, max_depth = self.extract_recursive_features(
-            downsampled, depth + 1
-        )
+        recursive_features, max_depth = self.extract_recursive_features(downsampled, depth + 1)
 
         combined = current_features + self.decay_factor * recursive_features
 
@@ -417,14 +413,16 @@ class RecursiveFeatureExtractor:
         if len(data) == 0:
             return np.zeros(6)
 
-        features = np.array([
-            np.mean(data),
-            np.std(data),
-            np.min(data),
-            np.max(data),
-            np.median(data),
-            np.percentile(data, 75) - np.percentile(data, 25),
-        ])
+        features = np.array(
+            [
+                np.mean(data),
+                np.std(data),
+                np.min(data),
+                np.max(data),
+                np.median(data),
+                np.percentile(data, 75) - np.percentile(data, 25),
+            ]
+        )
 
         return features
 
@@ -463,7 +461,18 @@ class TornadoDetector:
         self.logger = logging.getLogger(__name__)
 
         self.tornado_alley_states = [
-            "TX", "OK", "KS", "NE", "SD", "ND", "IA", "MO", "AR", "LA", "MS", "AL"
+            "TX",
+            "OK",
+            "KS",
+            "NE",
+            "SD",
+            "ND",
+            "IA",
+            "MO",
+            "AR",
+            "LA",
+            "MS",
+            "AL",
         ]
 
     def predict_tornado(self, weather_data: dict[str, Any]) -> TornadoPredictionResult:
@@ -509,9 +518,7 @@ class TornadoDetector:
                 indicators_detected += 1
 
         if self.enable_pressure and "pressure_data" in weather_data:
-            pressure_result = self.pressure_monitor.analyze_pressure(
-                weather_data["pressure_data"]
-            )
+            pressure_result = self.pressure_monitor.analyze_pressure(weather_data["pressure_data"])
             result.pressure_drop_mb = pressure_result["max_pressure_drop"]
             if pressure_result["rapid_drop_detected"]:
                 indicators_detected += 1
@@ -570,9 +577,7 @@ class TornadoDetector:
             "rotation_velocity": float(rotation_vel[0].item()) * 50,
         }
 
-    def _determine_threat_level(
-        self, indicators: float, result: TornadoPredictionResult
-    ) -> str:
+    def _determine_threat_level(self, indicators: float, result: TornadoPredictionResult) -> str:
         """Determine tornado threat level."""
         if indicators >= 3.5 or (result.mesocyclone_detected and indicators >= 2.5):
             return "high"
@@ -653,11 +658,13 @@ class TornadoDetector:
 
         if self.enable_resonance:
             resonance = self.resonance_analyzer.analyze_resonance(data)
-            features.extend([
-                resonance["resonance_score"],
-                resonance["dominant_frequency"],
-                resonance["spectral_energy"] / 1e6,
-            ])
+            features.extend(
+                [
+                    resonance["resonance_score"],
+                    resonance["dominant_frequency"],
+                    resonance["spectral_energy"] / 1e6,
+                ]
+            )
 
         if self.enable_recursion:
             recursive_feat, depth = self.recursive_extractor.extract_recursive_features(data)

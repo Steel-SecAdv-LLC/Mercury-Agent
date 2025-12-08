@@ -113,9 +113,7 @@ class DataQualityChecker:
         self.correlation_threshold = correlation_threshold
         self.imbalance_threshold = imbalance_threshold
 
-    def run_all_checks(
-        self, data: np.ndarray, labels: np.ndarray
-    ) -> list[QualityCheckResult]:
+    def run_all_checks(self, data: np.ndarray, labels: np.ndarray) -> list[QualityCheckResult]:
         """Run all quality checks on the data."""
         checks = [
             self.check_missing_values(data),
@@ -337,9 +335,7 @@ class ABTester:
 
         effect_size = self._cohens_d(model_a_scores, model_b_scores)
 
-        ci_lower, ci_upper = self._bootstrap_ci(
-            model_b_scores - model_a_scores
-        )
+        ci_lower, ci_upper = self._bootstrap_ci(model_b_scores - model_a_scores)
 
         return ABTestResult(
             model_a_name=model_a_name,
@@ -475,9 +471,7 @@ class ValidationPipeline:
 
         return result
 
-    def _cross_validate(
-        self, model: Any, X: np.ndarray, y: np.ndarray
-    ) -> dict[str, Any]:
+    def _cross_validate(self, model: Any, X: np.ndarray, y: np.ndarray) -> dict[str, Any]:
         """Perform cross-validation."""
         rng = np.random.default_rng(self.random_state)
         indices = rng.permutation(len(X))
@@ -519,9 +513,7 @@ class ValidationPipeline:
             "std_accuracy": float(np.std(accuracy_scores)),
         }
 
-    def _compute_final_metrics(
-        self, model: Any, X: np.ndarray, y: np.ndarray
-    ) -> dict[str, Any]:
+    def _compute_final_metrics(self, model: Any, X: np.ndarray, y: np.ndarray) -> dict[str, Any]:
         """Compute final metrics on full dataset."""
         if hasattr(model, "fit"):
             model.fit(X, y)
@@ -699,15 +691,17 @@ class ValidationPipeline:
             status = "PASS" if check.passed else "FAIL"
             lines.append(f"  [{status}] {check.check_name}: {check.message}")
 
-        lines.extend([
-            "",
-            "CONFUSION MATRIX:",
-            f"  TN={result.confusion_matrix[0, 0]}, FP={result.confusion_matrix[0, 1]}",
-            f"  FN={result.confusion_matrix[1, 0]}, TP={result.confusion_matrix[1, 1]}",
-            "",
-            f"Validation Time: {result.validation_time_seconds:.2f}s",
-            f"Samples: {result.num_samples}, Features: {result.num_features}",
-            "=" * 60,
-        ])
+        lines.extend(
+            [
+                "",
+                "CONFUSION MATRIX:",
+                f"  TN={result.confusion_matrix[0, 0]}, FP={result.confusion_matrix[0, 1]}",
+                f"  FN={result.confusion_matrix[1, 0]}, TP={result.confusion_matrix[1, 1]}",
+                "",
+                f"Validation Time: {result.validation_time_seconds:.2f}s",
+                f"Samples: {result.num_samples}, Features: {result.num_features}",
+                "=" * 60,
+            ]
+        )
 
         return "\n".join(lines)

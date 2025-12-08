@@ -192,9 +192,11 @@ class ResonanceAnalyzer:
             "resonance_score": float(resonance_score),
             "harmonic_ratio": float(harmonic_ratio),
             "spectral_entropy": float(spectral_entropy),
-            "dominant_frequency": float(frequencies[np.argmax(power_spectrum[1:]) + 1])
-            if len(power_spectrum) > 1
-            else 0.0,
+            "dominant_frequency": (
+                float(frequencies[np.argmax(power_spectrum[1:]) + 1])
+                if len(power_spectrum) > 1
+                else 0.0
+            ),
         }
 
     @staticmethod
@@ -529,7 +531,9 @@ class NanoSafeguardDetector(BaseDetector):
 
         convergence_anomaly = 1.0 - result.convergence_score
 
-        hierarchical_avg = np.mean(result.hierarchical_scores) if result.hierarchical_scores else 0.0
+        hierarchical_avg = (
+            np.mean(result.hierarchical_scores) if result.hierarchical_scores else 0.0
+        )
 
         molecular_score = (
             result.molecular_entropy * 0.4
@@ -580,9 +584,7 @@ class NanoSafeguardDetector(BaseDetector):
             )
 
         if result.bit_level_anomalies > 50:
-            recommendations.append(
-                "Significant bit-level anomalies - verify data integrity"
-            )
+            recommendations.append("Significant bit-level anomalies - verify data integrity")
 
         if result.micro_anomaly_detected:
             recommendations.append(

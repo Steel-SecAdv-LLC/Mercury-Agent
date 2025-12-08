@@ -391,9 +391,7 @@ class RefactoringEngine:
             if abs(previous_error - error) < self.convergence_threshold:
                 break
 
-            current_prediction = self._refactor_prediction(
-                current_prediction, observed_data, error
-            )
+            current_prediction = self._refactor_prediction(current_prediction, observed_data, error)
 
             previous_error = error
 
@@ -418,9 +416,7 @@ class RefactoringEngine:
             errors.append(stage_error / 10.0)
 
         if "discharge_cfs" in prediction and "observed_discharge_cfs" in observed:
-            discharge_error = abs(
-                prediction["discharge_cfs"] - observed["observed_discharge_cfs"]
-            )
+            discharge_error = abs(prediction["discharge_cfs"] - observed["observed_discharge_cfs"])
             errors.append(discharge_error / 10000.0)
 
         return np.mean(errors) if errors else 0.5
@@ -448,9 +444,7 @@ class RefactoringEngine:
 
         return refactored
 
-    def _estimate_uncertainty(
-        self, prediction: dict[str, Any], observed: dict[str, Any]
-    ) -> float:
+    def _estimate_uncertainty(self, prediction: dict[str, Any], observed: dict[str, Any]) -> float:
         """Estimate prediction uncertainty."""
         error = self._compute_prediction_error(prediction, observed)
         uncertainty = min(error * 2, 1.0)
@@ -516,9 +510,7 @@ class FloodDetector:
         indicators_detected = 0
 
         if self.enable_precipitation and "precip_data" in flood_data:
-            precip_result = self.precip_analyzer.analyze_precipitation(
-                flood_data["precip_data"]
-            )
+            precip_result = self.precip_analyzer.analyze_precipitation(flood_data["precip_data"])
             result.precipitation_24h_inches = precip_result["precipitation_24h_inches"]
             result.precipitation_forecast_inches = precip_result["forecast_24h_inches"]
 
@@ -529,9 +521,7 @@ class FloodDetector:
                 indicators_detected += 1
 
         if self.enable_river_gauge and "gauge_data" in flood_data:
-            gauge_result = self.gauge_monitor.analyze_river_stage(
-                flood_data["gauge_data"]
-            )
+            gauge_result = self.gauge_monitor.analyze_river_stage(flood_data["gauge_data"])
             result.river_stage_ft = gauge_result["current_stage_ft"]
             result.flood_stage_ft = gauge_result["flood_stage_ft"]
             result.stage_trend = gauge_result["stage_trend"]
@@ -545,9 +535,7 @@ class FloodDetector:
                 indicators_detected += 1
 
         if self.enable_soil and "soil_data" in flood_data:
-            soil_result = self.soil_model.analyze_soil_conditions(
-                flood_data["soil_data"]
-            )
+            soil_result = self.soil_model.analyze_soil_conditions(flood_data["soil_data"])
             result.soil_saturation_pct = soil_result["soil_moisture_pct"]
             result.runoff_coefficient = soil_result["runoff_coefficient"]
 
@@ -581,9 +569,7 @@ class FloodDetector:
 
         return result
 
-    def _determine_severity(
-        self, indicators: float, result: FloodPredictionResult
-    ) -> str:
+    def _determine_severity(self, indicators: float, result: FloodPredictionResult) -> str:
         """Determine flood severity."""
         stage_above_flood = result.river_stage_ft - result.flood_stage_ft
 
@@ -629,16 +615,20 @@ class FloodDetector:
         routes = []
 
         if result.severity in ["major", "record"]:
-            routes.extend([
-                "Primary: Interstate highways (elevated)",
-                "Secondary: State routes to higher elevation",
-                "Avoid: Low-lying roads and underpasses",
-            ])
+            routes.extend(
+                [
+                    "Primary: Interstate highways (elevated)",
+                    "Secondary: State routes to higher elevation",
+                    "Avoid: Low-lying roads and underpasses",
+                ]
+            )
         elif result.severity == "moderate":
-            routes.extend([
-                "Monitor road conditions",
-                "Identify alternate routes to higher ground",
-            ])
+            routes.extend(
+                [
+                    "Monitor road conditions",
+                    "Identify alternate routes to higher ground",
+                ]
+            )
 
         return routes
 
@@ -647,11 +637,13 @@ class FloodDetector:
         shelters = []
 
         if result.severity in ["moderate", "major", "record"]:
-            shelters.extend([
-                "Local emergency shelters (check with authorities)",
-                "Schools and community centers on high ground",
-                "Hotels/motels outside flood zone",
-            ])
+            shelters.extend(
+                [
+                    "Local emergency shelters (check with authorities)",
+                    "Schools and community centers on high ground",
+                    "Hotels/motels outside flood zone",
+                ]
+            )
 
         return shelters
 
@@ -662,13 +654,15 @@ class FloodDetector:
 
         features = []
 
-        features.extend([
-            np.mean(data),
-            np.std(data),
-            np.min(data),
-            np.max(data),
-            np.median(data),
-        ])
+        features.extend(
+            [
+                np.mean(data),
+                np.std(data),
+                np.min(data),
+                np.max(data),
+                np.median(data),
+            ]
+        )
 
         if len(data) > 1:
             trend = np.polyfit(np.arange(len(data.flatten())), data.flatten(), 1)[0]
@@ -676,12 +670,14 @@ class FloodDetector:
         else:
             features.append(0.0)
 
-        features.extend([
-            np.percentile(data, 25),
-            np.percentile(data, 75),
-            np.percentile(data, 90),
-            np.percentile(data, 95),
-        ])
+        features.extend(
+            [
+                np.percentile(data, 25),
+                np.percentile(data, 75),
+                np.percentile(data, 90),
+                np.percentile(data, 95),
+            ]
+        )
 
         while len(features) < 20:
             features.append(0.0)
