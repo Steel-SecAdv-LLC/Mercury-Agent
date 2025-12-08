@@ -1,5 +1,4 @@
-# OMNI♱AVA (O♱A) Mercury Agent: 
-# Neuro-Symbolic Anomalous AI
+# OMNI♱AVA (O♱A) Mercury Agent: Neuro-Symbolic Anomalous AI
 
 <div align="center">
 
