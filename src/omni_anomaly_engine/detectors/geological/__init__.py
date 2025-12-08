@@ -21,3 +21,40 @@ Geological Hazard Detectors
 
 Comprehensive geological anomaly detection for humanitarian early warning.
 """
+
+from omni_anomaly_engine.detectors.geological.flood_detector import (
+    FloodDetector,
+    FloodPredictionResult,
+    FloodSeverity,
+    FloodType,
+)
+from omni_anomaly_engine.detectors.geological.hurricane_detector import (
+    CycloneType,
+    HurricaneDetector,
+    HurricanePredictionResult,
+    SaffirSimpsonCategory,
+)
+from omni_anomaly_engine.detectors.geological.tornado_detector import (
+    TornadoDetector,
+    TornadoIntensity,
+    TornadoPredictionResult,
+    TornadoThreatLevel,
+)
+
+__all__ = [
+    # Tornado detection
+    "TornadoDetector",
+    "TornadoPredictionResult",
+    "TornadoIntensity",
+    "TornadoThreatLevel",
+    # Hurricane/Cyclone/Typhoon detection
+    "HurricaneDetector",
+    "HurricanePredictionResult",
+    "SaffirSimpsonCategory",
+    "CycloneType",
+    # Flood detection
+    "FloodDetector",
+    "FloodPredictionResult",
+    "FloodSeverity",
+    "FloodType",
+]
