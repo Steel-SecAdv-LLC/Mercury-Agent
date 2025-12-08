@@ -15,11 +15,20 @@ jobs:
       actions: write
 
     steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          df -h
+
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t omni-ava-mercury:latest .
+        run: docker build --no-cache -t omni-ava-mercury:latest .
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
