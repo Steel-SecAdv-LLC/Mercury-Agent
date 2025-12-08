@@ -984,7 +984,9 @@ class DetectorRegistry:
             pass
 
         try:
-            from omni_anomaly_engine.detectors.geological.hurricane_detector import HurricaneDetector
+            from omni_anomaly_engine.detectors.geological.hurricane_detector import (
+                HurricaneDetector,
+            )
 
             self.register(
                 "hurricane",
