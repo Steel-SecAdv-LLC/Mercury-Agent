@@ -264,7 +264,9 @@ def run_training_scenario(agent: MercuryAgent, scenario: TrainingScenario) -> Tr
     plan_metadata = {}
     if agent.current_plan is not None:
         plan_metadata = agent.current_plan.metadata
-    legacy_confidence = plan_metadata.get("legacy_confidence_heuristic", result.get("plan_confidence", 0.0))
+    legacy_confidence = plan_metadata.get(
+        "legacy_confidence_heuristic", result.get("plan_confidence", 0.0)
+    )
 
     return TrainingResult(
         scenario_name=scenario.name,
@@ -429,7 +431,9 @@ def save_training_results(results: dict[str, Any], output_dir: Path) -> None:
         metrics = results["final_metrics"]
         f.write(f"- **Average Success Rate:** {metrics['avg_success_rate']:.2%}\n")
         f.write(f"- **Average Plan Confidence:** {metrics['avg_plan_confidence']:.2f}\n")
-        f.write(f"- **Legacy Confidence (fixed heuristic):** {metrics.get('avg_legacy_confidence', 'N/A'):.2f}\n")
+        f.write(
+            f"- **Legacy Confidence (fixed heuristic):** {metrics.get('avg_legacy_confidence', 'N/A'):.2f}\n"
+        )
         f.write(f"- **Confidence vs Legacy:** {metrics.get('confidence_vs_legacy', 0):+.3f}\n")
         f.write(f"- **Confidence Growth:** {metrics.get('confidence_growth', 0):+.3f}\n")
         f.write(f"- **Improvement from Start:** {metrics['improvement_from_start']:+.2%}\n\n")
@@ -438,10 +442,14 @@ def save_training_results(results: dict[str, Any], output_dir: Path) -> None:
         calibrator = results.get("calibrator_final_state", {})
         if calibrator:
             f.write("## Bayesian Confidence Calibrator\n\n")
-            f.write("The fixed 0.76 confidence heuristic has been replaced with a learned Bayesian calibrator.\n\n")
+            f.write(
+                "The fixed 0.76 confidence heuristic has been replaced with a learned Bayesian calibrator.\n\n"
+            )
             f.write(f"- **Total Contexts Learned:** {calibrator.get('total_contexts', 0)}\n")
             f.write(f"- **Total Observations:** {calibrator.get('total_observations', 0)}\n")
-            f.write(f"- **Average Posterior Mean:** {calibrator.get('avg_posterior_mean', 0):.3f}\n\n")
+            f.write(
+                f"- **Average Posterior Mean:** {calibrator.get('avg_posterior_mean', 0):.3f}\n\n"
+            )
             contexts = calibrator.get("contexts", {})
             if contexts:
                 f.write("### Per-Context Statistics\n\n")
@@ -469,8 +477,8 @@ def save_training_results(results: dict[str, Any], output_dir: Path) -> None:
         f.write("| Epoch | Success Rate | Confidence | Legacy | Delta | Passed | Time (ms) |\n")
         f.write("|-------|--------------|------------|--------|-------|--------|----------|\n")
         for summary in results["epoch_summaries"]:
-            legacy = summary.get('avg_legacy_confidence', summary['avg_plan_confidence'])
-            delta = summary.get('confidence_improvement', 0)
+            legacy = summary.get("avg_legacy_confidence", summary["avg_plan_confidence"])
+            delta = summary.get("confidence_improvement", 0)
             f.write(
                 f"| {summary['epoch']} | "
                 f"{summary['avg_success_rate']:.2%} | "

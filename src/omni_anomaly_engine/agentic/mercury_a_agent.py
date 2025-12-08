@@ -809,7 +809,9 @@ class MercuryAgent:
         self.tools: dict[str, Callable] = {}
 
         self.logger = logging.getLogger(__name__)
-        self.logger.info(f"Mercury Agent '{name}' initialized (calibration={'enabled' if enable_calibration else 'disabled'})")
+        self.logger.info(
+            f"Mercury Agent '{name}' initialized (calibration={'enabled' if enable_calibration else 'disabled'})"
+        )
 
     def register_tool(self, name: str, tool: Callable) -> None:
         """Register a tool for agent use."""
