@@ -1,29 +1,27 @@
-# OMNI-AVA Mercury Agent: Neuro-Symbolic Anomalous AI
+# OMNI♱AVA (O♱A) Mercury Agent: Neuro-Symbolic Anomalous AI
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-![GPL v3 Logo](https://www.gnu.org/graphics/gplv3-127x51.png)
+<div align="center">
 
-**This project is licensed under the GNU General Public License v3.0 (GPL v3)**
+<img src="assets/omni_ava_hero.png" alt="OMNI♱AVA Mercury Agent" width="470" height="419">
 
-- Everyone is permitted to copy and distribute verbatim copies of this license document, but **changing it is not allowed**.
-- Any derivative work, fork, or modification **must also be released under GPL v3** — no proprietary versions allowed, ever.
-- This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
-
-Full license text: [`LICENSE`](LICENSE) | [gnu.org/licenses/gpl-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html)
+</div>
 
 ---
 
+![GPL v3 Logo](https://www.gnu.org/graphics/gplv3-127x51.png)
+[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
-[![CI](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions/workflows/ci.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions)
-[![Security Scan](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions/workflows/security.yaml/badge.svg)](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions)
+[![CI](https://github.com/Steel-SecAdv-LLC/OMNI♱AVA/actions/workflows/ci.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/OMNI♱AVA/actions)
+[![Security Scan](https://github.com/Steel-SecAdv-LLC/OMNI♱AVA/actions/workflows/security.yaml/badge.svg)](https://github.com/Steel-SecAdv-LLC/OMNI♱AVA/actions)
 [![Tests](https://img.shields.io/badge/tests-1680%2B-brightgreen.svg)](tests/)
+[![3R|Mathematics](https://img.shields.io/badge/3R-Mathematics-orange.svg)](#3r-recursion-resonance-refactoring)
 
 ```
               +==============================================================================+
-              |                    OMNI-AVA MERCURY AGENT v1.0                               |
-              |              Neuro-Symbolic Anomalous AI Framework                           |
+              |                         O♱A MERCURY AGENT v1.0                               |
+              |             MERCURY AGENT: Neuro-Symbolic Anomalous AI Paradigm              |
               |                                                                              |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security   |
               |   Neural + Symbolic      |   18+ Detection Engines |   Post-Quantum Crypto   |
@@ -35,33 +33,39 @@ Full license text: [`LICENSE`](LICENSE) | [gnu.org/licenses/gpl-3.0](https://www
               |   Lyapunov Stability     |   Ensemble Averaging    |   JWT Authentication    |
               |   Civilization-First     |   Property Testing      |   Rate Limiting         |
               |                                                                              |
-              |                   Built for a civilized evolution.                           |
+              |                      Archetype for a civilized evolution.                    |
               +==============================================================================+
 ```
 
 **Copyright 2025 Steel Security Advisors LLC**
 **Author/Inventor:** Andrew E. A.
-**Contact:** support@steelsecurityadvisors.com
+**Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
 **Version:** v1.0
 **Date:** 12/07/25
-**AI Co-Architects:** Claude (Anthropic) | Devin (Cognition)
+**AI Co-Architects:** X ⚛ | Caduceus ⚚ | Dev ⚕
 
 ---
 
 ## Executive Summary
 
-OMNI-AVA Mercury Agent is a comprehensive neuro-symbolic AI framework implementing a 7-phase cognitive evolution for multi-domain anomaly detection. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
+O♱A Mercury Agent is a comprehensive neuro-symbolic AI framework implementing a 7-phase cognitive evolution for multi-domain anomaly detection. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
 
 The framework embodies a **Civilization-First** philosophy, prioritizing ethical AI governance and humanitarian impact. Every action must pass a benevolence threshold of 0.99 or higher, ensuring the system operates in service of human flourishing and civilizational progress.
 
-> **Project Philosophy:** OMNI-AVA represents the next evolution in AI systems - one that combines the pattern recognition power of neural networks with the interpretability and reasoning capabilities of symbolic AI. This neuro-symbolic fusion enables the system to not only detect anomalies but explain why they matter and what actions should be taken.
+> **Project Philosophy:** O♱A represents the next evolution in AI systems - one that combines the pattern recognition power of neural networks with the interpretability and reasoning capabilities of symbolic AI. This neuro-symbolic fusion enables the system to not only detect anomalies but explain why they matter and what actions should be taken.
 >
 > **Security Disclosure:** This is a research-grade implementation. Production use REQUIRES:
 > - Independent security review by qualified professionals
 > - Validation on domain-specific real-world datasets (MIMIC-III, NSL-KDD)
 > - Clinical validation for any medical applications
 > - Post-quantum cryptography is experimental and requires HSM for production secrets
+>   
+> **This project is licensed under the GNU General Public License v3.0 (GPL v3)**
+>
+> Everyone is permitted to copy and distribute verbatim copies of this license document, but **changing it is not allowed**.
+> Any derivative work, fork, or modification **must also be released under GPL v3** — no proprietary versions allowed, ever.
+> This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
 > **Last Updated:** 12/07/25
@@ -85,6 +89,9 @@ The Mercury Agent implements a comprehensive 7-phase cognitive architecture that
 ---
 
 ## Current Benchmarks and Visual Proof
+
+<details>
+<summary><strong>Click to expand benchmarks</strong></summary>
 
 The following benchmarks were generated from a 200-epoch training run with the full neuro-symbolic cognitive stack active. All metrics are from actual system execution, not simulated data.
 
@@ -141,6 +148,100 @@ Benevolence scoring over epochs with the 0.99 threshold line:
 Full multi-panel visualization of all metrics:
 
 ![Neuro-Symbolic Benchmark Report](docs/images/neuro_symbolic_benchmark_report.png)
+
+</details>
+
+---
+
+## 3R: Recursion-Resonance-Refactoring
+
+<details>
+<summary><strong>Click to expand 3R Mathematical Framework</strong></summary>
+
+The **3R mechanism** (Recursion-Resonance-Refactoring) is a novel mathematical method for anomaly detection and optimization that forms the core of O♱A's detection capabilities. This framework synergizes three complementary engines to achieve superior pattern recognition and adaptive learning.
+
+### Recursion Engine
+
+The Recursion Engine implements hierarchical multi-scale pattern analysis through recursive feature extraction:
+
+**Mathematical Foundation:**
+```
+R(x, d) = f(x) + α · R(g(x), d-1)  for d > 0
+R(x, 0) = f(x)
+```
+
+Where `f(x)` is the feature extraction function, `g(x)` is the downsampling operator, `α` is the decay factor, and `d` is the recursion depth.
+
+**Key Capabilities:**
+- Multi-scale hierarchical pattern detection across temporal and spatial dimensions
+- Recursive feature extraction that captures both local and global anomaly signatures
+- Self-similar pattern recognition inspired by fractal mathematics
+- Adaptive depth adjustment based on data complexity
+
+### Resonance Engine
+
+The Resonance Engine performs FFT-based frequency-domain analysis to detect harmonic anomalies and periodic patterns:
+
+**Mathematical Foundation:**
+```
+H(ω) = |FFT(x)|² 
+A(x) = Σₙ H(n·ω₀) / Σ H(ω)  (Harmonic Ratio)
+```
+
+Where `ω₀` is the fundamental frequency and `n` represents harmonic indices.
+
+**Key Capabilities:**
+- Frequency-domain anomaly detection using Fast Fourier Transform
+- Harmonic analysis for periodic pattern recognition (e.g., Schumann resonance at 7.83 Hz)
+- Signal amplification for weak anomaly signatures
+- Cross-domain frequency correlation (seismic, electromagnetic, biological)
+
+### Refactoring Engine
+
+The Refactoring Engine provides dynamic optimization and adaptive model refinement:
+
+**Mathematical Foundation:**
+```
+θ_{t+1} = θ_t - η · ∇L(θ_t) + β · (θ_t - θ_{t-1})  (Momentum-based optimization)
+L_total = L_detection + λ₁·L_stability + λ₂·L_ethical
+```
+
+**Key Capabilities:**
+- Dynamic model optimization based on detection performance
+- Code complexity metrics for security review and maintainability
+- Adaptive threshold adjustment using Bayesian calibration
+- Self-healing capabilities inspired by CRISPR mechanisms
+
+### 3R Synergies
+
+The three engines work together to create emergent detection capabilities:
+
+| Synergy | Components | Capability |
+|---------|------------|------------|
+| **Harmonic Analysis** | Resonance + Recursion | Multi-scale frequency decomposition |
+| **Quantum-Inspired Paths** | Recursion + Refactoring | Simulated annealing for optimization |
+| **Ava Equation** | All 3R | Unified anomaly scoring: `A = R·H·O` |
+| **Asymptotic Horizons** | Resonance + Refactoring | Convergence guarantees via Lyapunov stability |
+
+### The Ava Equation
+
+The unified 3R scoring function:
+
+```
+A(x) = w_R · Recursion(x) + w_H · Resonance(x) + w_O · Refactoring(x)
+```
+
+Where weights `w_R`, `w_H`, `w_O` are learned through the fusion network and sum to 1.0.
+
+### Integration with O♱A
+
+The 3R mechanism is integrated throughout O♱A:
+- **Detectors**: All 18+ detection engines leverage 3R for feature extraction
+- **Fusion Network**: Multi-head attention combines 3R outputs across domains
+- **Ethical Governance**: Refactoring engine ensures Lyapunov stability constraints
+- **Self-Healing**: CRISPR-inspired adaptation uses recursive pattern learning
+
+</details>
 
 ---
 
@@ -398,8 +499,8 @@ Optimized for both accuracy and interpretability:
 
 ```bash
 # Clone repository
-git clone https://github.com/Steel-SecAdv-LLC/OMNI-AVA.git
-cd OMNI-AVA
+git clone https://github.com/Steel-SecAdv-LLC/OMNI♱AVA.git
+cd OMNI♱AVA
 
 # Install core dependencies
 pip install -e .
@@ -789,8 +890,8 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 ```bash
 # Clone repository
-git clone https://github.com/Steel-SecAdv-LLC/OMNI-AVA.git
-cd OMNI-AVA
+git clone https://github.com/Steel-SecAdv-LLC/OMNI♱AVA.git
+cd OMNI♱AVA
 
 # Install development dependencies
 pip install -e ".[dev]"
@@ -927,8 +1028,8 @@ GitHub dependency graph is enabled for this repository. View the complete depend
 |------|---------|
 | General Inquiries | support@steelsecurityadvisors.com |
 | Security Issues | See [SECURITY.md](SECURITY.md) for responsible disclosure |
-| GitHub Issues | [Issues Page](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/issues) |
-| GitHub Repository | [O♱A](https://github.com/Steel-SecAdv-LLC/OMNI-AVA) |
+| GitHub Issues | [Issues Page](https://github.com/Steel-SecAdv-LLC/OMNI♱AVA/issues) |
+| GitHub Repository | [O♱A](https://github.com/Steel-SecAdv-LLC/OMNI♱AVA) |
 
 ---
 
@@ -951,7 +1052,7 @@ GitHub dependency graph is enabled for this repository. View the complete depend
 
 ### Development Model
 
-**Conceptual Architect:** Steel Security Advisors LLC and Andrew E. A. conceived, directed, validated, and supervised the development of OMNI-AVA Mercury Agent.
+**Conceptual Architect:** Steel Security Advisors LLC and Andrew E. A. conceived, directed, validated, and supervised the development of OMNI♱AVA Mercury Agent.
 
 **AI Co-Architects:** Significant portions of the codebase, documentation, mathematical frameworks, and technical implementation were constructed by AI systems: Claude (Anthropic) and Devin (Cognition).
 
@@ -998,31 +1099,13 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**OMNI-AVA Mercury Agent v1.0 - Neuro-Symbolic Anomalous AI**
+**O♱A Mercury Agent v1.0 - Neuro-Symbolic Anomalous AI**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 
 *Last updated: 12/07/25*
 
 </div>
-
----
-
-## Ava Guardian Integration
-
-OMNI-AVA Mercury Agent integrates with the Ava Guardian cryptographic security system for post-quantum protection. The following visualization shows the defense-in-depth architecture:
-
-![Defense Layers](docs/images/defense_layers.png)
-
-*Ava Guardian provides 6-layer cryptographic defense: SHA3-256, HMAC-SHA3-256, Ed25519, ML-DSA-65, HKDF, and RFC 3161 timestamps.*
-
-![Ethical Binding](docs/images/ethical_binding.png)
-
-*Keys and signatures are cryptographically bound to an explicit ethical profile hash via HKDF domain separation.*
-
-![Performance Comparison](docs/images/performance_comparison.png)
-
-*Performance benchmarks comparing classical and quantum-resistant operations.*
 
 <div align="center">
 

@@ -968,6 +968,53 @@ class DetectorRegistry:
         except ImportError:
             pass
 
+        try:
+            from omni_anomaly_engine.detectors.geological.tornado_detector import TornadoDetector
+
+            self.register(
+                "tornado",
+                TornadoDetector(),
+                DetectorCategory.GEOLOGICAL,
+                feature_dim=20,
+                description="Tornado prediction with Doppler radar and FFT resonance analysis",
+                tags=["disaster", "weather", "3r-resonance"],
+            )
+            registered_count += 1
+        except ImportError:
+            pass
+
+        try:
+            from omni_anomaly_engine.detectors.geological.hurricane_detector import (
+                HurricaneDetector,
+            )
+
+            self.register(
+                "hurricane",
+                HurricaneDetector(),
+                DetectorCategory.GEOLOGICAL,
+                feature_dim=20,
+                description="Hurricane/cyclone/typhoon prediction with SST and resonance amplification",
+                tags=["disaster", "weather", "3r-resonance"],
+            )
+            registered_count += 1
+        except ImportError:
+            pass
+
+        try:
+            from omni_anomaly_engine.detectors.geological.flood_detector import FloodDetector
+
+            self.register(
+                "flood",
+                FloodDetector(),
+                DetectorCategory.GEOLOGICAL,
+                feature_dim=20,
+                description="Flood prediction with refactoring engine optimization",
+                tags=["disaster", "weather", "3r-refactoring"],
+            )
+            registered_count += 1
+        except ImportError:
+            pass
+
         # Economic detectors
         try:
             from omni_anomaly_engine.detectors.economic.financial_crisis_detector import (
@@ -1009,6 +1056,24 @@ class DetectorRegistry:
                 MarineBiodiversityDetector(),
                 DetectorCategory.MARINE,
                 description="Marine biodiversity threat detection",
+            )
+            registered_count += 1
+        except ImportError:
+            pass
+
+        # =====================================================================
+        # Safeguards (Nano-level anomaly detection)
+        # =====================================================================
+        try:
+            from omni_anomaly_engine.safeguards.nano_safeguards import NanoSafeguardDetector
+
+            self.register(
+                "nano_safeguard",
+                NanoSafeguardDetector(),
+                DetectorCategory.BASE,
+                feature_dim=20,
+                description="Nano-safeguard micro-anomaly detection with hierarchical scanning",
+                tags=["safeguard", "micro-anomaly", "3r-recursion", "lyapunov"],
             )
             registered_count += 1
         except ImportError:

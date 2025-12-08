@@ -376,20 +376,72 @@ class JWTAuth:
             return {"user": user.username}
     """
 
+    # Development fallback key - NEVER use in production
+    _DEV_FALLBACK_KEY = "OMNI_AVA_DEV_FALLBACK_KEY_DO_NOT_USE_IN_PRODUCTION"
+    _warned_about_fallback = False
+
     def __init__(
         self,
         secret_key: str | None = None,
         algorithm: str = "HS256",
         auto_error: bool = True,
+        allow_dev_fallback: bool = True,
     ):
-        # Security: Require explicit JWT_SECRET_KEY - no insecure defaults
+        """Initialize JWT authentication.
+
+        Args:
+            secret_key: JWT signing key (overrides environment variable)
+            algorithm: JWT signing algorithm (default: HS256)
+            auto_error: Raise HTTPException on auth failure
+            allow_dev_fallback: Allow insecure fallback key for development
+
+        Security Note:
+            In production, always set JWT_SECRET_KEY environment variable.
+            Generate a secure key with: `openssl rand -hex 32`
+
+        Migration Note (v1.0 -> v2.0):
+            JWT_SECRET_KEY is now required in production. If migrating from
+            an older version, ensure you set this environment variable before
+            deploying. See CHANGELOG.md for migration instructions.
+        """
         self.secret_key = secret_key or os.getenv("JWT_SECRET_KEY")
+        self.using_fallback = False
+
         if self.secret_key is None:
-            raise ValueError(
-                "JWT_SECRET_KEY environment variable is required for JWT authentication. "
-                "Generate a secure random key (e.g., `openssl rand -hex 32`) and set "
-                "JWT_SECRET_KEY in your environment or .env file."
-            )
+            # Check if we're in a production environment
+            is_production = os.getenv("OMNI_AVA_ENV", "").lower() == "production"
+            is_production = is_production or os.getenv("ENV", "").lower() == "production"
+            is_production = is_production or os.getenv("ENVIRONMENT", "").lower() == "production"
+
+            if is_production:
+                raise ValueError(
+                    "JWT_SECRET_KEY environment variable is required in production. "
+                    "Generate a secure random key (e.g., `openssl rand -hex 32`) and set "
+                    "JWT_SECRET_KEY in your environment or .env file. "
+                    "See CHANGELOG.md for migration instructions."
+                )
+
+            if allow_dev_fallback:
+                # Use fallback key for development only
+                self.secret_key = self._DEV_FALLBACK_KEY
+                self.using_fallback = True
+
+                # Log warning only once per class (not per instance)
+                if not JWTAuth._warned_about_fallback:
+                    logger.warning(
+                        "JWT_SECRET_KEY not set - using insecure development fallback key. "
+                        "This is ONLY acceptable for local development. "
+                        "Set JWT_SECRET_KEY environment variable before deploying to production. "
+                        "Generate a secure key with: openssl rand -hex 32"
+                    )
+                    JWTAuth._warned_about_fallback = True
+            else:
+                raise ValueError(
+                    "JWT_SECRET_KEY environment variable is required for JWT authentication. "
+                    "Generate a secure random key (e.g., `openssl rand -hex 32`) and set "
+                    "JWT_SECRET_KEY in your environment or .env file."
+                )
+
         self.algorithm = algorithm
         self.auto_error = auto_error
         self.bearer = HTTPBearer(auto_error=auto_error)
