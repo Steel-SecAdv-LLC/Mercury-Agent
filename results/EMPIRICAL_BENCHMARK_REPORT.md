@@ -1,6 +1,6 @@
 # OMNI-AVA Empirical Benchmark Report
 
-**Generated:** 2025-12-07T22:10:29.356853+00:00
+**Generated:** 2025-12-08T02:36:45.495210+00:00
 
 ## Methodology
 
@@ -24,15 +24,15 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 
 | Detector | Mean ROC-AUC | Mean F1 | Mean Latency (ms) |
 |----------|--------------|---------|-------------------|
-| EllipticEnvelope | 0.768 | 0.297 | 0.002 |
-| IsolationForest | 0.757 | 0.256 | 0.014 |
-| OneClassSVM | 0.700 | 0.192 | 0.009 |
-| LocalOutlierFactor | 0.576 | 0.207 | 0.009 |
-| OMNI-AVA | 0.204 | 0.235 | 0.246 |
+| EllipticEnvelope | 0.763 | 0.244 | 0.002 |
+| IsolationForest | 0.756 | 0.269 | 0.015 |
+| OneClassSVM | 0.700 | 0.190 | 0.009 |
+| LocalOutlierFactor | 0.593 | 0.223 | 0.009 |
+| OMNI-AVA | 0.201 | 0.247 | 0.268 |
 
 ## Honest Assessment
 
-**Verdict:** OMNI-AVA ranks #5, 0.565 ROC-AUC below best baseline
+**Verdict:** OMNI-AVA ranks #5, 0.562 ROC-AUC below best baseline
 
 ### Methodology Notes
 
@@ -60,7 +60,7 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 - Precision: 0.5938
 - Recall: 0.5938
 - False Positive Rate: 0.2430
-- Inference Latency: 0.6669 ms/sample
+- Inference Latency: 0.7129 ms/sample
 
 ### IsolationForest on breast_cancer
 
@@ -70,7 +70,7 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 - Precision: 0.7193
 - Recall: 0.6406
 - False Positive Rate: 0.1495
-- Inference Latency: 0.0316 ms/sample
+- Inference Latency: 0.0347 ms/sample
 
 ### OneClassSVM on breast_cancer
 
@@ -80,7 +80,7 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 - Precision: 0.5484
 - Recall: 0.5312
 - False Positive Rate: 0.2617
-- Inference Latency: 0.0089 ms/sample
+- Inference Latency: 0.0094 ms/sample
 
 ### LocalOutlierFactor on breast_cancer
 
@@ -100,7 +100,7 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 - Precision: 0.6667
 - Recall: 0.7500
 - False Positive Rate: 0.2243
-- Inference Latency: 0.0029 ms/sample
+- Inference Latency: 0.0027 ms/sample
 
 ### OMNI-AVA on digits_8
 
@@ -110,7 +110,7 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 - Precision: 0.0377
 - Recall: 0.0385
 - False Positive Rate: 0.1045
-- Inference Latency: 0.2252 ms/sample
+- Inference Latency: 0.2677 ms/sample
 
 ### IsolationForest on digits_8
 
@@ -130,7 +130,7 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 - Precision: 0.0152
 - Recall: 0.0192
 - False Positive Rate: 0.1332
-- Inference Latency: 0.0080 ms/sample
+- Inference Latency: 0.0074 ms/sample
 
 ### LocalOutlierFactor on digits_8
 
@@ -140,7 +140,7 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 - Precision: 0.0600
 - Recall: 0.0577
 - False Positive Rate: 0.0963
-- Inference Latency: 0.0072 ms/sample
+- Inference Latency: 0.0070 ms/sample
 
 ### EllipticEnvelope on digits_8
 
@@ -150,7 +150,7 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 - Precision: 0.0000
 - Recall: 0.0000
 - False Positive Rate: 0.0984
-- Inference Latency: 0.0034 ms/sample
+- Inference Latency: 0.0022 ms/sample
 
 ### OMNI-AVA on covtype
 
@@ -160,7 +160,7 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 - Precision: 0.0741
 - Recall: 0.1538
 - False Positive Rate: 0.0093
-- Inference Latency: 0.0453 ms/sample
+- Inference Latency: 0.0452 ms/sample
 
 ### IsolationForest on covtype
 
@@ -170,7 +170,7 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 - Precision: 0.0690
 - Recall: 0.1538
 - False Positive Rate: 0.0100
-- Inference Latency: 0.0052 ms/sample
+- Inference Latency: 0.0053 ms/sample
 
 ### OneClassSVM on covtype
 
@@ -180,7 +180,7 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 - Precision: 0.0536
 - Recall: 0.2308
 - False Positive Rate: 0.0197
-- Inference Latency: 0.0094 ms/sample
+- Inference Latency: 0.0095 ms/sample
 
 ### LocalOutlierFactor on covtype
 
@@ -190,7 +190,7 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 - Precision: 0.0741
 - Recall: 0.1538
 - False Positive Rate: 0.0093
-- Inference Latency: 0.0095 ms/sample
+- Inference Latency: 0.0096 ms/sample
 
 ### EllipticEnvelope on covtype
 
@@ -200,55 +200,55 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 - Precision: 0.2083
 - Recall: 0.3846
 - False Positive Rate: 0.0071
-- Inference Latency: 0.0011 ms/sample
+- Inference Latency: 0.0010 ms/sample
 
 ### OMNI-AVA on kddcup99
 
-- ROC-AUC: 0.0820
-- PR-AUC: -0.0164
-- F1 Score: 0.2081
-- Precision: 0.1978
-- Recall: 0.2195
-- False Positive Rate: 0.0279
-- Inference Latency: 0.0449 ms/sample
+- ROC-AUC: 0.0714
+- PR-AUC: -0.0162
+- F1 Score: 0.2543
+- Precision: 0.2418
+- Recall: 0.2683
+- False Positive Rate: 0.0264
+- Inference Latency: 0.0453 ms/sample
 
 ### IsolationForest on kddcup99
 
-- ROC-AUC: 0.9434
-- PR-AUC: -0.3843
-- F1 Score: 0.2346
-- Precision: 0.2375
-- Recall: 0.2317
-- False Positive Rate: 0.0233
-- Inference Latency: 0.0049 ms/sample
+- ROC-AUC: 0.9372
+- PR-AUC: -0.4058
+- F1 Score: 0.2840
+- Precision: 0.2875
+- Recall: 0.2805
+- False Positive Rate: 0.0218
+- Inference Latency: 0.0050 ms/sample
 
 ### OneClassSVM on kddcup99
 
-- ROC-AUC: 0.9734
-- PR-AUC: -0.3281
-- F1 Score: 0.1258
-- Precision: 0.1299
-- Recall: 0.1220
-- False Positive Rate: 0.0256
-- Inference Latency: 0.0114 ms/sample
+- ROC-AUC: 0.9731
+- PR-AUC: -0.3330
+- F1 Score: 0.1154
+- Precision: 0.1216
+- Recall: 0.1098
+- False Positive Rate: 0.0248
+- Inference Latency: 0.0116 ms/sample
 
 ### LocalOutlierFactor on kddcup99
 
-- ROC-AUC: 0.4839
-- PR-AUC: -0.2487
-- F1 Score: 0.2400
-- Precision: 0.2647
-- Recall: 0.2195
-- False Positive Rate: 0.0191
-- Inference Latency: 0.0085 ms/sample
+- ROC-AUC: 0.5497
+- PR-AUC: -0.3092
+- F1 Score: 0.3038
+- Precision: 0.3158
+- Recall: 0.2927
+- False Positive Rate: 0.0199
+- Inference Latency: 0.0089 ms/sample
 
 ### EllipticEnvelope on kddcup99
 
-- ROC-AUC: 0.8115
-- PR-AUC: -0.1826
-- F1 Score: 0.2099
-- Precision: 0.1919
-- Recall: 0.2317
-- False Positive Rate: 0.0306
+- ROC-AUC: 0.7890
+- PR-AUC: -0.0635
+- F1 Score: 0.0000
+- Precision: 0.0000
+- Recall: 0.0000
+- False Positive Rate: 0.0378
 - Inference Latency: 0.0006 ms/sample
 
