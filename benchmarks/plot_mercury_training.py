@@ -93,7 +93,7 @@ def plot_confidence_evolution(
 ) -> None:
     """
     Plot confidence evolution over epochs with baseline comparison.
-    
+
     Shows:
     - Bayesian calibrated confidence (blue line with uncertainty band)
     - Legacy 0.76 baseline (gray dashed line)
@@ -165,7 +165,7 @@ def plot_confidence_evolution(
 def plot_memory_growth(results: dict[str, Any], ax: plt.Axes) -> None:
     """
     Plot memory accumulation curves over epochs.
-    
+
     Shows growth of:
     - Episodic memory (experiences)
     - Semantic memory (knowledge)
@@ -177,7 +177,7 @@ def plot_memory_growth(results: dict[str, Any], ax: plt.Axes) -> None:
 
     # Get memory stats from calibrator if available, otherwise estimate
     final_memory = results.get("memory_accumulated", {})
-    
+
     # Simulate memory growth curves (linear growth for demonstration)
     n_epochs = len(epochs)
     episodic = [int(final_memory.get("episodic", 800) * (e / n_epochs)) for e in epochs]
@@ -232,7 +232,7 @@ def plot_memory_growth(results: dict[str, Any], ax: plt.Axes) -> None:
 def plot_calibration_reliability(results: dict[str, Any], ax: plt.Axes) -> None:
     """
     Plot calibration reliability diagram.
-    
+
     Shows how well predicted confidence matches actual success rate.
     Perfect calibration = diagonal line.
     """
@@ -242,11 +242,11 @@ def plot_calibration_reliability(results: dict[str, Any], ax: plt.Axes) -> None:
 
     # Get final epoch details for calibration analysis
     final_details = results.get("final_epoch_details", [])
-    
+
     if final_details:
         confidences = [d["plan_confidence"] for d in final_details]
         success_rates = [d["success_rate"] for d in final_details]
-        
+
         # Bin the data
         bin_accuracies = []
         bin_counts = []
@@ -325,24 +325,24 @@ def plot_calibration_reliability(results: dict[str, Any], ax: plt.Axes) -> None:
 def plot_domain_heatmap(results: dict[str, Any], ax: plt.Axes) -> None:
     """
     Plot per-domain competence heatmap.
-    
+
     Shows confidence levels across domains and goal types.
     """
     # Extract domain-specific results
     final_details = results.get("final_epoch_details", [])
-    
+
     domains = list(DOMAIN_COLORS.keys())
     goal_types = ["analysis", "monitoring", "response", "detection"]
-    
+
     # Create confidence matrix
     confidence_matrix = np.zeros((len(domains), len(goal_types)))
     count_matrix = np.zeros((len(domains), len(goal_types)))
-    
+
     for detail in final_details:
         domain = detail.get("domain", "general").lower()
         goal = detail.get("goal", "").lower()
         confidence = detail.get("plan_confidence", 0.76)
-        
+
         if domain in domains:
             d_idx = domains.index(domain)
             # Classify goal type
@@ -358,13 +358,11 @@ def plot_domain_heatmap(results: dict[str, Any], ax: plt.Axes) -> None:
 
     # Average confidences
     with np.errstate(divide="ignore", invalid="ignore"):
-        avg_matrix = np.where(
-            count_matrix > 0, confidence_matrix / count_matrix, 0.76
-        )
+        avg_matrix = np.where(count_matrix > 0, confidence_matrix / count_matrix, 0.76)
 
     # Create heatmap
     im = ax.imshow(avg_matrix, cmap="RdYlGn", aspect="auto", vmin=0.6, vmax=1.0)
-    
+
     # Add colorbar
     cbar = plt.colorbar(im, ax=ax, shrink=0.8)
     cbar.set_label("Confidence", fontsize=9)
@@ -426,11 +424,11 @@ def plot_success_rate_evolution(results: dict[str, Any], ax: plt.Axes) -> None:
 def plot_confidence_distribution(results: dict[str, Any], ax: plt.Axes) -> None:
     """
     Plot distribution of confidence values at final epoch.
-    
+
     Shows shift from concentrated 0.76 to spread distribution.
     """
     final_details = results.get("final_epoch_details", [])
-    
+
     if final_details:
         confidences = [d["plan_confidence"] for d in final_details]
         legacy_confidences = [d.get("legacy_confidence", 0.76) for d in final_details]
@@ -440,7 +438,7 @@ def plot_confidence_distribution(results: dict[str, Any], ax: plt.Axes) -> None:
         legacy_confidences = [0.76] * 8
 
     bins = np.linspace(0.6, 1.0, 21)
-    
+
     # Plot legacy distribution (spike at 0.76)
     ax.hist(
         legacy_confidences,
@@ -450,7 +448,7 @@ def plot_confidence_distribution(results: dict[str, Any], ax: plt.Axes) -> None:
         label="Legacy (Fixed 0.76)",
         edgecolor="white",
     )
-    
+
     # Plot learned distribution
     ax.hist(
         confidences,
@@ -472,7 +470,7 @@ def plot_confidence_distribution(results: dict[str, Any], ax: plt.Axes) -> None:
 def create_composite_figure(results: dict[str, Any], output_path: Path) -> None:
     """
     Create a publication-quality composite figure with all key visualizations.
-    
+
     Layout:
     +-------------------+-------------------+
     |  A: Confidence    |  B: Success Rate  |
@@ -491,49 +489,36 @@ def create_composite_figure(results: dict[str, Any], output_path: Path) -> None:
     # Panel A: Confidence Evolution
     ax_a = fig.add_subplot(gs[0, 0])
     plot_confidence_evolution(results, ax_a)
-    ax_a.text(
-        -0.1, 1.05, "A", transform=ax_a.transAxes, fontsize=14, fontweight="bold"
-    )
+    ax_a.text(-0.1, 1.05, "A", transform=ax_a.transAxes, fontsize=14, fontweight="bold")
 
     # Panel B: Success Rate Evolution
     ax_b = fig.add_subplot(gs[0, 1])
     plot_success_rate_evolution(results, ax_b)
-    ax_b.text(
-        -0.1, 1.05, "B", transform=ax_b.transAxes, fontsize=14, fontweight="bold"
-    )
+    ax_b.text(-0.1, 1.05, "B", transform=ax_b.transAxes, fontsize=14, fontweight="bold")
 
     # Panel C: Memory Growth
     ax_c = fig.add_subplot(gs[1, 0])
     plot_memory_growth(results, ax_c)
-    ax_c.text(
-        -0.1, 1.05, "C", transform=ax_c.transAxes, fontsize=14, fontweight="bold"
-    )
+    ax_c.text(-0.1, 1.05, "C", transform=ax_c.transAxes, fontsize=14, fontweight="bold")
 
     # Panel D: Calibration Reliability
     ax_d = fig.add_subplot(gs[1, 1])
     plot_calibration_reliability(results, ax_d)
-    ax_d.text(
-        -0.1, 1.05, "D", transform=ax_d.transAxes, fontsize=14, fontweight="bold"
-    )
+    ax_d.text(-0.1, 1.05, "D", transform=ax_d.transAxes, fontsize=14, fontweight="bold")
 
     # Panel E: Domain Heatmap
     ax_e = fig.add_subplot(gs[2, 0])
     plot_domain_heatmap(results, ax_e)
-    ax_e.text(
-        -0.1, 1.05, "E", transform=ax_e.transAxes, fontsize=14, fontweight="bold"
-    )
+    ax_e.text(-0.1, 1.05, "E", transform=ax_e.transAxes, fontsize=14, fontweight="bold")
 
     # Panel F: Confidence Distribution
     ax_f = fig.add_subplot(gs[2, 1])
     plot_confidence_distribution(results, ax_f)
-    ax_f.text(
-        -0.1, 1.05, "F", transform=ax_f.transAxes, fontsize=14, fontweight="bold"
-    )
+    ax_f.text(-0.1, 1.05, "F", transform=ax_f.transAxes, fontsize=14, fontweight="bold")
 
     # Add main title
     fig.suptitle(
-        "Mercury Agent Intelligence Report\n"
-        "Bayesian Confidence Calibration & Learning Dynamics",
+        "Mercury Agent Intelligence Report\n" "Bayesian Confidence Calibration & Learning Dynamics",
         fontsize=16,
         fontweight="bold",
         y=0.98,
