@@ -1,29 +1,29 @@
 {
-  "timestamp": "2025-12-04 07:14:16 UTC",
+  "timestamp": "2025-12-08 02:35:13 UTC",
   "benchmarks": {
     "module_instantiation": {
-      "1_module_ms": 0.01621246337890625,
-      "5_modules_ms": 0.1010894775390625,
-      "all_modules_ms": 0.0705718994140625,
+      "1_module_ms": 0.03218650817871094,
+      "5_modules_ms": 0.12040138244628906,
+      "all_modules_ms": 0.1780986785888672,
       "module_count": 12
     },
     "space_exploration": {
-      "runtime_ms": 0.21767616271972656,
-      "throughput_samples_per_sec": 2756388.170865279,
+      "runtime_ms": 0.27942657470703125,
+      "throughput_samples_per_sec": 2147254.6075085322,
       "anomaly_detected": true,
       "severity": "low",
       "data_source": "synthetic_orbit"
     },
     "simulation": {
-      "collatz_exploration_ms": 113.33227157592773,
-      "collatz_cases_per_sec": 44118.06037656464,
-      "millennium_analysis_ms": 0.018358230590820312,
-      "multiverse_prediction_ms": 3.905773162841797,
-      "prediction_throughput_samples_per_sec": 25603.1253815163
+      "collatz_exploration_ms": 106.55379295349121,
+      "collatz_cases_per_sec": 46924.65525072776,
+      "millennium_analysis_ms": 0.01811981201171875,
+      "multiverse_prediction_ms": 4.54258918762207,
+      "prediction_throughput_samples_per_sec": 22013.877079724978
     },
     "cosmic_ray": {
-      "runtime_ms": 0.25844573974609375,
-      "throughput_samples_per_sec": 3869284.1328413286,
+      "runtime_ms": 0.31685829162597656,
+      "throughput_samples_per_sec": 3155984.951091046,
       "precision": 1.0,
       "recall": 0.85,
       "f1": 0.918918918918919,
