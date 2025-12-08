@@ -22,6 +22,20 @@ Geological Hazard Detectors
 Comprehensive geological anomaly detection for humanitarian early warning.
 """
 
+from omni_anomaly_engine.detectors.geological.disaster_detectors import (
+    EarthquakeDetector,
+    EarthquakeMagnitude,
+    EarthquakePredictionResult,
+    MeteorDetector,
+    MeteorPredictionResult,
+    MeteorThreatLevel,
+    SolarFlareClass,
+    SolarFlareDetector,
+    SolarFlarePredictionResult,
+    TsunamiDetector,
+    TsunamiPredictionResult,
+    TsunamiSeverity,
+)
 from omni_anomaly_engine.detectors.geological.flood_detector import (
     FloodDetector,
     FloodPredictionResult,
@@ -57,4 +71,20 @@ __all__ = [
     "FloodPredictionResult",
     "FloodSeverity",
     "FloodType",
+    # Tsunami detection
+    "TsunamiDetector",
+    "TsunamiPredictionResult",
+    "TsunamiSeverity",
+    # Earthquake detection
+    "EarthquakeDetector",
+    "EarthquakePredictionResult",
+    "EarthquakeMagnitude",
+    # Meteor detection
+    "MeteorDetector",
+    "MeteorPredictionResult",
+    "MeteorThreatLevel",
+    # Solar flare detection
+    "SolarFlareDetector",
+    "SolarFlarePredictionResult",
+    "SolarFlareClass",
 ]
