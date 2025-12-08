@@ -28,9 +28,7 @@ All loaders implement the DatasetLoader protocol for consistent interface.
 """
 
 import hashlib
-import io
 import logging
-import zipfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -39,7 +37,6 @@ from typing import Any
 from urllib.request import urlopen
 
 import numpy as np
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +175,7 @@ class NSLKDDLoader(DatasetLoader):
             anomaly_ratio=num_anomalies / len(self._labels),
             feature_names=self.FEATURE_NAMES[:self._data.shape[1]],
             load_time_seconds=load_time,
-            checksum=hashlib.md5(self._data.tobytes()).hexdigest()[:16],
+            checksum=hashlib.sha256(self._data.tobytes()).hexdigest()[:16],
             license="Public Domain",
             citation="Tavallaee et al. (2009). A detailed analysis of the KDD CUP 99 data set.",
         )
@@ -323,7 +320,7 @@ class USGSEarthquakeLoader(DatasetLoader):
             anomaly_ratio=num_anomalies / len(self._labels) if len(self._labels) > 0 else 0,
             feature_names=self.FEATURE_NAMES[:self._data.shape[1]],
             load_time_seconds=load_time,
-            checksum=hashlib.md5(self._data.tobytes()).hexdigest()[:16],
+            checksum=hashlib.sha256(self._data.tobytes()).hexdigest()[:16],
             license="Public Domain (U.S. Government Work)",
             citation="U.S. Geological Survey. Earthquake Hazards Program.",
         )
@@ -388,9 +385,16 @@ class USGSEarthquakeLoader(DatasetLoader):
 
         url = f"{self.USGS_API_URL}?" + "&".join(f"{k}={v}" for k, v in params.items())
 
+        # Validate URL scheme for security (only allow https)
+        if not url.startswith("https://"):
+            logger.warning("USGS API URL must use HTTPS. Using synthetic data.")
+            return self._generate_synthetic(1000, anomaly_threshold)
+
         try:
             import json
-            with urlopen(url, timeout=30) as response:
+            from urllib.request import Request
+            req = Request(url, headers={"User-Agent": "OMNI-AVA/1.0"})  # noqa: S310
+            with urlopen(req, timeout=30) as response:  # noqa: S310
                 data = json.loads(response.read().decode())
 
             features_list = []
@@ -528,7 +532,7 @@ class MIMICLoader(DatasetLoader):
             anomaly_ratio=num_anomalies / len(self._labels),
             feature_names=self.FEATURE_NAMES,
             load_time_seconds=load_time,
-            checksum=hashlib.md5(self._data.tobytes()).hexdigest()[:16],
+            checksum=hashlib.sha256(self._data.tobytes()).hexdigest()[:16],
             license="Synthetic - No restrictions",
             citation="Simulated based on Johnson et al. (2016). MIMIC-III.",
         )

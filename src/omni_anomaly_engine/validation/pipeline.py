@@ -32,7 +32,7 @@ Implements the validation framework described in VALIDATION_FRAMEWORK.md.
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 from scipy import stats
@@ -196,7 +196,7 @@ class DataQualityChecker:
             message=f"Low-variance features: {low_variance_count}/{len(variances)}",
             details={
                 "low_variance_count": int(low_variance_count),
-                "total_features": int(len(variances)),
+                "total_features": len(variances),
                 "min_variance": float(np.min(variances)) if len(variances) > 0 else 0,
                 "max_variance": float(np.max(variances)) if len(variances) > 0 else 0,
             },

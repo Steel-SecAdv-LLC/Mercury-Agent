@@ -206,7 +206,8 @@ class AtmosphericInstabilityAnalyzer:
         helicity = atmospheric_data.get("srh_m2_s2", 0.0)
         bulk_shear = atmospheric_data.get("bulk_shear_kt", 0.0)
         lcl_height = atmospheric_data.get("lcl_m", 2000.0)
-        lfc_height = atmospheric_data.get("lfc_m", 3000.0)
+        # lfc_height reserved for future convective initiation analysis
+        _ = atmospheric_data.get("lfc_m", 3000.0)
 
         significant_cape = cape > self.cape_threshold
         significant_helicity = helicity > self.helicity_threshold
@@ -276,7 +277,8 @@ class PressureGradientMonitor:
             Pressure analysis results
         """
         pressure_series = pressure_data.get("pressure_mb", np.array([]))
-        timestamps = pressure_data.get("timestamps", np.array([]))
+        # timestamps reserved for future temporal correlation analysis
+        _ = pressure_data.get("timestamps", np.array([]))
 
         if len(pressure_series) < 2:
             return {

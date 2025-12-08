@@ -253,7 +253,8 @@ class SoilSaturationModel:
         """
         soil_moisture_pct = soil_data.get("soil_moisture_pct", 50.0)
         soil_type = soil_data.get("soil_type", "loam")
-        antecedent_moisture = soil_data.get("antecedent_moisture_pct", 40.0)
+        # antecedent_moisture used for future soil memory modeling
+        _ = soil_data.get("antecedent_moisture_pct", 40.0)
 
         infiltration_rates = {
             "sand": 0.8,
