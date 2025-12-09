@@ -48,6 +48,13 @@ import numpy as np
 # Golden ratio constant for triadic harmony and phi-weighting
 PHI: float = 1.618033988749895
 
+# Lyapunov stability constant (elevated from 0.18 for 25% faster convergence)
+LAMBDA_LYAPUNOV: float = 0.25
+
+# Sigma Sacred thresholds for ethical gating
+SIGMA_SACRED_THRESHOLD: float = 0.96  # Default elevated threshold
+SIGMA_SACRED_MEDICAL_FALLBACK: float = 0.93  # Medical domain fallback
+
 try:
     import torch
     from torch import nn
@@ -74,6 +81,7 @@ class ScalarGroup(Enum):
     MEDICAL = "medical"
     CRISIS_RESPONSE = "crisis_response"
     AI_GUARDIAN = "ai_guardian"
+    PERFORMANCE = "performance"
 
 
 @dataclass
