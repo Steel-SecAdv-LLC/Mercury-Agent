@@ -592,10 +592,10 @@ class KnowledgeGraph:
 
         # Core storage
         self._nodes: dict[str, KnowledgeNode] = {}
-        self._edges: dict[str, list[KnowledgeEdge]] = defaultdict(list)
-        self._reverse_edges: dict[str, list[KnowledgeEdge]] = defaultdict(list)
-        self._type_index: dict[NodeType, set[str]] = defaultdict(set)
-        self._edge_type_index: dict[EdgeType, list[KnowledgeEdge]] = defaultdict(list)
+        self._edges: dict[str, list[KnowledgeEdge]] = defaultdict[str, list[Any]](list)
+        self._reverse_edges: dict[str, list[KnowledgeEdge]] = defaultdict[str, list[Any]](list)
+        self._type_index: dict[NodeType, set[str]] = defaultdict[str, set[Any]](set)
+        self._edge_type_index: dict[EdgeType, list[KnowledgeEdge]] = defaultdict[str, list[Any]](list)
 
         # Embedding components
         self._random_walk = RandomWalkEmbedding(embedding_dim=embedding_dim)

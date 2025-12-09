@@ -156,7 +156,7 @@ class AgentMemory:
         self.short_term_capacity = short_term_capacity
         self.long_term_capacity = long_term_capacity
 
-        self.short_term: deque[MemoryEntry] = deque(maxlen=short_term_capacity)
+        self.short_term: deque[MemoryEntry] = deque[Any](maxlen=short_term_capacity)
         self.long_term: dict[str, MemoryEntry] = {}
         self.episodic: dict[str, MemoryEntry] = {}
         self.semantic: dict[str, MemoryEntry] = {}

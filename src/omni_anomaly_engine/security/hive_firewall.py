@@ -112,7 +112,7 @@ class HiveFirewall:
 
         self.allowed_patterns: set[str] = set()
 
-        self.threat_stats = defaultdict(int)
+        self.threat_stats = defaultdict[str, int](int)
 
     def _compute_signature_hash(self, data: np.ndarray[Any, Any]) -> str:
         """Compute O(1) signature hash for threat data."""

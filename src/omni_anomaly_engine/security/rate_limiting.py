@@ -31,7 +31,7 @@ class RateLimiter:
     def __init__(self, max_requests: int = 100, window_seconds: int = 60) -> None:
         self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self.requests: dict[str, list[Any]] = defaultdict(list)
+        self.requests: dict[str, list[Any]] = defaultdict[str, list[Any]](list)
 
     def is_allowed(self, identifier: str) -> bool:
         """Check if request is allowed"""

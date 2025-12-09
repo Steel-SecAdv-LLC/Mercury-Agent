@@ -306,7 +306,7 @@ class C2InfrastructureDetector:
         if not domain:
             return 0.0
 
-        freq = defaultdict(int)
+        freq = defaultdict[str, int](int)
         for char in domain:
             freq[char] += 1
 

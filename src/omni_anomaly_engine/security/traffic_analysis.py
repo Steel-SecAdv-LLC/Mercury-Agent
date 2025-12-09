@@ -105,10 +105,10 @@ class NetworkFlowAnalyzer:
         if not flow_data:
             return {"anomaly_detected": False, "statistics": {}}
 
-        flows_per_src = defaultdict(int)
-        flows_per_dst = defaultdict(int)
-        ports_accessed = defaultdict(set)
-        protocols = defaultdict(int)
+        flows_per_src = defaultdict[str, int](int)
+        flows_per_dst = defaultdict[str, int](int)
+        ports_accessed = defaultdict[str, set[Any]](set)
+        protocols = defaultdict[str, int](int)
         byte_volumes = []
 
         for flow in flow_data:

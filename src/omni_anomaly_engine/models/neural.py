@@ -31,7 +31,7 @@ class NeuralCognitiveModel:
     def __init__(self, config: dict[str, Any] | None = None, **kwargs) -> None:
         self.config = config or {}
         self.memory_capacity = self.config.get("memory_capacity", 100)
-        self.memory_buffer = deque(maxlen=self.memory_capacity)
+        self.memory_buffer = deque[Any](maxlen=self.memory_capacity)
 
     def _hippocampal_memory(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Process data through hippocampal memory system."""

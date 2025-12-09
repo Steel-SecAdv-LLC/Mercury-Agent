@@ -398,10 +398,10 @@ class PlasticityEngine:
 
         # Core data structures
         self._connections: dict[tuple[str, str], PlasticConnection] = {}
-        self._node_activations: dict[str, list[float]] = defaultdict(list)
-        self._node_spike_times: dict[str, list[float]] = defaultdict(list)
+        self._node_activations: dict[str, list[float]] = defaultdict[str, list[Any]](list)
+        self._node_spike_times: dict[str, list[float]] = defaultdict[str, list[Any]](list)
         self._adaptation_history: list[AdaptationEvent] = []
-        self._outcome_feedback: dict[str, list[tuple[bool, float]]] = defaultdict(list)
+        self._outcome_feedback: dict[str, list[tuple[bool, float]]] = defaultdict[str, list[Any]](list)
 
         # BCM state: sliding thresholds per node
         self._bcm_thresholds: dict[str, float] = defaultdict(lambda: 0.5)

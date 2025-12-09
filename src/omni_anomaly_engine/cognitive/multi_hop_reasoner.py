@@ -183,7 +183,7 @@ class MultiHopReasoner:
         # Knowledge base
         self._propositions: dict[str, Proposition] = {}
         self._rules: dict[str, InferenceRule] = {}
-        self._rule_index: dict[ReasoningType, list[str]] = defaultdict(list)
+        self._rule_index: dict[ReasoningType, list[str]] = defaultdict[str, list[Any]](list)
 
         # Inference cache
         self._inference_cache: dict[str, Proposition] = {}

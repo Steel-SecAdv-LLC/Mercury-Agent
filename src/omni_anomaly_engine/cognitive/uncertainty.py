@@ -309,7 +309,7 @@ class AdaptiveConformalInference:
         self.window_size = window_size
 
         # Calibration scores (nonconformity scores)
-        self.scores: deque = deque(maxlen=window_size)
+        self.scores: deque = deque[Any](maxlen=window_size)
 
         # Tracking
         self.coverage_history: list[float] = []
@@ -403,8 +403,8 @@ class HeteroscedasticEstimator:
     def __init__(self, window_size: int = 50, min_samples: int = 10) -> None:
         self.window_size = window_size
         self.min_samples = min_samples
-        self._residuals: deque = deque(maxlen=1000)
-        self._features: deque = deque(maxlen=1000)
+        self._residuals: deque = deque[Any](maxlen=1000)
+        self._features: deque = deque[Any](maxlen=1000)
 
     def update(self, prediction: float, true_value: float, features: np.ndarray[Any, Any] | None = None):
         """Store residual for variance estimation."""
@@ -513,9 +513,9 @@ class UncertaintyQuantifier:
         self.heteroscedastic = HeteroscedasticEstimator()
 
         # Calibration history
-        self._predictions: deque = deque(maxlen=5000)
-        self._confidences: deque = deque(maxlen=5000)
-        self._outcomes: deque = deque(maxlen=5000)
+        self._predictions: deque = deque[Any](maxlen=5000)
+        self._confidences: deque = deque[Any](maxlen=5000)
+        self._outcomes: deque = deque[Any](maxlen=5000)
         self._logits_history: list[np.ndarray[Any, Any]] = []
         self._labels_history: list[int] = []
 
