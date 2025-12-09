@@ -86,7 +86,8 @@ class UCRLoader(DatasetLoader):
         """Apply UCR-specific preprocessing (z-normalization)."""
         mean = np.mean(data, axis=1, keepdims=True)
         std = np.std(data, axis=1, keepdims=True) + 1e-8
-        return (data - mean) / std
+        result: np.ndarray[Any, Any] = (data - mean) / std
+        return result
 
     def download(self) -> bool:
         """Download UCR archive (or specific dataset)."""
@@ -194,7 +195,8 @@ class UCRLoader(DatasetLoader):
             # Treat minority class as anomaly
             anomaly_class = unique[np.argmin(counts)]
 
-        return (labels == anomaly_class).astype(int)
+        result: np.ndarray[Any, Any] = (labels == anomaly_class).astype(int)
+        return result
 
     def get_metadata(self) -> DatasetMetadata:
         """Get dataset metadata."""
@@ -259,7 +261,8 @@ class MBALoader(DatasetLoader):
         """Apply MBA-specific preprocessing (z-normalization per window)."""
         mean = np.mean(data, axis=1, keepdims=True)
         std = np.std(data, axis=1, keepdims=True) + 1e-8
-        return (data - mean) / std
+        result: np.ndarray[Any, Any] = (data - mean) / std
+        return result
 
     def download(self) -> bool:
         """Download CWRU bearing data."""
@@ -331,7 +334,7 @@ class MBALoader(DatasetLoader):
                 # Find the vibration data key
                 data_key = None
                 for key in mat_data:
-                    if not key.startswith("_") and isinstance(mat_data[key], np.ndarray[Any, Any]):
+                    if not key.startswith("_") and isinstance(mat_data[key], np.ndarray):
                         if mat_data[key].size > 1000:
                             data_key = key
                             break
@@ -416,7 +419,8 @@ class MSDSLoader(DatasetLoader):
         """Apply MSDS-specific preprocessing (z-normalization per feature)."""
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0) + 1e-8
-        return (data - mean) / std
+        result: np.ndarray[Any, Any] = (data - mean) / std
+        return result
 
     def download(self) -> bool:
         """Generate synthetic MSDS data."""
@@ -435,7 +439,7 @@ class MSDSLoader(DatasetLoader):
         base = np.sin(0.1 * t) + 0.5 * np.sin(0.3 * t)
 
         # Generate sources with shared component
-        features = []
+        features_list: list[np.ndarray[Any, Any]] = []
         for s in range(self.n_sources):
             source_data = np.zeros((self.n_samples, n_features_per_source))
             for f in range(n_features_per_source):
@@ -444,9 +448,9 @@ class MSDSLoader(DatasetLoader):
                 unique = np.sin(0.2 * (s + 1) * (f + 1) * t / 10)
                 noise = 0.1 * np.random.randn(self.n_samples)
                 source_data[:, f] = shared + unique + noise
-            features.append(source_data)
+            features_list.append(source_data)
 
-        features = np.hstack(features)
+        features: np.ndarray[Any, Any] = np.hstack(features_list)
 
         # Generate correlated anomalies
         n_anomalies = int(self.n_samples * self.anomaly_ratio)
