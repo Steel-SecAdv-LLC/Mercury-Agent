@@ -208,7 +208,7 @@ class SelfPlaySimulator:
 
         logger.info(f"SelfPlaySimulator initialized with {num_agents} agents")
 
-    def _initialize_agents(self):
+    def _initialize_agents(self) -> None:
         """Initialize simulation agents with different roles."""
         roles = list(AgentRole)
 

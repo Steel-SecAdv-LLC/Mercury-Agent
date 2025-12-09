@@ -134,7 +134,7 @@ class AgenticAutonomy:
             rationale=f"Autonomous detection with score {anomaly_score:.3f}",
         )
 
-    def _learn_from_action(self, action: AgentAction):
+    def _learn_from_action(self, action: AgentAction) -> None:
         """Learn from action outcomes (placeholder for reinforcement learning)."""
         pass
 
@@ -300,7 +300,7 @@ class AgenticAutonomy:
         else:
             return {"action": action_type, "status": "unknown"}
 
-    def _learn_from_workflow(self, workflow_results: dict[str, Any]):
+    def _learn_from_workflow(self, workflow_results: dict[str, Any]) -> None:
         """Learn from workflow execution outcomes."""
         pass
 

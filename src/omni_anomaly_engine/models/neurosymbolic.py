@@ -103,7 +103,7 @@ class SymbolicRule:
     category: str = "general"
     explanation_template: str = ""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.name:
             self.name = f"rule_{hash((self.premise, self.conclusion)) % 10000:04d}"
         if not self.explanation_template:

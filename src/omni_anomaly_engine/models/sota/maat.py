@@ -655,7 +655,7 @@ class MAATModel(nn.Module):
         # Association discrepancy (from Anomaly Transformer)
         self._init_association_discrepancy()
 
-    def _init_association_discrepancy(self):
+    def _init_association_discrepancy(self) -> None:
         """Initialize components for association discrepancy computation."""
         from omni_anomaly_engine.models.sota.association_discrepancy import (
             PriorAssociation,

@@ -195,7 +195,7 @@ class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):
         # Select operators based on semantics
         self._setup_operators()
 
-    def _setup_operators(self):
+    def _setup_operators(self) -> None:
         """Setup fuzzy operators based on selected semantics."""
         if self.semantics == FuzzySemantics.PRODUCT:
             self.and_op = FuzzyOperators.and_product
@@ -633,7 +633,7 @@ class KnowledgeGraphBridge:
         # Initialize with core commonsense rules
         self._init_core_knowledge()
 
-    def _init_core_knowledge(self):
+    def _init_core_knowledge(self) -> None:
         """Initialize core commonsense knowledge."""
         # Anomaly detection domain knowledge
         core_knowledge = [
@@ -1186,7 +1186,7 @@ class EnhancedNeurosymbolicEngine:
 
         logger.info("EnhancedNeurosymbolicEngine initialized with all components")
 
-    def _init_temporal_rules(self):
+    def _init_temporal_rules(self) -> None:
         """Initialize domain-specific temporal rules."""
         # Medical temporal patterns
         self.temporal_reasoner.add_rule(
@@ -1231,7 +1231,7 @@ class EnhancedNeurosymbolicEngine:
             time_window=72,
         )
 
-    def _init_causal_graph(self):
+    def _init_causal_graph(self) -> None:
         """Initialize causal relationships for root cause analysis."""
         # Medical causal chains
         self.causal_module.add_causal_edge("infection", "inflammation", 0.9)

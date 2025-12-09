@@ -99,7 +99,7 @@ class DatasetConfig:
     random_seed: int = 42
     credentials_path: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate configuration."""
         if abs(sum(self.split_ratios) - 1.0) > 1e-6:
             raise ValueError("Split ratios must sum to 1.0")
@@ -405,10 +405,10 @@ class DatasetLoader(ABC):
                 self.X = torch.FloatTensor(X)
                 self.y = torch.LongTensor(y)
 
-            def __len__(self):
+            def __len__(self) -> None:
                 return len(self.X)
 
-            def __getitem__(self, idx):
+            def __getitem__(self, idx) -> None:
                 return self.X[idx], self.y[idx]
 
         return TorchDataset(features, labels)

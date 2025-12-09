@@ -416,7 +416,7 @@ class GNNMessagePassing:
 
         return h
 
-    def _init_weights(self, input_dim: int):
+    def _init_weights(self, input_dim: int) -> None:
         """Initialize weight matrices with Xavier initialization."""
         dims = [input_dim] + [self.hidden_dim] * self.num_layers
 

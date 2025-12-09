@@ -1432,7 +1432,7 @@ class DetectorRegistry:
 
         return health
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Cleanup resources."""
         if self._executor is not None:
             self._executor.shutdown(wait=False)

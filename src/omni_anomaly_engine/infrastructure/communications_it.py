@@ -121,7 +121,7 @@ class CommunicationsITDetector:
             "timestamp": timestamp or datetime.now(),
         }
 
-    def _update_baseline(self):
+    def _update_baseline(self) -> None:
         """Update baseline statistics from recent traffic history."""
         recent_data = list(self.traffic_history)[-min(len(self.traffic_history), 1000) :]
 

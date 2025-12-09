@@ -282,7 +282,7 @@ class AdaptiveThreatDetector(RealTimeThreatDetector):
 
         return result
 
-    def _update_models(self):
+    def _update_models(self) -> None:
         """Update models with new training data."""
         if not self.training_buffer:
             return
