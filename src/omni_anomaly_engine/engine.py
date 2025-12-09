@@ -96,7 +96,7 @@ import threading
 from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -283,7 +283,7 @@ class MemoryMonitor:
             import psutil
 
             process = psutil.Process()
-            return process.memory_info().rss / (1024 * 1024)
+            return float(process.memory_info().rss / (1024 * 1024))
         except ImportError:
             # Fallback if psutil not available
             return 0.0
@@ -571,6 +571,8 @@ class OmniAvaEngine:
                         continue
                     detector.fit(data)
 
+                if isinstance(data, dict):
+                    continue
                 results[detector_name] = detector.detect(data)
 
         return {
@@ -708,15 +710,15 @@ class OmniAvaEngine:
             >>> print(normalized.shape)
             torch.Size([3, 1])
         """
-        if isinstance(scores, (list, np.ndarray[Any, Any])):
-            scores = torch.tensor(scores, dtype=torch.float32)
-            if scores.dim() == 1:
-                scores = scores.unsqueeze(-1)
+        if isinstance(scores, (list, np.ndarray)):
+            scores_tensor = torch.tensor(scores, dtype=torch.float32)
+            if scores_tensor.dim() == 1:
+                scores_tensor = scores_tensor.unsqueeze(-1)
+            return scores_tensor
         elif isinstance(scores, bool):
-            scores = torch.full((batch_size, 1), float(scores), dtype=torch.float32)
+            return torch.full((batch_size, 1), float(scores), dtype=torch.float32)
         else:
-            scores = torch.full((batch_size, 1), float(scores), dtype=torch.float32)
-        return scores
+            return torch.full((batch_size, 1), float(scores), dtype=torch.float32)
 
     def _extract_detector_features(self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]) -> tuple[Any, ...]:
         """Extract features from all detectors.
@@ -752,7 +754,7 @@ class OmniAvaEngine:
                     data if not isinstance(data, dict) else np.array([0]), prefix=f"detector_{name}"
                 )
 
-                def compute_features(det=detector, d=data) -> tuple[Any, ...]:
+                def compute_features(det: Any = detector, d: Any = data) -> tuple[Any, ...]:
                     features = det.extract_features(d)
                     result = det.detect(d)
                     return features, result
@@ -797,7 +799,7 @@ class OmniAvaEngine:
                     data if not isinstance(data, dict) else np.array([0]), prefix=f"model_{name}"
                 )
 
-                def compute_features(mdl=model, d=data) -> tuple[Any, ...]:
+                def compute_features(mdl: Any = model, d: Any = data) -> tuple[Any, ...]:
                     features = mdl.extract_features(d)
                     prediction = mdl.predict(d)
                     return features, prediction
@@ -910,7 +912,7 @@ class OmniAvaEngine:
             try:
                 # Get GOSNN singleton with domain-appropriate threshold
                 gosnn = get_global_scalar_network(
-                    device=self.device,
+                    device=str(self.device),
                     domain=domain,
                     num_attention_heads=32,
                     enable_triadic_phi=True,
@@ -920,7 +922,7 @@ class OmniAvaEngine:
                 base_scalars = {
                     f"detector_{name}_score": float(np.mean(score))
                     for name, score in all_scores.items()
-                    if isinstance(score, (np.ndarray[Any, Any], float, int))
+                    if isinstance(score, (np.ndarray, float, int))
                 }
 
                 # Get enhanced scalars with ethical gating and harmonic synergy
@@ -963,7 +965,7 @@ class OmniAvaEngine:
                 fallback_scalars = {
                     f"fallback_{name}": float(np.mean(score))
                     for name, score in all_scores.items()
-                    if isinstance(score, (np.ndarray[Any, Any], float, int))
+                    if isinstance(score, (np.ndarray, float, int))
                 }
                 gosnn_metadata = {
                     "error": str(e),
@@ -980,15 +982,15 @@ class OmniAvaEngine:
         )
 
         anomaly_prob_val = fusion_result["anomaly_probs"][0]
-        if isinstance(anomaly_prob_val, np.ndarray[Any, Any]) or hasattr(anomaly_prob_val, "item"):
+        if isinstance(anomaly_prob_val, np.ndarray) or hasattr(anomaly_prob_val, "item"):
             anomaly_prob_val = anomaly_prob_val.item()
 
         severity_val = fusion_result["severity_scores"][0]
-        if isinstance(severity_val, np.ndarray[Any, Any]) or hasattr(severity_val, "item"):
+        if isinstance(severity_val, np.ndarray) or hasattr(severity_val, "item"):
             severity_val = severity_val.item()
 
         class_pred_val = fusion_result["class_predictions"][0]
-        if isinstance(class_pred_val, np.ndarray[Any, Any]) or hasattr(class_pred_val, "item"):
+        if isinstance(class_pred_val, np.ndarray) or hasattr(class_pred_val, "item"):
             class_pred_val = class_pred_val.item()
 
         result = {
@@ -1036,7 +1038,7 @@ class OmniAvaEngine:
             ... )
             >>> print(f"Match score: {result.get('match_score', 0):.3f}")
         """
-        biometric_model = self.models["biometric"]
+        biometric_model = cast(BiometricAnomalyModel, self.models["biometric"])
 
         if test_image is not None:
             return biometric_model.predict(
@@ -1046,6 +1048,9 @@ class OmniAvaEngine:
                 }
             )
         else:
+            # Convert string path to dict format for predict method
+            if isinstance(reference_image, str):
+                return biometric_model.predict({"reference": reference_image})
             return biometric_model.predict(reference_image)
 
     def detect_security_threat(
@@ -1243,7 +1248,7 @@ class OmniAvaEngine:
             model=self.fusion_model,
             learning_rate=learning_rate,
         )
-        trainer_module.optimizer_type = optimizer_type
+        trainer_module.optimizer_type = optimizer_type  # type: ignore[assignment]
 
         # Training state
         best_val_loss = float("inf")
@@ -1260,7 +1265,7 @@ class OmniAvaEngine:
         )
 
         # Configure optimizer
-        optimizer_config = trainer_module.configure_optimizers()
+        optimizer_config = cast(dict[str, Any], trainer_module.configure_optimizers())
         optimizer = optimizer_config["optimizer"]
         scheduler = optimizer_config["lr_scheduler"]["scheduler"]
 
@@ -1275,7 +1280,7 @@ class OmniAvaEngine:
                 if use_mixed_precision and scaler is not None:
                     with torch.cuda.amp.autocast():
                         loss = trainer_module.training_step(batch, batch_idx)
-                    scaler.scale(loss / gradient_accumulation_steps).backward()
+                    scaler.scale(loss / gradient_accumulation_steps).backward()  # type: ignore[no-untyped-call]
 
                     if (batch_idx + 1) % gradient_accumulation_steps == 0:
                         scaler.step(optimizer)
@@ -1283,7 +1288,7 @@ class OmniAvaEngine:
                         optimizer.zero_grad()
                 else:
                     loss = trainer_module.training_step(batch, batch_idx)
-                    (loss / gradient_accumulation_steps).backward()
+                    (loss / gradient_accumulation_steps).backward()  # type: ignore[no-untyped-call]
 
                     if (batch_idx + 1) % gradient_accumulation_steps == 0:
                         optimizer.step()
@@ -1291,7 +1296,7 @@ class OmniAvaEngine:
 
                 train_losses.append(loss.item())
 
-            avg_train_loss = np.mean(train_losses)
+            avg_train_loss = float(np.mean(train_losses))
 
             # Validation phase
             val_losses = []
@@ -1309,7 +1314,7 @@ class OmniAvaEngine:
                     )
                     val_losses.append(val_loss.item())
 
-            avg_val_loss = np.mean(val_losses) if val_losses else avg_train_loss
+            avg_val_loss = float(np.mean(val_losses)) if val_losses else avg_train_loss
 
             # Update learning rate scheduler
             scheduler.step(avg_val_loss)
