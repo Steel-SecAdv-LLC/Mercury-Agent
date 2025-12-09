@@ -45,6 +45,7 @@ from omni_anomaly_engine.core.ethical_config import DEFAULT_CONFIG
 from omni_anomaly_engine.security.intelligence_fusion import (
     IntelligenceDiscipline,
     IntelligenceFusionEngine,
+    IntelligenceFusionResult,
 )
 
 
@@ -217,7 +218,7 @@ class OverwatchNexus:
 
         return intel_reports
 
-    def _compute_purity_invariant(self, fusion_result) -> float:
+    def _compute_purity_invariant(self, fusion_result: IntelligenceFusionResult) -> float:
         """
         Compute Purity Invariant (σ_Sacred) for ethical compliance.
 
@@ -239,7 +240,7 @@ class OverwatchNexus:
 
         return float(purity)
 
-    def _apply_ethical_rollback(self, fusion_result) -> OverwatchNexusResult:
+    def _apply_ethical_rollback(self, fusion_result: IntelligenceFusionResult) -> OverwatchNexusResult:
         """
         Apply ethical rollback when Purity Invariant violated.
 
@@ -271,8 +272,8 @@ class OverwatchNexus:
         Returns:
             Chaos score (higher = more bifurcation)
         """
-        if isinstance(data_stream, np.ndarray[Any, Any]) and data_stream.size > 0:
-            variance = np.var(data_stream)
+        if isinstance(data_stream, np.ndarray) and data_stream.size > 0:
+            variance = float(np.var(data_stream))
             chaos_score = min(variance / 10.0, 1.0)
         else:
             chaos_score = 0.1
@@ -299,13 +300,13 @@ class OverwatchNexus:
             if osint_data.get("threat_score", 0) > 0.6:
                 indicators.append("OSINT disease outbreak signals")
 
-        if isinstance(data_stream, np.ndarray[Any, Any]) and data_stream.size > 0:
-            if np.mean(data_stream) > 2.0:
+        if isinstance(data_stream, np.ndarray) and data_stream.size > 0:
+            if float(np.mean(data_stream)) > 2.0:
                 indicators.append("Pathogen energy threshold exceeded (QBM model)")
 
         return indicators
 
-    def _classify_ci_threat(self, fusion_result) -> str:
+    def _classify_ci_threat(self, fusion_result: IntelligenceFusionResult) -> str:
         """
         Classify CI threat type based on intelligence indicators.
 
@@ -323,7 +324,7 @@ class OverwatchNexus:
         else:
             return "general_anomaly"
 
-    def _identify_survivor_priorities(self, fusion_result) -> list[str]:
+    def _identify_survivor_priorities(self, fusion_result: IntelligenceFusionResult) -> list[str]:
         """
         Identify survivor-first priorities for humanitarian CI.
 
@@ -343,34 +344,37 @@ class OverwatchNexus:
         return priorities
 
     def _assess_humanitarian_impact(
-        self, fusion_result, bio_threat_indicators: list[str]
+        self, fusion_result: IntelligenceFusionResult, bio_threat_indicators: list[str]
     ) -> dict[str, Any]:
         """
         Assess humanitarian impact of detected threats.
 
         Simulated estimates for research purposes.
         """
-        impact = {
-            "lives_at_risk": 0,
-            "economic_impact_usd": 0.0,
-            "affected_regions": [],
-            "vulnerable_populations": [],
-        }
+        lives_at_risk: int = 0
+        economic_impact_usd: float = 0.0
+        affected_regions: list[str] = []
+        vulnerable_populations: list[str] = []
 
         if fusion_result.threat_detected:
             threat_multiplier = {"LOW": 100, "MODERATE": 1000, "SUBSTANTIAL": 5000}.get(
                 fusion_result.threat_level, 10000
             )
 
-            impact["lives_at_risk"] = int(threat_multiplier * fusion_result.risk_score)
-            impact["economic_impact_usd"] = threat_multiplier * 1000000
+            lives_at_risk = int(threat_multiplier * fusion_result.risk_score)
+            economic_impact_usd = float(threat_multiplier * 1000000)
 
         if bio_threat_indicators:
-            impact["lives_at_risk"] *= 10
-            impact["vulnerable_populations"].append("Immunocompromised individuals")
-            impact["vulnerable_populations"].append("Elderly population")
+            lives_at_risk *= 10
+            vulnerable_populations.append("Immunocompromised individuals")
+            vulnerable_populations.append("Elderly population")
 
-        return impact
+        return {
+            "lives_at_risk": lives_at_risk,
+            "economic_impact_usd": economic_impact_usd,
+            "affected_regions": affected_regions,
+            "vulnerable_populations": vulnerable_populations,
+        }
 
     def extract_features(self, data: Any) -> torch.Tensor:
         """
@@ -379,7 +383,7 @@ class OverwatchNexus:
         Enables Overwatch Nexus and Response module to integrate with existing
         hybrid fusion architecture (core/fusion.py).
         """
-        if isinstance(data, np.ndarray[Any, Any]):
+        if isinstance(data, np.ndarray):
             features = torch.tensor(data, dtype=torch.float32)
         else:
             features = torch.zeros(128, dtype=torch.float32)
