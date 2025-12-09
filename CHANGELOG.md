@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Omni-Prefix Scalar Unification**: All 50+ ethical scalars renamed to omni- prefix
+  - Core scalars: omnicompassion, omnibenevolence, omniempathy, omnimorality, omnilove, omnijustice, omniequity, omniforgiveness, omnialtruism, omnihope, omnicourage, omniwisdom, omniintegrity, omniloyalty, omnidetermination, omniaccountability, omnitransparency, omniexplainability
+  - New scalars: omnigrace, omnipatience, omnihumility, omniresilience, omniperseverance, omnivigilance, omnistewardship
+  - Cosmic scalars: omniuniverse_adapt, omnitelos, omnicosmicharmony, omnistellarresonance
+  - Quantum scalars: omniquantum_weight, omniquantum_entanglement, omnineuroquantum, omniconsciousness_coherence, omniquantum_superposition, omniquantum_decoherence_shield
+  - Humanitarian scalars: omnicrisis_response, omnidisaster_response, omnipandemic_monitoring, omnimissing_persons_priority, omnimedical_discovery, omnihumanitarian_aid, omnirefugee_protection, omnifood_security, omniclimate_resilience
+  - Security scalars: omnithreat_detection, omniquantum_resistance, omniencryption_strength, omniaudit_compliance, omnicyber_fortress, omnizero_trust
+- Backward-compatible legacy alias system for seamless migration (deprecated in v2.0)
+- `resolve_scalar_name()` and `get_scalar()` methods for legacy alias resolution
+- Nano-safeguards marked as complete in PROTECTION_OVERVIEW.md
 - Real-world dataset benchmarking framework with multi-domain support
   - Medical loaders: MIMIC-III/IV, PhysioNet, Sepsis, Cardiology (with PhysioNet credential support)
   - Security loaders: NSL-KDD, CICIDS, ThreatIntel for network intrusion detection

@@ -1,7 +1,7 @@
 # OMNI♱AVA (O♱A): Mercury Agent – Neuro-Symbolic AI for Autonomous Anomaly Detection, PQC-Protected for Civilized Evolution
 
+<div align="center">
   <img width="488" height="593" alt="image" src="https://github.com/user-attachments/assets/61b40e66-c669-4b16-a4ec-18cd5207e538" />
-
 </div>
 
 ---
@@ -11,11 +11,11 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
-[![CI](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions/workflows/ci.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions/workflows/ci.yml)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions/workflows/security.yaml/badge.svg)](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions/workflows/security.yaml)
 [![Tests](https://img.shields.io/badge/tests-1880%2B-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-83%25%2B-brightgreen.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-orange.svg)](#3r-recursion-resonance-refactoring)
+[![3R|Mathematics](https://img.shields.io/badge/3R-Mathematics-orange.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
 [![Ava-Guardian](https://img.shields.io/badge/Ava--Guardian-PQC%20Adapter-green.svg)](#ava-guardian-integration)
 
