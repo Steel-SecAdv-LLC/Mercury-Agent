@@ -1,6 +1,6 @@
-# OMNI♱AVA (O♱A): Mercury Agent, Neuro-Symbolic AI for Autonomous Anomaly Detection for Civilized Evolution
+# OMNI♱AVA (O♱A): Mercury Agent – Neuro-Symbolic AI for Autonomous Anomaly Detection, PQC-Protected for Civilized Evolution
 
-<img width="738" height="545" alt="image" src="https://github.com/user-attachments/assets/f82993d9-1d3e-4ae5-8515-4ddd17dddc1f" />
+  <img width="488" height="593" alt="image" src="https://github.com/user-attachments/assets/61b40e66-c669-4b16-a4ec-18cd5207e538" />
 
 </div>
 
@@ -20,21 +20,21 @@
 [![Ava-Guardian](https://img.shields.io/badge/Ava--Guardian-PQC%20Adapter-green.svg)](#ava-guardian-integration)
 
 ```
-              +==============================================================================+
-              |                            O♱A MERCURY AGENT v1.0                            |
-              |         Neuro-Symbolic AI for Autonomous Anomaly Detection Paradigm          |
-              |                                                                              |
-              |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security   |
-              |   Neural + Symbolic      |   18+ Detection Engines |   Post-Quantum Crypto   |
-              |   Ethical Governance     |   Multi-Head Attention  |   OWASP Validation      |
-              |                                                                              |
-              |   LAYER 3: Ethics        |   LAYER 2: ML/AI        |   LAYER 1: Security     |
-              |   -------------------    |   -------------------   |   -------------------   |
-              |   Benevolence >= 0.99    |   Fusion Network        |   Kyber768/Dilithium3   |
-              |   Lyapunov Stability     |   Ensemble Averaging    |   JWT Authentication    |
-              |   Civilization-First     |   Property Testing      |   Rate Limiting         |
-              |                                                                              |
-              |                      Archetype for a civilized evolution.                    |
+              +===============================================================================+
+              |                            O♱A MERCURY AGENT v1.0                             |
+              |Neuro-Symbolic AI for Autonomous Anomaly Detection Paradigm with PQC-Protected |
+              |                                                                               |
+              |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security    |
+              |   Neural + Symbolic      |   18+ Detection Engines |   Post-Quantum Crypto    |
+              |   Ethical Governance     |   Multi-Head Attention  |   OWASP Validation       |
+              |                                                                               |
+              |   LAYER 3: Ethics        |   LAYER 2: ML/AI        |   LAYER 1: Security      |
+              |   -------------------    |   -------------------   |   -------------------    |
+              |   Benevolence >= 0.99    |   Fusion Network        |   Kyber768/Dilithium3    |
+              |   Lyapunov Stability     |   Ensemble Averaging    |   JWT Authentication     |
+              |   Civilization-First     |   Property Testing      |   Rate Limiting          |
+              |                                                                               |
+              |                      Archetype for a civilized evolution.                     |
               +==============================================================================+
 ```
 
@@ -50,7 +50,7 @@
 
 ## Executive Summary
 
-O♱A Mercury Agent is a comprehensive neuro-symbolic AI framework implementing a 7-phase cognitive evolution for multi-domain anomaly detection. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
+O♱A Mercury Agent is a comprehensive neuro-symbolic AI Archetype implementing a 7-phase cognitive evolution for multi-domain anomaly detection. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
 
 The framework embodies a **Civilization-First** philosophy, prioritizing ethical AI governance and humanitarian impact. Every action must pass a benevolence threshold of 0.99 or higher, ensuring the system operates in service of human flourishing and civilizational progress.
 
