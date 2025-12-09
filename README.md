@@ -1,7 +1,9 @@
-# OMNI♱AVA (O♱A): Mercury Agent – Neuro-Symbolic AI for Autonomous Anomaly Detection, PQC-Protected for Civilized Evolution
+<div align="center">
+   <h1><b>OMNI<span style="color:#B8860B">♱</span>AVA (O<span style="color:#B8860B">♱</span>A): Mercury Agent</b></h1>
+</div>
 
+<div align="center">
   <img width="488" height="593" alt="image" src="https://github.com/user-attachments/assets/61b40e66-c669-4b16-a4ec-18cd5207e538" />
-
 </div>
 
 ---
@@ -11,7 +13,6 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
-[![CI](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions/workflows/ci.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions/workflows/ci.yml)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions/workflows/security.yaml/badge.svg)](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions/workflows/security.yaml)
 [![Tests](https://img.shields.io/badge/tests-1880%2B-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-83%25%2B-brightgreen.svg)](tests/)
@@ -1205,7 +1206,7 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**O♱A Mercury Agent v1.0 - Neuro-Symbolic Anomalous AI**
+**O♱A Mercury Agent v1.0 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 

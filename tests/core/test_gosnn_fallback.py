@@ -580,3 +580,195 @@ class TestGOSNNFullIntegration:
     def test_bidirectional_flow(self, full_setup, deterministic_rng):
         """Test bidirectional flow between components."""
         pass
+
+
+# =============================================================================
+# Omni-Scalar Legacy Alias Resolution Tests
+# =============================================================================
+
+
+class TestOmniScalarLegacyAliases:
+    """Tests for omni-scalar legacy alias resolution (deprecated in v2.0)."""
+
+    @pytest.fixture
+    def gosnn(self):
+        """Create GlobalOmniScalarNetwork instance."""
+        if not HAS_TORCH:
+            pytest.skip("torch not installed")
+        from omni_anomaly_engine.core.global_omni_scalar_network import (
+            GlobalOmniScalarNetwork,
+            reset_global_network,
+        )
+
+        reset_global_network()
+        return GlobalOmniScalarNetwork()
+
+    def test_legacy_aliases_initialized(self, gosnn):
+        """Test legacy aliases are initialized."""
+        assert hasattr(gosnn, "_legacy_aliases")
+        assert isinstance(gosnn._legacy_aliases, dict)
+        assert len(gosnn._legacy_aliases) > 0
+
+    def test_resolve_scalar_name_exists(self, gosnn):
+        """Test resolve_scalar_name method exists."""
+        assert hasattr(gosnn, "resolve_scalar_name")
+
+    def test_get_scalar_exists(self, gosnn):
+        """Test get_scalar method exists."""
+        assert hasattr(gosnn, "get_scalar")
+
+    def test_resolve_legacy_morality_scalar(self, gosnn):
+        """Test resolving legacy morality_scalar to omnimorality."""
+        resolved = gosnn.resolve_scalar_name("morality_scalar")
+        assert resolved == "omnimorality"
+
+    def test_resolve_legacy_empathy_scalar(self, gosnn):
+        """Test resolving legacy empathy_scalar to omniempathy."""
+        resolved = gosnn.resolve_scalar_name("empathy_scalar")
+        assert resolved == "omniempathy"
+
+    def test_resolve_legacy_compassion_scalar(self, gosnn):
+        """Test resolving legacy compassion_scalar to omnicompassion."""
+        resolved = gosnn.resolve_scalar_name("compassion_scalar")
+        assert resolved == "omnicompassion"
+
+    def test_resolve_legacy_benevolence(self, gosnn):
+        """Test resolving legacy benevolence to omnibenevolence."""
+        resolved = gosnn.resolve_scalar_name("benevolence")
+        assert resolved == "omnibenevolence"
+
+    def test_resolve_omni_prefixed_unchanged(self, gosnn):
+        """Test omni-prefixed names are returned unchanged."""
+        resolved = gosnn.resolve_scalar_name("omnimorality")
+        assert resolved == "omnimorality"
+
+    def test_resolve_unknown_name_unchanged(self, gosnn):
+        """Test unknown names are returned unchanged."""
+        resolved = gosnn.resolve_scalar_name("unknown_scalar")
+        assert resolved == "unknown_scalar"
+
+    def test_get_scalar_with_legacy_name(self, gosnn):
+        """Test get_scalar works with legacy names."""
+        value = gosnn.get_scalar("morality_scalar")
+        assert value > 0
+
+    def test_get_scalar_with_omni_name(self, gosnn):
+        """Test get_scalar works with omni-prefixed names."""
+        value = gosnn.get_scalar("omnimorality")
+        assert value > 0
+
+    def test_get_scalar_legacy_equals_omni(self, gosnn):
+        """Test legacy and omni names return same value."""
+        legacy_value = gosnn.get_scalar("morality_scalar")
+        omni_value = gosnn.get_scalar("omnimorality")
+        assert legacy_value == omni_value
+
+    def test_get_scalar_default_for_unknown(self, gosnn):
+        """Test get_scalar returns default for unknown names."""
+        value = gosnn.get_scalar("unknown_scalar", default=0.5)
+        assert value == 0.5
+
+    def test_all_legacy_aliases_resolve(self, gosnn):
+        """Test all legacy aliases resolve to omni-prefixed names."""
+        for legacy_name, omni_name in gosnn._legacy_aliases.items():
+            resolved = gosnn.resolve_scalar_name(legacy_name)
+            assert resolved == omni_name
+            assert omni_name.startswith("omni")
+
+
+class TestOmniScalarValues:
+    """Tests for omni-scalar default values."""
+
+    @pytest.fixture
+    def gosnn(self):
+        """Create GlobalOmniScalarNetwork instance."""
+        if not HAS_TORCH:
+            pytest.skip("torch not installed")
+        from omni_anomaly_engine.core.global_omni_scalar_network import (
+            GlobalOmniScalarNetwork,
+            reset_global_network,
+        )
+
+        reset_global_network()
+        return GlobalOmniScalarNetwork()
+
+    def test_omnibenevolence_threshold(self, gosnn):
+        """Test omnibenevolence >= 0.99 threshold."""
+        value = gosnn.get_scalar("omnibenevolence")
+        assert value >= 0.99
+
+    def test_omnicompassion_value(self, gosnn):
+        """Test omnicompassion has positive value."""
+        value = gosnn.get_scalar("omnicompassion")
+        assert value > 0
+
+    def test_omniempathy_value(self, gosnn):
+        """Test omniempathy has positive value."""
+        value = gosnn.get_scalar("omniempathy")
+        assert value > 0
+
+    def test_omnimorality_value(self, gosnn):
+        """Test omnimorality has positive value."""
+        value = gosnn.get_scalar("omnimorality")
+        assert value > 0
+
+    def test_omnijustice_value(self, gosnn):
+        """Test omnijustice has positive value."""
+        value = gosnn.get_scalar("omnijustice")
+        assert value > 0
+
+    def test_omniequity_value(self, gosnn):
+        """Test omniequity has positive value."""
+        value = gosnn.get_scalar("omniequity")
+        assert value > 0
+
+    def test_omnilove_value(self, gosnn):
+        """Test omnilove has positive value."""
+        value = gosnn.get_scalar("omnilove")
+        assert value > 0
+
+    def test_omniforgiveness_value(self, gosnn):
+        """Test omniforgiveness has positive value."""
+        value = gosnn.get_scalar("omniforgiveness")
+        assert value > 0
+
+
+class TestBiasAuditOmniScalars:
+    """Tests for bias audit with omni-scalars."""
+
+    @pytest.fixture
+    def gosnn(self):
+        """Create GlobalOmniScalarNetwork instance."""
+        if not HAS_TORCH:
+            pytest.skip("torch not installed")
+        from omni_anomaly_engine.core.global_omni_scalar_network import (
+            GlobalOmniScalarNetwork,
+            reset_global_network,
+        )
+
+        reset_global_network()
+        return GlobalOmniScalarNetwork()
+
+    def test_bias_audit_returns_omni_scalars(self, gosnn):
+        """Test bias audit returns omni-prefixed scalar names."""
+        result = gosnn.perform_bias_audit()
+        assert "omniempathy" in result
+        assert "omnimorality" in result
+        assert "omnibenevolence" in result
+
+    def test_bias_audit_omnibenevolence_check(self, gosnn):
+        """Test bias audit checks omnibenevolence >= 0.99."""
+        result = gosnn.perform_bias_audit()
+        assert result["omnibenevolence"] >= 0.99
+
+    def test_bias_audit_status(self, gosnn):
+        """Test bias audit returns status."""
+        result = gosnn.perform_bias_audit()
+        assert "status" in result
+        assert result["status"] in ["passed", "warnings"]
+
+    def test_bias_audit_recommendations(self, gosnn):
+        """Test bias audit returns recommendations list."""
+        result = gosnn.perform_bias_audit()
+        assert "recommendations" in result
+        assert isinstance(result["recommendations"], list)

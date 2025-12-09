@@ -517,58 +517,171 @@ class GlobalOmniScalarNetwork:
         )
 
     def _initialize_default_scalars(self) -> None:
-        """Initialize default ethical and system scalars."""
+        """Initialize default ethical and system scalars with omni- prefix.
+
+        All scalars use the omni- prefix for unified naming convention.
+        Legacy aliases (without omni- prefix) are maintained for backward
+        compatibility and will be deprecated in v2.0.
+        """
+        # Core ethical scalars with omni- prefix (omnibenevolence >= 0.99)
         self.scalar_groups[ScalarGroup.ETHICAL] = {
-            "morality_scalar": self.MIN_MORALITY,
-            "empathy_scalar": self.MIN_EMPATHY,
-            "compassion_scalar": 1.30,
-            "forgiveness": 0.1,
-            "love_scalar": 1.30,
-            "determination_scalar": 1.30,
-            "loyalty_scalar": 1.30,
-            "integrity_scalar": 1.30,
-            "wisdom_scalar": 1.30,
-            "justice_scalar": 1.30,
-            "altruism_scalar": 1.30,
-            "hope_scalar": 1.30,
-            "courage_scalar": 1.30,
-            "accountability_scalar": 1.30,
-            "transparency_weight": 0.18,
-            "explainability_factor": 0.9,
+            # Primary omni-scalars
+            "omnimorality": self.MIN_MORALITY,
+            "omniempathy": self.MIN_EMPATHY,
+            "omnicompassion": 1.30,
+            "omniforgiveness": 0.1,
+            "omnilove": 1.30,
+            "omnidetermination": 1.30,
+            "omniloyalty": 1.30,
+            "omniintegrity": 1.30,
+            "omniwisdom": 1.30,
+            "omnijustice": 1.30,
+            "omnialtruism": 1.30,
+            "omnihope": 1.30,
+            "omnicourage": 1.30,
+            "omniaccountability": 1.30,
+            "omnitransparency": 0.18,
+            "omniexplainability": 0.9,
+            "omnibenevolence": 0.99,  # Core benevolence threshold
+            "omniequity": 1.30,
+            "omnigrace": 1.25,
+            "omnipatience": 1.20,
+            "omnihumility": 1.15,
+            "omniresilience": 1.30,
+            "omniperseverance": 1.25,
+            "omnivigilance": 1.20,
+            "omnistewardship": 1.25,
+            # Operational scalars
             "survivor_first_principle": 1.35,
             "bias_audit_compliance": 1.25,
         }
 
         self.scalar_groups[ScalarGroup.COSMIC] = {
-            "universe_adapt": 1.20,
-            "telos_scalar": 1.25,
-            "black_hole_entropy_eth": 1.30,
-            "harmonic_singularity_bridge": 1.30,
-            "golden_ratio_phi": self.PHI,
+            "omniuniverse_adapt": 1.20,
+            "omnitelos": 1.25,
+            "omni_black_hole_entropy": 1.30,
+            "omni_harmonic_singularity": 1.30,
+            "omni_golden_ratio_phi": self.PHI,
+            "omnicosmicharmony": 1.28,
+            "omnistellarresonance": 1.22,
         }
 
         self.scalar_groups[ScalarGroup.QUANTUM_CONSCIOUSNESS] = {
-            "quantum_weight": 0.12,
-            "entanglement_risk": 0.1,
-            "quantum_entanglement_weight": 0.14,
-            "neuro_quantum": 1.30,
-            "consciousness_coherence": 1.25,
+            "omniquantum_weight": 0.12,
+            "omnientanglement_risk": 0.1,
+            "omniquantum_entanglement": 0.14,
+            "omnineuroquantum": 1.30,
+            "omniconsciousness_coherence": 1.25,
+            "omniquantum_superposition": 1.18,
+            "omniquantum_decoherence_shield": 1.20,
         }
 
         self.scalar_groups[ScalarGroup.HUMANITARIAN] = {
-            "crisis_response_boost": 1.35,
-            "disaster_response_boost": 1.30,
-            "pandemic_monitoring": 1.25,
-            "missing_persons_priority": 1.40,
-            "medical_discovery_boost": 1.30,
+            "omnicrisis_response": 1.35,
+            "omnidisaster_response": 1.30,
+            "omnipandemic_monitoring": 1.25,
+            "omnimissing_persons_priority": 1.40,
+            "omnimedical_discovery": 1.30,
+            "omnihumanitarian_aid": 1.35,
+            "omnirefugee_protection": 1.30,
+            "omnifood_security": 1.25,
+            "omniclimate_resilience": 1.28,
         }
 
         self.scalar_groups[ScalarGroup.SECURITY] = {
-            "threat_detection_sensitivity": 1.25,
-            "quantum_resistance": 1.30,
-            "encryption_strength": 1.35,
-            "audit_compliance": 1.20,
+            "omnithreat_detection": 1.25,
+            "omniquantum_resistance": 1.30,
+            "omniencryption_strength": 1.35,
+            "omniaudit_compliance": 1.20,
+            "omnicyber_fortress": 1.28,
+            "omnizero_trust": 1.22,
         }
+
+        # Initialize legacy alias mapping for backward compatibility
+        self._initialize_legacy_aliases()
+
+    def _initialize_legacy_aliases(self) -> None:
+        """Initialize backward-compatible legacy aliases (deprecated in v2.0).
+
+        Maps old scalar names to new omni-prefixed names for seamless migration.
+        """
+        self._legacy_aliases: dict[str, str] = {
+            # Ethical scalars
+            "morality_scalar": "omnimorality",
+            "empathy_scalar": "omniempathy",
+            "compassion_scalar": "omnicompassion",
+            "forgiveness": "omniforgiveness",
+            "love_scalar": "omnilove",
+            "determination_scalar": "omnidetermination",
+            "loyalty_scalar": "omniloyalty",
+            "integrity_scalar": "omniintegrity",
+            "wisdom_scalar": "omniwisdom",
+            "justice_scalar": "omnijustice",
+            "altruism_scalar": "omnialtruism",
+            "hope_scalar": "omnihope",
+            "courage_scalar": "omnicourage",
+            "accountability_scalar": "omniaccountability",
+            "transparency_weight": "omnitransparency",
+            "explainability_factor": "omniexplainability",
+            "benevolence": "omnibenevolence",
+            "equity": "omniequity",
+            # Cosmic scalars
+            "universe_adapt": "omniuniverse_adapt",
+            "telos_scalar": "omnitelos",
+            "black_hole_entropy_eth": "omni_black_hole_entropy",
+            "harmonic_singularity_bridge": "omni_harmonic_singularity",
+            "golden_ratio_phi": "omni_golden_ratio_phi",
+            # Quantum consciousness scalars
+            "quantum_weight": "omniquantum_weight",
+            "entanglement_risk": "omnientanglement_risk",
+            "quantum_entanglement_weight": "omniquantum_entanglement",
+            "neuro_quantum": "omnineuroquantum",
+            "consciousness_coherence": "omniconsciousness_coherence",
+            # Humanitarian scalars
+            "crisis_response_boost": "omnicrisis_response",
+            "disaster_response_boost": "omnidisaster_response",
+            "pandemic_monitoring": "omnipandemic_monitoring",
+            "missing_persons_priority": "omnimissing_persons_priority",
+            "medical_discovery_boost": "omnimedical_discovery",
+            # Security scalars
+            "threat_detection_sensitivity": "omnithreat_detection",
+            "quantum_resistance": "omniquantum_resistance",
+            "encryption_strength": "omniencryption_strength",
+            "audit_compliance": "omniaudit_compliance",
+        }
+
+    def resolve_scalar_name(self, name: str) -> str:
+        """Resolve a scalar name, supporting legacy aliases.
+
+        Args:
+            name: Scalar name (may be legacy or omni-prefixed)
+
+        Returns:
+            Resolved omni-prefixed scalar name
+        """
+        if hasattr(self, "_legacy_aliases") and name in self._legacy_aliases:
+            self.logger.debug(
+                f"Legacy scalar alias '{name}' resolved to '{self._legacy_aliases[name]}' "
+                "(deprecated in v2.0)"
+            )
+            return self._legacy_aliases[name]
+        return name
+
+    def get_scalar(self, name: str, default: float = 0.0) -> float:
+        """Get a scalar value by name, supporting legacy aliases.
+
+        Args:
+            name: Scalar name (may be legacy or omni-prefixed)
+            default: Default value if scalar not found
+
+        Returns:
+            Scalar value
+        """
+        resolved_name = self.resolve_scalar_name(name)
+        for group_scalars in self.scalar_groups.values():
+            if resolved_name in group_scalars:
+                return group_scalars[resolved_name]
+        return default
 
     def register_scalars(
         self,
@@ -786,14 +899,23 @@ class GlobalOmniScalarNetwork:
         elif boost_ratio < 0.55:
             recommendations.append("Consider increasing boost scalars for balance")
 
-        empathy = self.scalar_groups[ScalarGroup.ETHICAL].get("empathy_scalar", self.MIN_EMPATHY)
-        morality = self.scalar_groups[ScalarGroup.ETHICAL].get("morality_scalar", self.MIN_MORALITY)
+        omniempathy = self.scalar_groups[ScalarGroup.ETHICAL].get("omniempathy", self.MIN_EMPATHY)
+        omnimorality = self.scalar_groups[ScalarGroup.ETHICAL].get(
+            "omnimorality", self.MIN_MORALITY
+        )
+        omnibenevolence = self.scalar_groups[ScalarGroup.ETHICAL].get("omnibenevolence", 0.99)
 
-        if empathy < self.MIN_EMPATHY:
-            recommendations.append(f"Empathy scalar {empathy:.2f} below minimum {self.MIN_EMPATHY}")
-        if morality < self.MIN_MORALITY:
+        if omniempathy < self.MIN_EMPATHY:
             recommendations.append(
-                f"Morality scalar {morality:.2f} below minimum {self.MIN_MORALITY}"
+                f"Omniempathy {omniempathy:.2f} below minimum {self.MIN_EMPATHY}"
+            )
+        if omnimorality < self.MIN_MORALITY:
+            recommendations.append(
+                f"Omnimorality {omnimorality:.2f} below minimum {self.MIN_MORALITY}"
+            )
+        if omnibenevolence < 0.99:
+            recommendations.append(
+                f"Omnibenevolence {omnibenevolence:.2f} below required threshold 0.99"
             )
 
         return {
@@ -805,8 +927,9 @@ class GlobalOmniScalarNetwork:
             "boost_ratio": float(boost_ratio),
             "penalty_ratio": float(penalty_ratio),
             "target_boost_ratio": self.TARGET_BOOST_RATIO,
-            "empathy_scalar": float(empathy),
-            "morality_scalar": float(morality),
+            "omniempathy": float(omniempathy),
+            "omnimorality": float(omnimorality),
+            "omnibenevolence": float(omnibenevolence),
             "recommendations": recommendations,
         }
 

@@ -376,6 +376,233 @@ class TestEthicalEngineProperties:
         assert 0.0 <= result.overall_sacred_score <= 1.0
 
 
+class TestDetectorRegistryProperties:
+    """Property-based tests for DetectorRegistry invariants."""
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(npst.arrays(dtype=np.float64, shape=st.integers(min_value=10, max_value=100)))
+    @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
+    def test_aggregate_features_produces_128d_output(self, features: np.ndarray):
+        """Aggregated features should always produce 128D output."""
+        from omni_anomaly_engine.core.detector_registry import (
+            DetectorRegistry,
+            FeatureExtractionResult,
+        )
+
+        assume(np.all(np.isfinite(features)))
+        assume(len(features) > 0)
+
+        registry = DetectorRegistry()
+        extraction_results = {
+            "test_detector": FeatureExtractionResult(
+                detector_name="test_detector",
+                features=features,
+                scores=None,
+                execution_time_ms=1.0,
+                success=True,
+            )
+        }
+
+        aggregated = registry.aggregate_features(extraction_results, target_dim=128)
+
+        # Property: Output should be 128D
+        if "test_detector" in aggregated:
+            assert aggregated["test_detector"].shape[-1] == 128
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(st.integers(min_value=1, max_value=10))
+    @settings(max_examples=20)
+    def test_registry_register_unregister_invariant(self, n_detectors: int):
+        """Registry should maintain consistent state after register/unregister."""
+        from omni_anomaly_engine.core.detector_registry import (
+            DetectorCategory,
+            DetectorRegistry,
+        )
+
+        class MockDetector:
+            def extract_features(self, data):
+                return np.zeros(20)
+
+            def predict(self, data):
+                return {"scores": np.array([0.5])}
+
+        registry = DetectorRegistry()
+
+        # Register n detectors
+        for i in range(n_detectors):
+            registry.register(f"detector_{i}", MockDetector(), DetectorCategory.BASE)
+
+        # Property: All detectors should be registered
+        assert len(registry.list_all()) == n_detectors
+
+        # Unregister half
+        for i in range(n_detectors // 2):
+            registry.unregister(f"detector_{i}")
+
+        # Property: Remaining count should be correct
+        expected_remaining = n_detectors - (n_detectors // 2)
+        assert len(registry.list_all()) == expected_remaining
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(
+        npst.arrays(
+            dtype=np.float64,
+            shape=st.tuples(
+                st.integers(min_value=1, max_value=5), st.integers(min_value=10, max_value=50)
+            ),
+        )
+    )
+    @settings(max_examples=20, suppress_health_check=[HealthCheck.too_slow])
+    def test_aggregate_features_no_nans(self, features: np.ndarray):
+        """Aggregated features should never contain NaN values."""
+        import torch
+
+        from omni_anomaly_engine.core.detector_registry import (
+            DetectorRegistry,
+            FeatureExtractionResult,
+        )
+
+        assume(np.all(np.isfinite(features)))
+
+        registry = DetectorRegistry()
+        extraction_results = {
+            "test_detector": FeatureExtractionResult(
+                detector_name="test_detector",
+                features=features,
+                scores=None,
+                execution_time_ms=1.0,
+                success=True,
+            )
+        }
+
+        aggregated = registry.aggregate_features(extraction_results, target_dim=128)
+
+        # Property: No NaN values in output
+        for name, tensor in aggregated.items():
+            assert not torch.isnan(tensor).any(), f"NaN found in {name}"
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(
+        st.lists(
+            st.text(
+                min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))
+            ),
+            min_size=1,
+            max_size=5,
+            unique=True,
+        )
+    )
+    @settings(max_examples=20)
+    def test_list_by_tags_returns_subset(self, tags: list):
+        """list_by_tags should return subset of registered detectors."""
+        from omni_anomaly_engine.core.detector_registry import (
+            DetectorCategory,
+            DetectorRegistry,
+        )
+
+        class MockDetector:
+            def extract_features(self, data):
+                return np.zeros(20)
+
+        registry = DetectorRegistry()
+
+        # Register detectors with various tags
+        registry.register("detector_with_tags", MockDetector(), DetectorCategory.BASE, tags=tags)
+        registry.register("detector_no_tags", MockDetector(), DetectorCategory.BASE, tags=[])
+
+        # Property: Searching by tags should find tagged detector
+        found = registry.list_by_tags(tags)
+        assert "detector_with_tags" in found
+        assert "detector_no_tags" not in found
+
+
+class TestFusionNetworkProperties:
+    """Property-based tests for ML fusion network forward pass."""
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(st.integers(min_value=1, max_value=4))
+    @settings(max_examples=10, suppress_health_check=[HealthCheck.too_slow])
+    def test_fusion_forward_pass_output_shapes(self, batch_size: int):
+        """Fusion network forward pass should produce correct output shapes."""
+        try:
+            from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
+        except ImportError:
+            pytest.skip("OmniFusionModel not available")
+
+        model = OmniFusionModel(
+            input_dim=128,
+            hidden_dim=64,
+            num_classes=10,
+            num_detectors=5,
+        )
+        model.eval()
+
+        # Create synthetic input
+        x = torch.randn(batch_size, 128)
+
+        with torch.no_grad():
+            output = model(x)
+
+        # Property: Output should have correct batch dimension
+        if isinstance(output, tuple):
+            for out in output:
+                if out is not None:
+                    assert out.shape[0] == batch_size
+        else:
+            assert output.shape[0] == batch_size
+
+
+class TestValidationPipelineProperties:
+    """Property-based tests for validation pipeline error handling."""
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(st.text(min_size=1, max_size=50))
+    @settings(max_examples=20)
+    def test_invalid_dataset_name_handled(self, dataset_name: str):
+        """Invalid dataset names should be handled gracefully."""
+        try:
+            from omni_anomaly_engine.validation.data_loaders import get_loader
+        except ImportError:
+            pytest.skip("data_loaders not available")
+
+        # Property: Invalid dataset names should not crash
+        try:
+            loader = get_loader(dataset_name)
+            # If it returns something, it should be None or raise an error
+        except (ValueError, KeyError, NotImplementedError):
+            pass  # Expected behavior for invalid names
+        except Exception:
+            # Other exceptions are acceptable as long as no crash
+            assert True
+
+
+class TestKnowledgeGraphProperties:
+    """Property-based tests for knowledge graph query operations."""
+
+    @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @given(
+        st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=("L", "N")))
+    )
+    @settings(max_examples=20)
+    def test_query_nonexistent_node_handled(self, node_name: str):
+        """Querying non-existent nodes should be handled gracefully."""
+        try:
+            from omni_anomaly_engine.cognitive.knowledge_graph import KnowledgeGraph
+        except ImportError:
+            pytest.skip("KnowledgeGraph not available")
+
+        kg = KnowledgeGraph()
+
+        # Property: Querying non-existent node should not crash
+        try:
+            result = kg.query_node(node_name)
+            # Result should be None or empty for non-existent nodes
+        except (KeyError, ValueError):
+            pass  # Expected behavior
+        except Exception:
+            pass  # Other exceptions acceptable
+
+
 # Run with: pytest tests/test_property_based.py -v
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

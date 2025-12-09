@@ -56,6 +56,11 @@ import torch
 from scipy.fft import fft
 from torch import nn
 
+from omni_anomaly_engine.core.three_r_mechanism import (
+    RecursionEngine,
+    RefactoringEngine,
+    ResonanceEngine,
+)
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
@@ -434,6 +439,11 @@ class TornadoDetector:
     Integrates Doppler radar analysis, atmospheric instability monitoring,
     pressure gradient detection, and 3R mechanism (Resonance-Recursion-Refactoring)
     for multi-parameter tornado prediction.
+
+    Deep 3R Integration:
+    - RecursionEngine: Hierarchical multi-scale feature extraction
+    - ResonanceEngine: FFT-based frequency-domain anomaly detection
+    - RefactoringEngine: Dynamic model optimization and code analysis
     """
 
     def __init__(
@@ -443,6 +453,7 @@ class TornadoDetector:
         enable_pressure: bool = True,
         enable_resonance: bool = True,
         enable_recursion: bool = True,
+        enable_refactoring: bool = True,
         rng: DeterministicRNG | None = None,
     ):
         self.enable_radar = enable_radar
@@ -450,6 +461,7 @@ class TornadoDetector:
         self.enable_pressure = enable_pressure
         self.enable_resonance = enable_resonance
         self.enable_recursion = enable_recursion
+        self.enable_refactoring = enable_refactoring
         self._rng = rng or get_global_rng()
 
         self.radar_analyzer = DopplerRadarAnalyzer() if enable_radar else None
@@ -457,6 +469,10 @@ class TornadoDetector:
         self.pressure_monitor = PressureGradientMonitor() if enable_pressure else None
         self.resonance_analyzer = ResonancePatternAnalyzer() if enable_resonance else None
         self.recursive_extractor = RecursiveFeatureExtractor() if enable_recursion else None
+
+        self.recursion_engine = RecursionEngine(max_depth=5)
+        self.resonance_engine = ResonanceEngine(sampling_rate=1.0)
+        self.refactoring_engine = RefactoringEngine()
 
         self.logger = logging.getLogger(__name__)
 
@@ -537,6 +553,33 @@ class TornadoDetector:
                 weather_data["signal_data"]
             )
             result.recursion_depth = depth
+
+            hierarchical_features = self.recursion_engine.hierarchical_feature_extraction(
+                weather_data["signal_data"], num_levels=3
+            )
+            if len(hierarchical_features) > 0:
+                multi_scale_variance = np.mean([np.var(f) for f in hierarchical_features])
+                if multi_scale_variance > 0.5:
+                    indicators_detected += 0.3
+
+        if "signal_data" in weather_data:
+            resonance_anomalies = self.resonance_engine.detect_resonance_anomalies(
+                weather_data["signal_data"], threshold_std=2.5
+            )
+            if resonance_anomalies["is_anomalous"]:
+                indicators_detected += 0.4
+                result.harmonic_anomalies.extend(
+                    [float(f) for f in resonance_anomalies["anomalous_frequencies"][:3]]
+                )
+
+        if self.enable_refactoring and "observed_data" in weather_data:
+            initial_prediction = {
+                "confidence": result.confidence,
+                "indicators": indicators_detected,
+            }
+            refactor_result = self.refactoring_engine.detect_code_anomalies(str(initial_prediction))
+            if refactor_result.get("anomaly_score", 0) > 0.5:
+                indicators_detected += 0.2
 
         location = weather_data.get("location", {})
         state = location.get("state", "")
