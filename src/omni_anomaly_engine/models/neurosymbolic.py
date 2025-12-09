@@ -354,7 +354,7 @@ class NeurosymbolicEngine:
 
         logging.info(f"NeurosymbolicEngine initialized (mode={reasoning_mode.value})")
 
-    def _initialize_ethical_rules(self):
+    def _initialize_ethical_rules(self) -> None:
         """Initialize fundamental ethical rules"""
         ethical_rules = [
             SymbolicRule(
@@ -374,7 +374,7 @@ class NeurosymbolicEngine:
 
         self.knowledge_base.extend(ethical_rules)
 
-    def _initialize_anomaly_rules(self):
+    def _initialize_anomaly_rules(self) -> None:
         """Initialize anomaly detection rules for symbolic layer."""
         anomaly_rules = [
             SymbolicRule(
