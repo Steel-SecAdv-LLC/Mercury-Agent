@@ -112,16 +112,16 @@ class NetworkFlowAnalyzer:
         byte_volumes = []
 
         for flow in flow_data:
-            src = flow.get("src_ip")
-            dst = flow.get("dst_ip")
+            src = flow.get("src_ip", "unknown")
+            dst = flow.get("dst_ip", "unknown")
             dst_port = flow.get("dst_port")
-            protocol = flow.get("protocol")
+            protocol = flow.get("protocol", "unknown")
             bytes_transferred = flow.get("bytes", 0)
 
-            flows_per_src[src] += 1
-            flows_per_dst[dst] += 1
-            ports_accessed[src].add(dst_port)
-            protocols[protocol] += 1
+            flows_per_src[str(src)] += 1
+            flows_per_dst[str(dst)] += 1
+            ports_accessed[str(src)].add(dst_port)
+            protocols[str(protocol)] += 1
             byte_volumes.append(bytes_transferred)
 
         port_scan_detected = self._detect_port_scanning(flows_per_src, ports_accessed)
@@ -152,7 +152,7 @@ class NetworkFlowAnalyzer:
             "suspicious_sources": self._identify_suspicious_sources(flows_per_src, ports_accessed),
         }
 
-    def _detect_port_scanning(self, flows_per_src: dict[str, Any], ports_accessed: dict[str, set]) -> bool:
+    def _detect_port_scanning(self, flows_per_src: dict[str, Any], ports_accessed: dict[str, set[Any]]) -> bool:
         """Detect port scanning activity"""
         for src_ip, port_set in ports_accessed.items():
             if len(port_set) > 20 and flows_per_src[src_ip] > 50:
@@ -165,11 +165,11 @@ class NetworkFlowAnalyzer:
             return False
 
         max_flows = max(flows_per_dst.values())
-        avg_flows = np.mean(list(flows_per_dst.values()))
+        avg_flows = float(np.mean(list(flows_per_dst.values())))
 
-        return max_flows > avg_flows * 10 and max_flows > 100
+        return bool(max_flows > avg_flows * 10 and max_flows > 100)
 
-    def _detect_data_exfiltration(self, byte_volumes: list[int], flow_data: list[dict]) -> bool:
+    def _detect_data_exfiltration(self, byte_volumes: list[int], flow_data: list[dict[str, Any]]) -> bool:
         """Detect data exfiltration patterns"""
         if not byte_volumes:
             return False
@@ -190,7 +190,7 @@ class NetworkFlowAnalyzer:
         return False
 
     def _identify_suspicious_sources(
-        self, flows_per_src: dict[str, Any], ports_accessed: dict[str, set]
+        self, flows_per_src: dict[str, Any], ports_accessed: dict[str, set[Any]]
     ) -> list[str]:
         """Identify suspicious source IPs"""
         suspicious = []
@@ -244,7 +244,7 @@ class CommunicationGraphAnalyzer(nn.Module):
 
         anomaly_scores = self.anomaly_detector(x)
 
-        return anomaly_scores
+        return torch.Tensor(anomaly_scores)
 
 
 class EncryptedTrafficFingerprinter:
@@ -366,7 +366,7 @@ class CovertChannelDetector:
             "recommendations": self._generate_covert_channel_recommendations(channels_detected),
         }
 
-    def _detect_timing_channel(self, traffic: dict[str, Any]) -> dict[str, bool]:
+    def _detect_timing_channel(self, traffic: dict[str, Any]) -> dict[str, bool | float]:
         """Detect timing-based covert channels"""
         packet_times = traffic.get("packet_timestamps", [])
 
@@ -375,7 +375,7 @@ class CovertChannelDetector:
 
         inter_packet_intervals = np.diff(packet_times)
 
-        entropy = self._calculate_entropy(inter_packet_intervals)
+        entropy = self._calculate_entropy(list(inter_packet_intervals))
 
         timing_channel_detected = entropy > 0.8 and entropy < 2.5
 
@@ -384,7 +384,7 @@ class CovertChannelDetector:
             "confidence": 0.7 if timing_channel_detected else 0.0,
         }
 
-    def _detect_storage_channel(self, traffic: dict[str, Any]) -> dict[str, bool]:
+    def _detect_storage_channel(self, traffic: dict[str, Any]) -> dict[str, bool | float]:
         """Detect storage-based covert channels"""
         packet_sizes = traffic.get("packet_sizes", [])
 
@@ -401,7 +401,7 @@ class CovertChannelDetector:
             "confidence": 0.6 if storage_channel_detected else 0.0,
         }
 
-    def _detect_protocol_field_manipulation(self, traffic: dict[str, Any]) -> dict[str, bool]:
+    def _detect_protocol_field_manipulation(self, traffic: dict[str, Any]) -> dict[str, bool | float]:
         """Detect protocol field manipulation for covert channels"""
         protocol_fields = traffic.get("protocol_fields", {})
 
@@ -436,7 +436,7 @@ class CovertChannelDetector:
 
         entropy = -np.sum(probabilities * np.log2(probabilities + 1e-10))
 
-        return entropy
+        return float(entropy)
 
     def _detect_pattern_in_sequence(self, sequence: list[int]) -> bool:
         """Detect non-random patterns in sequence"""
@@ -444,9 +444,9 @@ class CovertChannelDetector:
             return False
 
         diffs = np.diff(sequence)
-        diff_std = np.std(diffs)
+        diff_std = float(np.std(diffs))
 
-        return diff_std < np.mean(diffs) * 0.1
+        return bool(diff_std < float(np.mean(diffs)) * 0.1)
 
     def _generate_covert_channel_recommendations(self, channels: list[str]) -> list[str]:
         """Generate recommendations for covert channel mitigation"""
@@ -516,6 +516,7 @@ class TrafficAnalysisEngine:
         )
 
         if self.enable_flow_analysis and "flow_records" in traffic_data:
+            assert self.flow_analyzer is not None
             flow_result = self.flow_analyzer.analyze_flows(traffic_data["flow_records"])
             result.flow_statistics = flow_result["statistics"]
 
@@ -526,6 +527,7 @@ class TrafficAnalysisEngine:
                 result.recommended_actions.append("Investigate suspicious network flows")
 
         if self.enable_tls_fingerprinting and "tls_handshakes" in traffic_data:
+            assert self.tls_fingerprinter is not None
             for handshake in traffic_data["tls_handshakes"]:
                 fingerprint = self.tls_fingerprinter.fingerprint_tls(handshake)
                 result.encrypted_flows.append(fingerprint)
@@ -535,6 +537,7 @@ class TrafficAnalysisEngine:
                     result.protocol_anomalies.extend(fingerprint["risk_indicators"])
 
         if self.enable_covert_detection and "raw_traffic" in traffic_data:
+            assert self.covert_detector is not None
             covert_result = self.covert_detector.detect_covert_channels(traffic_data["raw_traffic"])
 
             if covert_result["covert_channels_detected"]:
