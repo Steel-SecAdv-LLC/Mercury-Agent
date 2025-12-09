@@ -108,8 +108,8 @@ class IntelligenceFusionResult:
     recommended_actions: list[str] = field(default_factory=list)
     collection_priorities: list[str] = field(default_factory=list)
 
-    neurosymbolic_assessment: dict | None = None
-    cryptographic_indicators: dict | None = None
+    neurosymbolic_assessment: dict[str, Any] | None = None
+    cryptographic_indicators: dict[str, Any] | None = None
 
 
 class AllSourceFusionNetwork(nn.Module):
@@ -276,7 +276,7 @@ class IntelligenceFusionEngine:
             f"Intelligence Fusion Engine initialized with {len(IntelligenceDiscipline)} disciplines"
         )
 
-    def _initialize_threat_kb(self) -> dict[str, dict]:
+    def _initialize_threat_kb(self) -> dict[str, dict[str, Any]]:
         """Initialize threat pattern knowledge base"""
         return {
             "terrorism_indicators": {
@@ -343,7 +343,7 @@ class IntelligenceFusionEngine:
         }
 
     def fuse_intelligence(
-        self, intel_reports: dict[str, Any], temporal_context: list[dict] | None = None
+        self, intel_reports: dict[str, Any], temporal_context: list[dict[str, Any]] | None = None
     ) -> IntelligenceFusionResult:
         """
         Fuse multi-source intelligence for threat assessment.
@@ -464,13 +464,13 @@ class IntelligenceFusionEngine:
                     features[5] = float(report["threat_score"])
 
                 reliability = self.int_reliability_scores.get(disc_key, 0.75)
-                features = features * reliability
+                features = np.asarray(features * reliability)
 
             int_features[disc_key] = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
         return int_features
 
-    def _process_temporal_context(self, temporal_context: list[dict]) -> torch.Tensor:
+    def _process_temporal_context(self, temporal_context: list[dict[str, Any]]) -> torch.Tensor:
         """Process temporal threat progression"""
         sequence_length = min(len(temporal_context), 10)
         feature_dim = 165
@@ -517,7 +517,7 @@ class IntelligenceFusionEngine:
 
         return list(indicators)[:15]
 
-    def _analyze_temporal_patterns(self, temporal_context: list[dict]) -> dict[str, Any]:
+    def _analyze_temporal_patterns(self, temporal_context: list[dict[str, Any]]) -> dict[str, Any]:
         """Analyze temporal threat progression patterns"""
         if not temporal_context:
             return {}
@@ -593,15 +593,14 @@ class IntelligenceFusionEngine:
         for source in primary_sources:
             priorities.append(f"Sustain {source} collection")
 
-        gaps = set(IntelligenceDiscipline) - {
-            IntelligenceDiscipline(s) if s in [d.value for d in IntelligenceDiscipline] else None
-            for s in primary_sources
+        valid_disciplines = [d.value for d in IntelligenceDiscipline]
+        source_disciplines: set[IntelligenceDiscipline] = {
+            IntelligenceDiscipline(s) for s in primary_sources if s in valid_disciplines
         }
-        gaps.discard(None)
+        gaps = set(IntelligenceDiscipline) - source_disciplines
 
         for gap in list(gaps)[:2]:
-            if gap:
-                priorities.append(f"Fill gap: {gap.value}")
+            priorities.append(f"Fill gap: {gap.value}")
 
         return priorities[:6]
 
@@ -609,7 +608,9 @@ class IntelligenceFusionEngine:
         self, intel_reports: dict[str, Any], threat_level: ThreatLevel, indicators: list[str]
     ) -> dict[str, Any]:
         """Apply neurosymbolic threat reasoning"""
-        reasoning = {"matched_patterns": [], "deductions": [], "confidence_factors": []}
+        all_matched_patterns: list[str] = []
+        deductions: list[str] = []
+        confidence_factors: list[str] = []
 
         for threat_type, pattern_info in self.threat_knowledge_base.items():
             matched_patterns = [
@@ -617,44 +618,50 @@ class IntelligenceFusionEngine:
             ]
 
             if matched_patterns:
-                reasoning["matched_patterns"].append(
+                all_matched_patterns.append(
                     f"{threat_type}: {', '.join(matched_patterns)}"
                 )
-                reasoning["deductions"].append(
+                deductions.append(
                     f"Potential {threat_type.replace('_', ' ')} activity"
                 )
 
-        if len(reasoning["matched_patterns"]) > 1:
-            reasoning["confidence_factors"].append(
+        if len(all_matched_patterns) > 1:
+            confidence_factors.append(
                 "High confidence: Multiple threat pattern matches"
             )
 
-        return reasoning
+        return {
+            "matched_patterns": all_matched_patterns,
+            "deductions": deductions,
+            "confidence_factors": confidence_factors,
+        }
 
     def _analyze_cryptographic_patterns(self, intel_reports: dict[str, Any]) -> dict[str, Any]:
         """Analyze cryptographic and pattern indicators"""
-        crypto_analysis = {
-            "encrypted_comms_detected": False,
-            "pattern_strength": 0.0,
-            "recommendations": [],
-        }
+        encrypted_comms_detected: bool = False
+        pattern_strength: float = 0.0
+        recommendations: list[str] = []
 
         if IntelligenceDiscipline.COMINT.value in intel_reports:
             comint = intel_reports[IntelligenceDiscipline.COMINT.value]
-            crypto_analysis["encrypted_comms_detected"] = comint.get("encryption_detected", False)
+            encrypted_comms_detected = bool(comint.get("encryption_detected", False))
 
-            if crypto_analysis["encrypted_comms_detected"]:
-                crypto_analysis["recommendations"].append("Prioritize cryptanalysis resources")
-                crypto_analysis["pattern_strength"] = 0.7
+            if encrypted_comms_detected:
+                recommendations.append("Prioritize cryptanalysis resources")
+                pattern_strength = 0.7
 
         if IntelligenceDiscipline.CYBINT.value in intel_reports:
             cybint = intel_reports[IntelligenceDiscipline.CYBINT.value]
             if "encryption_algorithm" in cybint:
-                crypto_analysis["recommendations"].append(
+                recommendations.append(
                     f"Target: {cybint['encryption_algorithm']}"
                 )
 
-        return crypto_analysis
+        return {
+            "encrypted_comms_detected": encrypted_comms_detected,
+            "pattern_strength": pattern_strength,
+            "recommendations": recommendations,
+        }
 
     def extract_features(self, data: dict[str, Any]) -> torch.Tensor:
         """Extract features for ML fusion integration"""
