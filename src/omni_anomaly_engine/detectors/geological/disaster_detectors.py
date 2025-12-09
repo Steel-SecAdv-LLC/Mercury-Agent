@@ -1044,8 +1044,19 @@ class SolarFlareDetector:
     def __init__(
         self,
         detection_threshold: float = 0.7,
+        proton_flux_agg_method: str = "max",
     ):
+        """Initialize SolarFlareDetector.
+
+        Args:
+            detection_threshold: Confidence threshold for flare detection (0-1)
+            proton_flux_agg_method: Aggregation method for proton flux arrays.
+                'max' (default) - Use peak value for detecting flare threats
+                'mean' - Use average value for general monitoring
+                'median' - Use median for robust estimation
+        """
         self.detection_threshold = detection_threshold
+        self.proton_flux_agg_method = proton_flux_agg_method
         self.hmm = GeomagneticHMM()
         self.rng = get_global_rng()
 
@@ -1057,7 +1068,17 @@ class SolarFlareDetector:
             "X": 1e-4,
         }
 
-        logger.info(f"SolarFlareDetector initialized: threshold={detection_threshold}")
+        # Aggregation function mapping
+        self._agg_funcs: dict[str, Any] = {
+            "max": np.max,
+            "mean": np.mean,
+            "median": np.median,
+        }
+
+        logger.info(
+            f"SolarFlareDetector initialized: threshold={detection_threshold}, "
+            f"proton_flux_agg={proton_flux_agg_method}"
+        )
 
     def predict_solar_flare(
         self,
@@ -1104,7 +1125,7 @@ class SolarFlareDetector:
             confidence=confidence,
             flare_class=flare_class,
             x_ray_flux=current_flux,
-            proton_flux=float(np.mean(proton_flux)) if proton_flux is not None else 0.0,
+            proton_flux=self._aggregate_proton_flux(proton_flux),
             geomagnetic_storm_probability=storm_prob,
             kp_index_predicted=kp_predicted,
             dst_index_predicted=dst_predicted,
@@ -1113,6 +1134,28 @@ class SolarFlareDetector:
             warning_actions=warnings,
             affected_systems=affected,
         )
+
+    def _aggregate_proton_flux(self, proton_flux: float | np.ndarray | None) -> float:
+        """Aggregate proton flux using configured method.
+
+        For time-series threats like solar flares, peak detection (max) is
+        recommended as it captures the most dangerous flux levels. Mean is
+        suitable for general monitoring, while median provides robust estimation.
+
+        Args:
+            proton_flux: Proton flux value(s) - scalar, array, or None
+
+        Returns:
+            Aggregated proton flux value (0.0 if None)
+        """
+        if proton_flux is None:
+            return 0.0
+
+        if isinstance(proton_flux, np.ndarray):
+            agg_func = self._agg_funcs.get(self.proton_flux_agg_method, np.max)
+            return float(agg_func(proton_flux))
+        else:
+            return float(proton_flux)
 
     def _classify_flare(self, flux: float) -> str:
         """Classify solar flare based on X-ray flux."""
@@ -1223,3 +1266,374 @@ class SolarFlareDetector:
         features[8] = result.kp_index_predicted / 9.0
 
         return features
+
+
+# =============================================================================
+# Synthetic Data Generation and Training for Disaster Neural Networks
+# =============================================================================
+
+
+def generate_synthetic_tsunami_data(
+    n_samples: int = 1000,
+    seq_len: int = 256,
+    rng: np.random.Generator | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Generate synthetic tsunami waveform data for training.
+
+    Creates realistic oceanic waveform patterns:
+    - Normal waves: Sinusoidal with noise
+    - Tsunami waves: Long-period waves with characteristic frequency (0.001-0.01 Hz)
+
+    Args:
+        n_samples: Number of samples to generate
+        seq_len: Sequence length for each sample
+        rng: Random number generator for reproducibility
+
+    Returns:
+        Tuple of (waveforms, labels, wave_heights)
+    """
+    if rng is None:
+        rng = np.random.default_rng(42)
+
+    waveforms = np.zeros((n_samples, seq_len), dtype=np.float32)
+    labels = np.zeros(n_samples, dtype=np.float32)
+    wave_heights = np.zeros(n_samples, dtype=np.float32)
+
+    t = np.linspace(0, 10, seq_len)
+
+    for i in range(n_samples):
+        is_tsunami = rng.random() > 0.5
+        labels[i] = float(is_tsunami)
+
+        if is_tsunami:
+            # Tsunami: Long-period wave (0.001-0.01 Hz) with high amplitude
+            freq = rng.uniform(0.001, 0.01)
+            amplitude = rng.uniform(2.0, 10.0)  # meters
+            wave_heights[i] = amplitude
+            waveform = amplitude * np.sin(2 * np.pi * freq * t * 100)
+            # Add characteristic tsunami signature: rapid rise
+            rise_idx = rng.integers(seq_len // 4, seq_len // 2)
+            waveform[rise_idx:] += amplitude * 0.5 * np.exp(-0.1 * np.arange(seq_len - rise_idx))
+        else:
+            # Normal ocean waves: Higher frequency, lower amplitude
+            freq = rng.uniform(0.05, 0.2)
+            amplitude = rng.uniform(0.1, 1.0)
+            wave_heights[i] = amplitude
+            waveform = amplitude * np.sin(2 * np.pi * freq * t * 100)
+
+        # Add noise
+        noise = rng.normal(0, 0.1, seq_len)
+        waveforms[i] = waveform + noise
+
+    return waveforms, labels, wave_heights
+
+
+def generate_synthetic_earthquake_data(
+    n_samples: int = 1000,
+    n_freq_bins: int = 64,
+    n_time_bins: int = 64,
+    rng: np.random.Generator | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Generate synthetic earthquake spectrogram data for training.
+
+    Creates realistic seismic spectrograms:
+    - Normal: Background seismic noise
+    - Earthquake: P-wave (1-10 Hz) followed by S-wave (0.1-1 Hz) patterns
+
+    Args:
+        n_samples: Number of samples to generate
+        n_freq_bins: Number of frequency bins in spectrogram
+        n_time_bins: Number of time bins in spectrogram
+        rng: Random number generator for reproducibility
+
+    Returns:
+        Tuple of (spectrograms, labels, magnitudes)
+    """
+    if rng is None:
+        rng = np.random.default_rng(42)
+
+    spectrograms = np.zeros((n_samples, 1, n_freq_bins, n_time_bins), dtype=np.float32)
+    labels = np.zeros(n_samples, dtype=np.float32)
+    magnitudes = np.zeros(n_samples, dtype=np.float32)
+
+    for i in range(n_samples):
+        is_earthquake = rng.random() > 0.5
+        labels[i] = float(is_earthquake)
+
+        if is_earthquake:
+            magnitude = rng.uniform(3.0, 8.0)
+            magnitudes[i] = magnitude
+
+            # Create spectrogram with P-wave and S-wave signatures
+            spectrogram = rng.normal(0, 0.1, (n_freq_bins, n_time_bins))
+
+            # P-wave: High frequency (upper half of spectrogram), early arrival
+            p_wave_start = rng.integers(5, 15)
+            p_wave_duration = rng.integers(5, 15)
+            p_wave_intensity = magnitude / 8.0
+            spectrogram[
+                n_freq_bins // 2 :, p_wave_start : p_wave_start + p_wave_duration
+            ] += p_wave_intensity * rng.uniform(0.5, 1.0, (n_freq_bins // 2, p_wave_duration))
+
+            # S-wave: Lower frequency (lower half), later arrival
+            s_wave_start = p_wave_start + p_wave_duration + rng.integers(5, 15)
+            s_wave_duration = rng.integers(10, 25)
+            s_wave_intensity = magnitude / 6.0
+            if s_wave_start + s_wave_duration < n_time_bins:
+                spectrogram[
+                    : n_freq_bins // 2, s_wave_start : s_wave_start + s_wave_duration
+                ] += s_wave_intensity * rng.uniform(0.5, 1.0, (n_freq_bins // 2, s_wave_duration))
+        else:
+            magnitudes[i] = rng.uniform(0.0, 2.0)
+            # Background noise only
+            spectrogram = rng.normal(0, 0.1, (n_freq_bins, n_time_bins))
+
+        spectrograms[i, 0] = spectrogram
+
+    return spectrograms, labels, magnitudes
+
+
+def train_waveform_analyzer(
+    model: WaveformFFTAnalyzer,
+    n_epochs: int = 10,
+    batch_size: int = 32,
+    learning_rate: float = 0.001,
+    n_samples: int = 1000,
+    device: str = "cpu",
+) -> dict[str, list[float]]:
+    """Train WaveformFFTAnalyzer on synthetic tsunami data.
+
+    Performs minimal training (10 epochs) on synthetic data to initialize
+    the neural network weights for reasonable predictions.
+
+    TODO: Full training on real datasets (DART buoy data, NOAA tsunami records) pending.
+
+    Args:
+        model: WaveformFFTAnalyzer model to train
+        n_epochs: Number of training epochs (default 10)
+        batch_size: Training batch size
+        learning_rate: Adam optimizer learning rate
+        n_samples: Number of synthetic samples to generate
+        device: Training device ('cpu' or 'cuda')
+
+    Returns:
+        Training history with loss and accuracy per epoch
+    """
+    logger.info(f"Training WaveformFFTAnalyzer for {n_epochs} epochs on synthetic data")
+
+    model = model.to(device)
+    model.train()
+
+    # Generate synthetic data
+    waveforms, labels, wave_heights = generate_synthetic_tsunami_data(n_samples)
+
+    # Convert to tensors
+    waveforms_tensor = torch.tensor(waveforms, dtype=torch.float32).to(device)
+    labels_tensor = torch.tensor(labels, dtype=torch.float32).to(device)
+    wave_heights_tensor = torch.tensor(wave_heights, dtype=torch.float32).to(device)
+
+    # Setup optimizer and loss
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    bce_loss = nn.BCELoss()
+    mse_loss = nn.MSELoss()
+
+    history: dict[str, list[float]] = {"loss": [], "accuracy": [], "height_mse": []}
+
+    n_batches = (n_samples + batch_size - 1) // batch_size
+
+    for epoch in range(n_epochs):
+        epoch_loss = 0.0
+        epoch_correct = 0
+        epoch_height_mse = 0.0
+
+        # Shuffle data
+        indices = torch.randperm(n_samples)
+
+        for batch_idx in range(n_batches):
+            start_idx = batch_idx * batch_size
+            end_idx = min(start_idx + batch_size, n_samples)
+            batch_indices = indices[start_idx:end_idx]
+
+            batch_waveforms = waveforms_tensor[batch_indices]
+            batch_labels = labels_tensor[batch_indices]
+            batch_heights = wave_heights_tensor[batch_indices]
+
+            optimizer.zero_grad()
+
+            # Forward pass
+            pred_prob, pred_height = model(batch_waveforms)
+
+            # Compute losses
+            classification_loss = bce_loss(pred_prob, batch_labels)
+            height_loss = mse_loss(pred_height, batch_heights)
+            total_loss = classification_loss + 0.1 * height_loss
+
+            # Backward pass
+            total_loss.backward()
+            optimizer.step()
+
+            epoch_loss += total_loss.item()
+            epoch_correct += ((pred_prob > 0.5).float() == batch_labels).sum().item()
+            epoch_height_mse += height_loss.item()
+
+        avg_loss = epoch_loss / n_batches
+        accuracy = epoch_correct / n_samples
+        avg_height_mse = epoch_height_mse / n_batches
+
+        history["loss"].append(avg_loss)
+        history["accuracy"].append(accuracy)
+        history["height_mse"].append(avg_height_mse)
+
+        logger.info(
+            f"Epoch {epoch + 1}/{n_epochs}: loss={avg_loss:.4f}, "
+            f"accuracy={accuracy:.4f}, height_mse={avg_height_mse:.4f}"
+        )
+
+    model.eval()
+    logger.info(
+        f"WaveformFFTAnalyzer training complete. Final accuracy: {history['accuracy'][-1]:.4f}"
+    )
+
+    return history
+
+
+def train_seismic_analyzer(
+    model: SeismicWaveAnalyzer,
+    n_epochs: int = 10,
+    batch_size: int = 32,
+    learning_rate: float = 0.001,
+    n_samples: int = 1000,
+    device: str = "cpu",
+) -> dict[str, list[float]]:
+    """Train SeismicWaveAnalyzer on synthetic earthquake data.
+
+    Performs minimal training (10 epochs) on synthetic data to initialize
+    the neural network weights for reasonable predictions.
+
+    TODO: Full training on real datasets (USGS earthquake catalog, seismic networks) pending.
+
+    Args:
+        model: SeismicWaveAnalyzer model to train
+        n_epochs: Number of training epochs (default 10)
+        batch_size: Training batch size
+        learning_rate: Adam optimizer learning rate
+        n_samples: Number of synthetic samples to generate
+        device: Training device ('cpu' or 'cuda')
+
+    Returns:
+        Training history with loss and accuracy per epoch
+    """
+    logger.info(f"Training SeismicWaveAnalyzer for {n_epochs} epochs on synthetic data")
+
+    model = model.to(device)
+    model.train()
+
+    # Generate synthetic data
+    spectrograms, labels, magnitudes = generate_synthetic_earthquake_data(n_samples)
+
+    # Convert to tensors
+    spectrograms_tensor = torch.tensor(spectrograms, dtype=torch.float32).to(device)
+    labels_tensor = torch.tensor(labels, dtype=torch.float32).to(device)
+    magnitudes_tensor = torch.tensor(magnitudes, dtype=torch.float32).to(device)
+
+    # Setup optimizer and loss
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    bce_loss = nn.BCELoss()
+    mse_loss = nn.MSELoss()
+
+    history: dict[str, list[float]] = {"loss": [], "accuracy": [], "magnitude_mse": []}
+
+    n_batches = (n_samples + batch_size - 1) // batch_size
+
+    for epoch in range(n_epochs):
+        epoch_loss = 0.0
+        epoch_correct = 0
+        epoch_mag_mse = 0.0
+
+        # Shuffle data
+        indices = torch.randperm(n_samples)
+
+        for batch_idx in range(n_batches):
+            start_idx = batch_idx * batch_size
+            end_idx = min(start_idx + batch_size, n_samples)
+            batch_indices = indices[start_idx:end_idx]
+
+            batch_spectrograms = spectrograms_tensor[batch_indices]
+            batch_labels = labels_tensor[batch_indices]
+            batch_magnitudes = magnitudes_tensor[batch_indices]
+
+            optimizer.zero_grad()
+
+            # Forward pass
+            pred_prob, pred_magnitude = model(batch_spectrograms)
+
+            # Compute losses
+            classification_loss = bce_loss(pred_prob, batch_labels)
+            magnitude_loss = mse_loss(pred_magnitude, batch_magnitudes)
+            total_loss = classification_loss + 0.1 * magnitude_loss
+
+            # Backward pass
+            total_loss.backward()
+            optimizer.step()
+
+            epoch_loss += total_loss.item()
+            epoch_correct += ((pred_prob > 0.5).float() == batch_labels).sum().item()
+            epoch_mag_mse += magnitude_loss.item()
+
+        avg_loss = epoch_loss / n_batches
+        accuracy = epoch_correct / n_samples
+        avg_mag_mse = epoch_mag_mse / n_batches
+
+        history["loss"].append(avg_loss)
+        history["accuracy"].append(accuracy)
+        history["magnitude_mse"].append(avg_mag_mse)
+
+        logger.info(
+            f"Epoch {epoch + 1}/{n_epochs}: loss={avg_loss:.4f}, "
+            f"accuracy={accuracy:.4f}, magnitude_mse={avg_mag_mse:.4f}"
+        )
+
+    model.eval()
+    logger.info(
+        f"SeismicWaveAnalyzer training complete. Final accuracy: {history['accuracy'][-1]:.4f}"
+    )
+
+    return history
+
+
+def train_all_disaster_networks(
+    device: str = "cpu",
+    n_epochs: int = 10,
+) -> dict[str, dict[str, list[float]]]:
+    """Train all disaster detection neural networks on synthetic data.
+
+    This function initializes and trains:
+    - WaveformFFTAnalyzer for tsunami detection
+    - SeismicWaveAnalyzer for earthquake detection
+
+    Args:
+        device: Training device ('cpu' or 'cuda')
+        n_epochs: Number of training epochs per model
+
+    Returns:
+        Dictionary mapping model names to training histories
+    """
+    logger.info("Training all disaster detection neural networks...")
+
+    results = {}
+
+    # Train WaveformFFTAnalyzer
+    waveform_model = WaveformFFTAnalyzer()
+    results["WaveformFFTAnalyzer"] = train_waveform_analyzer(
+        waveform_model, n_epochs=n_epochs, device=device
+    )
+
+    # Train SeismicWaveAnalyzer
+    seismic_model = SeismicWaveAnalyzer()
+    results["SeismicWaveAnalyzer"] = train_seismic_analyzer(
+        seismic_model, n_epochs=n_epochs, device=device
+    )
+
+    logger.info("All disaster detection networks trained successfully.")
+
+    return results

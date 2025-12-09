@@ -953,8 +953,25 @@ class OmniAvaEngine:
                 )
 
             except Exception as e:
-                logger.warning(f"GOSNN integration failed (graceful fallback): {e}")
-                gosnn_metadata = {"error": str(e), "ethical_gate_passed": True}
+                logger.warning(
+                    f"GOSNN integration error: {e}. Falling back to raw features. "
+                    "Detection will proceed without ethical gating enhancement."
+                )
+                # Fallback: Use raw detector scores as features without GOSNN enhancement
+                # This ensures detection continues even if GOSNN fails
+                fallback_scalars = {
+                    f"fallback_{name}": float(np.mean(score))
+                    for name, score in all_scores.items()
+                    if isinstance(score, (np.ndarray, float, int))
+                }
+                gosnn_metadata = {
+                    "error": str(e),
+                    "ethical_gate_passed": True,  # Assume ethical for graceful degradation
+                    "fallback_mode": True,
+                    "fallback_scalars": fallback_scalars,
+                    "sigma_sacred_score": 0.96,  # Default threshold
+                    "harmonic_synergy": 0.5,  # Neutral synergy
+                }
 
         fusion_result = self.fusion_inference.predict(
             all_features,

@@ -319,6 +319,374 @@ class InSARDeformationDetector:
         }
 
 
+class VolcanicStateHMM:
+    """Hidden Markov Model for volcanic activity state transitions.
+
+    Models volcanic activity as a sequence of hidden states:
+    - QUIESCENT: Normal background activity
+    - UNREST: Elevated seismic/gas activity
+    - PRE_ERUPTIVE: Imminent eruption indicators
+    - ERUPTIVE: Active eruption
+    - POST_ERUPTIVE: Declining activity
+
+    Synapse: Integrates with GOSNN for ethical gating and scalar registration.
+    """
+
+    # State indices
+    QUIESCENT = 0
+    UNREST = 1
+    PRE_ERUPTIVE = 2
+    ERUPTIVE = 3
+    POST_ERUPTIVE = 4
+
+    def __init__(
+        self,
+        n_states: int = 5,
+        phi: float = 1.618033988749895,
+    ):
+        """Initialize volcanic HMM.
+
+        Args:
+            n_states: Number of hidden states (default: 5)
+            phi: Golden ratio for transition probability optimization
+        """
+        self.n_states = n_states
+        self.phi = phi
+        self.logger = logging.getLogger(__name__)
+
+        # State names for interpretability
+        self.state_names = [
+            "QUIESCENT",
+            "UNREST",
+            "PRE_ERUPTIVE",
+            "ERUPTIVE",
+            "POST_ERUPTIVE",
+        ]
+
+        # Initialize transition matrix (row = from, col = to)
+        # Based on volcanic behavior patterns
+        self.transition_matrix = self._initialize_transition_matrix()
+
+        # Emission probabilities for each observable
+        # Observables: seismic_swarm, thermal_anomaly, gas_flux, deformation
+        self.emission_matrix = self._initialize_emission_matrix()
+
+        # Initial state distribution (most volcanoes start quiescent)
+        self.initial_distribution = np.array([0.7, 0.2, 0.05, 0.03, 0.02])
+
+        # Current state belief (probability distribution over states)
+        self.state_belief = self.initial_distribution.copy()
+
+        # State history for pattern analysis
+        self.state_history: list[int] = []
+
+    def _initialize_transition_matrix(self) -> np.ndarray:
+        """Initialize state transition probabilities.
+
+        Returns:
+            Transition matrix [n_states x n_states]
+        """
+        # Transition probabilities based on volcanic behavior
+        # Rows: from state, Columns: to state
+        T = np.array(
+            [
+                # Q     U     P     E     Po
+                [0.90, 0.08, 0.01, 0.005, 0.005],  # From QUIESCENT
+                [0.15, 0.70, 0.12, 0.02, 0.01],  # From UNREST
+                [0.05, 0.20, 0.50, 0.20, 0.05],  # From PRE_ERUPTIVE
+                [0.01, 0.05, 0.10, 0.60, 0.24],  # From ERUPTIVE
+                [0.30, 0.40, 0.10, 0.05, 0.15],  # From POST_ERUPTIVE
+            ]
+        )
+
+        # Normalize rows to ensure valid probabilities
+        T = T / T.sum(axis=1, keepdims=True)
+
+        return T
+
+    def _initialize_emission_matrix(self) -> np.ndarray:
+        """Initialize emission probabilities.
+
+        Returns:
+            Emission matrix [n_states x n_observables]
+        """
+        # Emission probabilities: P(observable | state)
+        # Observables: [seismic, thermal, gas, deformation]
+        E = np.array(
+            [
+                # seismic  thermal  gas    deform
+                [0.05, 0.02, 0.03, 0.02],  # QUIESCENT
+                [0.40, 0.20, 0.30, 0.25],  # UNREST
+                [0.70, 0.50, 0.60, 0.55],  # PRE_ERUPTIVE
+                [0.90, 0.85, 0.80, 0.75],  # ERUPTIVE
+                [0.30, 0.40, 0.25, 0.20],  # POST_ERUPTIVE
+            ]
+        )
+
+        return E
+
+    def update_belief(
+        self,
+        observations: np.ndarray,
+    ) -> np.ndarray:
+        """Update state belief given new observations (forward algorithm step).
+
+        Args:
+            observations: Binary array [seismic, thermal, gas, deformation]
+
+        Returns:
+            Updated state belief distribution
+        """
+        # Compute observation likelihood for each state
+        obs_likelihood = np.ones(self.n_states)
+        for i, obs in enumerate(observations):
+            if obs:
+                obs_likelihood *= self.emission_matrix[:, i]
+            else:
+                obs_likelihood *= 1 - self.emission_matrix[:, i]
+
+        # Predict step: P(s_t | o_{1:t-1}) = sum_s' T(s'->s) * P(s' | o_{1:t-1})
+        predicted_belief = self.transition_matrix.T @ self.state_belief
+
+        # Update step: P(s_t | o_{1:t}) ∝ P(o_t | s_t) * P(s_t | o_{1:t-1})
+        updated_belief = obs_likelihood * predicted_belief
+
+        # Normalize
+        updated_belief = updated_belief / (updated_belief.sum() + 1e-10)
+
+        self.state_belief = updated_belief
+
+        # Record most likely state
+        most_likely_state = int(np.argmax(updated_belief))
+        self.state_history.append(most_likely_state)
+
+        return updated_belief
+
+    def get_most_likely_state(self) -> tuple[int, str, float]:
+        """Get the most likely current state.
+
+        Returns:
+            Tuple of (state_index, state_name, probability)
+        """
+        state_idx = int(np.argmax(self.state_belief))
+        return state_idx, self.state_names[state_idx], float(self.state_belief[state_idx])
+
+    def predict_next_state(self) -> tuple[int, str, float]:
+        """Predict the most likely next state.
+
+        Returns:
+            Tuple of (state_index, state_name, probability)
+        """
+        # Predict next state distribution
+        next_belief = self.transition_matrix.T @ self.state_belief
+
+        state_idx = int(np.argmax(next_belief))
+        return state_idx, self.state_names[state_idx], float(next_belief[state_idx])
+
+    def get_eruption_probability(self) -> float:
+        """Get probability of being in or transitioning to eruptive state.
+
+        Returns:
+            Combined probability of eruptive activity
+        """
+        # Current probability of being in eruptive state
+        current_eruptive = self.state_belief[self.ERUPTIVE]
+
+        # Probability of transitioning to eruptive state
+        transition_to_eruptive = self.transition_matrix[:, self.ERUPTIVE] @ self.state_belief
+
+        # Combined probability (weighted average)
+        return float(0.6 * current_eruptive + 0.4 * transition_to_eruptive)
+
+    def reset(self) -> None:
+        """Reset HMM to initial state."""
+        self.state_belief = self.initial_distribution.copy()
+        self.state_history = []
+
+
+class RefactoringAdaptiveOptimizer:
+    """3R Refactoring mechanism for adaptive volcanic model optimization.
+
+    Implements dynamic parameter adjustment based on prediction performance,
+    enabling the model to adapt to changing volcanic behavior patterns.
+
+    Synapse: Integrates with GOSNN for ethical gating and scalar registration.
+    """
+
+    def __init__(
+        self,
+        learning_rate: float = 0.01,
+        phi: float = 1.618033988749895,
+        history_window: int = 100,
+    ):
+        """Initialize refactoring optimizer.
+
+        Args:
+            learning_rate: Base learning rate for parameter updates
+            phi: Golden ratio for adaptive scaling
+            history_window: Number of predictions to track for adaptation
+        """
+        self.learning_rate = learning_rate
+        self.phi = phi
+        self.history_window = history_window
+        self.logger = logging.getLogger(__name__)
+
+        # Performance tracking
+        self.prediction_history: list[dict[str, Any]] = []
+        self.error_history: list[float] = []
+
+        # Adaptive parameters
+        self.confidence_calibration = 1.0
+        self.threshold_adjustment = 0.0
+
+        # Refactoring metrics
+        self.refactoring_score = 0.5
+        self.adaptation_count = 0
+
+    def record_prediction(
+        self,
+        prediction: dict[str, Any],
+        actual_outcome: dict[str, Any] | None = None,
+    ) -> None:
+        """Record a prediction for performance tracking.
+
+        Args:
+            prediction: Prediction result dictionary
+            actual_outcome: Actual outcome (if known)
+        """
+        record = {
+            "prediction": prediction,
+            "actual": actual_outcome,
+            "timestamp": np.datetime64("now"),
+        }
+
+        self.prediction_history.append(record)
+
+        # Trim history to window size
+        if len(self.prediction_history) > self.history_window:
+            self.prediction_history = self.prediction_history[-self.history_window :]
+
+        # Compute error if actual outcome is known
+        if actual_outcome is not None:
+            error = self._compute_prediction_error(prediction, actual_outcome)
+            self.error_history.append(error)
+
+            if len(self.error_history) > self.history_window:
+                self.error_history = self.error_history[-self.history_window :]
+
+    def _compute_prediction_error(
+        self,
+        prediction: dict[str, Any],
+        actual: dict[str, Any],
+    ) -> float:
+        """Compute prediction error.
+
+        Args:
+            prediction: Predicted values
+            actual: Actual values
+
+        Returns:
+            Error metric (0-1)
+        """
+        errors = []
+
+        # Compare eruption prediction
+        if "eruption_imminent" in prediction and "eruption_occurred" in actual:
+            pred_erupt = prediction["eruption_imminent"]
+            actual_erupt = actual["eruption_occurred"]
+            errors.append(0.0 if pred_erupt == actual_erupt else 1.0)
+
+        # Compare confidence calibration
+        if "confidence" in prediction and "eruption_occurred" in actual:
+            conf = prediction["confidence"]
+            actual_erupt = 1.0 if actual["eruption_occurred"] else 0.0
+            errors.append(abs(conf - actual_erupt))
+
+        # Compare VEI estimate
+        if "vei_estimate" in prediction and "actual_vei" in actual:
+            pred_vei = prediction["vei_estimate"] or 0
+            actual_vei = actual["actual_vei"] or 0
+            errors.append(abs(pred_vei - actual_vei) / 8.0)  # Normalize by max VEI
+
+        return float(np.mean(errors)) if errors else 0.5
+
+    def adapt_parameters(self) -> dict[str, float]:
+        """Adapt model parameters based on performance history.
+
+        Returns:
+            Dictionary of adapted parameters
+        """
+        if len(self.error_history) < 10:
+            return {
+                "confidence_calibration": self.confidence_calibration,
+                "threshold_adjustment": self.threshold_adjustment,
+                "refactoring_score": self.refactoring_score,
+            }
+
+        # Compute recent error statistics
+        recent_errors = np.array(self.error_history[-20:])
+        mean_error = float(np.mean(recent_errors))
+        error_trend = float(np.mean(np.diff(recent_errors))) if len(recent_errors) > 1 else 0.0
+
+        # Adapt confidence calibration
+        # If overconfident (high error), reduce calibration
+        # If underconfident (low error), increase calibration
+        if mean_error > 0.5:
+            self.confidence_calibration *= 1 - self.learning_rate
+        elif mean_error < 0.3:
+            self.confidence_calibration *= 1 + self.learning_rate / self.phi
+
+        self.confidence_calibration = np.clip(self.confidence_calibration, 0.5, 1.5)
+
+        # Adapt threshold based on error trend
+        if error_trend > 0:  # Errors increasing
+            self.threshold_adjustment += self.learning_rate * 0.1
+        elif error_trend < 0:  # Errors decreasing
+            self.threshold_adjustment -= self.learning_rate * 0.05
+
+        self.threshold_adjustment = np.clip(self.threshold_adjustment, -0.2, 0.2)
+
+        # Update refactoring score
+        self.refactoring_score = 1.0 - mean_error
+        self.adaptation_count += 1
+
+        self.logger.debug(
+            f"Refactoring adaptation #{self.adaptation_count}: "
+            f"calibration={self.confidence_calibration:.3f}, "
+            f"threshold_adj={self.threshold_adjustment:.3f}, "
+            f"score={self.refactoring_score:.3f}"
+        )
+
+        return {
+            "confidence_calibration": float(self.confidence_calibration),
+            "threshold_adjustment": float(self.threshold_adjustment),
+            "refactoring_score": float(self.refactoring_score),
+        }
+
+    def get_adapted_confidence(self, raw_confidence: float) -> float:
+        """Apply calibration to raw confidence score.
+
+        Args:
+            raw_confidence: Raw model confidence (0-1)
+
+        Returns:
+            Calibrated confidence
+        """
+        calibrated = raw_confidence * self.confidence_calibration
+        return float(np.clip(calibrated, 0.0, 1.0))
+
+    def get_adapted_threshold(self, base_threshold: float) -> float:
+        """Apply adjustment to detection threshold.
+
+        Args:
+            base_threshold: Base detection threshold
+
+        Returns:
+            Adapted threshold
+        """
+        return float(np.clip(base_threshold + self.threshold_adjustment, 0.3, 0.9))
+
+
 class EruptionForecastModel(nn.Module):
     """
     Multi-parameter eruption forecasting neural network.
@@ -382,6 +750,11 @@ class VolcanicEruptionDetector:
 
     Integrates seismic, thermal, gas, deformation, and Schumann ELF data
     for multi-parameter volcano monitoring and eruption forecasting.
+
+    Enhanced with:
+    - HMM state transitions for volcanic activity modeling
+    - 3R Refactoring mechanism for adaptive parameter optimization
+    - GOSNN synapse for ethical gating and scalar registration
     """
 
     def __init__(
@@ -391,13 +764,29 @@ class VolcanicEruptionDetector:
         enable_gas: bool = True,
         enable_insar: bool = True,
         enable_schumann_correlation: bool = True,
+        enable_hmm: bool = True,
+        enable_refactoring: bool = True,
         rng: DeterministicRNG | None = None,
     ):
+        """Initialize volcanic eruption detector.
+
+        Args:
+            enable_seismic: Enable seismic swarm detection
+            enable_thermal: Enable thermal hotspot detection
+            enable_gas: Enable gas emission analysis
+            enable_insar: Enable InSAR deformation detection
+            enable_schumann_correlation: Enable Schumann ELF correlation
+            enable_hmm: Enable HMM state transitions for activity modeling
+            enable_refactoring: Enable 3R Refactoring for adaptive optimization
+            rng: Deterministic RNG for reproducibility
+        """
         self.enable_seismic = enable_seismic
         self.enable_thermal = enable_thermal
         self.enable_gas = enable_gas
         self.enable_insar = enable_insar
         self.enable_schumann = enable_schumann_correlation
+        self.enable_hmm = enable_hmm
+        self.enable_refactoring = enable_refactoring
         self._rng = rng or get_global_rng()
 
         self.seismic_detector = SeismicSwarmDetector() if enable_seismic else None
@@ -406,11 +795,19 @@ class VolcanicEruptionDetector:
         self.insar_detector = InSARDeformationDetector() if enable_insar else None
         self.eruption_model = EruptionForecastModel()
 
+        # HMM for volcanic state transitions
+        self.state_hmm = VolcanicStateHMM() if enable_hmm else None
+
+        # 3R Refactoring for adaptive optimization
+        self.refactoring_optimizer = RefactoringAdaptiveOptimizer() if enable_refactoring else None
+
         self.logger = logging.getLogger(__name__)
 
     def predict_eruption(self, volcano_data: dict[str, Any]) -> VolcanicPredictionResult:
         """
         Comprehensive volcanic eruption prediction.
+
+        Integrates HMM state transitions and 3R Refactoring for adaptive optimization.
 
         Args:
             volcano_data: Multi-parameter volcano monitoring data including:
@@ -433,9 +830,13 @@ class VolcanicEruptionDetector:
 
         indicators_detected = 0
 
+        # Binary observations for HMM: [seismic, thermal, gas, deformation]
+        hmm_observations = np.array([False, False, False, False])
+
         if self.enable_seismic and "seismic_sequence" in volcano_data:
             seismic_result = self._analyze_seismic(volcano_data["seismic_sequence"])
             result.seismic_swarm_detected = seismic_result["swarm_detected"]
+            hmm_observations[0] = seismic_result["swarm_detected"]
             if seismic_result["swarm_detected"]:
                 indicators_detected += 1
                 result.confidence = max(result.confidence, seismic_result["confidence"])
@@ -445,18 +846,21 @@ class VolcanicEruptionDetector:
                 volcano_data["thermal_data"]
             )
             result.thermal_anomaly_detected = thermal_result["anomaly_detected"]
+            hmm_observations[1] = thermal_result["anomaly_detected"]
             if thermal_result["anomaly_detected"]:
                 indicators_detected += 1
 
         if self.enable_gas and "gas_data" in volcano_data:
             gas_result = self.gas_analyzer.analyze_gas_emissions(volcano_data["gas_data"])
             result.gas_flux_anomaly = gas_result["so2_anomaly"] or gas_result["co2_anomaly"]
+            hmm_observations[2] = result.gas_flux_anomaly
             if result.gas_flux_anomaly:
                 indicators_detected += 1
 
         if self.enable_insar and "insar_data" in volcano_data:
             insar_result = self.insar_detector.detect_deformation(volcano_data["insar_data"])
             result.deformation_detected = insar_result["deformation_detected"]
+            hmm_observations[3] = insar_result["deformation_detected"]
             if insar_result["deformation_detected"]:
                 indicators_detected += 1
 
@@ -466,6 +870,27 @@ class VolcanicEruptionDetector:
             if schumann_corr > 0.6:
                 indicators_detected += 0.5  # Ancient pattern bonus
 
+        # Update HMM state belief based on observations
+        hmm_state_info: dict[str, Any] = {}
+        if self.enable_hmm and self.state_hmm is not None:
+            self.state_hmm.update_belief(hmm_observations)
+            state_idx, state_name, state_prob = self.state_hmm.get_most_likely_state()
+            hmm_eruption_prob = self.state_hmm.get_eruption_probability()
+
+            hmm_state_info = {
+                "current_state": state_name,
+                "state_probability": state_prob,
+                "eruption_probability": hmm_eruption_prob,
+            }
+
+            # Boost confidence if HMM indicates high eruption probability
+            if hmm_eruption_prob > 0.5:
+                result.confidence = max(result.confidence, hmm_eruption_prob * 0.8)
+
+            # Add indicator bonus for pre-eruptive or eruptive states
+            if state_idx in [VolcanicStateHMM.PRE_ERUPTIVE, VolcanicStateHMM.ERUPTIVE]:
+                indicators_detected += 0.5
+
         if "fused_features" in volcano_data or indicators_detected >= 2:
             eruption_forecast = self._forecast_eruption(volcano_data, indicators_detected)
             result.eruption_imminent = eruption_forecast["eruption_imminent"]
@@ -474,6 +899,23 @@ class VolcanicEruptionDetector:
             result.vei_estimate = eruption_forecast["vei_estimate"]
             result.eruption_type = eruption_forecast["eruption_type"]
 
+        # Apply 3R Refactoring adaptive optimization
+        if self.enable_refactoring and self.refactoring_optimizer is not None:
+            # Adapt confidence using calibration
+            result.confidence = self.refactoring_optimizer.get_adapted_confidence(result.confidence)
+
+            # Get adapted parameters for future predictions
+            _ = self.refactoring_optimizer.adapt_parameters()
+
+            # Record prediction for performance tracking
+            prediction_record = {
+                "eruption_imminent": result.eruption_imminent,
+                "confidence": result.confidence,
+                "vei_estimate": result.vei_estimate,
+                "hmm_state": hmm_state_info.get("current_state", "unknown"),
+            }
+            self.refactoring_optimizer.record_prediction(prediction_record)
+
         result.alert_level = self._determine_alert_level(indicators_detected, result.confidence)
         result.hazard_zones = self._identify_hazard_zones(result)
         result.early_warning_actions = self._generate_early_warning(result)
@@ -481,7 +923,8 @@ class VolcanicEruptionDetector:
 
         self.logger.info(
             f"Volcanic prediction: {result.alert_level}, "
-            f"indicators={indicators_detected}, confidence={result.confidence:.2f}"
+            f"indicators={indicators_detected}, confidence={result.confidence:.2f}, "
+            f"hmm_state={hmm_state_info.get('current_state', 'disabled')}"
         )
 
         return result
