@@ -55,6 +55,11 @@ import numpy as np
 import torch
 from torch import nn
 
+from omni_anomaly_engine.core.three_r_mechanism import (
+    RecursionEngine,
+    RefactoringEngine as CoreRefactoringEngine,
+    ResonanceEngine,
+)
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
@@ -458,6 +463,11 @@ class FloodDetector:
     Integrates precipitation analysis, river gauge monitoring, soil saturation
     modeling, topographic runoff prediction, and 3R mechanism for multi-parameter
     flood prediction.
+
+    Deep 3R Integration:
+    - RecursionEngine: Hierarchical multi-scale feature extraction
+    - ResonanceEngine: FFT-based frequency-domain anomaly detection
+    - RefactoringEngine: Dynamic model optimization and code analysis
     """
 
     def __init__(
@@ -467,6 +477,8 @@ class FloodDetector:
         enable_soil: bool = True,
         enable_runoff: bool = True,
         enable_refactoring: bool = True,
+        enable_recursion: bool = True,
+        enable_resonance: bool = True,
         rng: DeterministicRNG | None = None,
     ):
         self.enable_precipitation = enable_precipitation
@@ -474,6 +486,8 @@ class FloodDetector:
         self.enable_soil = enable_soil
         self.enable_runoff = enable_runoff
         self.enable_refactoring = enable_refactoring
+        self.enable_recursion = enable_recursion
+        self.enable_resonance = enable_resonance
         self._rng = rng or get_global_rng()
 
         self.precip_analyzer = PrecipitationAnalyzer() if enable_precipitation else None
@@ -481,6 +495,10 @@ class FloodDetector:
         self.soil_model = SoilSaturationModel() if enable_soil else None
         self.runoff_predictor = TopographicRunoffPredictor() if enable_runoff else None
         self.refactoring_engine = RefactoringEngine() if enable_refactoring else None
+
+        self.recursion_engine = RecursionEngine(max_depth=5)
+        self.resonance_engine = ResonanceEngine(sampling_rate=1.0)
+        self.core_refactoring_engine = CoreRefactoringEngine()
 
         self.logger = logging.getLogger(__name__)
 
@@ -553,6 +571,34 @@ class FloodDetector:
             result.refactoring_score = 1.0 - refactor_result["final_error"]
             result.model_optimization_iterations = refactor_result["iterations"]
             result.prediction_uncertainty = refactor_result["uncertainty"]
+
+        if self.enable_recursion and "signal_data" in flood_data:
+            hierarchical_features = self.recursion_engine.hierarchical_feature_extraction(
+                flood_data["signal_data"], num_levels=3
+            )
+            if len(hierarchical_features) > 0:
+                multi_scale_variance = np.mean([np.var(f) for f in hierarchical_features])
+                if multi_scale_variance > 0.5:
+                    indicators_detected += 0.3
+
+        if self.enable_resonance and "signal_data" in flood_data:
+            resonance_anomalies = self.resonance_engine.detect_resonance_anomalies(
+                flood_data["signal_data"], threshold_std=2.5
+            )
+            if resonance_anomalies["is_anomalous"]:
+                indicators_detected += 0.4
+
+        if self.enable_refactoring and "observed_data" in flood_data:
+            initial_prediction = {
+                "confidence": result.confidence,
+                "indicators": indicators_detected,
+                "severity": result.severity,
+            }
+            core_refactor_result = self.core_refactoring_engine.detect_code_anomalies(
+                str(initial_prediction)
+            )
+            if core_refactor_result.get("anomaly_score", 0) > 0.5:
+                indicators_detected += 0.2
 
         result.flood_likely = indicators_detected >= 2
         result.confidence = min(indicators_detected / 5.0, 1.0)

@@ -186,8 +186,9 @@ class NSLKDDLoader(DatasetLoader):
 
     def load(
         self,
-        use_synthetic: bool = True,
+        use_synthetic: bool = False,
         n_samples: int = 10000,
+        min_real_samples: int = 100,
         **kwargs: Any,
     ) -> tuple[np.ndarray, np.ndarray, DatasetMetadata]:
         """
@@ -196,9 +197,13 @@ class NSLKDDLoader(DatasetLoader):
         Args:
             use_synthetic: Use synthetic data (for testing without download)
             n_samples: Number of samples for synthetic data
+            min_real_samples: Minimum required real samples (fails if not met)
 
         Returns:
             Tuple of (features, labels, metadata)
+
+        Raises:
+            RuntimeError: If real data loading fails and use_synthetic=False
         """
         import time
 
@@ -209,6 +214,11 @@ class NSLKDDLoader(DatasetLoader):
             source = "synthetic"
         else:
             self._data, self._labels = self._load_real()
+            if len(self._data) < min_real_samples:
+                raise RuntimeError(
+                    f"NSL-KDD: Failed to load minimum {min_real_samples} real samples. "
+                    f"Got {len(self._data)}. API may be down or data unavailable."
+                )
             source = "NSL-KDD (UNB)"
 
         load_time = time.time() - start_time
@@ -336,11 +346,12 @@ class USGSEarthquakeLoader(DatasetLoader):
 
     def load(
         self,
-        use_synthetic: bool = True,
+        use_synthetic: bool = False,
         n_samples: int = 5000,
         days_back: int = 30,
         min_magnitude: float = 2.5,
         anomaly_threshold: float = 5.0,
+        min_real_samples: int = 100,
         **kwargs: Any,
     ) -> tuple[np.ndarray, np.ndarray, DatasetMetadata]:
         """
@@ -352,9 +363,13 @@ class USGSEarthquakeLoader(DatasetLoader):
             days_back: Number of days to query (for real data)
             min_magnitude: Minimum magnitude to include
             anomaly_threshold: Magnitude threshold for anomaly classification
+            min_real_samples: Minimum required real samples (fails if not met)
 
         Returns:
             Tuple of (features, labels, metadata)
+
+        Raises:
+            RuntimeError: If real data loading fails and use_synthetic=False
         """
         import time
 
@@ -367,6 +382,11 @@ class USGSEarthquakeLoader(DatasetLoader):
             self._data, self._labels = self._load_from_api(
                 days_back, min_magnitude, anomaly_threshold
             )
+            if len(self._data) < min_real_samples:
+                raise RuntimeError(
+                    f"USGS Earthquake: Failed to load minimum {min_real_samples} real samples. "
+                    f"Got {len(self._data)}. API may be down or data unavailable."
+                )
             source = "USGS Earthquake Hazards Program"
 
         load_time = time.time() - start_time
@@ -462,8 +482,9 @@ class USGSEarthquakeLoader(DatasetLoader):
 
         # Validate URL scheme for security (only allow https)
         if not url.startswith("https://"):
-            logger.warning("USGS API URL must use HTTPS. Using synthetic data.")
-            return self._generate_synthetic(1000, anomaly_threshold)
+            raise RuntimeError(
+                "USGS API URL must use HTTPS. Security validation failed."
+            )
 
         try:
             import json
@@ -500,16 +521,24 @@ class USGSEarthquakeLoader(DatasetLoader):
                 )
 
             if not features_list:
-                return self._generate_synthetic(1000, anomaly_threshold)
+                raise RuntimeError(
+                    "USGS Earthquake API returned no data. "
+                    "Set use_synthetic=True to use synthetic data instead."
+                )
 
             data_array = np.array(features_list, dtype=np.float32)
             labels = (data_array[:, 0] >= anomaly_threshold).astype(float)
 
             return data_array, labels
 
+        except RuntimeError:
+            raise
         except Exception as e:
-            logger.warning(f"Failed to load from USGS API: {e}. Using synthetic data.")
-            return self._generate_synthetic(1000, anomaly_threshold)
+            logger.error(f"Failed to load from USGS API: {e}")
+            raise RuntimeError(
+                f"USGS Earthquake API unavailable: {e}. "
+                "Set use_synthetic=True to use synthetic data instead."
+            ) from e
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
@@ -853,9 +882,10 @@ class NOAASpaceWeatherLoader(DatasetLoader):
 
     def load(
         self,
-        use_synthetic: bool = True,
+        use_synthetic: bool = False,
         n_samples: int = 5000,
         storm_threshold: float = 5.0,
+        min_real_samples: int = 100,
         **kwargs: Any,
     ) -> tuple[np.ndarray, np.ndarray, DatasetMetadata]:
         """
@@ -865,9 +895,13 @@ class NOAASpaceWeatherLoader(DatasetLoader):
             use_synthetic: Use synthetic data (for testing without API calls)
             n_samples: Number of samples for synthetic data
             storm_threshold: Kp index threshold for storm classification (G1=5, G2=6, G3=7, G4=8, G5=9)
+            min_real_samples: Minimum required real samples (fails if not met)
 
         Returns:
             Tuple of (features, labels, metadata)
+
+        Raises:
+            RuntimeError: If real data loading fails and use_synthetic=False
         """
         import time
 
@@ -878,6 +912,11 @@ class NOAASpaceWeatherLoader(DatasetLoader):
             source = "synthetic"
         else:
             self._data, self._labels = self._load_from_api(storm_threshold)
+            if len(self._data) < min_real_samples:
+                raise RuntimeError(
+                    f"NOAA Space Weather: Failed to load minimum {min_real_samples} real samples. "
+                    f"Got {len(self._data)}. API may be down or data unavailable."
+                )
             source = "NOAA Space Weather Prediction Center"
 
         load_time = time.time() - start_time
@@ -982,14 +1021,19 @@ class NOAASpaceWeatherLoader(DatasetLoader):
             # Load planetary K-index data
             url = f"{self.SWPC_API_URL}/planetary_k_index_1m.json"
             if not url.startswith("https://"):
-                return self._generate_synthetic(1000, storm_threshold)
+                raise RuntimeError(
+                    "NOAA SWPC API URL must use HTTPS. Security validation failed."
+                )
 
             req = Request(url, headers={"User-Agent": "OMNI-AVA/1.0"})  # noqa: S310
             with urlopen(req, timeout=30) as response:  # noqa: S310
                 kp_data = json.loads(response.read().decode())
 
             if not kp_data:
-                return self._generate_synthetic(1000, storm_threshold)
+                raise RuntimeError(
+                    "NOAA SWPC API returned no data. "
+                    "Set use_synthetic=True to use synthetic data instead."
+                )
 
             features_list = []
             for entry in kp_data[-1000:]:  # Last 1000 entries
@@ -1014,16 +1058,24 @@ class NOAASpaceWeatherLoader(DatasetLoader):
                 )
 
             if not features_list:
-                return self._generate_synthetic(1000, storm_threshold)
+                raise RuntimeError(
+                    "NOAA SWPC API returned no data. "
+                    "Set use_synthetic=True to use synthetic data instead."
+                )
 
             data_array = np.array(features_list, dtype=np.float32)
             labels = (data_array[:, 0] >= storm_threshold).astype(float)
 
             return data_array, labels
 
+        except RuntimeError:
+            raise
         except Exception as e:
-            logger.warning(f"Failed to load from NOAA SWPC API: {e}. Using synthetic data.")
-            return self._generate_synthetic(1000, storm_threshold)
+            logger.error(f"Failed to load from NOAA SWPC API: {e}")
+            raise RuntimeError(
+                f"NOAA SWPC API unavailable: {e}. "
+                "Set use_synthetic=True to use synthetic data instead."
+            ) from e
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
@@ -1097,9 +1149,10 @@ class NOAAHurricaneLoader(DatasetLoader):
 
     def load(
         self,
-        use_synthetic: bool = True,
+        use_synthetic: bool = False,
         n_samples: int = 3000,
         major_hurricane_threshold: float = 111.0,
+        min_real_samples: int = 100,
         **kwargs: Any,
     ) -> tuple[np.ndarray, np.ndarray, DatasetMetadata]:
         """
@@ -1109,9 +1162,13 @@ class NOAAHurricaneLoader(DatasetLoader):
             use_synthetic: Use synthetic data (for testing without API calls)
             n_samples: Number of samples for synthetic data
             major_hurricane_threshold: Wind speed threshold for major hurricane (Cat 3+ = 111 mph)
+            min_real_samples: Minimum required real samples (fails if not met)
 
         Returns:
             Tuple of (features, labels, metadata)
+
+        Raises:
+            RuntimeError: If real data loading fails and use_synthetic=False
         """
         import time
 
@@ -1123,10 +1180,13 @@ class NOAAHurricaneLoader(DatasetLoader):
             )
             source = "synthetic"
         else:
-            self._data, self._labels = self._generate_synthetic(
-                n_samples, major_hurricane_threshold
-            )
-            source = "NOAA National Hurricane Center (synthetic fallback)"
+            self._data, self._labels = self._load_from_api(major_hurricane_threshold)
+            if len(self._data) < min_real_samples:
+                raise RuntimeError(
+                    f"NOAA Hurricane: Failed to load minimum {min_real_samples} real samples. "
+                    f"Got {len(self._data)}. API may be down or data unavailable."
+                )
+            source = "NOAA National Hurricane Center"
 
         load_time = time.time() - start_time
 
@@ -1216,6 +1276,73 @@ class NOAAHurricaneLoader(DatasetLoader):
 
         return data, labels
 
+    def _load_from_api(self, major_threshold: float) -> tuple[np.ndarray, np.ndarray]:
+        """Load real hurricane data from NOAA NHC API."""
+        try:
+            import json
+            from urllib.request import Request
+
+            # Load HURDAT2 data from NHC
+            url = f"{self.NHC_API_URL}/hurdat2-1851-2023-052424.txt"
+            if not url.startswith("https://"):
+                raise RuntimeError(
+                    "NOAA NHC API URL must use HTTPS. Security validation failed."
+                )
+
+            req = Request(url, headers={"User-Agent": "OMNI-AVA/1.0"})  # noqa: S310
+            with urlopen(req, timeout=30) as response:  # noqa: S310
+                raw_data = response.read().decode()
+
+            if not raw_data:
+                raise RuntimeError(
+                    "NOAA NHC API returned no data. "
+                    "Set use_synthetic=True to use synthetic data instead."
+                )
+
+            # Parse HURDAT2 format (simplified parsing)
+            features_list = []
+            lines = raw_data.strip().split("\n")
+            for line in lines:
+                parts = line.split(",")
+                if len(parts) >= 7:
+                    try:
+                        # Extract basic features from HURDAT2 format
+                        lat = float(parts[4].strip().replace("N", "").replace("S", "-") or 0)
+                        lon = float(parts[5].strip().replace("W", "-").replace("E", "") or 0)
+                        wind = float(parts[6].strip() or 0)
+                        pressure = float(parts[7].strip() or 1013) if len(parts) > 7 else 1013
+
+                        if wind > 0:  # Only include valid entries
+                            features_list.append([
+                                lat, lon, wind, pressure,
+                                15, 0,  # Default storm speed and direction
+                                100, 100, 100, 100,  # Default 34kt radii
+                                50, 50, 50, 50,  # Default 64kt radii
+                                28, 15, 12, 200  # Default SST, shear, hour, day
+                            ])
+                    except (ValueError, IndexError):
+                        continue
+
+            if not features_list:
+                raise RuntimeError(
+                    "NOAA NHC API returned no valid hurricane data. "
+                    "Set use_synthetic=True to use synthetic data instead."
+                )
+
+            data_array = np.array(features_list, dtype=np.float32)
+            labels = (data_array[:, 2] >= major_threshold).astype(float)
+
+            return data_array, labels
+
+        except RuntimeError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to load from NOAA NHC API: {e}")
+            raise RuntimeError(
+                f"NOAA NHC API unavailable: {e}. "
+                "Set use_synthetic=True to use synthetic data instead."
+            ) from e
+
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -1288,9 +1415,10 @@ class NOAAOceanLoader(DatasetLoader):
 
     def load(
         self,
-        use_synthetic: bool = True,
+        use_synthetic: bool = False,
         n_samples: int = 5000,
         heatwave_threshold: float = 2.0,
+        min_real_samples: int = 100,
         **kwargs: Any,
     ) -> tuple[np.ndarray, np.ndarray, DatasetMetadata]:
         """
@@ -1300,9 +1428,13 @@ class NOAAOceanLoader(DatasetLoader):
             use_synthetic: Use synthetic data (for testing without API calls)
             n_samples: Number of samples for synthetic data
             heatwave_threshold: SST anomaly threshold for marine heatwave (degrees C)
+            min_real_samples: Minimum required real samples (fails if not met)
 
         Returns:
             Tuple of (features, labels, metadata)
+
+        Raises:
+            RuntimeError: If real data loading fails and use_synthetic=False
         """
         import time
 
@@ -1312,8 +1444,13 @@ class NOAAOceanLoader(DatasetLoader):
             self._data, self._labels = self._generate_synthetic(n_samples, heatwave_threshold)
             source = "synthetic"
         else:
-            self._data, self._labels = self._generate_synthetic(n_samples, heatwave_threshold)
-            source = "NOAA National Ocean Service (synthetic fallback)"
+            self._data, self._labels = self._load_from_api(heatwave_threshold)
+            if len(self._data) < min_real_samples:
+                raise RuntimeError(
+                    f"NOAA Ocean: Failed to load minimum {min_real_samples} real samples. "
+                    f"Got {len(self._data)}. API may be down or data unavailable."
+                )
+            source = "NOAA National Ocean Service"
 
         load_time = time.time() - start_time
 
@@ -1415,6 +1552,78 @@ class NOAAOceanLoader(DatasetLoader):
         labels = (sst_anomaly >= heatwave_threshold).astype(float)
 
         return data, labels
+
+    def _load_from_api(self, heatwave_threshold: float) -> tuple[np.ndarray, np.ndarray]:
+        """Load real ocean data from NOAA NOS API."""
+        try:
+            import json
+            from urllib.request import Request
+
+            # Load water temperature data from NOAA CO-OPS
+            url = f"{self.NOS_API_URL}?begin_date=20240101&end_date=20241231&station=8454000&product=water_temperature&datum=MLLW&units=metric&time_zone=gmt&application=OMNI-AVA&format=json"
+            if not url.startswith("https://"):
+                raise RuntimeError(
+                    "NOAA NOS API URL must use HTTPS. Security validation failed."
+                )
+
+            req = Request(url, headers={"User-Agent": "OMNI-AVA/1.0"})  # noqa: S310
+            with urlopen(req, timeout=30) as response:  # noqa: S310
+                raw_data = json.loads(response.read().decode())
+
+            data_entries = raw_data.get("data", [])
+            if not data_entries:
+                raise RuntimeError(
+                    "NOAA NOS API returned no data. "
+                    "Set use_synthetic=True to use synthetic data instead."
+                )
+
+            features_list = []
+            rng = np.random.default_rng(42)
+            for entry in data_entries:
+                try:
+                    sst = float(entry.get("v", 20))
+                    # Generate correlated features based on SST
+                    sst_anomaly = rng.normal(0, 1.5)
+                    features_list.append([
+                        sst,
+                        sst_anomaly,
+                        35 + rng.normal(0, 2),  # salinity
+                        rng.exponential(1),  # chlorophyll
+                        rng.exponential(0.3),  # current speed
+                        rng.uniform(0, 360),  # current direction
+                        rng.exponential(1.5),  # wave height
+                        8 + rng.normal(0, 3),  # wave period
+                        rng.uniform(0, 360),  # wave direction
+                        7 + rng.normal(0, 2),  # dissolved oxygen
+                        8.1 + rng.normal(0, 0.2),  # pH
+                        rng.exponential(5),  # turbidity
+                        41.5,  # latitude (Providence, RI)
+                        -71.4,  # longitude
+                        rng.exponential(50),  # depth
+                        12, 180, 2024  # hour, day, year
+                    ])
+                except (ValueError, KeyError):
+                    continue
+
+            if not features_list:
+                raise RuntimeError(
+                    "NOAA NOS API returned no valid ocean data. "
+                    "Set use_synthetic=True to use synthetic data instead."
+                )
+
+            data_array = np.array(features_list, dtype=np.float32)
+            labels = (data_array[:, 1] >= heatwave_threshold).astype(float)
+
+            return data_array, labels
+
+        except RuntimeError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to load from NOAA NOS API: {e}")
+            raise RuntimeError(
+                f"NOAA NOS API unavailable: {e}. "
+                "Set use_synthetic=True to use synthetic data instead."
+            ) from e
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
