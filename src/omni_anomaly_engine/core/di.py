@@ -391,7 +391,7 @@ class ComponentFactory:
 
         if detector_type in self._registered_plugins:
             plugin_class = self._registered_plugins[detector_type]
-            return plugin_class(config=config)
+            return cast(DetectorProtocol, plugin_class(config=config))
 
         if detector_type not in detector_map:
             raise ValueError(f"Unknown detector type: {detector_type}")
@@ -403,7 +403,7 @@ class ComponentFactory:
 
             module = importlib.import_module(module_path)
             detector_class = getattr(module, class_name)
-            return detector_class(config=config)
+            return cast(DetectorProtocol, detector_class(config=config))
         except (ImportError, AttributeError) as e:
             logger.warning(f"Could not load detector {detector_type}: {e}")
             raise
@@ -434,7 +434,7 @@ class ComponentFactory:
 
         if model_type in self._registered_plugins:
             plugin_class = self._registered_plugins[model_type]
-            return plugin_class(config=config)
+            return cast(ModelProtocol, plugin_class(config=config))
 
         if model_type not in model_map:
             raise ValueError(f"Unknown model type: {model_type}")
@@ -445,7 +445,7 @@ class ComponentFactory:
 
             module = importlib.import_module(module_path)
             model_class = getattr(module, class_name)
-            return model_class(config=config)
+            return cast(ModelProtocol, model_class(config=config))
         except (ImportError, AttributeError) as e:
             logger.warning(f"Could not load model {model_type}: {e}")
             raise
