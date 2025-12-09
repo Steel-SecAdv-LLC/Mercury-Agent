@@ -132,7 +132,7 @@ class AsyncMessageQueue:
             self.stats["errors"] += 1
             return None
 
-    def register_handler(self, message_type: str, handler: Callable[..., Any]):
+    def register_handler(self, message_type: str, handler: Callable[..., Any]) -> None:
         """
         Register handler for specific message type
 
@@ -181,7 +181,7 @@ class SimplePubSub:
     def __init__(self) -> None:
         self.subscribers: dict[str, list[Callable]] = {}
 
-    def subscribe(self, topic: str, callback: Callable[..., Any]):
+    def subscribe(self, topic: str, callback: Callable[..., Any]) -> None:
         """
         Subscribe to a topic
 
@@ -193,7 +193,7 @@ class SimplePubSub:
             self.subscribers[topic] = []
         self.subscribers[topic].append(callback)
 
-    def unsubscribe(self, topic: str, callback: Callable[..., Any]):
+    def unsubscribe(self, topic: str, callback: Callable[..., Any]) -> None:
         """
         Unsubscribe from a topic
 
@@ -204,7 +204,7 @@ class SimplePubSub:
         if topic in self.subscribers:
             self.subscribers[topic].remove(callback)
 
-    def publish(self, topic: str, message: Any):
+    def publish(self, topic: str, message: Any) -> None:
         """
         Publish message to topic
 
