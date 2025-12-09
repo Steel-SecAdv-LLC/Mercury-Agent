@@ -34,7 +34,7 @@ from abc import ABC  # noqa: F401 - kept for potential future use
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import Any, Protocol, TypeVar, cast, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
@@ -182,13 +182,13 @@ class ServiceContainer:
 
             # Return existing singleton instance
             if descriptor.lifecycle == Lifecycle.SINGLETON and descriptor.instance:
-                return descriptor.instance
+                return cast(T, descriptor.instance)
 
             # Return scoped instance if exists
             if descriptor.lifecycle == Lifecycle.SCOPED and scope_id:
                 if scope_id in self._scoped_instances:
                     if service_type in self._scoped_instances[scope_id]:
-                        return self._scoped_instances[scope_id][service_type]
+                        return cast(T, self._scoped_instances[scope_id][service_type])
 
             # Create new instance
             self._resolution_stack.add(service_type)
@@ -207,7 +207,7 @@ class ServiceContainer:
                     self._scoped_instances[scope_id] = {}
                 self._scoped_instances[scope_id][service_type] = instance
 
-            return instance
+            return cast(T, instance)
 
     def _create_instance(self, descriptor: ServiceDescriptor) -> Any:
         """Create a new instance of a service."""
