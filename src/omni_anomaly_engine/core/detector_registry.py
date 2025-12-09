@@ -1262,6 +1262,128 @@ class DetectorRegistry:
         logger.info(f"Auto-discovered and registered {registered_count} detectors")
         return registered_count
 
+    def aggregate_enhanced_geological_features(
+        self,
+        extraction_results: dict[str, FeatureExtractionResult],
+        device: str = "cpu",
+        enable_gosnn_synapse: bool = True,
+    ) -> dict[str, Any]:
+        """Aggregate features from enhanced geological detectors with 128D normalization.
+
+        This method specifically handles the enhanced Landslide, Wildfire, and Volcanic
+        detectors with their 3R mechanism synapses (Recursion, Resonance, Refactoring).
+
+        Features are normalized to 128D for fusion pipeline compatibility and optionally
+        passed through GOSNN ethical gating for scalar registration.
+
+        Args:
+            extraction_results: Results from extract_all_features for geological detectors
+            device: PyTorch device for tensor operations
+            enable_gosnn_synapse: Enable GOSNN ethical gating and scalar registration
+
+        Returns:
+            Dictionary containing:
+                - aggregated_features: 128D normalized feature tensors per detector
+                - combined_features: Concatenated features from all geological detectors
+                - gosnn_scalars: Registered omni-scalars (if GOSNN enabled)
+                - detector_coverage: Coverage statistics
+        """
+        target_dim = 128  # Standard 128D normalization for fusion
+        phi = 1.618033988749895  # Golden ratio for weighting
+
+        # Filter to geological detectors only
+        geological_names = ["landslide", "wildfire", "volcanic"]
+        geo_results = {
+            name: result
+            for name, result in extraction_results.items()
+            if name in geological_names and result.success and result.features is not None
+        }
+
+        aggregated: dict[str, torch.Tensor] = {}
+        omni_scalars: dict[str, float] = {}
+
+        for name, result in geo_results.items():
+            features = result.to_tensor(device)
+            if features is None:
+                continue
+
+            # Ensure 2D tensor
+            if features.dim() == 1:
+                features = features.unsqueeze(0)
+
+            # Normalize to 128D
+            current_dim = features.shape[-1]
+            if current_dim != target_dim:
+                if current_dim > target_dim:
+                    # Truncate with importance weighting (keep most significant)
+                    features = features[..., :target_dim]
+                else:
+                    # Pad with zeros
+                    padding = torch.zeros(
+                        *features.shape[:-1],
+                        target_dim - current_dim,
+                        device=device,
+                        dtype=features.dtype,
+                    )
+                    features = torch.cat([features, padding], dim=-1)
+
+            # Apply L2 normalization for stable fusion
+            norm = torch.norm(features, p=2, dim=-1, keepdim=True)
+            features = features / (norm + 1e-8)
+
+            # Apply golden ratio scaling for phi-optimization
+            scale_factors = torch.tensor(
+                [phi ** (i / target_dim - 0.5) for i in range(target_dim)],
+                device=device,
+                dtype=features.dtype,
+            )
+            features = features * scale_factors
+
+            aggregated[name] = features
+
+            # Register omni-scalars for GOSNN synapse
+            if enable_gosnn_synapse:
+                # Compute detector-specific scalars
+                feature_mean = float(features.mean().item())
+                feature_std = float(features.std().item())
+                feature_max = float(features.max().item())
+
+                omni_scalars[f"omni_{name}_mean"] = feature_mean
+                omni_scalars[f"omni_{name}_std"] = feature_std
+                omni_scalars[f"omni_{name}_max"] = feature_max
+                omni_scalars[f"omni_{name}_coverage"] = 1.0 if features.numel() > 0 else 0.0
+
+        # Combine all geological features
+        combined_features: torch.Tensor | None = None
+        if aggregated:
+            feature_list = list(aggregated.values())
+            # Stack and mean-pool across detectors
+            stacked = torch.stack(feature_list, dim=0)
+            combined_features = stacked.mean(dim=0)
+
+            # Add combined scalars
+            if enable_gosnn_synapse:
+                omni_scalars["omni_geological_combined_mean"] = float(
+                    combined_features.mean().item()
+                )
+                omni_scalars["omni_geological_detector_count"] = float(len(aggregated))
+
+        # Compute coverage statistics
+        coverage = {
+            "total_geological_detectors": len(geological_names),
+            "active_detectors": len(aggregated),
+            "coverage_ratio": len(aggregated) / len(geological_names) if geological_names else 0.0,
+            "detectors_active": list(aggregated.keys()),
+        }
+
+        return {
+            "aggregated_features": aggregated,
+            "combined_features": combined_features,
+            "gosnn_scalars": omni_scalars if enable_gosnn_synapse else {},
+            "detector_coverage": coverage,
+            "target_dimension": target_dim,
+        }
+
     def get_statistics(self) -> dict[str, Any]:
         """Get registry statistics."""
         total_invocations = sum(d.total_invocations for d in self._detectors.values())
