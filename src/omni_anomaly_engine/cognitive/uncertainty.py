@@ -48,9 +48,9 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None
-    nn = None
-    F = None
+    torch = None  # type: ignore[assignment]
+    nn = None  # type: ignore[assignment]
+    F = None  # type: ignore[assignment]
 
 
 class UncertaintyType(Enum):
@@ -155,7 +155,7 @@ class MCDropoutWrapper:
 
         self._original_training_state = self.model.training
 
-        def apply_dropout(m):
+        def apply_dropout(m: nn.Module) -> None:
             if isinstance(m, nn.Dropout):
                 m.train()
 
@@ -189,22 +189,22 @@ class MCDropoutWrapper:
 
         self.enable_dropout()
 
-        samples = []
+        samples_list: list[np.ndarray[Any, Any]] = []
         with torch.no_grad():
             for _ in range(n_samples):
                 output = self.model(x)
                 if isinstance(output, torch.Tensor):
-                    samples.append(output.cpu().numpy())
+                    samples_list.append(output.cpu().numpy())
                 else:
-                    samples.append(np.array(output))
+                    samples_list.append(np.array(output))
 
         self.disable_dropout()
 
-        samples = np.array(samples)  # (n_samples, batch, outputs)
-        mean = samples.mean(axis=0)
-        std = samples.std(axis=0)
+        samples_arr = np.array(samples_list)  # (n_samples, batch, outputs)
+        mean = samples_arr.mean(axis=0)
+        std = samples_arr.std(axis=0)
 
-        return mean, std, samples
+        return mean, std, samples_arr
 
 
 class TemperatureScaler:
@@ -238,10 +238,10 @@ class TemperatureScaler:
             Optimal temperature
         """
 
-        def nll_loss(T):
+        def nll_loss(T: np.ndarray[Any, Any]) -> float:
             """Negative log-likelihood with temperature scaling."""
-            T = max(T[0], 0.01)  # Ensure positive temperature
-            scaled_logits = logits / T
+            temp = float(max(T[0], 0.01))  # Ensure positive temperature
+            scaled_logits = logits / temp
 
             # Softmax with numerical stability
             max_logits = np.max(scaled_logits, axis=1, keepdims=True)
@@ -251,7 +251,7 @@ class TemperatureScaler:
             # Cross-entropy loss
             n = len(labels)
             correct_probs = probs[np.arange(n), labels.astype(int)]
-            loss = -np.mean(np.log(correct_probs + 1e-10))
+            loss = float(-np.mean(np.log(correct_probs + 1e-10)))
             return loss
 
         # Optimize temperature
@@ -279,7 +279,8 @@ class TemperatureScaler:
         # Softmax
         max_logits = np.max(scaled, axis=1, keepdims=True)
         exp_logits = np.exp(scaled - max_logits)
-        return exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+        result: np.ndarray[Any, Any] = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+        return result
 
 
 class AdaptiveConformalInference:
@@ -309,13 +310,13 @@ class AdaptiveConformalInference:
         self.window_size = window_size
 
         # Calibration scores (nonconformity scores)
-        self.scores: deque = deque[Any](maxlen=window_size)
+        self.scores: deque[Any] = deque(maxlen=window_size)
 
         # Tracking
         self.coverage_history: list[float] = []
         self.alpha_history: list[float] = [self.alpha]
 
-    def update(self, score: float, covered: bool):
+    def update(self, score: float, covered: bool) -> None:
         """
         Update adaptive alpha based on coverage.
 
@@ -403,10 +404,10 @@ class HeteroscedasticEstimator:
     def __init__(self, window_size: int = 50, min_samples: int = 10) -> None:
         self.window_size = window_size
         self.min_samples = min_samples
-        self._residuals: deque = deque[Any](maxlen=1000)
-        self._features: deque = deque[Any](maxlen=1000)
+        self._residuals: deque[float] = deque(maxlen=1000)
+        self._features: deque[np.ndarray[Any, Any]] = deque(maxlen=1000)
 
-    def update(self, prediction: float, true_value: float, features: np.ndarray[Any, Any] | None = None):
+    def update(self, prediction: float, true_value: float, features: np.ndarray[Any, Any] | None = None) -> None:
         """Store residual for variance estimation."""
         residual = true_value - prediction
         self._residuals.append(residual)
@@ -513,9 +514,9 @@ class UncertaintyQuantifier:
         self.heteroscedastic = HeteroscedasticEstimator()
 
         # Calibration history
-        self._predictions: deque = deque[Any](maxlen=5000)
-        self._confidences: deque = deque[Any](maxlen=5000)
-        self._outcomes: deque = deque[Any](maxlen=5000)
+        self._predictions: deque[float] = deque(maxlen=5000)
+        self._confidences: deque[float] = deque(maxlen=5000)
+        self._outcomes: deque[bool] = deque(maxlen=5000)
         self._logits_history: list[np.ndarray[Any, Any]] = []
         self._labels_history: list[int] = []
 
@@ -569,10 +570,12 @@ class UncertaintyQuantifier:
             # Use MC Dropout wrapper for PyTorch models
             wrapper = MCDropoutWrapper(model)
             try:
-                if isinstance(input_data, np.ndarray[Any, Any]):
+                if isinstance(input_data, np.ndarray):
                     input_tensor = torch.FloatTensor(input_data)
-                else:
+                elif input_data is not None:
                     input_tensor = input_data
+                else:
+                    input_tensor = torch.FloatTensor(predictions)
                 _mean_pred, _epistemic_std, mc_predictions = wrapper.predict_with_uncertainty(
                     input_tensor, n_samples=self.n_monte_carlo
                 )
@@ -816,7 +819,7 @@ class UncertaintyQuantifier:
             reliability_diagram={
                 "expected": expected_conf,
                 "observed": observed_acc,
-                "counts": bin_counts,
+                "counts": [float(c) for c in bin_counts],
             },
         )
 
@@ -994,7 +997,7 @@ class UncertaintyQuantifier:
         confidence: float,
         true_value: float | bool,
         features: np.ndarray[Any, Any] | None = None,
-    ):
+    ) -> None:
         """
         Update calibration and heteroscedastic estimates with observed outcome.
 
@@ -1005,13 +1008,12 @@ class UncertaintyQuantifier:
             features: Input features (for heteroscedastic update)
         """
         # Update heteroscedastic estimator
-        if isinstance(true_value, bool):
-            true_value = float(true_value)
-        self.heteroscedastic.update(prediction, true_value, features)
+        true_value_float = float(true_value) if isinstance(true_value, bool) else true_value
+        self.heteroscedastic.update(prediction, true_value_float, features)
 
         # Update ACI
         if self.aci is not None:
-            score = abs(prediction - true_value)
+            score = abs(prediction - true_value_float)
             # Determine coverage (prediction within CI)
             covered = score < (1.96 * self._stats.get("avg_aleatoric", 0.1) + 0.1)
             self.aci.update(score, covered)
@@ -1019,7 +1021,7 @@ class UncertaintyQuantifier:
         # Store for calibration
         self._predictions.append(prediction)
         self._confidences.append(confidence)
-        outcome = 1 if (prediction > 0.5) == (true_value > 0.5) else 0
+        outcome = (prediction > 0.5) == (true_value_float > 0.5)
         self._outcomes.append(outcome)
 
     def _monte_carlo_sampling(
@@ -1036,7 +1038,7 @@ class UncertaintyQuantifier:
                 # (In real MC Dropout, this comes from dropout layers)
                 noisy_input = input_data + np.random.randn(*input_data.shape) * 0.01
                 pred = prediction_function(noisy_input)
-                if isinstance(pred, np.ndarray[Any, Any]):
+                if isinstance(pred, np.ndarray):
                     samples.append(pred.flatten())
                 else:
                     samples.append(np.array([pred]).flatten())
@@ -1160,7 +1162,7 @@ class UncertaintyQuantifier:
 
     def get_statistics(self) -> dict[str, Any]:
         """Get comprehensive quantifier statistics."""
-        stats = {
+        stats: dict[str, Any] = {
             **self._stats,
             "prediction_history_size": len(self._predictions),
             "current_ece": self._compute_ece(),
