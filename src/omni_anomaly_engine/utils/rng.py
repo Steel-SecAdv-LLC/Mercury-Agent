@@ -467,7 +467,12 @@ class RNGContext:
 
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object | None,
+    ) -> None:
         # Pop from context stack
         if hasattr(self._context_stack, "stack") and self._context_stack.stack:
             self._context_stack.stack.pop()
