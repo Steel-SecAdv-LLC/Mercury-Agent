@@ -292,9 +292,8 @@ class TestWildfireDetector:
 
     def test_cnn_thermal_analyzer_exists(self, wildfire_detector):
         """Test CNN thermal analyzer is initialized (via enhanced_cnn or thermal_cnn)."""
-        has_cnn = (
-            hasattr(wildfire_detector, "thermal_cnn")
-            or hasattr(wildfire_detector, "enhanced_cnn")
+        has_cnn = hasattr(wildfire_detector, "thermal_cnn") or hasattr(
+            wildfire_detector, "enhanced_cnn"
         )
         assert has_cnn or wildfire_detector.enable_enhanced_cnn is False
 
@@ -318,14 +317,8 @@ class TestWildfireDetector:
     def test_fire_spread_prediction(self, wildfire_detector, wildfire_data):
         """Test fire spread prediction (via spread_direction_deg or spread_direction)."""
         result = wildfire_detector.predict_wildfire(wildfire_data)
-        has_spread = (
-            hasattr(result, "spread_direction")
-            or hasattr(result, "spread_direction_deg")
-        )
-        has_rate = (
-            hasattr(result, "spread_rate_kmh")
-            or hasattr(result, "spread_rate_km_hr")
-        )
+        has_spread = hasattr(result, "spread_direction") or hasattr(result, "spread_direction_deg")
+        has_rate = hasattr(result, "spread_rate_kmh") or hasattr(result, "spread_rate_km_hr")
         assert has_spread or has_rate or result is not None
 
     def test_alert_level_determination(self, wildfire_detector, wildfire_data):

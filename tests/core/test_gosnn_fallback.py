@@ -525,9 +525,21 @@ class TestAvaDominanceEquation:
     def test_ava_dominance_components(self, three_r):
         """Test Ava-Dominance has R, H, O components."""
         # ThreeRMechanism uses *_engine naming convention
-        assert hasattr(three_r, "recursion_engine") or hasattr(three_r, "recursion") or hasattr(three_r, "R")
-        assert hasattr(three_r, "resonance_engine") or hasattr(three_r, "resonance") or hasattr(three_r, "H")
-        assert hasattr(three_r, "refactoring_engine") or hasattr(three_r, "refactoring") or hasattr(three_r, "O")
+        assert (
+            hasattr(three_r, "recursion_engine")
+            or hasattr(three_r, "recursion")
+            or hasattr(three_r, "R")
+        )
+        assert (
+            hasattr(three_r, "resonance_engine")
+            or hasattr(three_r, "resonance")
+            or hasattr(three_r, "H")
+        )
+        assert (
+            hasattr(three_r, "refactoring_engine")
+            or hasattr(three_r, "refactoring")
+            or hasattr(three_r, "O")
+        )
 
 
 # =============================================================================
