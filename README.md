@@ -1,6 +1,7 @@
-# OMNI♱AVA (O♱A) Mercury Agent: Neuro-Symbolic Anomalous AI
+# OMNI♱AVA (O♱A): Mercury Agent, Neuro-Symbolic AI for Autonomous Anomaly Detection for Civilized Evolution
 
-<div align="center">
+<img width="738" height="545" alt="image" src="https://github.com/user-attachments/assets/f82993d9-1d3e-4ae5-8515-4ddd17dddc1f" />
+
 
 <img src="assets/omni_ava_hero.png" alt="OMNI♱AVA Mercury Agent" width="470" height="419">
 
@@ -23,8 +24,8 @@
 
 ```
               +==============================================================================+
-              |                         O♱A MERCURY AGENT v1.0                               |
-              |             MERCURY AGENT: Neuro-Symbolic Anomalous AI Paradigm              |
+              |                            O♱A MERCURY AGENT v1.0                            |
+              |         Neuro-Symbolic AI for Autonomous Anomaly Detection Paradigm          |
               |                                                                              |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security   |
               |   Neural + Symbolic      |   18+ Detection Engines |   Post-Quantum Crypto   |
