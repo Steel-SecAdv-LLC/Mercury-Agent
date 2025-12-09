@@ -23,7 +23,6 @@ import time
 import numpy as np
 import pytest
 
-
 # =============================================================================
 # AvaGuardianAdapter Tests
 # =============================================================================
@@ -428,12 +427,12 @@ class TestModuleImports:
         """Test importing from integrations package."""
         from omni_anomaly_engine.integrations import (
             AVA_GUARDIAN_AVAILABLE,
+            DILITHIUM_AVAILABLE,
+            KYBER_AVAILABLE,
             AvaGuardianAdapter,
             CryptoAnomaly,
             CryptoAnomalyType,
-            DILITHIUM_AVAILABLE,
             EWMATimingMonitor,
-            KYBER_AVAILABLE,
             create_ava_guardian_adapter,
         )
 
@@ -450,12 +449,12 @@ class TestModuleImports:
         """Test importing directly from ava_guardian module."""
         from omni_anomaly_engine.integrations.ava_guardian import (
             AVA_GUARDIAN_AVAILABLE,
+            DILITHIUM_AVAILABLE,
+            KYBER_AVAILABLE,
             AvaGuardianAdapter,
             CryptoAnomaly,
             CryptoAnomalyType,
-            DILITHIUM_AVAILABLE,
             EWMATimingMonitor,
-            KYBER_AVAILABLE,
             TimingStats,
             create_ava_guardian_adapter,
         )
