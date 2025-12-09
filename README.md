@@ -1206,7 +1206,7 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**O♱A Mercury Agent v1.0 - Neuro-Symbolic Anomalous AI**
+**O♱A Mercury Agent v1.0 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 
