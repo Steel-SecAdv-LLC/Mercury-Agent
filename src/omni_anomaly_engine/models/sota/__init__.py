@@ -39,21 +39,18 @@ from omni_anomaly_engine.models.sota.tranad import (
 )
 
 __all__ = [
-    # Association Discrepancy (Anomaly Transformer)
-    "AssociationDiscrepancyModule",
+    "AdversarialTrainer",
     "AnomalyTransformerEncoder",
+    "AssociationDiscrepancyModule",
+    "FocusScoreConditioning",
+    "GatedFeatureFusion",
+    "MAATModel",
+    "MAMLOptimizer",
+    "MambaSSM",
     "PriorAssociation",
     "SeriesAssociation",
-    # TranAD
-    "TranADModel",
-    "FocusScoreConditioning",
-    "AdversarialTrainer",
-    "MAMLOptimizer",
-    # MAAT
-    "MAATModel",
     "SparseAttention",
-    "MambaSSM",
-    "GatedFeatureFusion",
+    "TranADModel",
 ]
 
 __version__ = "1.0.0"

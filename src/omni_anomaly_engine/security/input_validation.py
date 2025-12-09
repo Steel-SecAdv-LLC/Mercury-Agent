@@ -439,7 +439,6 @@ class InputValidator:
         Returns:
             ValidationResult
         """
-        import os
 
         errors: list[str] = []
         warnings: list[str] = []
@@ -467,8 +466,10 @@ class InputValidator:
         # Normalize and check against allowed prefix
         if allowed_prefix:
             try:
-                normalized = os.path.normpath(os.path.abspath(value))
-                allowed_normalized = os.path.normpath(os.path.abspath(allowed_prefix))
+                from pathlib import Path
+
+                normalized = str(Path(value).resolve())
+                allowed_normalized = str(Path(allowed_prefix).resolve())
 
                 if not normalized.startswith(allowed_normalized):
                     errors.append(f"{field_name}: Path outside allowed directory")

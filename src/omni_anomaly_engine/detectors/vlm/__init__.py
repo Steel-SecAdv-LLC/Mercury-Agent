@@ -67,21 +67,15 @@ from omni_anomaly_engine.detectors.vlm.lavad import LAVADDetector
 from omni_anomaly_engine.detectors.vlm.lvlm_backends import LVLMBackend, get_lvlm_backend
 
 __all__ = [
-    # Detectors
     "AnyAnomalyDetector",
+    "BLIPConfig",
     "BLIPVLMDetector",
-    # Base classes
     "BaseVLMDetector",
     "LAVADDetector",
-    # Backends
     "LVLMBackend",
-    # Context providers
     "PositionContextProvider",
     "TemporalContextProvider",
-    # Configs
-    "BLIPConfig",
     "VLMConfig",
-    # Factory functions
     "create_blip_detector",
     "get_lvlm_backend",
 ]

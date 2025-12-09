@@ -284,7 +284,7 @@ class MemoryKnowledgeGraph:
             n_nodes = len(self.nodes)
             if n_nodes == 0:
                 return {}
-            return {node_id: 1.0 / n_nodes for node_id in self.nodes}
+            return dict.fromkeys(self.nodes, 1.0 / n_nodes)
 
     def get_statistics(self) -> dict[str, Any]:
         """Get graph statistics."""
@@ -879,7 +879,7 @@ class EnhancedAnomalyDetector:
         prediction_id = f"pred_{self._prediction_counter:06d}"
 
         bayes_prob, bayes_interval = self.bayesian_predictor.predict(context)
-        bayes_confidence = self.bayesian_predictor.get_confidence(context)
+        # Note: bayes_confidence available via self.bayesian_predictor.get_confidence(context)
 
         hmm_state, hmm_prob = self.hmm_predictor.predict_next_state()
         hmm_anomaly = self.hmm_predictor.detect_anomaly()

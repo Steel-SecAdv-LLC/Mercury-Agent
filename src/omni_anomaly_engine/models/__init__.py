@@ -23,37 +23,35 @@ Uses lazy imports to avoid circular dependency issues during package initializat
 """
 
 __all__ = [
-    # Core Models
     "AdvancedBiometricEngine",
+    "AdversarialTrainer",
     "AffectiveAnomalyModel",
     "AgeProgressionEngine",
+    "AnomalyTransformerEncoder",
+    "AssociationDiscrepancyModule",
     "AstrophysicalAnomalyModel",
     "BiometricAnomalyModel",
     "ChemistryAnomalyDetector",
     "ConsciousnessPreservationModel",
+    "FocusScoreConditioning",
+    "GatedFeatureFusion",
+    "MAATModel",
+    "MAMLOptimizer",
+    "MambaSSM",
     "MultiverseOmniEngine",
     "NeuralCognitiveModel",
     "NeurosymbolicEngine",
     "ParapsychologyDetector",
+    "PriorAssociation",
     "QuantumAgeVariant",
     "QuantumAnomalyModel",
     "QuantumCircuit",
     "QuantumEngine",
     "QuantumGate",
-    "SimulationModule",
-    # SOTA Models (State-of-the-Art Anomaly Detection)
-    "AssociationDiscrepancyModule",
-    "AnomalyTransformerEncoder",
-    "PriorAssociation",
     "SeriesAssociation",
-    "TranADModel",
-    "FocusScoreConditioning",
-    "AdversarialTrainer",
-    "MAMLOptimizer",
-    "MAATModel",
+    "SimulationModule",
     "SparseAttention",
-    "MambaSSM",
-    "GatedFeatureFusion",
+    "TranADModel",
 ]
 
 _LAZY_IMPORTS = {

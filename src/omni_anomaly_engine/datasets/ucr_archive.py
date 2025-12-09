@@ -17,12 +17,11 @@ References:
 from __future__ import annotations
 
 import logging
-import os
 import zipfile
 
 import numpy as np
 
-from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit
+from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit, safe_urlretrieve
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +90,6 @@ class UCRLoader(DatasetLoader):
     def download(self) -> bool:
         """Download UCR archive (or specific dataset)."""
         import urllib.error
-        import urllib.request
 
         logger.info(f"Downloading UCR dataset: {self.dataset_name}")
 
@@ -106,17 +104,17 @@ class UCRLoader(DatasetLoader):
         try:
             zip_path = self.data_path / f"{self.dataset_name}.zip"
             logger.info("  Trying dataset-specific download...")
-            urllib.request.urlretrieve(specific_url, zip_path)
+            safe_urlretrieve(specific_url, zip_path)
 
             # Extract
             with zipfile.ZipFile(zip_path, "r") as zf:
                 zf.extractall(self.data_path)
 
-            os.remove(zip_path)
+            zip_path.unlink()
             logger.info(f"  Downloaded {self.dataset_name}")
             return True
 
-        except urllib.error.URLError:
+        except (urllib.error.URLError, ValueError):
             logger.warning("  Dataset-specific download failed")
 
         # Provide instructions for full archive
@@ -265,7 +263,6 @@ class MBALoader(DatasetLoader):
     def download(self) -> bool:
         """Download CWRU bearing data."""
         import urllib.error
-        import urllib.request
 
         logger.info("Downloading CWRU Bearing Dataset (MBA)...")
 
@@ -287,8 +284,8 @@ class MBALoader(DatasetLoader):
             if not output_path.exists():
                 try:
                     logger.info(f"  Downloading {name}...")
-                    urllib.request.urlretrieve(url, output_path)
-                except urllib.error.URLError as e:
+                    safe_urlretrieve(url, output_path)
+                except (urllib.error.URLError, ValueError) as e:
                     logger.warning(f"  Failed: {e}")
 
         logger.info("CWRU download complete (partial)")
@@ -332,7 +329,7 @@ class MBALoader(DatasetLoader):
 
                 # Find the vibration data key
                 data_key = None
-                for key in mat_data.keys():
+                for key in mat_data:
                     if not key.startswith("_") and isinstance(mat_data[key], np.ndarray):
                         if mat_data[key].size > 1000:
                             data_key = key

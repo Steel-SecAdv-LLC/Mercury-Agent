@@ -41,9 +41,12 @@ from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from omni_anomaly_engine.agentic.bayesian_calibrator import BayesianConfidenceCalibrator
 
 
 class AgentMode(Enum):

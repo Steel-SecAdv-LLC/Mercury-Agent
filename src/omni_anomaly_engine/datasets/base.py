@@ -38,6 +38,29 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def safe_urlretrieve(url: str, filename: str | Path) -> None:
+    """Safely download a file from a URL with scheme validation.
+
+    Only allows https:// and http:// schemes to prevent file:// or other
+    potentially dangerous URL schemes.
+
+    Args:
+        url: The URL to download from (must be http:// or https://)
+        filename: The local path to save the file to
+
+    Raises:
+        ValueError: If the URL scheme is not http or https
+    """
+    import urllib.request
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"URL scheme must be http or https, got: {parsed.scheme}")
+
+    urllib.request.urlretrieve(url, filename)  # noqa: S310
+
+
 class DatasetSplit(Enum):
     """Standard dataset splits."""
 

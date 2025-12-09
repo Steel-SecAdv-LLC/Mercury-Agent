@@ -8,11 +8,10 @@ A working anomaly detector that actually trains and detects.
 """
 
 import os
-from typing import Optional, Tuple
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
 
@@ -83,7 +82,7 @@ class LSTMAutoencoder(nn.Module):
         output = self.output_fc(decoded)
         return output
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass returning reconstruction and latent."""
         z = self.encode(x)
         recon = self.decode(z, x.size(1))
@@ -284,7 +283,7 @@ class AnomalyDetector:
         point_scores = point_scores / np.maximum(point_counts, 1)
         return point_scores
 
-    def detect(self, data: np.ndarray, threshold: Optional[float] = None) -> np.ndarray:
+    def detect(self, data: np.ndarray, threshold: float | None = None) -> np.ndarray:
         """
         Detect anomalies in data.
 
@@ -333,7 +332,7 @@ class AnomalyDetector:
 def evaluate_detector(
     y_true: np.ndarray,
     y_scores: np.ndarray,
-    y_pred: Optional[np.ndarray] = None,
+    y_pred: np.ndarray | None = None,
 ) -> dict:
     """
     Evaluate anomaly detection performance.
@@ -362,12 +361,12 @@ def evaluate_detector(
     # AUC scores
     try:
         auc_roc = roc_auc_score(y_true, y_scores)
-    except:
+    except (ValueError, TypeError):
         auc_roc = 0.5
 
     try:
         auc_pr = average_precision_score(y_true, y_scores)
-    except:
+    except (ValueError, TypeError):
         auc_pr = np.mean(y_true)
 
     # Find best F1 threshold

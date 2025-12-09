@@ -70,17 +70,14 @@ from typing import Any
 import numpy as np
 
 from omni_anomaly_engine.cognitive.neural_memory_layer import (
-    DetectedPattern,
     MemoryType,
     NeuralMemoryLayer,
-    PatternType,
 )
 from omni_anomaly_engine.cognitive.symbolic_logic_layer import (
     DecisionType,
     ExplainableDecision,
     RuleType,
     SymbolicLogicLayer,
-    SymbolicRule,
 )
 
 logger = logging.getLogger(__name__)
@@ -487,7 +484,7 @@ class NeurosymbolicFusionEngine:
         else:
             neural_score = 0.5
 
-        neural_features = self.neural_layer.get_neural_features()
+        # Get neural features for symbolic processing
         neural_values = {
             "anomaly_score": neural_score,
             "deviation_score": neural_score * 3,

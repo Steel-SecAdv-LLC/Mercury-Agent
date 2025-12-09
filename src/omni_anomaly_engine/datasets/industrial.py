@@ -31,7 +31,7 @@ import logging
 
 import numpy as np
 
-from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit
+from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit, safe_urlretrieve
 
 logger = logging.getLogger(__name__)
 
@@ -490,7 +490,6 @@ class BATADALLoader(DatasetLoader):
     def download(self) -> bool:
         """Download BATADAL dataset from official source."""
         import urllib.error
-        import urllib.request
 
         logger.info("Downloading BATADAL dataset...")
 
@@ -505,8 +504,8 @@ class BATADALLoader(DatasetLoader):
             output_path = self.data_path / f"BATADAL_{name}.csv"
             try:
                 logger.info(f"  Downloading {name}...")
-                urllib.request.urlretrieve(url, output_path)
-            except urllib.error.URLError as e:
+                safe_urlretrieve(url, output_path)
+            except (urllib.error.URLError, ValueError) as e:
                 logger.warning(f"  Failed to download {name}: {e}")
                 return False
 

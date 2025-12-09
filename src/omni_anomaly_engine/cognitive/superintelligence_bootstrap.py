@@ -46,9 +46,7 @@ import random
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
-
-import numpy as np
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -559,9 +557,8 @@ class RuleMutator:
                     parent = random.choice(survivors)
                     result = self.mutate(parent)
                     offspring.append(result.child_rule)
-                else:
-                    if survivors:
-                        offspring.append(random.choice(survivors))
+                elif survivors:
+                    offspring.append(random.choice(survivors))
 
             population = survivors + offspring
 

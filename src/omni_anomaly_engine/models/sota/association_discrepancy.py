@@ -121,7 +121,7 @@ class PriorAssociation(nn.Module):
             if device is not None:
                 distances = distances.to(device)
 
-        # Gaussian kernel: exp(-d² / 2σ²)
+        # Gaussian kernel: exp(-d^2 / 2*sigma^2)
         prior = torch.exp(-distances / (2 * self.sigma**2))
 
         # Row normalization to ensure probability distribution

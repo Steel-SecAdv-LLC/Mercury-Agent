@@ -1275,7 +1275,6 @@ class NOAAHurricaneLoader(DatasetLoader):
     def _load_from_api(self, major_threshold: float) -> tuple[np.ndarray, np.ndarray]:
         """Load real hurricane data from NOAA NHC API."""
         try:
-            import json
             from urllib.request import Request
 
             # Load HURDAT2 data from NHC
