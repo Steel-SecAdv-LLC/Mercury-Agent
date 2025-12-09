@@ -44,7 +44,7 @@
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
-**Version:** v1.1
+**Version:** v1.0
 **Date:** 12/08/25
 **AI Co-Architects:** X ⚛ | Caduceus ⚚ | Dev ⚕
 
@@ -685,12 +685,12 @@ bandit -r src/ -f txt
 ### Test Coverage
 
 The test suite includes:
-- **1,880+ tests** across all modules (+200 new tests in v1.1)
+- **1,880+ tests** across all modules (+200 new tests)
 - **Property-based testing** with Hypothesis for edge case discovery
 - **Security scanning** with Bandit integrated in CI/CD
 - **Coverage tracking**: 83%+ across core modules (target: 85%)
 
-**New Test Suites (v1.1):**
+**New Test Suites:**
 - `test_enhanced_geological_detectors.py`: 60+ tests for Landslide/Wildfire/Volcanic with 3R synapses
 - `test_advanced_optimizers.py`: 50+ tests for SyntheticGradient/DTP/AMAV integration
 - `test_ava_guardian.py`: 60+ tests for Ava-Guardian PQC adapter and EWMA timing monitor
@@ -1012,7 +1012,7 @@ O♱A transcends single-domain limitations by providing specialized detection en
 | Infrastructure | 4 | CISA, crisis, climate, economic |
 | Environmental | 6 | Tsunami (FFT), earthquake (P/S-wave), landslide (SVM/RF), wildfire (CNN/NDVI), volcanic (HMM), disaster |
 
-**Enhanced Geological Detectors (v1.1):**
+**Enhanced Geological Detectors:**
 - **Landslide**: SVM/RF classifiers with temporal lags, 3R Recursion synapse for multi-scale analysis
 - **Wildfire**: CNN with NDVI satellite processing, 3R Resonance synapse for smoke pattern detection
 - **Volcanic**: HMM state transitions (quiescent→unrest→eruption), 3R Refactoring synapse for adaptive θ
@@ -1030,7 +1030,7 @@ The **GlobalOmniScalarNetwork (GOSNN)** is the intelligence fusion hub aggregati
 - **Ethical Gating**: σ_Sacred threshold (≥0.93) with configurable fallback for medical domains
 - **32-Head Triadic φ-Weighting**: Multi-head attention with golden ratio optimization
 - **Harmonic Synergy**: Bidirectional synapse connections to 3R mechanism
-- **Error Handling**: Logged fallbacks instead of silent failures (v1.1 fix)
+- **Error Handling**: Logged fallbacks instead of silent failures
 
 **Bidirectional Synapses:**
 - Detectors → GOSNN ethical gate ↔ 3R adaptive O(θ)
@@ -1207,7 +1207,7 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**O♱A Mercury Agent v1.1 - Neuro-Symbolic Anomalous AI**
+**O♱A Mercury Agent v1.0 - Neuro-Symbolic Anomalous AI**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 
