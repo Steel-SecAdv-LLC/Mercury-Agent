@@ -283,8 +283,11 @@ class NSLKDDLoader(DatasetLoader):
         self, test_size: float = 0.2, random_state: int = 42
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Get train/test split."""
-        if self._data is None:
+        if self._data is None or self._labels is None:
             self.load()
+
+        if self._data is None or self._labels is None:
+            raise ValueError("Data not loaded properly")
 
         rng = np.random.default_rng(random_state)
         n_samples = len(self._data)
@@ -543,8 +546,11 @@ class USGSEarthquakeLoader(DatasetLoader):
         self, test_size: float = 0.2, random_state: int = 42
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Get train/test split."""
-        if self._data is None:
+        if self._data is None or self._labels is None:
             self.load()
+
+        if self._data is None or self._labels is None:
+            raise ValueError("Data not loaded properly")
 
         rng = np.random.default_rng(random_state)
         n_samples = len(self._data)
@@ -796,8 +802,11 @@ class MIMICLoader(DatasetLoader):
         self, test_size: float = 0.2, random_state: int = 42
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Get train/test split."""
-        if self._data is None:
+        if self._data is None or self._labels is None:
             self.load()
+
+        if self._data is None or self._labels is None:
+            raise ValueError("Data not loaded properly")
 
         rng = np.random.default_rng(random_state)
         n_samples = len(self._data)
@@ -1078,8 +1087,11 @@ class NOAASpaceWeatherLoader(DatasetLoader):
         self, test_size: float = 0.2, random_state: int = 42
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Get train/test split."""
-        if self._data is None:
+        if self._data is None or self._labels is None:
             self.load()
+
+        if self._data is None or self._labels is None:
+            raise ValueError("Data not loaded properly")
 
         rng = np.random.default_rng(random_state)
         n_samples = len(self._data)
@@ -1356,8 +1368,11 @@ class NOAAHurricaneLoader(DatasetLoader):
         self, test_size: float = 0.2, random_state: int = 42
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Get train/test split."""
-        if self._data is None:
+        if self._data is None or self._labels is None:
             self.load()
+
+        if self._data is None or self._labels is None:
+            raise ValueError("Data not loaded properly")
 
         rng = np.random.default_rng(random_state)
         n_samples = len(self._data)
@@ -1640,8 +1655,11 @@ class NOAAOceanLoader(DatasetLoader):
         self, test_size: float = 0.2, random_state: int = 42
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Get train/test split."""
-        if self._data is None:
+        if self._data is None or self._labels is None:
             self.load()
+
+        if self._data is None or self._labels is None:
+            raise ValueError("Data not loaded properly")
 
         rng = np.random.default_rng(random_state)
         n_samples = len(self._data)
