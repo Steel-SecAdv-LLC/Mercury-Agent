@@ -25,7 +25,9 @@ jobs:
         pip install safety bandit
 
     - name: Run Safety check
-      run: safety check --json || true
+      # Safety check is now blocking - fails on known vulnerabilities
+      run: safety check --json
 
     - name: Run Bandit security scan
-      run: bandit -r src/omni_anomaly_engine/ -f json || true
+      # Bandit security scan is now blocking - fails on security issues
+      run: bandit -r src/omni_anomaly_engine/ -f json

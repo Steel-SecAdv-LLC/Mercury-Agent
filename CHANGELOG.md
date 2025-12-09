@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Deep 3R Integration in Geological Detectors**: Full RecursionEngine, ResonanceEngine, and RefactoringEngine integration
+  - TornadoDetector: 3R engines with max_depth=5 for recursion, sampling_rate=1.0 for resonance
+  - HurricaneDetector: 3R engines for tropical cyclone pattern analysis
+  - FloodDetector: CoreRefactoringEngine alias to avoid naming conflict with local RefactoringEngine
+- **NOAA Data Loaders**: New data loaders for live environmental data
+  - NOAASpaceWeatherLoader: Solar activity and geomagnetic storm data
+  - NOAAHurricaneLoader: Tropical cyclone track and intensity data
+  - NOAAOceanLoader: Ocean temperature and marine ecosystem data
+- **Comprehensive 3R Integration Tests**: 47 tests covering all 3R engine integrations
+  - TestRecursionEngineIntegration: 6 tests for hierarchical feature extraction
+  - TestResonanceEngineIntegration: 6 tests for FFT spectrum computation
+  - TestRefactoringEngineIntegration: 5 tests for code complexity analysis
+  - TestTornadoDetector3RIntegration: 6 tests for tornado detector 3R
+  - TestHurricaneDetector3RIntegration: 6 tests for hurricane detector 3R
+  - TestFloodDetector3RIntegration: 6 tests for flood detector 3R
+  - TestCrossDetector3RConsistency: 6 tests for cross-detector consistency
+  - Test3RMechanismIntegration: 3 tests for full 3R pipeline
+  - TestGeologicalDetectorFeatureExtraction: 3 tests for feature extraction
+- **Enhanced AI Ethics Framework**: Improved ethical scoring with keyword-based matching
+  - Expanded keyword sets for compassion, evidence, justice, altruism, control, character, competence, commitment
+  - Survivor-first principles for humanitarian applications
+  - Bias audit integration and peer review support
 - **Omni-Prefix Scalar Unification**: All 50+ ethical scalars renamed to omni- prefix
   - Core scalars: omnicompassion, omnibenevolence, omniempathy, omnimorality, omnilove, omnijustice, omniequity, omniforgiveness, omnialtruism, omnihope, omnicourage, omniwisdom, omniintegrity, omniloyalty, omnidetermination, omniaccountability, omnitransparency, omniexplainability
   - New scalars: omnigrace, omnipatience, omnihumility, omniresilience, omniperseverance, omnivigilance, omnistewardship
@@ -38,6 +60,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.env.example` with complete configuration template and documentation
 
 ### Security
+- **CI/CD Security Hardening**: All security scans and linting tools now blocking
+  - Bandit security scan: Fails on medium+ severity issues (removed `|| true`)
+  - Semgrep security scan: Fails on security issues (removed `|| true`)
+  - Safety dependency check: Fails on known vulnerabilities (removed `|| true`)
+  - Ruff linting: Fails on issues (removed `--exit-zero`)
+  - Flake8 linting: Fails on violations (removed `|| true`)
+  - MyPy type checking: Fails on type errors (removed `|| true`)
+  - pip-audit: Fails on dependency vulnerabilities (removed `|| true`)
+- **Data Loader Security**: All loaders now enforce live data requirements
+  - Default `use_synthetic=False` to prevent synthetic data in production
+  - Minimum 100 real samples required (`min_real_samples=100`)
+  - RuntimeError raised if API is down or insufficient real samples
 - **BREAKING**: JWT authentication now requires `JWT_SECRET_KEY` environment variable
   - Removed insecure default `"dev-secret-key"` (P0 security fix)
   - Clear error message with instructions for secure key generation

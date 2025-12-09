@@ -212,15 +212,49 @@ class EthicalAutonomyGovernor:
         """
         Check COMPASSION: Does this minimize harm and prioritize user well-being?
 
-        Evaluates safety features like backups, confirmations, and rollback mechanisms.
+        Evaluates safety features like backups, confirmations, rollback mechanisms,
+        and survivor-first principles for humanitarian applications.
         """
-        score = 0.5
+        score = 0.55  # Slightly elevated base for ethical default
+
+        safety_keywords = {
+            "backup",
+            "rollback",
+            "restore",
+            "recovery",
+            "undo",
+            "revert",
+            "safe",
+            "protect",
+            "guard",
+            "shield",
+            "preserve",
+        }
+        harm_reduction_keywords = {
+            "validate",
+            "verify",
+            "check",
+            "confirm",
+            "warn",
+            "alert",
+            "prevent",
+            "mitigate",
+            "minimize",
+            "reduce",
+        }
+
+        params_str = str(params).lower()
+        context_str = str(context).lower()
 
         if params.get("create_backup", False):
-            score += 0.2
+            score += 0.15
         if params.get("require_confirmation", False):
-            score += 0.2
-        if "rollback" in str(params).lower() or context.get("has_rollback"):
+            score += 0.15
+        if context.get("has_rollback") or any(kw in params_str for kw in safety_keywords):
+            score += 0.1
+        if any(kw in params_str or kw in context_str for kw in harm_reduction_keywords):
+            score += 0.05
+        if context.get("survivor_first", False):
             score += 0.1
 
         return min(1.0, score)
@@ -231,15 +265,47 @@ class EthicalAutonomyGovernor:
         """
         Check EVIDENCE: Is this backed by verifiable data, benchmarks, and proofs?
 
-        Ensures all claims are supported by empirical measurements.
+        Ensures all claims are supported by empirical measurements and citations.
         """
         score = 0.5
 
-        if "benchmark" in str(params).lower() or context.get("has_benchmarks"):
-            score += 0.3
-        if "statistical" in str(params).lower() or context.get("has_statistics"):
-            score += 0.2
+        evidence_keywords = {
+            "benchmark",
+            "test",
+            "metric",
+            "measure",
+            "data",
+            "result",
+            "proof",
+            "citation",
+            "reference",
+            "source",
+            "empirical",
+        }
+        statistical_keywords = {
+            "statistical",
+            "significance",
+            "confidence",
+            "p-value",
+            "correlation",
+            "regression",
+            "analysis",
+            "validation",
+            "cross-validation",
+        }
+
+        params_str = str(params).lower()
+        context_str = str(context).lower()
+
+        if context.get("has_benchmarks") or any(kw in params_str for kw in evidence_keywords):
+            score += 0.25
+        if context.get("has_statistics") or any(
+            kw in params_str or kw in context_str for kw in statistical_keywords
+        ):
+            score += 0.15
         if context.get("verified_claims"):
+            score += 0.1
+        if context.get("peer_reviewed", False):
             score += 0.1
 
         return min(1.0, score)
@@ -250,15 +316,42 @@ class EthicalAutonomyGovernor:
         """
         Check JUSTICE: Is this fair and unbiased across all inputs?
 
-        Evaluates determinism and fairness in logic.
+        Evaluates determinism, fairness, equity, and bias mitigation in logic.
         """
-        score = 0.8
+        score = 0.75  # Slightly lower base to encourage explicit bias checking
 
-        if action_type in ["ast_transform", "refactoring", "analysis"]:
-            score = 1.0
+        fairness_keywords = {
+            "fair",
+            "equitable",
+            "unbiased",
+            "balanced",
+            "neutral",
+            "inclusive",
+            "diverse",
+            "representative",
+        }
+        deterministic_actions = {
+            "ast_transform",
+            "refactoring",
+            "analysis",
+            "validation",
+            "formatting",
+            "linting",
+            "type_checking",
+        }
+
+        params_str = str(params).lower()
+        context_str = str(context).lower()
+
+        if action_type in deterministic_actions:
+            score = 0.95
 
         if context.get("bias_checked"):
             score = min(1.0, score + 0.1)
+        if context.get("bias_audit_passed", False):
+            score = min(1.0, score + 0.05)
+        if any(kw in params_str or kw in context_str for kw in fairness_keywords):
+            score = min(1.0, score + 0.05)
 
         return score
 
@@ -268,14 +361,44 @@ class EthicalAutonomyGovernor:
         """
         Check ALTRUISM: Does this have positive societal impact?
 
-        Evaluates contribution to open-source and community benefit.
+        Evaluates contribution to open-source, community benefit, and humanitarian impact.
         """
         score = 0.6
 
-        if "open_source" in str(params).lower() or context.get("is_open_source"):
-            score += 0.2
-        if "community" in str(params).lower():
-            score += 0.2
+        altruism_keywords = {
+            "open_source",
+            "open-source",
+            "community",
+            "public",
+            "free",
+            "accessible",
+            "humanitarian",
+            "charitable",
+            "nonprofit",
+        }
+        impact_keywords = {
+            "benefit",
+            "help",
+            "assist",
+            "support",
+            "improve",
+            "enhance",
+            "crisis",
+            "emergency",
+            "disaster",
+            "rescue",
+            "save",
+        }
+
+        params_str = str(params).lower()
+        context_str = str(context).lower()
+
+        if context.get("is_open_source") or any(kw in params_str for kw in altruism_keywords):
+            score += 0.15
+        if any(kw in params_str or kw in context_str for kw in impact_keywords):
+            score += 0.15
+        if context.get("humanitarian_application", False):
+            score += 0.1
 
         return min(1.0, score)
 
@@ -285,14 +408,33 @@ class EthicalAutonomyGovernor:
         """
         Check CONTROL: Are there auditable controls and logging?
 
-        Ensures operations can be traced and reversed if needed.
+        Ensures operations can be traced, monitored, and reversed if needed.
         """
         score = 0.5
 
+        control_keywords = {
+            "audit",
+            "log",
+            "trace",
+            "monitor",
+            "track",
+            "record",
+            "compliance",
+            "governance",
+            "oversight",
+        }
+
+        params_str = str(params).lower()
+        context_str = str(context).lower()
+
         if params.get("logging_enabled", True):
-            score += 0.3
-        if "audit" in str(params).lower() or context.get("audit_enabled"):
-            score += 0.2
+            score += 0.25
+        if context.get("audit_enabled") or any(
+            kw in params_str or kw in context_str for kw in control_keywords
+        ):
+            score += 0.15
+        if context.get("kill_switch_available", False):
+            score += 0.1
 
         return min(1.0, score)
 
@@ -302,13 +444,32 @@ class EthicalAutonomyGovernor:
         """
         Check CHARACTER: Is this transparent with clear intent?
 
-        Evaluates documentation and explanations of ethical rationale.
+        Evaluates documentation, explanations, and ethical rationale transparency.
         """
-        score = 0.7
+        score = 0.65
+
+        transparency_keywords = {
+            "transparent",
+            "clear",
+            "explicit",
+            "documented",
+            "explained",
+            "rationale",
+            "reason",
+            "justification",
+            "intent",
+        }
+
+        params_str = str(params).lower()
+        context_str = str(context).lower()
 
         if params.get("verbose", False):
-            score += 0.2
-        if "transparent" in str(params).lower() or context.get("is_transparent"):
+            score += 0.15
+        if context.get("is_transparent") or any(
+            kw in params_str or kw in context_str for kw in transparency_keywords
+        ):
+            score += 0.1
+        if context.get("has_documentation", False):
             score += 0.1
 
         return min(1.0, score)
@@ -319,16 +480,23 @@ class EthicalAutonomyGovernor:
         """
         Check COMPETENCE: Is this well-tested with high coverage?
 
-        Evaluates test coverage and rigorous validation.
+        Evaluates test coverage, rigorous validation, and quality assurance.
         """
         score = 0.5
 
         test_coverage = context.get("test_coverage", 0)
         if test_coverage > 0.95:
-            score += 0.4
-        elif test_coverage > 0.80:
-            score += 0.2
-        elif test_coverage > 0.60:
+            score += 0.35
+        elif test_coverage > 0.85:
+            score += 0.25
+        elif test_coverage > 0.70:
+            score += 0.15
+        elif test_coverage > 0.50:
+            score += 0.05
+
+        if context.get("has_tests", False):
+            score += 0.05
+        if context.get("ci_passing", False):
             score += 0.1
 
         return min(1.0, score)
@@ -339,13 +507,32 @@ class EthicalAutonomyGovernor:
         """
         Check COMMITMENT: Does this support continuous improvement?
 
-        Evaluates extensibility and evolution provisions.
+        Evaluates extensibility, evolution provisions, and long-term maintainability.
         """
-        score = 0.7
+        score = 0.65
 
-        if "extensible" in str(params).lower() or context.get("is_extensible"):
-            score += 0.2
-        if "versioned" in str(params).lower() or context.get("is_versioned"):
+        commitment_keywords = {
+            "extensible",
+            "modular",
+            "maintainable",
+            "scalable",
+            "flexible",
+            "versioned",
+            "documented",
+            "tested",
+            "reviewed",
+        }
+
+        params_str = str(params).lower()
+        context_str = str(context).lower()
+
+        if context.get("is_extensible") or any(
+            kw in params_str or kw in context_str for kw in commitment_keywords
+        ):
+            score += 0.15
+        if context.get("is_versioned") or "version" in params_str:
+            score += 0.1
+        if context.get("has_roadmap", False):
             score += 0.1
 
         return min(1.0, score)
