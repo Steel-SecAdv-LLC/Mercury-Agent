@@ -2,9 +2,6 @@
 
 <img width="738" height="545" alt="image" src="https://github.com/user-attachments/assets/f82993d9-1d3e-4ae5-8515-4ddd17dddc1f" />
 
-
-<img src="assets/omni_ava_hero.png" alt="OMNI♱AVA Mercury Agent" width="470" height="419">
-
 </div>
 
 ---
