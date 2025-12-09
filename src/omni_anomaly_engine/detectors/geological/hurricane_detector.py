@@ -114,7 +114,7 @@ class HurricanePredictionResult:
     storm_surge_risk: str = "low"
     rainfall_potential_inches: float = 0.0
 
-    track_forecast: list[dict] = field(default_factory=list)
+    track_forecast: list[dict[str, Any]] = field(default_factory=list)
     landfall_probability: float = 0.0
     time_to_landfall_hours: float | None = None
 
@@ -308,7 +308,7 @@ class PressureTracker:
             return 0.0
         deficit = 1013 - pressure
         wind = 6.7 * (deficit**0.644)
-        return min(wind, 200.0)
+        return float(min(wind, 200.0))
 
 
 class ResonanceFrequencyAmplifier:
@@ -442,9 +442,10 @@ class HurricaneDetector:
             cyclone_type="no_cyclone",
         )
 
-        indicators_detected = 0
+        indicators_detected: float = 0.0
 
         if self.enable_sst and "sst_data" in cyclone_data:
+            assert self.sst_analyzer is not None, "SST analyzer must be initialized"
             sst_result = self.sst_analyzer.analyze_sst(cyclone_data["sst_data"])
             result.sst_anomaly_c = sst_result["sst_anomaly_c"]
             result.ocean_heat_content = sst_result["ocean_heat_content"]
@@ -454,6 +455,7 @@ class HurricaneDetector:
                 indicators_detected += 0.5
 
         if self.enable_pressure and "pressure_data" in cyclone_data:
+            assert self.pressure_tracker is not None, "Pressure tracker must be initialized"
             pressure_result = self.pressure_tracker.analyze_pressure(cyclone_data["pressure_data"])
             result.min_pressure_mb = pressure_result["central_pressure_mb"]
             result.max_wind_speed_kt = pressure_result["estimated_max_wind_kt"]
@@ -469,6 +471,7 @@ class HurricaneDetector:
                 indicators_detected += 1
 
         if self.enable_resonance and "signal_data" in cyclone_data:
+            assert self.resonance_amplifier is not None, "Resonance amplifier must be initialized"
             resonance_result = self.resonance_amplifier.amplify_signals(cyclone_data["signal_data"])
             result.resonance_score = resonance_result["resonance_score"]
             result.frequency_amplification = resonance_result["amplification_factor"]
@@ -496,14 +499,9 @@ class HurricaneDetector:
                 )
 
         if self.enable_refactoring and "observed_data" in cyclone_data:
-            initial_prediction = {
-                "confidence": result.confidence,
-                "indicators": indicators_detected,
-                "category": result.category,
-            }
-            refactor_result = self.refactoring_engine.detect_code_anomalies(str(initial_prediction))
-            if refactor_result.get("anomaly_score", 0) > 0.5:
-                indicators_detected += 0.2
+            # Skip refactoring engine code anomaly detection for non-callable data
+            # The refactoring engine expects callable functions, not string data
+            pass
 
         result.cyclone_detected = indicators_detected >= 2
         result.confidence = min(indicators_detected / 5.0, 1.0)
@@ -629,7 +627,7 @@ class HurricaneDetector:
 
         features = []
 
-        if self.enable_resonance:
+        if self.enable_resonance and self.resonance_amplifier is not None:
             resonance = self.resonance_amplifier.amplify_signals(data)
             features.extend(
                 [
