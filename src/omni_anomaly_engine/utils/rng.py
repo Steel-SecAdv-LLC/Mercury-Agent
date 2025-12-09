@@ -105,6 +105,7 @@ class DeterministicRNG:
         """
         if not self._initialized:
             self.set_seed(self._seed or 42)
+        assert self._numpy_rng is not None
         return self._numpy_rng
 
     def randn(self, *shape: int, dtype: type = np.float64) -> np.ndarray[Any, Any]:
@@ -125,7 +126,7 @@ class DeterministicRNG:
         self,
         loc: float = 0.0,
         scale: float = 1.0,
-        size: int | tuple | None = None,
+        size: int | tuple[int, ...] | None = None,
         dtype: type = np.float64,
     ) -> np.ndarray[Any, Any]:
         """
@@ -147,7 +148,7 @@ class DeterministicRNG:
         self,
         low: float = 0.0,
         high: float = 1.0,
-        size: int | tuple | None = None,
+        size: int | tuple[int, ...] | None = None,
         dtype: type = np.float64,
     ) -> np.ndarray[Any, Any]:
         """
@@ -165,7 +166,7 @@ class DeterministicRNG:
         rng = self.get_numpy_rng()
         return rng.uniform(low=low, high=high, size=size).astype(dtype)
 
-    def random(self, size: int | tuple | None = None) -> np.ndarray[Any, Any]:
+    def random(self, size: int | tuple[int, ...] | None = None) -> np.ndarray[Any, Any]:
         """
         Generate random floats in the half-open interval [0.0, 1.0).
 
@@ -176,7 +177,8 @@ class DeterministicRNG:
             Random array from [0.0, 1.0)
         """
         rng = self.get_numpy_rng()
-        return rng.random(size=size)
+        result = rng.random(size=size)
+        return np.asarray(result)
 
     def rand(self, *shape: int, dtype: type = np.float64) -> np.ndarray[Any, Any]:
         """
@@ -193,7 +195,7 @@ class DeterministicRNG:
         return rng.random(size=shape).astype(dtype)
 
     def randint(
-        self, low: int, high: int | None = None, size: int | tuple | None = None
+        self, low: int, high: int | None = None, size: int | tuple[int, ...] | None = None
     ) -> int | np.ndarray[Any, Any]:
         """
         Generate random integers.
@@ -212,7 +214,7 @@ class DeterministicRNG:
     def choice(
         self,
         a: int | np.ndarray[Any, Any],
-        size: int | tuple | None = None,
+        size: int | tuple[int, ...] | None = None,
         replace: bool = True,
         p: np.ndarray[Any, Any] | None = None,
     ) -> np.ndarray[Any, Any]:
@@ -229,7 +231,7 @@ class DeterministicRNG:
             Random sample(s)
         """
         rng = self.get_numpy_rng()
-        return rng.choice(a, size=size, replace=replace, p=p)
+        return np.asarray(rng.choice(a, size=size, replace=replace, p=p))
 
     def shuffle(self, array: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
@@ -325,7 +327,7 @@ class RNGState:
 
     seed: int
     numpy_state: dict[str, Any] | None = None
-    python_state: tuple | None = None
+    python_state: tuple[Any, ...] | None = None
     torch_state: bytes | None = None
     version: str = "1.0"
 
@@ -384,7 +386,7 @@ class RNGRegistry:
             if seed is None and parent and parent in self._registry:
                 # Derive seed from parent
                 parent_rng = self._registry[parent]
-                seed = parent_rng.randint(0, 2**31 - 1)
+                seed = int(parent_rng.randint(0, 2**31 - 1))
             elif seed is None:
                 seed = 42
 
@@ -453,7 +455,7 @@ class RNGContext:
         if self._seed is not None:
             seed = self._seed
         elif self._parent is not None:
-            seed = self._parent.rng.randint(0, 2**31 - 1)
+            seed = int(self._parent.rng.randint(0, 2**31 - 1))
         else:
             seed = 42
 
@@ -477,13 +479,13 @@ class RNGContext:
         if hasattr(self._context_stack, "stack") and self._context_stack.stack:
             self._context_stack.stack.pop()
         self._rng = None
-        return False
 
     @classmethod
     def current(cls) -> Optional["RNGContext"]:
         """Get the current active RNG context."""
         if hasattr(cls._context_stack, "stack") and cls._context_stack.stack:
-            return cls._context_stack.stack[-1]
+            result: RNGContext = cls._context_stack.stack[-1]
+            return result
         return None
 
 
@@ -528,7 +530,8 @@ class ThreadSafeRNGManager:
                         2**31
                     )
                 self._thread_local.rng = DeterministicRNG(seed=thread_seed)
-            return self._thread_local.rng
+            thread_rng: DeterministicRNG = self._thread_local.rng
+            return thread_rng
         else:
             with self._lock:
                 if self._global_rng is None:
@@ -557,13 +560,10 @@ class ThreadSafeRNGManager:
             if self._global_rng is None:
                 return None
 
-            rng_state = np.random.get_state()
+            rng_state = np.random.get_state(legacy=False)
             numpy_state = {
-                "bit_generator": rng_state[0],
-                "state": rng_state[1].tolist(),
-                "pos": rng_state[2],
-                "has_gauss": rng_state[3],
-                "cached_gaussian": float(rng_state[4]),
+                "bit_generator": rng_state.get("bit_generator", ""),
+                "state": rng_state.get("state", {}),
             }
 
             return RNGState(
