@@ -1,4 +1,6 @@
-# OMNI♱AVA (O♱A): Mercury Agent – Neuro-Symbolic AI for Autonomous Anomaly Detection, PQC-Protected for Civilized Evolution
+<div align="center">
+# OMNI♱AVA (O♱A): Mercury Agent
+</div>
 
 <div align="center">
   <img width="488" height="593" alt="image" src="https://github.com/user-attachments/assets/61b40e66-c669-4b16-a4ec-18cd5207e538" />
