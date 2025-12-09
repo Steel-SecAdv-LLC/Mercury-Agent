@@ -144,7 +144,7 @@ class AsyncMessageQueue:
             self.handlers[message_type] = []
         self.handlers[message_type].append(handler)
 
-    async def process_messages(self):
+    async def process_messages(self) -> None:
         """
         Process messages using registered handlers
         Run this in a background task for automatic processing

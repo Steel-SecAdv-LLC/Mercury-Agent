@@ -148,7 +148,7 @@ class MCDropoutWrapper:
         self.dropout_rate = dropout_rate
         self._original_training_state = None
 
-    def enable_dropout(self):
+    def enable_dropout(self) -> None:
         """Enable dropout layers for MC sampling."""
         if not TORCH_AVAILABLE:
             return
@@ -161,7 +161,7 @@ class MCDropoutWrapper:
 
         self.model.apply(apply_dropout)
 
-    def disable_dropout(self):
+    def disable_dropout(self) -> None:
         """Restore original dropout state."""
         if not TORCH_AVAILABLE or self._original_training_state is None:
             return

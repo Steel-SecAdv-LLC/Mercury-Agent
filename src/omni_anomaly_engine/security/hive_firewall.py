@@ -349,7 +349,7 @@ class HiveFirewall:
             )[:10],
         }
 
-    def reset_firewall(self):
+    def reset_firewall(self) -> None:
         """Reset firewall state (emergency use only)."""
         self.blocked_threats.clear()
         self.allowed_patterns.clear()
