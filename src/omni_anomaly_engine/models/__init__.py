@@ -92,12 +92,12 @@ _LAZY_IMPORTS = {
 }
 
 
-def __getattr__(name):
+def __getattr__(name: str) -> type:
     """Lazy import models on first access."""
     if name in _LAZY_IMPORTS:
         import importlib
 
         module_path = _LAZY_IMPORTS[name]
         module = importlib.import_module(module_path)
-        return getattr(module, name)
+        return getattr(module, name)  # type: ignore[no-any-return]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
