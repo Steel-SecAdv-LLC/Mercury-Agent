@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Base classes for Vision-Language Model anomaly detection.
@@ -97,7 +98,7 @@ class BaseVLMDetector(BaseDetector):
         - Video and image support
     """
 
-    def __init__(self, config: VLMConfig | dict[str, Any] | None = None):
+    def __init__(self, config: VLMConfig | dict[str, Any] | None = None) -> None:
         """Initialize VLM detector.
 
         Args:
@@ -183,7 +184,7 @@ class BaseVLMDetector(BaseDetector):
         """
         raise NotImplementedError("Subclasses must implement _parse_response() for VLM detectors.")
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> "BaseVLMDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "BaseVLMDetector":
         """VLM detectors are zero-shot - no fitting required.
 
         Args:
@@ -196,7 +197,7 @@ class BaseVLMDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using VLM.
 
         Args:
@@ -214,7 +215,7 @@ class BaseVLMDetector(BaseDetector):
         """
         raise NotImplementedError("Subclasses must implement detect() for VLM detectors.")
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion pipeline.
 
         Args:

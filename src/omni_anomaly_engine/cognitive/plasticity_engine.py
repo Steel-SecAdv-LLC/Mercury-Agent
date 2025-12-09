@@ -7,6 +7,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
+from __future__ import annotations
 
 """
 Plasticity Engine - Production Implementation
@@ -275,13 +276,13 @@ class CompetitiveLearning:
     Implements winner-take-all dynamics for pattern separation.
     """
 
-    def __init__(self, n_units: int = 100, inhibition_strength: float = 0.1):
+    def __init__(self, n_units: int = 100, inhibition_strength: float = 0.1) -> None:
         self.n_units = n_units
         self.inhibition_strength = inhibition_strength
         self.activities = np.zeros(n_units)
         self.winner_history: list[int] = []
 
-    def compete(self, inputs: np.ndarray) -> np.ndarray:
+    def compete(self, inputs: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Apply competitive dynamics.
 
@@ -397,10 +398,10 @@ class PlasticityEngine:
 
         # Core data structures
         self._connections: dict[tuple[str, str], PlasticConnection] = {}
-        self._node_activations: dict[str, list[float]] = defaultdict(list)
-        self._node_spike_times: dict[str, list[float]] = defaultdict(list)
+        self._node_activations: dict[str, list[float]] = defaultdict[str, list[Any]](list)
+        self._node_spike_times: dict[str, list[float]] = defaultdict[str, list[Any]](list)
         self._adaptation_history: list[AdaptationEvent] = []
-        self._outcome_feedback: dict[str, list[tuple[bool, float]]] = defaultdict(list)
+        self._outcome_feedback: dict[str, list[tuple[bool, float]]] = defaultdict[str, list[Any]](list)
 
         # BCM state: sliding thresholds per node
         self._bcm_thresholds: dict[str, float] = defaultdict(lambda: 0.5)
@@ -703,8 +704,8 @@ class PlasticityEngine:
     def generalize(
         self,
         novel_pattern: str,
-        feature_vector: np.ndarray,
-        existing_patterns: dict[str, np.ndarray],
+        feature_vector: np.ndarray[Any, Any],
+        existing_patterns: dict[str, np.ndarray[Any, Any]],
         similarity_threshold: float = 0.7,
     ) -> list[tuple[str, float]]:
         """

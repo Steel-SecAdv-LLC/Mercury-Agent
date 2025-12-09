@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Emergent Life Detector - SETI-like Anomaly Detection for Non-Human Intelligence
@@ -69,7 +70,7 @@ class SETICosmicSignalAnalyzer:
     technological signatures of non-human intelligence.
     """
 
-    def __init__(self, threshold_std: float = 4.0):
+    def __init__(self, threshold_std: float = 4.0) -> None:
         self.resonance = ResonanceEngine(sampling_rate=1.0)
         self.space_analyzer = SpaceExplorationAnalyzer()
         self.threshold_std = threshold_std
@@ -83,7 +84,7 @@ class SETICosmicSignalAnalyzer:
 
     def detect_seti_anomaly(
         self,
-        signal_data: np.ndarray,
+        signal_data: np.ndarray[Any, Any],
         context: dict | None = None,
         threshold_std: float | None = None,
     ) -> dict[str, Any]:
@@ -153,7 +154,7 @@ class SETICosmicSignalAnalyzer:
         }
 
     def _detect_narrow_band_signals(
-        self, frequencies: np.ndarray, magnitudes: np.ndarray
+        self, frequencies: np.ndarray[Any, Any], magnitudes: np.ndarray[Any, Any]
     ) -> list[float]:
         """Detect narrow-band signals (key SETI technosignature)."""
         narrow_band_peaks = []
@@ -174,7 +175,7 @@ class SETICosmicSignalAnalyzer:
 
         return narrow_band_peaks
 
-    def _detect_repeating_patterns(self, signal_data: np.ndarray) -> dict[str, Any]:
+    def _detect_repeating_patterns(self, signal_data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Detect repeating patterns in signal."""
         if len(signal_data) < 10:
             return {"detected": False, "period": 0.0}
@@ -193,7 +194,7 @@ class SETICosmicSignalAnalyzer:
 
         return {"detected": False, "period": 0.0}
 
-    def _detect_modulation(self, signal_data: np.ndarray) -> dict[str, Any]:
+    def _detect_modulation(self, signal_data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Detect modulation patterns (AM, FM, etc.)."""
         envelope = np.abs(signal_data)
         envelope_var = np.var(envelope)
@@ -209,10 +210,10 @@ class SETICosmicSignalAnalyzer:
 
     def _calculate_seti_confidence(
         self,
-        narrow_band_peaks: list,
-        repeating_patterns: dict,
-        modulation: dict,
-        resonance_anomalies: dict,
+        narrow_band_peaks: list[Any],
+        repeating_patterns: dict[str, Any],
+        modulation: dict[str, Any],
+        resonance_anomalies: dict[str, Any],
     ) -> float:
         """Calculate overall SETI confidence score."""
         confidence = 0.0
@@ -263,7 +264,7 @@ class BioSignalPatternRecognizer:
     (e.g., atmospheric gas ratios, periodic biological rhythms).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
         self.biosignatures = {
@@ -273,7 +274,7 @@ class BioSignalPatternRecognizer:
         }
 
     def detect_biosignatures(
-        self, environmental_data: np.ndarray, data_type: str = "atmospheric"
+        self, environmental_data: np.ndarray[Any, Any], data_type: str = "atmospheric"
     ) -> dict[str, Any]:
         """
         Detect biosignature patterns in environmental/space data.
@@ -309,7 +310,7 @@ class BioSignalPatternRecognizer:
             "recommendations": self._generate_biosig_recommendations(biosig_detected, confidence),
         }
 
-    def _detect_periodicity(self, data: np.ndarray) -> dict[str, Any]:
+    def _detect_periodicity(self, data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Detect periodic patterns in data."""
         if len(data) < 10:
             return {"detected": False, "period_sec": 0.0}
@@ -334,7 +335,7 @@ class BioSignalPatternRecognizer:
 
         return {"detected": False, "period_sec": 0.0}
 
-    def _detect_chemical_disequilibrium(self, data: np.ndarray) -> bool:
+    def _detect_chemical_disequilibrium(self, data: np.ndarray[Any, Any]) -> bool:
         """Detect chemical disequilibrium (biosignature indicator)."""
         if data.shape[1] < 2:
             return False
@@ -374,7 +375,7 @@ class MultiverseContactProtocolExplorer:
     strategies for establishing contact with non-human intelligence.
     """
 
-    def __init__(self, num_universes: int = 30):
+    def __init__(self, num_universes: int = 30) -> None:
         self.multiverse = MultiverseOmniEngine(
             num_universes=num_universes, state_dim=128, convergence_threshold=0.9
         )
@@ -391,7 +392,7 @@ class MultiverseContactProtocolExplorer:
             Optimal contact protocol strategies
         """
 
-        def protocol_fitness(protocol_vector: np.ndarray) -> float:
+        def protocol_fitness(protocol_vector: np.ndarray[Any, Any]) -> float:
             info_transfer = np.mean(protocol_vector[:32])
             error_correction = np.std(protocol_vector[32:64])
             universality = -np.var(protocol_vector[64:96])
@@ -469,7 +470,7 @@ class EmergentLifeDetector:
         self.logger = logging.getLogger(__name__)
 
     def detect_emergent_life(
-        self, data: np.ndarray, analysis_type: str, context: dict | None = None
+        self, data: np.ndarray[Any, Any], analysis_type: str, context: dict | None = None
     ) -> LifeDetectionResult:
         """
         Comprehensive emergent life detection.

@@ -14,6 +14,7 @@ Example:
     >>> data = await service.get_current("New York")
     >>> print(f"Temperature: {data.temperature}C")
 """
+from __future__ import annotations
 
 import asyncio
 import random

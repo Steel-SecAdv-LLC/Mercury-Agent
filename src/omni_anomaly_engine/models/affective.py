@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """Affective computing anomaly detection model."""
 
@@ -37,11 +38,11 @@ class AffectiveAnomalyModel:
         self.config = config or {}
         self._rng = rng or get_global_rng()
 
-    def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
+    def extract_features(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> np.ndarray[Any, Any]:
         """Extract affective features from data."""
         if isinstance(data, dict):
             data = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray):
+        elif not isinstance(data, np.ndarray[Any, Any]):
             data = np.array(data)
 
         if data.ndim == 1:
@@ -52,7 +53,7 @@ class AffectiveAnomalyModel:
 
         return self._rng.randn(batch_size, num_features).astype(np.float32)
 
-    def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
+    def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
         """Predict emotional state anomalies."""
         features = self.extract_features(data)
         batch_size = features.shape[0]

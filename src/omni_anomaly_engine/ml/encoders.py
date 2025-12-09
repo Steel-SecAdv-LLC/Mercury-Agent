@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Feature encoders for different detector types
@@ -30,7 +31,7 @@ from torch import nn
 class StatisticalEncoder(nn.Module):
     """Encodes statistical features (z-scores, IQR, distributions)"""
 
-    def __init__(self, input_dim: int, hidden_dim: int = 64, output_dim: int = 128):
+    def __init__(self, input_dim: int, hidden_dim: int = 64, output_dim: int = 128) -> None:
         super().__init__()
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
@@ -154,7 +155,7 @@ class BiometricEncoder(nn.Module):
 class QuantumEncoder(nn.Module):
     """Encodes quantum state vectors and observables"""
 
-    def __init__(self, state_dim: int, output_dim: int = 128):
+    def __init__(self, state_dim: int, output_dim: int = 128) -> None:
         super().__init__()
         self.state_dim = state_dim
         self.complex_encoder = nn.Sequential(
@@ -191,7 +192,7 @@ class QuantumEncoder(nn.Module):
 class AstrophysicalEncoder(nn.Module):
     """Encodes astrophysical features (gravitational fields, event horizons)"""
 
-    def __init__(self, input_dim: int, output_dim: int = 128):
+    def __init__(self, input_dim: int, output_dim: int = 128) -> None:
         super().__init__()
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, 64),

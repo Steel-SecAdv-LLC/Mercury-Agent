@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Report Generator - Plain English Auto-Reporting
@@ -117,7 +118,7 @@ class TechnicalDetails:
 class ReportGenerator:
     """General-purpose report generator with multiple format support."""
 
-    def __init__(self, template: str | None = None):
+    def __init__(self, template: str | None = None) -> None:
         self._template = template
         self._sections: list[ReportSection] = []
         self._charts: dict[str, dict[str, Any]] = {}
@@ -267,7 +268,7 @@ class PlainEnglishReportGenerator:
     Converts technical output to human-readable summaries.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def generate_medical_report(
@@ -474,7 +475,7 @@ class PDFReportGenerator:
     Creates professional PDF reports from analysis results.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def generate_pdf(self, text_report: str, output_path: str) -> bool:
@@ -529,7 +530,7 @@ class EmailReportSender:
     Sends analysis reports via email.
     """
 
-    def __init__(self, smtp_config: dict[str, str] | None = None):
+    def __init__(self, smtp_config: dict[str, str] | None = None) -> None:
         self.logger = logging.getLogger(__name__)
         self.smtp_config = smtp_config or {}
 
@@ -588,7 +589,7 @@ class ReportManager:
     Coordinates text, PDF, and email report generation.
     """
 
-    def __init__(self, smtp_config: dict[str, str] | None = None):
+    def __init__(self, smtp_config: dict[str, str] | None = None) -> None:
         self.text_generator = PlainEnglishReportGenerator()
         self.pdf_generator = PDFReportGenerator()
         self.email_sender = EmailReportSender(smtp_config)

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Tornado Detector - Multi-Modal Severe Weather Monitoring
@@ -122,7 +123,7 @@ class DopplerRadarAnalyzer(nn.Module):
     Uses LSTM + attention to identify rotation signatures in radar data.
     """
 
-    def __init__(self, input_dim: int = 64, hidden_dim: int = 128):
+    def __init__(self, input_dim: int = 64, hidden_dim: int = 128) -> None:
         super().__init__()
 
         self.lstm = nn.LSTM(
@@ -189,7 +190,7 @@ class AtmosphericInstabilityAnalyzer:
     Monitors CAPE, helicity, wind shear, and other severe weather parameters.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
         self.cape_threshold = 1500.0  # J/kg for significant instability
@@ -265,7 +266,7 @@ class PressureGradientMonitor:
     Detects rapid pressure drops associated with mesocyclone development.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.rapid_drop_threshold = 4.0  # mb in 15 minutes
 
@@ -320,11 +321,11 @@ class ResonancePatternAnalyzer:
     characteristic frequency patterns in atmospheric data.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.tornado_frequencies = [0.1, 0.5, 1.0, 2.0]  # Hz characteristic frequencies
 
-    def analyze_resonance(self, signal: np.ndarray) -> dict[str, Any]:
+    def analyze_resonance(self, signal: np.ndarray[Any, Any]) -> dict[str, Any]:
         """
         Analyze signal for tornado-characteristic resonance patterns.
 
@@ -384,13 +385,13 @@ class RecursiveFeatureExtractor:
     pattern analysis at progressively finer scales.
     """
 
-    def __init__(self, max_depth: int = 4, decay_factor: float = 0.8):
+    def __init__(self, max_depth: int = 4, decay_factor: float = 0.8) -> None:
         self.max_depth = max_depth
         self.decay_factor = decay_factor
 
     def extract_recursive_features(
-        self, data: np.ndarray, depth: int = 0
-    ) -> tuple[np.ndarray, int]:
+        self, data: np.ndarray[Any, Any], depth: int = 0
+    ) -> tuple[np.ndarray[Any, Any], int]:
         """
         Recursively extract features at multiple scales.
 
@@ -413,7 +414,7 @@ class RecursiveFeatureExtractor:
 
         return combined, max_depth
 
-    def _base_features(self, data: np.ndarray) -> np.ndarray:
+    def _base_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract base statistical features."""
         if len(data) == 0:
             return np.zeros(6)
@@ -523,7 +524,10 @@ class TornadoDetector:
                 indicators_detected += 2
                 result.confidence = max(result.confidence, radar_result["confidence"])
 
+        indicators_float: float = float(indicators_detected)
+
         if self.enable_atmospheric and "atmospheric_data" in weather_data:
+            assert self.atmospheric_analyzer is not None
             atmos_result = self.atmospheric_analyzer.analyze_instability(
                 weather_data["atmospheric_data"]
             )
@@ -531,24 +535,27 @@ class TornadoDetector:
             result.helicity_value = atmos_result["helicity"]
             result.wind_shear_detected = atmos_result["significant_shear"]
             if atmos_result["tornado_potential"] in ["moderate", "high"]:
-                indicators_detected += 1
+                indicators_float += 1
 
         if self.enable_pressure and "pressure_data" in weather_data:
+            assert self.pressure_monitor is not None
             pressure_result = self.pressure_monitor.analyze_pressure(weather_data["pressure_data"])
             result.pressure_drop_mb = pressure_result["max_pressure_drop"]
             if pressure_result["rapid_drop_detected"]:
-                indicators_detected += 1
+                indicators_float += 1
 
         if self.enable_resonance and "signal_data" in weather_data:
+            assert self.resonance_analyzer is not None
             resonance_result = self.resonance_analyzer.analyze_resonance(
                 weather_data["signal_data"]
             )
             result.resonance_score = resonance_result["resonance_score"]
             result.harmonic_anomalies = resonance_result["harmonic_anomalies"]
             if resonance_result["resonance_score"] > 0.6:
-                indicators_detected += 0.5
+                indicators_float += 0.5
 
         if self.enable_recursion and "signal_data" in weather_data:
+            assert self.recursive_extractor is not None
             _, depth = self.recursive_extractor.extract_recursive_features(
                 weather_data["signal_data"]
             )
@@ -560,36 +567,39 @@ class TornadoDetector:
             if len(hierarchical_features) > 0:
                 multi_scale_variance = np.mean([np.var(f) for f in hierarchical_features])
                 if multi_scale_variance > 0.5:
-                    indicators_detected += 0.3
+                    indicators_float += 0.3
 
         if "signal_data" in weather_data:
             resonance_anomalies = self.resonance_engine.detect_resonance_anomalies(
                 weather_data["signal_data"], threshold_std=2.5
             )
             if resonance_anomalies["is_anomalous"]:
-                indicators_detected += 0.4
+                indicators_float += 0.4
                 result.harmonic_anomalies.extend(
                     [float(f) for f in resonance_anomalies["anomalous_frequencies"][:3]]
                 )
 
         if self.enable_refactoring and "observed_data" in weather_data:
-            initial_prediction = {
+            initial_prediction_str = str({
                 "confidence": result.confidence,
-                "indicators": indicators_detected,
-            }
-            refactor_result = self.refactoring_engine.detect_code_anomalies(str(initial_prediction))
+                "indicators": indicators_float,
+            })
+            # detect_code_anomalies expects a callable, so we pass a lambda
+            refactor_result = self.refactoring_engine.detect_code_anomalies(
+                lambda: initial_prediction_str
+            )
             if refactor_result.get("anomaly_score", 0) > 0.5:
-                indicators_detected += 0.2
+                indicators_float += 0.2
 
         location = weather_data.get("location", {})
         state = location.get("state", "")
         if state in self.tornado_alley_states:
             result.tornado_alley_correlation = 0.8
-            indicators_detected += 0.3
+            indicators_float += 0.3
 
-        result.tornado_likely = indicators_detected >= 2
-        result.confidence = min(indicators_detected / 4.0, 1.0)
-        result.threat_level = self._determine_threat_level(indicators_detected, result)
+        result.tornado_likely = indicators_float >= 2
+        result.confidence = min(indicators_float / 4.0, 1.0)
+        result.threat_level = self._determine_threat_level(indicators_float, result)
         result.estimated_intensity = self._estimate_intensity(result)
 
         result.warning_actions = self._generate_warnings(result)
@@ -597,17 +607,18 @@ class TornadoDetector:
 
         self.logger.info(
             f"Tornado prediction: {result.threat_level}, "
-            f"indicators={indicators_detected:.1f}, confidence={result.confidence:.2f}"
+            f"indicators={indicators_float:.1f}, confidence={result.confidence:.2f}"
         )
 
         return result
 
-    def _analyze_radar(self, radar_sequence: np.ndarray) -> dict[str, Any]:
+    def _analyze_radar(self, radar_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Analyze Doppler radar data for mesocyclone signatures."""
         seq_tensor = torch.tensor(radar_sequence, dtype=torch.float32)
         if seq_tensor.dim() == 2:
             seq_tensor = seq_tensor.unsqueeze(0)
 
+        assert self.radar_analyzer is not None
         self.radar_analyzer.eval()
         with torch.no_grad():
             meso_prob, rotation_vel, _ = self.radar_analyzer(seq_tensor)
@@ -692,15 +703,18 @@ class TornadoDetector:
 
         return advice
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion."""
         if isinstance(data, torch.Tensor):
-            data = data.cpu().numpy()
+            data_arr: np.ndarray[Any, Any] = data.cpu().numpy()
+        else:
+            data_arr = data
 
-        features = []
+        features: list[float] = []
 
         if self.enable_resonance:
-            resonance = self.resonance_analyzer.analyze_resonance(data)
+            assert self.resonance_analyzer is not None
+            resonance = self.resonance_analyzer.analyze_resonance(data_arr)
             features.extend(
                 [
                     resonance["resonance_score"],
@@ -710,7 +724,8 @@ class TornadoDetector:
             )
 
         if self.enable_recursion:
-            recursive_feat, depth = self.recursive_extractor.extract_recursive_features(data)
+            assert self.recursive_extractor is not None
+            recursive_feat, depth = self.recursive_extractor.extract_recursive_features(data_arr)
             features.extend(recursive_feat.tolist())
             features.append(float(depth) / 4.0)
 

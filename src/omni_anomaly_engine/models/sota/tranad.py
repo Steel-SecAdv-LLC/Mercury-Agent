@@ -107,7 +107,7 @@ class FocusScoreConditioning(nn.Module):
         temperature: Softmax temperature (lower = sharper focus)
     """
 
-    def __init__(self, input_dim: int, d_model: int = 256, temperature: float = 1.0):
+    def __init__(self, input_dim: int, d_model: int = 256, temperature: float = 1.0) -> None:
         super().__init__()
         self.input_dim = input_dim
         self.d_model = d_model
@@ -164,7 +164,7 @@ class FocusScoreConditioning(nn.Module):
 
         if return_scores:
             return conditioned, focus_scores
-        return conditioned
+        return torch.Tensor(conditioned)
 
     def get_feature_importance(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -233,7 +233,7 @@ class TransformerEncoder(nn.Module):
         """
         src = self.pos_encoder(src)
         output = self.transformer_encoder(src, mask=src_mask)
-        return self.norm(output)
+        return torch.Tensor(self.norm(output))
 
 
 class TransformerDecoder(nn.Module):
@@ -293,7 +293,7 @@ class TransformerDecoder(nn.Module):
         """
         tgt = self.pos_decoder(tgt)
         output = self.transformer_decoder(tgt, memory, tgt_mask=tgt_mask, memory_mask=memory_mask)
-        return self.norm(output)
+        return torch.Tensor(self.norm(output))
 
 
 class TranADModel(nn.Module):
@@ -313,7 +313,7 @@ class TranADModel(nn.Module):
         config: TranADConfig with model parameters
     """
 
-    def __init__(self, config: TranADConfig | None = None):
+    def __init__(self, config: TranADConfig | None = None) -> None:
         super().__init__()
         self.config = config or TranADConfig()
 
@@ -482,7 +482,7 @@ class Discriminator(nn.Module):
     reconstruction quality through adversarial learning.
     """
 
-    def __init__(self, input_dim: int, hidden_dim: int = 256):
+    def __init__(self, input_dim: int, hidden_dim: int = 256) -> None:
         super().__init__()
 
         self.net = nn.Sequential(
@@ -505,7 +505,7 @@ class Discriminator(nn.Module):
         Returns:
             Discrimination scores [batch, seq_len, 1]
         """
-        return self.net(x)
+        return torch.Tensor(self.net(x))
 
 
 class AdversarialTrainer:
@@ -541,16 +541,16 @@ class AdversarialTrainer:
         )
         if model.decoder2 is not None:
             gen_params += list(model.decoder2.parameters())
-            gen_params += list(model.output_projection2.parameters())
+            if model.output_projection2 is not None:
+                gen_params += list(model.output_projection2.parameters())
         if model.focus_conditioning is not None:
             gen_params += list(model.focus_conditioning.parameters())
 
         self.optimizer_g = Adam(gen_params, lr=lr_g)
 
+        self.optimizer_d: Adam | None = None
         if model.discriminator is not None:
             self.optimizer_d = Adam(model.discriminator.parameters(), lr=lr_d)
-        else:
-            self.optimizer_d = None
 
     def train_step(self, x: torch.Tensor, train_discriminator: bool = True) -> dict[str, float]:
         """
@@ -592,7 +592,7 @@ class AdversarialTrainer:
                 )
 
                 d_loss = (d_real_loss + d_fake_loss) / 2
-                d_loss.backward()
+                d_loss.backward()  # type: ignore[no-untyped-call]
                 self.optimizer_d.step()
 
                 losses["discriminator"] = d_loss.item()
@@ -611,7 +611,7 @@ class AdversarialTrainer:
 
         # Update generator
         self.optimizer_g.zero_grad()
-        g_loss.backward()
+        g_loss.backward()  # type: ignore[no-untyped-call]
         self.optimizer_g.step()
 
         losses["total"] = g_loss.item()
@@ -743,7 +743,7 @@ class MAMLOptimizer:
         meta_loss = meta_loss / len(tasks)
 
         self.meta_optimizer.zero_grad()
-        meta_loss.backward()
+        meta_loss.backward()  # type: ignore[no-untyped-call]
         self.meta_optimizer.step()
 
         return {"meta_loss": meta_loss.item()}
@@ -770,7 +770,7 @@ class MAMLOptimizer:
 class PositionalEncoding(nn.Module):
     """Sinusoidal positional encoding."""
 
-    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
+    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000) -> None:
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
 
@@ -785,8 +785,10 @@ class PositionalEncoding(nn.Module):
         self.register_buffer("pe", pe)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.pe[:, : x.size(1), :]
-        return self.dropout(x)
+        pe_buffer = self.pe
+        assert isinstance(pe_buffer, torch.Tensor), "pe must be a Tensor"
+        x = x + pe_buffer[:, : x.size(1), :]
+        return torch.Tensor(self.dropout(x))
 
 
 class TranADLoss(nn.Module):

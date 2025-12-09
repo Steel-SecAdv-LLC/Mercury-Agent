@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Spatial anomaly detector for geographic data
@@ -38,7 +39,7 @@ class SpatialAnomalyDetector(BaseDetector):
     - Spatial clustering
     """
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         super().__init__(config)
         self.n_neighbors = self.config.get("n_neighbors", 20)
         self.contamination = self.config.get("contamination", 0.1)
@@ -49,10 +50,10 @@ class SpatialAnomalyDetector(BaseDetector):
             novelty=True,
         )
 
-        self.center: np.ndarray | None = None
+        self.center: np.ndarray[Any, Any] | None = None
         self.radius_threshold: float | None = None
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> "SpatialAnomalyDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "SpatialAnomalyDetector":
         """Fit detector to normal spatial data"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
@@ -70,7 +71,7 @@ class SpatialAnomalyDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect spatial anomalies"""
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
@@ -99,7 +100,7 @@ class SpatialAnomalyDetector(BaseDetector):
             "detector_type": "spatial",
         }
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract spatial features for ML fusion"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
@@ -128,7 +129,7 @@ class SpatialAnomalyDetector(BaseDetector):
 
         return torch.tensor(features, dtype=torch.float32)
 
-    def _compute_distance_scores(self, data: np.ndarray) -> np.ndarray:
+    def _compute_distance_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute distance-based anomaly scores"""
         distances = np.linalg.norm(data - self.center, axis=1)
         scores = np.maximum(distances - self.radius_threshold, 0) / (self.radius_threshold + 1e-6)

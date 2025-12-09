@@ -4,6 +4,7 @@ Copyright (C) 2025 Steel Security Advisory LLC
 
 Base classes for real-world dataset loading and management.
 """
+from __future__ import annotations
 
 import hashlib
 import json
@@ -36,6 +37,29 @@ except ImportError:
 
 
 logger = logging.getLogger(__name__)
+
+
+def safe_urlretrieve(url: str, filename: str | Path) -> None:
+    """Safely download a file from a URL with scheme validation.
+
+    Only allows https:// and http:// schemes to prevent file:// or other
+    potentially dangerous URL schemes.
+
+    Args:
+        url: The URL to download from (must be http:// or https://)
+        filename: The local path to save the file to
+
+    Raises:
+        ValueError: If the URL scheme is not http or https
+    """
+    import urllib.request
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"URL scheme must be http or https, got: {parsed.scheme}")
+
+    urllib.request.urlretrieve(url, filename)  # noqa: S310
 
 
 class DatasetSplit(Enum):
@@ -75,7 +99,7 @@ class DatasetConfig:
     random_seed: int = 42
     credentials_path: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate configuration."""
         if abs(sum(self.split_ratios) - 1.0) > 1e-6:
             raise ValueError("Split ratios must sum to 1.0")
@@ -147,7 +171,7 @@ class DatasetLoader(ABC):
     CITATION: str = ""
     REQUIRES_CREDENTIALS: bool = False
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         """Initialize dataset loader.
 
         Args:
@@ -157,8 +181,8 @@ class DatasetLoader(ABC):
         self.data_path = Path(config.data_dir) / self.DATASET_NAME
         self.cache_path = Path(config.cache_dir) / self.DATASET_NAME
 
-        self._data: dict[DatasetSplit, np.ndarray] | None = None
-        self._labels: dict[DatasetSplit, np.ndarray] | None = None
+        self._data: dict[DatasetSplit, np.ndarray[Any, Any]] | None = None
+        self._labels: dict[DatasetSplit, np.ndarray[Any, Any]] | None = None
         self._metadata: DatasetMetadata | None = None
         self._is_loaded = False
 
@@ -176,7 +200,7 @@ class DatasetLoader(ABC):
         pass
 
     @abstractmethod
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw data from files.
 
         Returns:
@@ -185,7 +209,7 @@ class DatasetLoader(ABC):
         pass
 
     @abstractmethod
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply dataset-specific preprocessing.
 
         Args:
@@ -196,7 +220,7 @@ class DatasetLoader(ABC):
         """
         pass
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray, np.ndarray]:
+    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load dataset with specified split.
 
         Args:
@@ -207,6 +231,10 @@ class DatasetLoader(ABC):
         """
         if not self._is_loaded:
             self._load_and_cache()
+
+        # Assert data is loaded
+        assert self._data is not None
+        assert self._labels is not None
 
         if split == DatasetSplit.ALL:
             # Concatenate all splits
@@ -354,15 +382,16 @@ class DatasetLoader(ABC):
         """Get total number of samples."""
         if not self._is_loaded:
             self._load_and_cache()
-        return sum(len(d) for d in self._data.values())
+        assert self._data is not None
+        return sum(int(len(d)) for d in self._data.values())
 
-    def __iter__(self) -> Iterator[tuple[np.ndarray, np.ndarray]]:
+    def __iter__(self) -> Iterator[tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]]:
         """Iterate over all samples."""
         features, labels = self.load(DatasetSplit.ALL)
         for i in range(len(features)):
             yield features[i], labels[i]
 
-    def to_pytorch_dataset(self, split: DatasetSplit = DatasetSplit.TRAIN):
+    def to_pytorch_dataset(self, split: DatasetSplit = DatasetSplit.TRAIN) -> Any:
         """Convert to PyTorch Dataset.
 
         Args:
@@ -376,15 +405,15 @@ class DatasetLoader(ABC):
 
         features, labels = self.load(split)
 
-        class TorchDataset(Dataset):
-            def __init__(self, X, y):
+        class TorchDataset(Dataset):  # type: ignore[type-arg]
+            def __init__(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> None:
                 self.X = torch.FloatTensor(X)
                 self.y = torch.LongTensor(y)
 
-            def __len__(self):
-                return len(self.X)
+            def __len__(self) -> int:
+                return int(len(self.X))
 
-            def __getitem__(self, idx):
+            def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
                 return self.X[idx], self.y[idx]
 
         return TorchDataset(features, labels)
@@ -395,7 +424,7 @@ class DatasetLoader(ABC):
         batch_size: int = 32,
         shuffle: bool = True,
         num_workers: int = 0,
-    ):
+    ) -> Any:
         """Get PyTorch DataLoader.
 
         Args:

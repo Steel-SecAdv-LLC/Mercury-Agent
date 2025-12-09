@@ -7,6 +7,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
+from __future__ import annotations
 
 """
 Indicator Development System
@@ -200,8 +201,8 @@ class IndicatorDevelopmentSystem:
         self._indicators: dict[str, Indicator] = {}
         self._warnings: list[Warning] = []
         self._pirs: dict[str, IntelligenceRequirement] = {}
-        self._pattern_history: dict[str, list[dict]] = defaultdict(list)
-        self._domain_index: dict[str, list[str]] = defaultdict(list)
+        self._pattern_history: dict[str, list[dict]] = defaultdict[str, list[Any]](list)
+        self._domain_index: dict[str, list[str]] = defaultdict[str, list[Any]](list)
 
         # Statistics
         self._stats = {
@@ -504,7 +505,7 @@ class IndicatorDevelopmentSystem:
     ) -> list[tuple[dict, float, list]]:
         """Find frequent patterns in anomalies."""
         # Simple frequency-based pattern finding
-        pattern_counts: dict[str, list[dict]] = defaultdict(list)
+        pattern_counts: dict[str, list[dict]] = defaultdict[str, list[Any]](list)
 
         for anomaly in anomalies:
             key = self._extract_pattern_key(anomaly)

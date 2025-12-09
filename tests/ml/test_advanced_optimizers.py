@@ -17,6 +17,7 @@ Covers:
 - Lyapunov stability tracking
 - Convergence rate estimation
 """
+from __future__ import annotations
 
 import numpy as np
 import pytest
@@ -306,7 +307,7 @@ class TestOmniFusionModelAdvancedTraining:
         labels[:, 2] = torch.rand(n_samples)
 
         class DictDataset:
-            def __init__(self, features, labels):
+            def __init__(self, features, labels) -> None:
                 self.features = features
                 self.labels = labels
                 self.n_samples = labels.shape[0]
@@ -485,7 +486,7 @@ class TestLyapunovStability:
         labels[:, 2] = torch.rand(n_samples)
 
         class DictDataset:
-            def __init__(self, features, labels):
+            def __init__(self, features, labels) -> None:
                 self.features = features
                 self.labels = labels
                 self.n_samples = labels.shape[0]

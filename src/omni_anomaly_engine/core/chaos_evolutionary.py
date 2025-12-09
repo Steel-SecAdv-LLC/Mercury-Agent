@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """Chaos-Evolutionary Optimization for Adaptive Hyperparameter Tuning.
 
@@ -82,7 +83,7 @@ class ChaoticMap:
 class ChaosEvolutionOptimizer:
     """Chaos-Evolutionary Optimizer using CGO algorithm."""
 
-    def __init__(self, config: dict[str, Any] | None = None, rng: DeterministicRNG | None = None):
+    def __init__(self, config: dict[str, Any] | None = None, rng: DeterministicRNG | None = None) -> None:
         """Initialize chaos-evolutionary optimizer.
 
         Args:
@@ -104,7 +105,7 @@ class ChaosEvolutionOptimizer:
         self._rng = rng or get_global_rng()
 
         self.chaotic_map = self._get_chaotic_map()
-        self.best_solution: np.ndarray | None = None
+        self.best_solution: np.ndarray[Any, Any] | None = None
         self.best_fitness: float = np.inf
         self.convergence_history: list[float] = []
 
@@ -119,7 +120,7 @@ class ChaosEvolutionOptimizer:
         else:
             return ChaoticMap.logistic_map
 
-    def _initialize_population(self, dim: int, bounds: list[tuple[float, float]]) -> np.ndarray:
+    def _initialize_population(self, dim: int, bounds: list[tuple[float, float]]) -> np.ndarray[Any, Any]:
         """Initialize population with random solutions.
 
         Args:
@@ -137,11 +138,11 @@ class ChaosEvolutionOptimizer:
 
     def _chaos_game_step(
         self,
-        position: np.ndarray,
-        best_position: np.ndarray,
+        position: np.ndarray[Any, Any],
+        best_position: np.ndarray[Any, Any],
         chaos_value: float,
         bounds: list[tuple[float, float]],
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Perform one chaos game step for fractal-based position update.
 
         Based on CGO's fractal self-similarity and chaos game methodology.
@@ -172,7 +173,7 @@ class ChaosEvolutionOptimizer:
 
     def optimize(
         self,
-        objective_function: Callable[[np.ndarray], float],
+        objective_function: Callable[[np.ndarray[Any, Any]], float],
         dim: int,
         bounds: list[tuple[float, float]],
     ) -> dict[str, Any]:
@@ -251,7 +252,7 @@ class ChaosEvolutionOptimizer:
         bounds = [parameter_space[name] for name in param_names]
         dim = len(param_names)
 
-        def objective_wrapper(x: np.ndarray) -> float:
+        def objective_wrapper(x: np.ndarray[Any, Any]) -> float:
             param_dict = {name: x[i] for i, name in enumerate(param_names)}
             return evaluation_function(param_dict)
 
@@ -269,8 +270,8 @@ class ChaosEvolutionOptimizer:
         return tuning_results
 
     def generate_creative_hypotheses(
-        self, base_solution: np.ndarray, num_hypotheses: int = 10, chaos_intensity: float = 0.1
-    ) -> list[np.ndarray]:
+        self, base_solution: np.ndarray[Any, Any], num_hypotheses: int = 10, chaos_intensity: float = 0.1
+    ) -> list[np.ndarray[Any, Any]]:
         """Generate creative hypothesis variations using controlled chaos.
 
         Inspired by: AI and Human Creativity: Can Chaos Theory Make Machines

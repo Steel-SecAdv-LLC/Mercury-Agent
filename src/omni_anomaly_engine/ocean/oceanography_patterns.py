@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """
 Oceanography-Inspired Pattern Recognition Module
@@ -89,8 +91,8 @@ class OceanographyPatterns:
         self.pattern_history: list[WavePattern] = []
 
     def acoustic_sensing(
-        self, data: np.ndarray, pulse_frequency: float = 1.0
-    ) -> dict[str, np.ndarray]:
+        self, data: np.ndarray[Any, Any], pulse_frequency: float = 1.0
+    ) -> dict[str, np.ndarray[Any, Any]]:
         """
         Acoustic sensing analogous to sonar/echo sounder.
 
@@ -120,7 +122,7 @@ class OceanographyPatterns:
             "signal_strength": float(np.max(np.abs(reflection))),
         }
 
-    def wave_pattern_analysis(self, time_series: np.ndarray) -> list[WavePattern]:
+    def wave_pattern_analysis(self, time_series: np.ndarray[Any, Any]) -> list[WavePattern]:
         """
         Analyze wave patterns in time-series data.
 
@@ -158,7 +160,7 @@ class OceanographyPatterns:
 
         return patterns
 
-    def depth_based_stratification(self, data: np.ndarray) -> dict[str, np.ndarray]:
+    def depth_based_stratification(self, data: np.ndarray[Any, Any]) -> dict[str, np.ndarray[Any, Any]]:
         """
         Hierarchical analysis inspired by ocean depth stratification.
 
@@ -191,8 +193,8 @@ class OceanographyPatterns:
         return stratified
 
     def multi_sensor_fusion(
-        self, sensor_data: dict[str, np.ndarray], weights: dict[str, float] | None = None
-    ) -> np.ndarray:
+        self, sensor_data: dict[str, np.ndarray[Any, Any]], weights: dict[str, float] | None = None
+    ) -> np.ndarray[Any, Any]:
         """
         Multi-sensor fusion inspired by interdisciplinary oceanography.
 
@@ -227,8 +229,8 @@ class OceanographyPatterns:
         return np.array(fused_features).astype(np.float32)
 
     def systematic_sampling(
-        self, data: np.ndarray, num_samples: int = 492
-    ) -> tuple[np.ndarray, np.ndarray]:
+        self, data: np.ndarray[Any, Any], num_samples: int = 492
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Systematic sampling inspired by HMS Challenger expedition.
 
@@ -254,7 +256,7 @@ class OceanographyPatterns:
         return sample_indices, sample_values
 
     def tidal_pattern_detection(
-        self, time_series: np.ndarray, expected_period: float | None = None
+        self, time_series: np.ndarray[Any, Any], expected_period: float | None = None
     ) -> dict[str, float]:
         """
         Detect periodic patterns analogous to tides.
@@ -293,7 +295,7 @@ class OceanographyPatterns:
         }
 
     def climate_drift_detection(
-        self, historical_data: np.ndarray, recent_data: np.ndarray
+        self, historical_data: np.ndarray[Any, Any], recent_data: np.ndarray[Any, Any]
     ) -> dict[str, float]:
         """
         Detect gradual drift analogous to climate change monitoring.

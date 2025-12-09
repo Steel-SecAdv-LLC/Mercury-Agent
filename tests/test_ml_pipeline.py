@@ -5,6 +5,7 @@ Tests fusion_network, training, inference, and related ML components.
 
 Note: These tests require PyTorch to be installed.
 """
+from __future__ import annotations
 
 import numpy as np
 import pytest

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 LVLM Backend implementations for anomaly detection.
@@ -79,7 +80,7 @@ class LVLMBackend(ABC):
     @abstractmethod
     def generate(
         self,
-        images: list[Image.Image] | list[np.ndarray],
+        images: list[Image.Image] | list[np.ndarray[Any, Any]],
         prompt: str,
     ) -> str:
         """Generate response for visual question.
@@ -99,11 +100,11 @@ class LVLMBackend(ABC):
             self.initialize()
             self._initialized = True
 
-    def _to_pil(self, image: np.ndarray | Image.Image) -> Image.Image:
+    def _to_pil(self, image: np.ndarray[Any, Any] | Image.Image) -> Image.Image:
         """Convert image to PIL format."""
         if isinstance(image, Image.Image):
             return image
-        if isinstance(image, np.ndarray):
+        if isinstance(image, np.ndarray[Any, Any]):
             if image.ndim == 4:
                 image = image[0]  # Take first if batched
             if image.shape[0] in [1, 3]:  # CHW format
@@ -142,7 +143,7 @@ class Qwen2VLBackend(LVLMBackend):
 
     def generate(
         self,
-        images: list[Image.Image] | list[np.ndarray],
+        images: list[Image.Image] | list[np.ndarray[Any, Any]],
         prompt: str,
     ) -> str:
         """Generate response using Qwen2-VL."""
@@ -220,7 +221,7 @@ class MiniCPMVBackend(LVLMBackend):
 
     def generate(
         self,
-        images: list[Image.Image] | list[np.ndarray],
+        images: list[Image.Image] | list[np.ndarray[Any, Any]],
         prompt: str,
     ) -> str:
         """Generate response using MiniCPM-V."""
@@ -270,7 +271,7 @@ class LLaVABackend(LVLMBackend):
 
     def generate(
         self,
-        images: list[Image.Image] | list[np.ndarray],
+        images: list[Image.Image] | list[np.ndarray[Any, Any]],
         prompt: str,
     ) -> str:
         """Generate response using LLaVA."""
@@ -319,7 +320,7 @@ class MockLVLMBackend(LVLMBackend):
 
     def generate(
         self,
-        images: list[Image.Image] | list[np.ndarray],
+        images: list[Image.Image] | list[np.ndarray[Any, Any]],
         prompt: str,
     ) -> str:
         """Generate mock response."""
@@ -334,7 +335,7 @@ class MockLVLMBackend(LVLMBackend):
 
     def vqa(
         self,
-        image: Image.Image | np.ndarray | torch.Tensor,
+        image: Image.Image | np.ndarray[Any, Any] | torch.Tensor,
         question: str,
     ) -> str:
         """Visual Question Answering for test compatibility.

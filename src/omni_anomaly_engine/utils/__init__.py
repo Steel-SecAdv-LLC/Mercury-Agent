@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Utilities subpackage
@@ -85,9 +86,9 @@ from omni_anomaly_engine.utils.rng import (
 
 
 def normalize_data(
-    data: Union[np.ndarray, "torch.Tensor"],
+    data: Union[np.ndarray[Any, Any], "torch.Tensor"],
     method: str = "standard",
-) -> Union[np.ndarray, "torch.Tensor"]:
+) -> Union[np.ndarray[Any, Any], "torch.Tensor"]:
     """
     Normalize data using specified method.
 
@@ -158,7 +159,7 @@ def compute_complexity(func_code: str) -> int:
 
 
 def compress_information(
-    data: np.ndarray,
+    data: np.ndarray[Any, Any],
     compression_level: int = 9,
 ) -> tuple[bytes, dict[str, Any]]:
     """
@@ -186,7 +187,7 @@ def compress_information(
 def decompress_information(
     compressed: bytes,
     metadata: dict[str, Any],
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """
     Decompress data compressed by compress_information
     """
@@ -201,9 +202,9 @@ def decompress_information(
 
 
 def gravitational_lensing(
-    signal: np.ndarray,
+    signal: np.ndarray[Any, Any],
     amplification_factor: float = 3.0,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """
     Amplify weak signals using gravitational lensing analogy
     """
@@ -219,7 +220,7 @@ def gravitational_lensing(
 
 
 def detect_singularity(
-    data: np.ndarray,
+    data: np.ndarray[Any, Any],
     threshold_percentile: float = 99.0,
 ) -> dict[str, Any]:
     """
@@ -250,9 +251,9 @@ def detect_singularity(
 
 
 def compute_time_dilation(
-    priority_scores: np.ndarray,
+    priority_scores: np.ndarray[Any, Any],
     mass_factor: float = 1.0,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """
     Compute time dilation factor for priority weighting
     """

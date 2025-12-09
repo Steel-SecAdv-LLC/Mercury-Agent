@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Vision-Language Model (VLM) Anomaly Detection Module
@@ -67,21 +68,15 @@ from omni_anomaly_engine.detectors.vlm.lavad import LAVADDetector
 from omni_anomaly_engine.detectors.vlm.lvlm_backends import LVLMBackend, get_lvlm_backend
 
 __all__ = [
-    # Detectors
     "AnyAnomalyDetector",
+    "BLIPConfig",
     "BLIPVLMDetector",
-    # Base classes
     "BaseVLMDetector",
     "LAVADDetector",
-    # Backends
     "LVLMBackend",
-    # Context providers
     "PositionContextProvider",
     "TemporalContextProvider",
-    # Configs
-    "BLIPConfig",
     "VLMConfig",
-    # Factory functions
     "create_blip_detector",
     "get_lvlm_backend",
 ]

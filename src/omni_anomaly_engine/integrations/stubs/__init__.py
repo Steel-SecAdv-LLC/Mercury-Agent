@@ -4,6 +4,7 @@ External service stubs for testing and development.
 These stubs provide mock implementations of external services,
 allowing development and testing without actual service dependencies.
 """
+from __future__ import annotations
 
 from omni_anomaly_engine.integrations.stubs.cache import CacheEntry, CacheStub
 from omni_anomaly_engine.integrations.stubs.database import DatabaseStub, QueryResult

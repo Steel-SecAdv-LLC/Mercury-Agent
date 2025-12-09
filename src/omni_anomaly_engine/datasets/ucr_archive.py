@@ -15,14 +15,14 @@ References:
 """
 
 from __future__ import annotations
+from typing import Any
 
 import logging
-import os
 import zipfile
 
 import numpy as np
 
-from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit
+from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit, safe_urlretrieve
 
 logger = logging.getLogger(__name__)
 
@@ -74,24 +74,24 @@ class UCRLoader(DatasetLoader):
         "SonyAIBORobotSurface2",
     ]
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.dataset_name = config.preprocessing.get("dataset_name", "ECG5000")
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw UCR data - redirects to load()."""
         return self.load()
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply UCR-specific preprocessing (z-normalization)."""
         mean = np.mean(data, axis=1, keepdims=True)
         std = np.std(data, axis=1, keepdims=True) + 1e-8
-        return (data - mean) / std
+        result: np.ndarray[Any, Any] = (data - mean) / std
+        return result
 
     def download(self) -> bool:
         """Download UCR archive (or specific dataset)."""
         import urllib.error
-        import urllib.request
 
         logger.info(f"Downloading UCR dataset: {self.dataset_name}")
 
@@ -106,17 +106,17 @@ class UCRLoader(DatasetLoader):
         try:
             zip_path = self.data_path / f"{self.dataset_name}.zip"
             logger.info("  Trying dataset-specific download...")
-            urllib.request.urlretrieve(specific_url, zip_path)
+            safe_urlretrieve(specific_url, zip_path)
 
             # Extract
             with zipfile.ZipFile(zip_path, "r") as zf:
                 zf.extractall(self.data_path)
 
-            os.remove(zip_path)
+            zip_path.unlink()
             logger.info(f"  Downloaded {self.dataset_name}")
             return True
 
-        except urllib.error.URLError:
+        except (urllib.error.URLError, ValueError):
             logger.warning("  Dataset-specific download failed")
 
         # Provide instructions for full archive
@@ -135,7 +135,7 @@ class UCRLoader(DatasetLoader):
 
         return False
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray, np.ndarray]:
+    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load UCR dataset."""
         dataset_path = self.data_path / self.dataset_name
 
@@ -177,8 +177,8 @@ class UCRLoader(DatasetLoader):
             return features, labels
 
     def convert_to_anomaly_labels(
-        self, labels: np.ndarray, anomaly_class: int | None = None
-    ) -> np.ndarray:
+        self, labels: np.ndarray[Any, Any], anomaly_class: int | None = None
+    ) -> np.ndarray[Any, Any]:
         """
         Convert classification labels to binary anomaly labels.
 
@@ -195,7 +195,8 @@ class UCRLoader(DatasetLoader):
             # Treat minority class as anomaly
             anomaly_class = unique[np.argmin(counts)]
 
-        return (labels == anomaly_class).astype(int)
+        result: np.ndarray[Any, Any] = (labels == anomaly_class).astype(int)
+        return result
 
     def get_metadata(self) -> DatasetMetadata:
         """Get dataset metadata."""
@@ -247,25 +248,25 @@ class MBALoader(DatasetLoader):
     # Fault types
     FAULT_TYPES = ["Normal", "Inner_Race", "Outer_Race", "Ball"]
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.fault_type = config.preprocessing.get("fault_type", "all")
         self.load_rpm = config.preprocessing.get("load_rpm", 1797)
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw MBA/CWRU data - redirects to load()."""
         return self.load()
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply MBA-specific preprocessing (z-normalization per window)."""
         mean = np.mean(data, axis=1, keepdims=True)
         std = np.std(data, axis=1, keepdims=True) + 1e-8
-        return (data - mean) / std
+        result: np.ndarray[Any, Any] = (data - mean) / std
+        return result
 
     def download(self) -> bool:
         """Download CWRU bearing data."""
         import urllib.error
-        import urllib.request
 
         logger.info("Downloading CWRU Bearing Dataset (MBA)...")
 
@@ -287,8 +288,8 @@ class MBALoader(DatasetLoader):
             if not output_path.exists():
                 try:
                     logger.info(f"  Downloading {name}...")
-                    urllib.request.urlretrieve(url, output_path)
-                except urllib.error.URLError as e:
+                    safe_urlretrieve(url, output_path)
+                except (urllib.error.URLError, ValueError) as e:
                     logger.warning(f"  Failed: {e}")
 
         logger.info("CWRU download complete (partial)")
@@ -296,7 +297,7 @@ class MBALoader(DatasetLoader):
 
         return True
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray, np.ndarray]:
+    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load MBA/CWRU bearing data."""
         try:
             from scipy.io import loadmat
@@ -332,7 +333,7 @@ class MBALoader(DatasetLoader):
 
                 # Find the vibration data key
                 data_key = None
-                for key in mat_data.keys():
+                for key in mat_data:
                     if not key.startswith("_") and isinstance(mat_data[key], np.ndarray):
                         if mat_data[key].size > 1000:
                             data_key = key
@@ -404,21 +405,22 @@ class MSDSLoader(DatasetLoader):
     CITATION = """Multi-Source Data Stream synthetic benchmark."""
     REQUIRES_CREDENTIALS = False
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.n_sources = config.preprocessing.get("n_sources", 3)
         self.n_samples = config.preprocessing.get("n_samples", 10000)
         self.anomaly_ratio = config.preprocessing.get("anomaly_ratio", 0.05)
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw MSDS data - redirects to load()."""
         return self.load()
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply MSDS-specific preprocessing (z-normalization per feature)."""
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0) + 1e-8
-        return (data - mean) / std
+        result: np.ndarray[Any, Any] = (data - mean) / std
+        return result
 
     def download(self) -> bool:
         """Generate synthetic MSDS data."""
@@ -437,7 +439,7 @@ class MSDSLoader(DatasetLoader):
         base = np.sin(0.1 * t) + 0.5 * np.sin(0.3 * t)
 
         # Generate sources with shared component
-        features = []
+        features_list: list[np.ndarray[Any, Any]] = []
         for s in range(self.n_sources):
             source_data = np.zeros((self.n_samples, n_features_per_source))
             for f in range(n_features_per_source):
@@ -446,9 +448,9 @@ class MSDSLoader(DatasetLoader):
                 unique = np.sin(0.2 * (s + 1) * (f + 1) * t / 10)
                 noise = 0.1 * np.random.randn(self.n_samples)
                 source_data[:, f] = shared + unique + noise
-            features.append(source_data)
+            features_list.append(source_data)
 
-        features = np.hstack(features)
+        features: np.ndarray[Any, Any] = np.hstack(features_list)
 
         # Generate correlated anomalies
         n_anomalies = int(self.n_samples * self.anomaly_ratio)
@@ -486,7 +488,7 @@ class MSDSLoader(DatasetLoader):
         logger.info(f"Generated MSDS: {self.n_samples} samples, {total_features} features")
         return True
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray, np.ndarray]:
+    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load MSDS data."""
         data_file = self.data_path / "msds_data.npz"
 

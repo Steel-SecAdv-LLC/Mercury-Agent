@@ -21,6 +21,7 @@ These metrics match those used in benchmark papers:
 - DAGMM (ICLR 2018)
 - TranAD (VLDB 2022)
 """
+from __future__ import annotations
 
 from .baselines import (
     BASELINE_RESULTS,
@@ -45,23 +46,21 @@ from .metrics import (
 )
 
 __all__ = [
-    # Metrics
-    "AnomalyMetrics",
-    "compute_auc_roc",
-    "compute_auc_pr",
-    "compute_f1",
-    "compute_best_f1",
-    "compute_precision_at_k",
-    "compute_point_adjusted_f1",
-    "compute_range_based_f1",
-    "evaluate_anomaly_detection",
-    "print_metrics_report",
-    # Baseline Comparison
     "BASELINE_RESULTS",
+    "AnomalyMetrics",
     "BaselineComparison",
     "compare_to_baselines",
-    "print_baseline_table",
+    "compute_auc_pr",
+    "compute_auc_roc",
+    "compute_best_f1",
+    "compute_f1",
+    "compute_point_adjusted_f1",
+    "compute_precision_at_k",
+    "compute_range_based_f1",
+    "evaluate_anomaly_detection",
     "get_baseline_citations",
     "get_sota_for_dataset",
     "list_available_datasets",
+    "print_baseline_table",
+    "print_metrics_report",
 ]

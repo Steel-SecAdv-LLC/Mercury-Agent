@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 CYBINT Sub-Processor - Advanced Cyber Intelligence Analysis
@@ -135,7 +136,7 @@ class APTPatternRecognizer(nn.Module):
     Analyzes attack patterns, TTPs, and infrastructure for attribution.
     """
 
-    def __init__(self, input_dim: int = 256):
+    def __init__(self, input_dim: int = 256) -> None:
         super().__init__()
 
         self.pattern_encoder = nn.Sequential(
@@ -179,7 +180,7 @@ class MalwareTaxonomyClassifier(nn.Module):
     Identifies malware families from behavioral and static analysis features.
     """
 
-    def __init__(self, input_dim: int = 128):
+    def __init__(self, input_dim: int = 128) -> None:
         super().__init__()
 
         self.feature_extractor = nn.Sequential(
@@ -207,7 +208,7 @@ class MalwareTaxonomyClassifier(nn.Module):
             Family classification logits
         """
         features = self.feature_extractor(malware_features)
-        classification = self.family_classifier(features)
+        classification: torch.Tensor = self.family_classifier(features)
 
         return classification
 
@@ -219,7 +220,7 @@ class C2InfrastructureDetector:
     Identifies C2 channels, protocols, and infrastructure patterns.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
         self.c2_signatures = {
@@ -296,7 +297,7 @@ class C2InfrastructureDetector:
 
         if entropy_scores:
             avg_entropy = np.mean(entropy_scores)
-            return avg_entropy > 3.5
+            return bool(avg_entropy > 3.5)
 
         return False
 
@@ -305,7 +306,7 @@ class C2InfrastructureDetector:
         if not domain:
             return 0.0
 
-        freq = defaultdict(int)
+        freq = defaultdict[str, int](int)
         for char in domain:
             freq[char] += 1
 
@@ -342,7 +343,7 @@ class ZeroDayIndicatorAnalyzer:
     Identifies potential zero-day vulnerabilities based on anomalous patterns.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def analyze_zero_day_likelihood(self, exploit_data: dict[str, Any]) -> dict[str, Any]:
@@ -476,6 +477,7 @@ class CYBINTSubProcessor:
                 result.threat_detected = True
 
         if self.enable_c2_detection and "network_data" in threat_data:
+            assert self.c2_detector is not None, "C2 detector must be initialized"
             c2_result = self.c2_detector.detect_c2(threat_data["network_data"])
             result.c2_indicators = c2_result["c2_indicators"]
             result.recommended_actions.extend(c2_result["recommendations"])
@@ -485,6 +487,7 @@ class CYBINTSubProcessor:
                 result.threat_severity = "critical"
 
         if self.enable_zero_day_analysis and "exploit_data" in threat_data:
+            assert self.zero_day_analyzer is not None, "Zero day analyzer must be initialized"
             zero_day_result = self.zero_day_analyzer.analyze_zero_day_likelihood(
                 threat_data["exploit_data"]
             )
@@ -513,16 +516,17 @@ class CYBINTSubProcessor:
 
         return result
 
-    def _attribute_apt(self, features: np.ndarray) -> dict[str, Any]:
+    def _attribute_apt(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Attribute threat to APT group"""
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
+        assert self.apt_recognizer is not None, "APT recognizer must be initialized"
         self.apt_recognizer.eval()
         with torch.no_grad():
             apt_logits, _confidence = self.apt_recognizer(features_tensor)
 
         probs = torch.softmax(apt_logits[0], dim=0)
-        apt_idx = torch.argmax(probs).item()
+        apt_idx: int = int(torch.argmax(probs).item())
         apt_confidence = float(probs[apt_idx].item())
 
         apt_groups = [e.value for e in APTGroup]
@@ -530,16 +534,17 @@ class CYBINTSubProcessor:
 
         return {"apt_group": identified_apt, "confidence": apt_confidence}
 
-    def _classify_malware(self, features: np.ndarray) -> dict[str, Any]:
+    def _classify_malware(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Classify malware family"""
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
+        assert self.malware_classifier is not None, "Malware classifier must be initialized"
         self.malware_classifier.eval()
         with torch.no_grad():
             classification = self.malware_classifier(features_tensor)
 
         probs = torch.softmax(classification[0], dim=0)
-        family_idx = torch.argmax(probs).item()
+        family_idx: int = int(torch.argmax(probs).item())
         confidence = float(probs[family_idx].item())
 
         families = [e.value for e in MalwareFamily]

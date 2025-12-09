@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Geological Hazard Detectors
@@ -56,35 +57,28 @@ from omni_anomaly_engine.detectors.geological.tornado_detector import (
 )
 
 __all__ = [
-    # Tornado detection
-    "TornadoDetector",
-    "TornadoPredictionResult",
-    "TornadoIntensity",
-    "TornadoThreatLevel",
-    # Hurricane/Cyclone/Typhoon detection
-    "HurricaneDetector",
-    "HurricanePredictionResult",
-    "SaffirSimpsonCategory",
     "CycloneType",
-    # Flood detection
+    "EarthquakeDetector",
+    "EarthquakeMagnitude",
+    "EarthquakePredictionResult",
     "FloodDetector",
     "FloodPredictionResult",
     "FloodSeverity",
     "FloodType",
-    # Tsunami detection
-    "TsunamiDetector",
-    "TsunamiPredictionResult",
-    "TsunamiSeverity",
-    # Earthquake detection
-    "EarthquakeDetector",
-    "EarthquakePredictionResult",
-    "EarthquakeMagnitude",
-    # Meteor detection
+    "HurricaneDetector",
+    "HurricanePredictionResult",
     "MeteorDetector",
     "MeteorPredictionResult",
     "MeteorThreatLevel",
-    # Solar flare detection
+    "SaffirSimpsonCategory",
+    "SolarFlareClass",
     "SolarFlareDetector",
     "SolarFlarePredictionResult",
-    "SolarFlareClass",
+    "TornadoDetector",
+    "TornadoIntensity",
+    "TornadoPredictionResult",
+    "TornadoThreatLevel",
+    "TsunamiDetector",
+    "TsunamiPredictionResult",
+    "TsunamiSeverity",
 ]

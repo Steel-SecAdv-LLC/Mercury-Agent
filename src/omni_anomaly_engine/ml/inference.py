@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Production inference utilities for fusion model
@@ -44,7 +45,7 @@ class InferenceEngine:
     numpy/tensor conversion, and no_grad context management.
     """
 
-    def __init__(self, model: nn.Module, device: str = "cpu"):
+    def __init__(self, model: nn.Module, device: str = "cpu") -> None:
         """Initialize inference engine.
 
         Args:
@@ -55,7 +56,7 @@ class InferenceEngine:
         self.model = model.to(self.device)
         self.model.eval()
 
-    def predict(self, x: torch.Tensor | np.ndarray) -> torch.Tensor:
+    def predict(self, x: torch.Tensor | np.ndarray[Any, Any]) -> torch.Tensor:
         """Run inference on input data.
 
         Args:
@@ -70,11 +71,11 @@ class InferenceEngine:
         x = x.to(self.device)
 
         with torch.no_grad():
-            output = self.model(x)
+            output: torch.Tensor = self.model(x)
 
         return output
 
-    def predict_proba(self, x: torch.Tensor | np.ndarray) -> torch.Tensor:
+    def predict_proba(self, x: torch.Tensor | np.ndarray[Any, Any]) -> torch.Tensor:
         """Run inference and apply softmax for probabilities.
 
         Args:
@@ -94,7 +95,7 @@ class BatchInference:
     splitting into batches and optionally streaming results.
     """
 
-    def __init__(self, model: nn.Module, batch_size: int = 32, device: str = "cpu"):
+    def __init__(self, model: nn.Module, batch_size: int = 32, device: str = "cpu") -> None:
         """Initialize batch inference.
 
         Args:
@@ -106,7 +107,7 @@ class BatchInference:
         self.batch_size = batch_size
         self.device = torch.device(device)
 
-    def predict(self, x: torch.Tensor | np.ndarray) -> torch.Tensor:
+    def predict(self, x: torch.Tensor | np.ndarray[Any, Any]) -> torch.Tensor:
         """Run batched inference on input data.
 
         Args:
@@ -167,7 +168,7 @@ class ModelEnsemble:
         for model in self.models:
             model.eval()
 
-    def predict(self, x: torch.Tensor | np.ndarray) -> torch.Tensor:
+    def predict(self, x: torch.Tensor | np.ndarray[Any, Any]) -> torch.Tensor:
         """Run ensemble inference with aggregation.
 
         Args:
@@ -197,7 +198,7 @@ class ModelEnsemble:
             return stacked.mean(dim=0)
 
     def predict_with_uncertainty(
-        self, x: torch.Tensor | np.ndarray
+        self, x: torch.Tensor | np.ndarray[Any, Any]
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Run ensemble inference with uncertainty estimation.
 
@@ -262,7 +263,7 @@ class FusionInference:
 
     def predict(
         self,
-        detector_features: dict[str, np.ndarray | torch.Tensor],
+        detector_features: dict[str, np.ndarray[Any, Any] | torch.Tensor],
         return_attention: bool = False,
         batch_size: int = 32,
     ) -> dict[str, Any]:
@@ -277,7 +278,7 @@ class FusionInference:
         Returns:
             Dict containing predictions and optionally attention weights
         """
-        features_tensor = {
+        features_tensor: dict[str, torch.Tensor] = {
             k: (torch.tensor(v, dtype=torch.float32) if isinstance(v, np.ndarray) else v)
             for k, v in detector_features.items()
         }
@@ -310,7 +311,7 @@ class FusionInference:
 
     def predict_batch(
         self,
-        detector_features_list: list[dict[str, np.ndarray | torch.Tensor]],
+        detector_features_list: list[dict[str, np.ndarray[Any, Any] | torch.Tensor]],
         batch_size: int = 32,
     ) -> list[dict[str, Any]]:
         """
@@ -328,18 +329,16 @@ class FusionInference:
         for i in range(0, len(detector_features_list), batch_size):
             batch = detector_features_list[i : i + batch_size]
 
-            batch_features = {}
+            batch_features: dict[str, np.ndarray[Any, Any] | torch.Tensor] = {}
             for key in batch[0]:
-                batch_features[key] = torch.stack(
-                    [
-                        (
-                            torch.tensor(sample[key], dtype=torch.float32)
-                            if isinstance(sample[key], np.ndarray)
-                            else sample[key]
-                        )
-                        for sample in batch
-                    ]
-                )
+                tensors: list[torch.Tensor] = []
+                for sample in batch:
+                    val = sample[key]
+                    if isinstance(val, np.ndarray):
+                        tensors.append(torch.tensor(val, dtype=torch.float32))
+                    else:
+                        tensors.append(val)
+                batch_features[key] = torch.stack(tensors)
 
             batch_results = self.predict(batch_features, batch_size=batch_size)
 
@@ -368,7 +367,7 @@ class FusionInference:
 
     def explain(
         self,
-        detector_features: dict[str, np.ndarray | torch.Tensor],
+        detector_features: dict[str, np.ndarray[Any, Any] | torch.Tensor],
     ) -> dict[str, Any]:
         """
         Get explanation for a prediction via attention weights.

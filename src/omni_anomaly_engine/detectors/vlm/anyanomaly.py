@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 AnyAnomaly: Zero-Shot Customizable Video Anomaly Detection with LVLM
@@ -99,7 +100,7 @@ class AnyAnomalyDetector(BaseVLMDetector):
         >>> print(f"Anomaly at frames: {results['anomaly_frames']}")
     """
 
-    def __init__(self, config: AnyAnomalyConfig | dict[str, Any] | None = None):
+    def __init__(self, config: AnyAnomalyConfig | dict[str, Any] | None = None) -> None:
         """Initialize AnyAnomaly detector.
 
         Args:
@@ -283,8 +284,8 @@ EXPLANATION: [Your detailed explanation]
 
     def _segment_video(
         self,
-        frames: np.ndarray,
-    ) -> list[tuple[int, int, np.ndarray]]:
+        frames: np.ndarray[Any, Any],
+    ) -> list[tuple[int, int, np.ndarray[Any, Any]]]:
         """Segment video into overlapping segments.
 
         Args:
@@ -309,7 +310,7 @@ EXPLANATION: [Your detailed explanation]
 
         return segments
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using VLM-based VQA.
 
         Args:
@@ -411,9 +412,9 @@ EXPLANATION: [Your detailed explanation]
 
     def _sample_key_frames(
         self,
-        segment: np.ndarray,
+        segment: np.ndarray[Any, Any],
         max_frames: int = 4,
-    ) -> list[np.ndarray]:
+    ) -> list[np.ndarray[Any, Any]]:
         """Sample key frames from segment for LVLM input.
 
         Args:
@@ -433,7 +434,7 @@ EXPLANATION: [Your detailed explanation]
 
         return [segment[i] for i in indices]
 
-    def _numpy_to_pil(self, frame: np.ndarray) -> Any:
+    def _numpy_to_pil(self, frame: np.ndarray[Any, Any]) -> Any:
         """Convert numpy frame to PIL Image."""
         from PIL import Image
 
@@ -456,7 +457,7 @@ EXPLANATION: [Your detailed explanation]
 
     def _generate_features(
         self,
-        scores: np.ndarray,
+        scores: np.ndarray[Any, Any],
         segment_results: list[dict[str, Any]],
     ) -> torch.Tensor:
         """Generate feature representation for fusion.
@@ -498,7 +499,7 @@ EXPLANATION: [Your detailed explanation]
 
         return torch.from_numpy(features).float().unsqueeze(0)
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion pipeline.
 
         Args:

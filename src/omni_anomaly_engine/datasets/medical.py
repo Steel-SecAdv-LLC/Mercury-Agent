@@ -15,6 +15,8 @@ References:
 - MIMIC-IV: https://physionet.org/content/mimiciv/
 - PhysioNet Guidelines: https://physionet.org/news/post/mimic-derived-datasets-models
 """
+from __future__ import annotations
+from typing import Any
 
 import logging
 
@@ -80,7 +82,7 @@ class MIMICLoader(DatasetLoader):
     ]
     FEATURE_NAMES = VITAL_FEATURES + LAB_FEATURES
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         """Initialize MIMIC loader.
 
         Args:
@@ -170,7 +172,7 @@ class MIMICLoader(DatasetLoader):
         logger.info(f"Generated {n_samples} synthetic samples, {labels.sum()} anomalies")
         return True
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load MIMIC data from disk."""
         # Check for real MIMIC tables
         chartevents_path = self.data_path / "CHARTEVENTS.csv.gz"
@@ -185,7 +187,7 @@ class MIMICLoader(DatasetLoader):
 
         raise FileNotFoundError("MIMIC data not found")
 
-    def _load_real_mimic(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_real_mimic(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load and process real MIMIC-III tables."""
         logger.info("Loading real MIMIC-III data...")
 
@@ -238,7 +240,7 @@ class MIMICLoader(DatasetLoader):
 
         return np.array(features_list), np.array(labels_list)
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess MIMIC features."""
         # Handle missing values
         data = np.nan_to_num(data, nan=0.0)
@@ -285,7 +287,7 @@ class PhysioNetLoader(DatasetLoader):
         "slpdb": "https://physionet.org/content/slpdb/1.0.0/",
     }
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.subdataset = config.preprocessing.get("subdataset", "mitbih")
 
@@ -344,7 +346,7 @@ class PhysioNetLoader(DatasetLoader):
         logger.info(f"Generated {n_samples} synthetic ECG samples")
         return True
 
-    def _generate_ecg_beat(self, t: np.ndarray, heart_rate: float) -> np.ndarray:
+    def _generate_ecg_beat(self, t: np.ndarray[Any, Any], heart_rate: float) -> np.ndarray[Any, Any]:
         """Generate synthetic ECG beat."""
         # Simplified ECG model using Gaussian pulses
         beat_duration = 60.0 / heart_rate
@@ -371,14 +373,14 @@ class PhysioNetLoader(DatasetLoader):
 
         return full_ecg
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         synthetic_path = self.data_path / "synthetic_ecg.npz"
         if synthetic_path.exists():
             data = np.load(synthetic_path)
             return data["features"], data["labels"]
         raise FileNotFoundError("PhysioNet data not found")
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess ECG signals."""
         # Normalize each signal
         data = (data - data.mean(axis=1, keepdims=True)) / (data.std(axis=1, keepdims=True) + 1e-8)
@@ -394,11 +396,11 @@ class SepsisDataset(MIMICLoader):
 
     DATASET_NAME = "sepsis"
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         config.preprocessing["task"] = "sepsis"
         super().__init__(config)
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load sepsis data from disk."""
         # Check for sepsis-specific synthetic data first
         sepsis_path = self.data_path / "synthetic_sepsis.npz"
@@ -466,7 +468,7 @@ class CardiologyDataset(PhysioNetLoader):
 
     DATASET_NAME = "cardiology"
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         config.preprocessing["subdataset"] = "ptbdb"
         super().__init__(config)
 

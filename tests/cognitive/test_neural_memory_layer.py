@@ -4,6 +4,7 @@ Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for Neural Memory Layer - Memory Embeddings and Pattern Detection
 """
+from __future__ import annotations
 
 import time
 

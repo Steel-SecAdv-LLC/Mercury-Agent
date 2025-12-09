@@ -7,6 +7,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
+from __future__ import annotations
 
 """
 Cognitive Orchestrator - Unified Integration Layer
@@ -229,7 +230,7 @@ class CognitiveOrchestrator:
     def analyze(
         self,
         detection_result: dict[str, Any],
-        raw_data: np.ndarray | None = None,
+        raw_data: np.ndarray[Any, Any] | None = None,
         context: dict[str, Any] | None = None,
     ) -> CognitiveAnalysisResult:
         """

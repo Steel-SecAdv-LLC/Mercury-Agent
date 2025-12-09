@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Electromagnetic Pulse (EMP) & Energy Surge Detector
@@ -110,7 +111,7 @@ class E1PulseDetector:
     Characteristics: Very fast (nanoseconds), high frequency
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def detect_e1_pulse(self, sensor_data: dict[str, Any]) -> dict[str, Any]:
@@ -154,7 +155,7 @@ class E3PulseDetector:
     Characteristics: Slow (seconds to minutes), low frequency, GIC induction
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def detect_e3_pulse(self, magnetometer_data: dict[str, Any]) -> dict[str, Any]:
@@ -200,7 +201,7 @@ class IntentionalEMIDetector(nn.Module):
     Distinguishes attacks from natural/accidental sources.
     """
 
-    def __init__(self, input_dim: int = 64):
+    def __init__(self, input_dim: int = 64) -> None:
         super().__init__()
 
         phi = 1.618

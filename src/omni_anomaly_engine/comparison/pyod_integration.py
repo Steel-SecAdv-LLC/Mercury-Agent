@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 PyOD Integration and Comparison
@@ -67,11 +68,11 @@ class PyODComparison:
     - Algorithm selection guidance
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.algorithm_characteristics = self._init_algorithm_profiles()
-        self.benchmark_results = {}
+        self.benchmark_results: dict[str, Any] = {}
 
-    def _init_algorithm_profiles(self) -> dict:
+    def _init_algorithm_profiles(self) -> dict[PyODAlgorithm, dict[str, Any]]:
         """Initialize algorithm characteristics for selection guidance."""
         return {
             PyODAlgorithm.ISOLATION_FOREST: {
@@ -121,8 +122,8 @@ class PyODComparison:
         }
 
     def recommend_algorithm(
-        self, data_characteristics: dict[str, Any], constraints: dict | None = None
-    ) -> dict:
+        self, data_characteristics: dict[str, Any], constraints: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         Recommend best algorithm(s) based on data characteristics.
 
@@ -157,7 +158,9 @@ class PyODComparison:
                 }
             )
 
-        recommendations.sort(key=lambda x: x["priority"])
+        def get_priority(x: dict[str, object]) -> int:
+            return int(str(x["priority"]))
+        recommendations.sort(key=get_priority)
 
         return {
             "recommendations": recommendations,
@@ -167,9 +170,9 @@ class PyODComparison:
 
     def combine_predictions(
         self,
-        predictions: dict[str, np.ndarray],
+        predictions: dict[str, np.ndarray[Any, Any]],
         method: CombinationMethod = CombinationMethod.AVERAGE,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Combine predictions from multiple detectors using PyOD-inspired methods.
 
@@ -183,10 +186,10 @@ class PyODComparison:
         scores_matrix = np.array(list(predictions.values()))
 
         if method == CombinationMethod.AVERAGE:
-            return np.mean(scores_matrix, axis=0)
+            return np.asarray(np.mean(scores_matrix, axis=0))
 
         elif method == CombinationMethod.MAXIMUM:
-            return np.max(scores_matrix, axis=0)
+            return np.asarray(np.max(scores_matrix, axis=0))
 
         elif method == CombinationMethod.AOM:
             num_detectors = len(predictions)
@@ -196,7 +199,7 @@ class PyODComparison:
 
             max_scores = [np.max(partition, axis=0) for partition in partitions]
 
-            return np.mean(max_scores, axis=0)
+            return np.asarray(np.mean(max_scores, axis=0))
 
         elif method == CombinationMethod.MOA:
             num_detectors = len(predictions)
@@ -206,17 +209,17 @@ class PyODComparison:
 
             avg_scores = [np.mean(partition, axis=0) for partition in partitions]
 
-            return np.max(avg_scores, axis=0)
+            return np.asarray(np.max(avg_scores, axis=0))
 
-        return np.mean(scores_matrix, axis=0)
+        return np.asarray(np.mean(scores_matrix, axis=0))
 
     def benchmark_against_pyod(
         self,
-        omni_engine,
-        test_data: np.ndarray,
-        ground_truth: np.ndarray,
+        omni_engine: Any,
+        test_data: np.ndarray[Any, Any],
+        ground_truth: np.ndarray[Any, Any],
         pyod_algorithms: list[PyODAlgorithm],
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Benchmark OMNI ♱ AVA against PyOD algorithms.
 
@@ -244,7 +247,7 @@ class PyODComparison:
 
         return results
 
-    def _evaluate_detector(self, detector, data: np.ndarray, labels: np.ndarray) -> dict:
+    def _evaluate_detector(self, detector: Any, data: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Evaluate detector performance."""
         try:
             scores = detector.predict(data)
@@ -264,7 +267,7 @@ class PyODComparison:
         except Exception as e:
             return {"error": str(e)}
 
-    def _generate_comparison_summary(self, results: dict) -> dict:
+    def _generate_comparison_summary(self, results: dict[str, Any]) -> dict[str, Any]:
         """Generate summary comparing OMNI-AVA with PyOD algorithms."""
         return {
             "omni_ava_strengths": [

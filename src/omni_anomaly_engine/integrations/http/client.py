@@ -27,6 +27,7 @@ Example:
             retry_attempts=3,
         )
 """
+from __future__ import annotations
 
 import asyncio
 import hashlib
@@ -143,7 +144,7 @@ class HTTPError(Exception):
 class CircuitOpenError(HTTPError):
     """Raised when circuit breaker is open."""
 
-    def __init__(self, service_name: str):
+    def __init__(self, service_name: str) -> None:
         super().__init__(f"Circuit breaker open for service: {service_name}")
         self.service_name = service_name
 

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Bayesian Confidence Calibrator for Mercury Agent
@@ -37,7 +38,7 @@ References:
 
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -130,7 +131,7 @@ class BayesianConfidenceCalibrator:
     The model is fully interpretable: each context has just (alpha, beta, counts).
     """
 
-    def __init__(self, config: CalibrationConfig | None = None):
+    def __init__(self, config: CalibrationConfig | None = None) -> None:
         """
         Initialize the Bayesian confidence calibrator.
 

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """Emerging technology monitoring and anomaly detection.
 
@@ -34,7 +35,7 @@ class EmergingTechMonitor:
     future-proofs the engine against unknown technology threats.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Emerging Tech Monitor."""
         self.tech_categories = {
             "energy": {

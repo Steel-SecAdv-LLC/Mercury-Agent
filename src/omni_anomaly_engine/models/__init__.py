@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Model modules for OMNI ♱ AVA anomaly detection.
@@ -23,37 +24,35 @@ Uses lazy imports to avoid circular dependency issues during package initializat
 """
 
 __all__ = [
-    # Core Models
     "AdvancedBiometricEngine",
+    "AdversarialTrainer",
     "AffectiveAnomalyModel",
     "AgeProgressionEngine",
+    "AnomalyTransformerEncoder",
+    "AssociationDiscrepancyModule",
     "AstrophysicalAnomalyModel",
     "BiometricAnomalyModel",
     "ChemistryAnomalyDetector",
     "ConsciousnessPreservationModel",
+    "FocusScoreConditioning",
+    "GatedFeatureFusion",
+    "MAATModel",
+    "MAMLOptimizer",
+    "MambaSSM",
     "MultiverseOmniEngine",
     "NeuralCognitiveModel",
     "NeurosymbolicEngine",
     "ParapsychologyDetector",
+    "PriorAssociation",
     "QuantumAgeVariant",
     "QuantumAnomalyModel",
     "QuantumCircuit",
     "QuantumEngine",
     "QuantumGate",
-    "SimulationModule",
-    # SOTA Models (State-of-the-Art Anomaly Detection)
-    "AssociationDiscrepancyModule",
-    "AnomalyTransformerEncoder",
-    "PriorAssociation",
     "SeriesAssociation",
-    "TranADModel",
-    "FocusScoreConditioning",
-    "AdversarialTrainer",
-    "MAMLOptimizer",
-    "MAATModel",
+    "SimulationModule",
     "SparseAttention",
-    "MambaSSM",
-    "GatedFeatureFusion",
+    "TranADModel",
 ]
 
 _LAZY_IMPORTS = {
@@ -93,12 +92,12 @@ _LAZY_IMPORTS = {
 }
 
 
-def __getattr__(name):
+def __getattr__(name: str) -> type:
     """Lazy import models on first access."""
     if name in _LAZY_IMPORTS:
         import importlib
 
         module_path = _LAZY_IMPORTS[name]
         module = importlib.import_module(module_path)
-        return getattr(module, name)
+        return getattr(module, name)  # type: ignore[no-any-return]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

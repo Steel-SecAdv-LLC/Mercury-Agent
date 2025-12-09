@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Health monitoring for components and agents
@@ -43,7 +44,7 @@ class HealthMetrics:
 class HealthMonitor:
     """Monitor health of components and agents"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.metrics: dict[str, list[HealthMetrics]] = {}
 
     def record_metrics(self, component_name: str, metrics: HealthMetrics) -> None:

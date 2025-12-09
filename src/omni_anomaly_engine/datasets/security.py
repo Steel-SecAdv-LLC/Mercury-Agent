@@ -9,6 +9,8 @@ References:
 - CICIDS 2017/2018: https://www.unb.ca/cic/datasets/ids-2017.html
 - MITRE ATT&CK: https://attack.mitre.org/
 """
+from __future__ import annotations
+from typing import Any
 
 import logging
 
@@ -92,7 +94,7 @@ class NSLKDDLoader(DatasetLoader):
         "u2r": 4,  # User to Root
     }
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.binary_labels = config.preprocessing.get("binary", True)
 
@@ -147,7 +149,7 @@ class NSLKDDLoader(DatasetLoader):
         logger.info(f"Generated {n_samples} NSL-KDD samples, {(labels > 0).sum()} attacks")
         return True
 
-    def _generate_normal_connection(self) -> dict:
+    def _generate_normal_connection(self) -> dict[str, Any]:
         """Generate features for normal network connection."""
         return {
             "duration": np.random.exponential(60),
@@ -193,7 +195,7 @@ class NSLKDDLoader(DatasetLoader):
             "dst_host_srv_rerror_rate": np.random.beta(1, 20),
         }
 
-    def _generate_dos_attack(self) -> dict:
+    def _generate_dos_attack(self) -> dict[str, Any]:
         """Generate features for DoS attack."""
         params = self._generate_normal_connection()
         # DoS characteristics: high volume, short connections
@@ -205,7 +207,7 @@ class NSLKDDLoader(DatasetLoader):
         params["serror_rate"] = np.random.beta(10, 2)
         return params
 
-    def _generate_probe_attack(self) -> dict:
+    def _generate_probe_attack(self) -> dict[str, Any]:
         """Generate features for probing/scanning attack."""
         params = self._generate_normal_connection()
         # Probe characteristics: many destinations, varied services
@@ -217,7 +219,7 @@ class NSLKDDLoader(DatasetLoader):
         params["rerror_rate"] = np.random.beta(5, 5)
         return params
 
-    def _generate_r2l_attack(self) -> dict:
+    def _generate_r2l_attack(self) -> dict[str, Any]:
         """Generate features for Remote-to-Local attack."""
         params = self._generate_normal_connection()
         # R2L characteristics: failed logins, suspicious activity
@@ -228,7 +230,7 @@ class NSLKDDLoader(DatasetLoader):
         params["num_access_files"] = np.random.poisson(10)
         return params
 
-    def _generate_u2r_attack(self) -> dict:
+    def _generate_u2r_attack(self) -> dict[str, Any]:
         """Generate features for User-to-Root attack."""
         params = self._generate_normal_connection()
         # U2R characteristics: privilege escalation
@@ -239,14 +241,14 @@ class NSLKDDLoader(DatasetLoader):
         params["num_file_creations"] = np.random.poisson(10)
         return params
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         synthetic_path = self.data_path / "synthetic_nslkdd.npz"
         if synthetic_path.exists():
             data = np.load(synthetic_path)
             return data["features"], data["labels"]
         raise FileNotFoundError("NSL-KDD data not found")
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess network traffic features."""
         # Log transform for high-variance features
         data = np.log1p(np.abs(data))
@@ -363,7 +365,7 @@ class CICIDSLoader(DatasetLoader):
         "portscan",
     ]
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
 
     def download(self) -> bool:
@@ -413,7 +415,7 @@ class CICIDSLoader(DatasetLoader):
         logger.info(f"Generated {n_samples} CICIDS samples, {labels.sum()} attacks")
         return True
 
-    def _generate_flow(self, attack_type: str) -> dict:
+    def _generate_flow(self, attack_type: str) -> dict[str, Any]:
         """Generate network flow features based on attack type."""
         base = {
             "flow_duration": np.random.exponential(10000),
@@ -454,14 +456,14 @@ class CICIDSLoader(DatasetLoader):
 
         return base
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         synthetic_path = self.data_path / "synthetic_cicids.npz"
         if synthetic_path.exists():
             data = np.load(synthetic_path)
             return data["features"], data["labels"]
         raise FileNotFoundError("CICIDS data not found")
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess network flow features."""
         data = np.nan_to_num(data, nan=0.0, posinf=1e10, neginf=0)
         data = np.log1p(np.abs(data))
@@ -528,7 +530,7 @@ class ThreatIntelLoader(DatasetLoader):
         "automation_level",
     ]
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
 
     def download(self) -> bool:
@@ -610,14 +612,14 @@ class ThreatIntelLoader(DatasetLoader):
         logger.info(f"Generated {n_samples} threat intel samples, {labels.sum()} threats")
         return True
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         synthetic_path = self.data_path / "synthetic_threat_intel.npz"
         if synthetic_path.exists():
             data = np.load(synthetic_path)
             return data["features"], data["labels"]
         raise FileNotFoundError("Threat intel data not found")
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess threat intelligence features."""
         data = np.nan_to_num(data, nan=0.0)
         data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)

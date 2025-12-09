@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 PPO Trainer for OMNI ♱ AVA
@@ -89,7 +90,7 @@ class TrainingStats:
 class BaseCallback:
     """Base callback for training monitoring."""
 
-    def __init__(self, verbose: int = 0):
+    def __init__(self, verbose: int = 0) -> None:
         self.verbose = verbose
         self.locals: dict[str, Any] = {}
         self.n_calls = 0

@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """Tests for Quantum Kernel Machines integration."""
 
@@ -75,7 +77,7 @@ class TestQuantumKernelMachine:
         x = np.random.randn(10)
 
         phi = machine._quantum_feature_map(x, depth=2)
-        assert isinstance(phi, np.ndarray)
+        assert isinstance(phi, np.ndarray[Any, Any])
         assert len(phi) == 2**machine.num_qubits
 
     def test_quantum_feature_map_depth_zero(self):

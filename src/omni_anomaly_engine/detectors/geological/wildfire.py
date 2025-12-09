@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Wildfire Detector - Ignition, Spread & Risk Assessment
@@ -92,7 +93,7 @@ class FireIgnitionDetector(nn.Module):
     Real-time fire ignition detection from satellite thermal data.
     """
 
-    def __init__(self, input_channels: int = 3):
+    def __init__(self, input_channels: int = 3) -> None:
         super().__init__()
 
         self.thermal_cnn = nn.Sequential(
@@ -137,7 +138,7 @@ class FireSpreadModel:
     Incorporates weather (wind), terrain, and fuel load.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def predict_spread(
@@ -211,9 +212,9 @@ class NDVIProcessor:
 
     def compute_ndvi(
         self,
-        nir_band: np.ndarray,
-        red_band: np.ndarray,
-    ) -> np.ndarray:
+        nir_band: np.ndarray[Any, Any],
+        red_band: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """Compute NDVI from satellite bands.
 
         Args:
@@ -232,7 +233,7 @@ class NDVIProcessor:
 
     def estimate_fuel_load(
         self,
-        ndvi: np.ndarray,
+        ndvi: np.ndarray[Any, Any],
     ) -> dict[str, Any]:
         """Estimate fuel load from NDVI.
 
@@ -267,8 +268,8 @@ class NDVIProcessor:
 
     def compute_ndvi_change(
         self,
-        ndvi_current: np.ndarray,
-        ndvi_previous: np.ndarray,
+        ndvi_current: np.ndarray[Any, Any],
+        ndvi_previous: np.ndarray[Any, Any],
     ) -> dict[str, float]:
         """Compute NDVI change for fire damage assessment.
 
@@ -327,7 +328,7 @@ class ResonanceFrequencyAnalyzer:
 
     def analyze_thermal_resonance(
         self,
-        thermal_time_series: np.ndarray,
+        thermal_time_series: np.ndarray[Any, Any],
     ) -> dict[str, Any]:
         """Analyze thermal time series for fire behavior patterns.
 
@@ -403,7 +404,7 @@ class ResonanceFrequencyAnalyzer:
 
     def analyze_smoke_patterns(
         self,
-        smoke_density_series: np.ndarray,
+        smoke_density_series: np.ndarray[Any, Any],
     ) -> dict[str, Any]:
         """Analyze smoke density patterns for fire spread prediction.
 
@@ -616,7 +617,7 @@ class WildfireDetector:
 
         return result
 
-    def _detect_ignition(self, thermal_image: np.ndarray) -> dict[str, Any]:
+    def _detect_ignition(self, thermal_image: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Detect fire ignition"""
 
         if len(thermal_image.shape) == 2:

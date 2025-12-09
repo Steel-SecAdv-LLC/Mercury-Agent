@@ -26,12 +26,13 @@ References:
 """
 
 from __future__ import annotations
+from typing import Any
 
 import logging
 
 import numpy as np
 
-from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit
+from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit, safe_urlretrieve
 
 logger = logging.getLogger(__name__)
 
@@ -170,15 +171,15 @@ class SWaTLoader(DatasetLoader):
         "P6": ["FIT601", "P601", "P602", "P603"],
     }
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.attack_labels_map = {}
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw SWaT data - redirects to load()."""
         return self.load()
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply SWaT-specific preprocessing (normalization)."""
         # Z-score normalization
         mean = np.mean(data, axis=0)
@@ -223,7 +224,7 @@ class SWaTLoader(DatasetLoader):
 
         return False  # Manual download required
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray, np.ndarray]:
+    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Load SWaT dataset.
 
@@ -346,14 +347,14 @@ class WADILoader(DatasetLoader):
     ATTACK_COUNT = 15
     STAGES = ["Stage_1", "Stage_2"]  # WADI pipeline stages
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw WADI data - redirects to load()."""
         return self.load()
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply WADI-specific preprocessing (normalization)."""
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0) + 1e-8
@@ -385,7 +386,7 @@ class WADILoader(DatasetLoader):
 
         return False
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray, np.ndarray]:
+    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load WADI dataset."""
         try:
             import pandas as pd
@@ -474,14 +475,14 @@ class BATADALLoader(DatasetLoader):
 
     NUM_FEATURES = 43
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw BATADAL data - redirects to load()."""
         return self.load()
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply BATADAL-specific preprocessing (normalization)."""
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0) + 1e-8
@@ -490,7 +491,6 @@ class BATADALLoader(DatasetLoader):
     def download(self) -> bool:
         """Download BATADAL dataset from official source."""
         import urllib.error
-        import urllib.request
 
         logger.info("Downloading BATADAL dataset...")
 
@@ -505,15 +505,15 @@ class BATADALLoader(DatasetLoader):
             output_path = self.data_path / f"BATADAL_{name}.csv"
             try:
                 logger.info(f"  Downloading {name}...")
-                urllib.request.urlretrieve(url, output_path)
-            except urllib.error.URLError as e:
+                safe_urlretrieve(url, output_path)
+            except (urllib.error.URLError, ValueError) as e:
                 logger.warning(f"  Failed to download {name}: {e}")
                 return False
 
         logger.info("BATADAL download complete")
         return True
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray, np.ndarray]:
+    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load BATADAL dataset."""
         try:
             import pandas as pd

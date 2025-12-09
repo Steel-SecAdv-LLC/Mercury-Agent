@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Isotope Predictor - Nuclear Forensics & Isotope Ratio Analysis
@@ -95,7 +96,7 @@ class IsotopeRatioAnalyzer(nn.Module):
     Detects anomalous isotope signatures and enrichment patterns.
     """
 
-    def __init__(self, input_dim: int = 64):
+    def __init__(self, input_dim: int = 64) -> None:
         super().__init__()
 
         self.ratio_encoder = nn.Sequential(
@@ -150,7 +151,7 @@ class NuclearForensicsAnalyzer:
     Determines origin and production methods of nuclear materials.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
         self.uranium_isotope_ratios = {
@@ -283,7 +284,7 @@ class RadiologicalThreatAssessor:
     Evaluates radiological hazards and security threats.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def assess_threat(self, isotope_data: dict[str, Any], enrichment: float) -> dict[str, Any]:
@@ -438,7 +439,7 @@ class IsotopePredictor:
 
         return result
 
-    def _analyze_with_ml(self, features: np.ndarray) -> dict[str, Any]:
+    def _analyze_with_ml(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Analyze isotopes with ML model"""
 
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)

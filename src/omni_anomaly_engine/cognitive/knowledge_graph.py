@@ -7,6 +7,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
+from __future__ import annotations
 
 """
 Knowledge Graph Engine - Production Implementation
@@ -85,7 +86,7 @@ class KnowledgeNode:
     node_type: NodeType
     label: str
     attributes: dict[str, Any] = field(default_factory=dict)
-    embedding: np.ndarray | None = None
+    embedding: np.ndarray[Any, Any] | None = None
     confidence: float = 1.0
     source: str = "system"
     created_at: float = field(default_factory=time.time)
@@ -181,7 +182,7 @@ class RandomWalkEmbedding:
         self.learning_rate = learning_rate
         self.negative_samples = negative_samples
 
-        self.embeddings: dict[str, np.ndarray] = {}
+        self.embeddings: dict[str, np.ndarray[Any, Any]] = {}
         self._node_to_idx: dict[str, int] = {}
         self._idx_to_node: dict[int, str] = {}
 
@@ -189,7 +190,7 @@ class RandomWalkEmbedding:
         self,
         adjacency: dict[str, list[tuple[str, float]]],
         node_ids: list[str],
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray[Any, Any]]:
         """
         Learn embeddings from graph structure.
 
@@ -292,8 +293,8 @@ class RandomWalkEmbedding:
     def _train_skip_gram(
         self,
         walk: list[int],
-        input_emb: np.ndarray,
-        output_emb: np.ndarray,
+        input_emb: np.ndarray[Any, Any],
+        output_emb: np.ndarray[Any, Any],
         n_nodes: int,
     ):
         """Train skip-gram on a single walk."""
@@ -322,8 +323,8 @@ class RandomWalkEmbedding:
         center: int,
         context: int,
         label: int,
-        input_emb: np.ndarray,
-        output_emb: np.ndarray,
+        input_emb: np.ndarray[Any, Any],
+        output_emb: np.ndarray[Any, Any],
     ):
         """Single SGD update for skip-gram."""
         # Sigmoid
@@ -359,14 +360,14 @@ class GNNMessagePassing:
         self.aggregation = aggregation
         self.activation = activation
 
-        self._weights: list[np.ndarray] = []
+        self._weights: list[np.ndarray[Any, Any]] = []
 
     def forward(
         self,
-        node_features: np.ndarray,
+        node_features: np.ndarray[Any, Any],
         adjacency: sparse.spmatrix,
         normalize: bool = True,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Forward pass through GNN layers.
 
@@ -415,7 +416,7 @@ class GNNMessagePassing:
 
         return h
 
-    def _init_weights(self, input_dim: int):
+    def _init_weights(self, input_dim: int) -> None:
         """Initialize weight matrices with Xavier initialization."""
         dims = [input_dim] + [self.hidden_dim] * self.num_layers
 
@@ -448,8 +449,8 @@ class GNNMessagePassing:
     def _max_aggregate(
         self,
         adjacency: sparse.spmatrix,
-        features: np.ndarray,
-    ) -> np.ndarray:
+        features: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """Max aggregation over neighbors."""
         _n_nodes = features.shape[0]
         result = np.zeros_like(features)
@@ -471,13 +472,13 @@ class LinkPredictor:
     - Distance-based scoring
     """
 
-    def __init__(self, method: str = "dot"):
+    def __init__(self, method: str = "dot") -> None:
         self.method = method
 
     def score(
         self,
-        source_embedding: np.ndarray,
-        target_embedding: np.ndarray,
+        source_embedding: np.ndarray[Any, Any],
+        target_embedding: np.ndarray[Any, Any],
     ) -> float:
         """
         Score a potential link.
@@ -511,7 +512,7 @@ class LinkPredictor:
 
     def predict_links(
         self,
-        embeddings: dict[str, np.ndarray],
+        embeddings: dict[str, np.ndarray[Any, Any]],
         candidate_pairs: list[tuple[str, str]],
         threshold: float = 0.5,
     ) -> list[tuple[str, str, float]]:
@@ -591,10 +592,10 @@ class KnowledgeGraph:
 
         # Core storage
         self._nodes: dict[str, KnowledgeNode] = {}
-        self._edges: dict[str, list[KnowledgeEdge]] = defaultdict(list)
-        self._reverse_edges: dict[str, list[KnowledgeEdge]] = defaultdict(list)
-        self._type_index: dict[NodeType, set[str]] = defaultdict(set)
-        self._edge_type_index: dict[EdgeType, list[KnowledgeEdge]] = defaultdict(list)
+        self._edges: dict[str, list[KnowledgeEdge]] = defaultdict[str, list[Any]](list)
+        self._reverse_edges: dict[str, list[KnowledgeEdge]] = defaultdict[str, list[Any]](list)
+        self._type_index: dict[NodeType, set[str]] = defaultdict[str, set[Any]](set)
+        self._edge_type_index: dict[EdgeType, list[KnowledgeEdge]] = defaultdict[str, list[Any]](list)
 
         # Embedding components
         self._random_walk = RandomWalkEmbedding(embedding_dim=embedding_dim)
@@ -627,7 +628,7 @@ class KnowledgeGraph:
         node_type: NodeType,
         label: str,
         attributes: dict[str, Any] | None = None,
-        embedding: np.ndarray | None = None,
+        embedding: np.ndarray[Any, Any] | None = None,
         confidence: float = 1.0,
         source: str = "system",
     ) -> KnowledgeNode:
@@ -747,7 +748,7 @@ class KnowledgeGraph:
                 if nid in self._nodes
             ]
 
-    def compute_embeddings(self, method: str = "random_walk") -> dict[str, np.ndarray]:
+    def compute_embeddings(self, method: str = "random_walk") -> dict[str, np.ndarray[Any, Any]]:
         """
         Compute node embeddings.
 
@@ -1164,7 +1165,7 @@ class KnowledgeGraph:
 
     def find_similar(
         self,
-        query_embedding: np.ndarray,
+        query_embedding: np.ndarray[Any, Any],
         top_k: int = 10,
         node_type: NodeType | None = None,
     ) -> list[tuple[KnowledgeNode, float]]:

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Core anomaly detection metrics.
@@ -32,7 +33,7 @@ from scipy.ndimage import label as connected_components
 logger = logging.getLogger(__name__)
 
 
-def _to_numpy(arr: Any) -> np.ndarray:
+def _to_numpy(arr: Any) -> np.ndarray[Any, Any]:
     """Convert array-like to numpy."""
     if hasattr(arr, "cpu"):  # torch tensor
         return arr.cpu().numpy()
@@ -40,8 +41,8 @@ def _to_numpy(arr: Any) -> np.ndarray:
 
 
 def compute_auroc(
-    y_true: np.ndarray,
-    y_score: np.ndarray,
+    y_true: np.ndarray[Any, Any],
+    y_score: np.ndarray[Any, Any],
 ) -> float:
     """Compute Area Under ROC Curve.
 
@@ -74,7 +75,7 @@ def compute_auroc(
         return _manual_auroc(y_true, y_score)
 
 
-def _manual_auroc(y_true: np.ndarray, y_score: np.ndarray) -> float:
+def _manual_auroc(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) -> float:
     """Manual AUROC computation without sklearn."""
     n_pos = y_true.sum()
     n_neg = len(y_true) - n_pos
@@ -95,8 +96,8 @@ def _manual_auroc(y_true: np.ndarray, y_score: np.ndarray) -> float:
 
 
 def compute_auprc(
-    y_true: np.ndarray,
-    y_score: np.ndarray,
+    y_true: np.ndarray[Any, Any],
+    y_score: np.ndarray[Any, Any],
 ) -> float:
     """Compute Area Under Precision-Recall Curve.
 
@@ -119,7 +120,7 @@ def compute_auprc(
         return _manual_auprc(y_true, y_score)
 
 
-def _manual_auprc(y_true: np.ndarray, y_score: np.ndarray) -> float:
+def _manual_auprc(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) -> float:
     """Manual AUPRC computation."""
     # Sort by score descending
     order = np.argsort(y_score)[::-1]
@@ -140,8 +141,8 @@ def _manual_auprc(y_true: np.ndarray, y_score: np.ndarray) -> float:
 
 
 def compute_f1_max(
-    y_true: np.ndarray,
-    y_score: np.ndarray,
+    y_true: np.ndarray[Any, Any],
+    y_score: np.ndarray[Any, Any],
     n_thresholds: int = 100,
 ) -> tuple[float, float]:
     """Compute maximum F1 score across thresholds.
@@ -182,8 +183,8 @@ def compute_f1_max(
 
 
 def compute_optimal_threshold(
-    y_true: np.ndarray,
-    y_score: np.ndarray,
+    y_true: np.ndarray[Any, Any],
+    y_score: np.ndarray[Any, Any],
     metric: str = "f1",
 ) -> float:
     """Compute optimal threshold for given metric.
@@ -233,8 +234,8 @@ def compute_optimal_threshold(
 
 
 def compute_pixel_auroc(
-    y_true: np.ndarray,
-    y_score: np.ndarray,
+    y_true: np.ndarray[Any, Any],
+    y_score: np.ndarray[Any, Any],
 ) -> float:
     """Compute pixel-level AUROC for anomaly localization.
 
@@ -252,8 +253,8 @@ def compute_pixel_auroc(
 
 
 def compute_pro(
-    y_true: np.ndarray,
-    y_score: np.ndarray,
+    y_true: np.ndarray[Any, Any],
+    y_score: np.ndarray[Any, Any],
     integration_limit: float = 0.3,
     num_thresholds: int = 100,
 ) -> float:
@@ -375,11 +376,11 @@ class AnomalyMetrics:
 
     @staticmethod
     def compute_all(
-        y_true: np.ndarray,
-        y_score: np.ndarray,
-        y_pred: np.ndarray | None = None,
-        masks_true: np.ndarray | None = None,
-        masks_score: np.ndarray | None = None,
+        y_true: np.ndarray[Any, Any],
+        y_score: np.ndarray[Any, Any],
+        y_pred: np.ndarray[Any, Any] | None = None,
+        masks_true: np.ndarray[Any, Any] | None = None,
+        masks_score: np.ndarray[Any, Any] | None = None,
     ) -> dict[str, float]:
         """Compute all standard metrics.
 
@@ -425,8 +426,8 @@ class AnomalyMetrics:
 
     @staticmethod
     def compute_per_category(
-        y_true: np.ndarray,
-        y_score: np.ndarray,
+        y_true: np.ndarray[Any, Any],
+        y_score: np.ndarray[Any, Any],
         categories: list[str],
     ) -> dict[str, dict[str, float]]:
         """Compute metrics per category.

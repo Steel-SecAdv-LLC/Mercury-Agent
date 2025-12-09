@@ -19,7 +19,7 @@ Example:
         breaker = CircuitBreaker(failure_threshold=5, reset_timeout=60)
 
         @breaker
-        def call_external_service():
+        def call_external_service() -> None:
             return service.call()
 
     Using retry decorator::
@@ -27,7 +27,7 @@ Example:
         from omni_anomaly_engine.utils.resilience import retry
 
         @retry(max_attempts=3, backoff_factor=2.0)
-        def unreliable_operation():
+        def unreliable_operation() -> None:
             return do_something()
 
     Graceful shutdown::
@@ -41,6 +41,7 @@ Example:
         while not shutdown.should_stop:
             process_work()
 """
+from __future__ import annotations
 
 import functools
 import logging
@@ -53,7 +54,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
-from typing import Any, TypeVar
+from typing import Any, TypeVar, Generator
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +96,7 @@ class CircuitBreaker:
     Example:
         >>> breaker = CircuitBreaker(failure_threshold=3)
         >>> @breaker
-        ... def call_service():
+        ... def call_service() -> None:
         ...     return external_service.call()
     """
 
@@ -237,7 +238,7 @@ def retry(
 
     Example:
         >>> @retry(max_attempts=3, backoff_factor=2.0)
-        ... def unstable_function():
+        ... def unstable_function() -> None:
         ...     return call_unreliable_service()
     """
 
@@ -336,7 +337,7 @@ class GracefulShutdown:
             self._handlers.append(handler)
 
     @contextmanager
-    def track_request(self):
+    def track_request(self) -> Generator[Any, None, None]:
         """Context manager to track in-flight requests.
 
         Yields:
@@ -441,7 +442,7 @@ class Bulkhead:
         self._lock = threading.Lock()
 
     @contextmanager
-    def acquire(self, timeout: float | None = None):
+    def acquire(self, timeout: float | None = None) -> Generator[Any, None, None]:
         """Acquire a slot in the bulkhead.
 
         Args:
@@ -578,7 +579,7 @@ def timeout(seconds: float) -> Callable[[F], F]:
 
     Example:
         >>> @timeout(30.0)
-        ... def long_operation():
+        ... def long_operation() -> None:
         ...     return process_data()
     """
 

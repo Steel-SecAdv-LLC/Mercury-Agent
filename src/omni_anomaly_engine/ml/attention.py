@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Attention mechanisms for detector fusion and cross-modal integration
@@ -29,7 +30,7 @@ from torch import nn
 class MultiHeadDetectorAttention(nn.Module):
     """Multi-head attention over different detector outputs"""
 
-    def __init__(self, embed_dim: int, num_heads: int = 4, dropout: float = 0.1):
+    def __init__(self, embed_dim: int, num_heads: int = 4, dropout: float = 0.1) -> None:
         super().__init__()
         self.attention = nn.MultiheadAttention(
             embed_dim=embed_dim,
@@ -58,7 +59,7 @@ class MultiHeadDetectorAttention(nn.Module):
 class TemporalAttention(nn.Module):
     """Attention mechanism for time series anomalies"""
 
-    def __init__(self, hidden_dim: int, num_heads: int = 4):
+    def __init__(self, hidden_dim: int, num_heads: int = 4) -> None:
         super().__init__()
         self.hidden_dim = hidden_dim
         self.num_heads = num_heads
@@ -103,7 +104,7 @@ class TemporalAttention(nn.Module):
 class SpatialAttention(nn.Module):
     """Spatial attention for geographic anomalies"""
 
-    def __init__(self, channels: int):
+    def __init__(self, channels: int) -> None:
         super().__init__()
         self.conv = nn.Conv2d(channels, 1, kernel_size=1)
 
@@ -122,7 +123,7 @@ class SpatialAttention(nn.Module):
 class CrossModalAttention(nn.Module):
     """Cross-modal attention between different modalities"""
 
-    def __init__(self, dim1: int, dim2: int, hidden_dim: int):
+    def __init__(self, dim1: int, dim2: int, hidden_dim: int) -> None:
         super().__init__()
         self.proj1 = nn.Linear(dim1, hidden_dim)
         self.proj2 = nn.Linear(dim2, hidden_dim)

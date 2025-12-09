@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Foundation Model Ensemble
@@ -96,7 +97,7 @@ class FoundationEnsemble(BaseFoundationModel):
         "matrix_profile": (MatrixProfileDetector, MatrixProfileConfig),
     }
 
-    def __init__(self, config: EnsembleConfig | dict[str, Any] | None = None):
+    def __init__(self, config: EnsembleConfig | dict[str, Any] | None = None) -> None:
         """Initialize ensemble.
 
         Args:
@@ -161,9 +162,9 @@ class FoundationEnsemble(BaseFoundationModel):
 
     def forecast(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
         horizon: int | None = None,
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray[Any, Any]]:
         """Generate ensemble forecasts.
 
         Args:
@@ -236,7 +237,7 @@ class FoundationEnsemble(BaseFoundationModel):
 
     def detect_anomalies(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
         """Detect anomalies using ensemble.
 
@@ -318,7 +319,7 @@ class FoundationEnsemble(BaseFoundationModel):
 
     def detect(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
         """Detect anomalies using ensemble.
 
@@ -338,9 +339,9 @@ class FoundationEnsemble(BaseFoundationModel):
 
     def _aggregate(
         self,
-        arrays: list[np.ndarray],
-        weights: np.ndarray,
-    ) -> np.ndarray:
+        arrays: list[np.ndarray[Any, Any]],
+        weights: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """Aggregate arrays using specified method.
 
         Args:
@@ -372,9 +373,9 @@ class FoundationEnsemble(BaseFoundationModel):
 
     def _aggregate_1d(
         self,
-        arrays: list[np.ndarray],
-        weights: np.ndarray,
-    ) -> np.ndarray:
+        arrays: list[np.ndarray[Any, Any]],
+        weights: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """Aggregate 1D arrays with length matching.
 
         Args:

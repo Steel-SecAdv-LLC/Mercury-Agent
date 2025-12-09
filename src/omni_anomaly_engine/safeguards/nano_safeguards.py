@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Nano-Safeguards for Micro-Anomaly Detection
@@ -89,7 +90,7 @@ class HierarchicalMicroScanner(nn.Module):
     pattern detection at progressively finer granularities.
     """
 
-    def __init__(self, input_dim: int = 64, num_scales: int = 4):
+    def __init__(self, input_dim: int = 64, num_scales: int = 4) -> None:
         super().__init__()
         self.num_scales = num_scales
 
@@ -149,11 +150,11 @@ class ResonanceAnalyzer:
     harmonic anomalies and periodic micro-patterns.
     """
 
-    def __init__(self, fundamental_freq: float = 7.83):
+    def __init__(self, fundamental_freq: float = 7.83) -> None:
         self.fundamental_freq = fundamental_freq
         self.harmonic_count = 8
 
-    def analyze(self, signal: np.ndarray) -> dict[str, float]:
+    def analyze(self, signal: np.ndarray[Any, Any]) -> dict[str, float]:
         """
         Analyze signal for resonance anomalies.
 
@@ -200,7 +201,7 @@ class ResonanceAnalyzer:
         }
 
     @staticmethod
-    def _compute_spectral_entropy(power_spectrum: np.ndarray) -> float:
+    def _compute_spectral_entropy(power_spectrum: np.ndarray[Any, Any]) -> float:
         """Compute spectral entropy for frequency distribution analysis."""
         normalized = power_spectrum / (np.sum(power_spectrum) + 1e-10)
         entropy = -np.sum(normalized * np.log2(normalized + 1e-10))
@@ -224,7 +225,7 @@ class NanoSafeguardDetector(BaseDetector):
     - Quantum-inspired checksum validation
     """
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         super().__init__(config)
 
         self.convergence_threshold = self.config.get("convergence_threshold", 0.01)
@@ -240,10 +241,10 @@ class NanoSafeguardDetector(BaseDetector):
         self.resonance_analyzer = ResonanceAnalyzer()
 
         self.baseline_stats: dict[str, float] = {}
-        self.memory_buffer: list[np.ndarray] = []
+        self.memory_buffer: list[np.ndarray[Any, Any]] = []
         self.max_memory = self.config.get("max_memory", 100)
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> "NanoSafeguardDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "NanoSafeguardDetector":
         """
         Fit nano-safeguard to normal data patterns.
 
@@ -268,7 +269,7 @@ class NanoSafeguardDetector(BaseDetector):
         logger.info("NanoSafeguardDetector fitted with baseline statistics")
         return self
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """
         Detect micro-anomalies using nano-safeguard protocols.
 
@@ -300,7 +301,7 @@ class NanoSafeguardDetector(BaseDetector):
             "detector_type": "nano_safeguard",
         }
 
-    def detect_micro_anomalies(self, data: np.ndarray) -> NanoSafeguardResult:
+    def detect_micro_anomalies(self, data: np.ndarray[Any, Any]) -> NanoSafeguardResult:
         """
         Comprehensive micro-anomaly detection.
 
@@ -352,7 +353,7 @@ class NanoSafeguardDetector(BaseDetector):
 
         return result
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """
         Extract nano-safeguard features for ML fusion.
 
@@ -394,7 +395,7 @@ class NanoSafeguardDetector(BaseDetector):
 
         return torch.tensor(features[:20], dtype=torch.float32)
 
-    def _compute_convergence(self, data: np.ndarray) -> float:
+    def _compute_convergence(self, data: np.ndarray[Any, Any]) -> float:
         """Compute convergence score relative to baseline."""
         if not self.baseline_stats:
             return 1.0
@@ -411,7 +412,7 @@ class NanoSafeguardDetector(BaseDetector):
 
         return float(convergence)
 
-    def _dimensional_downsampling_detection(self, data: np.ndarray) -> float:
+    def _dimensional_downsampling_detection(self, data: np.ndarray[Any, Any]) -> float:
         """
         Dimensional downsampling for micro-anomaly detection.
 
@@ -452,7 +453,7 @@ class NanoSafeguardDetector(BaseDetector):
             logger.debug(f"Dimensional downsampling failed: {e}")
             return 0.0
 
-    def _hierarchical_scan(self, data: np.ndarray) -> list[float]:
+    def _hierarchical_scan(self, data: np.ndarray[Any, Any]) -> list[float]:
         """Perform hierarchical multi-scale scanning."""
         scores = []
 
@@ -463,7 +464,7 @@ class NanoSafeguardDetector(BaseDetector):
 
         return scores
 
-    def _scan_at_scale(self, data: np.ndarray, window_size: int) -> float:
+    def _scan_at_scale(self, data: np.ndarray[Any, Any], window_size: int) -> float:
         """Scan data at a specific scale."""
         data_flat = data.flatten()
 
@@ -485,7 +486,7 @@ class NanoSafeguardDetector(BaseDetector):
 
         return float(min(score, 1.0))
 
-    def _molecular_analysis(self, data: np.ndarray) -> dict[str, Any]:
+    def _molecular_analysis(self, data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Molecular-level analysis for nano-scale integrity."""
         data_bytes = data.tobytes()
 
@@ -593,7 +594,7 @@ class NanoSafeguardDetector(BaseDetector):
 
         return recommendations
 
-    def _update_memory(self, data: np.ndarray) -> None:
+    def _update_memory(self, data: np.ndarray[Any, Any]) -> None:
         """Update memory buffer for temporal analysis."""
         self.memory_buffer.append(data.copy())
         if len(self.memory_buffer) > self.max_memory:

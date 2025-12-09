@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Recursion-Resonance-Refactoring (3R) Mechanism
@@ -296,7 +297,7 @@ class RecursionEngine:
     feature extraction and multi-level optimization.
     """
 
-    def __init__(self, max_depth: int = 5):
+    def __init__(self, max_depth: int = 5) -> None:
         self.max_depth = max_depth
         self.recursion_cache: dict[str, Any] = {}
 
@@ -363,7 +364,7 @@ class ResonanceEngine:
     for pattern enhancement and anomaly detection.
     """
 
-    def __init__(self, sampling_rate: float = 1.0):
+    def __init__(self, sampling_rate: float = 1.0) -> None:
         self.sampling_rate = sampling_rate
 
     def compute_resonance_spectrum(
@@ -584,7 +585,7 @@ class CognitiveComplexityVisitor(ast.NodeVisitor):
     Reference: https://www.sonarsource.com/docs/CognitiveComplexity.pdf
     """
 
-    def __init__(self, func_name: str = ""):
+    def __init__(self, func_name: str = "") -> None:
         self.func_name = func_name
         self.complexity = 0
         self.nesting_level = 0
@@ -1963,7 +1964,7 @@ class RefactoringTransformer(ast.NodeTransformer):
     - Function call optimization (demonstration only)
     """
 
-    def __init__(self, suggestions: list[dict[str, str]]):
+    def __init__(self, suggestions: list[dict[str, str]]) -> None:
         self.suggestions = suggestions
         self.should_reduce_nesting = any(s.get("type") == "reduce_nesting" for s in suggestions)
         self.should_reduce_complexity = any(

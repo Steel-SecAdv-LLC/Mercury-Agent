@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """Consciousness preservation model."""
 
@@ -26,11 +27,11 @@ import numpy as np
 class ConsciousnessPreservationModel:
     """Model for consciousness state preservation and anomaly detection."""
 
-    def __init__(self, config: dict[str, Any] | None = None, **kwargs):
+    def __init__(self, config: dict[str, Any] | None = None, **kwargs) -> None:
         self.config = config or {}
         self.coherence_threshold = self.config.get("coherence_threshold", 0.5)
 
-    def _encode_pattern_states(self, data: np.ndarray) -> np.ndarray:
+    def _encode_pattern_states(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Encode data into pattern state representations using quantum-inspired superposition."""
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -48,7 +49,7 @@ class ConsciousnessPreservationModel:
 
         return pattern_states
 
-    def _measure_pattern_coherence(self, pattern_states: np.ndarray) -> np.ndarray:
+    def _measure_pattern_coherence(self, pattern_states: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Measure coherence of pattern states using quantum coherence metrics."""
         batch_size = pattern_states.shape[0]
         coherence = np.zeros(batch_size, dtype=np.float32)
@@ -66,7 +67,7 @@ class ConsciousnessPreservationModel:
 
         return coherence
 
-    def _compute_entanglement(self, pattern_states: np.ndarray) -> np.ndarray:
+    def _compute_entanglement(self, pattern_states: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute entanglement measure between pattern state components."""
         batch_size = pattern_states.shape[0]
         entanglement = np.zeros(batch_size, dtype=np.float32)
@@ -85,11 +86,11 @@ class ConsciousnessPreservationModel:
 
         return entanglement
 
-    def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
+    def extract_features(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> np.ndarray[Any, Any]:
         """Extract consciousness-related features from data."""
         if isinstance(data, dict):
             data = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray):
+        elif not isinstance(data, np.ndarray[Any, Any]):
             data = np.array(data)
 
         if data.ndim == 1:
@@ -114,11 +115,11 @@ class ConsciousnessPreservationModel:
 
         return features.astype(np.float32)
 
-    def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
+    def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
         """Predict consciousness state anomalies."""
         if isinstance(data, dict):
             data_array = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray):
+        elif not isinstance(data, np.ndarray[Any, Any]):
             data_array = np.array(data)
         else:
             data_array = data

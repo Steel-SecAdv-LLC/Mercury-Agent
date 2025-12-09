@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Ethical Bounding and Benevolence Scoring
@@ -43,8 +44,6 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
-
-import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +165,7 @@ class HarmReducer:
         HarmCategory.SOCIETAL: 0.8,
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize harm reducer."""
         self._evaluation_counter = 0
 
@@ -249,7 +248,7 @@ class BenefitMaximizer:
         BenefitCategory.HUMANITARIAN: 1.0,
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize benefit maximizer."""
         self._evaluation_counter = 0
 
@@ -322,7 +321,7 @@ class EquityCalculator:
     Ensures actions promote fairness and reduce inequality.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize equity calculator."""
         pass
 
@@ -401,7 +400,7 @@ class EmpathyModule:
     Considers impact on affected parties and vulnerable populations.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize empathy module."""
         self._assessment_counter = 0
 
@@ -540,7 +539,7 @@ class ValuePreserver:
         "beneficence",
     ]
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize value preserver."""
         self._preservation_counter = 0
 
@@ -644,7 +643,7 @@ class BenevolenceScorer:
 
     BENEVOLENCE_THRESHOLD = 0.99
 
-    def __init__(self, benevolence_threshold: float = 0.99):
+    def __init__(self, benevolence_threshold: float = 0.99) -> None:
         """
         Initialize benevolence scorer.
 

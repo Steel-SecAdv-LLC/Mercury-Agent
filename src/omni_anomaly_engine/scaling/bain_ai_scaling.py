@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 AI Scaling and Compute Optimization Module
@@ -55,7 +56,7 @@ class BainAIScaling:
     for AI workloads based on industry trends.
     """
 
-    def __init__(self, max_power_watts: float = 1000.0):
+    def __init__(self, max_power_watts: float = 1000.0) -> None:
         self.max_power_watts = max_power_watts
         self.current_allocation: dict[str, ComputeResource] = {}
 

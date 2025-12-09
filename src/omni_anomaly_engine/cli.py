@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """
 Command-line interface for OMNI ♱ AVA
@@ -141,7 +143,7 @@ def explain(input: str, model: str) -> None:
     click.echo(json.dumps(explanation, indent=2))
 
 
-def _load_data(filepath: str) -> np.ndarray:
+def _load_data(filepath: str) -> np.ndarray[Any, Any]:
     """Load data from file"""
     path = Path(filepath)
 

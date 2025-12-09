@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """Essential Critical Infrastructure Workers monitoring.
 
@@ -34,7 +35,7 @@ class EssentialWorkersMonitor:
     with emphasis on survivor-first ethical principles.
     """
 
-    def __init__(self, ethical_config: dict[str, float] | None = None):
+    def __init__(self, ethical_config: dict[str, float] | None = None) -> None:
         """Initialize Essential Workers Monitor.
 
         Args:
@@ -239,7 +240,7 @@ class EssentialWorkersMonitor:
 
     def _generate_workforce_recommendations(
         self, category: str, capacity: float, absenteeism_high: bool, skill_shortage: bool
-    ) -> list:
+    ) -> list[Any]:
         """Generate recommendations for workforce issues."""
         recommendations = []
 

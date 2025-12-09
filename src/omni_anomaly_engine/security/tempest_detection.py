@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 TEMPEST Detection Module - Electromagnetic Emanation Security
@@ -99,7 +100,7 @@ class RFSpectrumAnalyzer:
     Analyzes radio frequency spectrum for compromising emanations.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
         self.tempest_frequency_bands = {
@@ -191,7 +192,7 @@ class VideoEmanationDetector(nn.Module):
     Detects Van Eck phreaking vulnerabilities in video displays.
     """
 
-    def __init__(self, input_dim: int = 128):
+    def __init__(self, input_dim: int = 128) -> None:
         super().__init__()
 
         self.emanation_encoder = nn.Sequential(
@@ -243,7 +244,7 @@ class SideChannelVulnerabilityAssessor:
     Evaluates equipment for side-channel attack susceptibility.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def assess_vulnerabilities(self, equipment_data: dict[str, Any]) -> dict[str, Any]:
@@ -312,7 +313,7 @@ class EMSECCountermeasureGenerator:
     Generate EMSEC countermeasures and mitigation strategies.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def generate_countermeasures(
@@ -471,7 +472,7 @@ class TEMPESTDetector:
 
         return result
 
-    def _analyze_video_emanation(self, features: np.ndarray) -> dict[str, Any]:
+    def _analyze_video_emanation(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Analyze video emanation for reconstruction feasibility"""
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 

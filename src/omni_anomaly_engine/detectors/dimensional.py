@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Dimensional analyzer using PCA, t-SNE, and neural projection
@@ -39,7 +40,7 @@ if TYPE_CHECKING:
 class NeuralProjection(nn.Module):
     """Neural network autoencoder for dimensionality reduction"""
 
-    def __init__(self, input_dim: int, latent_dim: int):
+    def __init__(self, input_dim: int, latent_dim: int) -> None:
         super().__init__()
         hidden_dim = max(input_dim // 2, latent_dim * 2)
 
@@ -69,7 +70,7 @@ class DimensionalAnalyzer(BaseDetector):
     - Neural autoencoder for learned projection
     """
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         super().__init__(config)
         self.n_components = self.config.get("n_components", 10)
         self.reconstruction_threshold = self.config.get("reconstruction_threshold", 2.0)
@@ -80,9 +81,9 @@ class DimensionalAnalyzer(BaseDetector):
         self.autoencoder: NeuralProjection | None = None
 
         self.input_dim: int | None = None
-        self.baseline_spectral_signature: np.ndarray | None = None
+        self.baseline_spectral_signature: np.ndarray[Any, Any] | None = None
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> "DimensionalAnalyzer":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "DimensionalAnalyzer":
         """Fit dimensional analyzers to data"""
         data_np = data.cpu().numpy() if isinstance(data, torch.Tensor) else data
 
@@ -105,7 +106,7 @@ class DimensionalAnalyzer(BaseDetector):
             loss = nn.functional.mse_loss(reconstructed, data_tensor)
 
             optimizer.zero_grad()
-            loss.backward()
+            loss.backward()  # type: ignore[no-untyped-call]
             optimizer.step()
 
         if self.use_db_term:
@@ -114,7 +115,7 @@ class DimensionalAnalyzer(BaseDetector):
         self._is_fitted = True
         return self
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect dimensional anomalies"""
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
@@ -125,6 +126,9 @@ class DimensionalAnalyzer(BaseDetector):
         else:
             data_np = data
             data_tensor = torch.tensor(data, dtype=torch.float32)
+
+        assert self.pca is not None, "PCA must be fitted before detection"
+        assert self.autoencoder is not None, "Autoencoder must be fitted before detection"
 
         pca_components = self.pca.transform(data_np)
         pca_reconstructed = self.pca.inverse_transform(pca_components)
@@ -153,7 +157,7 @@ class DimensionalAnalyzer(BaseDetector):
             "detector_type": "dimensional",
         }
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract dimensional features for ML fusion"""
         if not self._is_fitted:
             if isinstance(data, torch.Tensor):
@@ -167,6 +171,9 @@ class DimensionalAnalyzer(BaseDetector):
         else:
             data_np = data
             data_tensor = torch.tensor(data, dtype=torch.float32)
+
+        assert self.pca is not None, "PCA must be fitted before feature extraction"
+        assert self.autoencoder is not None, "Autoencoder must be fitted before feature extraction"
 
         pca_components = self.pca.transform(data_np)
 
@@ -182,7 +189,7 @@ class DimensionalAnalyzer(BaseDetector):
 
         return torch.tensor(features, dtype=torch.float32)
 
-    def _compute_spectral_signature(self, data: np.ndarray) -> np.ndarray:
+    def _compute_spectral_signature(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Compute baseline spectral signature using Fourier transform
         DB term: Dimensional Code-Breaking via frequency analysis
@@ -197,10 +204,10 @@ class DimensionalAnalyzer(BaseDetector):
             power_spectrum = np.abs(fft_result) ** 2
             signatures.append(power_spectrum[: len(power_spectrum) // 2])
 
-        mean_signature = np.mean(signatures, axis=0)
+        mean_signature: np.ndarray[Any, Any] = np.asarray(np.mean(signatures, axis=0))
         return mean_signature
 
-    def _dimensional_code_breaking(self, data: np.ndarray) -> np.ndarray:
+    def _dimensional_code_breaking(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         DB Term: Dimensional Code-Breaking Detection
         Detects anomalies via spectral divergence in Fourier space
@@ -209,6 +216,8 @@ class DimensionalAnalyzer(BaseDetector):
             data = data.reshape(-1, 1)
 
         scores = np.zeros(data.shape[0])
+
+        assert self.baseline_spectral_signature is not None, "Baseline spectral signature must be computed"
 
         for idx in range(data.shape[0]):
             sample = data[idx : idx + 1, :]
@@ -236,7 +245,7 @@ class DimensionalAnalyzer(BaseDetector):
 
         return scores
 
-    def _compute_phase_coherence(self, signal: np.ndarray) -> float:
+    def _compute_phase_coherence(self, signal: np.ndarray[Any, Any]) -> float:
         """Compute phase coherence for DB term"""
         if len(signal) < 4:
             return 1.0
@@ -249,9 +258,9 @@ class DimensionalAnalyzer(BaseDetector):
 
         coherence = 1.0 - np.mean(phase_diffs) / np.pi
 
-        return max(0.0, min(1.0, coherence))
+        return float(max(0.0, min(1.0, coherence)))
 
-    def _compute_harmonic_distortion(self, signal: np.ndarray) -> float:
+    def _compute_harmonic_distortion(self, signal: np.ndarray[Any, Any]) -> float:
         """Compute total harmonic distortion for DB term"""
         if len(signal) < 8:
             return 0.0
@@ -259,22 +268,23 @@ class DimensionalAnalyzer(BaseDetector):
         fft_result = fft(signal)
         power_spectrum = np.abs(fft_result) ** 2
 
-        fundamental_idx = np.argmax(power_spectrum[: len(power_spectrum) // 2])
+        fundamental_idx: int = int(np.argmax(power_spectrum[: len(power_spectrum) // 2]))
         if fundamental_idx == 0:
             fundamental_idx = 1
 
         fundamental_power = power_spectrum[fundamental_idx]
 
-        harmonic_powers = []
-        for n in range(2, min(8, len(power_spectrum) // (2 * fundamental_idx))):
+        harmonic_powers: list[float] = []
+        max_harmonic = int(min(8, len(power_spectrum) // (2 * fundamental_idx)))
+        for n in range(2, max_harmonic):
             harmonic_idx = n * fundamental_idx
             if harmonic_idx < len(power_spectrum):
-                harmonic_powers.append(power_spectrum[harmonic_idx])
+                harmonic_powers.append(float(power_spectrum[harmonic_idx]))
 
         if not harmonic_powers or fundamental_power == 0:
             return 0.0
 
-        total_harmonic_power = np.sum(harmonic_powers)
-        thd = np.sqrt(total_harmonic_power / (fundamental_power + 1e-10))
+        total_harmonic_power = sum(harmonic_powers)
+        thd = float(np.sqrt(total_harmonic_power / (fundamental_power + 1e-10)))
 
-        return min(thd, 1.0)
+        return float(min(thd, 1.0))

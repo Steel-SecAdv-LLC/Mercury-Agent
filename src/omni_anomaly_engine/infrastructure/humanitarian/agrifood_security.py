@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 AgriFood Security Module - Crop yield and food supply anomaly detection
@@ -53,12 +54,12 @@ class FoodSecurityThreat(Enum):
 class AgriFoodSecurityDetector:
     """Detect agricultural and food security anomalies."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.yield_baseline = {"mean": 5.0, "std": 1.0}
         self.price_baseline = {"mean": 100.0, "std": 15.0}
 
     def detect(
-        self, data: np.ndarray, detection_type: str = "yield", crop_type: str | None = None
+        self, data: np.ndarray[Any, Any], detection_type: str = "yield", crop_type: str | None = None
     ) -> dict[str, Any]:
         """
         Detect agricultural anomalies.
@@ -79,7 +80,7 @@ class AgriFoodSecurityDetector:
             return self.detect_yield_anomaly(data, crop_type)
 
     def detect_yield_anomaly(
-        self, yield_data: np.ndarray, crop_type: str | None = None
+        self, yield_data: np.ndarray[Any, Any], crop_type: str | None = None
     ) -> dict[str, Any]:
         """Detect crop yield failures and productivity anomalies."""
         if len(yield_data) == 0:
@@ -121,7 +122,7 @@ class AgriFoodSecurityDetector:
         }
 
     def detect_price_anomaly(
-        self, price_data: np.ndarray, crop_type: str | None = None
+        self, price_data: np.ndarray[Any, Any], crop_type: str | None = None
     ) -> dict[str, Any]:
         """Detect food price spikes and market disruptions."""
         if len(price_data) == 0:

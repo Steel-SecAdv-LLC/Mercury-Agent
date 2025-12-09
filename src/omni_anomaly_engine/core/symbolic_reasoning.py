@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """Symbolic Reasoning Engine for Explainable Anomaly Detection.
 
@@ -32,7 +33,7 @@ import numpy as np
 class SymbolicRule:
     """Represents a symbolic reasoning rule."""
 
-    def __init__(self, name: str, predicate: str, conditions: list[str], confidence: float = 1.0):
+    def __init__(self, name: str, predicate: str, conditions: list[str], confidence: float = 1.0) -> None:
         """Initialize symbolic rule.
 
         Args:
@@ -66,7 +67,7 @@ class SymbolicRule:
 class SymbolicReasoningEngine:
     """Symbolic reasoning engine for explainable AI."""
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize symbolic reasoning engine.
 
         Args:
@@ -109,7 +110,7 @@ class SymbolicReasoningEngine:
         """Add a custom reasoning rule."""
         self.rules.append(rule)
 
-    def reason(self, neural_output: np.ndarray, context: dict[str, Any]) -> dict[str, Any]:
+    def reason(self, neural_output: np.ndarray[Any, Any], context: dict[str, Any]) -> dict[str, Any]:
         """Perform hybrid neuro-symbolic reasoning.
 
         Combines neural network outputs with symbolic rule-based reasoning

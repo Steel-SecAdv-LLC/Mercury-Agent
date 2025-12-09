@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Multimodal Fusion Network with Cross-Modal Attention
@@ -34,7 +35,7 @@ from torch import nn
 class CrossModalAttention(nn.Module):
     """Cross-attention between different modalities."""
 
-    def __init__(self, dim: int, num_heads: int = 4):
+    def __init__(self, dim: int, num_heads: int = 4) -> None:
         super().__init__()
         self.attention = nn.MultiheadAttention(dim, num_heads, batch_first=True)
         self.norm = nn.LayerNorm(dim)
@@ -57,7 +58,7 @@ class CrossModalAttention(nn.Module):
 class MultimodalFusionNetwork(nn.Module):
     """Multimodal fusion with cross-attention for anomaly detection."""
 
-    def __init__(self, modality_dims: dict[str, int], fusion_dim: int = 128, num_heads: int = 4):
+    def __init__(self, modality_dims: dict[str, int], fusion_dim: int = 128, num_heads: int = 4) -> None:
         super().__init__()
 
         self.modality_dims = modality_dims

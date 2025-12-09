@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Advanced Optimizers for OMNI ♱ AVA
@@ -36,7 +37,7 @@ References:
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Any
 
 import numpy as np
 import numpy.typing as npt
@@ -120,7 +121,7 @@ class SyntheticGradientPredictor:
         )
         self.optimizer = optim.Adam(self.predictor.parameters(), lr=0.01)
 
-    def forward(self, activations: np.ndarray) -> np.ndarray:
+    def forward(self, activations: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Predict synthetic gradient for given activations.
 
@@ -136,16 +137,16 @@ class SyntheticGradientPredictor:
         activations_tensor = torch.FloatTensor(activations)
         with torch.no_grad():
             output = self.predictor(activations_tensor)
-        return output.numpy()
+        return np.asarray(output.numpy())
 
-    def _forward_numpy(self, activations: np.ndarray) -> np.ndarray:
+    def _forward_numpy(self, activations: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Numpy forward pass."""
         h1 = np.maximum(0, activations @ self.w1 + self.b1)
         h2 = np.maximum(0, h1 @ self.w2 + self.b2)
         output = h2 @ self.w3 + self.b3
         return output
 
-    def update(self, predicted_grad: np.ndarray, true_grad: np.ndarray) -> float:
+    def update(self, predicted_grad: np.ndarray[Any, Any], true_grad: np.ndarray[Any, Any]) -> float:
         """
         Update predictor with true gradient.
 
@@ -166,12 +167,12 @@ class SyntheticGradientPredictor:
         loss = nn.functional.mse_loss(predicted_tensor, true_tensor.detach())
 
         if loss.requires_grad:
-            loss.backward()
+            loss.backward()  # type: ignore[no-untyped-call]
             self.optimizer.step()
 
         return loss.item()
 
-    def _update_numpy(self, predicted_grad: np.ndarray, true_grad: np.ndarray) -> float:
+    def _update_numpy(self, predicted_grad: np.ndarray[Any, Any], true_grad: np.ndarray[Any, Any]) -> float:
         """Numpy update (simplified gradient descent)."""
         error = predicted_grad - true_grad
         mse = float(np.mean(error**2))
@@ -218,21 +219,21 @@ class SyntheticGradientModule:
         self.bootstrap_steps = bootstrap_steps
         self.alpha_start = alpha_start
 
+        self.gradient_predictor: SyntheticGradientPredictor | None = None
         if use_synthetic:
             output_dim = input_dim
             if hasattr(layer, "out_features"):
-                output_dim = layer.out_features
+                out_feat = getattr(layer, "out_features", input_dim)
+                output_dim = int(out_feat) if isinstance(out_feat, int) else input_dim
             self.gradient_predictor = SyntheticGradientPredictor(
                 input_dim=output_dim, output_dim=output_dim
             )
-        else:
-            self.gradient_predictor = None
 
         self.training_steps = 0
-        self.last_output: np.ndarray | None = None
-        self.true_grad: np.ndarray | None = None
+        self.last_output: np.ndarray[Any, Any] | None = None
+        self.true_grad: np.ndarray[Any, Any] | None = None
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Forward pass with synthetic gradient prediction.
 
@@ -244,8 +245,8 @@ class SyntheticGradientModule:
         """
         x_tensor = torch.FloatTensor(x)
         output = self.layer(x_tensor)
-        self.last_output = output.detach().numpy()
-        return output.detach().numpy()
+        self.last_output = np.asarray(output.detach().numpy())
+        return np.asarray(output.detach().numpy())
 
     def update_predictor(self) -> None:
         """Update predictor with true gradient after main backward."""
@@ -301,7 +302,11 @@ class DifferenceTargetPropagation:
 
         if inverse_layer is None:
             if hasattr(forward_layer, "in_features") and hasattr(forward_layer, "out_features"):
-                inverse_layer = nn.Linear(forward_layer.out_features, forward_layer.in_features)
+                out_feat = getattr(forward_layer, "out_features", 1)
+                in_feat = getattr(forward_layer, "in_features", 1)
+                out_dim = int(out_feat) if isinstance(out_feat, int) else 1
+                in_dim = int(in_feat) if isinstance(in_feat, int) else 1
+                inverse_layer = nn.Linear(out_dim, in_dim)
             else:
                 raise ValueError("Must provide inverse_layer or forward_layer must be nn.Linear")
 
@@ -310,7 +315,7 @@ class DifferenceTargetPropagation:
         self.optimizer_forward = optim.SGD(self.forward_layer.parameters(), lr=learning_rate)
         self.optimizer_inverse = optim.SGD(self.inverse_layer.parameters(), lr=learning_rate)
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Forward pass.
 
@@ -322,9 +327,9 @@ class DifferenceTargetPropagation:
         """
         x_tensor = torch.FloatTensor(x)
         output = self.forward_layer(x_tensor)
-        return output.detach().numpy()
+        return np.asarray(output.detach().numpy())
 
-    def backward_pass(self, h_current: np.ndarray, target: np.ndarray) -> np.ndarray:
+    def backward_pass(self, h_current: np.ndarray[Any, Any], target: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Compute target for previous layer via inverse mapping.
 
@@ -346,16 +351,16 @@ class DifferenceTargetPropagation:
         reconstruction_loss = nn.functional.mse_loss(
             self.forward_layer(target_prev), h_tensor.detach()
         )
-        reconstruction_loss.backward(retain_graph=True)
+        reconstruction_loss.backward(retain_graph=True)  # type: ignore[no-untyped-call]
         self.optimizer_inverse.step()
 
         forward_loss = nn.functional.mse_loss(
             self.forward_layer(target_prev.detach()), target_tensor.detach()
         )
-        forward_loss.backward()
+        forward_loss.backward()  # type: ignore[no-untyped-call]
         self.optimizer_forward.step()
 
-        return target_prev.detach().numpy()
+        return np.asarray(target_prev.detach().numpy())
 
 
 class AuxiliaryMaxVariance:
@@ -373,6 +378,8 @@ class AuxiliaryMaxVariance:
         amav = AuxiliaryMaxVariance(num_tasks=3)
         combined_loss = amav.compute_loss([loss1, loss2, loss3])
     """
+
+    task_weights: "nn.Parameter | np.ndarray[Any, Any]"
 
     def __init__(self, num_tasks: int, alpha: float = 0.5) -> None:
         """
@@ -409,10 +416,11 @@ class AuxiliaryMaxVariance:
             return float(total_loss.item())
 
         task_losses_arr = np.array(task_losses)
-        weighted_losses = self.task_weights * task_losses_arr
-        mean_loss = np.mean(weighted_losses)
-        variance_loss = -np.var(task_losses_arr)
-        return float(mean_loss + self.alpha * variance_loss)
+        task_weights_arr = np.asarray(self.task_weights)
+        weighted_losses = task_weights_arr * task_losses_arr
+        mean_loss_val = float(np.mean(weighted_losses))
+        variance_loss_val = float(-np.var(task_losses_arr))
+        return float(mean_loss_val + self.alpha * variance_loss_val)
 
 
 def estimate_convergence_rate(

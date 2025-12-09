@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Base classes for benchmark dataset loaders.
@@ -96,7 +97,7 @@ class BaseImageDataset(ABC):
     Provides unified interface for datasets like MVTec AD.
     """
 
-    def __init__(self, config: BaseDatasetConfig | dict[str, Any] | None = None):
+    def __init__(self, config: BaseDatasetConfig | dict[str, Any] | None = None) -> None:
         """Initialize dataset.
 
         Args:
@@ -176,7 +177,7 @@ class BaseVideoDataset(ABC):
     Provides unified interface for datasets like UCF-Crime, Shanghai Tech.
     """
 
-    def __init__(self, config: BaseDatasetConfig | dict[str, Any] | None = None):
+    def __init__(self, config: BaseDatasetConfig | dict[str, Any] | None = None) -> None:
         """Initialize dataset.
 
         Args:
@@ -193,7 +194,7 @@ class BaseVideoDataset(ABC):
         self.split = self.config.split
         self.transform = self.config.transform
 
-        self._videos: list[tuple[Path, int, np.ndarray | None]] = []
+        self._videos: list[tuple[Path, int, np.ndarray[Any, Any] | None]] = []
         self._load_videos()
 
     @abstractmethod

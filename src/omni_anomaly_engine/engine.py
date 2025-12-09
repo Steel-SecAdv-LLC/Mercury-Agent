@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """Main OmniAvaEngine orchestrating all detectors and models.
 
@@ -95,7 +96,7 @@ import threading
 from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -162,7 +163,7 @@ class FeatureCache:
         self.hits = 0
         self.misses = 0
 
-    def _make_key(self, data: np.ndarray | torch.Tensor, prefix: str = "") -> str:
+    def _make_key(self, data: np.ndarray[Any, Any] | torch.Tensor, prefix: str = "") -> str:
         """Generate a cache key from data.
 
         Args:
@@ -282,7 +283,7 @@ class MemoryMonitor:
             import psutil
 
             process = psutil.Process()
-            return process.memory_info().rss / (1024 * 1024)
+            return float(process.memory_info().rss / (1024 * 1024))
         except ImportError:
             # Fallback if psutil not available
             return 0.0
@@ -522,7 +523,7 @@ class OmniAvaEngine:
 
     def detect(
         self,
-        data: np.ndarray | torch.Tensor | dict[str, Any],
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
         detector_types: list[str] | None = None,
     ) -> dict[str, Any]:
         """Detect anomalies using specified detectors.
@@ -533,7 +534,7 @@ class OmniAvaEngine:
 
         Args:
             data: Input data for anomaly detection. Can be:
-                - numpy.ndarray: Numerical data array
+                - numpy.ndarray[Any, Any]: Numerical data array
                 - torch.Tensor: PyTorch tensor
                 - Dict[str, Any]: Dictionary with domain-specific data
             detector_types: List of detector names to use. If None,
@@ -570,6 +571,8 @@ class OmniAvaEngine:
                         continue
                     detector.fit(data)
 
+                if isinstance(data, dict):
+                    continue
                 results[detector_name] = detector.detect(data)
 
         return {
@@ -586,7 +589,7 @@ class OmniAvaEngine:
 
     def detect_batch(
         self,
-        data: np.ndarray | torch.Tensor,
+        data: np.ndarray[Any, Any] | torch.Tensor,
         batch_size: int | None = None,
         use_fusion: bool = True,
         parallel: bool = True,
@@ -663,7 +666,7 @@ class OmniAvaEngine:
 
     def _calculate_optimal_batch_size(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         target_memory_mb: float = 512.0,
     ) -> int:
         """Calculate optimal batch size based on data and memory.
@@ -708,16 +711,16 @@ class OmniAvaEngine:
             torch.Size([3, 1])
         """
         if isinstance(scores, (list, np.ndarray)):
-            scores = torch.tensor(scores, dtype=torch.float32)
-            if scores.dim() == 1:
-                scores = scores.unsqueeze(-1)
+            scores_tensor = torch.tensor(scores, dtype=torch.float32)
+            if scores_tensor.dim() == 1:
+                scores_tensor = scores_tensor.unsqueeze(-1)
+            return scores_tensor
         elif isinstance(scores, bool):
-            scores = torch.full((batch_size, 1), float(scores), dtype=torch.float32)
+            return torch.full((batch_size, 1), float(scores), dtype=torch.float32)
         else:
-            scores = torch.full((batch_size, 1), float(scores), dtype=torch.float32)
-        return scores
+            return torch.full((batch_size, 1), float(scores), dtype=torch.float32)
 
-    def _extract_detector_features(self, data: np.ndarray | torch.Tensor | dict[str, Any]) -> tuple:
+    def _extract_detector_features(self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]) -> tuple[Any, ...]:
         """Extract features from all detectors.
 
         This method extracts feature vectors from all base detectors
@@ -751,7 +754,7 @@ class OmniAvaEngine:
                     data if not isinstance(data, dict) else np.array([0]), prefix=f"detector_{name}"
                 )
 
-                def compute_features(det=detector, d=data) -> tuple:
+                def compute_features(det: Any = detector, d: Any = data) -> tuple[Any, ...]:
                     features = det.extract_features(d)
                     result = det.detect(d)
                     return features, result
@@ -767,7 +770,7 @@ class OmniAvaEngine:
 
         return detector_features, detector_scores
 
-    def _extract_model_features(self, data: np.ndarray | torch.Tensor | dict[str, Any]) -> tuple:
+    def _extract_model_features(self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]) -> tuple[Any, ...]:
         """Extract features from all specialized models.
 
         This method extracts feature vectors from all 13 specialized
@@ -796,7 +799,7 @@ class OmniAvaEngine:
                     data if not isinstance(data, dict) else np.array([0]), prefix=f"model_{name}"
                 )
 
-                def compute_features(mdl=model, d=data) -> tuple:
+                def compute_features(mdl: Any = model, d: Any = data) -> tuple[Any, ...]:
                     features = mdl.extract_features(d)
                     prediction = mdl.predict(d)
                     return features, prediction
@@ -812,7 +815,7 @@ class OmniAvaEngine:
 
         return model_features, model_scores
 
-    def _extract_features_parallel(self, data: np.ndarray | torch.Tensor | dict[str, Any]) -> tuple:
+    def _extract_features_parallel(self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]) -> tuple[Any, ...]:
         """Extract features from all sources in parallel.
 
         This method uses thread pool execution to extract features
@@ -842,7 +845,7 @@ class OmniAvaEngine:
 
     def detect_with_fusion(
         self,
-        data: np.ndarray | torch.Tensor | dict[str, Any],
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
         domain: str | None = None,
         enable_gosnn: bool = True,
     ) -> dict[str, Any]:
@@ -909,7 +912,7 @@ class OmniAvaEngine:
             try:
                 # Get GOSNN singleton with domain-appropriate threshold
                 gosnn = get_global_scalar_network(
-                    device=self.device,
+                    device=str(self.device),
                     domain=domain,
                     num_attention_heads=32,
                     enable_triadic_phi=True,
@@ -1007,8 +1010,8 @@ class OmniAvaEngine:
 
     def detect_biometric(
         self,
-        reference_image: str | np.ndarray,
-        test_image: str | np.ndarray | None = None,
+        reference_image: str | np.ndarray[Any, Any],
+        test_image: str | np.ndarray[Any, Any] | None = None,
         enable_age_progression: bool = False,
     ) -> dict[str, Any]:
         """Perform biometric face matching and analysis.
@@ -1035,7 +1038,7 @@ class OmniAvaEngine:
             ... )
             >>> print(f"Match score: {result.get('match_score', 0):.3f}")
         """
-        biometric_model = self.models["biometric"]
+        biometric_model = cast(BiometricAnomalyModel, self.models["biometric"])
 
         if test_image is not None:
             return biometric_model.predict(
@@ -1045,6 +1048,9 @@ class OmniAvaEngine:
                 }
             )
         else:
+            # Convert string path to dict format for predict method
+            if isinstance(reference_image, str):
+                return biometric_model.predict({"reference": reference_image})
             return biometric_model.predict(reference_image)
 
     def detect_security_threat(
@@ -1242,7 +1248,7 @@ class OmniAvaEngine:
             model=self.fusion_model,
             learning_rate=learning_rate,
         )
-        trainer_module.optimizer_type = optimizer_type
+        trainer_module.optimizer_type = optimizer_type  # type: ignore[assignment]
 
         # Training state
         best_val_loss = float("inf")
@@ -1259,7 +1265,7 @@ class OmniAvaEngine:
         )
 
         # Configure optimizer
-        optimizer_config = trainer_module.configure_optimizers()
+        optimizer_config = cast(dict[str, Any], trainer_module.configure_optimizers())
         optimizer = optimizer_config["optimizer"]
         scheduler = optimizer_config["lr_scheduler"]["scheduler"]
 
@@ -1274,7 +1280,7 @@ class OmniAvaEngine:
                 if use_mixed_precision and scaler is not None:
                     with torch.cuda.amp.autocast():
                         loss = trainer_module.training_step(batch, batch_idx)
-                    scaler.scale(loss / gradient_accumulation_steps).backward()
+                    scaler.scale(loss / gradient_accumulation_steps).backward()  # type: ignore[no-untyped-call]
 
                     if (batch_idx + 1) % gradient_accumulation_steps == 0:
                         scaler.step(optimizer)
@@ -1282,7 +1288,7 @@ class OmniAvaEngine:
                         optimizer.zero_grad()
                 else:
                     loss = trainer_module.training_step(batch, batch_idx)
-                    (loss / gradient_accumulation_steps).backward()
+                    (loss / gradient_accumulation_steps).backward()  # type: ignore[no-untyped-call]
 
                     if (batch_idx + 1) % gradient_accumulation_steps == 0:
                         optimizer.step()
@@ -1290,7 +1296,7 @@ class OmniAvaEngine:
 
                 train_losses.append(loss.item())
 
-            avg_train_loss = np.mean(train_losses)
+            avg_train_loss = float(np.mean(train_losses))
 
             # Validation phase
             val_losses = []
@@ -1308,7 +1314,7 @@ class OmniAvaEngine:
                     )
                     val_losses.append(val_loss.item())
 
-            avg_val_loss = np.mean(val_losses) if val_losses else avg_train_loss
+            avg_val_loss = float(np.mean(val_losses)) if val_losses else avg_train_loss
 
             # Update learning rate scheduler
             scheduler.step(avg_val_loss)

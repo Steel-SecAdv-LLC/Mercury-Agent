@@ -16,6 +16,7 @@ Covers:
 - Invalid signatures
 - Missing required claims
 """
+from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta

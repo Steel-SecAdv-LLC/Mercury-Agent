@@ -68,14 +68,13 @@ jobs:
         run: black --check --diff src/ tests/
 
       - name: Run Ruff (fast linting)
-        # Using --exit-zero to make ruff informational (reports issues but doesn't fail CI)
-        # Pre-existing E402/PLC0415 issues need codebase cleanup before making this gating
-        run: ruff check src/ tests/ --output-format=github --exit-zero
+        # Ruff linting is now blocking - codebase has been cleaned up
+        run: ruff check src/ tests/ --output-format=github
 
       - name: Run Flake8 (linting)
+        # Flake8 linting is now blocking - codebase has been cleaned up
         # Ignoring E402 (module level import not at top) and E501 (line too long, handled by Black)
-        # Pre-existing F401/F841 issues exist - using || true until codebase cleanup
-        run: flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503,E402,E501 || true
+        run: flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503,E402,E501
 
       - name: Run pydocstyle (docstring checks)
         run: pydocstyle src/omni_anomaly_engine/ --convention=google || true
@@ -112,11 +111,12 @@ jobs:
           pip install mypy types-requests
 
       - name: Run MyPy
+        # MyPy type checking is now blocking for code quality assurance
         run: |
           mypy src/omni_anomaly_engine/ \
             --ignore-missing-imports \
             --show-error-codes \
-            --pretty || true
+            --pretty
 
   # ===========================================================================
   # Stage 3: Security Scanning
@@ -144,28 +144,32 @@ jobs:
           pip install semgrep || echo "Semgrep installation failed - will skip semgrep scan"
 
       - name: Run Bandit (security linter)
+        # Bandit security scan is now blocking - fails on medium+ severity issues
         run: |
           bandit -r src/omni_anomaly_engine/ \
             -f json \
             -o bandit-report.json \
-            --severity-level medium || true
+            --severity-level medium
 
       - name: Run Safety (dependency vulnerabilities)
+        # Safety check is now blocking - fails on known vulnerabilities
         run: |
-          pip install -r requirements.txt || true
-          safety check --json --output safety-report.json || true
+          pip install -r requirements.txt
+          safety check --json --output safety-report.json
 
       - name: Run pip-audit
-        run: pip-audit --json --output pip-audit-report.json || true
+        # pip-audit is now blocking for dependency security
+        run: pip-audit --json --output pip-audit-report.json
 
       - name: Run Semgrep
+        # Semgrep security scan is now blocking - fails on security issues
         run: |
           semgrep scan \
             --config "p/python" \
             --config "p/security-audit" \
             --json \
             --output semgrep-report.json \
-            src/ || true
+            src/
 
       - name: Upload security reports
         uses: actions/upload-artifact@v4

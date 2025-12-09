@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Context providers for VLM-based anomaly detection.
@@ -44,7 +45,7 @@ class ContextInfo:
 
     context_type: str
     description: str
-    features: np.ndarray | None = None
+    features: np.ndarray[Any, Any] | None = None
     metadata: dict[str, Any] | None = None
 
 
@@ -54,7 +55,7 @@ class BaseContextProvider(ABC):
     @abstractmethod
     def extract_context(
         self,
-        frames: np.ndarray | torch.Tensor,
+        frames: np.ndarray[Any, Any] | torch.Tensor,
         **kwargs: Any,
     ) -> ContextInfo:
         """Extract context from input frames.
@@ -132,7 +133,7 @@ class PositionContextProvider(BaseContextProvider):
 
     def extract_context(
         self,
-        frames: np.ndarray | torch.Tensor,
+        frames: np.ndarray[Any, Any] | torch.Tensor,
         **kwargs: Any,
     ) -> ContextInfo:
         """Extract spatial position context.
@@ -171,7 +172,7 @@ class PositionContextProvider(BaseContextProvider):
             },
         )
 
-    def _compute_region_activity(self, frames: np.ndarray) -> np.ndarray:
+    def _compute_region_activity(self, frames: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute activity level for each grid region.
 
         Uses frame difference and gradient magnitude as activity proxy.
@@ -209,7 +210,7 @@ class PositionContextProvider(BaseContextProvider):
 
     def _find_active_regions(
         self,
-        activity: np.ndarray,
+        activity: np.ndarray[Any, Any],
         threshold: float = 0.3,
     ) -> list[tuple[tuple[int, int], float]]:
         """Find regions with high activity."""
@@ -269,7 +270,7 @@ class TemporalContextProvider(BaseContextProvider):
 
     def extract_context(
         self,
-        frames: np.ndarray | torch.Tensor,
+        frames: np.ndarray[Any, Any] | torch.Tensor,
         **kwargs: Any,
     ) -> ContextInfo:
         """Extract temporal context from video frames.
@@ -314,7 +315,7 @@ class TemporalContextProvider(BaseContextProvider):
             },
         )
 
-    def _compute_motion(self, frames: np.ndarray) -> np.ndarray:
+    def _compute_motion(self, frames: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute frame-to-frame motion magnitude."""
         # Frame differences
         diffs = np.abs(np.diff(frames.astype(float), axis=0))
@@ -324,7 +325,7 @@ class TemporalContextProvider(BaseContextProvider):
 
         return motion
 
-    def _analyze_motion_pattern(self, motion: np.ndarray) -> str:
+    def _analyze_motion_pattern(self, motion: np.ndarray[Any, Any]) -> str:
         """Analyze overall motion pattern."""
         if len(motion) == 0:
             return "static"
@@ -343,7 +344,7 @@ class TemporalContextProvider(BaseContextProvider):
 
     def _detect_events(
         self,
-        motion: np.ndarray,
+        motion: np.ndarray[Any, Any],
         threshold_factor: float = 2.0,
     ) -> list[dict[str, Any]]:
         """Detect significant motion events."""
@@ -433,7 +434,7 @@ class CombinedContextProvider:
 
     def extract_all_context(
         self,
-        frames: np.ndarray | torch.Tensor,
+        frames: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, ContextInfo]:
         """Extract all context types.
 
@@ -477,7 +478,7 @@ class CombinedContextProvider:
 class PositionalContextExtractor(PositionContextProvider):
     """Alias for PositionContextProvider for test compatibility."""
 
-    def extract(self, image: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def extract(self, image: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Extract positional context from image.
 
         Args:
@@ -498,7 +499,7 @@ class PositionalContextExtractor(PositionContextProvider):
 class TemporalContextExtractor(TemporalContextProvider):
     """Alias for TemporalContextProvider for test compatibility."""
 
-    def extract(self, frames: list[Any] | np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def extract(self, frames: list[Any] | np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Extract temporal context from frames.
 
         Args:

@@ -27,6 +27,7 @@ Architecture:
     6. ProbabilisticLogicLayer - Credal networks for uncertainty
     7. EnhancedNeurosymbolicEngine - Unified interface
 """
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -137,7 +138,7 @@ class FuzzyOperators:
 # ==============================================================================
 
 
-class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):
+class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):  # type: ignore[misc]
     """
     Enhanced Logic Tensor Network with multiple fuzzy semantics.
 
@@ -194,7 +195,7 @@ class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):
         # Select operators based on semantics
         self._setup_operators()
 
-    def _setup_operators(self):
+    def _setup_operators(self) -> None:
         """Setup fuzzy operators based on selected semantics."""
         if self.semantics == FuzzySemantics.PRODUCT:
             self.and_op = FuzzyOperators.and_product
@@ -336,7 +337,7 @@ class GraphEdge:
     weight: float = 1.0
     timestamp: int = 0
     valid_from: int = 0
-    valid_until: int = float("inf")
+    valid_until: float = float("inf")
 
 
 @dataclass
@@ -378,7 +379,7 @@ class TemporalGraphReasoner:
         self.nodes: dict[str, GraphNode] = {}
         self.edges: list[GraphEdge] = []
         self.rules: list[TemporalRule] = []
-        self.reasoning_trace: list[dict] = []
+        self.reasoning_trace: list[dict[str, Any]] = []
 
     def add_node(
         self,
@@ -624,7 +625,7 @@ class KnowledgeGraphBridge:
         "oReact",  # Others' reaction
     ]
 
-    def __init__(self, cache_dir: str = "./kg_cache"):
+    def __init__(self, cache_dir: str = "./kg_cache") -> None:
         self.cache_dir = cache_dir
         self.knowledge_base: list[CommonsenseRelation] = []
         self._concept_index: dict[str, list[int]] = {}
@@ -632,7 +633,7 @@ class KnowledgeGraphBridge:
         # Initialize with core commonsense rules
         self._init_core_knowledge()
 
-    def _init_core_knowledge(self):
+    def _init_core_knowledge(self) -> None:
         """Initialize core commonsense knowledge."""
         # Anomaly detection domain knowledge
         core_knowledge = [
@@ -669,7 +670,7 @@ class KnowledgeGraphBridge:
         obj: str,
         weight: float = 1.0,
         source: str = "domain",
-    ):
+    ) -> None:
         """Add knowledge to the graph."""
         idx = len(self.knowledge_base)
         relation_obj = CommonsenseRelation(subject, relation, obj, weight, source)
@@ -739,7 +740,7 @@ class KnowledgeGraphBridge:
         Returns:
             Dictionary of inferred facts with confidence scores
         """
-        inferences = {}
+        inferences: dict[str, float] = {}
 
         for key, value in context.items():
             if isinstance(value, (bool, int, float)) and value:
@@ -798,8 +799,8 @@ class MetaCognitionLayer:
 
     def assess_state(
         self,
-        predictions: np.ndarray,
-        ground_truth: np.ndarray | None = None,
+        predictions: np.ndarray[Any, Any],
+        ground_truth: np.ndarray[Any, Any] | None = None,
     ) -> ReasoningState:
         """Assess current reasoning state."""
         confidence = np.mean(np.abs(predictions - 0.5) * 2)
@@ -851,7 +852,7 @@ class MetaCognitionLayer:
         ]
 
         if similar_predictions:
-            historical_accuracy = np.mean(similar_predictions)
+            historical_accuracy = float(np.mean(similar_predictions))
             # Blend raw confidence with historical accuracy
             return 0.7 * raw_confidence + 0.3 * historical_accuracy
 
@@ -859,8 +860,8 @@ class MetaCognitionLayer:
 
     def quantify_uncertainty(
         self,
-        predictions: np.ndarray,
-        ensemble_predictions: list[np.ndarray] | None = None,
+        predictions: np.ndarray[Any, Any],
+        ensemble_predictions: list[np.ndarray[Any, Any]] | None = None,
     ) -> dict[str, float]:
         """Quantify different types of uncertainty."""
         # Aleatoric uncertainty (from prediction confidence)
@@ -907,7 +908,7 @@ class CausalReasoningModule:
     Based on Pearl's causal inference framework.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.causal_graph: dict[str, list[CausalEdge]] = {}
         self.variable_values: dict[str, float] = {}
 
@@ -917,12 +918,12 @@ class CausalReasoningModule:
         effect: str,
         strength: float = 1.0,
         mechanism: str = "",
-    ):
+    ) -> None:
         """Add a causal edge to the graph."""
         edge = CausalEdge(cause, effect, strength, mechanism)
         self.causal_graph.setdefault(cause, []).append(edge)
 
-    def observe(self, variable: str, value: float):
+    def observe(self, variable: str, value: float) -> None:
         """Observe a variable value."""
         self.variable_values[variable] = value
 
@@ -1042,7 +1043,7 @@ class ProbabilisticLogicLayer:
     Based on Logical Credal Networks research.
     """
 
-    def __init__(self, default_uncertainty: float = 0.1):
+    def __init__(self, default_uncertainty: float = 0.1) -> None:
         self.default_uncertainty = default_uncertainty
         self.probability_bounds: dict[str, tuple[float, float]] = {}
 
@@ -1051,7 +1052,7 @@ class ProbabilisticLogicLayer:
         variable: str,
         lower: float,
         upper: float,
-    ):
+    ) -> None:
         """Set probability bounds for a variable (credal set)."""
         self.probability_bounds[variable] = (lower, upper)
 
@@ -1137,11 +1138,12 @@ class EnhancedNeurosymbolicEngine:
         use_knowledge_graph: bool = True,
         use_meta_cognition: bool = True,
         use_causal: bool = True,
-    ):
+    ) -> None:
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
 
         # Logic Tensor Network
+        self.ltn: EnhancedLogicTensorNetwork | None = None
         if TORCH_AVAILABLE:
             self.ltn = EnhancedLogicTensorNetwork(
                 input_dim=input_dim,
@@ -1149,8 +1151,6 @@ class EnhancedNeurosymbolicEngine:
                 num_predicates=num_predicates,
                 semantics=fuzzy_semantics,
             )
-        else:
-            self.ltn = None
 
         # Temporal Graph Reasoner
         self.temporal_reasoner = TemporalGraphReasoner(
@@ -1159,23 +1159,20 @@ class EnhancedNeurosymbolicEngine:
         )
 
         # Knowledge Graph
+        self.knowledge_graph: KnowledgeGraphBridge | None = None
         if use_knowledge_graph:
             self.knowledge_graph = KnowledgeGraphBridge()
-        else:
-            self.knowledge_graph = None
 
         # Meta-cognition
+        self.meta_cognition: MetaCognitionLayer | None = None
         if use_meta_cognition:
             self.meta_cognition = MetaCognitionLayer()
-        else:
-            self.meta_cognition = None
 
         # Causal Reasoning
+        self.causal_module: CausalReasoningModule | None = None
         if use_causal:
             self.causal_module = CausalReasoningModule()
             self._init_causal_graph()
-        else:
-            self.causal_module = None
 
         # Probabilistic Logic
         self.probabilistic = ProbabilisticLogicLayer()
@@ -1185,7 +1182,7 @@ class EnhancedNeurosymbolicEngine:
 
         logger.info("EnhancedNeurosymbolicEngine initialized with all components")
 
-    def _init_temporal_rules(self):
+    def _init_temporal_rules(self) -> None:
         """Initialize domain-specific temporal rules."""
         # Medical temporal patterns
         self.temporal_reasoner.add_rule(
@@ -1230,8 +1227,9 @@ class EnhancedNeurosymbolicEngine:
             time_window=72,
         )
 
-    def _init_causal_graph(self):
+    def _init_causal_graph(self) -> None:
         """Initialize causal relationships for root cause analysis."""
+        assert self.causal_module is not None, "Causal module must be initialized"
         # Medical causal chains
         self.causal_module.add_causal_edge("infection", "inflammation", 0.9)
         self.causal_module.add_causal_edge("inflammation", "fever", 0.85)
@@ -1246,7 +1244,7 @@ class EnhancedNeurosymbolicEngine:
 
     def predict(
         self,
-        features: np.ndarray,
+        features: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
         timestamp: int = 0,
     ) -> dict[str, Any]:
@@ -1263,7 +1261,7 @@ class EnhancedNeurosymbolicEngine:
             explanations, and uncertainty quantification
         """
         context = context or {}
-        result = {
+        result: dict[str, Any] = {
             "anomaly_scores": None,
             "neural_output": None,
             "symbolic_conclusions": {},
@@ -1276,6 +1274,7 @@ class EnhancedNeurosymbolicEngine:
 
         # 1. Neural inference via LTN
         if self.ltn is not None and TORCH_AVAILABLE:
+            features_tensor: torch.Tensor
             if not isinstance(features, torch.Tensor):
                 features_tensor = torch.FloatTensor(features)
             else:
@@ -1383,7 +1382,7 @@ class EnhancedNeurosymbolicEngine:
 
         return "\n".join(lines)
 
-    def extract_features(self, data: np.ndarray) -> np.ndarray:
+    def extract_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract neuro-symbolic features for detector integration."""
         if data.ndim == 1:
             data = data.reshape(1, -1)

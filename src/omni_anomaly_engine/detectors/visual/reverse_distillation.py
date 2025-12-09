@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Reverse Distillation for Anomaly Detection
@@ -80,7 +81,7 @@ class OCEBottleneck(nn.Module):
     captures only normal patterns.
     """
 
-    def __init__(self, in_channels: int, bottleneck_dim: int = 256):
+    def __init__(self, in_channels: int, bottleneck_dim: int = 256) -> None:
         """Initialize bottleneck.
 
         Args:
@@ -99,7 +100,8 @@ class OCEBottleneck(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through bottleneck."""
-        return self.encoder(x)
+        result: torch.Tensor = self.encoder(x)
+        return result
 
 
 class MultiScaleDecoder(nn.Module):
@@ -166,7 +168,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         >>> results = detector.detect(test_images)
     """
 
-    def __init__(self, config: ReverseDistillationConfig | dict[str, Any] | None = None):
+    def __init__(self, config: ReverseDistillationConfig | dict[str, Any] | None = None) -> None:
         """Initialize detector."""
         if config is None:
             config = ReverseDistillationConfig()
@@ -263,7 +265,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
 
         return torch.cat(resized, dim=1)
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> "ReverseDistillationDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "ReverseDistillationDetector":
         """Train student encoder, bottleneck, and decoder.
 
         Args:
@@ -281,6 +283,10 @@ class ReverseDistillationDetector(BaseVisualDetector):
         # Initialize components
         if self.bottleneck is None:
             self._initialize_components(data[:1])
+
+        # Assert components are initialized
+        assert self.bottleneck is not None
+        assert self.decoder is not None
 
         # Setup optimizer for student, bottleneck, decoder
         params = (
@@ -346,7 +352,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
                         total_loss = total_loss + loss
 
                 optimizer.zero_grad()
-                total_loss.backward()
+                total_loss.backward()  # type: ignore[no-untyped-call]
                 optimizer.step()
 
                 epoch_loss += total_loss.item()
@@ -366,7 +372,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         logger.info("Reverse Distillation training complete")
         return self
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using reconstruction error.
 
         Args:
@@ -381,12 +387,16 @@ class ReverseDistillationDetector(BaseVisualDetector):
         if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
-        original_size = data.shape[-2:]
+        original_size: tuple[int, int] = (data.shape[-2], data.shape[-1])
         data = self.preprocess(data)
 
         all_scores = []
         all_maps = []
         all_features = []
+
+        # Assert components are initialized
+        assert self.bottleneck is not None
+        assert self.decoder is not None
 
         self.student_encoder.eval()
         self.bottleneck.eval()
@@ -485,7 +495,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
 
         return torch.from_numpy(anomaly_map_np).to(self.device)
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion pipeline.
 
         Args:
@@ -498,6 +508,9 @@ class ReverseDistillationDetector(BaseVisualDetector):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)
+
+        # Assert bottleneck is initialized
+        assert self.bottleneck is not None
 
         all_features = []
 

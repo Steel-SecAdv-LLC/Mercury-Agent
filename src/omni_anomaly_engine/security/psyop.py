@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Psychological Operations (PSYOP) Analysis Module
@@ -220,7 +221,7 @@ class PSYOPAnalyzer:
         ... })
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize PSYOP analyzer."""
         self.logger = logging.getLogger(__name__)
 
@@ -582,7 +583,7 @@ class PSYOPAnalyzer:
         )
 
     def _assess_cognitive_vulnerabilities(
-        self, demographics: dict, behavioral: dict
+        self, demographics: dict[str, Any], behavioral: dict
     ) -> list[CognitiveBias]:
         """Assess cognitive vulnerabilities of an audience."""
         vulnerabilities = []
@@ -614,7 +615,7 @@ class PSYOPAnalyzer:
         return list(set(vulnerabilities))  # Remove duplicates
 
     def _determine_influence_vectors(
-        self, media: dict, demographics: dict
+        self, media: dict[str, Any], demographics: dict
     ) -> list[InfluenceVector]:
         """Determine effective influence vectors for audience."""
         vectors = []
@@ -641,7 +642,7 @@ class PSYOPAnalyzer:
 
         return vectors
 
-    def _calculate_receptivity(self, demographics: dict, behavioral: dict, media: dict) -> float:
+    def _calculate_receptivity(self, demographics: dict[str, Any], behavioral: dict[str, Any], media: dict[str, Any]) -> float:
         """Calculate receptivity score for influence operations."""
         receptivity = 0.5  # Baseline
 
@@ -727,10 +728,10 @@ class PSYOPAnalyzer:
 
     def _calculate_campaign_confidence(
         self,
-        messages: list,
-        accounts: list,
-        timing: dict,
-        network: dict,
+        messages: list[Any],
+        accounts: list[Any],
+        timing: dict[str, Any],
+        network: dict[str, Any],
     ) -> float:
         """Calculate confidence that this is a coordinated campaign."""
         confidence = 0.0
@@ -755,7 +756,7 @@ class PSYOPAnalyzer:
 
         return min(1.0, confidence)
 
-    def _classify_campaign_category(self, data: dict) -> PSYOPCategory:
+    def _classify_campaign_category(self, data: dict[str, Any]) -> PSYOPCategory:
         """Classify the PSYOP category of a campaign."""
         scope = data.get("scope", "unknown")
         objectives = data.get("objectives", [])
@@ -769,7 +770,7 @@ class PSYOPAnalyzer:
         else:
             return PSYOPCategory.TACTICAL
 
-    def _detect_coordination(self, timing: dict, network: dict, accounts: list) -> list[str]:
+    def _detect_coordination(self, timing: dict[str, Any], network: dict[str, Any], accounts: list[Any]) -> list[str]:
         """Detect coordination indicators."""
         indicators = []
 
@@ -797,7 +798,7 @@ class PSYOPAnalyzer:
 
         return indicators
 
-    def _identify_campaign_vectors(self, data: dict) -> list[InfluenceVector]:
+    def _identify_campaign_vectors(self, data: dict[str, Any]) -> list[InfluenceVector]:
         """Identify influence vectors used in campaign."""
         vectors = []
 
@@ -818,7 +819,7 @@ class PSYOPAnalyzer:
 
         return vectors
 
-    def _assess_threat_level(self, confidence: float, message_count: int, network: dict) -> str:
+    def _assess_threat_level(self, confidence: float, message_count: int, network: dict[str, Any]) -> str:
         """Assess overall threat level of campaign."""
         score = confidence * 0.4
 
@@ -848,7 +849,7 @@ class PSYOPAnalyzer:
         else:
             return "low"
 
-    def _assess_attribution(self, data: dict) -> dict[str, Any]:
+    def _assess_attribution(self, data: dict[str, Any]) -> dict[str, Any]:
         """Assess attribution of campaign."""
         return {
             "suspected_origin": data.get("suspected_origin", "unknown"),
@@ -857,7 +858,7 @@ class PSYOPAnalyzer:
             "known_actor_match": data.get("known_actor_match"),
         }
 
-    def _detect_campaign_anomalies(self, data: dict) -> list[str]:
+    def _detect_campaign_anomalies(self, data: dict[str, Any]) -> list[str]:
         """Detect anomalies in campaign patterns."""
         anomalies = []
 
@@ -923,7 +924,7 @@ class PSYOPAnalyzer:
             information_integrity_score=integrity,
         )
 
-    def _calculate_polarization(self, sentiment: dict, narratives: list) -> float:
+    def _calculate_polarization(self, sentiment: dict[str, Any], narratives: list[Any]) -> float:
         """Calculate polarization index."""
         # Sentiment extremity - positive/negative used for future enhancements
         _ = sentiment.get("positive", 0.33)
@@ -940,7 +941,7 @@ class PSYOPAnalyzer:
 
         return (sentiment_polarization + opposing_narratives) / 2
 
-    def _assess_information_integrity(self, narratives: list, operations: list) -> float:
+    def _assess_information_integrity(self, narratives: list[Any], operations: list[Any]) -> float:
         """Assess overall information integrity."""
         integrity = 0.8  # Baseline
 
@@ -955,14 +956,14 @@ class PSYOPAnalyzer:
 
         return max(0.1, min(1.0, integrity))
 
-    def _identify_dominant_narratives(self, narratives: list) -> list[str]:
+    def _identify_dominant_narratives(self, narratives: list[Any]) -> list[str]:
         """Identify dominant narratives by reach/engagement."""
         sorted_narratives = sorted(
             narratives, key=lambda n: n.get("reach", 0) + n.get("engagement", 0), reverse=True
         )
         return [n.get("title", f"narrative_{i}") for i, n in enumerate(sorted_narratives[:5])]
 
-    def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
+    def extract_features(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> np.ndarray[Any, Any]:
         """
         Extract PSYOP-relevant features for fusion with other detectors.
 
@@ -1023,7 +1024,7 @@ class PSYOPAnalyzer:
 
             return features
 
-    def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
+    def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
         """
         Predict PSYOP activity from input data.
 

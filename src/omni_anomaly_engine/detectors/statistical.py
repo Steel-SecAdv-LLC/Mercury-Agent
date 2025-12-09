@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Statistical anomaly detector using z-score, IQR, and isolation forest
@@ -39,7 +40,7 @@ class StatisticalAnomalyDetector(BaseDetector):
     - Isolation Forest
     """
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         super().__init__(config)
         self.z_threshold = self.config.get("z_threshold", 3.0)
         self.iqr_multiplier = self.config.get("iqr_multiplier", 1.5)
@@ -51,12 +52,12 @@ class StatisticalAnomalyDetector(BaseDetector):
             random_state=42,
         )
 
-        self.mean: np.ndarray | None = None
-        self.std: np.ndarray | None = None
-        self.q1: np.ndarray | None = None
-        self.q3: np.ndarray | None = None
+        self.mean: np.ndarray[Any, Any] | None = None
+        self.std: np.ndarray[Any, Any] | None = None
+        self.q1: np.ndarray[Any, Any] | None = None
+        self.q3: np.ndarray[Any, Any] | None = None
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> "StatisticalAnomalyDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "StatisticalAnomalyDetector":
         """Fit detector to normal data"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
@@ -75,7 +76,7 @@ class StatisticalAnomalyDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies in data"""
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
@@ -109,7 +110,7 @@ class StatisticalAnomalyDetector(BaseDetector):
             "detector_type": "statistical",
         }
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract statistical features for ML fusion"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
@@ -137,13 +138,13 @@ class StatisticalAnomalyDetector(BaseDetector):
 
         return torch.tensor(features, dtype=torch.float32)
 
-    def _compute_z_scores(self, data: np.ndarray) -> np.ndarray:
+    def _compute_z_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute z-scores"""
         if self.std is None or np.any(self.std == 0):
             return np.zeros_like(data)
         return (data - self.mean) / self.std
 
-    def _detect_iqr_anomalies(self, data: np.ndarray) -> np.ndarray:
+    def _detect_iqr_anomalies(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Detect anomalies using IQR method"""
         iqr = self.q3 - self.q1
         lower_bound = self.q1 - self.iqr_multiplier * iqr

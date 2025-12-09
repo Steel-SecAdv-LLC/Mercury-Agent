@@ -14,6 +14,7 @@ Example:
     >>> await cache.set("user:123", {"name": "Alice"}, ttl=300)
     >>> data = await cache.get("user:123")
 """
+from __future__ import annotations
 
 import asyncio
 import random

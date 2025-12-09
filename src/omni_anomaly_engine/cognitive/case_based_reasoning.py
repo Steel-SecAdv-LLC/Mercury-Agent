@@ -7,6 +7,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
+from __future__ import annotations
 
 """
 Case-Based Reasoning Engine
@@ -60,7 +61,7 @@ class Case:
     case_id: str
     problem_description: str
     problem_features: dict[str, Any]
-    feature_vector: np.ndarray | None
+    feature_vector: np.ndarray[Any, Any] | None
     solution: dict[str, Any]
     outcome: CaseOutcome
     outcome_score: float  # 0-1 success measure
@@ -414,7 +415,7 @@ class CaseBasedReasoner:
     def _compute_similarity(
         self,
         query_features: dict[str, Any],
-        query_vector: np.ndarray | None,
+        query_vector: np.ndarray[Any, Any] | None,
         case: Case,
     ) -> float:
         """Compute similarity between query and case."""
@@ -458,8 +459,8 @@ class CaseBasedReasoner:
 
     def _cosine_similarity(
         self,
-        vec1: np.ndarray | None,
-        vec2: np.ndarray | None,
+        vec1: np.ndarray[Any, Any] | None,
+        vec2: np.ndarray[Any, Any] | None,
         features1: dict[str, Any],
         features2: dict[str, Any],
     ) -> float:
@@ -567,7 +568,7 @@ class CaseBasedReasoner:
 
         return differences
 
-    def _dict_to_vector(self, features: dict[str, Any]) -> np.ndarray | None:
+    def _dict_to_vector(self, features: dict[str, Any]) -> np.ndarray[Any, Any] | None:
         """Convert feature dict to vector."""
         numeric_values = []
         for key in sorted(features.keys()):

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 STFPM: Student-Teacher Feature Pyramid Matching for Anomaly Detection
@@ -150,7 +151,7 @@ class STFPMDetector(BaseVisualDetector):
         >>> results = detector.detect(test_images)
     """
 
-    def __init__(self, config: STFPMConfig | dict[str, Any] | None = None):
+    def __init__(self, config: STFPMConfig | dict[str, Any] | None = None) -> None:
         """Initialize STFPM detector.
 
         Args:
@@ -200,7 +201,7 @@ class STFPMDetector(BaseVisualDetector):
         loss = torch.mean((teacher_norm - student_norm) ** 2)
         return loss
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> "STFPMDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "STFPMDetector":
         """Train student network on normal data.
 
         Args:
@@ -209,7 +210,7 @@ class STFPMDetector(BaseVisualDetector):
         Returns:
             Self for method chaining
         """
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray[Any, Any]):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)
@@ -286,7 +287,7 @@ class STFPMDetector(BaseVisualDetector):
         logger.info("STFPM training complete")
         return self
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using teacher-student discrepancy.
 
         Args:
@@ -298,7 +299,7 @@ class STFPMDetector(BaseVisualDetector):
         if not self._is_fitted:
             raise RuntimeError("Detector must be fitted before detection")
 
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray[Any, Any]):
             data = torch.from_numpy(data).float()
 
         original_size = data.shape[-2:]
@@ -407,7 +408,7 @@ class STFPMDetector(BaseVisualDetector):
 
         return torch.from_numpy(anomaly_map_np).to(self.device)
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion pipeline.
 
         Args:
@@ -416,7 +417,7 @@ class STFPMDetector(BaseVisualDetector):
         Returns:
             Feature tensor [N, 128] normalized for fusion
         """
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray[Any, Any]):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)

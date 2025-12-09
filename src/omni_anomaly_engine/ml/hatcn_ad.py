@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """
 Hierarchical Attention Temporal Convolutional Network for Anomaly Detection (HATCN-AD)
@@ -36,7 +38,7 @@ from torch import nn
 class TemporalBlock(nn.Module):
     """Dilated causal convolutional block."""
 
-    def __init__(self, in_channels: int, out_channels: int, kernel_size: int, dilation: int):
+    def __init__(self, in_channels: int, out_channels: int, kernel_size: int, dilation: int) -> None:
         super().__init__()
 
         padding = (kernel_size - 1) * dilation
@@ -78,7 +80,7 @@ class TemporalBlock(nn.Module):
 class HierarchicalAttention(nn.Module):
     """Multi-scale hierarchical attention."""
 
-    def __init__(self, hidden_dim: int, num_scales: int = 3):
+    def __init__(self, hidden_dim: int, num_scales: int = 3) -> None:
         super().__init__()
 
         self.num_scales = num_scales
@@ -93,7 +95,7 @@ class HierarchicalAttention(nn.Module):
 
         self.scale_weights = nn.Parameter(torch.ones(num_scales) / num_scales)
 
-    def forward(self, scale_features: list) -> tuple[torch.Tensor, list]:
+    def forward(self, scale_features: list[Any]) -> tuple[torch.Tensor, list]:
         """
         Apply hierarchical attention across scales.
 

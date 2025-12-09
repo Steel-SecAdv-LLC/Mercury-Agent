@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Unified Neurosymbolic Engine - Fusion of neural networks and symbolic reasoning
@@ -102,7 +103,7 @@ class SymbolicRule:
     category: str = "general"
     explanation_template: str = ""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.name:
             self.name = f"rule_{hash((self.premise, self.conclusion)) % 10000:04d}"
         if not self.explanation_template:
@@ -146,7 +147,7 @@ class LogicTensorNetwork:
     Implements fuzzy logic operations over neural network outputs.
     """
 
-    def __init__(self, input_dim: int, hidden_dim: int = 128):
+    def __init__(self, input_dim: int, hidden_dim: int = 128) -> None:
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
 
@@ -353,7 +354,7 @@ class NeurosymbolicEngine:
 
         logging.info(f"NeurosymbolicEngine initialized (mode={reasoning_mode.value})")
 
-    def _initialize_ethical_rules(self):
+    def _initialize_ethical_rules(self) -> None:
         """Initialize fundamental ethical rules"""
         ethical_rules = [
             SymbolicRule(
@@ -373,7 +374,7 @@ class NeurosymbolicEngine:
 
         self.knowledge_base.extend(ethical_rules)
 
-    def _initialize_anomaly_rules(self):
+    def _initialize_anomaly_rules(self) -> None:
         """Initialize anomaly detection rules for symbolic layer."""
         anomaly_rules = [
             SymbolicRule(
@@ -426,7 +427,7 @@ class NeurosymbolicEngine:
         self.facts.add(fact)
         logging.info(f"Added fact: {fact}")
 
-    def neural_inference(self, features: np.ndarray) -> float:
+    def neural_inference(self, features: np.ndarray[Any, Any]) -> float:
         """
         Perform neural inference on features.
 
@@ -543,7 +544,7 @@ class NeurosymbolicEngine:
             logging.error(f"Premise evaluation error: {e}")
             return False
 
-    def extract_features(self, data: np.ndarray) -> np.ndarray:
+    def extract_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract neurosymbolic features for anomaly detection."""
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -571,7 +572,7 @@ class NeurosymbolicEngine:
 
     def predict(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
         mode: ReasoningMode | None = None,
     ) -> dict[str, Any]:
@@ -645,7 +646,7 @@ class NeurosymbolicEngine:
 
     def hybrid_inference(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         context: dict[str, Any],
     ) -> ReasoningResult:
         """Perform hybrid neuro-symbolic inference on a single sample.

@@ -15,6 +15,7 @@ Covers:
 - ValidationPipeline error handling
 - Cross-validation edge cases
 """
+from __future__ import annotations
 
 import numpy as np
 import pytest

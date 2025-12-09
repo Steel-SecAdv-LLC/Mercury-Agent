@@ -28,6 +28,7 @@ Example:
         match = router.match("/api/users/123", method="GET")
         result = await match.handler(request, **match.params)
 """
+from __future__ import annotations
 
 import logging
 import re
@@ -135,7 +136,7 @@ class RouteMatch:
 class RouteNotFoundError(Exception):
     """Raised when no route matches."""
 
-    def __init__(self, path: str, method: str):
+    def __init__(self, path: str, method: str) -> None:
         super().__init__(f"No route found for {method} {path}")
         self.path = path
         self.method = method
@@ -144,7 +145,7 @@ class RouteNotFoundError(Exception):
 class MethodNotAllowedError(Exception):
     """Raised when route exists but method not allowed."""
 
-    def __init__(self, path: str, method: str, allowed: list[str]):
+    def __init__(self, path: str, method: str, allowed: list[str]) -> None:
         super().__init__(
             f"Method {method} not allowed for {path}. " f"Allowed: {', '.join(allowed)}"
         )
@@ -237,7 +238,7 @@ class RequestRouter:
         methods: list[str] | None = None,
         name: str | None = None,
         **kwargs: Any,
-    ) -> Callable:
+    ) -> Callable[..., Any]:
         """Decorator to register a route.
 
         Args:
@@ -250,7 +251,7 @@ class RequestRouter:
             Decorator function.
         """
 
-        def decorator(func: Callable[..., Awaitable[Any]]) -> Callable:
+        def decorator(func: Callable[..., Awaitable[Any]]) -> Callable[..., Any]:
             self.add_route(
                 pattern,
                 func,
@@ -262,23 +263,23 @@ class RequestRouter:
 
         return decorator
 
-    def get(self, pattern: str, **kwargs: Any) -> Callable:
+    def get(self, pattern: str, **kwargs: Any) -> Callable[..., Any]:
         """Decorator for GET routes."""
         return self.route(pattern, methods=["GET"], **kwargs)
 
-    def post(self, pattern: str, **kwargs: Any) -> Callable:
+    def post(self, pattern: str, **kwargs: Any) -> Callable[..., Any]:
         """Decorator for POST routes."""
         return self.route(pattern, methods=["POST"], **kwargs)
 
-    def put(self, pattern: str, **kwargs: Any) -> Callable:
+    def put(self, pattern: str, **kwargs: Any) -> Callable[..., Any]:
         """Decorator for PUT routes."""
         return self.route(pattern, methods=["PUT"], **kwargs)
 
-    def patch(self, pattern: str, **kwargs: Any) -> Callable:
+    def patch(self, pattern: str, **kwargs: Any) -> Callable[..., Any]:
         """Decorator for PATCH routes."""
         return self.route(pattern, methods=["PATCH"], **kwargs)
 
-    def delete(self, pattern: str, **kwargs: Any) -> Callable:
+    def delete(self, pattern: str, **kwargs: Any) -> Callable[..., Any]:
         """Decorator for DELETE routes."""
         return self.route(pattern, methods=["DELETE"], **kwargs)
 
@@ -429,7 +430,7 @@ class RouterGroup:
         self.router = router or RequestRouter()
         self.middleware = middleware or []
 
-    def route(self, pattern: str, **kwargs: Any) -> Callable:
+    def route(self, pattern: str, **kwargs: Any) -> Callable[..., Any]:
         """Decorator to add route to group."""
         full_pattern = f"{self.prefix}{pattern}"
         group_middleware = kwargs.pop("middleware", [])
@@ -437,14 +438,14 @@ class RouterGroup:
 
         return self.router.route(full_pattern, middleware=all_middleware, **kwargs)
 
-    def get(self, pattern: str, **kwargs: Any) -> Callable:
+    def get(self, pattern: str, **kwargs: Any) -> Callable[..., Any]:
         """Decorator for GET routes."""
         return self.route(pattern, methods=["GET"], **kwargs)
 
-    def post(self, pattern: str, **kwargs: Any) -> Callable:
+    def post(self, pattern: str, **kwargs: Any) -> Callable[..., Any]:
         """Decorator for POST routes."""
         return self.route(pattern, methods=["POST"], **kwargs)
 
-    def add_middleware(self, middleware: Callable) -> None:
+    def add_middleware(self, middleware: Callable[..., Any]) -> None:
         """Add middleware to group."""
         self.middleware.append(middleware)

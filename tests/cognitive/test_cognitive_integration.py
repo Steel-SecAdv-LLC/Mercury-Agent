@@ -12,6 +12,7 @@ Verifies that all cognitive components integrate properly:
 - IndicatorDevelopmentSystem
 - CognitiveOrchestrator
 """
+from __future__ import annotations
 
 import numpy as np
 

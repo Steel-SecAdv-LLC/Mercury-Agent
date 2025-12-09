@@ -6,13 +6,14 @@ LSTM-Autoencoder for Time-Series Anomaly Detection
 
 A working anomaly detector that actually trains and detects.
 """
+from __future__ import annotations
+from typing import Any
 
 import os
-from typing import Optional, Tuple
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
 
@@ -83,7 +84,7 @@ class LSTMAutoencoder(nn.Module):
         output = self.output_fc(decoded)
         return output
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass returning reconstruction and latent."""
         z = self.encode(x)
         recon = self.decode(z, x.size(1))
@@ -134,7 +135,7 @@ class AnomalyDetector:
         self.threshold = None
         self.train_errors = None
 
-    def _create_sequences(self, data: np.ndarray) -> np.ndarray:
+    def _create_sequences(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Create overlapping sequences from data."""
         sequences = []
         for i in range(len(data) - self.seq_len + 1):
@@ -143,14 +144,14 @@ class AnomalyDetector:
 
     def fit(
         self,
-        train_data: np.ndarray,
+        train_data: np.ndarray[Any, Any],
         epochs: int = 50,
         batch_size: int = 64,
         lr: float = 0.001,
         val_split: float = 0.1,
         early_stopping: int = 10,
         verbose: bool = True,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Train the autoencoder on normal data.
 
@@ -255,7 +256,7 @@ class AnomalyDetector:
 
         return history
 
-    def predict(self, data: np.ndarray) -> np.ndarray:
+    def predict(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Compute anomaly scores for data.
 
@@ -284,7 +285,7 @@ class AnomalyDetector:
         point_scores = point_scores / np.maximum(point_counts, 1)
         return point_scores
 
-    def detect(self, data: np.ndarray, threshold: Optional[float] = None) -> np.ndarray:
+    def detect(self, data: np.ndarray[Any, Any], threshold: float | None = None) -> np.ndarray[Any, Any]:
         """
         Detect anomalies in data.
 
@@ -331,10 +332,10 @@ class AnomalyDetector:
 
 
 def evaluate_detector(
-    y_true: np.ndarray,
-    y_scores: np.ndarray,
-    y_pred: Optional[np.ndarray] = None,
-) -> dict:
+    y_true: np.ndarray[Any, Any],
+    y_scores: np.ndarray[Any, Any],
+    y_pred: np.ndarray[Any, Any] | None = None,
+) -> dict[str, Any]:
     """
     Evaluate anomaly detection performance.
 
@@ -362,12 +363,12 @@ def evaluate_detector(
     # AUC scores
     try:
         auc_roc = roc_auc_score(y_true, y_scores)
-    except:
+    except (ValueError, TypeError):
         auc_roc = 0.5
 
     try:
         auc_pr = average_precision_score(y_true, y_scores)
-    except:
+    except (ValueError, TypeError):
         auc_pr = np.mean(y_true)
 
     # Find best F1 threshold

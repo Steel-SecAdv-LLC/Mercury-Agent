@@ -10,6 +10,7 @@ Comprehensive benchmarking across all real-world datasets with:
 - Statistical significance testing
 - Baseline comparisons
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -76,9 +77,9 @@ class BenchmarkResult:
     confusion_matrix: list[list[int]] = field(default_factory=lambda: [[0, 0], [0, 0]])
     inference_time_ms: float = 0.0
     total_samples: int = 0
-    predictions: np.ndarray | None = None
-    ground_truth: np.ndarray | None = None
-    per_sample_metrics: dict[str, np.ndarray] | None = None
+    predictions: np.ndarray[Any, Any] | None = None
+    ground_truth: np.ndarray[Any, Any] | None = None
+    per_sample_metrics: dict[str, np.ndarray[Any, Any]] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary (without large arrays)."""
@@ -192,7 +193,7 @@ class RealWorldBenchmarkSuite:
     def run_benchmark(
         self,
         dataset_name: str,
-        detector: Callable[[np.ndarray], np.ndarray],
+        detector: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]],
         detector_name: str,
         threshold: float = 0.5,
         split: DatasetSplit = DatasetSplit.TEST,
@@ -268,7 +269,7 @@ class RealWorldBenchmarkSuite:
 
     def run_all_benchmarks(
         self,
-        detector: Callable[[np.ndarray], np.ndarray],
+        detector: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]],
         detector_name: str,
         categories: list[str] | None = None,
         datasets: list[str] | None = None,
@@ -315,7 +316,7 @@ class RealWorldBenchmarkSuite:
     def compare_with_baseline(
         self,
         results: list[BenchmarkResult],
-        baseline_detector: Callable[[np.ndarray], np.ndarray],
+        baseline_detector: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]],
         baseline_name: str = "RandomBaseline",
     ) -> BenchmarkComparison:
         """Compare results against a baseline detector.
@@ -382,9 +383,9 @@ class RealWorldBenchmarkSuite:
 
     def _calculate_metrics(
         self,
-        labels: np.ndarray,
-        predictions: np.ndarray,
-        scores: np.ndarray,
+        labels: np.ndarray[Any, Any],
+        predictions: np.ndarray[Any, Any],
+        scores: np.ndarray[Any, Any],
     ) -> dict[str, Any]:
         """Calculate comprehensive metrics."""
         labels = labels.flatten()
@@ -582,12 +583,12 @@ class RealWorldBenchmarkSuite:
 
 
 # Baseline detectors for comparison
-def random_baseline(features: np.ndarray) -> np.ndarray:
+def random_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     """Random baseline detector."""
     return np.random.rand(len(features))
 
 
-def isolation_forest_baseline(features: np.ndarray) -> np.ndarray:
+def isolation_forest_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     """Isolation Forest baseline detector."""
     try:
         from sklearn.ensemble import IsolationForest
@@ -600,7 +601,7 @@ def isolation_forest_baseline(features: np.ndarray) -> np.ndarray:
         return random_baseline(features)
 
 
-def one_class_svm_baseline(features: np.ndarray) -> np.ndarray:
+def one_class_svm_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     """One-Class SVM baseline detector."""
     try:
         from sklearn.svm import OneClassSVM

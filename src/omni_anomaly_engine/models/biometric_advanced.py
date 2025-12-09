@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Advanced Biometric Processing Engine for OMNI ♱ AVA
@@ -103,7 +104,7 @@ class BiometricResult:
     """Result from biometric analysis."""
 
     success: bool
-    embedding: np.ndarray | None = None
+    embedding: np.ndarray[Any, Any] | None = None
     attributes: dict[str, Any] = field(default_factory=dict)
     similarity: float = 0.0
     mzss_score: float = 0.0
@@ -116,12 +117,12 @@ class AgeProgressionResult:
     """Result from age progression."""
 
     success: bool
-    original_face: np.ndarray | None = None
-    progressed_face: np.ndarray | None = None
+    original_face: np.ndarray[Any, Any] | None = None
+    progressed_face: np.ndarray[Any, Any] | None = None
     age_delta: int = 0
     similarity: float = 0.0
-    original_embedding: np.ndarray | None = None
-    progressed_embedding: np.ndarray | None = None
+    original_embedding: np.ndarray[Any, Any] | None = None
+    progressed_embedding: np.ndarray[Any, Any] | None = None
     quantum_factor: float = 1.2
     message: str = ""
 
@@ -134,7 +135,7 @@ class BiometricFusion:
     symbolic constraint satisfaction scores.
     """
 
-    def __init__(self, dim: int = 512, device: str = "cpu"):
+    def __init__(self, dim: int = 512, device: str = "cpu") -> None:
         self.dim = dim
         self.device = device
 
@@ -144,7 +145,7 @@ class BiometricFusion:
         else:
             self.transformer = None
 
-    def forward(self, neural_emb: np.ndarray, symbolic_score: float = 1.0) -> np.ndarray:
+    def forward(self, neural_emb: np.ndarray[Any, Any], symbolic_score: float = 1.0) -> np.ndarray[Any, Any]:
         """
         Fuse neural embedding with symbolic constraint score.
 
@@ -194,7 +195,7 @@ class AdvancedBiometricEngine:
         print(f"Age: {result.attributes.get('age')}")
     """
 
-    def __init__(self, device: str = "cpu"):
+    def __init__(self, device: str = "cpu") -> None:
         self.device = device
         self.fusion_model = BiometricFusion(dim=512, device=device)
 
@@ -209,7 +210,7 @@ class AdvancedBiometricEngine:
             f"deepface={DEEPFACE_AVAILABLE}, facenet={FACENET_AVAILABLE})"
         )
 
-    def extract_features(self, image_path: str) -> np.ndarray | None:
+    def extract_features(self, image_path: str) -> np.ndarray[Any, Any] | None:
         """
         Extract facial features from image.
 
@@ -244,7 +245,7 @@ class AdvancedBiometricEngine:
             logger.error(f"Feature extraction error: {e}")
             return None
 
-    def extract_features_from_array(self, image_data: np.ndarray) -> np.ndarray | None:
+    def extract_features_from_array(self, image_data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any] | None:
         """
         Extract features from numpy array image data.
 
@@ -390,7 +391,7 @@ class AdvancedBiometricEngine:
             },
         )
 
-    def fuse_with_symbolic(self, image_path: str, symbolic_data: dict[str, Any]) -> np.ndarray:
+    def fuse_with_symbolic(self, image_path: str, symbolic_data: dict[str, Any]) -> np.ndarray[Any, Any]:
         """
         Fuse biometric features with symbolic constraint data.
 
@@ -410,7 +411,7 @@ class AdvancedBiometricEngine:
 
         return fused
 
-    def _compute_similarity(self, features1: np.ndarray, features2: np.ndarray) -> float:
+    def _compute_similarity(self, features1: np.ndarray[Any, Any], features2: np.ndarray[Any, Any]) -> float:
         """Compute cosine similarity between feature vectors."""
         norm1 = np.linalg.norm(features1)
         norm2 = np.linalg.norm(features2)
@@ -445,7 +446,7 @@ class AgeProgressionEngine:
             print(f"Similarity: {result.similarity}")
     """
 
-    def __init__(self, device: str = "cpu"):
+    def __init__(self, device: str = "cpu") -> None:
         self.device = device
         self.quantum_factor = 1.2
         self.golden_ratio = 0.618
@@ -463,7 +464,7 @@ class AgeProgressionEngine:
             f"AgeProgressionEngine initialized (device={device}, " f"facenet={FACENET_AVAILABLE})"
         )
 
-    def detect_and_align_face(self, image_path: str) -> np.ndarray | None:
+    def detect_and_align_face(self, image_path: str) -> np.ndarray[Any, Any] | None:
         """
         Detect and align face from image.
 
@@ -511,7 +512,7 @@ class AgeProgressionEngine:
             logger.error(f"Face detection error: {e}")
             return None
 
-    def extract_facenet_embedding(self, face: np.ndarray) -> np.ndarray | None:
+    def extract_facenet_embedding(self, face: np.ndarray[Any, Any]) -> np.ndarray[Any, Any] | None:
         """
         Extract 512-dimensional FaceNet embedding.
 
@@ -537,7 +538,7 @@ class AgeProgressionEngine:
             logger.error(f"Embedding extraction error: {e}")
             return None
 
-    def apply_polynomial_age_filter(self, face: np.ndarray, age_delta: int) -> np.ndarray:
+    def apply_polynomial_age_filter(self, face: np.ndarray[Any, Any], age_delta: int) -> np.ndarray[Any, Any]:
         """
         Apply polynomial filters for age progression.
 
@@ -650,7 +651,7 @@ class AgeProgressionEngine:
                 timeline.append(result)
         return timeline
 
-    def _compute_similarity(self, emb1: np.ndarray | None, emb2: np.ndarray | None) -> float:
+    def _compute_similarity(self, emb1: np.ndarray[Any, Any] | None, emb2: np.ndarray[Any, Any] | None) -> float:
         """Compute cosine similarity between embeddings."""
         if emb1 is None or emb2 is None:
             return 0.0

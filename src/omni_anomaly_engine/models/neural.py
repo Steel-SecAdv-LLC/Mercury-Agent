@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """Neural cognitive anomaly detection model."""
 
@@ -27,12 +28,12 @@ import numpy as np
 class NeuralCognitiveModel:
     """Neural cognitive model for brain activity anomaly detection."""
 
-    def __init__(self, config: dict[str, Any] | None = None, **kwargs):
+    def __init__(self, config: dict[str, Any] | None = None, **kwargs) -> None:
         self.config = config or {}
         self.memory_capacity = self.config.get("memory_capacity", 100)
-        self.memory_buffer = deque(maxlen=self.memory_capacity)
+        self.memory_buffer = deque[Any](maxlen=self.memory_capacity)
 
-    def _hippocampal_memory(self, data: np.ndarray) -> np.ndarray:
+    def _hippocampal_memory(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Process data through hippocampal memory system."""
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -65,7 +66,7 @@ class NeuralCognitiveModel:
 
         return memory_features
 
-    def _prefrontal_executive(self, data: np.ndarray) -> np.ndarray:
+    def _prefrontal_executive(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Process data through prefrontal executive functions."""
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -99,7 +100,7 @@ class NeuralCognitiveModel:
 
         return executive_features
 
-    def _amygdala_processing(self, data: np.ndarray) -> np.ndarray:
+    def _amygdala_processing(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Process data through amygdala emotional system."""
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -127,11 +128,11 @@ class NeuralCognitiveModel:
 
         return emotional_features
 
-    def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
+    def extract_features(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> np.ndarray[Any, Any]:
         """Extract neural cognitive features from data."""
         if isinstance(data, dict):
             data = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray):
+        elif not isinstance(data, np.ndarray[Any, Any]):
             data = np.array(data)
 
         if data.ndim == 1:
@@ -143,11 +144,11 @@ class NeuralCognitiveModel:
 
         return np.concatenate([memory_features, executive_features, emotional_features], axis=1)
 
-    def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
+    def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
         """Predict neural cognitive anomalies."""
         if isinstance(data, dict):
             data_array = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray):
+        elif not isinstance(data, np.ndarray[Any, Any]):
             data_array = np.array(data)
         else:
             data_array = data

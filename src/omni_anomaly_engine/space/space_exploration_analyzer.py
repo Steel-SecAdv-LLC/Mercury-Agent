@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Space Exploration Analyzer - Hubble-Inspired Cosmic Anomaly Detection
@@ -52,7 +53,7 @@ class SpaceExplorationAnalyzer:
     - Satellite position deviation analysis (Keplerian orbit monitoring)
     """
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         """
         Initialize space exploration analyzer.
 
@@ -117,7 +118,7 @@ class SpaceExplorationAnalyzer:
         }
 
     def detect(
-        self, data: np.ndarray, analysis_type: str, context: dict | None = None
+        self, data: np.ndarray[Any, Any], analysis_type: str, context: dict | None = None
     ) -> dict[str, Any]:
         """
         Detect anomalies in space exploration data.
@@ -170,7 +171,7 @@ class SpaceExplorationAnalyzer:
                 ],
             }
 
-    def analyze_cosmic_rays(self, data: np.ndarray, context: dict | None = None) -> dict[str, Any]:
+    def analyze_cosmic_rays(self, data: np.ndarray[Any, Any], context: dict | None = None) -> dict[str, Any]:
         """
         Detect cosmic ray anomalies in sensor data.
 
@@ -230,7 +231,7 @@ class SpaceExplorationAnalyzer:
         }
 
     def detect_spectral_anomalies(
-        self, wavelengths: np.ndarray, intensities: np.ndarray, context: dict | None = None
+        self, wavelengths: np.ndarray[Any, Any], intensities: np.ndarray[Any, Any], context: dict | None = None
     ) -> dict[str, Any]:
         """
         Match spectral patterns against known absorption/emission lines.
@@ -315,7 +316,7 @@ class SpaceExplorationAnalyzer:
         }
 
     def predict_orbital_debris(
-        self, position_data: np.ndarray, velocity_data: np.ndarray, context: dict | None = None
+        self, position_data: np.ndarray[Any, Any], velocity_data: np.ndarray[Any, Any], context: dict | None = None
     ) -> dict[str, Any]:
         """
         Predict orbital debris collision risks.
@@ -391,7 +392,7 @@ class SpaceExplorationAnalyzer:
         }
 
     def analyze_satellite_position(
-        self, data: np.ndarray, context: dict | None = None
+        self, data: np.ndarray[Any, Any], context: dict | None = None
     ) -> dict[str, Any]:
         """
         Analyze satellite position deviations from expected orbit.

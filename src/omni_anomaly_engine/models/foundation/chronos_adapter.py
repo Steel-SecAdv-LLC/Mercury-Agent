@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Chronos Adapter for OMNI-AVA
@@ -86,7 +87,7 @@ class ChronosAdapter(BaseFoundationModel):
         "large": "amazon/chronos-t5-large",
     }
 
-    def __init__(self, config: ChronosConfig | dict[str, Any] | None = None):
+    def __init__(self, config: ChronosConfig | dict[str, Any] | None = None) -> None:
         """Initialize Chronos adapter.
 
         Args:
@@ -143,9 +144,9 @@ class ChronosAdapter(BaseFoundationModel):
 
     def forecast(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
         horizon: int | None = None,
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray[Any, Any]]:
         """Generate probabilistic forecasts using Chronos.
 
         Args:
@@ -157,7 +158,7 @@ class ChronosAdapter(BaseFoundationModel):
         """
         self._ensure_initialized()
 
-        if isinstance(series, np.ndarray):
+        if isinstance(series, np.ndarray[Any, Any]):
             series = torch.from_numpy(series).float()
 
         if series.dim() == 1:
@@ -194,7 +195,7 @@ class ChronosAdapter(BaseFoundationModel):
 
     def detect_anomalies(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
         """Detect anomalies using prediction intervals.
 
@@ -276,9 +277,9 @@ class ChronosAdapter(BaseFoundationModel):
 
     def _mock_forecast(
         self,
-        series: np.ndarray,
+        series: np.ndarray[Any, Any],
         horizon: int,
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray[Any, Any]]:
         """Mock forecast using simple methods.
 
         Args:
@@ -313,7 +314,7 @@ class ChronosAdapter(BaseFoundationModel):
 
     def detect(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
         """Detect anomalies in time series data.
 

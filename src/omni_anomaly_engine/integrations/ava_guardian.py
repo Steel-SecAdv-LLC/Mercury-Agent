@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Ava-Guardian Integration Adapter for OMNI ♱ AVA
@@ -141,7 +142,7 @@ class EWMATimingMonitor:
     Synapse: Timing anomalies feed into GOSNN ethical gate for security assessment.
     """
 
-    def __init__(self, alpha: float = 0.1, mad_threshold: float = 3.0):
+    def __init__(self, alpha: float = 0.1, mad_threshold: float = 3.0) -> None:
         """Initialize EWMA timing monitor.
 
         Args:

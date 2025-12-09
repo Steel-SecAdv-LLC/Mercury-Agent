@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Global Omni-Scalar Network (GOSNN) - Intelligence Fusion Hub
@@ -114,7 +115,7 @@ class EthicalGate:
     Uses a simple feedforward network: 256 → 64 → 1 with Sigmoid activation.
     """
 
-    def __init__(self, input_dim: int = 256, threshold: float = 0.93):
+    def __init__(self, input_dim: int = 256, threshold: float = 0.93) -> None:
         self.threshold = threshold
         self.input_dim = input_dim
         self.logger = logging.getLogger(__name__)
@@ -129,7 +130,7 @@ class EthicalGate:
         else:
             self.gate_network = None
 
-    def evaluate(self, scalar_vector: np.ndarray) -> tuple[bool, float]:
+    def evaluate(self, scalar_vector: np.ndarray[Any, Any]) -> tuple[bool, float]:
         """
         Evaluate ethical compliance of scalar vector.
 
@@ -152,7 +153,7 @@ class EthicalGate:
         passes = score >= self.threshold
         return passes, score
 
-    def _compute_ethical_score_numpy(self, scalar_vector: np.ndarray) -> float:
+    def _compute_ethical_score_numpy(self, scalar_vector: np.ndarray[Any, Any]) -> float:
         """Compute ethical score using NumPy fallback."""
         if len(scalar_vector) == 0:
             return 0.5
@@ -185,7 +186,7 @@ class TriadicPhiWeighting:
     coherence, not arbitrary scaling.
     """
 
-    def __init__(self, num_heads: int = 32):
+    def __init__(self, num_heads: int = 32) -> None:
         """Initialize triadic phi-weighting.
 
         Args:
@@ -199,7 +200,7 @@ class TriadicPhiWeighting:
         # Compute triadic weights for each head
         self.head_weights = self._compute_triadic_weights()
 
-    def _compute_triadic_weights(self) -> np.ndarray:
+    def _compute_triadic_weights(self) -> np.ndarray[Any, Any]:
         """Compute phi-based weights for each attention head."""
         weights = np.ones(self.num_heads)
         heads_per_band = self.num_heads // 3
@@ -218,7 +219,7 @@ class TriadicPhiWeighting:
 
         return weights
 
-    def apply(self, attention_scores: np.ndarray) -> np.ndarray:
+    def apply(self, attention_scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply triadic phi-weighting to attention scores.
 
         Args:
@@ -240,7 +241,7 @@ class TriadicPhiWeighting:
 
         return weighted
 
-    def compute_harmonic_synergy(self, attention_output: np.ndarray) -> float:
+    def compute_harmonic_synergy(self, attention_output: np.ndarray[Any, Any]) -> float:
         """Compute harmonic synergy score from attention output.
 
         The synergy score measures how well the triadic weighting produces
@@ -323,8 +324,8 @@ class MultiHeadAttentionFusion:
             self.output_projection = None
 
     def fuse(
-        self, dimensional_states: list[np.ndarray], return_synergy: bool = False
-    ) -> np.ndarray | tuple[np.ndarray, float]:
+        self, dimensional_states: list[np.ndarray[Any, Any]], return_synergy: bool = False
+    ) -> np.ndarray[Any, Any] | tuple[np.ndarray[Any, Any], float]:
         """
         Fuse multiple dimensional states using multi-head attention with triadic phi-weighting.
 
@@ -786,7 +787,7 @@ class GlobalOmniScalarNetwork:
             warnings=warnings,
         )
 
-    def fuse_37d_scalars(self, dimensional_states: list[np.ndarray]) -> np.ndarray:
+    def fuse_37d_scalars(self, dimensional_states: list[np.ndarray[Any, Any]]) -> np.ndarray[Any, Any]:
         """
         Perform 37-dimensional quantum fusion.
 
@@ -846,7 +847,7 @@ class GlobalOmniScalarNetwork:
         scalar_values = np.array(list(all_scalars.values()))
         return self._compute_triadic_harmony(scalar_values)
 
-    def _compute_triadic_harmony(self, scalar_values: np.ndarray) -> float:
+    def _compute_triadic_harmony(self, scalar_values: np.ndarray[Any, Any]) -> float:
         """Internal triadic harmony computation."""
         if len(scalar_values) == 0:
             return 0.5
@@ -975,7 +976,7 @@ class GlobalOmniScalarNetwork:
 
     def _prepare_dimensional_states(
         self, base_scalars: dict[str, float], context: dict[str, Any]
-    ) -> list[np.ndarray]:
+    ) -> list[np.ndarray[Any, Any]]:
         """Prepare dimensional states for fusion."""
         states = []
 
@@ -993,7 +994,7 @@ class GlobalOmniScalarNetwork:
     def _apply_enhancement(
         self,
         base_scalars: dict[str, float],
-        fused_state: np.ndarray,
+        fused_state: np.ndarray[Any, Any],
         ethical_score: float,
     ) -> dict[str, float]:
         """Apply enhancement to base scalars using fused state."""

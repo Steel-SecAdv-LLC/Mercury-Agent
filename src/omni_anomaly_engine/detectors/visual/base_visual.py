@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Base classes for visual anomaly detection.
@@ -87,7 +88,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         device: Computation device
     """
 
-    def __init__(self, config: VisualDetectorConfig | dict[str, Any] | None = None):
+    def __init__(self, config: VisualDetectorConfig | dict[str, Any] | None = None) -> None:
         """Initialize visual detector.
 
         Args:
@@ -157,7 +158,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
             else:
                 self._feature_dim = features.shape[1]
 
-    def preprocess(self, images: torch.Tensor | np.ndarray) -> torch.Tensor:
+    def preprocess(self, images: torch.Tensor | np.ndarray[Any, Any]) -> torch.Tensor:
         """Preprocess images for feature extraction.
 
         Args:
@@ -166,7 +167,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         Returns:
             Normalized tensor [B, 3, H, W] on device
         """
-        if isinstance(images, np.ndarray):
+        if isinstance(images, np.ndarray[Any, Any]):
             images = torch.from_numpy(images).float()
 
         # Handle channel-last format
@@ -251,7 +252,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         kernel = kernel / kernel.sum()
         return kernel.view(1, 1, kernel_size, kernel_size)
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> "BaseVisualDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "BaseVisualDetector":
         """Fit detector to normal (non-anomalous) images.
 
         Args:
@@ -265,7 +266,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         """
         raise NotImplementedError("Subclasses must implement fit() for visual detectors.")
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies in images.
 
         Args:
@@ -283,7 +284,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         """
         raise NotImplementedError("Subclasses must implement detect() for visual detectors.")
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion pipeline.
 
         Args:

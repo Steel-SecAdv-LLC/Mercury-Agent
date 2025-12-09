@@ -11,6 +11,8 @@ These loaders fetch REAL benchmark datasets used in academic research:
 
 All datasets download from official sources or mirrors.
 """
+from __future__ import annotations
+from typing import Any
 
 import json
 import logging
@@ -18,7 +20,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .base import DatasetConfig, DatasetLoader, DatasetRegistry, safe_urlretrieve
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +102,7 @@ class NABLoader(DatasetLoader):
 
     FEATURE_NAMES = ["value", "timestamp_hour", "timestamp_day", "timestamp_month"]
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.categories = config.preprocessing.get(
             "categories", ["realAWSCloudwatch", "realKnownCause"]
@@ -109,7 +111,6 @@ class NABLoader(DatasetLoader):
     def download(self) -> bool:
         """Download REAL NAB data from GitHub."""
         import urllib.error
-        import urllib.request
 
         logger.info("Downloading REAL NAB (Numenta Anomaly Benchmark) data...")
 
@@ -117,8 +118,8 @@ class NABLoader(DatasetLoader):
         labels_path = self.data_path / "labels.json"
         try:
             logger.info("  Downloading anomaly labels...")
-            urllib.request.urlretrieve(self.NAB_LABELS_URL, labels_path)
-        except urllib.error.URLError as e:
+            safe_urlretrieve(self.NAB_LABELS_URL, labels_path)
+        except (urllib.error.URLError, ValueError) as e:
             logger.error(f"Failed to download NAB labels: {e}")
             return False
 
@@ -139,15 +140,15 @@ class NABLoader(DatasetLoader):
 
                 url = f"{self.NAB_DATA_URL}{category}/{filename}"
                 try:
-                    urllib.request.urlretrieve(url, file_path)
+                    safe_urlretrieve(url, file_path)
                     downloaded_count += 1
-                except urllib.error.URLError as e:
+                except (urllib.error.URLError, ValueError) as e:
                     logger.warning(f"  Failed to download {filename}: {e}")
 
         logger.info(f"Downloaded {downloaded_count} NAB data files")
         return downloaded_count > 0
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load REAL NAB data from downloaded files."""
         # Load labels
         labels_path = self.data_path / "labels.json"
@@ -182,7 +183,7 @@ class NABLoader(DatasetLoader):
 
         return features, labels
 
-    def _parse_nab_file(self, filepath: Path, anomaly_windows: dict) -> tuple[list, list]:
+    def _parse_nab_file(self, filepath: Path, anomaly_windows: dict[str, Any]) -> tuple[list, list]:
         """Parse a single NAB CSV file."""
         import csv
         from datetime import datetime
@@ -243,13 +244,13 @@ class NABLoader(DatasetLoader):
 
         return features, labels
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess NAB features."""
         data = np.nan_to_num(data, nan=0.0)
         data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)
         return data.astype(np.float32)
 
-    def get_dataset_info(self) -> dict:
+    def get_dataset_info(self) -> dict[str, Any]:
         """Get information about the loaded dataset."""
         return {
             "name": "Numenta Anomaly Benchmark (NAB)",
@@ -294,14 +295,13 @@ class SMDLoader(DatasetLoader):
         + [f"machine-3-{i}" for i in range(1, 12)]
     )
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.machines = config.preprocessing.get("machines", self.MACHINES[:5])
 
     def download(self) -> bool:
         """Download REAL SMD data from GitHub."""
         import urllib.error
-        import urllib.request
 
         logger.info("Downloading REAL SMD (Server Machine Dataset)...")
 
@@ -321,13 +321,13 @@ class SMDLoader(DatasetLoader):
                 txt_path = machine_dir / f"{split}.txt"
 
                 try:
-                    urllib.request.urlretrieve(url, txt_path)
+                    safe_urlretrieve(url, txt_path)
                     # Convert txt to npy
                     data = np.loadtxt(txt_path, delimiter=",")
                     np.save(file_path, data)
                     downloaded_count += 1
                     logger.info(f"  Downloaded {machine}/{split}")
-                except urllib.error.URLError as e:
+                except (urllib.error.URLError, ValueError) as e:
                     logger.warning(f"  Failed to download {machine}/{split}: {e}")
                 except Exception as e:
                     logger.warning(f"  Failed to parse {machine}/{split}: {e}")
@@ -335,7 +335,7 @@ class SMDLoader(DatasetLoader):
         logger.info(f"Downloaded {downloaded_count} SMD files")
         return downloaded_count > 0
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load REAL SMD data from downloaded files."""
         logger.info("Loading REAL SMD benchmark data...")
 
@@ -386,13 +386,13 @@ class SMDLoader(DatasetLoader):
 
         return features, labels
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess SMD features."""
         data = np.nan_to_num(data, nan=0.0)
         data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)
         return data.astype(np.float32)
 
-    def get_dataset_info(self) -> dict:
+    def get_dataset_info(self) -> dict[str, Any]:
         """Get information about the loaded dataset."""
         return {
             "name": "Server Machine Dataset (SMD)",
@@ -432,23 +432,22 @@ class SMAPMSLLoader(DatasetLoader):
         "https://raw.githubusercontent.com/khundman/telemanom/master/labeled_anomalies.csv"
     )
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.dataset = config.preprocessing.get("dataset", "SMAP")  # SMAP or MSL
 
     def download(self) -> bool:
         """Download REAL SMAP/MSL data from GitHub."""
         import urllib.error
-        import urllib.request
 
         logger.info(f"Downloading REAL NASA {self.dataset} spacecraft telemetry...")
 
         # Download labeled anomalies
         labels_path = self.data_path / "labeled_anomalies.csv"
         try:
-            urllib.request.urlretrieve(self.LABELED_ANOMALIES_URL, labels_path)
+            safe_urlretrieve(self.LABELED_ANOMALIES_URL, labels_path)
             logger.info("  Downloaded anomaly labels")
-        except urllib.error.URLError as e:
+        except (urllib.error.URLError, ValueError) as e:
             logger.warning(f"  Failed to download labels: {e}")
 
         # The actual data needs to be downloaded from the preprocessed archive
@@ -481,7 +480,7 @@ class SMAPMSLLoader(DatasetLoader):
 
         return labels_path.exists()
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load REAL SMAP/MSL data from downloaded files."""
         test_dir = self.data_path / "test"
         labels_path = self.data_path / "labeled_anomalies.csv"
@@ -506,8 +505,10 @@ class SMAPMSLLoader(DatasetLoader):
                         chan_id = row.get("chan_id", "")
                         anomaly_seqs = row.get("anomaly_sequences", "[]")
                         try:
-                            anomaly_info[chan_id] = eval(anomaly_seqs)
-                        except (SyntaxError, ValueError, NameError):
+                            import ast
+
+                            anomaly_info[chan_id] = ast.literal_eval(anomaly_seqs)
+                        except (SyntaxError, ValueError):
                             anomaly_info[chan_id] = []
 
         all_features = []
@@ -550,12 +551,12 @@ class SMAPMSLLoader(DatasetLoader):
         padded_features = []
         padded_labels = []
 
-        for f, l in zip(all_features, all_labels, strict=False):
-            if len(f.shape) == 1:
-                f = f.reshape(-1, 1)
+        for feat, label in zip(all_features, all_labels, strict=False):
+            if len(feat.shape) == 1:
+                feat = feat.reshape(-1, 1)
             # Use sliding window approach instead of padding
-            padded_features.append(f)
-            padded_labels.append(l)
+            padded_features.append(feat)
+            padded_labels.append(label)
 
         # Concatenate all channels
         features = np.vstack(padded_features)
@@ -566,13 +567,13 @@ class SMAPMSLLoader(DatasetLoader):
 
         return features, labels
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess spacecraft telemetry."""
         data = np.nan_to_num(data, nan=0.0)
         data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)
         return data.astype(np.float32)
 
-    def get_dataset_info(self) -> dict:
+    def get_dataset_info(self) -> dict[str, Any]:
         """Get information about the loaded dataset."""
         return {
             "name": f"NASA {self.dataset} Spacecraft Telemetry",

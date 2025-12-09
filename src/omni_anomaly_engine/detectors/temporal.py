@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Temporal anomaly detector for time series analysis
@@ -39,7 +40,7 @@ class TemporalAnomalyDetector(BaseDetector):
     - LSTM-based forecasting
     """
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         super().__init__(config)
         self.window_size = self.config.get("window_size", 10)
         self.change_threshold = self.config.get("change_threshold", 2.0)
@@ -54,7 +55,7 @@ class TemporalAnomalyDetector(BaseDetector):
         self.baseline_mean: float | None = None
         self.baseline_std: float | None = None
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> "TemporalAnomalyDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "TemporalAnomalyDetector":
         """Fit detector to normal time series"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
@@ -65,7 +66,7 @@ class TemporalAnomalyDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect temporal anomalies"""
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
@@ -86,7 +87,7 @@ class TemporalAnomalyDetector(BaseDetector):
             "detector_type": "temporal",
         }
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract temporal features for ML fusion"""
         data_np = data.cpu().numpy() if isinstance(data, torch.Tensor) else data
 
@@ -104,7 +105,7 @@ class TemporalAnomalyDetector(BaseDetector):
 
         return lstm_features
 
-    def _detect_trend_anomalies(self, data: np.ndarray) -> np.ndarray:
+    def _detect_trend_anomalies(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Detect anomalies based on trend deviation"""
         if len(data) < self.window_size:
             return np.zeros(len(data))
@@ -129,7 +130,7 @@ class TemporalAnomalyDetector(BaseDetector):
 
         return scores
 
-    def _detect_sudden_changes(self, data: np.ndarray) -> np.ndarray:
+    def _detect_sudden_changes(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Detect sudden changes in values"""
         if len(data) < 2:
             return np.zeros(len(data))

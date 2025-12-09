@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """CISA National Critical Functions (NCF) anomaly detection.
 
@@ -36,7 +37,7 @@ class NCFMonitor:
     Reference: https://www.cisa.gov/national-critical-functions-set
     """
 
-    def __init__(self, ethical_config: dict[str, float] | None = None):
+    def __init__(self, ethical_config: dict[str, float] | None = None) -> None:
         """Initialize NCF Monitor.
 
         Args:
@@ -135,7 +136,7 @@ class NCFMonitor:
             ],
         }
 
-    def detect(self, data: np.ndarray, ncf_id: str, context: dict | None = None) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any], ncf_id: str, context: dict | None = None) -> dict[str, Any]:
         """Detect anomalies for specific NCF.
 
         Args:
@@ -212,7 +213,7 @@ class NCFMonitor:
             "criticality_score": min(100, total_affected * 1.5 + wave * 10),
         }
 
-    def _calculate_z_scores(self, data: np.ndarray) -> np.ndarray:
+    def _calculate_z_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Calculate z-scores for anomaly detection."""
         mean = np.mean(data)
         std = np.std(data) + 1e-8

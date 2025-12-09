@@ -18,6 +18,7 @@ References:
       in Multivariate Time Series Data", VLDB 2022
     - Benaissa et al., "MAAT: Mamba Adaptive Anomaly Transformer", arXiv 2025
 """
+from __future__ import annotations
 
 from omni_anomaly_engine.models.sota.association_discrepancy import (
     AnomalyTransformerEncoder,
@@ -39,21 +40,18 @@ from omni_anomaly_engine.models.sota.tranad import (
 )
 
 __all__ = [
-    # Association Discrepancy (Anomaly Transformer)
-    "AssociationDiscrepancyModule",
+    "AdversarialTrainer",
     "AnomalyTransformerEncoder",
+    "AssociationDiscrepancyModule",
+    "FocusScoreConditioning",
+    "GatedFeatureFusion",
+    "MAATModel",
+    "MAMLOptimizer",
+    "MambaSSM",
     "PriorAssociation",
     "SeriesAssociation",
-    # TranAD
-    "TranADModel",
-    "FocusScoreConditioning",
-    "AdversarialTrainer",
-    "MAMLOptimizer",
-    # MAAT
-    "MAATModel",
     "SparseAttention",
-    "MambaSSM",
-    "GatedFeatureFusion",
+    "TranADModel",
 ]
 
 __version__ = "1.0.0"

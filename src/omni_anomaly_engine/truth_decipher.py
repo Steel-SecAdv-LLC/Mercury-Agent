@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Truth Deciphering Framework for OMNI ♱ AVA
@@ -155,7 +156,7 @@ class TruthDecipherFramework:
 
     def decipher_truth(
         self,
-        data_stream: np.ndarray | torch.Tensor | dict[str, Any],
+        data_stream: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
         context: dict[str, Any] | None = None,
     ) -> TruthDecipherResult:
         """
@@ -261,7 +262,7 @@ class TruthDecipherFramework:
 
     def detect_anomalies(
         self,
-        data_stream: np.ndarray | torch.Tensor | dict[str, Any],
+        data_stream: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
@@ -288,7 +289,7 @@ class TruthDecipherFramework:
 
         if self.enable_novel_discovery and self.novel_discovery:
             try:
-                if isinstance(data_stream, np.ndarray) and len(data_stream.shape) >= 2:
+                if isinstance(data_stream, np.ndarray[Any, Any]) and len(data_stream.shape) >= 2:
                     masks = np.ones_like(data_stream[:, :1])
                     novel_result = self.novel_discovery.discover_novel_classes(
                         data_stream[:10] if len(data_stream) > 10 else data_stream,
@@ -386,7 +387,7 @@ class TruthDecipherFramework:
     def resolve_with_measures(
         self,
         identification_result: dict[str, Any],
-        original_data: np.ndarray | torch.Tensor | dict[str, Any],
+        original_data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """

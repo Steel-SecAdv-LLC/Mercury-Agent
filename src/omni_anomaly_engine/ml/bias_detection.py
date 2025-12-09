@@ -21,6 +21,7 @@ the fairness ML literature.
 
 Reference: Fairlearn documentation (https://fairlearn.org/)
 """
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -151,9 +152,9 @@ class BiasDetector:
 
     def evaluate(
         self,
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
-        sensitive_features: np.ndarray,
+        y_true: np.ndarray[Any, Any],
+        y_pred: np.ndarray[Any, Any],
+        sensitive_features: np.ndarray[Any, Any],
         feature_name: str = "sensitive_attribute",
         model_name: str = "model",
         metrics: list[FairnessMetric] | None = None,
@@ -217,9 +218,9 @@ class BiasDetector:
 
     def _compute_metric(
         self,
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
-        sensitive_features: np.ndarray,
+        y_true: np.ndarray[Any, Any],
+        y_pred: np.ndarray[Any, Any],
+        sensitive_features: np.ndarray[Any, Any],
         feature_name: str,
         metric: FairnessMetric,
     ) -> FairnessResult:
@@ -232,9 +233,9 @@ class BiasDetector:
 
     def _compute_with_fairlearn(
         self,
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
-        sensitive_features: np.ndarray,
+        y_true: np.ndarray[Any, Any],
+        y_pred: np.ndarray[Any, Any],
+        sensitive_features: np.ndarray[Any, Any],
         feature_name: str,
         metric: FairnessMetric,
     ) -> FairnessResult:
@@ -364,9 +365,9 @@ class BiasDetector:
 
     def _compute_builtin(
         self,
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
-        sensitive_features: np.ndarray,
+        y_true: np.ndarray[Any, Any],
+        y_pred: np.ndarray[Any, Any],
+        sensitive_features: np.ndarray[Any, Any],
         feature_name: str,
         metric: FairnessMetric,
     ) -> FairnessResult:
@@ -521,9 +522,9 @@ class BiasDetector:
 
     def quick_check(
         self,
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
-        sensitive_features: np.ndarray,
+        y_true: np.ndarray[Any, Any],
+        y_pred: np.ndarray[Any, Any],
+        sensitive_features: np.ndarray[Any, Any],
     ) -> bool:
         """
         Quick fairness check - returns True if model is fair.

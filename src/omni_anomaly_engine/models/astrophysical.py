@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Astrophysical anomaly detection model with black hole physics.
@@ -30,7 +31,7 @@ _ETHICAL_ANCHOR = "I19A09A07A88"
 class AstrophysicalAnomalyModel:
     """Astrophysical anomaly detection using black hole physics and cosmic event modeling."""
 
-    def __init__(self, config: dict[str, Any] | None = None, **kwargs):
+    def __init__(self, config: dict[str, Any] | None = None, **kwargs) -> None:
         self.config = config or {}
         self.mass_equivalent = self.config.get("mass_equivalent", 1.0)
         self.speed_of_light = self.config.get("speed_of_light", 1.0)
@@ -56,15 +57,15 @@ class AstrophysicalAnomalyModel:
         """Compute Hawking temperature."""
         return 1.0 / (8 * np.pi * self.mass_equivalent)
 
-    def _compute_event_horizon_distance(self, data_point: np.ndarray) -> float:
+    def _compute_event_horizon_distance(self, data_point: np.ndarray[Any, Any]) -> float:
         """Compute distance from event horizon (singularity)."""
         return float(np.linalg.norm(data_point))
 
-    def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
+    def extract_features(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> np.ndarray[Any, Any]:
         """Extract astrophysical features from data."""
         if isinstance(data, dict):
             data = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray):
+        elif not isinstance(data, np.ndarray[Any, Any]):
             data = np.array(data)
 
         if data.ndim == 1:
@@ -112,7 +113,7 @@ class AstrophysicalAnomalyModel:
 
         return np.array(features).astype(np.float32)
 
-    def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
+    def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
         """Predict anomalies using astrophysical models."""
         features = self.extract_features(data)
 

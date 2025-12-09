@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Post-Quantum Cryptography Backends for OMNI ♱ AVA
@@ -45,6 +46,7 @@ import logging
 import os
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -187,10 +189,10 @@ def dilithium_sign(message: bytes, secret_key: bytes) -> bytes:
     """
     if LIBOQS_AVAILABLE:
         sig = oqs.Signature("Dilithium3", secret_key)
-        return sig.sign(message)
+        return cast(bytes, sig.sign(message))
 
     if PQCRYPTO_AVAILABLE:
-        return dilithium_fallback.sign(secret_key, message)
+        return cast(bytes, dilithium_fallback.sign(secret_key, message))
 
     logger.warning("Using simulated signature (NOT SECURE)")
     return hashlib.sha3_512(secret_key + message).digest()
@@ -210,7 +212,7 @@ def dilithium_verify(message: bytes, signature: bytes, public_key: bytes) -> boo
     """
     if LIBOQS_AVAILABLE:
         sig = oqs.Signature("Dilithium3")
-        return sig.verify(message, signature, public_key)
+        return cast(bool, sig.verify(message, signature, public_key))
 
     if PQCRYPTO_AVAILABLE:
         try:
@@ -290,10 +292,10 @@ def kyber_decapsulate(ciphertext: bytes, secret_key: bytes) -> bytes:
     """
     if LIBOQS_AVAILABLE:
         kem = oqs.KeyEncapsulation("Kyber1024", secret_key)
-        return kem.decap_secret(ciphertext)
+        return cast(bytes, kem.decap_secret(ciphertext))
 
     if PQCRYPTO_AVAILABLE:
-        return kyber_fallback.decap(secret_key, ciphertext)
+        return cast(bytes, kyber_fallback.decap(secret_key, ciphertext))
 
     logger.warning("Using simulated decapsulation (NOT SECURE)")
     return hashlib.sha3_256(secret_key[:1568]).digest()
@@ -329,7 +331,7 @@ def sphincs_sign(message: bytes, secret_key: bytes) -> bytes:
     """Sign message using SPHINCS+."""
     if LIBOQS_AVAILABLE:
         sig = oqs.Signature("SPHINCS+-SHA2-256f-simple", secret_key)
-        return sig.sign(message)
+        return cast(bytes, sig.sign(message))
 
     logger.warning("Using simulated SPHINCS+ signature (NOT SECURE)")
     return hashlib.sha3_512(secret_key + message).digest()
@@ -339,13 +341,13 @@ def sphincs_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
     """Verify SPHINCS+ signature."""
     if LIBOQS_AVAILABLE:
         sig = oqs.Signature("SPHINCS+-SHA2-256f-simple")
-        return sig.verify(message, signature, public_key)
+        return cast(bool, sig.verify(message, signature, public_key))
 
     logger.warning("Using simulated SPHINCS+ verification (NOT SECURE)")
     return len(signature) == 64
 
 
-def get_pqc_capabilities() -> dict:
+def get_pqc_capabilities() -> dict[str, Any]:
     """
     Get current PQC capabilities and backend status.
 

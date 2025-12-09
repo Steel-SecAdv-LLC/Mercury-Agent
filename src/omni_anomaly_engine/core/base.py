@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Abstract base classes for detectors, models, and encoders
@@ -31,23 +32,23 @@ from torch import nn
 class BaseDetector(ABC):
     """Abstract base class for all anomaly detectors"""
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         self.config = config or {}
         self.threshold = self.config.get("threshold", 0.5)
         self._is_fitted = False
 
     @abstractmethod
-    def fit(self, data: np.ndarray | torch.Tensor) -> "BaseDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "BaseDetector":
         """Fit the detector to normal data"""
         pass
 
     @abstractmethod
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies in data"""
         pass
 
     @abstractmethod
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion"""
         pass
 
@@ -59,16 +60,16 @@ class BaseDetector(ABC):
 class BaseModel(ABC):
     """Abstract base class for all models"""
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         self.config = config or {}
 
     @abstractmethod
-    def predict(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def predict(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Make predictions on data"""
         pass
 
     @abstractmethod
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion"""
         pass
 
@@ -76,7 +77,7 @@ class BaseModel(ABC):
 class BaseEncoder(nn.Module):
     """Abstract base class for feature encoders"""
 
-    def __init__(self, input_dim: int, output_dim: int):
+    def __init__(self, input_dim: int, output_dim: int) -> None:
         super().__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim

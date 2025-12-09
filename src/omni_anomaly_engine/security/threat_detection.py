@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Cybersecurity threat detection module
@@ -47,7 +48,7 @@ class ThreatDetector:
     - Data exfiltration
     """
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         self.config = config or {}
         self.sql_patterns = [
             r"(\bUNION\b.*\bSELECT\b)",

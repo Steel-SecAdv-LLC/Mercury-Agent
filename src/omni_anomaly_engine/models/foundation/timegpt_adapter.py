@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 TimeGPT Adapter for OMNI-AVA
@@ -92,7 +93,7 @@ class TimeGPTAdapter(BaseFoundationModel):
         >>> print(f"Anomalies at: {np.where(results['is_anomaly'])[0]}")
     """
 
-    def __init__(self, config: TimeGPTConfig | dict[str, Any] | None = None):
+    def __init__(self, config: TimeGPTConfig | dict[str, Any] | None = None) -> None:
         """Initialize TimeGPT adapter.
 
         Args:
@@ -146,7 +147,7 @@ class TimeGPTAdapter(BaseFoundationModel):
 
     def _to_dataframe(
         self,
-        series: np.ndarray,
+        series: np.ndarray[Any, Any],
         start_time: str | pd.Timestamp | None = None,
     ) -> pd.DataFrame:
         """Convert numpy array to pandas DataFrame for TimeGPT.
@@ -186,9 +187,9 @@ class TimeGPTAdapter(BaseFoundationModel):
 
     def forecast(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
         horizon: int | None = None,
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray[Any, Any]]:
         """Generate forecasts using TimeGPT.
 
         Args:
@@ -256,7 +257,7 @@ class TimeGPTAdapter(BaseFoundationModel):
 
     def detect_anomalies(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
         """Detect anomalies using TimeGPT.
 
@@ -321,7 +322,7 @@ class TimeGPTAdapter(BaseFoundationModel):
             "threshold": self.foundation_config.anomaly_threshold,
         }
 
-    def _mock_forecast(self, series: np.ndarray, horizon: int) -> np.ndarray:
+    def _mock_forecast(self, series: np.ndarray[Any, Any], horizon: int) -> np.ndarray[Any, Any]:
         """Simple mock forecast using linear trend.
 
         Args:
@@ -339,9 +340,9 @@ class TimeGPTAdapter(BaseFoundationModel):
 
     def _mock_detect(
         self,
-        series: np.ndarray,
+        series: np.ndarray[Any, Any],
         window: int = 20,
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Mock anomaly detection using rolling statistics.
 
         Args:
@@ -380,7 +381,7 @@ class TimeGPTAdapter(BaseFoundationModel):
 
     def detect(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
         """Detect anomalies in time series data.
 
@@ -397,7 +398,7 @@ class TimeGPTAdapter(BaseFoundationModel):
 
     def fine_tune(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
         steps: int = 100,
     ) -> "TimeGPTAdapter":
         """Fine-tune TimeGPT on domain data.

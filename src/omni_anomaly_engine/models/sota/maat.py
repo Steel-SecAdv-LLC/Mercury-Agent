@@ -447,7 +447,7 @@ class GatedFeatureFusion(nn.Module):
         gate_bias: Initial bias for gate (positive = favor attention)
     """
 
-    def __init__(self, d_model: int = 256, gate_bias: float = 0.0):
+    def __init__(self, d_model: int = 256, gate_bias: float = 0.0) -> None:
         super().__init__()
         self.d_model = d_model
 
@@ -514,7 +514,7 @@ class MAATEncoderLayer(nn.Module):
     - Long-range sequential dependencies (temporal context)
     """
 
-    def __init__(self, config: MAATConfig):
+    def __init__(self, config: MAATConfig) -> None:
         super().__init__()
         self.config = config
 
@@ -624,7 +624,7 @@ class MAATModel(nn.Module):
         config: MAATConfig with model parameters
     """
 
-    def __init__(self, config: MAATConfig | None = None):
+    def __init__(self, config: MAATConfig | None = None) -> None:
         super().__init__()
         self.config = config or MAATConfig()
 
@@ -655,7 +655,7 @@ class MAATModel(nn.Module):
         # Association discrepancy (from Anomaly Transformer)
         self._init_association_discrepancy()
 
-    def _init_association_discrepancy(self):
+    def _init_association_discrepancy(self) -> None:
         """Initialize components for association discrepancy computation."""
         from omni_anomaly_engine.models.sota.association_discrepancy import (
             PriorAssociation,
@@ -782,7 +782,7 @@ class MAATModel(nn.Module):
 class PositionalEncoding(nn.Module):
     """Sinusoidal positional encoding."""
 
-    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
+    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000) -> None:
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
 

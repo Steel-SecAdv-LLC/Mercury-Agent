@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """
 CISA Communications & IT Critical Infrastructure Anomaly Detection
@@ -46,9 +48,9 @@ class CommunicationsITDetector:
     - Cross-sector communication impacts
     """
 
-    def __init__(self, baseline_window: int = 3600):
+    def __init__(self, baseline_window: int = 3600) -> None:
         self.baseline_window = baseline_window
-        self.traffic_history = deque(maxlen=baseline_window)
+        self.traffic_history = deque[Any](maxlen=baseline_window)
         self.baseline_stats = {}
         self.alert_thresholds = {
             "ddos_multiplier": 10.0,
@@ -57,7 +59,7 @@ class CommunicationsITDetector:
             "exfiltration_mb_threshold": 1000,
         }
 
-    def detect(self, data: np.ndarray, timestamp: datetime | None = None) -> dict:
+    def detect(self, data: np.ndarray[Any, Any], timestamp: datetime | None = None) -> dict[str, Any]:
         """Generic detection interface for communications/IT infrastructure.
 
         Args:
@@ -76,7 +78,7 @@ class CommunicationsITDetector:
 
     def detect_network_anomaly(
         self, traffic_data: dict[str, float], timestamp: datetime | None = None
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Detect network traffic anomalies.
 
@@ -119,7 +121,7 @@ class CommunicationsITDetector:
             "timestamp": timestamp or datetime.now(),
         }
 
-    def _update_baseline(self):
+    def _update_baseline(self) -> None:
         """Update baseline statistics from recent traffic history."""
         recent_data = list(self.traffic_history)[-min(len(self.traffic_history), 1000) :]
 
@@ -134,7 +136,7 @@ class CommunicationsITDetector:
                     "p99": np.percentile(values, 99),
                 }
 
-    def _detect_ddos(self, traffic_data: dict) -> float:
+    def _detect_ddos(self, traffic_data: dict[str, Any]) -> float:
         """Detect DDoS attacks based on traffic volume."""
         if "packets_per_sec" not in self.baseline_stats:
             return 0.0
@@ -149,7 +151,7 @@ class CommunicationsITDetector:
 
         return 0.0
 
-    def _assess_comm_it_impact(self, anomalies: dict) -> dict:
+    def _assess_comm_it_impact(self, anomalies: dict[str, Any]) -> dict[str, Any]:
         """Assess impact on other critical infrastructure sectors."""
         if not anomalies:
             return {"level": "NONE", "specific_sectors": []}
@@ -174,7 +176,7 @@ class CommunicationsITDetector:
 
         return {"level": "LOW", "specific_sectors": []}
 
-    def _calculate_overall_risk(self, anomalies: dict) -> str:
+    def _calculate_overall_risk(self, anomalies: dict[str, Any]) -> str:
         """Calculate overall risk level."""
         if not anomalies:
             return "LOW"
@@ -186,7 +188,7 @@ class CommunicationsITDetector:
 
         return "LOW"
 
-    def _generate_recommendations(self, anomalies: dict) -> list[str]:
+    def _generate_recommendations(self, anomalies: dict[str, Any]) -> list[str]:
         """Generate action recommendations."""
         if not anomalies:
             return ["Continue normal monitoring"]

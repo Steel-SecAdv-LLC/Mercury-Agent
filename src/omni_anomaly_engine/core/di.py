@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Dependency Injection Framework for OMNI ♱ AVA
@@ -33,7 +34,7 @@ from abc import ABC  # noqa: F401 - kept for potential future use
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import Any, Protocol, TypeVar, cast, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ class ServiceContainer:
     - Thread-safe singleton creation
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._services: dict[type, ServiceDescriptor] = {}
         self._lock = threading.RLock()
         self._resolution_stack: set[type] = set()
@@ -181,13 +182,13 @@ class ServiceContainer:
 
             # Return existing singleton instance
             if descriptor.lifecycle == Lifecycle.SINGLETON and descriptor.instance:
-                return descriptor.instance
+                return cast(T, descriptor.instance)
 
             # Return scoped instance if exists
             if descriptor.lifecycle == Lifecycle.SCOPED and scope_id:
                 if scope_id in self._scoped_instances:
                     if service_type in self._scoped_instances[scope_id]:
-                        return self._scoped_instances[scope_id][service_type]
+                        return cast(T, self._scoped_instances[scope_id][service_type])
 
             # Create new instance
             self._resolution_stack.add(service_type)
@@ -206,7 +207,7 @@ class ServiceContainer:
                     self._scoped_instances[scope_id] = {}
                 self._scoped_instances[scope_id][service_type] = instance
 
-            return instance
+            return cast(T, instance)
 
     def _create_instance(self, descriptor: ServiceDescriptor) -> Any:
         """Create a new instance of a service."""
@@ -244,7 +245,7 @@ class ServiceContainer:
 class ServiceScope:
     """Scoped service resolution context."""
 
-    def __init__(self, container: ServiceContainer, scope_id: str):
+    def __init__(self, container: ServiceContainer, scope_id: str) -> None:
         self._container = container
         self._scope_id = scope_id
 
@@ -255,7 +256,12 @@ class ServiceScope:
     def __enter__(self) -> "ServiceScope":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object | None,
+    ) -> None:
         self._container.dispose_scope(self._scope_id)
 
 
@@ -338,7 +344,7 @@ class ComponentFactory:
     - Version compatibility checking
     """
 
-    def __init__(self, container: ServiceContainer):
+    def __init__(self, container: ServiceContainer) -> None:
         self._container = container
         self._registered_plugins: dict[str, type] = {}
 
@@ -385,7 +391,7 @@ class ComponentFactory:
 
         if detector_type in self._registered_plugins:
             plugin_class = self._registered_plugins[detector_type]
-            return plugin_class(config=config)
+            return cast(DetectorProtocol, plugin_class(config=config))
 
         if detector_type not in detector_map:
             raise ValueError(f"Unknown detector type: {detector_type}")
@@ -397,7 +403,7 @@ class ComponentFactory:
 
             module = importlib.import_module(module_path)
             detector_class = getattr(module, class_name)
-            return detector_class(config=config)
+            return cast(DetectorProtocol, detector_class(config=config))
         except (ImportError, AttributeError) as e:
             logger.warning(f"Could not load detector {detector_type}: {e}")
             raise
@@ -428,7 +434,7 @@ class ComponentFactory:
 
         if model_type in self._registered_plugins:
             plugin_class = self._registered_plugins[model_type]
-            return plugin_class(config=config)
+            return cast(ModelProtocol, plugin_class(config=config))
 
         if model_type not in model_map:
             raise ValueError(f"Unknown model type: {model_type}")
@@ -439,7 +445,7 @@ class ComponentFactory:
 
             module = importlib.import_module(module_path)
             model_class = getattr(module, class_name)
-            return model_class(config=config)
+            return cast(ModelProtocol, model_class(config=config))
         except (ImportError, AttributeError) as e:
             logger.warning(f"Could not load model {model_type}: {e}")
             raise

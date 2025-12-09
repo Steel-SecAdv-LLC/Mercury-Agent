@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Quantum Risk Cybersecurity Module
@@ -81,7 +82,7 @@ class QuantumRiskCyber:
     and risk assessment inspired by Bain 2025 report findings.
     """
 
-    def __init__(self, threat_timeline_years: float = 10.0, preparedness_threshold: float = 0.5):
+    def __init__(self, threat_timeline_years: float = 10.0, preparedness_threshold: float = 0.5) -> None:
         """
         Initialize quantum risk cybersecurity system.
 
@@ -431,7 +432,7 @@ class QuantumRiskCyber:
         return timeline
 
     def quantum_threat_detection(
-        self, data_patterns: np.ndarray, anomaly_threshold: float = 0.7
+        self, data_patterns: np.ndarray[Any, Any], anomaly_threshold: float = 0.7
     ) -> tuple[bool, float, str]:
         """
         Detect potential quantum-based attacks or anomalies.
@@ -539,7 +540,7 @@ class PostQuantumMigrationPlanner:
     - FALCON: Digital signatures (lattice-based)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize post-quantum migration planner."""
         self.nist_pqc_algorithms = {
             "key_encapsulation": {

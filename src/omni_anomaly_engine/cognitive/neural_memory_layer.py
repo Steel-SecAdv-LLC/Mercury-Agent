@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Neural Memory Layer - Memory Embeddings and Pattern Detection
@@ -99,7 +100,7 @@ class DetectedPattern:
     confidence: float
     description: str
     supporting_memories: list[str]
-    centroid: np.ndarray | None = None
+    centroid: np.ndarray[Any, Any] | None = None
     temporal_span: tuple[float, float] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -125,7 +126,7 @@ class MemoryVectorizer:
     into fixed-dimensional vectors suitable for clustering and similarity.
     """
 
-    def __init__(self, embedding_dim: int = 64):
+    def __init__(self, embedding_dim: int = 64) -> None:
         """
         Initialize memory vectorizer.
 
@@ -159,7 +160,7 @@ class MemoryVectorizer:
         for token, freq in doc_freq.items():
             self._idf_weights[token] = np.log((n_docs + 1) / (freq + 1)) + 1
 
-    def transform(self, content: dict[str, Any]) -> np.ndarray:
+    def transform(self, content: dict[str, Any]) -> np.ndarray[Any, Any]:
         """
         Transform memory content into embedding vector.
 
@@ -214,7 +215,7 @@ class MemoryVectorizer:
         extract_tokens(content)
         return tokens
 
-    def _project_to_dim(self, sparse_vec: np.ndarray) -> np.ndarray:
+    def _project_to_dim(self, sparse_vec: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Project sparse vector to target embedding dimension."""
         if len(sparse_vec) == 0:
             return np.zeros(self.embedding_dim)
@@ -254,11 +255,11 @@ class KMeansClusterer:
         self.max_iter = max_iter
         self.tol = tol
         self.random_state = random_state
-        self.centroids: np.ndarray | None = None
-        self.labels_: np.ndarray | None = None
+        self.centroids: np.ndarray[Any, Any] | None = None
+        self.labels_: np.ndarray[Any, Any] | None = None
         self.inertia_: float = 0.0
 
-    def fit(self, X: np.ndarray) -> "KMeansClusterer":
+    def fit(self, X: np.ndarray[Any, Any]) -> "KMeansClusterer":
         """
         Fit K-means on embeddings.
 
@@ -299,7 +300,7 @@ class KMeansClusterer:
 
         return self
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Predict cluster labels for new embeddings.
 
@@ -315,7 +316,7 @@ class KMeansClusterer:
         distances = cdist(X, self.centroids, metric="euclidean")
         return np.argmin(distances, axis=1)
 
-    def get_cluster_distances(self, X: np.ndarray) -> np.ndarray:
+    def get_cluster_distances(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Get distances to all cluster centroids."""
         if self.centroids is None:
             raise ValueError("Clusterer not fitted. Call fit() first.")
@@ -386,8 +387,8 @@ class PatternDetector:
     def _detect_anomalies(
         self,
         embeddings: list[MemoryEmbedding],
-        distances: np.ndarray,
-        labels: np.ndarray,
+        distances: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any],
     ) -> list[DetectedPattern]:
         """Detect anomalous memories based on cluster distance."""
         patterns = []
@@ -809,7 +810,7 @@ class NeuralMemoryLayer:
 
     def get_similar_memories(
         self,
-        query_embedding: np.ndarray,
+        query_embedding: np.ndarray[Any, Any],
         top_k: int = 5,
     ) -> list[tuple[MemoryEmbedding, float]]:
         """
@@ -839,7 +840,7 @@ class NeuralMemoryLayer:
         similarities.sort(key=lambda x: x[1], reverse=True)
         return similarities[:top_k]
 
-    def get_anomaly_score(self, embedding: np.ndarray) -> float:
+    def get_anomaly_score(self, embedding: np.ndarray[Any, Any]) -> float:
         """
         Get anomaly score for a single embedding.
 
@@ -870,7 +871,7 @@ class NeuralMemoryLayer:
 
         return float(score)
 
-    def get_neural_features(self) -> np.ndarray:
+    def get_neural_features(self) -> np.ndarray[Any, Any]:
         """
         Get aggregated neural features for symbolic layer input.
 

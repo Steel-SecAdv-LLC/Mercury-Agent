@@ -10,6 +10,8 @@ automatically to find edge cases and bugs.
 
 Reference: Hypothesis documentation (https://hypothesis.readthedocs.io/)
 """
+from __future__ import annotations
+from typing import Any
 
 import numpy as np
 import pytest
@@ -178,7 +180,7 @@ class TestDoubleHelixEngineProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(npst.arrays(dtype=np.float64, shape=st.integers(min_value=4, max_value=64)))
     @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
-    def test_evolution_preserves_finite_values(self, initial_state: np.ndarray):
+    def test_evolution_preserves_finite_values(self, initial_state: np.ndarray[Any, Any]):
         """Evolution should never produce NaN or Inf values."""
         from omni_anomaly_engine.core.double_helix_engine import AvaEquationEngine
 
@@ -339,7 +341,7 @@ class TestEthicalEngineProperties:
         )
     )
     @settings(max_examples=50)
-    def test_maat_balance_bounded_output(self, ethical_scores: dict):
+    def test_maat_balance_bounded_output(self, ethical_scores: dict[str, Any]):
         """Ma'at balance should always produce bounded heart weight."""
         from omni_anomaly_engine.ethical.sacred_wisdom_engine import MaatBalanceEngine
 
@@ -361,7 +363,7 @@ class TestEthicalEngineProperties:
         )
     )
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
-    def test_sacred_geometry_bounded_scores(self, data: np.ndarray):
+    def test_sacred_geometry_bounded_scores(self, data: np.ndarray[Any, Any]):
         """Sacred geometry analysis should produce scores in [0, 1]."""
         from omni_anomaly_engine.ethical.sacred_wisdom_engine import SacredGeometryProcessor
 
@@ -382,7 +384,7 @@ class TestDetectorRegistryProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(npst.arrays(dtype=np.float64, shape=st.integers(min_value=10, max_value=100)))
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
-    def test_aggregate_features_produces_128d_output(self, features: np.ndarray):
+    def test_aggregate_features_produces_128d_output(self, features: np.ndarray[Any, Any]):
         """Aggregated features should always produce 128D output."""
         from omni_anomaly_engine.core.detector_registry import (
             DetectorRegistry,
@@ -453,7 +455,7 @@ class TestDetectorRegistryProperties:
         )
     )
     @settings(max_examples=20, suppress_health_check=[HealthCheck.too_slow])
-    def test_aggregate_features_no_nans(self, features: np.ndarray):
+    def test_aggregate_features_no_nans(self, features: np.ndarray[Any, Any]):
         """Aggregated features should never contain NaN values."""
         import torch
 
@@ -493,7 +495,7 @@ class TestDetectorRegistryProperties:
         )
     )
     @settings(max_examples=20)
-    def test_list_by_tags_returns_subset(self, tags: list):
+    def test_list_by_tags_returns_subset(self, tags: list[Any]):
         """list_by_tags should return subset of registered detectors."""
         from omni_anomaly_engine.core.detector_registry import (
             DetectorCategory,

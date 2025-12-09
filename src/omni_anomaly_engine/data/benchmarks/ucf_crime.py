@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 UCF-Crime Dataset Loader.
@@ -94,7 +95,7 @@ class UCFCrimeDataset(BaseVideoDataset):
 
     DATASET_URL = "https://www.crcv.ucf.edu/projects/real-world/"
 
-    def __init__(self, config: UCFCrimeConfig | dict[str, Any] | None = None):
+    def __init__(self, config: UCFCrimeConfig | dict[str, Any] | None = None) -> None:
         """Initialize UCF-Crime dataset.
 
         Args:
@@ -147,7 +148,7 @@ class UCFCrimeDataset(BaseVideoDataset):
                     temporal_annotations = self._load_temporal_annotations(video_dir)
                     self._videos.append((video_dir, 1, temporal_annotations))
 
-    def _load_temporal_annotations(self, video_path: Path) -> np.ndarray | None:
+    def _load_temporal_annotations(self, video_path: Path) -> np.ndarray[Any, Any] | None:
         """Load temporal annotations for a video.
 
         Args:

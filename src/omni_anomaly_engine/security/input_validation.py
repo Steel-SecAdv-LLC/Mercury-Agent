@@ -19,6 +19,7 @@ Implements OWASP input validation guidelines:
 Reference: OWASP Input Validation Cheat Sheet
 https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html
 """
+from __future__ import annotations
 
 import html
 import re
@@ -33,7 +34,7 @@ T = TypeVar("T")
 class ValidationError(Exception):
     """Input validation failed."""
 
-    def __init__(self, message: str, field: str | None = None, value: Any = None):
+    def __init__(self, message: str, field: str | None = None, value: Any = None) -> None:
         super().__init__(message)
         self.field = field
         self.value = value
@@ -137,7 +138,7 @@ class InputValidator:
         r"c:\\",
     ]
 
-    def __init__(self, level: SanitizationLevel = SanitizationLevel.MODERATE):
+    def __init__(self, level: SanitizationLevel = SanitizationLevel.MODERATE) -> None:
         """
         Initialize input validator.
 
@@ -439,7 +440,6 @@ class InputValidator:
         Returns:
             ValidationResult
         """
-        import os
 
         errors: list[str] = []
         warnings: list[str] = []
@@ -467,8 +467,10 @@ class InputValidator:
         # Normalize and check against allowed prefix
         if allowed_prefix:
             try:
-                normalized = os.path.normpath(os.path.abspath(value))
-                allowed_normalized = os.path.normpath(os.path.abspath(allowed_prefix))
+                from pathlib import Path
+
+                normalized = str(Path(value).resolve())
+                allowed_normalized = str(Path(allowed_prefix).resolve())
 
                 if not normalized.startswith(allowed_normalized):
                     errors.append(f"{field_name}: Path outside allowed directory")

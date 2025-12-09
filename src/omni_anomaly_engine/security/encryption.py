@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """
 Secure data handling utilities with quantum-resistant encryption support.
@@ -48,7 +50,7 @@ class QuantumResistantEncryption:
     Note: Conditional import of liboqs planned for future enhancement.
     """
 
-    def __init__(self, security_level: int = 256, use_liboqs: bool = True):
+    def __init__(self, security_level: int = 256, use_liboqs: bool = True) -> None:
         """
         Initialize quantum-resistant encryption.
 
@@ -74,7 +76,7 @@ class QuantumResistantEncryption:
             except ImportError:
                 self._oqs_available = False
 
-    def _init_liboqs(self, oqs) -> None:
+    def _init_liboqs(self, oqs: Any) -> None:
         """
         Initialize liboqs KEM and signature schemes for production use.
 
@@ -93,7 +95,7 @@ class QuantumResistantEncryption:
             self._oqs_kem = None
             self._oqs_signature = None
 
-    def _generate_lattice_key(self) -> tuple[np.ndarray, np.ndarray]:
+    def _generate_lattice_key(self) -> tuple[tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]], np.ndarray[Any, Any]]:
         """
         Generate lattice-based key pair (public, private) using LWE.
 
@@ -110,12 +112,12 @@ class QuantumResistantEncryption:
 
         b = np.mod(A @ s + e, self.q).astype(np.int64)
 
-        public_key = (A, b)
-        private_key = s
+        public_key: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] = (A, b)
+        private_key: np.ndarray[Any, Any] = s
 
         return public_key, private_key
 
-    def encrypt_hybrid(self, data: bytes, public_key: tuple | None = None) -> bytes:
+    def encrypt_hybrid(self, data: bytes, public_key: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None) -> bytes:
         """
         Hybrid encryption: quantum-resistant KEM + symmetric stream cipher.
 
@@ -165,9 +167,9 @@ class QuantumResistantEncryption:
 
         header = u.tobytes() + v.tobytes()
 
-        return header + encrypted
+        return bytes(header + encrypted)
 
-    def decrypt_hybrid(self, encrypted_data: bytes, private_key: np.ndarray) -> bytes:
+    def decrypt_hybrid(self, encrypted_data: bytes, private_key: np.ndarray[Any, Any]) -> bytes:
         """
         Decrypt using quantum-resistant KEM decapsulation.
 
@@ -222,6 +224,7 @@ class QuantumResistantEncryption:
         Returns:
             Encrypted data with KEM ciphertext header
         """
+        assert self._oqs_kem is not None
         public_key_bytes = self._oqs_kem.generate_keypair()
 
         ciphertext, shared_secret = self._oqs_kem.encap_secret(public_key_bytes)
@@ -235,7 +238,7 @@ class QuantumResistantEncryption:
             )
         )
 
-        return ciphertext + encrypted
+        return bytes(ciphertext + encrypted)
 
     def _decrypt_with_liboqs(self, encrypted_data: bytes) -> bytes:
         """
@@ -247,6 +250,7 @@ class QuantumResistantEncryption:
         Returns:
             Decrypted data
         """
+        assert self._oqs_kem is not None
         ciphertext_size = self._oqs_kem.details["length_ciphertext"]
         ciphertext = encrypted_data[:ciphertext_size]
         encrypted_content = encrypted_data[ciphertext_size:]
@@ -304,7 +308,11 @@ class QuantumResistantEncryption:
 class SecureDataHandler:
     """Handle sensitive data securely with quantum-resistant options"""
 
-    def __init__(self, enable_quantum_resistant: bool = True):
+    qr_encryption: QuantumResistantEncryption | None
+    public_key: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None
+    private_key: np.ndarray[Any, Any] | None
+
+    def __init__(self, enable_quantum_resistant: bool = True) -> None:
         """
         Initialize secure data handler.
 
@@ -367,4 +375,5 @@ class SecureDataHandler:
         if not self.enable_quantum_resistant or self.qr_encryption is None:
             raise ValueError("Quantum-resistant encryption not enabled")
 
+        assert self.private_key is not None
         return self.qr_encryption.decrypt_hybrid(encrypted_data, self.private_key)

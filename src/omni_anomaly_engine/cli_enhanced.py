@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Enhanced Command-Line Interface for OMNI ♱ AVA
@@ -207,7 +208,17 @@ def run_schumann(
     detector = SchumannResonanceDetector()
     resonance_data = _load_data(resonance_file)
 
-    results = detector.detect_anomaly(resonance_data)
+    schumann_result = detector.detect_resonance_anomaly(resonance_data)
+
+    results: dict[str, Any] = {
+        "anomaly_detected": schumann_result.anomaly_detected,
+        "anomaly_type": schumann_result.anomaly_type,
+        "confidence": schumann_result.confidence,
+        "risk_score": schumann_result.risk_score,
+        "fundamental_freq": schumann_result.fundamental_freq,
+        "fundamental_deviation": schumann_result.fundamental_deviation,
+        "recommendations": schumann_result.recommendations,
+    }
 
     if seismic_file:
         seismic_data = _load_data(seismic_file)
@@ -217,9 +228,9 @@ def run_schumann(
         click.echo("\n" + "=" * 60)
         click.echo("SCHUMANN RESONANCE ANALYSIS REPORT")
         click.echo("=" * 60)
-        click.echo(f"Anomaly Detected: {results.get('is_anomaly', False)}")
-        click.echo(f"Confidence: {results.get('anomaly_score', 0):.2%}")
-        if results.get("precursor_detected"):
+        click.echo(f"Anomaly Detected: {results.get('anomaly_detected', False)}")
+        click.echo(f"Confidence: {results.get('confidence', 0):.2%}")
+        if schumann_result.frequency_anomaly or schumann_result.amplitude_anomaly:
             click.echo("\n⚠️  EARTHQUAKE/DISASTER PRECURSOR DETECTED")
         click.echo("=" * 60 + "\n")
 
@@ -308,14 +319,14 @@ def _run_medical_subspecialty(subspecialty: str, patient_data: dict[str, Any]) -
     if subspecialty == "cardiology":
         from omni_anomaly_engine.medical.cardiology.cardiology_predictor import CardiologyPredictor
 
-        predictor = CardiologyPredictor()
-        result = predictor.predict_cardiac_risk(patient_data)
+        cardiology_predictor = CardiologyPredictor()
+        cardiology_result = cardiology_predictor.predict_cardiac_risk(patient_data)
         return {
             "subspecialty": "cardiology",
-            "cardiac_risk_detected": result.cardiac_risk_detected,
-            "arrhythmia_type": result.arrhythmia_type,
-            "mi_risk": result.mi_risk,
-            "recommendations": result.clinical_recommendations,
+            "cardiac_risk_detected": cardiology_result.cardiac_risk_detected,
+            "arrhythmia_type": cardiology_result.arrhythmia_type,
+            "mi_risk": cardiology_result.mi_risk,
+            "recommendations": cardiology_result.clinical_recommendations,
         }
 
     elif subspecialty == "neurocritical":
@@ -323,39 +334,39 @@ def _run_medical_subspecialty(subspecialty: str, patient_data: dict[str, Any]) -
             NeurocriticalCarePredictor,
         )
 
-        predictor = NeurocriticalCarePredictor()
-        result = predictor.predict_neurocritical_emergency(patient_data)
+        neuro_predictor = NeurocriticalCarePredictor()
+        neuro_result = neuro_predictor.predict_neurocritical_emergency(patient_data)
         return {
             "subspecialty": "neurocritical_care",
-            "emergency_detected": result.neurological_emergency_detected,
-            "emergency_type": result.emergency_type,
-            "stroke_detected": result.stroke_detected,
-            "recommendations": result.clinical_recommendations,
+            "emergency_detected": neuro_result.neurological_emergency_detected,
+            "emergency_type": neuro_result.emergency_type,
+            "stroke_detected": neuro_result.stroke_detected,
+            "recommendations": neuro_result.clinical_recommendations,
         }
 
     elif subspecialty == "sepsis":
         from omni_anomaly_engine.medical.critical_care.sepsis_detector import SepsisDetector
 
-        detector = SepsisDetector()
-        result = detector.detect_sepsis(patient_data)
+        sepsis_detector = SepsisDetector()
+        sepsis_result = sepsis_detector.detect_sepsis(patient_data)
         return {
             "subspecialty": "sepsis",
-            "sepsis_detected": result.sepsis_detected,
-            "sepsis_stage": result.sepsis_stage,
-            "sofa_score": result.sofa_score,
-            "recommendations": result.clinical_recommendations,
+            "sepsis_detected": sepsis_result.sepsis_detected,
+            "sepsis_stage": sepsis_result.sepsis_stage,
+            "sofa_score": sepsis_result.sofa_score,
+            "recommendations": sepsis_result.clinical_recommendations,
         }
 
     else:
         from omni_anomaly_engine.medical.medical_cure_predictor import MedicalCurePredictor
 
-        predictor = MedicalCurePredictor()
-        result = predictor.predict_and_cure(patient_data)
+        cure_predictor = MedicalCurePredictor()
+        cure_result = cure_predictor.predict_and_cure(patient_data)
         return {
             "subspecialty": "general_medical",
-            "disease_risk_detected": result.disease_risk_detected,
-            "disease_type": result.disease_type,
-            "recommendations": result.recommendations,
+            "disease_risk_detected": cure_result.disease_risk_detected,
+            "disease_type": cure_result.disease_type,
+            "recommendations": cure_result.recommendations,
         }
 
 
@@ -365,54 +376,54 @@ def _run_security_analysis(intel_type: str, security_data: dict[str, Any]) -> di
     if intel_type == "cybint":
         from omni_anomaly_engine.security.cybint_subprocessor import CYBINTSubProcessor
 
-        processor = CYBINTSubProcessor()
-        result = processor.process_cybint(security_data)
+        cybint_processor = CYBINTSubProcessor()
+        cybint_result = cybint_processor.process_cybint(security_data)
         return {
             "intel_type": "cybint",
-            "threat_detected": result.threat_detected,
-            "apt_group": result.apt_group,
-            "malware_family": result.malware_family,
-            "recommendations": result.recommended_actions,
+            "threat_detected": cybint_result.threat_detected,
+            "apt_group": cybint_result.apt_group,
+            "malware_family": cybint_result.malware_family,
+            "recommendations": cybint_result.recommended_actions,
         }
 
     elif intel_type == "traffic":
         from omni_anomaly_engine.security.traffic_analysis import TrafficAnalysisEngine
 
-        engine = TrafficAnalysisEngine()
-        result = engine.analyze_traffic(security_data)
+        traffic_engine = TrafficAnalysisEngine()
+        traffic_result = traffic_engine.analyze_traffic(security_data)
         return {
             "intel_type": "traffic_analysis",
-            "anomaly_detected": result.anomaly_detected,
-            "anomaly_type": result.anomaly_type,
-            "recommendations": result.recommended_actions,
+            "anomaly_detected": traffic_result.anomaly_detected,
+            "anomaly_type": traffic_result.anomaly_type,
+            "recommendations": traffic_result.recommended_actions,
         }
 
     elif intel_type == "tempest":
         from omni_anomaly_engine.security.tempest_detection import TEMPESTDetector
 
-        detector = TEMPESTDetector()
-        result = detector.detect_tempest_threats(security_data)
+        tempest_detector = TEMPESTDetector()
+        tempest_result = tempest_detector.detect_tempest_threats(security_data)
         return {
             "intel_type": "tempest",
-            "emanation_detected": result.emanation_detected,
-            "threat_level": result.threat_level,
-            "countermeasures": result.countermeasures,
+            "emanation_detected": tempest_result.emanation_detected,
+            "threat_level": tempest_result.threat_level,
+            "countermeasures": tempest_result.countermeasures,
         }
 
     else:
         from omni_anomaly_engine.security.intelligence_fusion import IntelligenceFusionEngine
 
-        engine = IntelligenceFusionEngine()
-        result = engine.fuse_intelligence(security_data)
+        fusion_engine = IntelligenceFusionEngine()
+        fusion_result = fusion_engine.fuse_intelligence(security_data)
         return {
             "intel_type": "fusion",
-            "threat_detected": result.threat_detected,
-            "threat_level": result.threat_level,
-            "recommendations": result.recommended_actions,
+            "threat_detected": fusion_result.threat_detected,
+            "threat_level": fusion_result.threat_level,
+            "recommendations": fusion_result.recommended_actions,
         }
 
 
-def _run_humanitarian_analysis(crisis_type: str, crisis_data: np.ndarray) -> dict[str, Any]:
+def _run_humanitarian_analysis(crisis_type: str, crisis_data: np.ndarray[Any, Any]) -> dict[str, Any]:
     """Run humanitarian crisis analysis"""
 
     engine = OmniAnomalyEngine()
@@ -426,23 +437,28 @@ def _run_humanitarian_analysis(crisis_type: str, crisis_data: np.ndarray) -> dic
     }
 
 
-def _run_chemistry_analysis(analysis_type: str, sample_data: np.ndarray) -> dict[str, Any]:
+def _run_chemistry_analysis(analysis_type: str, sample_data: np.ndarray[Any, Any]) -> dict[str, Any]:
     """Run chemistry analysis"""
 
-    from omni_anomaly_engine.models.chemistry import ChemistryAnomalyModel
+    from omni_anomaly_engine.models.chemistry import ChemistryAnomalyDetector
 
-    model = ChemistryAnomalyModel()
-    result = model.predict(sample_data)
+    model = ChemistryAnomalyDetector()
+    # Convert ndarray to dict format expected by ChemistryAnomalyDetector.predict
+    sample_dict: dict[str, Any] = {
+        "elemental_composition": {"H": float(sample_data.mean()) * 100} if sample_data.size > 0 else {},
+        "analysis_type": analysis_type,
+    }
+    result = model.predict(sample_dict)
 
     return {
         "analysis_type": analysis_type,
-        "anomaly_detected": result.get("is_anomaly", False),
-        "confidence": result.get("anomaly_score", 0),
+        "anomaly_detected": result.get("anomaly_type", "none") != "none",
+        "confidence": result.get("confidence", 0),
     }
 
 
 def _correlate_schumann_seismic(
-    resonance_data: np.ndarray, seismic_data: np.ndarray
+    resonance_data: np.ndarray[Any, Any], seismic_data: np.ndarray[Any, Any]
 ) -> dict[str, Any]:
     """Correlate Schumann resonance with seismic activity"""
 
@@ -559,7 +575,7 @@ def _run_sepsis_demo() -> None:
         "mean_arterial_pressure": 60,
     }
 
-    from omni_anomaly_engine.medical.sepsis_detector import SepsisDetector
+    from omni_anomaly_engine.medical.critical_care.sepsis_detector import SepsisDetector
 
     detector = SepsisDetector()
     result = detector.detect_sepsis(
@@ -598,22 +614,22 @@ def _run_humanitarian_demo() -> None:
     click.echo("  Response Recommended: Immediate")
 
 
-def _load_data(filepath: str) -> np.ndarray:
+def _load_data(filepath: str) -> np.ndarray[Any, Any]:
     """Load data from file"""
     path = Path(filepath)
 
     if path.suffix == ".json":
         with open(path) as f:
-            data = json.load(f)
-            if isinstance(data, list):
-                return np.array(data)
-            return np.array([data])
+            json_data = json.load(f)
+            if isinstance(json_data, list):
+                return np.ndarray(np.array(json_data).shape, buffer=np.array(json_data))
+            return np.ndarray(np.array([json_data]).shape, buffer=np.array([json_data]))
 
     elif path.suffix == ".csv":
-        data = np.loadtxt(path, delimiter=",", dtype=np.float32)
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
-        return data
+        csv_data = np.loadtxt(path, delimiter=",", dtype=np.float32)
+        if csv_data.ndim == 1:
+            csv_data = csv_data.reshape(1, -1)
+        return np.ndarray(csv_data.shape, buffer=csv_data)
 
     else:
         raise ValueError(f"Unsupported file format: {path.suffix}")

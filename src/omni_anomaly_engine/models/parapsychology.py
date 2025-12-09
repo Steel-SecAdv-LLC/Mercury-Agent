@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Parapsychology Discipline Module
@@ -97,11 +98,11 @@ class ParapsychologyResult:
     variance_ratio: float | None = None
     coherence_score: float | None = None
 
-    control_comparison: dict | None = None
-    temporal_pattern: dict | None = None
+    control_comparison: dict[str, Any] | None = None
+    temporal_pattern: dict[str, Any] | None = None
 
     recommendations: list[str] = field(default_factory=list)
-    consciousness_correlation: dict | None = None
+    consciousness_correlation: dict[str, Any] | None = None
 
 
 class ConsciousnessFieldAnalyzer(nn.Module):
@@ -112,7 +113,7 @@ class ConsciousnessFieldAnalyzer(nn.Module):
     pattern recognition for detecting deviations from randomness.
     """
 
-    def __init__(self, sequence_length: int = 100):
+    def __init__(self, sequence_length: int = 100) -> None:
         super().__init__()
 
         phi = 1.618
@@ -181,10 +182,9 @@ class ParapsychologyDetector:
         self.bayesian_analysis = bayesian_analysis
         self.golden_ratio = 1.618
 
+        self.field_analyzer: ConsciousnessFieldAnalyzer | None = None
         if enable_consciousness_field:
             self.field_analyzer = ConsciousnessFieldAnalyzer(sequence_length=100)
-        else:
-            self.field_analyzer = None
 
         self.historical_baselines = self._initialize_baselines()
 
@@ -201,7 +201,7 @@ class ParapsychologyDetector:
 
         self.logger.info(f"Parapsychology Detector initialized (p < {significance_threshold})")
 
-    def _initialize_baselines(self) -> dict[str, dict]:
+    def _initialize_baselines(self) -> dict[str, dict[str, Any]]:
         """Initialize expected baseline distributions"""
         return {
             "esp_cards": {
@@ -229,7 +229,7 @@ class ParapsychologyDetector:
         self,
         experimental_data: dict[str, Any],
         control_data: dict[str, Any] | None = None,
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ParapsychologyResult:
         """
         Detect statistically significant psi anomalies.
@@ -325,10 +325,10 @@ class ParapsychologyDetector:
 
         return result
 
-    def _determine_psi_type(self, experimental_data: dict[str, Any], metadata: dict | None) -> str:
+    def _determine_psi_type(self, experimental_data: dict[str, Any], metadata: dict[str, Any] | None) -> str:
         """Determine type of psi phenomenon being tested"""
         if metadata and "experiment_type" in metadata:
-            return metadata["experiment_type"]
+            return str(metadata["experiment_type"])
 
         if "temporal_offset" in experimental_data:
             return PsiPhenomenon.PRECOGNITION
@@ -336,7 +336,7 @@ class ParapsychologyDetector:
         return PsiPhenomenon.TELEPATHY
 
     def _analyze_esp_trials(
-        self, results: np.ndarray, targets: np.ndarray
+        self, results: np.ndarray[Any, Any], targets: np.ndarray[Any, Any]
     ) -> tuple[float, float, float, float]:
         """
         Analyze ESP trial data (telepathy/clairvoyance/precognition).
@@ -360,7 +360,7 @@ class ParapsychologyDetector:
 
         return hit_rate, z_score, p_value, effect_size
 
-    def _analyze_reg_output(self, reg_output: np.ndarray) -> tuple[float, float, float, float]:
+    def _analyze_reg_output(self, reg_output: np.ndarray[Any, Any]) -> tuple[float, float, float, float]:
         """
         Analyze random event generator output for psychokinesis.
 
@@ -384,7 +384,7 @@ class ParapsychologyDetector:
         return variance_ratio, z_score, p_value, effect_size
 
     def _analyze_presentiment(
-        self, physiological_data: dict[str, np.ndarray]
+        self, physiological_data: dict[str, np.ndarray[Any, Any]]
     ) -> tuple[float, float, float]:
         """
         Analyze presentiment (pre-stimulus physiological response).
@@ -429,7 +429,7 @@ class ParapsychologyDetector:
 
         return (ci_lower, ci_upper)
 
-    def _analyze_field_coherence(self, reg_output: np.ndarray) -> float:
+    def _analyze_field_coherence(self, reg_output: np.ndarray[Any, Any]) -> float:
         """Analyze consciousness field coherence (GCP-style)"""
         if self.field_analyzer is None or len(reg_output) < 10:
             return 0.5
@@ -442,7 +442,7 @@ class ParapsychologyDetector:
 
         return float(coherence[0].item())
 
-    def _compare_with_control(self, experimental_data: dict, control_data: dict) -> dict[str, Any]:
+    def _compare_with_control(self, experimental_data: dict[str, Any], control_data: dict[str, Any]) -> dict[str, Any]:
         """Compare experimental condition with control"""
         comparison = {
             "control_p_value": None,
@@ -474,7 +474,7 @@ class ParapsychologyDetector:
 
         return comparison
 
-    def _analyze_temporal_patterns(self, experimental_data: dict) -> dict[str, Any]:
+    def _analyze_temporal_patterns(self, experimental_data: dict[str, Any]) -> dict[str, Any]:
         """Analyze temporal evolution of psi effects"""
         temporal = {"decline_effect": False, "trend": "stable"}
 
@@ -530,25 +530,27 @@ class ParapsychologyDetector:
         return recommendations[:6]
 
     def _correlate_consciousness_states(
-        self, experimental_data: dict, metadata: dict | None
+        self, experimental_data: dict[str, Any], metadata: dict[str, Any] | None
     ) -> dict[str, Any]:
         """Correlate results with consciousness states"""
-        correlation = {"meditation_state": None, "group_coherence": None, "insights": []}
+        meditation_state: int | None = None
+        group_coherence: bool | None = None
+        insights: list[str] = []
 
         if metadata:
             if "meditation_duration" in metadata:
-                correlation["meditation_state"] = metadata["meditation_duration"]
+                meditation_state = int(metadata["meditation_duration"])
                 if metadata["meditation_duration"] > 20:
-                    correlation["insights"].append(
+                    insights.append(
                         "Extended meditation may enhance psi receptivity"
                     )
 
             if "group_size" in metadata:
-                correlation["group_coherence"] = metadata["group_size"] > 1
+                group_coherence = metadata["group_size"] > 1
                 if metadata["group_size"] > 5:
-                    correlation["insights"].append("Group consciousness may amplify field effects")
+                    insights.append("Group consciousness may amplify field effects")
 
-        return correlation
+        return {"meditation_state": meditation_state, "group_coherence": group_coherence, "insights": insights}
 
     def extract_features(self, data: dict[str, Any]) -> torch.Tensor:
         """Extract features for ML fusion integration"""

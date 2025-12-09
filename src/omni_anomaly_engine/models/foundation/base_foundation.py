@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Base classes for foundation model adapters.
@@ -142,7 +143,7 @@ class BaseFoundationModel(BaseModel):
         device: Computation device
     """
 
-    def __init__(self, config: FoundationModelConfig | dict[str, Any] | None = None):
+    def __init__(self, config: FoundationModelConfig | dict[str, Any] | None = None) -> None:
         """Initialize foundation model adapter.
 
         Args:
@@ -175,9 +176,9 @@ class BaseFoundationModel(BaseModel):
     @abstractmethod
     def forecast(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
         horizon: int | None = None,
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray[Any, Any]]:
         """Generate forecasts for time series.
 
         Args:
@@ -195,7 +196,7 @@ class BaseFoundationModel(BaseModel):
     @abstractmethod
     def detect_anomalies(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
         """Detect anomalies in time series.
 
@@ -210,7 +211,7 @@ class BaseFoundationModel(BaseModel):
         """
         pass
 
-    def predict(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def predict(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Make predictions (forecasts) on data.
 
         Args:
@@ -229,7 +230,7 @@ class BaseFoundationModel(BaseModel):
             **anomalies,
         }
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion pipeline.
 
         Args:
@@ -269,9 +270,9 @@ class BaseFoundationModel(BaseModel):
 
     def _compute_feature_statistics(
         self,
-        series: np.ndarray,
+        series: np.ndarray[Any, Any],
         results: dict[str, Any],
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Compute feature statistics from detection results.
 
         Args:
@@ -337,9 +338,9 @@ class BaseFoundationAdapter(BaseFoundationModel):
 
     def forecast(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
         horizon: int | None = None,
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray[Any, Any]]:
         """Generate mock forecasts for time series."""
         if isinstance(series, torch.Tensor):
             series = series.cpu().numpy()
@@ -359,7 +360,7 @@ class BaseFoundationAdapter(BaseFoundationModel):
 
     def detect_anomalies(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
         """Detect anomalies using simple statistical method."""
         if isinstance(series, torch.Tensor):
@@ -382,10 +383,10 @@ class BaseFoundationAdapter(BaseFoundationModel):
             "threshold": threshold,
         }
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies (alias for detect_anomalies)."""
         return self.detect_anomalies(data)
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> "BaseFoundationAdapter":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "BaseFoundationAdapter":
         """Fit the adapter (no-op for base adapter)."""
         return self

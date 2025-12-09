@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Superintelligence Bootstrap Module
@@ -46,9 +47,7 @@ import random
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
-
-import numpy as np
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +193,7 @@ class SelfPlaySimulator:
     scenarios and discover improvements.
     """
 
-    def __init__(self, num_agents: int = 5):
+    def __init__(self, num_agents: int = 5) -> None:
         """
         Initialize self-play simulator.
 
@@ -209,7 +208,7 @@ class SelfPlaySimulator:
 
         logger.info(f"SelfPlaySimulator initialized with {num_agents} agents")
 
-    def _initialize_agents(self):
+    def _initialize_agents(self) -> None:
         """Initialize simulation agents with different roles."""
         roles = list(AgentRole)
 
@@ -559,9 +558,8 @@ class RuleMutator:
                     parent = random.choice(survivors)
                     result = self.mutate(parent)
                     offspring.append(result.child_rule)
-                else:
-                    if survivors:
-                        offspring.append(random.choice(survivors))
+                elif survivors:
+                    offspring.append(random.choice(survivors))
 
             population = survivors + offspring
 
@@ -585,7 +583,7 @@ class ChainOfThoughtReasoner:
     with full transparency and explainability.
     """
 
-    def __init__(self, max_steps: int = 10):
+    def __init__(self, max_steps: int = 10) -> None:
         """
         Initialize chain-of-thought reasoner.
 
@@ -755,7 +753,7 @@ class CounterfactualSimulator:
     of alternative actions or conditions.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize counterfactual simulator."""
         self._simulation_counter = 0
 
@@ -876,7 +874,7 @@ class TheoryOfMind:
     observed behaviors and interactions.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize theory of mind engine."""
         self._inference_counter = 0
 
@@ -1004,7 +1002,7 @@ class CuriosityEngine:
     for further investigation.
     """
 
-    def __init__(self, novelty_threshold: float = 0.7):
+    def __init__(self, novelty_threshold: float = 0.7) -> None:
         """
         Initialize curiosity engine.
 

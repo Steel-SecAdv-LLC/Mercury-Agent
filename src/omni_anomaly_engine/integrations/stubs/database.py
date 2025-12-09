@@ -14,6 +14,7 @@ Example:
     >>> result = await db.query("SELECT * FROM anomalies WHERE score > 0.8")
     >>> print(f"Found {len(result.rows)} anomalies")
 """
+from __future__ import annotations
 
 import asyncio
 import random
@@ -59,7 +60,7 @@ class QueryResult:
 class DatabaseError(Exception):
     """Database error."""
 
-    def __init__(self, message: str, query: str | None = None):
+    def __init__(self, message: str, query: str | None = None) -> None:
         super().__init__(message)
         self.query = query
 
@@ -346,7 +347,7 @@ class DatabaseStub:
 class TransactionContext:
     """Database transaction context manager."""
 
-    def __init__(self, db: DatabaseStub):
+    def __init__(self, db: DatabaseStub) -> None:
         self._db = db
         self._committed = False
         self._rolled_back = False

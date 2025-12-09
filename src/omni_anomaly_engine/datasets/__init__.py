@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Real-World Dataset Loaders for OMNI ♱ AVA
@@ -42,42 +43,33 @@ from .timeseries import NABLoader, SMAPMSLLoader, SMDLoader
 from .ucr_archive import CWRUBearingLoader, MBALoader, MSDSLoader, UCRLoader
 
 __all__ = [
-    # Base
+    "BATADALLoader",
+    "BenchmarkResult",
+    "CICIDSLoader",
+    "CWRUBearingLoader",
+    "CardiologyDataset",
     "DatasetConfig",
     "DatasetLoader",
     "DatasetRegistry",
     "DatasetSplit",
-    # Time-Series Benchmarks (REAL DATA)
-    "NABLoader",
-    "SMDLoader",
-    "SMAPMSLLoader",
-    # Industrial Control Systems (ICS/SCADA)
-    "SWaTLoader",
-    "WADILoader",
-    "BATADALLoader",
-    # UCR Time Series Archive & Bearing Datasets
-    "UCRLoader",
     "MBALoader",
-    "CWRUBearingLoader",
-    "MSDSLoader",
-    # Security (REAL DATA)
-    "NSLKDDLoader",
-    "CICIDSLoader",
-    "ThreatIntelLoader",
-    # Environmental (REAL DATA - API)
-    "USGSEarthquakeLoader",
-    "NOAAWeatherLoader",
-    "WildfireDataLoader",
-    # Medical (REAL DATA - Credentialed)
     "MIMICLoader",
-    "PhysioNetLoader",
-    "SepsisDataset",
-    "CardiologyDataset",
-    # Space
-    "SETILoader",
+    "MSDSLoader",
+    "NABLoader",
     "NASAExoplanetLoader",
-    "SolarDynamicsLoader",
-    # Benchmarks
-    "BenchmarkResult",
+    "NOAAWeatherLoader",
+    "NSLKDDLoader",
+    "PhysioNetLoader",
     "RealWorldBenchmarkSuite",
+    "SETILoader",
+    "SMAPMSLLoader",
+    "SMDLoader",
+    "SWaTLoader",
+    "SepsisDataset",
+    "SolarDynamicsLoader",
+    "ThreatIntelLoader",
+    "UCRLoader",
+    "USGSEarthquakeLoader",
+    "WADILoader",
+    "WildfireDataLoader",
 ]

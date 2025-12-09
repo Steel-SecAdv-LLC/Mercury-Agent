@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Economic & Financial Crisis Detector - Market Anomaly Detection
@@ -111,7 +112,7 @@ class MarketCrashDetector:
     Stock market crash detection via volatility and momentum.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def detect_market_crash(self, market_data: dict[str, Any]) -> dict[str, Any]:
@@ -158,7 +159,7 @@ class BankingStressDetector:
     Banking sector stress detection via credit metrics.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def detect_banking_stress(self, banking_data: dict[str, Any]) -> dict[str, Any]:
@@ -207,7 +208,7 @@ class FraudDetector(nn.Module):
     Algorithmic trading fraud and market manipulation detection.
     """
 
-    def __init__(self, input_dim: int = 64):
+    def __init__(self, input_dim: int = 64) -> None:
         super().__init__()
 
         phi = 1.618
@@ -241,7 +242,7 @@ class SystemicRiskAnalyzer:
     Systemic risk assessment via network contagion modeling.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def assess_systemic_risk(self, network_data: dict[str, Any]) -> dict[str, Any]:

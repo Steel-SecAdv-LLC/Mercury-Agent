@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Multi-Hypothesis Optimization Engine - Parallel Solution Space Exploration
@@ -130,7 +131,7 @@ class MultiverseOmniEngine:
         logging.info(f"Initialized {self.num_universes} parallel universes")
 
     def evaluate_universe(
-        self, universe: Universe, fitness_function: Callable[[np.ndarray], float]
+        self, universe: Universe, fitness_function: Callable[[np.ndarray[Any, Any]], float]
     ) -> float:
         """
         Evaluate fitness of a universe.
@@ -196,7 +197,7 @@ class MultiverseOmniEngine:
         self.universes[universe_id] = new_universe
         return new_universe
 
-    def converge_multiverse(self, fitness_function: Callable[[np.ndarray], float]) -> Universe:
+    def converge_multiverse(self, fitness_function: Callable[[np.ndarray[Any, Any]], float]) -> Universe:
         """
         Converge the multiverse to the best solution.
 
@@ -232,7 +233,7 @@ class MultiverseOmniEngine:
 
         return converged_universe
 
-    def extract_features(self, data: np.ndarray) -> np.ndarray:
+    def extract_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract multiverse features from data for anomaly detection."""
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -242,7 +243,7 @@ class MultiverseOmniEngine:
 
         for i in range(batch_size):
 
-            def fitness_fn(state: np.ndarray) -> float:
+            def fitness_fn(state: np.ndarray[Any, Any]) -> float:
                 data_dim = data[i].shape[0]
                 if state.shape[0] > data_dim:
                     state_truncated = state[:data_dim]
@@ -265,7 +266,7 @@ class MultiverseOmniEngine:
 
         return np.array(features).astype(np.float32)
 
-    def predict(self, data: np.ndarray) -> dict[str, Any]:
+    def predict(self, data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Predict anomalies using multiverse optimization."""
         features = self.extract_features(data)
 
@@ -308,7 +309,7 @@ class MultiverseOmniEngine:
             "system_version": _VITALITY_HASH,
         }
 
-    def _apply_hierarchical_scaling(self, state: np.ndarray) -> np.ndarray:
+    def _apply_hierarchical_scaling(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Apply hierarchical base-20 scaling for multi-dimensional exploration.
 

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Autonomous Agent - OODA Loop, User Synchronization, and Self-Maintenance
@@ -39,9 +40,10 @@ Integration:
 import logging
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +178,7 @@ class UserSyncInterface:
     Enables real-time user input augmentation and approval workflows.
     """
 
-    def __init__(self, approval_timeout: float = 300.0):
+    def __init__(self, approval_timeout: float = 300.0) -> None:
         """
         Initialize user sync interface.
 
@@ -321,7 +323,7 @@ class UserSyncInterface:
         """Get a user preference."""
         return self.user_preferences.get(key, default)
 
-    def register_callback(self, event: str, callback: Callable) -> None:
+    def register_callback(self, event: str, callback: Callable[..., Any]) -> None:
         """Register a callback for an event."""
         if event in self._callbacks:
             self._callbacks[event].append(callback)
@@ -1124,10 +1126,7 @@ class OODAAgent:
         if ethical_score < self.ethical_threshold:
             return True
 
-        if confidence < self.confidence_threshold:
-            return True
-
-        return False
+        return confidence < self.confidence_threshold
 
     def _generate_reasoning(
         self,

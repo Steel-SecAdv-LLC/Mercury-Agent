@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """Tests for CRISPR-inspired self-healing module"""
 
@@ -52,7 +54,7 @@ def test_stage_2_expression():
     signature = system.stage_1_acquisition(anomaly_data)
     detection_pattern = system.stage_2_expression(signature)
 
-    assert isinstance(detection_pattern, np.ndarray)
+    assert isinstance(detection_pattern, np.ndarray[Any, Any])
     assert len(detection_pattern) == len(signature.feature_vector)
     assert np.abs(np.linalg.norm(detection_pattern) - 1.0) < 0.01
 
