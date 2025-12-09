@@ -49,7 +49,7 @@ st.set_page_config(
 )
 
 
-def main():
+def main() -> None:
     """Main Streamlit application"""
 
     st.sidebar.title("🔬 OMNI ♱ AVA")
@@ -81,7 +81,7 @@ def main():
         general_analysis_page()
 
 
-def medical_analysis_page():
+def medical_analysis_page() -> None:
     """Medical subspecialty analysis interface"""
 
     st.title("🏥 Medical Analysis Dashboard")
@@ -104,7 +104,7 @@ def medical_analysis_page():
         general_medical_interface()
 
 
-def cardiology_interface():
+def cardiology_interface() -> None:
     """Cardiology analysis interface"""
 
     st.header("💓 Cardiology Predictor")
@@ -220,7 +220,7 @@ def display_cardiology_results(result):
             st.warning(f"• {rec}")
 
 
-def sepsis_interface():
+def sepsis_interface() -> None:
     """Sepsis detection interface"""
 
     st.header("🦠 Sepsis Detector")
@@ -293,14 +293,14 @@ def display_sepsis_results(result):
             st.info(f"• {rec}")
 
 
-def neurocritical_interface():
+def neurocritical_interface() -> None:
     """Neurocritical care interface"""
 
     st.header("🧠 Neurocritical Care")
     st.info("Advanced neurological emergency detection coming soon...")
 
 
-def general_medical_interface():
+def general_medical_interface() -> None:
     """General medical interface"""
 
     st.header("⚕️ General Medical Analysis")
@@ -311,7 +311,7 @@ def general_medical_interface():
         st.success("Analysis in progress...")
 
 
-def security_analysis_page():
+def security_analysis_page() -> None:
     """Security intelligence interface"""
 
     st.title("🔒 Security Intelligence Dashboard")
@@ -338,7 +338,7 @@ def security_analysis_page():
         intel_fusion_interface()
 
 
-def cybint_interface():
+def cybint_interface() -> None:
     """CYBINT analysis interface"""
 
     st.header("🎯 CYBINT Sub-Processor")
@@ -397,28 +397,28 @@ def display_cybint_results(result):
             st.warning(f"• {action}")
 
 
-def traffic_analysis_interface():
+def traffic_analysis_interface() -> None:
     """Traffic analysis interface"""
 
     st.header("📡 Traffic Analysis")
     st.info("Network traffic analysis interface...")
 
 
-def tempest_interface():
+def tempest_interface() -> None:
     """TEMPEST detection interface"""
 
     st.header("📻 TEMPEST Detection")
     st.info("Electromagnetic emanation detection interface...")
 
 
-def intel_fusion_interface():
+def intel_fusion_interface() -> None:
     """Intelligence fusion interface"""
 
     st.header("🔄 Intelligence Fusion")
     st.info("Multi-INT fusion interface...")
 
 
-def humanitarian_analysis_page():
+def humanitarian_analysis_page() -> None:
     """Humanitarian crisis detection interface"""
 
     st.title("🌍 Humanitarian Crisis Dashboard")
@@ -435,7 +435,7 @@ def humanitarian_analysis_page():
         st.success("Crisis analysis in progress...")
 
 
-def schumann_analysis_page():
+def schumann_analysis_page() -> None:
     """Schumann resonance analysis interface"""
 
     st.title("🌐 Schumann Resonance Analysis")
@@ -468,7 +468,7 @@ def schumann_analysis_page():
                 st.info("Analyzing Schumann patterns for disaster precursors...")
 
 
-def chemistry_analysis_page():
+def chemistry_analysis_page() -> None:
     """Chemistry/isotope analysis interface"""
 
     st.title("🧪 Chemistry & Isotope Analysis")
@@ -485,7 +485,7 @@ def chemistry_analysis_page():
         st.success("Chemical analysis in progress...")
 
 
-def general_analysis_page():
+def general_analysis_page() -> None:
     """General anomaly detection interface"""
 
     st.title("📊 General Anomaly Detection")
