@@ -477,7 +477,7 @@ def configure_logging(
     root_logger.propagate = False
 
 
-def log_function_call(logger: logging.Logger | None = None):
+def log_function_call(logger: logging.Logger | None = None) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to log function entry and exit.
 
     Args:
@@ -498,7 +498,7 @@ def log_function_call(logger: logging.Logger | None = None):
             logger = logging.getLogger(func.__module__)
 
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             func_name = func.__qualname__
             logger.debug(f"Entering {func_name}", extra={"function": func_name})
             start_time = time.perf_counter()
