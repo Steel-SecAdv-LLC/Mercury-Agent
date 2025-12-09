@@ -577,9 +577,7 @@ class TornadoDetector:
                 "confidence": result.confidence,
                 "indicators": indicators_detected,
             }
-            refactor_result = self.refactoring_engine.detect_code_anomalies(
-                str(initial_prediction)
-            )
+            refactor_result = self.refactoring_engine.detect_code_anomalies(str(initial_prediction))
             if refactor_result.get("anomaly_score", 0) > 0.5:
                 indicators_detected += 0.2
 

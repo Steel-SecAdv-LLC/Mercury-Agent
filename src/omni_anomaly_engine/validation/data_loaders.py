@@ -482,9 +482,7 @@ class USGSEarthquakeLoader(DatasetLoader):
 
         # Validate URL scheme for security (only allow https)
         if not url.startswith("https://"):
-            raise RuntimeError(
-                "USGS API URL must use HTTPS. Security validation failed."
-            )
+            raise RuntimeError("USGS API URL must use HTTPS. Security validation failed.")
 
         try:
             import json
@@ -1021,9 +1019,7 @@ class NOAASpaceWeatherLoader(DatasetLoader):
             # Load planetary K-index data
             url = f"{self.SWPC_API_URL}/planetary_k_index_1m.json"
             if not url.startswith("https://"):
-                raise RuntimeError(
-                    "NOAA SWPC API URL must use HTTPS. Security validation failed."
-                )
+                raise RuntimeError("NOAA SWPC API URL must use HTTPS. Security validation failed.")
 
             req = Request(url, headers={"User-Agent": "OMNI-AVA/1.0"})  # noqa: S310
             with urlopen(req, timeout=30) as response:  # noqa: S310
@@ -1285,9 +1281,7 @@ class NOAAHurricaneLoader(DatasetLoader):
             # Load HURDAT2 data from NHC
             url = f"{self.NHC_API_URL}/hurdat2-1851-2023-052424.txt"
             if not url.startswith("https://"):
-                raise RuntimeError(
-                    "NOAA NHC API URL must use HTTPS. Security validation failed."
-                )
+                raise RuntimeError("NOAA NHC API URL must use HTTPS. Security validation failed.")
 
             req = Request(url, headers={"User-Agent": "OMNI-AVA/1.0"})  # noqa: S310
             with urlopen(req, timeout=30) as response:  # noqa: S310
@@ -1313,13 +1307,28 @@ class NOAAHurricaneLoader(DatasetLoader):
                         pressure = float(parts[7].strip() or 1013) if len(parts) > 7 else 1013
 
                         if wind > 0:  # Only include valid entries
-                            features_list.append([
-                                lat, lon, wind, pressure,
-                                15, 0,  # Default storm speed and direction
-                                100, 100, 100, 100,  # Default 34kt radii
-                                50, 50, 50, 50,  # Default 64kt radii
-                                28, 15, 12, 200  # Default SST, shear, hour, day
-                            ])
+                            features_list.append(
+                                [
+                                    lat,
+                                    lon,
+                                    wind,
+                                    pressure,
+                                    15,
+                                    0,  # Default storm speed and direction
+                                    100,
+                                    100,
+                                    100,
+                                    100,  # Default 34kt radii
+                                    50,
+                                    50,
+                                    50,
+                                    50,  # Default 64kt radii
+                                    28,
+                                    15,
+                                    12,
+                                    200,  # Default SST, shear, hour, day
+                                ]
+                            )
                     except (ValueError, IndexError):
                         continue
 
@@ -1562,9 +1571,7 @@ class NOAAOceanLoader(DatasetLoader):
             # Load water temperature data from NOAA CO-OPS
             url = f"{self.NOS_API_URL}?begin_date=20240101&end_date=20241231&station=8454000&product=water_temperature&datum=MLLW&units=metric&time_zone=gmt&application=OMNI-AVA&format=json"
             if not url.startswith("https://"):
-                raise RuntimeError(
-                    "NOAA NOS API URL must use HTTPS. Security validation failed."
-                )
+                raise RuntimeError("NOAA NOS API URL must use HTTPS. Security validation failed.")
 
             req = Request(url, headers={"User-Agent": "OMNI-AVA/1.0"})  # noqa: S310
             with urlopen(req, timeout=30) as response:  # noqa: S310
@@ -1584,24 +1591,28 @@ class NOAAOceanLoader(DatasetLoader):
                     sst = float(entry.get("v", 20))
                     # Generate correlated features based on SST
                     sst_anomaly = rng.normal(0, 1.5)
-                    features_list.append([
-                        sst,
-                        sst_anomaly,
-                        35 + rng.normal(0, 2),  # salinity
-                        rng.exponential(1),  # chlorophyll
-                        rng.exponential(0.3),  # current speed
-                        rng.uniform(0, 360),  # current direction
-                        rng.exponential(1.5),  # wave height
-                        8 + rng.normal(0, 3),  # wave period
-                        rng.uniform(0, 360),  # wave direction
-                        7 + rng.normal(0, 2),  # dissolved oxygen
-                        8.1 + rng.normal(0, 0.2),  # pH
-                        rng.exponential(5),  # turbidity
-                        41.5,  # latitude (Providence, RI)
-                        -71.4,  # longitude
-                        rng.exponential(50),  # depth
-                        12, 180, 2024  # hour, day, year
-                    ])
+                    features_list.append(
+                        [
+                            sst,
+                            sst_anomaly,
+                            35 + rng.normal(0, 2),  # salinity
+                            rng.exponential(1),  # chlorophyll
+                            rng.exponential(0.3),  # current speed
+                            rng.uniform(0, 360),  # current direction
+                            rng.exponential(1.5),  # wave height
+                            8 + rng.normal(0, 3),  # wave period
+                            rng.uniform(0, 360),  # wave direction
+                            7 + rng.normal(0, 2),  # dissolved oxygen
+                            8.1 + rng.normal(0, 0.2),  # pH
+                            rng.exponential(5),  # turbidity
+                            41.5,  # latitude (Providence, RI)
+                            -71.4,  # longitude
+                            rng.exponential(50),  # depth
+                            12,
+                            180,
+                            2024,  # hour, day, year
+                        ]
+                    )
                 except (ValueError, KeyError):
                     continue
 

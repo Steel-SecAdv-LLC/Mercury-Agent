@@ -141,9 +141,13 @@ class TestResonanceEngineIntegration:
 
     def test_detect_dominant_frequencies(self, resonance_engine):
         """Test dominant frequency detection."""
-        signal_data = np.sin(2 * np.pi * 0.1 * np.arange(100)) + np.sin(2 * np.pi * 0.2 * np.arange(100))
+        signal_data = np.sin(2 * np.pi * 0.1 * np.arange(100)) + np.sin(
+            2 * np.pi * 0.2 * np.arange(100)
+        )
         frequencies, magnitudes = resonance_engine.compute_resonance_spectrum(signal_data)
-        dominant = resonance_engine._detect_dominant_frequencies(frequencies, magnitudes, num_peaks=3)
+        dominant = resonance_engine._detect_dominant_frequencies(
+            frequencies, magnitudes, num_peaks=3
+        )
         assert isinstance(dominant, list)
 
     def test_multidimensional_signal_handling(self, resonance_engine):
@@ -167,20 +171,20 @@ class TestRefactoringEngineIntegration:
 
     def test_analyze_complexity(self, refactoring_engine):
         """Test code complexity analysis."""
-        code = '''
+        code = """
 def example_function(x):
     if x > 0:
         return x * 2
     else:
         return x
-'''
+"""
         result = refactoring_engine.analyze_complexity(code)
         assert "cyclomatic_complexity" in result
         assert "num_nodes" in result
 
     def test_detect_code_anomalies(self, refactoring_engine):
         """Test code anomaly detection returns a result."""
-        code = '''
+        code = """
 def complex_function(a, b, c, d, e, f, g, h):
     if a > 0:
         if b > 0:
@@ -188,13 +192,13 @@ def complex_function(a, b, c, d, e, f, g, h):
                 if d > 0:
                     return a + b + c + d
     return 0
-'''
+"""
         result = refactoring_engine.detect_code_anomalies(code)
         assert isinstance(result, dict)
 
     def test_suggest_refactorings(self, refactoring_engine):
         """Test refactoring suggestions."""
-        code = '''
+        code = """
 def long_function():
     x = 1
     y = 2
@@ -203,13 +207,13 @@ def long_function():
     b = y + z
     c = a + b
     return c
-'''
+"""
         suggestions = refactoring_engine.suggest_refactorings(code)
         assert isinstance(suggestions, list)
 
     def test_analyze_function_complexity(self, refactoring_engine):
         """Test function-level complexity analysis."""
-        code = '''
+        code = """
 def func1():
     return 1
 
@@ -217,7 +221,7 @@ def func2(x):
     if x > 0:
         return x
     return 0
-'''
+"""
         result = refactoring_engine.analyze_function_complexity(code)
         assert isinstance(result, dict)
 
@@ -479,7 +483,9 @@ class TestCrossDetector3RConsistency:
         """Test all detectors have RefactoringEngine."""
         for name, detector in all_detectors.items():
             if name == "flood":
-                assert hasattr(detector, "core_refactoring_engine"), f"{name} missing core_refactoring_engine"
+                assert hasattr(
+                    detector, "core_refactoring_engine"
+                ), f"{name} missing core_refactoring_engine"
                 assert isinstance(detector.core_refactoring_engine, RefactoringEngine)
             else:
                 assert hasattr(detector, "refactoring_engine"), f"{name} missing refactoring_engine"
@@ -505,7 +511,7 @@ class TestCrossDetector3RConsistency:
                 refactoring_ids.append(id(d.core_refactoring_engine))
             else:
                 refactoring_ids.append(id(d.refactoring_engine))
-        
+
         assert len(set(recursion_ids)) == len(recursion_ids)
         assert len(set(resonance_ids)) == len(resonance_ids)
         assert len(set(refactoring_ids)) == len(refactoring_ids)
@@ -518,10 +524,10 @@ class Test3RMechanismIntegration:
         """Test combined recursion and resonance pipeline."""
         recursion = RecursionEngine(max_depth=3)
         resonance = ResonanceEngine(sampling_rate=1.0)
-        
+
         data = np.random.randn(100)
         features = recursion.hierarchical_feature_extraction(data, num_levels=2)
-        
+
         for level_features in features:
             if len(level_features) > 10:
                 anomalies = resonance.detect_resonance_anomalies(level_features)
@@ -531,15 +537,15 @@ class Test3RMechanismIntegration:
         """Test combined resonance and refactoring pipeline."""
         resonance = ResonanceEngine(sampling_rate=1.0)
         refactoring = RefactoringEngine()
-        
+
         signal_data = np.random.randn(100)
         anomalies = resonance.detect_resonance_anomalies(signal_data)
-        
-        code = f'''
+
+        code = f"""
 def analyze_anomalies():
     num_anomalies = {anomalies["num_anomalies"]}
     return num_anomalies > 0
-'''
+"""
         complexity = refactoring.analyze_complexity(code)
         assert "cyclomatic_complexity" in complexity
 
@@ -548,21 +554,21 @@ def analyze_anomalies():
         recursion = RecursionEngine(max_depth=3)
         resonance = ResonanceEngine(sampling_rate=1.0)
         refactoring = RefactoringEngine()
-        
+
         data = np.random.randn(100)
         features = recursion.hierarchical_feature_extraction(data)
-        
+
         all_anomalies = []
         for level_features in features:
             if len(level_features) > 10:
                 anomalies = resonance.detect_resonance_anomalies(level_features)
                 all_anomalies.append(anomalies)
-        
-        code = '''
+
+        code = """
 def process_anomalies(anomalies):
     total = sum(a["num_anomalies"] for a in anomalies)
     return total
-'''
+"""
         suggestions = refactoring.suggest_refactorings(code)
         assert isinstance(suggestions, list)
 
