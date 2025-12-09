@@ -86,8 +86,8 @@ class FederatedAnomalyDetector:
         self.num_clients = num_clients
         self.epsilon = epsilon
         self.delta = delta
-        self.global_model_weights = None
-        self.client_models = {}
+        self.global_model_weights: np.ndarray[Any, Any] | None = None
+        self.client_models: dict[str, np.ndarray[Any, Any]] = {}
         self.round_number = 0
         self._rng = rng or get_global_rng()
 
@@ -105,13 +105,15 @@ class FederatedAnomalyDetector:
         Returns:
             Training results with global model and metrics
         """
-        training_history = {"rounds": [], "global_loss": [], "privacy_budget_spent": 0.0}
+        rounds_list: list[int] = []
+        global_loss_list: list[float] = []
+        privacy_budget_spent = 0.0
 
         for round_idx in range(num_rounds):
             self.round_number = round_idx + 1
 
-            client_updates = []
-            client_weights = []
+            client_updates: list[np.ndarray[Any, Any]] = []
+            client_weights: list[int] = []
 
             for client_id, data in client_data.items():
                 local_model_update = self._local_train(
@@ -120,7 +122,7 @@ class FederatedAnomalyDetector:
 
                 if self.privacy_level == PrivacyLevel.DIFFERENTIAL_PRIVACY:
                     local_model_update = self._add_differential_privacy_noise(local_model_update)
-                    training_history["privacy_budget_spent"] += self.epsilon
+                    privacy_budget_spent += self.epsilon
 
                 client_updates.append(local_model_update)
                 client_weights.append(len(data))
@@ -136,24 +138,32 @@ class FederatedAnomalyDetector:
 
             global_loss = self._evaluate_global_model(client_data)
 
-            training_history["rounds"].append(self.round_number)
-            training_history["global_loss"].append(global_loss)
+            rounds_list.append(self.round_number)
+            global_loss_list.append(global_loss)
+
+        training_history: dict[str, Any] = {
+            "rounds": rounds_list,
+            "global_loss": global_loss_list,
+            "privacy_budget_spent": privacy_budget_spent,
+        }
+
+        final_loss = global_loss_list[-1] if global_loss_list else 0.0
 
         return {
             "global_model": self.global_model_weights,
             "training_history": training_history,
             "privacy_guarantee": (
-                f"ε={training_history['privacy_budget_spent']:.2f}, δ={self.delta}"
+                f"ε={privacy_budget_spent:.2f}, δ={self.delta}"
                 if self.privacy_level == PrivacyLevel.DIFFERENTIAL_PRIVACY
                 else "None"
             ),
             "num_clients": len(client_data),
-            "final_loss": training_history["global_loss"][-1],
+            "final_loss": final_loss,
         }
 
     def federated_detect(
         self, client_data: dict[str, np.ndarray[Any, Any]], use_personalization: bool = True
-    ) -> dict[str, dict]:
+    ) -> dict[str, dict[str, Any]]:
         """
         Perform federated anomaly detection across clients.
 
@@ -196,13 +206,13 @@ class FederatedAnomalyDetector:
         if self.global_model_weights is None:
             self.global_model_weights = self._rng.randn(data.shape[1])
 
-        local_model = self.global_model_weights.copy()
+        local_model: np.ndarray[Any, Any] = self.global_model_weights.copy()
 
         for _epoch in range(epochs):
             gradient = self._rng.randn(len(local_model)) * 0.01
             local_model -= 0.01 * gradient
 
-        model_update = local_model - self.global_model_weights
+        model_update: np.ndarray[Any, Any] = local_model - self.global_model_weights
 
         return model_update
 
@@ -216,10 +226,11 @@ class FederatedAnomalyDetector:
             for update, weight in zip(client_updates, client_weights, strict=False)
         ]
 
-        aggregated = np.sum(weighted_updates, axis=0)
+        aggregated: np.ndarray[Any, Any] = np.asarray(np.sum(weighted_updates, axis=0))
 
         if self.global_model_weights is not None:
-            return self.global_model_weights + aggregated
+            result: np.ndarray[Any, Any] = self.global_model_weights + aggregated
+            return result
         else:
             return aggregated
 
@@ -231,7 +242,8 @@ class FederatedAnomalyDetector:
 
         if self.global_model_weights is not None:
             proximal_term = mu * (aggregated - self.global_model_weights)
-            return aggregated - proximal_term
+            result: np.ndarray[Any, Any] = aggregated - proximal_term
+            return result
 
         return aggregated
 
@@ -242,7 +254,8 @@ class FederatedAnomalyDetector:
 
         noise = self._rng.normal(0, sigma, size=model_update.shape)
 
-        return model_update + noise
+        result: np.ndarray[Any, Any] = model_update + noise
+        return result
 
     def _personalize_model(
         self,
@@ -262,7 +275,7 @@ class FederatedAnomalyDetector:
 
     def _compute_anomaly_scores(self, model: np.ndarray[Any, Any], data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute anomaly scores for data using model."""
-        reconstruction_errors = np.linalg.norm(data - model, axis=1)
+        reconstruction_errors: np.ndarray[Any, Any] = np.asarray(np.linalg.norm(data - model, axis=1))
         return reconstruction_errors
 
     def _evaluate_global_model(self, client_data: dict[str, np.ndarray[Any, Any]]) -> float:
