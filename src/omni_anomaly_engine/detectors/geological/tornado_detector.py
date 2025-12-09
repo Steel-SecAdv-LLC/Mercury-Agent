@@ -524,7 +524,10 @@ class TornadoDetector:
                 indicators_detected += 2
                 result.confidence = max(result.confidence, radar_result["confidence"])
 
+        indicators_float: float = float(indicators_detected)
+
         if self.enable_atmospheric and "atmospheric_data" in weather_data:
+            assert self.atmospheric_analyzer is not None
             atmos_result = self.atmospheric_analyzer.analyze_instability(
                 weather_data["atmospheric_data"]
             )
@@ -532,24 +535,27 @@ class TornadoDetector:
             result.helicity_value = atmos_result["helicity"]
             result.wind_shear_detected = atmos_result["significant_shear"]
             if atmos_result["tornado_potential"] in ["moderate", "high"]:
-                indicators_detected += 1
+                indicators_float += 1
 
         if self.enable_pressure and "pressure_data" in weather_data:
+            assert self.pressure_monitor is not None
             pressure_result = self.pressure_monitor.analyze_pressure(weather_data["pressure_data"])
             result.pressure_drop_mb = pressure_result["max_pressure_drop"]
             if pressure_result["rapid_drop_detected"]:
-                indicators_detected += 1
+                indicators_float += 1
 
         if self.enable_resonance and "signal_data" in weather_data:
+            assert self.resonance_analyzer is not None
             resonance_result = self.resonance_analyzer.analyze_resonance(
                 weather_data["signal_data"]
             )
             result.resonance_score = resonance_result["resonance_score"]
             result.harmonic_anomalies = resonance_result["harmonic_anomalies"]
             if resonance_result["resonance_score"] > 0.6:
-                indicators_detected += 0.5
+                indicators_float += 0.5
 
         if self.enable_recursion and "signal_data" in weather_data:
+            assert self.recursive_extractor is not None
             _, depth = self.recursive_extractor.extract_recursive_features(
                 weather_data["signal_data"]
             )
@@ -561,36 +567,39 @@ class TornadoDetector:
             if len(hierarchical_features) > 0:
                 multi_scale_variance = np.mean([np.var(f) for f in hierarchical_features])
                 if multi_scale_variance > 0.5:
-                    indicators_detected += 0.3
+                    indicators_float += 0.3
 
         if "signal_data" in weather_data:
             resonance_anomalies = self.resonance_engine.detect_resonance_anomalies(
                 weather_data["signal_data"], threshold_std=2.5
             )
             if resonance_anomalies["is_anomalous"]:
-                indicators_detected += 0.4
+                indicators_float += 0.4
                 result.harmonic_anomalies.extend(
                     [float(f) for f in resonance_anomalies["anomalous_frequencies"][:3]]
                 )
 
         if self.enable_refactoring and "observed_data" in weather_data:
-            initial_prediction = {
+            initial_prediction_str = str({
                 "confidence": result.confidence,
-                "indicators": indicators_detected,
-            }
-            refactor_result = self.refactoring_engine.detect_code_anomalies(str(initial_prediction))
+                "indicators": indicators_float,
+            })
+            # detect_code_anomalies expects a callable, so we pass a lambda
+            refactor_result = self.refactoring_engine.detect_code_anomalies(
+                lambda: initial_prediction_str
+            )
             if refactor_result.get("anomaly_score", 0) > 0.5:
-                indicators_detected += 0.2
+                indicators_float += 0.2
 
         location = weather_data.get("location", {})
         state = location.get("state", "")
         if state in self.tornado_alley_states:
             result.tornado_alley_correlation = 0.8
-            indicators_detected += 0.3
+            indicators_float += 0.3
 
-        result.tornado_likely = indicators_detected >= 2
-        result.confidence = min(indicators_detected / 4.0, 1.0)
-        result.threat_level = self._determine_threat_level(indicators_detected, result)
+        result.tornado_likely = indicators_float >= 2
+        result.confidence = min(indicators_float / 4.0, 1.0)
+        result.threat_level = self._determine_threat_level(indicators_float, result)
         result.estimated_intensity = self._estimate_intensity(result)
 
         result.warning_actions = self._generate_warnings(result)
@@ -598,7 +607,7 @@ class TornadoDetector:
 
         self.logger.info(
             f"Tornado prediction: {result.threat_level}, "
-            f"indicators={indicators_detected:.1f}, confidence={result.confidence:.2f}"
+            f"indicators={indicators_float:.1f}, confidence={result.confidence:.2f}"
         )
 
         return result
@@ -609,6 +618,7 @@ class TornadoDetector:
         if seq_tensor.dim() == 2:
             seq_tensor = seq_tensor.unsqueeze(0)
 
+        assert self.radar_analyzer is not None
         self.radar_analyzer.eval()
         with torch.no_grad():
             meso_prob, rotation_vel, _ = self.radar_analyzer(seq_tensor)
@@ -696,12 +706,15 @@ class TornadoDetector:
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion."""
         if isinstance(data, torch.Tensor):
-            data = data.cpu().numpy()
+            data_arr: np.ndarray[Any, Any] = data.cpu().numpy()
+        else:
+            data_arr = data
 
-        features = []
+        features: list[float] = []
 
         if self.enable_resonance:
-            resonance = self.resonance_analyzer.analyze_resonance(data)
+            assert self.resonance_analyzer is not None
+            resonance = self.resonance_analyzer.analyze_resonance(data_arr)
             features.extend(
                 [
                     resonance["resonance_score"],
@@ -711,7 +724,8 @@ class TornadoDetector:
             )
 
         if self.enable_recursion:
-            recursive_feat, depth = self.recursive_extractor.extract_recursive_features(data)
+            assert self.recursive_extractor is not None
+            recursive_feat, depth = self.recursive_extractor.extract_recursive_features(data_arr)
             features.extend(recursive_feat.tolist())
             features.append(float(depth) / 4.0)
 
