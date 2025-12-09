@@ -251,7 +251,7 @@ class ConfigurationManager:
     def _merge_config(self, data: dict[str, Any]) -> None:
         """Deep merge configuration data."""
 
-        def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict:
+        def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
             result = base.copy()
             for key, value in override.items():
                 if key in result and isinstance(result[key], dict) and isinstance(value, dict):

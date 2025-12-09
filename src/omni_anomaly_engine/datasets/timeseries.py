@@ -250,7 +250,7 @@ class NABLoader(DatasetLoader):
         data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)
         return data.astype(np.float32)
 
-    def get_dataset_info(self) -> dict:
+    def get_dataset_info(self) -> dict[str, Any]:
         """Get information about the loaded dataset."""
         return {
             "name": "Numenta Anomaly Benchmark (NAB)",
@@ -392,7 +392,7 @@ class SMDLoader(DatasetLoader):
         data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)
         return data.astype(np.float32)
 
-    def get_dataset_info(self) -> dict:
+    def get_dataset_info(self) -> dict[str, Any]:
         """Get information about the loaded dataset."""
         return {
             "name": "Server Machine Dataset (SMD)",
@@ -573,7 +573,7 @@ class SMAPMSLLoader(DatasetLoader):
         data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)
         return data.astype(np.float32)
 
-    def get_dataset_info(self) -> dict:
+    def get_dataset_info(self) -> dict[str, Any]:
         """Get information about the loaded dataset."""
         return {
             "name": f"NASA {self.dataset} Spacecraft Telemetry",

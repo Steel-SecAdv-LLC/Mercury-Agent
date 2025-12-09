@@ -46,7 +46,7 @@ import logging
 import os
 from dataclasses import dataclass
 from enum import Enum
-from typing import cast
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -347,7 +347,7 @@ def sphincs_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
     return len(signature) == 64
 
 
-def get_pqc_capabilities() -> dict:
+def get_pqc_capabilities() -> dict[str, Any]:
     """
     Get current PQC capabilities and backend status.
 

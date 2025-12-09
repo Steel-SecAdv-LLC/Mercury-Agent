@@ -77,7 +77,7 @@ class AgenticAutonomy:
         self.action_history: list[AgentAction] = []
         self.decision_threshold = 1.0 - autonomy_level
 
-    def autonomous_detect(self, data: np.ndarray[Any, Any], context: dict | None = None) -> dict:
+    def autonomous_detect(self, data: np.ndarray[Any, Any], context: dict | None = None) -> dict[str, Any]:
         """
         Autonomously detect anomalies with minimal human oversight.
 
@@ -116,7 +116,7 @@ class AgenticAutonomy:
             "human_oversight_needed": bool(anomaly_score < self.decision_threshold),
         }
 
-    def _observe_patterns(self, data: np.ndarray[Any, Any]) -> dict:
+    def _observe_patterns(self, data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Observe patterns in data."""
         return {"mean": np.mean(data), "std": np.std(data), "trend": self._detect_trend(data)}
 
@@ -150,7 +150,7 @@ class AgenticAutonomy:
             return "decreasing"
         return "stable"
 
-    def execute_workflow(self, workflow_definition: dict[str, Any], input_data: np.ndarray[Any, Any]) -> dict:
+    def execute_workflow(self, workflow_definition: dict[str, Any], input_data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """
         Execute complete workflow autonomously.
 
@@ -289,7 +289,7 @@ class AgenticAutonomy:
         else:
             return False
 
-    def _execute_action(self, action_type: str, data: np.ndarray[Any, Any]) -> dict:
+    def _execute_action(self, action_type: str, data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Execute workflow action."""
         if action_type == "log":
             return {"logged": True, "data_summary": f"mean={np.mean(data):.3f}"}
@@ -304,7 +304,7 @@ class AgenticAutonomy:
         """Learn from workflow execution outcomes."""
         pass
 
-    def get_autonomy_metrics(self) -> dict:
+    def get_autonomy_metrics(self) -> dict[str, Any]:
         """
         Get metrics on autonomous operation.
 

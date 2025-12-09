@@ -94,7 +94,7 @@ class HealthcareEmergencyDetector:
         data: np.ndarray[Any, Any],
         detection_type: str = "patient",
         patient_history: dict | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Generic detection interface for healthcare/emergency services.
 
         Args:
@@ -126,7 +126,7 @@ class HealthcareEmergencyDetector:
         vital_signs: dict[str, float],
         patient_history: dict | None = None,
         time_series: dict[str, np.ndarray[Any, Any]] | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Detect patient deterioration from vital signs.
 
@@ -180,7 +180,7 @@ class HealthcareEmergencyDetector:
 
     def detect_emergency_call_anomaly(
         self, call_data: dict[str, int], time_window: timedelta = timedelta(hours=1)
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Detect anomalies in 911/emergency call patterns.
 
@@ -265,7 +265,7 @@ class HealthcareEmergencyDetector:
 
         return "elevated_activity"
 
-    def _recommend_resource_allocation(self, call_data: dict[str, Any], event_type: str) -> dict:
+    def _recommend_resource_allocation(self, call_data: dict[str, Any], event_type: str) -> dict[str, Any]:
         """Recommend emergency resource allocation."""
         if event_type == "normal_operations":
             return {"status": "normal", "additional_units": 0}

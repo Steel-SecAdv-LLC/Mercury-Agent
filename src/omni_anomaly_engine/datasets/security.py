@@ -149,7 +149,7 @@ class NSLKDDLoader(DatasetLoader):
         logger.info(f"Generated {n_samples} NSL-KDD samples, {(labels > 0).sum()} attacks")
         return True
 
-    def _generate_normal_connection(self) -> dict:
+    def _generate_normal_connection(self) -> dict[str, Any]:
         """Generate features for normal network connection."""
         return {
             "duration": np.random.exponential(60),
@@ -195,7 +195,7 @@ class NSLKDDLoader(DatasetLoader):
             "dst_host_srv_rerror_rate": np.random.beta(1, 20),
         }
 
-    def _generate_dos_attack(self) -> dict:
+    def _generate_dos_attack(self) -> dict[str, Any]:
         """Generate features for DoS attack."""
         params = self._generate_normal_connection()
         # DoS characteristics: high volume, short connections
@@ -207,7 +207,7 @@ class NSLKDDLoader(DatasetLoader):
         params["serror_rate"] = np.random.beta(10, 2)
         return params
 
-    def _generate_probe_attack(self) -> dict:
+    def _generate_probe_attack(self) -> dict[str, Any]:
         """Generate features for probing/scanning attack."""
         params = self._generate_normal_connection()
         # Probe characteristics: many destinations, varied services
@@ -219,7 +219,7 @@ class NSLKDDLoader(DatasetLoader):
         params["rerror_rate"] = np.random.beta(5, 5)
         return params
 
-    def _generate_r2l_attack(self) -> dict:
+    def _generate_r2l_attack(self) -> dict[str, Any]:
         """Generate features for Remote-to-Local attack."""
         params = self._generate_normal_connection()
         # R2L characteristics: failed logins, suspicious activity
@@ -230,7 +230,7 @@ class NSLKDDLoader(DatasetLoader):
         params["num_access_files"] = np.random.poisson(10)
         return params
 
-    def _generate_u2r_attack(self) -> dict:
+    def _generate_u2r_attack(self) -> dict[str, Any]:
         """Generate features for User-to-Root attack."""
         params = self._generate_normal_connection()
         # U2R characteristics: privilege escalation
@@ -415,7 +415,7 @@ class CICIDSLoader(DatasetLoader):
         logger.info(f"Generated {n_samples} CICIDS samples, {labels.sum()} attacks")
         return True
 
-    def _generate_flow(self, attack_type: str) -> dict:
+    def _generate_flow(self, attack_type: str) -> dict[str, Any]:
         """Generate network flow features based on attack type."""
         base = {
             "flow_duration": np.random.exponential(10000),

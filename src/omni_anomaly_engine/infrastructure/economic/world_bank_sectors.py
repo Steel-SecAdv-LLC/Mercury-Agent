@@ -226,7 +226,7 @@ class WorldBankSectorsMonitor:
         gdp_anomaly: bool,
         employment_anomaly: bool,
         sustainability_low: bool,
-    ) -> list:
+    ) -> list[Any]:
         """Generate recommendations for economic sector issues."""
         recommendations = []
 

@@ -93,7 +93,7 @@ class FederatedAnomalyDetector:
 
     def federated_train(
         self, client_data: dict[str, np.ndarray[Any, Any]], local_epochs: int = 5, num_rounds: int = 10
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Train federated anomaly detection model across clients.
 

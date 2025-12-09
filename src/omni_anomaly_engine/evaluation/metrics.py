@@ -55,7 +55,7 @@ class AnomalyMetrics:
     point_adjusted_f1: float | None = None
     range_based_f1: float | None = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "auc_roc": self.auc_roc,

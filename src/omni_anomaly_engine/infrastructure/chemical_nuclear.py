@@ -65,7 +65,7 @@ class ChemicalNuclearDetector:
         sensor_data: np.ndarray[Any, Any],
         parameter_names: list[str] | None = None,
         timestamps: np.ndarray[Any, Any] | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Detect anomalies in chemical/nuclear process parameters.
 
@@ -89,7 +89,7 @@ class ChemicalNuclearDetector:
         sensor_data: np.ndarray[Any, Any],
         parameter_names: list[str],
         timestamps: np.ndarray[Any, Any] | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Detect anomalies in chemical/nuclear process parameters.
 
@@ -137,7 +137,7 @@ class ChemicalNuclearDetector:
             "recommended_actions": self._generate_recommendations(anomalies),
         }
 
-    def _init_safety_thresholds(self) -> dict:
+    def _init_safety_thresholds(self) -> dict[str, Any]:
         """Initialize sector-specific safety thresholds."""
         if self.sector == CISASector.CHEMICAL:
             return {
@@ -195,7 +195,7 @@ class ChemicalNuclearDetector:
 
         return param_name in critical_params.get(self.sector, []) and np.sum(violations) > 3
 
-    def _assess_cross_sector_impact(self, anomalies: dict[str, Any]) -> dict:
+    def _assess_cross_sector_impact(self, anomalies: dict[str, Any]) -> dict[str, Any]:
         """Assess how anomalies in this sector affect other sectors."""
         if not anomalies:
             return {"affected_sectors": [], "impact_level": "NONE"}

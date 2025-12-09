@@ -78,7 +78,7 @@ class EnergyDamsDetector:
         data: np.ndarray[Any, Any],
         detection_type: str = "grid",
         timestamps: np.ndarray[Any, Any] | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Generic detection interface for energy/dams infrastructure.
 
         Args:
@@ -104,7 +104,7 @@ class EnergyDamsDetector:
 
     def detect_grid_anomaly(
         self, grid_data: dict[str, np.ndarray[Any, Any]], timestamps: np.ndarray[Any, Any] | None = None
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Detect power grid anomalies.
 
@@ -133,7 +133,7 @@ class EnergyDamsDetector:
 
     def detect_dam_anomaly(
         self, dam_data: dict[str, float], dam_type: DamType = DamType.MULTIPURPOSE
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Detect dam structural and operational anomalies.
 
@@ -206,7 +206,7 @@ class EnergyDamsDetector:
 
         return None
 
-    def _assess_cascading_impact(self, anomalies: dict[str, Any]) -> dict:
+    def _assess_cascading_impact(self, anomalies: dict[str, Any]) -> dict[str, Any]:
         """Assess cascading failure risk to other sectors."""
         if not anomalies:
             return {"risk": "LOW", "probability": 0.0}
@@ -259,7 +259,7 @@ class EnergyDamsDetector:
         else:
             return "WARNING"
 
-    def _assess_downstream_impact(self, anomalies: dict[str, Any], water_level: float) -> dict:
+    def _assess_downstream_impact(self, anomalies: dict[str, Any], water_level: float) -> dict[str, Any]:
         """Assess impact on downstream communities."""
         if any(a.get("severity") == "CRITICAL" for a in anomalies.values()):
             return {

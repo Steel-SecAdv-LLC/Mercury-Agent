@@ -105,7 +105,7 @@ class CrossBorderIntelligence:
             "correlation_at_best_lag": best_corr,
         }
 
-    def _generate_cross_border_recommendations(self, synchronized: bool, threat_type: str) -> list:
+    def _generate_cross_border_recommendations(self, synchronized: bool, threat_type: str) -> list[Any]:
         """Generate recommendations for cross-border threats."""
         if synchronized:
             return [

@@ -72,7 +72,7 @@ class PyODComparison:
         self.algorithm_characteristics = self._init_algorithm_profiles()
         self.benchmark_results = {}
 
-    def _init_algorithm_profiles(self) -> dict:
+    def _init_algorithm_profiles(self) -> dict[str, Any]:
         """Initialize algorithm characteristics for selection guidance."""
         return {
             PyODAlgorithm.ISOLATION_FOREST: {
@@ -123,7 +123,7 @@ class PyODComparison:
 
     def recommend_algorithm(
         self, data_characteristics: dict[str, Any], constraints: dict | None = None
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Recommend best algorithm(s) based on data characteristics.
 
@@ -217,7 +217,7 @@ class PyODComparison:
         test_data: np.ndarray[Any, Any],
         ground_truth: np.ndarray[Any, Any],
         pyod_algorithms: list[PyODAlgorithm],
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Benchmark OMNI ♱ AVA against PyOD algorithms.
 
@@ -245,7 +245,7 @@ class PyODComparison:
 
         return results
 
-    def _evaluate_detector(self, detector, data: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]) -> dict:
+    def _evaluate_detector(self, detector, data: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Evaluate detector performance."""
         try:
             scores = detector.predict(data)
@@ -265,7 +265,7 @@ class PyODComparison:
         except Exception as e:
             return {"error": str(e)}
 
-    def _generate_comparison_summary(self, results: dict[str, Any]) -> dict:
+    def _generate_comparison_summary(self, results: dict[str, Any]) -> dict[str, Any]:
         """Generate summary comparing OMNI-AVA with PyOD algorithms."""
         return {
             "omni_ava_strengths": [

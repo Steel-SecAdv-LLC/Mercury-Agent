@@ -240,7 +240,7 @@ class EssentialWorkersMonitor:
 
     def _generate_workforce_recommendations(
         self, category: str, capacity: float, absenteeism_high: bool, skill_shortage: bool
-    ) -> list:
+    ) -> list[Any]:
         """Generate recommendations for workforce issues."""
         recommendations = []
 

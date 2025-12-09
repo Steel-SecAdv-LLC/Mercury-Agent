@@ -151,7 +151,7 @@ class AnomalyDetector:
         val_split: float = 0.1,
         early_stopping: int = 10,
         verbose: bool = True,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Train the autoencoder on normal data.
 
@@ -335,7 +335,7 @@ def evaluate_detector(
     y_true: np.ndarray[Any, Any],
     y_scores: np.ndarray[Any, Any],
     y_pred: np.ndarray[Any, Any] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Evaluate anomaly detection performance.
 

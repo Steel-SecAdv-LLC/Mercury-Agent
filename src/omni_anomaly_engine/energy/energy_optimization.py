@@ -241,7 +241,7 @@ class EnergyOptimization:
 
         return roi
 
-    def get_efficiency_report(self) -> dict:
+    def get_efficiency_report(self) -> dict[str, Any]:
         """
         Generate comprehensive efficiency report.
 

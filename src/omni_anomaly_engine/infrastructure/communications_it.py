@@ -59,7 +59,7 @@ class CommunicationsITDetector:
             "exfiltration_mb_threshold": 1000,
         }
 
-    def detect(self, data: np.ndarray[Any, Any], timestamp: datetime | None = None) -> dict:
+    def detect(self, data: np.ndarray[Any, Any], timestamp: datetime | None = None) -> dict[str, Any]:
         """Generic detection interface for communications/IT infrastructure.
 
         Args:
@@ -78,7 +78,7 @@ class CommunicationsITDetector:
 
     def detect_network_anomaly(
         self, traffic_data: dict[str, float], timestamp: datetime | None = None
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Detect network traffic anomalies.
 
@@ -151,7 +151,7 @@ class CommunicationsITDetector:
 
         return 0.0
 
-    def _assess_comm_it_impact(self, anomalies: dict[str, Any]) -> dict:
+    def _assess_comm_it_impact(self, anomalies: dict[str, Any]) -> dict[str, Any]:
         """Assess impact on other critical infrastructure sectors."""
         if not anomalies:
             return {"level": "NONE", "specific_sectors": []}

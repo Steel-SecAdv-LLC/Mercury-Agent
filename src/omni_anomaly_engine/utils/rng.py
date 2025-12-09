@@ -405,7 +405,7 @@ class RNGRegistry:
                 return True
             return False
 
-    def list_registered(self) -> list:
+    def list_registered(self) -> list[Any]:
         """List all registered RNG names."""
         with self._lock:
             return list(self._registry.keys())

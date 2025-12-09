@@ -290,7 +290,7 @@ class GovernmentFacilitiesMonitor:
         else:
             return 0.75
 
-    def _generate_gov_recommendations(self, facility_type: str, threat_type: str) -> list:
+    def _generate_gov_recommendations(self, facility_type: str, threat_type: str) -> list[Any]:
         """Generate recommendations for government facility threats."""
         if threat_type == "data_integrity_compromise":
             return [
