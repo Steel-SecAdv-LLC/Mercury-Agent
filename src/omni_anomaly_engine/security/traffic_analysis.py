@@ -75,7 +75,7 @@ class TrafficAnalysisResult:
     flow_statistics: dict[str, Any] = field(default_factory=dict)
     communication_graph: dict[str, Any] = field(default_factory=dict)
     protocol_anomalies: list[str] = field(default_factory=list)
-    encrypted_flows: list[dict] = field(default_factory=list)
+    encrypted_flows: list[dict[str, Any]] = field(default_factory=list)
     covert_channels: list[str] = field(default_factory=list)
 
     attribution_indicators: list[str] = field(default_factory=list)
