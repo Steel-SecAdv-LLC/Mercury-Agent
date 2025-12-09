@@ -1,5 +1,5 @@
 <div align="center">
-   OMNI♱AVA (O♱A): Mercury Agent
+   <h1><b>OMNI<span style="color:#B8860B">♱</span>AVA (O<span style="color:#B8860B">♱</span>A): Mercury Agent</b></h1>
 </div>
 
 <div align="center">
@@ -17,7 +17,6 @@
 [![Tests](https://img.shields.io/badge/tests-1880%2B-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-83%25%2B-brightgreen.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-orange.svg)](#3r-recursion-resonance-refactoring)
-[![3R|Mathematics](https://img.shields.io/badge/3R-Mathematics-orange.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
 [![Ava-Guardian](https://img.shields.io/badge/Ava--Guardian-PQC%20Adapter-green.svg)](#ava-guardian-integration)
 
