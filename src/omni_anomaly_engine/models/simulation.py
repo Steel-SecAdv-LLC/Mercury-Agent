@@ -60,8 +60,8 @@ class SimulationModule:
         self,
         config: dict[str, Any] | None = None,
         rng: DeterministicRNG | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         """
         Initialize mathematical simulation module.
 
@@ -244,7 +244,7 @@ class SimulationModule:
     def _explore_twin_prime(self, search_space: int) -> dict[str, Any]:
         """Explore Twin Prime conjecture: infinitely many primes p where p+2 is also prime."""
 
-        def is_prime(n):
+        def is_prime(n: int) -> bool:
             if n < 2:
                 return False
             return all(n % i != 0 for i in range(2, int(n**0.5) + 1))
@@ -270,7 +270,7 @@ class SimulationModule:
     def _explore_collatz(self, search_space: int) -> dict[str, Any]:
         """Explore Collatz conjecture: all positive integers reach 1 via 3n+1 or n/2."""
 
-        def collatz_sequence(n):
+        def collatz_sequence(n: int) -> tuple[int, int, bool]:
             steps = 0
             max_val = n
             while n != 1 and steps < 10000:
@@ -308,7 +308,7 @@ class SimulationModule:
     def _explore_goldbach(self, search_space: int) -> dict[str, Any]:
         """Explore Goldbach's conjecture: every even integer > 2 is sum of two primes."""
 
-        def is_prime(n):
+        def is_prime(n: int) -> bool:
             if n < 2:
                 return False
             return all(n % i != 0 for i in range(2, int(n**0.5) + 1))
@@ -364,8 +364,9 @@ class SimulationModule:
                 }
             )
 
-        max_deviation = max(z["deviation"] for z in simulated_zeros)
-        avg_deviation = np.mean([z["deviation"] for z in simulated_zeros])
+        deviations = [float(str(z["deviation"])) for z in simulated_zeros]
+        max_deviation = max(deviations)
+        avg_deviation = float(np.mean(deviations))
 
         return {
             "conjecture": "riemann_hypothesis",
@@ -554,18 +555,21 @@ class SimulationModule:
         Returns:
             Feature array of shape (batch_size, embedding_dim)
         """
+        data_arr: np.ndarray[Any, Any]
         if isinstance(data, dict):
-            data = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray[Any, Any]):
-            data = np.array(data)
+            data_arr = np.array(next(iter(data.values())))
+        elif not isinstance(data, np.ndarray):
+            data_arr = np.array(data)
+        else:
+            data_arr = data
 
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
+        if data_arr.ndim == 1:
+            data_arr = data_arr.reshape(1, -1)
 
-        batch_size = data.shape[0]
-        data_dim = data.shape[1]
+        batch_size = data_arr.shape[0]
+        data_dim = data_arr.shape[1]
 
-        normalized = (data - np.mean(data, axis=0)) / (np.std(data, axis=0) + 1e-8)
+        normalized = (data_arr - np.mean(data_arr, axis=0)) / (np.std(data_arr, axis=0) + 1e-8)
 
         if data_dim < self.embedding_dim:
             padding = self._rng.randn(batch_size, self.embedding_dim - data_dim) * 0.1
@@ -588,7 +592,7 @@ class SimulationModule:
             axis=1,
         )
 
-        return features.astype(np.float32)
+        return np.asarray(features.astype(np.float32))
 
     def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
         """
@@ -605,27 +609,27 @@ class SimulationModule:
         """
         features = self.extract_features(data)
 
-        branch_predictions = []
+        branch_predictions_list: list[np.ndarray[Any, Any]] = []
         for _branch in range(self.num_branches):
             branch_noise = self._rng.randn(*features.shape) * 0.1
             branch_features = features + branch_noise
 
             branch_score = np.mean(np.abs(branch_features), axis=1)
-            branch_predictions.append(branch_score)
+            branch_predictions_list.append(branch_score)
 
-        branch_predictions = np.array(branch_predictions)
+        branch_predictions_arr = np.array(branch_predictions_list)
 
-        anomaly_scores = np.mean(branch_predictions, axis=0)
-        branch_variance = np.var(branch_predictions, axis=0)
+        anomaly_scores = np.mean(branch_predictions_arr, axis=0)
+        branch_variance = np.var(branch_predictions_arr, axis=0)
 
-        ethical_risk_flags = []
+        ethical_risk_flags: list[int] = []
         for i, score in enumerate(anomaly_scores):
             if score > self.ethical_threshold:
                 ethical_risk_flags.append(i)
 
         return {
             "anomaly_scores": anomaly_scores.astype(np.float32),
-            "branch_predictions": branch_predictions.T.astype(np.float32),
+            "branch_predictions": branch_predictions_arr.T.astype(np.float32),
             "branch_variance": branch_variance.astype(np.float32),
             "num_branches_explored": self.num_branches,
             "ethical_risk_indices": ethical_risk_flags,
