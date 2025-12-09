@@ -22,6 +22,7 @@ Training utilities for fusion model using PyTorch Lightning
 Enhanced with Ava Equation state evolution optimizers
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -151,6 +152,7 @@ class LearningRateScheduler:
         self.optimizer = optimizer
         self.mode = mode
 
+        self._scheduler: lr_scheduler.StepLR | lr_scheduler.CosineAnnealingLR | lr_scheduler.ReduceLROnPlateau
         if mode == "step":
             self._scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
         elif mode == "cosine":
@@ -171,9 +173,11 @@ class LearningRateScheduler:
             metric: Metric value for plateau scheduler
         """
         if self.mode == "plateau" and metric is not None:
-            self._scheduler.step(metric)
+            if isinstance(self._scheduler, lr_scheduler.ReduceLROnPlateau):
+                self._scheduler.step(metric)
         else:
-            self._scheduler.step()
+            if not isinstance(self._scheduler, lr_scheduler.ReduceLROnPlateau):
+                self._scheduler.step()
 
     def get_last_lr(self) -> list[float]:
         """Get the last computed learning rate."""
@@ -207,6 +211,7 @@ class Trainer:
 
         self.model.to(self.device)
 
+        self.optimizer: optim.Adam | optim.AdamW | optim.SGD
         if config.optimizer == "adam":
             self.optimizer = optim.Adam(
                 model.parameters(),
@@ -260,7 +265,7 @@ class Trainer:
 
         self.optimizer.step()
 
-        return loss.item()
+        return float(loss.item())
 
     def validate_step(self, x: torch.Tensor, y: torch.Tensor) -> float:
         """Execute a single validation step.
@@ -280,7 +285,7 @@ class Trainer:
             output = self.model(x)
             loss = self.criterion(output, y)
 
-        return loss.item()
+        return float(loss.item())
 
     def save_checkpoint(self, path: str) -> None:
         """Save model checkpoint.
@@ -356,11 +361,11 @@ class AvaOptimizer(optim.Optimizer):
     Base Ava optimizer with state evolution dynamics
     """
 
-    def __init__(self, params, lr=0.001, alpha=0.1, beta=0.9, quantum_noise=0.0) -> None:
+    def __init__(self, params: Any, lr: float = 0.001, alpha: float = 0.1, beta: float = 0.9, quantum_noise: float = 0.0) -> None:
         defaults = {"lr": lr, "alpha": alpha, "beta": beta, "quantum_noise": quantum_noise}
         super().__init__(params, defaults)
 
-    def step(self, closure=None):
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override]
         loss = None
         if closure is not None:
             loss = closure()
@@ -402,11 +407,11 @@ class AvaMomentumOptimizer(optim.Optimizer):
     Ava optimizer with momentum variant
     """
 
-    def __init__(self, params, lr=0.001, alpha=0.1, momentum=0.9) -> None:
+    def __init__(self, params: Any, lr: float = 0.001, alpha: float = 0.1, momentum: float = 0.9) -> None:
         defaults = {"lr": lr, "alpha": alpha, "momentum": momentum}
         super().__init__(params, defaults)
 
-    def step(self, closure=None):
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override]
         loss = None
         if closure is not None:
             loss = closure()
@@ -441,11 +446,11 @@ class AvaExponentialDecayOptimizer(optim.Optimizer):
     Ava optimizer with exponential decay
     """
 
-    def __init__(self, params, lr=0.001, alpha=0.1, decay_rate=0.99) -> None:
+    def __init__(self, params: Any, lr: float = 0.001, alpha: float = 0.1, decay_rate: float = 0.99) -> None:
         defaults = {"lr": lr, "alpha": alpha, "decay_rate": decay_rate}
         super().__init__(params, defaults)
 
-    def step(self, closure=None):
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override]
         loss = None
         if closure is not None:
             loss = closure()
@@ -482,11 +487,11 @@ class AvaHarmonicOptimizer(optim.Optimizer):
     Ava optimizer with harmonic oscillator variant
     """
 
-    def __init__(self, params, lr=0.001, alpha=0.1, omega=0.1) -> None:
+    def __init__(self, params: Any, lr: float = 0.001, alpha: float = 0.1, omega: float = 0.1) -> None:
         defaults = {"lr": lr, "alpha": alpha, "omega": omega}
         super().__init__(params, defaults)
 
-    def step(self, closure=None):
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override]
         loss = None
         if closure is not None:
             loss = closure()
@@ -523,7 +528,7 @@ class AvaHarmonicOptimizer(optim.Optimizer):
 
 
 def create_ava_optimizer(
-    params, variant: str = "base", lr: float = 0.001, **kwargs
+    params: Any, variant: str = "base", lr: float = 0.001, **kwargs: Any
 ) -> optim.Optimizer:
     """
     Factory function to create Ava optimizer variants
@@ -540,7 +545,7 @@ def create_ava_optimizer(
         raise ValueError(f"Unknown Ava optimizer variant: {variant}")
 
 
-class AnomalyDataset(Dataset):
+class AnomalyDataset(Dataset[tuple[dict[str, torch.Tensor], torch.Tensor] | tuple[dict[str, torch.Tensor], dict[str, torch.Tensor], torch.Tensor]]):
     """Dataset for anomaly detection training"""
 
     def __init__(
@@ -607,7 +612,8 @@ class FusionTrainer(pl.LightningModule):
         self.save_hyperparameters(ignore=["model"])
 
     def forward(self, detector_features: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        return self.model(detector_features, return_attention=True)
+        result: dict[str, torch.Tensor] = self.model(detector_features, return_attention=True)
+        return result
 
     def training_step(
         self,
@@ -638,7 +644,8 @@ class FusionTrainer(pl.LightningModule):
         self.log("train_classification_loss", classification_loss)
         self.log("train_regression_loss", regression_loss)
 
-        return total_loss
+        result: torch.Tensor = total_loss
+        return result
 
     def validation_step(
         self,
@@ -671,7 +678,7 @@ class FusionTrainer(pl.LightningModule):
         accuracy = (preds == anomaly_labels).float().mean()
         self.log("val_accuracy", accuracy)
 
-    def configure_optimizers(self) -> optim.Optimizer:
+    def configure_optimizers(self) -> dict[str, Any]:  # type: ignore[override]
         optimizer_type = getattr(self, "optimizer_type", "adamw")
 
         if optimizer_type.startswith("ava_"):

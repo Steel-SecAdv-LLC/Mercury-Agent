@@ -122,7 +122,7 @@ class EncoderDecoderStudent(nn.Module):
         """
         encoded = self.encoder(x)
         bottleneck = self.bottleneck(encoded)
-        decoded = self.decoder(bottleneck)
+        decoded: torch.Tensor = self.decoder(bottleneck)
         return decoded
 
 
@@ -194,7 +194,7 @@ class EncoderEncoderStudent(nn.Module):
         modulated = enc2 * attn
 
         # Output
-        output = self.output(modulated)
+        output: torch.Tensor = self.output(modulated)
         return output
 
 
@@ -343,6 +343,11 @@ class DualStudentDistillation(nn.Module):
 
         logger.info(f"Training dual-student on {len(data)} images")
 
+        # Assert networks are initialized
+        assert self.student1 is not None
+        assert self.student2 is not None
+        assert self.teacher is not None
+
         # Setup optimizer
         params = list(self.student1.parameters()) + list(self.student2.parameters())
         optimizer = optim.Adam(params, lr=self.config.learning_rate)
@@ -385,7 +390,7 @@ class DualStudentDistillation(nn.Module):
                 total_loss = loss1 + loss2
 
                 optimizer.zero_grad()
-                total_loss.backward()
+                total_loss.backward()  # type: ignore[no-untyped-call]
                 optimizer.step()
 
                 epoch_loss += total_loss.item()
@@ -417,6 +422,11 @@ class DualStudentDistillation(nn.Module):
             raise RuntimeError("Must call fit() before detect()")
 
         data = data.to(self.device)
+
+        # Assert networks are initialized
+        assert self.student1 is not None
+        assert self.student2 is not None
+        assert self.teacher is not None
 
         self.student1.eval()
         self.student2.eval()

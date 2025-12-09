@@ -100,7 +100,8 @@ class OCEBottleneck(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through bottleneck."""
-        return self.encoder(x)
+        result: torch.Tensor = self.encoder(x)
+        return result
 
 
 class MultiScaleDecoder(nn.Module):
@@ -273,7 +274,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         Returns:
             Self for method chaining
         """
-        if isinstance(data, np.ndarray[Any, Any]):
+        if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)
@@ -282,6 +283,10 @@ class ReverseDistillationDetector(BaseVisualDetector):
         # Initialize components
         if self.bottleneck is None:
             self._initialize_components(data[:1])
+
+        # Assert components are initialized
+        assert self.bottleneck is not None
+        assert self.decoder is not None
 
         # Setup optimizer for student, bottleneck, decoder
         params = (
@@ -347,7 +352,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
                         total_loss = total_loss + loss
 
                 optimizer.zero_grad()
-                total_loss.backward()
+                total_loss.backward()  # type: ignore[no-untyped-call]
                 optimizer.step()
 
                 epoch_loss += total_loss.item()
@@ -379,15 +384,19 @@ class ReverseDistillationDetector(BaseVisualDetector):
         if not self._is_fitted:
             raise RuntimeError("Detector must be fitted before detection")
 
-        if isinstance(data, np.ndarray[Any, Any]):
+        if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
-        original_size = data.shape[-2:]
+        original_size: tuple[int, int] = (data.shape[-2], data.shape[-1])
         data = self.preprocess(data)
 
         all_scores = []
         all_maps = []
         all_features = []
+
+        # Assert components are initialized
+        assert self.bottleneck is not None
+        assert self.decoder is not None
 
         self.student_encoder.eval()
         self.bottleneck.eval()
@@ -495,10 +504,13 @@ class ReverseDistillationDetector(BaseVisualDetector):
         Returns:
             Feature tensor [N, 128] normalized for fusion
         """
-        if isinstance(data, np.ndarray[Any, Any]):
+        if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)
+
+        # Assert bottleneck is initialized
+        assert self.bottleneck is not None
 
         all_features = []
 

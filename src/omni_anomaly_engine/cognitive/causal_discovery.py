@@ -72,7 +72,7 @@ class CausalEdge:
     confidence: float  # 1 - p_value from CI test
     lag: int = 0  # Time lag for temporal causation
     p_value: float = 0.0  # P-value from independence test
-    separation_set: tuple = field(default_factory=tuple)  # Conditioning set that separated
+    separation_set: tuple[int, ...] = field(default_factory=tuple)  # Conditioning set that separated
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -95,7 +95,7 @@ class CausalGraph:
     edges: list[CausalEdge]
     confounders: list[tuple[str, str, str]]  # (confounder, var1, var2)
     colliders: list[tuple[str, str, str]]  # (collider, parent1, parent2)
-    separation_sets: dict[tuple[str, str], tuple]  # (i, j) -> conditioning set
+    separation_sets: dict[tuple[str, str], tuple[str, ...]]  # (i, j) -> conditioning set
     is_cpdag: bool = True  # True if some edges undirected
     timestamp: float = field(default_factory=time.time)
 
@@ -125,7 +125,7 @@ class CausalGraph:
             if e.source == node and e.relation_type == CausalRelationType.DIRECT
         ]
 
-    def get_ancestors(self, node: str, visited: set | None = None) -> set[str]:
+    def get_ancestors(self, node: str, visited: set[str] | None = None) -> set[str]:
         """Get all ancestors of a node."""
         if visited is None:
             visited = set()
@@ -136,7 +136,7 @@ class CausalGraph:
                 self.get_ancestors(p, visited)
         return visited
 
-    def get_descendants(self, node: str, visited: set | None = None) -> set[str]:
+    def get_descendants(self, node: str, visited: set[str] | None = None) -> set[str]:
         """Get all descendants of a node."""
         if visited is None:
             visited = set()
@@ -395,6 +395,8 @@ class PropensityScoreEstimator:
     - Doubly Robust (AIPW) estimation
     """
 
+    propensity_scores: np.ndarray[Any, Any] | None
+
     def __init__(self, treatment: np.ndarray[Any, Any], covariates: np.ndarray[Any, Any]) -> None:
         """
         Args:
@@ -454,6 +456,7 @@ class PropensityScoreEstimator:
         if not self._fitted:
             self.fit()
 
+        assert self.propensity_scores is not None
         ps = self.propensity_scores
         t = self.treatment
         y = outcome
@@ -491,6 +494,7 @@ class PropensityScoreEstimator:
         if not self._fitted:
             self.fit()
 
+        assert self.propensity_scores is not None
         ps = self.propensity_scores
         t = self.treatment
         y = outcome
@@ -548,6 +552,7 @@ class PropensityScoreEstimator:
         if not self._fitted:
             self.fit()
 
+        assert self.propensity_scores is not None
         ps = self.propensity_scores
         t = self.treatment
 
@@ -679,7 +684,7 @@ class CausalDiscoveryEngine:
         np.fill_diagonal(adjacency, False)
 
         # Store separation sets
-        separation_sets: dict[tuple[int, int], tuple] = {}
+        separation_sets: dict[tuple[int, int], tuple[int, ...]] = {}
 
         # Phase 1: Edge removal via conditional independence tests
         for cond_size in range(self.max_conditioning_set + 1):

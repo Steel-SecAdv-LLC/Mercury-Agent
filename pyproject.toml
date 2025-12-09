@@ -187,6 +187,8 @@ module = [
     "deepface.*",
     "fairlearn.*",
     "liboqs.*",
+    "oqs",
+    "oqs.*",
     "scipy.*",
     "sklearn.*",
     "matplotlib.*",

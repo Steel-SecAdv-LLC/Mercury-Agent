@@ -92,7 +92,7 @@ class TermType(Enum):
 class EvolutionState:
     """State of the evolution engine."""
 
-    state_vector: np.ndarray
+    state_vector: np.ndarray[Any, Any]
     iteration: int = 0
     lyapunov_value: float = 0.0
     sigma_quadratic: float = 0.0
@@ -198,7 +198,7 @@ class AvaEquationEngine:
         min_eig = float(np.min(np.linalg.eigvals(E).real))
         if min_eig <= 0:
             E += np.eye(self.dimension) * (abs(min_eig) + 0.1 * PHI_CUBED)
-        return E
+        return np.asarray(E)
 
     def _term_hamiltonian_projection(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Matrix-based gradient descent term (formerly 'VQE' - not quantum)."""
@@ -212,7 +212,7 @@ class AvaEquationEngine:
         expectation = state @ H @ state
         gradient = 2 * H @ state
 
-        return -0.1 * gradient * np.tanh(expectation)
+        return np.asarray(-0.1 * gradient * np.tanh(expectation))
 
     def _term_boltzmann_sampling(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Temperature-scheduled noise sampling (formerly 'QBM' - not quantum)."""
@@ -225,7 +225,7 @@ class AvaEquationEngine:
         boltzmann_factor = np.exp(-energy / max(temperature, 0.01))
 
         noise = np.random.randn(self.dimension) * temperature
-        return boltzmann_factor * noise * 0.1
+        return np.asarray(boltzmann_factor * noise * 0.1)
 
     def _term_simulated_annealing(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Classical simulated annealing (formerly 'quantum_annealing' - not quantum)."""
@@ -255,7 +255,7 @@ class AvaEquationEngine:
         attention_weights = attention_weights / attention_weights.sum(axis=1, keepdims=True)
 
         attended = (attention_weights @ state_2d).flatten()
-        return (attended - state) * 0.1
+        return np.asarray((attended - state) * 0.1)
 
     def _term_cross_attention(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Cross-attention with ethical matrix."""
@@ -269,7 +269,7 @@ class AvaEquationEngine:
         attention_score = query @ key / np.sqrt(self.dimension)
         attention_weight = 1.0 / (1 + np.exp(-attention_score))
 
-        return attention_weight * (value - state) * 0.05
+        return np.asarray(attention_weight * (value - state) * 0.05)
 
     def _term_fractal_dimension(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Fractal dimension analysis term."""
@@ -287,7 +287,7 @@ class AvaEquationEngine:
 
         if fractal_features:
             fractal_dim = np.log(np.mean(fractal_features) + 1e-10)
-            return state * fractal_dim * 0.01
+            return np.asarray(state * fractal_dim * 0.01)
         return np.zeros_like(state)
 
     def _term_fractal_recursion(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -315,8 +315,8 @@ class AvaEquationEngine:
         lyapunov_exp = np.log(divergence + 1e-10)
 
         if lyapunov_exp > 0:
-            return -perturbation * lyapunov_exp * 0.1
-        return perturbation * abs(lyapunov_exp) * 0.05
+            return np.asarray(-perturbation * lyapunov_exp * 0.1)
+        return np.asarray(perturbation * abs(lyapunov_exp) * 0.05)
 
     def _term_entropy_gradient(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Entropy gradient for novelty detection."""
@@ -327,12 +327,12 @@ class AvaEquationEngine:
         entropy = -np.sum(probs * np.log(probs + 1e-10))
 
         gradient = -np.sign(state) * np.log(probs + 1e-10)
-        return gradient * entropy * 0.01
+        return np.asarray(gradient * entropy * 0.01)
 
     def _term_scaled_layer(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Scaling term using φ (1.618) as scaling factor - not mathematically special."""
         phi_scaled = state * PHI
-        return (phi_scaled - state) * 0.05
+        return np.asarray((phi_scaled - state) * 0.05)
 
     def _term_phi_amplification(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Amplification with norm preservation using φ³ scaling factor."""
@@ -340,7 +340,7 @@ class AvaEquationEngine:
         norm = np.linalg.norm(amplified)
         if norm > 0:
             amplified = amplified / norm * np.linalg.norm(state)
-        return (amplified - state) * 0.03
+        return np.asarray((amplified - state) * 0.03)
 
     def _term_sigma_quadratic(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """σ_quadratic constraint enforcement term."""
@@ -353,7 +353,7 @@ class AvaEquationEngine:
 
         if sigma < SIGMA_QUADRATIC_THRESHOLD:
             correction_direction = Ex / (np.linalg.norm(Ex) + 1e-10)
-            return correction_direction * (SIGMA_QUADRATIC_THRESHOLD - sigma) * 0.1
+            return np.asarray(correction_direction * (SIGMA_QUADRATIC_THRESHOLD - sigma) * 0.1)
         return np.zeros_like(state)
 
     def _term_lyapunov_stability(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -362,13 +362,13 @@ class AvaEquationEngine:
         # Lyapunov function value (unused, kept for documentation)
         _V = np.sum((state - target) ** 2)
         gradient = 2 * (state - target)
-        return -LAMBDA_DECAY * gradient * 0.1
+        return np.asarray(-LAMBDA_DECAY * gradient * 0.1)
 
     def _term_ethical_constraint(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Ethical constraint projection term."""
         projected = self.ethical_matrix @ state
         projected = projected / (np.linalg.norm(projected) + 1e-10) * np.linalg.norm(state)
-        return (projected - state) * 0.05
+        return np.asarray((projected - state) * 0.05)
 
     def _term_helical_curvature(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Helical curvature term for DNA-like evolution."""
@@ -377,7 +377,7 @@ class AvaEquationEngine:
 
         if radius**2 + pitch**2 > 0:
             curvature = radius / (radius**2 + pitch**2)
-            return state * curvature * 0.02
+            return np.asarray(state * curvature * 0.02)
         return np.zeros_like(state)
 
     def _term_helical_torsion(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -388,7 +388,7 @@ class AvaEquationEngine:
         if radius**2 + pitch**2 > 0:
             torsion = pitch / (radius**2 + pitch**2)
             rotated = np.roll(state, 1)
-            return (rotated - state) * torsion * 0.02
+            return np.asarray((rotated - state) * torsion * 0.02)
         return np.zeros_like(state)
 
     def _term_fibonacci_harmonic(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -402,12 +402,12 @@ class AvaEquationEngine:
             if f < self.dimension:
                 harmonic[f % self.dimension] += state[f % self.dimension] / (i + 1)
 
-        return (harmonic - state) * 0.02
+        return np.asarray((harmonic - state) * 0.02)
 
     def _term_convergence_pressure(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Convergence pressure toward equilibrium."""
         target = np.ones(self.dimension) / np.sqrt(self.dimension)
-        return -(state - target) * LAMBDA_DECAY * 0.1
+        return np.asarray(-(state - target) * LAMBDA_DECAY * 0.1)
 
     def step(self, state: np.ndarray[Any, Any]) -> tuple[np.ndarray[Any, Any], dict[str, float]]:
         """

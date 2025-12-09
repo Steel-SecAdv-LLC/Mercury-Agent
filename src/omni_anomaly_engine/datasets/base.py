@@ -232,6 +232,10 @@ class DatasetLoader(ABC):
         if not self._is_loaded:
             self._load_and_cache()
 
+        # Assert data is loaded
+        assert self._data is not None
+        assert self._labels is not None
+
         if split == DatasetSplit.ALL:
             # Concatenate all splits
             features = np.concatenate(
@@ -378,7 +382,8 @@ class DatasetLoader(ABC):
         """Get total number of samples."""
         if not self._is_loaded:
             self._load_and_cache()
-        return sum(len(d) for d in self._data.values())
+        assert self._data is not None
+        return sum(int(len(d)) for d in self._data.values())
 
     def __iter__(self) -> Iterator[tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]]:
         """Iterate over all samples."""
@@ -386,7 +391,7 @@ class DatasetLoader(ABC):
         for i in range(len(features)):
             yield features[i], labels[i]
 
-    def to_pytorch_dataset(self, split: DatasetSplit = DatasetSplit.TRAIN):
+    def to_pytorch_dataset(self, split: DatasetSplit = DatasetSplit.TRAIN) -> Any:
         """Convert to PyTorch Dataset.
 
         Args:
@@ -400,15 +405,15 @@ class DatasetLoader(ABC):
 
         features, labels = self.load(split)
 
-        class TorchDataset(Dataset):
-            def __init__(self, X, y) -> None:
+        class TorchDataset(Dataset):  # type: ignore[type-arg]
+            def __init__(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> None:
                 self.X = torch.FloatTensor(X)
                 self.y = torch.LongTensor(y)
 
-            def __len__(self) -> None:
-                return len(self.X)
+            def __len__(self) -> int:
+                return int(len(self.X))
 
-            def __getitem__(self, idx) -> None:
+            def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
                 return self.X[idx], self.y[idx]
 
         return TorchDataset(features, labels)
@@ -419,7 +424,7 @@ class DatasetLoader(ABC):
         batch_size: int = 32,
         shuffle: bool = True,
         num_workers: int = 0,
-    ):
+    ) -> Any:
         """Get PyTorch DataLoader.
 
         Args:
