@@ -1,5 +1,5 @@
 <div align="center">
-# OMNI♱AVA (O♱A): Mercury Agent
+   OMNI♱AVA (O♱A): Mercury Agent
 </div>
 
 <div align="center">
