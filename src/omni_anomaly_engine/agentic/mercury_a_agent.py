@@ -164,7 +164,7 @@ class AgentMemory:
         self.logger = logging.getLogger(__name__)
 
     def store_short_term(
-        self, content: Any, importance: float = 0.5, metadata: dict | None = None
+        self, content: Any, importance: float = 0.5, metadata: dict[str, Any] | None = None
     ) -> str:
         """Store content in short-term memory."""
         entry_id = f"st_{uuid.uuid4().hex[:8]}"
@@ -184,7 +184,7 @@ class AgentMemory:
         return entry_id
 
     def store_long_term(
-        self, content: Any, importance: float = 0.5, metadata: dict | None = None
+        self, content: Any, importance: float = 0.5, metadata: dict[str, Any] | None = None
     ) -> str:
         """Store content in long-term memory."""
         entry_id = f"lt_{uuid.uuid4().hex[:8]}"
@@ -343,7 +343,7 @@ class MercuryReasoner:
         self,
         query: str,
         context: dict[str, Any],
-        tools: dict[str, Callable] | None = None,
+        tools: dict[str, Callable[..., Any]] | None = None,
     ) -> dict[str, Any]:
         """
         Perform chain-of-thought reasoning on a query.
@@ -396,7 +396,7 @@ class MercuryReasoner:
 
         return f"Step {step_num}: Continuing analysis of {query}"
 
-    def _decide_action(self, thought: str, tools: dict[str, Callable]) -> tuple[str, str | None]:
+    def _decide_action(self, thought: str, tools: dict[str, Callable[..., Any]]) -> tuple[str, str | None]:
         """Decide what action to take based on thought."""
         if "conclude" in thought.lower() or "final" in thought.lower():
             return "conclude", None
@@ -411,7 +411,7 @@ class MercuryReasoner:
         self,
         action: str,
         action_input: str | None,
-        tools: dict[str, Callable],
+        tools: dict[str, Callable[..., Any]],
     ) -> str:
         """Execute an action and return observation."""
         if action in tools:
@@ -810,7 +810,7 @@ class MercuryAgent:
 
         self.current_plan: PlanResult | None = None
         self.execution_history: list[dict[str, Any]] = []
-        self.tools: dict[str, Callable] = {}
+        self.tools: dict[str, Callable[..., Any]] = {}
 
         self.logger = logging.getLogger(__name__)
         self.logger.info(
@@ -935,30 +935,31 @@ class MercuryAgent:
 
     def _execute_plan(self, plan: PlanResult, context: dict[str, Any]) -> dict[str, Any]:
         """Execute a plan's tasks."""
-        results = {
-            "plan_id": plan.plan_id,
-            "tasks_completed": 0,
-            "tasks_failed": 0,
-            "task_results": [],
-        }
+        tasks_completed: int = 0
+        tasks_failed: int = 0
+        task_results: list[dict[str, Any]] = []
 
         for task in plan.tasks:
-            if not self._check_dependencies(task, results["task_results"]):
+            if not self._check_dependencies(task, task_results):
                 continue
 
             task_result = self._execute_task(task, context)
-            results["task_results"].append(task_result)
+            task_results.append(task_result)
 
             if task_result["status"] == "completed":
-                results["tasks_completed"] += 1
+                tasks_completed += 1
             else:
-                results["tasks_failed"] += 1
+                tasks_failed += 1
 
-        results["success_rate"] = (
-            results["tasks_completed"] / len(plan.tasks) if plan.tasks else 0.0
-        )
+        success_rate = tasks_completed / len(plan.tasks) if plan.tasks else 0.0
 
-        return results
+        return {
+            "plan_id": plan.plan_id,
+            "tasks_completed": tasks_completed,
+            "tasks_failed": tasks_failed,
+            "task_results": task_results,
+            "success_rate": success_rate,
+        }
 
     def _execute_task(self, task: Task, context: dict[str, Any]) -> dict[str, Any]:
         """Execute a single task."""
@@ -985,7 +986,7 @@ class MercuryAgent:
 
         return result
 
-    def _check_dependencies(self, task: Task, completed_results: list[dict]) -> bool:
+    def _check_dependencies(self, task: Task, completed_results: list[dict[str, Any]]) -> bool:
         """Check if task dependencies are satisfied."""
         completed_ids = {r["task_id"] for r in completed_results if r["status"] == "completed"}
         return all(dep in completed_ids for dep in task.dependencies)
