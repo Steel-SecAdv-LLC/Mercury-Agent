@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Solar & Geomagnetic Storm Detector - Space Weather Monitoring
@@ -114,7 +115,7 @@ class SolarFlareDetector:
     Real-time solar flare detection from X-ray flux.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def detect_solar_flare(self, xray_data: dict[str, Any]) -> dict[str, Any]:
@@ -173,7 +174,7 @@ class CMETracker:
     Coronal Mass Ejection tracking and arrival prediction.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def track_cme(self, cme_data: dict[str, Any]) -> dict[str, Any]:
@@ -222,7 +223,7 @@ class GeomagneticStormPredictor(nn.Module):
     Integrates solar wind, IMF, magnetometer data.
     """
 
-    def __init__(self, input_dim: int = 32):
+    def __init__(self, input_dim: int = 32) -> None:
         super().__init__()
 
         phi = 1.618
@@ -428,7 +429,7 @@ class SolarStormDetector:
         else:
             return "low"
 
-    def _correlate_schumann(self, schumann_data: np.ndarray) -> float:
+    def _correlate_schumann(self, schumann_data: np.ndarray[Any, Any]) -> float:
         """Correlate Schumann resonance with solar activity"""
 
         schumann_mean = np.mean(schumann_data)

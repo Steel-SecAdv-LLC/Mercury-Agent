@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """Tests for Novel Class Discovery integration."""
 
@@ -85,7 +87,7 @@ class TestMultiElementBinarization:
         regions = [np.random.randn(5, 5), np.random.randn(5, 5), np.random.randn(5, 5)]
         processed = mebin.process_multi_element(regions)
         assert len(processed) == 3
-        assert all(isinstance(p, np.ndarray) for p in processed)
+        assert all(isinstance(p, np.ndarray[Any, Any]) for p in processed)
 
     def test_process_empty_list(self):
         """Test processing empty list of regions."""

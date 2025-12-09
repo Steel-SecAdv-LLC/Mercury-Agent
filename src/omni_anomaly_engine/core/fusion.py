@@ -394,7 +394,7 @@ class EarlyFusionEncoder(nn.Module):
     Concatenates and encodes features from multiple detectors.
     """
 
-    def __init__(self, input_dim: int, hidden_dim: int = 128, dropout: float = 0.1):
+    def __init__(self, input_dim: int, hidden_dim: int = 128, dropout: float = 0.1) -> None:
         super().__init__()
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, hidden_dim * 2),
@@ -612,7 +612,7 @@ class DoubleHelixEvolutionEngine:
             min_eig = self.np.min(eigenvalues)
             self.ethical_matrix += self.np.eye(self.state_dim) * (abs(min_eig) + 0.1)
 
-    def _compute_purity_invariant(self, state: np.ndarray) -> float:
+    def _compute_purity_invariant(self, state: np.ndarray[Any, Any]) -> float:
         """
         Compute Purity Invariant σ_Sacred.
 
@@ -633,7 +633,7 @@ class DoubleHelixEvolutionEngine:
 
         return float(sacred_scalar)
 
-    def _apply_purity_correction(self, state: np.ndarray) -> np.ndarray:
+    def _apply_purity_correction(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Apply purity correction to banish negative divergences.
 
@@ -653,15 +653,15 @@ class DoubleHelixEvolutionEngine:
 
             if self.np.any(positive_mask):
                 positive_subspace = eigenvectors[:, positive_mask]
-                projection: np.ndarray = positive_subspace @ positive_subspace.T @ state
+                projection: np.ndarray[Any, Any] = positive_subspace @ positive_subspace.T @ state
                 return projection
             else:
-                result: np.ndarray = state * 0.5
+                result: np.ndarray[Any, Any] = state * 0.5
                 return result
 
         return state
 
-    def helix_1_discovery(self, state: np.ndarray, t: int = 0) -> np.ndarray:
+    def helix_1_discovery(self, state: np.ndarray[Any, Any], t: int = 0) -> np.ndarray[Any, Any]:
         """
         Helix_1 Discovery Strand: Quantum/chaos/exploration terms.
 
@@ -720,7 +720,7 @@ class DoubleHelixEvolutionEngine:
 
         return strand
 
-    def helix_2_ethical(self, state: np.ndarray) -> np.ndarray:
+    def helix_2_ethical(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Helix_2 Ethical Verification Strand: Purity/benevolence terms.
 
@@ -741,7 +741,7 @@ class DoubleHelixEvolutionEngine:
 
         return strand
 
-    def _intertwine_helixes(self, helix1: np.ndarray, helix2: np.ndarray) -> np.ndarray:
+    def _intertwine_helixes(self, helix1: np.ndarray[Any, Any], helix2: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Intertwine helix strands via tensor-like product for DNA-like replication.
 
@@ -758,11 +758,11 @@ class DoubleHelixEvolutionEngine:
         elif len(cross_coupling) < len(helix1):
             cross_coupling = self.np.pad(cross_coupling, (0, len(helix1) - len(cross_coupling)))
 
-        intertwined: np.ndarray = element_wise + cross_coupling * 0.1
+        intertwined: np.ndarray[Any, Any] = element_wise + cross_coupling * 0.1
 
         return intertwined
 
-    def step(self, state: np.ndarray, t: int = 0) -> np.ndarray:
+    def step(self, state: np.ndarray[Any, Any], t: int = 0) -> np.ndarray[Any, Any]:
         """
         Single iterative step of Omni-AVA equation with Double-Helix evolution.
 
@@ -852,7 +852,7 @@ class DoubleHelixEvolutionEngine:
 
             return state_next
 
-    def _term_H(self, state: np.ndarray) -> np.ndarray:
+    def _term_H(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐇: Helical ethical refinement - pull towards ethical scalars."""
         from omni_anomaly_engine.core.ethical_config import DEFAULT_CONFIG
 
@@ -861,39 +861,39 @@ class DoubleHelixEvolutionEngine:
             [v for v in ethical_scalars.to_dict().values() if isinstance(v, float)]
         )
         target = self.np.ones(self.state_dim) * target_mean
-        result: np.ndarray = target - state
+        result: np.ndarray[Any, Any] = target - state
         return result
 
-    def _term_Q(self, state: np.ndarray) -> np.ndarray:
+    def _term_Q(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐐: Quantum superposition - simulate quantum effects."""
         phase = self.np.exp(1j * state)
         superposition = (phase + self.np.conj(phase)) / 2.0
-        result: np.ndarray = self.np.real(superposition) * 0.1
+        result: np.ndarray[Any, Any] = self.np.real(superposition) * 0.1
         return result
 
-    def _term_P(self, state: np.ndarray) -> np.ndarray:
+    def _term_P(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐏: Psi non-local correlations."""
         shifted = self.np.roll(state, 1)
         correlation = state * shifted
-        result: np.ndarray = correlation * 0.05
+        result: np.ndarray[Any, Any] = correlation * 0.05
         return result
 
-    def _term_D(self, state: np.ndarray) -> np.ndarray:
+    def _term_D(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐃: Multi-dimensional projection (SVD-inspired)."""
         if len(state) < 2:
             return self.np.zeros_like(state)
         reshaped = state.reshape(-1, 1)
         U, s, _Vt = self.np.linalg.svd(reshaped @ reshaped.T, full_matrices=False)
         projected = U[:, 0] * s[0] if len(s) > 0 else self.np.zeros_like(state)
-        result: np.ndarray = (projected - state) * 0.1
+        result: np.ndarray[Any, Any] = (projected - state) * 0.1
         return result
 
-    def _term_E(self, state: np.ndarray) -> np.ndarray:
+    def _term_E(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐄: Energy minimization (Hamiltonian)."""
         energy_gradient = -state
         return energy_gradient * 0.05
 
-    def _term_V(self, state: np.ndarray) -> np.ndarray:
+    def _term_V(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐕: Vibration harmonics with adaptive filtering.
 
         When enable_adaptive_filtering is True, uses advanced filtering methods:
@@ -906,7 +906,7 @@ class DoubleHelixEvolutionEngine:
         """
         if self.enable_adaptive_filtering and self._noise_filter is not None:
             filtered = self._noise_filter.apply(state)
-            result: np.ndarray = filtered * 0.05 - state * 0.05
+            result: np.ndarray[Any, Any] = filtered * 0.05 - state * 0.05
             return result
 
         fft_vals = self.np.fft.fft(state)
@@ -914,95 +914,95 @@ class DoubleHelixEvolutionEngine:
         filtered_fft = self.np.fft.ifft(fft_vals)
         return self.np.real(filtered_fft) * 0.05 - state * 0.05
 
-    def _term_W(self, state: np.ndarray) -> np.ndarray:
+    def _term_W(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐖: Wave propagation."""
         laplacian = self.np.roll(state, -1) + self.np.roll(state, 1) - 2 * state
-        result: np.ndarray = laplacian * 0.05
+        result: np.ndarray[Any, Any] = laplacian * 0.05
         return result
 
-    def _term_R3(self, state: np.ndarray) -> np.ndarray:
+    def _term_R3(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐑₃: Recursion-Resonance-Refactoring composite."""
         recursion = state**2 / (1 + self.np.abs(state))
         resonance = self.np.sin(state * self.np.pi)
         refactoring = (state - self.np.mean(state)) / (self.np.std(state) + 1e-8)
-        result: np.ndarray = (recursion + resonance + refactoring) * 0.01
+        result: np.ndarray[Any, Any] = (recursion + resonance + refactoring) * 0.01
         return result
 
-    def _term_An(self, state: np.ndarray, T: float) -> np.ndarray:
+    def _term_An(self, state: np.ndarray[Any, Any], T: float) -> np.ndarray[Any, Any]:
         """𝐀_n: Quantum annealing with temperature decay."""
         if T < 1e-6:
             return self.np.zeros_like(state)
         energy = -self.np.sum(state**2)
         prob = self.np.exp(energy / T)
-        perturbation: np.ndarray = self._rng.randn(self.state_dim) * prob * 0.1
+        perturbation: np.ndarray[Any, Any] = self._rng.randn(self.state_dim) * prob * 0.1
         return perturbation
 
-    def _term_Lambda(self, state: np.ndarray) -> np.ndarray:
+    def _term_Lambda(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝚲: Chaos Lyapunov exponents."""
         perturbed = state + self._rng.randn(self.state_dim) * 0.01
         divergence = perturbed - state
-        result: np.ndarray = divergence * 0.05
+        result: np.ndarray[Any, Any] = divergence * 0.05
         return result
 
-    def _term_Theta(self, state: np.ndarray) -> np.ndarray:
+    def _term_Theta(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝚯: Topology homology."""
         cyclic = self.np.roll(state, 1) - self.np.roll(state, -1)
-        result: np.ndarray = cyclic * 0.05
+        result: np.ndarray[Any, Any] = cyclic * 0.05
         return result
 
-    def _term_Phi(self, state: np.ndarray) -> np.ndarray:
+    def _term_Phi(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝚽: Fractal self-similarity (golden ratio)."""
         golden = (1 + self.np.sqrt(5)) / 2
         scaled = state / golden
-        result: np.ndarray = (scaled - state) * 0.05
+        result: np.ndarray[Any, Any] = (scaled - state) * 0.05
         return result
 
-    def _term_Z(self, state: np.ndarray) -> np.ndarray:
+    def _term_Z(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐙: Zeta number theory (periodic sums)."""
         periodic = self.np.sin(2 * self.np.pi * state) + self.np.cos(2 * self.np.pi * state)
-        result: np.ndarray = periodic * 0.02
+        result: np.ndarray[Any, Any] = periodic * 0.02
         return result
 
-    def _term_hq(self, state: np.ndarray) -> np.ndarray:
+    def _term_hq(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐡_q: Quantum uncertainty (iℏ ∂/∂t approximation)."""
         time_derivative = self.np.gradient(state)
-        result: np.ndarray = time_derivative * 0.01
+        result: np.ndarray[Any, Any] = time_derivative * 0.01
         return result
 
-    def _term_L(self, state: np.ndarray) -> np.ndarray:
+    def _term_L(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐋: Hybrid Light/Love (Lorentz bound + ethical smoothing)."""
         c = 1.0
         lorentz_factor = self.np.sqrt(1 - self.np.clip(state**2 / c**2, 0, 0.99))
         ethical_smooth = 1.0 / (1.0 + self.np.exp(-state))
-        result: np.ndarray = (lorentz_factor * ethical_smooth - state) * 0.05
+        result: np.ndarray[Any, Any] = (lorentz_factor * ethical_smooth - state) * 0.05
         return result
 
-    def _term_VQE(self, state: np.ndarray, params: np.ndarray) -> np.ndarray:
+    def _term_VQE(self, state: np.ndarray[Any, Any], params: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐕𝐐𝐄: Variational Quantum Eigensolver ansatz."""
         ansatz = self.np.sin(params * state)
-        result: np.ndarray = ansatz * 0.02
+        result: np.ndarray[Any, Any] = ansatz * 0.02
         return result
 
-    def _term_QBM(self, state: np.ndarray) -> np.ndarray:
+    def _term_QBM(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐐𝐁𝐌: Quantum Boltzmann Machine energy sampling."""
-        energy_interaction: np.ndarray = -self.np.dot(self.qbm_J, state)
-        result: np.ndarray = energy_interaction * 0.01
+        energy_interaction: np.ndarray[Any, Any] = -self.np.dot(self.qbm_J, state)
+        result: np.ndarray[Any, Any] = energy_interaction * 0.01
         return result
 
-    def _term_Attn(self, state: np.ndarray) -> np.ndarray:
+    def _term_Attn(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐀𝐭𝐭𝐧: Attention weighting."""
         weighted = state * self.attention_weights
-        result: np.ndarray = (weighted - state) * 0.05
+        result: np.ndarray[Any, Any] = (weighted - state) * 0.05
         return result
 
-    def _term_F(self, state: np.ndarray) -> np.ndarray:
+    def _term_F(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐅: Field Lagrangian integration (finite differences)."""
         field_gradient = self.np.gradient(state)
         lagrangian = state * field_gradient
-        result: np.ndarray = lagrangian * 0.02
+        result: np.ndarray[Any, Any] = lagrangian * 0.02
         return result
 
-    def _term_S(self, state: np.ndarray) -> np.ndarray:
+    def _term_S(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐒: Symmetry group operations (rotation)."""
         angle = self.np.pi / 4
         rotation_matrix = self.np.array(
@@ -1013,31 +1013,31 @@ class DoubleHelixEvolutionEngine:
             for i in range(0, len(state) - 1, 2):
                 pair = state[i : i + 2]
                 rotated[i : i + 2] = rotation_matrix @ pair
-            result: np.ndarray = (rotated - state) * 0.02
+            result: np.ndarray[Any, Any] = (rotated - state) * 0.02
             return result
         return self.np.zeros_like(state)
 
-    def _term_I(self, state: np.ndarray) -> np.ndarray:
+    def _term_I(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐈: Information entropy."""
         probs = self.np.abs(state) / (self.np.sum(self.np.abs(state)) + 1e-8)
         entropy = -self.np.sum(probs * self.np.log(probs + 1e-8))
-        result: np.ndarray = self.np.ones_like(state) * entropy * 0.01
+        result: np.ndarray[Any, Any] = self.np.ones_like(state) * entropy * 0.01
         return result
 
-    def _term_Rel(self, state: np.ndarray) -> np.ndarray:
+    def _term_Rel(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """𝐑𝐞𝐥: Relativistic corrections (Lorentz)."""
         c = 1.0
         v = state
         gamma = 1.0 / self.np.sqrt(1 - self.np.clip(v**2 / c**2, 0, 0.99))
-        result: np.ndarray = (gamma * state - state) * 0.02
+        result: np.ndarray[Any, Any] = (gamma * state - state) * 0.02
         return result
 
-    def _term_inf_b(self, state: np.ndarray) -> np.ndarray:
+    def _term_inf_b(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """∞_b: Asymptotic clip (bound divergences)."""
         bound = 10.0
         return self.np.clip(state, -bound, bound)
 
-    def _term_Omega(self, state: np.ndarray) -> np.ndarray:
+    def _term_Omega(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Ω: Asymptotic horizons for long-term forecasting.
 
@@ -1054,7 +1054,7 @@ class DoubleHelixEvolutionEngine:
 
         return accumulator * 0.01
 
-    def _term_Al(self, state: np.ndarray) -> np.ndarray:
+    def _term_Al(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         𝐀𝐥: Alien resistance using octonions for non-associative exotic threats.
 
@@ -1074,7 +1074,7 @@ class DoubleHelixEvolutionEngine:
 
             temp_result = self.np.zeros_like(state)
             temp_result[: min(8, len(state))] = rotated[: min(8, len(state))]
-            final_result: np.ndarray = temp_result * self.xi
+            final_result: np.ndarray[Any, Any] = temp_result * self.xi
             return final_result
         except ImportError:
             n_pairs = len(state) // 2
@@ -1094,15 +1094,15 @@ class DoubleHelixEvolutionEngine:
                 rotated_pairs.append(rotation @ pairs[i])
 
             concat_result = self.np.concatenate(rotated_pairs)[: len(state)]
-            final_result_al: np.ndarray = concat_result * self.xi
+            final_result_al: np.ndarray[Any, Any] = concat_result * self.xi
             return final_result_al
 
     def converge(
         self,
-        initial_state: np.ndarray | None = None,
+        initial_state: np.ndarray[Any, Any] | None = None,
         max_steps: int = 100,
         tolerance: float = 1e-4,
-    ) -> tuple[np.ndarray, list[float]]:
+    ) -> tuple[np.ndarray[Any, Any], list[float]]:
         """
         Iteratively converge to stable state with Lyapunov stability checking.
 
@@ -1141,7 +1141,7 @@ class DoubleHelixEvolutionEngine:
         history: list[float] = [float(v) for v in convergence_history]
         return state, history
 
-    def detect_anomaly(self, data: np.ndarray, threshold: float = 2.0) -> dict[str, Any]:
+    def detect_anomaly(self, data: np.ndarray[Any, Any], threshold: float = 2.0) -> dict[str, Any]:
         """
         Use converged state to detect anomalies in input data.
 

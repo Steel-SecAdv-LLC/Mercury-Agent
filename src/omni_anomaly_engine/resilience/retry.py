@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Retry policy implementation
@@ -43,7 +44,7 @@ class RetryPolicy:
         self.exponential_base = exponential_base
         self.exceptions = exceptions
 
-    def __call__(self, func: Callable) -> Callable:
+    def __call__(self, func: Callable[..., Any]) -> Callable[..., Any]:
         """Decorator to apply retry policy"""
 
         @wraps(func)

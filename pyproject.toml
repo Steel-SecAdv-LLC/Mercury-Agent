@@ -176,17 +176,28 @@ strict_concatenate = true
 show_error_codes = true
 show_column_numbers = true
 pretty = true
+enable_error_code = ["ignore-without-code"]
 
 # Per-module overrides for third-party libraries
 [[tool.mypy.overrides]]
 module = [
+    "torch.*",
+    "numpy.*",
+    "pandas.*",
     "deepface.*",
+    "fairlearn.*",
+    "liboqs.*",
+    "scipy.*",
+    "sklearn.*",
+    "matplotlib.*",
+    "plotly.*",
+    "mammoth.*",
+    "hypothesis.*",
+    "pytest.*",
+    "torchvision.*",
+    "torch_geometric.*",
     "cv2.*",
     "qutip.*",
-    "sklearn.*",
-    "scipy.*",
-    "torch.*",
-    "torchvision.*",
     "pytorch_lightning.*",
     "tensorboard.*",
     "psutil.*",
@@ -199,6 +210,22 @@ module = [
     "chronos.*",
     "faiss.*",
     "FrEIA.*",
+    "streamlit.*",
+    "altair.*",
+    "PIL.*",
+    "tqdm.*",
+    "networkx.*",
+    "pydantic.*",
+    "fastapi.*",
+    "uvicorn.*",
+    "httpx.*",
+    "requests.*",
+    "cryptography.*",
+    "bcrypt.*",
+    "click.*",
+    "yaml.*",
+    "toml.*",
+    "dotenv.*",
 ]
 ignore_missing_imports = true
 

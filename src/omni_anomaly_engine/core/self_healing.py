@@ -21,6 +21,7 @@ Note:
     To suppress this deprecation warning, set the environment variable:
         OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS=1
 """
+from __future__ import annotations
 
 import os
 import warnings

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Unified Detector Registry - Bridge connecting detectors across domains for fusion.
@@ -149,8 +150,8 @@ class FeatureExtractionResult:
     """Result from feature extraction."""
 
     detector_name: str
-    features: np.ndarray | torch.Tensor | None
-    scores: np.ndarray | None
+    features: np.ndarray[Any, Any] | torch.Tensor | None
+    scores: np.ndarray[Any, Any] | None
     execution_time_ms: float
     success: bool
     error: str | None = None
@@ -291,7 +292,7 @@ class DetectorRegistry:
     def extract_features(
         self,
         name: str,
-        data: np.ndarray | torch.Tensor | dict[str, Any],
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
     ) -> FeatureExtractionResult:
         """Extract features from a single detector.
 
@@ -369,7 +370,7 @@ class DetectorRegistry:
 
     def extract_all_features(
         self,
-        data: np.ndarray | torch.Tensor | dict[str, Any],
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
         parallel: bool = True,
         categories: list[DetectorCategory] | None = None,
         detector_names: list[str] | None = None,

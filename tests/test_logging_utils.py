@@ -3,6 +3,7 @@ Tests for omni_anomaly_engine.utils.logging module.
 
 Tests structured logging, correlation IDs, and performance logging.
 """
+from __future__ import annotations
 
 import json
 import logging

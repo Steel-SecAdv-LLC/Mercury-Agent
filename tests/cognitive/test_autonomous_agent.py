@@ -4,6 +4,7 @@ Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for Autonomous Agent - OODA Loop, User Sync, Self-Maintenance
 """
+from __future__ import annotations
 
 import time
 

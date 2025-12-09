@@ -4,6 +4,7 @@ Copyright (C) 2025 Steel Security Advisory LLC
 
 Base classes for real-world dataset loading and management.
 """
+from __future__ import annotations
 
 import hashlib
 import json
@@ -170,7 +171,7 @@ class DatasetLoader(ABC):
     CITATION: str = ""
     REQUIRES_CREDENTIALS: bool = False
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         """Initialize dataset loader.
 
         Args:
@@ -180,8 +181,8 @@ class DatasetLoader(ABC):
         self.data_path = Path(config.data_dir) / self.DATASET_NAME
         self.cache_path = Path(config.cache_dir) / self.DATASET_NAME
 
-        self._data: dict[DatasetSplit, np.ndarray] | None = None
-        self._labels: dict[DatasetSplit, np.ndarray] | None = None
+        self._data: dict[DatasetSplit, np.ndarray[Any, Any]] | None = None
+        self._labels: dict[DatasetSplit, np.ndarray[Any, Any]] | None = None
         self._metadata: DatasetMetadata | None = None
         self._is_loaded = False
 
@@ -199,7 +200,7 @@ class DatasetLoader(ABC):
         pass
 
     @abstractmethod
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw data from files.
 
         Returns:
@@ -208,7 +209,7 @@ class DatasetLoader(ABC):
         pass
 
     @abstractmethod
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply dataset-specific preprocessing.
 
         Args:
@@ -219,7 +220,7 @@ class DatasetLoader(ABC):
         """
         pass
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray, np.ndarray]:
+    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load dataset with specified split.
 
         Args:
@@ -379,7 +380,7 @@ class DatasetLoader(ABC):
             self._load_and_cache()
         return sum(len(d) for d in self._data.values())
 
-    def __iter__(self) -> Iterator[tuple[np.ndarray, np.ndarray]]:
+    def __iter__(self) -> Iterator[tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]]:
         """Iterate over all samples."""
         features, labels = self.load(DatasetSplit.ALL)
         for i in range(len(features)):
@@ -400,7 +401,7 @@ class DatasetLoader(ABC):
         features, labels = self.load(split)
 
         class TorchDataset(Dataset):
-            def __init__(self, X, y):
+            def __init__(self, X, y) -> None:
                 self.X = torch.FloatTensor(X)
                 self.y = torch.LongTensor(y)
 

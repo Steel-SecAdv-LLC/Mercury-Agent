@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """
 Secure data handling utilities with quantum-resistant encryption support.
@@ -48,7 +50,7 @@ class QuantumResistantEncryption:
     Note: Conditional import of liboqs planned for future enhancement.
     """
 
-    def __init__(self, security_level: int = 256, use_liboqs: bool = True):
+    def __init__(self, security_level: int = 256, use_liboqs: bool = True) -> None:
         """
         Initialize quantum-resistant encryption.
 
@@ -93,7 +95,7 @@ class QuantumResistantEncryption:
             self._oqs_kem = None
             self._oqs_signature = None
 
-    def _generate_lattice_key(self) -> tuple[np.ndarray, np.ndarray]:
+    def _generate_lattice_key(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Generate lattice-based key pair (public, private) using LWE.
 
@@ -167,7 +169,7 @@ class QuantumResistantEncryption:
 
         return header + encrypted
 
-    def decrypt_hybrid(self, encrypted_data: bytes, private_key: np.ndarray) -> bytes:
+    def decrypt_hybrid(self, encrypted_data: bytes, private_key: np.ndarray[Any, Any]) -> bytes:
         """
         Decrypt using quantum-resistant KEM decapsulation.
 
@@ -304,7 +306,7 @@ class QuantumResistantEncryption:
 class SecureDataHandler:
     """Handle sensitive data securely with quantum-resistant options"""
 
-    def __init__(self, enable_quantum_resistant: bool = True):
+    def __init__(self, enable_quantum_resistant: bool = True) -> None:
         """
         Initialize secure data handler.
 

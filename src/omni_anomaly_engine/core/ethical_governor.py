@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Ethical Autonomy Governor with Bias Audits and ΣDirective Overrides
@@ -85,7 +86,7 @@ class SigmaDirective:
     COMPASSION = "compassion"
     TRUTH = "truth"
 
-    def __init__(self, ethical_scalars: EthicalScalars):
+    def __init__(self, ethical_scalars: EthicalScalars) -> None:
         """
         Initialize Sigma Directive system.
 
@@ -230,7 +231,7 @@ class EthicalAutonomyGovernor:
         self.rollback_history: list[EthicalDecision] = []
 
     def evaluate_decision(
-        self, action: str, context: dict[str, Any], data: np.ndarray | None = None
+        self, action: str, context: dict[str, Any], data: np.ndarray[Any, Any] | None = None
     ) -> EthicalDecision:
         """
         Evaluate decision through ethical framework.
@@ -318,7 +319,7 @@ class EthicalAutonomyGovernor:
 
         return float(base_score * context_modifier)
 
-    def _audit_bias(self, data: np.ndarray, context: dict[str, Any]) -> BiasMetrics:
+    def _audit_bias(self, data: np.ndarray[Any, Any], context: dict[str, Any]) -> BiasMetrics:
         """
         Audit for bias using Fairlearn-compatible metrics.
 

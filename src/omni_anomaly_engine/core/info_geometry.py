@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """Information Geometry for Out-of-Distribution Detection.
 
@@ -32,7 +33,7 @@ import numpy as np
 class InformationGeometryDetector:
     """Information geometry-based OOD detector."""
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize information geometry detector.
 
         Args:
@@ -46,9 +47,9 @@ class InformationGeometryDetector:
         self.manifold_dim = self.config.get("manifold_dim", 10)
         self.approximation_method = self.config.get("approximation_method", "closed_form")
         self.reference_distribution: dict[str, Any] | None = None
-        self.fisher_matrix: np.ndarray | None = None
+        self.fisher_matrix: np.ndarray[Any, Any] | None = None
 
-    def fit_reference_distribution(self, in_distribution_data: np.ndarray) -> None:
+    def fit_reference_distribution(self, in_distribution_data: np.ndarray[Any, Any]) -> None:
         """Fit reference distribution from in-distribution training data.
 
         Args:
@@ -63,7 +64,7 @@ class InformationGeometryDetector:
             self.reference_distribution["mean"], self.reference_distribution["cov"]
         )
 
-    def _compute_fisher_matrix(self, mean: np.ndarray, cov: np.ndarray) -> np.ndarray:
+    def _compute_fisher_matrix(self, mean: np.ndarray[Any, Any], cov: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute Fisher Information Matrix.
 
         For Gaussian distributions, the Fisher matrix has a closed form.
@@ -83,8 +84,8 @@ class InformationGeometryDetector:
 
     def fisher_rao_distance(
         self,
-        distribution_1: dict[str, np.ndarray],
-        distribution_2: dict[str, np.ndarray],
+        distribution_1: dict[str, np.ndarray[Any, Any]],
+        distribution_2: dict[str, np.ndarray[Any, Any]],
     ) -> float:
         """Compute Fisher-Rao geodesic distance between two distributions.
 
@@ -106,7 +107,7 @@ class InformationGeometryDetector:
 
         return float(distance)
 
-    def detect_ood(self, test_data: np.ndarray, threshold: float | None = None) -> dict[str, Any]:
+    def detect_ood(self, test_data: np.ndarray[Any, Any], threshold: float | None = None) -> dict[str, Any]:
         """Detect out-of-distribution samples using information geometry.
 
         Args:

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 CYBINT Sub-Processor - Advanced Cyber Intelligence Analysis
@@ -135,7 +136,7 @@ class APTPatternRecognizer(nn.Module):
     Analyzes attack patterns, TTPs, and infrastructure for attribution.
     """
 
-    def __init__(self, input_dim: int = 256):
+    def __init__(self, input_dim: int = 256) -> None:
         super().__init__()
 
         self.pattern_encoder = nn.Sequential(
@@ -179,7 +180,7 @@ class MalwareTaxonomyClassifier(nn.Module):
     Identifies malware families from behavioral and static analysis features.
     """
 
-    def __init__(self, input_dim: int = 128):
+    def __init__(self, input_dim: int = 128) -> None:
         super().__init__()
 
         self.feature_extractor = nn.Sequential(
@@ -219,7 +220,7 @@ class C2InfrastructureDetector:
     Identifies C2 channels, protocols, and infrastructure patterns.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
         self.c2_signatures = {
@@ -342,7 +343,7 @@ class ZeroDayIndicatorAnalyzer:
     Identifies potential zero-day vulnerabilities based on anomalous patterns.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def analyze_zero_day_likelihood(self, exploit_data: dict[str, Any]) -> dict[str, Any]:
@@ -513,7 +514,7 @@ class CYBINTSubProcessor:
 
         return result
 
-    def _attribute_apt(self, features: np.ndarray) -> dict[str, Any]:
+    def _attribute_apt(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Attribute threat to APT group"""
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
@@ -530,7 +531,7 @@ class CYBINTSubProcessor:
 
         return {"apt_group": identified_apt, "confidence": apt_confidence}
 
-    def _classify_malware(self, features: np.ndarray) -> dict[str, Any]:
+    def _classify_malware(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Classify malware family"""
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 

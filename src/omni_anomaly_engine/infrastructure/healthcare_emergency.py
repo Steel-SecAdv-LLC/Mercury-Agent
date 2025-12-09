@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """
 CISA Healthcare & Emergency Services Critical Infrastructure Anomaly Detection
@@ -62,7 +64,7 @@ class HealthcareEmergencyDetector:
     - Medical supply chain disruptions
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.vital_sign_ranges = {
             "heart_rate_bpm": {"min": 60, "max": 100, "critical_min": 40, "critical_max": 130},
             "blood_pressure_systolic": {
@@ -89,7 +91,7 @@ class HealthcareEmergencyDetector:
 
     def detect(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         detection_type: str = "patient",
         patient_history: dict | None = None,
     ) -> dict:
@@ -123,7 +125,7 @@ class HealthcareEmergencyDetector:
         self,
         vital_signs: dict[str, float],
         patient_history: dict | None = None,
-        time_series: dict[str, np.ndarray] | None = None,
+        time_series: dict[str, np.ndarray[Any, Any]] | None = None,
     ) -> dict:
         """
         Detect patient deterioration from vital signs.
@@ -230,7 +232,7 @@ class HealthcareEmergencyDetector:
         else:
             return PatientStatus.STABLE
 
-    def _generate_clinical_recommendations(self, anomalies: dict, score: int) -> list[str]:
+    def _generate_clinical_recommendations(self, anomalies: dict[str, Any], score: int) -> list[str]:
         """Generate clinical action recommendations."""
         if score < 3:
             return ["Continue routine monitoring"]
@@ -253,7 +255,7 @@ class HealthcareEmergencyDetector:
 
         return recommendations
 
-    def _classify_emergency_event(self, call_data: dict, z_score: float) -> str:
+    def _classify_emergency_event(self, call_data: dict[str, Any], z_score: float) -> str:
         """Classify type of emergency event."""
         if z_score <= 3:
             return "normal_operations"
@@ -263,7 +265,7 @@ class HealthcareEmergencyDetector:
 
         return "elevated_activity"
 
-    def _recommend_resource_allocation(self, call_data: dict, event_type: str) -> dict:
+    def _recommend_resource_allocation(self, call_data: dict[str, Any], event_type: str) -> dict:
         """Recommend emergency resource allocation."""
         if event_type == "normal_operations":
             return {"status": "normal", "additional_units": 0}
@@ -280,7 +282,7 @@ class HealthcareEmergencyDetector:
             "activate_emergency_operations_center": event_type == "major_disaster",
         }
 
-    def _generate_emergency_recommendations(self, anomalies: dict, event_type: str) -> list[str]:
+    def _generate_emergency_recommendations(self, anomalies: dict[str, Any], event_type: str) -> list[str]:
         """Generate emergency response recommendations."""
         if not anomalies:
             return ["Continue normal operations"]

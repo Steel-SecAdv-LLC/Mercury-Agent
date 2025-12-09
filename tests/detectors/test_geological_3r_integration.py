@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """
 Comprehensive tests for 3R (Recursion-Resonance-Refactoring) integration
@@ -67,14 +69,14 @@ class TestRecursionEngineIntegration:
         features = recursion_engine.hierarchical_feature_extraction(data, num_levels=3)
         assert len(features) == 3
         for level_features in features:
-            assert isinstance(level_features, np.ndarray)
+            assert isinstance(level_features, np.ndarray[Any, Any])
 
     def test_recursive_transform(self, recursion_engine):
         """Test recursive transform with convergence."""
         data = np.random.randn(50)
         transform_fn = lambda x: x * 0.9  # Converging transform
         result = recursion_engine.recursive_transform(data, transform_fn, threshold=0.1)
-        assert isinstance(result, np.ndarray)
+        assert isinstance(result, np.ndarray[Any, Any])
         assert len(result) == len(data)
 
     def test_recursive_transform_max_depth(self, recursion_engine):
@@ -82,13 +84,13 @@ class TestRecursionEngineIntegration:
         data = np.random.randn(50)
         transform_fn = lambda x: x * 1.1  # Non-converging transform
         result = recursion_engine.recursive_transform(data, transform_fn, threshold=0.001)
-        assert isinstance(result, np.ndarray)
+        assert isinstance(result, np.ndarray[Any, Any])
 
     def test_sliding_window_stats(self, recursion_engine):
         """Test sliding window statistics extraction."""
         data = np.random.randn(100)
         stats = recursion_engine._sliding_window_stats(data, window_size=10)
-        assert isinstance(stats, np.ndarray)
+        assert isinstance(stats, np.ndarray[Any, Any])
         assert len(stats) > 0
 
     def test_downsample(self, recursion_engine):
@@ -126,7 +128,7 @@ class TestResonanceEngineIntegration:
         amplified = resonance_engine.amplify_resonant_frequencies(
             signal_data, amplification_factor=2.0
         )
-        assert isinstance(amplified, np.ndarray)
+        assert isinstance(amplified, np.ndarray[Any, Any])
         assert len(amplified) == len(signal_data)
 
     def test_detect_resonance_anomalies(self, resonance_engine):

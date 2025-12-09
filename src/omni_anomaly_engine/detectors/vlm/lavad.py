@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 LAVAD: Harnessing Large Language Models for Training-free Video Anomaly Detection
@@ -89,7 +90,7 @@ class LAVADDetector(BaseVLMDetector):
         >>> results = detector.detect(video_frames)
     """
 
-    def __init__(self, config: LAVADConfig | dict[str, Any] | None = None):
+    def __init__(self, config: LAVADConfig | dict[str, Any] | None = None) -> None:
         """Initialize LAVAD detector.
 
         Args:
@@ -135,7 +136,7 @@ class LAVADDetector(BaseVLMDetector):
             "anomaly_types": anomaly_types or [],
         }
 
-    def detect_video(self, video: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect_video(self, video: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies in video.
 
         Args:
@@ -263,7 +264,7 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
 
         return frames
 
-    def _generate_caption(self, frame: np.ndarray) -> str:
+    def _generate_caption(self, frame: np.ndarray[Any, Any]) -> str:
         """Generate caption for a single frame.
 
         Args:
@@ -297,7 +298,7 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
 
         return caption
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using caption + reasoning pipeline.
 
         Args:
@@ -460,7 +461,7 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
 
     def _generate_features(
         self,
-        scores: np.ndarray,
+        scores: np.ndarray[Any, Any],
         captions: list[str],
     ) -> torch.Tensor:
         """Generate feature representation.
@@ -502,7 +503,7 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
 
         return torch.from_numpy(features).float().unsqueeze(0)
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion pipeline."""
         results = self.detect(data)
         features = results["features"]

@@ -21,6 +21,7 @@ Example:
 
         app.include_router(health_router, prefix="/health")
 """
+from __future__ import annotations
 
 import asyncio
 import logging

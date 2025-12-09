@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Internal Random Number Generator Utility for Test Determinism
@@ -34,7 +35,7 @@ import random
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, Generator
 
 import numpy as np
 
@@ -59,7 +60,7 @@ class DeterministicRNG:
     - Support for NumPy, Python random, and PyTorch
     """
 
-    def __init__(self, seed: int | None = None):
+    def __init__(self, seed: int | None = None) -> None:
         """
         Initialize the RNG with optional seed.
 
@@ -106,7 +107,7 @@ class DeterministicRNG:
             self.set_seed(self._seed or 42)
         return self._numpy_rng
 
-    def randn(self, *shape: int, dtype: type = np.float64) -> np.ndarray:
+    def randn(self, *shape: int, dtype: type = np.float64) -> np.ndarray[Any, Any]:
         """
         Generate standard normal random numbers.
 
@@ -126,7 +127,7 @@ class DeterministicRNG:
         scale: float = 1.0,
         size: int | tuple | None = None,
         dtype: type = np.float64,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Generate random numbers from normal (Gaussian) distribution.
 
@@ -148,7 +149,7 @@ class DeterministicRNG:
         high: float = 1.0,
         size: int | tuple | None = None,
         dtype: type = np.float64,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Generate random numbers from uniform distribution.
 
@@ -164,7 +165,7 @@ class DeterministicRNG:
         rng = self.get_numpy_rng()
         return rng.uniform(low=low, high=high, size=size).astype(dtype)
 
-    def random(self, size: int | tuple | None = None) -> np.ndarray:
+    def random(self, size: int | tuple | None = None) -> np.ndarray[Any, Any]:
         """
         Generate random floats in the half-open interval [0.0, 1.0).
 
@@ -177,7 +178,7 @@ class DeterministicRNG:
         rng = self.get_numpy_rng()
         return rng.random(size=size)
 
-    def rand(self, *shape: int, dtype: type = np.float64) -> np.ndarray:
+    def rand(self, *shape: int, dtype: type = np.float64) -> np.ndarray[Any, Any]:
         """
         Generate uniform random numbers in [0, 1).
 
@@ -193,7 +194,7 @@ class DeterministicRNG:
 
     def randint(
         self, low: int, high: int | None = None, size: int | tuple | None = None
-    ) -> int | np.ndarray:
+    ) -> int | np.ndarray[Any, Any]:
         """
         Generate random integers.
 
@@ -210,11 +211,11 @@ class DeterministicRNG:
 
     def choice(
         self,
-        a: int | np.ndarray,
+        a: int | np.ndarray[Any, Any],
         size: int | tuple | None = None,
         replace: bool = True,
-        p: np.ndarray | None = None,
-    ) -> np.ndarray:
+        p: np.ndarray[Any, Any] | None = None,
+    ) -> np.ndarray[Any, Any]:
         """
         Generate random samples from array.
 
@@ -230,7 +231,7 @@ class DeterministicRNG:
         rng = self.get_numpy_rng()
         return rng.choice(a, size=size, replace=replace, p=p)
 
-    def shuffle(self, array: np.ndarray) -> np.ndarray:
+    def shuffle(self, array: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Shuffle array in-place.
 
@@ -244,7 +245,7 @@ class DeterministicRNG:
         rng.shuffle(array)
         return array
 
-    def permutation(self, x: int | np.ndarray) -> np.ndarray:
+    def permutation(self, x: int | np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Generate random permutation.
 
@@ -258,7 +259,7 @@ class DeterministicRNG:
         return rng.permutation(x)
 
     @contextmanager
-    def temporary_seed(self, seed: int):
+    def temporary_seed(self, seed: int) -> Generator[Any, None, None]:
         """
         Context manager for temporary seed override.
 
@@ -361,7 +362,7 @@ class RNGRegistry:
         val_rng = registry.get("validation")
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._registry: dict[str, DeterministicRNG] = {}
         self._lock = threading.RLock()
 
@@ -435,7 +436,7 @@ class RNGContext:
 
     _context_stack = threading.local()
 
-    def __init__(self, seed: int | None = None, parent: Optional["RNGContext"] = None):
+    def __init__(self, seed: int | None = None, parent: Optional["RNGContext"] = None) -> None:
         self._seed = seed
         self._parent = parent
         self._rng: DeterministicRNG | None = None
@@ -495,7 +496,7 @@ class ThreadSafeRNGManager:
     - State serialization for reproducibility across processes
     """
 
-    def __init__(self, default_seed: int = 42):
+    def __init__(self, default_seed: int = 42) -> None:
         self._default_seed = default_seed
         self._lock = threading.RLock()
         self._thread_local = threading.local()

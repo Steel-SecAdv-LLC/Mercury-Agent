@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Disaster Precursor Detector - Schumann Resonance + Multi-Source Correlation
@@ -84,7 +85,7 @@ class EarthquakePrecursorAnalyzer(nn.Module):
     Analyzes Schumann+seismic correlations for earthquake prediction.
     """
 
-    def __init__(self, input_dim: int = 128):
+    def __init__(self, input_dim: int = 128) -> None:
         super().__init__()
 
         self.em_feature_extractor = nn.Sequential(
@@ -135,7 +136,7 @@ class GeomageticCorrelator:
     Uses Kp, Dst, and other indices for disaster correlation.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
         self.kp_thresholds = {
@@ -225,11 +226,11 @@ class IonosphericDisturbanceDetector:
     Ionospheric changes can precede earthquakes and tsunamis.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def detect_ionospheric_disturbance(
-        self, schumann_data: dict[str, Any], tec_data: np.ndarray | None = None
+        self, schumann_data: dict[str, Any], tec_data: np.ndarray[Any, Any] | None = None
     ) -> dict[str, Any]:
         """
         Detect ionospheric disturbances.
@@ -279,11 +280,11 @@ class SeismicCorrelator:
     Cross-references Schumann anomalies with seismic patterns.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def correlate_seismic(
-        self, schumann_anomaly: dict[str, Any], seismic_data: np.ndarray | None = None
+        self, schumann_anomaly: dict[str, Any], seismic_data: np.ndarray[Any, Any] | None = None
     ) -> dict[str, Any]:
         """
         Correlate Schumann anomaly with seismic activity.
@@ -444,7 +445,7 @@ class DisasterPrecursorDetector:
 
         return result
 
-    def _predict_earthquake(self, em_features: np.ndarray) -> dict[str, Any]:
+    def _predict_earthquake(self, em_features: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Predict earthquake from EM features"""
 
         features_tensor = torch.tensor(em_features, dtype=torch.float32).unsqueeze(0)

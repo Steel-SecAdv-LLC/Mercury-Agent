@@ -15,6 +15,7 @@ References:
 """
 
 from __future__ import annotations
+from typing import Any
 
 import logging
 import zipfile
@@ -73,15 +74,15 @@ class UCRLoader(DatasetLoader):
         "SonyAIBORobotSurface2",
     ]
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.dataset_name = config.preprocessing.get("dataset_name", "ECG5000")
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw UCR data - redirects to load()."""
         return self.load()
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply UCR-specific preprocessing (z-normalization)."""
         mean = np.mean(data, axis=1, keepdims=True)
         std = np.std(data, axis=1, keepdims=True) + 1e-8
@@ -133,7 +134,7 @@ class UCRLoader(DatasetLoader):
 
         return False
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray, np.ndarray]:
+    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load UCR dataset."""
         dataset_path = self.data_path / self.dataset_name
 
@@ -175,8 +176,8 @@ class UCRLoader(DatasetLoader):
             return features, labels
 
     def convert_to_anomaly_labels(
-        self, labels: np.ndarray, anomaly_class: int | None = None
-    ) -> np.ndarray:
+        self, labels: np.ndarray[Any, Any], anomaly_class: int | None = None
+    ) -> np.ndarray[Any, Any]:
         """
         Convert classification labels to binary anomaly labels.
 
@@ -245,16 +246,16 @@ class MBALoader(DatasetLoader):
     # Fault types
     FAULT_TYPES = ["Normal", "Inner_Race", "Outer_Race", "Ball"]
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.fault_type = config.preprocessing.get("fault_type", "all")
         self.load_rpm = config.preprocessing.get("load_rpm", 1797)
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw MBA/CWRU data - redirects to load()."""
         return self.load()
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply MBA-specific preprocessing (z-normalization per window)."""
         mean = np.mean(data, axis=1, keepdims=True)
         std = np.std(data, axis=1, keepdims=True) + 1e-8
@@ -293,7 +294,7 @@ class MBALoader(DatasetLoader):
 
         return True
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray, np.ndarray]:
+    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load MBA/CWRU bearing data."""
         try:
             from scipy.io import loadmat
@@ -330,7 +331,7 @@ class MBALoader(DatasetLoader):
                 # Find the vibration data key
                 data_key = None
                 for key in mat_data:
-                    if not key.startswith("_") and isinstance(mat_data[key], np.ndarray):
+                    if not key.startswith("_") and isinstance(mat_data[key], np.ndarray[Any, Any]):
                         if mat_data[key].size > 1000:
                             data_key = key
                             break
@@ -401,17 +402,17 @@ class MSDSLoader(DatasetLoader):
     CITATION = """Multi-Source Data Stream synthetic benchmark."""
     REQUIRES_CREDENTIALS = False
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.n_sources = config.preprocessing.get("n_sources", 3)
         self.n_samples = config.preprocessing.get("n_samples", 10000)
         self.anomaly_ratio = config.preprocessing.get("anomaly_ratio", 0.05)
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw MSDS data - redirects to load()."""
         return self.load()
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply MSDS-specific preprocessing (z-normalization per feature)."""
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0) + 1e-8
@@ -483,7 +484,7 @@ class MSDSLoader(DatasetLoader):
         logger.info(f"Generated MSDS: {self.n_samples} samples, {total_features} features")
         return True
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray, np.ndarray]:
+    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load MSDS data."""
         data_file = self.data_path / "msds_data.npz"
 

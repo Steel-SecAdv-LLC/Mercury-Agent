@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Epidemic Forecasting using SEIR Model with Chaos Detection
@@ -53,7 +54,7 @@ class PandemicForecast:
     peak_infections: int
     peak_day: int
 
-    seir_trajectory: dict[str, np.ndarray]
+    seir_trajectory: dict[str, np.ndarray[Any, Any]]
     chaos_score: float
     bifurcation_detected: bool
 
@@ -76,7 +77,7 @@ class EpidemicForecaster:
     - Intervention recommendation (vaccination, quarantine, treatment)
     """
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         """
         Initialize epidemic forecaster.
 
@@ -215,7 +216,7 @@ class EpidemicForecaster:
         r0 = self.beta / (self.sigma + self.gamma)
         return float(r0)
 
-    def _detect_chaos(self, infected_trajectory: np.ndarray) -> float:
+    def _detect_chaos(self, infected_trajectory: np.ndarray[Any, Any]) -> float:
         """
         Detect chaos/bifurcations in infected trajectory.
 

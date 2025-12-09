@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Neuroscience Module - Cognitive pattern and neural anomaly detection
@@ -54,13 +55,13 @@ class NeuralThreat(Enum):
 class NeuroscienceDetector:
     """Detect neural and cognitive pattern anomalies."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.neural_baseline = {"mean": 50.0, "std": 15.0}
         self.cognitive_threshold = 0.7
 
     def detect(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         detection_type: str = "neural_activity",
         subject_context: dict | None = None,
     ) -> dict[str, Any]:
@@ -83,7 +84,7 @@ class NeuroscienceDetector:
             return self.detect_neural_activity_anomaly(data, subject_context)
 
     def detect_neural_activity_anomaly(
-        self, neural_data: np.ndarray, subject_context: dict | None = None
+        self, neural_data: np.ndarray[Any, Any], subject_context: dict | None = None
     ) -> dict[str, Any]:
         """Detect abnormal neural activity patterns."""
         if len(neural_data) == 0:
@@ -124,7 +125,7 @@ class NeuroscienceDetector:
         }
 
     def detect_cognitive_anomaly(
-        self, cognitive_data: np.ndarray, subject_context: dict | None = None
+        self, cognitive_data: np.ndarray[Any, Any], subject_context: dict | None = None
     ) -> dict[str, Any]:
         """Detect cognitive decline or attention deficits."""
         if len(cognitive_data) == 0:
@@ -152,7 +153,7 @@ class NeuroscienceDetector:
             "timestamp": datetime.now(),
         }
 
-    def _detect_seizure_patterns(self, neural_data: np.ndarray) -> float:
+    def _detect_seizure_patterns(self, neural_data: np.ndarray[Any, Any]) -> float:
         """Detect seizure-like patterns in neural activity."""
         if len(neural_data) < 10:
             return 0.0

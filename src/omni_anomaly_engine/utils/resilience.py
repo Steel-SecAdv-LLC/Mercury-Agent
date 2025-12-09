@@ -41,6 +41,7 @@ Example:
         while not shutdown.should_stop:
             process_work()
 """
+from __future__ import annotations
 
 import functools
 import logging
@@ -53,7 +54,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
-from typing import Any, TypeVar
+from typing import Any, TypeVar, Generator
 
 logger = logging.getLogger(__name__)
 
@@ -336,7 +337,7 @@ class GracefulShutdown:
             self._handlers.append(handler)
 
     @contextmanager
-    def track_request(self):
+    def track_request(self) -> Generator[Any, None, None]:
         """Context manager to track in-flight requests.
 
         Yields:
@@ -441,7 +442,7 @@ class Bulkhead:
         self._lock = threading.Lock()
 
     @contextmanager
-    def acquire(self, timeout: float | None = None):
+    def acquire(self, timeout: float | None = None) -> Generator[Any, None, None]:
         """Acquire a slot in the bulkhead.
 
         Args:

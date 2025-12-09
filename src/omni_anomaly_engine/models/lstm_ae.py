@@ -6,6 +6,8 @@ LSTM-Autoencoder for Time-Series Anomaly Detection
 
 A working anomaly detector that actually trains and detects.
 """
+from __future__ import annotations
+from typing import Any
 
 import os
 
@@ -133,7 +135,7 @@ class AnomalyDetector:
         self.threshold = None
         self.train_errors = None
 
-    def _create_sequences(self, data: np.ndarray) -> np.ndarray:
+    def _create_sequences(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Create overlapping sequences from data."""
         sequences = []
         for i in range(len(data) - self.seq_len + 1):
@@ -142,7 +144,7 @@ class AnomalyDetector:
 
     def fit(
         self,
-        train_data: np.ndarray,
+        train_data: np.ndarray[Any, Any],
         epochs: int = 50,
         batch_size: int = 64,
         lr: float = 0.001,
@@ -254,7 +256,7 @@ class AnomalyDetector:
 
         return history
 
-    def predict(self, data: np.ndarray) -> np.ndarray:
+    def predict(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Compute anomaly scores for data.
 
@@ -283,7 +285,7 @@ class AnomalyDetector:
         point_scores = point_scores / np.maximum(point_counts, 1)
         return point_scores
 
-    def detect(self, data: np.ndarray, threshold: float | None = None) -> np.ndarray:
+    def detect(self, data: np.ndarray[Any, Any], threshold: float | None = None) -> np.ndarray[Any, Any]:
         """
         Detect anomalies in data.
 
@@ -330,9 +332,9 @@ class AnomalyDetector:
 
 
 def evaluate_detector(
-    y_true: np.ndarray,
-    y_scores: np.ndarray,
-    y_pred: np.ndarray | None = None,
+    y_true: np.ndarray[Any, Any],
+    y_scores: np.ndarray[Any, Any],
+    y_pred: np.ndarray[Any, Any] | None = None,
 ) -> dict:
     """
     Evaluate anomaly detection performance.

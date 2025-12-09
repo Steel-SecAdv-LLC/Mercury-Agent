@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Ethical Constraint Engine - AI Fairness and Bias Detection Framework
@@ -176,7 +177,7 @@ class MaatBalanceEngine:
     BALANCE_THRESHOLD = 0.1
     MIN_ETHICAL_SCORE = 0.7
 
-    def __init__(self, strict_mode: bool = True):
+    def __init__(self, strict_mode: bool = True) -> None:
         """
         Initialize Ma'at Balance Engine.
 
@@ -376,7 +377,7 @@ class AthenaWisdomEngine:
 
     PHI = 1.618033988749895
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
         self.wisdom_weights = {
@@ -549,7 +550,7 @@ class SacredGeometryProcessor:
     PHI_INVERSE = 0.618033988749895
     SQRT_5 = 2.2360679774997896
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.fibonacci_sequence = self._generate_fibonacci(20)
 
@@ -561,7 +562,7 @@ class SacredGeometryProcessor:
         return fib
 
     def analyze_sacred_geometry(
-        self, data: np.ndarray, context: dict[str, Any] | None = None
+        self, data: np.ndarray[Any, Any], context: dict[str, Any] | None = None
     ) -> GeometryAnalysis:
         """
         Perform comprehensive sacred geometry analysis.
@@ -611,7 +612,7 @@ class SacredGeometryProcessor:
 
         return float(score)
 
-    def _compute_golden_ratio_alignment(self, data: np.ndarray) -> float:
+    def _compute_golden_ratio_alignment(self, data: np.ndarray[Any, Any]) -> float:
         """Compute golden ratio alignment score."""
         flat = data.flatten()
         if len(flat) < 2:
@@ -628,7 +629,7 @@ class SacredGeometryProcessor:
 
         return float(np.mean(alignments)) if alignments else 0.5
 
-    def _compute_fibonacci_spiral_score(self, data: np.ndarray) -> float:
+    def _compute_fibonacci_spiral_score(self, data: np.ndarray[Any, Any]) -> float:
         """Compute Fibonacci spiral alignment score."""
         flat = data.flatten()
 
@@ -640,7 +641,7 @@ class SacredGeometryProcessor:
 
         return float(np.clip(score * 5, 0.0, 1.0))
 
-    def _compute_vesica_piscis_score(self, data: np.ndarray) -> float:
+    def _compute_vesica_piscis_score(self, data: np.ndarray[Any, Any]) -> float:
         """
         Compute vesica piscis score.
 
@@ -663,7 +664,7 @@ class SacredGeometryProcessor:
 
         return float(np.mean(ratios)) if ratios else 0.5
 
-    def _compute_platonic_harmony(self, data: np.ndarray) -> float:
+    def _compute_platonic_harmony(self, data: np.ndarray[Any, Any]) -> float:
         """
         Compute Platonic solid harmony score.
 
@@ -742,7 +743,7 @@ class TwelveFoldVerificationSystem:
     PASSING_THRESHOLD = 0.7
     OVERALL_THRESHOLD = 0.75
 
-    def __init__(self, strict_mode: bool = False):
+    def __init__(self, strict_mode: bool = False) -> None:
         """
         Initialize Twelve-Fold Verification System.
 
@@ -881,7 +882,7 @@ class SacredWisdomEngine:
     Provides comprehensive ethical AI alignment with archetypal patterns.
     """
 
-    def __init__(self, strict_mode: bool = False):
+    def __init__(self, strict_mode: bool = False) -> None:
         """
         Initialize Sacred Wisdom Engine.
 
@@ -898,7 +899,7 @@ class SacredWisdomEngine:
 
     def comprehensive_analysis(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         ethical_scores: dict[str, float],
         performance_metrics: dict[str, float],
         knowledge_indicators: dict[str, float],
@@ -969,7 +970,7 @@ class SacredWisdomEngine:
 
     def archetypal_analysis(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
     ) -> ArchetypalAnalysis:
         """
@@ -1010,7 +1011,7 @@ class SacredWisdomEngine:
         )
 
     def sacred_geometric_analysis(
-        self, data: np.ndarray, context: dict[str, Any] | None = None
+        self, data: np.ndarray[Any, Any], context: dict[str, Any] | None = None
     ) -> GeometryAnalysis:
         """
         Perform sacred geometry analysis.

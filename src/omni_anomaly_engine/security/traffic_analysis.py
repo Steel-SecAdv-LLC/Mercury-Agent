@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Traffic Analysis Module - Network Flow & Communication Pattern Analysis
@@ -88,7 +89,7 @@ class NetworkFlowAnalyzer:
     Analyzes NetFlow/IPFIX data for anomalous patterns.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def analyze_flows(self, flow_data: list[dict[str, Any]]) -> dict[str, Any]:
@@ -151,14 +152,14 @@ class NetworkFlowAnalyzer:
             "suspicious_sources": self._identify_suspicious_sources(flows_per_src, ports_accessed),
         }
 
-    def _detect_port_scanning(self, flows_per_src: dict, ports_accessed: dict[str, set]) -> bool:
+    def _detect_port_scanning(self, flows_per_src: dict[str, Any], ports_accessed: dict[str, set]) -> bool:
         """Detect port scanning activity"""
         for src_ip, port_set in ports_accessed.items():
             if len(port_set) > 20 and flows_per_src[src_ip] > 50:
                 return True
         return False
 
-    def _detect_ddos(self, flows_per_dst: dict) -> bool:
+    def _detect_ddos(self, flows_per_dst: dict[str, Any]) -> bool:
         """Detect DDoS attack patterns"""
         if not flows_per_dst:
             return False
@@ -189,7 +190,7 @@ class NetworkFlowAnalyzer:
         return False
 
     def _identify_suspicious_sources(
-        self, flows_per_src: dict, ports_accessed: dict[str, set]
+        self, flows_per_src: dict[str, Any], ports_accessed: dict[str, set]
     ) -> list[str]:
         """Identify suspicious source IPs"""
         suspicious = []
@@ -208,7 +209,7 @@ class CommunicationGraphAnalyzer(nn.Module):
     Models network communications as a graph and detects anomalous patterns.
     """
 
-    def __init__(self, node_feature_dim: int = 64, hidden_dim: int = 128):
+    def __init__(self, node_feature_dim: int = 64, hidden_dim: int = 128) -> None:
         super().__init__()
 
         self.node_encoder = nn.Sequential(
@@ -253,7 +254,7 @@ class EncryptedTrafficFingerprinter:
     Identifies encrypted traffic patterns without decryption.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def fingerprint_tls(self, tls_handshake: dict[str, Any]) -> dict[str, Any]:
@@ -325,7 +326,7 @@ class CovertChannelDetector:
     Identifies hidden communication channels in seemingly benign protocols.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def detect_covert_channels(self, traffic_sample: dict[str, Any]) -> dict[str, Any]:
@@ -424,7 +425,7 @@ class CovertChannelDetector:
 
         return {"detected": detected, "confidence": 0.8 if detected else 0.0}
 
-    def _calculate_entropy(self, data: list) -> float:
+    def _calculate_entropy(self, data: list[Any]) -> float:
         """Calculate Shannon entropy of data"""
         if not data:
             return 0.0

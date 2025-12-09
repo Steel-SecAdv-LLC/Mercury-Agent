@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Security Intelligence Fusion Module
@@ -119,7 +120,7 @@ class AllSourceFusionNetwork(nn.Module):
     architecture optimization for optimal information synthesis.
     """
 
-    def __init__(self, input_dim: int = 128, num_int_types: int = 13):
+    def __init__(self, input_dim: int = 128, num_int_types: int = 13) -> None:
         super().__init__()
 
         phi = 1.618
@@ -484,7 +485,7 @@ class IntelligenceFusionEngine:
         return torch.tensor(temporal_features, dtype=torch.float32)
 
     def _identify_sources(
-        self, intel_reports: dict[str, Any], attention_weights: np.ndarray
+        self, intel_reports: dict[str, Any], attention_weights: np.ndarray[Any, Any]
     ) -> tuple[list[str], list[str]]:
         """Identify primary and corroborating intelligence sources"""
         source_scores = []

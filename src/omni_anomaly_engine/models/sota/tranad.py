@@ -107,7 +107,7 @@ class FocusScoreConditioning(nn.Module):
         temperature: Softmax temperature (lower = sharper focus)
     """
 
-    def __init__(self, input_dim: int, d_model: int = 256, temperature: float = 1.0):
+    def __init__(self, input_dim: int, d_model: int = 256, temperature: float = 1.0) -> None:
         super().__init__()
         self.input_dim = input_dim
         self.d_model = d_model
@@ -313,7 +313,7 @@ class TranADModel(nn.Module):
         config: TranADConfig with model parameters
     """
 
-    def __init__(self, config: TranADConfig | None = None):
+    def __init__(self, config: TranADConfig | None = None) -> None:
         super().__init__()
         self.config = config or TranADConfig()
 
@@ -482,7 +482,7 @@ class Discriminator(nn.Module):
     reconstruction quality through adversarial learning.
     """
 
-    def __init__(self, input_dim: int, hidden_dim: int = 256):
+    def __init__(self, input_dim: int, hidden_dim: int = 256) -> None:
         super().__init__()
 
         self.net = nn.Sequential(
@@ -770,7 +770,7 @@ class MAMLOptimizer:
 class PositionalEncoding(nn.Module):
     """Sinusoidal positional encoding."""
 
-    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
+    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000) -> None:
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
 

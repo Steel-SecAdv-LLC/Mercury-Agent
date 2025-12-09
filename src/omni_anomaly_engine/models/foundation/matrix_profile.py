@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Matrix Profile Integration using STUMPY
@@ -89,7 +90,7 @@ class MatrixProfileDetector(BaseFoundationModel):
         >>> motifs = results['motif_indices']
     """
 
-    def __init__(self, config: MatrixProfileConfig | dict[str, Any] | None = None):
+    def __init__(self, config: MatrixProfileConfig | dict[str, Any] | None = None) -> None:
         """Initialize Matrix Profile detector.
 
         Args:
@@ -144,9 +145,9 @@ class MatrixProfileDetector(BaseFoundationModel):
 
     def compute_matrix_profile(
         self,
-        series: np.ndarray,
+        series: np.ndarray[Any, Any],
         window_size: int | None = None,
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray[Any, Any]]:
         """Compute the Matrix Profile for a time series.
 
         Args:
@@ -188,7 +189,7 @@ class MatrixProfileDetector(BaseFoundationModel):
 
     def find_discords(
         self,
-        series_or_mp: np.ndarray | torch.Tensor,
+        series_or_mp: np.ndarray[Any, Any] | torch.Tensor,
         top_k: int | None = None,
         exclusion_zone: int | None = None,
     ) -> list[dict[str, Any]]:
@@ -256,10 +257,10 @@ class MatrixProfileDetector(BaseFoundationModel):
 
     def find_motifs(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
         top_k: int | None = None,
-        matrix_profile: np.ndarray | None = None,
-        profile_index: np.ndarray | None = None,
+        matrix_profile: np.ndarray[Any, Any] | None = None,
+        profile_index: np.ndarray[Any, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """Find motifs (repeated patterns) in the time series.
 
@@ -327,9 +328,9 @@ class MatrixProfileDetector(BaseFoundationModel):
 
     def forecast(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
         horizon: int | None = None,
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray[Any, Any]]:
         """Generate forecasts using motif-based prediction.
 
         Uses discovered motifs to predict future values based on
@@ -396,7 +397,7 @@ class MatrixProfileDetector(BaseFoundationModel):
 
     def detect_anomalies(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
         """Detect anomalies using Matrix Profile discords.
 
@@ -457,7 +458,7 @@ class MatrixProfileDetector(BaseFoundationModel):
 
     def detect(
         self,
-        series: np.ndarray | torch.Tensor,
+        series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
         """Detect anomalies in time series data.
 
@@ -474,9 +475,9 @@ class MatrixProfileDetector(BaseFoundationModel):
 
     def _mock_matrix_profile(
         self,
-        series: np.ndarray,
+        series: np.ndarray[Any, Any],
         window_size: int,
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray[Any, Any]]:
         """Mock Matrix Profile computation.
 
         Uses simple distance calculations as a fallback when

@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """
 Grey Wolf Optimizer for Feature Selection
@@ -59,8 +61,8 @@ class GreyWolfOptimizer:
         self.delta_score = float("inf")
 
     def optimize(
-        self, objective_func: Callable[[np.ndarray], float], lb: np.ndarray, ub: np.ndarray
-    ) -> tuple[np.ndarray, float]:
+        self, objective_func: Callable[[np.ndarray[Any, Any]], float], lb: np.ndarray[Any, Any], ub: np.ndarray[Any, Any]
+    ) -> tuple[np.ndarray[Any, Any], float]:
         """
         Optimize using GWO algorithm.
 
@@ -130,7 +132,7 @@ class GreyWolfOptimizer:
 
         return self.alpha_pos, self.alpha_score
 
-    def select_features(self, X: np.ndarray, y: np.ndarray, clf, n_features: int) -> np.ndarray:
+    def select_features(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any], clf, n_features: int) -> np.ndarray[Any, Any]:
         """
         Select optimal feature subset using GWO.
 

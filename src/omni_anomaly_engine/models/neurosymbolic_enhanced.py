@@ -27,6 +27,7 @@ Architecture:
     6. ProbabilisticLogicLayer - Credal networks for uncertainty
     7. EnhancedNeurosymbolicEngine - Unified interface
 """
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
@@ -624,7 +625,7 @@ class KnowledgeGraphBridge:
         "oReact",  # Others' reaction
     ]
 
-    def __init__(self, cache_dir: str = "./kg_cache"):
+    def __init__(self, cache_dir: str = "./kg_cache") -> None:
         self.cache_dir = cache_dir
         self.knowledge_base: list[CommonsenseRelation] = []
         self._concept_index: dict[str, list[int]] = {}
@@ -798,8 +799,8 @@ class MetaCognitionLayer:
 
     def assess_state(
         self,
-        predictions: np.ndarray,
-        ground_truth: np.ndarray | None = None,
+        predictions: np.ndarray[Any, Any],
+        ground_truth: np.ndarray[Any, Any] | None = None,
     ) -> ReasoningState:
         """Assess current reasoning state."""
         confidence = np.mean(np.abs(predictions - 0.5) * 2)
@@ -859,8 +860,8 @@ class MetaCognitionLayer:
 
     def quantify_uncertainty(
         self,
-        predictions: np.ndarray,
-        ensemble_predictions: list[np.ndarray] | None = None,
+        predictions: np.ndarray[Any, Any],
+        ensemble_predictions: list[np.ndarray[Any, Any]] | None = None,
     ) -> dict[str, float]:
         """Quantify different types of uncertainty."""
         # Aleatoric uncertainty (from prediction confidence)
@@ -907,7 +908,7 @@ class CausalReasoningModule:
     Based on Pearl's causal inference framework.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.causal_graph: dict[str, list[CausalEdge]] = {}
         self.variable_values: dict[str, float] = {}
 
@@ -1042,7 +1043,7 @@ class ProbabilisticLogicLayer:
     Based on Logical Credal Networks research.
     """
 
-    def __init__(self, default_uncertainty: float = 0.1):
+    def __init__(self, default_uncertainty: float = 0.1) -> None:
         self.default_uncertainty = default_uncertainty
         self.probability_bounds: dict[str, tuple[float, float]] = {}
 
@@ -1246,7 +1247,7 @@ class EnhancedNeurosymbolicEngine:
 
     def predict(
         self,
-        features: np.ndarray,
+        features: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
         timestamp: int = 0,
     ) -> dict[str, Any]:
@@ -1383,7 +1384,7 @@ class EnhancedNeurosymbolicEngine:
 
         return "\n".join(lines)
 
-    def extract_features(self, data: np.ndarray) -> np.ndarray:
+    def extract_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract neuro-symbolic features for detector integration."""
         if data.ndim == 1:
             data = data.reshape(1, -1)

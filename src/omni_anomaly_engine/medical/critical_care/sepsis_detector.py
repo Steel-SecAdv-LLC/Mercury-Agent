@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Sepsis Detector - Early Sepsis Detection & Septic Shock Prevention
@@ -87,7 +88,7 @@ class SOFACalculator:
     Quantifies organ dysfunction across 6 systems.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def calculate_sofa(self, patient_data: dict[str, Any]) -> dict[str, Any]:
@@ -247,7 +248,7 @@ class QuickSOFACalculator:
     3-point bedside tool for early identification.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def calculate_qsofa(self, vital_signs: dict[str, Any]) -> dict[str, Any]:
@@ -300,7 +301,7 @@ class SepsisProgressionPredictor(nn.Module):
     Predicts evolution from SIRS to septic shock using temporal patterns.
     """
 
-    def __init__(self, input_dim: int = 32, hidden_dim: int = 64):
+    def __init__(self, input_dim: int = 32, hidden_dim: int = 64) -> None:
         super().__init__()
 
         self.temporal_encoder = nn.LSTM(
@@ -367,7 +368,7 @@ class SepsisDetector:
     and temporal progression prediction.
     """
 
-    def __init__(self, enable_ml_prediction: bool = True):
+    def __init__(self, enable_ml_prediction: bool = True) -> None:
         self.enable_ml_prediction = enable_ml_prediction
 
         self.sofa_calculator = SOFACalculator()
@@ -446,7 +447,7 @@ class SepsisDetector:
 
         return result
 
-    def _predict_progression(self, temporal_sequence: np.ndarray) -> dict[str, Any]:
+    def _predict_progression(self, temporal_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Predict sepsis progression using ML model"""
         seq_tensor = torch.tensor(temporal_sequence, dtype=torch.float32).unsqueeze(0)
 

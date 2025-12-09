@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Unified Neurosymbolic Engine - Fusion of neural networks and symbolic reasoning
@@ -146,7 +147,7 @@ class LogicTensorNetwork:
     Implements fuzzy logic operations over neural network outputs.
     """
 
-    def __init__(self, input_dim: int, hidden_dim: int = 128):
+    def __init__(self, input_dim: int, hidden_dim: int = 128) -> None:
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
 
@@ -426,7 +427,7 @@ class NeurosymbolicEngine:
         self.facts.add(fact)
         logging.info(f"Added fact: {fact}")
 
-    def neural_inference(self, features: np.ndarray) -> float:
+    def neural_inference(self, features: np.ndarray[Any, Any]) -> float:
         """
         Perform neural inference on features.
 
@@ -543,7 +544,7 @@ class NeurosymbolicEngine:
             logging.error(f"Premise evaluation error: {e}")
             return False
 
-    def extract_features(self, data: np.ndarray) -> np.ndarray:
+    def extract_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract neurosymbolic features for anomaly detection."""
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -571,7 +572,7 @@ class NeurosymbolicEngine:
 
     def predict(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
         mode: ReasoningMode | None = None,
     ) -> dict[str, Any]:
@@ -645,7 +646,7 @@ class NeurosymbolicEngine:
 
     def hybrid_inference(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         context: dict[str, Any],
     ) -> ReasoningResult:
         """Perform hybrid neuro-symbolic inference on a single sample.

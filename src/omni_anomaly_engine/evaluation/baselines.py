@@ -24,6 +24,7 @@ Methods included:
 - TranAD (VLDB 2022)
 - Anomaly Transformer (ICLR 2022)
 """
+from __future__ import annotations
 
 from dataclasses import dataclass
 

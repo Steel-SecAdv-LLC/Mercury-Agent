@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 PatchCore: Towards Total Recall in Industrial Anomaly Detection
@@ -90,7 +91,7 @@ class PatchCoreDetector(BaseVisualDetector):
         >>> print(results['anomaly_maps'].shape)  # Pixel-level maps
     """
 
-    def __init__(self, config: PatchCoreConfig | dict[str, Any] | None = None):
+    def __init__(self, config: PatchCoreConfig | dict[str, Any] | None = None) -> None:
         """Initialize PatchCore detector.
 
         Args:
@@ -275,7 +276,7 @@ class PatchCoreDetector(BaseVisualDetector):
             )
             self._nn_index.fit(embeddings_np)
 
-    def _query_nn(self, query: torch.Tensor, k: int) -> tuple[np.ndarray, np.ndarray]:
+    def _query_nn(self, query: torch.Tensor, k: int) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Query k-nearest neighbors.
 
         Args:
@@ -300,7 +301,7 @@ class PatchCoreDetector(BaseVisualDetector):
         distances, indices = self._nn_index.kneighbors(query_np, n_neighbors=k)
         return distances, indices
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> "PatchCoreDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "PatchCoreDetector":
         """Fit detector by building memory bank from normal images.
 
         Args:
@@ -309,7 +310,7 @@ class PatchCoreDetector(BaseVisualDetector):
         Returns:
             Self for method chaining
         """
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray[Any, Any]):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)
@@ -354,7 +355,7 @@ class PatchCoreDetector(BaseVisualDetector):
         self._is_fitted = True
         return self
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies in images.
 
         Args:
@@ -370,7 +371,7 @@ class PatchCoreDetector(BaseVisualDetector):
         if not self._is_fitted:
             raise RuntimeError("Detector must be fitted before detection")
 
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray[Any, Any]):
             data = torch.from_numpy(data).float()
 
         original_size = data.shape[-2:]
@@ -467,7 +468,7 @@ class PatchCoreDetector(BaseVisualDetector):
 
         return image_scores, score_maps_smooth
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion pipeline.
 
         Args:
@@ -476,7 +477,7 @@ class PatchCoreDetector(BaseVisualDetector):
         Returns:
             Feature tensor [N, 128] normalized for fusion
         """
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray[Any, Any]):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)

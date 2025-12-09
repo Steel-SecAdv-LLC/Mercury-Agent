@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """Tests for Affective Anomaly Model."""
 
@@ -64,7 +66,7 @@ class TestFeatureExtraction:
         data = np.random.randn(10, 20)
         features = model.extract_features(data)
 
-        assert isinstance(features, np.ndarray)
+        assert isinstance(features, np.ndarray[Any, Any])
         assert features.dtype == np.float32
         assert features.shape == (10, 64)
 
@@ -73,7 +75,7 @@ class TestFeatureExtraction:
         data = np.random.randn(100)
         features = model.extract_features(data)
 
-        assert isinstance(features, np.ndarray)
+        assert isinstance(features, np.ndarray[Any, Any])
         assert features.shape == (1, 64)
 
     def test_extract_features_dict(self, model):
@@ -81,7 +83,7 @@ class TestFeatureExtraction:
         data = {"signal": np.random.randn(50)}
         features = model.extract_features(data)
 
-        assert isinstance(features, np.ndarray)
+        assert isinstance(features, np.ndarray[Any, Any])
         assert features.shape[1] == 64
 
     def test_extract_features_list(self, model):
@@ -89,7 +91,7 @@ class TestFeatureExtraction:
         data = [1.0, 2.0, 3.0, 4.0, 5.0]
         features = model.extract_features(data)
 
-        assert isinstance(features, np.ndarray)
+        assert isinstance(features, np.ndarray[Any, Any])
         assert features.shape == (1, 64)
 
     def test_extract_features_deterministic(self):

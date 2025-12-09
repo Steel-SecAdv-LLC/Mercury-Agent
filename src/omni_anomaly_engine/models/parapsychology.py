@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Parapsychology Discipline Module
@@ -112,7 +113,7 @@ class ConsciousnessFieldAnalyzer(nn.Module):
     pattern recognition for detecting deviations from randomness.
     """
 
-    def __init__(self, sequence_length: int = 100):
+    def __init__(self, sequence_length: int = 100) -> None:
         super().__init__()
 
         phi = 1.618
@@ -336,7 +337,7 @@ class ParapsychologyDetector:
         return PsiPhenomenon.TELEPATHY
 
     def _analyze_esp_trials(
-        self, results: np.ndarray, targets: np.ndarray
+        self, results: np.ndarray[Any, Any], targets: np.ndarray[Any, Any]
     ) -> tuple[float, float, float, float]:
         """
         Analyze ESP trial data (telepathy/clairvoyance/precognition).
@@ -360,7 +361,7 @@ class ParapsychologyDetector:
 
         return hit_rate, z_score, p_value, effect_size
 
-    def _analyze_reg_output(self, reg_output: np.ndarray) -> tuple[float, float, float, float]:
+    def _analyze_reg_output(self, reg_output: np.ndarray[Any, Any]) -> tuple[float, float, float, float]:
         """
         Analyze random event generator output for psychokinesis.
 
@@ -384,7 +385,7 @@ class ParapsychologyDetector:
         return variance_ratio, z_score, p_value, effect_size
 
     def _analyze_presentiment(
-        self, physiological_data: dict[str, np.ndarray]
+        self, physiological_data: dict[str, np.ndarray[Any, Any]]
     ) -> tuple[float, float, float]:
         """
         Analyze presentiment (pre-stimulus physiological response).
@@ -429,7 +430,7 @@ class ParapsychologyDetector:
 
         return (ci_lower, ci_upper)
 
-    def _analyze_field_coherence(self, reg_output: np.ndarray) -> float:
+    def _analyze_field_coherence(self, reg_output: np.ndarray[Any, Any]) -> float:
         """Analyze consciousness field coherence (GCP-style)"""
         if self.field_analyzer is None or len(reg_output) < 10:
             return 0.5
@@ -442,7 +443,7 @@ class ParapsychologyDetector:
 
         return float(coherence[0].item())
 
-    def _compare_with_control(self, experimental_data: dict, control_data: dict) -> dict[str, Any]:
+    def _compare_with_control(self, experimental_data: dict[str, Any], control_data: dict[str, Any]) -> dict[str, Any]:
         """Compare experimental condition with control"""
         comparison = {
             "control_p_value": None,
@@ -474,7 +475,7 @@ class ParapsychologyDetector:
 
         return comparison
 
-    def _analyze_temporal_patterns(self, experimental_data: dict) -> dict[str, Any]:
+    def _analyze_temporal_patterns(self, experimental_data: dict[str, Any]) -> dict[str, Any]:
         """Analyze temporal evolution of psi effects"""
         temporal = {"decline_effect": False, "trend": "stable"}
 
@@ -530,7 +531,7 @@ class ParapsychologyDetector:
         return recommendations[:6]
 
     def _correlate_consciousness_states(
-        self, experimental_data: dict, metadata: dict | None
+        self, experimental_data: dict[str, Any], metadata: dict | None
     ) -> dict[str, Any]:
         """Correlate results with consciousness states"""
         correlation = {"meditation_state": None, "group_coherence": None, "insights": []}

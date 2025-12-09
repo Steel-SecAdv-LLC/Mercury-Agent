@@ -33,6 +33,7 @@ Example:
             logger.info("Starting operation", correlation_id=corr_id)
             # All logs within this context will have the same correlation_id
 """
+from __future__ import annotations
 
 import json
 import logging
@@ -45,7 +46,7 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from functools import wraps
-from typing import Any
+from typing import Any, Generator
 
 # Thread-local storage for correlation IDs
 _correlation_context = threading.local()
@@ -268,10 +269,10 @@ class PerformanceLogger:
         """
         self.component = component
         self.logger = logger or logging.getLogger(f"omni_anomaly_engine.perf.{component}")
-        self._metrics: dict[str, list] = {}
+        self._metrics: dict[str, list[Any]] = {}
 
     @contextmanager
-    def measure(self, operation: str):
+    def measure(self, operation: str) -> Generator[Any, None, None]:
         """Context manager to measure operation duration.
 
         Args:
@@ -353,7 +354,7 @@ def set_correlation_id(correlation_id: str) -> None:
 
 
 @contextmanager
-def correlation_context(correlation_id: str | None = None):
+def correlation_context(correlation_id: str | None = None) -> Generator[Any, None, None]:
     """Context manager for correlation ID tracking.
 
     This context manager sets a correlation ID for all log messages
@@ -491,7 +492,7 @@ def log_function_call(logger: logging.Logger | None = None):
         ...     return transformed_data
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         nonlocal logger
         if logger is None:
             logger = logging.getLogger(func.__module__)

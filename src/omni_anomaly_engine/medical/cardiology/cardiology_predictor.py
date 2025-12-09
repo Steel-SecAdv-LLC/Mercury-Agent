@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Cardiology Predictor - Cardiovascular Disease Detection & Risk Assessment
@@ -94,7 +95,7 @@ class ECGRhythmAnalyzer(nn.Module):
     Architecture inspired by PTB-XL and MIT-BIH research.
     """
 
-    def __init__(self, input_length: int = 1000, num_leads: int = 12, num_classes: int = 13):
+    def __init__(self, input_length: int = 1000, num_leads: int = 12, num_classes: int = 13) -> None:
         super().__init__()
 
         self.conv_layers = nn.Sequential(
@@ -162,7 +163,7 @@ class CardiacBiomarkerAnalyzer:
     Analyzes troponin, BNP, CK-MB, and other cardiac markers.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
         self.normal_ranges = {
@@ -257,7 +258,7 @@ class FraminghamRiskCalculator:
     Framingham Risk Score calculator for 10-year CVD risk.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def calculate_risk(self, patient_data: dict[str, Any]) -> dict[str, Any]:
@@ -515,7 +516,7 @@ class CardiologyPredictor:
     biomarker detection, and risk stratification.
     """
 
-    def __init__(self, enable_ecg: bool = True, enable_biomarkers: bool = True):
+    def __init__(self, enable_ecg: bool = True, enable_biomarkers: bool = True) -> None:
         self.enable_ecg = enable_ecg
         self.enable_biomarkers = enable_biomarkers
 
@@ -588,7 +589,7 @@ class CardiologyPredictor:
 
         return result
 
-    def _analyze_ecg(self, ecg_signal: np.ndarray) -> dict[str, Any]:
+    def _analyze_ecg(self, ecg_signal: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Analyze ECG signal for arrhythmias"""
         ecg_tensor = torch.tensor(ecg_signal, dtype=torch.float32).unsqueeze(0)
 

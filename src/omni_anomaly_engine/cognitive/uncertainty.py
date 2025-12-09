@@ -7,6 +7,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
+from __future__ import annotations
 
 """
 Uncertainty Quantification Module - Production Implementation
@@ -137,7 +138,7 @@ class MCDropoutWrapper:
     Based on Gal & Ghahramani (2016).
     """
 
-    def __init__(self, model: Any, dropout_rate: float = 0.1):
+    def __init__(self, model: Any, dropout_rate: float = 0.1) -> None:
         """
         Args:
             model: PyTorch model with dropout layers
@@ -172,7 +173,7 @@ class MCDropoutWrapper:
         self,
         x: Any,
         n_samples: int = 30,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Generate predictions with MC Dropout uncertainty.
 
@@ -215,14 +216,14 @@ class TemperatureScaler:
     Based on Guo et al. (2017).
     """
 
-    def __init__(self, init_temperature: float = 1.5):
+    def __init__(self, init_temperature: float = 1.5) -> None:
         self.temperature = init_temperature
         self._fitted = False
 
     def fit(
         self,
-        logits: np.ndarray,
-        labels: np.ndarray,
+        logits: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any],
         max_iter: int = 100,
     ) -> float:
         """
@@ -268,11 +269,11 @@ class TemperatureScaler:
         logger.info(f"Temperature scaling: T={self.temperature:.4f}")
         return self.temperature
 
-    def scale(self, logits: np.ndarray) -> np.ndarray:
+    def scale(self, logits: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply temperature scaling to logits."""
         return logits / self.temperature
 
-    def calibrated_probs(self, logits: np.ndarray) -> np.ndarray:
+    def calibrated_probs(self, logits: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Get calibrated probabilities."""
         scaled = self.scale(logits)
         # Softmax
@@ -399,20 +400,20 @@ class HeteroscedasticEstimator:
     Based on Kendall & Gal (2017).
     """
 
-    def __init__(self, window_size: int = 50, min_samples: int = 10):
+    def __init__(self, window_size: int = 50, min_samples: int = 10) -> None:
         self.window_size = window_size
         self.min_samples = min_samples
         self._residuals: deque = deque(maxlen=1000)
         self._features: deque = deque(maxlen=1000)
 
-    def update(self, prediction: float, true_value: float, features: np.ndarray | None = None):
+    def update(self, prediction: float, true_value: float, features: np.ndarray[Any, Any] | None = None):
         """Store residual for variance estimation."""
         residual = true_value - prediction
         self._residuals.append(residual)
         if features is not None:
             self._features.append(features.flatten()[:10])  # Store first 10 features
 
-    def estimate_variance(self, features: np.ndarray | None = None) -> float:
+    def estimate_variance(self, features: np.ndarray[Any, Any] | None = None) -> float:
         """
         Estimate aleatoric variance, optionally conditioned on features.
 
@@ -515,7 +516,7 @@ class UncertaintyQuantifier:
         self._predictions: deque = deque(maxlen=5000)
         self._confidences: deque = deque(maxlen=5000)
         self._outcomes: deque = deque(maxlen=5000)
-        self._logits_history: list[np.ndarray] = []
+        self._logits_history: list[np.ndarray[Any, Any]] = []
         self._labels_history: list[int] = []
 
         # Statistics
@@ -535,9 +536,9 @@ class UncertaintyQuantifier:
 
     def estimate_uncertainty(
         self,
-        predictions: np.ndarray,
-        prediction_function: Callable[[np.ndarray], np.ndarray] | None = None,
-        input_data: np.ndarray | None = None,
+        predictions: np.ndarray[Any, Any],
+        prediction_function: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]] | None = None,
+        input_data: np.ndarray[Any, Any] | None = None,
         model: Any = None,
         return_samples: bool = False,
     ) -> UncertaintyEstimate:
@@ -568,7 +569,7 @@ class UncertaintyQuantifier:
             # Use MC Dropout wrapper for PyTorch models
             wrapper = MCDropoutWrapper(model)
             try:
-                if isinstance(input_data, np.ndarray):
+                if isinstance(input_data, np.ndarray[Any, Any]):
                     input_tensor = torch.FloatTensor(input_data)
                 else:
                     input_tensor = input_data
@@ -682,8 +683,8 @@ class UncertaintyQuantifier:
 
     def estimate_epistemic(
         self,
-        prediction_function: Callable[[np.ndarray], np.ndarray],
-        input_data: np.ndarray,
+        prediction_function: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]],
+        input_data: np.ndarray[Any, Any],
         n_samples: int | None = None,
     ) -> float:
         """
@@ -703,8 +704,8 @@ class UncertaintyQuantifier:
 
     def estimate_aleatoric(
         self,
-        data: np.ndarray,
-        features: np.ndarray | None = None,
+        data: np.ndarray[Any, Any],
+        features: np.ndarray[Any, Any] | None = None,
     ) -> float:
         """
         Estimate aleatoric uncertainty (heteroscedastic if features provided).
@@ -722,10 +723,10 @@ class UncertaintyQuantifier:
 
     def calibrate(
         self,
-        predictions: np.ndarray,
-        confidences: np.ndarray,
-        outcomes: np.ndarray,
-        logits: np.ndarray | None = None,
+        predictions: np.ndarray[Any, Any],
+        confidences: np.ndarray[Any, Any],
+        outcomes: np.ndarray[Any, Any],
+        logits: np.ndarray[Any, Any] | None = None,
     ) -> CalibrationResult:
         """
         Assess calibration and optionally fit temperature scaling.
@@ -899,7 +900,7 @@ class UncertaintyQuantifier:
 
     def decompose_uncertainty(
         self,
-        predictions_ensemble: np.ndarray,
+        predictions_ensemble: np.ndarray[Any, Any],
     ) -> dict[str, float]:
         """
         Decompose total uncertainty into epistemic and aleatoric.
@@ -946,7 +947,7 @@ class UncertaintyQuantifier:
 
     def conformal_prediction(
         self,
-        calibration_scores: np.ndarray,
+        calibration_scores: np.ndarray[Any, Any],
         test_score: float,
         alpha: float = 0.1,
     ) -> dict[str, Any]:
@@ -992,7 +993,7 @@ class UncertaintyQuantifier:
         prediction: float,
         confidence: float,
         true_value: float | bool,
-        features: np.ndarray | None = None,
+        features: np.ndarray[Any, Any] | None = None,
     ):
         """
         Update calibration and heteroscedastic estimates with observed outcome.
@@ -1023,10 +1024,10 @@ class UncertaintyQuantifier:
 
     def _monte_carlo_sampling(
         self,
-        prediction_function: Callable,
-        input_data: np.ndarray,
+        prediction_function: Callable[..., Any],
+        input_data: np.ndarray[Any, Any],
         n_samples: int,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Generate Monte Carlo samples."""
         samples = []
         for i in range(n_samples):
@@ -1035,7 +1036,7 @@ class UncertaintyQuantifier:
                 # (In real MC Dropout, this comes from dropout layers)
                 noisy_input = input_data + np.random.randn(*input_data.shape) * 0.01
                 pred = prediction_function(noisy_input)
-                if isinstance(pred, np.ndarray):
+                if isinstance(pred, np.ndarray[Any, Any]):
                     samples.append(pred.flatten())
                 else:
                     samples.append(np.array([pred]).flatten())
@@ -1050,7 +1051,7 @@ class UncertaintyQuantifier:
 
         return np.array(samples)
 
-    def _estimate_aleatoric_from_predictions(self, predictions: np.ndarray) -> float:
+    def _estimate_aleatoric_from_predictions(self, predictions: np.ndarray[Any, Any]) -> float:
         """Estimate aleatoric from prediction spread."""
         if predictions.ndim == 1 or predictions.shape[0] == 1:
             return 0.1  # Default
@@ -1062,7 +1063,7 @@ class UncertaintyQuantifier:
         # Scale to variance-like quantity
         return float((iqr / 1.35) ** 2)
 
-    def _compute_predictive_entropy(self, predictions: np.ndarray) -> float:
+    def _compute_predictive_entropy(self, predictions: np.ndarray[Any, Any]) -> float:
         """Compute predictive entropy H[y|x, D]."""
         # Average prediction
         mean_pred = predictions.mean(axis=0)
@@ -1073,7 +1074,7 @@ class UncertaintyQuantifier:
 
         return float(np.mean(entropy))
 
-    def _compute_expected_entropy(self, predictions: np.ndarray) -> float:
+    def _compute_expected_entropy(self, predictions: np.ndarray[Any, Any]) -> float:
         """Compute expected entropy E[H[y|x, theta]]."""
         # Entropy of each MC sample
         predictions = np.clip(predictions, 1e-10, 1 - 1e-10)

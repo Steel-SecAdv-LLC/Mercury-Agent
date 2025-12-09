@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Quantum-inspired anomaly detection model with real quantum algorithms.
@@ -28,12 +29,12 @@ import numpy as np
 class QuantumAnomalyModel:
     """Quantum-inspired anomaly detection using quantum state representations."""
 
-    def __init__(self, config: dict[str, Any] | None = None, **kwargs):
+    def __init__(self, config: dict[str, Any] | None = None, **kwargs) -> None:
         self.config = config or {}
         self.num_qubits = self.config.get("num_qubits", 8)
         self.entanglement_strength = self.config.get("entanglement_strength", 0.3)
 
-    def _create_quantum_state(self, data: np.ndarray) -> np.ndarray:
+    def _create_quantum_state(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Create quantum superposition state from classical data."""
         norm = np.linalg.norm(data, axis=-1, keepdims=True)
         normalized = data / (norm + 1e-8)
@@ -43,7 +44,7 @@ class QuantumAnomalyModel:
 
         return amplitudes * phases
 
-    def _measure_entanglement(self, state: np.ndarray) -> float:
+    def _measure_entanglement(self, state: np.ndarray[Any, Any]) -> float:
         """Measure quantum entanglement in state using von Neumann entropy."""
         density_matrix = np.outer(state, np.conj(state))
         eigenvalues = np.linalg.eigvalsh(density_matrix)
@@ -51,11 +52,11 @@ class QuantumAnomalyModel:
         entropy = -np.sum(eigenvalues * np.log2(eigenvalues + 1e-10))
         return float(entropy)
 
-    def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
+    def extract_features(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> np.ndarray[Any, Any]:
         """Extract quantum-inspired features from data."""
         if isinstance(data, dict):
             data = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray):
+        elif not isinstance(data, np.ndarray[Any, Any]):
             data = np.array(data)
 
         if data.ndim == 1:
@@ -92,7 +93,7 @@ class QuantumAnomalyModel:
 
         return features
 
-    def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
+    def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
         """Predict anomalies using quantum state analysis."""
         features = self.extract_features(data)
 

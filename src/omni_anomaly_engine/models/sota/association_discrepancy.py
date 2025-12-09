@@ -86,7 +86,7 @@ class PriorAssociation(nn.Module):
         window_size: Maximum context window size
     """
 
-    def __init__(self, sigma: float = 1.0, window_size: int = 100):
+    def __init__(self, sigma: float = 1.0, window_size: int = 100) -> None:
         super().__init__()
         self.sigma = sigma
         self.window_size = window_size
@@ -146,7 +146,7 @@ class SeriesAssociation(nn.Module):
         dropout: Dropout rate
     """
 
-    def __init__(self, d_model: int = 512, n_heads: int = 8, dropout: float = 0.1):
+    def __init__(self, d_model: int = 512, n_heads: int = 8, dropout: float = 0.1) -> None:
         super().__init__()
         self.d_model = d_model
         self.n_heads = n_heads
@@ -227,7 +227,7 @@ class AssociationDiscrepancyModule(nn.Module):
         config: AssociationConfig with model parameters
     """
 
-    def __init__(self, config: AssociationConfig | None = None):
+    def __init__(self, config: AssociationConfig | None = None) -> None:
         super().__init__()
         self.config = config or AssociationConfig()
 
@@ -513,7 +513,7 @@ class AnomalyTransformerEncoderLayer(nn.Module):
     Architecture: AssocDiscrepancy → Add&Norm → FFN → Add&Norm
     """
 
-    def __init__(self, config: AssociationConfig):
+    def __init__(self, config: AssociationConfig) -> None:
         super().__init__()
 
         self.assoc_discrepancy = AssociationDiscrepancyModule(config)
@@ -558,7 +558,7 @@ class AnomalyTransformerEncoderLayer(nn.Module):
 class PositionalEncoding(nn.Module):
     """Sinusoidal positional encoding for sequence position information."""
 
-    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
+    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000) -> None:
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
 
@@ -593,7 +593,7 @@ class AssociationDiscrepancyLoss(nn.Module):
         reconstruction_weight: Weight for reconstruction loss
     """
 
-    def __init__(self, lambda_: float = 3.0, reconstruction_weight: float = 1.0):
+    def __init__(self, lambda_: float = 3.0, reconstruction_weight: float = 1.0) -> None:
         super().__init__()
         self.lambda_ = lambda_
         self.reconstruction_weight = reconstruction_weight

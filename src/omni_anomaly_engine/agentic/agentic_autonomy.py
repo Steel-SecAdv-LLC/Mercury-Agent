@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """
 Agentic AI Autonomy Module
@@ -63,7 +65,7 @@ class AgenticAutonomy:
     minimal human oversight, inspired by Bain's agentic AI vision.
     """
 
-    def __init__(self, autonomy_level: float = 0.8):
+    def __init__(self, autonomy_level: float = 0.8) -> None:
         """
         Initialize agentic autonomy system.
 
@@ -75,7 +77,7 @@ class AgenticAutonomy:
         self.action_history: list[AgentAction] = []
         self.decision_threshold = 1.0 - autonomy_level
 
-    def autonomous_detect(self, data: np.ndarray, context: dict | None = None) -> dict:
+    def autonomous_detect(self, data: np.ndarray[Any, Any], context: dict | None = None) -> dict:
         """
         Autonomously detect anomalies with minimal human oversight.
 
@@ -114,16 +116,16 @@ class AgenticAutonomy:
             "human_oversight_needed": bool(anomaly_score < self.decision_threshold),
         }
 
-    def _observe_patterns(self, data: np.ndarray) -> dict:
+    def _observe_patterns(self, data: np.ndarray[Any, Any]) -> dict:
         """Observe patterns in data."""
         return {"mean": np.mean(data), "std": np.std(data), "trend": self._detect_trend(data)}
 
-    def _analyze_anomalies(self, observations: dict) -> float:
+    def _analyze_anomalies(self, observations: dict[str, Any]) -> float:
         """Analyze observations for anomalies."""
         score = abs(observations["mean"]) / (observations["std"] + 1e-8)
         return min(score / 10.0, 1.0)
 
-    def _decide_action(self, anomaly_score: float, observations: dict) -> AgentAction:
+    def _decide_action(self, anomaly_score: float, observations: dict[str, Any]) -> AgentAction:
         """Decide what action to take."""
         return AgentAction(
             action_type="flag_anomaly",
@@ -136,7 +138,7 @@ class AgenticAutonomy:
         """Learn from action outcomes (placeholder for reinforcement learning)."""
         pass
 
-    def _detect_trend(self, data: np.ndarray) -> str:
+    def _detect_trend(self, data: np.ndarray[Any, Any]) -> str:
         """Detect trend in data."""
         flat_data = data.flatten()
         if len(flat_data) < 2:
@@ -148,7 +150,7 @@ class AgenticAutonomy:
             return "decreasing"
         return "stable"
 
-    def execute_workflow(self, workflow_definition: dict, input_data: np.ndarray) -> dict:
+    def execute_workflow(self, workflow_definition: dict[str, Any], input_data: np.ndarray[Any, Any]) -> dict:
         """
         Execute complete workflow autonomously.
 
@@ -254,7 +256,7 @@ class AgenticAutonomy:
 
         return workflow_results
 
-    def _apply_transformation(self, data: np.ndarray, transformation: str) -> np.ndarray:
+    def _apply_transformation(self, data: np.ndarray[Any, Any], transformation: str) -> np.ndarray[Any, Any]:
         """Apply data transformation."""
         if transformation == "normalize":
             return (data - np.mean(data)) / (np.std(data) + 1e-8)
@@ -263,7 +265,7 @@ class AgenticAutonomy:
         else:
             return data
 
-    def _evaluate_condition(self, data: np.ndarray, condition: dict) -> bool:
+    def _evaluate_condition(self, data: np.ndarray[Any, Any], condition: dict[str, Any]) -> bool:
         """Evaluate decision condition."""
         metric = condition.get("metric", "mean")
         operator = condition.get("operator", ">")
@@ -287,7 +289,7 @@ class AgenticAutonomy:
         else:
             return False
 
-    def _execute_action(self, action_type: str, data: np.ndarray) -> dict:
+    def _execute_action(self, action_type: str, data: np.ndarray[Any, Any]) -> dict:
         """Execute workflow action."""
         if action_type == "log":
             return {"logged": True, "data_summary": f"mean={np.mean(data):.3f}"}
@@ -298,7 +300,7 @@ class AgenticAutonomy:
         else:
             return {"action": action_type, "status": "unknown"}
 
-    def _learn_from_workflow(self, workflow_results: dict):
+    def _learn_from_workflow(self, workflow_results: dict[str, Any]):
         """Learn from workflow execution outcomes."""
         pass
 

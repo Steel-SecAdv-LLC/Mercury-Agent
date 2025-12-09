@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Superintelligence Bootstrap Module
@@ -192,7 +193,7 @@ class SelfPlaySimulator:
     scenarios and discover improvements.
     """
 
-    def __init__(self, num_agents: int = 5):
+    def __init__(self, num_agents: int = 5) -> None:
         """
         Initialize self-play simulator.
 
@@ -582,7 +583,7 @@ class ChainOfThoughtReasoner:
     with full transparency and explainability.
     """
 
-    def __init__(self, max_steps: int = 10):
+    def __init__(self, max_steps: int = 10) -> None:
         """
         Initialize chain-of-thought reasoner.
 
@@ -752,7 +753,7 @@ class CounterfactualSimulator:
     of alternative actions or conditions.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize counterfactual simulator."""
         self._simulation_counter = 0
 
@@ -873,7 +874,7 @@ class TheoryOfMind:
     observed behaviors and interactions.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize theory of mind engine."""
         self._inference_counter = 0
 
@@ -1001,7 +1002,7 @@ class CuriosityEngine:
     for further investigation.
     """
 
-    def __init__(self, novelty_threshold: float = 0.7):
+    def __init__(self, novelty_threshold: float = 0.7) -> None:
         """
         Initialize curiosity engine.
 

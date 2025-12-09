@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Neuro-Symbolic Fusion Engine - Hybrid Anomaly Scoring
@@ -148,7 +149,7 @@ class AttentionMechanism:
     Learns to weight neural vs symbolic contributions based on context.
     """
 
-    def __init__(self, hidden_dim: int = 32):
+    def __init__(self, hidden_dim: int = 32) -> None:
         """
         Initialize attention mechanism.
 
@@ -163,8 +164,8 @@ class AttentionMechanism:
 
     def compute_attention(
         self,
-        neural_features: np.ndarray,
-        symbolic_features: np.ndarray,
+        neural_features: np.ndarray[Any, Any],
+        symbolic_features: np.ndarray[Any, Any],
     ) -> tuple[float, float]:
         """
         Compute attention weights for neural and symbolic components.
@@ -194,7 +195,7 @@ class AttentionMechanism:
 
         return float(neural_weight), float(symbolic_weight)
 
-    def _pad_or_truncate(self, arr: np.ndarray, target_len: int) -> np.ndarray:
+    def _pad_or_truncate(self, arr: np.ndarray[Any, Any], target_len: int) -> np.ndarray[Any, Any]:
         """Pad or truncate array to target length."""
         if len(arr) >= target_len:
             return arr[:target_len]
@@ -208,7 +209,7 @@ class GatedFusion:
     Uses learned gates to control information flow between components.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize gated fusion."""
         self.gate_bias = 0.5
 
@@ -567,7 +568,7 @@ class NeurosymbolicFusionEngine:
     def _extract_values_from_neural(
         self,
         neural_analysis: dict[str, Any],
-        neural_features: np.ndarray,
+        neural_features: np.ndarray[Any, Any],
     ) -> dict[str, float]:
         """Extract numeric values from neural analysis."""
         values = {}
@@ -602,8 +603,8 @@ class NeurosymbolicFusionEngine:
         self,
         neural_analysis: dict[str, Any],
         symbolic_decision: ExplainableDecision,
-        neural_features: np.ndarray,
-        symbolic_features: np.ndarray,
+        neural_features: np.ndarray[Any, Any],
+        symbolic_features: np.ndarray[Any, Any],
     ) -> list[HybridAnomalyScore]:
         """Compute hybrid anomaly scores for detected patterns."""
         scores = []
@@ -694,8 +695,8 @@ class NeurosymbolicFusionEngine:
     def _compute_overall_score(
         self,
         anomaly_scores: list[HybridAnomalyScore],
-        neural_features: np.ndarray,
-        symbolic_features: np.ndarray,
+        neural_features: np.ndarray[Any, Any],
+        symbolic_features: np.ndarray[Any, Any],
     ) -> tuple[float, float]:
         """Compute overall anomaly score and confidence."""
         if not anomaly_scores:
@@ -713,8 +714,8 @@ class NeurosymbolicFusionEngine:
 
     def _compute_contributions(
         self,
-        neural_features: np.ndarray,
-        symbolic_features: np.ndarray,
+        neural_features: np.ndarray[Any, Any],
+        symbolic_features: np.ndarray[Any, Any],
     ) -> tuple[float, float]:
         """Compute neural and symbolic contributions."""
         neural_magnitude = float(np.linalg.norm(neural_features))

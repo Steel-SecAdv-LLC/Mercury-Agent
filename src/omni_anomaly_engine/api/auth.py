@@ -28,6 +28,7 @@ Example:
         async def admin_endpoint(user: User = Depends(JWTAuth())):
             return {"user": user.username}
 """
+from __future__ import annotations
 
 import hashlib
 import logging
@@ -138,7 +139,7 @@ class APIKey:
 class AuthenticationError(Exception):
     """Authentication failed."""
 
-    def __init__(self, message: str, code: str = "auth_failed"):
+    def __init__(self, message: str, code: str = "auth_failed") -> None:
         super().__init__(message)
         self.code = code
 
@@ -146,7 +147,7 @@ class AuthenticationError(Exception):
 class AuthorizationError(Exception):
     """Authorization failed."""
 
-    def __init__(self, message: str, required: str | None = None):
+    def __init__(self, message: str, required: str | None = None) -> None:
         super().__init__(message)
         self.required = required
 
@@ -680,7 +681,7 @@ def get_rate_limiter() -> RateLimiter:
     return _rate_limiter
 
 
-def require_permission(permission: Permission) -> Callable:
+def require_permission(permission: Permission) -> Callable[..., Any]:
     """Decorator to require specific permission.
 
     Args:
@@ -690,7 +691,7 @@ def require_permission(permission: Permission) -> Callable:
         Decorator function.
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             request = kwargs.get("request")
@@ -708,7 +709,7 @@ def require_permission(permission: Permission) -> Callable:
     return decorator
 
 
-def require_role(role: str) -> Callable:
+def require_role(role: str) -> Callable[..., Any]:
     """Decorator to require specific role.
 
     Args:
@@ -718,7 +719,7 @@ def require_role(role: str) -> Callable:
         Decorator function.
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             request = kwargs.get("request")
@@ -738,7 +739,7 @@ def require_role(role: str) -> Callable:
 
 async def rate_limit_middleware(
     request: Request,
-    call_next: Callable,
+    call_next: Callable[..., Any],
 ) -> Any:
     """Rate limiting middleware.
 

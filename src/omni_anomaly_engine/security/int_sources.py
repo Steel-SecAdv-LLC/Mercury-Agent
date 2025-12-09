@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Intelligence Source Sub-Modules
@@ -46,7 +47,15 @@ professionals.
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
+
+
+class IntelligenceProcessor(Protocol):
+    """Protocol for intelligence processors."""
+
+    def analyze(self, data: dict[str, Any]) -> Any:
+        """Analyze intelligence data."""
+        ...
 
 
 @dataclass
@@ -70,7 +79,7 @@ class OSINTProcessor:
     publications, and open databases for threat indicators and anomalies.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.source_reliability = {
             "mainstream_media": 0.85,
@@ -109,7 +118,7 @@ class OSINTProcessor:
             temporal_trends=trends,
         )
 
-    def _assess_information_quality(self, content: str, data: dict) -> float:
+    def _assess_information_quality(self, content: str, data: dict[str, Any]) -> float:
         """Assess quality of information"""
         quality_score = 0.5
 
@@ -124,12 +133,12 @@ class OSINTProcessor:
 
         return min(1.0, quality_score)
 
-    def _check_corroboration(self, data: dict) -> float:
+    def _check_corroboration(self, data: dict[str, Any]) -> float:
         """Check for corroborating sources"""
-        num_corroborating = data.get("corroborating_sources", 0)
+        num_corroborating = float(data.get("corroborating_sources", 0))
         return min(1.0, num_corroborating / 5.0)
 
-    def _detect_anomalies(self, content: str, data: dict) -> list[str]:
+    def _detect_anomalies(self, content: str, data: dict[str, Any]) -> list[str]:
         """Detect anomalous patterns"""
         anomalies = []
 
@@ -168,7 +177,7 @@ class OSINTProcessor:
         capitalized = [w for w in words if w and w[0].isupper() and len(w) > 2]
         return capitalized[:20]
 
-    def _analyze_temporal_trends(self, data: dict) -> dict[str, Any]:
+    def _analyze_temporal_trends(self, data: dict[str, Any]) -> dict[str, Any]:
         """Analyze temporal posting patterns"""
         return {
             "posting_frequency": data.get("posting_frequency", 0.0),
@@ -199,7 +208,7 @@ class COMINTProcessor:
     and threat indicators.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, comint_data: dict[str, Any]) -> COMINTAnalysisResult:
@@ -227,22 +236,22 @@ class COMINTProcessor:
             communication_type=comint_data.get("communication_type"),
         )
 
-    def _assess_intercept_quality(self, data: dict) -> float:
+    def _assess_intercept_quality(self, data: dict[str, Any]) -> float:
         """Assess quality of intercept"""
-        signal_strength = data.get("signal_strength", 0.5)
-        clarity = data.get("audio_clarity", 0.5)
-        completeness = data.get("message_completeness", 0.5)
+        signal_strength = float(data.get("signal_strength", 0.5))
+        clarity = float(data.get("audio_clarity", 0.5))
+        completeness = float(data.get("message_completeness", 0.5))
 
         return (signal_strength + clarity + completeness) / 3.0
 
-    def _analyze_communication_patterns(self, data: dict) -> float:
+    def _analyze_communication_patterns(self, data: dict[str, Any]) -> float:
         """Analyze communication patterns"""
-        frequency = data.get("communication_frequency", 0.0)
-        regularity = data.get("temporal_regularity", 0.5)
+        frequency = float(data.get("communication_frequency", 0.0))
+        regularity = float(data.get("temporal_regularity", 0.5))
 
         return min(1.0, (frequency * regularity) / 10.0)
 
-    def _detect_anomalies(self, data: dict) -> list[str]:
+    def _detect_anomalies(self, data: dict[str, Any]) -> list[str]:
         """Detect communication anomalies"""
         anomalies = []
 
@@ -260,7 +269,7 @@ class COMINTProcessor:
 
         return anomalies
 
-    def _analyze_participants(self, data: dict) -> dict[str, Any]:
+    def _analyze_participants(self, data: dict[str, Any]) -> dict[str, Any]:
         """Analyze communication participants"""
         return {
             "num_participants": data.get("num_participants", 2),
@@ -268,7 +277,7 @@ class COMINTProcessor:
             "network_centrality": data.get("network_centrality", 0.0),
         }
 
-    def _analyze_frequency_patterns(self, data: dict) -> dict[str, float]:
+    def _analyze_frequency_patterns(self, data: dict[str, Any]) -> dict[str, float]:
         """Analyze frequency usage patterns"""
         return {
             "primary_frequency": data.get("primary_frequency_mhz", 0.0),
@@ -300,7 +309,7 @@ class HUMINTProcessor:
     and field observations.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.source_ratings = {
             "A": 1.0,  # Completely reliable
@@ -338,15 +347,15 @@ class HUMINTProcessor:
             report_assessment=humint_data.get("report_assessment"),
         )
 
-    def _assess_criticality(self, data: dict) -> float:
+    def _assess_criticality(self, data: dict[str, Any]) -> float:
         """Assess information criticality"""
-        timeliness = data.get("timeliness_score", 0.5)
-        relevance = data.get("relevance_score", 0.5)
-        uniqueness = data.get("uniqueness_score", 0.5)
+        timeliness = float(data.get("timeliness_score", 0.5))
+        relevance = float(data.get("relevance_score", 0.5))
+        uniqueness = float(data.get("uniqueness_score", 0.5))
 
         return (timeliness + relevance + uniqueness) / 3.0
 
-    def _detect_anomalies(self, data: dict) -> list[str]:
+    def _detect_anomalies(self, data: dict[str, Any]) -> list[str]:
         """Detect HUMINT anomalies"""
         anomalies = []
 
@@ -364,7 +373,7 @@ class HUMINTProcessor:
 
         return anomalies
 
-    def _assess_source_motivation(self, data: dict) -> dict[str, float]:
+    def _assess_source_motivation(self, data: dict[str, Any]) -> dict[str, float]:
         """Assess source motivation"""
         return {
             "financial": data.get("financial_motivation", 0.0),
@@ -395,7 +404,7 @@ class GEOINTProcessor:
     and movement tracking.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, geoint_data: dict[str, Any]) -> GEOINTAnalysisResult:
@@ -424,15 +433,15 @@ class GEOINTProcessor:
             spatial_anomalies=anomalies,
         )
 
-    def _assess_activity_density(self, data: dict) -> float:
+    def _assess_activity_density(self, data: dict[str, Any]) -> float:
         """Assess activity density in area"""
-        num_entities = data.get("num_entities_tracked", 0)
-        area_km2 = data.get("area_km2", 1.0)
+        num_entities = float(data.get("num_entities_tracked", 0))
+        area_km2 = float(data.get("area_km2", 1.0))
 
         density = num_entities / area_km2
         return min(1.0, density / 100.0)
 
-    def _detect_anomalies(self, data: dict) -> list[str]:
+    def _detect_anomalies(self, data: dict[str, Any]) -> list[str]:
         """Detect geospatial anomalies"""
         anomalies = []
 
@@ -450,7 +459,7 @@ class GEOINTProcessor:
 
         return anomalies
 
-    def _analyze_location_context(self, data: dict) -> dict[str, Any]:
+    def _analyze_location_context(self, data: dict[str, Any]) -> dict[str, Any]:
         """Analyze location context"""
         return {
             "terrain_type": data.get("terrain_type", "unknown"),
@@ -458,7 +467,7 @@ class GEOINTProcessor:
             "strategic_significance": data.get("strategic_significance", 0.0),
         }
 
-    def _analyze_movement_patterns(self, data: dict) -> dict[str, Any]:
+    def _analyze_movement_patterns(self, data: dict[str, Any]) -> dict[str, Any]:
         """Analyze movement patterns"""
         return {
             "average_speed": data.get("average_speed_kmh", 0.0),
@@ -487,7 +496,7 @@ class IMINTProcessor:
     and activity monitoring.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, imint_data: dict[str, Any]) -> IMINTAnalysisResult:
@@ -514,16 +523,16 @@ class IMINTProcessor:
             change_detection=changes,
         )
 
-    def _assess_image_quality(self, data: dict) -> float:
+    def _assess_image_quality(self, data: dict[str, Any]) -> float:
         """Assess imagery quality"""
-        cloud_cover = data.get("cloud_cover_percent", 0.0)
+        cloud_cover = float(data.get("cloud_cover_percent", 0.0))
         clarity = 1.0 - (cloud_cover / 100.0)
 
-        lighting = data.get("lighting_quality", 0.7)
+        lighting = float(data.get("lighting_quality", 0.7))
 
         return (clarity + lighting) / 2.0
 
-    def _detect_anomalies(self, data: dict) -> list[str]:
+    def _detect_anomalies(self, data: dict[str, Any]) -> list[str]:
         """Detect imagery anomalies"""
         anomalies = []
 
@@ -541,7 +550,7 @@ class IMINTProcessor:
 
         return anomalies
 
-    def _analyze_change_detection(self, data: dict) -> dict[str, Any]:
+    def _analyze_change_detection(self, data: dict[str, Any]) -> dict[str, Any]:
         """Analyze changes from previous imagery"""
         return {
             "change_detected": data.get("change_detected", False),
@@ -569,7 +578,7 @@ class CYBINTProcessor:
     Analyzes cyber threat indicators, malware, network anomalies, and attribution.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, cybint_data: dict[str, Any]) -> CYBINTAnalysisResult:
@@ -595,7 +604,7 @@ class CYBINTProcessor:
             ttps_identified=ttps,
         )
 
-    def _detect_anomalies(self, data: dict) -> list[str]:
+    def _detect_anomalies(self, data: dict[str, Any]) -> list[str]:
         """Detect cyber anomalies"""
         anomalies = []
 
@@ -634,7 +643,7 @@ class FININTProcessor:
     Analyzes financial transactions, money laundering indicators, and terrorism financing.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.high_risk_jurisdictions = {"offshore", "sanctioned", "non_cooperative"}
 
@@ -662,10 +671,10 @@ class FININTProcessor:
             risk_score=risk_score,
         )
 
-    def _calculate_transaction_risk(self, data: dict) -> float:
+    def _calculate_transaction_risk(self, data: dict[str, Any]) -> float:
         """Calculate transaction risk score"""
-        amount = data.get("transaction_amount", data.get("amount", 0))
-        frequency = data.get("transaction_frequency", 1)
+        amount = float(data.get("transaction_amount", data.get("amount", 0)))
+        frequency = float(data.get("transaction_frequency", 1))
 
         base_risk = min(1.0, (amount / 1000000.0) * (frequency / 100.0))
 
@@ -675,21 +684,21 @@ class FININTProcessor:
 
         return base_risk
 
-    def _analyze_transaction_patterns(self, data: dict) -> float:
+    def _analyze_transaction_patterns(self, data: dict[str, Any]) -> float:
         """Analyze transaction patterns for anomalies"""
-        structuring = data.get("structuring_detected", False)
-        smurfing = data.get("smurfing_detected", False)
-        round_amounts = data.get("round_amounts", False)
+        structuring = bool(data.get("structuring_detected", False))
+        smurfing = bool(data.get("smurfing_detected", False))
+        round_amounts = bool(data.get("round_amounts", False))
 
         anomaly_count = sum([structuring, smurfing, round_amounts])
-        return min(1.0, anomaly_count / 3.0)
+        return min(1.0, float(anomaly_count) / 3.0)
 
-    def _count_money_laundering_indicators(self, data: dict) -> int:
+    def _count_money_laundering_indicators(self, data: dict[str, Any]) -> int:
         """Count money laundering red flags"""
         indicators = data.get("ml_indicators", [])
         return len(indicators)
 
-    def _detect_anomalies(self, data: dict) -> list[str]:
+    def _detect_anomalies(self, data: dict[str, Any]) -> list[str]:
         """Detect financial anomalies"""
         anomalies = []
 
@@ -707,7 +716,7 @@ class FININTProcessor:
 
         return anomalies
 
-    def _analyze_entity_network(self, data: dict) -> dict[str, Any]:
+    def _analyze_entity_network(self, data: dict[str, Any]) -> dict[str, Any]:
         """Analyze financial entity network"""
         return {
             "network_size": data.get("network_size", 0),
@@ -715,7 +724,7 @@ class FININTProcessor:
             "cross_border_links": data.get("cross_border_links", 0),
         }
 
-    def _assess_jurisdiction_risks(self, data: dict) -> list[str]:
+    def _assess_jurisdiction_risks(self, data: dict[str, Any]) -> list[str]:
         """Assess jurisdiction-based risks"""
         jurisdictions = data.get("jurisdictions", [])
         return [j for j in jurisdictions if j.lower() in self.high_risk_jurisdictions]
@@ -741,7 +750,7 @@ class SIGINTProcessor:
     Analyzes intercepted electronic signals (includes COMINT and ELINT).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, sigint_data: dict[str, Any]) -> SIGINTAnalysisResult:
@@ -769,7 +778,7 @@ class SIGINTProcessor:
             signal_classification=sigint_data.get("signal_classification"),
         )
 
-    def _detect_anomalies(self, data: dict) -> list[str]:
+    def _detect_anomalies(self, data: dict[str, Any]) -> list[str]:
         """Detect signal anomalies"""
         anomalies = []
 
@@ -787,7 +796,7 @@ class SIGINTProcessor:
 
         return anomalies
 
-    def _analyze_signal_characteristics(self, data: dict) -> dict[str, Any]:
+    def _analyze_signal_characteristics(self, data: dict[str, Any]) -> dict[str, Any]:
         """Analyze signal characteristics"""
         return {
             "frequency_mhz": data.get("frequency_mhz", 0.0),
@@ -817,7 +826,7 @@ class ELINTProcessor:
     Analyzes non-communication electronic emissions (radar, sensors).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.radar_threat_levels = {
             "search": 0.3,
@@ -851,7 +860,7 @@ class ELINTProcessor:
             emitter_classification=elint_data.get("emitter_classification"),
         )
 
-    def _detect_anomalies(self, data: dict) -> list[str]:
+    def _detect_anomalies(self, data: dict[str, Any]) -> list[str]:
         """Detect ELINT anomalies"""
         anomalies = []
 
@@ -869,7 +878,7 @@ class ELINTProcessor:
 
         return anomalies
 
-    def _analyze_radar_parameters(self, data: dict) -> dict[str, Any]:
+    def _analyze_radar_parameters(self, data: dict[str, Any]) -> dict[str, Any]:
         """Analyze radar parameters"""
         return {
             "prf_hz": data.get("pulse_repetition_frequency", 0.0),
@@ -877,7 +886,7 @@ class ELINTProcessor:
             "power_output_kw": data.get("power_output", 0.0),
         }
 
-    def _assess_targeting(self, data: dict) -> dict[str, Any]:
+    def _assess_targeting(self, data: dict[str, Any]) -> dict[str, Any]:
         """Assess targeting indications"""
         return {
             "targeting_mode": data.get("targeting_mode", False),
@@ -906,7 +915,7 @@ class MASINTProcessor:
     Analyzes technical signatures (acoustic, seismic, chemical, radiation, thermal).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, masint_data: dict[str, Any]) -> MASINTAnalysisResult:
@@ -933,7 +942,7 @@ class MASINTProcessor:
             signature_classification=masint_data.get("signature_classification"),
         )
 
-    def _detect_anomalies(self, data: dict) -> list[str]:
+    def _detect_anomalies(self, data: dict[str, Any]) -> list[str]:
         """Detect MASINT anomalies"""
         anomalies = []
 
@@ -951,7 +960,7 @@ class MASINTProcessor:
 
         return anomalies
 
-    def _extract_measurements(self, data: dict) -> dict[str, float]:
+    def _extract_measurements(self, data: dict[str, Any]) -> dict[str, float]:
         """Extract technical measurements"""
         return {
             "amplitude": data.get("amplitude", 0.0),
@@ -980,7 +989,7 @@ class CryptanalysisProcessor:
     Analyzes encrypted communications for patterns, vulnerabilities, and potential decryption.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, crypto_data: dict[str, Any]) -> CryptanalysisResult:
@@ -1006,9 +1015,9 @@ class CryptanalysisProcessor:
             plaintext_recovered=recovered,
         )
 
-    def _analyze_patterns(self, data: dict) -> float:
+    def _analyze_patterns(self, data: dict[str, Any]) -> float:
         """Analyze cryptographic patterns"""
-        entropy = data.get("entropy_score", 0.5)
+        entropy = float(data.get("entropy_score", 0.5))
         repetition = data.get("repetition_detected", False)
 
         pattern_score = entropy
@@ -1017,7 +1026,7 @@ class CryptanalysisProcessor:
 
         return max(0.0, min(1.0, pattern_score))
 
-    def _detect_anomalies(self, data: dict) -> list[str]:
+    def _detect_anomalies(self, data: dict[str, Any]) -> list[str]:
         """Detect cryptographic anomalies"""
         anomalies = []
 
@@ -1035,7 +1044,7 @@ class CryptanalysisProcessor:
 
         return anomalies
 
-    def _analyze_key_characteristics(self, data: dict) -> dict[str, Any]:
+    def _analyze_key_characteristics(self, data: dict[str, Any]) -> dict[str, Any]:
         """Analyze encryption key characteristics"""
         return {
             "key_length_bits": data.get("key_length", 0),
@@ -1063,7 +1072,7 @@ class MeteorologicalProcessor:
     Analyzes weather and atmospheric conditions for operational planning.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, meteo_data: dict[str, Any]) -> MeteorologicalIntelResult:
@@ -1089,11 +1098,11 @@ class MeteorologicalProcessor:
             windows_identified=windows,
         )
 
-    def _assess_weather_impact(self, data: dict) -> float:
+    def _assess_weather_impact(self, data: dict[str, Any]) -> float:
         """Assess weather impact on operations"""
-        visibility_km = data.get("visibility_km", 10.0)
-        wind_speed = data.get("wind_speed_kmh", 0.0)
-        precipitation = data.get("precipitation_mm", 0.0)
+        visibility_km = float(data.get("visibility_km", 10.0))
+        wind_speed = float(data.get("wind_speed_kmh", 0.0))
+        precipitation = float(data.get("precipitation_mm", 0.0))
 
         impact = (
             (visibility_km / 20.0) * 0.4
@@ -1103,11 +1112,11 @@ class MeteorologicalProcessor:
 
         return min(1.0, max(0.0, impact))
 
-    def _assess_operational_feasibility(self, data: dict) -> float:
+    def _assess_operational_feasibility(self, data: dict[str, Any]) -> float:
         """Assess operational feasibility based on weather"""
-        return self._assess_weather_impact(data) * data.get("forecast_confidence", 0.7)
+        return self._assess_weather_impact(data) * float(data.get("forecast_confidence", 0.7))
 
-    def _detect_anomalies(self, data: dict) -> list[str]:
+    def _detect_anomalies(self, data: dict[str, Any]) -> list[str]:
         """Detect meteorological anomalies"""
         anomalies = []
 
@@ -1122,7 +1131,7 @@ class MeteorologicalProcessor:
 
         return anomalies
 
-    def _extract_conditions(self, data: dict) -> dict[str, Any]:
+    def _extract_conditions(self, data: dict[str, Any]) -> dict[str, Any]:
         """Extract current conditions"""
         return {
             "temperature_c": data.get("temperature_c", 20.0),
@@ -1151,7 +1160,7 @@ class TrafficAnalysisProcessor:
     Analyzes communication patterns without accessing content (metadata analysis).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def analyze(self, traffic_data: dict[str, Any]) -> TrafficAnalysisResult:
@@ -1177,25 +1186,25 @@ class TrafficAnalysisProcessor:
             key_nodes_identified=key_nodes,
         )
 
-    def _analyze_patterns(self, data: dict) -> float:
+    def _analyze_patterns(self, data: dict[str, Any]) -> float:
         """Analyze communication patterns"""
-        frequency = data.get("communication_frequency", 0.0)
-        regularity = data.get("temporal_regularity", 0.5)
+        frequency = float(data.get("communication_frequency", 0.0))
+        regularity = float(data.get("temporal_regularity", 0.5))
 
         return min(1.0, (frequency * regularity) / 10.0)
 
-    def _analyze_network_structure(self, data: dict) -> float:
+    def _analyze_network_structure(self, data: dict[str, Any]) -> float:
         """Analyze network structure"""
-        centrality = data.get("network_centrality", 0.5)
-        clustering = data.get("clustering_coefficient", 0.5)
+        centrality = float(data.get("network_centrality", 0.5))
+        clustering = float(data.get("clustering_coefficient", 0.5))
 
         return (centrality + clustering) / 2.0
 
-    def _analyze_temporal_correlation(self, data: dict) -> float:
+    def _analyze_temporal_correlation(self, data: dict[str, Any]) -> float:
         """Analyze temporal correlations"""
-        return data.get("temporal_correlation_score", 0.5)
+        return float(data.get("temporal_correlation_score", 0.5))
 
-    def _detect_anomalies(self, data: dict) -> list[str]:
+    def _detect_anomalies(self, data: dict[str, Any]) -> list[str]:
         """Detect traffic anomalies"""
         anomalies = []
 
@@ -1213,7 +1222,7 @@ class TrafficAnalysisProcessor:
 
         return anomalies
 
-    def _build_communication_graph(self, data: dict) -> dict[str, Any]:
+    def _build_communication_graph(self, data: dict[str, Any]) -> dict[str, Any]:
         """Build communication network graph"""
         return {
             "num_nodes": data.get("num_nodes", 0),
@@ -1221,9 +1230,10 @@ class TrafficAnalysisProcessor:
             "density": data.get("network_density", 0.0),
         }
 
-    def _identify_key_nodes(self, data: dict) -> list[str]:
+    def _identify_key_nodes(self, data: dict[str, Any]) -> list[str]:
         """Identify key network nodes"""
-        return data.get("hub_nodes", [])
+        hub_nodes = data.get("hub_nodes", [])
+        return list(hub_nodes) if hub_nodes else []
 
 
 class IntelligenceSourceRegistry:
@@ -1233,10 +1243,10 @@ class IntelligenceSourceRegistry:
     Provides unified access to all 13 INT source sub-modules.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
-        self.processors = {
+        self.processors: dict[str, IntelligenceProcessor] = {
             "osint": OSINTProcessor(),
             "comint": COMINTProcessor(),
             "humint": HUMINTProcessor(),

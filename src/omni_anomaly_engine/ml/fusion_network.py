@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Main neural fusion model integrating all engines
@@ -55,7 +56,7 @@ class FusionNetwork(nn.Module):
     then fuses them through a learned fusion layer for unified representation.
     """
 
-    def __init__(self, input_dims: list[int], output_dim: int, hidden_dim: int | None = None):
+    def __init__(self, input_dims: list[int], output_dim: int, hidden_dim: int | None = None) -> None:
         """Initialize fusion network.
 
         Args:
@@ -108,7 +109,7 @@ class GatedFusion(nn.Module):
     of each input based on their content.
     """
 
-    def __init__(self, input_dim: int, hidden_dim: int):
+    def __init__(self, input_dim: int, hidden_dim: int) -> None:
         """Initialize gated fusion.
 
         Args:
@@ -155,7 +156,7 @@ class MultimodalFusion(nn.Module):
     and handles missing modalities gracefully.
     """
 
-    def __init__(self, modality_dims: dict[str, int], output_dim: int):
+    def __init__(self, modality_dims: dict[str, int], output_dim: int) -> None:
         """Initialize multimodal fusion.
 
         Args:
@@ -594,7 +595,7 @@ class STEMDisciplineRouter:
         output = fusion_model(detector_features, detector_scores=weights)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize STEM discipline routing mappings."""
         self.discipline_weights = {
             "biology": {

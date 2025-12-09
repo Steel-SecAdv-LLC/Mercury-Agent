@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Shanghai Tech Campus Dataset Loader.
@@ -81,7 +82,7 @@ class ShanghaiTechDataset(BaseVideoDataset):
 
     NUM_SCENES = 13
 
-    def __init__(self, config: ShanghaiTechConfig | dict[str, Any] | None = None):
+    def __init__(self, config: ShanghaiTechConfig | dict[str, Any] | None = None) -> None:
         """Initialize Shanghai Tech dataset.
 
         Args:
@@ -138,7 +139,7 @@ class ShanghaiTechDataset(BaseVideoDataset):
                 label = 1 if temporal_annotations is not None else 0
                 self._videos.append((video_file, label, temporal_annotations))
 
-    def _load_frame_annotations(self, video_path: Path) -> np.ndarray | None:
+    def _load_frame_annotations(self, video_path: Path) -> np.ndarray[Any, Any] | None:
         """Load frame-level annotations for a video.
 
         Args:

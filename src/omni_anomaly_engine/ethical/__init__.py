@@ -12,6 +12,7 @@ Ethical AI Module - Sacred Wisdom and Ma'at Balance Integration
 This module provides ethical constraint systems for bias detection,
 fairness verification, and archetypal pattern recognition.
 """
+from __future__ import annotations
 
 from omni_anomaly_engine.ethical.sacred_wisdom_engine import (
     AthenaWisdomEngine,

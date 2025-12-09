@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Extended OMNI ♱ AVA with 14-Engine Integration
@@ -70,15 +71,15 @@ class EvolutionEngine:
         self.best_solution = None
         self.generation_count = 0
 
-    def _initialize_population(self) -> np.ndarray:
+    def _initialize_population(self) -> np.ndarray[Any, Any]:
         return self._rng.randn(self.population_size, self.state_dim) * 0.1
 
     def evaluate_fitness(
-        self, individual: np.ndarray, fitness_fn: Callable[[np.ndarray], float]
+        self, individual: np.ndarray[Any, Any], fitness_fn: Callable[[np.ndarray[Any, Any]], float]
     ) -> float:
         return float(fitness_fn(individual))
 
-    def evolve_generation(self, fitness_fn: Callable[[np.ndarray], float]) -> dict[str, Any]:
+    def evolve_generation(self, fitness_fn: Callable[[np.ndarray[Any, Any]], float]) -> dict[str, Any]:
         fitness_scores = np.array(
             [self.evaluate_fitness(ind, fitness_fn) for ind in self.population]
         )
@@ -102,7 +103,7 @@ class EvolutionEngine:
             "std_fitness": np.std(fitness_scores),
         }
 
-    def _selection(self, fitness_scores: np.ndarray) -> np.ndarray:
+    def _selection(self, fitness_scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         selected = []
         for _ in range(self.population_size):
             tournament_idx = self._rng.choice(self.population_size, size=3, replace=False)
@@ -111,7 +112,7 @@ class EvolutionEngine:
             selected.append(self.population[winner_idx])
         return np.array(selected)
 
-    def _crossover(self, selected: np.ndarray) -> np.ndarray:
+    def _crossover(self, selected: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         offspring = []
         for i in range(0, len(selected), 2):
             parent1 = selected[i]
@@ -127,7 +128,7 @@ class EvolutionEngine:
 
         return np.array(offspring[: self.population_size])
 
-    def _mutation(self, offspring: np.ndarray) -> np.ndarray:
+    def _mutation(self, offspring: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         for i in range(len(offspring)):
             if self._rng.rand() < self.mutation_rate:
                 mutation_idx = self._rng.randint(0, self.state_dim)
@@ -229,7 +230,7 @@ class IntegrationEngine:
 
 
 class OmniAva:
-    def __init__(self, config: EngineConfig | None = None):
+    def __init__(self, config: EngineConfig | None = None) -> None:
         self.config = config or EngineConfig()
 
         if self.config.enable_3r_mechanism:
@@ -254,7 +255,7 @@ class OmniAva:
 
         logging.info("OMNI ♱ AVA initialized with full integration")
 
-    def detect_anomaly(self, data: np.ndarray, use_3r_enhancement: bool = True) -> dict[str, Any]:
+    def detect_anomaly(self, data: np.ndarray[Any, Any], use_3r_enhancement: bool = True) -> dict[str, Any]:
         enhanced_data = data
 
         if use_3r_enhancement and self.config.enable_3r_mechanism and self.three_r:
@@ -278,7 +279,7 @@ class OmniAva:
 
         return result
 
-    def _compute_anomaly_score(self, data: np.ndarray) -> float:
+    def _compute_anomaly_score(self, data: np.ndarray[Any, Any]) -> float:
         if data.size == 0:
             return 0.0
 
@@ -302,7 +303,7 @@ class OmniAva:
         return self.security_engine.detect_threats(input_data)
 
     def evolve_detector(
-        self, fitness_fn: Callable[[np.ndarray], float], num_generations: int = 10
+        self, fitness_fn: Callable[[np.ndarray[Any, Any]], float], num_generations: int = 10
     ) -> dict[str, Any]:
         if not self.config.enable_evolution or not self.evolution_engine:
             return {"error": "Evolution disabled"}

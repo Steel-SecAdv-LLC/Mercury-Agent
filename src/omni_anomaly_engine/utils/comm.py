@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Optional lightweight communication utilities for distributed computing
@@ -80,7 +81,7 @@ class AsyncMessageQueue:
     Useful for distributed anomaly detection processing
     """
 
-    def __init__(self, max_size: int = 1000):
+    def __init__(self, max_size: int = 1000) -> None:
         self.queue: asyncio.Queue = asyncio.Queue(maxsize=max_size)
         self.handlers: dict[str, list[Callable]] = {}
         self.stats = {
@@ -131,7 +132,7 @@ class AsyncMessageQueue:
             self.stats["errors"] += 1
             return None
 
-    def register_handler(self, message_type: str, handler: Callable):
+    def register_handler(self, message_type: str, handler: Callable[..., Any]):
         """
         Register handler for specific message type
 
@@ -177,10 +178,10 @@ class SimplePubSub:
     Useful for broadcasting anomaly detection results
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.subscribers: dict[str, list[Callable]] = {}
 
-    def subscribe(self, topic: str, callback: Callable):
+    def subscribe(self, topic: str, callback: Callable[..., Any]):
         """
         Subscribe to a topic
 
@@ -192,7 +193,7 @@ class SimplePubSub:
             self.subscribers[topic] = []
         self.subscribers[topic].append(callback)
 
-    def unsubscribe(self, topic: str, callback: Callable):
+    def unsubscribe(self, topic: str, callback: Callable[..., Any]):
         """
         Unsubscribe from a topic
 

@@ -7,6 +7,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
+from __future__ import annotations
 
 """
 Multi-Hop Reasoner - Abductive/Deductive/Inductive Reasoning Chains
@@ -371,7 +372,7 @@ class MultiHopReasoner:
     def induce(
         self,
         instances: list[dict[str, Any]],
-        feature_extractor: Callable[[dict], np.ndarray] | None = None,
+        feature_extractor: Callable[[dict], np.ndarray[Any, Any]] | None = None,
     ) -> ReasoningChain | None:
         """
         Perform inductive reasoning (pattern generalization).

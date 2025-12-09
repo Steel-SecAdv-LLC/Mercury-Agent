@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Climate Resilience Module - Anomaly detection for environmental data
@@ -54,13 +55,13 @@ class ClimateEvent(Enum):
 class ClimateResilienceDetector:
     """Detect climate anomalies for disaster prediction and resilience."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.temp_baseline = {"mean": 15.0, "std": 10.0}
         self.precip_baseline = {"mean": 100.0, "std": 50.0}
 
     def detect(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         detection_type: str = "temperature",
         historical_context: dict | None = None,
     ) -> dict[str, Any]:
@@ -83,7 +84,7 @@ class ClimateResilienceDetector:
             return self.detect_temperature_anomaly(data, historical_context)
 
     def detect_temperature_anomaly(
-        self, temperature_series: np.ndarray, historical_context: dict | None = None
+        self, temperature_series: np.ndarray[Any, Any], historical_context: dict | None = None
     ) -> dict[str, Any]:
         """Detect heatwaves, cold snaps, and abnormal warming trends."""
         if len(temperature_series) == 0:
@@ -126,7 +127,7 @@ class ClimateResilienceDetector:
         }
 
     def detect_precipitation_anomaly(
-        self, precipitation_mm: np.ndarray, historical_context: dict | None = None
+        self, precipitation_mm: np.ndarray[Any, Any], historical_context: dict | None = None
     ) -> dict[str, Any]:
         """Detect droughts and floods from precipitation patterns."""
         if len(precipitation_mm) == 0:

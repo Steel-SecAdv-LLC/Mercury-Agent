@@ -18,6 +18,7 @@ References:
       in Multivariate Time Series Data", VLDB 2022
     - Benaissa et al., "MAAT: Mamba Adaptive Anomaly Transformer", arXiv 2025
 """
+from __future__ import annotations
 
 from omni_anomaly_engine.models.sota.association_discrepancy import (
     AnomalyTransformerEncoder,

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Memory-Efficient Feature Caching
@@ -86,11 +87,11 @@ class CacheEntry:
     """Single cache entry with metadata."""
 
     key: str
-    data: np.ndarray | torch.Tensor
+    data: np.ndarray[Any, Any] | torch.Tensor
     original_dtype: np.dtype | torch.dtype
     original_shape: tuple[int, ...]
     is_sparse: bool = False
-    sparse_indices: np.ndarray | None = None
+    sparse_indices: np.ndarray[Any, Any] | None = None
     memory_bytes: int = 0
     access_count: int = 0
     created_at: float = 0.0
@@ -110,7 +111,7 @@ class MemoryEfficientFeatureCache:
         >>> cached_features = cache.get("detector1")
     """
 
-    def __init__(self, config: CacheConfig | None = None):
+    def __init__(self, config: CacheConfig | None = None) -> None:
         """Initialize feature cache.
 
         Args:
@@ -126,7 +127,7 @@ class MemoryEfficientFeatureCache:
     def put(
         self,
         key: str,
-        data: np.ndarray | torch.Tensor,
+        data: np.ndarray[Any, Any] | torch.Tensor,
         force: bool = False,
     ) -> bool:
         """Store feature data in cache.
@@ -162,7 +163,7 @@ class MemoryEfficientFeatureCache:
 
             now = time.time()
 
-            original_dtype = data.dtype if isinstance(data, np.ndarray) else data.dtype
+            original_dtype = data.dtype if isinstance(data, np.ndarray[Any, Any]) else data.dtype
             original_shape = data.shape
 
             entry = CacheEntry(
@@ -183,7 +184,7 @@ class MemoryEfficientFeatureCache:
 
             return True
 
-    def get(self, key: str) -> np.ndarray | torch.Tensor | None:
+    def get(self, key: str) -> np.ndarray[Any, Any] | torch.Tensor | None:
         """Retrieve feature data from cache.
 
         Args:
@@ -218,8 +219,8 @@ class MemoryEfficientFeatureCache:
             return self._reconstruct_data(entry)
 
     def _process_data(
-        self, data: np.ndarray | torch.Tensor
-    ) -> tuple[np.ndarray, bool, np.ndarray | None]:
+        self, data: np.ndarray[Any, Any] | torch.Tensor
+    ) -> tuple[np.ndarray[Any, Any], bool, np.ndarray[Any, Any] | None]:
         """Process data for storage with quantization and sparsification.
 
         Args:
@@ -252,7 +253,7 @@ class MemoryEfficientFeatureCache:
 
         return np_data, is_sparse, sparse_indices
 
-    def _quantize_int8(self, data: np.ndarray) -> np.ndarray:
+    def _quantize_int8(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Quantize data to INT8.
 
         Args:
@@ -269,7 +270,7 @@ class MemoryEfficientFeatureCache:
 
         return quantized
 
-    def _reconstruct_data(self, entry: CacheEntry) -> np.ndarray:
+    def _reconstruct_data(self, entry: CacheEntry) -> np.ndarray[Any, Any]:
         """Reconstruct original data from cache entry.
 
         Args:
@@ -294,7 +295,7 @@ class MemoryEfficientFeatureCache:
 
         return data
 
-    def _estimate_memory(self, data: np.ndarray) -> int:
+    def _estimate_memory(self, data: np.ndarray[Any, Any]) -> int:
         """Estimate memory usage of data.
 
         Args:
@@ -370,7 +371,7 @@ class IncrementalFeatureComputer:
     results for faster subsequent computations.
     """
 
-    def __init__(self, cache: MemoryEfficientFeatureCache | None = None):
+    def __init__(self, cache: MemoryEfficientFeatureCache | None = None) -> None:
         """Initialize incremental feature computer.
 
         Args:
@@ -379,7 +380,7 @@ class IncrementalFeatureComputer:
         self.cache = cache or MemoryEfficientFeatureCache()
         self._data_hashes: dict[str, str] = {}
 
-    def compute_hash(self, data: np.ndarray | torch.Tensor) -> str:
+    def compute_hash(self, data: np.ndarray[Any, Any] | torch.Tensor) -> str:
         """Compute hash of data for change detection.
 
         Args:
@@ -394,7 +395,7 @@ class IncrementalFeatureComputer:
         # Use SHA-256 instead of MD5 for better security (non-cryptographic use for cache keys)
         return hashlib.sha256(data.tobytes()).hexdigest()
 
-    def needs_update(self, key: str, data: np.ndarray | torch.Tensor) -> bool:
+    def needs_update(self, key: str, data: np.ndarray[Any, Any] | torch.Tensor) -> bool:
         """Check if features need to be recomputed.
 
         Args:
@@ -412,8 +413,8 @@ class IncrementalFeatureComputer:
     def update_features(
         self,
         key: str,
-        data: np.ndarray | torch.Tensor,
-        features: np.ndarray | torch.Tensor,
+        data: np.ndarray[Any, Any] | torch.Tensor,
+        features: np.ndarray[Any, Any] | torch.Tensor,
     ) -> None:
         """Update cached features.
 
@@ -425,7 +426,7 @@ class IncrementalFeatureComputer:
         self._data_hashes[key] = self.compute_hash(data)
         self.cache.put(key, features)
 
-    def get_features(self, key: str) -> np.ndarray | torch.Tensor | None:
+    def get_features(self, key: str) -> np.ndarray[Any, Any] | torch.Tensor | None:
         """Get cached features.
 
         Args:
@@ -438,10 +439,10 @@ class IncrementalFeatureComputer:
 
 
 def compute_feature_importance(
-    features: np.ndarray,
-    labels: np.ndarray | None = None,
+    features: np.ndarray[Any, Any],
+    labels: np.ndarray[Any, Any] | None = None,
     method: str = "variance",
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """Compute feature importance for feature selection.
 
     Args:
@@ -481,11 +482,11 @@ def compute_feature_importance(
 
 
 def select_top_features(
-    features: np.ndarray,
-    importance: np.ndarray,
+    features: np.ndarray[Any, Any],
+    importance: np.ndarray[Any, Any],
     k: int | None = None,
     threshold: float | None = None,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     """Select top features based on importance scores.
 
     Args:

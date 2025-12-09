@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """Biometric anomaly detection model."""
 
@@ -42,7 +43,7 @@ except (ImportError, ValueError):
 class HarmonicDecomposer:
     """Simple harmonic decomposition using FFT for biometric feature analysis."""
 
-    def decompose(self, signal: np.ndarray) -> np.ndarray:
+    def decompose(self, signal: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Decompose signal into harmonic components using FFT."""
         if signal.ndim == 1:
             signal = signal.reshape(1, -1)
@@ -53,7 +54,7 @@ class HarmonicDecomposer:
 class FourierAnalyzer:
     """Fourier analysis for frequency-domain biometric features."""
 
-    def analyze(self, data: np.ndarray) -> dict[str, np.ndarray]:
+    def analyze(self, data: np.ndarray[Any, Any]) -> dict[str, np.ndarray[Any, Any]]:
         """Analyze frequency components of biometric data."""
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -69,7 +70,7 @@ class FourierAnalyzer:
 class BiometricAnomalyModel:
     """Biometric anomaly detection for facial recognition and analysis."""
 
-    def __init__(self, config: dict[str, Any] | None = None, **kwargs):
+    def __init__(self, config: dict[str, Any] | None = None, **kwargs) -> None:
         self.config = config or {}
         self.model_name = self.config.get("model_name", "Facenet")
         self.use_harmonic_features = self.config.get("use_harmonic_features", True)
@@ -77,9 +78,9 @@ class BiometricAnomalyModel:
         self.fourier_analyzer = FourierAnalyzer()
         self.target_embedding_size = 128
 
-    def _extract_harmonic_features(self, data: np.ndarray) -> np.ndarray:
+    def _extract_harmonic_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract features using harmonic decomposition and Fourier analysis."""
-        if not isinstance(data, np.ndarray):
+        if not isinstance(data, np.ndarray[Any, Any]):
             data = np.array(data)
 
         if data.ndim == 3:
@@ -145,8 +146,8 @@ class BiometricAnomalyModel:
         return np.array(features_per_sample, dtype=np.float32)
 
     def _normalize_embedding_size(
-        self, embedding: Union[np.ndarray, "torch.Tensor"]
-    ) -> Union[np.ndarray, "torch.Tensor"]:
+        self, embedding: Union[np.ndarray[Any, Any], "torch.Tensor"]
+    ) -> Union[np.ndarray[Any, Any], "torch.Tensor"]:
         """Normalize embedding to target size (128 features)."""
         if TORCH_AVAILABLE and isinstance(embedding, torch.Tensor):
             is_torch = True
@@ -175,13 +176,13 @@ class BiometricAnomalyModel:
         return normalized
 
     def extract_features(
-        self, data: np.ndarray | dict[str, Any]
-    ) -> Union[np.ndarray, "torch.Tensor"]:
+        self, data: np.ndarray[Any, Any] | dict[str, Any]
+    ) -> Union[np.ndarray[Any, Any], "torch.Tensor"]:
         """Extract biometric features from image data."""
         if isinstance(data, dict):
             data = data["reference"] if "reference" in data else np.array(next(iter(data.values())))
 
-        if not isinstance(data, np.ndarray):
+        if not isinstance(data, np.ndarray[Any, Any]):
             data = np.array(data)
 
         if data.ndim == 1:
@@ -205,12 +206,12 @@ class BiometricAnomalyModel:
         features = self._normalize_embedding_size(features)
 
         if TORCH_AVAILABLE:
-            if isinstance(features, np.ndarray):
+            if isinstance(features, np.ndarray[Any, Any]):
                 return torch.from_numpy(features)
             return features
         return features
 
-    def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
+    def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
         """Predict biometric anomalies and quality scores."""
         if data is None:
             return {
@@ -230,7 +231,7 @@ class BiometricAnomalyModel:
             else:
                 data = np.array([])
 
-        if not isinstance(data, np.ndarray):
+        if not isinstance(data, np.ndarray[Any, Any]):
             data = np.array(data)
 
         if DeepFace is not None:

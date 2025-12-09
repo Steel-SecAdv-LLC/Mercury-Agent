@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Federated Learning for Distributed Robustness
@@ -109,7 +110,7 @@ class FederatedAnomalyDetection:
         self.client_models: dict[str, ClientModel] = {}
         self.round_history: list[GlobalModel] = []
 
-    def register_client(self, client_id: str, initial_weights: np.ndarray | None = None):
+    def register_client(self, client_id: str, initial_weights: np.ndarray[Any, Any] | None = None):
         """
         Register new client in federated system.
 
@@ -127,7 +128,7 @@ class FederatedAnomalyDetection:
     def client_update(
         self,
         client_id: str,
-        local_data: np.ndarray,
+        local_data: np.ndarray[Any, Any],
         learning_rate: float = 0.01,
         local_epochs: int = 1,
     ) -> ClientModel:
@@ -163,7 +164,7 @@ class FederatedAnomalyDetection:
 
         return client
 
-    def _compute_gradient(self, weights: np.ndarray, data: np.ndarray) -> np.ndarray:
+    def _compute_gradient(self, weights: np.ndarray[Any, Any], data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Compute gradient for anomaly detection objective.
 
@@ -187,7 +188,7 @@ class FederatedAnomalyDetection:
 
         return gradient
 
-    def _compute_loss(self, weights: np.ndarray, data: np.ndarray) -> float:
+    def _compute_loss(self, weights: np.ndarray[Any, Any], data: np.ndarray[Any, Any]) -> float:
         """
         Compute loss for anomaly detection objective.
 
@@ -268,7 +269,7 @@ class FederatedAnomalyDetection:
 
         return self.global_model
 
-    def _fedavg_aggregation(self, client_data: list[tuple[np.ndarray, int]]) -> np.ndarray:
+    def _fedavg_aggregation(self, client_data: list[tuple[np.ndarray[Any, Any], int]]) -> np.ndarray[Any, Any]:
         """
         FedAvg: Weighted average by number of samples.
 
@@ -291,7 +292,7 @@ class FederatedAnomalyDetection:
 
         return aggregated
 
-    def _median_aggregation(self, client_data: list[tuple[np.ndarray, int]]) -> np.ndarray:
+    def _median_aggregation(self, client_data: list[tuple[np.ndarray[Any, Any], int]]) -> np.ndarray[Any, Any]:
         """
         Median aggregation for Byzantine tolerance.
 
@@ -310,7 +311,7 @@ class FederatedAnomalyDetection:
 
         return median_weights
 
-    def _fedprox_aggregation(self, client_data: list[tuple[np.ndarray, int]]) -> np.ndarray:
+    def _fedprox_aggregation(self, client_data: list[tuple[np.ndarray[Any, Any], int]]) -> np.ndarray[Any, Any]:
         """
         FedProx: Proximal term for handling heterogeneous data.
 
@@ -331,8 +332,8 @@ class FederatedAnomalyDetection:
         return aggregated
 
     def _apply_byzantine_filter(
-        self, aggregated: np.ndarray, client_data: list[tuple[np.ndarray, int]]
-    ) -> np.ndarray:
+        self, aggregated: np.ndarray[Any, Any], client_data: list[tuple[np.ndarray[Any, Any], int]]
+    ) -> np.ndarray[Any, Any]:
         """
         Apply Byzantine fault tolerance filter.
 
@@ -365,7 +366,7 @@ class FederatedAnomalyDetection:
 
         return self._fedavg_aggregation(filtered_data)
 
-    def _add_differential_privacy_noise(self, weights: np.ndarray) -> np.ndarray:
+    def _add_differential_privacy_noise(self, weights: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Add Gaussian noise for differential privacy.
 

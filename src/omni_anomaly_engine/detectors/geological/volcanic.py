@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Volcanic Eruption Detector - Multi-Modal Volcano Monitoring
@@ -116,7 +117,7 @@ class SeismicSwarmDetector(nn.Module):
     Identifies pre-eruptive seismic patterns using LSTM + attention.
     """
 
-    def __init__(self, input_dim: int = 32, hidden_dim: int = 64):
+    def __init__(self, input_dim: int = 32, hidden_dim: int = 64) -> None:
         super().__init__()
 
         self.lstm = nn.LSTM(
@@ -167,7 +168,7 @@ class ThermalHotspotDetector:
     Processes satellite thermal data for volcanic heat anomalies.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.baseline_temp_k = 288.0  # 15°C in Kelvin
 
@@ -223,7 +224,7 @@ class GasEmissionAnalyzer:
     Monitors SO2, CO2 flux for pre-eruptive degassing.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
         self.baseline_so2_tons_day = 100.0
@@ -276,7 +277,7 @@ class InSARDeformationDetector:
     Analyzes interferometric SAR for volcanic inflation/deflation.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def detect_deformation(self, insar_data: dict[str, Any]) -> dict[str, Any]:
@@ -380,7 +381,7 @@ class VolcanicStateHMM:
         # State history for pattern analysis
         self.state_history: list[int] = []
 
-    def _initialize_transition_matrix(self) -> np.ndarray:
+    def _initialize_transition_matrix(self) -> np.ndarray[Any, Any]:
         """Initialize state transition probabilities.
 
         Returns:
@@ -404,7 +405,7 @@ class VolcanicStateHMM:
 
         return T
 
-    def _initialize_emission_matrix(self) -> np.ndarray:
+    def _initialize_emission_matrix(self) -> np.ndarray[Any, Any]:
         """Initialize emission probabilities.
 
         Returns:
@@ -427,8 +428,8 @@ class VolcanicStateHMM:
 
     def update_belief(
         self,
-        observations: np.ndarray,
-    ) -> np.ndarray:
+        observations: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """Update state belief given new observations (forward algorithm step).
 
         Args:
@@ -694,7 +695,7 @@ class EruptionForecastModel(nn.Module):
     Fuses seismic, thermal, gas, and deformation data for eruption prediction.
     """
 
-    def __init__(self, input_dim: int = 128):
+    def __init__(self, input_dim: int = 128) -> None:
         super().__init__()
 
         phi = 1.618  # Golden ratio optimization
@@ -929,7 +930,7 @@ class VolcanicEruptionDetector:
 
         return result
 
-    def _analyze_seismic(self, seismic_sequence: np.ndarray) -> dict[str, Any]:
+    def _analyze_seismic(self, seismic_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Analyze seismic swarm activity"""
 
         seq_tensor = torch.tensor(seismic_sequence, dtype=torch.float32).unsqueeze(0)
@@ -946,7 +947,7 @@ class VolcanicEruptionDetector:
             "attention_weights": attention[0].numpy().tolist(),
         }
 
-    def _correlate_schumann_elf(self, schumann_data: np.ndarray) -> float:
+    def _correlate_schumann_elf(self, schumann_data: np.ndarray[Any, Any]) -> float:
         """
         Correlate Schumann ELF anomalies with volcanic activity.
 

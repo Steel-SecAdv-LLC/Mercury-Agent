@@ -3,6 +3,7 @@ Tests for omni_anomaly_engine.utils.report_generator module.
 
 Tests report generation functionality.
 """
+from __future__ import annotations
 
 import json
 from datetime import datetime

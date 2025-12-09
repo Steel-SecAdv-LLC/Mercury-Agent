@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Algorithm-Agnostic Cryptographic API for OMNI ♱ AVA
@@ -172,7 +173,7 @@ class CryptoPackageResult:
 class Ed25519Provider:
     """Ed25519 classical signature provider."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         if not ED25519_AVAILABLE:
             raise RuntimeError("cryptography library required for Ed25519")
         self._private_key: Ed25519PrivateKey | None = None
@@ -288,7 +289,7 @@ class SphincsProvider:
 class HybridSignatureProvider:
     """Hybrid signature provider combining classical and post-quantum."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.classical_provider: Ed25519Provider | None = None
         self.pqc_provider = MLDSAProvider()
 

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Pandemic & Epidemiology Detector - Outbreak Monitoring & Mutation Tracking
@@ -111,7 +112,7 @@ class CaseSurgeDetector:
     Identifies exponential growth in case counts.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def detect_case_surge(self, case_data: dict[str, Any]) -> dict[str, Any]:
@@ -163,7 +164,7 @@ class MutationTracker:
     Identifies antigenic drift, shift, and emergence of variants.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def track_mutations(self, genomic_data: dict[str, Any]) -> dict[str, Any]:
@@ -218,7 +219,7 @@ class TransmissionNetworkAnalyzer(nn.Module):
     Identifies super-spreader events and transmission hotspots.
     """
 
-    def __init__(self, input_dim: int = 64):
+    def __init__(self, input_dim: int = 64) -> None:
         super().__init__()
 
         phi = 1.618

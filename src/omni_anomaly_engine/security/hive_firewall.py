@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 HCIS-Inspired Hive-Structured Firewall for Anomaly Blocking
@@ -113,12 +114,12 @@ class HiveFirewall:
 
         self.threat_stats = defaultdict(int)
 
-    def _compute_signature_hash(self, data: np.ndarray) -> str:
+    def _compute_signature_hash(self, data: np.ndarray[Any, Any]) -> str:
         """Compute O(1) signature hash for threat data."""
         data_bytes = data.tobytes()
         return hashlib.sha256(data_bytes).hexdigest()[:16]
 
-    def is_blocked(self, data: np.ndarray) -> tuple[bool, ThreatBlocking | None]:
+    def is_blocked(self, data: np.ndarray[Any, Any]) -> tuple[bool, ThreatBlocking | None]:
         """
         Check if data matches blocked threat signature (O(1) lookup).
 
@@ -139,7 +140,7 @@ class HiveFirewall:
 
         return False, None
 
-    def detect_and_block(self, data: np.ndarray, anomaly_score: float) -> ThreatBlocking:
+    def detect_and_block(self, data: np.ndarray[Any, Any], anomaly_score: float) -> ThreatBlocking:
         """
         Hierarchical threat detection and blocking decision.
 
@@ -267,7 +268,7 @@ class HiveFirewall:
 
         return block
 
-    def allow_pattern(self, data: np.ndarray):
+    def allow_pattern(self, data: np.ndarray[Any, Any]):
         """
         Whitelist a pattern (add to allowed patterns).
 
@@ -280,7 +281,7 @@ class HiveFirewall:
         if signature in self.blocked_threats:
             del self.blocked_threats[signature]
 
-    def report_false_positive(self, data: np.ndarray):
+    def report_false_positive(self, data: np.ndarray[Any, Any]):
         """
         Report false positive and update trust scores.
 

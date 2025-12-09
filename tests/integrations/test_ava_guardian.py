@@ -17,6 +17,7 @@ Covers:
 - Attack simulation and detection
 - Graceful fallback when PQC unavailable
 """
+from __future__ import annotations
 
 import time
 

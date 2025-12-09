@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Economic Resilience Module - Market and financial anomaly detection
@@ -53,13 +54,13 @@ class EconomicThreat(Enum):
 class EconomicResilienceDetector:
     """Detect economic anomalies and systemic risks."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.market_baseline = {"mean": 100.0, "std": 15.0}
         self.unemployment_baseline = {"mean": 5.0, "std": 2.0}
 
     def detect(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         detection_type: str = "market",
         economic_context: dict | None = None,
     ) -> dict[str, Any]:
@@ -82,7 +83,7 @@ class EconomicResilienceDetector:
             return self.detect_market_anomaly(data, economic_context)
 
     def detect_market_anomaly(
-        self, market_data: np.ndarray, economic_context: dict | None = None
+        self, market_data: np.ndarray[Any, Any], economic_context: dict | None = None
     ) -> dict[str, Any]:
         """Detect market crashes and volatility spikes."""
         if len(market_data) == 0:
@@ -126,7 +127,7 @@ class EconomicResilienceDetector:
         }
 
     def detect_employment_anomaly(
-        self, employment_data: np.ndarray, economic_context: dict | None = None
+        self, employment_data: np.ndarray[Any, Any], economic_context: dict | None = None
     ) -> dict[str, Any]:
         """Detect unemployment spikes and labor market stress."""
         if len(employment_data) == 0:

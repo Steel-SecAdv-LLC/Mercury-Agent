@@ -31,6 +31,7 @@ Example:
         # Execute with automatic fallback
         result = await chain.execute(request)
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -263,7 +264,7 @@ class FallbackChain:
         name: str | None = None,
         timeout: float | None = None,
         **kwargs: Any,
-    ) -> Callable:
+    ) -> Callable[..., Any]:
         """Decorator to add a handler.
 
         Args:
@@ -276,7 +277,7 @@ class FallbackChain:
             Decorator function.
         """
 
-        def decorator(func: Callable[..., Awaitable[Any]]) -> Callable:
+        def decorator(func: Callable[..., Awaitable[Any]]) -> Callable[..., Any]:
             self.add_handler(
                 func,
                 name=name or func.__name__,

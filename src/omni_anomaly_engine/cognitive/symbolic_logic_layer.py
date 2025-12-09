@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Symbolic Logic Layer - Logic Graphs and Explainable Decisions
@@ -178,7 +179,7 @@ class LogicGraphEdge:
 class FallbackGraph:
     """Fallback graph implementation when NetworkX is not available."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.nodes: dict[str, dict[str, Any]] = {}
         self.edges: list[tuple[str, str, dict[str, Any]]] = []
 
@@ -212,7 +213,7 @@ class LogicGraph:
     where nodes are propositions and edges are implications.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the logic graph."""
         if NETWORKX_AVAILABLE:
             self.graph = nx.DiGraph()
@@ -1061,7 +1062,7 @@ class SymbolicLogicLayer:
             for d in recent
         ]
 
-    def get_symbolic_features(self) -> np.ndarray:
+    def get_symbolic_features(self) -> np.ndarray[Any, Any]:
         """
         Get aggregated symbolic features for fusion layer.
 

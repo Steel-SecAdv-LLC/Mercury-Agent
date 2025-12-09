@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Comprehensive Disaster Detectors for Humanitarian Early Warning
@@ -197,7 +198,7 @@ class WaveformFFTAnalyzer(nn.Module):
     integrated with 3R Resonance mechanism.
     """
 
-    def __init__(self, input_dim: int = 256, hidden_dim: int = 64):
+    def __init__(self, input_dim: int = 256, hidden_dim: int = 64) -> None:
         super().__init__()
 
         self.conv1d = nn.Conv1d(1, 16, kernel_size=7, padding=3)
@@ -259,7 +260,7 @@ class SeismicWaveAnalyzer(nn.Module):
     for classification.
     """
 
-    def __init__(self, n_freq_bins: int = 64, hidden_dim: int = 128):
+    def __init__(self, n_freq_bins: int = 64, hidden_dim: int = 128) -> None:
         super().__init__()
 
         self.conv2d = nn.Sequential(
@@ -400,7 +401,7 @@ class BayesianMeteorFilter:
 class GeomagneticHMM:
     """Hidden Markov Model for solar flare and geomagnetic storm prediction."""
 
-    def __init__(self, n_states: int = 5):
+    def __init__(self, n_states: int = 5) -> None:
         self.n_states = n_states
 
         self.transition_matrix = np.array(
@@ -494,7 +495,7 @@ class TsunamiDetector:
 
     def predict_tsunami(
         self,
-        waveform_data: np.ndarray | torch.Tensor,
+        waveform_data: np.ndarray[Any, Any] | torch.Tensor,
         source_info: dict[str, Any] | None = None,
     ) -> TsunamiPredictionResult:
         """Predict tsunami from oceanic waveform data.
@@ -506,7 +507,7 @@ class TsunamiDetector:
         Returns:
             TsunamiPredictionResult with detection details
         """
-        if isinstance(waveform_data, np.ndarray):
+        if isinstance(waveform_data, np.ndarray[Any, Any]):
             waveform_data = torch.from_numpy(waveform_data).float()
 
         if waveform_data.dim() == 1:
@@ -613,7 +614,7 @@ class TsunamiDetector:
             return ["Immediate beach areas", "Harbor facilities"]
         return []
 
-    def extract_features(self, waveform_data: np.ndarray | torch.Tensor) -> np.ndarray:
+    def extract_features(self, waveform_data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Extract features for fusion pipeline.
 
         Args:
@@ -676,7 +677,7 @@ class EarthquakeDetector:
 
     def predict_earthquake(
         self,
-        seismic_data: np.ndarray | torch.Tensor,
+        seismic_data: np.ndarray[Any, Any] | torch.Tensor,
         station_info: dict[str, Any] | None = None,
     ) -> EarthquakePredictionResult:
         """Predict earthquake from seismic waveform data.
@@ -752,7 +753,7 @@ class EarthquakeDetector:
             aftershock_probability=min(0.9, estimated_mag / 10),
         )
 
-    def _compute_resonance_score(self, Sxx: np.ndarray, freqs: np.ndarray) -> float:
+    def _compute_resonance_score(self, Sxx: np.ndarray[Any, Any], freqs: np.ndarray[Any, Any]) -> float:
         """Compute resonance score from spectrogram."""
         power_by_freq = Sxx.mean(axis=1)
 
@@ -786,7 +787,7 @@ class EarthquakeDetector:
         else:
             return EarthquakeMagnitude.GREAT.value
 
-    def _detect_wave_arrival(self, data: np.ndarray, wave_type: str) -> int | None:
+    def _detect_wave_arrival(self, data: np.ndarray[Any, Any], wave_type: str) -> int | None:
         """Detect P or S wave arrival time using STA/LTA."""
         sta_len = int(0.5 * self.sampling_rate)
         lta_len = int(5.0 * self.sampling_rate)
@@ -805,7 +806,7 @@ class EarthquakeDetector:
 
         return int(arrivals[0]) if len(arrivals) > 0 else None
 
-    def _find_spectral_anomalies(self, Sxx: np.ndarray, freqs: np.ndarray) -> list[float]:
+    def _find_spectral_anomalies(self, Sxx: np.ndarray[Any, Any], freqs: np.ndarray[Any, Any]) -> list[float]:
         """Find anomalous frequencies in spectrogram."""
         power_by_freq = Sxx.mean(axis=1)
         mean_power = power_by_freq.mean()
@@ -847,7 +848,7 @@ class EarthquakeDetector:
 
         return warnings
 
-    def extract_features(self, seismic_data: np.ndarray | torch.Tensor) -> np.ndarray:
+    def extract_features(self, seismic_data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Extract features for fusion pipeline."""
         if isinstance(seismic_data, torch.Tensor):
             seismic_data = seismic_data.cpu().numpy()
@@ -896,8 +897,8 @@ class MeteorDetector:
 
     def predict_meteor(
         self,
-        optical_data: np.ndarray | None = None,
-        radar_data: np.ndarray | None = None,
+        optical_data: np.ndarray[Any, Any] | None = None,
+        radar_data: np.ndarray[Any, Any] | None = None,
         noaa_stub: dict[str, Any] | None = None,
     ) -> MeteorPredictionResult:
         """Predict meteor from optical and radar data.
@@ -956,8 +957,8 @@ class MeteorDetector:
     def _assess_threat(
         self,
         posterior: float,
-        optical_data: np.ndarray | None,
-        radar_data: np.ndarray | None,
+        optical_data: np.ndarray[Any, Any] | None,
+        radar_data: np.ndarray[Any, Any] | None,
     ) -> str:
         """Assess meteor threat level."""
         if posterior < 0.1:
@@ -973,13 +974,13 @@ class MeteorDetector:
         else:
             return MeteorThreatLevel.CRITICAL.value
 
-    def _estimate_size(self, radar_data: np.ndarray) -> float:
+    def _estimate_size(self, radar_data: np.ndarray[Any, Any]) -> float:
         """Estimate meteor size from radar cross-section."""
         rcs = np.max(radar_data)
         size = np.sqrt(rcs / np.pi) * 10
         return float(size)
 
-    def _estimate_velocity(self, radar_data: np.ndarray) -> float:
+    def _estimate_velocity(self, radar_data: np.ndarray[Any, Any]) -> float:
         """Estimate meteor velocity from Doppler shift."""
         if len(radar_data) < 2:
             return 20.0
@@ -1010,9 +1011,9 @@ class MeteorDetector:
 
     def extract_features(
         self,
-        optical_data: np.ndarray | None = None,
-        radar_data: np.ndarray | None = None,
-    ) -> np.ndarray:
+        optical_data: np.ndarray[Any, Any] | None = None,
+        radar_data: np.ndarray[Any, Any] | None = None,
+    ) -> np.ndarray[Any, Any]:
         """Extract features for fusion pipeline."""
         features = np.zeros(FEATURE_DIM)
 
@@ -1082,9 +1083,9 @@ class SolarFlareDetector:
 
     def predict_solar_flare(
         self,
-        x_ray_flux: float | np.ndarray,
+        x_ray_flux: float | np.ndarray[Any, Any],
         proton_flux: float | None = None,
-        magnetometer_data: np.ndarray | None = None,
+        magnetometer_data: np.ndarray[Any, Any] | None = None,
     ) -> SolarFlarePredictionResult:
         """Predict solar flare from X-ray and proton flux data.
 
@@ -1096,7 +1097,7 @@ class SolarFlareDetector:
         Returns:
             SolarFlarePredictionResult with detection details
         """
-        if isinstance(x_ray_flux, np.ndarray):
+        if isinstance(x_ray_flux, np.ndarray[Any, Any]):
             current_flux = float(x_ray_flux[-1])
             flux_trend = np.diff(x_ray_flux).mean() if len(x_ray_flux) > 1 else 0
         else:
@@ -1135,7 +1136,7 @@ class SolarFlareDetector:
             affected_systems=affected,
         )
 
-    def _aggregate_proton_flux(self, proton_flux: float | np.ndarray | None) -> float:
+    def _aggregate_proton_flux(self, proton_flux: float | np.ndarray[Any, Any] | None) -> float:
         """Aggregate proton flux using configured method.
 
         For time-series threats like solar flares, peak detection (max) is
@@ -1151,7 +1152,7 @@ class SolarFlareDetector:
         if proton_flux is None:
             return 0.0
 
-        if isinstance(proton_flux, np.ndarray):
+        if isinstance(proton_flux, np.ndarray[Any, Any]):
             agg_func = self._agg_funcs.get(self.proton_flux_agg_method, np.max)
             return float(agg_func(proton_flux))
         else:
@@ -1238,13 +1239,13 @@ class SolarFlareDetector:
 
     def extract_features(
         self,
-        x_ray_flux: float | np.ndarray,
+        x_ray_flux: float | np.ndarray[Any, Any],
         proton_flux: float | None = None,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Extract features for fusion pipeline."""
         features = np.zeros(FEATURE_DIM)
 
-        if isinstance(x_ray_flux, np.ndarray):
+        if isinstance(x_ray_flux, np.ndarray[Any, Any]):
             features[0] = np.mean(x_ray_flux)
             features[1] = np.std(x_ray_flux)
             features[2] = np.max(x_ray_flux)
@@ -1254,7 +1255,7 @@ class SolarFlareDetector:
             features[3] = np.log10(x_ray_flux + 1e-10) + 10
 
         if proton_flux is not None:
-            if isinstance(proton_flux, np.ndarray):
+            if isinstance(proton_flux, np.ndarray[Any, Any]):
                 features[4] = np.mean(proton_flux)
             else:
                 features[4] = proton_flux
@@ -1277,7 +1278,7 @@ def generate_synthetic_tsunami_data(
     n_samples: int = 1000,
     seq_len: int = 256,
     rng: np.random.Generator | None = None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     """Generate synthetic tsunami waveform data for training.
 
     Creates realistic oceanic waveform patterns:
@@ -1333,7 +1334,7 @@ def generate_synthetic_earthquake_data(
     n_freq_bins: int = 64,
     n_time_bins: int = 64,
     rng: np.random.Generator | None = None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     """Generate synthetic earthquake spectrogram data for training.
 
     Creates realistic seismic spectrograms:

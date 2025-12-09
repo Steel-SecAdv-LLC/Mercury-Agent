@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Real-World Dataset Loaders
@@ -62,7 +63,7 @@ class DatasetLoader(ABC):
     """Abstract base class for dataset loaders."""
 
     @abstractmethod
-    def load(self, **kwargs: Any) -> tuple[np.ndarray, np.ndarray, DatasetMetadata]:
+    def load(self, **kwargs: Any) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
         """
         Load dataset and return features, labels, and metadata.
 
@@ -77,7 +78,7 @@ class DatasetLoader(ABC):
     @abstractmethod
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Get train/test split of the dataset.
 
@@ -177,11 +178,11 @@ class NSLKDDLoader(DatasetLoader):
         "rootkit": "u2r",
     }
 
-    def __init__(self, cache_dir: str | Path | None = None):
+    def __init__(self, cache_dir: str | Path | None = None) -> None:
         self.cache_dir = Path(cache_dir) if cache_dir else Path.home() / ".omni_ava" / "datasets"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._data: np.ndarray | None = None
-        self._labels: np.ndarray | None = None
+        self._data: np.ndarray[Any, Any] | None = None
+        self._labels: np.ndarray[Any, Any] | None = None
         self._metadata: DatasetMetadata | None = None
 
     def load(
@@ -190,7 +191,7 @@ class NSLKDDLoader(DatasetLoader):
         n_samples: int = 10000,
         min_real_samples: int = 100,
         **kwargs: Any,
-    ) -> tuple[np.ndarray, np.ndarray, DatasetMetadata]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
         """
         Load NSL-KDD dataset.
 
@@ -245,7 +246,7 @@ class NSLKDDLoader(DatasetLoader):
 
         return self._data, self._labels, self._metadata
 
-    def _generate_synthetic(self, n_samples: int) -> tuple[np.ndarray, np.ndarray]:
+    def _generate_synthetic(self, n_samples: int) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Generate synthetic NSL-KDD-like data for testing."""
         rng = np.random.default_rng(42)
 
@@ -267,7 +268,7 @@ class NSLKDDLoader(DatasetLoader):
         shuffle_idx = rng.permutation(n_samples)
         return data[shuffle_idx], labels[shuffle_idx]
 
-    def _load_real(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_real(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load real NSL-KDD data from cache or download."""
         cache_file = self.cache_dir / "nsl_kdd.npz"
 
@@ -280,7 +281,7 @@ class NSLKDDLoader(DatasetLoader):
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Get train/test split."""
         if self._data is None:
             self.load()
@@ -337,11 +338,11 @@ class USGSEarthquakeLoader(DatasetLoader):
         "month",
     ]
 
-    def __init__(self, cache_dir: str | Path | None = None):
+    def __init__(self, cache_dir: str | Path | None = None) -> None:
         self.cache_dir = Path(cache_dir) if cache_dir else Path.home() / ".omni_ava" / "datasets"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._data: np.ndarray | None = None
-        self._labels: np.ndarray | None = None
+        self._data: np.ndarray[Any, Any] | None = None
+        self._labels: np.ndarray[Any, Any] | None = None
         self._metadata: DatasetMetadata | None = None
 
     def load(
@@ -353,7 +354,7 @@ class USGSEarthquakeLoader(DatasetLoader):
         anomaly_threshold: float = 5.0,
         min_real_samples: int = 100,
         **kwargs: Any,
-    ) -> tuple[np.ndarray, np.ndarray, DatasetMetadata]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
         """
         Load USGS earthquake data.
 
@@ -415,7 +416,7 @@ class USGSEarthquakeLoader(DatasetLoader):
 
     def _generate_synthetic(
         self, n_samples: int, anomaly_threshold: float
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Generate synthetic earthquake-like data."""
         rng = np.random.default_rng(42)
 
@@ -466,7 +467,7 @@ class USGSEarthquakeLoader(DatasetLoader):
 
     def _load_from_api(
         self, days_back: int, min_magnitude: float, anomaly_threshold: float
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load real earthquake data from USGS API."""
         end_time = datetime.utcnow()
         start_time = end_time - timedelta(days=days_back)
@@ -540,7 +541,7 @@ class USGSEarthquakeLoader(DatasetLoader):
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Get train/test split."""
         if self._data is None:
             self.load()
@@ -608,11 +609,11 @@ class MIMICLoader(DatasetLoader):
         "icu_type_encoded",
     ]
 
-    def __init__(self, cache_dir: str | Path | None = None):
+    def __init__(self, cache_dir: str | Path | None = None) -> None:
         self.cache_dir = Path(cache_dir) if cache_dir else Path.home() / ".omni_ava" / "datasets"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._data: np.ndarray | None = None
-        self._labels: np.ndarray | None = None
+        self._data: np.ndarray[Any, Any] | None = None
+        self._labels: np.ndarray[Any, Any] | None = None
         self._metadata: DatasetMetadata | None = None
 
     def load(
@@ -620,7 +621,7 @@ class MIMICLoader(DatasetLoader):
         n_samples: int = 5000,
         anomaly_type: str = "sepsis",
         **kwargs: Any,
-    ) -> tuple[np.ndarray, np.ndarray, DatasetMetadata]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
         """
         Load MIMIC-III-like synthetic data.
 
@@ -667,7 +668,7 @@ class MIMICLoader(DatasetLoader):
 
     def _generate_synthetic(
         self, n_samples: int, anomaly_type: str
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Generate synthetic MIMIC-III-like data."""
         rng = np.random.default_rng(42)
 
@@ -684,7 +685,7 @@ class MIMICLoader(DatasetLoader):
         shuffle_idx = rng.permutation(n_samples)
         return data[shuffle_idx], labels[shuffle_idx]
 
-    def _generate_normal_vitals(self, rng: np.random.Generator, n: int) -> np.ndarray:
+    def _generate_normal_vitals(self, rng: np.random.Generator, n: int) -> np.ndarray[Any, Any]:
         """Generate normal patient vital signs."""
         return np.column_stack(
             [
@@ -713,7 +714,7 @@ class MIMICLoader(DatasetLoader):
 
     def _generate_anomaly_vitals(
         self, rng: np.random.Generator, n: int, anomaly_type: str
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Generate anomalous patient vital signs based on condition."""
         if anomaly_type == "sepsis":
             return np.column_stack(
@@ -793,7 +794,7 @@ class MIMICLoader(DatasetLoader):
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Get train/test split."""
         if self._data is None:
             self.load()
@@ -871,11 +872,11 @@ class NOAASpaceWeatherLoader(DatasetLoader):
         "solar_cycle_phase",
     ]
 
-    def __init__(self, cache_dir: str | Path | None = None):
+    def __init__(self, cache_dir: str | Path | None = None) -> None:
         self.cache_dir = Path(cache_dir) if cache_dir else Path.home() / ".omni_ava" / "datasets"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._data: np.ndarray | None = None
-        self._labels: np.ndarray | None = None
+        self._data: np.ndarray[Any, Any] | None = None
+        self._labels: np.ndarray[Any, Any] | None = None
         self._metadata: DatasetMetadata | None = None
 
     def load(
@@ -885,7 +886,7 @@ class NOAASpaceWeatherLoader(DatasetLoader):
         storm_threshold: float = 5.0,
         min_real_samples: int = 100,
         **kwargs: Any,
-    ) -> tuple[np.ndarray, np.ndarray, DatasetMetadata]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
         """
         Load NOAA Space Weather data.
 
@@ -943,7 +944,7 @@ class NOAASpaceWeatherLoader(DatasetLoader):
 
     def _generate_synthetic(
         self, n_samples: int, storm_threshold: float
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Generate synthetic space weather data."""
         rng = np.random.default_rng(42)
 
@@ -1010,7 +1011,7 @@ class NOAASpaceWeatherLoader(DatasetLoader):
 
         return data, labels
 
-    def _load_from_api(self, storm_threshold: float) -> tuple[np.ndarray, np.ndarray]:
+    def _load_from_api(self, storm_threshold: float) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load real space weather data from NOAA SWPC API."""
         try:
             import json
@@ -1075,7 +1076,7 @@ class NOAASpaceWeatherLoader(DatasetLoader):
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Get train/test split."""
         if self._data is None:
             self.load()
@@ -1136,11 +1137,11 @@ class NOAAHurricaneLoader(DatasetLoader):
         "day_of_year",
     ]
 
-    def __init__(self, cache_dir: str | Path | None = None):
+    def __init__(self, cache_dir: str | Path | None = None) -> None:
         self.cache_dir = Path(cache_dir) if cache_dir else Path.home() / ".omni_ava" / "datasets"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._data: np.ndarray | None = None
-        self._labels: np.ndarray | None = None
+        self._data: np.ndarray[Any, Any] | None = None
+        self._labels: np.ndarray[Any, Any] | None = None
         self._metadata: DatasetMetadata | None = None
 
     def load(
@@ -1150,7 +1151,7 @@ class NOAAHurricaneLoader(DatasetLoader):
         major_hurricane_threshold: float = 111.0,
         min_real_samples: int = 100,
         **kwargs: Any,
-    ) -> tuple[np.ndarray, np.ndarray, DatasetMetadata]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
         """
         Load NOAA Hurricane data.
 
@@ -1210,7 +1211,7 @@ class NOAAHurricaneLoader(DatasetLoader):
 
     def _generate_synthetic(
         self, n_samples: int, major_threshold: float
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Generate synthetic hurricane data."""
         rng = np.random.default_rng(42)
 
@@ -1272,7 +1273,7 @@ class NOAAHurricaneLoader(DatasetLoader):
 
         return data, labels
 
-    def _load_from_api(self, major_threshold: float) -> tuple[np.ndarray, np.ndarray]:
+    def _load_from_api(self, major_threshold: float) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load real hurricane data from NOAA NHC API."""
         try:
             from urllib.request import Request
@@ -1353,7 +1354,7 @@ class NOAAHurricaneLoader(DatasetLoader):
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Get train/test split."""
         if self._data is None:
             self.load()
@@ -1414,11 +1415,11 @@ class NOAAOceanLoader(DatasetLoader):
         "year",
     ]
 
-    def __init__(self, cache_dir: str | Path | None = None):
+    def __init__(self, cache_dir: str | Path | None = None) -> None:
         self.cache_dir = Path(cache_dir) if cache_dir else Path.home() / ".omni_ava" / "datasets"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._data: np.ndarray | None = None
-        self._labels: np.ndarray | None = None
+        self._data: np.ndarray[Any, Any] | None = None
+        self._labels: np.ndarray[Any, Any] | None = None
         self._metadata: DatasetMetadata | None = None
 
     def load(
@@ -1428,7 +1429,7 @@ class NOAAOceanLoader(DatasetLoader):
         heatwave_threshold: float = 2.0,
         min_real_samples: int = 100,
         **kwargs: Any,
-    ) -> tuple[np.ndarray, np.ndarray, DatasetMetadata]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
         """
         Load NOAA Ocean data.
 
@@ -1486,7 +1487,7 @@ class NOAAOceanLoader(DatasetLoader):
 
     def _generate_synthetic(
         self, n_samples: int, heatwave_threshold: float
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Generate synthetic ocean data."""
         rng = np.random.default_rng(42)
 
@@ -1561,7 +1562,7 @@ class NOAAOceanLoader(DatasetLoader):
 
         return data, labels
 
-    def _load_from_api(self, heatwave_threshold: float) -> tuple[np.ndarray, np.ndarray]:
+    def _load_from_api(self, heatwave_threshold: float) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load real ocean data from NOAA NOS API."""
         try:
             import json
@@ -1637,7 +1638,7 @@ class NOAAOceanLoader(DatasetLoader):
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Get train/test split."""
         if self._data is None:
             self.load()

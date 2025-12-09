@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Percipience Engine - Multi-Dimensional Ethical Verification System
@@ -164,7 +165,7 @@ class IndivisibleEngine:
     BALANCE_THRESHOLD = 0.1
     MIN_ETHICAL_SCORE = 0.7
 
-    def __init__(self, strict_mode: bool = True):
+    def __init__(self, strict_mode: bool = True) -> None:
         """
         Initialize Ethical Balance Engine.
 
@@ -365,7 +366,7 @@ class StrategicEngine:
 
     PHI = 1.618033988749895  # Golden ratio for proportional scaling
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
         self.wisdom_weights = {
@@ -538,7 +539,7 @@ class GeometricPatternProcessor:
     PHI_INVERSE = 0.618033988749895
     SQRT_5 = 2.2360679774997896
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.fibonacci_sequence = self._generate_fibonacci(20)
 
@@ -550,7 +551,7 @@ class GeometricPatternProcessor:
         return fib
 
     def analyze_geometric_patterns(
-        self, data: np.ndarray, context: dict[str, Any] | None = None
+        self, data: np.ndarray[Any, Any], context: dict[str, Any] | None = None
     ) -> GeometryAnalysis:
         """
         Perform comprehensive geometric pattern analysis.
@@ -600,7 +601,7 @@ class GeometricPatternProcessor:
 
         return float(score)
 
-    def _compute_golden_ratio_alignment(self, data: np.ndarray) -> float:
+    def _compute_golden_ratio_alignment(self, data: np.ndarray[Any, Any]) -> float:
         """Compute golden ratio alignment score."""
         flat = data.flatten()
         if len(flat) < 2:
@@ -617,7 +618,7 @@ class GeometricPatternProcessor:
 
         return float(np.mean(alignments)) if alignments else 0.5
 
-    def _compute_fibonacci_spiral_score(self, data: np.ndarray) -> float:
+    def _compute_fibonacci_spiral_score(self, data: np.ndarray[Any, Any]) -> float:
         """Compute Fibonacci spiral alignment score."""
         flat = data.flatten()
 
@@ -629,7 +630,7 @@ class GeometricPatternProcessor:
 
         return float(np.clip(score * 5, 0.0, 1.0))
 
-    def _compute_vesica_piscis_score(self, data: np.ndarray) -> float:
+    def _compute_vesica_piscis_score(self, data: np.ndarray[Any, Any]) -> float:
         """
         Compute vesica piscis score.
 
@@ -652,7 +653,7 @@ class GeometricPatternProcessor:
 
         return float(np.mean(ratios)) if ratios else 0.5
 
-    def _compute_platonic_harmony(self, data: np.ndarray) -> float:
+    def _compute_platonic_harmony(self, data: np.ndarray[Any, Any]) -> float:
         """
         Compute Platonic solid harmony score.
 
@@ -731,7 +732,7 @@ class TwelveFoldVerificationSystem:
     PASSING_THRESHOLD = 0.7
     OVERALL_THRESHOLD = 0.75
 
-    def __init__(self, strict_mode: bool = False):
+    def __init__(self, strict_mode: bool = False) -> None:
         """
         Initialize Twelve-Fold Verification System.
 
@@ -870,7 +871,7 @@ class PercipienceEngine:
     Provides comprehensive ethical AI alignment verification.
     """
 
-    def __init__(self, strict_mode: bool = False):
+    def __init__(self, strict_mode: bool = False) -> None:
         """
         Initialize Percipience Engine.
 
@@ -887,7 +888,7 @@ class PercipienceEngine:
 
     def comprehensive_analysis(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         ethical_scores: dict[str, float],
         performance_metrics: dict[str, float],
         knowledge_indicators: dict[str, float],
@@ -958,7 +959,7 @@ class PercipienceEngine:
 
     def alignment_pattern_analysis(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         context: dict[str, Any] | None = None,
     ) -> ArchetypalAnalysis:
         """
@@ -1000,7 +1001,7 @@ class PercipienceEngine:
         )
 
     def geometric_pattern_analysis(
-        self, data: np.ndarray, context: dict[str, Any] | None = None
+        self, data: np.ndarray[Any, Any], context: dict[str, Any] | None = None
     ) -> GeometryAnalysis:
         """
         Perform geometric pattern analysis.

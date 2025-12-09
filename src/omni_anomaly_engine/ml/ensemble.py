@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Ensemble Learning for Enhanced Detector Fusion
@@ -399,9 +400,9 @@ class VotingEnsemble:
 
     def predict(
         self,
-        detector_outputs: dict[str, np.ndarray],
+        detector_outputs: dict[str, np.ndarray[Any, Any]],
         threshold: float = 0.5,
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray[Any, Any]]:
         """Combine detector outputs using voting.
 
         Args:

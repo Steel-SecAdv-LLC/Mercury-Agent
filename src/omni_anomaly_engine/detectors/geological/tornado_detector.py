@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Tornado Detector - Multi-Modal Severe Weather Monitoring
@@ -122,7 +123,7 @@ class DopplerRadarAnalyzer(nn.Module):
     Uses LSTM + attention to identify rotation signatures in radar data.
     """
 
-    def __init__(self, input_dim: int = 64, hidden_dim: int = 128):
+    def __init__(self, input_dim: int = 64, hidden_dim: int = 128) -> None:
         super().__init__()
 
         self.lstm = nn.LSTM(
@@ -189,7 +190,7 @@ class AtmosphericInstabilityAnalyzer:
     Monitors CAPE, helicity, wind shear, and other severe weather parameters.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
         self.cape_threshold = 1500.0  # J/kg for significant instability
@@ -265,7 +266,7 @@ class PressureGradientMonitor:
     Detects rapid pressure drops associated with mesocyclone development.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.rapid_drop_threshold = 4.0  # mb in 15 minutes
 
@@ -320,11 +321,11 @@ class ResonancePatternAnalyzer:
     characteristic frequency patterns in atmospheric data.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.tornado_frequencies = [0.1, 0.5, 1.0, 2.0]  # Hz characteristic frequencies
 
-    def analyze_resonance(self, signal: np.ndarray) -> dict[str, Any]:
+    def analyze_resonance(self, signal: np.ndarray[Any, Any]) -> dict[str, Any]:
         """
         Analyze signal for tornado-characteristic resonance patterns.
 
@@ -384,13 +385,13 @@ class RecursiveFeatureExtractor:
     pattern analysis at progressively finer scales.
     """
 
-    def __init__(self, max_depth: int = 4, decay_factor: float = 0.8):
+    def __init__(self, max_depth: int = 4, decay_factor: float = 0.8) -> None:
         self.max_depth = max_depth
         self.decay_factor = decay_factor
 
     def extract_recursive_features(
-        self, data: np.ndarray, depth: int = 0
-    ) -> tuple[np.ndarray, int]:
+        self, data: np.ndarray[Any, Any], depth: int = 0
+    ) -> tuple[np.ndarray[Any, Any], int]:
         """
         Recursively extract features at multiple scales.
 
@@ -413,7 +414,7 @@ class RecursiveFeatureExtractor:
 
         return combined, max_depth
 
-    def _base_features(self, data: np.ndarray) -> np.ndarray:
+    def _base_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract base statistical features."""
         if len(data) == 0:
             return np.zeros(6)
@@ -602,7 +603,7 @@ class TornadoDetector:
 
         return result
 
-    def _analyze_radar(self, radar_sequence: np.ndarray) -> dict[str, Any]:
+    def _analyze_radar(self, radar_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Analyze Doppler radar data for mesocyclone signatures."""
         seq_tensor = torch.tensor(radar_sequence, dtype=torch.float32)
         if seq_tensor.dim() == 2:
@@ -692,7 +693,7 @@ class TornadoDetector:
 
         return advice
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion."""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()

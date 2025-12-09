@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Flood Detector - Multi-Parameter Flood Monitoring System
@@ -125,7 +126,7 @@ class PrecipitationAnalyzer:
     Monitors rainfall rates, accumulation, and forecast precipitation.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.flash_flood_threshold_1h = 2.0  # inches/hour
         self.flood_threshold_24h = 4.0  # inches in 24 hours
@@ -178,7 +179,7 @@ class RiverGaugeMonitor:
     Tracks river levels relative to flood stages.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def analyze_river_stage(self, gauge_data: dict[str, Any]) -> dict[str, Any]:
@@ -243,7 +244,7 @@ class SoilSaturationModel:
     Estimates soil moisture and runoff potential.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def analyze_soil_conditions(self, soil_data: dict[str, Any]) -> dict[str, Any]:
@@ -303,7 +304,7 @@ class TopographicRunoffPredictor(nn.Module):
     Uses terrain features to predict water flow patterns.
     """
 
-    def __init__(self, input_dim: int = 32, hidden_dim: int = 64):
+    def __init__(self, input_dim: int = 32, hidden_dim: int = 64) -> None:
         super().__init__()
 
         self.encoder = nn.Sequential(
@@ -364,7 +365,7 @@ class RefactoringEngine:
     continuously improving prediction models based on feedback.
     """
 
-    def __init__(self, max_iterations: int = 10, convergence_threshold: float = 0.01):
+    def __init__(self, max_iterations: int = 10, convergence_threshold: float = 0.01) -> None:
         self.max_iterations = max_iterations
         self.convergence_threshold = convergence_threshold
         self.logger = logging.getLogger(__name__)
@@ -693,7 +694,7 @@ class FloodDetector:
 
         return shelters
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion."""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()

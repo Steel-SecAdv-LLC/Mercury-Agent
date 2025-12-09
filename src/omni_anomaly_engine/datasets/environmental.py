@@ -9,6 +9,8 @@ References:
 - NOAA Climate Data: https://www.ncdc.noaa.gov/cdo-web/
 - NASA FIRMS (Fire): https://firms.modaps.eosdis.nasa.gov/
 """
+from __future__ import annotations
+from typing import Any
 
 import logging
 
@@ -58,7 +60,7 @@ class USGSEarthquakeLoader(DatasetLoader):
         "distance_to_fault",
     ]
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.min_magnitude = config.preprocessing.get("min_magnitude", 2.5)
 
@@ -136,14 +138,14 @@ class USGSEarthquakeLoader(DatasetLoader):
         logger.info(f"Generated {n_samples} earthquake samples, {labels.sum()} significant events")
         return True
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         synthetic_path = self.data_path / "synthetic_earthquake.npz"
         if synthetic_path.exists():
             data = np.load(synthetic_path)
             return data["features"], data["labels"]
         raise FileNotFoundError("Earthquake data not found")
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess earthquake features."""
         # Log transform energy and magnitude
         data = np.nan_to_num(data, nan=0.0, posinf=1e10, neginf=-1e10)
@@ -190,7 +192,7 @@ class NOAAWeatherLoader(DatasetLoader):
         "wind_chill",
     ]
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
 
     def download(self) -> bool:
@@ -244,14 +246,14 @@ class NOAAWeatherLoader(DatasetLoader):
         logger.info(f"Generated {n_samples} weather samples, {labels.sum()} extreme events")
         return True
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         synthetic_path = self.data_path / "synthetic_weather.npz"
         if synthetic_path.exists():
             data = np.load(synthetic_path)
             return data["features"], data["labels"]
         raise FileNotFoundError("Weather data not found")
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess weather features."""
         data = np.nan_to_num(data, nan=0.0)
         data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)
@@ -298,7 +300,7 @@ class WildfireDataLoader(DatasetLoader):
         "elevation",
     ]
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
 
     def download(self) -> bool:
@@ -389,14 +391,14 @@ class WildfireDataLoader(DatasetLoader):
         logger.info(f"Generated {n_samples} wildfire samples, {labels.sum()} fire detections")
         return True
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         synthetic_path = self.data_path / "synthetic_wildfire.npz"
         if synthetic_path.exists():
             data = np.load(synthetic_path)
             return data["features"], data["labels"]
         raise FileNotFoundError("Wildfire data not found")
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess wildfire features."""
         data = np.nan_to_num(data, nan=0.0)
         data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)

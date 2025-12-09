@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Sigma Directive detector implementing PCP, GSIS, RMD, and EOA protocols
@@ -41,7 +42,7 @@ class SigmaDirectiveDetector(BaseDetector):
     - EOA (Ethical Oversight Amplifier)
     """
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         super().__init__(config)
         self.convergence_threshold = self.config.get("convergence_threshold", 0.01)
         self.stability_factor = self.config.get("stability_factor", 1.0)
@@ -50,10 +51,10 @@ class SigmaDirectiveDetector(BaseDetector):
         self.use_nano_detection = self.config.get("use_nano_detection", True)
         self.use_harmonic_detection = self.config.get("use_harmonic_detection", True)
 
-        self.baseline_pattern: np.ndarray | None = None
-        self.memory_buffer: list = []
+        self.baseline_pattern: np.ndarray[Any, Any] | None = None
+        self.memory_buffer: list[Any] = []
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> "SigmaDirectiveDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "SigmaDirectiveDetector":
         """Fit Sigma protocols to normal patterns"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
@@ -63,7 +64,7 @@ class SigmaDirectiveDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using Sigma protocols with quantum enhancement"""
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
@@ -116,7 +117,7 @@ class SigmaDirectiveDetector(BaseDetector):
             "detector_type": "directive",
         }
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract Sigma protocol features for ML fusion"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
@@ -146,7 +147,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         return torch.tensor(features, dtype=torch.float32)
 
-    def _pattern_convergence_protocol(self, data: np.ndarray) -> np.ndarray:
+    def _pattern_convergence_protocol(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """PCP: Detect pattern convergence anomalies"""
         if data.ndim == 1:
             data = data.reshape(-1, 1)
@@ -159,7 +160,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         return scores
 
-    def _gravitational_stability_check(self, data: np.ndarray) -> np.ndarray:
+    def _gravitational_stability_check(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """GSIS: Check gravitational stability (data distribution stability)"""
         if len(data) < 2:
             return np.zeros(len(data))
@@ -175,7 +176,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         return scores * self.stability_factor
 
-    def _recursive_memory_dynamics(self, data: np.ndarray) -> np.ndarray:
+    def _recursive_memory_dynamics(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """RMD: Detect anomalies using recursive memory"""
         scores = np.zeros(len(data))
 
@@ -191,7 +192,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         return scores
 
-    def _ethical_oversight_amplifier(self, data: np.ndarray) -> np.ndarray:
+    def _ethical_oversight_amplifier(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """EOA: Amplify detection of ethically significant anomalies"""
         if data.ndim == 1:
             data = data.reshape(-1, 1)
@@ -201,7 +202,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         return magnitude_norm
 
-    def _quantum_pattern_containment(self, data: np.ndarray) -> dict[str, float]:
+    def _quantum_pattern_containment(self, data: np.ndarray[Any, Any]) -> dict[str, float]:
         """
         Quantum Pattern Containment Protocol (QPCP)
         """
@@ -223,7 +224,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         return pattern_scores
 
-    def _nano_scale_detection(self, data: np.ndarray) -> dict[str, float]:
+    def _nano_scale_detection(self, data: np.ndarray[Any, Any]) -> dict[str, float]:
         """
         Nano-Scale Detection & Response System (NDRS)
         Enhanced N term with dimensional downsampling for micro-anomaly detection
@@ -251,7 +252,7 @@ class SigmaDirectiveDetector(BaseDetector):
             "dimensional_micro_score": float(dimensional_micro),
         }
 
-    def _harmonic_anomaly_detection(self, data: np.ndarray) -> float:
+    def _harmonic_anomaly_detection(self, data: np.ndarray[Any, Any]) -> float:
         """
         Harmonic anomaly detection using FFT
         """
@@ -339,7 +340,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         return anomaly_rate
 
-    def _detect_micro_anomalies(self, data: np.ndarray) -> float:
+    def _detect_micro_anomalies(self, data: np.ndarray[Any, Any]) -> float:
         """
         N Term Enhancement: Detect micro-anomalies at sub-feature level
         """
@@ -366,7 +367,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         return min(micro_score, 1.0)
 
-    def _dimensional_downsampling_detection(self, data: np.ndarray) -> float:
+    def _dimensional_downsampling_detection(self, data: np.ndarray[Any, Any]) -> float:
         """
         N Term Enhancement: Dimensional downsampling for micro-anomaly detection
         Downsample to low dimensions to detect subtle micro-patterns

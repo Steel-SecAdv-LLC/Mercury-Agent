@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """Quantum Kernel Machines for Anomaly Detection.
 
@@ -33,7 +34,7 @@ import numpy as np
 class QuantumKernelMachine:
     """Quantum-inspired kernel machine for anomaly detection."""
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize quantum kernel machine.
 
         Args:
@@ -49,10 +50,10 @@ class QuantumKernelMachine:
         self.num_qubits = self.config.get("num_qubits", 4)
         self.entanglement_depth = self.config.get("entanglement_depth", 2)
         self.gamma = self.config.get("gamma", 1.0)
-        self.training_data: np.ndarray | None = None
+        self.training_data: np.ndarray[Any, Any] | None = None
         self.anomaly_threshold: float | None = None
 
-    def quantum_inspired_kernel(self, x1: np.ndarray, x2: np.ndarray) -> float:
+    def quantum_inspired_kernel(self, x1: np.ndarray[Any, Any], x2: np.ndarray[Any, Any]) -> float:
         """Compute quantum-inspired kernel between two samples.
 
         Inspired by quantum circuits with entanglement, but implemented classically.
@@ -75,7 +76,7 @@ class QuantumKernelMachine:
 
         return float(kernel_value)
 
-    def _quantum_feature_map(self, x: np.ndarray, depth: int) -> np.ndarray:
+    def _quantum_feature_map(self, x: np.ndarray[Any, Any], depth: int) -> np.ndarray[Any, Any]:
         """Apply quantum-inspired feature map with entanglement.
 
         Simulates the effect of quantum data encoding circuits with multiple
@@ -104,13 +105,13 @@ class QuantumKernelMachine:
 
         return phi
 
-    def rbf_kernel(self, x1: np.ndarray, x2: np.ndarray) -> float:
+    def rbf_kernel(self, x1: np.ndarray[Any, Any], x2: np.ndarray[Any, Any]) -> float:
         """Compute RBF (Gaussian) kernel."""
         return float(np.exp(-self.gamma * np.linalg.norm(x1 - x2) ** 2))
 
     def compute_kernel_matrix(
-        self, X: np.ndarray, kernel_func: Callable[[np.ndarray, np.ndarray], float] | None = None
-    ) -> np.ndarray:
+        self, X: np.ndarray[Any, Any], kernel_func: Callable[[np.ndarray[Any, Any], np.ndarray[Any, Any]], float] | None = None
+    ) -> np.ndarray[Any, Any]:
         """Compute kernel matrix for dataset.
 
         Args:
@@ -136,7 +137,7 @@ class QuantumKernelMachine:
 
         return K
 
-    def fit(self, training_data: np.ndarray) -> None:
+    def fit(self, training_data: np.ndarray[Any, Any]) -> None:
         """Fit quantum kernel machine on training data.
 
         Args:
@@ -150,7 +151,7 @@ class QuantumKernelMachine:
 
         self.anomaly_threshold = float(np.mean(train_scores) - 3 * np.std(train_scores))
 
-    def predict(self, test_data: np.ndarray) -> dict[str, Any]:
+    def predict(self, test_data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Predict anomalies using quantum kernel machine.
 
         Args:

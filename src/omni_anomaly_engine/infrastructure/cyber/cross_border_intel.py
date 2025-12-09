@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """Cross-border threat intelligence correlation.
 
@@ -34,7 +35,7 @@ class CrossBorderIntelligence:
     for comprehensive threat intelligence.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Cross-Border Intelligence."""
         self.regions = {
             "eu": ["france", "germany", "italy", "spain", "poland", "netherlands"],
@@ -42,7 +43,7 @@ class CrossBorderIntelligence:
         }
 
     def correlate_threats(
-        self, eu_data: np.ndarray, us_data: np.ndarray, threat_type: str
+        self, eu_data: np.ndarray[Any, Any], us_data: np.ndarray[Any, Any], threat_type: str
     ) -> dict[str, Any]:
         """Correlate threat patterns across EU and US data.
 
@@ -72,7 +73,7 @@ class CrossBorderIntelligence:
             ),
         }
 
-    def _calculate_time_lag(self, eu_data: np.ndarray, us_data: np.ndarray) -> dict[str, Any]:
+    def _calculate_time_lag(self, eu_data: np.ndarray[Any, Any], us_data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Calculate time lag between EU and US anomaly patterns."""
         max_lag = min(24, len(eu_data) // 2, len(us_data) // 2)
         if max_lag < 1:

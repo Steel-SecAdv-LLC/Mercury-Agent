@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Schumann Resonance Detector Module
@@ -97,7 +98,7 @@ class SchumannHarmonicAnalyzer(nn.Module):
     optimized filter banks.
     """
 
-    def __init__(self, spectrum_size: int = 512):
+    def __init__(self, spectrum_size: int = 512) -> None:
         super().__init__()
 
         phi = 1.618
@@ -252,8 +253,8 @@ class SchumannResonanceDetector:
 
     def detect_resonance_anomaly(
         self,
-        elf_signal: np.ndarray,
-        temporal_history: list[np.ndarray] | None = None,
+        elf_signal: np.ndarray[Any, Any],
+        temporal_history: list[np.ndarray[Any, Any]] | None = None,
         metadata: dict | None = None,
     ) -> SchumannAnomalyResult:
         """
@@ -350,7 +351,7 @@ class SchumannResonanceDetector:
 
         return result
 
-    def _compute_power_spectrum(self, elf_signal: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def _compute_power_spectrum(self, elf_signal: np.ndarray[Any, Any]) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Compute power spectrum using FFT (O(n log n) complexity)"""
         n = len(elf_signal)
 
@@ -363,7 +364,7 @@ class SchumannResonanceDetector:
         return power, xf
 
     def _detect_fundamental(
-        self, power_spectrum: np.ndarray, frequencies: np.ndarray
+        self, power_spectrum: np.ndarray[Any, Any], frequencies: np.ndarray[Any, Any]
     ) -> tuple[float, float]:
         """Detect fundamental Schumann resonance frequency"""
         search_range = (frequencies >= 6.0) & (frequencies <= 10.0)
@@ -381,7 +382,7 @@ class SchumannResonanceDetector:
         return fundamental_freq, fundamental_power
 
     def _analyze_harmonics(
-        self, power_spectrum: np.ndarray, frequencies: np.ndarray
+        self, power_spectrum: np.ndarray[Any, Any], frequencies: np.ndarray[Any, Any]
     ) -> list[float]:
         """Analyze deviations in harmonic frequencies"""
         deviations = []
@@ -404,7 +405,7 @@ class SchumannResonanceDetector:
         return deviations
 
     def _detect_amplitude_anomaly(
-        self, power_spectrum: np.ndarray, frequencies: np.ndarray
+        self, power_spectrum: np.ndarray[Any, Any], frequencies: np.ndarray[Any, Any]
     ) -> bool:
         """Detect amplitude anomalies in Schumann resonances"""
         schumann_band = (frequencies >= 5.0) & (frequencies <= 40.0)
@@ -422,7 +423,7 @@ class SchumannResonanceDetector:
 
         return max_power > (mean_power + threshold)
 
-    def _detect_spectrum_shift(self, power_spectrum: np.ndarray, frequencies: np.ndarray) -> bool:
+    def _detect_spectrum_shift(self, power_spectrum: np.ndarray[Any, Any], frequencies: np.ndarray[Any, Any]) -> bool:
         """Detect significant shifts in power spectrum distribution"""
         low_band = (frequencies >= 5.0) & (frequencies <= 15.0)
         high_band = (frequencies >= 15.0) & (frequencies <= 40.0)
@@ -439,7 +440,7 @@ class SchumannResonanceDetector:
 
         return abs(ratio - expected_ratio) > (0.2 * self.golden_ratio)
 
-    def _process_temporal_history(self, temporal_history: list[np.ndarray]) -> torch.Tensor:
+    def _process_temporal_history(self, temporal_history: list[np.ndarray[Any, Any]]) -> torch.Tensor:
         """Process temporal history of spectra"""
         sequence_length = min(len(temporal_history), 10)
 
@@ -476,7 +477,7 @@ class SchumannResonanceDetector:
 
         return events[:6]
 
-    def _analyze_temporal_pattern(self, temporal_history: list[np.ndarray]) -> dict[str, Any]:
+    def _analyze_temporal_pattern(self, temporal_history: list[np.ndarray[Any, Any]]) -> dict[str, Any]:
         """Analyze temporal evolution of resonance patterns"""
         if not temporal_history or len(temporal_history) < 2:
             return {}
@@ -552,7 +553,7 @@ class SchumannResonanceDetector:
 
         return correlations
 
-    def extract_features(self, data: np.ndarray) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any]) -> torch.Tensor:
         """Extract features for ML fusion integration"""
         power, freqs = self._compute_power_spectrum(data)
 
@@ -568,7 +569,7 @@ class SchumannResonanceDetector:
         features_array = np.array(features[:8], dtype=np.float32)
         return torch.tensor(features_array, dtype=torch.float32).unsqueeze(0)
 
-    def predict(self, data: np.ndarray) -> dict[str, Any]:
+    def predict(self, data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Predict for engine integration"""
         result = self.detect_resonance_anomaly(data)
 

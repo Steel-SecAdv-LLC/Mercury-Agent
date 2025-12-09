@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Pathogen Detection using QBM-Based Energy Modeling
@@ -69,7 +70,7 @@ class PathogenDetector:
     - Convergence proofs via Boltzmann distribution
     """
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         """
         Initialize pathogen detector.
 
@@ -93,7 +94,7 @@ class PathogenDetector:
 
         self.logger.info(f"PathogenDetector initialized (dim={self.state_dim})")
 
-    def _initialize_coupling_matrix(self) -> np.ndarray:
+    def _initialize_coupling_matrix(self) -> np.ndarray[Any, Any]:
         """
         Initialize QBM coupling matrix J_ij.
 
@@ -110,7 +111,7 @@ class PathogenDetector:
         return J
 
     def detect_pathogen(
-        self, bio_data: np.ndarray, masint_data: dict[str, Any] | None = None
+        self, bio_data: np.ndarray[Any, Any], masint_data: dict[str, Any] | None = None
     ) -> BioThreatResult:
         """
         Detect bio-threats in data using QBM energy model.
@@ -166,7 +167,7 @@ class PathogenDetector:
 
         return result
 
-    def _extract_pathogen_state(self, bio_data: np.ndarray) -> np.ndarray:
+    def _extract_pathogen_state(self, bio_data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Extract pathogen state vector from bio data.
 
@@ -184,7 +185,7 @@ class PathogenDetector:
 
         return state.astype(np.int8)
 
-    def _compute_qbm_energy(self, state: np.ndarray) -> float:
+    def _compute_qbm_energy(self, state: np.ndarray[Any, Any]) -> float:
         """
         Compute QBM energy E(pathogen) = -∑ J_ij * σ_i * σ_j.
 
@@ -210,7 +211,7 @@ class PathogenDetector:
 
         return float(probability)
 
-    def _classify_pathogen(self, state: np.ndarray, energy: float) -> str:
+    def _classify_pathogen(self, state: np.ndarray[Any, Any], energy: float) -> str:
         """
         Classify pathogen type based on state and energy.
 
@@ -231,7 +232,7 @@ class PathogenDetector:
         else:
             return "none_detected"
 
-    def _identify_bio_signatures(self, state: np.ndarray) -> list[str]:
+    def _identify_bio_signatures(self, state: np.ndarray[Any, Any]) -> list[str]:
         """
         Identify biological signatures from pathogen state.
 
@@ -315,7 +316,7 @@ class PathogenDetector:
             recommended_interdiction=[],
         )
 
-    def extract_features(self, bio_data: np.ndarray) -> torch.Tensor:
+    def extract_features(self, bio_data: np.ndarray[Any, Any]) -> torch.Tensor:
         """
         Extract features for ML fusion integration.
 

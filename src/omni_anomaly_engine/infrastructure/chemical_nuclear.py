@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """
 CISA Chemical & Nuclear Critical Infrastructure Anomaly Detection
@@ -50,7 +52,7 @@ class ChemicalNuclearDetector:
     - Cross-sector impact assessment
     """
 
-    def __init__(self, sector: CISASector):
+    def __init__(self, sector: CISASector) -> None:
         self.sector = sector
         self.safety_thresholds = self._init_safety_thresholds()
         self.interdependency_map = {
@@ -60,9 +62,9 @@ class ChemicalNuclearDetector:
 
     def detect(
         self,
-        sensor_data: np.ndarray,
+        sensor_data: np.ndarray[Any, Any],
         parameter_names: list[str] | None = None,
-        timestamps: np.ndarray | None = None,
+        timestamps: np.ndarray[Any, Any] | None = None,
     ) -> dict:
         """
         Detect anomalies in chemical/nuclear process parameters.
@@ -84,9 +86,9 @@ class ChemicalNuclearDetector:
 
     def detect_process_anomaly(
         self,
-        sensor_data: np.ndarray,
+        sensor_data: np.ndarray[Any, Any],
         parameter_names: list[str],
-        timestamps: np.ndarray | None = None,
+        timestamps: np.ndarray[Any, Any] | None = None,
     ) -> dict:
         """
         Detect anomalies in chemical/nuclear process parameters.
@@ -153,7 +155,7 @@ class ChemicalNuclearDetector:
             }
         return {}
 
-    def _calculate_severity(self, violations: np.ndarray, threshold: dict) -> str:
+    def _calculate_severity(self, violations: np.ndarray[Any, Any], threshold: dict[str, Any]) -> str:
         """Calculate severity level based on violation magnitude."""
         if len(violations) == 0:
             return "NONE"
@@ -180,7 +182,7 @@ class ChemicalNuclearDetector:
         else:
             return "LOW"
 
-    def _assess_emergency(self, param_name: str, violations: np.ndarray) -> bool:
+    def _assess_emergency(self, param_name: str, violations: np.ndarray[Any, Any]) -> bool:
         """Determine if emergency response is required."""
         critical_params = {
             CISASector.CHEMICAL: ["leak_rate_ppm", "temperature_celsius"],
@@ -193,7 +195,7 @@ class ChemicalNuclearDetector:
 
         return param_name in critical_params.get(self.sector, []) and np.sum(violations) > 3
 
-    def _assess_cross_sector_impact(self, anomalies: dict) -> dict:
+    def _assess_cross_sector_impact(self, anomalies: dict[str, Any]) -> dict:
         """Assess how anomalies in this sector affect other sectors."""
         if not anomalies:
             return {"affected_sectors": [], "impact_level": "NONE"}
@@ -208,7 +210,7 @@ class ChemicalNuclearDetector:
             "cascading_risk": has_critical and len(affected) > 2,
         }
 
-    def _generate_recommendations(self, anomalies: dict) -> list[str]:
+    def _generate_recommendations(self, anomalies: dict[str, Any]) -> list[str]:
         """Generate action recommendations based on detected anomalies."""
         if not anomalies:
             return ["Continue normal operations"]

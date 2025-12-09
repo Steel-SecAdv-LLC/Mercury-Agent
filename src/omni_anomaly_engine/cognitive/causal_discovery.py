@@ -7,6 +7,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
+from __future__ import annotations
 
 """
 Causal Discovery Engine - Production Implementation
@@ -230,9 +231,9 @@ class PartialCorrelationTest:
 
     @staticmethod
     def test(
-        x: np.ndarray,
-        y: np.ndarray,
-        z: np.ndarray | None,
+        x: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
+        z: np.ndarray[Any, Any] | None,
         n: int,
     ) -> tuple[float, float, float]:
         """
@@ -304,8 +305,8 @@ class GrangerCausalityTest:
 
     @staticmethod
     def test(
-        x: np.ndarray,
-        y: np.ndarray,
+        x: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
         max_lag: int,
         significance_level: float = 0.05,
     ) -> tuple[bool, float, int, float]:
@@ -394,7 +395,7 @@ class PropensityScoreEstimator:
     - Doubly Robust (AIPW) estimation
     """
 
-    def __init__(self, treatment: np.ndarray, covariates: np.ndarray):
+    def __init__(self, treatment: np.ndarray[Any, Any], covariates: np.ndarray[Any, Any]) -> None:
         """
         Args:
             treatment: Binary treatment indicator (0/1)
@@ -405,7 +406,7 @@ class PropensityScoreEstimator:
         self.propensity_scores = None
         self._fitted = False
 
-    def fit(self) -> np.ndarray:
+    def fit(self) -> np.ndarray[Any, Any]:
         """Fit propensity score model using logistic regression."""
         X = np.column_stack([np.ones(len(self.covariates)), self.covariates])
         y = self.treatment
@@ -443,7 +444,7 @@ class PropensityScoreEstimator:
 
         return self.propensity_scores
 
-    def ipw_ate(self, outcome: np.ndarray) -> tuple[float, float, float]:
+    def ipw_ate(self, outcome: np.ndarray[Any, Any]) -> tuple[float, float, float]:
         """
         Inverse Probability Weighting ATE estimation.
 
@@ -477,7 +478,7 @@ class PropensityScoreEstimator:
 
     def doubly_robust_ate(
         self,
-        outcome: np.ndarray,
+        outcome: np.ndarray[Any, Any],
     ) -> tuple[float, float, float]:
         """
         Augmented Inverse Probability Weighting (AIPW/Doubly Robust).
@@ -647,7 +648,7 @@ class CausalDiscoveryEngine:
 
     def discover_structure(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         variable_names: list[str] | None = None,
         prior_knowledge: dict[str, list[str]] | None = None,
     ) -> CausalGraph:
@@ -816,7 +817,7 @@ class CausalDiscoveryEngine:
 
     def discover_temporal_causation(
         self,
-        time_series: np.ndarray,
+        time_series: np.ndarray[Any, Any],
         variable_names: list[str] | None = None,
     ) -> CausalGraph:
         """
@@ -882,7 +883,7 @@ class CausalDiscoveryEngine:
 
     def estimate_causal_effect(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         cause_idx: int,
         effect_idx: int,
         adjustment_set: list[int] | None = None,
@@ -968,7 +969,7 @@ class CausalDiscoveryEngine:
     def do_intervention(
         self,
         graph: CausalGraph,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         intervention_var: str,
         intervention_value: float,
         target_var: str,
@@ -1035,7 +1036,7 @@ class CausalDiscoveryEngine:
     def counterfactual_query(
         self,
         graph: CausalGraph,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         factual_observation: dict[str, float],
         counterfactual_intervention: dict[str, float],
         target_var: str,
@@ -1164,10 +1165,10 @@ class CausalDiscoveryEngine:
 
     def _apply_meek_rules(
         self,
-        adjacency: np.ndarray,
-        directed: np.ndarray,
+        adjacency: np.ndarray[Any, Any],
+        directed: np.ndarray[Any, Any],
         n_vars: int,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Apply Meek's rules for edge orientation.
 
@@ -1221,7 +1222,7 @@ class CausalDiscoveryEngine:
 
         return valid_adjustment
 
-    def _compute_effect_size(self, x: np.ndarray, y: np.ndarray) -> float:
+    def _compute_effect_size(self, x: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> float:
         """Compute standardized effect size (Pearson correlation)."""
         if len(x) < 3:
             return 0.0
@@ -1230,9 +1231,9 @@ class CausalDiscoveryEngine:
 
     def _regression_adjustment(
         self,
-        treatment: np.ndarray,
-        outcome: np.ndarray,
-        covariates: np.ndarray,
+        treatment: np.ndarray[Any, Any],
+        outcome: np.ndarray[Any, Any],
+        covariates: np.ndarray[Any, Any],
     ) -> tuple[float, float, float]:
         """Estimate ATE via regression adjustment."""
         X = np.column_stack([np.ones(len(treatment)), treatment, covariates])
@@ -1258,7 +1259,7 @@ class CausalDiscoveryEngine:
 
     def _bootstrap_ci(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         cause_idx: int,
         effect_idx: int,
         adjustment_set: list[int] | None,
@@ -1302,7 +1303,7 @@ class CausalDiscoveryEngine:
 
         return (float(np.percentile(ates, 2.5)), float(np.percentile(ates, 97.5)))
 
-    def _bootstrap_mean_ci(self, data: np.ndarray) -> tuple[float, float]:
+    def _bootstrap_mean_ci(self, data: np.ndarray[Any, Any]) -> tuple[float, float]:
         """Bootstrap CI for mean."""
         means = []
         n = len(data)
@@ -1315,7 +1316,7 @@ class CausalDiscoveryEngine:
 
     def _backdoor_adjustment(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         x_idx: int,
         y_idx: int,
         z_indices: list[int],
@@ -1358,7 +1359,7 @@ class CausalDiscoveryEngine:
 
     def _sensitivity_analysis(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         treatment_idx: int,
         outcome_idx: int,
         observed_effect: float,

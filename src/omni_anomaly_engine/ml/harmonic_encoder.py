@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """
 Harmonic analysis encoder using spherical harmonics and Fourier analysis
@@ -35,11 +37,11 @@ class SphericalHarmonicDecomposer:
     Provides rotation-invariant feature extraction for facial biometrics
     """
 
-    def __init__(self, l_max: int = 10):
+    def __init__(self, l_max: int = 10) -> None:
         self.l_max = l_max
         self.num_coefficients = (l_max + 1) ** 2
 
-    def decompose_surface(self, points: np.ndarray, values: np.ndarray) -> np.ndarray:
+    def decompose_surface(self, points: np.ndarray[Any, Any], values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Decompose 3D surface into spherical harmonic coefficients
 
@@ -69,8 +71,8 @@ class SphericalHarmonicDecomposer:
         return coefficients
 
     def reconstruct_surface(
-        self, coefficients: np.ndarray, theta: np.ndarray, phi: np.ndarray
-    ) -> np.ndarray:
+        self, coefficients: np.ndarray[Any, Any], theta: np.ndarray[Any, Any], phi: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """
         Reconstruct surface from spherical harmonic coefficients
 
@@ -98,7 +100,7 @@ class SphericalHarmonicDecomposer:
 
         return reconstruction.real
 
-    def compute_rotation_invariant_features(self, coefficients: np.ndarray) -> np.ndarray:
+    def compute_rotation_invariant_features(self, coefficients: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Compute rotation-invariant features from spherical harmonic coefficients
         Uses power spectrum which is rotation-invariant
@@ -121,7 +123,7 @@ class SphericalHarmonicDecomposer:
 
         return power_spectrum
 
-    def _cartesian_to_spherical(self, points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def _cartesian_to_spherical(self, points: np.ndarray[Any, Any]) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Convert Cartesian coordinates to spherical (theta, phi)
 
@@ -146,10 +148,10 @@ class FourierHarmonicAnalyzer:
     Fourier harmonic analysis for frequency-domain pattern extraction
     """
 
-    def __init__(self, num_harmonics: int = 8):
+    def __init__(self, num_harmonics: int = 8) -> None:
         self.num_harmonics = num_harmonics
 
-    def extract_harmonics(self, signal: np.ndarray) -> dict[str, np.ndarray]:
+    def extract_harmonics(self, signal: np.ndarray[Any, Any]) -> dict[str, np.ndarray[Any, Any]]:
         """
         Extract harmonic components from signal using FFT
 
@@ -179,8 +181,8 @@ class FourierHarmonicAnalyzer:
         }
 
     def apply_bandpass_filter(
-        self, signal: np.ndarray, low_freq: float, high_freq: float
-    ) -> np.ndarray:
+        self, signal: np.ndarray[Any, Any], low_freq: float, high_freq: float
+    ) -> np.ndarray[Any, Any]:
         """
         Apply bandpass filter to signal
 
@@ -209,7 +211,7 @@ class QuantumHarmonicOscillator:
     Based on quantum mechanics principles (not memorial codes)
     """
 
-    def __init__(self, mass: float = 1.0, omega: float = 1.0, hbar: float = 1.0):
+    def __init__(self, mass: float = 1.0, omega: float = 1.0, hbar: float = 1.0) -> None:
         self.mass = mass
         self.omega = omega
         self.hbar = hbar
@@ -226,7 +228,7 @@ class QuantumHarmonicOscillator:
         """
         return self.hbar * self.omega * (n + 0.5)
 
-    def wavefunction(self, x: np.ndarray, n: int) -> np.ndarray:
+    def wavefunction(self, x: np.ndarray[Any, Any], n: int) -> np.ndarray[Any, Any]:
         """
         Compute wavefunction for quantum harmonic oscillator
 
@@ -250,7 +252,7 @@ class QuantumHarmonicOscillator:
 
         return psi
 
-    def evolve_state(self, psi_0: np.ndarray, t: float, n_max: int = 10) -> np.ndarray:
+    def evolve_state(self, psi_0: np.ndarray[Any, Any], t: float, n_max: int = 10) -> np.ndarray[Any, Any]:
         """
         Evolve quantum state in time
 

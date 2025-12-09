@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Landslide & Avalanche Detector - Slope Instability Analysis
@@ -114,7 +115,7 @@ class RainfallTriggerModel:
     Uses intensity-duration thresholds and antecedent rainfall.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def assess_rainfall_trigger(self, rainfall_data: dict[str, Any]) -> dict[str, Any]:
@@ -166,7 +167,7 @@ class SeismicTriggerModel:
     Uses peak ground acceleration (PGA) and slope characteristics.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def assess_seismic_trigger(self, seismic_data: dict[str, Any]) -> dict[str, Any]:
@@ -208,7 +209,7 @@ class SlopeStabilityModel(nn.Module):
     Integrates topography, soil properties, and hydrological conditions.
     """
 
-    def __init__(self, input_dim: int = 64):
+    def __init__(self, input_dim: int = 64) -> None:
         super().__init__()
 
         phi = 1.618
@@ -279,9 +280,9 @@ class RecursionMultiScaleAnalyzer:
 
     def extract_multi_scale_features(
         self,
-        time_series: np.ndarray,
+        time_series: np.ndarray[Any, Any],
         sample_rate_hz: float = 1.0,
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray[Any, Any]]:
         """Extract features at multiple temporal scales.
 
         Args:
@@ -319,9 +320,9 @@ class RecursionMultiScaleAnalyzer:
 
     def _compute_scale_features(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         scale: int,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Compute features for a specific scale.
 
         Args:
@@ -371,9 +372,9 @@ class TemporalLagFeatureExtractor:
 
     def extract_lag_features(
         self,
-        time_series: np.ndarray,
+        time_series: np.ndarray[Any, Any],
         sample_rate_hz: float = 1.0,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Extract lag features from time series.
 
         Args:
@@ -440,8 +441,8 @@ class SVMRFEnsembleClassifier:
 
     def fit(
         self,
-        X: np.ndarray,
-        y: np.ndarray,
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
     ) -> "SVMRFEnsembleClassifier":
         """Fit both classifiers on training data.
 
@@ -461,8 +462,8 @@ class SVMRFEnsembleClassifier:
 
     def predict_proba(
         self,
-        X: np.ndarray,
-    ) -> np.ndarray:
+        X: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """Predict class probabilities using ensemble.
 
         Args:
@@ -485,7 +486,7 @@ class SVMRFEnsembleClassifier:
 
         return ensemble_proba
 
-    def get_feature_importance(self) -> np.ndarray:
+    def get_feature_importance(self) -> np.ndarray[Any, Any]:
         """Get feature importance from Random Forest.
 
         Returns:
@@ -608,7 +609,7 @@ class LandslideDetector:
 
         return result
 
-    def _assess_slope_stability(self, slope_features: np.ndarray) -> dict[str, Any]:
+    def _assess_slope_stability(self, slope_features: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Assess slope stability using ML model"""
 
         features_tensor = torch.tensor(slope_features, dtype=torch.float32).unsqueeze(0)

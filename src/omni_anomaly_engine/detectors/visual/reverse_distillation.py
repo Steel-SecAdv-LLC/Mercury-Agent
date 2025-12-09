@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Reverse Distillation for Anomaly Detection
@@ -80,7 +81,7 @@ class OCEBottleneck(nn.Module):
     captures only normal patterns.
     """
 
-    def __init__(self, in_channels: int, bottleneck_dim: int = 256):
+    def __init__(self, in_channels: int, bottleneck_dim: int = 256) -> None:
         """Initialize bottleneck.
 
         Args:
@@ -166,7 +167,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         >>> results = detector.detect(test_images)
     """
 
-    def __init__(self, config: ReverseDistillationConfig | dict[str, Any] | None = None):
+    def __init__(self, config: ReverseDistillationConfig | dict[str, Any] | None = None) -> None:
         """Initialize detector."""
         if config is None:
             config = ReverseDistillationConfig()
@@ -263,7 +264,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
 
         return torch.cat(resized, dim=1)
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> "ReverseDistillationDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "ReverseDistillationDetector":
         """Train student encoder, bottleneck, and decoder.
 
         Args:
@@ -272,7 +273,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         Returns:
             Self for method chaining
         """
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray[Any, Any]):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)
@@ -366,7 +367,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         logger.info("Reverse Distillation training complete")
         return self
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using reconstruction error.
 
         Args:
@@ -378,7 +379,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         if not self._is_fitted:
             raise RuntimeError("Detector must be fitted before detection")
 
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray[Any, Any]):
             data = torch.from_numpy(data).float()
 
         original_size = data.shape[-2:]
@@ -485,7 +486,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
 
         return torch.from_numpy(anomaly_map_np).to(self.device)
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion pipeline.
 
         Args:
@@ -494,7 +495,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         Returns:
             Feature tensor [N, 128] normalized for fusion
         """
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray[Any, Any]):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)

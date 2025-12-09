@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Interstellar Object Anomaly Detection Module
@@ -114,7 +115,7 @@ class InterstellarObjectAnalyzer(nn.Module):
     orbital parameters, and physical characteristics.
     """
 
-    def __init__(self, input_dim: int = 96):
+    def __init__(self, input_dim: int = 96) -> None:
         super().__init__()
 
         phi = 1.618
@@ -210,7 +211,7 @@ class InterstellarObjectDetector:
     expectations for natural solar system bodies or known interstellar comets/asteroids.
     """
 
-    def __init__(self, enable_artificial_origin_test: bool = False):
+    def __init__(self, enable_artificial_origin_test: bool = False) -> None:
         """
         Initialize interstellar object detector.
 
@@ -369,7 +370,7 @@ class InterstellarObjectDetector:
 
     def _extract_features(
         self, iso_data: dict[str, Any]
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Extract orbital, spectroscopic, and physical features"""
         orbital_params = iso_data.get("orbital_parameters", {})
         orbital_features = np.array(

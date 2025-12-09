@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 PyOD Integration and Comparison
@@ -67,7 +68,7 @@ class PyODComparison:
     - Algorithm selection guidance
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.algorithm_characteristics = self._init_algorithm_profiles()
         self.benchmark_results = {}
 
@@ -167,9 +168,9 @@ class PyODComparison:
 
     def combine_predictions(
         self,
-        predictions: dict[str, np.ndarray],
+        predictions: dict[str, np.ndarray[Any, Any]],
         method: CombinationMethod = CombinationMethod.AVERAGE,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """
         Combine predictions from multiple detectors using PyOD-inspired methods.
 
@@ -213,8 +214,8 @@ class PyODComparison:
     def benchmark_against_pyod(
         self,
         omni_engine,
-        test_data: np.ndarray,
-        ground_truth: np.ndarray,
+        test_data: np.ndarray[Any, Any],
+        ground_truth: np.ndarray[Any, Any],
         pyod_algorithms: list[PyODAlgorithm],
     ) -> dict:
         """
@@ -244,7 +245,7 @@ class PyODComparison:
 
         return results
 
-    def _evaluate_detector(self, detector, data: np.ndarray, labels: np.ndarray) -> dict:
+    def _evaluate_detector(self, detector, data: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]) -> dict:
         """Evaluate detector performance."""
         try:
             scores = detector.predict(data)
@@ -264,7 +265,7 @@ class PyODComparison:
         except Exception as e:
             return {"error": str(e)}
 
-    def _generate_comparison_summary(self, results: dict) -> dict:
+    def _generate_comparison_summary(self, results: dict[str, Any]) -> dict:
         """Generate summary comparing OMNI-AVA with PyOD algorithms."""
         return {
             "omni_ava_strengths": [

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 ABMS Medical Disciplines Integration Module
@@ -105,7 +106,7 @@ class MultiSpecialtyNeuralNet(nn.Module):
     Architecture optimized with golden ratio (φ ≈ 1.618) for layer dimensions.
     """
 
-    def __init__(self, input_dim: int = 64, num_specialties: int = 24):
+    def __init__(self, input_dim: int = 64, num_specialties: int = 24) -> None:
         super().__init__()
 
         phi = 1.618
@@ -181,7 +182,7 @@ class ABMSDisciplineDetector:
     medical anomaly detection across all major medical specialties.
     """
 
-    def __init__(self, enable_neurosymbolic: bool = True, golden_ratio_threshold: bool = True):
+    def __init__(self, enable_neurosymbolic: bool = True, golden_ratio_threshold: bool = True) -> None:
         """
         Initialize ABMS detector.
 
@@ -536,7 +537,7 @@ class ABMSDisciplineDetector:
 
         return result
 
-    def _extract_clinical_features(self, patient_data: dict[str, Any]) -> np.ndarray:
+    def _extract_clinical_features(self, patient_data: dict[str, Any]) -> np.ndarray[Any, Any]:
         """Extract numerical features from patient clinical data (O(n) complexity)"""
         features = []
 
@@ -741,7 +742,7 @@ class ABMSDisciplineDetector:
 
     def detect(
         self,
-        data: np.ndarray | torch.Tensor,
+        data: np.ndarray[Any, Any] | torch.Tensor,
         specialty: str,
         include_reasoning: bool = False,
     ) -> MedicalAnomalyResult:
@@ -821,7 +822,7 @@ class ABMSDisciplineDetector:
 
         return result
 
-    def detect_all(self, data: np.ndarray | torch.Tensor) -> dict[str, MedicalAnomalyResult]:
+    def detect_all(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, MedicalAnomalyResult]:
         """Detect anomalies across all ABMS specialties.
 
         Args:

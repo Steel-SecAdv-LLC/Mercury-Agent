@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """
 Federated Learning for Privacy-Preserving Anomaly Detection
@@ -90,7 +92,7 @@ class FederatedAnomalyDetector:
         self._rng = rng or get_global_rng()
 
     def federated_train(
-        self, client_data: dict[str, np.ndarray], local_epochs: int = 5, num_rounds: int = 10
+        self, client_data: dict[str, np.ndarray[Any, Any]], local_epochs: int = 5, num_rounds: int = 10
     ) -> dict:
         """
         Train federated anomaly detection model across clients.
@@ -150,7 +152,7 @@ class FederatedAnomalyDetector:
         }
 
     def federated_detect(
-        self, client_data: dict[str, np.ndarray], use_personalization: bool = True
+        self, client_data: dict[str, np.ndarray[Any, Any]], use_personalization: bool = True
     ) -> dict[str, dict]:
         """
         Perform federated anomaly detection across clients.
@@ -189,7 +191,7 @@ class FederatedAnomalyDetector:
 
         return detection_results
 
-    def _local_train(self, client_id: str, data: np.ndarray, epochs: int) -> np.ndarray:
+    def _local_train(self, client_id: str, data: np.ndarray[Any, Any], epochs: int) -> np.ndarray[Any, Any]:
         """Simulate local training on client device."""
         if self.global_model_weights is None:
             self.global_model_weights = self._rng.randn(data.shape[1])
@@ -205,8 +207,8 @@ class FederatedAnomalyDetector:
         return model_update
 
     def _federated_averaging(
-        self, client_updates: list[np.ndarray], client_weights: list[int]
-    ) -> np.ndarray:
+        self, client_updates: list[np.ndarray[Any, Any]], client_weights: list[int]
+    ) -> np.ndarray[Any, Any]:
         """FedAvg: Weighted average of client model updates."""
         total_weight = sum(client_weights)
         weighted_updates = [
@@ -222,8 +224,8 @@ class FederatedAnomalyDetector:
             return aggregated
 
     def _federated_proximal(
-        self, client_updates: list[np.ndarray], client_weights: list[int], mu: float = 0.1
-    ) -> np.ndarray:
+        self, client_updates: list[np.ndarray[Any, Any]], client_weights: list[int], mu: float = 0.1
+    ) -> np.ndarray[Any, Any]:
         """FedProx: Handles system heterogeneity with proximal term."""
         aggregated = self._federated_averaging(client_updates, client_weights)
 
@@ -233,7 +235,7 @@ class FederatedAnomalyDetector:
 
         return aggregated
 
-    def _add_differential_privacy_noise(self, model_update: np.ndarray) -> np.ndarray:
+    def _add_differential_privacy_noise(self, model_update: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Add Gaussian noise for differential privacy guarantee."""
         sensitivity = 1.0
         sigma = sensitivity * np.sqrt(2 * np.log(1.25 / self.delta)) / self.epsilon
@@ -245,10 +247,10 @@ class FederatedAnomalyDetector:
     def _personalize_model(
         self,
         client_id: str,
-        global_model: np.ndarray,
-        local_data: np.ndarray,
+        global_model: np.ndarray[Any, Any],
+        local_data: np.ndarray[Any, Any],
         personalization_epochs: int = 3,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Personalize global model to client's local data distribution."""
         personalized_model = global_model.copy()
 
@@ -258,12 +260,12 @@ class FederatedAnomalyDetector:
 
         return personalized_model
 
-    def _compute_anomaly_scores(self, model: np.ndarray, data: np.ndarray) -> np.ndarray:
+    def _compute_anomaly_scores(self, model: np.ndarray[Any, Any], data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute anomaly scores for data using model."""
         reconstruction_errors = np.linalg.norm(data - model, axis=1)
         return reconstruction_errors
 
-    def _evaluate_global_model(self, client_data: dict[str, np.ndarray]) -> float:
+    def _evaluate_global_model(self, client_data: dict[str, np.ndarray[Any, Any]]) -> float:
         """Evaluate global model across all clients."""
         if self.global_model_weights is None:
             return 0.0
@@ -290,7 +292,7 @@ class CISAFederatedCoordinator:
     - Differential privacy for sensitive sectors (Healthcare, Nuclear, Financial)
     """
 
-    def __init__(self, sectors: list[str]):
+    def __init__(self, sectors: list[str]) -> None:
         self.sectors = sectors
         self.sector_detectors = {
             sector: FederatedAnomalyDetector(
@@ -300,8 +302,8 @@ class CISAFederatedCoordinator:
         }
 
     def coordinate_cross_sector_training(
-        self, sector_data: dict[str, dict[str, np.ndarray]], rounds: int = 10
-    ) -> dict:
+        self, sector_data: dict[str, dict[str, np.ndarray[Any, Any]]], rounds: int = 10
+    ) -> dict[str, Any]:
         """
         Coordinate federated training across multiple CISA sectors.
 

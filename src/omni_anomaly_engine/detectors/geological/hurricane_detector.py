@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Hurricane/Cyclone/Typhoon Detector - Tropical Cyclone Monitoring System
@@ -128,7 +129,7 @@ class SeaSurfaceTemperatureAnalyzer:
     SST >= 26.5°C is generally required for tropical cyclone formation.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.formation_threshold_c = 26.5
         self.intensification_threshold_c = 28.0
@@ -190,7 +191,7 @@ class WindPatternAnalyzer(nn.Module):
     Uses CNN + LSTM to identify organized convection and eye formation.
     """
 
-    def __init__(self, input_channels: int = 3, hidden_dim: int = 128):
+    def __init__(self, input_channels: int = 3, hidden_dim: int = 128) -> None:
         super().__init__()
 
         self.conv_encoder = nn.Sequential(
@@ -261,7 +262,7 @@ class PressureTracker:
     Lower central pressure indicates stronger cyclone.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def analyze_pressure(self, pressure_data: dict[str, Any]) -> dict[str, Any]:
@@ -318,11 +319,11 @@ class ResonanceFrequencyAmplifier:
     weak cyclone signatures in atmospheric data.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.cyclone_frequencies = [0.05, 0.1, 0.2, 0.5]
 
-    def amplify_signals(self, signal: np.ndarray) -> dict[str, Any]:
+    def amplify_signals(self, signal: np.ndarray[Any, Any]) -> dict[str, Any]:
         """
         Amplify cyclone-characteristic frequency signals.
 
@@ -621,7 +622,7 @@ class HurricaneDetector:
 
         return zones
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion."""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()

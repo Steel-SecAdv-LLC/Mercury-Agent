@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Validation Pipeline
@@ -113,7 +114,7 @@ class DataQualityChecker:
         self.correlation_threshold = correlation_threshold
         self.imbalance_threshold = imbalance_threshold
 
-    def run_all_checks(self, data: np.ndarray, labels: np.ndarray) -> list[QualityCheckResult]:
+    def run_all_checks(self, data: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]) -> list[QualityCheckResult]:
         """Run all quality checks on the data."""
         checks = [
             self.check_missing_values(data),
@@ -125,7 +126,7 @@ class DataQualityChecker:
         ]
         return checks
 
-    def check_missing_values(self, data: np.ndarray) -> QualityCheckResult:
+    def check_missing_values(self, data: np.ndarray[Any, Any]) -> QualityCheckResult:
         """Check for missing values in the data."""
         missing_count = np.sum(np.isnan(data))
         total_values = data.size
@@ -146,7 +147,7 @@ class DataQualityChecker:
             },
         )
 
-    def check_outliers(self, data: np.ndarray) -> QualityCheckResult:
+    def check_outliers(self, data: np.ndarray[Any, Any]) -> QualityCheckResult:
         """Check for outliers using z-score method."""
         if data.size == 0:
             return QualityCheckResult(
@@ -175,7 +176,7 @@ class DataQualityChecker:
             },
         )
 
-    def check_feature_variance(self, data: np.ndarray) -> QualityCheckResult:
+    def check_feature_variance(self, data: np.ndarray[Any, Any]) -> QualityCheckResult:
         """Check for low-variance features."""
         if data.ndim == 1:
             data = data.reshape(-1, 1)
@@ -200,7 +201,7 @@ class DataQualityChecker:
             },
         )
 
-    def check_class_balance(self, labels: np.ndarray) -> QualityCheckResult:
+    def check_class_balance(self, labels: np.ndarray[Any, Any]) -> QualityCheckResult:
         """Check class balance in labels."""
         unique, counts = np.unique(labels, return_counts=True)
         if len(counts) < 2:
@@ -226,7 +227,7 @@ class DataQualityChecker:
             },
         )
 
-    def check_feature_correlation(self, data: np.ndarray) -> QualityCheckResult:
+    def check_feature_correlation(self, data: np.ndarray[Any, Any]) -> QualityCheckResult:
         """Check for highly correlated features."""
         if data.ndim == 1 or data.shape[1] < 2:
             return QualityCheckResult(
@@ -258,7 +259,7 @@ class DataQualityChecker:
             },
         )
 
-    def check_data_range(self, data: np.ndarray) -> QualityCheckResult:
+    def check_data_range(self, data: np.ndarray[Any, Any]) -> QualityCheckResult:
         """Check data range and detect potential scaling issues."""
         data_min = np.nanmin(data)
         data_max = np.nanmax(data)
@@ -292,15 +293,15 @@ class ABTester:
     - Effect size calculation (Cohen's d)
     """
 
-    def __init__(self, confidence_level: float = 0.95, n_bootstrap: int = 1000):
+    def __init__(self, confidence_level: float = 0.95, n_bootstrap: int = 1000) -> None:
         self.confidence_level = confidence_level
         self.n_bootstrap = n_bootstrap
         self.alpha = 1.0 - confidence_level
 
     def compare_models(
         self,
-        model_a_scores: np.ndarray,
-        model_b_scores: np.ndarray,
+        model_a_scores: np.ndarray[Any, Any],
+        model_b_scores: np.ndarray[Any, Any],
         model_a_name: str = "Model A",
         model_b_name: str = "Model B",
         metric_name: str = "F1 Score",
@@ -358,7 +359,7 @@ class ABTester:
             },
         )
 
-    def _cohens_d(self, group1: np.ndarray, group2: np.ndarray) -> float:
+    def _cohens_d(self, group1: np.ndarray[Any, Any], group2: np.ndarray[Any, Any]) -> float:
         """Calculate Cohen's d effect size."""
         n1, n2 = len(group1), len(group2)
         var1, var2 = np.var(group1, ddof=1), np.var(group2, ddof=1)
@@ -370,7 +371,7 @@ class ABTester:
 
         return (np.mean(group2) - np.mean(group1)) / pooled_std
 
-    def _bootstrap_ci(self, differences: np.ndarray) -> tuple[float, float]:
+    def _bootstrap_ci(self, differences: np.ndarray[Any, Any]) -> tuple[float, float]:
         """Calculate bootstrap confidence interval for differences."""
         rng = np.random.default_rng(42)
         bootstrap_means = []
@@ -412,8 +413,8 @@ class ValidationPipeline:
     def validate(
         self,
         model: Any,
-        X: np.ndarray,
-        y: np.ndarray,
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
         dataset_name: str = "unknown",
         model_name: str = "unknown",
         run_quality_checks: bool = True,
@@ -471,7 +472,7 @@ class ValidationPipeline:
 
         return result
 
-    def _cross_validate(self, model: Any, X: np.ndarray, y: np.ndarray) -> dict[str, Any]:
+    def _cross_validate(self, model: Any, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Perform cross-validation."""
         rng = np.random.default_rng(self.random_state)
         indices = rng.permutation(len(X))
@@ -513,7 +514,7 @@ class ValidationPipeline:
             "std_accuracy": float(np.std(accuracy_scores)),
         }
 
-    def _compute_final_metrics(self, model: Any, X: np.ndarray, y: np.ndarray) -> dict[str, Any]:
+    def _compute_final_metrics(self, model: Any, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Compute final metrics on full dataset."""
         if hasattr(model, "fit"):
             model.fit(X, y)
@@ -555,7 +556,7 @@ class ValidationPipeline:
             "confusion_matrix": confusion_matrix,
         }
 
-    def _compute_f1(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    def _compute_f1(self, y_true: np.ndarray[Any, Any], y_pred: np.ndarray[Any, Any]) -> float:
         """Compute F1 score."""
         tp = np.sum((y_true == 1) & (y_pred == 1))
         fp = np.sum((y_true == 0) & (y_pred == 1))
@@ -566,7 +567,7 @@ class ValidationPipeline:
 
         return 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
 
-    def _compute_auc_roc(self, y_true: np.ndarray, y_scores: np.ndarray) -> float:
+    def _compute_auc_roc(self, y_true: np.ndarray[Any, Any], y_scores: np.ndarray[Any, Any]) -> float:
         """Compute AUC-ROC using trapezoidal rule."""
         sorted_indices = np.argsort(y_scores)[::-1]
         y_true_sorted = y_true[sorted_indices]
@@ -594,7 +595,7 @@ class ValidationPipeline:
         auc = np.trapz(tpr_list, fpr_list)
         return float(auc)
 
-    def _compute_auc_pr(self, y_true: np.ndarray, y_scores: np.ndarray) -> float:
+    def _compute_auc_pr(self, y_true: np.ndarray[Any, Any], y_scores: np.ndarray[Any, Any]) -> float:
         """Compute AUC-PR (Area Under Precision-Recall Curve)."""
         sorted_indices = np.argsort(y_scores)[::-1]
         y_true_sorted = y_true[sorted_indices]

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 CFlow-AD: Real-Time Unsupervised Anomaly Detection with Localization via
@@ -79,7 +80,7 @@ class CFlowConfig(VisualDetectorConfig):
 class PositionalEncoding2D(nn.Module):
     """2D positional encoding for spatial conditioning."""
 
-    def __init__(self, channels: int, max_size: int = 64):
+    def __init__(self, channels: int, max_size: int = 64) -> None:
         """Initialize positional encoding.
 
         Args:
@@ -307,7 +308,7 @@ class CFlowDetector(BaseVisualDetector):
         >>> results = detector.detect(test_images)
     """
 
-    def __init__(self, config: CFlowConfig | dict[str, Any] | None = None):
+    def __init__(self, config: CFlowConfig | dict[str, Any] | None = None) -> None:
         """Initialize CFlow detector."""
         if config is None:
             config = CFlowConfig()
@@ -366,7 +367,7 @@ class CFlowDetector(BaseVisualDetector):
 
         self._initialized = True
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> "CFlowDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "CFlowDetector":
         """Train normalizing flows on normal data.
 
         Args:
@@ -375,7 +376,7 @@ class CFlowDetector(BaseVisualDetector):
         Returns:
             Self for method chaining
         """
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray[Any, Any]):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)
@@ -462,7 +463,7 @@ class CFlowDetector(BaseVisualDetector):
         logger.info("CFlow training complete")
         return self
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using negative log likelihood.
 
         Args:
@@ -474,7 +475,7 @@ class CFlowDetector(BaseVisualDetector):
         if not self._is_fitted:
             raise RuntimeError("Detector must be fitted before detection")
 
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray[Any, Any]):
             data = torch.from_numpy(data).float()
 
         original_size = data.shape[-2:]
@@ -561,7 +562,7 @@ class CFlowDetector(BaseVisualDetector):
             "features": features.cpu(),
         }
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion pipeline.
 
         Args:
@@ -570,7 +571,7 @@ class CFlowDetector(BaseVisualDetector):
         Returns:
             Feature tensor [N, 128] normalized for fusion
         """
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray[Any, Any]):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)

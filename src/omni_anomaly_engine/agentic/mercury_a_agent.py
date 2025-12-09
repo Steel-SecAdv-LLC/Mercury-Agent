@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Mercury A. Autonomous Agent Framework
@@ -332,7 +333,7 @@ class MercuryReasoner:
     Implements ReAct-style reasoning: Thought → Action → Observation loop.
     """
 
-    def __init__(self, max_steps: int = 15):
+    def __init__(self, max_steps: int = 15) -> None:
         self.max_steps = max_steps
         self.reasoning_chain: list[ReasoningStep] = []
         self.correlation_graph: dict[str, list[str]] = {}
@@ -473,7 +474,7 @@ class MercuryPlanner:
     heuristic with a learned, continuously improving confidence model.
     """
 
-    def __init__(self, calibrator: "BayesianConfidenceCalibrator | None" = None):
+    def __init__(self, calibrator: "BayesianConfidenceCalibrator | None" = None) -> None:
         self.logger = logging.getLogger(__name__)
         self.domain_strategies = self._initialize_domain_strategies()
         self.calibrator = calibrator  # Bayesian confidence calibrator
@@ -816,7 +817,7 @@ class MercuryAgent:
             f"Mercury Agent '{name}' initialized (calibration={'enabled' if enable_calibration else 'disabled'})"
         )
 
-    def register_tool(self, name: str, tool: Callable) -> None:
+    def register_tool(self, name: str, tool: Callable[..., Any]) -> None:
         """Register a tool for agent use."""
         self.tools[name] = tool
         self.logger.debug(f"Registered tool: {name}")

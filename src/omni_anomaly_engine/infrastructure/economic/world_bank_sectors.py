@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """World Bank economic sectors anomaly detection.
 
@@ -36,7 +37,7 @@ class WorldBankSectorsMonitor:
     on sustainable development and regenerative economic patterns.
     """
 
-    def __init__(self, regenerative_config: dict | None = None):
+    def __init__(self, regenerative_config: dict | None = None) -> None:
         """Initialize World Bank Sectors Monitor.
 
         Args:
@@ -140,7 +141,7 @@ class WorldBankSectorsMonitor:
             ),
         }
 
-    def analyze_sector_interdependencies(self, affected_sectors: list) -> dict[str, Any]:
+    def analyze_sector_interdependencies(self, affected_sectors: list[Any]) -> dict[str, Any]:
         """Analyze economic impact cascades across sector dependencies.
 
         Args:

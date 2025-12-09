@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 MVTec AD Dataset Loader.
@@ -90,7 +91,7 @@ class MVTecADDataset(BaseImageDataset):
 
     DATASET_URL = "https://www.mvtec.com/company/research/datasets/mvtec-ad"
 
-    def __init__(self, config: MVTecADConfig | dict[str, Any] | None = None):
+    def __init__(self, config: MVTecADConfig | dict[str, Any] | None = None) -> None:
         """Initialize MVTec AD dataset.
 
         Args:

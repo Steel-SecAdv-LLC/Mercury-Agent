@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """Multivariate Time-Series Anomaly Detection with LTG Method.
 
@@ -35,7 +36,7 @@ from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 class MultivariateTSDetector:
     """Multivariate time-series anomaly detector using LTG architecture."""
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize multivariate TS detector.
 
         Args:
@@ -55,10 +56,10 @@ class MultivariateTSDetector:
 
         self.trained = False
         self.threshold: float | None = None
-        self.mean_features: np.ndarray | None = None
-        self.std_features: np.ndarray | None = None
+        self.mean_features: np.ndarray[Any, Any] | None = None
+        self.std_features: np.ndarray[Any, Any] | None = None
 
-    def fit(self, time_series_data: np.ndarray) -> None:
+    def fit(self, time_series_data: np.ndarray[Any, Any]) -> None:
         """Fit LTG model on training time-series data.
 
         Args:
@@ -83,7 +84,7 @@ class MultivariateTSDetector:
         self.threshold = float(np.mean(reconstruction_errors) + 3 * np.std(reconstruction_errors))
         self.trained = True
 
-    def predict(self, time_series_data: np.ndarray) -> dict[str, Any]:
+    def predict(self, time_series_data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Detect anomalies in time-series data.
 
         Args:
@@ -116,23 +117,23 @@ class MultivariateTSDetector:
             "method": "LTG_Multivariate_TS",
         }
 
-    def _extract_lstm_features(self, data: np.ndarray) -> np.ndarray:
+    def _extract_lstm_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract long-term dependencies using LSTM (simplified).
 
         In full implementation, would use actual LSTM layers with hidden states.
         """
-        result: np.ndarray = np.mean(data, axis=1)
+        result: np.ndarray[Any, Any] = np.mean(data, axis=1)
         return result
 
-    def _extract_temporal_conv_features(self, data: np.ndarray) -> np.ndarray:
+    def _extract_temporal_conv_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract short-term patterns using temporal convolution (simplified).
 
         In full implementation, would use 1D convolution layers with multiple filters.
         """
-        result: np.ndarray = np.std(data, axis=1)
+        result: np.ndarray[Any, Any] = np.std(data, axis=1)
         return result
 
-    def _extract_graph_features(self, data: np.ndarray) -> np.ndarray:
+    def _extract_graph_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract inter-feature dependencies using graph convolution (simplified).
 
         In full implementation, would build dependency graph and apply GCN layers.
@@ -146,16 +147,16 @@ class MultivariateTSDetector:
         return np.tile(np.mean(correlation, axis=1), (n_samples, 1))
 
     def _compute_reconstruction_error(
-        self, original: np.ndarray, features: np.ndarray
-    ) -> np.ndarray:
+        self, original: np.ndarray[Any, Any], features: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """Compute reconstruction error for anomaly scoring."""
         reconstructed = np.tile(features[:, : self.num_features], (1, self.window_size, 1)).reshape(
             original.shape
         )
-        result: np.ndarray = np.mean((original - reconstructed) ** 2, axis=(1, 2))
+        result: np.ndarray[Any, Any] = np.mean((original - reconstructed) ** 2, axis=(1, 2))
         return result
 
-    def _estimate_roc_auc(self, scores: np.ndarray, predictions: np.ndarray) -> float:
+    def _estimate_roc_auc(self, scores: np.ndarray[Any, Any], predictions: np.ndarray[Any, Any]) -> float:
         """Estimate ROC-AUC from scores and predictions."""
         if np.all(predictions) or not np.any(predictions):
             return 0.5
@@ -199,12 +200,12 @@ class ChaosMultivariateFusion:
         self.trained = False
         self._rng = rng or get_global_rng()
 
-    def fit(self, time_series_data: np.ndarray) -> None:
+    def fit(self, time_series_data: np.ndarray[Any, Any]) -> None:
         """Fit fusion model on training data."""
         self.mvts_detector.fit(time_series_data)
         self.trained = True
 
-    def predict_with_chaos_refinement(self, time_series_data: np.ndarray) -> dict[str, Any]:
+    def predict_with_chaos_refinement(self, time_series_data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Detect anomalies with chaos-based threshold refinement."""
         if not self.trained:
             raise ValueError("Model must be fit before prediction")
@@ -228,7 +229,7 @@ class ChaosMultivariateFusion:
             "method": "Chaos_LTG_Fusion",
         }
 
-    def _apply_chaos_refinement(self, scores: np.ndarray, base_threshold: float) -> float:
+    def _apply_chaos_refinement(self, scores: np.ndarray[Any, Any], base_threshold: float) -> float:
         """Apply chaotic perturbation to threshold for adaptive detection."""
         from omni_anomaly_engine.core.chaos_evolutionary import ChaoticMap
 
@@ -240,7 +241,7 @@ class ChaosMultivariateFusion:
 
         return max(refined_threshold, 0.0)
 
-    def _estimate_roc_auc(self, scores: np.ndarray, predictions: np.ndarray) -> float:
+    def _estimate_roc_auc(self, scores: np.ndarray[Any, Any], predictions: np.ndarray[Any, Any]) -> float:
         """Estimate ROC-AUC from scores and predictions."""
         if np.all(predictions) or not np.any(predictions):
             return 0.5

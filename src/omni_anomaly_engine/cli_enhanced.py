@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Enhanced Command-Line Interface for OMNI ♱ AVA
@@ -412,7 +413,7 @@ def _run_security_analysis(intel_type: str, security_data: dict[str, Any]) -> di
         }
 
 
-def _run_humanitarian_analysis(crisis_type: str, crisis_data: np.ndarray) -> dict[str, Any]:
+def _run_humanitarian_analysis(crisis_type: str, crisis_data: np.ndarray[Any, Any]) -> dict[str, Any]:
     """Run humanitarian crisis analysis"""
 
     engine = OmniAnomalyEngine()
@@ -426,7 +427,7 @@ def _run_humanitarian_analysis(crisis_type: str, crisis_data: np.ndarray) -> dic
     }
 
 
-def _run_chemistry_analysis(analysis_type: str, sample_data: np.ndarray) -> dict[str, Any]:
+def _run_chemistry_analysis(analysis_type: str, sample_data: np.ndarray[Any, Any]) -> dict[str, Any]:
     """Run chemistry analysis"""
 
     from omni_anomaly_engine.models.chemistry import ChemistryAnomalyModel
@@ -442,7 +443,7 @@ def _run_chemistry_analysis(analysis_type: str, sample_data: np.ndarray) -> dict
 
 
 def _correlate_schumann_seismic(
-    resonance_data: np.ndarray, seismic_data: np.ndarray
+    resonance_data: np.ndarray[Any, Any], seismic_data: np.ndarray[Any, Any]
 ) -> dict[str, Any]:
     """Correlate Schumann resonance with seismic activity"""
 
@@ -598,7 +599,7 @@ def _run_humanitarian_demo() -> None:
     click.echo("  Response Recommended: Immediate")
 
 
-def _load_data(filepath: str) -> np.ndarray:
+def _load_data(filepath: str) -> np.ndarray[Any, Any]:
     """Load data from file"""
     path = Path(filepath)
 

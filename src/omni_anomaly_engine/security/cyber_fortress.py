@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Cyber Fortress - Proactive Threat Elimination and Impenetrable Defense
@@ -72,7 +73,7 @@ class ResonanceHashIntegrityChecker:
     indicate drift, tampering, or emerging vulnerabilities.
     """
 
-    def __init__(self, threshold_std: float = 10.0):
+    def __init__(self, threshold_std: float = 10.0) -> None:
         self.resonance = ResonanceEngine(sampling_rate=1.0)
         self.threshold_std = threshold_std
         self.logger = logging.getLogger(__name__)
@@ -179,14 +180,14 @@ class MultiverseZeroDaySimulator:
     vulnerabilities before they are discovered by attackers.
     """
 
-    def __init__(self, num_universes: int = 20):
+    def __init__(self, num_universes: int = 20) -> None:
         self.multiverse = MultiverseOmniEngine(
             num_universes=num_universes, state_dim=64, convergence_threshold=0.95
         )
         self.logger = logging.getLogger(__name__)
 
     def simulate_zero_day(
-        self, system_state: np.ndarray, known_vulnerabilities: list[str] | None = None
+        self, system_state: np.ndarray[Any, Any], known_vulnerabilities: list[str] | None = None
     ) -> dict[str, Any]:
         """
         Simulate potential zero-day attacks using multiverse exploration.
@@ -199,7 +200,7 @@ class MultiverseZeroDaySimulator:
             Zero-day risk assessment with potential attack vectors
         """
 
-        def attack_fitness(attack_vector: np.ndarray) -> float:
+        def attack_fitness(attack_vector: np.ndarray[Any, Any]) -> float:
             distance = np.linalg.norm(attack_vector - system_state[: len(attack_vector)])
             return float(-distance + 100.0)
 
@@ -255,7 +256,7 @@ class EncryptedTrafficAnomalyDetector:
     based on behavioral patterns without decryption.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.model = nn.Sequential(
             nn.Linear(20, 64),
             nn.ReLU(),
@@ -267,7 +268,7 @@ class EncryptedTrafficAnomalyDetector:
         )
         self.logger = logging.getLogger(__name__)
 
-    def extract_behavioral_features(self, traffic_data: np.ndarray) -> np.ndarray:
+    def extract_behavioral_features(self, traffic_data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Extract behavioral features from encrypted traffic.
 
@@ -314,7 +315,7 @@ class EncryptedTrafficAnomalyDetector:
 
         return np.array(features[:20], dtype=np.float32)
 
-    def detect_anomaly(self, traffic_data: np.ndarray) -> dict[str, Any]:
+    def detect_anomaly(self, traffic_data: np.ndarray[Any, Any]) -> dict[str, Any]:
         """
         Detect behavioral anomalies in encrypted traffic.
 

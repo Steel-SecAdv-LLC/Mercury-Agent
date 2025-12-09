@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Chemistry Discipline Module
@@ -107,7 +108,7 @@ class PeriodicTableEncoder(nn.Module):
     based on periodic table structure with golden ratio optimization.
     """
 
-    def __init__(self, num_elements: int = 118, embedding_dim: int = 64):
+    def __init__(self, num_elements: int = 118, embedding_dim: int = 64) -> None:
         super().__init__()
 
         phi = 1.618

@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """
 Space-Inspired Resilience Module
@@ -125,7 +127,7 @@ class SpaceInspiredResilience:
         self.state = new_state
         return new_state, component_priorities
 
-    def debris_filtering(self, data: np.ndarray, noise_threshold: float = 0.1) -> np.ndarray:
+    def debris_filtering(self, data: np.ndarray[Any, Any], noise_threshold: float = 0.1) -> np.ndarray[Any, Any]:
         """
         Filter noisy data analogous to space debris avoidance.
 
@@ -152,10 +154,10 @@ class SpaceInspiredResilience:
 
     def trajectory_optimization(
         self,
-        start_state: np.ndarray,
-        goal_state: np.ndarray,
+        start_state: np.ndarray[Any, Any],
+        goal_state: np.ndarray[Any, Any],
         constraints: dict[str, float] | None = None,
-    ) -> list[np.ndarray]:
+    ) -> list[np.ndarray[Any, Any]]:
         """
         Optimize detection pathway analogous to spacecraft trajectory.
 

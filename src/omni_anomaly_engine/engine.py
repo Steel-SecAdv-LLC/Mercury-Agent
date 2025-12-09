@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """Main OmniAvaEngine orchestrating all detectors and models.
 
@@ -162,7 +163,7 @@ class FeatureCache:
         self.hits = 0
         self.misses = 0
 
-    def _make_key(self, data: np.ndarray | torch.Tensor, prefix: str = "") -> str:
+    def _make_key(self, data: np.ndarray[Any, Any] | torch.Tensor, prefix: str = "") -> str:
         """Generate a cache key from data.
 
         Args:
@@ -522,7 +523,7 @@ class OmniAvaEngine:
 
     def detect(
         self,
-        data: np.ndarray | torch.Tensor | dict[str, Any],
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
         detector_types: list[str] | None = None,
     ) -> dict[str, Any]:
         """Detect anomalies using specified detectors.
@@ -533,7 +534,7 @@ class OmniAvaEngine:
 
         Args:
             data: Input data for anomaly detection. Can be:
-                - numpy.ndarray: Numerical data array
+                - numpy.ndarray[Any, Any]: Numerical data array
                 - torch.Tensor: PyTorch tensor
                 - Dict[str, Any]: Dictionary with domain-specific data
             detector_types: List of detector names to use. If None,
@@ -586,7 +587,7 @@ class OmniAvaEngine:
 
     def detect_batch(
         self,
-        data: np.ndarray | torch.Tensor,
+        data: np.ndarray[Any, Any] | torch.Tensor,
         batch_size: int | None = None,
         use_fusion: bool = True,
         parallel: bool = True,
@@ -663,7 +664,7 @@ class OmniAvaEngine:
 
     def _calculate_optimal_batch_size(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         target_memory_mb: float = 512.0,
     ) -> int:
         """Calculate optimal batch size based on data and memory.
@@ -707,7 +708,7 @@ class OmniAvaEngine:
             >>> print(normalized.shape)
             torch.Size([3, 1])
         """
-        if isinstance(scores, (list, np.ndarray)):
+        if isinstance(scores, (list, np.ndarray[Any, Any])):
             scores = torch.tensor(scores, dtype=torch.float32)
             if scores.dim() == 1:
                 scores = scores.unsqueeze(-1)
@@ -717,7 +718,7 @@ class OmniAvaEngine:
             scores = torch.full((batch_size, 1), float(scores), dtype=torch.float32)
         return scores
 
-    def _extract_detector_features(self, data: np.ndarray | torch.Tensor | dict[str, Any]) -> tuple:
+    def _extract_detector_features(self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]) -> tuple:
         """Extract features from all detectors.
 
         This method extracts feature vectors from all base detectors
@@ -767,7 +768,7 @@ class OmniAvaEngine:
 
         return detector_features, detector_scores
 
-    def _extract_model_features(self, data: np.ndarray | torch.Tensor | dict[str, Any]) -> tuple:
+    def _extract_model_features(self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]) -> tuple:
         """Extract features from all specialized models.
 
         This method extracts feature vectors from all 13 specialized
@@ -812,7 +813,7 @@ class OmniAvaEngine:
 
         return model_features, model_scores
 
-    def _extract_features_parallel(self, data: np.ndarray | torch.Tensor | dict[str, Any]) -> tuple:
+    def _extract_features_parallel(self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]) -> tuple:
         """Extract features from all sources in parallel.
 
         This method uses thread pool execution to extract features
@@ -842,7 +843,7 @@ class OmniAvaEngine:
 
     def detect_with_fusion(
         self,
-        data: np.ndarray | torch.Tensor | dict[str, Any],
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
         domain: str | None = None,
         enable_gosnn: bool = True,
     ) -> dict[str, Any]:
@@ -919,7 +920,7 @@ class OmniAvaEngine:
                 base_scalars = {
                     f"detector_{name}_score": float(np.mean(score))
                     for name, score in all_scores.items()
-                    if isinstance(score, (np.ndarray, float, int))
+                    if isinstance(score, (np.ndarray[Any, Any], float, int))
                 }
 
                 # Get enhanced scalars with ethical gating and harmonic synergy
@@ -962,7 +963,7 @@ class OmniAvaEngine:
                 fallback_scalars = {
                     f"fallback_{name}": float(np.mean(score))
                     for name, score in all_scores.items()
-                    if isinstance(score, (np.ndarray, float, int))
+                    if isinstance(score, (np.ndarray[Any, Any], float, int))
                 }
                 gosnn_metadata = {
                     "error": str(e),
@@ -979,15 +980,15 @@ class OmniAvaEngine:
         )
 
         anomaly_prob_val = fusion_result["anomaly_probs"][0]
-        if isinstance(anomaly_prob_val, np.ndarray) or hasattr(anomaly_prob_val, "item"):
+        if isinstance(anomaly_prob_val, np.ndarray[Any, Any]) or hasattr(anomaly_prob_val, "item"):
             anomaly_prob_val = anomaly_prob_val.item()
 
         severity_val = fusion_result["severity_scores"][0]
-        if isinstance(severity_val, np.ndarray) or hasattr(severity_val, "item"):
+        if isinstance(severity_val, np.ndarray[Any, Any]) or hasattr(severity_val, "item"):
             severity_val = severity_val.item()
 
         class_pred_val = fusion_result["class_predictions"][0]
-        if isinstance(class_pred_val, np.ndarray) or hasattr(class_pred_val, "item"):
+        if isinstance(class_pred_val, np.ndarray[Any, Any]) or hasattr(class_pred_val, "item"):
             class_pred_val = class_pred_val.item()
 
         result = {
@@ -1007,8 +1008,8 @@ class OmniAvaEngine:
 
     def detect_biometric(
         self,
-        reference_image: str | np.ndarray,
-        test_image: str | np.ndarray | None = None,
+        reference_image: str | np.ndarray[Any, Any],
+        test_image: str | np.ndarray[Any, Any] | None = None,
         enable_age_progression: bool = False,
     ) -> dict[str, Any]:
         """Perform biometric face matching and analysis.

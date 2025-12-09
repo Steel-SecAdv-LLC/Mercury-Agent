@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """EU Space sector infrastructure anomaly detection.
 
@@ -36,7 +37,7 @@ class SpaceInfrastructureMonitor:
     Unique to EU Critical Entities Directive (not in CISA 16 sectors).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Space Infrastructure Monitor."""
         self.asset_types = {
             "satellites": {
@@ -58,7 +59,7 @@ class SpaceInfrastructureMonitor:
         }
 
     def detect(
-        self, data: np.ndarray, asset_type: str, asset_id: str, context: dict | None = None
+        self, data: np.ndarray[Any, Any], asset_type: str, asset_id: str, context: dict | None = None
     ) -> dict[str, Any]:
         """Detect anomalies in space infrastructure using z-score analysis.
 
@@ -133,7 +134,7 @@ class SpaceInfrastructureMonitor:
             "recommendations": self._generate_space_recommendations(threat_type),
         }
 
-    def _calculate_z_scores(self, data: np.ndarray) -> np.ndarray:
+    def _calculate_z_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Calculate z-scores for anomaly detection."""
         if data.ndim == 1:
             data = data.reshape(-1, 1)

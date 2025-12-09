@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 AI Ethics Framework for OMNI ♱ AVA
@@ -95,7 +96,7 @@ class EthicalAutonomyGovernor:
     8. COMMITMENT: Dedicate to continuous improvement
     """
 
-    def __init__(self, config: EthicsConfig | None = None):
+    def __init__(self, config: EthicsConfig | None = None) -> None:
         self.config = config or EthicsConfig()
         self.audit_log: list[dict[str, Any]] = []
         logging.info("Ethical Autonomy Governor initialized with 8 principles")

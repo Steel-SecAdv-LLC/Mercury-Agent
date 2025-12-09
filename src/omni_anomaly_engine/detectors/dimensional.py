@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Dimensional analyzer using PCA, t-SNE, and neural projection
@@ -39,7 +40,7 @@ if TYPE_CHECKING:
 class NeuralProjection(nn.Module):
     """Neural network autoencoder for dimensionality reduction"""
 
-    def __init__(self, input_dim: int, latent_dim: int):
+    def __init__(self, input_dim: int, latent_dim: int) -> None:
         super().__init__()
         hidden_dim = max(input_dim // 2, latent_dim * 2)
 
@@ -69,7 +70,7 @@ class DimensionalAnalyzer(BaseDetector):
     - Neural autoencoder for learned projection
     """
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         super().__init__(config)
         self.n_components = self.config.get("n_components", 10)
         self.reconstruction_threshold = self.config.get("reconstruction_threshold", 2.0)
@@ -80,9 +81,9 @@ class DimensionalAnalyzer(BaseDetector):
         self.autoencoder: NeuralProjection | None = None
 
         self.input_dim: int | None = None
-        self.baseline_spectral_signature: np.ndarray | None = None
+        self.baseline_spectral_signature: np.ndarray[Any, Any] | None = None
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> "DimensionalAnalyzer":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "DimensionalAnalyzer":
         """Fit dimensional analyzers to data"""
         data_np = data.cpu().numpy() if isinstance(data, torch.Tensor) else data
 
@@ -114,7 +115,7 @@ class DimensionalAnalyzer(BaseDetector):
         self._is_fitted = True
         return self
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect dimensional anomalies"""
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
@@ -153,7 +154,7 @@ class DimensionalAnalyzer(BaseDetector):
             "detector_type": "dimensional",
         }
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract dimensional features for ML fusion"""
         if not self._is_fitted:
             if isinstance(data, torch.Tensor):
@@ -182,7 +183,7 @@ class DimensionalAnalyzer(BaseDetector):
 
         return torch.tensor(features, dtype=torch.float32)
 
-    def _compute_spectral_signature(self, data: np.ndarray) -> np.ndarray:
+    def _compute_spectral_signature(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Compute baseline spectral signature using Fourier transform
         DB term: Dimensional Code-Breaking via frequency analysis
@@ -200,7 +201,7 @@ class DimensionalAnalyzer(BaseDetector):
         mean_signature = np.mean(signatures, axis=0)
         return mean_signature
 
-    def _dimensional_code_breaking(self, data: np.ndarray) -> np.ndarray:
+    def _dimensional_code_breaking(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         DB Term: Dimensional Code-Breaking Detection
         Detects anomalies via spectral divergence in Fourier space
@@ -236,7 +237,7 @@ class DimensionalAnalyzer(BaseDetector):
 
         return scores
 
-    def _compute_phase_coherence(self, signal: np.ndarray) -> float:
+    def _compute_phase_coherence(self, signal: np.ndarray[Any, Any]) -> float:
         """Compute phase coherence for DB term"""
         if len(signal) < 4:
             return 1.0
@@ -251,7 +252,7 @@ class DimensionalAnalyzer(BaseDetector):
 
         return max(0.0, min(1.0, coherence))
 
-    def _compute_harmonic_distortion(self, signal: np.ndarray) -> float:
+    def _compute_harmonic_distortion(self, signal: np.ndarray[Any, Any]) -> float:
         """Compute total harmonic distortion for DB term"""
         if len(signal) < 8:
             return 0.0

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Model Compression for Inference Speed
@@ -365,7 +366,7 @@ class ModelCompressor:
         >>> compressed_model = compressor.compress(model)
     """
 
-    def __init__(self, config: CompressionConfig | None = None):
+    def __init__(self, config: CompressionConfig | None = None) -> None:
         """Initialize model compressor.
 
         Args:

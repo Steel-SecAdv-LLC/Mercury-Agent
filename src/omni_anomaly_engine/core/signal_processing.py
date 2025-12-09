@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Advanced Signal Processing for Enhanced Noise Reduction
@@ -97,17 +98,17 @@ class AdaptiveNoiseFilter:
         >>> clean_signal = filter.apply(noisy_signal)
     """
 
-    def __init__(self, config: FilterConfig | None = None):
+    def __init__(self, config: FilterConfig | None = None) -> None:
         """Initialize adaptive noise filter.
 
         Args:
             config: Filter configuration. Uses defaults if None.
         """
         self.config = config or FilterConfig()
-        self._kalman_state: np.ndarray | None = None
+        self._kalman_state: np.ndarray[Any, Any] | None = None
         self._kalman_covariance: float = 1.0
 
-    def apply(self, data: np.ndarray) -> np.ndarray:
+    def apply(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply configured filter to input data.
 
         Args:
@@ -132,7 +133,7 @@ class AdaptiveNoiseFilter:
         method = filter_methods.get(self.config.filter_type, self._fft_lowpass)
         return method(data)
 
-    def _fft_lowpass(self, data: np.ndarray) -> np.ndarray:
+    def _fft_lowpass(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """FFT-based lowpass filter (original method from fusion.py)."""
         fft_vals = np.fft.fft(data)
         cutoff_idx = int(len(fft_vals) * self.config.cutoff_freq)
@@ -140,7 +141,7 @@ class AdaptiveNoiseFilter:
         filtered = np.fft.ifft(fft_vals)
         return np.real(filtered)
 
-    def _wavelet_denoise(self, data: np.ndarray) -> np.ndarray:
+    def _wavelet_denoise(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Wavelet denoising using soft thresholding.
 
         Implements Donoho-Johnstone wavelet shrinkage for non-stationary signals.
@@ -163,7 +164,7 @@ class AdaptiveNoiseFilter:
 
         return self._haar_wavelet_reconstruct(denoised_coeffs, len(data))
 
-    def _haar_wavelet_decompose(self, data: np.ndarray, level: int) -> list[np.ndarray]:
+    def _haar_wavelet_decompose(self, data: np.ndarray[Any, Any], level: int) -> list[np.ndarray[Any, Any]]:
         """Simple Haar wavelet decomposition."""
         coeffs = []
         current = data.copy()
@@ -187,8 +188,8 @@ class AdaptiveNoiseFilter:
         return coeffs
 
     def _haar_wavelet_reconstruct(
-        self, coeffs: list[np.ndarray], original_length: int
-    ) -> np.ndarray:
+        self, coeffs: list[np.ndarray[Any, Any]], original_length: int
+    ) -> np.ndarray[Any, Any]:
         """Simple Haar wavelet reconstruction."""
         if len(coeffs) == 0:
             return np.zeros(original_length)
@@ -213,11 +214,11 @@ class AdaptiveNoiseFilter:
 
         return current
 
-    def _soft_threshold(self, data: np.ndarray, threshold: float) -> np.ndarray:
+    def _soft_threshold(self, data: np.ndarray[Any, Any], threshold: float) -> np.ndarray[Any, Any]:
         """Apply soft thresholding to wavelet coefficients."""
         return np.sign(data) * np.maximum(np.abs(data) - threshold, 0)
 
-    def _kalman_filter(self, data: np.ndarray) -> np.ndarray:
+    def _kalman_filter(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Kalman filter for optimal temporal noise reduction.
 
         Implements a simple 1D Kalman filter optimal for time-series data
@@ -249,7 +250,7 @@ class AdaptiveNoiseFilter:
 
         return filtered
 
-    def _savitzky_golay(self, data: np.ndarray) -> np.ndarray:
+    def _savitzky_golay(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Savitzky-Golay filter for smoothing while preserving features.
 
         Preserves higher moments of the signal (peaks, valleys) better than
@@ -270,7 +271,7 @@ class AdaptiveNoiseFilter:
         except ValueError:
             return data.copy()
 
-    def _adaptive_bandpass(self, data: np.ndarray) -> np.ndarray:
+    def _adaptive_bandpass(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Adaptive bandpass filter with automatic frequency selection.
 
         Analyzes signal spectrum to determine optimal passband, then applies
@@ -306,7 +307,7 @@ class AdaptiveNoiseFilter:
         except ValueError:
             return data.copy()
 
-    def _median_filter(self, data: np.ndarray) -> np.ndarray:
+    def _median_filter(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Median filter for impulse noise removal.
 
         Effective for removing salt-and-pepper noise and outliers while
@@ -314,7 +315,7 @@ class AdaptiveNoiseFilter:
         """
         return signal.medfilt(data, kernel_size=min(self.config.window_size, len(data)))
 
-    def _ema_filter(self, data: np.ndarray) -> np.ndarray:
+    def _ema_filter(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Exponential moving average filter.
 
         Simple but effective for real-time applications where computational
@@ -350,7 +351,7 @@ class MultiStageFilter:
         >>> clean_signal = pipeline.apply(noisy_signal)
     """
 
-    def __init__(self, stages: list[FilterConfig] | None = None):
+    def __init__(self, stages: list[FilterConfig] | None = None) -> None:
         """Initialize multi-stage filter.
 
         Args:
@@ -359,7 +360,7 @@ class MultiStageFilter:
         self.stages = stages or []
         self.filters = [AdaptiveNoiseFilter(config) for config in self.stages]
 
-    def apply(self, data: np.ndarray) -> np.ndarray:
+    def apply(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Apply all filter stages in sequence.
 
         Args:
@@ -384,9 +385,9 @@ class MultiStageFilter:
 
 
 def compute_rolling_statistics(
-    data: np.ndarray,
+    data: np.ndarray[Any, Any],
     window_size: int = 10,
-) -> dict[str, np.ndarray]:
+) -> dict[str, np.ndarray[Any, Any]]:
     """Compute rolling window statistics for feature engineering.
 
     Args:
@@ -424,9 +425,9 @@ def compute_rolling_statistics(
 
 
 def compute_temporal_lag_features(
-    data: np.ndarray,
+    data: np.ndarray[Any, Any],
     lags: list[int] | None = None,
-) -> dict[str, np.ndarray]:
+) -> dict[str, np.ndarray[Any, Any]]:
     """Compute temporal lag features for multi-scale dependency analysis.
 
     Args:
@@ -439,7 +440,7 @@ def compute_temporal_lag_features(
     if lags is None:
         lags = [1, 2, 5, 10]
 
-    features: dict[str, np.ndarray] = {}
+    features: dict[str, np.ndarray[Any, Any]] = {}
 
     for lag in lags:
         if lag >= len(data):
@@ -457,8 +458,8 @@ def compute_temporal_lag_features(
 
 
 def compute_interaction_features(
-    features_dict: dict[str, np.ndarray],
-) -> dict[str, np.ndarray]:
+    features_dict: dict[str, np.ndarray[Any, Any]],
+) -> dict[str, np.ndarray[Any, Any]]:
     """Compute interaction features between detector outputs.
 
     Creates cross-correlation and product features for enhanced detection.
@@ -469,7 +470,7 @@ def compute_interaction_features(
     Returns:
         Dictionary containing interaction features
     """
-    interactions: dict[str, np.ndarray] = {}
+    interactions: dict[str, np.ndarray[Any, Any]] = {}
     feature_names = list(features_dict.keys())
 
     for i, name1 in enumerate(feature_names):

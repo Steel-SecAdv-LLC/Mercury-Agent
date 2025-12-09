@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 PaDiM: Patch Distribution Modeling Framework for Anomaly Detection
@@ -81,7 +82,7 @@ class PaDiMDetector(BaseVisualDetector):
         >>> results = detector.detect(test_images)
     """
 
-    def __init__(self, config: PaDiMConfig | dict[str, Any] | None = None):
+    def __init__(self, config: PaDiMConfig | dict[str, Any] | None = None) -> None:
         """Initialize PaDiM detector.
 
         Args:
@@ -169,7 +170,7 @@ class PaDiMDetector(BaseVisualDetector):
 
         return patches, (h, w)
 
-    def fit(self, data: np.ndarray | torch.Tensor) -> "PaDiMDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "PaDiMDetector":
         """Fit detector by computing Gaussian parameters for each position.
 
         Args:
@@ -178,7 +179,7 @@ class PaDiMDetector(BaseVisualDetector):
         Returns:
             Self for method chaining
         """
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray[Any, Any]):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)
@@ -250,7 +251,7 @@ class PaDiMDetector(BaseVisualDetector):
         self._is_fitted = True
         return self
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using Mahalanobis distance.
 
         Args:
@@ -266,7 +267,7 @@ class PaDiMDetector(BaseVisualDetector):
         if not self._is_fitted:
             raise RuntimeError("Detector must be fitted before detection")
 
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray[Any, Any]):
             data = torch.from_numpy(data).float()
 
         original_size = data.shape[-2:]
@@ -360,7 +361,7 @@ class PaDiMDetector(BaseVisualDetector):
 
         return distances
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion pipeline.
 
         Args:
@@ -369,7 +370,7 @@ class PaDiMDetector(BaseVisualDetector):
         Returns:
             Feature tensor [N, 128] normalized for fusion
         """
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray[Any, Any]):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)

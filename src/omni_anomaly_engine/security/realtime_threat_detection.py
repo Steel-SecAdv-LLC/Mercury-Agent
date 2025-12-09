@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Real-Time Threat Detection with PyOD-Compatible Anomaly Detection
@@ -101,7 +102,7 @@ class RealTimeThreatDetector:
         self.is_fitted = False
         self.threat_history: list[ThreatSignature] = []
 
-    def fit(self, X: np.ndarray) -> "RealTimeThreatDetector":
+    def fit(self, X: np.ndarray[Any, Any]) -> "RealTimeThreatDetector":
         """
         Fit detectors on normal (non-threatening) data.
 
@@ -120,7 +121,7 @@ class RealTimeThreatDetector:
         self.is_fitted = True
         return self
 
-    def detect_threat(self, X: np.ndarray) -> dict[str, Any]:
+    def detect_threat(self, X: np.ndarray[Any, Any]) -> dict[str, Any]:
         """
         Detect threats in real-time data.
 
@@ -169,7 +170,7 @@ class RealTimeThreatDetector:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def _calculate_threat_level(self, scores: np.ndarray) -> str:
+    def _calculate_threat_level(self, scores: np.ndarray[Any, Any]) -> str:
         """Calculate threat level based on scores."""
         min_score = np.min(scores)
 
@@ -183,7 +184,7 @@ class RealTimeThreatDetector:
             return "LOW"
 
     def record_threat(
-        self, threat_data: np.ndarray, threat_type: str, severity: float
+        self, threat_data: np.ndarray[Any, Any], threat_type: str, severity: float
     ) -> ThreatSignature:
         """
         Record detected threat for future analysis.
@@ -240,7 +241,7 @@ class AdaptiveThreatDetector(RealTimeThreatDetector):
     Implements online learning for continuous adaptation to evolving threats.
     """
 
-    def __init__(self, *args, update_frequency: int = 100, **kwargs):
+    def __init__(self, *args, update_frequency: int = 100, **kwargs) -> None:
         """
         Initialize adaptive threat detector.
 
@@ -251,10 +252,10 @@ class AdaptiveThreatDetector(RealTimeThreatDetector):
         super().__init__(*args, **kwargs)
         self.update_frequency = update_frequency
         self.samples_since_update = 0
-        self.training_buffer: list[np.ndarray] = []
+        self.training_buffer: list[np.ndarray[Any, Any]] = []
         self.max_buffer_size = 1000
 
-    def detect_and_adapt(self, X: np.ndarray, is_normal: bool | None = None) -> dict[str, Any]:
+    def detect_and_adapt(self, X: np.ndarray[Any, Any], is_normal: bool | None = None) -> dict[str, Any]:
         """
         Detect threats and adapt model based on feedback.
 

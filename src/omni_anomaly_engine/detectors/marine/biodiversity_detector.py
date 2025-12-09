@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Marine Biodiversity & Ecosystem Detector
@@ -90,7 +91,7 @@ class BiodiversityPredictionResult:
 class CoralBleachingDetector:
     """Coral bleaching detection from temperature and stress indicators"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def detect_coral_bleaching(self, coral_data: dict[str, Any]) -> dict[str, Any]:
@@ -121,7 +122,7 @@ class CoralBleachingDetector:
 class MarineBiodiversityDetector:
     """Comprehensive marine biodiversity monitoring system"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.coral_detector = CoralBleachingDetector()
         self.logger = logging.getLogger(__name__)
 

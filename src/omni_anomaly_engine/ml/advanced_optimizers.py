@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Advanced Optimizers for OMNI ♱ AVA
@@ -36,7 +37,7 @@ References:
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Any
 
 import numpy as np
 import numpy.typing as npt
@@ -120,7 +121,7 @@ class SyntheticGradientPredictor:
         )
         self.optimizer = optim.Adam(self.predictor.parameters(), lr=0.01)
 
-    def forward(self, activations: np.ndarray) -> np.ndarray:
+    def forward(self, activations: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Predict synthetic gradient for given activations.
 
@@ -138,14 +139,14 @@ class SyntheticGradientPredictor:
             output = self.predictor(activations_tensor)
         return output.numpy()
 
-    def _forward_numpy(self, activations: np.ndarray) -> np.ndarray:
+    def _forward_numpy(self, activations: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Numpy forward pass."""
         h1 = np.maximum(0, activations @ self.w1 + self.b1)
         h2 = np.maximum(0, h1 @ self.w2 + self.b2)
         output = h2 @ self.w3 + self.b3
         return output
 
-    def update(self, predicted_grad: np.ndarray, true_grad: np.ndarray) -> float:
+    def update(self, predicted_grad: np.ndarray[Any, Any], true_grad: np.ndarray[Any, Any]) -> float:
         """
         Update predictor with true gradient.
 
@@ -171,7 +172,7 @@ class SyntheticGradientPredictor:
 
         return loss.item()
 
-    def _update_numpy(self, predicted_grad: np.ndarray, true_grad: np.ndarray) -> float:
+    def _update_numpy(self, predicted_grad: np.ndarray[Any, Any], true_grad: np.ndarray[Any, Any]) -> float:
         """Numpy update (simplified gradient descent)."""
         error = predicted_grad - true_grad
         mse = float(np.mean(error**2))
@@ -229,10 +230,10 @@ class SyntheticGradientModule:
             self.gradient_predictor = None
 
         self.training_steps = 0
-        self.last_output: np.ndarray | None = None
-        self.true_grad: np.ndarray | None = None
+        self.last_output: np.ndarray[Any, Any] | None = None
+        self.true_grad: np.ndarray[Any, Any] | None = None
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Forward pass with synthetic gradient prediction.
 
@@ -310,7 +311,7 @@ class DifferenceTargetPropagation:
         self.optimizer_forward = optim.SGD(self.forward_layer.parameters(), lr=learning_rate)
         self.optimizer_inverse = optim.SGD(self.inverse_layer.parameters(), lr=learning_rate)
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Forward pass.
 
@@ -324,7 +325,7 @@ class DifferenceTargetPropagation:
         output = self.forward_layer(x_tensor)
         return output.detach().numpy()
 
-    def backward_pass(self, h_current: np.ndarray, target: np.ndarray) -> np.ndarray:
+    def backward_pass(self, h_current: np.ndarray[Any, Any], target: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Compute target for previous layer via inverse mapping.
 

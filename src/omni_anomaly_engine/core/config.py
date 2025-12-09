@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Configuration classes for OMNI ♱ AVA
@@ -172,7 +173,7 @@ class ConfigurationManager:
 
     ENV_PREFIX = "OMNI_AVA_"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._config: dict[str, Any] = {}
         self._config_files: list[Path] = []
         self._feature_flags: dict[str, FeatureFlag] = {}
@@ -250,7 +251,7 @@ class ConfigurationManager:
     def _merge_config(self, data: dict[str, Any]) -> None:
         """Deep merge configuration data."""
 
-        def deep_merge(base: dict, override: dict) -> dict:
+        def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict:
             result = base.copy()
             for key, value in override.items():
                 if key in result and isinstance(result[key], dict) and isinstance(value, dict):

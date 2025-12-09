@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Mathematical Simulation and Analysis Module
@@ -543,7 +544,7 @@ class SimulationModule:
             "applications": ["topology", "geometry", "3_manifolds"],
         }
 
-    def extract_features(self, data: np.ndarray | dict[str, Any]) -> np.ndarray:
+    def extract_features(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> np.ndarray[Any, Any]:
         """
         Extract high-dimensional features from simulation data.
 
@@ -555,7 +556,7 @@ class SimulationModule:
         """
         if isinstance(data, dict):
             data = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray):
+        elif not isinstance(data, np.ndarray[Any, Any]):
             data = np.array(data)
 
         if data.ndim == 1:
@@ -589,7 +590,7 @@ class SimulationModule:
 
         return features.astype(np.float32)
 
-    def predict(self, data: np.ndarray | dict[str, Any]) -> dict[str, Any]:
+    def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
         """
         Predict viability/solutions using multiverse branching.
 

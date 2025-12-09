@@ -11,6 +11,8 @@ These loaders fetch REAL benchmark datasets used in academic research:
 
 All datasets download from official sources or mirrors.
 """
+from __future__ import annotations
+from typing import Any
 
 import json
 import logging
@@ -100,7 +102,7 @@ class NABLoader(DatasetLoader):
 
     FEATURE_NAMES = ["value", "timestamp_hour", "timestamp_day", "timestamp_month"]
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.categories = config.preprocessing.get(
             "categories", ["realAWSCloudwatch", "realKnownCause"]
@@ -146,7 +148,7 @@ class NABLoader(DatasetLoader):
         logger.info(f"Downloaded {downloaded_count} NAB data files")
         return downloaded_count > 0
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load REAL NAB data from downloaded files."""
         # Load labels
         labels_path = self.data_path / "labels.json"
@@ -181,7 +183,7 @@ class NABLoader(DatasetLoader):
 
         return features, labels
 
-    def _parse_nab_file(self, filepath: Path, anomaly_windows: dict) -> tuple[list, list]:
+    def _parse_nab_file(self, filepath: Path, anomaly_windows: dict[str, Any]) -> tuple[list, list]:
         """Parse a single NAB CSV file."""
         import csv
         from datetime import datetime
@@ -242,7 +244,7 @@ class NABLoader(DatasetLoader):
 
         return features, labels
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess NAB features."""
         data = np.nan_to_num(data, nan=0.0)
         data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)
@@ -293,7 +295,7 @@ class SMDLoader(DatasetLoader):
         + [f"machine-3-{i}" for i in range(1, 12)]
     )
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.machines = config.preprocessing.get("machines", self.MACHINES[:5])
 
@@ -333,7 +335,7 @@ class SMDLoader(DatasetLoader):
         logger.info(f"Downloaded {downloaded_count} SMD files")
         return downloaded_count > 0
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load REAL SMD data from downloaded files."""
         logger.info("Loading REAL SMD benchmark data...")
 
@@ -384,7 +386,7 @@ class SMDLoader(DatasetLoader):
 
         return features, labels
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess SMD features."""
         data = np.nan_to_num(data, nan=0.0)
         data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)
@@ -430,7 +432,7 @@ class SMAPMSLLoader(DatasetLoader):
         "https://raw.githubusercontent.com/khundman/telemanom/master/labeled_anomalies.csv"
     )
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.dataset = config.preprocessing.get("dataset", "SMAP")  # SMAP or MSL
 
@@ -478,7 +480,7 @@ class SMAPMSLLoader(DatasetLoader):
 
         return labels_path.exists()
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load REAL SMAP/MSL data from downloaded files."""
         test_dir = self.data_path / "test"
         labels_path = self.data_path / "labeled_anomalies.csv"
@@ -565,7 +567,7 @@ class SMAPMSLLoader(DatasetLoader):
 
         return features, labels
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess spacecraft telemetry."""
         data = np.nan_to_num(data, nan=0.0)
         data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)

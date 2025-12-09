@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Dependency Injection Framework for OMNI ♱ AVA
@@ -84,7 +85,7 @@ class ServiceContainer:
     - Thread-safe singleton creation
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._services: dict[type, ServiceDescriptor] = {}
         self._lock = threading.RLock()
         self._resolution_stack: set[type] = set()
@@ -244,7 +245,7 @@ class ServiceContainer:
 class ServiceScope:
     """Scoped service resolution context."""
 
-    def __init__(self, container: ServiceContainer, scope_id: str):
+    def __init__(self, container: ServiceContainer, scope_id: str) -> None:
         self._container = container
         self._scope_id = scope_id
 
@@ -338,7 +339,7 @@ class ComponentFactory:
     - Version compatibility checking
     """
 
-    def __init__(self, container: ServiceContainer):
+    def __init__(self, container: ServiceContainer) -> None:
         self._container = container
         self._registered_plugins: dict[str, type] = {}
 

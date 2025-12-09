@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Regenerative Architecture Module
@@ -83,7 +84,7 @@ class RegenerativeArchitecture:
     improving the system and its environment).
     """
 
-    def __init__(self, enable_closed_loops: bool = True):
+    def __init__(self, enable_closed_loops: bool = True) -> None:
         """
         Initialize regenerative architecture.
 
@@ -304,14 +305,14 @@ class RegenerativeArchitecture:
         """Calculate diversity score for ensemble (Principle 10)."""
         return len({str(m) for m in models}) / max(len(models), 1)
 
-    def _identify_edges(self, data: np.ndarray) -> np.ndarray:
+    def _identify_edges(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Identify edge cases (marginal data points) (Principle 11)."""
         if len(data) == 0:
             return np.array([])
         mean = np.mean(data, axis=0)
         distances = np.linalg.norm(data - mean, axis=1)
         threshold = np.percentile(distances, 95)
-        result: np.ndarray = data[distances > threshold]
+        result: np.ndarray[Any, Any] = data[distances > threshold]
         return result
 
     def _plan_adaptation(self, changes: dict[str, Any]) -> dict[str, Any]:

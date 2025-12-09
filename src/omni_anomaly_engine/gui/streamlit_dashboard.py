@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
+from typing import Any
 
 """
 Streamlit Dashboard for OMNI ♱ AVA
@@ -522,7 +524,7 @@ def general_analysis_page():
                         st.metric("Confidence", f"{result.get('anomaly_prob', 0):.1%}")
 
 
-def load_file_data(uploaded_file) -> np.ndarray | None:
+def load_file_data(uploaded_file) -> np.ndarray[Any, Any] | None:
     """Load data from uploaded file"""
 
     try:

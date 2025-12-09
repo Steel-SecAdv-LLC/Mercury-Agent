@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Quantum Computing Engine for OMNI ♱ AVA
@@ -67,7 +68,7 @@ class QuantumState:
         probabilities = probabilities / probabilities.sum()
         return int(np.random.choice(len(self.amplitudes), p=probabilities))
 
-    def get_probabilities(self) -> np.ndarray:
+    def get_probabilities(self) -> np.ndarray[Any, Any]:
         """Get measurement probabilities."""
         return np.abs(self.amplitudes) ** 2
 
@@ -76,54 +77,54 @@ class QuantumGate:
     """Collection of quantum gates for circuit operations."""
 
     @staticmethod
-    def hadamard() -> np.ndarray:
+    def hadamard() -> np.ndarray[Any, Any]:
         """Hadamard gate (creates superposition)."""
         return np.array([[1, 1], [1, -1]], dtype=complex) / np.sqrt(2)
 
     @staticmethod
-    def pauli_x() -> np.ndarray:
+    def pauli_x() -> np.ndarray[Any, Any]:
         """Pauli-X gate (quantum NOT)."""
         return np.array([[0, 1], [1, 0]], dtype=complex)
 
     @staticmethod
-    def pauli_y() -> np.ndarray:
+    def pauli_y() -> np.ndarray[Any, Any]:
         """Pauli-Y gate."""
         return np.array([[0, -1j], [1j, 0]], dtype=complex)
 
     @staticmethod
-    def pauli_z() -> np.ndarray:
+    def pauli_z() -> np.ndarray[Any, Any]:
         """Pauli-Z gate (phase flip)."""
         return np.array([[1, 0], [0, -1]], dtype=complex)
 
     @staticmethod
-    def phase(theta: float) -> np.ndarray:
+    def phase(theta: float) -> np.ndarray[Any, Any]:
         """Phase shift gate."""
         return np.array([[1, 0], [0, np.exp(1j * theta)]], dtype=complex)
 
     @staticmethod
-    def cnot() -> np.ndarray:
+    def cnot() -> np.ndarray[Any, Any]:
         """Controlled-NOT gate (creates entanglement)."""
         return np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex)
 
     @staticmethod
-    def toffoli() -> np.ndarray:
+    def toffoli() -> np.ndarray[Any, Any]:
         """Toffoli gate (CCNOT - controlled-controlled-NOT)."""
         gate = np.eye(8, dtype=complex)
         gate[6:8, 6:8] = np.array([[0, 1], [1, 0]], dtype=complex)
         return gate
 
     @staticmethod
-    def swap() -> np.ndarray:
+    def swap() -> np.ndarray[Any, Any]:
         """SWAP gate."""
         return np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]], dtype=complex)
 
     @staticmethod
-    def t_gate() -> np.ndarray:
+    def t_gate() -> np.ndarray[Any, Any]:
         """T gate (π/4 phase)."""
         return np.array([[1, 0], [0, np.exp(1j * np.pi / 4)]], dtype=complex)
 
     @staticmethod
-    def s_gate() -> np.ndarray:
+    def s_gate() -> np.ndarray[Any, Any]:
         """S gate (π/2 phase)."""
         return np.array([[1, 0], [0, 1j]], dtype=complex)
 
@@ -131,7 +132,7 @@ class QuantumGate:
 class QuantumCircuit:
     """Quantum circuit simulator with state vector representation."""
 
-    def __init__(self, num_qubits: int):
+    def __init__(self, num_qubits: int) -> None:
         """
         Initialize quantum circuit.
 
@@ -146,9 +147,9 @@ class QuantumCircuit:
         )
         self.state.amplitudes[0] = 1.0
 
-        self.gates: list[tuple[np.ndarray, list[int]]] = []
+        self.gates: list[tuple[np.ndarray[Any, Any], list[int]]] = []
 
-    def apply_gate(self, gate: np.ndarray, target_qubits: list[int]) -> None:
+    def apply_gate(self, gate: np.ndarray[Any, Any], target_qubits: list[int]) -> None:
         """
         Apply a gate to target qubits.
 
@@ -166,7 +167,7 @@ class QuantumCircuit:
         elif num_gate_qubits == 2:
             self._apply_two_qubit_gate(gate, target_qubits[0], target_qubits[1])
 
-    def _apply_single_qubit_gate(self, gate: np.ndarray, target: int) -> None:
+    def _apply_single_qubit_gate(self, gate: np.ndarray[Any, Any], target: int) -> None:
         """Apply single-qubit gate."""
         new_amplitudes = np.zeros_like(self.state.amplitudes)
 
@@ -184,7 +185,7 @@ class QuantumCircuit:
 
         self.state.amplitudes = new_amplitudes
 
-    def _apply_two_qubit_gate(self, gate: np.ndarray, control: int, target: int) -> None:
+    def _apply_two_qubit_gate(self, gate: np.ndarray[Any, Any], control: int, target: int) -> None:
         """Apply two-qubit gate (simplified for CNOT)."""
         new_amplitudes = self.state.amplitudes.copy()
 
@@ -201,7 +202,7 @@ class QuantumCircuit:
         """Measure all qubits."""
         return self.state.measure()
 
-    def get_state_vector(self) -> np.ndarray:
+    def get_state_vector(self) -> np.ndarray[Any, Any]:
         """Get current state vector."""
         return self.state.amplitudes.copy()
 
@@ -261,7 +262,7 @@ class QuantumEngine:
         print(f"Found: {result.found}, Speedup: {result.speedup}x")
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.golden_ratio = 0.618
         self.quantum_factor = 1.2
 
@@ -501,7 +502,7 @@ class QuantumEngine:
 
     def simulate_quantum_annealing(
         self,
-        cost_function: Callable[[np.ndarray], float],
+        cost_function: Callable[[np.ndarray[Any, Any]], float],
         num_vars: int,
         num_iterations: int = 1000,
     ) -> AnnealingResult:
@@ -569,7 +570,7 @@ class QuantumEngine:
                 best_state=[], best_cost=float("inf"), confidence=0.0, iterations=0
             )
 
-    def calculate_quantum_fidelity(self, state1: np.ndarray, state2: np.ndarray) -> float:
+    def calculate_quantum_fidelity(self, state1: np.ndarray[Any, Any], state2: np.ndarray[Any, Any]) -> float:
         """
         Calculate quantum fidelity between two states.
 
@@ -602,7 +603,7 @@ class QuantumEngine:
             return 0.0
 
     def quantum_phase_estimation(
-        self, unitary: np.ndarray, eigenvector: np.ndarray, precision: int = 8
+        self, unitary: np.ndarray[Any, Any], eigenvector: np.ndarray[Any, Any], precision: int = 8
     ) -> dict[str, Any]:
         """
         Quantum phase estimation algorithm.
@@ -637,7 +638,7 @@ class QuantumEngine:
             logger.error(f"Phase estimation error: {e}")
             return {"error": str(e)}
 
-    def extract_quantum_features(self, data: np.ndarray) -> np.ndarray:
+    def extract_quantum_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Extract quantum-inspired features for anomaly detection.
 

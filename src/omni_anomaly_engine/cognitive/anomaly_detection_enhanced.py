@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Enhanced Anomaly Detection - Memory Graph and External Data Integration
@@ -127,7 +128,7 @@ class MemoryKnowledgeGraph:
     to enable pattern discovery and predictive analysis.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize memory knowledge graph."""
         if NETWORKX_AVAILABLE:
             self.graph = nx.DiGraph()
@@ -310,7 +311,7 @@ class BayesianPredictor:
     based on success/failure histories.
     """
 
-    def __init__(self, prior_alpha: float = 1.0, prior_beta: float = 1.0):
+    def __init__(self, prior_alpha: float = 1.0, prior_beta: float = 1.0) -> None:
         """
         Initialize Bayesian predictor.
 
@@ -388,7 +389,7 @@ class HiddenMarkovPredictor:
     that may indicate anomalies.
     """
 
-    def __init__(self, n_states: int = 3):
+    def __init__(self, n_states: int = 3) -> None:
         """
         Initialize HMM predictor.
 
@@ -399,7 +400,7 @@ class HiddenMarkovPredictor:
 
         np.random.seed(42)
         self.transition_matrix = np.ones((n_states, n_states)) / n_states
-        self.emission_probs: dict[str, np.ndarray] = {}
+        self.emission_probs: dict[str, np.ndarray[Any, Any]] = {}
         self.initial_probs = np.ones(n_states) / n_states
 
         self.state_history: list[int] = []
@@ -491,7 +492,7 @@ class ExternalDataSource(ABC):
 class MockGeologicalSource(ExternalDataSource):
     """Mock geological data source (USGS-style)."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.source_name = "mock_usgs"
 
     def fetch(self) -> list[ExternalDataPoint]:
@@ -518,7 +519,7 @@ class MockGeologicalSource(ExternalDataSource):
 class MockEnvironmentalSource(ExternalDataSource):
     """Mock environmental data source (NOAA-style)."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.source_name = "mock_noaa"
 
     def fetch(self) -> list[ExternalDataPoint]:
@@ -550,7 +551,7 @@ class ExternalDataIntegrator:
     with internal memory patterns.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize external data integrator."""
         self.sources: dict[str, ExternalDataSource] = {}
         self.data_buffer: list[ExternalDataPoint] = []
@@ -658,7 +659,7 @@ class ValueExtractor:
     filtering through ethical constraints.
     """
 
-    def __init__(self, benevolence_threshold: float = 0.99):
+    def __init__(self, benevolence_threshold: float = 0.99) -> None:
         """
         Initialize value extractor.
 

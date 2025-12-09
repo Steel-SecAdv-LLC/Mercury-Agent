@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Graph-Based Anomaly Detection using NetworkX
@@ -40,13 +41,13 @@ from omni_anomaly_engine.core.base import BaseDetector
 class GraphAnomalyDetector(BaseDetector):
     """Detect anomalies in graph-structured data."""
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         super().__init__(config)
         self.threshold = self.config.get("threshold", 3.0)
         self.fitted = False
         self.baseline_metrics = {}
 
-    def fit(self, data: np.ndarray | nx.Graph) -> "GraphAnomalyDetector":
+    def fit(self, data: np.ndarray[Any, Any] | nx.Graph) -> "GraphAnomalyDetector":
         """Fit detector on normal graph data."""
         graph = data if isinstance(data, nx.Graph) else self._array_to_graph(data)
 
@@ -54,7 +55,7 @@ class GraphAnomalyDetector(BaseDetector):
         self.fitted = True
         return self
 
-    def detect(self, data: np.ndarray | nx.Graph) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | nx.Graph) -> dict[str, Any]:
         """Detect graph anomalies using centrality and community analysis."""
         graph = data if isinstance(data, nx.Graph) else self._array_to_graph(data)
 
@@ -71,7 +72,7 @@ class GraphAnomalyDetector(BaseDetector):
             "metrics": current_metrics,
         }
 
-    def extract_features(self, data: np.ndarray | nx.Graph) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | nx.Graph) -> torch.Tensor:
         """Extract graph-based features for ML fusion."""
         graph = data if isinstance(data, nx.Graph) else self._array_to_graph(data)
 
@@ -93,7 +94,7 @@ class GraphAnomalyDetector(BaseDetector):
     def is_fitted(self) -> bool:
         return self.fitted
 
-    def _array_to_graph(self, data: np.ndarray) -> nx.Graph:
+    def _array_to_graph(self, data: np.ndarray[Any, Any]) -> nx.Graph:
         """Convert adjacency matrix to NetworkX graph."""
         if data.ndim == 1:
             n = int(np.sqrt(len(data)))

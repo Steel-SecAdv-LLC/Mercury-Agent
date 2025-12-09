@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Education Equity Module - Learning bias and access anomaly detection
@@ -54,13 +55,13 @@ class EducationThreat(Enum):
 class EducationEquityDetector:
     """Detect educational equity anomalies and learning barriers."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.achievement_baseline = {"mean": 75.0, "std": 10.0}
         self.dropout_risk_threshold = 0.3
 
     def detect(
         self,
-        data: np.ndarray,
+        data: np.ndarray[Any, Any],
         detection_type: str = "achievement",
         demographic_data: dict | None = None,
     ) -> dict[str, Any]:
@@ -83,7 +84,7 @@ class EducationEquityDetector:
             return self.detect_achievement_gap(data, demographic_data)
 
     def detect_achievement_gap(
-        self, achievement_data: np.ndarray, demographic_data: dict | None = None
+        self, achievement_data: np.ndarray[Any, Any], demographic_data: dict | None = None
     ) -> dict[str, Any]:
         """Detect achievement gaps across student populations."""
         if len(achievement_data) == 0:
@@ -124,7 +125,7 @@ class EducationEquityDetector:
         }
 
     def detect_dropout_risk(
-        self, student_data: np.ndarray, demographic_data: dict | None = None
+        self, student_data: np.ndarray[Any, Any], demographic_data: dict | None = None
     ) -> dict[str, Any]:
         """Detect students at risk of dropping out."""
         if len(student_data) == 0:

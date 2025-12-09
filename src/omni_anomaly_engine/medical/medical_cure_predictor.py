@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 Medical Cure Predictor - Early Disease Detection and Treatment Optimization
@@ -127,13 +128,13 @@ class TemporalVitalSignsDetector:
     for early disease detection.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.healthcare_detector = HealthcareEmergencyDetector()
         self.lstm_model = TemporalVitalSignsLSTM(input_dim=5, hidden_dim=64, num_layers=2)
         self.logger = logging.getLogger(__name__)
 
     def detect_temporal_anomaly(
-        self, vital_signs_sequence: np.ndarray, patient_history: dict | None = None
+        self, vital_signs_sequence: np.ndarray[Any, Any], patient_history: dict | None = None
     ) -> dict[str, Any]:
         """
         Detect anomalies in temporal vital signs sequence.
@@ -188,7 +189,7 @@ class TemporalVitalSignsDetector:
             ),
         }
 
-    def _normalize_vitals(self, vitals: np.ndarray) -> np.ndarray:
+    def _normalize_vitals(self, vitals: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Normalize vital signs for LSTM input."""
         ranges = np.array([[40, 130], [70, 180], [85, 100], [95, 103], [8, 30]])
 
@@ -196,7 +197,7 @@ class TemporalVitalSignsDetector:
         return np.clip(normalized, 0, 1)
 
     def _calculate_disease_risk(
-        self, anomaly_score: float, assessment: dict, vitals_sequence: np.ndarray
+        self, anomaly_score: float, assessment: dict[str, Any], vitals_sequence: np.ndarray[Any, Any]
     ) -> dict[str, float]:
         """Calculate disease risk scores."""
         if len(vitals_sequence) >= 3:
@@ -221,7 +222,7 @@ class TemporalVitalSignsDetector:
         return risks
 
     def _generate_temporal_recommendations(
-        self, anomaly_score: float, disease_risk: dict, assessment: dict
+        self, anomaly_score: float, disease_risk: dict[str, Any], assessment: dict
     ) -> list[str]:
         """Generate recommendations based on temporal analysis."""
         recs = []
@@ -257,7 +258,7 @@ class MedicalImagingAnomalyDetector:
     Detects anomalies in CT/MRI/X-ray images for early disease detection.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.model = nn.Sequential(
             nn.Conv2d(1, 32, kernel_size=3, padding=1),
             nn.ReLU(),
@@ -275,7 +276,7 @@ class MedicalImagingAnomalyDetector:
         self.logger = logging.getLogger(__name__)
 
     def detect_imaging_anomaly(
-        self, medical_image: np.ndarray, imaging_type: str = "xray"
+        self, medical_image: np.ndarray[Any, Any], imaging_type: str = "xray"
     ) -> dict[str, Any]:
         """
         Detect anomalies in medical imaging.
@@ -309,7 +310,7 @@ class MedicalImagingAnomalyDetector:
             ),
         }
 
-    def _preprocess_image(self, image: np.ndarray) -> np.ndarray:
+    def _preprocess_image(self, image: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess medical image for CNN."""
         if image.ndim == 3:
             image = np.mean(image, axis=2)
@@ -372,7 +373,7 @@ class TreatmentPathwayOptimizer:
     Explores optimal treatment strategies using multiverse optimization.
     """
 
-    def __init__(self, num_universes: int = 25):
+    def __init__(self, num_universes: int = 25) -> None:
         self.multiverse = MultiverseOmniEngine(
             num_universes=num_universes, state_dim=96, convergence_threshold=0.9
         )
@@ -392,7 +393,7 @@ class TreatmentPathwayOptimizer:
             Optimal treatment pathway recommendations
         """
 
-        def treatment_fitness(treatment_vector: np.ndarray) -> float:
+        def treatment_fitness(treatment_vector: np.ndarray[Any, Any]) -> float:
             efficacy = np.mean(treatment_vector[:32])
             safety = -np.std(treatment_vector[32:64])
             tolerance = np.mean(treatment_vector[64:])

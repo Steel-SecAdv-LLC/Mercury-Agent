@@ -18,6 +18,8 @@ These metrics are used in papers like:
 - DAGMM (ICLR 2018)
 - TranAD (VLDB 2022)
 """
+from __future__ import annotations
+from typing import Any
 
 import logging
 from dataclasses import dataclass
@@ -85,7 +87,7 @@ class AnomalyMetrics:
         )
 
 
-def compute_auc_roc(y_true: np.ndarray, y_score: np.ndarray) -> float:
+def compute_auc_roc(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) -> float:
     """
     Compute Area Under the ROC Curve.
 
@@ -113,7 +115,7 @@ def compute_auc_roc(y_true: np.ndarray, y_score: np.ndarray) -> float:
         return _auc_roc_numpy(y_true, y_score)
 
 
-def _auc_roc_numpy(y_true: np.ndarray, y_score: np.ndarray) -> float:
+def _auc_roc_numpy(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) -> float:
     """Pure numpy AUC-ROC implementation."""
     # Sort by score descending
     desc_score_indices = np.argsort(y_score)[::-1]
@@ -137,7 +139,7 @@ def _auc_roc_numpy(y_true: np.ndarray, y_score: np.ndarray) -> float:
     return float(auc)
 
 
-def compute_auc_pr(y_true: np.ndarray, y_score: np.ndarray) -> float:
+def compute_auc_pr(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) -> float:
     """
     Compute Area Under the Precision-Recall Curve.
 
@@ -158,7 +160,7 @@ def compute_auc_pr(y_true: np.ndarray, y_score: np.ndarray) -> float:
         return _auc_pr_numpy(y_true, y_score)
 
 
-def _auc_pr_numpy(y_true: np.ndarray, y_score: np.ndarray) -> float:
+def _auc_pr_numpy(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) -> float:
     """Pure numpy AUC-PR implementation."""
     desc_score_indices = np.argsort(y_score)[::-1]
     y_true_sorted = y_true[desc_score_indices]
@@ -178,7 +180,7 @@ def _auc_pr_numpy(y_true: np.ndarray, y_score: np.ndarray) -> float:
 
 
 def compute_best_f1(
-    y_true: np.ndarray, y_score: np.ndarray, n_thresholds: int = 100
+    y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any], n_thresholds: int = 100
 ) -> tuple[float, float]:
     """
     Find the threshold that maximizes F1-score.
@@ -206,7 +208,7 @@ def compute_best_f1(
     return float(best_f1), float(best_threshold)
 
 
-def compute_f1(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+def compute_f1(y_true: np.ndarray[Any, Any], y_pred: np.ndarray[Any, Any]) -> float:
     """Compute F1-score."""
     tp = np.sum((y_true == 1) & (y_pred == 1))
     fp = np.sum((y_true == 0) & (y_pred == 1))
@@ -220,7 +222,7 @@ def compute_f1(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float(2 * precision * recall / (precision + recall))
 
 
-def compute_precision_at_k(y_true: np.ndarray, y_score: np.ndarray, k: int) -> float:
+def compute_precision_at_k(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any], k: int) -> float:
     """
     Compute Precision@K.
 
@@ -248,7 +250,7 @@ def compute_precision_at_k(y_true: np.ndarray, y_score: np.ndarray, k: int) -> f
 
 
 def compute_point_adjusted_f1(
-    y_true: np.ndarray, y_pred: np.ndarray, adjust_predicts: bool = True
+    y_true: np.ndarray[Any, Any], y_pred: np.ndarray[Any, Any], adjust_predicts: bool = True
 ) -> float:
     """
     Compute Point-Adjusted F1 for time-series anomaly detection.
@@ -288,7 +290,7 @@ def compute_point_adjusted_f1(
     return compute_f1(y_true, adjusted_pred)
 
 
-def _find_segments(labels: np.ndarray) -> list[tuple[int, int]]:
+def _find_segments(labels: np.ndarray[Any, Any]) -> list[tuple[int, int]]:
     """Find contiguous segments of 1s in labels."""
     segments = []
     in_segment = False
@@ -309,8 +311,8 @@ def _find_segments(labels: np.ndarray) -> list[tuple[int, int]]:
 
 
 def compute_range_based_f1(
-    y_true: np.ndarray,
-    y_pred: np.ndarray,
+    y_true: np.ndarray[Any, Any],
+    y_pred: np.ndarray[Any, Any],
     alpha: float = 0.0,
     cardinality: str = "reciprocal",
     bias: str = "flat",
@@ -386,8 +388,8 @@ def _range_recall(gt_segs, pred_segs, alpha, cardinality, bias) -> float:
 
 
 def evaluate_anomaly_detection(
-    y_true: np.ndarray,
-    y_score: np.ndarray,
+    y_true: np.ndarray[Any, Any],
+    y_score: np.ndarray[Any, Any],
     threshold: float | None = None,
     is_timeseries: bool = False,
 ) -> AnomalyMetrics:

@@ -14,6 +14,7 @@ Example:
     >>> price = await service.get_price("AAPL")
     >>> print(f"AAPL: ${price.price}")
 """
+from __future__ import annotations
 
 import asyncio
 import math

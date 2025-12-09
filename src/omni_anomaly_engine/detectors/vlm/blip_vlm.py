@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+from __future__ import annotations
 
 """
 BLIP Vision-Language Model Detector for Zero-Shot Anomaly Detection.
@@ -141,7 +142,7 @@ class FeatureProjection(nn.Module):
     128D output for consistent integration with DetectorRegistry.
     """
 
-    def __init__(self, input_dim: int = 768, output_dim: int = FEATURE_DIM):
+    def __init__(self, input_dim: int = 768, output_dim: int = FEATURE_DIM) -> None:
         """Initialize feature projection.
 
         Args:
@@ -191,7 +192,7 @@ class BLIPVLMDetector(BaseVLMDetector):
         >>> print(f"Feature shape: {features.shape}")  # [1, 128]
     """
 
-    def __init__(self, config: BLIPConfig | dict[str, Any] | None = None):
+    def __init__(self, config: BLIPConfig | dict[str, Any] | None = None) -> None:
         """Initialize BLIP VLM detector.
 
         Args:
@@ -320,7 +321,7 @@ class BLIPVLMDetector(BaseVLMDetector):
 
         return is_anomaly, confidence, explanation
 
-    def _preprocess_image(self, data: np.ndarray | torch.Tensor) -> list[Any]:
+    def _preprocess_image(self, data: np.ndarray[Any, Any] | torch.Tensor) -> list[Any]:
         """Preprocess image data for BLIP.
 
         Args:
@@ -329,7 +330,7 @@ class BLIPVLMDetector(BaseVLMDetector):
         Returns:
             List of PIL Images or processed tensors
         """
-        if isinstance(data, np.ndarray):
+        if isinstance(data, np.ndarray[Any, Any]):
             data = torch.from_numpy(data)
 
         # Ensure 4D tensor [N, C, H, W]
@@ -362,7 +363,7 @@ class BLIPVLMDetector(BaseVLMDetector):
 
         return images
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using BLIP image captioning.
 
         Args:
@@ -459,7 +460,7 @@ class BLIPVLMDetector(BaseVLMDetector):
         else:
             return "A typical scene showing normal activity"
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract 128D normalized features for fusion pipeline.
 
         Args:

@@ -10,6 +10,8 @@ References:
 - Solar Dynamics Observatory: https://sdo.gsfc.nasa.gov/
 - Breakthrough Listen: https://breakthroughinitiatives.org/initiative/1
 """
+from __future__ import annotations
+from typing import Any
 
 import logging
 
@@ -57,7 +59,7 @@ class SETILoader(DatasetLoader):
         "brightpixel",  # Bright artifacts
     ]
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.signal_length = config.preprocessing.get("signal_length", 512)
         self.frequency_bins = config.preprocessing.get("frequency_bins", 256)
@@ -92,7 +94,7 @@ class SETILoader(DatasetLoader):
         logger.info(f"Generated {n_samples} SETI signal samples")
         return True
 
-    def _generate_signal(self, signal_type: int) -> np.ndarray:
+    def _generate_signal(self, signal_type: int) -> np.ndarray[Any, Any]:
         """Generate a synthetic SETI signal spectrogram."""
         # Create base noise floor
         spectrogram = np.random.normal(0, 0.1, (self.frequency_bins, self.signal_length))
@@ -148,14 +150,14 @@ class SETILoader(DatasetLoader):
 
         return spectrogram
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         synthetic_path = self.data_path / "synthetic_seti.npz"
         if synthetic_path.exists():
             data = np.load(synthetic_path)
             return data["features"], data["labels"]
         raise FileNotFoundError("SETI data not found")
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess SETI spectrograms."""
         # Normalize spectrograms
         data = (data - data.mean(axis=1, keepdims=True)) / (data.std(axis=1, keepdims=True) + 1e-8)
@@ -196,7 +198,7 @@ class NASAExoplanetLoader(DatasetLoader):
         "inclination",
     ]
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
 
     def download(self) -> bool:
@@ -249,14 +251,14 @@ class NASAExoplanetLoader(DatasetLoader):
         logger.info(f"Generated {n_samples} exoplanet samples, {labels.sum()} anomalies")
         return True
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         synthetic_path = self.data_path / "synthetic_exoplanet.npz"
         if synthetic_path.exists():
             data = np.load(synthetic_path)
             return data["features"], data["labels"]
         raise FileNotFoundError("Exoplanet data not found")
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess exoplanet features."""
         # Log transform for skewed features
         data = np.log1p(np.abs(data)) * np.sign(data)
@@ -301,7 +303,7 @@ class SolarDynamicsLoader(DatasetLoader):
         "active_region_count",
     ]
 
-    def __init__(self, config: DatasetConfig):
+    def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
 
     def download(self) -> bool:
@@ -351,14 +353,14 @@ class SolarDynamicsLoader(DatasetLoader):
         logger.info(f"Generated {n_samples} solar samples, {labels.sum()} storm events")
         return True
 
-    def _load_raw(self) -> tuple[np.ndarray, np.ndarray]:
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         synthetic_path = self.data_path / "synthetic_solar.npz"
         if synthetic_path.exists():
             data = np.load(synthetic_path)
             return data["features"], data["labels"]
         raise FileNotFoundError("Solar data not found")
 
-    def preprocess(self, data: np.ndarray) -> np.ndarray:
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess solar data."""
         # Log transform for flux measurements
         data = np.log1p(np.abs(data)) * np.sign(data)
