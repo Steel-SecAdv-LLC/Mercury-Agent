@@ -23,6 +23,7 @@ Enhanced with Banish_Void_Undue threat validity assessment
 """
 
 import hashlib
+import hmac
 import os
 import re
 import time
@@ -193,7 +194,8 @@ class ThreatDetector:
             salt = bytes.fromhex(parts[1])
             stored_key = parts[2]
             computed_key = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000)
-            return computed_key.hex() == stored_key
+            # Use constant-time comparison to prevent timing attacks
+            return hmac.compare_digest(computed_key.hex(), stored_key)
         elif BCRYPT_AVAILABLE:
             return bcrypt.checkpw(password.encode(), hashed.encode())
         else:
