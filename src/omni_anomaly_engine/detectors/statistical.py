@@ -57,7 +57,7 @@ class StatisticalAnomalyDetector(BaseDetector):
         self.q1: np.ndarray[Any, Any] | None = None
         self.q3: np.ndarray[Any, Any] | None = None
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "StatisticalAnomalyDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> StatisticalAnomalyDetector:
         """Fit detector to normal data"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()

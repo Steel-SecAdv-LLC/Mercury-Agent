@@ -474,7 +474,7 @@ class MercuryPlanner:
     heuristic with a learned, continuously improving confidence model.
     """
 
-    def __init__(self, calibrator: "BayesianConfidenceCalibrator | None" = None) -> None:
+    def __init__(self, calibrator: BayesianConfidenceCalibrator | None = None) -> None:
         self.logger = logging.getLogger(__name__)
         self.domain_strategies = self._initialize_domain_strategies()
         self.calibrator = calibrator  # Bayesian confidence calibrator

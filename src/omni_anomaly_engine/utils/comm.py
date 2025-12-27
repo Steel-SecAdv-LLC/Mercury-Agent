@@ -63,7 +63,7 @@ class Message:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Message":
+    def from_dict(cls, data: dict[str, Any]) -> Message:
         """Create message from dictionary"""
         return cls(
             sender=data["sender"],

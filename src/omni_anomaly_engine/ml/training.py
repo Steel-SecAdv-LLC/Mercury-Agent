@@ -175,9 +175,8 @@ class LearningRateScheduler:
         if self.mode == "plateau" and metric is not None:
             if isinstance(self._scheduler, lr_scheduler.ReduceLROnPlateau):
                 self._scheduler.step(metric)
-        else:
-            if not isinstance(self._scheduler, lr_scheduler.ReduceLROnPlateau):
-                self._scheduler.step()
+        elif not isinstance(self._scheduler, lr_scheduler.ReduceLROnPlateau):
+            self._scheduler.step()
 
     def get_last_lr(self) -> list[float]:
         """Get the last computed learning rate."""

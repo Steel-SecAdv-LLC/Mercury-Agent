@@ -33,9 +33,10 @@ import hashlib
 import json
 import random
 import threading
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Optional, Generator
+from typing import Any
 
 import numpy as np
 
@@ -438,7 +439,7 @@ class RNGContext:
 
     _context_stack = threading.local()
 
-    def __init__(self, seed: int | None = None, parent: Optional["RNGContext"] = None) -> None:
+    def __init__(self, seed: int | None = None, parent: RNGContext | None = None) -> None:
         self._seed = seed
         self._parent = parent
         self._rng: DeterministicRNG | None = None
@@ -450,7 +451,7 @@ class RNGContext:
             raise RuntimeError("RNGContext not entered. Use 'with' statement.")
         return self._rng
 
-    def __enter__(self) -> "RNGContext":
+    def __enter__(self) -> RNGContext:
         # Determine seed
         if self._seed is not None:
             seed = self._seed
@@ -481,7 +482,7 @@ class RNGContext:
         self._rng = None
 
     @classmethod
-    def current(cls) -> Optional["RNGContext"]:
+    def current(cls) -> RNGContext | None:
         """Get the current active RNG context."""
         if hasattr(cls._context_stack, "stack") and cls._context_stack.stack:
             result: RNGContext = cls._context_stack.stack[-1]

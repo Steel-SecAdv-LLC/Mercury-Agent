@@ -12,11 +12,11 @@ These loaders fetch REAL benchmark datasets used in academic research:
 All datasets download from official sources or mirrors.
 """
 from __future__ import annotations
-from typing import Any
 
 import json
 import logging
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 

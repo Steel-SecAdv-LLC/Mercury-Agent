@@ -244,7 +244,7 @@ class NanoSafeguardDetector(BaseDetector):
         self.memory_buffer: list[np.ndarray[Any, Any]] = []
         self.max_memory = self.config.get("max_memory", 100)
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "NanoSafeguardDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> NanoSafeguardDetector:
         """
         Fit nano-safeguard to normal data patterns.
 

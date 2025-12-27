@@ -387,6 +387,6 @@ class BaseFoundationAdapter(BaseFoundationModel):
         """Detect anomalies (alias for detect_anomalies)."""
         return self.detect_anomalies(data)
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "BaseFoundationAdapter":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> BaseFoundationAdapter:
         """Fit the adapter (no-op for base adapter)."""
         return self

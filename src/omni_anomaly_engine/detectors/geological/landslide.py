@@ -443,7 +443,7 @@ class SVMRFEnsembleClassifier:
         self,
         X: np.ndarray[Any, Any],
         y: np.ndarray[Any, Any],
-    ) -> "SVMRFEnsembleClassifier":
+    ) -> SVMRFEnsembleClassifier:
         """Fit both classifiers on training data.
 
         Args:

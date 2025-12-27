@@ -367,7 +367,7 @@ class CFlowDetector(BaseVisualDetector):
 
         self._initialized = True
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "CFlowDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> CFlowDetector:
         """Train normalizing flows on normal data.
 
         Args:

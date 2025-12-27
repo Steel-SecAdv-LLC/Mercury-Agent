@@ -189,10 +189,10 @@ def dilithium_sign(message: bytes, secret_key: bytes) -> bytes:
     """
     if LIBOQS_AVAILABLE:
         sig = oqs.Signature("Dilithium3", secret_key)
-        return cast(bytes, sig.sign(message))
+        return cast("bytes", sig.sign(message))
 
     if PQCRYPTO_AVAILABLE:
-        return cast(bytes, dilithium_fallback.sign(secret_key, message))
+        return cast("bytes", dilithium_fallback.sign(secret_key, message))
 
     logger.warning("Using simulated signature (NOT SECURE)")
     return hashlib.sha3_512(secret_key + message).digest()
@@ -212,7 +212,7 @@ def dilithium_verify(message: bytes, signature: bytes, public_key: bytes) -> boo
     """
     if LIBOQS_AVAILABLE:
         sig = oqs.Signature("Dilithium3")
-        return cast(bool, sig.verify(message, signature, public_key))
+        return cast("bool", sig.verify(message, signature, public_key))
 
     if PQCRYPTO_AVAILABLE:
         try:
@@ -292,10 +292,10 @@ def kyber_decapsulate(ciphertext: bytes, secret_key: bytes) -> bytes:
     """
     if LIBOQS_AVAILABLE:
         kem = oqs.KeyEncapsulation("Kyber1024", secret_key)
-        return cast(bytes, kem.decap_secret(ciphertext))
+        return cast("bytes", kem.decap_secret(ciphertext))
 
     if PQCRYPTO_AVAILABLE:
-        return cast(bytes, kyber_fallback.decap(secret_key, ciphertext))
+        return cast("bytes", kyber_fallback.decap(secret_key, ciphertext))
 
     logger.warning("Using simulated decapsulation (NOT SECURE)")
     return hashlib.sha3_256(secret_key[:1568]).digest()
@@ -331,7 +331,7 @@ def sphincs_sign(message: bytes, secret_key: bytes) -> bytes:
     """Sign message using SPHINCS+."""
     if LIBOQS_AVAILABLE:
         sig = oqs.Signature("SPHINCS+-SHA2-256f-simple", secret_key)
-        return cast(bytes, sig.sign(message))
+        return cast("bytes", sig.sign(message))
 
     logger.warning("Using simulated SPHINCS+ signature (NOT SECURE)")
     return hashlib.sha3_512(secret_key + message).digest()
@@ -341,7 +341,7 @@ def sphincs_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
     """Verify SPHINCS+ signature."""
     if LIBOQS_AVAILABLE:
         sig = oqs.Signature("SPHINCS+-SHA2-256f-simple")
-        return cast(bool, sig.verify(message, signature, public_key))
+        return cast("bool", sig.verify(message, signature, public_key))
 
     logger.warning("Using simulated SPHINCS+ verification (NOT SECURE)")
     return len(signature) == 64

@@ -1038,7 +1038,7 @@ class OmniAvaEngine:
             ... )
             >>> print(f"Match score: {result.get('match_score', 0):.3f}")
         """
-        biometric_model = cast(BiometricAnomalyModel, self.models["biometric"])
+        biometric_model = cast("BiometricAnomalyModel", self.models["biometric"])
 
         if test_image is not None:
             return biometric_model.predict(
@@ -1265,7 +1265,7 @@ class OmniAvaEngine:
         )
 
         # Configure optimizer
-        optimizer_config = cast(dict[str, Any], trainer_module.configure_optimizers())
+        optimizer_config = cast("dict[str, Any]", trainer_module.configure_optimizers())
         optimizer = optimizer_config["optimizer"]
         scheduler = optimizer_config["lr_scheduler"]["scheduler"]
 

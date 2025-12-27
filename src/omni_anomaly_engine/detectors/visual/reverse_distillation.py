@@ -265,7 +265,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
 
         return torch.cat(resized, dim=1)
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "ReverseDistillationDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> ReverseDistillationDetector:
         """Train student encoder, bottleneck, and decoder.
 
         Args:

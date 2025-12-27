@@ -83,7 +83,7 @@ class DimensionalAnalyzer(BaseDetector):
         self.input_dim: int | None = None
         self.baseline_spectral_signature: np.ndarray[Any, Any] | None = None
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "DimensionalAnalyzer":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> DimensionalAnalyzer:
         """Fit dimensional analyzers to data"""
         data_np = data.cpu().numpy() if isinstance(data, torch.Tensor) else data
 

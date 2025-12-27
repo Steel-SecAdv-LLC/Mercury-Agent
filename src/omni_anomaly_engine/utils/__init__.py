@@ -86,9 +86,9 @@ from omni_anomaly_engine.utils.rng import (
 
 
 def normalize_data(
-    data: Union[np.ndarray[Any, Any], "torch.Tensor"],
+    data: np.ndarray[Any, Any] | torch.Tensor,
     method: str = "standard",
-) -> Union[np.ndarray[Any, Any], "torch.Tensor"]:
+) -> np.ndarray[Any, Any] | torch.Tensor:
     """
     Normalize data using specified method.
 

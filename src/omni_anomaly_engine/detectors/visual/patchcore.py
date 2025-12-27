@@ -301,7 +301,7 @@ class PatchCoreDetector(BaseVisualDetector):
         distances, indices = self._nn_index.kneighbors(query_np, n_neighbors=k)
         return distances, indices
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "PatchCoreDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> PatchCoreDetector:
         """Fit detector by building memory bank from normal images.
 
         Args:

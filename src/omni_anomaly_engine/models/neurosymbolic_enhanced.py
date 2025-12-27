@@ -73,62 +73,62 @@ class FuzzyOperators:
     """
 
     @staticmethod
-    def and_product(x: "torch.Tensor", y: "torch.Tensor") -> "torch.Tensor":
+    def and_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """Product t-norm: x ∧ y = x * y"""
         return x * y
 
     @staticmethod
-    def and_godel(x: "torch.Tensor", y: "torch.Tensor") -> "torch.Tensor":
+    def and_godel(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """Gödel t-norm: x ∧ y = min(x, y)"""
         return torch.min(x, y)
 
     @staticmethod
-    def and_lukasiewicz(x: "torch.Tensor", y: "torch.Tensor") -> "torch.Tensor":
+    def and_lukasiewicz(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """Łukasiewicz t-norm: x ∧ y = max(0, x + y - 1)"""
         return torch.clamp(x + y - 1, min=0)
 
     @staticmethod
-    def or_product(x: "torch.Tensor", y: "torch.Tensor") -> "torch.Tensor":
+    def or_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """Product t-conorm: x ∨ y = x + y - x*y"""
         return x + y - x * y
 
     @staticmethod
-    def or_godel(x: "torch.Tensor", y: "torch.Tensor") -> "torch.Tensor":
+    def or_godel(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """Gödel t-conorm: x ∨ y = max(x, y)"""
         return torch.max(x, y)
 
     @staticmethod
-    def or_lukasiewicz(x: "torch.Tensor", y: "torch.Tensor") -> "torch.Tensor":
+    def or_lukasiewicz(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """Łukasiewicz t-conorm: x ∨ y = min(1, x + y)"""
         return torch.clamp(x + y, max=1)
 
     @staticmethod
-    def not_standard(x: "torch.Tensor") -> "torch.Tensor":
+    def not_standard(x: torch.Tensor) -> torch.Tensor:
         """Standard negation: ¬x = 1 - x"""
         return 1 - x
 
     @staticmethod
-    def implies_product(x: "torch.Tensor", y: "torch.Tensor") -> "torch.Tensor":
+    def implies_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """Reichenbach implication: x → y = 1 - x + x*y"""
         return 1 - x + x * y
 
     @staticmethod
-    def implies_godel(x: "torch.Tensor", y: "torch.Tensor") -> "torch.Tensor":
+    def implies_godel(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """Gödel implication: x → y = 1 if x <= y, else y"""
         return torch.where(x <= y, torch.ones_like(x), y)
 
     @staticmethod
-    def forall_product(x: "torch.Tensor", dim: int = -1) -> "torch.Tensor":
+    def forall_product(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
         """Product aggregator for universal quantification."""
         return torch.prod(x, dim=dim)
 
     @staticmethod
-    def forall_pmean(x: "torch.Tensor", p: float = 2.0, dim: int = -1) -> "torch.Tensor":
+    def forall_pmean(x: torch.Tensor, p: float = 2.0, dim: int = -1) -> torch.Tensor:
         """pMean aggregator (generalized mean) - smoother gradients."""
         return torch.pow(torch.mean(torch.pow(x, p), dim=dim), 1 / p)
 
     @staticmethod
-    def exists_product(x: "torch.Tensor", dim: int = -1) -> "torch.Tensor":
+    def exists_product(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
         """Product aggregator for existential quantification."""
         return 1 - torch.prod(1 - x, dim=dim)
 
@@ -213,7 +213,7 @@ class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):  # t
         self.not_op = FuzzyOperators.not_standard
         self.forall_op = FuzzyOperators.forall_pmean  # Smoother gradients
 
-    def ground_predicates(self, x: "torch.Tensor") -> "torch.Tensor":
+    def ground_predicates(self, x: torch.Tensor) -> torch.Tensor:
         """Ground all predicates for input features.
 
         Args:
@@ -233,9 +233,9 @@ class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):  # t
 
     def evaluate_formula(
         self,
-        predicate_values: "torch.Tensor",
+        predicate_values: torch.Tensor,
         formula: str,
-    ) -> "torch.Tensor":
+    ) -> torch.Tensor:
         """Evaluate a logical formula given predicate groundings.
 
         Args:
@@ -255,7 +255,7 @@ class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):  # t
         # Evaluate recursively
         return self._eval_expr(parts, predicate_values)
 
-    def _eval_expr(self, expr: str, pvals: "torch.Tensor") -> "torch.Tensor":
+    def _eval_expr(self, expr: str, pvals: torch.Tensor) -> torch.Tensor:
         """Recursively evaluate expression."""
         expr = expr.strip()
 
@@ -289,7 +289,7 @@ class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):  # t
         except ValueError:
             raise ValueError(f"Cannot parse expression: {expr}")
 
-    def forward(self, x: "torch.Tensor") -> dict[str, "torch.Tensor"]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward pass with predicate grounding and formula evaluation.
 
         Args:

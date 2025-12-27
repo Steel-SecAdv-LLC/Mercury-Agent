@@ -184,7 +184,7 @@ class BaseVLMDetector(BaseDetector):
         """
         raise NotImplementedError("Subclasses must implement _parse_response() for VLM detectors.")
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "BaseVLMDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> BaseVLMDetector:
         """VLM detectors are zero-shot - no fitting required.
 
         Args:

@@ -78,7 +78,7 @@ class EvaluationResult:
             json.dump(self.to_dict(), f, indent=2)
 
     @classmethod
-    def load(cls, path: str | Path) -> "EvaluationResult":
+    def load(cls, path: str | Path) -> EvaluationResult:
         """Load results from JSON file."""
         with open(path) as f:
             data = json.load(f)

@@ -63,42 +63,8 @@ __all__ = [
     "TrainingStats",
 ]
 
-# Lazy imports - only load when torch is available
-if HAS_TORCH:
-    from omni_anomaly_engine.ml.advanced_optimizers import (
-        AuxiliaryMaxVariance,
-        DifferenceTargetPropagation,
-        SyntheticGradientModule,
-        SyntheticGradientPredictor,
-    )
-    from omni_anomaly_engine.ml.attention import (
-        CrossModalAttention,
-        MultiHeadDetectorAttention,
-        SpatialAttention,
-        TemporalAttention,
-    )
-    from omni_anomaly_engine.ml.encoders import (
-        AffectiveEncoder,
-        AstrophysicalEncoder,
-        BiometricEncoder,
-        QuantumEncoder,
-        StatisticalEncoder,
-        TemporalEncoder,
-    )
-    from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
-    from omni_anomaly_engine.ml.inference import FusionInference
-    from omni_anomaly_engine.ml.ppo_trainer import (
-        CheckpointCallback,
-        ConvergenceMonitor,
-        MultiEnvPPOTrainer,
-        PPOConfig,
-        PPOTrainer,
-        TrainingStats,
-    )
-    from omni_anomaly_engine.ml.training import FusionTrainer
-
-# Type checking imports for IDE support
-if TYPE_CHECKING:
+# Lazy imports - only load when torch is available OR during type checking
+if HAS_TORCH or TYPE_CHECKING:
     from omni_anomaly_engine.ml.advanced_optimizers import (
         AuxiliaryMaxVariance,
         DifferenceTargetPropagation,

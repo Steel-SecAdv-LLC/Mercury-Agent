@@ -53,7 +53,7 @@ class SpatialAnomalyDetector(BaseDetector):
         self.center: np.ndarray[Any, Any] | None = None
         self.radius_threshold: float | None = None
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "SpatialAnomalyDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> SpatialAnomalyDetector:
         """Fit detector to normal spatial data"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()

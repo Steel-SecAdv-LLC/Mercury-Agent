@@ -133,7 +133,7 @@ class MatrixProfileDetector(BaseFoundationModel):
                 try:
                     import stumpy.gpu as _stumpy_gpu
 
-                    del _stumpy_gpu  # Clean up after import check
+                    del _stumpy_gpu  # Clean up after availability check
                     self._gpu_available = True
                     logger.info("STUMPY GPU acceleration available")
                 except ImportError:

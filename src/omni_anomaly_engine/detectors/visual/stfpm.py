@@ -201,7 +201,7 @@ class STFPMDetector(BaseVisualDetector):
         loss = torch.mean((teacher_norm - student_norm) ** 2)
         return loss
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "STFPMDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> STFPMDetector:
         """Train student network on normal data.
 
         Args:

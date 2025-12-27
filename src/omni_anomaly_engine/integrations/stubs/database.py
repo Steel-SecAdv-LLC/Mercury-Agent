@@ -288,7 +288,7 @@ class DatabaseStub:
             execution_time_ms=latency,
         )
 
-    async def transaction(self) -> "TransactionContext":
+    async def transaction(self) -> TransactionContext:
         """Start a transaction.
 
         Returns:
@@ -352,7 +352,7 @@ class TransactionContext:
         self._committed = False
         self._rolled_back = False
 
-    async def __aenter__(self) -> "TransactionContext":
+    async def __aenter__(self) -> TransactionContext:
         """Enter transaction."""
         return self
 

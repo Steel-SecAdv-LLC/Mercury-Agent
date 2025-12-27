@@ -19,10 +19,10 @@ These metrics are used in papers like:
 - TranAD (VLDB 2022)
 """
 from __future__ import annotations
-from typing import Any
 
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 

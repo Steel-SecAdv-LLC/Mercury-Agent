@@ -102,7 +102,7 @@ class RealTimeThreatDetector:
         self.is_fitted = False
         self.threat_history: list[ThreatSignature] = []
 
-    def fit(self, X: np.ndarray[Any, Any]) -> "RealTimeThreatDetector":
+    def fit(self, X: np.ndarray[Any, Any]) -> RealTimeThreatDetector:
         """
         Fit detectors on normal (non-threatening) data.
 

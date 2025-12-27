@@ -55,7 +55,7 @@ class TemporalAnomalyDetector(BaseDetector):
         self.baseline_mean: float | None = None
         self.baseline_std: float | None = None
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "TemporalAnomalyDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> TemporalAnomalyDetector:
         """Fit detector to normal time series"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()

@@ -383,7 +383,7 @@ class DatasetLoader(ABC):
         if not self._is_loaded:
             self._load_and_cache()
         assert self._data is not None
-        return sum(int(len(d)) for d in self._data.values())
+        return sum(len(d) for d in self._data.values())
 
     def __iter__(self) -> Iterator[tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]]:
         """Iterate over all samples."""
@@ -411,7 +411,7 @@ class DatasetLoader(ABC):
                 self.y = torch.LongTensor(y)
 
             def __len__(self) -> int:
-                return int(len(self.X))
+                return len(self.X)
 
             def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
                 return self.X[idx], self.y[idx]

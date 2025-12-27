@@ -37,7 +37,7 @@ References:
 """
 
 import logging
-from typing import Optional, Any
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -195,7 +195,7 @@ class SyntheticGradientModule:
 
     def __init__(
         self,
-        layer: "nn.Module",
+        layer: nn.Module,
         input_dim: int,
         use_synthetic: bool = True,
         bootstrap_steps: int = 10,
@@ -282,8 +282,8 @@ class DifferenceTargetPropagation:
 
     def __init__(
         self,
-        forward_layer: "nn.Module",
-        inverse_layer: Optional["nn.Module"] = None,
+        forward_layer: nn.Module,
+        inverse_layer: nn.Module | None = None,
         learning_rate: float = 0.01,
     ):
         """
@@ -379,7 +379,7 @@ class AuxiliaryMaxVariance:
         combined_loss = amav.compute_loss([loss1, loss2, loss3])
     """
 
-    task_weights: "nn.Parameter | np.ndarray[Any, Any]"
+    task_weights: nn.Parameter | np.ndarray[Any, Any]
 
     def __init__(self, num_tasks: int, alpha: float = 0.5) -> None:
         """

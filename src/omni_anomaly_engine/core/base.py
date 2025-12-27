@@ -38,7 +38,7 @@ class BaseDetector(ABC):
         self._is_fitted = False
 
     @abstractmethod
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "BaseDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> BaseDetector:
         """Fit the detector to normal data"""
         pass
 

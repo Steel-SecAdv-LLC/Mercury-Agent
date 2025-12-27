@@ -252,7 +252,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         kernel = kernel / kernel.sum()
         return kernel.view(1, 1, kernel_size, kernel_size)
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "BaseVisualDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> BaseVisualDetector:
         """Fit detector to normal (non-anomalous) images.
 
         Args:
@@ -322,7 +322,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
             path,
         )
 
-    def load(self, path: str, *, allow_unsafe: bool = False) -> "BaseVisualDetector":
+    def load(self, path: str, *, allow_unsafe: bool = False) -> BaseVisualDetector:
         """Load detector state from file.
 
         Args:

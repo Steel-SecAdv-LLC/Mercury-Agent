@@ -54,7 +54,7 @@ class SigmaDirectiveDetector(BaseDetector):
         self.baseline_pattern: np.ndarray[Any, Any] | None = None
         self.memory_buffer: list[Any] = []
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "SigmaDirectiveDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> SigmaDirectiveDetector:
         """Fit Sigma protocols to normal patterns"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()

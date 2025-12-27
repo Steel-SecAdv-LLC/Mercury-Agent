@@ -19,7 +19,7 @@ from __future__ import annotations
 
 """Biometric anomaly detection model."""
 
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
 
@@ -146,8 +146,8 @@ class BiometricAnomalyModel:
         return np.array(features_per_sample, dtype=np.float32)
 
     def _normalize_embedding_size(
-        self, embedding: Union[np.ndarray[Any, Any], "torch.Tensor"]
-    ) -> Union[np.ndarray[Any, Any], "torch.Tensor"]:
+        self, embedding: np.ndarray[Any, Any] | torch.Tensor
+    ) -> np.ndarray[Any, Any] | torch.Tensor:
         """Normalize embedding to target size (128 features)."""
         if TORCH_AVAILABLE and isinstance(embedding, torch.Tensor):
             is_torch = True
@@ -177,7 +177,7 @@ class BiometricAnomalyModel:
 
     def extract_features(
         self, data: np.ndarray[Any, Any] | dict[str, Any]
-    ) -> Union[np.ndarray[Any, Any], "torch.Tensor"]:
+    ) -> np.ndarray[Any, Any] | torch.Tensor:
         """Extract biometric features from image data."""
         if isinstance(data, dict):
             data = data["reference"] if "reference" in data else np.array(next(iter(data.values())))

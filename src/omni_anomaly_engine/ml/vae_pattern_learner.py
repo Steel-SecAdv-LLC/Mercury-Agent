@@ -149,7 +149,7 @@ class VAEPatternLearner:
 
     def fit(
         self, X_train: torch.Tensor, epochs: int = 50, batch_size: int = 32, beta: float = 1.0
-    ) -> "VAEPatternLearner":
+    ) -> VAEPatternLearner:
         """Fit VAE on normal training data."""
         self.vae.train()
 

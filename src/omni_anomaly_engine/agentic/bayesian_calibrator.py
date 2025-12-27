@@ -84,7 +84,7 @@ class ContextStats:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ContextStats":
+    def from_dict(cls, data: dict[str, Any]) -> ContextStats:
         """Deserialize from dictionary."""
         return cls(
             alpha=data.get("alpha", 0.76),

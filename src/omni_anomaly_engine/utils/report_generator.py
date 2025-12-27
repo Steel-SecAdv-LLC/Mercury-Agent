@@ -83,7 +83,7 @@ class ReportSection:
 
     title: str
     content: str
-    subsections: list["ReportSection"] | None = None
+    subsections: list[ReportSection] | None = None
 
 
 @dataclass

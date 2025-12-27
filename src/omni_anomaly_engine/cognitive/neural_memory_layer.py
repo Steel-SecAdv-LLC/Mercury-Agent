@@ -82,7 +82,7 @@ class MemoryEmbedding:
     cluster_id: int = -1
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    def similarity(self, other: "MemoryEmbedding") -> float:
+    def similarity(self, other: MemoryEmbedding) -> float:
         """Compute cosine similarity with another embedding."""
         norm_self = np.linalg.norm(self.embedding)
         norm_other = np.linalg.norm(other.embedding)
@@ -259,7 +259,7 @@ class KMeansClusterer:
         self.labels_: np.ndarray[Any, Any] | None = None
         self.inertia_: float = 0.0
 
-    def fit(self, X: np.ndarray[Any, Any]) -> "KMeansClusterer":
+    def fit(self, X: np.ndarray[Any, Any]) -> KMeansClusterer:
         """
         Fit K-means on embeddings.
 

@@ -400,7 +400,7 @@ class TimeGPTAdapter(BaseFoundationModel):
         self,
         series: np.ndarray[Any, Any] | torch.Tensor,
         steps: int = 100,
-    ) -> "TimeGPTAdapter":
+    ) -> TimeGPTAdapter:
         """Fine-tune TimeGPT on domain data.
 
         Args:
@@ -422,7 +422,8 @@ class TimeGPTAdapter(BaseFoundationModel):
         if series.ndim == 2:
             series = series.flatten()
 
-        _df = self._to_dataframe(series)
+        # Convert to dataframe format for TimeGPT API
+        self._to_dataframe(series)
 
         try:
             # Fine-tune (updates internal state)

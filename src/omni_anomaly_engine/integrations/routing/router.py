@@ -364,7 +364,7 @@ class RequestRouter:
 
     def include_router(
         self,
-        router: "RequestRouter",
+        router: RequestRouter,
         prefix: str = "",
     ) -> None:
         """Include routes from another router.

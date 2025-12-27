@@ -28,8 +28,7 @@ Reference:
     for Unsupervised Anomaly Detection", CVPR 2019.
 """
 
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
 from typing import Any
 
 from .base_dataset import BaseDatasetConfig, BaseImageDataset

@@ -325,7 +325,7 @@ class DualStudentDistillation(nn.Module):
 
         return loss
 
-    def fit(self, data: torch.Tensor) -> "DualStudentDistillation":
+    def fit(self, data: torch.Tensor) -> DualStudentDistillation:
         """Train students on normal data.
 
         Args:

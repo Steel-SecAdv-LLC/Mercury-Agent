@@ -170,7 +170,7 @@ class PaDiMDetector(BaseVisualDetector):
 
         return patches, (h, w)
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "PaDiMDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> PaDiMDetector:
         """Fit detector by computing Gaussian parameters for each position.
 
         Args:
