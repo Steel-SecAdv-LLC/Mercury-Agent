@@ -30,6 +30,7 @@ import ast
 import importlib.util
 import os
 import subprocess
+import tempfile
 import time
 import tracemalloc
 from typing import Any, Dict, List, Tuple
@@ -42,7 +43,8 @@ from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine as Impr
 
 def load_baseline_engine():
     """Load baseline RefactoringEngine from main branch."""
-    baseline_path = "/tmp/three_r_mechanism_baseline.py"
+    # Use cross-platform temp directory instead of hardcoded /tmp
+    baseline_path = os.path.join(tempfile.gettempdir(), "three_r_mechanism_baseline.py")
 
     if not os.path.exists(baseline_path):
         print("  Extracting baseline from main branch...")
