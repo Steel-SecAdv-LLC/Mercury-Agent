@@ -11,7 +11,7 @@ long_description = readme_path.read_text(encoding="utf-8") if readme_path.exists
 
 setup(
     name="omni-ava",
-    version="0.1.0",
+    version="1.0.0",
     description=(
         "Neural-symbolic AI archetype integrating ML-based anomaly detection, "
         "quantum simulations, and biometric analysis with ethical alignment protocols"

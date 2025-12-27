@@ -24,4 +24,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 COPY --chown=$USERNAME:$USER_GID . .
 
-CMD ["python", "src/mercury/train.py"]
+# Install package in editable mode for CLI access
+RUN pip install --no-cache-dir -e .
+
+# Default: Run the API server (can be overridden at runtime)
+# Use: docker run <image> omni-ava detect --help  for CLI
+CMD ["python", "-m", "uvicorn", "omni_anomaly_engine.api.server:app", "--host", "0.0.0.0", "--port", "8000"]
