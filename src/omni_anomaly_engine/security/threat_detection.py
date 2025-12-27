@@ -22,12 +22,20 @@ Cybersecurity threat detection module
 Enhanced with Banish_Void_Undue threat validity assessment
 """
 
+import hashlib
+import os
 import re
 import time
 from enum import Enum
 from typing import Any
 
-import bcrypt
+# bcrypt is optional - provide fallback using hashlib
+try:
+    import bcrypt
+
+    BCRYPT_AVAILABLE = True
+except ImportError:
+    BCRYPT_AVAILABLE = False
 
 
 class BanishmentAction(Enum):
@@ -155,15 +163,42 @@ class ThreatDetector:
 
     @staticmethod
     def hash_password(password: str) -> str:
-        """Hash password using bcrypt"""
-        salt = bcrypt.gensalt()
-        hashed = bcrypt.hashpw(password.encode(), salt)
-        return hashed.decode()
+        """Hash password using bcrypt (preferred) or PBKDF2 fallback.
+
+        Returns:
+            Hashed password string. Format depends on available library.
+        """
+        if BCRYPT_AVAILABLE:
+            salt = bcrypt.gensalt()
+            hashed = bcrypt.hashpw(password.encode(), salt)
+            return hashed.decode()
+        else:
+            # Fallback to PBKDF2-SHA256 with random salt
+            salt = os.urandom(16)
+            key = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000)
+            # Format: pbkdf2$salt_hex$key_hex
+            return f"pbkdf2${salt.hex()}${key.hex()}"
 
     @staticmethod
     def verify_password(password: str, hashed: str) -> bool:
-        """Verify password against bcrypt hash"""
-        return bcrypt.checkpw(password.encode(), hashed.encode())
+        """Verify password against hash.
+
+        Supports both bcrypt and PBKDF2 formats.
+        """
+        if hashed.startswith("pbkdf2$"):
+            # PBKDF2 format
+            parts = hashed.split("$")
+            if len(parts) != 3:
+                return False
+            salt = bytes.fromhex(parts[1])
+            stored_key = parts[2]
+            computed_key = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000)
+            return computed_key.hex() == stored_key
+        elif BCRYPT_AVAILABLE:
+            return bcrypt.checkpw(password.encode(), hashed.encode())
+        else:
+            # bcrypt hash but bcrypt not available
+            return False
 
     def assess_threat_validity(
         self,
