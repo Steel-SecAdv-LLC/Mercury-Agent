@@ -7,8 +7,6 @@ Tests for Superintelligence Bootstrap module.
 
 from __future__ import annotations
 
-import pytest
-
 from omni_anomaly_engine.cognitive.superintelligence_bootstrap import (
     AgentRole,
     ChainOfThoughtReasoner,

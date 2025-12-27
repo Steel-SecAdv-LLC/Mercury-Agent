@@ -183,13 +183,13 @@ class ServiceContainer:
 
             # Return existing singleton instance
             if descriptor.lifecycle == Lifecycle.SINGLETON and descriptor.instance:
-                return cast(T, descriptor.instance)
+                return cast("T", descriptor.instance)
 
             # Return scoped instance if exists
             if descriptor.lifecycle == Lifecycle.SCOPED and scope_id:
                 if scope_id in self._scoped_instances:
                     if service_type in self._scoped_instances[scope_id]:
-                        return cast(T, self._scoped_instances[scope_id][service_type])
+                        return cast("T", self._scoped_instances[scope_id][service_type])
 
             # Create new instance
             self._resolution_stack.add(service_type)
@@ -208,7 +208,7 @@ class ServiceContainer:
                     self._scoped_instances[scope_id] = {}
                 self._scoped_instances[scope_id][service_type] = instance
 
-            return cast(T, instance)
+            return cast("T", instance)
 
     def _create_instance(self, descriptor: ServiceDescriptor) -> Any:
         """Create a new instance of a service."""
@@ -392,7 +392,7 @@ class ComponentFactory:
 
         if detector_type in self._registered_plugins:
             plugin_class = self._registered_plugins[detector_type]
-            return cast(DetectorProtocol, plugin_class(config=config))
+            return cast("DetectorProtocol", plugin_class(config=config))
 
         if detector_type not in detector_map:
             raise ValueError(f"Unknown detector type: {detector_type}")
@@ -404,7 +404,7 @@ class ComponentFactory:
 
             module = importlib.import_module(module_path)
             detector_class = getattr(module, class_name)
-            return cast(DetectorProtocol, detector_class(config=config))
+            return cast("DetectorProtocol", detector_class(config=config))
         except (ImportError, AttributeError) as e:
             logger.warning(f"Could not load detector {detector_type}: {e}")
             raise
@@ -435,7 +435,7 @@ class ComponentFactory:
 
         if model_type in self._registered_plugins:
             plugin_class = self._registered_plugins[model_type]
-            return cast(ModelProtocol, plugin_class(config=config))
+            return cast("ModelProtocol", plugin_class(config=config))
 
         if model_type not in model_map:
             raise ValueError(f"Unknown model type: {model_type}")
@@ -446,7 +446,7 @@ class ComponentFactory:
 
             module = importlib.import_module(module_path)
             model_class = getattr(module, class_name)
-            return cast(ModelProtocol, model_class(config=config))
+            return cast("ModelProtocol", model_class(config=config))
         except (ImportError, AttributeError) as e:
             logger.warning(f"Could not load model {model_type}: {e}")
             raise

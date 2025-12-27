@@ -20,7 +20,6 @@ from __future__ import annotations
 
 """Tests for EMP Detector."""
 
-import numpy as np
 import pytest
 import torch
 

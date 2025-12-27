@@ -7,8 +7,6 @@ Tests for Ethical Bounding and Benevolence Scoring module.
 
 from __future__ import annotations
 
-import pytest
-
 from omni_anomaly_engine.cognitive.ethical_bounding import (
     AlignmentAudit,
     BenefitCategory,

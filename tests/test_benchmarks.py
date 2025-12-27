@@ -27,8 +27,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from benchmarks.refactoring_benchmarks import RefactoringBenchmark  # noqa: E402
-from benchmarks.statistical_validation import statistical_analysis  # noqa: E402
+from benchmarks.refactoring_benchmarks import RefactoringBenchmark
+from benchmarks.statistical_validation import statistical_analysis
 
 
 class TestBenchmarkFramework:

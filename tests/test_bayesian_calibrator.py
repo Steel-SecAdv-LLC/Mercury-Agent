@@ -32,8 +32,6 @@ Verifies:
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from omni_anomaly_engine.agentic.bayesian_calibrator import (
     BayesianConfidenceCalibrator,
     CalibrationConfig,

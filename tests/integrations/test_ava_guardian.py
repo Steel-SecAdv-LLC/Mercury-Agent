@@ -455,9 +455,6 @@ class TestModuleImports:
     def test_import_from_ava_guardian_module(self):
         """Test importing directly from ava_guardian module."""
         from omni_anomaly_engine.integrations.ava_guardian import (
-            AVA_GUARDIAN_AVAILABLE,
-            DILITHIUM_AVAILABLE,
-            KYBER_AVAILABLE,
             AvaGuardianAdapter,
             CryptoAnomaly,
             CryptoAnomalyType,

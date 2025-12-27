@@ -7,8 +7,6 @@ Tests for Autonomous Agent - OODA Loop, User Sync, Self-Maintenance
 
 from __future__ import annotations
 
-import time
-
 import pytest
 
 from omni_anomaly_engine.cognitive.autonomous_agent import (

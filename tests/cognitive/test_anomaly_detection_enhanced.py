@@ -9,15 +9,11 @@ from __future__ import annotations
 
 import time
 
-import numpy as np
-import pytest
-
 from omni_anomaly_engine.cognitive.anomaly_detection_enhanced import (
     BayesianPredictor,
     DataSourceType,
     EnhancedAnomalyDetector,
     ExternalDataIntegrator,
-    ExternalDataPoint,
     HiddenMarkovPredictor,
     MemoryKnowledgeGraph,
     MockEnvironmentalSource,

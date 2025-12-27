@@ -20,7 +20,6 @@ from __future__ import annotations
 
 """Tests for Financial Crisis Detector."""
 
-import numpy as np
 import pytest
 import torch
 

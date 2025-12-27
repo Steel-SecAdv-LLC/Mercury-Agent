@@ -13,7 +13,6 @@ import numpy as np
 import pytest
 
 from omni_anomaly_engine.cognitive.neural_memory_layer import (
-    AnomalyPrediction,
     AnomalyPredictor,
     DetectedPattern,
     KMeansClusterer,
