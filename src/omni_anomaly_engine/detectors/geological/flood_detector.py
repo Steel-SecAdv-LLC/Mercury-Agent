@@ -59,9 +59,11 @@ from torch import nn
 
 from omni_anomaly_engine.core.three_r_mechanism import (
     RecursionEngine,
-    ResonanceEngine,
 )
 from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine as CoreRefactoringEngine
+from omni_anomaly_engine.core.three_r_mechanism import (
+    ResonanceEngine,
+)
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
