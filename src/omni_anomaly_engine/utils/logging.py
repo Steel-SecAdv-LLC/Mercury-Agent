@@ -43,11 +43,13 @@ import sys
 import threading
 import time
 import uuid
-from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from functools import wraps
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator
 
 # Thread-local storage for correlation IDs
 _correlation_context = threading.local()

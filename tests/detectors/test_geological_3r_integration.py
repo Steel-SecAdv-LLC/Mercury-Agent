@@ -76,7 +76,8 @@ class TestRecursionEngineIntegration:
     def test_recursive_transform(self, recursion_engine):
         """Test recursive transform with convergence."""
         data = np.random.randn(50)
-        transform_fn = lambda x: x * 0.9  # Converging transform
+        def transform_fn(x):
+            return x * 0.9  # Converging transform
         result = recursion_engine.recursive_transform(data, transform_fn, threshold=0.1)
         assert isinstance(result, np.ndarray[Any, Any])
         assert len(result) == len(data)
@@ -84,7 +85,8 @@ class TestRecursionEngineIntegration:
     def test_recursive_transform_max_depth(self, recursion_engine):
         """Test recursive transform respects max depth."""
         data = np.random.randn(50)
-        transform_fn = lambda x: x * 1.1  # Non-converging transform
+        def transform_fn(x):
+            return x * 1.1  # Non-converging transform
         result = recursion_engine.recursive_transform(data, transform_fn, threshold=0.001)
         assert isinstance(result, np.ndarray[Any, Any])
 

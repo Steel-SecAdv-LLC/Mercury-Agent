@@ -36,14 +36,16 @@ Research source: Ishino (1987), Mojica (2007), Doudna/Charpentier (2012)
 
 import json
 import logging
-from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import numpy.typing as npt
 
 from omni_anomaly_engine.resilience.circuit_breaker import CircuitBreaker
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @dataclass

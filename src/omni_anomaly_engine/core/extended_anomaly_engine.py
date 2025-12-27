@@ -24,14 +24,16 @@ Production-ready anomaly detection with 3R mechanism
 """
 
 import logging
-from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @dataclass

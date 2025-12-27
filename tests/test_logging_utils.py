@@ -347,9 +347,9 @@ class TestCorrelationContext:
 
     def test_nested_correlation_contexts(self):
         """Test nested correlation contexts."""
-        with correlation_context("outer") as outer_id:
+        with correlation_context("outer"):
             assert get_correlation_id() == "outer"
-            with correlation_context("inner") as inner_id:
+            with correlation_context("inner"):
                 assert get_correlation_id() == "inner"
             assert get_correlation_id() == "outer"
 

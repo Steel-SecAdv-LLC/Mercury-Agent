@@ -40,7 +40,6 @@ import logging
 import time
 import uuid
 from collections import deque
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -48,6 +47,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from omni_anomaly_engine.agentic.bayesian_calibrator import BayesianConfidenceCalibrator
 
 

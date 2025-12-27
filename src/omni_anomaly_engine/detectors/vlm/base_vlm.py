@@ -27,12 +27,14 @@ using Large Vision-Language Models (LVLMs).
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import torch
 
 from omni_anomaly_engine.core.base import BaseDetector
+
+if TYPE_CHECKING:
+    import numpy as np
 
 
 class LVLMType(Enum):

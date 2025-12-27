@@ -571,7 +571,7 @@ class TestValidationPipelineProperties:
 
         # Property: Invalid dataset names should not crash
         try:
-            loader = get_loader(dataset_name)
+            get_loader(dataset_name)
             # If it returns something, it should be None or raise an error
         except (ValueError, KeyError, NotImplementedError):
             pass  # Expected behavior for invalid names
@@ -599,7 +599,7 @@ class TestKnowledgeGraphProperties:
 
         # Property: Querying non-existent node should not crash
         try:
-            result = kg.query_node(node_name)
+            kg.query_node(node_name)
             # Result should be None or empty for non-existent nodes
         except (KeyError, ValueError):
             pass  # Expected behavior

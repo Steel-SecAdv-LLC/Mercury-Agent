@@ -491,7 +491,7 @@ class TestRefactoringEngineAutoApplication:
                 compile(result["refactored_code"], "<test>", "exec")
                 assert True
             except SyntaxError:
-                assert False, "Refactored code has syntax errors"
+                raise AssertionError("Refactored code has syntax errors")
 
     def test_complex_nesting_reduction(self):
         """Test refactoring of deeply nested code."""

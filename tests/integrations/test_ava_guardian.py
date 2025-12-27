@@ -554,7 +554,7 @@ class TestGOSNNScalars:
     def test_scalars_have_omni_prefix(self, adapter):
         """Test all scalars have omni_ prefix."""
         scalars = adapter.get_gosnn_scalars()
-        for key in scalars.keys():
+        for key in scalars:
             assert key.startswith("omni_"), f"Scalar {key} missing omni_ prefix"
 
     def test_scalars_are_floats(self, adapter):

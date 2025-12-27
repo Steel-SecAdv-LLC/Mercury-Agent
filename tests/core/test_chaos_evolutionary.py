@@ -45,7 +45,7 @@ class TestChaoticMap:
             values.append(x)
 
         assert len(values) == 101
-        assert len(set([round(v, 5) for v in values])) >= 2
+        assert len({round(v, 5) for v in values}) >= 2
 
     def test_logistic_map_bounds(self):
         """Test logistic map stays in bounds."""
@@ -75,7 +75,7 @@ class TestChaoticMap:
             values.append(x)
 
         assert len(values) == 50
-        assert len(set([round(v, 5) for v in values])) >= 2
+        assert len({round(v, 5) for v in values}) >= 2
 
     def test_sine_map_basic(self):
         """Test sine map basic functionality."""
@@ -483,7 +483,7 @@ class TestChaosEvolutionOptimizer:
             x = ChaoticMap.sine_map(x, a=2.3)
             values.append(x)
 
-        assert len(set([round(v, 4) for v in values])) > 5
+        assert len({round(v, 4) for v in values}) > 5
 
     def test_chaos_game_step_moves_toward_best(self):
         """Test chaos game step generally moves toward best solution."""

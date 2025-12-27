@@ -23,9 +23,8 @@ Training utilities for fusion model using PyTorch Lightning
 Enhanced with Ava Equation state evolution optimizers
 """
 
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytorch_lightning as pl
@@ -35,6 +34,9 @@ from torch.optim import lr_scheduler
 from torch.utils.data import Dataset
 
 from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 __all__ = [
     "AnomalyDataset",

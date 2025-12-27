@@ -222,7 +222,7 @@ for i in range(10):
         engine = NeurosymbolicEngine(config=config)
 
         training_data = [(sample_code_ast, {"refactoring": "extract_method"})]
-        metrics = engine.train_model(training_data)
+        engine.train_model(training_data)
 
         assert engine.current_phase == TrainingPhase.SPECIALIZATION
 

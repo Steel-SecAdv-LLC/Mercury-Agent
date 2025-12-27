@@ -94,8 +94,8 @@ class TestTemporalGraphReasoner:
         """Test adding nodes and edges."""
         reasoner = TemporalGraphReasoner()
 
-        node1 = reasoner.add_node("patient_1", "patient", {"age": 45})
-        node2 = reasoner.add_node("fever_symptom", "symptom", {"severity": 0.8})
+        reasoner.add_node("patient_1", "patient", {"age": 45})
+        reasoner.add_node("fever_symptom", "symptom", {"severity": 0.8})
         edge = reasoner.add_edge("patient_1", "fever_symptom", "has_symptom")
 
         assert "patient_1" in reasoner.nodes
@@ -231,7 +231,7 @@ class TestMetaCognitionLayer:
             time_elapsed_ms=0,
             errors_encountered=0,
         )
-        assert meta.should_continue_reasoning(state_low) == True
+        assert meta.should_continue_reasoning(state_low)
 
         # High confidence - should stop
         state_high = ReasoningState(
@@ -242,7 +242,7 @@ class TestMetaCognitionLayer:
             time_elapsed_ms=0,
             errors_encountered=0,
         )
-        assert meta.should_continue_reasoning(state_high) == False
+        assert not meta.should_continue_reasoning(state_high)
 
         # Max depth reached - should stop
         state_deep = ReasoningState(
@@ -253,7 +253,7 @@ class TestMetaCognitionLayer:
             time_elapsed_ms=0,
             errors_encountered=0,
         )
-        assert meta.should_continue_reasoning(state_deep) == False
+        assert not meta.should_continue_reasoning(state_deep)
 
     def test_select_reasoning_strategy(self):
         """Test strategy selection based on state."""

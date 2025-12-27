@@ -31,13 +31,11 @@ import tempfile
 import textwrap
 import threading
 import time
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from numpy.typing import NDArray
 from scipy import fft, signal
 
 from omni_anomaly_engine.core.ai_ethics import EthicalAutonomyGovernor, EthicsConfig
@@ -45,6 +43,11 @@ from omni_anomaly_engine.core.code_analysis import NeurosymbolicConfig as CodeAn
 from omni_anomaly_engine.core.code_analysis import NeurosymbolicEngine as CodeAnalysisEngine
 from omni_anomaly_engine.utils.constants import MathematicalConstants
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from numpy.typing import NDArray
 
 # Golden ratio constant for Ava-Dominance Equation
 PHI: float = 1.618033988749895

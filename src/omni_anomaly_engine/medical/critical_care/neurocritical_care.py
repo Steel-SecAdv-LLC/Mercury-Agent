@@ -42,11 +42,13 @@ Research sources:
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import torch
 from torch import nn
+
+if TYPE_CHECKING:
+    import numpy as np
 
 
 class StrokeType(Enum):

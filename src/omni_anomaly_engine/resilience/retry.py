@@ -23,9 +23,11 @@ Retry policy implementation
 """
 
 import time
-from collections.abc import Callable
 from functools import wraps
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class RetryPolicy:

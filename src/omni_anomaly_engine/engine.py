@@ -94,10 +94,9 @@ See Also:
 import gc
 import logging
 import threading
-from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import torch
@@ -127,6 +126,9 @@ from omni_anomaly_engine.resilience.self_healing import SelfHealingEngine
 from omni_anomaly_engine.security.intelligence_fusion import IntelligenceFusionEngine
 from omni_anomaly_engine.security.threat_detection import ThreatDetector
 from omni_anomaly_engine.space.schumann_resonance import SchumannResonanceDetector
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
 
 # Configure module logger
 logger = logging.getLogger(__name__)

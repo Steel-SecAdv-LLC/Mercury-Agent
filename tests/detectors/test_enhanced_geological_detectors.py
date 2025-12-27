@@ -595,7 +595,7 @@ class TestVolcanicStateHMM:
 
     def test_update_belief(self, hmm_tracker, deterministic_rng):
         """Test belief update with observation (via state_belief or belief)."""
-        n_obs = hmm_tracker.n_states if hasattr(hmm_tracker, "n_states") else 5
+        hmm_tracker.n_states if hasattr(hmm_tracker, "n_states") else 5
         observation = {
             "seismic_activity": True,
             "gas_emission": False,

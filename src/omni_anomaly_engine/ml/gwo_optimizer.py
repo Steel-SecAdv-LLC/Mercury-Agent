@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 """
 Grey Wolf Optimizer for Feature Selection
@@ -32,11 +32,13 @@ Reference: Mirjalili et al. (2014) - Grey Wolf Optimizer
 
 """
 
-from collections.abc import Callable
 
 import numpy as np
 
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class GreyWolfOptimizer:

@@ -116,7 +116,7 @@ def test_retry_policy_failure():
 
     try:
         always_fails()
-        assert False, "Should have raised exception"
+        raise AssertionError("Should have raised exception")
     except Exception as e:
         assert "Permanent failure" in str(e)
         assert counter["calls"] == 3

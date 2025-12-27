@@ -37,10 +37,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 T = TypeVar("T")
 
@@ -59,7 +61,7 @@ class FallbackReason(Enum):
 
 
 @dataclass
-class FallbackResult(Generic[T]):
+class FallbackResult[T]:
     """Result from fallback chain execution.
 
     Attributes:

@@ -26,9 +26,10 @@ Based on: PyReason - Temporal First-Order Logic Explainable AI
 Provides symbolic reasoning layer for explainable anomaly detection outputs.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
+if TYPE_CHECKING:
+    import numpy as np
 
 
 class SymbolicRule:
