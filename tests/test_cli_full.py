@@ -24,6 +24,7 @@ Comprehensive CLI tests to boost coverage
 
 import os
 import tempfile
+from pathlib import Path
 
 from click.testing import CliRunner
 
@@ -43,7 +44,7 @@ def test_detect_command_with_data():
         result = runner.invoke(main, ["detect", "--data", temp_file])
         assert result.exit_code == 0 or "error" in result.output.lower()
     finally:
-        os.unlink(temp_file)
+        Path(temp_file).unlink()
 
 
 def test_train_command_with_config():
@@ -58,7 +59,7 @@ def test_train_command_with_config():
         result = runner.invoke(main, ["train", "--config", config_file])
         assert result.exit_code >= 0
     finally:
-        os.unlink(config_file)
+        Path(config_file).unlink()
 
 
 def test_biometric_command_with_image():
@@ -73,7 +74,7 @@ def test_biometric_command_with_image():
         assert result.exit_code >= 0
     finally:
         if os.path.exists(temp_image):
-            os.unlink(temp_image)
+            Path(temp_image).unlink()
 
 
 def test_security_command_with_payloads():
@@ -89,7 +90,7 @@ def test_security_command_with_payloads():
         result = runner.invoke(main, ["security", "--payloads", payload_file])
         assert result.exit_code >= 0
     finally:
-        os.unlink(payload_file)
+        Path(payload_file).unlink()
 
 
 def test_detect_with_detectors_option():
@@ -106,7 +107,7 @@ def test_detect_with_detectors_option():
         )
         assert result.exit_code >= 0
     finally:
-        os.unlink(temp_file)
+        Path(temp_file).unlink()
 
 
 def test_train_with_output_option():

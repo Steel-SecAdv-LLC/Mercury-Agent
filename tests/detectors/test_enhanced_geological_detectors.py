@@ -17,15 +17,12 @@ Covers:
 
 from __future__ import annotations
 
+import importlib.util
+
 import pytest
 
 # Optional torch import
-try:
-    import torch
-
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
+HAS_TORCH = importlib.util.find_spec("torch") is not None
 
 
 # =============================================================================

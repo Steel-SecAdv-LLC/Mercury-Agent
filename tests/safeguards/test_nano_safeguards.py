@@ -194,7 +194,7 @@ class TestNanoSafeguardDetector:
 
     def test_detect_micro_anomalies_unfitted(self, detector, normal_data):
         """Test detection raises error when not fitted."""
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             detector.detect(normal_data)
 
     def test_detect_micro_anomalies_normal(self, detector, normal_data):

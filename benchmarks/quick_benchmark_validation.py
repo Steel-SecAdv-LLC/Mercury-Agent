@@ -29,7 +29,6 @@ Quick validation on synthetic data - comprehensive benchmarks on actual repos
 import json
 import time
 from pathlib import Path
-from typing import Dict
 
 import numpy as np
 
@@ -49,7 +48,7 @@ def generate_synthetic_anomaly_data(n_samples: int = 1000, anomaly_ratio: float 
     return data[indices], labels[indices]
 
 
-def evaluate_detection_config(data: np.ndarray, labels: np.ndarray, config: Dict) -> Dict:
+def evaluate_detection_config(data: np.ndarray, labels: np.ndarray, config: dict) -> dict:
     """Evaluate anomaly detection with given configuration."""
     start_time = time.time()
 
@@ -102,7 +101,7 @@ def main():
 
     results_path = Path("benchmarks/comprehensive_optimization_results.json")
     if results_path.exists():
-        with open(results_path, "r") as f:
+        with open(results_path) as f:
             optimization_results = json.load(f)
 
         best_ava = max(optimization_results["ava_equation"], key=lambda x: x["score"])

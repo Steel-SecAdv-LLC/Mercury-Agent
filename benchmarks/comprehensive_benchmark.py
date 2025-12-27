@@ -26,7 +26,7 @@ across 1, 5, and all 12 infrastructure modules.
 
 import json
 import time
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 from sklearn.metrics import f1_score, precision_score, recall_score
@@ -36,7 +36,7 @@ from omni_anomaly_engine.models.simulation import SimulationModule
 from omni_anomaly_engine.space.space_exploration_analyzer import SpaceExplorationAnalyzer
 
 
-def benchmark_module_instantiation() -> Dict[str, float]:
+def benchmark_module_instantiation() -> dict[str, float]:
     """Benchmark module instantiation times."""
     results = {}
 
@@ -61,7 +61,7 @@ def benchmark_module_instantiation() -> Dict[str, float]:
     return results
 
 
-def benchmark_space_exploration() -> Dict[str, Any]:
+def benchmark_space_exploration() -> dict[str, Any]:
     """Benchmark satellite position anomaly analysis on synthetic orbit data."""
     analyzer = SpaceExplorationAnalyzer()
 
@@ -82,7 +82,7 @@ def benchmark_space_exploration() -> Dict[str, Any]:
     }
 
 
-def benchmark_simulation_module() -> Dict[str, Any]:
+def benchmark_simulation_module() -> dict[str, Any]:
     """Benchmark SimulationModule performance."""
     sim = SimulationModule(config={"num_branches": 15})
 
@@ -108,7 +108,7 @@ def benchmark_simulation_module() -> Dict[str, Any]:
     }
 
 
-def benchmark_cosmic_ray_detection() -> Dict[str, Any]:
+def benchmark_cosmic_ray_detection() -> dict[str, Any]:
     """Benchmark cosmic ray detection with per-sample precision/recall/F1 on labeled synthetic data."""
     threshold = 3.0
     analyzer = SpaceExplorationAnalyzer(config={"cosmic_ray_threshold": threshold})
@@ -150,7 +150,7 @@ def benchmark_cosmic_ray_detection() -> Dict[str, Any]:
     }
 
 
-def run_all_benchmarks() -> Dict[str, Any]:
+def run_all_benchmarks() -> dict[str, Any]:
     """Run all benchmarks and return results."""
     print("=" * 70)
     print("OMNI-AVA COMPREHENSIVE BENCHMARK")

@@ -36,7 +36,7 @@ import json
 import sys
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -374,7 +374,7 @@ def run_training_epochs(
         final_calibrator_stats = agent.confidence_calibrator.get_summary()
 
     summary = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "epochs_completed": epochs,
         "scenarios_per_epoch": len(scenarios),
         "total_executions": epochs * len(scenarios),

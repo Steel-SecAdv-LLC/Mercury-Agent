@@ -24,11 +24,10 @@ Grid search and ablation studies for LSTM/CNN hyperparameters.
 
 import os
 import sys
-from typing import Dict, List
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -37,7 +36,7 @@ from assets.loaders import generate_mimic_vitals
 from omni_anomaly_engine.medical.medical_cure_predictor import TemporalVitalSignsLSTM
 
 
-def grid_search_lstm_hyperparameters() -> Dict:
+def grid_search_lstm_hyperparameters() -> dict:
     """
     Grid search for optimal LSTM hyperparameters.
 
@@ -104,7 +103,7 @@ def grid_search_lstm_hyperparameters() -> Dict:
     return {"results": results, "best": best, "current": current, "improvement_pct": improvement}
 
 
-def ablation_study_lstm() -> Dict:
+def ablation_study_lstm() -> dict:
     """
     Ablation study: Remove components to assess importance.
 

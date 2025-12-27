@@ -29,7 +29,7 @@ import os
 import sys
 import time
 from itertools import product
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 
@@ -38,7 +38,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from omni_anomaly_engine.core.ethical_config import EthicalScalars
 
 
-def generate_weight_variations() -> List[Dict[str, Any]]:
+def generate_weight_variations() -> list[dict[str, Any]]:
     """Generate 100+ weight variation configurations."""
     base_scalars = EthicalScalars()
     variations = []
@@ -91,7 +91,7 @@ def generate_weight_variations() -> List[Dict[str, Any]]:
     return variations
 
 
-def evaluate_configuration(config: Dict[str, Any]) -> Dict[str, Any]:
+def evaluate_configuration(config: dict[str, Any]) -> dict[str, Any]:
     """Evaluate a single weight configuration."""
     start_time = time.time()
 
@@ -129,7 +129,7 @@ def evaluate_configuration(config: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def run_experiments() -> Dict[str, Any]:
+def run_experiments() -> dict[str, Any]:
     """Run all weight experiments."""
     print("=" * 70)
     print("Ethical Scalar Weight Experiments")

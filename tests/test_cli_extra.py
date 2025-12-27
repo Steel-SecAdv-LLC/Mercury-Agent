@@ -25,6 +25,7 @@ Additional CLI tests to boost coverage above 85%
 import json
 import os
 import tempfile
+from pathlib import Path
 
 from click.testing import CliRunner
 
@@ -50,7 +51,7 @@ def test_security_command_with_input():
         result = runner.invoke(main, ["security", "--input", input_file])
         assert result.exit_code == 0 or "error" in result.output.lower()
     finally:
-        os.unlink(input_file)
+        Path(input_file).unlink()
 
 
 def test_detect_with_json_input():
@@ -65,7 +66,7 @@ def test_detect_with_json_input():
         result = runner.invoke(main, ["detect", "--input", data_file, "--detector", "temporal"])
         assert result.exit_code == 0 or "error" in result.output.lower()
     finally:
-        os.unlink(data_file)
+        Path(data_file).unlink()
 
 
 def test_detect_with_output_file():
@@ -86,9 +87,9 @@ def test_detect_with_output_file():
         )
         assert result.exit_code == 0 or "error" in result.output.lower()
     finally:
-        os.unlink(data_file)
+        Path(data_file).unlink()
         if os.path.exists(output_file):
-            os.unlink(output_file)
+            Path(output_file).unlink()
 
 
 def test_train_command_with_options():
@@ -105,7 +106,7 @@ def test_train_command_with_options():
         )
         assert result.exit_code == 0 or "error" in result.output.lower()
     finally:
-        os.unlink(data_file)
+        Path(data_file).unlink()
 
 
 def test_biometric_with_both_images():

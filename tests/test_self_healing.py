@@ -78,8 +78,8 @@ def test_stage_3_interference():
 
 def test_heritable_immunity():
     """Test heritable immunity via save/load"""
-    import os
     import tempfile
+    from pathlib import Path
 
     system = CRISPRInspiredSelfHealing()
 
@@ -101,7 +101,7 @@ def test_heritable_immunity():
         assert len(new_system.signature_library) == 3
         assert len(new_system.acquisition_history) == 3
     finally:
-        os.unlink(temp_path)
+        Path(temp_path).unlink()
 
 
 def test_max_signatures_pruning():

@@ -232,6 +232,15 @@ module = [
 ]
 ignore_missing_imports = true
 
+# Override for ML modules with nn.Module subclasses
+[[tool.mypy.overrides]]
+module = [
+    "omni_anomaly_engine.ml.*",
+    "omni_anomaly_engine.models.sota.*",
+    "omni_anomaly_engine.detectors.*",
+]
+disable_error_code = ["misc"]
+
 # =============================================================================
 # Pytest Configuration
 # =============================================================================
@@ -455,8 +464,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "ARG", "PLR2004"]
+"tests/**/*.py" = ["S101", "ARG", "PLR2004", "S105", "S108", "S608"]
 "__init__.py" = ["F401"]
+"benchmarks/**/*.py" = ["S102", "S607", "PTH100", "C408", "PLR1722", "F841", "B015", "SIM118", "B006"]
+"docs/**/*.py" = ["RUF015"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["omni_anomaly_engine"]

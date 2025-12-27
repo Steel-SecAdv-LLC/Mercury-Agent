@@ -22,8 +22,8 @@ from __future__ import annotations
 CLI smoke tests to boost coverage
 """
 
-import os
 import tempfile
+from pathlib import Path
 
 from click.testing import CliRunner
 
@@ -82,7 +82,7 @@ def test_detect_with_sample_data():
         result = runner.invoke(main, ["detect", "--input", data_file, "--detector", "statistical"])
         assert result.exit_code == 0 or "Error" in result.output
     finally:
-        os.unlink(data_file)
+        Path(data_file).unlink()
 
 
 def test_biometric_with_invalid_path():

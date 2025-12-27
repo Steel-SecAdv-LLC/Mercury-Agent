@@ -26,14 +26,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import json  # noqa: E402
-from typing import Dict, List, Tuple  # noqa: E402
+import json
 
-import numpy as np  # noqa: E402
-import torch  # noqa: E402
-import torch.nn as nn  # noqa: E402
+import numpy as np
+import torch
+from torch import nn
 
-from omni_anomaly_engine.ml.training import (  # noqa: E402
+from omni_anomaly_engine.ml.training import (
     AvaExponentialDecayOptimizer,
     AvaHarmonicOptimizer,
     AvaMomentumOptimizer,
@@ -58,10 +57,10 @@ class SimpleTestModel(nn.Module):
 
 def run_optimizer_experiment(
     optimizer_class,
-    params: Dict,
+    params: dict,
     num_iterations: int = 1000,
     seed: int = 42,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
     Run a single experiment with given optimizer parameters.
 
@@ -115,7 +114,7 @@ def run_optimizer_experiment(
 
 def grid_search_ava_base(
     num_experiments: int = 1000,
-) -> List[Tuple[Dict, Dict]]:
+) -> list[tuple[dict, dict]]:
     """
     Grid search over AvaOptimizer parameters.
 
@@ -153,7 +152,7 @@ def grid_search_ava_base(
 
 def grid_search_ava_variants(
     num_experiments: int = 500,
-) -> Dict[str, List[Tuple[Dict, Dict]]]:
+) -> dict[str, list[tuple[dict, dict]]]:
     """
     Grid search over all Ava optimizer variants.
 

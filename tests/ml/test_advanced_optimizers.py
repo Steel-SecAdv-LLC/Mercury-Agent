@@ -20,17 +20,16 @@ Covers:
 
 from __future__ import annotations
 
+import importlib.util
+
 import numpy as np
 import pytest
 
 # Optional torch import
-try:
+HAS_TORCH = importlib.util.find_spec("torch") is not None
+if HAS_TORCH:
     import torch
-    from torch.utils.data import DataLoader, TensorDataset
-
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
+    from torch.utils.data import DataLoader
 
 
 # =============================================================================

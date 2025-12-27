@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Statistical validation of benchmark results using t-tests and confidence intervals."""
 
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 from scipy import stats
@@ -26,7 +26,7 @@ from scipy import stats
 
 def statistical_analysis(
     baseline_results: np.ndarray, improved_results: np.ndarray
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Perform statistical validation comparing baseline vs improved performance.
 

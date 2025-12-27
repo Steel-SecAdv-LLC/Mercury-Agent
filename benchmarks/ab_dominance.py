@@ -35,8 +35,6 @@ import sys
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from pathlib import Path
-from typing import Any
 
 import numpy as np
 
@@ -48,12 +46,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Optional torch import
-try:
-    import torch
+import importlib.util
 
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
+HAS_TORCH = importlib.util.find_spec("torch") is not None
+if not HAS_TORCH:
     logger.warning("PyTorch not available - using simulation mode")
 
 
@@ -416,14 +412,14 @@ def print_summary(result: BenchmarkResult) -> None:
     print("A/B DOMINANCE BENCHMARK SUMMARY")
     print("=" * 70)
 
-    print(f"\nConfiguration:")
+    print("\nConfiguration:")
     print(f"  Epochs: {result.config['epochs']}")
     print(f"  Lambda Baseline: {result.config['lambda_baseline']}")
     print(f"  Lambda Ava-Dominance: {result.config['lambda_ava']}")
     print(f"  Sigma Sacred: {result.config['sigma_sacred']}")
     print(f"  Duration: {result.duration_seconds:.2f} seconds")
 
-    print(f"\nBASELINE Final Metrics:")
+    print("\nBASELINE Final Metrics:")
     print(f"  F1 Score: {result.baseline_final['f1_score']:.4f}")
     print(f"  Precision: {result.baseline_final['precision']:.4f}")
     print(f"  Recall: {result.baseline_final['recall']:.4f}")
@@ -431,7 +427,7 @@ def print_summary(result: BenchmarkResult) -> None:
     print(f"  Lyapunov Stable: {result.baseline_final['lyapunov_stable']}")
     print(f"  Lambda: {result.baseline_final['lambda_lyapunov']:.2f}")
 
-    print(f"\nAVA-DOMINANCE Final Metrics:")
+    print("\nAVA-DOMINANCE Final Metrics:")
     print(f"  F1 Score: {result.ava_dominance_final['f1_score']:.4f}")
     print(f"  Precision: {result.ava_dominance_final['precision']:.4f}")
     print(f"  Recall: {result.ava_dominance_final['recall']:.4f}")
@@ -440,7 +436,7 @@ def print_summary(result: BenchmarkResult) -> None:
     print(f"  Lambda: {result.ava_dominance_final['lambda_lyapunov']:.2f}")
     print(f"  Ava-Dominance Score: {result.ava_dominance_final['ava_dominance_score']:.4f}")
 
-    print(f"\nComparison:")
+    print("\nComparison:")
     print(f"  F1 Improvement: {result.comparison['f1_improvement_percent']:.2f}%")
     print(
         f"  F1 Absolute: {result.comparison['baseline_f1']:.4f} -> {result.comparison['ava_f1']:.4f}"
@@ -450,7 +446,7 @@ def print_summary(result: BenchmarkResult) -> None:
     print(f"  Training Speedup: {result.comparison['training_speedup']:.2f}x")
     print(f"  Both Lyapunov Stable: {result.comparison['both_lyapunov_stable']}")
 
-    print(f"\nValidation (Expected Results):")
+    print("\nValidation (Expected Results):")
     print(f"  F1 >= 0.92 Target Met: {result.comparison['ava_meets_f1_target']}")
     print(f"  F1 Improvement 15-30%: {result.comparison['f1_improvement_15_30_percent']}")
     print(f"  FPR Reduction 5-15%: {result.comparison['fpr_reduction_5_15_percent']}")
@@ -524,7 +520,7 @@ def main():
 
     print_summary(result)
 
-    filepath = save_results(result, config.output_dir)
+    save_results(result, config.output_dir)
 
     if result.comparison["ava_meets_f1_target"]:
         logger.info("BENCHMARK PASSED: F1 >= 0.92 target met with Ava-Dominance")

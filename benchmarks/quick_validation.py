@@ -27,13 +27,13 @@ Validates OmniAvaEngine convergence properties symbolically:
 Run on initialization to confirm mathematical properties.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import sympy as sp
 
 
-def prove_exponential_convergence() -> Dict[str, Any]:
+def prove_exponential_convergence() -> dict[str, Any]:
     """
     Prove O(e^{-0.13 t}) convergence bound symbolically.
 
@@ -70,7 +70,7 @@ def prove_exponential_convergence() -> Dict[str, Any]:
     }
 
 
-def prove_lyapunov_stability() -> Dict[str, Any]:
+def prove_lyapunov_stability() -> dict[str, Any]:
     """
     Prove Lyapunov stability condition ΔV < 0.
 
@@ -103,7 +103,7 @@ def prove_lyapunov_stability() -> Dict[str, Any]:
     }
 
 
-def prove_purity_invariant() -> Dict[str, Any]:
+def prove_purity_invariant() -> dict[str, Any]:
     """
     Prove Purity Invariant σ_Sacred > 0 for positive-definite ethical matrix.
 
@@ -143,7 +143,7 @@ def prove_purity_invariant() -> Dict[str, Any]:
         }
 
 
-def verify_o_n_log_n_complexity() -> Dict[str, Any]:
+def verify_o_n_log_n_complexity() -> dict[str, Any]:
     """
     Verify O(n log n) complexity bound for OmniAvaEngine.step().
 
@@ -195,7 +195,7 @@ def verify_o_n_log_n_complexity() -> Dict[str, Any]:
     }
 
 
-def run_all_validations() -> Dict[str, Any]:
+def run_all_validations() -> dict[str, Any]:
     """
     Run all symbolic validations and return comprehensive report.
 

@@ -66,7 +66,9 @@ class TestMathConstant:
 
     def test_immutability(self):
         """Test that constants are immutable."""
-        with pytest.raises(Exception):  # frozen dataclass
+        from dataclasses import FrozenInstanceError
+
+        with pytest.raises(FrozenInstanceError):
             PI.value = 3.0
 
 

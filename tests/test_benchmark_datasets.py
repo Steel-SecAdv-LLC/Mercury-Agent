@@ -25,15 +25,12 @@ Tests MVTec AD, UCF-Crime, and Shanghai Tech Campus dataset loaders.
 """
 
 
+import importlib.util
+
 import numpy as np
 import pytest
 
-try:
-    import torch
-
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
+HAS_TORCH = importlib.util.find_spec("torch") is not None
 
 
 class TestBaseImageDataset:
