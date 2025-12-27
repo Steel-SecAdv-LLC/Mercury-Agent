@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -171,7 +172,9 @@ class SpaceExplorationAnalyzer:
                 ],
             }
 
-    def analyze_cosmic_rays(self, data: np.ndarray[Any, Any], context: dict | None = None) -> dict[str, Any]:
+    def analyze_cosmic_rays(
+        self, data: np.ndarray[Any, Any], context: dict | None = None
+    ) -> dict[str, Any]:
         """
         Detect cosmic ray anomalies in sensor data.
 
@@ -231,7 +234,10 @@ class SpaceExplorationAnalyzer:
         }
 
     def detect_spectral_anomalies(
-        self, wavelengths: np.ndarray[Any, Any], intensities: np.ndarray[Any, Any], context: dict | None = None
+        self,
+        wavelengths: np.ndarray[Any, Any],
+        intensities: np.ndarray[Any, Any],
+        context: dict | None = None,
     ) -> dict[str, Any]:
         """
         Match spectral patterns against known absorption/emission lines.
@@ -316,7 +322,10 @@ class SpaceExplorationAnalyzer:
         }
 
     def predict_orbital_debris(
-        self, position_data: np.ndarray[Any, Any], velocity_data: np.ndarray[Any, Any], context: dict | None = None
+        self,
+        position_data: np.ndarray[Any, Any],
+        velocity_data: np.ndarray[Any, Any],
+        context: dict | None = None,
     ) -> dict[str, Any]:
         """
         Predict orbital debris collision risks.

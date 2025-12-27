@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -614,7 +615,9 @@ class TsunamiDetector:
             return ["Immediate beach areas", "Harbor facilities"]
         return []
 
-    def extract_features(self, waveform_data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+    def extract_features(
+        self, waveform_data: np.ndarray[Any, Any] | torch.Tensor
+    ) -> np.ndarray[Any, Any]:
         """Extract features for fusion pipeline.
 
         Args:
@@ -753,7 +756,9 @@ class EarthquakeDetector:
             aftershock_probability=min(0.9, estimated_mag / 10),
         )
 
-    def _compute_resonance_score(self, Sxx: np.ndarray[Any, Any], freqs: np.ndarray[Any, Any]) -> float:
+    def _compute_resonance_score(
+        self, Sxx: np.ndarray[Any, Any], freqs: np.ndarray[Any, Any]
+    ) -> float:
         """Compute resonance score from spectrogram."""
         power_by_freq = Sxx.mean(axis=1)
 
@@ -806,7 +811,9 @@ class EarthquakeDetector:
 
         return int(arrivals[0]) if len(arrivals) > 0 else None
 
-    def _find_spectral_anomalies(self, Sxx: np.ndarray[Any, Any], freqs: np.ndarray[Any, Any]) -> list[float]:
+    def _find_spectral_anomalies(
+        self, Sxx: np.ndarray[Any, Any], freqs: np.ndarray[Any, Any]
+    ) -> list[float]:
         """Find anomalous frequencies in spectrogram."""
         power_by_freq = Sxx.mean(axis=1)
         mean_power = power_by_freq.mean()
@@ -848,7 +855,9 @@ class EarthquakeDetector:
 
         return warnings
 
-    def extract_features(self, seismic_data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
+    def extract_features(
+        self, seismic_data: np.ndarray[Any, Any] | torch.Tensor
+    ) -> np.ndarray[Any, Any]:
         """Extract features for fusion pipeline."""
         if isinstance(seismic_data, torch.Tensor):
             seismic_data = seismic_data.cpu().numpy()

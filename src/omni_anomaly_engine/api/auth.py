@@ -28,6 +28,7 @@ Example:
         async def admin_endpoint(user: User = Depends(JWTAuth())):
             return {"user": user.username}
 """
+
 from __future__ import annotations
 
 import hashlib

@@ -135,7 +135,9 @@ class UCRLoader(DatasetLoader):
 
         return False
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    def load(
+        self, split: DatasetSplit = DatasetSplit.ALL
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load UCR dataset."""
         dataset_path = self.data_path / self.dataset_name
 
@@ -297,7 +299,9 @@ class MBALoader(DatasetLoader):
 
         return True
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    def load(
+        self, split: DatasetSplit = DatasetSplit.ALL
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load MBA/CWRU bearing data."""
         try:
             from scipy.io import loadmat
@@ -488,7 +492,9 @@ class MSDSLoader(DatasetLoader):
         logger.info(f"Generated MSDS: {self.n_samples} samples, {total_features} features")
         return True
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    def load(
+        self, split: DatasetSplit = DatasetSplit.ALL
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load MSDS data."""
         data_file = self.data_path / "msds_data.npz"
 

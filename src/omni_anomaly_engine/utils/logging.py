@@ -33,6 +33,7 @@ Example:
             logger.info("Starting operation", correlation_id=corr_id)
             # All logs within this context will have the same correlation_id
 """
+
 from __future__ import annotations
 
 import json
@@ -477,7 +478,9 @@ def configure_logging(
     root_logger.propagate = False
 
 
-def log_function_call(logger: logging.Logger | None = None) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+def log_function_call(
+    logger: logging.Logger | None = None,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to log function entry and exit.
 
     Args:

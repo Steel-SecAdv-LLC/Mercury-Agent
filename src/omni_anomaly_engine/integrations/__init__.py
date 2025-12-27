@@ -15,6 +15,7 @@ This package provides:
 - Request routing and fallback handling
 - Ava-Guardian post-quantum cryptography adapter
 """
+
 from __future__ import annotations
 
 from omni_anomaly_engine.integrations.ava_guardian import (

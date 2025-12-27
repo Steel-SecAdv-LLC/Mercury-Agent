@@ -6,6 +6,7 @@ LSTM-Autoencoder for Time-Series Anomaly Detection
 
 A working anomaly detector that actually trains and detects.
 """
+
 from __future__ import annotations
 
 import os
@@ -285,7 +286,9 @@ class AnomalyDetector:
         point_scores = point_scores / np.maximum(point_counts, 1)
         return point_scores
 
-    def detect(self, data: np.ndarray[Any, Any], threshold: float | None = None) -> np.ndarray[Any, Any]:
+    def detect(
+        self, data: np.ndarray[Any, Any], threshold: float | None = None
+    ) -> np.ndarray[Any, Any]:
         """
         Detect anomalies in data.
 

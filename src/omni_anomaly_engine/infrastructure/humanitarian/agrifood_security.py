@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -59,7 +60,10 @@ class AgriFoodSecurityDetector:
         self.price_baseline = {"mean": 100.0, "std": 15.0}
 
     def detect(
-        self, data: np.ndarray[Any, Any], detection_type: str = "yield", crop_type: str | None = None
+        self,
+        data: np.ndarray[Any, Any],
+        detection_type: str = "yield",
+        crop_type: str | None = None,
     ) -> dict[str, Any]:
         """
         Detect agricultural anomalies.

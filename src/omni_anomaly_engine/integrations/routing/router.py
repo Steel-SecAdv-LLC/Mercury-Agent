@@ -28,6 +28,7 @@ Example:
         match = router.match("/api/users/123", method="GET")
         result = await match.handler(request, **match.params)
 """
+
 from __future__ import annotations
 
 import logging

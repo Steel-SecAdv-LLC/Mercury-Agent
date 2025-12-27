@@ -41,6 +41,7 @@ Example:
         while not shutdown.should_stop:
             process_work()
 """
+
 from __future__ import annotations
 
 import functools

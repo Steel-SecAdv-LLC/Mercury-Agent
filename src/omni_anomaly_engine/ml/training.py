@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -152,7 +153,9 @@ class LearningRateScheduler:
         self.optimizer = optimizer
         self.mode = mode
 
-        self._scheduler: lr_scheduler.StepLR | lr_scheduler.CosineAnnealingLR | lr_scheduler.ReduceLROnPlateau
+        self._scheduler: (
+            lr_scheduler.StepLR | lr_scheduler.CosineAnnealingLR | lr_scheduler.ReduceLROnPlateau
+        )
         if mode == "step":
             self._scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
         elif mode == "cosine":
@@ -360,7 +363,14 @@ class AvaOptimizer(optim.Optimizer):
     Base Ava optimizer with state evolution dynamics
     """
 
-    def __init__(self, params: Any, lr: float = 0.001, alpha: float = 0.1, beta: float = 0.9, quantum_noise: float = 0.0) -> None:
+    def __init__(
+        self,
+        params: Any,
+        lr: float = 0.001,
+        alpha: float = 0.1,
+        beta: float = 0.9,
+        quantum_noise: float = 0.0,
+    ) -> None:
         defaults = {"lr": lr, "alpha": alpha, "beta": beta, "quantum_noise": quantum_noise}
         super().__init__(params, defaults)
 
@@ -406,7 +416,9 @@ class AvaMomentumOptimizer(optim.Optimizer):
     Ava optimizer with momentum variant
     """
 
-    def __init__(self, params: Any, lr: float = 0.001, alpha: float = 0.1, momentum: float = 0.9) -> None:
+    def __init__(
+        self, params: Any, lr: float = 0.001, alpha: float = 0.1, momentum: float = 0.9
+    ) -> None:
         defaults = {"lr": lr, "alpha": alpha, "momentum": momentum}
         super().__init__(params, defaults)
 
@@ -445,7 +457,9 @@ class AvaExponentialDecayOptimizer(optim.Optimizer):
     Ava optimizer with exponential decay
     """
 
-    def __init__(self, params: Any, lr: float = 0.001, alpha: float = 0.1, decay_rate: float = 0.99) -> None:
+    def __init__(
+        self, params: Any, lr: float = 0.001, alpha: float = 0.1, decay_rate: float = 0.99
+    ) -> None:
         defaults = {"lr": lr, "alpha": alpha, "decay_rate": decay_rate}
         super().__init__(params, defaults)
 
@@ -486,7 +500,9 @@ class AvaHarmonicOptimizer(optim.Optimizer):
     Ava optimizer with harmonic oscillator variant
     """
 
-    def __init__(self, params: Any, lr: float = 0.001, alpha: float = 0.1, omega: float = 0.1) -> None:
+    def __init__(
+        self, params: Any, lr: float = 0.001, alpha: float = 0.1, omega: float = 0.1
+    ) -> None:
         defaults = {"lr": lr, "alpha": alpha, "omega": omega}
         super().__init__(params, defaults)
 
@@ -544,7 +560,12 @@ def create_ava_optimizer(
         raise ValueError(f"Unknown Ava optimizer variant: {variant}")
 
 
-class AnomalyDataset(Dataset[tuple[dict[str, torch.Tensor], torch.Tensor] | tuple[dict[str, torch.Tensor], dict[str, torch.Tensor], torch.Tensor]]):
+class AnomalyDataset(
+    Dataset[
+        tuple[dict[str, torch.Tensor], torch.Tensor]
+        | tuple[dict[str, torch.Tensor], dict[str, torch.Tensor], torch.Tensor]
+    ]
+):
     """Dataset for anomaly detection training"""
 
     def __init__(

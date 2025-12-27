@@ -14,6 +14,7 @@ Example:
     >>> result = await db.query("SELECT * FROM anomalies WHERE score > 0.8")
     >>> print(f"Found {len(result.rows)} anomalies")
 """
+
 from __future__ import annotations
 
 import asyncio

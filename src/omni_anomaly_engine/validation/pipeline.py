@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -114,7 +115,9 @@ class DataQualityChecker:
         self.correlation_threshold = correlation_threshold
         self.imbalance_threshold = imbalance_threshold
 
-    def run_all_checks(self, data: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]) -> list[QualityCheckResult]:
+    def run_all_checks(
+        self, data: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]
+    ) -> list[QualityCheckResult]:
         """Run all quality checks on the data."""
         checks = [
             self.check_missing_values(data),
@@ -472,7 +475,9 @@ class ValidationPipeline:
 
         return result
 
-    def _cross_validate(self, model: Any, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> dict[str, Any]:
+    def _cross_validate(
+        self, model: Any, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]
+    ) -> dict[str, Any]:
         """Perform cross-validation."""
         rng = np.random.default_rng(self.random_state)
         indices = rng.permutation(len(X))
@@ -514,7 +519,9 @@ class ValidationPipeline:
             "std_accuracy": float(np.std(accuracy_scores)),
         }
 
-    def _compute_final_metrics(self, model: Any, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> dict[str, Any]:
+    def _compute_final_metrics(
+        self, model: Any, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]
+    ) -> dict[str, Any]:
         """Compute final metrics on full dataset."""
         if hasattr(model, "fit"):
             model.fit(X, y)
@@ -567,7 +574,9 @@ class ValidationPipeline:
 
         return 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
 
-    def _compute_auc_roc(self, y_true: np.ndarray[Any, Any], y_scores: np.ndarray[Any, Any]) -> float:
+    def _compute_auc_roc(
+        self, y_true: np.ndarray[Any, Any], y_scores: np.ndarray[Any, Any]
+    ) -> float:
         """Compute AUC-ROC using trapezoidal rule."""
         sorted_indices = np.argsort(y_scores)[::-1]
         y_true_sorted = y_true[sorted_indices]
@@ -595,7 +604,9 @@ class ValidationPipeline:
         auc = np.trapz(tpr_list, fpr_list)
         return float(auc)
 
-    def _compute_auc_pr(self, y_true: np.ndarray[Any, Any], y_scores: np.ndarray[Any, Any]) -> float:
+    def _compute_auc_pr(
+        self, y_true: np.ndarray[Any, Any], y_scores: np.ndarray[Any, Any]
+    ) -> float:
         """Compute AUC-PR (Area Under Precision-Recall Curve)."""
         sorted_indices = np.argsort(y_scores)[::-1]
         y_true_sorted = y_true[sorted_indices]

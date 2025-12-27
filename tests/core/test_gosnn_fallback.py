@@ -17,6 +17,7 @@ Covers:
 - Ethical gating with sigma_sacred threshold
 - DetectorRegistry 128D normalization
 """
+
 from __future__ import annotations
 
 import logging

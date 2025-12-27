@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -164,7 +165,9 @@ class FederatedAnomalyDetection:
 
         return client
 
-    def _compute_gradient(self, weights: np.ndarray[Any, Any], data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def _compute_gradient(
+        self, weights: np.ndarray[Any, Any], data: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """
         Compute gradient for anomaly detection objective.
 
@@ -269,7 +272,9 @@ class FederatedAnomalyDetection:
 
         return self.global_model
 
-    def _fedavg_aggregation(self, client_data: list[tuple[np.ndarray[Any, Any], int]]) -> np.ndarray[Any, Any]:
+    def _fedavg_aggregation(
+        self, client_data: list[tuple[np.ndarray[Any, Any], int]]
+    ) -> np.ndarray[Any, Any]:
         """
         FedAvg: Weighted average by number of samples.
 
@@ -292,7 +297,9 @@ class FederatedAnomalyDetection:
 
         return aggregated
 
-    def _median_aggregation(self, client_data: list[tuple[np.ndarray[Any, Any], int]]) -> np.ndarray[Any, Any]:
+    def _median_aggregation(
+        self, client_data: list[tuple[np.ndarray[Any, Any], int]]
+    ) -> np.ndarray[Any, Any]:
         """
         Median aggregation for Byzantine tolerance.
 
@@ -311,7 +318,9 @@ class FederatedAnomalyDetection:
 
         return median_weights
 
-    def _fedprox_aggregation(self, client_data: list[tuple[np.ndarray[Any, Any], int]]) -> np.ndarray[Any, Any]:
+    def _fedprox_aggregation(
+        self, client_data: list[tuple[np.ndarray[Any, Any], int]]
+    ) -> np.ndarray[Any, Any]:
         """
         FedProx: Proximal term for handling heterogeneous data.
 
@@ -366,7 +375,9 @@ class FederatedAnomalyDetection:
 
         return self._fedavg_aggregation(filtered_data)
 
-    def _add_differential_privacy_noise(self, weights: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def _add_differential_privacy_noise(
+        self, weights: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """
         Add Gaussian noise for differential privacy.
 

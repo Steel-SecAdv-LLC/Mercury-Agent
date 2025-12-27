@@ -7,6 +7,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
+
 from __future__ import annotations
 
 """
@@ -72,7 +73,9 @@ class CausalEdge:
     confidence: float  # 1 - p_value from CI test
     lag: int = 0  # Time lag for temporal causation
     p_value: float = 0.0  # P-value from independence test
-    separation_set: tuple[int, ...] = field(default_factory=tuple)  # Conditioning set that separated
+    separation_set: tuple[int, ...] = field(
+        default_factory=tuple
+    )  # Conditioning set that separated
 
     def to_dict(self) -> dict[str, Any]:
         return {

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """Information Geometry for Out-of-Distribution Detection.
@@ -64,7 +65,9 @@ class InformationGeometryDetector:
             self.reference_distribution["mean"], self.reference_distribution["cov"]
         )
 
-    def _compute_fisher_matrix(self, mean: np.ndarray[Any, Any], cov: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def _compute_fisher_matrix(
+        self, mean: np.ndarray[Any, Any], cov: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """Compute Fisher Information Matrix.
 
         For Gaussian distributions, the Fisher matrix has a closed form.
@@ -107,7 +110,9 @@ class InformationGeometryDetector:
 
         return float(distance)
 
-    def detect_ood(self, test_data: np.ndarray[Any, Any], threshold: float | None = None) -> dict[str, Any]:
+    def detect_ood(
+        self, test_data: np.ndarray[Any, Any], threshold: float | None = None
+    ) -> dict[str, Any]:
         """Detect out-of-distribution samples using information geometry.
 
         Args:

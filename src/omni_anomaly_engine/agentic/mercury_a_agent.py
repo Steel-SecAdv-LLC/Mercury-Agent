@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -396,7 +397,9 @@ class MercuryReasoner:
 
         return f"Step {step_num}: Continuing analysis of {query}"
 
-    def _decide_action(self, thought: str, tools: dict[str, Callable[..., Any]]) -> tuple[str, str | None]:
+    def _decide_action(
+        self, thought: str, tools: dict[str, Callable[..., Any]]
+    ) -> tuple[str, str | None]:
         """Decide what action to take based on thought."""
         if "conclude" in thought.lower() or "final" in thought.lower():
             return "conclude", None

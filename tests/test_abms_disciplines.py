@@ -3,6 +3,7 @@ Tests for omni_anomaly_engine.medical.abms_disciplines module.
 
 Tests ABMS medical specialty-based anomaly detection.
 """
+
 from __future__ import annotations
 
 import numpy as np

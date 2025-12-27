@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -160,6 +161,7 @@ class PyODComparison:
 
         def get_priority(x: dict[str, object]) -> int:
             return int(str(x["priority"]))
+
         recommendations.sort(key=get_priority)
 
         return {
@@ -247,7 +249,9 @@ class PyODComparison:
 
         return results
 
-    def _evaluate_detector(self, detector: Any, data: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]) -> dict[str, Any]:
+    def _evaluate_detector(
+        self, detector: Any, data: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]
+    ) -> dict[str, Any]:
         """Evaluate detector performance."""
         try:
             scores = detector.predict(data)

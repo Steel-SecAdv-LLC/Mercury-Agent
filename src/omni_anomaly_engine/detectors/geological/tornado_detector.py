@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -580,10 +581,12 @@ class TornadoDetector:
                 )
 
         if self.enable_refactoring and "observed_data" in weather_data:
-            initial_prediction_str = str({
-                "confidence": result.confidence,
-                "indicators": indicators_float,
-            })
+            initial_prediction_str = str(
+                {
+                    "confidence": result.confidence,
+                    "indicators": indicators_float,
+                }
+            )
             # detect_code_anomalies expects a callable, so we pass a lambda
             refactor_result = self.refactoring_engine.detect_code_anomalies(
                 lambda: initial_prediction_str

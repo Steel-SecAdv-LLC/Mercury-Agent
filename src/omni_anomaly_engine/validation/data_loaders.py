@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -63,7 +64,9 @@ class DatasetLoader(ABC):
     """Abstract base class for dataset loaders."""
 
     @abstractmethod
-    def load(self, **kwargs: Any) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
+    def load(
+        self, **kwargs: Any
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
         """
         Load dataset and return features, labels, and metadata.
 
@@ -78,7 +81,9 @@ class DatasetLoader(ABC):
     @abstractmethod
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    ) -> tuple[
+        np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]
+    ]:
         """
         Get train/test split of the dataset.
 
@@ -246,7 +251,9 @@ class NSLKDDLoader(DatasetLoader):
 
         return self._data, self._labels, self._metadata
 
-    def _generate_synthetic(self, n_samples: int) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    def _generate_synthetic(
+        self, n_samples: int
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Generate synthetic NSL-KDD-like data for testing."""
         rng = np.random.default_rng(42)
 
@@ -281,7 +288,9 @@ class NSLKDDLoader(DatasetLoader):
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    ) -> tuple[
+        np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]
+    ]:
         """Get train/test split."""
         if self._data is None or self._labels is None:
             self.load()
@@ -544,7 +553,9 @@ class USGSEarthquakeLoader(DatasetLoader):
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    ) -> tuple[
+        np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]
+    ]:
         """Get train/test split."""
         if self._data is None or self._labels is None:
             self.load()
@@ -800,7 +811,9 @@ class MIMICLoader(DatasetLoader):
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    ) -> tuple[
+        np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]
+    ]:
         """Get train/test split."""
         if self._data is None or self._labels is None:
             self.load()
@@ -1020,7 +1033,9 @@ class NOAASpaceWeatherLoader(DatasetLoader):
 
         return data, labels
 
-    def _load_from_api(self, storm_threshold: float) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    def _load_from_api(
+        self, storm_threshold: float
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load real space weather data from NOAA SWPC API."""
         try:
             import json
@@ -1085,7 +1100,9 @@ class NOAASpaceWeatherLoader(DatasetLoader):
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    ) -> tuple[
+        np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]
+    ]:
         """Get train/test split."""
         if self._data is None or self._labels is None:
             self.load()
@@ -1285,7 +1302,9 @@ class NOAAHurricaneLoader(DatasetLoader):
 
         return data, labels
 
-    def _load_from_api(self, major_threshold: float) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    def _load_from_api(
+        self, major_threshold: float
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load real hurricane data from NOAA NHC API."""
         try:
             from urllib.request import Request
@@ -1366,7 +1385,9 @@ class NOAAHurricaneLoader(DatasetLoader):
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    ) -> tuple[
+        np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]
+    ]:
         """Get train/test split."""
         if self._data is None or self._labels is None:
             self.load()
@@ -1577,7 +1598,9 @@ class NOAAOceanLoader(DatasetLoader):
 
         return data, labels
 
-    def _load_from_api(self, heatwave_threshold: float) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    def _load_from_api(
+        self, heatwave_threshold: float
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load real ocean data from NOAA NOS API."""
         try:
             import json
@@ -1653,7 +1676,9 @@ class NOAAOceanLoader(DatasetLoader):
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
-    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    ) -> tuple[
+        np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]
+    ]:
         """Get train/test split."""
         if self._data is None or self._labels is None:
             self.load()

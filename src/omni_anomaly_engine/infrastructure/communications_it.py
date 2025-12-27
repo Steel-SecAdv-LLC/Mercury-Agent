@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -60,7 +61,9 @@ class CommunicationsITDetector:
             "exfiltration_mb_threshold": 1000,
         }
 
-    def detect(self, data: np.ndarray[Any, Any], timestamp: datetime | None = None) -> dict[str, Any]:
+    def detect(
+        self, data: np.ndarray[Any, Any], timestamp: datetime | None = None
+    ) -> dict[str, Any]:
         """Generic detection interface for communications/IT infrastructure.
 
         Args:

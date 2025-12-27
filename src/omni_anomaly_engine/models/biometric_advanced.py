@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -145,7 +146,9 @@ class BiometricFusion:
         else:
             self.transformer = None
 
-    def forward(self, neural_emb: np.ndarray[Any, Any], symbolic_score: float = 1.0) -> np.ndarray[Any, Any]:
+    def forward(
+        self, neural_emb: np.ndarray[Any, Any], symbolic_score: float = 1.0
+    ) -> np.ndarray[Any, Any]:
         """
         Fuse neural embedding with symbolic constraint score.
 
@@ -245,7 +248,9 @@ class AdvancedBiometricEngine:
             logger.error(f"Feature extraction error: {e}")
             return None
 
-    def extract_features_from_array(self, image_data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any] | None:
+    def extract_features_from_array(
+        self, image_data: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any] | None:
         """
         Extract features from numpy array image data.
 
@@ -391,7 +396,9 @@ class AdvancedBiometricEngine:
             },
         )
 
-    def fuse_with_symbolic(self, image_path: str, symbolic_data: dict[str, Any]) -> np.ndarray[Any, Any]:
+    def fuse_with_symbolic(
+        self, image_path: str, symbolic_data: dict[str, Any]
+    ) -> np.ndarray[Any, Any]:
         """
         Fuse biometric features with symbolic constraint data.
 
@@ -411,7 +418,9 @@ class AdvancedBiometricEngine:
 
         return fused
 
-    def _compute_similarity(self, features1: np.ndarray[Any, Any], features2: np.ndarray[Any, Any]) -> float:
+    def _compute_similarity(
+        self, features1: np.ndarray[Any, Any], features2: np.ndarray[Any, Any]
+    ) -> float:
         """Compute cosine similarity between feature vectors."""
         norm1 = np.linalg.norm(features1)
         norm2 = np.linalg.norm(features2)
@@ -538,7 +547,9 @@ class AgeProgressionEngine:
             logger.error(f"Embedding extraction error: {e}")
             return None
 
-    def apply_polynomial_age_filter(self, face: np.ndarray[Any, Any], age_delta: int) -> np.ndarray[Any, Any]:
+    def apply_polynomial_age_filter(
+        self, face: np.ndarray[Any, Any], age_delta: int
+    ) -> np.ndarray[Any, Any]:
         """
         Apply polynomial filters for age progression.
 
@@ -651,7 +662,9 @@ class AgeProgressionEngine:
                 timeline.append(result)
         return timeline
 
-    def _compute_similarity(self, emb1: np.ndarray[Any, Any] | None, emb2: np.ndarray[Any, Any] | None) -> float:
+    def _compute_similarity(
+        self, emb1: np.ndarray[Any, Any] | None, emb2: np.ndarray[Any, Any] | None
+    ) -> float:
         """Compute cosine similarity between embeddings."""
         if emb1 is None or emb2 is None:
             return 0.0

@@ -4,6 +4,7 @@ Copyright (C) 2025 Steel Security Advisory LLC
 
 Base classes for real-world dataset loading and management.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -220,7 +221,9 @@ class DatasetLoader(ABC):
         """
         pass
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    def load(
+        self, split: DatasetSplit = DatasetSplit.ALL
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load dataset with specified split.
 
         Args:

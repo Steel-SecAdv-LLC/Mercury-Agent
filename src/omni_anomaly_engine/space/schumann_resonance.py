@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -351,7 +352,9 @@ class SchumannResonanceDetector:
 
         return result
 
-    def _compute_power_spectrum(self, elf_signal: np.ndarray[Any, Any]) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    def _compute_power_spectrum(
+        self, elf_signal: np.ndarray[Any, Any]
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Compute power spectrum using FFT (O(n log n) complexity)"""
         n = len(elf_signal)
 
@@ -423,7 +426,9 @@ class SchumannResonanceDetector:
 
         return max_power > (mean_power + threshold)
 
-    def _detect_spectrum_shift(self, power_spectrum: np.ndarray[Any, Any], frequencies: np.ndarray[Any, Any]) -> bool:
+    def _detect_spectrum_shift(
+        self, power_spectrum: np.ndarray[Any, Any], frequencies: np.ndarray[Any, Any]
+    ) -> bool:
         """Detect significant shifts in power spectrum distribution"""
         low_band = (frequencies >= 5.0) & (frequencies <= 15.0)
         high_band = (frequencies >= 15.0) & (frequencies <= 40.0)
@@ -440,7 +445,9 @@ class SchumannResonanceDetector:
 
         return abs(ratio - expected_ratio) > (0.2 * self.golden_ratio)
 
-    def _process_temporal_history(self, temporal_history: list[np.ndarray[Any, Any]]) -> torch.Tensor:
+    def _process_temporal_history(
+        self, temporal_history: list[np.ndarray[Any, Any]]
+    ) -> torch.Tensor:
         """Process temporal history of spectra"""
         sequence_length = min(len(temporal_history), 10)
 
@@ -477,7 +484,9 @@ class SchumannResonanceDetector:
 
         return events[:6]
 
-    def _analyze_temporal_pattern(self, temporal_history: list[np.ndarray[Any, Any]]) -> dict[str, Any]:
+    def _analyze_temporal_pattern(
+        self, temporal_history: list[np.ndarray[Any, Any]]
+    ) -> dict[str, Any]:
         """Analyze temporal evolution of resonance patterns"""
         if not temporal_history or len(temporal_history) < 2:
             return {}

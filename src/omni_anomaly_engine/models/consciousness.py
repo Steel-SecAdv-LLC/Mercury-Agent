@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """Consciousness preservation model."""
@@ -49,7 +50,9 @@ class ConsciousnessPreservationModel:
 
         return pattern_states
 
-    def _measure_pattern_coherence(self, pattern_states: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def _measure_pattern_coherence(
+        self, pattern_states: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """Measure coherence of pattern states using quantum coherence metrics."""
         batch_size = pattern_states.shape[0]
         coherence = np.zeros(batch_size, dtype=np.float32)

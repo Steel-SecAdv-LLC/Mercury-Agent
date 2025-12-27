@@ -3,6 +3,7 @@ Tests for omni_anomaly_engine.utils.constants module.
 
 Tests mathematical constants, precision handling, and validation.
 """
+
 from __future__ import annotations
 
 import math

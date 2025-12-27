@@ -10,6 +10,7 @@ References:
 - Solar Dynamics Observatory: https://sdo.gsfc.nasa.gov/
 - Breakthrough Listen: https://breakthroughinitiatives.org/initiative/1
 """
+
 from __future__ import annotations
 
 import logging

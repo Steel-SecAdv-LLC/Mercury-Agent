@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -104,7 +105,9 @@ class EnergyDamsDetector:
             return self.detect_grid_anomaly(grid_data, timestamps)
 
     def detect_grid_anomaly(
-        self, grid_data: dict[str, np.ndarray[Any, Any]], timestamps: np.ndarray[Any, Any] | None = None
+        self,
+        grid_data: dict[str, np.ndarray[Any, Any]],
+        timestamps: np.ndarray[Any, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Detect power grid anomalies.
@@ -260,7 +263,9 @@ class EnergyDamsDetector:
         else:
             return "WARNING"
 
-    def _assess_downstream_impact(self, anomalies: dict[str, Any], water_level: float) -> dict[str, Any]:
+    def _assess_downstream_impact(
+        self, anomalies: dict[str, Any], water_level: float
+    ) -> dict[str, Any]:
         """Assess impact on downstream communities."""
         if any(a.get("severity") == "CRITICAL" for a in anomalies.values()):
             return {
@@ -271,7 +276,9 @@ class EnergyDamsDetector:
 
         return {"risk": "LOW", "population_at_risk": "LOW"}
 
-    def _generate_grid_recommendations(self, anomalies: dict[str, Any], cascading_risk: dict[str, Any]) -> list[str]:
+    def _generate_grid_recommendations(
+        self, anomalies: dict[str, Any], cascading_risk: dict[str, Any]
+    ) -> list[str]:
         """Generate grid anomaly recommendations."""
         if not anomalies:
             return ["Continue normal operations"]

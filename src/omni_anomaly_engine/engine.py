@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """Main OmniAvaEngine orchestrating all detectors and models.
@@ -720,7 +721,9 @@ class OmniAvaEngine:
         else:
             return torch.full((batch_size, 1), float(scores), dtype=torch.float32)
 
-    def _extract_detector_features(self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]) -> tuple[Any, ...]:
+    def _extract_detector_features(
+        self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
+    ) -> tuple[Any, ...]:
         """Extract features from all detectors.
 
         This method extracts feature vectors from all base detectors
@@ -770,7 +773,9 @@ class OmniAvaEngine:
 
         return detector_features, detector_scores
 
-    def _extract_model_features(self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]) -> tuple[Any, ...]:
+    def _extract_model_features(
+        self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
+    ) -> tuple[Any, ...]:
         """Extract features from all specialized models.
 
         This method extracts feature vectors from all 13 specialized
@@ -815,7 +820,9 @@ class OmniAvaEngine:
 
         return model_features, model_scores
 
-    def _extract_features_parallel(self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]) -> tuple[Any, ...]:
+    def _extract_features_parallel(
+        self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
+    ) -> tuple[Any, ...]:
         """Extract features from all sources in parallel.
 
         This method uses thread pool execution to extract features

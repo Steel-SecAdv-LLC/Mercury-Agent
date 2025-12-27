@@ -9,6 +9,7 @@ References:
 - CICIDS 2017/2018: https://www.unb.ca/cic/datasets/ids-2017.html
 - MITRE ATT&CK: https://attack.mitre.org/
 """
+
 from __future__ import annotations
 
 import logging

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -276,7 +277,9 @@ class PatchCoreDetector(BaseVisualDetector):
             )
             self._nn_index.fit(embeddings_np)
 
-    def _query_nn(self, query: torch.Tensor, k: int) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    def _query_nn(
+        self, query: torch.Tensor, k: int
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Query k-nearest neighbors.
 
         Args:

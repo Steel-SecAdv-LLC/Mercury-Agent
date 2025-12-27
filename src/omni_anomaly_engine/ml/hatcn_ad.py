@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -39,7 +40,9 @@ from torch import nn
 class TemporalBlock(nn.Module):
     """Dilated causal convolutional block."""
 
-    def __init__(self, in_channels: int, out_channels: int, kernel_size: int, dilation: int) -> None:
+    def __init__(
+        self, in_channels: int, out_channels: int, kernel_size: int, dilation: int
+    ) -> None:
         super().__init__()
 
         padding = (kernel_size - 1) * dilation

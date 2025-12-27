@@ -18,6 +18,7 @@ These metrics are used in papers like:
 - DAGMM (ICLR 2018)
 - TranAD (VLDB 2022)
 """
+
 from __future__ import annotations
 
 import logging
@@ -222,7 +223,9 @@ def compute_f1(y_true: np.ndarray[Any, Any], y_pred: np.ndarray[Any, Any]) -> fl
     return float(2 * precision * recall / (precision + recall))
 
 
-def compute_precision_at_k(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any], k: int) -> float:
+def compute_precision_at_k(
+    y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any], k: int
+) -> float:
     """
     Compute Precision@K.
 

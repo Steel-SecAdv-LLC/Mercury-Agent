@@ -10,7 +10,9 @@ automatically to find edge cases and bugs.
 
 Reference: Hypothesis documentation (https://hypothesis.readthedocs.io/)
 """
+
 from __future__ import annotations
+
 from typing import Any
 
 import numpy as np

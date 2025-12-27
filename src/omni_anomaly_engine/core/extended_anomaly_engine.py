@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -79,7 +80,9 @@ class EvolutionEngine:
     ) -> float:
         return float(fitness_fn(individual))
 
-    def evolve_generation(self, fitness_fn: Callable[[np.ndarray[Any, Any]], float]) -> dict[str, Any]:
+    def evolve_generation(
+        self, fitness_fn: Callable[[np.ndarray[Any, Any]], float]
+    ) -> dict[str, Any]:
         fitness_scores = np.array(
             [self.evaluate_fitness(ind, fitness_fn) for ind in self.population]
         )
@@ -255,7 +258,9 @@ class OmniAva:
 
         logging.info("OMNI ♱ AVA initialized with full integration")
 
-    def detect_anomaly(self, data: np.ndarray[Any, Any], use_3r_enhancement: bool = True) -> dict[str, Any]:
+    def detect_anomaly(
+        self, data: np.ndarray[Any, Any], use_3r_enhancement: bool = True
+    ) -> dict[str, Any]:
         enhanced_data = data
 
         if use_3r_enhancement and self.config.enable_3r_mechanism and self.three_r:

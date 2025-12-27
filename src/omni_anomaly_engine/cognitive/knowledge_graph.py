@@ -7,6 +7,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
+
 from __future__ import annotations
 
 """
@@ -593,7 +594,9 @@ class KnowledgeGraph:
         self._edges: dict[str, list[KnowledgeEdge]] = defaultdict[str, list[Any]](list)
         self._reverse_edges: dict[str, list[KnowledgeEdge]] = defaultdict[str, list[Any]](list)
         self._type_index: dict[NodeType, set[str]] = defaultdict[str, set[Any]](set)
-        self._edge_type_index: dict[EdgeType, list[KnowledgeEdge]] = defaultdict[str, list[Any]](list)
+        self._edge_type_index: dict[EdgeType, list[KnowledgeEdge]] = defaultdict[str, list[Any]](
+            list
+        )
 
         # Embedding components
         self._random_walk = RandomWalkEmbedding(embedding_dim=embedding_dim)

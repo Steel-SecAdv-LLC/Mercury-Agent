@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -42,7 +43,9 @@ class SphericalHarmonicDecomposer:
         self.l_max = l_max
         self.num_coefficients = (l_max + 1) ** 2
 
-    def decompose_surface(self, points: np.ndarray[Any, Any], values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def decompose_surface(
+        self, points: np.ndarray[Any, Any], values: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """
         Decompose 3D surface into spherical harmonic coefficients
 
@@ -72,7 +75,10 @@ class SphericalHarmonicDecomposer:
         return coefficients
 
     def reconstruct_surface(
-        self, coefficients: np.ndarray[Any, Any], theta: np.ndarray[Any, Any], phi: np.ndarray[Any, Any]
+        self,
+        coefficients: np.ndarray[Any, Any],
+        theta: np.ndarray[Any, Any],
+        phi: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
         """
         Reconstruct surface from spherical harmonic coefficients
@@ -101,7 +107,9 @@ class SphericalHarmonicDecomposer:
 
         return reconstruction.real
 
-    def compute_rotation_invariant_features(self, coefficients: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def compute_rotation_invariant_features(
+        self, coefficients: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """
         Compute rotation-invariant features from spherical harmonic coefficients
         Uses power spectrum which is rotation-invariant
@@ -124,7 +132,9 @@ class SphericalHarmonicDecomposer:
 
         return power_spectrum
 
-    def _cartesian_to_spherical(self, points: np.ndarray[Any, Any]) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    def _cartesian_to_spherical(
+        self, points: np.ndarray[Any, Any]
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Convert Cartesian coordinates to spherical (theta, phi)
 
@@ -253,7 +263,9 @@ class QuantumHarmonicOscillator:
 
         return psi
 
-    def evolve_state(self, psi_0: np.ndarray[Any, Any], t: float, n_max: int = 10) -> np.ndarray[Any, Any]:
+    def evolve_state(
+        self, psi_0: np.ndarray[Any, Any], t: float, n_max: int = 10
+    ) -> np.ndarray[Any, Any]:
         """
         Evolve quantum state in time
 

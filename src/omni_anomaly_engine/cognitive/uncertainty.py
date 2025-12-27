@@ -7,6 +7,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
+
 from __future__ import annotations
 
 """
@@ -407,7 +408,9 @@ class HeteroscedasticEstimator:
         self._residuals: deque[float] = deque(maxlen=1000)
         self._features: deque[np.ndarray[Any, Any]] = deque(maxlen=1000)
 
-    def update(self, prediction: float, true_value: float, features: np.ndarray[Any, Any] | None = None) -> None:
+    def update(
+        self, prediction: float, true_value: float, features: np.ndarray[Any, Any] | None = None
+    ) -> None:
         """Store residual for variance estimation."""
         residual = true_value - prediction
         self._residuals.append(residual)

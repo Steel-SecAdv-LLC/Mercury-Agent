@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -62,7 +63,10 @@ class GreyWolfOptimizer:
         self.delta_score = float("inf")
 
     def optimize(
-        self, objective_func: Callable[[np.ndarray[Any, Any]], float], lb: np.ndarray[Any, Any], ub: np.ndarray[Any, Any]
+        self,
+        objective_func: Callable[[np.ndarray[Any, Any]], float],
+        lb: np.ndarray[Any, Any],
+        ub: np.ndarray[Any, Any],
     ) -> tuple[np.ndarray[Any, Any], float]:
         """
         Optimize using GWO algorithm.
@@ -78,7 +82,9 @@ class GreyWolfOptimizer:
         dim = len(lb)
 
         # Use numpy random for array-based uniform sampling
-        positions = np.random.default_rng(self._rng.randint(0, 2**31)).uniform(lb, ub, (self.n_wolves, dim))
+        positions = np.random.default_rng(self._rng.randint(0, 2**31)).uniform(
+            lb, ub, (self.n_wolves, dim)
+        )
 
         for iteration in range(self.max_iter):
             for i in range(self.n_wolves):
@@ -139,7 +145,9 @@ class GreyWolfOptimizer:
         assert self.alpha_pos is not None, "Alpha position must be set after optimization"
         return self.alpha_pos, self.alpha_score
 
-    def select_features(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any], clf: Any, n_features: int) -> np.ndarray[Any, Any]:
+    def select_features(
+        self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any], clf: Any, n_features: int
+    ) -> np.ndarray[Any, Any]:
         """
         Select optimal feature subset using GWO.
 

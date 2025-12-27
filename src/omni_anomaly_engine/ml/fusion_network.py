@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -56,7 +57,9 @@ class FusionNetwork(nn.Module):
     then fuses them through a learned fusion layer for unified representation.
     """
 
-    def __init__(self, input_dims: list[int], output_dim: int, hidden_dim: int | None = None) -> None:
+    def __init__(
+        self, input_dims: list[int], output_dim: int, hidden_dim: int | None = None
+    ) -> None:
         """Initialize fusion network.
 
         Args:

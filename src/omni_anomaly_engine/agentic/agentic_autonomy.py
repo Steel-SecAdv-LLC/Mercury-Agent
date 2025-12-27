@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -78,7 +79,9 @@ class AgenticAutonomy:
         self.action_history: list[AgentAction] = []
         self.decision_threshold = 1.0 - autonomy_level
 
-    def autonomous_detect(self, data: np.ndarray[Any, Any], context: dict | None = None) -> dict[str, Any]:
+    def autonomous_detect(
+        self, data: np.ndarray[Any, Any], context: dict | None = None
+    ) -> dict[str, Any]:
         """
         Autonomously detect anomalies with minimal human oversight.
 
@@ -151,7 +154,9 @@ class AgenticAutonomy:
             return "decreasing"
         return "stable"
 
-    def execute_workflow(self, workflow_definition: dict[str, Any], input_data: np.ndarray[Any, Any]) -> dict[str, Any]:
+    def execute_workflow(
+        self, workflow_definition: dict[str, Any], input_data: np.ndarray[Any, Any]
+    ) -> dict[str, Any]:
         """
         Execute complete workflow autonomously.
 
@@ -257,7 +262,9 @@ class AgenticAutonomy:
 
         return workflow_results
 
-    def _apply_transformation(self, data: np.ndarray[Any, Any], transformation: str) -> np.ndarray[Any, Any]:
+    def _apply_transformation(
+        self, data: np.ndarray[Any, Any], transformation: str
+    ) -> np.ndarray[Any, Any]:
         """Apply data transformation."""
         if transformation == "normalize":
             return (data - np.mean(data)) / (np.std(data) + 1e-8)

@@ -19,6 +19,7 @@ Implements OWASP input validation guidelines:
 Reference: OWASP Input Validation Cheat Sheet
 https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html
 """
+
 from __future__ import annotations
 
 import html

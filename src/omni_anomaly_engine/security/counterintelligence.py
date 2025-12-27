@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -240,7 +241,9 @@ class OverwatchNexus:
 
         return float(purity)
 
-    def _apply_ethical_rollback(self, fusion_result: IntelligenceFusionResult) -> OverwatchNexusResult:
+    def _apply_ethical_rollback(
+        self, fusion_result: IntelligenceFusionResult
+    ) -> OverwatchNexusResult:
         """
         Apply ethical rollback when Purity Invariant violated.
 

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -95,7 +96,9 @@ class ECGRhythmAnalyzer(nn.Module):
     Architecture inspired by PTB-XL and MIT-BIH research.
     """
 
-    def __init__(self, input_length: int = 1000, num_leads: int = 12, num_classes: int = 13) -> None:
+    def __init__(
+        self, input_length: int = 1000, num_leads: int = 12, num_classes: int = 13
+    ) -> None:
         super().__init__()
 
         self.conv_layers = nn.Sequential(

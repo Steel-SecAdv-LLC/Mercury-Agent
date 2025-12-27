@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """CISA National Critical Functions (NCF) anomaly detection.
@@ -136,7 +137,9 @@ class NCFMonitor:
             ],
         }
 
-    def detect(self, data: np.ndarray[Any, Any], ncf_id: str, context: dict | None = None) -> dict[str, Any]:
+    def detect(
+        self, data: np.ndarray[Any, Any], ncf_id: str, context: dict | None = None
+    ) -> dict[str, Any]:
         """Detect anomalies for specific NCF.
 
         Args:

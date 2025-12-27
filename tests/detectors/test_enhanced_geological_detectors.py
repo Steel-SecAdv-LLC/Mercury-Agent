@@ -14,6 +14,7 @@ Covers:
 - WildfireDetector with CNN/NDVI processing and 3R Resonance synapse
 - VolcanicEruptionDetector with HMM state transitions and 3R Refactoring synapse
 """
+
 from __future__ import annotations
 
 import numpy as np

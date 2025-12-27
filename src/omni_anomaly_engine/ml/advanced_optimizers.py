@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -146,7 +147,9 @@ class SyntheticGradientPredictor:
         output = h2 @ self.w3 + self.b3
         return output
 
-    def update(self, predicted_grad: np.ndarray[Any, Any], true_grad: np.ndarray[Any, Any]) -> float:
+    def update(
+        self, predicted_grad: np.ndarray[Any, Any], true_grad: np.ndarray[Any, Any]
+    ) -> float:
         """
         Update predictor with true gradient.
 
@@ -172,7 +175,9 @@ class SyntheticGradientPredictor:
 
         return loss.item()
 
-    def _update_numpy(self, predicted_grad: np.ndarray[Any, Any], true_grad: np.ndarray[Any, Any]) -> float:
+    def _update_numpy(
+        self, predicted_grad: np.ndarray[Any, Any], true_grad: np.ndarray[Any, Any]
+    ) -> float:
         """Numpy update (simplified gradient descent)."""
         error = predicted_grad - true_grad
         mse = float(np.mean(error**2))
@@ -329,7 +334,9 @@ class DifferenceTargetPropagation:
         output = self.forward_layer(x_tensor)
         return np.asarray(output.detach().numpy())
 
-    def backward_pass(self, h_current: np.ndarray[Any, Any], target: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def backward_pass(
+        self, h_current: np.ndarray[Any, Any], target: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """
         Compute target for previous layer via inverse mapping.
 

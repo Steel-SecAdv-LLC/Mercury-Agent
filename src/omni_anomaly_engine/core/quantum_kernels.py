@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """Quantum Kernel Machines for Anomaly Detection.
@@ -110,7 +111,9 @@ class QuantumKernelMachine:
         return float(np.exp(-self.gamma * np.linalg.norm(x1 - x2) ** 2))
 
     def compute_kernel_matrix(
-        self, X: np.ndarray[Any, Any], kernel_func: Callable[[np.ndarray[Any, Any], np.ndarray[Any, Any]], float] | None = None
+        self,
+        X: np.ndarray[Any, Any],
+        kernel_func: Callable[[np.ndarray[Any, Any], np.ndarray[Any, Any]], float] | None = None,
     ) -> np.ndarray[Any, Any]:
         """Compute kernel matrix for dataset.
 

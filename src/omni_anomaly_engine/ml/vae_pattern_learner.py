@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -37,7 +38,9 @@ from torch import nn
 class VAE(nn.Module):
     """Variational Autoencoder for pattern learning."""
 
-    def __init__(self, input_dim: int, latent_dim: int = 32, hidden_dims: list[int] | None = None) -> None:
+    def __init__(
+        self, input_dim: int, latent_dim: int = 32, hidden_dims: list[int] | None = None
+    ) -> None:
         super().__init__()
 
         if hidden_dims is None:
