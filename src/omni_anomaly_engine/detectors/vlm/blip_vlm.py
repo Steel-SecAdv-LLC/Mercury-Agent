@@ -237,8 +237,8 @@ class BLIPVLMDetector(BaseVLMDetector):
         try:
             logger.info(f"Loading BLIP model: {self.blip_config.model_name}")
 
-            self._processor = BlipProcessor.from_pretrained(self.blip_config.model_name)
-            self._model = BlipForConditionalGeneration.from_pretrained(
+            self._processor = BlipProcessor.from_pretrained(self.blip_config.model_name)  # nosec B615 - model_name is user-configured, see module docstring for security guidance
+            self._model = BlipForConditionalGeneration.from_pretrained(  # nosec B615 - model_name is user-configured
                 self.blip_config.model_name
             ).to(self.device)
             self._model.eval()

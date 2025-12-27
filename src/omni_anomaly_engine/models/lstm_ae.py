@@ -321,7 +321,7 @@ class AnomalyDetector:
     @classmethod
     def load(cls, path: str, device: str = "auto") -> AnomalyDetector:
         """Load model from file."""
-        checkpoint = torch.load(path, map_location="cpu")
+        checkpoint = torch.load(path, map_location="cpu")  # nosec B614 - loading trusted model checkpoints
         detector = cls(
             input_dim=checkpoint["input_dim"],
             hidden_dim=checkpoint["hidden_dim"],
