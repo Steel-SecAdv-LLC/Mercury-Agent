@@ -39,7 +39,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -61,7 +61,7 @@ class FallbackReason(Enum):
 
 
 @dataclass
-class FallbackResult[T]:
+class FallbackResult(Generic[T]):
     """Result from fallback chain execution.
 
     Attributes:

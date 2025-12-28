@@ -159,12 +159,13 @@ jobs:
 
       - name: Run Safety (dependency vulnerabilities)
         # Safety check scans requirements file directly without installing heavy ML deps
+        # Note: safety 3.x changed --output to expect format type, so we redirect to file
         run: |
-          safety check -r requirements.txt --json --output safety-report.json
+          safety check -r requirements.txt --output json > safety-report.json
 
       - name: Run pip-audit
         # pip-audit scans requirements file directly without installing heavy ML deps
-        run: pip-audit -r requirements.txt --json --output pip-audit-report.json
+        run: pip-audit -r requirements.txt --format json --output pip-audit-report.json
 
       - name: Run Semgrep
         # Semgrep security scan is now blocking - fails on security issues
