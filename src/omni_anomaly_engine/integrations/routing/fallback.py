@@ -61,7 +61,7 @@ class FallbackReason(Enum):
 
 
 @dataclass
-class FallbackResult(Generic[T]):
+class FallbackResult(Generic[T]):  # noqa: UP046 - Generic[T] required for Python 3.11 compatibility
     """Result from fallback chain execution.
 
     Attributes:
