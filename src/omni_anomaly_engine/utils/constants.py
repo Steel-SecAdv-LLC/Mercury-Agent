@@ -150,8 +150,8 @@ class MathConstant:
                     sympy_value = _evaluate_sympy_constant(sympy_name)
                     if sympy_value is not None:
                         return abs(self.value - sympy_value) < tolerance
-                except Exception:
-                    pass
+                except (ValueError, TypeError, AttributeError):
+                    return True
 
         return True
 

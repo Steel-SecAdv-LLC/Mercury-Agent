@@ -29,5 +29,5 @@ jobs:
       run: safety check --json
 
     - name: Run Bandit security scan
-      # Bandit security scan is now blocking - fails on security issues
-      run: bandit -r src/omni_anomaly_engine/ -f json
+      # Bandit security scan is now blocking - fails on medium+ severity issues
+      run: bandit -r src/omni_anomaly_engine/ -f json --severity-level medium

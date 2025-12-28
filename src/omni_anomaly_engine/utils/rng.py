@@ -106,10 +106,14 @@ class DeterministicRNG:
 
         Returns:
             NumPy Generator instance
+
+        Raises:
+            RuntimeError: If RNG is not initialized after set_seed call
         """
         if not self._initialized:
             self.set_seed(self._seed or 42)
-        assert self._numpy_rng is not None
+        if self._numpy_rng is None:
+            raise RuntimeError("NumPy RNG not initialized after set_seed call")
         return self._numpy_rng
 
     def randn(self, *shape: int, dtype: type = np.float64) -> np.ndarray[Any, Any]:

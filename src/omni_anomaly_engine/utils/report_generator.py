@@ -214,7 +214,7 @@ class ReportGenerator:
         if self._template:
             try:
                 return self._template.replace("{{ title }}", str(data.get("title", "")))
-            except Exception:
+            except (TypeError, AttributeError):
                 pass
 
         lines = []
