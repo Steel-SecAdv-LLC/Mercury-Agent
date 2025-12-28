@@ -81,7 +81,7 @@ class BiometricAnomalyModel:
 
     def _extract_harmonic_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract features using harmonic decomposition and Fourier analysis."""
-        if not isinstance(data, np.ndarray[Any, Any]):
+        if not isinstance(data, np.ndarray):
             data = np.array(data)
 
         if data.ndim == 3:
@@ -183,7 +183,7 @@ class BiometricAnomalyModel:
         if isinstance(data, dict):
             data = data["reference"] if "reference" in data else np.array(next(iter(data.values())))
 
-        if not isinstance(data, np.ndarray[Any, Any]):
+        if not isinstance(data, np.ndarray):
             data = np.array(data)
 
         if data.ndim == 1:
@@ -207,7 +207,7 @@ class BiometricAnomalyModel:
         features = self._normalize_embedding_size(features)
 
         if TORCH_AVAILABLE:
-            if isinstance(features, np.ndarray[Any, Any]):
+            if isinstance(features, np.ndarray):
                 return torch.from_numpy(features)
             return features
         return features
@@ -232,7 +232,7 @@ class BiometricAnomalyModel:
             else:
                 data = np.array([])
 
-        if not isinstance(data, np.ndarray[Any, Any]):
+        if not isinstance(data, np.ndarray):
             data = np.array(data)
 
         if DeepFace is not None:

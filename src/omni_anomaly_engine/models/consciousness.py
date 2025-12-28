@@ -93,7 +93,7 @@ class ConsciousnessPreservationModel:
         """Extract consciousness-related features from data."""
         if isinstance(data, dict):
             data = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray[Any, Any]):
+        elif not isinstance(data, np.ndarray):
             data = np.array(data)
 
         if data.ndim == 1:
@@ -122,7 +122,7 @@ class ConsciousnessPreservationModel:
         """Predict consciousness state anomalies."""
         if isinstance(data, dict):
             data_array = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray[Any, Any]):
+        elif not isinstance(data, np.ndarray):
             data_array = np.array(data)
         else:
             data_array = data

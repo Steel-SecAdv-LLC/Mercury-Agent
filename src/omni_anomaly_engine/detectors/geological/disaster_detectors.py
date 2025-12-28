@@ -508,7 +508,7 @@ class TsunamiDetector:
         Returns:
             TsunamiPredictionResult with detection details
         """
-        if isinstance(waveform_data, np.ndarray[Any, Any]):
+        if isinstance(waveform_data, np.ndarray):
             waveform_data = torch.from_numpy(waveform_data).float()
 
         if waveform_data.dim() == 1:
@@ -1106,7 +1106,7 @@ class SolarFlareDetector:
         Returns:
             SolarFlarePredictionResult with detection details
         """
-        if isinstance(x_ray_flux, np.ndarray[Any, Any]):
+        if isinstance(x_ray_flux, np.ndarray):
             current_flux = float(x_ray_flux[-1])
             flux_trend = np.diff(x_ray_flux).mean() if len(x_ray_flux) > 1 else 0
         else:
@@ -1161,7 +1161,7 @@ class SolarFlareDetector:
         if proton_flux is None:
             return 0.0
 
-        if isinstance(proton_flux, np.ndarray[Any, Any]):
+        if isinstance(proton_flux, np.ndarray):
             agg_func = self._agg_funcs.get(self.proton_flux_agg_method, np.max)
             return float(agg_func(proton_flux))
         else:
@@ -1254,7 +1254,7 @@ class SolarFlareDetector:
         """Extract features for fusion pipeline."""
         features = np.zeros(FEATURE_DIM)
 
-        if isinstance(x_ray_flux, np.ndarray[Any, Any]):
+        if isinstance(x_ray_flux, np.ndarray):
             features[0] = np.mean(x_ray_flux)
             features[1] = np.std(x_ray_flux)
             features[2] = np.max(x_ray_flux)
@@ -1264,7 +1264,7 @@ class SolarFlareDetector:
             features[3] = np.log10(x_ray_flux + 1e-10) + 10
 
         if proton_flux is not None:
-            if isinstance(proton_flux, np.ndarray[Any, Any]):
+            if isinstance(proton_flux, np.ndarray):
                 features[4] = np.mean(proton_flux)
             else:
                 features[4] = proton_flux

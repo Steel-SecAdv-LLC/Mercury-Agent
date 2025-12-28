@@ -133,7 +133,7 @@ class NeuralCognitiveModel:
         """Extract neural cognitive features from data."""
         if isinstance(data, dict):
             data = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray[Any, Any]):
+        elif not isinstance(data, np.ndarray):
             data = np.array(data)
 
         if data.ndim == 1:
@@ -149,7 +149,7 @@ class NeuralCognitiveModel:
         """Predict neural cognitive anomalies."""
         if isinstance(data, dict):
             data_array = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray[Any, Any]):
+        elif not isinstance(data, np.ndarray):
             data_array = np.array(data)
         else:
             data_array = data

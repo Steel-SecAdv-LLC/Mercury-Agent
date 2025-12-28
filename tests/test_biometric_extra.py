@@ -65,7 +65,7 @@ def test_biometric_harmonic_features_error_handling():
     invalid_img = np.random.randint(0, 255, (5, 5), dtype=np.uint8)
 
     features = model._extract_harmonic_features(invalid_img)
-    assert isinstance(features, np.ndarray[Any, Any])
+    assert isinstance(features, np.ndarray)
 
 
 def test_biometric_config_variants():

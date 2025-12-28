@@ -43,7 +43,7 @@ class AffectiveAnomalyModel:
         """Extract affective features from data."""
         if isinstance(data, dict):
             data = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray[Any, Any]):
+        elif not isinstance(data, np.ndarray):
             data = np.array(data)
 
         if data.ndim == 1:

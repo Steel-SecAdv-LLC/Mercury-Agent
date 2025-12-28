@@ -159,7 +159,7 @@ class ChronosAdapter(BaseFoundationModel):
         """
         self._ensure_initialized()
 
-        if isinstance(series, np.ndarray[Any, Any]):
+        if isinstance(series, np.ndarray):
             series = torch.from_numpy(series).float()
 
         if series.dim() == 1:

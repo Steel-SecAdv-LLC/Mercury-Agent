@@ -113,7 +113,7 @@ def test_biometric_harmonic_features_disabled():
     image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
     features = model._extract_harmonic_features(image)
 
-    assert isinstance(features, np.ndarray[Any, Any])
+    assert isinstance(features, np.ndarray)
 
 
 def test_biometric_deepface_import_error():

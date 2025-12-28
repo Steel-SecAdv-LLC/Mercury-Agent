@@ -68,7 +68,7 @@ class TestRecursionEngine:
         features = engine.hierarchical_feature_extraction(data, num_levels=3)
 
         assert len(features) == 3
-        assert all(isinstance(f, np.ndarray[Any, Any]) for f in features)
+        assert all(isinstance(f, np.ndarray) for f in features)
 
     def test_hierarchical_feature_extraction_2d(self):
         engine = RecursionEngine()
@@ -77,7 +77,7 @@ class TestRecursionEngine:
         features = engine.hierarchical_feature_extraction(data, num_levels=2)
 
         assert len(features) == 2
-        assert all(isinstance(f, np.ndarray[Any, Any]) for f in features)
+        assert all(isinstance(f, np.ndarray) for f in features)
 
     def test_extract_level_features_small_data(self):
         engine = RecursionEngine()
@@ -85,7 +85,7 @@ class TestRecursionEngine:
 
         features = engine._extract_level_features(data, level=0)
 
-        assert isinstance(features, np.ndarray[Any, Any])
+        assert isinstance(features, np.ndarray)
 
     def test_sliding_window_stats_small_window(self):
         engine = RecursionEngine()
@@ -93,7 +93,7 @@ class TestRecursionEngine:
 
         features = engine._sliding_window_stats(data, window_size=5)
 
-        assert isinstance(features, np.ndarray[Any, Any])
+        assert isinstance(features, np.ndarray)
 
     def test_downsample_small_data(self):
         engine = RecursionEngine()
@@ -137,7 +137,7 @@ class TestResonanceEngine:
         )
 
         assert len(amplified) == len(signal)
-        assert isinstance(amplified, np.ndarray[Any, Any])
+        assert isinstance(amplified, np.ndarray)
 
     def test_amplify_resonant_frequencies_auto_detect(self):
         engine = ResonanceEngine(sampling_rate=1.0)
@@ -274,7 +274,7 @@ class TestThreeRMechanism:
 
         enhanced = mechanism.enhance_features(data, enable_recursion=True, enable_resonance=True)
 
-        assert isinstance(enhanced, np.ndarray[Any, Any])
+        assert isinstance(enhanced, np.ndarray)
         assert enhanced.size > 0
 
     def test_enhance_features_recursion_only(self):
@@ -283,7 +283,7 @@ class TestThreeRMechanism:
 
         enhanced = mechanism.enhance_features(data, enable_recursion=True, enable_resonance=False)
 
-        assert isinstance(enhanced, np.ndarray[Any, Any])
+        assert isinstance(enhanced, np.ndarray)
         assert enhanced.size > 0
 
     def test_enhance_features_short_signal(self):
@@ -292,7 +292,7 @@ class TestThreeRMechanism:
 
         enhanced = mechanism.enhance_features(data, enable_recursion=True, enable_resonance=True)
 
-        assert isinstance(enhanced, np.ndarray[Any, Any])
+        assert isinstance(enhanced, np.ndarray)
 
     def test_detect_with_resonance(self):
         mechanism = ThreeRMechanism()
@@ -329,7 +329,7 @@ class TestThreeRMechanism:
             initial_scores, refinement_fn, max_iterations=3
         )
 
-        assert isinstance(refined, np.ndarray[Any, Any])
+        assert isinstance(refined, np.ndarray)
         assert refined.shape == initial_scores.shape
 
 

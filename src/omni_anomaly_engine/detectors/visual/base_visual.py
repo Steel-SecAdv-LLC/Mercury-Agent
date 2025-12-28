@@ -168,7 +168,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         Returns:
             Normalized tensor [B, 3, H, W] on device
         """
-        if isinstance(images, np.ndarray[Any, Any]):
+        if isinstance(images, np.ndarray):
             images = torch.from_numpy(images).float()
 
         # Handle channel-last format

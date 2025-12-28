@@ -50,7 +50,7 @@ def test_acoustic_sensing():
     assert "depth_profile" in result
     assert "time_of_flight" in result
     assert "signal_strength" in result
-    assert isinstance(result["reflection_pattern"], np.ndarray[Any, Any])
+    assert isinstance(result["reflection_pattern"], np.ndarray)
 
 
 def test_wave_pattern_analysis():
@@ -80,7 +80,7 @@ def test_depth_based_stratification():
     assert "surface" in stratified
     assert "mid_level" in stratified
     assert "deep" in stratified
-    assert all(isinstance(v, np.ndarray[Any, Any]) for v in stratified.values())
+    assert all(isinstance(v, np.ndarray) for v in stratified.values())
     assert all(len(v) == 4 for v in stratified.values())
 
 
@@ -96,7 +96,7 @@ def test_multi_sensor_fusion():
 
     fused = system.multi_sensor_fusion(sensor_data)
 
-    assert isinstance(fused, np.ndarray[Any, Any])
+    assert isinstance(fused, np.ndarray)
     assert len(fused) == 12
 
 
@@ -110,7 +110,7 @@ def test_multi_sensor_fusion_with_weights():
 
     fused = system.multi_sensor_fusion(sensor_data, weights)
 
-    assert isinstance(fused, np.ndarray[Any, Any])
+    assert isinstance(fused, np.ndarray)
     assert len(fused) == 8
 
 

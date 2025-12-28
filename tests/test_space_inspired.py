@@ -74,7 +74,7 @@ def test_debris_filtering():
     filtered = system.debris_filtering(noisy_data, noise_threshold=0.2)
 
     assert filtered.shape == noisy_data.shape
-    assert isinstance(filtered, np.ndarray[Any, Any])
+    assert isinstance(filtered, np.ndarray)
 
 
 def test_trajectory_optimization():
@@ -87,7 +87,7 @@ def test_trajectory_optimization():
     pathway = system.trajectory_optimization(start, goal, constraints={"max_steps": 20})
 
     assert len(pathway) > 0
-    assert isinstance(pathway[0], np.ndarray[Any, Any])
+    assert isinstance(pathway[0], np.ndarray)
     assert np.allclose(pathway[0], start, atol=0.1)
 
 

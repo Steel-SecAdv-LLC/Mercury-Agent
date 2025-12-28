@@ -56,7 +56,7 @@ def test_stage_2_expression():
     signature = system.stage_1_acquisition(anomaly_data)
     detection_pattern = system.stage_2_expression(signature)
 
-    assert isinstance(detection_pattern, np.ndarray[Any, Any])
+    assert isinstance(detection_pattern, np.ndarray)
     assert len(detection_pattern) == len(signature.feature_vector)
     assert np.abs(np.linalg.norm(detection_pattern) - 1.0) < 0.01
 

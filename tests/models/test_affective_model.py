@@ -68,7 +68,7 @@ class TestFeatureExtraction:
         data = np.random.randn(10, 20)
         features = model.extract_features(data)
 
-        assert isinstance(features, np.ndarray[Any, Any])
+        assert isinstance(features, np.ndarray)
         assert features.dtype == np.float32
         assert features.shape == (10, 64)
 
@@ -77,7 +77,7 @@ class TestFeatureExtraction:
         data = np.random.randn(100)
         features = model.extract_features(data)
 
-        assert isinstance(features, np.ndarray[Any, Any])
+        assert isinstance(features, np.ndarray)
         assert features.shape == (1, 64)
 
     def test_extract_features_dict(self, model):
@@ -85,7 +85,7 @@ class TestFeatureExtraction:
         data = {"signal": np.random.randn(50)}
         features = model.extract_features(data)
 
-        assert isinstance(features, np.ndarray[Any, Any])
+        assert isinstance(features, np.ndarray)
         assert features.shape[1] == 64
 
     def test_extract_features_list(self, model):
@@ -93,7 +93,7 @@ class TestFeatureExtraction:
         data = [1.0, 2.0, 3.0, 4.0, 5.0]
         features = model.extract_features(data)
 
-        assert isinstance(features, np.ndarray[Any, Any])
+        assert isinstance(features, np.ndarray)
         assert features.shape == (1, 64)
 
     def test_extract_features_deterministic(self):

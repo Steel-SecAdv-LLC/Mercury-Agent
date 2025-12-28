@@ -164,7 +164,7 @@ class MemoryEfficientFeatureCache:
 
             now = time.time()
 
-            original_dtype = data.dtype if isinstance(data, np.ndarray[Any, Any]) else data.dtype
+            original_dtype = data.dtype if isinstance(data, np.ndarray) else data.dtype
             original_shape = data.shape
 
             entry = CacheEntry(

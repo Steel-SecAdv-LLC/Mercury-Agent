@@ -211,7 +211,7 @@ class STFPMDetector(BaseVisualDetector):
         Returns:
             Self for method chaining
         """
-        if isinstance(data, np.ndarray[Any, Any]):
+        if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)
@@ -300,7 +300,7 @@ class STFPMDetector(BaseVisualDetector):
         if not self._is_fitted:
             raise RuntimeError("Detector must be fitted before detection")
 
-        if isinstance(data, np.ndarray[Any, Any]):
+        if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
         original_size = data.shape[-2:]
@@ -418,7 +418,7 @@ class STFPMDetector(BaseVisualDetector):
         Returns:
             Feature tensor [N, 128] normalized for fusion
         """
-        if isinstance(data, np.ndarray[Any, Any]):
+        if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)

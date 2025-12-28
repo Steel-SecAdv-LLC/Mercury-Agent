@@ -168,7 +168,7 @@ class BenchmarkEvaluator:
             try:
                 result = detector.detect(data)
                 score = result.get("scores", result.get("score", 0.0))
-                if isinstance(score, np.ndarray[Any, Any]):
+                if isinstance(score, np.ndarray):
                     score = score.mean()
                 elif isinstance(score, torch.Tensor):
                     score = score.mean().item()

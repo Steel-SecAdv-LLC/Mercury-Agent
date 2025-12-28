@@ -79,7 +79,7 @@ class TestQuantumKernelMachine:
         x = np.random.randn(10)
 
         phi = machine._quantum_feature_map(x, depth=2)
-        assert isinstance(phi, np.ndarray[Any, Any])
+        assert isinstance(phi, np.ndarray)
         assert len(phi) == 2**machine.num_qubits
 
     def test_quantum_feature_map_depth_zero(self):
