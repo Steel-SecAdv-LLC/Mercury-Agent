@@ -15,11 +15,12 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """Biometric anomaly detection model."""
 
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
 
@@ -80,7 +81,7 @@ class BiometricAnomalyModel:
 
     def _extract_harmonic_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extract features using harmonic decomposition and Fourier analysis."""
-        if not isinstance(data, np.ndarray[Any, Any]):
+        if not isinstance(data, np.ndarray):
             data = np.array(data)
 
         if data.ndim == 3:
@@ -146,8 +147,8 @@ class BiometricAnomalyModel:
         return np.array(features_per_sample, dtype=np.float32)
 
     def _normalize_embedding_size(
-        self, embedding: Union[np.ndarray[Any, Any], "torch.Tensor"]
-    ) -> Union[np.ndarray[Any, Any], "torch.Tensor"]:
+        self, embedding: np.ndarray[Any, Any] | torch.Tensor
+    ) -> np.ndarray[Any, Any] | torch.Tensor:
         """Normalize embedding to target size (128 features)."""
         if TORCH_AVAILABLE and isinstance(embedding, torch.Tensor):
             is_torch = True
@@ -177,12 +178,12 @@ class BiometricAnomalyModel:
 
     def extract_features(
         self, data: np.ndarray[Any, Any] | dict[str, Any]
-    ) -> Union[np.ndarray[Any, Any], "torch.Tensor"]:
+    ) -> np.ndarray[Any, Any] | torch.Tensor:
         """Extract biometric features from image data."""
         if isinstance(data, dict):
             data = data["reference"] if "reference" in data else np.array(next(iter(data.values())))
 
-        if not isinstance(data, np.ndarray[Any, Any]):
+        if not isinstance(data, np.ndarray):
             data = np.array(data)
 
         if data.ndim == 1:
@@ -206,7 +207,7 @@ class BiometricAnomalyModel:
         features = self._normalize_embedding_size(features)
 
         if TORCH_AVAILABLE:
-            if isinstance(features, np.ndarray[Any, Any]):
+            if isinstance(features, np.ndarray):
                 return torch.from_numpy(features)
             return features
         return features
@@ -231,7 +232,7 @@ class BiometricAnomalyModel:
             else:
                 data = np.array([])
 
-        if not isinstance(data, np.ndarray[Any, Any]):
+        if not isinstance(data, np.ndarray):
             data = np.array(data)
 
         if DeepFace is not None:

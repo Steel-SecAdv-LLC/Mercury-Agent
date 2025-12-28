@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """FastAPI server for real-time anomaly detection.
@@ -41,7 +42,6 @@ Example:
 
 import os
 import time
-from collections import defaultdict
 from enum import Enum
 from typing import Any
 
@@ -142,6 +142,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         - OMNI_RATE_LIMIT_BURST: Burst size (default: 20)
     """
 
+    # Maximum number of client entries to track (prevents memory exhaustion)
+    MAX_BUCKET_ENTRIES = 10000
+    # Time-to-live for bucket entries in seconds (5 minutes)
+    BUCKET_TTL = 300
+
     def __init__(
         self,
         app: FastAPI,
@@ -154,9 +159,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             os.getenv("OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE", "100")
         )
         self.burst_size = burst_size or int(os.getenv("OMNI_RATE_LIMIT_BURST", "20"))
-        self._buckets: dict[str, tuple[float, int]] = defaultdict(
-            lambda: (time.time(), self.burst_size)
-        )
+        self._buckets: dict[str, tuple[float, int]] = {}
+        self._last_cleanup = time.time()
 
     def _get_client_id(self, request: Request) -> str:
         """Extract client identifier from request."""
@@ -169,10 +173,42 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return request.client.host
         return "unknown"
 
+    def _cleanup_stale_buckets(self) -> None:
+        """Remove stale bucket entries to prevent memory leaks."""
+        now = time.time()
+        # Only cleanup every 60 seconds to avoid overhead
+        if now - self._last_cleanup < 60:
+            return
+
+        self._last_cleanup = now
+        stale_threshold = now - self.BUCKET_TTL
+        stale_keys = [
+            client_id
+            for client_id, (last_time, _) in self._buckets.items()
+            if last_time < stale_threshold
+        ]
+        for key in stale_keys:
+            del self._buckets[key]
+
+        # If still over limit, remove oldest entries
+        if len(self._buckets) > self.MAX_BUCKET_ENTRIES:
+            sorted_entries = sorted(self._buckets.items(), key=lambda x: x[1][0])
+            excess = len(self._buckets) - self.MAX_BUCKET_ENTRIES
+            for key, _ in sorted_entries[:excess]:
+                del self._buckets[key]
+
     def _check_rate_limit(self, client_id: str) -> tuple[bool, dict[str, int]]:
         """Check if request is within rate limit using token bucket algorithm."""
         now = time.time()
-        last_time, tokens = self._buckets[client_id]
+
+        # Periodically cleanup stale entries
+        self._cleanup_stale_buckets()
+
+        # Get or create bucket entry
+        if client_id in self._buckets:
+            last_time, tokens = self._buckets[client_id]
+        else:
+            last_time, tokens = now, self.burst_size
 
         # Refill tokens based on elapsed time
         elapsed = now - last_time

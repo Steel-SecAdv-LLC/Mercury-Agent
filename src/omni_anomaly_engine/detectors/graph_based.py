@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -47,7 +48,7 @@ class GraphAnomalyDetector(BaseDetector):
         self.fitted = False
         self.baseline_metrics = {}
 
-    def fit(self, data: np.ndarray[Any, Any] | nx.Graph) -> "GraphAnomalyDetector":
+    def fit(self, data: np.ndarray[Any, Any] | nx.Graph) -> GraphAnomalyDetector:
         """Fit detector on normal graph data."""
         graph = data if isinstance(data, nx.Graph) else self._array_to_graph(data)
 

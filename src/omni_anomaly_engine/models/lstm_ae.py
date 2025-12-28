@@ -6,10 +6,11 @@ LSTM-Autoencoder for Time-Series Anomaly Detection
 
 A working anomaly detector that actually trains and detects.
 """
+
 from __future__ import annotations
-from typing import Any
 
 import os
+from typing import Any
 
 import numpy as np
 import torch
@@ -285,7 +286,9 @@ class AnomalyDetector:
         point_scores = point_scores / np.maximum(point_counts, 1)
         return point_scores
 
-    def detect(self, data: np.ndarray[Any, Any], threshold: float | None = None) -> np.ndarray[Any, Any]:
+    def detect(
+        self, data: np.ndarray[Any, Any], threshold: float | None = None
+    ) -> np.ndarray[Any, Any]:
         """
         Detect anomalies in data.
 
@@ -316,9 +319,11 @@ class AnomalyDetector:
         )
 
     @classmethod
-    def load(cls, path: str, device: str = "auto") -> "AnomalyDetector":
+    def load(cls, path: str, device: str = "auto") -> AnomalyDetector:
         """Load model from file."""
-        checkpoint = torch.load(path, map_location="cpu")
+        checkpoint = torch.load(
+            path, map_location="cpu"
+        )  # nosec B614 - loading trusted model checkpoints
         detector = cls(
             input_dim=checkpoint["input_dim"],
             hidden_dim=checkpoint["hidden_dim"],

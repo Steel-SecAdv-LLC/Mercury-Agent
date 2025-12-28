@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -26,12 +27,14 @@ using Large Vision-Language Models (LVLMs).
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import torch
 
 from omni_anomaly_engine.core.base import BaseDetector
+
+if TYPE_CHECKING:
+    import numpy as np
 
 
 class LVLMType(Enum):
@@ -184,7 +187,7 @@ class BaseVLMDetector(BaseDetector):
         """
         raise NotImplementedError("Subclasses must implement _parse_response() for VLM detectors.")
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "BaseVLMDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> BaseVLMDetector:
         """VLM detectors are zero-shot - no fitting required.
 
         Args:

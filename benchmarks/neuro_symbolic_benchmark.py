@@ -23,14 +23,13 @@ import json
 import sys
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
 # Use non-interactive backend for headless environments
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -38,19 +37,18 @@ from matplotlib.gridspec import GridSpec
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from omni_anomaly_engine.cognitive.neurosymbolic_fusion import (
-    NeurosymbolicFusionEngine,
-    FusionStrategy,
-    MemoryType,
-)
-from omni_anomaly_engine.cognitive.ethical_bounding import (
-    BenevolenceScorer,
-    EthicalPrinciple,
-)
 from omni_anomaly_engine.agentic.mercury_a_agent import (
     DomainType,
     MercuryAgent,
     create_mercury_agent,
+)
+from omni_anomaly_engine.cognitive.ethical_bounding import (
+    BenevolenceScorer,
+)
+from omni_anomaly_engine.cognitive.neurosymbolic_fusion import (
+    FusionStrategy,
+    MemoryType,
+    NeurosymbolicFusionEngine,
 )
 
 # Style configuration
@@ -416,7 +414,7 @@ def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
     first_metrics = epoch_metrics[0]
 
     results = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "epochs_completed": epochs,
         "scenarios_per_epoch": len(scenarios),
         "total_executions": epochs * len(scenarios),
@@ -442,7 +440,7 @@ def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
                 "avg_success_rate": 0.9 + 0.08 * np.random.random(),
                 "avg_benevolence": 0.95 + 0.04 * np.random.random(),
             }
-            for domain in DOMAIN_COLORS.keys()
+            for domain in DOMAIN_COLORS
         },
     }
 

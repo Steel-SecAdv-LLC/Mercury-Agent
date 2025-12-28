@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """Multivariate Time-Series Anomaly Detection with LTG Method.
@@ -156,7 +157,9 @@ class MultivariateTSDetector:
         result: np.ndarray[Any, Any] = np.mean((original - reconstructed) ** 2, axis=(1, 2))
         return result
 
-    def _estimate_roc_auc(self, scores: np.ndarray[Any, Any], predictions: np.ndarray[Any, Any]) -> float:
+    def _estimate_roc_auc(
+        self, scores: np.ndarray[Any, Any], predictions: np.ndarray[Any, Any]
+    ) -> float:
         """Estimate ROC-AUC from scores and predictions."""
         if np.all(predictions) or not np.any(predictions):
             return 0.5
@@ -205,7 +208,9 @@ class ChaosMultivariateFusion:
         self.mvts_detector.fit(time_series_data)
         self.trained = True
 
-    def predict_with_chaos_refinement(self, time_series_data: np.ndarray[Any, Any]) -> dict[str, Any]:
+    def predict_with_chaos_refinement(
+        self, time_series_data: np.ndarray[Any, Any]
+    ) -> dict[str, Any]:
         """Detect anomalies with chaos-based threshold refinement."""
         if not self.trained:
             raise ValueError("Model must be fit before prediction")
@@ -241,7 +246,9 @@ class ChaosMultivariateFusion:
 
         return max(refined_threshold, 0.0)
 
-    def _estimate_roc_auc(self, scores: np.ndarray[Any, Any], predictions: np.ndarray[Any, Any]) -> float:
+    def _estimate_roc_auc(
+        self, scores: np.ndarray[Any, Any], predictions: np.ndarray[Any, Any]
+    ) -> float:
         """Estimate ROC-AUC from scores and predictions."""
         if np.all(predictions) or not np.any(predictions):
             return 0.5

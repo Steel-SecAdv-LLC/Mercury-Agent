@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """Tests for Nano-Safeguards micro-anomaly detection."""
@@ -22,6 +23,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from omni_anomaly_engine.core.exceptions import DetectorException
 from omni_anomaly_engine.safeguards.nano_safeguards import (
     HierarchicalMicroScanner,
     NanoSafeguardDetector,
@@ -193,7 +195,7 @@ class TestNanoSafeguardDetector:
 
     def test_detect_micro_anomalies_unfitted(self, detector, normal_data):
         """Test detection raises error when not fitted."""
-        with pytest.raises(Exception):
+        with pytest.raises(DetectorException):
             detector.detect(normal_data)
 
     def test_detect_micro_anomalies_normal(self, detector, normal_data):

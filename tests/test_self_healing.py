@@ -15,7 +15,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
+
 from typing import Any
 
 """Tests for CRISPR-inspired self-healing module"""
@@ -54,7 +56,7 @@ def test_stage_2_expression():
     signature = system.stage_1_acquisition(anomaly_data)
     detection_pattern = system.stage_2_expression(signature)
 
-    assert isinstance(detection_pattern, np.ndarray[Any, Any])
+    assert isinstance(detection_pattern, np.ndarray)
     assert len(detection_pattern) == len(signature.feature_vector)
     assert np.abs(np.linalg.norm(detection_pattern) - 1.0) < 0.01
 
@@ -76,8 +78,8 @@ def test_stage_3_interference():
 
 def test_heritable_immunity():
     """Test heritable immunity via save/load"""
-    import os
     import tempfile
+    from pathlib import Path
 
     system = CRISPRInspiredSelfHealing()
 
@@ -99,7 +101,7 @@ def test_heritable_immunity():
         assert len(new_system.signature_library) == 3
         assert len(new_system.acquisition_history) == 3
     finally:
-        os.unlink(temp_path)
+        Path(temp_path).unlink()
 
 
 def test_max_signatures_pruning():

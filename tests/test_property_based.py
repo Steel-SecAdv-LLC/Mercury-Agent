@@ -10,11 +10,19 @@ automatically to find edge cases and bugs.
 
 Reference: Hypothesis documentation (https://hypothesis.readthedocs.io/)
 """
+
 from __future__ import annotations
+
+import importlib.util
 from typing import Any
 
 import numpy as np
 import pytest
+
+# Check if torch is available
+HAS_TORCH = importlib.util.find_spec("torch") is not None
+if HAS_TORCH:
+    import torch
 
 # Check if hypothesis is available
 hypothesis_available = True
@@ -569,7 +577,7 @@ class TestValidationPipelineProperties:
 
         # Property: Invalid dataset names should not crash
         try:
-            loader = get_loader(dataset_name)
+            get_loader(dataset_name)
             # If it returns something, it should be None or raise an error
         except (ValueError, KeyError, NotImplementedError):
             pass  # Expected behavior for invalid names
@@ -597,7 +605,7 @@ class TestKnowledgeGraphProperties:
 
         # Property: Querying non-existent node should not crash
         try:
-            result = kg.query_node(node_name)
+            kg.query_node(node_name)
             # Result should be None or empty for non-existent nodes
         except (KeyError, ValueError):
             pass  # Expected behavior

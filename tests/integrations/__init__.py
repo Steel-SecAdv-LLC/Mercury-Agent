@@ -9,4 +9,5 @@ the Free Software Foundation, either version 3 of the License, or
 
 Tests for integration modules.
 """
+
 from __future__ import annotations

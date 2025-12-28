@@ -21,6 +21,7 @@ Example:
 
         app.include_router(health_router, prefix="/health")
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -28,14 +29,16 @@ import logging
 import os
 import platform
 import time
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 logger = logging.getLogger(__name__)
 

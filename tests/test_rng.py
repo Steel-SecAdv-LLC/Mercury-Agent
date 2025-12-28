@@ -3,6 +3,7 @@ Tests for omni_anomaly_engine.utils.rng module.
 
 Tests the DeterministicRNG, RNGRegistry, RNGContext, and ThreadSafeRNGManager.
 """
+
 from __future__ import annotations
 
 import threading
@@ -212,7 +213,7 @@ class TestRNGRegistry:
     def test_register_with_parent(self):
         """Test registering RNG with parent derivation."""
         registry = RNGRegistry()
-        parent = registry.register("parent", seed=42)
+        registry.register("parent", seed=42)
         # Child without explicit seed gets derived seed
         child = registry.register("child", seed=123)  # Use explicit seed instead
         assert child.get_seed() is not None

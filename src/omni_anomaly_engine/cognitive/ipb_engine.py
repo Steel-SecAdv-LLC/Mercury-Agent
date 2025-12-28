@@ -7,6 +7,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
+
 from __future__ import annotations
 
 """
@@ -247,7 +248,9 @@ class IPBEngine:
         self._effects: dict[str, EnvironmentEffect] = {}
         self._threats: dict[str, ThreatCapability] = {}
         self._coas: dict[str, ThreatCOA] = {}
-        self._running_estimates: dict[EnvironmentDomain, dict] = defaultdict[str, dict[str, Any]](dict)
+        self._running_estimates: dict[EnvironmentDomain, dict] = defaultdict[str, dict[str, Any]](
+            dict
+        )
         self._observation_history: list[dict] = []
 
         # Priority intelligence requirements

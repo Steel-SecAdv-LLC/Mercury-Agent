@@ -49,12 +49,11 @@ import sys
 import time
 import warnings
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-from scipy import stats
 from sklearn.covariance import EllipticEnvelope
 from sklearn.datasets import (
     fetch_covtype,
@@ -64,7 +63,6 @@ from sklearn.datasets import (
 )
 from sklearn.ensemble import IsolationForest
 from sklearn.metrics import (
-    accuracy_score,
     f1_score,
     precision_recall_curve,
     precision_score,
@@ -418,7 +416,7 @@ def benchmark_detector(
         n_samples=len(dataset.X_test),
         n_features=dataset.X_test.shape[1],
         anomaly_ratio=anomaly_ratio,
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
     )
 
 
@@ -500,7 +498,7 @@ def run_full_benchmark() -> dict[str, Any]:
     summary = generate_summary(results)
 
     return {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "methodology": {
             "datasets": [d.name for d in datasets],
             "detectors": [d[1] for d in detectors],
@@ -706,9 +704,9 @@ if __name__ == "__main__":
     print("=" * 70)
 
     summary = results["summary"]
-    if "omni_ava_comparison" in summary and summary["omni_ava_comparison"]:
+    if summary.get("omni_ava_comparison"):
         comp = summary["omni_ava_comparison"]
-        print(f"\nOMNI-AVA Performance:")
+        print("\nOMNI-AVA Performance:")
         print(f"  ROC-AUC: {comp.get('omni_ava_roc_auc', 'N/A'):.3f}")
         print(f"  Rank: #{comp.get('rank_by_roc_auc', 'N/A')} of {len(summary['per_detector'])}")
         print(f"  vs Best Baseline: {comp.get('vs_best_baseline', 0):+.3f}")

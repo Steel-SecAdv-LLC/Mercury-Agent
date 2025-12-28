@@ -15,7 +15,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
+
 from typing import Any
 
 """
@@ -95,7 +97,9 @@ class QuantumResistantEncryption:
             self._oqs_kem = None
             self._oqs_signature = None
 
-    def _generate_lattice_key(self) -> tuple[tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]], np.ndarray[Any, Any]]:
+    def _generate_lattice_key(
+        self,
+    ) -> tuple[tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]], np.ndarray[Any, Any]]:
         """
         Generate lattice-based key pair (public, private) using LWE.
 
@@ -117,7 +121,11 @@ class QuantumResistantEncryption:
 
         return public_key, private_key
 
-    def encrypt_hybrid(self, data: bytes, public_key: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None) -> bytes:
+    def encrypt_hybrid(
+        self,
+        data: bytes,
+        public_key: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None,
+    ) -> bytes:
         """
         Hybrid encryption: quantum-resistant KEM + symmetric stream cipher.
 

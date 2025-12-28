@@ -4,9 +4,8 @@ Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for Ethical Bounding and Benevolence Scoring module.
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from omni_anomaly_engine.cognitive.ethical_bounding import (
     AlignmentAudit,

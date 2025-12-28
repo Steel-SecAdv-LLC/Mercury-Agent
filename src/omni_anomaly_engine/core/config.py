@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -180,7 +181,7 @@ class ConfigurationManager:
         self._watchers: list[callable] = []
         self._loaded = False
 
-    def load_from_file(self, path: str | Path) -> "ConfigurationManager":
+    def load_from_file(self, path: str | Path) -> ConfigurationManager:
         """
         Load configuration from a file.
 
@@ -262,7 +263,7 @@ class ConfigurationManager:
 
         self._config = deep_merge(self._config, data)
 
-    def load_from_env(self) -> "ConfigurationManager":
+    def load_from_env(self) -> ConfigurationManager:
         """
         Load configuration from environment variables.
 

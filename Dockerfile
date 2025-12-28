@@ -24,4 +24,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 COPY --chown=$USERNAME:$USER_GID . .
 
-CMD ["python", "src/mercury/train.py"]
+# Install package in editable mode for CLI access
+RUN pip install --no-cache-dir -e .
+
+# Default to API server for production; override for training: docker run ... python src/mercury/train.py
+CMD ["python", "-m", "uvicorn", "omni_anomaly_engine.api.server:app", "--host", "0.0.0.0", "--port", "8000"]

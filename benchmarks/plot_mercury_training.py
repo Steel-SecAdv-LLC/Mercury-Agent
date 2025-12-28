@@ -25,15 +25,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
 # Use non-interactive backend for headless environments
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-import matplotlib.patches as mpatches
 
 # Style configuration for publication-quality figures
 plt.rcParams.update(

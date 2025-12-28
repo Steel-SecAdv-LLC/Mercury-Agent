@@ -28,14 +28,17 @@ Example:
         match = router.match("/api/users/123", method="GET")
         result = await match.handler(request, **match.params)
 """
+
 from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -364,7 +367,7 @@ class RequestRouter:
 
     def include_router(
         self,
-        router: "RequestRouter",
+        router: RequestRouter,
         prefix: str = "",
     ) -> None:
         """Include routes from another router.

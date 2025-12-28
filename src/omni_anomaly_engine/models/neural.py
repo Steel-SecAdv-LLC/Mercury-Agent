@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """Neural cognitive anomaly detection model."""
@@ -132,7 +133,7 @@ class NeuralCognitiveModel:
         """Extract neural cognitive features from data."""
         if isinstance(data, dict):
             data = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray[Any, Any]):
+        elif not isinstance(data, np.ndarray):
             data = np.array(data)
 
         if data.ndim == 1:
@@ -148,7 +149,7 @@ class NeuralCognitiveModel:
         """Predict neural cognitive anomalies."""
         if isinstance(data, dict):
             data_array = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray[Any, Any]):
+        elif not isinstance(data, np.ndarray):
             data_array = np.array(data)
         else:
             data_array = data

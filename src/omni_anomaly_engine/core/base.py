@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -22,11 +23,13 @@ Abstract base classes for detectors, models, and encoders
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import torch
 from torch import nn
+
+if TYPE_CHECKING:
+    import numpy as np
 
 
 class BaseDetector(ABC):
@@ -38,7 +41,7 @@ class BaseDetector(ABC):
         self._is_fitted = False
 
     @abstractmethod
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "BaseDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> BaseDetector:
         """Fit the detector to normal data"""
         pass
 

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -201,7 +202,7 @@ class STFPMDetector(BaseVisualDetector):
         loss = torch.mean((teacher_norm - student_norm) ** 2)
         return loss
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "STFPMDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> STFPMDetector:
         """Train student network on normal data.
 
         Args:
@@ -210,7 +211,7 @@ class STFPMDetector(BaseVisualDetector):
         Returns:
             Self for method chaining
         """
-        if isinstance(data, np.ndarray[Any, Any]):
+        if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)
@@ -299,7 +300,7 @@ class STFPMDetector(BaseVisualDetector):
         if not self._is_fitted:
             raise RuntimeError("Detector must be fitted before detection")
 
-        if isinstance(data, np.ndarray[Any, Any]):
+        if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
         original_size = data.shape[-2:]
@@ -417,7 +418,7 @@ class STFPMDetector(BaseVisualDetector):
         Returns:
             Feature tensor [N, 128] normalized for fusion
         """
-        if isinstance(data, np.ndarray[Any, Any]):
+        if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)

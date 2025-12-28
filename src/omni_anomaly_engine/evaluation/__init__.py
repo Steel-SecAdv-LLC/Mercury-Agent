@@ -21,6 +21,7 @@ These metrics match those used in benchmark papers:
 - DAGMM (ICLR 2018)
 - TranAD (VLDB 2022)
 """
+
 from __future__ import annotations
 
 from .baselines import (

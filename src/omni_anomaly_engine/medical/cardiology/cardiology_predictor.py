@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -41,11 +42,13 @@ Research sources:
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import torch
 from torch import nn
+
+if TYPE_CHECKING:
+    import numpy as np
 
 
 class ArrhythmiaType(Enum):
@@ -95,7 +98,9 @@ class ECGRhythmAnalyzer(nn.Module):
     Architecture inspired by PTB-XL and MIT-BIH research.
     """
 
-    def __init__(self, input_length: int = 1000, num_leads: int = 12, num_classes: int = 13) -> None:
+    def __init__(
+        self, input_length: int = 1000, num_leads: int = 12, num_classes: int = 13
+    ) -> None:
         super().__init__()
 
         self.conv_layers = nn.Sequential(

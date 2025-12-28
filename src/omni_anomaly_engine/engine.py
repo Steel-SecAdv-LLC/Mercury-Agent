@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """Main OmniAvaEngine orchestrating all detectors and models.
@@ -93,10 +94,9 @@ See Also:
 import gc
 import logging
 import threading
-from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import torch
@@ -126,6 +126,9 @@ from omni_anomaly_engine.resilience.self_healing import SelfHealingEngine
 from omni_anomaly_engine.security.intelligence_fusion import IntelligenceFusionEngine
 from omni_anomaly_engine.security.threat_detection import ThreatDetector
 from omni_anomaly_engine.space.schumann_resonance import SchumannResonanceDetector
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -720,7 +723,9 @@ class OmniAvaEngine:
         else:
             return torch.full((batch_size, 1), float(scores), dtype=torch.float32)
 
-    def _extract_detector_features(self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]) -> tuple[Any, ...]:
+    def _extract_detector_features(
+        self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
+    ) -> tuple[Any, ...]:
         """Extract features from all detectors.
 
         This method extracts feature vectors from all base detectors
@@ -770,7 +775,9 @@ class OmniAvaEngine:
 
         return detector_features, detector_scores
 
-    def _extract_model_features(self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]) -> tuple[Any, ...]:
+    def _extract_model_features(
+        self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
+    ) -> tuple[Any, ...]:
         """Extract features from all specialized models.
 
         This method extracts feature vectors from all 13 specialized
@@ -815,7 +822,9 @@ class OmniAvaEngine:
 
         return model_features, model_scores
 
-    def _extract_features_parallel(self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]) -> tuple[Any, ...]:
+    def _extract_features_parallel(
+        self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
+    ) -> tuple[Any, ...]:
         """Extract features from all sources in parallel.
 
         This method uses thread pool execution to extract features
@@ -1038,7 +1047,7 @@ class OmniAvaEngine:
             ... )
             >>> print(f"Match score: {result.get('match_score', 0):.3f}")
         """
-        biometric_model = cast(BiometricAnomalyModel, self.models["biometric"])
+        biometric_model = cast("BiometricAnomalyModel", self.models["biometric"])
 
         if test_image is not None:
             return biometric_model.predict(
@@ -1265,7 +1274,7 @@ class OmniAvaEngine:
         )
 
         # Configure optimizer
-        optimizer_config = cast(dict[str, Any], trainer_module.configure_optimizers())
+        optimizer_config = cast("dict[str, Any]", trainer_module.configure_optimizers())
         optimizer = optimizer_config["optimizer"]
         scheduler = optimizer_config["lr_scheduler"]["scheduler"]
 

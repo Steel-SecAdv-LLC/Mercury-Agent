@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -423,7 +424,9 @@ def _run_security_analysis(intel_type: str, security_data: dict[str, Any]) -> di
         }
 
 
-def _run_humanitarian_analysis(crisis_type: str, crisis_data: np.ndarray[Any, Any]) -> dict[str, Any]:
+def _run_humanitarian_analysis(
+    crisis_type: str, crisis_data: np.ndarray[Any, Any]
+) -> dict[str, Any]:
     """Run humanitarian crisis analysis"""
 
     engine = OmniAnomalyEngine()
@@ -437,7 +440,9 @@ def _run_humanitarian_analysis(crisis_type: str, crisis_data: np.ndarray[Any, An
     }
 
 
-def _run_chemistry_analysis(analysis_type: str, sample_data: np.ndarray[Any, Any]) -> dict[str, Any]:
+def _run_chemistry_analysis(
+    analysis_type: str, sample_data: np.ndarray[Any, Any]
+) -> dict[str, Any]:
     """Run chemistry analysis"""
 
     from omni_anomaly_engine.models.chemistry import ChemistryAnomalyDetector
@@ -445,7 +450,9 @@ def _run_chemistry_analysis(analysis_type: str, sample_data: np.ndarray[Any, Any
     model = ChemistryAnomalyDetector()
     # Convert ndarray to dict format expected by ChemistryAnomalyDetector.predict
     sample_dict: dict[str, Any] = {
-        "elemental_composition": {"H": float(sample_data.mean()) * 100} if sample_data.size > 0 else {},
+        "elemental_composition": (
+            {"H": float(sample_data.mean()) * 100} if sample_data.size > 0 else {}
+        ),
         "analysis_type": analysis_type,
     }
     result = model.predict(sample_dict)

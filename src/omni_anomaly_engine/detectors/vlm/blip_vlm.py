@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -236,10 +237,14 @@ class BLIPVLMDetector(BaseVLMDetector):
         try:
             logger.info(f"Loading BLIP model: {self.blip_config.model_name}")
 
-            self._processor = BlipProcessor.from_pretrained(self.blip_config.model_name)
-            self._model = BlipForConditionalGeneration.from_pretrained(
+            self._processor = BlipProcessor.from_pretrained(
                 self.blip_config.model_name
-            ).to(self.device)
+            )  # nosec B615 - model_name is user-configured, see module docstring for security guidance
+            self._model = BlipForConditionalGeneration.from_pretrained(  # nosec B615 - model_name is user-configured
+                self.blip_config.model_name
+            ).to(
+                self.device
+            )
             self._model.eval()
 
             # Initialize feature projection
@@ -330,7 +335,7 @@ class BLIPVLMDetector(BaseVLMDetector):
         Returns:
             List of PIL Images or processed tensors
         """
-        if isinstance(data, np.ndarray[Any, Any]):
+        if isinstance(data, np.ndarray):
             data = torch.from_numpy(data)
 
         # Ensure 4D tensor [N, C, H, W]

@@ -3,6 +3,7 @@ Tests for omni_anomaly_engine.utils.constants module.
 
 Tests mathematical constants, precision handling, and validation.
 """
+
 from __future__ import annotations
 
 import math
@@ -65,7 +66,9 @@ class TestMathConstant:
 
     def test_immutability(self):
         """Test that constants are immutable."""
-        with pytest.raises(Exception):  # frozen dataclass
+        from dataclasses import FrozenInstanceError
+
+        with pytest.raises(FrozenInstanceError):
             PI.value = 3.0
 
 
@@ -169,17 +172,17 @@ class TestValidation:
     def test_validate_pi(self):
         """Test validating PI constant."""
         result = validate_constant(PI.value, "PI")
-        assert result == True  # numpy bool comparison
+        assert result  # numpy bool comparison
 
     def test_validate_e(self):
         """Test validating E constant."""
         result = validate_constant(E.value, "E")
-        assert result == True  # numpy bool comparison
+        assert result  # numpy bool comparison
 
     def test_validate_golden_ratio(self):
         """Test validating golden ratio."""
         result = validate_constant(GOLDEN_RATIO.value, "GOLDEN_RATIO")
-        assert result == True  # numpy bool comparison
+        assert result  # numpy bool comparison
 
     def test_constants_are_finite(self):
         """Test that key constants are finite."""

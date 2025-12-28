@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -25,15 +26,18 @@ used in anomaly detection.
 """
 
 from abc import abstractmethod
-from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
-from numpy.typing import NDArray
 
 from omni_anomaly_engine.core.base import BaseModel
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from numpy.typing import NDArray
 
 
 class ForecastResult(dict[str, Any]):
@@ -387,6 +391,6 @@ class BaseFoundationAdapter(BaseFoundationModel):
         """Detect anomalies (alias for detect_anomalies)."""
         return self.detect_anomalies(data)
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "BaseFoundationAdapter":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> BaseFoundationAdapter:
         """Fit the adapter (no-op for base adapter)."""
         return self

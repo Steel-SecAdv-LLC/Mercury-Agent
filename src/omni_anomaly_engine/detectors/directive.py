@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -54,7 +55,7 @@ class SigmaDirectiveDetector(BaseDetector):
         self.baseline_pattern: np.ndarray[Any, Any] | None = None
         self.memory_buffer: list[Any] = []
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "SigmaDirectiveDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> SigmaDirectiveDetector:
         """Fit Sigma protocols to normal patterns"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()

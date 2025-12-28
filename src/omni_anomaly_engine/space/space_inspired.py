@@ -15,7 +15,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
+
 from typing import Any
 
 """
@@ -127,7 +129,9 @@ class SpaceInspiredResilience:
         self.state = new_state
         return new_state, component_priorities
 
-    def debris_filtering(self, data: np.ndarray[Any, Any], noise_threshold: float = 0.1) -> np.ndarray[Any, Any]:
+    def debris_filtering(
+        self, data: np.ndarray[Any, Any], noise_threshold: float = 0.1
+    ) -> np.ndarray[Any, Any]:
         """
         Filter noisy data analogous to space debris avoidance.
 

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -152,7 +153,9 @@ class NetworkFlowAnalyzer:
             "suspicious_sources": self._identify_suspicious_sources(flows_per_src, ports_accessed),
         }
 
-    def _detect_port_scanning(self, flows_per_src: dict[str, Any], ports_accessed: dict[str, set[Any]]) -> bool:
+    def _detect_port_scanning(
+        self, flows_per_src: dict[str, Any], ports_accessed: dict[str, set[Any]]
+    ) -> bool:
         """Detect port scanning activity"""
         for src_ip, port_set in ports_accessed.items():
             if len(port_set) > 20 and flows_per_src[src_ip] > 50:
@@ -169,7 +172,9 @@ class NetworkFlowAnalyzer:
 
         return bool(max_flows > avg_flows * 10 and max_flows > 100)
 
-    def _detect_data_exfiltration(self, byte_volumes: list[int], flow_data: list[dict[str, Any]]) -> bool:
+    def _detect_data_exfiltration(
+        self, byte_volumes: list[int], flow_data: list[dict[str, Any]]
+    ) -> bool:
         """Detect data exfiltration patterns"""
         if not byte_volumes:
             return False
@@ -401,7 +406,9 @@ class CovertChannelDetector:
             "confidence": 0.6 if storage_channel_detected else 0.0,
         }
 
-    def _detect_protocol_field_manipulation(self, traffic: dict[str, Any]) -> dict[str, bool | float]:
+    def _detect_protocol_field_manipulation(
+        self, traffic: dict[str, Any]
+    ) -> dict[str, bool | float]:
         """Detect protocol field manipulation for covert channels"""
         protocol_fields = traffic.get("protocol_fields", {})
 

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -31,14 +32,16 @@ algorithms and particle swarm optimization.
 import hashlib
 import logging
 import time
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _VITALITY_HASH = "V20V11M16V19"
 
@@ -197,7 +200,9 @@ class MultiverseOmniEngine:
         self.universes[universe_id] = new_universe
         return new_universe
 
-    def converge_multiverse(self, fitness_function: Callable[[np.ndarray[Any, Any]], float]) -> Universe:
+    def converge_multiverse(
+        self, fitness_function: Callable[[np.ndarray[Any, Any]], float]
+    ) -> Universe:
         """
         Converge the multiverse to the best solution.
 

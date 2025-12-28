@@ -8,6 +8,7 @@ Tests the real implementations:
 - Heteroscedastic Aleatoric Estimation
 - Epistemic/Aleatoric Decomposition
 """
+
 from __future__ import annotations
 
 import numpy as np

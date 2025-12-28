@@ -4,6 +4,7 @@ Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for Neural Memory Layer - Memory Embeddings and Pattern Detection
 """
+
 from __future__ import annotations
 
 import time
@@ -12,7 +13,6 @@ import numpy as np
 import pytest
 
 from omni_anomaly_engine.cognitive.neural_memory_layer import (
-    AnomalyPrediction,
     AnomalyPredictor,
     DetectedPattern,
     KMeansClusterer,

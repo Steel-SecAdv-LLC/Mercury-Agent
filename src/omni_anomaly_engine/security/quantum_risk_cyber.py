@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -82,7 +83,9 @@ class QuantumRiskCyber:
     and risk assessment inspired by Bain 2025 report findings.
     """
 
-    def __init__(self, threat_timeline_years: float = 10.0, preparedness_threshold: float = 0.5) -> None:
+    def __init__(
+        self, threat_timeline_years: float = 10.0, preparedness_threshold: float = 0.5
+    ) -> None:
         """
         Initialize quantum risk cybersecurity system.
 

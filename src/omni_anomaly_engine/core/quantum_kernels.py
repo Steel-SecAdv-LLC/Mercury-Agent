@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """Quantum Kernel Machines for Anomaly Detection.
@@ -25,10 +26,12 @@ Based on: Quantum anomaly detection in the latent space of proton collision even
 Implements quantum-inspired kernel machines for unsupervised anomaly detection.
 """
 
-from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class QuantumKernelMachine:
@@ -110,7 +113,9 @@ class QuantumKernelMachine:
         return float(np.exp(-self.gamma * np.linalg.norm(x1 - x2) ** 2))
 
     def compute_kernel_matrix(
-        self, X: np.ndarray[Any, Any], kernel_func: Callable[[np.ndarray[Any, Any], np.ndarray[Any, Any]], float] | None = None
+        self,
+        X: np.ndarray[Any, Any],
+        kernel_func: Callable[[np.ndarray[Any, Any], np.ndarray[Any, Any]], float] | None = None,
     ) -> np.ndarray[Any, Any]:
         """Compute kernel matrix for dataset.
 

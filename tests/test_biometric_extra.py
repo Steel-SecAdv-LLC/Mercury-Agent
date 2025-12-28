@@ -15,7 +15,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
+
 from typing import Any
 
 """
@@ -63,7 +65,7 @@ def test_biometric_harmonic_features_error_handling():
     invalid_img = np.random.randint(0, 255, (5, 5), dtype=np.uint8)
 
     features = model._extract_harmonic_features(invalid_img)
-    assert isinstance(features, np.ndarray[Any, Any])
+    assert isinstance(features, np.ndarray)
 
 
 def test_biometric_config_variants():

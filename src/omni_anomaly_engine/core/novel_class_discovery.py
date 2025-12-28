@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """Novel Anomaly Class Discovery for Industrial Scenarios.
@@ -48,7 +49,9 @@ class MultiElementBinarization:
         self.rotation_angles = self.config.get("rotation_angles", [0, 90, 180, 270])
         self.binarization_threshold = self.config.get("binarization_threshold", 0.5)
 
-    def rotate_to_horizontal(self, anomaly_region: np.ndarray[Any, Any], angle: float) -> np.ndarray[Any, Any]:
+    def rotate_to_horizontal(
+        self, anomaly_region: np.ndarray[Any, Any], angle: float
+    ) -> np.ndarray[Any, Any]:
         """Rotate anomaly region to horizontal orientation.
 
         Args:
@@ -73,10 +76,14 @@ class MultiElementBinarization:
         Returns:
             Binary anomaly mask
         """
-        binary_mask: np.ndarray[Any, Any] = (anomaly_mask > self.binarization_threshold).astype(np.float32)
+        binary_mask: np.ndarray[Any, Any] = (anomaly_mask > self.binarization_threshold).astype(
+            np.float32
+        )
         return binary_mask
 
-    def process_multi_element(self, anomaly_regions: list[np.ndarray[Any, Any]]) -> list[np.ndarray[Any, Any]]:
+    def process_multi_element(
+        self, anomaly_regions: list[np.ndarray[Any, Any]]
+    ) -> list[np.ndarray[Any, Any]]:
         """Process multiple anomaly elements with MEBin.
 
         Args:
@@ -120,7 +127,9 @@ class NovelClassDiscovery:
         self.discovered_classes: list[str] = []
         self.cluster_centers: np.ndarray[Any, Any] | None = None
 
-    def extract_anomaly_features(self, images: np.ndarray[Any, Any], masks: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def extract_anomaly_features(
+        self, images: np.ndarray[Any, Any], masks: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """Extract features from anomaly regions.
 
         Args:
@@ -156,7 +165,9 @@ class NovelClassDiscovery:
 
         return np.array(features)
 
-    def discover_novel_classes(self, images: np.ndarray[Any, Any], masks: np.ndarray[Any, Any]) -> dict[str, Any]:
+    def discover_novel_classes(
+        self, images: np.ndarray[Any, Any], masks: np.ndarray[Any, Any]
+    ) -> dict[str, Any]:
         """Discover novel anomaly classes using unsupervised clustering.
 
         Args:
@@ -188,7 +199,9 @@ class NovelClassDiscovery:
 
         return results
 
-    def classify_new_anomaly(self, image: np.ndarray[Any, Any], mask: np.ndarray[Any, Any]) -> dict[str, Any]:
+    def classify_new_anomaly(
+        self, image: np.ndarray[Any, Any], mask: np.ndarray[Any, Any]
+    ) -> dict[str, Any]:
         """Classify a new anomaly into discovered classes.
 
         Args:

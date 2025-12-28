@@ -17,6 +17,7 @@ Covers:
 - Ethical gating with sigma_sacred threshold
 - DetectorRegistry 128D normalization
 """
+
 from __future__ import annotations
 
 import logging
@@ -110,14 +111,14 @@ class TestGOSNNErrorHandling:
     def test_gosnn_handles_empty_input(self, gosnn):
         """Test GOSNN handles empty input."""
         try:
-            result = gosnn.forward(torch.tensor([]))
+            gosnn.forward(torch.tensor([]))
         except Exception:
             pass
 
     def test_gosnn_handles_wrong_dimensions(self, gosnn):
         """Test GOSNN handles wrong dimensions."""
         try:
-            result = gosnn.forward(torch.randn(1, 1, 1, 1))
+            gosnn.forward(torch.randn(1, 1, 1, 1))
         except Exception:
             pass
 
@@ -220,7 +221,7 @@ class TestEthicalGating:
             features = torch.randn(1, 64)
             benevolence = 0.5
             try:
-                result = gosnn.apply_ethical_gate(features, benevolence)
+                gosnn.apply_ethical_gate(features, benevolence)
             except Exception:
                 pass
 

@@ -15,10 +15,11 @@ References:
 - MIMIC-IV: https://physionet.org/content/mimiciv/
 - PhysioNet Guidelines: https://physionet.org/news/post/mimic-derived-datasets-models
 """
+
 from __future__ import annotations
-from typing import Any
 
 import logging
+from typing import Any
 
 import numpy as np
 
@@ -346,7 +347,9 @@ class PhysioNetLoader(DatasetLoader):
         logger.info(f"Generated {n_samples} synthetic ECG samples")
         return True
 
-    def _generate_ecg_beat(self, t: np.ndarray[Any, Any], heart_rate: float) -> np.ndarray[Any, Any]:
+    def _generate_ecg_beat(
+        self, t: np.ndarray[Any, Any], heart_rate: float
+    ) -> np.ndarray[Any, Any]:
         """Generate synthetic ECG beat."""
         # Simplified ECG model using Gaussian pulses
         beat_duration = 60.0 / heart_rate

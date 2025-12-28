@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -58,9 +59,11 @@ from torch import nn
 
 from omni_anomaly_engine.core.three_r_mechanism import (
     RecursionEngine,
-    ResonanceEngine,
 )
 from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine as CoreRefactoringEngine
+from omni_anomaly_engine.core.three_r_mechanism import (
+    ResonanceEngine,
+)
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
 
 

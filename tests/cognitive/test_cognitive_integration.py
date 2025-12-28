@@ -12,6 +12,7 @@ Verifies that all cognitive components integrate properly:
 - IndicatorDevelopmentSystem
 - CognitiveOrchestrator
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -115,7 +116,7 @@ class TestMultiHopReasoner:
         ]
 
         # Even without matching rules, deduction should complete
-        chain = reasoner.deduce(premises)
+        reasoner.deduce(premises)
         # May or may not find derivations depending on knowledge base
 
     def test_abduction(self):
@@ -298,7 +299,7 @@ class TestCognitiveOrchestrator:
         result = orchestrator.analyze(detection_result, raw_data, context)
 
         assert result is not None
-        assert result.anomaly_detected == True
+        assert result.anomaly_detected
         assert result.anomaly_score == 0.85
         assert 0 <= result.confidence <= 1
 

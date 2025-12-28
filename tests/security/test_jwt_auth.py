@@ -16,6 +16,7 @@ Covers:
 - Invalid signatures
 - Missing required claims
 """
+
 from __future__ import annotations
 
 import os
@@ -253,9 +254,9 @@ class TestJWTAuthValidToken:
     @pytest.mark.asyncio
     async def test_create_and_validate_token_roundtrip(self, jwt_auth):
         """Test creating and validating a token works correctly."""
-        try:
-            import jwt
-        except ImportError:
+        import importlib.util
+
+        if importlib.util.find_spec("jwt") is None:
             pytest.skip("PyJWT not installed")
 
         from omni_anomaly_engine.api.auth import JWTAuth
@@ -264,7 +265,7 @@ class TestJWTAuthValidToken:
         token = JWTAuth.create_token(
             user_id="roundtrip_user",
             username="roundtrip_test",
-            secret_key="test_secret_key_for_testing",
+            secret_key="test_secret_key_for_testing",  # noqa: S106  # nosec B106 - test only
             email="roundtrip@example.com",
             roles=["user"],
             permissions=["read", "detect"],

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -357,10 +358,11 @@ class AvaEquationEngine:
         return np.zeros_like(state)
 
     def _term_lyapunov_stability(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Lyapunov stability enforcement term."""
+        """Lyapunov stability enforcement term.
+
+        Uses Lyapunov function V = sum((state - target)^2) to compute stability gradient.
+        """
         target = np.ones(self.dimension) / np.sqrt(self.dimension)
-        # Lyapunov function value (unused, kept for documentation)
-        _V = np.sum((state - target) ** 2)
         gradient = 2 * (state - target)
         return np.asarray(-LAMBDA_DECAY * gradient * 0.1)
 

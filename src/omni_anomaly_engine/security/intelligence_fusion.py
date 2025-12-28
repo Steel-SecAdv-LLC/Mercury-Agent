@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -618,17 +619,11 @@ class IntelligenceFusionEngine:
             ]
 
             if matched_patterns:
-                all_matched_patterns.append(
-                    f"{threat_type}: {', '.join(matched_patterns)}"
-                )
-                deductions.append(
-                    f"Potential {threat_type.replace('_', ' ')} activity"
-                )
+                all_matched_patterns.append(f"{threat_type}: {', '.join(matched_patterns)}")
+                deductions.append(f"Potential {threat_type.replace('_', ' ')} activity")
 
         if len(all_matched_patterns) > 1:
-            confidence_factors.append(
-                "High confidence: Multiple threat pattern matches"
-            )
+            confidence_factors.append("High confidence: Multiple threat pattern matches")
 
         return {
             "matched_patterns": all_matched_patterns,
@@ -653,9 +648,7 @@ class IntelligenceFusionEngine:
         if IntelligenceDiscipline.CYBINT.value in intel_reports:
             cybint = intel_reports[IntelligenceDiscipline.CYBINT.value]
             if "encryption_algorithm" in cybint:
-                recommendations.append(
-                    f"Target: {cybint['encryption_algorithm']}"
-                )
+                recommendations.append(f"Target: {cybint['encryption_algorithm']}")
 
         return {
             "encrypted_comms_detected": encrypted_comms_detected,

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -39,6 +40,7 @@ Research source: Wikipedia - Energy development
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 import numpy as np
 

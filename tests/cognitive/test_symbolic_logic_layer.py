@@ -4,12 +4,10 @@ Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for Symbolic Logic Layer - Logic Graphs and Explainable Decisions
 """
+
 from __future__ import annotations
 
-import time
-
 import numpy as np
-import pytest
 
 from omni_anomaly_engine.cognitive.symbolic_logic_layer import (
     DecisionType,

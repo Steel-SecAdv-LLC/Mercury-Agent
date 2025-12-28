@@ -33,6 +33,7 @@ Example:
             logger.info("Starting operation", correlation_id=corr_id)
             # All logs within this context will have the same correlation_id
 """
+
 from __future__ import annotations
 
 import json
@@ -42,11 +43,13 @@ import sys
 import threading
 import time
 import uuid
-from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from functools import wraps
-from typing import Any, Generator
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator
 
 # Thread-local storage for correlation IDs
 _correlation_context = threading.local()
@@ -477,7 +480,9 @@ def configure_logging(
     root_logger.propagate = False
 
 
-def log_function_call(logger: logging.Logger | None = None) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+def log_function_call(
+    logger: logging.Logger | None = None,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to log function entry and exit.
 
     Args:

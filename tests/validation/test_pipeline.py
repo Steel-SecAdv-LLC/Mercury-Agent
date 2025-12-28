@@ -15,6 +15,7 @@ Covers:
 - ValidationPipeline error handling
 - Cross-validation edge cases
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -440,7 +441,7 @@ class TestValidationPipeline:
 
         # Benchmark key may include both dataset and model name
         assert len(benchmarks) >= 1
-        assert any("test_dataset" in key for key in benchmarks.keys())
+        assert any("test_dataset" in key for key in benchmarks)
 
     def test_generate_report(self):
         """Test generating validation report."""

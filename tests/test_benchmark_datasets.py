@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -24,15 +25,12 @@ Tests MVTec AD, UCF-Crime, and Shanghai Tech Campus dataset loaders.
 """
 
 
+import importlib.util
+
 import numpy as np
 import pytest
 
-try:
-    import torch
-
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
+HAS_TORCH = importlib.util.find_spec("torch") is not None
 
 
 class TestBaseImageDataset:

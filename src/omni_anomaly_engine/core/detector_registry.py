@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -662,8 +663,8 @@ class DetectorRegistry:
                 description="Z-score, percentile, MAD-based detection",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'statistical' not available: %s", e)
 
         try:
             from omni_anomaly_engine.detectors.temporal import TemporalAnomalyDetector
@@ -675,8 +676,8 @@ class DetectorRegistry:
                 description="Time-series patterns and seasonal anomalies",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'temporal' not available: %s", e)
 
         try:
             from omni_anomaly_engine.detectors.spatial import SpatialAnomalyDetector
@@ -688,8 +689,8 @@ class DetectorRegistry:
                 description="Geographic and spatial relationship anomalies",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'spatial' not available: %s", e)
 
         try:
             from omni_anomaly_engine.detectors.dimensional import DimensionalAnalyzer
@@ -701,8 +702,8 @@ class DetectorRegistry:
                 description="High-dimensional data anomalies",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'dimensional' not available: %s", e)
 
         try:
             from omni_anomaly_engine.detectors.directive import SigmaDirectiveDetector
@@ -714,8 +715,8 @@ class DetectorRegistry:
                 description="Rule-based sigma detection",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'directive' not available: %s", e)
 
         try:
             from omni_anomaly_engine.detectors.graph_based import GraphAnomalyDetector
@@ -727,8 +728,8 @@ class DetectorRegistry:
                 description="Graph structure anomaly detection",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'graph_based' not available: %s", e)
 
         # Specialized models
         try:
@@ -741,8 +742,8 @@ class DetectorRegistry:
                 description="Quantum state anomalies",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'quantum' not available: %s", e)
 
         try:
             from omni_anomaly_engine.models.astrophysical import AstrophysicalAnomalyModel
@@ -754,8 +755,8 @@ class DetectorRegistry:
                 description="Cosmic signal anomalies",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'astrophysical' not available: %s", e)
 
         try:
             from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
@@ -767,8 +768,8 @@ class DetectorRegistry:
                 description="Face/biometric anomalies",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'biometric' not available: %s", e)
 
         try:
             from omni_anomaly_engine.models.affective import AffectiveAnomalyModel
@@ -780,8 +781,8 @@ class DetectorRegistry:
                 description="Emotional state anomalies",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'affective' not available: %s", e)
 
         try:
             from omni_anomaly_engine.models.neural import NeuralCognitiveModel
@@ -793,8 +794,8 @@ class DetectorRegistry:
                 description="Brain activity anomalies",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'neural_cognitive' not available: %s", e)
 
         try:
             from omni_anomaly_engine.models.consciousness import ConsciousnessPreservationModel
@@ -806,8 +807,8 @@ class DetectorRegistry:
                 description="Consciousness preservation analysis",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'consciousness' not available: %s", e)
 
         try:
             from omni_anomaly_engine.models.neurosymbolic import NeurosymbolicEngine
@@ -819,8 +820,8 @@ class DetectorRegistry:
                 description="Hybrid neural-symbolic reasoning",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'neurosymbolic' not available: %s", e)
 
         try:
             from omni_anomaly_engine.models.chemistry import ChemistryAnomalyDetector
@@ -832,8 +833,8 @@ class DetectorRegistry:
                 description="Chemical anomaly detection",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'chemistry' not available: %s", e)
 
         try:
             from omni_anomaly_engine.models.parapsychology import ParapsychologyDetector
@@ -845,8 +846,8 @@ class DetectorRegistry:
                 description="Psi phenomena detection",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'parapsychology' not available: %s", e)
 
         # Security detectors
         try:
@@ -859,8 +860,8 @@ class DetectorRegistry:
                 description="Security threat detection",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'threat_detection' not available: %s", e)
 
         try:
             from omni_anomaly_engine.security.psyop import PSYOPAnalyzer
@@ -872,8 +873,8 @@ class DetectorRegistry:
                 description="Psychological operations analysis",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'psyop' not available: %s", e)
 
         try:
             from omni_anomaly_engine.security.intelligence_fusion import IntelligenceFusionEngine
@@ -885,8 +886,8 @@ class DetectorRegistry:
                 description="Multi-source intelligence fusion",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'intelligence_fusion' not available: %s", e)
 
         # Space detectors
         try:
@@ -899,8 +900,8 @@ class DetectorRegistry:
                 description="Earth resonance detection",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'schumann_resonance' not available: %s", e)
 
         try:
             from omni_anomaly_engine.space.solar_storm_detector import SolarStormDetector
@@ -912,8 +913,8 @@ class DetectorRegistry:
                 description="Solar storm prediction",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'solar_storm' not available: %s", e)
 
         # Medical detectors
         try:
@@ -926,8 +927,8 @@ class DetectorRegistry:
                 description="Medical discipline detection",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'medical_abms' not available: %s", e)
 
         # Geological detectors
         try:
@@ -940,8 +941,8 @@ class DetectorRegistry:
                 description="Volcanic eruption prediction",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'volcanic' not available: %s", e)
 
         try:
             from omni_anomaly_engine.detectors.geological.landslide import LandslideDetector
@@ -953,8 +954,8 @@ class DetectorRegistry:
                 description="Landslide prediction",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'landslide' not available: %s", e)
 
         try:
             from omni_anomaly_engine.detectors.geological.wildfire import WildfireDetector
@@ -966,8 +967,8 @@ class DetectorRegistry:
                 description="Wildfire prediction",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'wildfire' not available: %s", e)
 
         try:
             from omni_anomaly_engine.detectors.geological.tornado_detector import TornadoDetector
@@ -981,8 +982,8 @@ class DetectorRegistry:
                 tags=["disaster", "weather", "3r-resonance"],
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'tornado' not available: %s", e)
 
         try:
             from omni_anomaly_engine.detectors.geological.hurricane_detector import (
@@ -998,8 +999,8 @@ class DetectorRegistry:
                 tags=["disaster", "weather", "3r-resonance"],
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'hurricane' not available: %s", e)
 
         try:
             from omni_anomaly_engine.detectors.geological.flood_detector import FloodDetector
@@ -1013,8 +1014,8 @@ class DetectorRegistry:
                 tags=["disaster", "weather", "3r-refactoring"],
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'flood' not available: %s", e)
 
         # Economic detectors
         try:
@@ -1029,8 +1030,8 @@ class DetectorRegistry:
                 description="Financial crisis prediction",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'financial_crisis' not available: %s", e)
 
         # Energy detectors
         try:
@@ -1043,8 +1044,8 @@ class DetectorRegistry:
                 description="Electromagnetic pulse detection",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'emp' not available: %s", e)
 
         # Marine detectors
         try:
@@ -1059,8 +1060,8 @@ class DetectorRegistry:
                 description="Marine biodiversity threat detection",
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'marine_biodiversity' not available: %s", e)
 
         # =====================================================================
         # Safeguards (Nano-level anomaly detection)
@@ -1077,8 +1078,8 @@ class DetectorRegistry:
                 tags=["safeguard", "micro-anomaly", "3r-recursion", "lyapunov"],
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'nano_safeguard' not available: %s", e)
 
         # =====================================================================
         # SOTA Visual Anomaly Detection (PatchCore, PaDiM, STFPM, etc.)
@@ -1094,8 +1095,8 @@ class DetectorRegistry:
                 tags=["visual", "sota", "memory-bank"],
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'patchcore' not available: %s", e)
 
         try:
             from omni_anomaly_engine.detectors.visual import PaDiMDetector
@@ -1108,8 +1109,8 @@ class DetectorRegistry:
                 tags=["visual", "sota", "mahalanobis"],
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'padim' not available: %s", e)
 
         try:
             from omni_anomaly_engine.detectors.visual import STFPMDetector
@@ -1122,8 +1123,8 @@ class DetectorRegistry:
                 tags=["visual", "sota", "teacher-student"],
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'stfpm' not available: %s", e)
 
         try:
             from omni_anomaly_engine.detectors.visual import ReverseDistillationDetector
@@ -1136,8 +1137,8 @@ class DetectorRegistry:
                 tags=["visual", "sota", "distillation"],
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'reverse_distillation' not available: %s", e)
 
         try:
             from omni_anomaly_engine.detectors.visual import CFlowDetector
@@ -1150,8 +1151,8 @@ class DetectorRegistry:
                 tags=["visual", "sota", "normalizing-flow"],
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'cflow' not available: %s", e)
 
         # =====================================================================
         # Vision-Language Model (VLM) Detectors
@@ -1167,8 +1168,8 @@ class DetectorRegistry:
                 tags=["vlm", "zero-shot", "lvlm", "sota"],
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'anyanomaly' not available: %s", e)
 
         try:
             from omni_anomaly_engine.detectors.vlm import LAVADDetector
@@ -1181,8 +1182,8 @@ class DetectorRegistry:
                 tags=["vlm", "training-free", "llm", "sota"],
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'lavad' not available: %s", e)
 
         # =====================================================================
         # Foundation Model Adapters (TimeGPT, Chronos, Matrix Profile)
@@ -1198,8 +1199,8 @@ class DetectorRegistry:
                 tags=["foundation", "time-series", "api"],
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'timegpt' not available: %s", e)
 
         try:
             from omni_anomaly_engine.models.foundation import ChronosAdapter
@@ -1212,8 +1213,8 @@ class DetectorRegistry:
                 tags=["foundation", "time-series", "local"],
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'chronos' not available: %s", e)
 
         try:
             from omni_anomaly_engine.models.foundation import MatrixProfileAdapter
@@ -1226,8 +1227,8 @@ class DetectorRegistry:
                 tags=["foundation", "time-series", "matrix-profile"],
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'matrix_profile' not available: %s", e)
 
         try:
             from omni_anomaly_engine.models.foundation import FoundationEnsemble
@@ -1240,8 +1241,8 @@ class DetectorRegistry:
                 tags=["foundation", "ensemble"],
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'foundation_ensemble' not available: %s", e)
 
         # =====================================================================
         # Knowledge Distillation Methods
@@ -1257,8 +1258,8 @@ class DetectorRegistry:
                 tags=["distillation", "sota", "dual-student"],
             )
             registered_count += 1
-        except ImportError:
-            pass
+        except ImportError as e:
+            logger.debug("Optional detector 'dual_student' not available: %s", e)
 
         logger.info(f"Auto-discovered and registered {registered_count} detectors")
         return registered_count

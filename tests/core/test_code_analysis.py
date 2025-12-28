@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """Tests for Code Analysis Engine."""
@@ -221,7 +222,7 @@ for i in range(10):
         engine = NeurosymbolicEngine(config=config)
 
         training_data = [(sample_code_ast, {"refactoring": "extract_method"})]
-        metrics = engine.train_model(training_data)
+        engine.train_model(training_data)
 
         assert engine.current_phase == TrainingPhase.SPECIALIZATION
 

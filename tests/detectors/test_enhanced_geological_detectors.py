@@ -14,18 +14,15 @@ Covers:
 - WildfireDetector with CNN/NDVI processing and 3R Resonance synapse
 - VolcanicEruptionDetector with HMM state transitions and 3R Refactoring synapse
 """
+
 from __future__ import annotations
 
-import numpy as np
+import importlib.util
+
 import pytest
 
 # Optional torch import
-try:
-    import torch
-
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
+HAS_TORCH = importlib.util.find_spec("torch") is not None
 
 
 # =============================================================================
@@ -595,7 +592,7 @@ class TestVolcanicStateHMM:
 
     def test_update_belief(self, hmm_tracker, deterministic_rng):
         """Test belief update with observation (via state_belief or belief)."""
-        n_obs = hmm_tracker.n_states if hasattr(hmm_tracker, "n_states") else 5
+        hmm_tracker.n_states if hasattr(hmm_tracker, "n_states") else 5
         observation = {
             "seismic_activity": True,
             "gas_emission": False,

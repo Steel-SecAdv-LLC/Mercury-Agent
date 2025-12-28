@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -642,7 +643,9 @@ class PSYOPAnalyzer:
 
         return vectors
 
-    def _calculate_receptivity(self, demographics: dict[str, Any], behavioral: dict[str, Any], media: dict[str, Any]) -> float:
+    def _calculate_receptivity(
+        self, demographics: dict[str, Any], behavioral: dict[str, Any], media: dict[str, Any]
+    ) -> float:
         """Calculate receptivity score for influence operations."""
         receptivity = 0.5  # Baseline
 
@@ -770,7 +773,9 @@ class PSYOPAnalyzer:
         else:
             return PSYOPCategory.TACTICAL
 
-    def _detect_coordination(self, timing: dict[str, Any], network: dict[str, Any], accounts: list[Any]) -> list[str]:
+    def _detect_coordination(
+        self, timing: dict[str, Any], network: dict[str, Any], accounts: list[Any]
+    ) -> list[str]:
         """Detect coordination indicators."""
         indicators = []
 
@@ -819,7 +824,9 @@ class PSYOPAnalyzer:
 
         return vectors
 
-    def _assess_threat_level(self, confidence: float, message_count: int, network: dict[str, Any]) -> str:
+    def _assess_threat_level(
+        self, confidence: float, message_count: int, network: dict[str, Any]
+    ) -> str:
         """Assess overall threat level of campaign."""
         score = confidence * 0.4
 

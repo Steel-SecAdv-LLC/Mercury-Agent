@@ -15,7 +15,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
+
 from typing import Any
 
 """
@@ -232,7 +234,9 @@ class HealthcareEmergencyDetector:
         else:
             return PatientStatus.STABLE
 
-    def _generate_clinical_recommendations(self, anomalies: dict[str, Any], score: int) -> list[str]:
+    def _generate_clinical_recommendations(
+        self, anomalies: dict[str, Any], score: int
+    ) -> list[str]:
         """Generate clinical action recommendations."""
         if score < 3:
             return ["Continue routine monitoring"]
@@ -265,7 +269,9 @@ class HealthcareEmergencyDetector:
 
         return "elevated_activity"
 
-    def _recommend_resource_allocation(self, call_data: dict[str, Any], event_type: str) -> dict[str, Any]:
+    def _recommend_resource_allocation(
+        self, call_data: dict[str, Any], event_type: str
+    ) -> dict[str, Any]:
         """Recommend emergency resource allocation."""
         if event_type == "normal_operations":
             return {"status": "normal", "additional_units": 0}
@@ -282,7 +288,9 @@ class HealthcareEmergencyDetector:
             "activate_emergency_operations_center": event_type == "major_disaster",
         }
 
-    def _generate_emergency_recommendations(self, anomalies: dict[str, Any], event_type: str) -> list[str]:
+    def _generate_emergency_recommendations(
+        self, anomalies: dict[str, Any], event_type: str
+    ) -> list[str]:
         """Generate emergency response recommendations."""
         if not anomalies:
             return ["Continue normal operations"]

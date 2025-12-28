@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -57,7 +58,7 @@ class StatisticalAnomalyDetector(BaseDetector):
         self.q1: np.ndarray[Any, Any] | None = None
         self.q3: np.ndarray[Any, Any] | None = None
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "StatisticalAnomalyDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> StatisticalAnomalyDetector:
         """Fit detector to normal data"""
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()

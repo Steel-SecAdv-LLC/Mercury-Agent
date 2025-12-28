@@ -21,6 +21,7 @@ the fairness ML literature.
 
 Reference: Fairlearn documentation (https://fairlearn.org/)
 """
+
 from __future__ import annotations
 
 import logging

@@ -15,7 +15,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
+
 from typing import Any
 
 """
@@ -92,7 +94,10 @@ class FederatedAnomalyDetector:
         self._rng = rng or get_global_rng()
 
     def federated_train(
-        self, client_data: dict[str, np.ndarray[Any, Any]], local_epochs: int = 5, num_rounds: int = 10
+        self,
+        client_data: dict[str, np.ndarray[Any, Any]],
+        local_epochs: int = 5,
+        num_rounds: int = 10,
     ) -> dict[str, Any]:
         """
         Train federated anomaly detection model across clients.
@@ -201,7 +206,9 @@ class FederatedAnomalyDetector:
 
         return detection_results
 
-    def _local_train(self, client_id: str, data: np.ndarray[Any, Any], epochs: int) -> np.ndarray[Any, Any]:
+    def _local_train(
+        self, client_id: str, data: np.ndarray[Any, Any], epochs: int
+    ) -> np.ndarray[Any, Any]:
         """Simulate local training on client device."""
         if self.global_model_weights is None:
             self.global_model_weights = self._rng.randn(data.shape[1])
@@ -247,7 +254,9 @@ class FederatedAnomalyDetector:
 
         return aggregated
 
-    def _add_differential_privacy_noise(self, model_update: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def _add_differential_privacy_noise(
+        self, model_update: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """Add Gaussian noise for differential privacy guarantee."""
         sensitivity = 1.0
         sigma = sensitivity * np.sqrt(2 * np.log(1.25 / self.delta)) / self.epsilon
@@ -273,9 +282,13 @@ class FederatedAnomalyDetector:
 
         return personalized_model
 
-    def _compute_anomaly_scores(self, model: np.ndarray[Any, Any], data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def _compute_anomaly_scores(
+        self, model: np.ndarray[Any, Any], data: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """Compute anomaly scores for data using model."""
-        reconstruction_errors: np.ndarray[Any, Any] = np.asarray(np.linalg.norm(data - model, axis=1))
+        reconstruction_errors: np.ndarray[Any, Any] = np.asarray(
+            np.linalg.norm(data - model, axis=1)
+        )
         return reconstruction_errors
 
     def _evaluate_global_model(self, client_data: dict[str, np.ndarray[Any, Any]]) -> float:

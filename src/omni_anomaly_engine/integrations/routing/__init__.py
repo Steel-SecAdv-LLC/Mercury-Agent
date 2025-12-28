@@ -1,6 +1,7 @@
 """
 Request routing and fallback handling components.
 """
+
 from __future__ import annotations
 
 from omni_anomaly_engine.integrations.routing.fallback import (

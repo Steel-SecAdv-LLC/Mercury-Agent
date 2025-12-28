@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -268,7 +269,9 @@ class EncryptedTrafficAnomalyDetector:
         )
         self.logger = logging.getLogger(__name__)
 
-    def extract_behavioral_features(self, traffic_data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def extract_behavioral_features(
+        self, traffic_data: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """
         Extract behavioral features from encrypted traffic.
 

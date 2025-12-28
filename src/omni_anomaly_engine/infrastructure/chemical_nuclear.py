@@ -15,7 +15,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
+
 from typing import Any
 
 """
@@ -155,7 +157,9 @@ class ChemicalNuclearDetector:
             }
         return {}
 
-    def _calculate_severity(self, violations: np.ndarray[Any, Any], threshold: dict[str, Any]) -> str:
+    def _calculate_severity(
+        self, violations: np.ndarray[Any, Any], threshold: dict[str, Any]
+    ) -> str:
         """Calculate severity level based on violation magnitude."""
         if len(violations) == 0:
             return "NONE"

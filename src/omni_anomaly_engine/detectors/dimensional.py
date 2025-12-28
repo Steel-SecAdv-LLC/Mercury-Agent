@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -83,7 +84,7 @@ class DimensionalAnalyzer(BaseDetector):
         self.input_dim: int | None = None
         self.baseline_spectral_signature: np.ndarray[Any, Any] | None = None
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "DimensionalAnalyzer":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> DimensionalAnalyzer:
         """Fit dimensional analyzers to data"""
         data_np = data.cpu().numpy() if isinstance(data, torch.Tensor) else data
 
@@ -217,7 +218,9 @@ class DimensionalAnalyzer(BaseDetector):
 
         scores = np.zeros(data.shape[0])
 
-        assert self.baseline_spectral_signature is not None, "Baseline spectral signature must be computed"
+        assert (
+            self.baseline_spectral_signature is not None
+        ), "Baseline spectral signature must be computed"
 
         for idx in range(data.shape[0]):
             sample = data[idx : idx + 1, :]

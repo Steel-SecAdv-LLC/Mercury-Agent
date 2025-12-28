@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -115,7 +116,7 @@ def test_retry_policy_failure():
 
     try:
         always_fails()
-        assert False, "Should have raised exception"
+        raise AssertionError("Should have raised exception")
     except Exception as e:
         assert "Permanent failure" in str(e)
         assert counter["calls"] == 3

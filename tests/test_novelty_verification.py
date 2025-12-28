@@ -7,19 +7,17 @@ Tests the key claims made in NOVELTY_PROOFS.md and DISCOVERIES.md.
 
 Note: Some tests require PyTorch and are marked with pytest.mark.skipif.
 """
+
 from __future__ import annotations
+
+import importlib.util
 
 import numpy as np
 import pytest
 from scipy import stats
 
 # Check for torch availability
-try:
-    import torch
-
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+TORCH_AVAILABLE = importlib.util.find_spec("torch") is not None
 
 
 class TestDoubleHelixEngine:

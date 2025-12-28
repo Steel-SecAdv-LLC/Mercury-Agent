@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -182,7 +183,9 @@ class ABMSDisciplineDetector:
     medical anomaly detection across all major medical specialties.
     """
 
-    def __init__(self, enable_neurosymbolic: bool = True, golden_ratio_threshold: bool = True) -> None:
+    def __init__(
+        self, enable_neurosymbolic: bool = True, golden_ratio_threshold: bool = True
+    ) -> None:
         """
         Initialize ABMS detector.
 
@@ -822,7 +825,9 @@ class ABMSDisciplineDetector:
 
         return result
 
-    def detect_all(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, MedicalAnomalyResult]:
+    def detect_all(
+        self, data: np.ndarray[Any, Any] | torch.Tensor
+    ) -> dict[str, MedicalAnomalyResult]:
         """Detect anomalies across all ABMS specialties.
 
         Args:

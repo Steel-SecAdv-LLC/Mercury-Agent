@@ -26,7 +26,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from omni_anomaly_engine.core.ai_ethics import EthicalAutonomyGovernor, EthicsConfig  # noqa: E402
+from omni_anomaly_engine.core.ai_ethics import EthicalAutonomyGovernor, EthicsConfig
 
 
 def main():

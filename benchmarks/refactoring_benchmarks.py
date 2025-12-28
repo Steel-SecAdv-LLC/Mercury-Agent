@@ -26,13 +26,13 @@ import sys
 import time
 import tracemalloc
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from omni_anomaly_engine.core.three_r_mechanism import (  # noqa: E402
+from omni_anomaly_engine.core.three_r_mechanism import (
     RefactoringConfig,
     RefactoringEngine,
 )
@@ -41,7 +41,7 @@ from omni_anomaly_engine.core.three_r_mechanism import (  # noqa: E402
 class RefactoringBenchmark:
     """Benchmark RefactoringEngine on real open-source code."""
 
-    def __init__(self, repo_paths: List[Path]):
+    def __init__(self, repo_paths: list[Path]):
         self.repo_paths = repo_paths
         self.engine = RefactoringEngine(
             config=RefactoringConfig(
@@ -53,10 +53,10 @@ class RefactoringBenchmark:
 
     def extract_functions_from_file(
         self, file_path: Path
-    ) -> List[Tuple[str, ast.FunctionDef, Path]]:
+    ) -> list[tuple[str, ast.FunctionDef, Path]]:
         """Extract all functions from a Python file."""
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 source = f.read()
             tree = ast.parse(source)
 
@@ -72,7 +72,7 @@ class RefactoringBenchmark:
 
     def benchmark_dimension_1_execution_time(
         self, func_node: ast.FunctionDef, iterations: int = 100
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Measure execution time for analysis operations."""
         times = []
 
@@ -92,7 +92,7 @@ class RefactoringBenchmark:
             "max_time": float(np.max(times)),
         }
 
-    def benchmark_dimension_2_memory(self, func_node: ast.FunctionDef) -> Dict[str, float]:
+    def benchmark_dimension_2_memory(self, func_node: ast.FunctionDef) -> dict[str, float]:
         """Measure memory usage during analysis."""
         tracemalloc.start()
 
@@ -106,7 +106,7 @@ class RefactoringBenchmark:
             "peak_memory_kb": peak / 1024,
         }
 
-    def benchmark_dimension_3_correctness(self, func_node: ast.FunctionDef) -> Dict[str, Any]:
+    def benchmark_dimension_3_correctness(self, func_node: ast.FunctionDef) -> dict[str, Any]:
         """Verify correctness of analysis results."""
         manual_complexity = 1
         for node in ast.walk(func_node):
@@ -119,8 +119,8 @@ class RefactoringBenchmark:
         }
 
     def benchmark_dimension_4_scalability(
-        self, functions: List[tuple], batch_sizes: List[int] = [10, 50, 100]
-    ) -> Dict[str, Any]:
+        self, functions: list[tuple], batch_sizes: list[int] = [10, 50, 100]
+    ) -> dict[str, Any]:
         """Measure scalability with increasing batch sizes."""
         scalability_results = {}
 
@@ -145,7 +145,7 @@ class RefactoringBenchmark:
 
     def benchmark_dimension_5_convergence(
         self, func_node: ast.FunctionDef, max_iterations: int = 10
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Measure convergence of iterative analysis."""
         complexities = []
 
@@ -170,7 +170,7 @@ class RefactoringBenchmark:
             "iterations_to_converge": len(complexities),
         }
 
-    def benchmark_dimension_6_accuracy(self, func_node: ast.FunctionDef) -> Dict[str, float]:
+    def benchmark_dimension_6_accuracy(self, func_node: ast.FunctionDef) -> dict[str, float]:
         """Measure accuracy of complexity predictions."""
         cyclomatic = 1
         for node in ast.walk(func_node):
@@ -190,7 +190,7 @@ class RefactoringBenchmark:
             "accuracy_score": 0.95,
         }
 
-    def run_comprehensive_benchmark(self) -> Dict[str, Any]:
+    def run_comprehensive_benchmark(self) -> dict[str, Any]:
         """Run comprehensive benchmarks across all dimensions."""
         all_functions = []
 

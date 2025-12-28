@@ -7,6 +7,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
+
 from __future__ import annotations
 
 """
@@ -31,13 +32,15 @@ import logging
 import threading
 import time
 from collections import defaultdict
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy import sparse
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -379,7 +382,6 @@ class GNNMessagePassing:
         Returns:
             Updated node embeddings (n_nodes, hidden_dim)
         """
-        _n_nodes = node_features.shape[0]
         feature_dim = node_features.shape[1]
 
         # Initialize weights if needed
@@ -452,7 +454,6 @@ class GNNMessagePassing:
         features: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
         """Max aggregation over neighbors."""
-        _n_nodes = features.shape[0]
         result = np.zeros_like(features)
 
         adj_coo = adjacency.tocoo()
@@ -595,7 +596,9 @@ class KnowledgeGraph:
         self._edges: dict[str, list[KnowledgeEdge]] = defaultdict[str, list[Any]](list)
         self._reverse_edges: dict[str, list[KnowledgeEdge]] = defaultdict[str, list[Any]](list)
         self._type_index: dict[NodeType, set[str]] = defaultdict[str, set[Any]](set)
-        self._edge_type_index: dict[EdgeType, list[KnowledgeEdge]] = defaultdict[str, list[Any]](list)
+        self._edge_type_index: dict[EdgeType, list[KnowledgeEdge]] = defaultdict[str, list[Any]](
+            list
+        )
 
         # Embedding components
         self._random_walk = RandomWalkEmbedding(embedding_dim=embedding_dim)

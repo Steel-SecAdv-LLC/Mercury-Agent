@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -163,7 +164,7 @@ class MemoryEfficientFeatureCache:
 
             now = time.time()
 
-            original_dtype = data.dtype if isinstance(data, np.ndarray[Any, Any]) else data.dtype
+            original_dtype = data.dtype if isinstance(data, np.ndarray) else data.dtype
             original_shape = data.shape
 
             entry = CacheEntry(

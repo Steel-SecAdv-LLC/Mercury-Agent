@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -31,7 +32,7 @@ class RateLimiter:
     def __init__(self, max_requests: int = 100, window_seconds: int = 60) -> None:
         self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self.requests: dict[str, list[Any]] = defaultdict[str, list[Any]](list)
+        self.requests: dict[str, list[float]] = defaultdict(list)
 
     def is_allowed(self, identifier: str) -> bool:
         """Check if request is allowed"""

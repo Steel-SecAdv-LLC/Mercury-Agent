@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -22,9 +23,8 @@ Training utilities for fusion model using PyTorch Lightning
 Enhanced with Ava Equation state evolution optimizers
 """
 
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytorch_lightning as pl
@@ -34,6 +34,9 @@ from torch.optim import lr_scheduler
 from torch.utils.data import Dataset
 
 from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 __all__ = [
     "AnomalyDataset",
@@ -152,7 +155,9 @@ class LearningRateScheduler:
         self.optimizer = optimizer
         self.mode = mode
 
-        self._scheduler: lr_scheduler.StepLR | lr_scheduler.CosineAnnealingLR | lr_scheduler.ReduceLROnPlateau
+        self._scheduler: (
+            lr_scheduler.StepLR | lr_scheduler.CosineAnnealingLR | lr_scheduler.ReduceLROnPlateau
+        )
         if mode == "step":
             self._scheduler = lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
         elif mode == "cosine":
@@ -175,9 +180,8 @@ class LearningRateScheduler:
         if self.mode == "plateau" and metric is not None:
             if isinstance(self._scheduler, lr_scheduler.ReduceLROnPlateau):
                 self._scheduler.step(metric)
-        else:
-            if not isinstance(self._scheduler, lr_scheduler.ReduceLROnPlateau):
-                self._scheduler.step()
+        elif not isinstance(self._scheduler, lr_scheduler.ReduceLROnPlateau):
+            self._scheduler.step()
 
     def get_last_lr(self) -> list[float]:
         """Get the last computed learning rate."""
@@ -342,7 +346,9 @@ class Trainer:
                     "as explicitly requested. Only do this for trusted checkpoints. "
                     f"Original error: {e}"
                 )
-                checkpoint = torch.load(path, map_location=self.device, weights_only=False)
+                checkpoint = torch.load(
+                    path, map_location=self.device, weights_only=False
+                )  # nosec B614 - intentional for trusted checkpoints with allow_unsafe=True
             else:
                 raise RuntimeError(
                     f"Checkpoint at '{path}' cannot be loaded safely (weights_only=True). "
@@ -361,7 +367,14 @@ class AvaOptimizer(optim.Optimizer):
     Base Ava optimizer with state evolution dynamics
     """
 
-    def __init__(self, params: Any, lr: float = 0.001, alpha: float = 0.1, beta: float = 0.9, quantum_noise: float = 0.0) -> None:
+    def __init__(
+        self,
+        params: Any,
+        lr: float = 0.001,
+        alpha: float = 0.1,
+        beta: float = 0.9,
+        quantum_noise: float = 0.0,
+    ) -> None:
         defaults = {"lr": lr, "alpha": alpha, "beta": beta, "quantum_noise": quantum_noise}
         super().__init__(params, defaults)
 
@@ -407,7 +420,9 @@ class AvaMomentumOptimizer(optim.Optimizer):
     Ava optimizer with momentum variant
     """
 
-    def __init__(self, params: Any, lr: float = 0.001, alpha: float = 0.1, momentum: float = 0.9) -> None:
+    def __init__(
+        self, params: Any, lr: float = 0.001, alpha: float = 0.1, momentum: float = 0.9
+    ) -> None:
         defaults = {"lr": lr, "alpha": alpha, "momentum": momentum}
         super().__init__(params, defaults)
 
@@ -446,7 +461,9 @@ class AvaExponentialDecayOptimizer(optim.Optimizer):
     Ava optimizer with exponential decay
     """
 
-    def __init__(self, params: Any, lr: float = 0.001, alpha: float = 0.1, decay_rate: float = 0.99) -> None:
+    def __init__(
+        self, params: Any, lr: float = 0.001, alpha: float = 0.1, decay_rate: float = 0.99
+    ) -> None:
         defaults = {"lr": lr, "alpha": alpha, "decay_rate": decay_rate}
         super().__init__(params, defaults)
 
@@ -487,7 +504,9 @@ class AvaHarmonicOptimizer(optim.Optimizer):
     Ava optimizer with harmonic oscillator variant
     """
 
-    def __init__(self, params: Any, lr: float = 0.001, alpha: float = 0.1, omega: float = 0.1) -> None:
+    def __init__(
+        self, params: Any, lr: float = 0.001, alpha: float = 0.1, omega: float = 0.1
+    ) -> None:
         defaults = {"lr": lr, "alpha": alpha, "omega": omega}
         super().__init__(params, defaults)
 
@@ -545,7 +564,12 @@ def create_ava_optimizer(
         raise ValueError(f"Unknown Ava optimizer variant: {variant}")
 
 
-class AnomalyDataset(Dataset[tuple[dict[str, torch.Tensor], torch.Tensor] | tuple[dict[str, torch.Tensor], dict[str, torch.Tensor], torch.Tensor]]):
+class AnomalyDataset(
+    Dataset[
+        tuple[dict[str, torch.Tensor], torch.Tensor]
+        | tuple[dict[str, torch.Tensor], dict[str, torch.Tensor], torch.Tensor]
+    ]
+):
     """Dataset for anomaly detection training"""
 
     def __init__(

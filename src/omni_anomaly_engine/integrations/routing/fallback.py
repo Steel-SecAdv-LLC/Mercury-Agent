@@ -31,15 +31,20 @@ Example:
         # Execute with automatic fallback
         result = await chain.execute(request)
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +61,7 @@ class FallbackReason(Enum):
 
 
 @dataclass
-class FallbackResult[T]:
+class FallbackResult(Generic[T]):  # noqa: UP046 - Generic[T] required for Python 3.11 compatibility
     """Result from fallback chain execution.
 
     Attributes:

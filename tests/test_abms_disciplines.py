@@ -3,6 +3,7 @@ Tests for omni_anomaly_engine.medical.abms_disciplines module.
 
 Tests ABMS medical specialty-based anomaly detection.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -138,7 +139,7 @@ class TestMultiSpecialtyNeuralNet:
 
         # Verify hidden dimensions follow golden ratio pattern
         hidden_1 = int(input_dim * phi)
-        hidden_2 = int(hidden_1 * phi)
+        int(hidden_1 * phi)
 
         # Check encoder layer dimensions
         encoder_layers = list(self.model.shared_encoder.children())
@@ -233,7 +234,7 @@ class TestABMSAnomalyDetector:
 
     def test_consultation_recommendations(self):
         """Test consultation recommendations."""
-        data = np.random.randn(64).astype(np.float32)
+        np.random.randn(64).astype(np.float32)
 
         # Run detection that should trigger high risk
         data_high = np.ones(64).astype(np.float32) * 3.0  # Abnormal values

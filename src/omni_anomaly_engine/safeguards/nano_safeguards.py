@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -244,7 +245,7 @@ class NanoSafeguardDetector(BaseDetector):
         self.memory_buffer: list[np.ndarray[Any, Any]] = []
         self.max_memory = self.config.get("max_memory", 100)
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "NanoSafeguardDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> NanoSafeguardDetector:
         """
         Fit nano-safeguard to normal data patterns.
 

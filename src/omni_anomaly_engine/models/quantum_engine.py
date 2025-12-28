@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -40,11 +41,13 @@ References:
 """
 
 import logging
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -570,7 +573,9 @@ class QuantumEngine:
                 best_state=[], best_cost=float("inf"), confidence=0.0, iterations=0
             )
 
-    def calculate_quantum_fidelity(self, state1: np.ndarray[Any, Any], state2: np.ndarray[Any, Any]) -> float:
+    def calculate_quantum_fidelity(
+        self, state1: np.ndarray[Any, Any], state2: np.ndarray[Any, Any]
+    ) -> float:
         """
         Calculate quantum fidelity between two states.
 

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -197,7 +198,10 @@ class TemporalVitalSignsDetector:
         return np.clip(normalized, 0, 1)
 
     def _calculate_disease_risk(
-        self, anomaly_score: float, assessment: dict[str, Any], vitals_sequence: np.ndarray[Any, Any]
+        self,
+        anomaly_score: float,
+        assessment: dict[str, Any],
+        vitals_sequence: np.ndarray[Any, Any],
     ) -> dict[str, float]:
         """Calculate disease risk scores."""
         if len(vitals_sequence) >= 3:

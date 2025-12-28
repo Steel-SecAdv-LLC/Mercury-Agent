@@ -14,6 +14,7 @@ Example:
     >>> result = await db.query("SELECT * FROM anomalies WHERE score > 0.8")
     >>> print(f"Found {len(result.rows)} anomalies")
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -288,7 +289,7 @@ class DatabaseStub:
             execution_time_ms=latency,
         )
 
-    async def transaction(self) -> "TransactionContext":
+    async def transaction(self) -> TransactionContext:
         """Start a transaction.
 
         Returns:
@@ -352,7 +353,7 @@ class TransactionContext:
         self._committed = False
         self._rolled_back = False
 
-    async def __aenter__(self) -> "TransactionContext":
+    async def __aenter__(self) -> TransactionContext:
         """Enter transaction."""
         return self
 

@@ -36,8 +36,6 @@ import sys
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from pathlib import Path
-from typing import Any
 
 import numpy as np
 
@@ -49,13 +47,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Optional torch import
-try:
-    import torch
-    from torch.utils.data import DataLoader, TensorDataset
+import importlib.util
 
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
+HAS_TORCH = importlib.util.find_spec("torch") is not None
+if not HAS_TORCH:
     logger.warning("PyTorch not available - using simulation mode")
 
 
@@ -378,7 +373,7 @@ def print_summary(result: BenchmarkResult) -> None:
     print("A/B SIGMA BENCHMARK SUMMARY")
     print("=" * 70)
 
-    print(f"\nConfiguration:")
+    print("\nConfiguration:")
     print(f"  Epochs: {result.config['epochs']}")
     print(f"  Sigma A: {result.config['sigma_a']} (medical fallback)")
     print(f"  Sigma B: {result.config['sigma_b']} (default)")
@@ -398,14 +393,14 @@ def print_summary(result: BenchmarkResult) -> None:
     print(f"  False Positive Rate: {result.sigma_b_final['false_positive_rate']:.4f}")
     print(f"  Lyapunov Stable: {result.sigma_b_final['lyapunov_stable']}")
 
-    print(f"\nComparison:")
+    print("\nComparison:")
     print(f"  F1 Improvement: {result.comparison['f1_improvement_percent']:.2f}%")
     print(f"  FPR Reduction: {result.comparison['fpr_reduction_percent']:.2f}%")
     print(f"  Sigma B Better F1: {result.comparison['sigma_b_better_f1']}")
     print(f"  Sigma B Lower FPR: {result.comparison['sigma_b_lower_fpr']}")
     print(f"  Both Lyapunov Stable: {result.comparison['both_lyapunov_stable']}")
 
-    print(f"\nValidation:")
+    print("\nValidation:")
     print(f"  F1 >= 0.92 Target Met: {result.comparison['sigma_b_meets_f1_target']}")
     print(f"  FPR Reduction 5-15%: {result.comparison['fpr_reduction_in_range']}")
 
@@ -473,7 +468,7 @@ def main():
 
     print_summary(result)
 
-    filepath = save_results(result, config.output_dir)
+    save_results(result, config.output_dir)
 
     if result.comparison["sigma_b_meets_f1_target"]:
         logger.info("BENCHMARK PASSED: F1 >= 0.92 target met")

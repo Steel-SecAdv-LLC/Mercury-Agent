@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -164,7 +165,9 @@ class AdaptiveNoiseFilter:
 
         return self._haar_wavelet_reconstruct(denoised_coeffs, len(data))
 
-    def _haar_wavelet_decompose(self, data: np.ndarray[Any, Any], level: int) -> list[np.ndarray[Any, Any]]:
+    def _haar_wavelet_decompose(
+        self, data: np.ndarray[Any, Any], level: int
+    ) -> list[np.ndarray[Any, Any]]:
         """Simple Haar wavelet decomposition."""
         coeffs = []
         current = data.copy()

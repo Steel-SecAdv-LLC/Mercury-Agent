@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -265,7 +266,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
 
         return torch.cat(resized, dim=1)
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "ReverseDistillationDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> ReverseDistillationDetector:
         """Train student encoder, bottleneck, and decoder.
 
         Args:

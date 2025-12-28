@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -325,7 +326,9 @@ class ParapsychologyDetector:
 
         return result
 
-    def _determine_psi_type(self, experimental_data: dict[str, Any], metadata: dict[str, Any] | None) -> str:
+    def _determine_psi_type(
+        self, experimental_data: dict[str, Any], metadata: dict[str, Any] | None
+    ) -> str:
         """Determine type of psi phenomenon being tested"""
         if metadata and "experiment_type" in metadata:
             return str(metadata["experiment_type"])
@@ -360,7 +363,9 @@ class ParapsychologyDetector:
 
         return hit_rate, z_score, p_value, effect_size
 
-    def _analyze_reg_output(self, reg_output: np.ndarray[Any, Any]) -> tuple[float, float, float, float]:
+    def _analyze_reg_output(
+        self, reg_output: np.ndarray[Any, Any]
+    ) -> tuple[float, float, float, float]:
         """
         Analyze random event generator output for psychokinesis.
 
@@ -442,7 +447,9 @@ class ParapsychologyDetector:
 
         return float(coherence[0].item())
 
-    def _compare_with_control(self, experimental_data: dict[str, Any], control_data: dict[str, Any]) -> dict[str, Any]:
+    def _compare_with_control(
+        self, experimental_data: dict[str, Any], control_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """Compare experimental condition with control"""
         comparison = {
             "control_p_value": None,
@@ -541,16 +548,18 @@ class ParapsychologyDetector:
             if "meditation_duration" in metadata:
                 meditation_state = int(metadata["meditation_duration"])
                 if metadata["meditation_duration"] > 20:
-                    insights.append(
-                        "Extended meditation may enhance psi receptivity"
-                    )
+                    insights.append("Extended meditation may enhance psi receptivity")
 
             if "group_size" in metadata:
                 group_coherence = metadata["group_size"] > 1
                 if metadata["group_size"] > 5:
                     insights.append("Group consciousness may amplify field effects")
 
-        return {"meditation_state": meditation_state, "group_coherence": group_coherence, "insights": insights}
+        return {
+            "meditation_state": meditation_state,
+            "group_coherence": group_coherence,
+            "insights": insights,
+        }
 
     def extract_features(self, data: dict[str, Any]) -> torch.Tensor:
         """Extract features for ML fusion integration"""

@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -130,13 +131,12 @@ class MatrixProfileDetector(BaseFoundationModel):
 
             # Check GPU support
             if self.mp_config.use_gpu:
-                try:
-                    import stumpy.gpu as _stumpy_gpu
+                import importlib.util
 
-                    del _stumpy_gpu  # Clean up after import check
+                if importlib.util.find_spec("stumpy.gpu") is not None:
                     self._gpu_available = True
                     logger.info("STUMPY GPU acceleration available")
-                except ImportError:
+                else:
                     logger.info("STUMPY GPU not available, using CPU")
 
         except ImportError:

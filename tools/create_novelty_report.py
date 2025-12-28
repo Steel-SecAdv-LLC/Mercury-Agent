@@ -24,7 +24,7 @@ import re
 from collections import defaultdict
 
 # Read ethical config
-with open("omni_anomaly_engine/core/ethical_config.py", "r") as f:
+with open("omni_anomaly_engine/core/ethical_config.py") as f:
     ethical_content = f.read()
 
 # Extract all scalars with values

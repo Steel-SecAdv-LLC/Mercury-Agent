@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -23,14 +24,11 @@ Tests for Foundation Model Adapters.
 Tests TimeGPT, Chronos, Matrix Profile, and Foundation Ensemble adapters.
 """
 
+import importlib.util
+
 import pytest
 
-try:
-    import torch
-
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
+HAS_TORCH = importlib.util.find_spec("torch") is not None
 
 
 pytestmark = pytest.mark.foundation

@@ -741,7 +741,9 @@ class DoubleHelixEvolutionEngine:
 
         return strand
 
-    def _intertwine_helixes(self, helix1: np.ndarray[Any, Any], helix2: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def _intertwine_helixes(
+        self, helix1: np.ndarray[Any, Any], helix2: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """
         Intertwine helix strands via tensor-like product for DNA-like replication.
 
@@ -977,7 +979,9 @@ class DoubleHelixEvolutionEngine:
         result: np.ndarray[Any, Any] = (lorentz_factor * ethical_smooth - state) * 0.05
         return result
 
-    def _term_VQE(self, state: np.ndarray[Any, Any], params: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def _term_VQE(
+        self, state: np.ndarray[Any, Any], params: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """𝐕𝐐𝐄: Variational Quantum Eigensolver ansatz."""
         ansatz = self.np.sin(params * state)
         result: np.ndarray[Any, Any] = ansatz * 0.02

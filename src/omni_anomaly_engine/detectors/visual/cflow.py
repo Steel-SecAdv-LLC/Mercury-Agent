@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -367,7 +368,7 @@ class CFlowDetector(BaseVisualDetector):
 
         self._initialized = True
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "CFlowDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> CFlowDetector:
         """Train normalizing flows on normal data.
 
         Args:
@@ -376,7 +377,7 @@ class CFlowDetector(BaseVisualDetector):
         Returns:
             Self for method chaining
         """
-        if isinstance(data, np.ndarray[Any, Any]):
+        if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)
@@ -475,7 +476,7 @@ class CFlowDetector(BaseVisualDetector):
         if not self._is_fitted:
             raise RuntimeError("Detector must be fitted before detection")
 
-        if isinstance(data, np.ndarray[Any, Any]):
+        if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
         original_size = data.shape[-2:]
@@ -571,7 +572,7 @@ class CFlowDetector(BaseVisualDetector):
         Returns:
             Feature tensor [N, 128] normalized for fusion
         """
-        if isinstance(data, np.ndarray[Any, Any]):
+        if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)

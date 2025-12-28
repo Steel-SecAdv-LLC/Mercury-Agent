@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -104,7 +105,7 @@ class LVLMBackend(ABC):
         """Convert image to PIL format."""
         if isinstance(image, Image.Image):
             return image
-        if isinstance(image, np.ndarray[Any, Any]):
+        if isinstance(image, np.ndarray):
             if image.ndim == 4:
                 image = image[0]  # Take first if batched
             if image.shape[0] in [1, 3]:  # CHW format

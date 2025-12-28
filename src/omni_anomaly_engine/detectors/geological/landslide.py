@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -443,7 +444,7 @@ class SVMRFEnsembleClassifier:
         self,
         X: np.ndarray[Any, Any],
         y: np.ndarray[Any, Any],
-    ) -> "SVMRFEnsembleClassifier":
+    ) -> SVMRFEnsembleClassifier:
         """Fit both classifiers on training data.
 
         Args:

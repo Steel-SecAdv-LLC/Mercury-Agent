@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -149,8 +150,8 @@ class MathConstant:
                     sympy_value = _evaluate_sympy_constant(sympy_name)
                     if sympy_value is not None:
                         return abs(self.value - sympy_value) < tolerance
-                except Exception:
-                    pass
+                except (ValueError, TypeError, AttributeError):
+                    return True
 
         return True
 

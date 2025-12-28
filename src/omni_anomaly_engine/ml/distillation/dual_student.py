@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -325,7 +326,7 @@ class DualStudentDistillation(nn.Module):
 
         return loss
 
-    def fit(self, data: torch.Tensor) -> "DualStudentDistillation":
+    def fit(self, data: torch.Tensor) -> DualStudentDistillation:
         """Train students on normal data.
 
         Args:

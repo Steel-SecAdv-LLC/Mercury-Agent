@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -400,7 +401,7 @@ class TimeGPTAdapter(BaseFoundationModel):
         self,
         series: np.ndarray[Any, Any] | torch.Tensor,
         steps: int = 100,
-    ) -> "TimeGPTAdapter":
+    ) -> TimeGPTAdapter:
         """Fine-tune TimeGPT on domain data.
 
         Args:
@@ -422,7 +423,8 @@ class TimeGPTAdapter(BaseFoundationModel):
         if series.ndim == 2:
             series = series.flatten()
 
-        _df = self._to_dataframe(series)
+        # Convert to dataframe format for TimeGPT API
+        self._to_dataframe(series)
 
         try:
             # Fine-tune (updates internal state)

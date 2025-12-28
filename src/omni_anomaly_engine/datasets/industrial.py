@@ -26,9 +26,9 @@ References:
 """
 
 from __future__ import annotations
-from typing import Any
 
 import logging
+from typing import Any
 
 import numpy as np
 
@@ -224,7 +224,9 @@ class SWaTLoader(DatasetLoader):
 
         return False  # Manual download required
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    def load(
+        self, split: DatasetSplit = DatasetSplit.ALL
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """
         Load SWaT dataset.
 
@@ -386,7 +388,9 @@ class WADILoader(DatasetLoader):
 
         return False
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    def load(
+        self, split: DatasetSplit = DatasetSplit.ALL
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load WADI dataset."""
         try:
             import pandas as pd
@@ -513,7 +517,9 @@ class BATADALLoader(DatasetLoader):
         logger.info("BATADAL download complete")
         return True
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    def load(
+        self, split: DatasetSplit = DatasetSplit.ALL
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load BATADAL dataset."""
         try:
             import pandas as pd

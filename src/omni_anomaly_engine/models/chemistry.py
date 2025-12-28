@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -526,7 +527,10 @@ class ChemistryAnomalyDetector:
         return concerns
 
     def _classify_anomaly_type(
-        self, elem_anom: list[dict[str, Any]], iso_anom: list[dict[str, Any]], react_anom: list[dict[str, Any]]
+        self,
+        elem_anom: list[dict[str, Any]],
+        iso_anom: list[dict[str, Any]],
+        react_anom: list[dict[str, Any]],
     ) -> str:
         """Classify primary anomaly type"""
         if iso_anom:
@@ -539,7 +543,10 @@ class ChemistryAnomalyDetector:
             return "combined"
 
     def _compute_detection_confidence(
-        self, elem_anom: list[dict[str, Any]], iso_anom: list[dict[str, Any]], react_anom: list[dict[str, Any]]
+        self,
+        elem_anom: list[dict[str, Any]],
+        iso_anom: list[dict[str, Any]],
+        react_anom: list[dict[str, Any]],
     ) -> float:
         """Compute overall detection confidence"""
         total_anomalies = len(elem_anom) + len(iso_anom) + len(react_anom)
@@ -552,7 +559,11 @@ class ChemistryAnomalyDetector:
             return min(0.95, 0.5 + total_anomalies * 0.1)
 
     def _generate_recommendations(
-        self, anomaly_type: str, elem_anom: list[dict[str, Any]], iso_anom: list[dict[str, Any]], stability: list[str]
+        self,
+        anomaly_type: str,
+        elem_anom: list[dict[str, Any]],
+        iso_anom: list[dict[str, Any]],
+        stability: list[str],
     ) -> list[str]:
         """Generate chemistry analysis recommendations"""
         recommendations = []

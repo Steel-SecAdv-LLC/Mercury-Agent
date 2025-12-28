@@ -15,7 +15,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
+
 from typing import Any
 
 """Tests for Space-Inspired Resilience module"""
@@ -72,7 +74,7 @@ def test_debris_filtering():
     filtered = system.debris_filtering(noisy_data, noise_threshold=0.2)
 
     assert filtered.shape == noisy_data.shape
-    assert isinstance(filtered, np.ndarray[Any, Any])
+    assert isinstance(filtered, np.ndarray)
 
 
 def test_trajectory_optimization():
@@ -85,7 +87,7 @@ def test_trajectory_optimization():
     pathway = system.trajectory_optimization(start, goal, constraints={"max_steps": 20})
 
     assert len(pathway) > 0
-    assert isinstance(pathway[0], np.ndarray[Any, Any])
+    assert isinstance(pathway[0], np.ndarray)
     assert np.allclose(pathway[0], start, atol=0.1)
 
 

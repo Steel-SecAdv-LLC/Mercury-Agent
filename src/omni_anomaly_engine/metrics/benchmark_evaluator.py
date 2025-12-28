@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -78,7 +79,7 @@ class EvaluationResult:
             json.dump(self.to_dict(), f, indent=2)
 
     @classmethod
-    def load(cls, path: str | Path) -> "EvaluationResult":
+    def load(cls, path: str | Path) -> EvaluationResult:
         """Load results from JSON file."""
         with open(path) as f:
             data = json.load(f)
@@ -167,7 +168,7 @@ class BenchmarkEvaluator:
             try:
                 result = detector.detect(data)
                 score = result.get("scores", result.get("score", 0.0))
-                if isinstance(score, np.ndarray[Any, Any]):
+                if isinstance(score, np.ndarray):
                     score = score.mean()
                 elif isinstance(score, torch.Tensor):
                     score = score.mean().item()

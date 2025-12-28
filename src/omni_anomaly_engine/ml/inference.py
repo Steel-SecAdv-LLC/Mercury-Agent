@@ -15,20 +15,23 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
 Production inference utilities for fusion model
 """
 
-from collections.abc import Iterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
 from torch import nn
 
 from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 __all__ = [
     "BatchInference",

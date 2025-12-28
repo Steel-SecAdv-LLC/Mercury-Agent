@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -84,7 +85,7 @@ class ContextStats:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ContextStats":
+    def from_dict(cls, data: dict[str, Any]) -> ContextStats:
         """Deserialize from dictionary."""
         return cls(
             alpha=data.get("alpha", 0.76),

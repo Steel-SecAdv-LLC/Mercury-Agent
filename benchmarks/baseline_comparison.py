@@ -30,9 +30,10 @@ import ast
 import importlib.util
 import os
 import subprocess
+import tempfile
 import time
 import tracemalloc
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -42,7 +43,8 @@ from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine as Impr
 
 def load_baseline_engine():
     """Load baseline RefactoringEngine from main branch."""
-    baseline_path = "/tmp/three_r_mechanism_baseline.py"
+    # Use cross-platform temp directory instead of hardcoded /tmp
+    baseline_path = os.path.join(tempfile.gettempdir(), "three_r_mechanism_baseline.py")
 
     if not os.path.exists(baseline_path):
         print("  Extracting baseline from main branch...")
@@ -70,8 +72,8 @@ def load_baseline_engine():
 
 
 def extract_test_functions(
-    repo_paths: List[Path], max_functions: int = 100
-) -> List[Tuple[str, ast.FunctionDef, Path]]:
+    repo_paths: list[Path], max_functions: int = 100
+) -> list[tuple[str, ast.FunctionDef, Path]]:
     """Extract functions from open-source repos for testing."""
     functions = []
 
@@ -84,7 +86,7 @@ def extract_test_functions(
 
         for py_file in py_files:
             try:
-                with open(py_file, "r", encoding="utf-8") as f:
+                with open(py_file, encoding="utf-8") as f:
                     source = f.read()
                 tree = ast.parse(source)
 
@@ -101,7 +103,7 @@ def extract_test_functions(
 
 
 def benchmark_execution_time(
-    engine_class, functions: List[Tuple], iterations: int = 10, is_improved: bool = False
+    engine_class, functions: list[tuple], iterations: int = 10, is_improved: bool = False
 ) -> np.ndarray:
     """
     Benchmark execution time for RefactoringEngine analysis operations.
@@ -195,7 +197,7 @@ def benchmark_execution_time(
 
 
 def benchmark_memory_usage(
-    engine_class, functions: List[Tuple], is_improved: bool = False
+    engine_class, functions: list[tuple], is_improved: bool = False
 ) -> np.ndarray:
     """
     Benchmark memory usage during RefactoringEngine analysis.
@@ -266,7 +268,7 @@ def benchmark_memory_usage(
     return np.array(memory_usage)
 
 
-def benchmark_accuracy(engine_class, functions: List[Tuple]) -> np.ndarray:
+def benchmark_accuracy(engine_class, functions: list[tuple]) -> np.ndarray:
     """
     Note on accuracy measurement for code complexity analysis.
 
@@ -288,8 +290,8 @@ def benchmark_accuracy(engine_class, functions: List[Tuple]) -> np.ndarray:
 
 
 def run_comprehensive_comparison(
-    baseline_engine, improved_engine, functions: List[Tuple]
-) -> Dict[str, Any]:
+    baseline_engine, improved_engine, functions: list[tuple]
+) -> dict[str, Any]:
     """Run comprehensive benchmarks comparing baseline vs improved."""
 
     print(f"\nBenchmarking {len(functions)} functions...")

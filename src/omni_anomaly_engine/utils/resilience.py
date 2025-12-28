@@ -41,6 +41,7 @@ Example:
         while not shutdown.should_stop:
             process_work()
 """
+
 from __future__ import annotations
 
 import functools
@@ -48,13 +49,13 @@ import logging
 import signal
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
-from typing import Any, TypeVar, Generator
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 

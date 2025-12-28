@@ -32,7 +32,6 @@ import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
 
 import numpy as np
 
@@ -46,7 +45,7 @@ class EthicalScalars:
     omni_justitia: float = 1.10
 
 
-def generate_infrastructure_scenarios(n_scenarios: int = 500) -> List[Dict]:
+def generate_infrastructure_scenarios(n_scenarios: int = 500) -> list[dict]:
     """Generate realistic infrastructure anomaly scenarios with ethical context."""
     np.random.seed(42)
 
@@ -113,8 +112,8 @@ def apply_ethical_scalars(
 
 
 def evaluate_with_scalars(
-    scenarios: List[Dict], scalars: EthicalScalars, threshold: float = 0.5
-) -> Dict:
+    scenarios: list[dict], scalars: EthicalScalars, threshold: float = 0.5
+) -> dict:
     """Evaluate detection performance with given ethical scalars."""
     start_time = time.time()
 
@@ -176,7 +175,7 @@ def evaluate_with_scalars(
     }
 
 
-def analyze_by_scenario_type(scenarios: List[Dict], scalars: EthicalScalars) -> Dict:
+def analyze_by_scenario_type(scenarios: list[dict], scalars: EthicalScalars) -> dict:
     """Analyze performance breakdown by scenario type."""
     type_results = {}
 

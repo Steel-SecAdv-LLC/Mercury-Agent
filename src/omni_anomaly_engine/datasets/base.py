@@ -4,6 +4,7 @@ Copyright (C) 2025 Steel Security Advisory LLC
 
 Base classes for real-world dataset loading and management.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -11,13 +12,15 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 try:
     import pandas as pd
@@ -59,7 +62,7 @@ def safe_urlretrieve(url: str, filename: str | Path) -> None:
     if parsed.scheme not in ("http", "https"):
         raise ValueError(f"URL scheme must be http or https, got: {parsed.scheme}")
 
-    urllib.request.urlretrieve(url, filename)  # noqa: S310
+    urllib.request.urlretrieve(url, filename)  # noqa: S310  # nosec B310
 
 
 class DatasetSplit(Enum):
@@ -220,7 +223,9 @@ class DatasetLoader(ABC):
         """
         pass
 
-    def load(self, split: DatasetSplit = DatasetSplit.ALL) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+    def load(
+        self, split: DatasetSplit = DatasetSplit.ALL
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load dataset with specified split.
 
         Args:
@@ -383,7 +388,7 @@ class DatasetLoader(ABC):
         if not self._is_loaded:
             self._load_and_cache()
         assert self._data is not None
-        return sum(int(len(d)) for d in self._data.values())
+        return sum(len(d) for d in self._data.values())
 
     def __iter__(self) -> Iterator[tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]]:
         """Iterate over all samples."""
@@ -411,7 +416,7 @@ class DatasetLoader(ABC):
                 self.y = torch.LongTensor(y)
 
             def __len__(self) -> int:
-                return int(len(self.X))
+                return len(self.X)
 
             def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
                 return self.X[idx], self.y[idx]

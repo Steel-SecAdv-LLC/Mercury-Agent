@@ -7,6 +7,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
+
 from __future__ import annotations
 
 """
@@ -29,13 +30,15 @@ Research Sources:
 
 import logging
 from collections import deque
-from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy import optimize
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -407,7 +410,9 @@ class HeteroscedasticEstimator:
         self._residuals: deque[float] = deque(maxlen=1000)
         self._features: deque[np.ndarray[Any, Any]] = deque(maxlen=1000)
 
-    def update(self, prediction: float, true_value: float, features: np.ndarray[Any, Any] | None = None) -> None:
+    def update(
+        self, prediction: float, true_value: float, features: np.ndarray[Any, Any] | None = None
+    ) -> None:
         """Store residual for variance estimation."""
         residual = true_value - prediction
         self._residuals.append(residual)

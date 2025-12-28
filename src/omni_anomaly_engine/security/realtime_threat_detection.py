@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -102,7 +103,7 @@ class RealTimeThreatDetector:
         self.is_fitted = False
         self.threat_history: list[ThreatSignature] = []
 
-    def fit(self, X: np.ndarray[Any, Any]) -> "RealTimeThreatDetector":
+    def fit(self, X: np.ndarray[Any, Any]) -> RealTimeThreatDetector:
         """
         Fit detectors on normal (non-threatening) data.
 
@@ -255,7 +256,9 @@ class AdaptiveThreatDetector(RealTimeThreatDetector):
         self.training_buffer: list[np.ndarray[Any, Any]] = []
         self.max_buffer_size = 1000
 
-    def detect_and_adapt(self, X: np.ndarray[Any, Any], is_normal: bool | None = None) -> dict[str, Any]:
+    def detect_and_adapt(
+        self, X: np.ndarray[Any, Any], is_normal: bool | None = None
+    ) -> dict[str, Any]:
         """
         Detect threats and adapt model based on feedback.
 

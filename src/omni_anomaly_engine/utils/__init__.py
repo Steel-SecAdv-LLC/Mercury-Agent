@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -86,9 +87,9 @@ from omni_anomaly_engine.utils.rng import (
 
 
 def normalize_data(
-    data: Union[np.ndarray[Any, Any], "torch.Tensor"],
+    data: np.ndarray[Any, Any] | torch.Tensor,
     method: str = "standard",
-) -> Union[np.ndarray[Any, Any], "torch.Tensor"]:
+) -> np.ndarray[Any, Any] | torch.Tensor:
     """
     Normalize data using specified method.
 

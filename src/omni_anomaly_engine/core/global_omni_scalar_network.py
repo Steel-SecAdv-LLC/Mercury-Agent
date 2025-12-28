@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -42,7 +43,7 @@ import os
 import threading
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -438,7 +439,7 @@ class GlobalOmniScalarNetwork:
     This is implemented as a singleton to ensure consistent global state.
     """
 
-    _instance: Optional["GlobalOmniScalarNetwork"] = None
+    _instance: GlobalOmniScalarNetwork | None = None
     _lock = threading.Lock()
 
     # Class constants
@@ -449,7 +450,7 @@ class GlobalOmniScalarNetwork:
     MIN_MORALITY = 1.20
     TARGET_BOOST_RATIO = 0.60
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> "GlobalOmniScalarNetwork":
+    def __new__(cls, *args: Any, **kwargs: Any) -> GlobalOmniScalarNetwork:
         """Singleton pattern implementation."""
         if cls._instance is None:
             with cls._lock:
@@ -787,7 +788,9 @@ class GlobalOmniScalarNetwork:
             warnings=warnings,
         )
 
-    def fuse_37d_scalars(self, dimensional_states: list[np.ndarray[Any, Any]]) -> np.ndarray[Any, Any]:
+    def fuse_37d_scalars(
+        self, dimensional_states: list[np.ndarray[Any, Any]]
+    ) -> np.ndarray[Any, Any]:
         """
         Perform 37-dimensional quantum fusion.
 

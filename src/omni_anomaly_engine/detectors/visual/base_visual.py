@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """
@@ -167,7 +168,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         Returns:
             Normalized tensor [B, 3, H, W] on device
         """
-        if isinstance(images, np.ndarray[Any, Any]):
+        if isinstance(images, np.ndarray):
             images = torch.from_numpy(images).float()
 
         # Handle channel-last format
@@ -252,7 +253,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         kernel = kernel / kernel.sum()
         return kernel.view(1, 1, kernel_size, kernel_size)
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "BaseVisualDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> BaseVisualDetector:
         """Fit detector to normal (non-anomalous) images.
 
         Args:
@@ -322,7 +323,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
             path,
         )
 
-    def load(self, path: str, *, allow_unsafe: bool = False) -> "BaseVisualDetector":
+    def load(self, path: str, *, allow_unsafe: bool = False) -> BaseVisualDetector:
         """Load detector state from file.
 
         Args:
@@ -359,7 +360,9 @@ class BaseVisualDetector(BaseDetector, nn.Module):
                     "as explicitly requested. Only do this for trusted checkpoints. "
                     f"Original error: {e}"
                 )
-                checkpoint = torch.load(path, map_location=self.device, weights_only=False)
+                checkpoint = torch.load(
+                    path, map_location=self.device, weights_only=False
+                )  # nosec B614 - intentional for trusted checkpoints with allow_unsafe=True
             else:
                 raise RuntimeError(
                     f"Checkpoint at '{path}' cannot be loaded safely (weights_only=True). "

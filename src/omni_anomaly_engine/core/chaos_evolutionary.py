@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
 
 """Chaos-Evolutionary Optimization for Adaptive Hyperparameter Tuning.
@@ -26,12 +27,14 @@ Implements Chaos Game Optimization (CGO) using fractal configurations and chaos 
 for dynamic hyperparameter tuning in anomaly detection systems.
 """
 
-from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from omni_anomaly_engine.utils.rng import DeterministicRNG, get_global_rng
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class ChaoticMap:
@@ -83,7 +86,9 @@ class ChaoticMap:
 class ChaosEvolutionOptimizer:
     """Chaos-Evolutionary Optimizer using CGO algorithm."""
 
-    def __init__(self, config: dict[str, Any] | None = None, rng: DeterministicRNG | None = None) -> None:
+    def __init__(
+        self, config: dict[str, Any] | None = None, rng: DeterministicRNG | None = None
+    ) -> None:
         """Initialize chaos-evolutionary optimizer.
 
         Args:
@@ -120,7 +125,9 @@ class ChaosEvolutionOptimizer:
         else:
             return ChaoticMap.logistic_map
 
-    def _initialize_population(self, dim: int, bounds: list[tuple[float, float]]) -> np.ndarray[Any, Any]:
+    def _initialize_population(
+        self, dim: int, bounds: list[tuple[float, float]]
+    ) -> np.ndarray[Any, Any]:
         """Initialize population with random solutions.
 
         Args:
@@ -270,7 +277,10 @@ class ChaosEvolutionOptimizer:
         return tuning_results
 
     def generate_creative_hypotheses(
-        self, base_solution: np.ndarray[Any, Any], num_hypotheses: int = 10, chaos_intensity: float = 0.1
+        self,
+        base_solution: np.ndarray[Any, Any],
+        num_hypotheses: int = 10,
+        chaos_intensity: float = 0.1,
     ) -> list[np.ndarray[Any, Any]]:
         """Generate creative hypothesis variations using controlled chaos.
 

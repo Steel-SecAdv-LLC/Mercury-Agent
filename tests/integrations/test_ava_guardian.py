@@ -17,6 +17,7 @@ Covers:
 - Attack simulation and detection
 - Graceful fallback when PQC unavailable
 """
+
 from __future__ import annotations
 
 import time
@@ -454,9 +455,6 @@ class TestModuleImports:
     def test_import_from_ava_guardian_module(self):
         """Test importing directly from ava_guardian module."""
         from omni_anomaly_engine.integrations.ava_guardian import (
-            AVA_GUARDIAN_AVAILABLE,
-            DILITHIUM_AVAILABLE,
-            KYBER_AVAILABLE,
             AvaGuardianAdapter,
             CryptoAnomaly,
             CryptoAnomalyType,
@@ -556,7 +554,7 @@ class TestGOSNNScalars:
     def test_scalars_have_omni_prefix(self, adapter):
         """Test all scalars have omni_ prefix."""
         scalars = adapter.get_gosnn_scalars()
-        for key in scalars.keys():
+        for key in scalars:
             assert key.startswith("omni_"), f"Scalar {key} missing omni_ prefix"
 
     def test_scalars_are_floats(self, adapter):

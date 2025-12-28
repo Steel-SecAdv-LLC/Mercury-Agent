@@ -15,7 +15,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
+
 from __future__ import annotations
+
 from typing import Any
 
 """
@@ -160,7 +162,9 @@ class OceanographyPatterns:
 
         return patterns
 
-    def depth_based_stratification(self, data: np.ndarray[Any, Any]) -> dict[str, np.ndarray[Any, Any]]:
+    def depth_based_stratification(
+        self, data: np.ndarray[Any, Any]
+    ) -> dict[str, np.ndarray[Any, Any]]:
         """
         Hierarchical analysis inspired by ocean depth stratification.
 
