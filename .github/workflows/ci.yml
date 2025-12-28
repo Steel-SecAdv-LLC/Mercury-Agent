@@ -35,9 +35,12 @@ jobs:
   # Stage 1: Code Quality Checks (Fast)
   # ===========================================================================
   code-quality:
-    name: Code Quality
+    name: Code Quality (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
 
     steps:
       - name: Checkout code
@@ -46,7 +49,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python-version }}
 
       - name: Cache pip dependencies
         uses: actions/cache@v4
@@ -83,9 +86,12 @@ jobs:
   # Stage 2: Type Checking
   # ===========================================================================
   type-checking:
-    name: Type Checking
+    name: Type Checking (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
 
     steps:
       - name: Checkout code
@@ -94,7 +100,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python-version }}
 
       - name: Cache pip dependencies
         uses: actions/cache@v4
@@ -185,10 +191,13 @@ jobs:
   # Stage 4: Core Tests (Lightweight)
   # ===========================================================================
   core-tests:
-    name: Core Tests
+    name: Core Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [code-quality]
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
 
     steps:
       - name: Checkout code
@@ -204,7 +213,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python-version }}
 
       - name: Cache pip dependencies
         uses: actions/cache@v4
