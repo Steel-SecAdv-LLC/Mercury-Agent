@@ -23,6 +23,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from omni_anomaly_engine.core.exceptions import DetectorException
 from omni_anomaly_engine.safeguards.nano_safeguards import (
     HierarchicalMicroScanner,
     NanoSafeguardDetector,
@@ -194,7 +195,7 @@ class TestNanoSafeguardDetector:
 
     def test_detect_micro_anomalies_unfitted(self, detector, normal_data):
         """Test detection raises error when not fitted."""
-        with pytest.raises(RuntimeError):
+        with pytest.raises(DetectorException):
             detector.detect(normal_data)
 
     def test_detect_micro_anomalies_normal(self, detector, normal_data):
