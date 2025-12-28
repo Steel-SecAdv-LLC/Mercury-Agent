@@ -1445,5 +1445,5 @@ class OmniMercuryEngine:
             self._executor.shutdown(wait=False)
 
 
-# Backward compatibility alias
-OmniMercuryEngine = OmniMercuryEngine
+# Legacy alias for backward compatibility (if needed in future)
+# OmniAvaEngine = OmniMercuryEngine  # Uncomment if old name is still referenced
