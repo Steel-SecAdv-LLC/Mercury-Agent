@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ from __future__ import annotations
 
 """Tests for Bain AI Scaling module"""
 
-from omni_anomaly_engine.scaling.bain_ai_scaling import BainAIScaling, ComputeResource
+from omni_mercury_engine.scaling.bain_ai_scaling import BainAIScaling, ComputeResource
 
 
 def test_bain_scaling_initialization():

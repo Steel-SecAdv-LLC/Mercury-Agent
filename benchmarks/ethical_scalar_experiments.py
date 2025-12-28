@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -35,7 +35,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from omni_anomaly_engine.core.ethical_config import EthicalScalars
+from omni_mercury_engine.core.ethical_config import EthicalScalars
 
 
 def generate_weight_variations() -> list[dict[str, Any]]:

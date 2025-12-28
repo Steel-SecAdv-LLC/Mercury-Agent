@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -26,9 +26,9 @@ real-time threat detection, and hive firewall.
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.security.encryption import QuantumResistantEncryption, SecureDataHandler
-from omni_anomaly_engine.security.hive_firewall import HiveFirewall
-from omni_anomaly_engine.security.realtime_threat_detection import (
+from omni_mercury_engine.security.encryption import QuantumResistantEncryption, SecureDataHandler
+from omni_mercury_engine.security.hive_firewall import HiveFirewall
+from omni_mercury_engine.security.realtime_threat_detection import (
     AdaptiveThreatDetector,
     RealTimeThreatDetector,
 )

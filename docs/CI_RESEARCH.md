@@ -466,17 +466,17 @@ This document summarizes findings from reliable .gov and .edu sources on counter
 
 ### Code Structure (Reorganized by Domain)
 
-**Security Module** (`omni_anomaly_engine/security/`):
+**Security Module** (`omni_mercury_engine/security/`):
 - `counterintelligence.py` - OverwatchNexus class with proactive_ci() method, σ_Sacred Purity Invariant enforcement
 - `anti_terrorism/pattern_recognition.py` - Radicalization pattern detection
 - `cyber_fortress.py` - Unified cyber defense capabilities
 - `quantum_risk_cyber.py` - Quantum threat assessment
 
-**Medical Module** (`omni_anomaly_engine/medical/pandemic/`):
+**Medical Module** (`omni_mercury_engine/medical/pandemic/`):
 - `bio_threats/pathogen_detector.py` - QBM-based bio-threat detection
 - `forecasting/epidemic_model.py` - SEIR with chaos Λ
 
-**Infrastructure Module** (`omni_anomaly_engine/infrastructure/humanitarian/`):
+**Infrastructure Module** (`omni_mercury_engine/infrastructure/humanitarian/`):
 - `crisis_monitoring/crisis_monitor.py` - GEOINT fusion for crisis prevention
 
 **Ethical Scalars:**

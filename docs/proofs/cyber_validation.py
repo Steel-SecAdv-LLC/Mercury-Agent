@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from assets.loaders import generate_pcap_data
 
-from omni_anomaly_engine.security.cyber_fortress import ResonanceHashIntegrityChecker
+from omni_mercury_engine.security.cyber_fortress import ResonanceHashIntegrityChecker
 
 
 def validate_cyber_fortress():

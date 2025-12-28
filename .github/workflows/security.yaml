@@ -30,4 +30,4 @@ jobs:
 
     - name: Run Bandit security scan
       # Bandit security scan is now blocking - fails on medium+ severity issues
-      run: bandit -r src/omni_anomaly_engine/ -f json --severity-level medium
+      run: bandit -r src/omni_mercury_engine/ -f json --severity-level medium

@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
+from omni_mercury_engine.models.biometric import BiometricAnomalyModel
 
 
 def test_biometric_initialization():
@@ -37,7 +37,7 @@ def test_biometric_initialization():
     assert hasattr(model, "fourier_analyzer")
 
 
-@patch("omni_anomaly_engine.models.biometric.DeepFace")
+@patch("omni_mercury_engine.models.biometric.DeepFace")
 def test_biometric_predict_valid_image(mock_deepface):
     """Test biometric prediction with valid image"""
     mock_deepface.analyze.return_value = [
@@ -61,7 +61,7 @@ def test_biometric_predict_valid_image(mock_deepface):
     assert result["model_type"] == "biometric"
 
 
-@patch("omni_anomaly_engine.models.biometric.DeepFace")
+@patch("omni_mercury_engine.models.biometric.DeepFace")
 def test_biometric_extract_features(mock_deepface):
     """Test biometric feature extraction"""
     mock_deepface.represent.return_value = [{"embedding": np.random.randn(128).tolist()}]
@@ -74,7 +74,7 @@ def test_biometric_extract_features(mock_deepface):
     assert features.shape[-1] >= 128
 
 
-@patch("omni_anomaly_engine.models.biometric.DeepFace")
+@patch("omni_mercury_engine.models.biometric.DeepFace")
 def test_biometric_predict_error_handling(mock_deepface):
     """Test biometric error handling"""
     mock_deepface.analyze.side_effect = Exception("Face not detected")

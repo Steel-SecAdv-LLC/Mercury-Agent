@@ -1,4 +1,4 @@
-# ML dependencies for OMNI-AVA (heavy ML stack)
+# ML dependencies for Mercury-Agent (heavy ML stack)
 # These are the heavy dependencies for full ML functionality
 
 torch>=2.2.0

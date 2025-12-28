@@ -13,7 +13,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
-[![Security Scan](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions/workflows/security.yaml/badge.svg)](https://github.com/Steel-SecAdv-LLC/OMNI-AVA/actions/workflows/security.yaml)
+[![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yaml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yaml)
 [![Tests](https://img.shields.io/badge/tests-1880%2B-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-83%25%2B-brightgreen.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-orange.svg)](#3r-recursion-resonance-refactoring)
@@ -22,7 +22,7 @@
 
 ```
               +===============================================================================+
-              |                            O♱A MERCURY AGENT v1.0                             |
+              |                            Mercury Agent ♱ MERCURY AGENT v1.0                             |
               |Neuro-Symbolic AI for Autonomous Anomaly Detection Paradigm with PQC-Protected |
               |                                                                               |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security    |
@@ -51,11 +51,11 @@
 
 ## Executive Summary
 
-O♱A Mercury Agent is a comprehensive neuro-symbolic AI Archetype implementing a 7-phase cognitive evolution for multi-domain anomaly detection. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
+Mercury Agent ♱ is a comprehensive neuro-symbolic AI Archetype implementing a 7-phase cognitive evolution for multi-domain anomaly detection. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
 
 The framework embodies a **Civilization-First** philosophy, prioritizing ethical AI governance and humanitarian impact. Every action must pass a benevolence threshold of 0.99 or higher, ensuring the system operates in service of human flourishing and civilizational progress.
 
-> **Project Philosophy:** O♱A represents the next evolution in AI systems - one that combines the pattern recognition power of neural networks with the interpretability and reasoning capabilities of symbolic AI. This neuro-symbolic fusion enables the system to not only detect anomalies but explain why they matter and what actions should be taken.
+> **Project Philosophy:** Mercury Agent ♱ represents the next evolution in AI systems - one that combines the pattern recognition power of neural networks with the interpretability and reasoning capabilities of symbolic AI. This neuro-symbolic fusion enables the system to not only detect anomalies but explain why they matter and what actions should be taken.
 >
 > **Security Disclosure:** This is a research-grade implementation. Production use REQUIRES:
 > - Independent security review by qualified professionals
@@ -170,7 +170,7 @@ Full multi-panel visualization of all metrics:
 <details>
 <summary><strong>Click to expand 3R Mathematical Framework</strong></summary>
 
-The **3R mechanism** (Recursion-Resonance-Refactoring) is a novel mathematical method for anomaly detection and optimization that forms the core of O♱A's detection capabilities. This framework synergizes three complementary engines to achieve superior pattern recognition and adaptive learning.
+The **3R mechanism** (Recursion-Resonance-Refactoring) is a novel mathematical method for anomaly detection and optimization that forms the core of Mercury Agent ♱'s detection capabilities. This framework synergizes three complementary engines to achieve superior pattern recognition and adaptive learning.
 
 ### Recursion Engine
 
@@ -253,9 +253,9 @@ Where:
 
 **Lyapunov Stability**: Convergence guaranteed via `V̇ ≤ -λV` where `λ=0.25` (elevated from 0.18 for 25% faster convergence).
 
-### Integration with O♱A
+### Integration with Mercury Agent ♱
 
-The 3R mechanism is integrated throughout O♱A:
+The 3R mechanism is integrated throughout Mercury Agent ♱:
 - **Detectors**: All 18+ detection engines leverage 3R for feature extraction
 - **Fusion Network**: Multi-head attention combines 3R outputs across domains
 - **Ethical Governance**: Refactoring engine ensures Lyapunov stability constraints
@@ -304,9 +304,9 @@ Modern anomaly detection faces three critical challenges:
 2. **Ethical Blind Spots**: Most ML systems lack bias detection, fairness metrics, and ethical governance
 3. **Production Gaps**: Research models often lack security hardening, input validation, and deployment infrastructure
 
-### The O♱A Solution
+### The Mercury Agent ♱ Solution
 
-O♱A addresses all three challenges through:
+Mercury Agent ♱ addresses all three challenges through:
 
 - **Unified Framework**: 18+ detection engines under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
 - **Ethical Governance**: Fairlearn bias detection with demographic parity, equalized odds, and 80% rule enforcement; 150+ ethical scalars with Lyapunov stability
@@ -395,7 +395,7 @@ Optimized for both accuracy and interpretability:
 
 ## Use Cases by Sector
 
-> **Experimental Research Areas:** The use cases below represent targeted experimental applications where O♱A multi-domain anomaly detection may provide value. These are research-grade implementations requiring independent validation before deployment in regulated, clinical, or mission-critical environments.
+> **Experimental Research Areas:** The use cases below represent targeted experimental applications where Mercury Agent ♱ multi-domain anomaly detection may provide value. These are research-grade implementations requiring independent validation before deployment in regulated, clinical, or mission-critical environments.
 
 <details>
 <summary><strong>Medical & Healthcare</strong></summary>
@@ -519,8 +519,8 @@ Optimized for both accuracy and interpretability:
 
 ```bash
 # Clone repository
-git clone https://github.com/Steel-SecAdv-LLC/OMNI♱AVA.git
-cd OMNI♱AVA
+git clone https://github.com/Steel-SecAdv-LLC/Mercury Agent ♱.git
+cd Mercury Agent ♱
 
 # Install core dependencies
 pip install -e .
@@ -580,10 +580,10 @@ pip install deepface
 ### Simple Example
 
 ```python
-from omni_anomaly_engine import OmniAvaEngine
+from omni_mercury_engine import OmniMercuryEngine
 
 # Initialize engine
-engine = OmniAvaEngine(mode="fusion", device="cuda")
+engine = OmniMercuryEngine(mode="fusion", device="cuda")
 
 # Detect anomalies
 result = engine.detect_with_fusion(data)
@@ -595,16 +595,16 @@ print(f"Is Anomaly: {result['is_anomaly']}")
 
 ```bash
 # View available commands
-omni-ava --help
+mercury-agent --help
 
 # Anomaly detection
-omni-ava detect --input data.csv --detector fusion
+mercury-agent detect --input data.csv --detector fusion
 
 # Biometric analysis
-omni-ava biometric --help
+mercury-agent biometric --help
 
 # Security analysis
-omni-ava security --help
+mercury-agent security --help
 ```
 
 </details>
@@ -616,24 +616,24 @@ omni-ava security --help
 
 ```bash
 # Build production image
-docker build -t omni-ava:latest --target production .
+docker build -t mercury-agent:latest --target production .
 
 # Run with required environment variables
 docker run -d \
   -e JWT_SECRET_KEY=$(openssl rand -hex 32) \
   -e OMNI_RATE_LIMIT_ENABLED=true \
   -p 8000:8000 \
-  omni-ava:latest
+  mercury-agent:latest
 ```
 
 ### Development Image
 
 ```bash
 # Build development image
-docker build -t omni-ava:dev --target development .
+docker build -t mercury-agent:dev --target development .
 
 # Run with volume mount for development
-docker run -it -v $(pwd):/app omni-ava:dev /bin/bash
+docker run -it -v $(pwd):/app mercury-agent:dev /bin/bash
 ```
 
 ### Container Defaults
@@ -642,7 +642,7 @@ The Dockerfile now defaults to running the FastAPI server for production inferen
 
 ```bash
 # Run training instead of API server
-docker run -it omni-ava:latest python src/mercury/train.py
+docker run -it mercury-agent:latest python src/mercury/train.py
 ```
 
 This supports scalable deployments via Kubernetes/Helm where the API server handles inference requests while training jobs can be run as separate batch workloads.
@@ -654,12 +654,12 @@ This supports scalable deployments via Kubernetes/Helm where the API server hand
 
 ```bash
 # Install via Helm
-helm install omni-ava ./helm/omni-ava \
+helm install mercury-agent ./helm/mercury-agent \
   --set image.tag=latest \
   --set secrets.jwtSecret=$(openssl rand -hex 32)
 
 # Check deployment status
-kubectl get pods -l app=omni-ava
+kubectl get pods -l app=mercury-agent
 ```
 
 </details>
@@ -683,7 +683,7 @@ pip install -e ".[dev]"
 pytest tests/ -v
 
 # Run with coverage
-pytest tests/ --cov=src/omni_anomaly_engine --cov-report=html
+pytest tests/ --cov=src/omni_mercury_engine --cov-report=html
 
 # Run property-based tests
 pytest tests/test_property_based.py -v
@@ -852,8 +852,8 @@ python setup.py sdist bdist_wheel
 
 ```bash
 # Multi-stage build with security scanning
-docker build --target production -t omni-ava:latest .
-docker build --target security-scanner -t omni-ava:scan .
+docker build --target production -t mercury-agent:latest .
+docker build --target security-scanner -t mercury-agent:scan .
 ```
 
 **Docker Images**:
@@ -866,13 +866,13 @@ docker build --target security-scanner -t omni-ava:scan .
 <details>
 <summary><strong>Kubernetes</strong></summary>
 
-- **Helm Charts**: `helm/omni-ava/`
+- **Helm Charts**: `helm/mercury-agent/`
 - **Base Manifests**: `k8s/base/`
 - **Environment Overlays**: `k8s/overlays/{development,staging,production}/`
 
 ```bash
 # Deploy to Kubernetes
-helm install omni-ava ./helm/omni-ava -f values.yaml
+helm install mercury-agent ./helm/mercury-agent -f values.yaml
 ```
 
 </details>
@@ -930,8 +930,8 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 ```bash
 # Clone repository
-git clone https://github.com/Steel-SecAdv-LLC/OMNI♱AVA.git
-cd OMNI♱AVA
+git clone https://github.com/Steel-SecAdv-LLC/Mercury Agent ♱.git
+cd Mercury Agent ♱
 
 # Install development dependencies
 pip install -e ".[dev]"
@@ -971,7 +971,7 @@ bandit -r src/
 <details>
 <summary><strong>Ethical AI Governance</strong> - Mathematically-Bound Fairness Constraints</summary>
 
-O♱A pioneers the integration of ethical principles directly into ML operations through mathematically rigorous constraints. Unlike traditional ML systems that treat ethics as policy overlays, O♱A embeds ethical considerations into the detection foundation itself.
+Mercury Agent ♱ pioneers the integration of ethical principles directly into ML operations through mathematically rigorous constraints. Unlike traditional ML systems that treat ethics as policy overlays, Mercury Agent ♱ embeds ethical considerations into the detection foundation itself.
 
 **Fairlearn Integration** provides bias detection across all predictions:
 
@@ -992,7 +992,7 @@ O♱A pioneers the integration of ethical principles directly into ML operations
 <details>
 <summary><strong>Production Security</strong> - Defense-in-Depth Architecture</summary>
 
-O♱A employs a comprehensive security architecture designed for production deployment:
+Mercury Agent ♱ employs a comprehensive security architecture designed for production deployment:
 
 **Input Validation** (OWASP-compliant):
 - SQL injection detection and prevention
@@ -1015,7 +1015,7 @@ O♱A employs a comprehensive security architecture designed for production depl
 <details>
 <summary><strong>Multi-Domain Detection</strong> - 22+ Specialized Engines</summary>
 
-O♱A transcends single-domain limitations by providing specialized detection engines across multiple domains:
+Mercury Agent ♱ transcends single-domain limitations by providing specialized detection engines across multiple domains:
 
 | Domain | Engines | Capabilities |
 |--------|---------|--------------|
@@ -1070,7 +1070,7 @@ The **Ava-Guardian adapter** provides post-quantum cryptographic security with G
 
 **Integration:**
 ```python
-from omni_anomaly_engine.integrations.ava_guardian import create_ava_guardian_adapter
+from omni_mercury_engine.integrations.ava_guardian import create_ava_guardian_adapter
 
 adapter = create_ava_guardian_adapter(enable_gosnn_synapse=True)
 if adapter.pqc_available:
@@ -1119,7 +1119,7 @@ Copyright 2025 Steel Security Advisors LLC
 Licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE) file for details.
 
 ```
-Omni ♱ Ava (O♱A) - Multi-Domain Anomaly Detection Framework
+Mercury Agent ♱ - Multi-Domain Anomaly Detection Framework
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -1149,8 +1149,8 @@ GitHub dependency graph is enabled for this repository. View the complete depend
 |------|---------|
 | General Inquiries | support@steelsecurityadvisors.com |
 | Security Issues | See [SECURITY.md](SECURITY.md) for responsible disclosure |
-| GitHub Issues | [Issues Page](https://github.com/Steel-SecAdv-LLC/OMNI♱AVA/issues) |
-| GitHub Repository | [O♱A](https://github.com/Steel-SecAdv-LLC/OMNI♱AVA) |
+| GitHub Issues | [Issues Page](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/issues) |
+| GitHub Repository | [Mercury Agent ♱](https://github.com/Steel-SecAdv-LLC/Mercury-Agent) |
 
 ---
 
@@ -1173,7 +1173,7 @@ GitHub dependency graph is enabled for this repository. View the complete depend
 
 ### Development Model
 
-**Conceptual Architect:** Steel Security Advisors LLC and Andrew E. A. conceived, directed, validated, and supervised the development of OMNI♱AVA Mercury Agent.
+**Conceptual Architect:** Steel Security Advisors LLC and Andrew E. A. conceived, directed, validated, and supervised the development of Mercury Agent ♱.
 
 **AI Co-Architects:** Significant portions of the codebase, documentation, mathematical frameworks, and technical implementation were constructed by AI systems: Claude (Anthropic) and Devin (Cognition).
 
@@ -1220,7 +1220,7 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**O♱A Mercury Agent v1.0 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
+**Mercury Agent ♱ v1.0 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 
@@ -1230,6 +1230,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-<img src="docs/images/ama_logo.png" alt="AMA" height="24">
+<img src="docs/images/mercury_agent_logo.png" alt="AMA" height="24">
 
 </div>

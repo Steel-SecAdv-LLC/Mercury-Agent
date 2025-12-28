@@ -1,12 +1,12 @@
-# OMNI-AVA Service Configurations
+# Mercury-Agent Service Configurations
 # Exposes the API and internal services within the cluster
 apiVersion: v1
 kind: Service
 metadata:
-  name: omni-ava-api
-  namespace: omni-ava
+  name: mercury-agent-api
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
   annotations:
     prometheus.io/scrape: "true"
@@ -14,7 +14,7 @@ metadata:
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
   ports:
     - name: http
@@ -31,16 +31,16 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: omni-ava-api-headless
-  namespace: omni-ava
+  name: mercury-agent-api-headless
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
 spec:
   type: ClusterIP
   clusterIP: None
   selector:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
   ports:
     - name: http
@@ -52,15 +52,15 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: omni-ava-engine
-  namespace: omni-ava
+  name: mercury-agent-engine
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: engine
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: engine
   ports:
     - name: metrics
@@ -72,16 +72,16 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: omni-ava-api-nodeport
-  namespace: omni-ava
+  name: mercury-agent-api-nodeport
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
     environment: development
 spec:
   type: NodePort
   selector:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
   ports:
     - name: http
@@ -95,10 +95,10 @@ spec:
 # apiVersion: v1
 # kind: Service
 # metadata:
-#   name: omni-ava-api-lb
-#   namespace: omni-ava
+#   name: mercury-agent-api-lb
+#   namespace: mercury-agent
 #   labels:
-#     app.kubernetes.io/name: omni-ava
+#     app.kubernetes.io/name: mercury-agent
 #     app.kubernetes.io/component: api
 #   annotations:
 #     # AWS
@@ -111,7 +111,7 @@ spec:
 # spec:
 #   type: LoadBalancer
 #   selector:
-#     app.kubernetes.io/name: omni-ava
+#     app.kubernetes.io/name: mercury-agent
 #     app.kubernetes.io/component: api
 #   ports:
 #     - name: http

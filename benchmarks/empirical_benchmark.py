@@ -1,5 +1,5 @@
 """
-OMNI AVA (O+A)
+Mercury Agent ♱ (O+A)
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -17,9 +17,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Empirical Benchmark Suite for OMNI-AVA
+Empirical Benchmark Suite for Mercury-Agent
 
-This module provides honest, data-driven benchmarks comparing OMNI-AVA's
+This module provides honest, data-driven benchmarks comparing Mercury-Agent's
 anomaly detection capabilities against established near-peer systems using
 publicly available datasets.
 
@@ -79,12 +79,12 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
-    from omni_anomaly_engine.engine import OmniAvaEngine
+    from omni_mercury_engine.engine import OmniMercuryEngine
 
     OMNI_AVA_AVAILABLE = True
 except ImportError:
     OMNI_AVA_AVAILABLE = False
-    print("Warning: OmniAvaEngine not available, using mock implementation")
+    print("Warning: OmniMercuryEngine not available, using mock implementation")
 
 
 @dataclass
@@ -255,8 +255,8 @@ def prepare_kddcup_dataset(n_samples: int = 5000) -> DatasetInfo:
         return None
 
 
-class OmniAvaDetector:
-    """Wrapper for OMNI-AVA engine to match sklearn interface."""
+class OmniMercuryDetector:
+    """Wrapper for Mercury-Agent engine to match sklearn interface."""
 
     def __init__(self, contamination: float = 0.1):
         self.contamination = contamination
@@ -266,13 +266,13 @@ class OmniAvaDetector:
         self.std = None
         self.cov_inv = None
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> "OmniAvaDetector":
+    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> "OmniMercuryDetector":
         """Fit the detector on training data."""
         self._fit_fallback(X)
 
         if OMNI_AVA_AVAILABLE:
             try:
-                self.engine = OmniAvaEngine(mode="statistical", device="cpu")
+                self.engine = OmniMercuryEngine(mode="statistical", device="cpu")
             except Exception:
                 self.engine = None
 
@@ -375,7 +375,7 @@ def benchmark_detector(
     **kwargs: Any,
 ) -> BenchmarkResult:
     """Run benchmark for a single detector on a single dataset."""
-    if detector_name == "OMNI-AVA":
+    if detector_name == "Mercury-Agent":
         detector = detector_class(contamination=contamination)
     elif detector_name == "LocalOutlierFactor":
         detector = detector_class(contamination=contamination, novelty=True, **kwargs)
@@ -423,7 +423,7 @@ def benchmark_detector(
 def run_full_benchmark() -> dict[str, Any]:
     """Run complete benchmark suite."""
     print("=" * 70)
-    print("OMNI-AVA EMPIRICAL BENCHMARK SUITE")
+    print("Mercury-Agent EMPIRICAL BENCHMARK SUITE")
     print("Comparing against near-peer anomaly detection systems")
     print("=" * 70)
     print()
@@ -465,7 +465,7 @@ def run_full_benchmark() -> dict[str, Any]:
     print()
 
     detectors = [
-        (OmniAvaDetector, "OMNI-AVA", {}),
+        (OmniMercuryDetector, "Mercury-Agent", {}),
         (IsolationForest, "IsolationForest", {"random_state": 42, "n_estimators": 100}),
         (OneClassSVM, "OneClassSVM", {"kernel": "rbf", "gamma": "auto"}),
         (LocalOutlierFactor, "LocalOutlierFactor", {"n_neighbors": 20}),
@@ -546,23 +546,23 @@ def generate_summary(results: list[BenchmarkResult]) -> dict[str, Any]:
         sorted_detectors = sorted(summary.items(), key=lambda x: x[1][metric], reverse=True)
         rankings[metric] = [d[0] for d in sorted_detectors]
 
-    omni_ava_stats = summary.get("OMNI-AVA", {})
-    baseline_stats = {k: v for k, v in summary.items() if k != "OMNI-AVA"}
+    omni_mercury_stats = summary.get("Mercury-Agent", {})
+    baseline_stats = {k: v for k, v in summary.items() if k != "Mercury-Agent"}
 
-    if omni_ava_stats and baseline_stats:
-        omni_roc = omni_ava_stats.get("mean_roc_auc", 0)
+    if omni_mercury_stats and baseline_stats:
+        omni_roc = omni_mercury_stats.get("mean_roc_auc", 0)
         best_baseline_roc = max(b.get("mean_roc_auc", 0) for b in baseline_stats.values())
         avg_baseline_roc = np.mean([b.get("mean_roc_auc", 0) for b in baseline_stats.values()])
 
         comparison = {
-            "omni_ava_roc_auc": omni_roc,
+            "omni_mercury_roc_auc": omni_roc,
             "best_baseline_roc_auc": best_baseline_roc,
             "avg_baseline_roc_auc": float(avg_baseline_roc),
             "vs_best_baseline": omni_roc - best_baseline_roc,
             "vs_avg_baseline": omni_roc - avg_baseline_roc,
             "rank_by_roc_auc": (
-                rankings["mean_roc_auc"].index("OMNI-AVA") + 1
-                if "OMNI-AVA" in rankings["mean_roc_auc"]
+                rankings["mean_roc_auc"].index("Mercury-Agent") + 1
+                if "Mercury-Agent" in rankings["mean_roc_auc"]
                 else None
             ),
         }
@@ -572,7 +572,7 @@ def generate_summary(results: list[BenchmarkResult]) -> dict[str, Any]:
     return {
         "per_detector": summary,
         "rankings": rankings,
-        "omni_ava_comparison": comparison,
+        "omni_mercury_comparison": comparison,
         "honest_assessment": generate_honest_assessment(summary, comparison),
     }
 
@@ -580,7 +580,7 @@ def generate_summary(results: list[BenchmarkResult]) -> dict[str, Any]:
 def generate_honest_assessment(
     summary: dict[str, Any], comparison: dict[str, Any]
 ) -> dict[str, Any]:
-    """Generate honest assessment of OMNI-AVA performance."""
+    """Generate honest assessment of Mercury-Agent performance."""
     assessment = {
         "methodology_notes": [
             "Benchmarks use publicly available sklearn datasets",
@@ -602,13 +602,13 @@ def generate_honest_assessment(
 
         if rank == 1:
             assessment["performance_verdict"] = (
-                "OMNI-AVA achieved best ROC-AUC among tested detectors"
+                "Mercury-Agent achieved best ROC-AUC among tested detectors"
             )
         elif vs_best >= -0.02:
-            assessment["performance_verdict"] = "OMNI-AVA performs comparably to best baseline"
+            assessment["performance_verdict"] = "Mercury-Agent performs comparably to best baseline"
         else:
             assessment["performance_verdict"] = (
-                f"OMNI-AVA ranks #{rank}, {abs(vs_best):.3f} ROC-AUC below best baseline"
+                f"Mercury-Agent ranks #{rank}, {abs(vs_best):.3f} ROC-AUC below best baseline"
             )
 
         assessment["recommendation"] = (
@@ -630,11 +630,11 @@ def save_results(results: dict[str, Any], output_dir: Path) -> None:
 
     report_path = output_dir / "EMPIRICAL_BENCHMARK_REPORT.md"
     with open(report_path, "w") as f:
-        f.write("# OMNI-AVA Empirical Benchmark Report\n\n")
+        f.write("# Mercury-Agent Empirical Benchmark Report\n\n")
         f.write(f"**Generated:** {results['timestamp']}\n\n")
 
         f.write("## Methodology\n\n")
-        f.write("This benchmark compares OMNI-AVA against established anomaly detection ")
+        f.write("This benchmark compares Mercury-Agent against established anomaly detection ")
         f.write("algorithms using publicly available datasets from scikit-learn.\n\n")
 
         f.write("### Datasets\n\n")
@@ -643,7 +643,7 @@ def save_results(results: dict[str, Any], output_dir: Path) -> None:
 
         f.write("\n### Baseline Detectors\n\n")
         for detector in results["methodology"]["detectors"]:
-            if detector != "OMNI-AVA":
+            if detector != "Mercury-Agent":
                 f.write(f"- {detector}\n")
 
         f.write("\n## Results Summary\n\n")
@@ -691,7 +691,7 @@ def save_results(results: dict[str, Any], output_dir: Path) -> None:
 
 
 if __name__ == "__main__":
-    print("\nStarting OMNI-AVA Empirical Benchmark Suite...")
+    print("\nStarting Mercury-Agent Empirical Benchmark Suite...")
     print("This may take a few minutes to download datasets and run benchmarks.\n")
 
     results = run_full_benchmark()
@@ -704,10 +704,10 @@ if __name__ == "__main__":
     print("=" * 70)
 
     summary = results["summary"]
-    if summary.get("omni_ava_comparison"):
-        comp = summary["omni_ava_comparison"]
-        print("\nOMNI-AVA Performance:")
-        print(f"  ROC-AUC: {comp.get('omni_ava_roc_auc', 'N/A'):.3f}")
+    if summary.get("omni_mercury_comparison"):
+        comp = summary["omni_mercury_comparison"]
+        print("\nMercury-Agent Performance:")
+        print(f"  ROC-AUC: {comp.get('omni_mercury_roc_auc', 'N/A'):.3f}")
         print(f"  Rank: #{comp.get('rank_by_roc_auc', 'N/A')} of {len(summary['per_detector'])}")
         print(f"  vs Best Baseline: {comp.get('vs_best_baseline', 0):+.3f}")
         print(f"  vs Avg Baseline: {comp.get('vs_avg_baseline', 0):+.3f}")

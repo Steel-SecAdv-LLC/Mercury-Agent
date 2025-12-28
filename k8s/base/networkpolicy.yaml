@@ -1,12 +1,12 @@
-# OMNI-AVA Network Policies
+# Mercury-Agent Network Policies
 # Implements network segmentation and traffic control for security isolation
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: omni-ava-default-deny
-  namespace: omni-ava
+  name: mercury-agent-default-deny
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: network-policy
 spec:
   podSelector: {}
@@ -18,15 +18,15 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: omni-ava-api-ingress
-  namespace: omni-ava
+  name: mercury-agent-api-ingress
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: omni-ava
+      app.kubernetes.io/name: mercury-agent
       app.kubernetes.io/component: api
   policyTypes:
     - Ingress
@@ -68,15 +68,15 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: omni-ava-api-egress
-  namespace: omni-ava
+  name: mercury-agent-api-egress
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: omni-ava
+      app.kubernetes.io/name: mercury-agent
       app.kubernetes.io/component: api
   policyTypes:
     - Egress
@@ -96,7 +96,7 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: omni-ava
+              app.kubernetes.io/name: mercury-agent
               app.kubernetes.io/component: engine
       ports:
         - protocol: TCP
@@ -117,15 +117,15 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: omni-ava-engine-ingress
-  namespace: omni-ava
+  name: mercury-agent-engine-ingress
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: engine
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: omni-ava
+      app.kubernetes.io/name: mercury-agent
       app.kubernetes.io/component: engine
   policyTypes:
     - Ingress
@@ -134,7 +134,7 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: omni-ava
+              app.kubernetes.io/name: mercury-agent
               app.kubernetes.io/component: api
       ports:
         - protocol: TCP
@@ -155,15 +155,15 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: omni-ava-engine-egress
-  namespace: omni-ava
+  name: mercury-agent-engine-egress
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: engine
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: omni-ava
+      app.kubernetes.io/name: mercury-agent
       app.kubernetes.io/component: engine
   policyTypes:
     - Egress
@@ -195,10 +195,10 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: omni-ava-allow-monitoring
-  namespace: omni-ava
+  name: mercury-agent-allow-monitoring
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: monitoring
 spec:
   podSelector: {}

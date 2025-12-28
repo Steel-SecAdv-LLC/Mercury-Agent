@@ -1,6 +1,6 @@
-# Contributing to OMNI ♱ AVA
+# Contributing to Mercury Agent ♱
 
-Thank you for your interest in contributing to the OMNI ♱ AVA! This document provides guidelines for development, testing, and submitting contributions.
+Thank you for your interest in contributing to the Mercury Agent ♱! This document provides guidelines for development, testing, and submitting contributions.
 
 ## AI-Assisted Development
 
@@ -37,8 +37,8 @@ When opening issues, use provided templates:
 
 1. **Clone the repository** (if working from a repo):
    ```bash
-   git clone https://github.com/Steel-SecAdv-LLC/OMNI ♱ AVA.git
-   cd OMNI ♱ AVA
+   git clone https://github.com/Steel-SecAdv-LLC/Mercury Agent ♱.git
+   cd Mercury Agent ♱
    ```
 
 2. **Create virtual environment**:
@@ -134,7 +134,7 @@ def detect(data, thresh=0.5):
 
 **Use Black** for automatic formatting:
 ```bash
-black omni_anomaly_engine/ tests/ examples/
+black omni_mercury_engine/ tests/ examples/
 ```
 
 **Configuration** (in `pyproject.toml`):
@@ -148,7 +148,7 @@ target-version = ['py312']
 
 **Use Flake8** for linting:
 ```bash
-flake8 omni_anomaly_engine/ tests/
+flake8 omni_mercury_engine/ tests/
 ```
 
 **Configuration** (in `.flake8`):
@@ -163,7 +163,7 @@ exclude = .git,__pycache__,venv
 
 **Use MyPy** for type checking:
 ```bash
-mypy omni_anomaly_engine/
+mypy omni_mercury_engine/
 ```
 
 **Configuration** (in `pyproject.toml`):
@@ -187,7 +187,7 @@ pytest tests/
 pytest tests/test_harmonic_encoder.py
 
 # Run with coverage
-pytest tests/ --cov=omni_anomaly_engine --cov-report=html --cov-report=term
+pytest tests/ --cov=omni_mercury_engine --cov-report=html --cov-report=term
 
 # Run with verbose output
 pytest tests/ -v
@@ -205,7 +205,7 @@ pytest tests/integration/
 ```python
 import pytest
 import numpy as np
-from omni_anomaly_engine.ml.harmonic_encoder import SphericalHarmonicDecomposer
+from omni_mercury_engine.ml.harmonic_encoder import SphericalHarmonicDecomposer
 
 
 def test_spherical_harmonic_decomposition():
@@ -232,12 +232,12 @@ def test_spherical_harmonic_decomposition():
 **Integration Test Example**:
 ```python
 import pytest
-from omni_anomaly_engine.engine import OmniAnomalyEngine
+from omni_mercury_engine.engine import OmniMercuryEngine
 
 
 def test_full_pipeline():
     """Test end-to-end anomaly detection."""
-    engine = OmniAnomalyEngine()
+    engine = OmniMercuryEngine()
 
     # Normal data
     normal_data = np.random.randn(100, 10)
@@ -266,13 +266,13 @@ def test_full_pipeline():
 ```python
 from unittest.mock import patch, MagicMock
 
-@patch('omni_anomaly_engine.models.biometric.DeepFace')
+@patch('omni_mercury_engine.models.biometric.DeepFace')
 def test_biometric_model_without_deepface(mock_deepface):
     """Test biometric model with mocked DeepFace."""
     # Mock DeepFace.represent
     mock_deepface.represent.return_value = [{"embedding": [0.1] * 128}]
 
-    from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
+    from omni_mercury_engine.models.biometric import BiometricAnomalyModel
 
     model = BiometricAnomalyModel()
     features = model.extract_features(np.zeros((224, 224, 3), dtype=np.uint8))
@@ -284,7 +284,7 @@ def test_biometric_model_without_deepface(mock_deepface):
 
 **Use Bandit** for security scans:
 ```bash
-bandit -r omni_anomaly_engine/
+bandit -r omni_mercury_engine/
 ```
 
 **Use Safety** for dependency vulnerabilities:
@@ -300,12 +300,12 @@ safety check
 # benchmarks/bench_fusion.py
 import time
 import numpy as np
-from omni_anomaly_engine.engine import OmniAnomalyEngine
+from omni_mercury_engine.engine import OmniMercuryEngine
 
 
 def bench_inference_latency():
     """Benchmark inference latency."""
-    engine = OmniAnomalyEngine()
+    engine = OmniMercuryEngine()
     data = np.random.randn(1000, 10)
 
     start = time.time()
@@ -332,19 +332,19 @@ python benchmarks/bench_fusion.py
 1. **Run all checks**:
    ```bash
    # Format code
-   black omni_anomaly_engine/ tests/ examples/
+   black omni_mercury_engine/ tests/ examples/
 
    # Lint
-   flake8 omni_anomaly_engine/ tests/
+   flake8 omni_mercury_engine/ tests/
 
    # Type check
-   mypy omni_anomaly_engine/
+   mypy omni_mercury_engine/
 
    # Test with coverage
-   pytest tests/ --cov=omni_anomaly_engine --cov-report=term
+   pytest tests/ --cov=omni_mercury_engine --cov-report=term
 
    # Security scan
-   bandit -r omni_anomaly_engine/
+   bandit -r omni_mercury_engine/
    ```
 
 2. **Ensure tests pass**:
@@ -429,7 +429,7 @@ New Engine Module
 import numpy as np
 import torch
 from typing import Dict, Any, Union, Optional
-from omni_anomaly_engine.core.base import BaseModel
+from omni_mercury_engine.core.base import BaseModel
 
 
 class NewEngineModel(BaseModel):
@@ -509,7 +509,7 @@ class NewEngineModel(BaseModel):
 
 - **Issues**: Open an issue on GitHub
 - **Discussions**: Use GitHub Discussions
-- **Email**: contact@omni-ava.org (if applicable)
+- **Email**: contact@mercury-agent.org (if applicable)
 
 ## License
 

@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -23,7 +23,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.infrastructure.chemical_nuclear import ChemicalNuclearDetector, CISASector
+from omni_mercury_engine.infrastructure.chemical_nuclear import ChemicalNuclearDetector, CISASector
 
 
 class TestCISASector:

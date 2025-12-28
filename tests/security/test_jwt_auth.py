@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -39,7 +39,7 @@ class TestJWTAuthMissingKey:
             os.environ.pop("ENVIRONMENT", None)
             os.environ.pop("JWT_SECRET_KEY", None)
 
-            from omni_anomaly_engine.api.auth import JWTAuth
+            from omni_mercury_engine.api.auth import JWTAuth
 
             # Reset the warning flag for testing
             JWTAuth._warned_about_fallback = False
@@ -56,7 +56,7 @@ class TestJWTAuthMissingKey:
             os.environ.pop("JWT_SECRET_KEY", None)
             os.environ.pop("OMNI_AVA_ENV", None)
 
-            from omni_anomaly_engine.api.auth import JWTAuth
+            from omni_mercury_engine.api.auth import JWTAuth
 
             with pytest.raises(ValueError, match="JWT_SECRET_KEY"):
                 JWTAuth(allow_dev_fallback=False)
@@ -66,7 +66,7 @@ class TestJWTAuthMissingKey:
         with patch.dict(os.environ, {"OMNI_AVA_ENV": "production"}, clear=True):
             os.environ.pop("JWT_SECRET_KEY", None)
 
-            from omni_anomaly_engine.api.auth import JWTAuth
+            from omni_mercury_engine.api.auth import JWTAuth
 
             with pytest.raises(ValueError, match="production"):
                 JWTAuth()
@@ -79,7 +79,7 @@ class TestJWTAuthExpiredToken:
     def jwt_auth(self):
         """Create JWTAuth instance with test key."""
         with patch.dict(os.environ, {"JWT_SECRET_KEY": "test_secret_key_for_testing"}):
-            from omni_anomaly_engine.api.auth import JWTAuth
+            from omni_mercury_engine.api.auth import JWTAuth
 
             return JWTAuth()
 
@@ -115,7 +115,7 @@ class TestJWTAuthMalformedToken:
     def jwt_auth(self):
         """Create JWTAuth instance with test key."""
         with patch.dict(os.environ, {"JWT_SECRET_KEY": "test_secret_key_for_testing"}):
-            from omni_anomaly_engine.api.auth import JWTAuth
+            from omni_mercury_engine.api.auth import JWTAuth
 
             return JWTAuth()
 
@@ -165,7 +165,7 @@ class TestJWTAuthMissingClaims:
     def jwt_auth(self):
         """Create JWTAuth instance with test key."""
         with patch.dict(os.environ, {"JWT_SECRET_KEY": "test_secret_key_for_testing"}):
-            from omni_anomaly_engine.api.auth import JWTAuth
+            from omni_mercury_engine.api.auth import JWTAuth
 
             return JWTAuth()
 
@@ -219,7 +219,7 @@ class TestJWTAuthValidToken:
     def jwt_auth(self):
         """Create JWTAuth instance with test key."""
         with patch.dict(os.environ, {"JWT_SECRET_KEY": "test_secret_key_for_testing"}):
-            from omni_anomaly_engine.api.auth import JWTAuth
+            from omni_mercury_engine.api.auth import JWTAuth
 
             return JWTAuth()
 
@@ -259,7 +259,7 @@ class TestJWTAuthValidToken:
         if importlib.util.find_spec("jwt") is None:
             pytest.skip("PyJWT not installed")
 
-        from omni_anomaly_engine.api.auth import JWTAuth
+        from omni_mercury_engine.api.auth import JWTAuth
 
         # Create token
         token = JWTAuth.create_token(
@@ -284,7 +284,7 @@ class TestAPIKeyAuth:
 
     def test_api_key_store_create_and_retrieve(self):
         """Test creating and retrieving API keys."""
-        from omni_anomaly_engine.api.auth import APIKeyStore, Permission
+        from omni_mercury_engine.api.auth import APIKeyStore, Permission
 
         store = APIKeyStore()
 
@@ -308,7 +308,7 @@ class TestAPIKeyAuth:
 
     def test_api_key_store_revoke(self):
         """Test revoking API keys."""
-        from omni_anomaly_engine.api.auth import APIKeyStore
+        from omni_mercury_engine.api.auth import APIKeyStore
 
         store = APIKeyStore()
         raw_key, api_key = store.create_key(name="revoke_test", user_id="test_user")
@@ -326,7 +326,7 @@ class TestAPIKeyAuth:
 
     def test_api_key_expiration(self):
         """Test API key expiration check."""
-        from omni_anomaly_engine.api.auth import APIKeyStore
+        from omni_mercury_engine.api.auth import APIKeyStore
 
         store = APIKeyStore()
 

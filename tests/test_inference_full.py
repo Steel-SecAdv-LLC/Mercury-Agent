@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -41,7 +41,7 @@ pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
 
 # Conditional imports - only when torch is available
 if HAS_TORCH:
-    from omni_anomaly_engine.ml.inference import FusionInference
+    from omni_mercury_engine.ml.inference import FusionInference
 
 
 def test_fusion_inference_initialization():

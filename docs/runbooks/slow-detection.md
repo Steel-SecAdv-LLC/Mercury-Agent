@@ -1,6 +1,6 @@
-# OMNI-AVA Runbook: Slow Detection Processing
+# Mercury-Agent Runbook: Slow Detection Processing
 
-## Alert: OmniAvaSlowDetection
+## Alert: OmniMercurySlowDetection
 
 ### Overview
 This runbook provides guidance for responding when anomaly detection processing times exceed acceptable thresholds, affecting user experience and system throughput.
@@ -21,37 +21,37 @@ This runbook provides guidance for responding when anomaly detection processing 
 ### 1. Check Detection Latency
 ```promql
 # P95 detection latency
-histogram_quantile(0.95, sum(rate(omni_detection_duration_seconds_bucket{app="omni-ava"}[5m])) by (le, detector_type))
+histogram_quantile(0.95, sum(rate(omni_detection_duration_seconds_bucket{app="mercury-agent"}[5m])) by (le, detector_type))
 
 # Detection latency by detector type
-histogram_quantile(0.95, sum(rate(omni_detection_duration_seconds_bucket{app="omni-ava"}[5m])) by (le, detector_type))
+histogram_quantile(0.95, sum(rate(omni_detection_duration_seconds_bucket{app="mercury-agent"}[5m])) by (le, detector_type))
 ```
 
 ### 2. Check Engine Performance
 ```bash
 # View engine logs for slow operations
-kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=200 | grep -i "duration\|slow\|timeout"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=engine --tail=200 | grep -i "duration\|slow\|timeout"
 
 # Check engine resource usage
-kubectl top pods -n omni-ava -l app.kubernetes.io/component=engine
+kubectl top pods -n mercury-agent -l app.kubernetes.io/component=engine
 ```
 
 ### 3. Check Model Inference Times
 ```bash
 # Check inference metrics
-kubectl exec -n omni-ava deployment/omni-ava-engine -- curl -s localhost:8080/metrics | grep inference
+kubectl exec -n mercury-agent deployment/mercury-agent-engine -- curl -s localhost:8080/metrics | grep inference
 
 # View model-specific timing
-kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=100 | grep -i "inference\|predict"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=engine --tail=100 | grep -i "inference\|predict"
 ```
 
 ### 4. Check Input Data Characteristics
 ```bash
 # Look for large input processing
-kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=100 | grep -i "batch\|size\|shape"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=engine --tail=100 | grep -i "batch\|size\|shape"
 
 # Check for complex detection requests
-kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=100 | grep -i "detect"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=api --tail=100 | grep -i "detect"
 ```
 
 ---
@@ -68,11 +68,11 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=100 | grep -i
 **Actions:**
 1. Reduce maximum batch size:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava MAX_BATCH_SIZE=32
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent MAX_BATCH_SIZE=32
    ```
 2. Enable batch splitting:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava ENABLE_BATCH_SPLITTING=true
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent ENABLE_BATCH_SPLITTING=true
    ```
 3. Implement streaming for large datasets
 
@@ -86,11 +86,11 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=100 | grep -i
 **Actions:**
 1. Enable model optimization:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava ENABLE_MODEL_OPTIMIZATION=true
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent ENABLE_MODEL_OPTIMIZATION=true
    ```
 2. Use lighter model variants:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava MODEL_VARIANT=lite
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent MODEL_VARIANT=lite
    ```
 3. Consider model quantization for faster inference
 
@@ -104,15 +104,15 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=100 | grep -i
 **Actions:**
 1. Scale engine pods:
    ```bash
-   kubectl scale deployment omni-ava-engine -n omni-ava --replicas=5
+   kubectl scale deployment mercury-agent-engine -n mercury-agent --replicas=5
    ```
 2. Increase CPU allocation:
    ```bash
-   kubectl patch deployment omni-ava-engine -n omni-ava -p '{"spec":{"template":{"spec":{"containers":[{"name":"engine","resources":{"limits":{"cpu":"4"},"requests":{"cpu":"2"}}}]}}}}'
+   kubectl patch deployment mercury-agent-engine -n mercury-agent -p '{"spec":{"template":{"spec":{"containers":[{"name":"engine","resources":{"limits":{"cpu":"4"},"requests":{"cpu":"2"}}}]}}}}'
    ```
 3. Implement request queuing:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava MAX_CONCURRENT_INFERENCES=4
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent MAX_CONCURRENT_INFERENCES=4
    ```
 
 ### Scenario 4: Cold Start Issues
@@ -125,15 +125,15 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=100 | grep -i
 **Actions:**
 1. Enable model preloading:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava PRELOAD_ALL_MODELS=true
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent PRELOAD_ALL_MODELS=true
    ```
 2. Implement warmup requests:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava ENABLE_WARMUP=true WARMUP_REQUESTS=10
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent ENABLE_WARMUP=true WARMUP_REQUESTS=10
    ```
 3. Configure readiness probe to wait for warmup:
    ```bash
-   kubectl patch deployment omni-ava-engine -n omni-ava -p '{"spec":{"template":{"spec":{"containers":[{"name":"engine","readinessProbe":{"initialDelaySeconds":60}}]}}}}'
+   kubectl patch deployment mercury-agent-engine -n mercury-agent -p '{"spec":{"template":{"spec":{"containers":[{"name":"engine","readinessProbe":{"initialDelaySeconds":60}}]}}}}'
    ```
 
 ---

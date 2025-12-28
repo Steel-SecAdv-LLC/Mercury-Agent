@@ -1,9 +1,9 @@
-# OMNI-AVA Runbook: Model Inference Errors
+# Mercury-Agent Runbook: Model Inference Errors
 
-## Alert: OmniAvaModelInferenceErrors
+## Alert: OmniMercuryModelInferenceErrors
 
 ### Overview
-This runbook provides guidance for responding when model inference errors are detected in the OMNI-AVA platform, indicating issues with the ML prediction pipeline.
+This runbook provides guidance for responding when model inference errors are detected in the Mercury-Agent platform, indicating issues with the ML prediction pipeline.
 
 ### Alert Threshold
 - **Warning**: Inference errors > 0.1 per second for 5 minutes
@@ -21,37 +21,37 @@ This runbook provides guidance for responding when model inference errors are de
 ### 1. Check Inference Error Metrics
 ```promql
 # Inference error rate
-sum(rate(omni_model_inference_errors_total{app="omni-ava"}[5m])) by (model, error_type)
+sum(rate(omni_model_inference_errors_total{app="mercury-agent"}[5m])) by (model, error_type)
 
 # Inference success vs failure
-sum(rate(omni_model_inference_total{app="omni-ava",status="success"}[5m])) / sum(rate(omni_model_inference_total{app="omni-ava"}[5m]))
+sum(rate(omni_model_inference_total{app="mercury-agent",status="success"}[5m])) / sum(rate(omni_model_inference_total{app="mercury-agent"}[5m]))
 ```
 
 ### 2. Check Engine Logs
 ```bash
 # View inference errors
-kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=300 | grep -i "inference\|error\|exception"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=engine --tail=300 | grep -i "inference\|error\|exception"
 
 # Check for specific error types
-kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=200 | grep -E "RuntimeError|ValueError|TypeError"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=engine --tail=200 | grep -E "RuntimeError|ValueError|TypeError"
 ```
 
 ### 3. Check Model Status
 ```bash
 # Verify model health
-kubectl exec -n omni-ava deployment/omni-ava-engine -- curl -s localhost:8080/models/health
+kubectl exec -n mercury-agent deployment/mercury-agent-engine -- curl -s localhost:8080/models/health
 
 # Check loaded models
-kubectl exec -n omni-ava deployment/omni-ava-engine -- curl -s localhost:8080/models/list
+kubectl exec -n mercury-agent deployment/mercury-agent-engine -- curl -s localhost:8080/models/list
 ```
 
 ### 4. Check Input Patterns
 ```bash
 # Look for input-related errors
-kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=200 | grep -i "input\|shape\|dimension"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=engine --tail=200 | grep -i "input\|shape\|dimension"
 
 # Check for NaN or invalid values
-kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=100 | grep -i "nan\|inf\|invalid"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=engine --tail=100 | grep -i "nan\|inf\|invalid"
 ```
 
 ---
@@ -68,15 +68,15 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=100 | grep
 **Actions:**
 1. Check model file integrity:
    ```bash
-   kubectl exec -n omni-ava deployment/omni-ava-engine -- md5sum /data/models/*.pt
+   kubectl exec -n mercury-agent deployment/mercury-agent-engine -- md5sum /data/models/*.pt
    ```
 2. Re-download model files:
    ```bash
-   kubectl exec -n omni-ava deployment/omni-ava-engine -- python -c "from omni_anomaly_engine.ml import download_models; download_models()"
+   kubectl exec -n mercury-agent deployment/mercury-agent-engine -- python -c "from omni_mercury_engine.ml import download_models; download_models()"
    ```
 3. Restart engine to reload:
    ```bash
-   kubectl rollout restart deployment/omni-ava-engine -n omni-ava
+   kubectl rollout restart deployment/mercury-agent-engine -n mercury-agent
    ```
 
 ### Scenario 2: Input Data Issues
@@ -89,11 +89,11 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=100 | grep
 **Actions:**
 1. Enable strict input validation:
    ```bash
-   kubectl set env deployment/omni-ava-api -n omni-ava STRICT_INPUT_VALIDATION=true
+   kubectl set env deployment/mercury-agent-api -n mercury-agent STRICT_INPUT_VALIDATION=true
    ```
 2. Add input sanitization:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava SANITIZE_INPUT=true REPLACE_NAN=true
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent SANITIZE_INPUT=true REPLACE_NAN=true
    ```
 3. Return clear error messages to clients
 
@@ -107,15 +107,15 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=100 | grep
 **Actions:**
 1. Reduce batch size:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava MAX_BATCH_SIZE=16
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent MAX_BATCH_SIZE=16
    ```
 2. Increase memory limits:
    ```bash
-   kubectl patch deployment omni-ava-engine -n omni-ava -p '{"spec":{"template":{"spec":{"containers":[{"name":"engine","resources":{"limits":{"memory":"16Gi"}}}]}}}}'
+   kubectl patch deployment mercury-agent-engine -n mercury-agent -p '{"spec":{"template":{"spec":{"containers":[{"name":"engine","resources":{"limits":{"memory":"16Gi"}}}]}}}}'
    ```
 3. Enable memory-efficient inference:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava MEMORY_EFFICIENT_INFERENCE=true
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent MEMORY_EFFICIENT_INFERENCE=true
    ```
 
 ### Scenario 4: Model Version Mismatch
@@ -128,12 +128,12 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=100 | grep
 **Actions:**
 1. Check model version:
    ```bash
-   kubectl exec -n omni-ava deployment/omni-ava-engine -- cat /data/models/version.txt
+   kubectl exec -n mercury-agent deployment/mercury-agent-engine -- cat /data/models/version.txt
    ```
 2. Rollback to previous model version:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava MODEL_VERSION=v1.2.0
-   kubectl rollout restart deployment/omni-ava-engine -n omni-ava
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent MODEL_VERSION=v1.2.0
+   kubectl rollout restart deployment/mercury-agent-engine -n mercury-agent
    ```
 3. Verify API compatibility with model version
 
@@ -147,11 +147,11 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=100 | grep
 **Actions:**
 1. Enable numerical stability checks:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava CHECK_NUMERICAL_STABILITY=true
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent CHECK_NUMERICAL_STABILITY=true
    ```
 2. Use mixed precision carefully:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava USE_MIXED_PRECISION=false
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent USE_MIXED_PRECISION=false
    ```
 3. Engage ML team for model investigation
 

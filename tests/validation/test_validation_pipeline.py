@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -25,13 +25,13 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.validation.data_loaders import (
+from omni_mercury_engine.validation.data_loaders import (
     DatasetMetadata,
     MIMICLoader,
     NSLKDDLoader,
     USGSEarthquakeLoader,
 )
-from omni_anomaly_engine.validation.pipeline import (
+from omni_mercury_engine.validation.pipeline import (
     ABTester,
     ABTestResult,
     DataQualityChecker,

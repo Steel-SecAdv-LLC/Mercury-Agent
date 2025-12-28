@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -45,7 +45,7 @@ pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
 
 # Conditional imports - only when torch is available
 if HAS_TORCH:
-    from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
+    from omni_mercury_engine.models.biometric import BiometricAnomalyModel
 
 
 def test_biometric_with_different_models():
@@ -76,7 +76,7 @@ def test_biometric_predict_with_dict():
     ref_image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
     test_image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
 
-    with patch("omni_anomaly_engine.models.biometric.DeepFace") as mock_deepface:
+    with patch("omni_mercury_engine.models.biometric.DeepFace") as mock_deepface:
         mock_deepface.verify.return_value = {
             "verified": True,
             "distance": 0.3,

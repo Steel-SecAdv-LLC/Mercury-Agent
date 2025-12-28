@@ -1,12 +1,12 @@
 """
-Tests for omni_anomaly_engine.security.int_sources module.
+Tests for omni_mercury_engine.security.int_sources module.
 
 Tests intelligence source processors (OSINT, COMINT, HUMINT, etc.).
 """
 
 from __future__ import annotations
 
-from omni_anomaly_engine.security.int_sources import (
+from omni_mercury_engine.security.int_sources import (
     COMINTAnalysisResult,
     COMINTProcessor,
     CYBINTProcessor,

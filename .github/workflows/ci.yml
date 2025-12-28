@@ -1,4 +1,4 @@
-# OMNI-AVA Comprehensive CI/CD Pipeline
+# Mercury-Agent Comprehensive CI/CD Pipeline
 # Implements multi-stage testing, security scanning, and quality checks
 # Copyright (C) 2025 Steel Security Advisory LLC
 
@@ -80,7 +80,7 @@ jobs:
         run: flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503,E402,E501
 
       - name: Run pydocstyle (docstring checks)
-        run: pydocstyle src/omni_anomaly_engine/ --convention=google || true
+        run: pydocstyle src/omni_mercury_engine/ --convention=google || true
 
   # ===========================================================================
   # Stage 2: Type Checking
@@ -119,7 +119,7 @@ jobs:
       - name: Run MyPy
         # MyPy type checking is now blocking for code quality assurance
         run: |
-          mypy src/omni_anomaly_engine/ \
+          mypy src/omni_mercury_engine/ \
             --ignore-missing-imports \
             --show-error-codes \
             --pretty
@@ -152,7 +152,7 @@ jobs:
       - name: Run Bandit (security linter)
         # Bandit security scan is now blocking - fails on medium+ severity issues
         run: |
-          bandit -r src/omni_anomaly_engine/ \
+          bandit -r src/omni_mercury_engine/ \
             -f json \
             -o bandit-report.json \
             --severity-level medium
@@ -237,13 +237,13 @@ jobs:
         run: |
           pytest tests/test_cli.py tests/test_core/ \
             -v \
-            --cov=omni_anomaly_engine \
+            --cov=omni_mercury_engine \
             --cov-report=xml \
             --cov-report=term-missing \
             --cov-fail-under=${{ env.COVERAGE_THRESHOLD }} || \
           pytest tests/test_cli.py \
             -v \
-            --cov=omni_anomaly_engine \
+            --cov=omni_mercury_engine \
             --cov-report=xml
 
       - name: Upload coverage to Codecov
@@ -308,7 +308,7 @@ jobs:
         run: |
           pytest tests/ \
             -v \
-            --cov=omni_anomaly_engine \
+            --cov=omni_mercury_engine \
             --cov-report=xml \
             --cov-report=term-missing
 
@@ -421,7 +421,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: false
-          tags: omni-ava:${{ github.sha }}
+          tags: mercury-agent:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           load: true
@@ -430,7 +430,7 @@ jobs:
         continue-on-error: true
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: omni-ava:${{ github.sha }}
+          image-ref: mercury-agent:${{ github.sha }}
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN'

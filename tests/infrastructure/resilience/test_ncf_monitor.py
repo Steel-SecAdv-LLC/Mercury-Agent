@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ Tests for NCF Monitor (55 CISA National Critical Functions).
 
 import numpy as np
 
-from omni_anomaly_engine.infrastructure.resilience.ncf_monitor import NCFMonitor
+from omni_mercury_engine.infrastructure.resilience.ncf_monitor import NCFMonitor
 
 
 class TestNCFMonitor:

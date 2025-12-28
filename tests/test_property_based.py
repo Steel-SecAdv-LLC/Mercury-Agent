@@ -1,8 +1,8 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
-Hypothesis-based Property Testing for OMNI-AVA Components.
+Hypothesis-based Property Testing for Mercury-Agent Components.
 
 Uses property-based testing to verify invariants and edge cases that
 unit tests might miss. This approach generates thousands of test cases
@@ -99,7 +99,7 @@ class TestInputValidationProperties:
     @settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
     def test_sanitize_never_returns_dangerous_html(self, text: str):
         """Sanitized output should never contain raw script tags."""
-        from omni_anomaly_engine.security.input_validation import (
+        from omni_mercury_engine.security.input_validation import (
             InputValidator,
             SanitizationLevel,
         )
@@ -117,7 +117,7 @@ class TestInputValidationProperties:
     @settings(max_examples=100)
     def test_sanitize_strict_only_allows_safe_chars(self, text: str):
         """Strict sanitization should only allow alphanumeric and limited punctuation."""
-        from omni_anomaly_engine.security.input_validation import (
+        from omni_mercury_engine.security.input_validation import (
             InputValidator,
             SanitizationLevel,
         )
@@ -137,7 +137,7 @@ class TestInputValidationProperties:
     @settings(max_examples=100)
     def test_integer_validation_roundtrip(self, value: int):
         """Integer validation should preserve valid integers."""
-        from omni_anomaly_engine.security.input_validation import InputValidator
+        from omni_mercury_engine.security.input_validation import InputValidator
 
         validator = InputValidator()
         result = validator.validate_integer(value)
@@ -151,7 +151,7 @@ class TestInputValidationProperties:
     @settings(max_examples=100)
     def test_float_validation_preserves_valid_floats(self, value: float):
         """Float validation should preserve valid floats."""
-        from omni_anomaly_engine.security.input_validation import InputValidator
+        from omni_mercury_engine.security.input_validation import InputValidator
 
         validator = InputValidator()
         result = validator.validate_float(value)
@@ -165,7 +165,7 @@ class TestInputValidationProperties:
     @settings(max_examples=100)
     def test_path_traversal_always_detected(self, prefix: str):
         """Path traversal patterns should always be detected."""
-        from omni_anomaly_engine.security.input_validation import InputValidator
+        from omni_mercury_engine.security.input_validation import InputValidator
 
         validator = InputValidator()
 
@@ -190,7 +190,7 @@ class TestDoubleHelixEngineProperties:
     @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
     def test_evolution_preserves_finite_values(self, initial_state: np.ndarray[Any, Any]):
         """Evolution should never produce NaN or Inf values."""
-        from omni_anomaly_engine.core.double_helix_engine import AvaEquationEngine
+        from omni_mercury_engine.core.double_helix_engine import AvaEquationEngine
 
         # Skip if initial state has bad values
         assume(np.all(np.isfinite(initial_state)))
@@ -209,7 +209,7 @@ class TestDoubleHelixEngineProperties:
     @settings(max_examples=20, suppress_health_check=[HealthCheck.too_slow])
     def test_evolution_dimension_consistency(self, dim: int):
         """Evolution should preserve state dimension."""
-        from omni_anomaly_engine.core.double_helix_engine import AvaEquationEngine
+        from omni_mercury_engine.core.double_helix_engine import AvaEquationEngine
 
         engine = AvaEquationEngine(dimension=dim)
         initial_state = np.random.randn(dim)
@@ -229,7 +229,7 @@ class TestBiasDetectorProperties:
     @settings(max_examples=20, suppress_health_check=[HealthCheck.too_slow])
     def test_perfect_predictor_is_fair(self, n_samples: int, n_groups: int):
         """A perfect predictor should pass fairness checks."""
-        from omni_anomaly_engine.ml.bias_detection import BiasDetector, FairnessMetric
+        from omni_mercury_engine.ml.bias_detection import BiasDetector, FairnessMetric
 
         # Generate balanced data
         y_true = np.random.randint(0, 2, n_samples)
@@ -252,7 +252,7 @@ class TestBiasDetectorProperties:
     @settings(max_examples=20)
     def test_random_predictor_detected_as_unfair_for_biased_data(self, n_samples: int):
         """Deliberately biased predictions should fail fairness checks."""
-        from omni_anomaly_engine.ml.bias_detection import BiasDetector, FairnessMetric
+        from omni_mercury_engine.ml.bias_detection import BiasDetector, FairnessMetric
 
         # Create deliberately biased data
         y_true = np.random.randint(0, 2, n_samples)
@@ -283,7 +283,7 @@ class TestThreatDetectorProperties:
     @settings(max_examples=100)
     def test_clean_input_not_flagged(self, text: str):
         """Alphanumeric text should not be flagged as threats."""
-        from omni_anomaly_engine.security.threat_detection import ThreatDetector
+        from omni_mercury_engine.security.threat_detection import ThreatDetector
 
         detector = ThreatDetector()
         result = detector.detect_all(text)
@@ -296,7 +296,7 @@ class TestThreatDetectorProperties:
     @settings(max_examples=50)
     def test_sql_injection_always_detected(self, prefix: str):
         """SQL injection patterns should always be detected."""
-        from omni_anomaly_engine.security.threat_detection import ThreatDetector
+        from omni_mercury_engine.security.threat_detection import ThreatDetector
 
         detector = ThreatDetector()
 
@@ -317,7 +317,7 @@ class TestThreatDetectorProperties:
     @settings(max_examples=50)
     def test_xss_always_detected(self, prefix: str):
         """XSS patterns should always be detected."""
-        from omni_anomaly_engine.security.threat_detection import ThreatDetector
+        from omni_mercury_engine.security.threat_detection import ThreatDetector
 
         detector = ThreatDetector()
 
@@ -351,7 +351,7 @@ class TestEthicalEngineProperties:
     @settings(max_examples=50)
     def test_maat_balance_bounded_output(self, ethical_scores: dict[str, Any]):
         """Ma'at balance should always produce bounded heart weight."""
-        from omni_anomaly_engine.ethical.sacred_wisdom_engine import MaatBalanceEngine
+        from omni_mercury_engine.ethical.sacred_wisdom_engine import MaatBalanceEngine
 
         engine = MaatBalanceEngine()
         result = engine.weigh_heart_against_feather(ethical_scores)
@@ -373,7 +373,7 @@ class TestEthicalEngineProperties:
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
     def test_sacred_geometry_bounded_scores(self, data: np.ndarray[Any, Any]):
         """Sacred geometry analysis should produce scores in [0, 1]."""
-        from omni_anomaly_engine.ethical.sacred_wisdom_engine import SacredGeometryProcessor
+        from omni_mercury_engine.ethical.sacred_wisdom_engine import SacredGeometryProcessor
 
         processor = SacredGeometryProcessor()
         result = processor.analyze_sacred_geometry(data)
@@ -394,7 +394,7 @@ class TestDetectorRegistryProperties:
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
     def test_aggregate_features_produces_128d_output(self, features: np.ndarray[Any, Any]):
         """Aggregated features should always produce 128D output."""
-        from omni_anomaly_engine.core.detector_registry import (
+        from omni_mercury_engine.core.detector_registry import (
             DetectorRegistry,
             FeatureExtractionResult,
         )
@@ -424,7 +424,7 @@ class TestDetectorRegistryProperties:
     @settings(max_examples=20)
     def test_registry_register_unregister_invariant(self, n_detectors: int):
         """Registry should maintain consistent state after register/unregister."""
-        from omni_anomaly_engine.core.detector_registry import (
+        from omni_mercury_engine.core.detector_registry import (
             DetectorCategory,
             DetectorRegistry,
         )
@@ -467,7 +467,7 @@ class TestDetectorRegistryProperties:
         """Aggregated features should never contain NaN values."""
         import torch
 
-        from omni_anomaly_engine.core.detector_registry import (
+        from omni_mercury_engine.core.detector_registry import (
             DetectorRegistry,
             FeatureExtractionResult,
         )
@@ -505,7 +505,7 @@ class TestDetectorRegistryProperties:
     @settings(max_examples=20)
     def test_list_by_tags_returns_subset(self, tags: list[Any]):
         """list_by_tags should return subset of registered detectors."""
-        from omni_anomaly_engine.core.detector_registry import (
+        from omni_mercury_engine.core.detector_registry import (
             DetectorCategory,
             DetectorRegistry,
         )
@@ -535,7 +535,7 @@ class TestFusionNetworkProperties:
     def test_fusion_forward_pass_output_shapes(self, batch_size: int):
         """Fusion network forward pass should produce correct output shapes."""
         try:
-            from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
+            from omni_mercury_engine.ml.fusion_network import OmniFusionModel
         except ImportError:
             pytest.skip("OmniFusionModel not available")
 
@@ -571,7 +571,7 @@ class TestValidationPipelineProperties:
     def test_invalid_dataset_name_handled(self, dataset_name: str):
         """Invalid dataset names should be handled gracefully."""
         try:
-            from omni_anomaly_engine.validation.data_loaders import get_loader
+            from omni_mercury_engine.validation.data_loaders import get_loader
         except ImportError:
             pytest.skip("data_loaders not available")
 
@@ -597,7 +597,7 @@ class TestKnowledgeGraphProperties:
     def test_query_nonexistent_node_handled(self, node_name: str):
         """Querying non-existent nodes should be handled gracefully."""
         try:
-            from omni_anomaly_engine.cognitive.knowledge_graph import KnowledgeGraph
+            from omni_mercury_engine.cognitive.knowledge_graph import KnowledgeGraph
         except ImportError:
             pytest.skip("KnowledgeGraph not available")
 

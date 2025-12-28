@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for Neuro-Symbolic Fusion Engine - Hybrid Anomaly Scoring
@@ -12,8 +12,8 @@ import time
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.cognitive.neural_memory_layer import MemoryType
-from omni_anomaly_engine.cognitive.neurosymbolic_fusion import (
+from omni_mercury_engine.cognitive.neural_memory_layer import MemoryType
+from omni_mercury_engine.cognitive.neurosymbolic_fusion import (
     AnomalyCategory,
     AttentionMechanism,
     FusionResult,
@@ -22,7 +22,7 @@ from omni_anomaly_engine.cognitive.neurosymbolic_fusion import (
     HybridAnomalyScore,
     NeurosymbolicFusionEngine,
 )
-from omni_anomaly_engine.cognitive.symbolic_logic_layer import DecisionType, RuleType
+from omni_mercury_engine.cognitive.symbolic_logic_layer import DecisionType, RuleType
 
 
 class TestAttentionMechanism:
@@ -121,7 +121,7 @@ class TestFusionResult:
 
     def test_create_result(self):
         """Test creating a fusion result."""
-        from omni_anomaly_engine.cognitive.symbolic_logic_layer import (
+        from omni_mercury_engine.cognitive.symbolic_logic_layer import (
             DecisionType,
             ExplainableDecision,
             ExplanationType,

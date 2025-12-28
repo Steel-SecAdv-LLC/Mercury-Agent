@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ Tests for PyOD comparison module.
 
 import numpy as np
 
-from omni_anomaly_engine.comparison import CombinationMethod, PyODAlgorithm, PyODComparison
+from omni_mercury_engine.comparison import CombinationMethod, PyODAlgorithm, PyODComparison
 
 
 class TestPyODComparison:
@@ -107,10 +107,10 @@ class TestPyODComparison:
         """Test comparison summary generation."""
         comparison = PyODComparison()
 
-        results = {"omni_ava": {"f1": 0.85}, "pyod_algorithms": {}}
+        results = {"omni_mercury": {"f1": 0.85}, "pyod_algorithms": {}}
 
         summary = comparison._generate_comparison_summary(results)
 
-        assert "omni_ava_strengths" in summary
+        assert "omni_mercury_strengths" in summary
         assert "pyod_strengths" in summary
         assert "recommendation" in summary

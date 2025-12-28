@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for evaluation baselines module.
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from omni_anomaly_engine.evaluation.baselines import (
+from omni_mercury_engine.evaluation.baselines import (
     BASELINE_RESULTS,
     BaselineComparison,
     compare_to_baselines,

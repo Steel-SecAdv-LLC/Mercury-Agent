@@ -1,6 +1,6 @@
-# OMNI-AVA Runbook: Detection Success Rate Drop
+# Mercury-Agent Runbook: Detection Success Rate Drop
 
-## Alert: OmniAvaDetectionSuccessRateDrop
+## Alert: OmniMercuryDetectionSuccessRateDrop
 
 ### Overview
 This runbook provides guidance for responding when the anomaly detection success rate drops below acceptable thresholds, indicating issues with the ML detection pipeline.
@@ -21,37 +21,37 @@ This runbook provides guidance for responding when the anomaly detection success
 ### 1. Check Detection Metrics
 ```promql
 # Detection success rate
-sum(rate(omni_detection_success_total{app="omni-ava"}[5m])) / sum(rate(omni_detection_requests_total{app="omni-ava"}[5m]))
+sum(rate(omni_detection_success_total{app="mercury-agent"}[5m])) / sum(rate(omni_detection_requests_total{app="mercury-agent"}[5m]))
 
 # Detection errors by type
-sum(rate(omni_detection_errors_total{app="omni-ava"}[5m])) by (error_type)
+sum(rate(omni_detection_errors_total{app="mercury-agent"}[5m])) by (error_type)
 ```
 
 ### 2. Check Engine Logs
 ```bash
 # View engine logs for errors
-kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=200 | grep -i "error\|fail\|exception"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=engine --tail=200 | grep -i "error\|fail\|exception"
 
 # Check for model loading issues
-kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=100 | grep -i "model\|load"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=engine --tail=100 | grep -i "model\|load"
 ```
 
 ### 3. Check Model Status
 ```bash
 # Verify models are loaded
-kubectl exec -n omni-ava deployment/omni-ava-engine -- curl -s localhost:8080/models/status
+kubectl exec -n mercury-agent deployment/mercury-agent-engine -- curl -s localhost:8080/models/status
 
 # Check model health
-kubectl exec -n omni-ava deployment/omni-ava-engine -- curl -s localhost:8080/health
+kubectl exec -n mercury-agent deployment/mercury-agent-engine -- curl -s localhost:8080/health
 ```
 
 ### 4. Check Input Data Patterns
 ```bash
 # Look for invalid input errors
-kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=200 | grep -i "invalid\|validation"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=api --tail=200 | grep -i "invalid\|validation"
 
 # Check request patterns
-kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=100 | grep -i "detect"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=api --tail=100 | grep -i "detect"
 ```
 
 ---
@@ -68,15 +68,15 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=100 | grep -i
 **Actions:**
 1. Check model availability:
    ```bash
-   kubectl exec -n omni-ava deployment/omni-ava-engine -- ls -la /data/models/
+   kubectl exec -n mercury-agent deployment/mercury-agent-engine -- ls -la /data/models/
    ```
 2. Restart engine to reload models:
    ```bash
-   kubectl rollout restart deployment/omni-ava-engine -n omni-ava
+   kubectl rollout restart deployment/mercury-agent-engine -n mercury-agent
    ```
 3. Verify model files are not corrupted:
    ```bash
-   kubectl exec -n omni-ava deployment/omni-ava-engine -- python -c "import torch; torch.load('/data/models/fusion_model.pt')"
+   kubectl exec -n mercury-agent deployment/mercury-agent-engine -- python -c "import torch; torch.load('/data/models/fusion_model.pt')"
    ```
 
 ### Scenario 2: Resource Exhaustion
@@ -89,15 +89,15 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=100 | grep -i
 **Actions:**
 1. Check resource usage:
    ```bash
-   kubectl top pods -n omni-ava -l app.kubernetes.io/component=engine
+   kubectl top pods -n mercury-agent -l app.kubernetes.io/component=engine
    ```
 2. Increase resources:
    ```bash
-   kubectl patch deployment omni-ava-engine -n omni-ava -p '{"spec":{"template":{"spec":{"containers":[{"name":"engine","resources":{"limits":{"memory":"16Gi","cpu":"4"}}}]}}}}'
+   kubectl patch deployment mercury-agent-engine -n mercury-agent -p '{"spec":{"template":{"spec":{"containers":[{"name":"engine","resources":{"limits":{"memory":"16Gi","cpu":"4"}}}]}}}}'
    ```
 3. Scale engine pods:
    ```bash
-   kubectl scale deployment omni-ava-engine -n omni-ava --replicas=3
+   kubectl scale deployment mercury-agent-engine -n mercury-agent --replicas=3
    ```
 
 ### Scenario 3: Invalid Input Data
@@ -110,11 +110,11 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=100 | grep -i
 **Actions:**
 1. Identify problematic requests:
    ```bash
-   kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=200 | grep -B5 "validation error"
+   kubectl logs -n mercury-agent -l app.kubernetes.io/component=api --tail=200 | grep -B5 "validation error"
    ```
 2. Add input validation:
    ```bash
-   kubectl set env deployment/omni-ava-api -n omni-ava STRICT_INPUT_VALIDATION=true
+   kubectl set env deployment/mercury-agent-api -n mercury-agent STRICT_INPUT_VALIDATION=true
    ```
 3. Return clear error messages to clients
 
@@ -128,12 +128,12 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=100 | grep -i
 **Actions:**
 1. Check model metrics:
    ```bash
-   kubectl exec -n omni-ava deployment/omni-ava-engine -- curl -s localhost:8080/models/metrics
+   kubectl exec -n mercury-agent deployment/mercury-agent-engine -- curl -s localhost:8080/models/metrics
    ```
 2. Compare with baseline performance
 3. Consider model retraining or rollback:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava MODEL_VERSION=v1.2.0
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent MODEL_VERSION=v1.2.0
    ```
 4. Engage ML team for investigation
 

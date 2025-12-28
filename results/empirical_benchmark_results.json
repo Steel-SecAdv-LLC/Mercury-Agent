@@ -8,7 +8,7 @@
       "kddcup99"
     ],
     "detectors": [
-      "OMNI-AVA",
+      "Mercury-Agent",
       "IsolationForest",
       "OneClassSVM",
       "LocalOutlierFactor",
@@ -28,7 +28,7 @@
   "results": [
     {
       "dataset_name": "breast_cancer",
-      "detector_name": "OMNI-AVA",
+      "detector_name": "Mercury-Agent",
       "roc_auc": 0.2283878504672897,
       "pr_auc": -0.24903694138122598,
       "f1": 0.59375,
@@ -108,7 +108,7 @@
     },
     {
       "dataset_name": "digits_8",
-      "detector_name": "OMNI-AVA",
+      "detector_name": "Mercury-Agent",
       "roc_auc": 0.44183480453972257,
       "pr_auc": -0.0802533354282206,
       "f1": 0.0380952380952381,
@@ -188,7 +188,7 @@
     },
     {
       "dataset_name": "covtype",
-      "detector_name": "OMNI-AVA",
+      "detector_name": "Mercury-Agent",
       "roc_auc": 0.06298130600326357,
       "pr_auc": -0.002499262185126361,
       "f1": 0.1,
@@ -268,7 +268,7 @@
     },
     {
       "dataset_name": "kddcup99",
-      "detector_name": "OMNI-AVA",
+      "detector_name": "Mercury-Agent",
       "roc_auc": 0.07143788779369846,
       "pr_auc": -0.016211343268637074,
       "f1": 0.2543352601156069,
@@ -349,7 +349,7 @@
   ],
   "summary": {
     "per_detector": {
-      "OMNI-AVA": {
+      "Mercury-Agent": {
         "mean_roc_auc": 0.20116046220099357,
         "std_roc_auc": 0.15377491281931868,
         "mean_f1": 0.24654512455271124,
@@ -401,18 +401,18 @@
         "IsolationForest",
         "OneClassSVM",
         "LocalOutlierFactor",
-        "OMNI-AVA"
+        "Mercury-Agent"
       ],
       "mean_f1": [
         "IsolationForest",
-        "OMNI-AVA",
+        "Mercury-Agent",
         "EllipticEnvelope",
         "LocalOutlierFactor",
         "OneClassSVM"
       ]
     },
-    "omni_ava_comparison": {
-      "omni_ava_roc_auc": 0.20116046220099357,
+    "omni_mercury_comparison": {
+      "omni_mercury_roc_auc": 0.20116046220099357,
       "best_baseline_roc_auc": 0.7628467055624016,
       "avg_baseline_roc_auc": 0.7029245777241766,
       "vs_best_baseline": -0.561686243361408,
@@ -432,7 +432,7 @@
         "Cybersecurity dataset (KDDCup99) is from 1999, may not reflect modern attacks",
         "Results may vary with different random seeds and hyperparameters"
       ],
-      "performance_verdict": "OMNI-AVA ranks #5, 0.562 ROC-AUC below best baseline",
+      "performance_verdict": "Mercury-Agent ranks #5, 0.562 ROC-AUC below best baseline",
       "recommendation": "For production use, validate on domain-specific real-world data. These benchmarks provide directional guidance only."
     }
   }

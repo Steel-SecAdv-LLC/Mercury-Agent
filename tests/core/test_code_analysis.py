@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -25,7 +25,7 @@ import ast
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.core.code_analysis import (
+from omni_mercury_engine.core.code_analysis import (
     CodeAnalysisEngine,
     NeurosymbolicConfig,
     NeurosymbolicEngine,
@@ -33,7 +33,7 @@ from omni_anomaly_engine.core.code_analysis import (
     TrainingMetrics,
     TrainingPhase,
 )
-from omni_anomaly_engine.utils.rng import DeterministicRNG
+from omni_mercury_engine.utils.rng import DeterministicRNG
 
 
 class TestEnums:

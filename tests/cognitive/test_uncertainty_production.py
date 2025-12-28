@@ -19,7 +19,7 @@ class TestMCDropout:
 
     def test_mc_dropout_wrapper_initialization(self):
         """Test MCDropoutWrapper creates properly."""
-        from omni_anomaly_engine.cognitive.uncertainty import MCDropoutWrapper
+        from omni_mercury_engine.cognitive.uncertainty import MCDropoutWrapper
 
         # MCDropoutWrapper takes a model, not n_samples
         class DummyModel:
@@ -38,7 +38,7 @@ class TestTemperatureScaling:
 
     def test_temperature_scaling_initialization(self):
         """Test TemperatureScaler initializes correctly."""
-        from omni_anomaly_engine.cognitive.uncertainty import TemperatureScaler
+        from omni_mercury_engine.cognitive.uncertainty import TemperatureScaler
 
         scaler = TemperatureScaler(init_temperature=1.0)
         assert scaler.temperature == 1.0
@@ -46,7 +46,7 @@ class TestTemperatureScaling:
 
     def test_temperature_scaling_fit(self):
         """Test temperature scaling learns optimal temperature."""
-        from omni_anomaly_engine.cognitive.uncertainty import TemperatureScaler
+        from omni_mercury_engine.cognitive.uncertainty import TemperatureScaler
 
         scaler = TemperatureScaler()
 
@@ -63,7 +63,7 @@ class TestTemperatureScaling:
 
     def test_temperature_scaling_calibration(self):
         """Test calibrated probabilities are well-behaved."""
-        from omni_anomaly_engine.cognitive.uncertainty import TemperatureScaler
+        from omni_mercury_engine.cognitive.uncertainty import TemperatureScaler
 
         scaler = TemperatureScaler()
 
@@ -87,7 +87,7 @@ class TestAdaptiveConformal:
 
     def test_adaptive_conformal_initialization(self):
         """Test AdaptiveConformalInference initializes correctly."""
-        from omni_anomaly_engine.cognitive.uncertainty import AdaptiveConformalInference
+        from omni_mercury_engine.cognitive.uncertainty import AdaptiveConformalInference
 
         aci = AdaptiveConformalInference(target_coverage=0.9, gamma=0.01)
         assert aci.target_coverage == 0.9
@@ -96,7 +96,7 @@ class TestAdaptiveConformal:
 
     def test_adaptive_conformal_update(self):
         """Test alpha updates based on coverage."""
-        from omni_anomaly_engine.cognitive.uncertainty import AdaptiveConformalInference
+        from omni_mercury_engine.cognitive.uncertainty import AdaptiveConformalInference
 
         aci = AdaptiveConformalInference(target_coverage=0.9, gamma=0.05)
         initial_alpha = aci.alpha
@@ -113,7 +113,7 @@ class TestAdaptiveConformal:
 
     def test_adaptive_conformal_prediction_interval(self):
         """Test prediction interval computation."""
-        from omni_anomaly_engine.cognitive.uncertainty import AdaptiveConformalInference
+        from omni_mercury_engine.cognitive.uncertainty import AdaptiveConformalInference
 
         aci = AdaptiveConformalInference(target_coverage=0.8, gamma=0.01)
 
@@ -134,7 +134,7 @@ class TestHeteroscedasticEstimator:
 
     def test_heteroscedastic_initialization(self):
         """Test HeteroscedasticEstimator initializes correctly."""
-        from omni_anomaly_engine.cognitive.uncertainty import HeteroscedasticEstimator
+        from omni_mercury_engine.cognitive.uncertainty import HeteroscedasticEstimator
 
         estimator = HeteroscedasticEstimator(window_size=50, min_samples=10)
         assert estimator.window_size == 50
@@ -142,7 +142,7 @@ class TestHeteroscedasticEstimator:
 
     def test_heteroscedastic_update_and_estimate(self):
         """Test heteroscedastic variance estimation."""
-        from omni_anomaly_engine.cognitive.uncertainty import HeteroscedasticEstimator
+        from omni_mercury_engine.cognitive.uncertainty import HeteroscedasticEstimator
 
         estimator = HeteroscedasticEstimator(window_size=100, min_samples=10)
 
@@ -163,7 +163,7 @@ class TestUncertaintyQuantifierIntegration:
 
     def test_uncertainty_quantifier_initialization(self):
         """Test UncertaintyQuantifier initializes all components."""
-        from omni_anomaly_engine.cognitive.uncertainty import UncertaintyQuantifier
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier(
             n_monte_carlo=50,
@@ -178,7 +178,7 @@ class TestUncertaintyQuantifierIntegration:
 
     def test_estimate_uncertainty_basic(self):
         """Test basic uncertainty estimation."""
-        from omni_anomaly_engine.cognitive.uncertainty import UncertaintyQuantifier
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier()
         predictions = np.array([0.7, 0.75, 0.72, 0.68, 0.73, 0.71, 0.69, 0.74])
@@ -193,7 +193,7 @@ class TestUncertaintyQuantifierIntegration:
 
     def test_uncertainty_decomposition(self):
         """Test epistemic vs aleatoric decomposition."""
-        from omni_anomaly_engine.cognitive.uncertainty import UncertaintyQuantifier
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier(n_monte_carlo=100)
 
@@ -209,7 +209,7 @@ class TestUncertaintyQuantifierIntegration:
 
     def test_decompose_uncertainty_method(self):
         """Test decompose_uncertainty method."""
-        from omni_anomaly_engine.cognitive.uncertainty import UncertaintyQuantifier
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier()
 
@@ -226,7 +226,7 @@ class TestUncertaintyQuantifierIntegration:
 
     def test_calibration(self):
         """Test calibration assessment."""
-        from omni_anomaly_engine.cognitive.uncertainty import UncertaintyQuantifier
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier()
 
@@ -244,7 +244,7 @@ class TestUncertaintyQuantifierIntegration:
 
     def test_conformal_prediction(self):
         """Test conformal prediction method."""
-        from omni_anomaly_engine.cognitive.uncertainty import UncertaintyQuantifier
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier()
 
@@ -264,7 +264,7 @@ class TestUncertaintyAwareDecision:
 
     def test_decision_confident(self):
         """Test decision with confident prediction."""
-        from omni_anomaly_engine.cognitive.uncertainty import (
+        from omni_mercury_engine.cognitive.uncertainty import (
             UncertaintyEstimate,
             UncertaintyQuantifier,
         )
@@ -290,7 +290,7 @@ class TestUncertaintyAwareDecision:
 
     def test_decision_high_epistemic(self):
         """Test decision with high epistemic uncertainty."""
-        from omni_anomaly_engine.cognitive.uncertainty import (
+        from omni_mercury_engine.cognitive.uncertainty import (
             UncertaintyEstimate,
             UncertaintyQuantifier,
         )
@@ -320,7 +320,7 @@ class TestUncertaintyEdgeCases:
 
     def test_single_prediction(self):
         """Test with single prediction value."""
-        from omni_anomaly_engine.cognitive.uncertainty import UncertaintyQuantifier
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier()
         result = uq.estimate_uncertainty(np.array([0.5]))
@@ -330,7 +330,7 @@ class TestUncertaintyEdgeCases:
 
     def test_extreme_predictions(self):
         """Test with extreme prediction values."""
-        from omni_anomaly_engine.cognitive.uncertainty import UncertaintyQuantifier
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier()
 
@@ -344,7 +344,7 @@ class TestUncertaintyEdgeCases:
 
     def test_large_batch(self):
         """Test with large batch of predictions."""
-        from omni_anomaly_engine.cognitive.uncertainty import UncertaintyQuantifier
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier(n_monte_carlo=20)
         predictions = np.random.rand(1000)
@@ -356,7 +356,7 @@ class TestUncertaintyEdgeCases:
 
     def test_statistics(self):
         """Test statistics collection."""
-        from omni_anomaly_engine.cognitive.uncertainty import UncertaintyQuantifier
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier()
 
@@ -375,7 +375,7 @@ class TestCalibrationResult:
 
     def test_calibration_result_to_dict(self):
         """Test CalibrationResult serialization."""
-        from omni_anomaly_engine.cognitive.uncertainty import CalibrationResult
+        from omni_mercury_engine.cognitive.uncertainty import CalibrationResult
 
         result = CalibrationResult(
             expected_confidence=[0.1, 0.5, 0.9],
@@ -400,7 +400,7 @@ class TestUncertaintyEstimate:
 
     def test_uncertainty_estimate_to_dict(self):
         """Test UncertaintyEstimate serialization."""
-        from omni_anomaly_engine.cognitive.uncertainty import UncertaintyEstimate
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate
 
         estimate = UncertaintyEstimate(
             prediction=0.7,

@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for enhanced neurosymbolic engine components.
@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 # Import components
-from omni_anomaly_engine.models.neurosymbolic_enhanced import (
+from omni_mercury_engine.models.neurosymbolic_enhanced import (
     CausalReasoningModule,
     EnhancedNeurosymbolicEngine,
     FuzzyOperators,
@@ -474,7 +474,7 @@ class TestEnhancedNeurosymbolicEngine:
     @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch required")
     def test_ltn_grounding(self):
         """Test Logic Tensor Network predicate grounding."""
-        from omni_anomaly_engine.models.neurosymbolic_enhanced import EnhancedLogicTensorNetwork
+        from omni_mercury_engine.models.neurosymbolic_enhanced import EnhancedLogicTensorNetwork
 
         ltn = EnhancedLogicTensorNetwork(
             input_dim=32,
@@ -493,7 +493,7 @@ class TestEnhancedNeurosymbolicEngine:
     @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch required")
     def test_formula_evaluation(self):
         """Test logical formula evaluation."""
-        from omni_anomaly_engine.models.neurosymbolic_enhanced import EnhancedLogicTensorNetwork
+        from omni_mercury_engine.models.neurosymbolic_enhanced import EnhancedLogicTensorNetwork
 
         ltn = EnhancedLogicTensorNetwork(
             input_dim=32,

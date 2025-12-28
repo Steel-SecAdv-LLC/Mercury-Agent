@@ -1,8 +1,8 @@
-# OMNI-AVA Backup and Disaster Recovery Guide
+# Mercury-Agent Backup and Disaster Recovery Guide
 
 ## Overview
 
-This document outlines the backup strategy, disaster recovery procedures, and business continuity planning for the OMNI-AVA platform.
+This document outlines the backup strategy, disaster recovery procedures, and business continuity planning for the Mercury-Agent platform.
 
 ---
 
@@ -26,8 +26,8 @@ This document outlines the backup strategy, disaster recovery procedures, and bu
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: omni-ava-backup
-  namespace: omni-ava
+  name: mercury-agent-backup
+  namespace: mercury-agent
 spec:
   schedule: "0 2 * * *"  # Daily at 2 AM
   concurrencyPolicy: Forbid
@@ -37,7 +37,7 @@ spec:
     spec:
       template:
         spec:
-          serviceAccountName: omni-ava-backup
+          serviceAccountName: mercury-agent-backup
           containers:
             - name: backup
               image: bitnami/kubectl:latest
@@ -52,12 +52,12 @@ spec:
                   apiVersion: snapshot.storage.k8s.io/v1
                   kind: VolumeSnapshot
                   metadata:
-                    name: omni-ava-data-$(date +%Y%m%d-%H%M%S)
-                    namespace: omni-ava
+                    name: mercury-agent-data-$(date +%Y%m%d-%H%M%S)
+                    namespace: mercury-agent
                   spec:
-                    volumeSnapshotClassName: omni-ava-snapshot
+                    volumeSnapshotClassName: mercury-agent-snapshot
                     source:
-                      persistentVolumeClaimName: omni-ava-data
+                      persistentVolumeClaimName: mercury-agent-data
                   EOF
 
                   # Create volume snapshot for models PVC
@@ -65,17 +65,17 @@ spec:
                   apiVersion: snapshot.storage.k8s.io/v1
                   kind: VolumeSnapshot
                   metadata:
-                    name: omni-ava-models-$(date +%Y%m%d-%H%M%S)
-                    namespace: omni-ava
+                    name: mercury-agent-models-$(date +%Y%m%d-%H%M%S)
+                    namespace: mercury-agent
                   spec:
-                    volumeSnapshotClassName: omni-ava-snapshot
+                    volumeSnapshotClassName: mercury-agent-snapshot
                     source:
-                      persistentVolumeClaimName: omni-ava-models
+                      persistentVolumeClaimName: mercury-agent-models
                   EOF
 
                   # Clean up old snapshots (keep last 30)
-                  kubectl get volumesnapshots -n omni-ava --sort-by=.metadata.creationTimestamp -o name | \
-                    head -n -30 | xargs -r kubectl delete -n omni-ava
+                  kubectl get volumesnapshots -n mercury-agent --sort-by=.metadata.creationTimestamp -o name | \
+                    head -n -30 | xargs -r kubectl delete -n mercury-agent
 
                   echo "Backup completed successfully"
           restartPolicy: OnFailure
@@ -88,10 +88,10 @@ spec:
 
 set -e
 
-NAMESPACE="${NAMESPACE:-omni-ava}"
+NAMESPACE="${NAMESPACE:-mercury-agent}"
 MIN_SNAPSHOTS=7  # At least 7 daily snapshots
 
-echo "Verifying OMNI-AVA backups..."
+echo "Verifying Mercury-Agent backups..."
 
 # Check volume snapshots
 SNAPSHOT_COUNT=$(kubectl get volumesnapshots -n $NAMESPACE --no-headers | wc -l)
@@ -135,7 +135,7 @@ All backups are encrypted using:
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: omni-ava-encrypted
+  name: mercury-agent-encrypted
 provisioner: ebs.csi.aws.com
 parameters:
   type: gp3
@@ -215,7 +215,7 @@ parameters:
 # scripts/restore-from-snapshot.sh
 
 SNAPSHOT_NAME="${1:-latest}"
-NAMESPACE="${NAMESPACE:-omni-ava}"
+NAMESPACE="${NAMESPACE:-mercury-agent}"
 
 # Get the snapshot to restore
 if [ "$SNAPSHOT_NAME" == "latest" ]; then
@@ -225,21 +225,21 @@ fi
 echo "Restoring from snapshot: $SNAPSHOT_NAME"
 
 # Scale down deployments
-kubectl scale deployment omni-ava-api -n $NAMESPACE --replicas=0
-kubectl scale deployment omni-ava-engine -n $NAMESPACE --replicas=0
+kubectl scale deployment mercury-agent-api -n $NAMESPACE --replicas=0
+kubectl scale deployment mercury-agent-engine -n $NAMESPACE --replicas=0
 
 # Wait for pods to terminate
-kubectl wait --for=delete pod -l app.kubernetes.io/name=omni-ava -n $NAMESPACE --timeout=300s || true
+kubectl wait --for=delete pod -l app.kubernetes.io/name=mercury-agent -n $NAMESPACE --timeout=300s || true
 
 # Delete existing PVC
-kubectl delete pvc omni-ava-data -n $NAMESPACE --wait=true
+kubectl delete pvc mercury-agent-data -n $NAMESPACE --wait=true
 
 # Create new PVC from snapshot
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: omni-ava-data
+  name: mercury-agent-data
   namespace: $NAMESPACE
 spec:
   accessModes:
@@ -255,14 +255,14 @@ spec:
 EOF
 
 # Wait for PVC to be bound
-kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/omni-ava-data -n $NAMESPACE --timeout=600s
+kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/mercury-agent-data -n $NAMESPACE --timeout=600s
 
 # Scale up deployments
-kubectl scale deployment omni-ava-api -n $NAMESPACE --replicas=3
-kubectl scale deployment omni-ava-engine -n $NAMESPACE --replicas=2
+kubectl scale deployment mercury-agent-api -n $NAMESPACE --replicas=3
+kubectl scale deployment mercury-agent-engine -n $NAMESPACE --replicas=2
 
 # Wait for pods to be ready
-kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=omni-ava -n $NAMESPACE --timeout=600s
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=mercury-agent -n $NAMESPACE --timeout=600s
 
 echo "Restore completed successfully"
 ```
@@ -285,7 +285,7 @@ aws route53 change-resource-record-sets \
         "Changes": [{
             "Action": "UPSERT",
             "ResourceRecordSet": {
-                "Name": "api.omni-ava.example.com",
+                "Name": "api.mercury-agent.example.com",
                 "Type": "A",
                 "AliasTarget": {
                     "HostedZoneId": "'$DR_ALB_ZONE'",
@@ -297,14 +297,14 @@ aws route53 change-resource-record-sets \
     }'
 
 # Switch kubectl context to DR region
-kubectl config use-context omni-ava-$DR_REGION
+kubectl config use-context mercury-agent-$DR_REGION
 
 # Scale up DR region
-kubectl scale deployment omni-ava-api -n omni-ava --replicas=5
-kubectl scale deployment omni-ava-engine -n omni-ava --replicas=3
+kubectl scale deployment mercury-agent-api -n mercury-agent --replicas=5
+kubectl scale deployment mercury-agent-engine -n mercury-agent --replicas=3
 
 # Wait for DR pods to be ready
-kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=omni-ava -n omni-ava --timeout=600s
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=mercury-agent -n mercury-agent --timeout=600s
 
 echo "Failover completed. DR region is now active."
 ```
@@ -377,7 +377,7 @@ echo "Failover completed. DR region is now active."
 apiVersion: chaos-mesh.org/v1alpha1
 kind: PodChaos
 metadata:
-  name: omni-ava-pod-failure
+  name: mercury-agent-pod-failure
   namespace: chaos-testing
 spec:
   action: pod-failure
@@ -385,9 +385,9 @@ spec:
   duration: "60s"
   selector:
     namespaces:
-      - omni-ava
+      - mercury-agent
     labelSelectors:
-      app.kubernetes.io/name: omni-ava
+      app.kubernetes.io/name: mercury-agent
   scheduler:
     cron: "@hourly"
 ```
@@ -447,17 +447,17 @@ All backup operations are logged:
 
 ```bash
 # List all backups
-kubectl get volumesnapshots -n omni-ava
+kubectl get volumesnapshots -n mercury-agent
 
 # Check backup status
-kubectl get volumesnapshots -n omni-ava -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.readyToUse}{"\n"}{end}'
+kubectl get volumesnapshots -n mercury-agent -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.readyToUse}{"\n"}{end}'
 
 # Manual backup trigger
-kubectl create job --from=cronjob/omni-ava-backup manual-backup-$(date +%s) -n omni-ava
+kubectl create job --from=cronjob/mercury-agent-backup manual-backup-$(date +%s) -n mercury-agent
 
 # Verify data integrity
-kubectl exec -n omni-ava deployment/omni-ava-api -- python -c "from omni_anomaly_engine import OmniAnomalyEngine; e = OmniAnomalyEngine(); print('Data integrity: OK')"
+kubectl exec -n mercury-agent deployment/mercury-agent-api -- python -c "from omni_mercury_engine import OmniMercuryEngine; e = OmniMercuryEngine(); print('Data integrity: OK')"
 
 # Check replication status (if applicable)
-kubectl get volumereplication -n omni-ava
+kubectl get volumereplication -n mercury-agent
 ```

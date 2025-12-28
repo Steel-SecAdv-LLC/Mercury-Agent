@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -22,19 +22,19 @@ from __future__ import annotations
 Test main engine functionality
 """
 
-from omni_anomaly_engine.engine import OmniAnomalyEngine
+from omni_mercury_engine.engine import OmniMercuryEngine
 
 
 def test_engine_initialization():
     """Test engine can be initialized"""
-    engine = OmniAnomalyEngine()
+    engine = OmniMercuryEngine()
     assert engine is not None
     assert hasattr(engine, "fusion_model")
 
 
 def test_detect_basic(sample_data):
     """Test basic anomaly detection"""
-    engine = OmniAnomalyEngine()
+    engine = OmniMercuryEngine()
     result = engine.detect(sample_data)
 
     assert "detectors" in result
@@ -44,7 +44,7 @@ def test_detect_basic(sample_data):
 
 def test_detect_with_models(sample_data):
     """Test detection with specific detectors"""
-    engine = OmniAnomalyEngine()
+    engine = OmniMercuryEngine()
     result = engine.detect(sample_data, detector_types=["statistical", "temporal"])
 
     assert "detectors" in result
@@ -55,13 +55,13 @@ def test_detect_with_models(sample_data):
 
 def test_engine_save_load(tmp_path, sample_data):
     """Test saving and loading engine state"""
-    engine = OmniAnomalyEngine()
+    engine = OmniMercuryEngine()
     engine.detect(sample_data)
 
     save_path = tmp_path / "engine_state.pt"
     engine.save_model(str(save_path))
 
-    new_engine = OmniAnomalyEngine()
+    new_engine = OmniMercuryEngine()
     new_engine.load_model(str(save_path))
 
     result1 = engine.detect(sample_data)

@@ -1,12 +1,12 @@
-# OMNI-AVA API Server Deployment
+# Mercury-Agent API Server Deployment
 # Production-grade deployment with rolling updates, health checks, and resource management
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: omni-ava-api
-  namespace: omni-ava
+  name: mercury-agent-api
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
     app.kubernetes.io/version: "1.0.0"
   annotations:
@@ -21,12 +21,12 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app.kubernetes.io/name: omni-ava
+      app.kubernetes.io/name: mercury-agent
       app.kubernetes.io/component: api
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: omni-ava
+        app.kubernetes.io/name: mercury-agent
         app.kubernetes.io/component: api
         app.kubernetes.io/version: "1.0.0"
       annotations:
@@ -34,7 +34,7 @@ spec:
         prometheus.io/port: "8000"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: omni-ava-api
+      serviceAccountName: mercury-agent-api
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -51,7 +51,7 @@ spec:
               podAffinityTerm:
                 labelSelector:
                   matchLabels:
-                    app.kubernetes.io/name: omni-ava
+                    app.kubernetes.io/name: mercury-agent
                     app.kubernetes.io/component: api
                 topologyKey: kubernetes.io/hostname
         nodeAffinity:
@@ -71,7 +71,7 @@ spec:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              app.kubernetes.io/name: omni-ava
+              app.kubernetes.io/name: mercury-agent
               app.kubernetes.io/component: api
 
       initContainers:
@@ -91,7 +91,7 @@ spec:
 
       containers:
         - name: api
-          image: ghcr.io/steel-secadv-llc/omni-ava:latest
+          image: ghcr.io/steel-secadv-llc/mercury-agent:latest
           imagePullPolicy: Always
 
           ports:
@@ -104,9 +104,9 @@ spec:
 
           envFrom:
             - configMapRef:
-                name: omni-ava-config
+                name: mercury-agent-config
             - secretRef:
-                name: omni-ava-secrets
+                name: mercury-agent-secrets
 
           env:
             - name: POD_NAME
@@ -193,27 +193,27 @@ spec:
             sizeLimit: 1Gi
         - name: data
           persistentVolumeClaim:
-            claimName: omni-ava-data
+            claimName: mercury-agent-data
         - name: models
           persistentVolumeClaim:
-            claimName: omni-ava-models
+            claimName: mercury-agent-models
         - name: logging-config
           configMap:
-            name: omni-ava-logging-config
+            name: mercury-agent-logging-config
 
       terminationGracePeriodSeconds: 60
       dnsPolicy: ClusterFirst
       restartPolicy: Always
 ---
-# OMNI-AVA Engine Worker Deployment
+# Mercury-Agent Engine Worker Deployment
 # For background processing and heavy computation tasks
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: omni-ava-engine
-  namespace: omni-ava
+  name: mercury-agent-engine
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: engine
     app.kubernetes.io/version: "1.0.0"
 spec:
@@ -226,12 +226,12 @@ spec:
       maxUnavailable: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: omni-ava
+      app.kubernetes.io/name: mercury-agent
       app.kubernetes.io/component: engine
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: omni-ava
+        app.kubernetes.io/name: mercury-agent
         app.kubernetes.io/component: engine
         app.kubernetes.io/version: "1.0.0"
       annotations:
@@ -239,7 +239,7 @@ spec:
         prometheus.io/port: "9090"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: omni-ava-engine
+      serviceAccountName: mercury-agent-engine
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -255,7 +255,7 @@ spec:
               podAffinityTerm:
                 labelSelector:
                   matchLabels:
-                    app.kubernetes.io/name: omni-ava
+                    app.kubernetes.io/name: mercury-agent
                     app.kubernetes.io/component: engine
                 topologyKey: kubernetes.io/hostname
         nodeAffinity:
@@ -271,9 +271,9 @@ spec:
 
       containers:
         - name: engine
-          image: ghcr.io/steel-secadv-llc/omni-ava:latest
+          image: ghcr.io/steel-secadv-llc/mercury-agent:latest
           imagePullPolicy: Always
-          command: ["python", "-m", "omni_anomaly_engine.cli", "serve", "--mode", "worker"]
+          command: ["python", "-m", "omni_mercury_engine.cli", "serve", "--mode", "worker"]
 
           ports:
             - name: metrics
@@ -282,9 +282,9 @@ spec:
 
           envFrom:
             - configMapRef:
-                name: omni-ava-config
+                name: mercury-agent-config
             - secretRef:
-                name: omni-ava-secrets
+                name: mercury-agent-secrets
 
           env:
             - name: OMNI_WORKER_MODE: "true"
@@ -308,7 +308,7 @@ spec:
               command:
                 - python
                 - -c
-                - "from omni_anomaly_engine import OmniAnomalyEngine; print('healthy')"
+                - "from omni_mercury_engine import OmniMercuryEngine; print('healthy')"
             initialDelaySeconds: 60
             periodSeconds: 30
             timeoutSeconds: 10
@@ -319,7 +319,7 @@ spec:
               command:
                 - python
                 - -c
-                - "from omni_anomaly_engine import OmniAnomalyEngine; print('ready')"
+                - "from omni_mercury_engine import OmniMercuryEngine; print('ready')"
             initialDelaySeconds: 30
             periodSeconds: 15
             timeoutSeconds: 5
@@ -355,10 +355,10 @@ spec:
             sizeLimit: 2Gi
         - name: data
           persistentVolumeClaim:
-            claimName: omni-ava-data
+            claimName: mercury-agent-data
         - name: models
           persistentVolumeClaim:
-            claimName: omni-ava-models
+            claimName: mercury-agent-models
 
       terminationGracePeriodSeconds: 120
       restartPolicy: Always

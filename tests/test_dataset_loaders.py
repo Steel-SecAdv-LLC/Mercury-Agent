@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for Dataset Loaders
@@ -14,7 +14,7 @@ import tempfile
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.datasets.base import DatasetConfig, DatasetSplit
+from omni_mercury_engine.datasets.base import DatasetConfig, DatasetSplit
 
 
 class TestDatasetImports:
@@ -22,7 +22,7 @@ class TestDatasetImports:
 
     def test_import_industrial_loaders(self):
         """Test importing industrial loaders."""
-        from omni_anomaly_engine.datasets.industrial import (
+        from omni_mercury_engine.datasets.industrial import (
             BATADALLoader,
             SWaTLoader,
             WADILoader,
@@ -34,7 +34,7 @@ class TestDatasetImports:
 
     def test_import_ucr_loaders(self):
         """Test importing UCR archive loaders."""
-        from omni_anomaly_engine.datasets.ucr_archive import (
+        from omni_mercury_engine.datasets.ucr_archive import (
             CWRUBearingLoader,
             MBALoader,
             MSDSLoader,
@@ -48,7 +48,7 @@ class TestDatasetImports:
 
     def test_import_from_package(self):
         """Test importing from main datasets package."""
-        from omni_anomaly_engine.datasets import (
+        from omni_mercury_engine.datasets import (
             BATADALLoader,
             CWRUBearingLoader,
             MBALoader,
@@ -76,7 +76,7 @@ class TestSWaTLoader:
 
     def test_swat_loader_init(self):
         """Test SWaT loader initialization."""
-        from omni_anomaly_engine.datasets.industrial import SWaTLoader
+        from omni_mercury_engine.datasets.industrial import SWaTLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(
@@ -92,7 +92,7 @@ class TestSWaTLoader:
 
     def test_swat_metadata(self):
         """Test SWaT metadata generation."""
-        from omni_anomaly_engine.datasets.industrial import SWaTLoader
+        from omni_mercury_engine.datasets.industrial import SWaTLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(name="swat", data_dir=str(tmpdir))
@@ -106,7 +106,7 @@ class TestSWaTLoader:
 
     def test_swat_attack_count(self):
         """Test SWaT attack count."""
-        from omni_anomaly_engine.datasets.industrial import SWaTLoader
+        from omni_mercury_engine.datasets.industrial import SWaTLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(name="swat", data_dir=str(tmpdir))
@@ -121,7 +121,7 @@ class TestWADILoader:
 
     def test_wadi_loader_init(self):
         """Test WADI loader initialization."""
-        from omni_anomaly_engine.datasets.industrial import WADILoader
+        from omni_mercury_engine.datasets.industrial import WADILoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(
@@ -136,7 +136,7 @@ class TestWADILoader:
 
     def test_wadi_metadata(self):
         """Test WADI metadata generation."""
-        from omni_anomaly_engine.datasets.industrial import WADILoader
+        from omni_mercury_engine.datasets.industrial import WADILoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(name="wadi", data_dir=str(tmpdir))
@@ -152,7 +152,7 @@ class TestBATADALLoader:
 
     def test_batadal_loader_init(self):
         """Test BATADAL loader initialization."""
-        from omni_anomaly_engine.datasets.industrial import BATADALLoader
+        from omni_mercury_engine.datasets.industrial import BATADALLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(
@@ -167,7 +167,7 @@ class TestBATADALLoader:
 
     def test_batadal_download_url(self):
         """Test BATADAL has valid download URL."""
-        from omni_anomaly_engine.datasets.industrial import BATADALLoader
+        from omni_mercury_engine.datasets.industrial import BATADALLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(name="batadal", data_dir=str(tmpdir))
@@ -181,7 +181,7 @@ class TestUCRLoader:
 
     def test_ucr_loader_init(self):
         """Test UCR loader initialization."""
-        from omni_anomaly_engine.datasets.ucr_archive import UCRLoader
+        from omni_mercury_engine.datasets.ucr_archive import UCRLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(
@@ -194,7 +194,7 @@ class TestUCRLoader:
 
     def test_ucr_default_dataset(self):
         """Test UCR default dataset is ECG5000."""
-        from omni_anomaly_engine.datasets.ucr_archive import UCRLoader
+        from omni_mercury_engine.datasets.ucr_archive import UCRLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(name="ucr", data_dir=str(tmpdir))
@@ -204,7 +204,7 @@ class TestUCRLoader:
 
     def test_ucr_popular_datasets(self):
         """Test UCR popular datasets list."""
-        from omni_anomaly_engine.datasets.ucr_archive import UCRLoader
+        from omni_mercury_engine.datasets.ucr_archive import UCRLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(name="ucr", data_dir=str(tmpdir))
@@ -218,7 +218,7 @@ class TestUCRLoader:
 
     def test_ucr_anomaly_label_conversion(self):
         """Test converting classification labels to anomaly labels."""
-        from omni_anomaly_engine.datasets.ucr_archive import UCRLoader
+        from omni_mercury_engine.datasets.ucr_archive import UCRLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(name="ucr", data_dir=str(tmpdir))
@@ -235,7 +235,7 @@ class TestUCRLoader:
 
     def test_ucr_anomaly_specific_class(self):
         """Test specifying which class is anomaly."""
-        from omni_anomaly_engine.datasets.ucr_archive import UCRLoader
+        from omni_mercury_engine.datasets.ucr_archive import UCRLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(name="ucr", data_dir=str(tmpdir))
@@ -254,7 +254,7 @@ class TestMBALoader:
 
     def test_mba_loader_init(self):
         """Test MBA loader initialization."""
-        from omni_anomaly_engine.datasets.ucr_archive import MBALoader
+        from omni_mercury_engine.datasets.ucr_archive import MBALoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(
@@ -268,7 +268,7 @@ class TestMBALoader:
 
     def test_mba_fault_types(self):
         """Test MBA fault types."""
-        from omni_anomaly_engine.datasets.ucr_archive import MBALoader
+        from omni_mercury_engine.datasets.ucr_archive import MBALoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(name="mba", data_dir=str(tmpdir))
@@ -281,7 +281,7 @@ class TestMBALoader:
 
     def test_mba_metadata(self):
         """Test MBA metadata generation."""
-        from omni_anomaly_engine.datasets.ucr_archive import MBALoader
+        from omni_mercury_engine.datasets.ucr_archive import MBALoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(name="mba", data_dir=str(tmpdir))
@@ -298,7 +298,7 @@ class TestCWRUBearingLoader:
 
     def test_cwru_is_mba_alias(self):
         """Test that CWRUBearingLoader is an alias for MBALoader."""
-        from omni_anomaly_engine.datasets.ucr_archive import (
+        from omni_mercury_engine.datasets.ucr_archive import (
             CWRUBearingLoader,
             MBALoader,
         )
@@ -312,7 +312,7 @@ class TestMSDSLoader:
 
     def test_msds_loader_init(self):
         """Test MSDS loader initialization."""
-        from omni_anomaly_engine.datasets.ucr_archive import MSDSLoader
+        from omni_mercury_engine.datasets.ucr_archive import MSDSLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(
@@ -329,7 +329,7 @@ class TestMSDSLoader:
 
     def test_msds_default_params(self):
         """Test MSDS default parameters."""
-        from omni_anomaly_engine.datasets.ucr_archive import MSDSLoader
+        from omni_mercury_engine.datasets.ucr_archive import MSDSLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(name="msds", data_dir=str(tmpdir))
@@ -341,7 +341,7 @@ class TestMSDSLoader:
 
     def test_msds_synthetic_generation(self):
         """Test MSDS synthetic data generation."""
-        from omni_anomaly_engine.datasets.ucr_archive import MSDSLoader
+        from omni_mercury_engine.datasets.ucr_archive import MSDSLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(
@@ -365,7 +365,7 @@ class TestMSDSLoader:
 
     def test_msds_metadata(self):
         """Test MSDS metadata generation."""
-        from omni_anomaly_engine.datasets.ucr_archive import MSDSLoader
+        from omni_mercury_engine.datasets.ucr_archive import MSDSLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(
@@ -384,7 +384,7 @@ class TestBaselineResults:
 
     def test_new_datasets_in_baselines(self):
         """Test that new datasets are in baseline results."""
-        from omni_anomaly_engine.evaluation.baselines import BASELINE_RESULTS
+        from omni_mercury_engine.evaluation.baselines import BASELINE_RESULTS
 
         # Check all new datasets are present
         assert "SWaT" in BASELINE_RESULTS
@@ -395,7 +395,7 @@ class TestBaselineResults:
 
     def test_tranad_results(self):
         """Test TranAD results for new datasets."""
-        from omni_anomaly_engine.evaluation.baselines import BASELINE_RESULTS
+        from omni_mercury_engine.evaluation.baselines import BASELINE_RESULTS
 
         # SWaT
         swat_tranad = BASELINE_RESULTS["SWaT"]["TranAD"]
@@ -419,7 +419,7 @@ class TestBaselineResults:
 
     def test_baseline_citations(self):
         """Test baseline citations include new methods."""
-        from omni_anomaly_engine.evaluation.baselines import get_baseline_citations
+        from omni_mercury_engine.evaluation.baselines import get_baseline_citations
 
         citations = get_baseline_citations()
         assert "GDN" in citations
@@ -428,7 +428,7 @@ class TestBaselineResults:
 
     def test_compare_to_baselines_new_datasets(self):
         """Test compare_to_baselines works with new datasets."""
-        from omni_anomaly_engine.evaluation.baselines import compare_to_baselines
+        from omni_mercury_engine.evaluation.baselines import compare_to_baselines
 
         # Test with SWaT
         result = compare_to_baselines(
@@ -446,7 +446,7 @@ class TestBaselineResults:
 
     def test_sota_for_new_datasets(self):
         """Test getting SOTA for new datasets."""
-        from omni_anomaly_engine.evaluation.baselines import get_sota_for_dataset
+        from omni_mercury_engine.evaluation.baselines import get_sota_for_dataset
 
         # TranAD should be SOTA for all new datasets
         for dataset in ["SWaT", "WADI", "UCR", "MBA", "MSDS"]:
@@ -460,7 +460,7 @@ class TestDatasetSplits:
 
     def test_msds_split_all(self):
         """Test MSDS ALL split."""
-        from omni_anomaly_engine.datasets.ucr_archive import MSDSLoader
+        from omni_mercury_engine.datasets.ucr_archive import MSDSLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(
@@ -477,7 +477,7 @@ class TestDatasetRegistry:
 
     def test_registry_contains_new_loaders(self):
         """Test that registry exports all new loaders."""
-        from omni_anomaly_engine import datasets
+        from omni_mercury_engine import datasets
 
         # Check all new loaders are in __all__
         assert "SWaTLoader" in datasets.__all__
@@ -494,7 +494,7 @@ class TestIndustrialDatasetDomains:
 
     def test_swat_feature_groups(self):
         """Test SWaT loader exposes feature groups."""
-        from omni_anomaly_engine.datasets.industrial import SWaTLoader
+        from omni_mercury_engine.datasets.industrial import SWaTLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(name="swat", data_dir=str(tmpdir))
@@ -507,7 +507,7 @@ class TestIndustrialDatasetDomains:
 
     def test_wadi_stages(self):
         """Test WADI loader exposes stage information."""
-        from omni_anomaly_engine.datasets.industrial import WADILoader
+        from omni_mercury_engine.datasets.industrial import WADILoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(name="wadi", data_dir=str(tmpdir))
@@ -522,7 +522,7 @@ class TestUCRDatasetVariants:
 
     def test_ucr_different_datasets(self):
         """Test loading different UCR datasets."""
-        from omni_anomaly_engine.datasets.ucr_archive import UCRLoader
+        from omni_mercury_engine.datasets.ucr_archive import UCRLoader
 
         datasets_to_test = ["ECG5000", "Wafer", "FordA"]
 

@@ -1,13 +1,13 @@
-# OMNI-AVA Runbook: High Error Rate
+# Mercury-Agent Runbook: High Error Rate
 
-## Alert: OmniAvaHighErrorRate / OmniAvaElevatedErrorRate
+## Alert: OmniMercuryHighErrorRate / OmniMercuryElevatedErrorRate
 
 ### Overview
-This runbook provides guidance for responding to high error rate alerts in the OMNI-AVA platform.
+This runbook provides guidance for responding to high error rate alerts in the Mercury-Agent platform.
 
 ### Alert Thresholds
-- **Critical (OmniAvaHighErrorRate)**: Error rate > 5% for 5 minutes
-- **Warning (OmniAvaElevatedErrorRate)**: Error rate > 1% for 10 minutes
+- **Critical (OmniMercuryHighErrorRate)**: Error rate > 5% for 5 minutes
+- **Warning (OmniMercuryElevatedErrorRate)**: Error rate > 1% for 10 minutes
 
 ### Impact
 - Users may experience failed API requests
@@ -21,44 +21,44 @@ This runbook provides guidance for responding to high error rate alerts in the O
 ### 1. Check Overall Service Health
 ```bash
 # View pod status
-kubectl get pods -n omni-ava -l app.kubernetes.io/name=omni-ava
+kubectl get pods -n mercury-agent -l app.kubernetes.io/name=mercury-agent
 
 # Check recent events
-kubectl get events -n omni-ava --sort-by='.lastTimestamp' | head -20
+kubectl get events -n mercury-agent --sort-by='.lastTimestamp' | head -20
 
 # View deployment status
-kubectl describe deployment omni-ava-api -n omni-ava
+kubectl describe deployment mercury-agent-api -n mercury-agent
 ```
 
 ### 2. Analyze Error Patterns
 ```bash
 # Check API pod logs for errors
-kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=100 | grep -i error
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=api --tail=100 | grep -i error
 
 # Get error rate by endpoint
 # (Prometheus query)
-sum(rate(http_requests_total{app="omni-ava",status=~"5.."}[5m])) by (path)
+sum(rate(http_requests_total{app="mercury-agent",status=~"5.."}[5m])) by (path)
 ```
 
 ### 3. Check Resource Utilization
 ```bash
 # View resource usage
-kubectl top pods -n omni-ava
+kubectl top pods -n mercury-agent
 
 # Check if pods are being OOMKilled
-kubectl get pods -n omni-ava -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.containerStatuses[*].lastState.terminated.reason}{"\n"}{end}'
+kubectl get pods -n mercury-agent -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.containerStatuses[*].lastState.terminated.reason}{"\n"}{end}'
 ```
 
 ### 4. Check Dependencies
 ```bash
 # Verify engine pods are running
-kubectl get pods -n omni-ava -l app.kubernetes.io/component=engine
+kubectl get pods -n mercury-agent -l app.kubernetes.io/component=engine
 
 # Check PVC status
-kubectl get pvc -n omni-ava
+kubectl get pvc -n mercury-agent
 
 # Verify network connectivity
-kubectl exec -n omni-ava deployment/omni-ava-api -- curl -s localhost:8000/health
+kubectl exec -n mercury-agent deployment/mercury-agent-api -- curl -s localhost:8000/health
 ```
 
 ---
@@ -75,11 +75,11 @@ kubectl exec -n omni-ava deployment/omni-ava-api -- curl -s localhost:8000/healt
 1. Identify the failing endpoint from logs
 2. Check for recent deployments:
    ```bash
-   kubectl rollout history deployment/omni-ava-api -n omni-ava
+   kubectl rollout history deployment/mercury-agent-api -n mercury-agent
    ```
 3. If recent deployment caused issue, rollback:
    ```bash
-   kubectl rollout undo deployment/omni-ava-api -n omni-ava
+   kubectl rollout undo deployment/mercury-agent-api -n mercury-agent
    ```
 4. Investigate root cause in application code
 
@@ -93,11 +93,11 @@ kubectl exec -n omni-ava deployment/omni-ava-api -- curl -s localhost:8000/healt
 **Actions:**
 1. Scale up replicas:
    ```bash
-   kubectl scale deployment omni-ava-api -n omni-ava --replicas=5
+   kubectl scale deployment mercury-agent-api -n mercury-agent --replicas=5
    ```
 2. Increase resource limits (if appropriate):
    ```bash
-   kubectl patch deployment omni-ava-api -n omni-ava -p '{"spec":{"template":{"spec":{"containers":[{"name":"api","resources":{"limits":{"memory":"8Gi"}}}]}}}}'
+   kubectl patch deployment mercury-agent-api -n mercury-agent -p '{"spec":{"template":{"spec":{"containers":[{"name":"api","resources":{"limits":{"memory":"8Gi"}}}]}}}}'
    ```
 3. Check for memory leaks in application
 
@@ -110,15 +110,15 @@ kubectl exec -n omni-ava deployment/omni-ava-api -- curl -s localhost:8000/healt
 **Actions:**
 1. Verify engine pods are healthy:
    ```bash
-   kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=50
+   kubectl logs -n mercury-agent -l app.kubernetes.io/component=engine --tail=50
    ```
 2. Check network policies aren't blocking traffic:
    ```bash
-   kubectl get networkpolicies -n omni-ava
+   kubectl get networkpolicies -n mercury-agent
    ```
 3. Verify PVCs are accessible:
    ```bash
-   kubectl describe pvc -n omni-ava
+   kubectl describe pvc -n mercury-agent
    ```
 
 ### Scenario 4: Load Spike
@@ -131,16 +131,16 @@ kubectl exec -n omni-ava deployment/omni-ava-api -- curl -s localhost:8000/healt
 **Actions:**
 1. Check current HPA status:
    ```bash
-   kubectl get hpa -n omni-ava
+   kubectl get hpa -n mercury-agent
    ```
 2. Manually scale if HPA is at max:
    ```bash
-   kubectl scale deployment omni-ava-api -n omni-ava --replicas=10
+   kubectl scale deployment mercury-agent-api -n mercury-agent --replicas=10
    ```
 3. Consider rate limiting if traffic is malicious:
    ```bash
    # Update ingress rate limiting
-   kubectl annotate ingress omni-ava -n omni-ava nginx.ingress.kubernetes.io/limit-rps="50" --overwrite
+   kubectl annotate ingress mercury-agent -n mercury-agent nginx.ingress.kubernetes.io/limit-rps="50" --overwrite
    ```
 
 ---
@@ -151,7 +151,7 @@ If the issue persists after following these steps:
 
 1. **Page on-call engineer** via PagerDuty
 2. **Create incident** in incident management system
-3. **Notify stakeholders** via Slack #omni-ava-incidents
+3. **Notify stakeholders** via Slack #mercury-agent-incidents
 
 ### Escalation Contacts
 - **Platform Team**: steel.sa.llc@gmail.com

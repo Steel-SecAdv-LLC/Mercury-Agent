@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ from typing import Any
 
 import numpy as np
 
-from omni_anomaly_engine.core.three_r_mechanism import (
+from omni_mercury_engine.core.three_r_mechanism import (
     RecursionEngine,
     RefactoringEngine,
     ResonanceEngine,
@@ -338,14 +338,14 @@ class TestRefactoringEngineAutoApplication:
 
     def test_apply_refactorings_disabled_by_default(self):
         """Test that apply_refactorings requires explicit opt-in."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig
 
         config = RefactoringConfig()
         assert config.apply_refactorings is False
 
     def test_apply_refactorings_with_backup(self):
         """Test automatic refactoring creates backup."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
         config = RefactoringConfig(apply_refactorings=True, require_confirmation=False)
         engine = RefactoringEngine(config=config)
@@ -363,7 +363,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_rollback_refactoring(self):
         """Test rollback functionality."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
         config = RefactoringConfig(apply_refactorings=True, require_confirmation=False)
         engine = RefactoringEngine(config=config)
@@ -379,7 +379,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_harmonic_analysis(self):
         """Test harmonic-enhanced code analysis."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine
 
         engine = RefactoringEngine()
 
@@ -399,7 +399,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_quantum_path_exploration(self):
         """Test quantum-inspired refactoring path exploration."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine
 
         engine = RefactoringEngine()
 
@@ -421,7 +421,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_resonance_pattern_detection(self):
         """Test resonance-based pattern detection."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine
 
         engine = RefactoringEngine()
 
@@ -441,7 +441,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_orchestrated_refactoring(self):
         """Test meta-orchestration of multiple strategies."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine
 
         engine = RefactoringEngine()
 
@@ -461,7 +461,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_refactoring_with_invalid_function(self):
         """Test error handling for invalid functions."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
         config = RefactoringConfig(apply_refactorings=True, require_confirmation=False)
         engine = RefactoringEngine(config=config)
@@ -473,7 +473,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_ast_transformation_validation(self):
         """Test that AST transformations produce valid Python code."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
         config = RefactoringConfig(apply_refactorings=True, require_confirmation=False)
         engine = RefactoringEngine(config=config)
@@ -495,7 +495,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_complex_nesting_reduction(self):
         """Test refactoring of deeply nested code."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
         config = RefactoringConfig(apply_refactorings=True, require_confirmation=False)
         engine = RefactoringEngine(config=config)
@@ -515,7 +515,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_optimization_history_tracking(self):
         """Test that optimization history is tracked."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
         config = RefactoringConfig(apply_refactorings=True, require_confirmation=False)
         engine = RefactoringEngine(config=config)
@@ -531,7 +531,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_three_r_with_enhanced_refactoring(self):
         """Test ThreeRMechanism integration with enhanced refactoring."""
-        from omni_anomaly_engine.core.three_r_mechanism import ThreeRMechanism
+        from omni_mercury_engine.core.three_r_mechanism import ThreeRMechanism
 
         mechanism = ThreeRMechanism()
 
@@ -550,7 +550,7 @@ class TestRefactoringEngineAutoApplication:
         """Test that backup files are created correctly."""
         import os
 
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
         config = RefactoringConfig(
             apply_refactorings=True, create_backup=True, require_confirmation=False
@@ -567,7 +567,7 @@ class TestRefactoringEngineAutoApplication:
 
     def test_refactoring_config_defaults(self):
         """Test RefactoringConfig default values."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig
 
         config = RefactoringConfig()
         assert config.apply_refactorings is False
@@ -582,7 +582,7 @@ class TestNewEnginePatterns:
 
     def test_multi_dimensional_anomaly_detection(self):
         """Test multi-dimensional anomaly detection from Anomaly Engine."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine
 
         engine = RefactoringEngine()
 
@@ -603,7 +603,7 @@ class TestNewEnginePatterns:
 
     def test_issue_classification_by_type_and_severity(self):
         """Test issue classification from Engineering & Refinement Engine."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine
 
         engine = RefactoringEngine()
 
@@ -626,7 +626,7 @@ class TestNewEnginePatterns:
 
     def test_evolution_strategy_adaptation(self):
         """Test adaptive evolution strategy from Evolution Engine."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine
 
         engine = RefactoringEngine()
 
@@ -647,7 +647,7 @@ class TestNewEnginePatterns:
 
     def test_neurosymbolic_symbolic_analysis(self):
         """Test neurosymbolic symbolic analysis."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine
 
         engine = RefactoringEngine()
 
@@ -664,7 +664,7 @@ class TestNewEnginePatterns:
 
     def test_neurosymbolic_readiness_level(self):
         """Test neurosymbolic readiness level assessment."""
-        from omni_anomaly_engine.core.neurosymbolic_engine import (
+        from omni_mercury_engine.core.neurosymbolic_engine import (
             NeurosymbolicConfig,
             NeurosymbolicEngine,
             ReadinessLevel,
@@ -679,7 +679,7 @@ class TestNewEnginePatterns:
 
     def test_bias_checking(self):
         """Test bias checking in neurosymbolic engine."""
-        from omni_anomaly_engine.core.neurosymbolic_engine import NeurosymbolicEngine
+        from omni_mercury_engine.core.neurosymbolic_engine import NeurosymbolicEngine
 
         ns_engine = NeurosymbolicEngine()
 
@@ -696,7 +696,7 @@ class TestNewEnginePatterns:
 
     def test_three_r_with_enhanced_refactoring(self):
         """Test ThreeRMechanism integration with enhanced refactoring."""
-        from omni_anomaly_engine.core.three_r_mechanism import ThreeRMechanism
+        from omni_mercury_engine.core.three_r_mechanism import ThreeRMechanism
 
         mechanism = ThreeRMechanism()
 

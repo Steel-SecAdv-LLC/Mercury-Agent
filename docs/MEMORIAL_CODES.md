@@ -68,7 +68,7 @@ These system integrity codes serve as:
 
 ## Ethical Framework Alignment
 
-All system integrity codes align with the eight core ethical principles of the OMNI ♱ AVA:
+All system integrity codes align with the eight core ethical principles of the Mercury Agent ♱:
 1. 💝 Compassion - Prioritizing well-being and harm minimization
 2. 📊 Evidence - Requiring verifiable data and mathematical proofs
 3. ⚖️ Justice - Ensuring fair, unbiased operations

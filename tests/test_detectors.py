@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -22,11 +22,11 @@ from __future__ import annotations
 Test detector modules
 """
 
-from omni_anomaly_engine.detectors.dimensional import DimensionalAnalyzer
-from omni_anomaly_engine.detectors.directive import SigmaDirectiveDetector
-from omni_anomaly_engine.detectors.spatial import SpatialAnomalyDetector
-from omni_anomaly_engine.detectors.statistical import StatisticalAnomalyDetector
-from omni_anomaly_engine.detectors.temporal import TemporalAnomalyDetector
+from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
+from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
+from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
+from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 
 
 def test_statistical_detector(sample_data):

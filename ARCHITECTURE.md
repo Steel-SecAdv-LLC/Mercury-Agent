@@ -1,12 +1,12 @@
-# OMNI AVA Architecture
+# Mercury Agent ♱ Architecture
 
 ## Overview
 
-OMNI AVA (O♱A) is a comprehensive multi-domain anomaly detection and intelligence fusion system. This document describes the unified architecture after the consolidation effort.
+Mercury Agent ♱ is a comprehensive multi-domain anomaly detection and intelligence fusion system. This document describes the unified architecture after the consolidation effort.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                           OMNI AVA Architecture                               │
+│                           Mercury Agent ♱ Architecture                               │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐      │
@@ -35,7 +35,7 @@ OMNI AVA (O♱A) is a comprehensive multi-domain anomaly detection and intellige
 │                                   │                                          │
 │                                   ▼                                          │
 │              ┌───────────────────────────────────────────────┐               │
-│              │            OmniAvaEngine (Main)                │               │
+│              │            OmniMercuryEngine (Main)                │               │
 │              │   Unified detection, fusion, and inference     │               │
 │              └───────────────────────────────────────────────┘               │
 │                                                                              │
@@ -44,14 +44,14 @@ OMNI AVA (O♱A) is a comprehensive multi-domain anomaly detection and intellige
 
 ## Core Components
 
-### 1. OmniAvaEngine (`engine.py`)
+### 1. OmniMercuryEngine (`engine.py`)
 
 The main orchestration engine that integrates all detection capabilities:
 
 ```python
-from omni_anomaly_engine.engine import OmniAvaEngine
+from omni_mercury_engine.engine import OmniMercuryEngine
 
-engine = OmniAvaEngine(mode="fusion", device="cuda")
+engine = OmniMercuryEngine(mode="fusion", device="cuda")
 result = engine.detect_with_fusion(data)
 ```
 
@@ -67,7 +67,7 @@ result = engine.detect_with_fusion(data)
 Central bridge connecting 50+ detectors for unified access:
 
 ```python
-from omni_anomaly_engine.core.detector_registry import DetectorRegistry
+from omni_mercury_engine.core.detector_registry import DetectorRegistry
 
 registry = DetectorRegistry(auto_discover=True)
 features = registry.extract_all_features(data, parallel=True)
@@ -91,7 +91,7 @@ aggregated = registry.aggregate_features(features, target_dim=128)
 Unified LTN-based neurosymbolic reasoning for explainable AI:
 
 ```python
-from omni_anomaly_engine.models.neurosymbolic import (
+from omni_mercury_engine.models.neurosymbolic import (
     NeurosymbolicEngine,
     ReasoningMode,
 )
@@ -123,7 +123,7 @@ explanation = engine.explain(hybrid_result)
 CRISPR-inspired adaptive defense with component health monitoring:
 
 ```python
-from omni_anomaly_engine.resilience.self_healing import SelfHealingEngine
+from omni_mercury_engine.resilience.self_healing import SelfHealingEngine
 
 healer = SelfHealingEngine(max_signatures=1000)
 
@@ -148,7 +148,7 @@ health = healer.get_system_health()
 Psychological operations analysis for All-Source Intelligence:
 
 ```python
-from omni_anomaly_engine.security.psyop import PSYOPAnalyzer
+from omni_mercury_engine.security.psyop import PSYOPAnalyzer
 
 analyzer = PSYOPAnalyzer()
 
@@ -284,8 +284,8 @@ Combines neural networks with symbolic logic:
 ## Module Organization
 
 ```
-omni_anomaly_engine/
-├── engine.py                    # Main OmniAvaEngine orchestrator
+omni_mercury_engine/
+├── engine.py                    # Main OmniMercuryEngine orchestrator
 ├── core/
 │   ├── base.py                  # BaseDetector, BaseModel abstracts
 │   ├── config.py                # Engine configuration
@@ -323,7 +323,7 @@ omni_anomaly_engine/
 ### Engine Configuration
 
 ```python
-from omni_anomaly_engine.core.config import EngineConfig
+from omni_mercury_engine.core.config import EngineConfig
 
 config = EngineConfig(
     threshold=0.5,
@@ -332,7 +332,7 @@ config = EngineConfig(
     memory_threshold_mb=2048,
 )
 
-engine = OmniAvaEngine(config=config, mode="fusion", device="cuda")
+engine = OmniMercuryEngine(config=config, mode="fusion", device="cuda")
 ```
 
 ### Detector Registry Configuration
@@ -350,7 +350,7 @@ registry = DetectorRegistry(
 ### 1. With External Intelligence Sources
 
 ```python
-from omni_anomaly_engine.security.int_sources import IntelligenceSourceRegistry
+from omni_mercury_engine.security.int_sources import IntelligenceSourceRegistry
 
 intel_registry = IntelligenceSourceRegistry()
 sources = intel_registry.get_by_discipline("SIGINT")
@@ -359,7 +359,7 @@ sources = intel_registry.get_by_discipline("SIGINT")
 ### 2. With PSYOP Analysis
 
 ```python
-from omni_anomaly_engine.security.psyop import PSYOPAnalyzer
+from omni_mercury_engine.security.psyop import PSYOPAnalyzer
 
 psyop = PSYOPAnalyzer()
 features = psyop.extract_features(data)  # For fusion pipeline
@@ -369,7 +369,7 @@ result = psyop.predict(data)             # For direct analysis
 ### 3. With Self-Healing System
 
 ```python
-from omni_anomaly_engine.resilience.self_healing import SelfHealingEngine
+from omni_mercury_engine.resilience.self_healing import SelfHealingEngine
 
 healer = SelfHealingEngine()
 engine.self_healing = healer
@@ -405,7 +405,7 @@ registry.register(
 ### Adding New Rules
 
 ```python
-from omni_anomaly_engine.models.neurosymbolic import SymbolicRule
+from omni_mercury_engine.models.neurosymbolic import SymbolicRule
 
 engine.add_rule(SymbolicRule(
     name="custom_rule",
@@ -424,7 +424,7 @@ engine.add_rule(SymbolicRule(
 
 ## Version History
 
-- **v1.0.0**: Initial consolidation with unified OmniAvaEngine
+- **v1.0.0**: Initial consolidation with unified OmniMercuryEngine
 - Merged duplicate implementations (kept Location 2)
 - Unified neurosymbolic architecture (LTN-based)
 - Added DetectorRegistry bridge

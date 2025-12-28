@@ -1,5 +1,5 @@
 """
-Setup configuration for OMNI ♱ AVA
+Setup configuration for Mercury Agent ♱
 """
 
 from pathlib import Path
@@ -10,7 +10,7 @@ readme_path = Path(__file__).parent / "README.md"
 long_description = readme_path.read_text(encoding="utf-8") if readme_path.exists() else ""
 
 setup(
-    name="omni-ava",
+    name="mercury-agent",
     version="1.0.0",
     description=(
         "Neural-symbolic AI archetype integrating ML-based anomaly detection, "
@@ -20,7 +20,7 @@ setup(
     long_description_content_type="text/markdown",
     author="Steel Security Advisory LLC",
     author_email="support@steelsecurityadvisors.com",
-    url="https://github.com/Steel-SecAdv-LLC/OMNI-AVA",
+    url="https://github.com/Steel-SecAdv-LLC/Mercury-Agent",
     license="GPL-3.0-or-later",
     packages=find_packages(where="src", exclude=["tests", "tests.*", "examples", "docs"]),
     package_dir={"": "src"},
@@ -98,7 +98,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "omni-ava=omni_anomaly_engine.cli:main",
+            "mercury-agent=omni_mercury_engine.cli:main",
         ],
     },
     classifiers=[
@@ -120,8 +120,8 @@ setup(
         "astrophysics security neural-networks"
     ),
     project_urls={
-        "Bug Reports": ("https://github.com/Steel-SecAdv-LLC/OMNI-AVA/issues"),
-        "Source": "https://github.com/Steel-SecAdv-LLC/OMNI-AVA",
-        "Documentation": "https://omni-ava.readthedocs.io/",
+        "Bug Reports": ("https://github.com/Steel-SecAdv-LLC/Mercury-Agent/issues"),
+        "Source": "https://github.com/Steel-SecAdv-LLC/Mercury-Agent",
+        "Documentation": "https://mercury-agent.readthedocs.io/",
     },
 )

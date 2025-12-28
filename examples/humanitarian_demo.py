@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 print("⚠️  SIMULATION-BASED PREDICTION - Consult domain experts before acting on results")
 
 """
-Humanitarian Demo - OMNI ♱ AVA Novel Extensions
+Humanitarian Demo - Mercury Agent ♱ Novel Extensions
 
 Demonstrates fortress mode, early disease detection, and SETI signal analysis.
 """
@@ -29,13 +29,13 @@ import argparse
 
 import numpy as np
 
-from omni_anomaly_engine.emergent.emergent_life_detector import EmergentLifeDetector
-from omni_anomaly_engine.medical.medical_cure_predictor import MedicalCurePredictor
-from omni_anomaly_engine.security.cyber_fortress import CyberFortress
+from omni_mercury_engine.emergent.emergent_life_detector import EmergentLifeDetector
+from omni_mercury_engine.medical.medical_cure_predictor import MedicalCurePredictor
+from omni_mercury_engine.security.cyber_fortress import CyberFortress
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Humanitarian Demo - OMNI ♱ AVA Extensions")
+    parser = argparse.ArgumentParser(description="Humanitarian Demo - Mercury Agent ♱ Extensions")
     parser.add_argument(
         "--threshold", type=float, default=5.0, help="Detection threshold (3.0-10.0, default: 5.0)"
     )
@@ -108,7 +108,7 @@ def main():
     args = parse_args()
 
     print("\n" + "=" * 70)
-    print("OMNI ♱ AVA: HUMANITARIAN EXTENSIONS DEMONSTRATION")
+    print("Mercury Agent ♱: HUMANITARIAN EXTENSIONS DEMONSTRATION")
     print(f"Threshold: {args.threshold} | Module: {args.module}")
     print("=" * 70)
 

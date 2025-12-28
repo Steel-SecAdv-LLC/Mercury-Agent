@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -22,7 +22,7 @@ from __future__ import annotations
 Tests for Ethical Risk Matrix module
 """
 
-from omni_anomaly_engine.core.ethical_risk_matrix import (
+from omni_mercury_engine.core.ethical_risk_matrix import (
     AnomalyOracle,
     ComplianceRegime,
     EthicalRiskMatrix,

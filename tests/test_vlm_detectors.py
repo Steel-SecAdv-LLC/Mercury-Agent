@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -43,7 +43,7 @@ class TestAnyAnomalyDetector:
 
     def test_anyanomaly_initialization(self):
         """Test AnyAnomaly can be initialized with default config."""
-        from omni_anomaly_engine.detectors.vlm import AnyAnomalyDetector
+        from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
 
         detector = AnyAnomalyDetector()
         assert detector is not None
@@ -51,8 +51,8 @@ class TestAnyAnomalyDetector:
 
     def test_anyanomaly_config(self):
         """Test AnyAnomaly with custom config."""
-        from omni_anomaly_engine.detectors.vlm import AnyAnomalyDetector
-        from omni_anomaly_engine.detectors.vlm.anyanomaly import AnyAnomalyConfig
+        from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
+        from omni_mercury_engine.detectors.vlm.anyanomaly import AnyAnomalyConfig
 
         config = AnyAnomalyConfig(
             backend="mock",
@@ -66,7 +66,7 @@ class TestAnyAnomalyDetector:
 
     def test_anyanomaly_set_anomaly_definition(self):
         """Test setting custom anomaly definition."""
-        from omni_anomaly_engine.detectors.vlm import AnyAnomalyDetector
+        from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
 
         detector = AnyAnomalyDetector()
         detector.set_anomaly_definition("A person falling down or collapsing on the ground")
@@ -74,7 +74,7 @@ class TestAnyAnomalyDetector:
 
     def test_anyanomaly_set_reference_normal(self, sample_image_batch):
         """Test setting reference normal frames."""
-        from omni_anomaly_engine.detectors.vlm import AnyAnomalyDetector
+        from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
 
         detector = AnyAnomalyDetector()
         # Convert to list of frames
@@ -84,8 +84,8 @@ class TestAnyAnomalyDetector:
 
     def test_anyanomaly_detect_mock(self, sample_image):
         """Test AnyAnomaly detection with mock backend."""
-        from omni_anomaly_engine.detectors.vlm import AnyAnomalyDetector
-        from omni_anomaly_engine.detectors.vlm.anyanomaly import AnyAnomalyConfig
+        from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
+        from omni_mercury_engine.detectors.vlm.anyanomaly import AnyAnomalyConfig
 
         config = AnyAnomalyConfig(backend="mock")
         detector = AnyAnomalyDetector(config=config)
@@ -103,7 +103,7 @@ class TestLAVADDetector:
 
     def test_lavad_initialization(self):
         """Test LAVAD can be initialized with default config."""
-        from omni_anomaly_engine.detectors.vlm import LAVADDetector
+        from omni_mercury_engine.detectors.vlm import LAVADDetector
 
         detector = LAVADDetector()
         assert detector is not None
@@ -111,8 +111,8 @@ class TestLAVADDetector:
 
     def test_lavad_config(self):
         """Test LAVAD with custom config."""
-        from omni_anomaly_engine.detectors.vlm import LAVADDetector
-        from omni_anomaly_engine.detectors.vlm.lavad import LAVADConfig
+        from omni_mercury_engine.detectors.vlm import LAVADDetector
+        from omni_mercury_engine.detectors.vlm.lavad import LAVADConfig
 
         config = LAVADConfig(
             llm_model="mock",
@@ -126,7 +126,7 @@ class TestLAVADDetector:
 
     def test_lavad_set_scene_context(self):
         """Test setting scene context."""
-        from omni_anomaly_engine.detectors.vlm import LAVADDetector
+        from omni_mercury_engine.detectors.vlm import LAVADDetector
 
         detector = LAVADDetector()
         detector.set_scene_context(
@@ -138,8 +138,8 @@ class TestLAVADDetector:
 
     def test_lavad_detect_video_mock(self, sample_video_frames):
         """Test LAVAD video detection with mock backend."""
-        from omni_anomaly_engine.detectors.vlm import LAVADDetector
-        from omni_anomaly_engine.detectors.vlm.lavad import LAVADConfig
+        from omni_mercury_engine.detectors.vlm import LAVADDetector
+        from omni_mercury_engine.detectors.vlm.lavad import LAVADConfig
 
         config = LAVADConfig(llm_model="mock", vlm_model="mock")
         detector = LAVADDetector(config=config)
@@ -159,14 +159,14 @@ class TestBaseVLMDetector:
 
     def test_base_vlm_initialization(self):
         """Test BaseVLMDetector can be initialized."""
-        from omni_anomaly_engine.detectors.vlm import BaseVLMDetector
+        from omni_mercury_engine.detectors.vlm import BaseVLMDetector
 
         detector = BaseVLMDetector()
         assert detector is not None
 
     def test_frame_sampling(self):
         """Test frame sampling functionality."""
-        from omni_anomaly_engine.detectors.vlm.base_vlm import BaseVLMDetector
+        from omni_mercury_engine.detectors.vlm.base_vlm import BaseVLMDetector
 
         detector = BaseVLMDetector()
 
@@ -184,7 +184,7 @@ class TestContextProviders:
 
     def test_positional_context_extractor(self, sample_image):
         """Test positional context extraction."""
-        from omni_anomaly_engine.detectors.vlm.context_providers import PositionalContextExtractor
+        from omni_mercury_engine.detectors.vlm.context_providers import PositionalContextExtractor
 
         extractor = PositionalContextExtractor()
         context = extractor.extract(sample_image)
@@ -192,7 +192,7 @@ class TestContextProviders:
 
     def test_temporal_context_extractor(self, sample_video_frames):
         """Test temporal context extraction."""
-        from omni_anomaly_engine.detectors.vlm.context_providers import TemporalContextExtractor
+        from omni_mercury_engine.detectors.vlm.context_providers import TemporalContextExtractor
 
         extractor = TemporalContextExtractor(window_size=4)
         context = extractor.extract(sample_video_frames)
@@ -205,7 +205,7 @@ class TestLVLMBackends:
 
     def test_mock_backend(self):
         """Test mock LVLM backend."""
-        from omni_anomaly_engine.detectors.vlm.lvlm_backends import get_lvlm_backend
+        from omni_mercury_engine.detectors.vlm.lvlm_backends import get_lvlm_backend
 
         backend = get_lvlm_backend("mock")
         assert backend is not None
@@ -219,7 +219,7 @@ class TestLVLMBackends:
 
     def test_backend_factory(self):
         """Test backend factory function."""
-        from omni_anomaly_engine.detectors.vlm.lvlm_backends import get_lvlm_backend
+        from omni_mercury_engine.detectors.vlm.lvlm_backends import get_lvlm_backend
 
         # Test that unsupported backends raise error or return mock
         backend = get_lvlm_backend("unknown")

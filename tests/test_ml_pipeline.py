@@ -27,14 +27,14 @@ pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
 
 # Conditional imports - only when torch is available
 if HAS_TORCH:
-    from omni_anomaly_engine.ml.fusion_network import (
+    from omni_mercury_engine.ml.fusion_network import (
         AttentionFusion,
         FusionNetwork,
         GatedFusion,
         MultimodalFusion,
     )
-    from omni_anomaly_engine.ml.inference import BatchInference, InferenceEngine, ModelEnsemble
-    from omni_anomaly_engine.ml.training import (
+    from omni_mercury_engine.ml.inference import BatchInference, InferenceEngine, ModelEnsemble
+    from omni_mercury_engine.ml.training import (
         EarlyStopping,
         LearningRateScheduler,
         Trainer,

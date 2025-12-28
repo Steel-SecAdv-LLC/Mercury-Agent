@@ -1,7 +1,7 @@
 ============================= test session starts ==============================
 platform linux -- Python 3.12.8, pytest-8.4.2, pluggy-1.6.0 -- /home/ubuntu/.pyenv/versions/3.12.8/bin/python3.12
 cachedir: .pytest_cache
-rootdir: /home/ubuntu/omni-anomaly-engine
+rootdir: /home/ubuntu/omni-mercury-engine
 configfile: pyproject.toml
 plugins: anyio-4.11.0, cov-7.0.0, asyncio-1.2.0
 asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
@@ -149,7 +149,7 @@ tests/test_inference_full.py::test_fusion_inference_predict_batch
 tests/test_inference_full.py::test_fusion_inference_predict_batch
 tests/test_inference_full.py::test_fusion_inference_predict_batch
 tests/test_inference_full.py::test_fusion_inference_predict_batch
-  /home/ubuntu/omni-anomaly-engine/omni_anomaly_engine/ml/inference.py:135: DeprecationWarning: Conversion of an array with ndim > 0 to a scalar is deprecated, and will error in future. Ensure you extract a single element from your array before performing this operation. (Deprecated NumPy 1.25.)
+  /home/ubuntu/omni-mercury-engine/omni_mercury_engine/ml/inference.py:135: DeprecationWarning: Conversion of an array with ndim > 0 to a scalar is deprecated, and will error in future. Ensure you extract a single element from your array before performing this operation. (Deprecated NumPy 1.25.)
     "anomaly_prob": float(batch_results["anomaly_probs"][j]),
 
 tests/test_inference_full.py::test_fusion_inference_predict_batch
@@ -157,15 +157,15 @@ tests/test_inference_full.py::test_fusion_inference_predict_batch
 tests/test_inference_full.py::test_fusion_inference_predict_batch
 tests/test_inference_full.py::test_fusion_inference_predict_batch
 tests/test_inference_full.py::test_fusion_inference_predict_batch
-  /home/ubuntu/omni-anomaly-engine/omni_anomaly_engine/ml/inference.py:137: DeprecationWarning: Conversion of an array with ndim > 0 to a scalar is deprecated, and will error in future. Ensure you extract a single element from your array before performing this operation. (Deprecated NumPy 1.25.)
+  /home/ubuntu/omni-mercury-engine/omni_mercury_engine/ml/inference.py:137: DeprecationWarning: Conversion of an array with ndim > 0 to a scalar is deprecated, and will error in future. Ensure you extract a single element from your array before performing this operation. (Deprecated NumPy 1.25.)
     "severity_score": float(batch_results["severity_scores"][j]),
 
 tests/test_inference_full.py::test_fusion_inference_explain
-  /home/ubuntu/omni-anomaly-engine/omni_anomaly_engine/ml/inference.py:164: DeprecationWarning: Conversion of an array with ndim > 0 to a scalar is deprecated, and will error in future. Ensure you extract a single element from your array before performing this operation. (Deprecated NumPy 1.25.)
+  /home/ubuntu/omni-mercury-engine/omni_mercury_engine/ml/inference.py:164: DeprecationWarning: Conversion of an array with ndim > 0 to a scalar is deprecated, and will error in future. Ensure you extract a single element from your array before performing this operation. (Deprecated NumPy 1.25.)
     "confidence": float(result["anomaly_probs"][0]),
 
 tests/test_inference_full.py::test_fusion_inference_explain
-  /home/ubuntu/omni-anomaly-engine/omni_anomaly_engine/ml/inference.py:165: DeprecationWarning: Conversion of an array with ndim > 0 to a scalar is deprecated, and will error in future. Ensure you extract a single element from your array before performing this operation. (Deprecated NumPy 1.25.)
+  /home/ubuntu/omni-mercury-engine/omni_mercury_engine/ml/inference.py:165: DeprecationWarning: Conversion of an array with ndim > 0 to a scalar is deprecated, and will error in future. Ensure you extract a single element from your array before performing this operation. (Deprecated NumPy 1.25.)
     "severity": float(result["severity_scores"][0]),
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
@@ -174,45 +174,45 @@ _______________ coverage: platform linux, python 3.12.8-final-0 ________________
 
 Name                                                  Stmts   Miss   Cover   Missing
 ------------------------------------------------------------------------------------
-omni_anomaly_engine/__init__.py                           7      0 100.00%
-omni_anomaly_engine/cli.py                               71     38  46.48%   26-39, 47-51, 58-62, 71-77, 85-99, 104-120, 124
-omni_anomaly_engine/core/__init__.py                      5      0 100.00%
-omni_anomaly_engine/core/base.py                         38      9  76.32%   23, 28, 33, 49, 54, 61-63, 68
-omni_anomaly_engine/core/config.py                       51      0 100.00%
-omni_anomaly_engine/core/exceptions.py                   14      0 100.00%
-omni_anomaly_engine/core/fusion.py                       54      0 100.00%
-omni_anomaly_engine/detectors/__init__.py                 6      0 100.00%
-omni_anomaly_engine/detectors/dimensional.py             83      9  89.16%   62, 94, 97-98, 126-129, 132-133
-omni_anomaly_engine/detectors/directive.py              169     14  91.72%   39, 49, 52, 102, 105, 132, 145, 177, 189, 211, 232, 237, 253, 306
-omni_anomaly_engine/detectors/spatial.py                 53      6  88.68%   38, 41, 56, 59, 85, 88
-omni_anomaly_engine/detectors/statistical.py             69      9  86.96%   42, 45, 61, 64, 67, 95, 98, 101, 123
-omni_anomaly_engine/detectors/temporal.py                75     13  82.67%   40, 51, 54, 75, 80, 83, 96, 105-107, 121, 124, 134
-omni_anomaly_engine/engine.py                           131     15  88.55%   115, 139, 155, 164-165, 184-185, 202, 217-218, 223-224, 228, 261, 311
-omni_anomaly_engine/ml/__init__.py                        6      0 100.00%
-omni_anomaly_engine/ml/attention.py                      56      0 100.00%
-omni_anomaly_engine/ml/encoders.py                       76     12  84.21%   71-73, 77, 131, 170, 235-239, 243
-omni_anomaly_engine/ml/fusion_network.py                 49      5  89.80%   154-158
-omni_anomaly_engine/ml/harmonic_encoder.py              128     28  78.12%   45-46, 66-79, 175-183, 299-304, 319, 326-327
-omni_anomaly_engine/ml/inference.py                      46      5  89.13%   33, 42-47
-omni_anomaly_engine/ml/training.py                      188    157  16.49%   22-23, 26-54, 63-64, 67-93, 102-103, 106-134, 143-144, 147-179, 188-197, 209-212, 215, 218-225, 247-259, 262, 269-293, 300-324, 327-351
-omni_anomaly_engine/models/__init__.py                    7      0 100.00%
-omni_anomaly_engine/models/affective.py                  41      3  92.68%   35, 54, 75
-omni_anomaly_engine/models/astrophysical.py              81      8  90.12%   38, 68, 91, 104, 117, 120-121, 163
-omni_anomaly_engine/models/biometric.py                 102     39  61.76%   14-15, 23-24, 41, 69, 78, 81, 88, 136-154, 196-234
-omni_anomaly_engine/models/consciousness.py              51      4  92.16%   27, 48, 77, 100
-omni_anomaly_engine/models/neural.py                     55      5  90.91%   28, 53, 79, 95, 108
-omni_anomaly_engine/models/quantum.py                    68      4  94.12%   29, 50, 79, 119
-omni_anomaly_engine/resilience/__init__.py                5      0 100.00%
-omni_anomaly_engine/resilience/circuit_breaker.py        43      4  90.70%   71, 77-79
-omni_anomaly_engine/resilience/health_monitoring.py      33      6  81.82%   39, 44, 65-71
-omni_anomaly_engine/resilience/retry.py                  25      0 100.00%
-omni_anomaly_engine/resilience/self_healing.py           43     16  62.79%   43, 51-54, 59, 65, 70-72, 76-87
-omni_anomaly_engine/security/__init__.py                  4      0 100.00%
-omni_anomaly_engine/security/encryption.py               16      0 100.00%
-omni_anomaly_engine/security/rate_limiting.py            19      0 100.00%
-omni_anomaly_engine/security/threat_detection.py         96     15  84.38%   114, 122-123, 139-141, 146, 165, 182-187, 210, 242
-omni_anomaly_engine/utils/__init__.py                    73     13  82.19%   36, 50-56, 59, 74-92, 176
-omni_anomaly_engine/utils/comm.py                        98     42  57.14%   35, 47, 86-88, 102, 108-112, 122-124, 131-147, 151, 198-199, 209-221
+omni_mercury_engine/__init__.py                           7      0 100.00%
+omni_mercury_engine/cli.py                               71     38  46.48%   26-39, 47-51, 58-62, 71-77, 85-99, 104-120, 124
+omni_mercury_engine/core/__init__.py                      5      0 100.00%
+omni_mercury_engine/core/base.py                         38      9  76.32%   23, 28, 33, 49, 54, 61-63, 68
+omni_mercury_engine/core/config.py                       51      0 100.00%
+omni_mercury_engine/core/exceptions.py                   14      0 100.00%
+omni_mercury_engine/core/fusion.py                       54      0 100.00%
+omni_mercury_engine/detectors/__init__.py                 6      0 100.00%
+omni_mercury_engine/detectors/dimensional.py             83      9  89.16%   62, 94, 97-98, 126-129, 132-133
+omni_mercury_engine/detectors/directive.py              169     14  91.72%   39, 49, 52, 102, 105, 132, 145, 177, 189, 211, 232, 237, 253, 306
+omni_mercury_engine/detectors/spatial.py                 53      6  88.68%   38, 41, 56, 59, 85, 88
+omni_mercury_engine/detectors/statistical.py             69      9  86.96%   42, 45, 61, 64, 67, 95, 98, 101, 123
+omni_mercury_engine/detectors/temporal.py                75     13  82.67%   40, 51, 54, 75, 80, 83, 96, 105-107, 121, 124, 134
+omni_mercury_engine/engine.py                           131     15  88.55%   115, 139, 155, 164-165, 184-185, 202, 217-218, 223-224, 228, 261, 311
+omni_mercury_engine/ml/__init__.py                        6      0 100.00%
+omni_mercury_engine/ml/attention.py                      56      0 100.00%
+omni_mercury_engine/ml/encoders.py                       76     12  84.21%   71-73, 77, 131, 170, 235-239, 243
+omni_mercury_engine/ml/fusion_network.py                 49      5  89.80%   154-158
+omni_mercury_engine/ml/harmonic_encoder.py              128     28  78.12%   45-46, 66-79, 175-183, 299-304, 319, 326-327
+omni_mercury_engine/ml/inference.py                      46      5  89.13%   33, 42-47
+omni_mercury_engine/ml/training.py                      188    157  16.49%   22-23, 26-54, 63-64, 67-93, 102-103, 106-134, 143-144, 147-179, 188-197, 209-212, 215, 218-225, 247-259, 262, 269-293, 300-324, 327-351
+omni_mercury_engine/models/__init__.py                    7      0 100.00%
+omni_mercury_engine/models/affective.py                  41      3  92.68%   35, 54, 75
+omni_mercury_engine/models/astrophysical.py              81      8  90.12%   38, 68, 91, 104, 117, 120-121, 163
+omni_mercury_engine/models/biometric.py                 102     39  61.76%   14-15, 23-24, 41, 69, 78, 81, 88, 136-154, 196-234
+omni_mercury_engine/models/consciousness.py              51      4  92.16%   27, 48, 77, 100
+omni_mercury_engine/models/neural.py                     55      5  90.91%   28, 53, 79, 95, 108
+omni_mercury_engine/models/quantum.py                    68      4  94.12%   29, 50, 79, 119
+omni_mercury_engine/resilience/__init__.py                5      0 100.00%
+omni_mercury_engine/resilience/circuit_breaker.py        43      4  90.70%   71, 77-79
+omni_mercury_engine/resilience/health_monitoring.py      33      6  81.82%   39, 44, 65-71
+omni_mercury_engine/resilience/retry.py                  25      0 100.00%
+omni_mercury_engine/resilience/self_healing.py           43     16  62.79%   43, 51-54, 59, 65, 70-72, 76-87
+omni_mercury_engine/security/__init__.py                  4      0 100.00%
+omni_mercury_engine/security/encryption.py               16      0 100.00%
+omni_mercury_engine/security/rate_limiting.py            19      0 100.00%
+omni_mercury_engine/security/threat_detection.py         96     15  84.38%   114, 122-123, 139-141, 146, 165, 182-187, 210, 242
+omni_mercury_engine/utils/__init__.py                    73     13  82.19%   36, 50-56, 59, 74-92, 176
+omni_mercury_engine/utils/comm.py                        98     42  57.14%   35, 47, 86-88, 102, 108-112, 122-124, 131-147, 151, 198-199, 209-221
 ------------------------------------------------------------------------------------
 TOTAL                                                  2235    479  78.57%
 Coverage HTML written to dir htmlcov

@@ -1,9 +1,9 @@
-# OMNI-AVA Runbook: Low Replica Count
+# Mercury-Agent Runbook: Low Replica Count
 
-## Alert: OmniAvaLowReplicaCount
+## Alert: OmniMercuryLowReplicaCount
 
 ### Overview
-This runbook provides guidance for responding when the OMNI-AVA deployment has fewer replicas than the recommended minimum, reducing service resilience.
+This runbook provides guidance for responding when the Mercury-Agent deployment has fewer replicas than the recommended minimum, reducing service resilience.
 
 ### Alert Threshold
 - **Warning**: Available replicas < 2 for 5 minutes
@@ -21,22 +21,22 @@ This runbook provides guidance for responding when the OMNI-AVA deployment has f
 ### 1. Check Current Replica Status
 ```bash
 # View deployment status
-kubectl get deployment -n omni-ava
+kubectl get deployment -n mercury-agent
 
 # Check replica details
-kubectl describe deployment omni-ava-api -n omni-ava | grep -A5 "Replicas:"
+kubectl describe deployment mercury-agent-api -n mercury-agent | grep -A5 "Replicas:"
 
 # View pod status
-kubectl get pods -n omni-ava -l app.kubernetes.io/component=api
+kubectl get pods -n mercury-agent -l app.kubernetes.io/component=api
 ```
 
 ### 2. Check for Scheduling Issues
 ```bash
 # Check for pending pods
-kubectl get pods -n omni-ava --field-selector=status.phase=Pending
+kubectl get pods -n mercury-agent --field-selector=status.phase=Pending
 
 # View events for scheduling failures
-kubectl get events -n omni-ava --field-selector=reason=FailedScheduling
+kubectl get events -n mercury-agent --field-selector=reason=FailedScheduling
 
 # Check node availability
 kubectl get nodes -o wide
@@ -45,16 +45,16 @@ kubectl get nodes -o wide
 ### 3. Check HPA Status
 ```bash
 # View HPA configuration and status
-kubectl get hpa -n omni-ava
+kubectl get hpa -n mercury-agent
 
 # Check HPA events
-kubectl describe hpa omni-ava-api -n omni-ava
+kubectl describe hpa mercury-agent-api -n mercury-agent
 ```
 
 ### 4. Check Resource Availability
 ```bash
 # Check namespace resource quotas
-kubectl describe resourcequota -n omni-ava
+kubectl describe resourcequota -n mercury-agent
 
 # Check node resources
 kubectl describe nodes | grep -A10 "Allocated resources:"
@@ -74,15 +74,15 @@ kubectl describe nodes | grep -A10 "Allocated resources:"
 **Actions:**
 1. Check pod logs for errors:
    ```bash
-   kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=100
+   kubectl logs -n mercury-agent -l app.kubernetes.io/component=api --tail=100
    ```
 2. Check for OOMKilled:
    ```bash
-   kubectl get pods -n omni-ava -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.containerStatuses[*].lastState.terminated.reason}{"\n"}{end}'
+   kubectl get pods -n mercury-agent -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.containerStatuses[*].lastState.terminated.reason}{"\n"}{end}'
    ```
 3. If OOMKilled, increase memory limits:
    ```bash
-   kubectl patch deployment omni-ava-api -n omni-ava -p '{"spec":{"template":{"spec":{"containers":[{"name":"api","resources":{"limits":{"memory":"8Gi"}}}]}}}}'
+   kubectl patch deployment mercury-agent-api -n mercury-agent -p '{"spec":{"template":{"spec":{"containers":[{"name":"api","resources":{"limits":{"memory":"8Gi"}}}]}}}}'
    ```
 
 ### Scenario 2: Scheduling Failures
@@ -95,13 +95,13 @@ kubectl describe nodes | grep -A10 "Allocated resources:"
 **Actions:**
 1. Check what resources are needed:
    ```bash
-   kubectl describe pod <pending-pod> -n omni-ava | grep -A10 "Events:"
+   kubectl describe pod <pending-pod> -n mercury-agent | grep -A10 "Events:"
    ```
 2. Scale down other workloads if possible
 3. Request additional cluster capacity
 4. Temporarily reduce resource requests:
    ```bash
-   kubectl patch deployment omni-ava-api -n omni-ava -p '{"spec":{"template":{"spec":{"containers":[{"name":"api","resources":{"requests":{"cpu":"250m","memory":"512Mi"}}}]}}}}'
+   kubectl patch deployment mercury-agent-api -n mercury-agent -p '{"spec":{"template":{"spec":{"containers":[{"name":"api","resources":{"requests":{"cpu":"250m","memory":"512Mi"}}}]}}}}'
    ```
 
 ### Scenario 3: HPA Scaled Down
@@ -114,11 +114,11 @@ kubectl describe nodes | grep -A10 "Allocated resources:"
 **Actions:**
 1. Verify this is expected behavior:
    ```bash
-   kubectl get hpa -n omni-ava -o yaml
+   kubectl get hpa -n mercury-agent -o yaml
    ```
 2. If minimum should be higher, update HPA:
    ```bash
-   kubectl patch hpa omni-ava-api -n omni-ava -p '{"spec":{"minReplicas":3}}'
+   kubectl patch hpa mercury-agent-api -n mercury-agent -p '{"spec":{"minReplicas":3}}'
    ```
 3. Consider time-based scaling for predictable patterns
 
@@ -132,11 +132,11 @@ kubectl describe nodes | grep -A10 "Allocated resources:"
 **Actions:**
 1. Check deployment history:
    ```bash
-   kubectl rollout history deployment/omni-ava-api -n omni-ava
+   kubectl rollout history deployment/mercury-agent-api -n mercury-agent
    ```
 2. Scale back up:
    ```bash
-   kubectl scale deployment omni-ava-api -n omni-ava --replicas=3
+   kubectl scale deployment mercury-agent-api -n mercury-agent --replicas=3
    ```
 3. Review who made the change and why
 
@@ -146,7 +146,7 @@ kubectl describe nodes | grep -A10 "Allocated resources:"
 
 If replica count cannot be restored:
 
-1. **Notify team** via Slack #omni-ava-alerts
+1. **Notify team** via Slack #mercury-agent-alerts
 2. **Document the limitation** for stakeholders
 3. **Request cluster resources** if capacity issue
 

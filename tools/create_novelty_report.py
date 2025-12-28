@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ import re
 from collections import defaultdict
 
 # Read ethical config
-with open("omni_anomaly_engine/core/ethical_config.py") as f:
+with open("omni_mercury_engine/core/ethical_config.py") as f:
     ethical_content = f.read()
 
 # Extract all scalars with values

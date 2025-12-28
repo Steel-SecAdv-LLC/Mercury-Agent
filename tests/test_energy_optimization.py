@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ from __future__ import annotations
 
 """Tests for Energy Optimization module"""
 
-from omni_anomaly_engine.energy.energy_optimization import (
+from omni_mercury_engine.energy.energy_optimization import (
     EnergyOptimization,
     EnergyProfile,
     EnergySource,

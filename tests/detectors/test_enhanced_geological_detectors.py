@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -38,7 +38,7 @@ class TestLandslideDetector:
         """Create LandslideDetector instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.detectors.geological.landslide import (
+        from omni_mercury_engine.detectors.geological.landslide import (
             LandslideDetector,
         )
 
@@ -176,7 +176,7 @@ class TestLandslideDetectorWithoutRecursion:
         """Create LandslideDetector without recursion."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.detectors.geological.landslide import (
+        from omni_mercury_engine.detectors.geological.landslide import (
             LandslideDetector,
         )
 
@@ -213,7 +213,7 @@ class TestWildfireDetector:
         """Create WildfireDetector instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
 
         return WildfireDetector(enable_resonance=True)
 
@@ -338,7 +338,7 @@ class TestWildfireDetectorWithoutResonance:
         """Create WildfireDetector without resonance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
 
         return WildfireDetector(enable_resonance=False)
 
@@ -373,7 +373,7 @@ class TestVolcanicEruptionDetector:
         """Create VolcanicEruptionDetector instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.detectors.geological.volcanic import (
+        from omni_mercury_engine.detectors.geological.volcanic import (
             VolcanicEruptionDetector,
         )
 
@@ -528,7 +528,7 @@ class TestVolcanicDetectorWithoutRefactoring:
         """Create VolcanicEruptionDetector without refactoring."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.detectors.geological.volcanic import (
+        from omni_mercury_engine.detectors.geological.volcanic import (
             VolcanicEruptionDetector,
         )
 
@@ -571,7 +571,7 @@ class TestVolcanicStateHMM:
         """Create VolcanicStateHMM instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.detectors.geological.volcanic import VolcanicStateHMM
+        from omni_mercury_engine.detectors.geological.volcanic import VolcanicStateHMM
 
         return VolcanicStateHMM()
 
@@ -666,7 +666,7 @@ class TestRefactoringAdaptiveOptimizer:
         """Create RefactoringAdaptiveOptimizer instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.detectors.geological.volcanic import (
+        from omni_mercury_engine.detectors.geological.volcanic import (
             RefactoringAdaptiveOptimizer,
         )
 
@@ -729,13 +729,13 @@ class TestEnhancedDetectorIntegration:
         """Create all enhanced detectors."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.detectors.geological.landslide import (
+        from omni_mercury_engine.detectors.geological.landslide import (
             LandslideDetector,
         )
-        from omni_anomaly_engine.detectors.geological.volcanic import (
+        from omni_mercury_engine.detectors.geological.volcanic import (
             VolcanicEruptionDetector,
         )
-        from omni_anomaly_engine.detectors.geological.wildfire import WildfireDetector
+        from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
 
         return {
             "landslide": LandslideDetector(enable_recursion=True),

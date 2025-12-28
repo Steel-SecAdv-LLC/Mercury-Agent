@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -45,7 +45,7 @@ class TestSyntheticGradientPredictor:
         """Create SyntheticGradientPredictor instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.ml.advanced_optimizers import (
+        from omni_mercury_engine.ml.advanced_optimizers import (
             SyntheticGradientPredictor,
         )
 
@@ -98,7 +98,7 @@ class TestSyntheticGradientPredictor:
         """Test predictor with different dimensions."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.ml.advanced_optimizers import (
+        from omni_mercury_engine.ml.advanced_optimizers import (
             SyntheticGradientPredictor,
         )
 
@@ -120,7 +120,7 @@ class TestDifferenceTargetPropagation:
         """Create DifferenceTargetPropagation instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.ml.advanced_optimizers import (
+        from omni_mercury_engine.ml.advanced_optimizers import (
             DifferenceTargetPropagation,
         )
 
@@ -169,7 +169,7 @@ class TestAuxiliaryMaxVariance:
         """Create AuxiliaryMaxVariance instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.ml.advanced_optimizers import AuxiliaryMaxVariance
+        from omni_mercury_engine.ml.advanced_optimizers import AuxiliaryMaxVariance
 
         return AuxiliaryMaxVariance(num_tasks=3, alpha=0.5)
 
@@ -223,7 +223,7 @@ class TestConvergenceRateEstimation:
         """Test convergence rate estimation."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.ml.advanced_optimizers import estimate_convergence_rate
+        from omni_mercury_engine.ml.advanced_optimizers import estimate_convergence_rate
 
         loss_history = np.exp(-0.1 * np.arange(100))
         stats = estimate_convergence_rate(loss_history)
@@ -235,7 +235,7 @@ class TestConvergenceRateEstimation:
         """Test convergence rate with decreasing loss."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.ml.advanced_optimizers import estimate_convergence_rate
+        from omni_mercury_engine.ml.advanced_optimizers import estimate_convergence_rate
 
         loss_history = np.exp(-0.2 * np.arange(50))
         stats = estimate_convergence_rate(loss_history)
@@ -245,7 +245,7 @@ class TestConvergenceRateEstimation:
         """Test convergence rate with flat loss."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.ml.advanced_optimizers import estimate_convergence_rate
+        from omni_mercury_engine.ml.advanced_optimizers import estimate_convergence_rate
 
         loss_history = np.ones(50) * 0.5
         stats = estimate_convergence_rate(loss_history)
@@ -256,7 +256,7 @@ class TestConvergenceRateEstimation:
         """Test convergence rate with oscillating loss."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.ml.advanced_optimizers import estimate_convergence_rate
+        from omni_mercury_engine.ml.advanced_optimizers import estimate_convergence_rate
 
         loss_history = 0.5 + 0.1 * np.sin(np.arange(50))
         stats = estimate_convergence_rate(loss_history)
@@ -276,7 +276,7 @@ class TestOmniFusionModelAdvancedTraining:
         """Create OmniFusionModel instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
+        from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 
         # OmniFusionModel uses feature_dims dict, not input_dim/num_detectors
         return OmniFusionModel(
@@ -455,7 +455,7 @@ class TestLyapunovStability:
         """Create OmniFusionModel instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
+        from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 
         # OmniFusionModel uses feature_dims dict, not input_dim/num_detectors
         return OmniFusionModel(
@@ -540,7 +540,7 @@ class TestOptimizerIntegration:
         """Test all optimizers can be imported."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.ml.advanced_optimizers import (
+        from omni_mercury_engine.ml.advanced_optimizers import (
             AuxiliaryMaxVariance,
             DifferenceTargetPropagation,
             SyntheticGradientPredictor,
@@ -556,7 +556,7 @@ class TestOptimizerIntegration:
         """Test all optimizers work together."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.ml.advanced_optimizers import (
+        from omni_mercury_engine.ml.advanced_optimizers import (
             AuxiliaryMaxVariance,
             SyntheticGradientPredictor,
         )

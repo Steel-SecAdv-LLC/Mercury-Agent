@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for Ethical Bounding and Benevolence Scoring module.
@@ -7,7 +7,7 @@ Tests for Ethical Bounding and Benevolence Scoring module.
 
 from __future__ import annotations
 
-from omni_anomaly_engine.cognitive.ethical_bounding import (
+from omni_mercury_engine.cognitive.ethical_bounding import (
     AlignmentAudit,
     BenefitCategory,
     BenefitMaximizer,

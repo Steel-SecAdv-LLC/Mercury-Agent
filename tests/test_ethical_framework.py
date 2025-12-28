@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -26,14 +26,14 @@ Sigma Directives, Risk Matrix, and Compliance.
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.core.ethical_config import DEFAULT_CONFIG
-from omni_anomaly_engine.core.ethical_governor import (
+from omni_mercury_engine.core.ethical_config import DEFAULT_CONFIG
+from omni_mercury_engine.core.ethical_governor import (
     BiasMetrics,
     EthicalAutonomyGovernor,
     EthicalDecision,
     SigmaDirective,
 )
-from omni_anomaly_engine.core.ethical_risk_matrix import (
+from omni_mercury_engine.core.ethical_risk_matrix import (
     AnomalyOracle,
     ComplianceRegime,
     EthicalRiskMatrix,

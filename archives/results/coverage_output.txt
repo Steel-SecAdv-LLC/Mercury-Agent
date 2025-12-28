@@ -1,7 +1,7 @@
 ============================= test session starts ==============================
 platform linux -- Python 3.12.8, pytest-8.4.2, pluggy-1.6.0 -- /home/ubuntu/.pyenv/versions/3.12.8/bin/python3.12
 cachedir: .pytest_cache
-rootdir: /home/ubuntu/omni-anomaly-engine
+rootdir: /home/ubuntu/omni-mercury-engine
 configfile: pyproject.toml
 plugins: anyio-4.11.0, cov-7.0.0, asyncio-1.2.0
 asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
@@ -104,7 +104,7 @@ tests/test_utils.py::test_compute_time_dilation PASSED                   [100%]
 
 =============================== warnings summary ===============================
 tests/test_harmonic.py: 1600 warnings
-  /home/ubuntu/omni-anomaly-engine/omni_anomaly_engine/ml/harmonic_encoder.py:42: DeprecationWarning: `scipy.special.sph_harm` is deprecated as of SciPy 1.15.0 and will be removed in SciPy 1.17.0. Please use `scipy.special.sph_harm_y` instead.
+  /home/ubuntu/omni-mercury-engine/omni_mercury_engine/ml/harmonic_encoder.py:42: DeprecationWarning: `scipy.special.sph_harm` is deprecated as of SciPy 1.15.0 and will be removed in SciPy 1.17.0. Please use `scipy.special.sph_harm_y` instead.
     Y_lm = sph_harm(order, degree, phi, theta)
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
@@ -113,45 +113,45 @@ _______________ coverage: platform linux, python 3.12.8-final-0 ________________
 
 Name                                                  Stmts   Miss   Cover   Missing
 ------------------------------------------------------------------------------------
-omni_anomaly_engine/__init__.py                           7      0 100.00%
-omni_anomaly_engine/cli.py                               71     38  46.48%   26-39, 47-51, 58-62, 71-77, 85-99, 104-120, 124
-omni_anomaly_engine/core/__init__.py                      5      0 100.00%
-omni_anomaly_engine/core/base.py                         38      9  76.32%   23, 28, 33, 49, 54, 61-63, 68
-omni_anomaly_engine/core/config.py                       51      0 100.00%
-omni_anomaly_engine/core/exceptions.py                   14      0 100.00%
-omni_anomaly_engine/core/fusion.py                       54      2  96.30%   142, 152
-omni_anomaly_engine/detectors/__init__.py                 6      0 100.00%
-omni_anomaly_engine/detectors/dimensional.py             83     22  73.49%   62, 94, 97-98, 125-150
-omni_anomaly_engine/detectors/directive.py              169     25  85.21%   39, 49, 52, 101-127, 132, 145, 177, 189, 211, 232, 237, 253, 306
-omni_anomaly_engine/detectors/spatial.py                 53     15  71.70%   38, 41, 56, 59, 84-109
-omni_anomaly_engine/detectors/statistical.py             69     18  73.91%   42, 45, 61, 64, 67, 94-118, 123
-omni_anomaly_engine/detectors/temporal.py                75     22  70.67%   40, 51, 54, 74-91, 96, 105-107, 121, 124, 134
-omni_anomaly_engine/engine.py                           116     51  56.03%   115, 134-142, 148-167, 173-187, 201-214, 240-250, 269-271, 293
-omni_anomaly_engine/ml/__init__.py                        6      0 100.00%
-omni_anomaly_engine/ml/attention.py                      56      0 100.00%
-omni_anomaly_engine/ml/encoders.py                       70     30  57.14%   33, 70-79, 125-133, 157-159, 185, 223-234
-omni_anomaly_engine/ml/fusion_network.py                 49     12  75.51%   150, 154-158, 179, 195-207
-omni_anomaly_engine/ml/harmonic_encoder.py              120     41  65.83%   62-71, 167-175, 262-269, 288-323
-omni_anomaly_engine/ml/inference.py                      46     31  32.61%   32-35, 42-47, 66-95, 112-141, 156-170
-omni_anomaly_engine/ml/training.py                      188    157  16.49%   22-23, 26-54, 63-64, 67-93, 102-103, 106-134, 143-144, 147-179, 188-197, 209-212, 215, 218-225, 247-259, 262, 269-293, 300-324, 327-351
-omni_anomaly_engine/models/__init__.py                    7      0 100.00%
-omni_anomaly_engine/models/affective.py                  41     11  73.17%   35, 53-70, 75
-omni_anomaly_engine/models/astrophysical.py              81     17  79.01%   38, 67-86, 91, 104, 117, 120-121, 163
-omni_anomaly_engine/models/biometric.py                 102     50  50.98%   14-15, 23-24, 41, 69, 77-81, 88, 110, 112-115, 128-130, 136-154, 193-234
-omni_anomaly_engine/models/consciousness.py              51      6  88.24%   27, 48, 58-59, 77, 100
-omni_anomaly_engine/models/neural.py                     55      5  90.91%   28, 53, 79, 95, 108
-omni_anomaly_engine/models/quantum.py                    68      6  91.18%   29, 50, 79, 87-90, 119
-omni_anomaly_engine/resilience/__init__.py                5      0 100.00%
-omni_anomaly_engine/resilience/circuit_breaker.py        43      4  90.70%   71, 77-79
-omni_anomaly_engine/resilience/health_monitoring.py      33      6  81.82%   39, 44, 65-71
-omni_anomaly_engine/resilience/retry.py                  25      0 100.00%
-omni_anomaly_engine/resilience/self_healing.py           43     16  62.79%   43, 51-54, 59, 65, 70-72, 76-87
-omni_anomaly_engine/security/__init__.py                  4      0 100.00%
-omni_anomaly_engine/security/encryption.py               16      0 100.00%
-omni_anomaly_engine/security/rate_limiting.py            19      0 100.00%
-omni_anomaly_engine/security/threat_detection.py         96     27  71.88%   108-125, 139-141, 146, 165, 182-187, 210, 242
-omni_anomaly_engine/utils/__init__.py                    73     13  82.19%   36, 50-56, 59, 74-92, 176
-omni_anomaly_engine/utils/comm.py                        98     42  57.14%   35, 47, 86-88, 102, 108-112, 122-124, 131-147, 151, 198-199, 209-221
+omni_mercury_engine/__init__.py                           7      0 100.00%
+omni_mercury_engine/cli.py                               71     38  46.48%   26-39, 47-51, 58-62, 71-77, 85-99, 104-120, 124
+omni_mercury_engine/core/__init__.py                      5      0 100.00%
+omni_mercury_engine/core/base.py                         38      9  76.32%   23, 28, 33, 49, 54, 61-63, 68
+omni_mercury_engine/core/config.py                       51      0 100.00%
+omni_mercury_engine/core/exceptions.py                   14      0 100.00%
+omni_mercury_engine/core/fusion.py                       54      2  96.30%   142, 152
+omni_mercury_engine/detectors/__init__.py                 6      0 100.00%
+omni_mercury_engine/detectors/dimensional.py             83     22  73.49%   62, 94, 97-98, 125-150
+omni_mercury_engine/detectors/directive.py              169     25  85.21%   39, 49, 52, 101-127, 132, 145, 177, 189, 211, 232, 237, 253, 306
+omni_mercury_engine/detectors/spatial.py                 53     15  71.70%   38, 41, 56, 59, 84-109
+omni_mercury_engine/detectors/statistical.py             69     18  73.91%   42, 45, 61, 64, 67, 94-118, 123
+omni_mercury_engine/detectors/temporal.py                75     22  70.67%   40, 51, 54, 74-91, 96, 105-107, 121, 124, 134
+omni_mercury_engine/engine.py                           116     51  56.03%   115, 134-142, 148-167, 173-187, 201-214, 240-250, 269-271, 293
+omni_mercury_engine/ml/__init__.py                        6      0 100.00%
+omni_mercury_engine/ml/attention.py                      56      0 100.00%
+omni_mercury_engine/ml/encoders.py                       70     30  57.14%   33, 70-79, 125-133, 157-159, 185, 223-234
+omni_mercury_engine/ml/fusion_network.py                 49     12  75.51%   150, 154-158, 179, 195-207
+omni_mercury_engine/ml/harmonic_encoder.py              120     41  65.83%   62-71, 167-175, 262-269, 288-323
+omni_mercury_engine/ml/inference.py                      46     31  32.61%   32-35, 42-47, 66-95, 112-141, 156-170
+omni_mercury_engine/ml/training.py                      188    157  16.49%   22-23, 26-54, 63-64, 67-93, 102-103, 106-134, 143-144, 147-179, 188-197, 209-212, 215, 218-225, 247-259, 262, 269-293, 300-324, 327-351
+omni_mercury_engine/models/__init__.py                    7      0 100.00%
+omni_mercury_engine/models/affective.py                  41     11  73.17%   35, 53-70, 75
+omni_mercury_engine/models/astrophysical.py              81     17  79.01%   38, 67-86, 91, 104, 117, 120-121, 163
+omni_mercury_engine/models/biometric.py                 102     50  50.98%   14-15, 23-24, 41, 69, 77-81, 88, 110, 112-115, 128-130, 136-154, 193-234
+omni_mercury_engine/models/consciousness.py              51      6  88.24%   27, 48, 58-59, 77, 100
+omni_mercury_engine/models/neural.py                     55      5  90.91%   28, 53, 79, 95, 108
+omni_mercury_engine/models/quantum.py                    68      6  91.18%   29, 50, 79, 87-90, 119
+omni_mercury_engine/resilience/__init__.py                5      0 100.00%
+omni_mercury_engine/resilience/circuit_breaker.py        43      4  90.70%   71, 77-79
+omni_mercury_engine/resilience/health_monitoring.py      33      6  81.82%   39, 44, 65-71
+omni_mercury_engine/resilience/retry.py                  25      0 100.00%
+omni_mercury_engine/resilience/self_healing.py           43     16  62.79%   43, 51-54, 59, 65, 70-72, 76-87
+omni_mercury_engine/security/__init__.py                  4      0 100.00%
+omni_mercury_engine/security/encryption.py               16      0 100.00%
+omni_mercury_engine/security/rate_limiting.py            19      0 100.00%
+omni_mercury_engine/security/threat_detection.py         96     27  71.88%   108-125, 139-141, 146, 165, 182-187, 210, 242
+omni_mercury_engine/utils/__init__.py                    73     13  82.19%   36, 50-56, 59, 74-92, 176
+omni_mercury_engine/utils/comm.py                        98     42  57.14%   35, 47, 86-88, 102, 108-112, 122-124, 131-147, 151, 198-199, 209-221
 ------------------------------------------------------------------------------------
 TOTAL                                                  2206    676  69.36%
 Coverage HTML written to dir htmlcov

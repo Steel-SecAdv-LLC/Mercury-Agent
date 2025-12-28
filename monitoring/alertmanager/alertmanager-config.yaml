@@ -1,4 +1,4 @@
-# OMNI-AVA Alertmanager Configuration
+# Mercury-Agent Alertmanager Configuration
 # Routes alerts to appropriate receivers based on severity and team
 apiVersion: v1
 kind: Secret
@@ -83,16 +83,16 @@ stringData:
     inhibit_rules:
       # If service is down, don't alert on high error rate
       - source_match:
-          alertname: 'OmniAvaServiceDown'
+          alertname: 'OmniMercuryServiceDown'
         target_match:
-          alertname: 'OmniAvaHighErrorRate'
+          alertname: 'OmniMercuryHighErrorRate'
         equal: ['service']
 
       # If all replicas are down, don't alert on low replica count
       - source_match:
-          alertname: 'OmniAvaAllReplicasDown'
+          alertname: 'OmniMercuryAllReplicasDown'
         target_match:
-          alertname: 'OmniAvaLowReplicaCount'
+          alertname: 'OmniMercuryLowReplicaCount'
         equal: ['deployment']
 
       # Critical alerts inhibit warning alerts of same type
@@ -122,8 +122,8 @@ stringData:
 
       - name: 'critical-slack'
         slack_configs:
-          - channel: '#omni-ava-critical'
-            username: 'OMNI-AVA Alerts'
+          - channel: '#mercury-agent-critical'
+            username: 'Mercury-Agent Alerts'
             icon_emoji: ':rotating_light:'
             send_resolved: true
             title: '{{ .Status | toUpper }} - {{ .CommonAnnotations.summary }}'
@@ -144,8 +144,8 @@ stringData:
 
       - name: 'warning-slack'
         slack_configs:
-          - channel: '#omni-ava-alerts'
-            username: 'OMNI-AVA Alerts'
+          - channel: '#mercury-agent-alerts'
+            username: 'Mercury-Agent Alerts'
             icon_emoji: ':warning:'
             send_resolved: true
             title: '{{ .Status | toUpper }} - {{ .CommonAnnotations.summary }}'
@@ -180,12 +180,12 @@ metadata:
   labels:
     app.kubernetes.io/name: alertmanager
 data:
-  omni-ava.tmpl: |
-    {{ define "omni-ava.title" }}
+  mercury-agent.tmpl: |
+    {{ define "mercury-agent.title" }}
     [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }}
     {{ end }}
 
-    {{ define "omni-ava.text" }}
+    {{ define "mercury-agent.text" }}
     {{ range .Alerts }}
     *Alert:* {{ .Labels.alertname }}
     *Severity:* {{ .Labels.severity }}

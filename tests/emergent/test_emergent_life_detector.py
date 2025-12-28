@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from omni_anomaly_engine.emergent.emergent_life_detector import (
+from omni_mercury_engine.emergent.emergent_life_detector import (
     EmergentLifeDetector,
     LifeDetectionResult,
     SETICosmicSignalAnalyzer,

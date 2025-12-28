@@ -1,12 +1,12 @@
-# OMNI-AVA Prometheus Recording and Alerting Rules
-# Comprehensive monitoring for the OMNI-AVA platform
+# Mercury-Agent Prometheus Recording and Alerting Rules
+# Comprehensive monitoring for the Mercury-Agent platform
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: omni-ava-rules
+  name: mercury-agent-rules
   namespace: monitoring
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: monitoring
     prometheus: k8s
     role: alert-rules
@@ -15,247 +15,247 @@ spec:
     # ==========================================================================
     # Recording Rules - Pre-computed metrics for dashboards and alerts
     # ==========================================================================
-    - name: omni-ava.recording.rules
+    - name: mercury-agent.recording.rules
       interval: 30s
       rules:
         # Request rate per second
-        - record: omni_ava:http_requests:rate5m
-          expr: sum(rate(http_requests_total{app="omni-ava"}[5m])) by (service, method, status)
+        - record: omni_mercury:http_requests:rate5m
+          expr: sum(rate(http_requests_total{app="mercury-agent"}[5m])) by (service, method, status)
 
         # Request latency percentiles
-        - record: omni_ava:http_request_duration_seconds:p50
-          expr: histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{app="omni-ava"}[5m])) by (le, service))
+        - record: omni_mercury:http_request_duration_seconds:p50
+          expr: histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{app="mercury-agent"}[5m])) by (le, service))
 
-        - record: omni_ava:http_request_duration_seconds:p95
-          expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{app="omni-ava"}[5m])) by (le, service))
+        - record: omni_mercury:http_request_duration_seconds:p95
+          expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{app="mercury-agent"}[5m])) by (le, service))
 
-        - record: omni_ava:http_request_duration_seconds:p99
-          expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{app="omni-ava"}[5m])) by (le, service))
+        - record: omni_mercury:http_request_duration_seconds:p99
+          expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{app="mercury-agent"}[5m])) by (le, service))
 
         # Error rate
-        - record: omni_ava:http_errors:rate5m
-          expr: sum(rate(http_requests_total{app="omni-ava",status=~"5.."}[5m])) by (service) / sum(rate(http_requests_total{app="omni-ava"}[5m])) by (service)
+        - record: omni_mercury:http_errors:rate5m
+          expr: sum(rate(http_requests_total{app="mercury-agent",status=~"5.."}[5m])) by (service) / sum(rate(http_requests_total{app="mercury-agent"}[5m])) by (service)
 
         # Detection processing metrics
-        - record: omni_ava:detections:rate5m
-          expr: sum(rate(omni_detection_requests_total{app="omni-ava"}[5m])) by (detector_type)
+        - record: omni_mercury:detections:rate5m
+          expr: sum(rate(omni_detection_requests_total{app="mercury-agent"}[5m])) by (detector_type)
 
-        - record: omni_ava:detection_duration_seconds:p95
-          expr: histogram_quantile(0.95, sum(rate(omni_detection_duration_seconds_bucket{app="omni-ava"}[5m])) by (le, detector_type))
+        - record: omni_mercury:detection_duration_seconds:p95
+          expr: histogram_quantile(0.95, sum(rate(omni_detection_duration_seconds_bucket{app="mercury-agent"}[5m])) by (le, detector_type))
 
         # Resource utilization
-        - record: omni_ava:cpu_utilization:avg5m
-          expr: avg(rate(container_cpu_usage_seconds_total{container="api", namespace="omni-ava"}[5m])) by (pod)
+        - record: omni_mercury:cpu_utilization:avg5m
+          expr: avg(rate(container_cpu_usage_seconds_total{container="api", namespace="mercury-agent"}[5m])) by (pod)
 
-        - record: omni_ava:memory_utilization:avg5m
-          expr: avg(container_memory_usage_bytes{container="api", namespace="omni-ava"}) by (pod) / avg(container_spec_memory_limit_bytes{container="api", namespace="omni-ava"}) by (pod)
+        - record: omni_mercury:memory_utilization:avg5m
+          expr: avg(container_memory_usage_bytes{container="api", namespace="mercury-agent"}) by (pod) / avg(container_spec_memory_limit_bytes{container="api", namespace="mercury-agent"}) by (pod)
 
     # ==========================================================================
     # SLI/SLO Rules
     # ==========================================================================
-    - name: omni-ava.slo.rules
+    - name: mercury-agent.slo.rules
       interval: 30s
       rules:
         # Availability SLI (successful requests / total requests)
-        - record: omni_ava:sli:availability
+        - record: omni_mercury:sli:availability
           expr: |
-            sum(rate(http_requests_total{app="omni-ava",status!~"5.."}[5m]))
+            sum(rate(http_requests_total{app="mercury-agent",status!~"5.."}[5m]))
             /
-            sum(rate(http_requests_total{app="omni-ava"}[5m]))
+            sum(rate(http_requests_total{app="mercury-agent"}[5m]))
 
         # Latency SLI (requests under 500ms / total requests)
-        - record: omni_ava:sli:latency
+        - record: omni_mercury:sli:latency
           expr: |
-            sum(rate(http_request_duration_seconds_bucket{app="omni-ava",le="0.5"}[5m]))
+            sum(rate(http_request_duration_seconds_bucket{app="mercury-agent",le="0.5"}[5m]))
             /
-            sum(rate(http_request_duration_seconds_count{app="omni-ava"}[5m]))
+            sum(rate(http_request_duration_seconds_count{app="mercury-agent"}[5m]))
 
         # Error Budget (99.9% availability target)
-        - record: omni_ava:error_budget:remaining
+        - record: omni_mercury:error_budget:remaining
           expr: |
-            1 - ((1 - omni_ava:sli:availability) / (1 - 0.999))
+            1 - ((1 - omni_mercury:sli:availability) / (1 - 0.999))
 
         # Monthly error budget consumption rate
-        - record: omni_ava:error_budget:consumption_rate
+        - record: omni_mercury:error_budget:consumption_rate
           expr: |
-            (1 - omni_ava:sli:availability) / (1 - 0.999) * 30 * 24 * 60
+            (1 - omni_mercury:sli:availability) / (1 - 0.999) * 30 * 24 * 60
 
     # ==========================================================================
     # Alerting Rules - Critical
     # ==========================================================================
-    - name: omni-ava.alerts.critical
+    - name: mercury-agent.alerts.critical
       rules:
         # High error rate alert
-        - alert: OmniAvaHighErrorRate
-          expr: omni_ava:http_errors:rate5m > 0.05
+        - alert: OmniMercuryHighErrorRate
+          expr: omni_mercury:http_errors:rate5m > 0.05
           for: 5m
           labels:
             severity: critical
             team: platform
           annotations:
-            summary: "High error rate detected in OMNI-AVA"
+            summary: "High error rate detected in Mercury-Agent"
             description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/high-error-rate.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/high-error-rate.md"
 
         # Service down alert
-        - alert: OmniAvaServiceDown
-          expr: up{job="omni-ava-api"} == 0
+        - alert: OmniMercuryServiceDown
+          expr: up{job="mercury-agent-api"} == 0
           for: 1m
           labels:
             severity: critical
             team: platform
           annotations:
-            summary: "OMNI-AVA service is down"
-            description: "The OMNI-AVA API service has been down for more than 1 minute"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/service-down.md"
+            summary: "Mercury-Agent service is down"
+            description: "The Mercury-Agent API service has been down for more than 1 minute"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/service-down.md"
 
         # All replicas down
-        - alert: OmniAvaAllReplicasDown
+        - alert: OmniMercuryAllReplicasDown
           expr: |
-            sum(kube_deployment_status_replicas_available{deployment=~".*omni-ava.*"}) == 0
+            sum(kube_deployment_status_replicas_available{deployment=~".*mercury-agent.*"}) == 0
           for: 1m
           labels:
             severity: critical
             team: platform
           annotations:
-            summary: "All OMNI-AVA replicas are down"
-            description: "No available replicas for OMNI-AVA deployment"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/all-replicas-down.md"
+            summary: "All Mercury-Agent replicas are down"
+            description: "No available replicas for Mercury-Agent deployment"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/all-replicas-down.md"
 
         # SLO breach imminent
-        - alert: OmniAvaSLOBreach
-          expr: omni_ava:error_budget:remaining < 0.1
+        - alert: OmniMercurySLOBreach
+          expr: omni_mercury:error_budget:remaining < 0.1
           for: 5m
           labels:
             severity: critical
             team: platform
           annotations:
-            summary: "OMNI-AVA SLO breach imminent"
+            summary: "Mercury-Agent SLO breach imminent"
             description: "Only {{ $value | humanizePercentage }} of error budget remaining"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/slo-breach.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/slo-breach.md"
 
         # Memory exhaustion
-        - alert: OmniAvaMemoryExhaustion
+        - alert: OmniMercuryMemoryExhaustion
           expr: |
-            container_memory_usage_bytes{container="api", namespace="omni-ava"}
+            container_memory_usage_bytes{container="api", namespace="mercury-agent"}
             /
-            container_spec_memory_limit_bytes{container="api", namespace="omni-ava"} > 0.95
+            container_spec_memory_limit_bytes{container="api", namespace="mercury-agent"} > 0.95
           for: 5m
           labels:
             severity: critical
             team: platform
           annotations:
-            summary: "OMNI-AVA pod memory exhaustion"
+            summary: "Mercury-Agent pod memory exhaustion"
             description: "Pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} of memory limit"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/memory-exhaustion.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/memory-exhaustion.md"
 
     # ==========================================================================
     # Alerting Rules - Warning
     # ==========================================================================
-    - name: omni-ava.alerts.warning
+    - name: mercury-agent.alerts.warning
       rules:
         # Elevated error rate
-        - alert: OmniAvaElevatedErrorRate
-          expr: omni_ava:http_errors:rate5m > 0.01
+        - alert: OmniMercuryElevatedErrorRate
+          expr: omni_mercury:http_errors:rate5m > 0.01
           for: 10m
           labels:
             severity: warning
             team: platform
           annotations:
-            summary: "Elevated error rate in OMNI-AVA"
+            summary: "Elevated error rate in Mercury-Agent"
             description: "Error rate is {{ $value | humanizePercentage }} (threshold: 1%)"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/elevated-error-rate.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/elevated-error-rate.md"
 
         # High latency
-        - alert: OmniAvaHighLatency
-          expr: omni_ava:http_request_duration_seconds:p95 > 0.5
+        - alert: OmniMercuryHighLatency
+          expr: omni_mercury:http_request_duration_seconds:p95 > 0.5
           for: 10m
           labels:
             severity: warning
             team: platform
           annotations:
-            summary: "High latency in OMNI-AVA"
+            summary: "High latency in Mercury-Agent"
             description: "P95 latency is {{ $value | humanizeDuration }} (threshold: 500ms)"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/high-latency.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/high-latency.md"
 
         # Low replica count
-        - alert: OmniAvaLowReplicaCount
+        - alert: OmniMercuryLowReplicaCount
           expr: |
-            kube_deployment_status_replicas_available{deployment=~".*omni-ava-api.*"} < 2
+            kube_deployment_status_replicas_available{deployment=~".*mercury-agent-api.*"} < 2
           for: 5m
           labels:
             severity: warning
             team: platform
           annotations:
-            summary: "Low replica count for OMNI-AVA"
+            summary: "Low replica count for Mercury-Agent"
             description: "Only {{ $value }} replicas available (minimum: 2)"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/low-replicas.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/low-replicas.md"
 
         # High CPU usage
-        - alert: OmniAvaHighCPU
-          expr: omni_ava:cpu_utilization:avg5m > 0.8
+        - alert: OmniMercuryHighCPU
+          expr: omni_mercury:cpu_utilization:avg5m > 0.8
           for: 15m
           labels:
             severity: warning
             team: platform
           annotations:
-            summary: "High CPU usage in OMNI-AVA"
+            summary: "High CPU usage in Mercury-Agent"
             description: "CPU utilization is {{ $value | humanizePercentage }}"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/high-cpu.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/high-cpu.md"
 
         # High memory usage
-        - alert: OmniAvaHighMemory
-          expr: omni_ava:memory_utilization:avg5m > 0.8
+        - alert: OmniMercuryHighMemory
+          expr: omni_mercury:memory_utilization:avg5m > 0.8
           for: 15m
           labels:
             severity: warning
             team: platform
           annotations:
-            summary: "High memory usage in OMNI-AVA"
+            summary: "High memory usage in Mercury-Agent"
             description: "Memory utilization is {{ $value | humanizePercentage }}"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/high-memory.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/high-memory.md"
 
         # PVC near capacity
-        - alert: OmniAvaPVCNearCapacity
+        - alert: OmniMercuryPVCNearCapacity
           expr: |
-            kubelet_volume_stats_used_bytes{namespace="omni-ava"}
+            kubelet_volume_stats_used_bytes{namespace="mercury-agent"}
             /
-            kubelet_volume_stats_capacity_bytes{namespace="omni-ava"} > 0.85
+            kubelet_volume_stats_capacity_bytes{namespace="mercury-agent"} > 0.85
           for: 15m
           labels:
             severity: warning
             team: platform
           annotations:
-            summary: "OMNI-AVA PVC near capacity"
+            summary: "Mercury-Agent PVC near capacity"
             description: "PVC {{ $labels.persistentvolumeclaim }} is {{ $value | humanizePercentage }} full"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/pvc-capacity.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/pvc-capacity.md"
 
         # HPA at max replicas
-        - alert: OmniAvaHPAAtMax
+        - alert: OmniMercuryHPAAtMax
           expr: |
-            kube_horizontalpodautoscaler_status_current_replicas{namespace="omni-ava"}
+            kube_horizontalpodautoscaler_status_current_replicas{namespace="mercury-agent"}
             ==
-            kube_horizontalpodautoscaler_spec_max_replicas{namespace="omni-ava"}
+            kube_horizontalpodautoscaler_spec_max_replicas{namespace="mercury-agent"}
           for: 30m
           labels:
             severity: warning
             team: platform
           annotations:
-            summary: "OMNI-AVA HPA at maximum replicas"
+            summary: "Mercury-Agent HPA at maximum replicas"
             description: "HPA {{ $labels.horizontalpodautoscaler }} is at max replicas ({{ $value }})"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/hpa-max.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/hpa-max.md"
 
     # ==========================================================================
     # Alerting Rules - Business Metrics
     # ==========================================================================
-    - name: omni-ava.alerts.business
+    - name: mercury-agent.alerts.business
       rules:
         # Detection success rate drop
-        - alert: OmniAvaDetectionSuccessRateDrop
+        - alert: OmniMercuryDetectionSuccessRateDrop
           expr: |
-            sum(rate(omni_detection_success_total{app="omni-ava"}[5m]))
+            sum(rate(omni_detection_success_total{app="mercury-agent"}[5m]))
             /
-            sum(rate(omni_detection_requests_total{app="omni-ava"}[5m])) < 0.95
+            sum(rate(omni_detection_requests_total{app="mercury-agent"}[5m])) < 0.95
           for: 10m
           labels:
             severity: warning
@@ -263,11 +263,11 @@ spec:
           annotations:
             summary: "Detection success rate has dropped"
             description: "Detection success rate is {{ $value | humanizePercentage }} (threshold: 95%)"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/detection-success.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/detection-success.md"
 
         # Slow detection processing
-        - alert: OmniAvaSlowDetection
-          expr: omni_ava:detection_duration_seconds:p95 > 10
+        - alert: OmniMercurySlowDetection
+          expr: omni_mercury:detection_duration_seconds:p95 > 10
           for: 10m
           labels:
             severity: warning
@@ -275,12 +275,12 @@ spec:
           annotations:
             summary: "Slow detection processing"
             description: "P95 detection time is {{ $value | humanizeDuration }} (threshold: 10s)"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/slow-detection.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/slow-detection.md"
 
         # Model inference errors
-        - alert: OmniAvaModelInferenceErrors
+        - alert: OmniMercuryModelInferenceErrors
           expr: |
-            sum(rate(omni_model_inference_errors_total{app="omni-ava"}[5m])) > 0.1
+            sum(rate(omni_model_inference_errors_total{app="mercury-agent"}[5m])) > 0.1
           for: 5m
           labels:
             severity: warning
@@ -288,4 +288,4 @@ spec:
           annotations:
             summary: "Model inference errors detected"
             description: "{{ $value }} inference errors per second"
-            runbook_url: "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/docs/runbooks/inference-errors.md"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/inference-errors.md"

@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Comprehensive integration tests for OMNI ♱ AVA enhancements.
+Comprehensive integration tests for Mercury Agent ♱ enhancements.
 
 Tests InfrastructureCoordinator with all 12 modules, synthetic data predictions,
 and end-to-end workflow validation.
@@ -27,9 +27,9 @@ and end-to-end workflow validation.
 
 import numpy as np
 
-from omni_anomaly_engine.infrastructure import InfrastructureCoordinator
-from omni_anomaly_engine.models.simulation import SimulationModule
-from omni_anomaly_engine.space.space_exploration_analyzer import SpaceExplorationAnalyzer
+from omni_mercury_engine.infrastructure import InfrastructureCoordinator
+from omni_mercury_engine.models.simulation import SimulationModule
+from omni_mercury_engine.space.space_exploration_analyzer import SpaceExplorationAnalyzer
 
 
 class TestComprehensiveIntegration:

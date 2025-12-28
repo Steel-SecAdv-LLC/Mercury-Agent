@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 Quick Validation Script with Sympy Proofs
 
-Validates OmniAvaEngine convergence properties symbolically:
+Validates OmniMercuryEngine convergence properties symbolically:
 - O(e^{-0.13 t}) exponential convergence bound
 - Lyapunov stability (ΔV < 0)
 - Purity Invariant (σ_Sacred > 0)
@@ -145,7 +145,7 @@ def prove_purity_invariant() -> dict[str, Any]:
 
 def verify_o_n_log_n_complexity() -> dict[str, Any]:
     """
-    Verify O(n log n) complexity bound for OmniAvaEngine.step().
+    Verify O(n log n) complexity bound for OmniMercuryEngine.step().
 
     Analyzes computational complexity of all 22 terms.
 
@@ -203,7 +203,7 @@ def run_all_validations() -> dict[str, Any]:
         Complete validation report
     """
     print("=" * 80)
-    print("OMNI-AVA ENGINE: SYMBOLIC VALIDATION")
+    print("Mercury-Agent ENGINE: SYMBOLIC VALIDATION")
     print("=" * 80)
     print()
 
@@ -261,6 +261,6 @@ if __name__ == "__main__":
 
     if results["all_proofs_valid"]:
         print("✓ All mathematical properties validated successfully!")
-        print("  OmniAvaEngine is mathematically sound and ready for deployment.")
+        print("  OmniMercuryEngine is mathematically sound and ready for deployment.")
     else:
         print("✗ Some validations failed. Review results above.")

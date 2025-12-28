@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ Tests for exception classes
 
 import pytest
 
-from omni_anomaly_engine.core.exceptions import (
+from omni_mercury_engine.core.exceptions import (
     ConfigException,
     DataException,
     DetectorException,

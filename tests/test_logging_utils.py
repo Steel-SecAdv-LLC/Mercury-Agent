@@ -1,5 +1,5 @@
 """
-Tests for omni_anomaly_engine.utils.logging module.
+Tests for omni_mercury_engine.utils.logging module.
 
 Tests structured logging, correlation IDs, and performance logging.
 """
@@ -12,7 +12,7 @@ import time
 
 import pytest
 
-from omni_anomaly_engine.utils.logging import (
+from omni_mercury_engine.utils.logging import (
     ColoredFormatter,
     PerformanceLogger,
     StructuredFormatter,
@@ -324,7 +324,7 @@ class TestCorrelationContext:
         set_correlation_id("test-id")
         assert get_correlation_id() == "test-id"
         # Clean up
-        from omni_anomaly_engine.utils.logging import _correlation_context
+        from omni_mercury_engine.utils.logging import _correlation_context
 
         delattr(_correlation_context, "correlation_id")
 
@@ -361,7 +361,7 @@ class TestConfigureLogging:
 
     def setup_method(self):
         """Reset logging configuration before each test."""
-        logger = logging.getLogger("omni_anomaly_engine")
+        logger = logging.getLogger("omni_mercury_engine")
         logger.handlers.clear()
         logger.setLevel(logging.NOTSET)
 
@@ -369,7 +369,7 @@ class TestConfigureLogging:
         """Test configuration with default settings."""
         configure_logging()
 
-        logger = logging.getLogger("omni_anomaly_engine")
+        logger = logging.getLogger("omni_mercury_engine")
         assert logger.level == logging.INFO
         assert len(logger.handlers) == 1
         assert isinstance(logger.handlers[0], logging.StreamHandler)
@@ -378,28 +378,28 @@ class TestConfigureLogging:
         """Test configuration with DEBUG level."""
         configure_logging(level="DEBUG")
 
-        logger = logging.getLogger("omni_anomaly_engine")
+        logger = logging.getLogger("omni_mercury_engine")
         assert logger.level == logging.DEBUG
 
     def test_configure_json_format(self):
         """Test configuration with JSON format."""
         configure_logging(json_format=True)
 
-        logger = logging.getLogger("omni_anomaly_engine")
+        logger = logging.getLogger("omni_mercury_engine")
         assert isinstance(logger.handlers[0].formatter, StructuredFormatter)
 
     def test_configure_colored_format(self):
         """Test configuration with colored format."""
         configure_logging(json_format=False)
 
-        logger = logging.getLogger("omni_anomaly_engine")
+        logger = logging.getLogger("omni_mercury_engine")
         assert isinstance(logger.handlers[0].formatter, ColoredFormatter)
 
     def test_configure_integer_level(self):
         """Test configuration with integer level."""
         configure_logging(level=logging.WARNING)
 
-        logger = logging.getLogger("omni_anomaly_engine")
+        logger = logging.getLogger("omni_mercury_engine")
         assert logger.level == logging.WARNING
 
 

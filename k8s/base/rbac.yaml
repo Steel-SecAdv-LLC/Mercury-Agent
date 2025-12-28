@@ -1,22 +1,22 @@
-# OMNI-AVA RBAC Configuration
+# Mercury-Agent RBAC Configuration
 # Role-Based Access Control for secure pod operations
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: omni-ava-api
-  namespace: omni-ava
+  name: mercury-agent-api
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
 automountServiceAccountToken: false
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: omni-ava-engine
-  namespace: omni-ava
+  name: mercury-agent-engine
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: engine
 automountServiceAccountToken: false
 ---
@@ -24,10 +24,10 @@ automountServiceAccountToken: false
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: omni-ava-api-role
-  namespace: omni-ava
+  name: mercury-agent-api-role
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
 rules:
   # Read ConfigMaps and Secrets
@@ -47,10 +47,10 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: omni-ava-engine-role
-  namespace: omni-ava
+  name: mercury-agent-engine-role
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: engine
 rules:
   - apiGroups: [""]
@@ -67,36 +67,36 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: omni-ava-api-rolebinding
-  namespace: omni-ava
+  name: mercury-agent-api-rolebinding
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
 subjects:
   - kind: ServiceAccount
-    name: omni-ava-api
-    namespace: omni-ava
+    name: mercury-agent-api
+    namespace: mercury-agent
 roleRef:
   kind: Role
-  name: omni-ava-api-role
+  name: mercury-agent-api-role
   apiGroup: rbac.authorization.k8s.io
 ---
 # RoleBinding for Engine
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: omni-ava-engine-rolebinding
-  namespace: omni-ava
+  name: mercury-agent-engine-rolebinding
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: engine
 subjects:
   - kind: ServiceAccount
-    name: omni-ava-engine
-    namespace: omni-ava
+    name: mercury-agent-engine
+    namespace: mercury-agent
 roleRef:
   kind: Role
-  name: omni-ava-engine-role
+  name: mercury-agent-engine-role
   apiGroup: rbac.authorization.k8s.io
 ---
 # Pod Security Policy (for clusters with PSP enabled)
@@ -104,9 +104,9 @@ roleRef:
 apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
-  name: omni-ava-restricted
+  name: mercury-agent-restricted
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
 spec:
   privileged: false
   allowPrivilegeEscalation: false

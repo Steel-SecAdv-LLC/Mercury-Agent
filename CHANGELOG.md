@@ -94,7 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pre-commit hooks for secret detection (detect-secrets) and security linting (bandit)
 
 ### Changed
-- **Docker**: Fixed entrypoint from `omni-anomaly` to `omni-ava` (matches setup.py console_scripts)
+- **Docker**: Fixed entrypoint from `omni-anomaly` to `mercury-agent` (matches setup.py console_scripts)
 - **Dependencies**: Added cryptography, fastapi, uvicorn, httpx, pydantic-settings to core requirements
 - CI/CD: ML Tests now run on PRs to main/develop (previously only scheduled/manual)
 - CI/CD: Documentation builds on all pushes and PRs (previously only main branch)
@@ -106,7 +106,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2025-10-14
 
 ### Added
-- Initial release of OMNI ♱ AVA (formerly OMNI ♱ AVA)
+- Initial release of Mercury Agent ♱ (formerly Mercury Agent ♱)
 - 13 fused detection engines with neural network fusion
 - 150+ ethical scalars from ancient wisdom and modern principles
 - 17+ infrastructure modules for critical sectors (healthcare, cyber, energy, etc.)
@@ -124,7 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 150+ domain-specific ethical scalars
 
 ### Changed
-- Renamed from OMNI ♱ AVA to OMNI ♱ AVA
+- Renamed from Mercury Agent ♱ to Mercury Agent ♱
 - Enhanced CLI with argparse for humanitarian demo
 - Improved documentation with simulation disclaimers
 
@@ -141,4 +141,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Note
 **All benchmarks based on simulated data. Real-world validation recommended before production use.**
 
-[0.1.0]: https://github.com/Steel-SecAdv-LLC/OMNI ♱ AVA/releases/tag/v0.1.0
+[0.1.0]: https://github.com/Steel-SecAdv-LLC/Mercury Agent ♱/releases/tag/v0.1.0

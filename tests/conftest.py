@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -29,7 +29,7 @@ to ensure consistent test results across runs.
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.utils.rng import DeterministicRNG, set_global_seed
+from omni_mercury_engine.utils.rng import DeterministicRNG, set_global_seed
 
 # Optional torch import for ML tests
 try:

@@ -1,5 +1,5 @@
 """
-OMNI AVA (O+A)
+Mercury Agent ♱ (O+A)
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -44,7 +44,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from omni_anomaly_engine.agentic.mercury_a_agent import (
+from omni_mercury_engine.agentic.mercury_a_agent import (
     DomainType,
     MercuryAgent,
     create_mercury_agent,

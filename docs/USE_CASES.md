@@ -1,10 +1,10 @@
-# OMNI AVA Use Cases: Real-World Applications
+# Mercury Agent ♱ Use Cases: Real-World Applications
 
 **Document Version**: 1.0
 **Last Updated**: 2025-12-09
 **Status**: Production-Ready Examples
 
-This document provides 8 real-world use cases demonstrating OMNI AVA's multi-domain anomaly detection capabilities. Each example uses live public datasets and validated detection pipelines.
+This document provides 8 real-world use cases demonstrating Mercury Agent ♱'s multi-domain anomaly detection capabilities. Each example uses live public datasets and validated detection pipelines.
 
 ## 1. Network Intrusion Detection (Security Domain)
 
@@ -190,7 +190,7 @@ Age-progressed facial recognition and multi-modal biometric matching for missing
 
 ## Cross-Domain Fusion
 
-OMNI AVA's unique strength is cross-domain anomaly correlation. The GOSNN (Global Omni-Scalar Network) enables:
+Mercury Agent ♱'s unique strength is cross-domain anomaly correlation. The GOSNN (Global Omni-Scalar Network) enables:
 
 - **Earthquake + Infrastructure**: Correlate seismic events with critical infrastructure vulnerability
 - **Solar Storm + Cyber**: Link space weather to potential cyber infrastructure impacts

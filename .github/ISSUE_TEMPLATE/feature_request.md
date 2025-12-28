@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest an idea for OMNI AVA
+about: Suggest an idea for Mercury Agent ♱
 title: '[FEATURE] '
 labels: enhancement, needs-triage
 assignees: ''
@@ -21,7 +21,7 @@ A clear description of what you want to happen. Include:
 ## Example Usage
 ```python
 # How you envision using this feature
-from omni_anomaly_engine import ...
+from omni_mercury_engine import ...
 
 # Example code
 ```

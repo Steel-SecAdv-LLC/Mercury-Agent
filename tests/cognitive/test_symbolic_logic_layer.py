@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for Symbolic Logic Layer - Logic Graphs and Explainable Decisions
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from omni_anomaly_engine.cognitive.symbolic_logic_layer import (
+from omni_mercury_engine.cognitive.symbolic_logic_layer import (
     DecisionType,
     ExplainableDecision,
     ExplanationType,

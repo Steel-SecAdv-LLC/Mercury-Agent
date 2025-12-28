@@ -1,18 +1,18 @@
-# OMNI-AVA Horizontal Pod Autoscaler Configuration
+# Mercury-Agent Horizontal Pod Autoscaler Configuration
 # Automatically scales pods based on CPU/memory utilization and custom metrics
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: omni-ava-api-hpa
-  namespace: omni-ava
+  name: mercury-agent-api-hpa
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: omni-ava-api
+    name: mercury-agent-api
   minReplicas: 3
   maxReplicas: 20
   behavior:
@@ -72,16 +72,16 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: omni-ava-engine-hpa
-  namespace: omni-ava
+  name: mercury-agent-engine-hpa
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: engine
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: omni-ava-engine
+    name: mercury-agent-engine
   minReplicas: 2
   maxReplicas: 10
   behavior:
@@ -122,7 +122,7 @@ spec:
           name: omni_detection_queue_depth
           selector:
             matchLabels:
-              app: omni-ava
+              app: mercury-agent
         target:
           type: Value
           value: "50"
@@ -132,16 +132,16 @@ spec:
 apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
 metadata:
-  name: omni-ava-api-vpa
-  namespace: omni-ava
+  name: mercury-agent-api-vpa
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
 spec:
   targetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: omni-ava-api
+    name: mercury-agent-api
   updatePolicy:
     updateMode: "Auto"
   resourcePolicy:
@@ -160,16 +160,16 @@ spec:
 apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
 metadata:
-  name: omni-ava-engine-vpa
-  namespace: omni-ava
+  name: mercury-agent-engine-vpa
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: engine
 spec:
   targetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: omni-ava-engine
+    name: mercury-agent-engine
   updatePolicy:
     updateMode: "Off"  # Recommend only, don't auto-update
   resourcePolicy:

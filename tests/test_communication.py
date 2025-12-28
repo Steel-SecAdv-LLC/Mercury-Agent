@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ Test communication utilities
 
 import asyncio
 
-from omni_anomaly_engine.utils.comm import AsyncMessageQueue, Message, MessagePriority, SimplePubSub
+from omni_mercury_engine.utils.comm import AsyncMessageQueue, Message, MessagePriority, SimplePubSub
 
 
 def test_message_creation():

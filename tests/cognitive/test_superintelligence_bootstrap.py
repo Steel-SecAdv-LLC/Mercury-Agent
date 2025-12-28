@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for Superintelligence Bootstrap module.
@@ -7,7 +7,7 @@ Tests for Superintelligence Bootstrap module.
 
 from __future__ import annotations
 
-from omni_anomaly_engine.cognitive.superintelligence_bootstrap import (
+from omni_mercury_engine.cognitive.superintelligence_bootstrap import (
     AgentRole,
     ChainOfThoughtReasoner,
     Counterfactual,

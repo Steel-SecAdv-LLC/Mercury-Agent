@@ -1,6 +1,6 @@
-# OMNI-AVA Runbook: HPA at Maximum Replicas
+# Mercury-Agent Runbook: HPA at Maximum Replicas
 
-## Alert: OmniAvaHPAAtMax
+## Alert: OmniMercuryHPAAtMax
 
 ### Overview
 This runbook provides guidance for responding when the Horizontal Pod Autoscaler (HPA) has scaled to its maximum replica count and may not be able to handle additional load.
@@ -21,31 +21,31 @@ This runbook provides guidance for responding when the Horizontal Pod Autoscaler
 ### 1. Check HPA Status
 ```bash
 # View HPA details
-kubectl get hpa -n omni-ava
+kubectl get hpa -n mercury-agent
 
 # Check HPA events and conditions
-kubectl describe hpa omni-ava-api -n omni-ava
+kubectl describe hpa mercury-agent-api -n mercury-agent
 
 # View current vs desired replicas
-kubectl get hpa -n omni-ava -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.currentReplicas}/{.spec.maxReplicas}{"\n"}{end}'
+kubectl get hpa -n mercury-agent -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.currentReplicas}/{.spec.maxReplicas}{"\n"}{end}'
 ```
 
 ### 2. Check Current Load
 ```bash
 # View pod resource usage
-kubectl top pods -n omni-ava
+kubectl top pods -n mercury-agent
 
 # Check request rate (Prometheus)
-sum(rate(http_requests_total{app="omni-ava"}[5m]))
+sum(rate(http_requests_total{app="mercury-agent"}[5m]))
 ```
 
 ### 3. Analyze Traffic Patterns
 ```promql
 # Request rate over time
-sum(rate(http_requests_total{app="omni-ava"}[5m]))
+sum(rate(http_requests_total{app="mercury-agent"}[5m]))
 
 # Compare to historical baseline
-sum(rate(http_requests_total{app="omni-ava"}[5m])) / sum(rate(http_requests_total{app="omni-ava"}[5m] offset 1d))
+sum(rate(http_requests_total{app="mercury-agent"}[5m])) / sum(rate(http_requests_total{app="mercury-agent"}[5m] offset 1d))
 ```
 
 ### 4. Check Cluster Capacity
@@ -54,7 +54,7 @@ sum(rate(http_requests_total{app="omni-ava"}[5m])) / sum(rate(http_requests_tota
 kubectl top nodes
 
 # Check for pending pods
-kubectl get pods -n omni-ava --field-selector=status.phase=Pending
+kubectl get pods -n mercury-agent --field-selector=status.phase=Pending
 ```
 
 ---
@@ -71,7 +71,7 @@ kubectl get pods -n omni-ava --field-selector=status.phase=Pending
 **Actions:**
 1. Increase HPA maximum:
    ```bash
-   kubectl patch hpa omni-ava-api -n omni-ava -p '{"spec":{"maxReplicas":30}}'
+   kubectl patch hpa mercury-agent-api -n mercury-agent -p '{"spec":{"maxReplicas":30}}'
    ```
 2. Verify cluster has capacity:
    ```bash
@@ -89,11 +89,11 @@ kubectl get pods -n omni-ava --field-selector=status.phase=Pending
 **Actions:**
 1. Temporarily increase max replicas:
    ```bash
-   kubectl patch hpa omni-ava-api -n omni-ava -p '{"spec":{"maxReplicas":25}}'
+   kubectl patch hpa mercury-agent-api -n mercury-agent -p '{"spec":{"maxReplicas":25}}'
    ```
 2. Enable rate limiting to protect service:
    ```bash
-   kubectl annotate ingress omni-ava -n omni-ava nginx.ingress.kubernetes.io/limit-rps="100" --overwrite
+   kubectl annotate ingress mercury-agent -n mercury-agent nginx.ingress.kubernetes.io/limit-rps="100" --overwrite
    ```
 3. Monitor and reduce max after spike passes
 
@@ -107,11 +107,11 @@ kubectl get pods -n omni-ava --field-selector=status.phase=Pending
 **Actions:**
 1. Check per-pod metrics:
    ```bash
-   kubectl top pods -n omni-ava
+   kubectl top pods -n mercury-agent
    ```
 2. Investigate application performance:
    ```bash
-   kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=100 | grep -i "slow\|timeout"
+   kubectl logs -n mercury-agent -l app.kubernetes.io/component=api --tail=100 | grep -i "slow\|timeout"
    ```
 3. Optimize application before scaling further
 4. Consider vertical scaling (more resources per pod)
@@ -126,15 +126,15 @@ kubectl get pods -n omni-ava --field-selector=status.phase=Pending
 **Actions:**
 1. Analyze traffic sources:
    ```bash
-   kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=500 | grep -oE "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+" | sort | uniq -c | sort -rn | head -20
+   kubectl logs -n mercury-agent -l app.kubernetes.io/component=api --tail=500 | grep -oE "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+" | sort | uniq -c | sort -rn | head -20
    ```
 2. Implement rate limiting:
    ```bash
-   kubectl annotate ingress omni-ava -n omni-ava nginx.ingress.kubernetes.io/limit-rps="50" --overwrite
+   kubectl annotate ingress mercury-agent -n mercury-agent nginx.ingress.kubernetes.io/limit-rps="50" --overwrite
    ```
 3. Block suspicious IPs if needed:
    ```bash
-   kubectl annotate ingress omni-ava -n omni-ava nginx.ingress.kubernetes.io/whitelist-source-range="10.0.0.0/8" --overwrite
+   kubectl annotate ingress mercury-agent -n mercury-agent nginx.ingress.kubernetes.io/whitelist-source-range="10.0.0.0/8" --overwrite
    ```
 4. Engage security team if attack confirmed
 
@@ -144,7 +144,7 @@ kubectl get pods -n omni-ava --field-selector=status.phase=Pending
 
 If HPA remains at max and service is degraded:
 
-1. **Notify team** via Slack #omni-ava-alerts
+1. **Notify team** via Slack #mercury-agent-alerts
 2. **Request cluster capacity** from infrastructure team
 3. **Engage business stakeholders** for traffic management decisions
 

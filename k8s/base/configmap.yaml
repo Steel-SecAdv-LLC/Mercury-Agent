@@ -1,12 +1,12 @@
-# OMNI-AVA ConfigMap - Application Configuration
-# Contains non-sensitive configuration for the OMNI-AVA engine
+# Mercury-Agent ConfigMap - Application Configuration
+# Contains non-sensitive configuration for the Mercury-Agent engine
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: omni-ava-config
-  namespace: omni-ava
+  name: mercury-agent-config
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: config
 data:
   # Application Settings
@@ -49,10 +49,10 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: omni-ava-prometheus-config
-  namespace: omni-ava
+  name: mercury-agent-prometheus-config
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: monitoring
 data:
   prometheus.yml: |
@@ -61,15 +61,15 @@ data:
       evaluation_interval: 15s
 
     scrape_configs:
-      - job_name: 'omni-ava-api'
+      - job_name: 'mercury-agent-api'
         static_configs:
-          - targets: ['omni-ava-api:8000']
+          - targets: ['mercury-agent-api:8000']
         metrics_path: /metrics
         scrape_interval: 10s
 
-      - job_name: 'omni-ava-engine'
+      - job_name: 'mercury-agent-engine'
         static_configs:
-          - targets: ['omni-ava-engine:9090']
+          - targets: ['mercury-agent-engine:9090']
         metrics_path: /metrics
         scrape_interval: 15s
 ---
@@ -77,10 +77,10 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: omni-ava-logging-config
-  namespace: omni-ava
+  name: mercury-agent-logging-config
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: logging
 data:
   logging.yaml: |
@@ -105,12 +105,12 @@ data:
         class: logging.handlers.RotatingFileHandler
         level: DEBUG
         formatter: standard
-        filename: /app/logs/omni-ava.log
+        filename: /app/logs/mercury-agent.log
         maxBytes: 10485760
         backupCount: 5
 
     loggers:
-      omni_anomaly_engine:
+      omni_mercury_engine:
         level: INFO
         handlers: [console, file]
         propagate: false

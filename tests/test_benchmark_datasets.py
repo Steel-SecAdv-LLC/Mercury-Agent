@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -38,7 +38,7 @@ class TestBaseImageDataset:
 
     def test_base_dataset_interface(self):
         """Test BaseImageDataset has required interface."""
-        from omni_anomaly_engine.data.benchmarks.base_dataset import BaseImageDataset
+        from omni_mercury_engine.data.benchmarks.base_dataset import BaseImageDataset
 
         # BaseImageDataset is abstract, check interface exists
         assert hasattr(BaseImageDataset, "__getitem__")
@@ -50,7 +50,7 @@ class TestBaseVideoDataset:
 
     def test_base_video_interface(self):
         """Test BaseVideoDataset has required interface."""
-        from omni_anomaly_engine.data.benchmarks.base_dataset import BaseVideoDataset
+        from omni_mercury_engine.data.benchmarks.base_dataset import BaseVideoDataset
 
         assert hasattr(BaseVideoDataset, "__getitem__")
         assert hasattr(BaseVideoDataset, "__len__")
@@ -61,7 +61,7 @@ class TestMVTecADConfig:
 
     def test_default_config(self):
         """Test default MVTec AD config."""
-        from omni_anomaly_engine.data.benchmarks.mvtec import MVTecADConfig
+        from omni_mercury_engine.data.benchmarks.mvtec import MVTecADConfig
 
         config = MVTecADConfig()
         assert config.image_size == (224, 224)
@@ -69,7 +69,7 @@ class TestMVTecADConfig:
 
     def test_custom_config(self):
         """Test custom MVTec AD config."""
-        from omni_anomaly_engine.data.benchmarks.mvtec import MVTecADConfig
+        from omni_mercury_engine.data.benchmarks.mvtec import MVTecADConfig
 
         config = MVTecADConfig(
             root="./data/mvtec",
@@ -86,8 +86,8 @@ class TestMVTecADDataset:
 
     def test_mvtec_initialization(self, tmp_path):
         """Test MVTec AD dataset initialization."""
-        from omni_anomaly_engine.data.benchmarks import MVTecADDataset
-        from omni_anomaly_engine.data.benchmarks.mvtec import MVTecADConfig
+        from omni_mercury_engine.data.benchmarks import MVTecADDataset
+        from omni_mercury_engine.data.benchmarks.mvtec import MVTecADConfig
 
         config = MVTecADConfig(root=str(tmp_path), category="bottle")
         dataset = MVTecADDataset(config=config)
@@ -95,7 +95,7 @@ class TestMVTecADDataset:
 
     def test_mvtec_categories(self):
         """Test MVTec AD available categories."""
-        from omni_anomaly_engine.data.benchmarks import MVTecADDataset
+        from omni_mercury_engine.data.benchmarks import MVTecADDataset
 
         categories = MVTecADDataset.get_categories()
         assert "bottle" in categories
@@ -105,7 +105,7 @@ class TestMVTecADDataset:
 
     def test_mvtec_config_from_dict(self, tmp_path):
         """Test MVTec AD config from dictionary."""
-        from omni_anomaly_engine.data.benchmarks import MVTecADDataset
+        from omni_mercury_engine.data.benchmarks import MVTecADDataset
 
         config = {"root": str(tmp_path), "category": "cable"}
         dataset = MVTecADDataset(config=config)
@@ -117,7 +117,7 @@ class TestUCFCrimeConfig:
 
     def test_default_config(self):
         """Test default UCF-Crime config."""
-        from omni_anomaly_engine.data.benchmarks.ucf_crime import UCFCrimeConfig
+        from omni_mercury_engine.data.benchmarks.ucf_crime import UCFCrimeConfig
 
         config = UCFCrimeConfig()
         assert config.frame_size == (224, 224)
@@ -125,7 +125,7 @@ class TestUCFCrimeConfig:
 
     def test_custom_config(self):
         """Test custom UCF-Crime config."""
-        from omni_anomaly_engine.data.benchmarks.ucf_crime import UCFCrimeConfig
+        from omni_mercury_engine.data.benchmarks.ucf_crime import UCFCrimeConfig
 
         config = UCFCrimeConfig(
             root="./data/ucf",
@@ -142,8 +142,8 @@ class TestUCFCrimeDataset:
 
     def test_ucf_initialization(self, tmp_path):
         """Test UCF-Crime dataset initialization."""
-        from omni_anomaly_engine.data.benchmarks import UCFCrimeDataset
-        from omni_anomaly_engine.data.benchmarks.ucf_crime import UCFCrimeConfig
+        from omni_mercury_engine.data.benchmarks import UCFCrimeDataset
+        from omni_mercury_engine.data.benchmarks.ucf_crime import UCFCrimeConfig
 
         config = UCFCrimeConfig(root=str(tmp_path))
         dataset = UCFCrimeDataset(config=config)
@@ -151,7 +151,7 @@ class TestUCFCrimeDataset:
 
     def test_ucf_anomaly_classes(self):
         """Test UCF-Crime anomaly classes."""
-        from omni_anomaly_engine.data.benchmarks import UCFCrimeDataset
+        from omni_mercury_engine.data.benchmarks import UCFCrimeDataset
 
         classes = UCFCrimeDataset.get_anomaly_classes()
         assert "Abuse" in classes
@@ -165,14 +165,14 @@ class TestShanghaiTechConfig:
 
     def test_default_config(self):
         """Test default Shanghai Tech config."""
-        from omni_anomaly_engine.data.benchmarks.shanghai_tech import ShanghaiTechConfig
+        from omni_mercury_engine.data.benchmarks.shanghai_tech import ShanghaiTechConfig
 
         config = ShanghaiTechConfig()
         assert config.frame_size == (224, 224)
 
     def test_custom_config(self):
         """Test custom Shanghai Tech config."""
-        from omni_anomaly_engine.data.benchmarks.shanghai_tech import ShanghaiTechConfig
+        from omni_mercury_engine.data.benchmarks.shanghai_tech import ShanghaiTechConfig
 
         config = ShanghaiTechConfig(
             root="./data/shanghai",
@@ -188,8 +188,8 @@ class TestShanghaiTechDataset:
 
     def test_shanghai_initialization(self, tmp_path):
         """Test Shanghai Tech dataset initialization."""
-        from omni_anomaly_engine.data.benchmarks import ShanghaiTechDataset
-        from omni_anomaly_engine.data.benchmarks.shanghai_tech import ShanghaiTechConfig
+        from omni_mercury_engine.data.benchmarks import ShanghaiTechDataset
+        from omni_mercury_engine.data.benchmarks.shanghai_tech import ShanghaiTechConfig
 
         config = ShanghaiTechConfig(root=str(tmp_path))
         dataset = ShanghaiTechDataset(config=config)
@@ -201,7 +201,7 @@ class TestBenchmarkModuleImports:
 
     def test_module_imports(self):
         """Test all benchmark datasets can be imported."""
-        from omni_anomaly_engine.data.benchmarks import (
+        from omni_mercury_engine.data.benchmarks import (
             BaseImageDataset,
             BaseVideoDataset,
             MVTecADDataset,
@@ -217,7 +217,7 @@ class TestBenchmarkModuleImports:
 
     def test_module_all_exports(self):
         """Test __all__ exports."""
-        from omni_anomaly_engine.data import benchmarks
+        from omni_mercury_engine.data import benchmarks
 
         assert "MVTecADDataset" in benchmarks.__all__
         assert "UCFCrimeDataset" in benchmarks.__all__
@@ -230,7 +230,7 @@ class TestDatasetTransforms:
     @pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
     def test_default_transforms(self):
         """Test default image transforms."""
-        from omni_anomaly_engine.data.benchmarks.base_dataset import get_default_transforms
+        from omni_mercury_engine.data.benchmarks.base_dataset import get_default_transforms
 
         transform = get_default_transforms(image_size=(224, 224))
         assert transform is not None
@@ -247,7 +247,7 @@ class TestDatasetTransforms:
     @pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
     def test_no_normalize_transforms(self):
         """Test transforms without normalization."""
-        from omni_anomaly_engine.data.benchmarks.base_dataset import get_default_transforms
+        from omni_mercury_engine.data.benchmarks.base_dataset import get_default_transforms
 
         transform = get_default_transforms(image_size=(224, 224), normalize=False)
         assert transform is not None

@@ -1,6 +1,6 @@
-# Mathematical Derivations for OMNI-AVA
+# Mathematical Derivations for Mercury-Agent
 
-This document provides rigorous mathematical foundations for the key algorithms and equations used in OMNI-AVA, including the Ava-Dominance Equation, Lyapunov stability proofs, and harmonic synergy computations.
+This document provides rigorous mathematical foundations for the key algorithms and equations used in Mercury-Agent, including the Ava-Dominance Equation, Lyapunov stability proofs, and harmonic synergy computations.
 
 ## 1. Ava-Dominance Equation
 
@@ -468,4 +468,4 @@ def run_ab_benchmark(n_epochs=300, n_runs=10):
 
 *Document Version: 1.0*
 *Last Updated: December 8, 2025*
-*Author: OMNI-AVA Development Team*
+*Author: Mercury-Agent Development Team*

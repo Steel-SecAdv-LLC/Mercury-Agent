@@ -1,5 +1,5 @@
 [run]
-source = omni_anomaly_engine
+source = omni_mercury_engine
 
 [report]
 exclude_lines =
