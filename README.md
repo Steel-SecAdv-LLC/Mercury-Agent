@@ -636,6 +636,17 @@ docker build -t omni-ava:dev --target development .
 docker run -it -v $(pwd):/app omni-ava:dev /bin/bash
 ```
 
+### Container Defaults
+
+The Dockerfile now defaults to running the FastAPI server for production inference. To run training instead, override the CMD:
+
+```bash
+# Run training instead of API server
+docker run -it omni-ava:latest python src/mercury/train.py
+```
+
+This supports scalable deployments via Kubernetes/Helm where the API server handles inference requests while training jobs can be run as separate batch workloads.
+
 </details>
 
 <details>
@@ -695,6 +706,9 @@ The test suite includes:
 - `test_ava_guardian.py`: 60+ tests for Ava-Guardian PQC adapter and EWMA timing monitor
 - `test_gosnn_fallback.py`: 40+ tests for GOSNN error handling and 128D normalization
 
+**Ethics Scoring Notes:**
+Ethics tests (e.g., in `test_ai_ethics.py`) use keyword-based scoring with boosts. For example, compassion scoring uses a base of 0.55 with a +0.1 boost when 'backup' is present in parameters. For robustness, consider switching to boolean flags in future iterations—current implementation awards points for keyword presence in stringified params.
+
 </details>
 
 <details>
@@ -711,7 +725,7 @@ GitHub Actions automatically tests:
 
 ### CI Matrix
 
-- **Python Versions**: 3.12
+- **Python Versions**: 3.11, 3.12
 - **Platforms**: Ubuntu Latest
 - **Jobs**: test, lint, security, docker
 
