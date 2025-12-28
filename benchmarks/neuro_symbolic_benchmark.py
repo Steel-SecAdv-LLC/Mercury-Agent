@@ -726,7 +726,8 @@ def create_comprehensive_report(results: dict[str, Any], output_dir: Path) -> No
     )
 
     fig.suptitle(
-        "Mercury-Agent Neuro-Symbolic Evolution\n" "7-Phase Cognitive Architecture Benchmark Report",
+        "Mercury-Agent Neuro-Symbolic Evolution\n"
+        "7-Phase Cognitive Architecture Benchmark Report",
         fontsize=16,
         fontweight="bold",
         y=0.98,

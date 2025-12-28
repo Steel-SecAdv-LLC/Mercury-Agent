@@ -184,7 +184,9 @@ class NSLKDDLoader(DatasetLoader):
     }
 
     def __init__(self, cache_dir: str | Path | None = None) -> None:
-        self.cache_dir = Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
+        self.cache_dir = (
+            Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
+        )
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._data: np.ndarray[Any, Any] | None = None
         self._labels: np.ndarray[Any, Any] | None = None
@@ -351,7 +353,9 @@ class USGSEarthquakeLoader(DatasetLoader):
     ]
 
     def __init__(self, cache_dir: str | Path | None = None) -> None:
-        self.cache_dir = Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
+        self.cache_dir = (
+            Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
+        )
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._data: np.ndarray[Any, Any] | None = None
         self._labels: np.ndarray[Any, Any] | None = None
@@ -501,7 +505,9 @@ class USGSEarthquakeLoader(DatasetLoader):
             import json
             from urllib.request import Request
 
-            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310  # nosec B310
+            req = Request(
+                url, headers={"User-Agent": "Mercury-Agent/1.0"}
+            )  # noqa: S310  # nosec B310
             with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
                 data = json.loads(response.read().decode())
 
@@ -627,7 +633,9 @@ class MIMICLoader(DatasetLoader):
     ]
 
     def __init__(self, cache_dir: str | Path | None = None) -> None:
-        self.cache_dir = Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
+        self.cache_dir = (
+            Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
+        )
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._data: np.ndarray[Any, Any] | None = None
         self._labels: np.ndarray[Any, Any] | None = None
@@ -895,7 +903,9 @@ class NOAASpaceWeatherLoader(DatasetLoader):
     ]
 
     def __init__(self, cache_dir: str | Path | None = None) -> None:
-        self.cache_dir = Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
+        self.cache_dir = (
+            Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
+        )
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._data: np.ndarray[Any, Any] | None = None
         self._labels: np.ndarray[Any, Any] | None = None
@@ -1046,7 +1056,9 @@ class NOAASpaceWeatherLoader(DatasetLoader):
             if not url.startswith("https://"):
                 raise RuntimeError("NOAA SWPC API URL must use HTTPS. Security validation failed.")
 
-            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310  # nosec B310
+            req = Request(
+                url, headers={"User-Agent": "Mercury-Agent/1.0"}
+            )  # noqa: S310  # nosec B310
             with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
                 kp_data = json.loads(response.read().decode())
 
@@ -1167,7 +1179,9 @@ class NOAAHurricaneLoader(DatasetLoader):
     ]
 
     def __init__(self, cache_dir: str | Path | None = None) -> None:
-        self.cache_dir = Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
+        self.cache_dir = (
+            Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
+        )
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._data: np.ndarray[Any, Any] | None = None
         self._labels: np.ndarray[Any, Any] | None = None
@@ -1314,7 +1328,9 @@ class NOAAHurricaneLoader(DatasetLoader):
             if not url.startswith("https://"):
                 raise RuntimeError("NOAA NHC API URL must use HTTPS. Security validation failed.")
 
-            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310  # nosec B310
+            req = Request(
+                url, headers={"User-Agent": "Mercury-Agent/1.0"}
+            )  # noqa: S310  # nosec B310
             with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
                 raw_data = response.read().decode()
 
@@ -1452,7 +1468,9 @@ class NOAAOceanLoader(DatasetLoader):
     ]
 
     def __init__(self, cache_dir: str | Path | None = None) -> None:
-        self.cache_dir = Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
+        self.cache_dir = (
+            Path(cache_dir) if cache_dir else Path.home() / ".omni_mercury" / "datasets"
+        )
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._data: np.ndarray[Any, Any] | None = None
         self._labels: np.ndarray[Any, Any] | None = None
@@ -1611,7 +1629,9 @@ class NOAAOceanLoader(DatasetLoader):
             if not url.startswith("https://"):
                 raise RuntimeError("NOAA NOS API URL must use HTTPS. Security validation failed.")
 
-            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310  # nosec B310
+            req = Request(
+                url, headers={"User-Agent": "Mercury-Agent/1.0"}
+            )  # noqa: S310  # nosec B310
             with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
                 raw_data = json.loads(response.read().decode())
 
