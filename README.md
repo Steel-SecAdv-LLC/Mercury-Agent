@@ -3,7 +3,7 @@
 </div>
 
 <div align="center">
-  <img width="355" height="476" alt="image" src="https://github.com/user-attachments/assets/d0e1d75d-3722-4ce8-ae22-ea25cbda19ac" />
+  <img width="358" height="478" alt="image" src="https://github.com/user-attachments/assets/4d7f93cb-96d9-4421-92c9-1575e9d75060" />
 </div>
 
 ---
@@ -1230,6 +1230,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-<img width="217" height="224" alt="image" src="https://github.com/user-attachments/assets/b52e06a4-0715-4987-ab30-375fd3631dd3" />
+<img width="27" height="29" alt="image" src="https://github.com/user-attachments/assets/12254743-9798-46df-bc27-4b25857141fe" />
 
 </div>
