@@ -3,7 +3,7 @@
 </div>
 
 <div align="center">
-  <img width="484" height="596" alt="image" src="https://github.com/user-attachments/assets/6261e719-3832-4b4c-b592-717816289275" />
+  <img width="355" height="476" alt="image" src="https://github.com/user-attachments/assets/d0e1d75d-3722-4ce8-ae22-ea25cbda19ac" />
 </div>
 
 ---
@@ -1230,6 +1230,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-<img src="docs/images/ama_logo.png" alt="AMA" height="24">
+<img width="217" height="224" alt="image" src="https://github.com/user-attachments/assets/b52e06a4-0715-4987-ab30-375fd3631dd3" />
 
 </div>
