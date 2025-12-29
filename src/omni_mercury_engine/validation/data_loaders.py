@@ -505,10 +505,9 @@ class USGSEarthquakeLoader(DatasetLoader):
             import json
             from urllib.request import Request
 
-            req = Request(
-                url, headers={"User-Agent": "Mercury-Agent/1.0"}
-            )  # noqa: S310  # nosec B310
-            with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+            # URL scheme validated above - only HTTPS allowed
+            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
+            with urlopen(req, timeout=30) as response:  # noqa: S310
                 data = json.loads(response.read().decode())
 
             features_list = []
@@ -1056,10 +1055,9 @@ class NOAASpaceWeatherLoader(DatasetLoader):
             if not url.startswith("https://"):
                 raise RuntimeError("NOAA SWPC API URL must use HTTPS. Security validation failed.")
 
-            req = Request(
-                url, headers={"User-Agent": "Mercury-Agent/1.0"}
-            )  # noqa: S310  # nosec B310
-            with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+            # URL scheme validated above - only HTTPS allowed
+            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
+            with urlopen(req, timeout=30) as response:  # noqa: S310
                 kp_data = json.loads(response.read().decode())
 
             if not kp_data:
@@ -1328,10 +1326,9 @@ class NOAAHurricaneLoader(DatasetLoader):
             if not url.startswith("https://"):
                 raise RuntimeError("NOAA NHC API URL must use HTTPS. Security validation failed.")
 
-            req = Request(
-                url, headers={"User-Agent": "Mercury-Agent/1.0"}
-            )  # noqa: S310  # nosec B310
-            with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+            # URL scheme validated above - only HTTPS allowed
+            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
+            with urlopen(req, timeout=30) as response:  # noqa: S310
                 raw_data = response.read().decode()
 
             if not raw_data:
@@ -1629,10 +1626,9 @@ class NOAAOceanLoader(DatasetLoader):
             if not url.startswith("https://"):
                 raise RuntimeError("NOAA NOS API URL must use HTTPS. Security validation failed.")
 
-            req = Request(
-                url, headers={"User-Agent": "Mercury-Agent/1.0"}
-            )  # noqa: S310  # nosec B310
-            with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+            # URL scheme validated above - only HTTPS allowed
+            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
+            with urlopen(req, timeout=30) as response:  # noqa: S310
                 raw_data = json.loads(response.read().decode())
 
             data_entries = raw_data.get("data", [])
