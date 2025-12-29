@@ -1,5 +1,5 @@
 <div align="center">
-   <h1><b>OMNI<span style="color:#B8860B">♱</span>AVA (O<span style="color:#B8860B">♱</span>A): Mercury Agent</b></h1>
+   <h1><b>Mercury Agent <span style="color:#B8860B">♱</span></b></h1>
 </div>
 
 <div align="center">
