@@ -411,6 +411,7 @@ OMEGA_CONSTANT = MathematicalConstants.OMEGA.value
 # Each code has helical parameters (r, p) inspired by DNA double-helix stability.
 # =============================================================================
 
+
 @dataclass(frozen=True)
 class OmniCode:
     """
@@ -537,11 +538,7 @@ class OmniCodes:
     @classmethod
     def get_all(cls) -> dict[str, OmniCode]:
         """Get all Omni-Codes as a dictionary."""
-        return {
-            name: value
-            for name, value in vars(cls).items()
-            if isinstance(value, OmniCode)
-        }
+        return {name: value for name, value in vars(cls).items() if isinstance(value, OmniCode)}
 
     @classmethod
     def get_total_stability(cls) -> float:
@@ -559,10 +556,7 @@ class OmniCodes:
         Returns:
             Total autonomy boost (sum of individual boosts)
         """
-        return sum(
-            code.compute_autonomy_boost(threshold)
-            for code in cls.get_all().values()
-        )
+        return sum(code.compute_autonomy_boost(threshold) for code in cls.get_all().values())
 
     @classmethod
     def validate_stability(cls, min_total: float = 50.0) -> bool:
