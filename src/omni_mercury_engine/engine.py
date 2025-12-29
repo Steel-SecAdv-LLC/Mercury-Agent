@@ -1445,5 +1445,4 @@ class OmniMercuryEngine:
             self._executor.shutdown(wait=False)
 
 
-# Legacy alias for backward compatibility (if needed in future)
-# OmniAvaEngine = OmniMercuryEngine  # Uncomment if old name is still referenced
+# Legacy alias removed - project renamed to Mercury Agent ♱
