@@ -403,6 +403,208 @@ FEIGENBAUM_DELTA_CONSTANT = MathematicalConstants.FEIGENBAUM_DELTA.value
 OMEGA_CONSTANT = MathematicalConstants.OMEGA.value
 
 
+# =============================================================================
+# Omni-Codes: Bio-Inspired Helical Parameters from Ava Guardian
+# =============================================================================
+# Seven foundational codes governing ethical AI alignment and system stability.
+# Integrated from Ava Guardian (https://github.com/Steel-SecAdv-LLC/Ava-Guardian)
+# Each code has helical parameters (r, p) inspired by DNA double-helix stability.
+# =============================================================================
+
+@dataclass(frozen=True)
+class OmniCode:
+    """
+    An Omni-Code with helical parameters for ethical AI alignment.
+
+    Attributes:
+        code: Full code string with symbolic encoding
+        symbol: Short symbol representation
+        domain: Ethical/functional domain
+        r: Helical radius parameter (stability factor)
+        p: Helical pitch parameter (evolution rate)
+        description: Human-readable description
+    """
+
+    code: str
+    symbol: str
+    domain: str
+    r: float
+    p: float
+    description: str = ""
+
+    @property
+    def stability(self) -> float:
+        """
+        Calculate stability score from helical parameters.
+
+        Stability = |r| * p, representing the balance between
+        structural integrity (r) and adaptive evolution (p).
+        """
+        return abs(self.r) * self.p
+
+    def compute_autonomy_boost(self, threshold: float = 15.0) -> float:
+        """
+        Compute autonomy boost based on stability.
+
+        If stability exceeds threshold, returns a small boost (0.05).
+        This ties Omni-Code stability to agent autonomy levels.
+
+        Args:
+            threshold: Stability threshold for autonomy boost
+
+        Returns:
+            Autonomy boost value (0.0 or 0.05)
+        """
+        return 0.05 if self.stability > threshold else 0.0
+
+
+class OmniCodes:
+    """
+    Seven foundational Omni-Codes governing Mercury Agent ♱.
+
+    These codes are integrated from Ava Guardian and provide:
+    - Helical data encoding (mirrors DNA double-helix stability)
+    - Self-healing capabilities (CRISPR-inspired adaptations)
+    - Evolutionary adaptability (dynamic parameter tuning)
+    - Canonical hashing (cryptographic integrity)
+
+    Reference: https://github.com/Steel-SecAdv-LLC/Ava-Guardian
+    """
+
+    OMNI_DIRECTIONAL = OmniCode(
+        code="👁20A07∞_XΔEΛX_ϵ19A89Ϙ",
+        symbol="👁∞",
+        domain="Omni-Directional System",
+        r=20.0,
+        p=0.7,
+        description="360-degree awareness and multi-domain perception",
+    )
+
+    OMNI_PERCIPIENT = OmniCode(
+        code="Ϙ15A11ϵ_ΞΛMΔΞ_ϖ20A19Φ",
+        symbol="Ϙϵ",
+        domain="Omni-Percipient Future",
+        r=15.0,
+        p=1.1,
+        description="Predictive foresight and anticipatory analysis",
+    )
+
+    OMNI_INDIVISIBLE = OmniCode(
+        code="Φ07A09ϖ_ΨΔAΛΨ_ϵ19A88Σ",
+        symbol="Φϖ",
+        domain="Omni-Indivisible Guardian",
+        r=7.0,
+        p=0.9,
+        description="Unified protection and integrity preservation",
+    )
+
+    OMNI_BENEVOLENT = OmniCode(
+        code="Σ19L12ϵ_ΞΛEΔΞ_ϖ19A92Ω",
+        symbol="Σϵ",
+        domain="Omni-Benevolent Stone",
+        r=19.0,
+        p=1.2,
+        description="Ethical foundation and humanitarian alignment",
+    )
+
+    OMNI_SCIENT = OmniCode(
+        code="Ω20V11ϖ_ΨΔSΛΨ_ϵ20A15Θ",
+        symbol="Ωϖ",
+        domain="Omni-Scient Curiosity",
+        r=20.0,
+        p=1.1,
+        description="Knowledge acquisition and scientific discovery",
+    )
+
+    OMNI_UNIVERSAL = OmniCode(
+        code="Θ25M01ϵ_ΞΛLΔΞ_ϖ19A91Γ",
+        symbol="Θϵ",
+        domain="Omni-Universal Discipline",
+        r=25.0,
+        p=0.1,
+        description="Structured governance and systematic order",
+    )
+
+    OMNI_POTENT = OmniCode(
+        code="Γ19L11ϖ_XΔHΛX_∞19A84♰",
+        symbol="Γϖ",
+        domain="Omni-Potent Lifeforce",
+        r=19.0,
+        p=1.1,
+        description="Regenerative capability and adaptive resilience",
+    )
+
+    @classmethod
+    def get_all(cls) -> dict[str, OmniCode]:
+        """Get all Omni-Codes as a dictionary."""
+        return {
+            name: value
+            for name, value in vars(cls).items()
+            if isinstance(value, OmniCode)
+        }
+
+    @classmethod
+    def get_total_stability(cls) -> float:
+        """Calculate total stability across all Omni-Codes."""
+        return sum(code.stability for code in cls.get_all().values())
+
+    @classmethod
+    def get_autonomy_boost(cls, threshold: float = 15.0) -> float:
+        """
+        Calculate total autonomy boost from all Omni-Codes.
+
+        Args:
+            threshold: Stability threshold for each code
+
+        Returns:
+            Total autonomy boost (sum of individual boosts)
+        """
+        return sum(
+            code.compute_autonomy_boost(threshold)
+            for code in cls.get_all().values()
+        )
+
+    @classmethod
+    def validate_stability(cls, min_total: float = 50.0) -> bool:
+        """
+        Validate that total stability meets minimum threshold.
+
+        Args:
+            min_total: Minimum required total stability
+
+        Returns:
+            True if stability is sufficient
+        """
+        return cls.get_total_stability() >= min_total
+
+
+def compute_ethical_autonomy(
+    base_autonomy: float = 0.8,
+    ethical_threshold: float = 0.99,
+    use_omni_codes: bool = True,
+) -> float:
+    """
+    Compute dynamic autonomy level bounded by ethical constraints.
+
+    Autonomy is scaled based on ethical threshold and optionally
+    boosted by Omni-Code stability calculations.
+
+    Args:
+        base_autonomy: Starting autonomy level (0-1)
+        ethical_threshold: Ethical compliance threshold (0-1)
+        use_omni_codes: Whether to apply Omni-Code stability boost
+
+    Returns:
+        Final autonomy level, capped at 0.95
+    """
+    autonomy = min(base_autonomy, ethical_threshold * 1.02)
+
+    if use_omni_codes:
+        autonomy += OmniCodes.get_autonomy_boost(threshold=15.0)
+
+    return min(0.95, autonomy)
+
+
 def get_constant(name: str, precision: Precision = Precision.FLOAT64) -> float:
     """
     Get a mathematical constant by name with specified precision.

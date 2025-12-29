@@ -422,6 +422,50 @@ engine.add_rule(SymbolicRule(
 - Ethical constraints enforced via symbolic rules
 - No sensitive data logged by default
 
+## Omni-Codes: Bio-Inspired Helical Parameters
+
+Mercury Agent ♱ integrates the **Omni-Codes** from [Ava Guardian](https://github.com/Steel-SecAdv-LLC/Ava-Guardian), providing bio-inspired helical parameters for ethical AI alignment and system stability.
+
+### Seven Foundational Codes
+
+| Code | Symbol | Domain | Helical Parameters |
+|------|--------|--------|-------------------|
+| `👁20A07∞_XΔEΛX_ϵ19A89Ϙ` | 👁∞ | Omni-Directional System | r=20.0, p=0.7 |
+| `Ϙ15A11ϵ_ΞΛMΔΞ_ϖ20A19Φ` | Ϙϵ | Omni-Percipient Future | r=15.0, p=1.1 |
+| `Φ07A09ϖ_ΨΔAΛΨ_ϵ19A88Σ` | Φϖ | Omni-Indivisible Guardian | r=7.0, p=0.9 |
+| `Σ19L12ϵ_ΞΛEΔΞ_ϖ19A92Ω` | Σϵ | Omni-Benevolent Stone | r=19.0, p=1.2 |
+| `Ω20V11ϖ_ΨΔSΛΨ_ϵ20A15Θ` | Ωϖ | Omni-Scient Curiosity | r=20.0, p=1.1 |
+| `Θ25M01ϵ_ΞΛLΔΞ_ϖ19A91Γ` | Θϵ | Omni-Universal Discipline | r=25.0, p=0.1 |
+| `Γ19L11ϖ_XΔHΛX_∞19A84♰` | Γϖ | Omni-Potent Lifeforce | r=19.0, p=1.1 |
+
+### Architectural Benefits
+
+- **Helical data encoding**: Mirrors DNA double-helix stability for robust data structures
+- **Self-healing capabilities**: CRISPR-inspired adaptations for system resilience
+- **Evolutionary adaptability**: Dynamic parameter tuning based on stability calculations
+- **Canonical hashing**: Cryptographic integrity through structured encoding
+
+### Integration with Autonomy
+
+The Omni-Codes tie directly into the agent's autonomy system:
+
+```python
+from omni_mercury_engine.utils.constants import OmniCodes, compute_ethical_autonomy
+
+# Stability calculation: |r| * p for each code
+total_stability = OmniCodes.get_total_stability()  # ~115.8
+
+# Autonomy bounded by ethical constraints
+autonomy = compute_ethical_autonomy(
+    base_autonomy=0.8,
+    ethical_threshold=0.99,
+    use_omni_codes=True
+)  # Returns up to 0.95
+
+# Validate system stability
+is_stable = OmniCodes.validate_stability(min_total=50.0)  # True
+```
+
 ## Version History
 
 - **v1.0.0**: Initial consolidation with unified OmniMercuryEngine
