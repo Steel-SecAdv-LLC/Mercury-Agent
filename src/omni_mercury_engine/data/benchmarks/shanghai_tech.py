@@ -30,7 +30,7 @@ Reference:
 """
 
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path  # noqa: TC003
 from typing import Any
 
 import numpy as np
@@ -169,7 +169,7 @@ class ShanghaiTechDataset(BaseVideoDataset):
                             frame_idx = int(parts[0])
                             annotations.append((frame_idx, frame_idx))
                 return np.array(annotations) if annotations else None
-            except (ValueError, IOError):
+            except (OSError, ValueError):
                 return None
 
         return None

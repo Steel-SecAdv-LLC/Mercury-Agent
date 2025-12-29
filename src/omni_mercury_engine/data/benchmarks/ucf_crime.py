@@ -30,7 +30,7 @@ Reference:
 """
 
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path  # noqa: TC003
 from typing import Any
 
 import numpy as np
@@ -175,7 +175,7 @@ class UCFCrimeDataset(BaseVideoDataset):
                             start, end = int(parts[0]), int(parts[1])
                             annotations.append((start, end))
                 return np.array(annotations) if annotations else None
-            except (ValueError, IOError):
+            except (OSError, ValueError):
                 return None
 
         return None

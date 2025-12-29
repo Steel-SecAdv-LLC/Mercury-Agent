@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import numpy as np
+import numpy as np  # noqa: TC002
 
 try:
     import torch
