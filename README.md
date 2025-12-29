@@ -3,7 +3,7 @@
 </div>
 
 <div align="center">
-  <img width="484" height="596" alt="image" src="https://github.com/user-attachments/assets/6261e719-3832-4b4c-b592-717816289275" />
+  <img width="358" height="478" alt="image" src="https://github.com/user-attachments/assets/4d7f93cb-96d9-4421-92c9-1575e9d75060" />
 </div>
 
 ---
@@ -1270,6 +1270,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-<img src="docs/images/mercury_agent_logo.png" alt="AMA" height="24">
+<img width="27" height="29" alt="image" src="https://github.com/user-attachments/assets/12254743-9798-46df-bc27-4b25857141fe" />
 
 </div>
