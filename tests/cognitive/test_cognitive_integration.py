@@ -22,7 +22,7 @@ class TestPlasticityEngine:
     """Tests for PlasticityEngine."""
 
     def test_initialization(self):
-        from omni_anomaly_engine.cognitive.plasticity_engine import PlasticityEngine
+        from omni_mercury_engine.cognitive.plasticity_engine import PlasticityEngine
 
         engine = PlasticityEngine()
         assert engine is not None
@@ -30,7 +30,7 @@ class TestPlasticityEngine:
         assert stats["active_connections"] == 0
 
     def test_adaptation(self):
-        from omni_anomaly_engine.cognitive.plasticity_engine import PlasticityEngine
+        from omni_mercury_engine.cognitive.plasticity_engine import PlasticityEngine
 
         engine = PlasticityEngine()
         event = engine.adapt("pattern_a", "pattern_b", strength=0.8)
@@ -44,7 +44,7 @@ class TestPlasticityEngine:
         assert stats["active_connections"] == 1
 
     def test_association_query(self):
-        from omni_anomaly_engine.cognitive.plasticity_engine import PlasticityEngine
+        from omni_mercury_engine.cognitive.plasticity_engine import PlasticityEngine
 
         engine = PlasticityEngine()
         engine.adapt("a", "b", strength=0.9)
@@ -58,7 +58,7 @@ class TestKnowledgeGraph:
     """Tests for KnowledgeGraph."""
 
     def test_initialization(self):
-        from omni_anomaly_engine.cognitive.knowledge_graph import KnowledgeGraph
+        from omni_mercury_engine.cognitive.knowledge_graph import KnowledgeGraph
 
         graph = KnowledgeGraph()
         assert graph is not None
@@ -66,7 +66,7 @@ class TestKnowledgeGraph:
         assert stats["total_nodes"] == 0
 
     def test_add_node_and_edge(self):
-        from omni_anomaly_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGraph, NodeType
+        from omni_mercury_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGraph, NodeType
 
         graph = KnowledgeGraph()
 
@@ -79,7 +79,7 @@ class TestKnowledgeGraph:
         assert len(neighbors) == 1
 
     def test_spreading_activation(self):
-        from omni_anomaly_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGraph, NodeType
+        from omni_mercury_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGraph, NodeType
 
         graph = KnowledgeGraph()
 
@@ -99,7 +99,7 @@ class TestMultiHopReasoner:
     """Tests for MultiHopReasoner."""
 
     def test_initialization(self):
-        from omni_anomaly_engine.cognitive.multi_hop_reasoner import MultiHopReasoner
+        from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner
 
         reasoner = MultiHopReasoner()
         assert reasoner is not None
@@ -107,7 +107,7 @@ class TestMultiHopReasoner:
         assert stats["total_rules"] > 0  # Core rules initialized
 
     def test_deduction(self):
-        from omni_anomaly_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
+        from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
 
         reasoner = MultiHopReasoner()
 
@@ -120,7 +120,7 @@ class TestMultiHopReasoner:
         # May or may not find derivations depending on knowledge base
 
     def test_abduction(self):
-        from omni_anomaly_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
+        from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
 
         reasoner = MultiHopReasoner()
 
@@ -139,13 +139,13 @@ class TestIPBEngine:
     """Tests for IPBEngine."""
 
     def test_initialization(self):
-        from omni_anomaly_engine.cognitive.ipb_engine import IPBEngine
+        from omni_mercury_engine.cognitive.ipb_engine import IPBEngine
 
         ipb = IPBEngine()
         assert ipb is not None
 
     def test_environment_definition(self):
-        from omni_anomaly_engine.cognitive.ipb_engine import EnvironmentDomain, IPBEngine
+        from omni_mercury_engine.cognitive.ipb_engine import EnvironmentDomain, IPBEngine
 
         ipb = IPBEngine()
         env = ipb.define_environment(
@@ -162,13 +162,13 @@ class TestCausalDiscovery:
     """Tests for CausalDiscoveryEngine."""
 
     def test_initialization(self):
-        from omni_anomaly_engine.cognitive.causal_discovery import CausalDiscoveryEngine
+        from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine
 
         causal = CausalDiscoveryEngine()
         assert causal is not None
 
     def test_structure_discovery(self):
-        from omni_anomaly_engine.cognitive.causal_discovery import CausalDiscoveryEngine
+        from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine
 
         causal = CausalDiscoveryEngine()
 
@@ -188,13 +188,13 @@ class TestUncertaintyQuantifier:
     """Tests for UncertaintyQuantifier."""
 
     def test_initialization(self):
-        from omni_anomaly_engine.cognitive.uncertainty import UncertaintyQuantifier
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier()
         assert uq is not None
 
     def test_uncertainty_estimation(self):
-        from omni_anomaly_engine.cognitive.uncertainty import UncertaintyQuantifier
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier()
 
@@ -211,13 +211,13 @@ class TestCaseBasedReasoner:
     """Tests for CaseBasedReasoner."""
 
     def test_initialization(self):
-        from omni_anomaly_engine.cognitive.case_based_reasoning import CaseBasedReasoner
+        from omni_mercury_engine.cognitive.case_based_reasoning import CaseBasedReasoner
 
         cbr = CaseBasedReasoner()
         assert cbr is not None
 
     def test_add_and_retrieve_case(self):
-        from omni_anomaly_engine.cognitive.case_based_reasoning import (
+        from omni_mercury_engine.cognitive.case_based_reasoning import (
             Case,
             CaseBasedReasoner,
             CaseOutcome,
@@ -246,13 +246,13 @@ class TestIndicatorSystem:
     """Tests for IndicatorDevelopmentSystem."""
 
     def test_initialization(self):
-        from omni_anomaly_engine.cognitive.indicator_system import IndicatorDevelopmentSystem
+        from omni_mercury_engine.cognitive.indicator_system import IndicatorDevelopmentSystem
 
         ids = IndicatorDevelopmentSystem()
         assert ids is not None
 
     def test_develop_indicator(self):
-        from omni_anomaly_engine.cognitive.indicator_system import (
+        from omni_mercury_engine.cognitive.indicator_system import (
             IndicatorDevelopmentSystem,
             IndicatorType,
         )
@@ -275,7 +275,7 @@ class TestCognitiveOrchestrator:
     """Tests for CognitiveOrchestrator integration."""
 
     def test_initialization(self):
-        from omni_anomaly_engine.cognitive.orchestrator import CognitiveOrchestrator
+        from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
 
         orchestrator = CognitiveOrchestrator()
         assert orchestrator is not None
@@ -284,7 +284,7 @@ class TestCognitiveOrchestrator:
         assert orchestrator.uncertainty is not None
 
     def test_analyze_detection_result(self):
-        from omni_anomaly_engine.cognitive.orchestrator import CognitiveOrchestrator
+        from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
 
         orchestrator = CognitiveOrchestrator()
 
@@ -304,7 +304,7 @@ class TestCognitiveOrchestrator:
         assert 0 <= result.confidence <= 1
 
     def test_statistics(self):
-        from omni_anomaly_engine.cognitive.orchestrator import CognitiveOrchestrator
+        from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
 
         orchestrator = CognitiveOrchestrator()
 
@@ -324,21 +324,21 @@ class TestTruthDecipherIntegration:
 
     def test_cognitive_integration_disabled(self):
         """Test that framework works with cognitive disabled."""
-        from omni_anomaly_engine.truth_decipher import TruthDecipherFramework
+        from omni_mercury_engine.truth_decipher import TruthDecipherFramework
 
         framework = TruthDecipherFramework(enable_cognitive=False)
         assert framework.cognitive is None
 
     def test_cognitive_integration_enabled(self):
         """Test that cognitive orchestrator is integrated."""
-        from omni_anomaly_engine.truth_decipher import TruthDecipherFramework
+        from omni_mercury_engine.truth_decipher import TruthDecipherFramework
 
         framework = TruthDecipherFramework(enable_cognitive=True)
         assert framework.cognitive is not None
 
     def test_decipher_truth_with_cognitive(self):
         """Test full pipeline with cognitive layer."""
-        from omni_anomaly_engine.truth_decipher import TruthDecipherFramework
+        from omni_mercury_engine.truth_decipher import TruthDecipherFramework
 
         framework = TruthDecipherFramework(
             enable_cognitive=True,
@@ -362,7 +362,7 @@ class TestTruthDecipherIntegration:
 
     def test_statistics_include_cognitive(self):
         """Test that statistics include cognitive stats."""
-        from omni_anomaly_engine.truth_decipher import TruthDecipherFramework
+        from omni_mercury_engine.truth_decipher import TruthDecipherFramework
 
         framework = TruthDecipherFramework(enable_cognitive=True)
         stats = framework.get_statistics()

@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -32,20 +32,20 @@ flow of each geological detector.
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.core.three_r_mechanism import (
+from omni_mercury_engine.core.three_r_mechanism import (
     RecursionEngine,
     RefactoringEngine,
     ResonanceEngine,
 )
-from omni_anomaly_engine.detectors.geological.flood_detector import (
+from omni_mercury_engine.detectors.geological.flood_detector import (
     FloodDetector,
     FloodPredictionResult,
 )
-from omni_anomaly_engine.detectors.geological.hurricane_detector import (
+from omni_mercury_engine.detectors.geological.hurricane_detector import (
     HurricaneDetector,
     HurricanePredictionResult,
 )
-from omni_anomaly_engine.detectors.geological.tornado_detector import (
+from omni_mercury_engine.detectors.geological.tornado_detector import (
     TornadoDetector,
     TornadoPredictionResult,
 )

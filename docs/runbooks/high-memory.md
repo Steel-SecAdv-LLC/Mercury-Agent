@@ -1,9 +1,9 @@
-# OMNI-AVA Runbook: High Memory Usage
+# Mercury-Agent Runbook: High Memory Usage
 
-## Alert: OmniAvaHighMemory
+## Alert: OmniMercuryHighMemory
 
 ### Overview
-This runbook provides guidance for responding to high memory utilization in OMNI-AVA pods, which can lead to OOMKills and service disruption.
+This runbook provides guidance for responding to high memory utilization in Mercury-Agent pods, which can lead to OOMKills and service disruption.
 
 ### Alert Threshold
 - **Warning**: Memory utilization > 80% for 15 minutes
@@ -21,40 +21,40 @@ This runbook provides guidance for responding to high memory utilization in OMNI
 ### 1. Check Memory Usage
 ```bash
 # View current memory usage
-kubectl top pods -n omni-ava
+kubectl top pods -n mercury-agent
 
 # Check memory limits
-kubectl get pods -n omni-ava -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[*].resources.limits.memory}{"\n"}{end}'
+kubectl get pods -n mercury-agent -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[*].resources.limits.memory}{"\n"}{end}'
 
 # Check for recent OOMKills
-kubectl get pods -n omni-ava -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.containerStatuses[*].lastState.terminated.reason}{"\n"}{end}'
+kubectl get pods -n mercury-agent -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.containerStatuses[*].lastState.terminated.reason}{"\n"}{end}'
 ```
 
 ### 2. Analyze Memory Trends
 ```promql
 # Prometheus query for memory usage over time
-container_memory_usage_bytes{namespace="omni-ava",container="api"}
+container_memory_usage_bytes{namespace="mercury-agent",container="api"}
 
 # Memory usage percentage
-container_memory_usage_bytes{namespace="omni-ava"} / container_spec_memory_limit_bytes{namespace="omni-ava"}
+container_memory_usage_bytes{namespace="mercury-agent"} / container_spec_memory_limit_bytes{namespace="mercury-agent"}
 ```
 
 ### 3. Check Application Memory
 ```bash
 # Check for memory-related logs
-kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=200 | grep -i "memory\|heap\|gc"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=api --tail=200 | grep -i "memory\|heap\|gc"
 
 # Check model loading status
-kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=100 | grep -i "model\|load"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=engine --tail=100 | grep -i "model\|load"
 ```
 
 ### 4. Check Workload Patterns
 ```bash
 # View recent activity
-kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=100 | grep -i "request\|detect"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=api --tail=100 | grep -i "request\|detect"
 
 # Check batch sizes
-kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=50 | grep -i "batch"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=engine --tail=50 | grep -i "batch"
 ```
 
 ---
@@ -71,11 +71,11 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=50 | grep 
 **Actions:**
 1. Schedule a rolling restart:
    ```bash
-   kubectl rollout restart deployment/omni-ava-api -n omni-ava
+   kubectl rollout restart deployment/mercury-agent-api -n mercury-agent
    ```
 2. Enable memory profiling:
    ```bash
-   kubectl set env deployment/omni-ava-api -n omni-ava ENABLE_MEMORY_PROFILING=true
+   kubectl set env deployment/mercury-agent-api -n mercury-agent ENABLE_MEMORY_PROFILING=true
    ```
 3. File bug report with memory profile data
 
@@ -89,11 +89,11 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=50 | grep 
 **Actions:**
 1. Reduce batch sizes:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava MAX_BATCH_SIZE=32
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent MAX_BATCH_SIZE=32
    ```
 2. Enable streaming for large datasets:
    ```bash
-   kubectl set env deployment/omni-ava-api -n omni-ava ENABLE_STREAMING=true
+   kubectl set env deployment/mercury-agent-api -n mercury-agent ENABLE_STREAMING=true
    ```
 3. Implement request size limits
 
@@ -107,11 +107,11 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=50 | grep 
 **Actions:**
 1. Enable lazy model loading:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava LAZY_MODEL_LOADING=true
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent LAZY_MODEL_LOADING=true
    ```
 2. Reduce preloaded models:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava PRELOAD_MODELS="statistical"
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent PRELOAD_MODELS="statistical"
    ```
 3. Consider model quantization for smaller footprint
 
@@ -125,11 +125,11 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=50 | grep 
 **Actions:**
 1. Increase memory limits:
    ```bash
-   kubectl patch deployment omni-ava-api -n omni-ava -p '{"spec":{"template":{"spec":{"containers":[{"name":"api","resources":{"limits":{"memory":"8Gi"},"requests":{"memory":"4Gi"}}}]}}}}'
+   kubectl patch deployment mercury-agent-api -n mercury-agent -p '{"spec":{"template":{"spec":{"containers":[{"name":"api","resources":{"limits":{"memory":"8Gi"},"requests":{"memory":"4Gi"}}}]}}}}'
    ```
 2. Scale horizontally to distribute load:
    ```bash
-   kubectl scale deployment omni-ava-api -n omni-ava --replicas=5
+   kubectl scale deployment mercury-agent-api -n mercury-agent --replicas=5
    ```
 
 ---
@@ -139,7 +139,7 @@ kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=50 | grep 
 If memory issues persist:
 
 1. **Monitor closely** for escalation to critical
-2. **Notify team** via Slack #omni-ava-alerts
+2. **Notify team** via Slack #mercury-agent-alerts
 3. **Engage development team** for memory optimization
 
 ### Escalation Contacts

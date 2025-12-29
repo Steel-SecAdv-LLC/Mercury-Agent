@@ -1,4 +1,4 @@
-# Contributing to Omni ♱ Ava (O♱A)
+# Contributing to Mercury Agent ♱
 
 ## Document Information
 
@@ -13,7 +13,7 @@
 
 ## Overview
 
-This document provides guidelines for contributing to the Omni ♱ Ava (O♱A) multi-domain anomaly detection framework. O♱A is released under the GNU General Public License v3.0 as free and open-source software, accessible for universal use as a knowledge vault and bridge to AI/ML frontiers.
+This document provides guidelines for contributing to the Mercury Agent ♱ multi-domain anomaly detection framework. Mercury Agent ♱ is released under the GNU General Public License v3.0 as free and open-source software, accessible for universal use as a knowledge vault and bridge to AI/ML frontiers.
 
 ---
 
@@ -74,8 +74,8 @@ Please **DO NOT** submit pull requests that:
 
 ```bash
 # Fork the repository on GitHub, then clone your fork
-git clone https://github.com/YOUR_USERNAME/OMNI-AVA.git
-cd OMNI-AVA
+git clone https://github.com/YOUR_USERNAME/Mercury-Agent.git
+cd Mercury-Agent
 ```
 
 ### 2. Create Development Environment
@@ -169,7 +169,7 @@ All functions must have docstrings including:
 pytest tests/ -v
 
 # Run with coverage report
-pytest tests/ --cov=src/omni_anomaly_engine --cov-report=html
+pytest tests/ --cov=src/omni_mercury_engine --cov-report=html
 
 # Run specific test file
 pytest tests/test_specific.py

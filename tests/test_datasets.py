@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for real-world dataset loaders and benchmarks.
@@ -13,20 +13,20 @@ import tempfile
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.datasets.base import DatasetConfig, DatasetRegistry, DatasetSplit
-from omni_anomaly_engine.datasets.benchmarks import (
+from omni_mercury_engine.datasets.base import DatasetConfig, DatasetRegistry, DatasetSplit
+from omni_mercury_engine.datasets.benchmarks import (
     BenchmarkResult,
     RealWorldBenchmarkSuite,
     random_baseline,
 )
-from omni_anomaly_engine.datasets.environmental import (
+from omni_mercury_engine.datasets.environmental import (
     NOAAWeatherLoader,
     USGSEarthquakeLoader,
     WildfireDataLoader,
 )
-from omni_anomaly_engine.datasets.medical import MIMICLoader, PhysioNetLoader, SepsisDataset
-from omni_anomaly_engine.datasets.security import CICIDSLoader, NSLKDDLoader, ThreatIntelLoader
-from omni_anomaly_engine.datasets.space import NASAExoplanetLoader, SETILoader, SolarDynamicsLoader
+from omni_mercury_engine.datasets.medical import MIMICLoader, PhysioNetLoader, SepsisDataset
+from omni_mercury_engine.datasets.security import CICIDSLoader, NSLKDDLoader, ThreatIntelLoader
+from omni_mercury_engine.datasets.space import NASAExoplanetLoader, SETILoader, SolarDynamicsLoader
 
 
 class TestDatasetConfig:

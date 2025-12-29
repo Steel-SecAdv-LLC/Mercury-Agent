@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -32,7 +32,7 @@ class TestAUROC:
 
     def test_auroc_perfect_classifier(self):
         """Test AUROC with perfect predictions."""
-        from omni_anomaly_engine.metrics import compute_auroc
+        from omni_mercury_engine.metrics import compute_auroc
 
         y_true = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
         y_score = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
@@ -42,7 +42,7 @@ class TestAUROC:
 
     def test_auroc_random_classifier(self):
         """Test AUROC with random predictions."""
-        from omni_anomaly_engine.metrics import compute_auroc
+        from omni_mercury_engine.metrics import compute_auroc
 
         np.random.seed(42)
         y_true = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
@@ -53,7 +53,7 @@ class TestAUROC:
 
     def test_auroc_all_same_label(self):
         """Test AUROC with all same labels (edge case)."""
-        from omni_anomaly_engine.metrics import compute_auroc
+        from omni_mercury_engine.metrics import compute_auroc
 
         y_true = np.array([0, 0, 0, 0, 0])
         y_score = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
@@ -63,7 +63,7 @@ class TestAUROC:
 
     def test_auroc_with_fixture(self, binary_labels, anomaly_scores):
         """Test AUROC with test fixtures."""
-        from omni_anomaly_engine.metrics import compute_auroc
+        from omni_mercury_engine.metrics import compute_auroc
 
         auroc = compute_auroc(binary_labels, anomaly_scores)
         assert 0.0 <= auroc <= 1.0
@@ -74,7 +74,7 @@ class TestAUPRC:
 
     def test_auprc_perfect_classifier(self):
         """Test AUPRC with perfect predictions."""
-        from omni_anomaly_engine.metrics import compute_auprc
+        from omni_mercury_engine.metrics import compute_auprc
 
         y_true = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
         y_score = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
@@ -84,7 +84,7 @@ class TestAUPRC:
 
     def test_auprc_range(self, binary_labels, anomaly_scores):
         """Test AUPRC is in valid range."""
-        from omni_anomaly_engine.metrics import compute_auprc
+        from omni_mercury_engine.metrics import compute_auprc
 
         auprc = compute_auprc(binary_labels, anomaly_scores)
         assert 0.0 <= auprc <= 1.0
@@ -95,7 +95,7 @@ class TestF1Max:
 
     def test_f1_max_perfect_classifier(self):
         """Test F1-max with perfect predictions."""
-        from omni_anomaly_engine.metrics import compute_f1_max
+        from omni_mercury_engine.metrics import compute_f1_max
 
         y_true = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
         y_score = np.array([0.1, 0.2, 0.3, 0.4, 0.45, 0.55, 0.7, 0.8, 0.9, 1.0])
@@ -105,7 +105,7 @@ class TestF1Max:
 
     def test_f1_max_returns_threshold(self, binary_labels, anomaly_scores):
         """Test F1-max returns optimal threshold."""
-        from omni_anomaly_engine.metrics import compute_f1_max
+        from omni_mercury_engine.metrics import compute_f1_max
 
         f1_max, threshold = compute_f1_max(binary_labels, anomaly_scores)
 
@@ -118,21 +118,21 @@ class TestOptimalThreshold:
 
     def test_optimal_threshold_f1(self, binary_labels, anomaly_scores):
         """Test optimal threshold for F1 metric."""
-        from omni_anomaly_engine.metrics import compute_optimal_threshold
+        from omni_mercury_engine.metrics import compute_optimal_threshold
 
         threshold = compute_optimal_threshold(binary_labels, anomaly_scores, metric="f1")
         assert threshold is not None
 
     def test_optimal_threshold_accuracy(self, binary_labels, anomaly_scores):
         """Test optimal threshold for accuracy metric."""
-        from omni_anomaly_engine.metrics import compute_optimal_threshold
+        from omni_mercury_engine.metrics import compute_optimal_threshold
 
         threshold = compute_optimal_threshold(binary_labels, anomaly_scores, metric="accuracy")
         assert threshold is not None
 
     def test_optimal_threshold_youden(self, binary_labels, anomaly_scores):
         """Test optimal threshold using Youden's J."""
-        from omni_anomaly_engine.metrics import compute_optimal_threshold
+        from omni_mercury_engine.metrics import compute_optimal_threshold
 
         threshold = compute_optimal_threshold(binary_labels, anomaly_scores, metric="youden")
         assert threshold is not None
@@ -143,14 +143,14 @@ class TestPixelLevelMetrics:
 
     def test_pixel_auroc(self, pixel_masks, pixel_scores):
         """Test pixel-level AUROC computation."""
-        from omni_anomaly_engine.metrics import compute_pixel_auroc
+        from omni_mercury_engine.metrics import compute_pixel_auroc
 
         pixel_auroc = compute_pixel_auroc(pixel_masks, pixel_scores)
         assert 0.0 <= pixel_auroc <= 1.0
 
     def test_pixel_auroc_perfect_localization(self):
         """Test pixel AUROC with perfect localization."""
-        from omni_anomaly_engine.metrics import compute_pixel_auroc
+        from omni_mercury_engine.metrics import compute_pixel_auroc
 
         masks = np.zeros((5, 64, 64))
         masks[:, 20:40, 20:40] = 1
@@ -167,14 +167,14 @@ class TestPRO:
 
     def test_pro_basic(self, pixel_masks, pixel_scores):
         """Test PRO score computation."""
-        from omni_anomaly_engine.metrics import compute_pro
+        from omni_mercury_engine.metrics import compute_pro
 
         pro = compute_pro(pixel_masks, pixel_scores)
         assert 0.0 <= pro <= 1.0
 
     def test_pro_perfect_localization(self):
         """Test PRO with perfect region overlap."""
-        from omni_anomaly_engine.metrics import compute_pro
+        from omni_mercury_engine.metrics import compute_pro
 
         masks = np.zeros((5, 64, 64))
         masks[:, 20:40, 20:40] = 1
@@ -191,7 +191,7 @@ class TestAnomalyMetrics:
 
     def test_compute_all_metrics(self, binary_labels, anomaly_scores):
         """Test computing all metrics at once."""
-        from omni_anomaly_engine.metrics import AnomalyMetrics
+        from omni_mercury_engine.metrics import AnomalyMetrics
 
         results = AnomalyMetrics.compute_all(binary_labels, anomaly_scores)
 
@@ -202,7 +202,7 @@ class TestAnomalyMetrics:
 
     def test_compute_all_with_predictions(self, binary_labels, anomaly_scores):
         """Test computing metrics with binary predictions."""
-        from omni_anomaly_engine.metrics import AnomalyMetrics
+        from omni_mercury_engine.metrics import AnomalyMetrics
 
         y_pred = (anomaly_scores > 0.5).astype(int)
 
@@ -214,7 +214,7 @@ class TestAnomalyMetrics:
 
     def test_compute_all_with_masks(self, binary_labels, anomaly_scores, pixel_masks, pixel_scores):
         """Test computing metrics with pixel masks."""
-        from omni_anomaly_engine.metrics import AnomalyMetrics
+        from omni_mercury_engine.metrics import AnomalyMetrics
 
         # Use subset matching length
         results = AnomalyMetrics.compute_all(
@@ -229,7 +229,7 @@ class TestAnomalyMetrics:
 
     def test_compute_per_category(self, binary_labels, anomaly_scores):
         """Test per-category metric computation."""
-        from omni_anomaly_engine.metrics import AnomalyMetrics
+        from omni_mercury_engine.metrics import AnomalyMetrics
 
         categories = ["cat_a"] * 50 + ["cat_b"] * 50
 
@@ -244,14 +244,14 @@ class TestBenchmarkEvaluator:
 
     def test_evaluator_initialization(self, tmp_path):
         """Test BenchmarkEvaluator initialization."""
-        from omni_anomaly_engine.metrics import BenchmarkEvaluator
+        from omni_mercury_engine.metrics import BenchmarkEvaluator
 
         evaluator = BenchmarkEvaluator(output_dir=tmp_path)
         assert evaluator.output_dir.exists()
 
     def test_evaluation_result_to_dict(self):
         """Test EvaluationResult serialization."""
-        from omni_anomaly_engine.metrics import EvaluationResult
+        from omni_mercury_engine.metrics import EvaluationResult
 
         result = EvaluationResult(
             detector_name="test_detector",
@@ -265,7 +265,7 @@ class TestBenchmarkEvaluator:
 
     def test_evaluation_result_save_load(self, tmp_path):
         """Test saving and loading evaluation results."""
-        from omni_anomaly_engine.metrics import EvaluationResult
+        from omni_mercury_engine.metrics import EvaluationResult
 
         result = EvaluationResult(
             detector_name="test_detector",
@@ -282,7 +282,7 @@ class TestBenchmarkEvaluator:
 
     def test_compare_results(self, tmp_path):
         """Test comparing multiple evaluation results."""
-        from omni_anomaly_engine.metrics import BenchmarkEvaluator, EvaluationResult
+        from omni_mercury_engine.metrics import BenchmarkEvaluator, EvaluationResult
 
         evaluator = BenchmarkEvaluator(output_dir=tmp_path)
 
@@ -305,7 +305,7 @@ class TestBenchmarkEvaluator:
 
     def test_generate_report(self, tmp_path):
         """Test generating evaluation report."""
-        from omni_anomaly_engine.metrics import BenchmarkEvaluator, EvaluationResult
+        from omni_mercury_engine.metrics import BenchmarkEvaluator, EvaluationResult
 
         evaluator = BenchmarkEvaluator(output_dir=tmp_path)
 

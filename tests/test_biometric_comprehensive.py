@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -45,7 +45,7 @@ pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
 
 # Conditional imports - only when torch is available
 if HAS_TORCH:
-    from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
+    from omni_mercury_engine.models.biometric import BiometricAnomalyModel
 
 
 def test_biometric_initialization_with_config():
@@ -65,7 +65,7 @@ def test_biometric_predict_with_tensor():
 
     image = torch.randint(0, 255, (100, 100, 3), dtype=torch.uint8).numpy()
 
-    with patch("omni_anomaly_engine.models.biometric.DeepFace") as mock_deepface:
+    with patch("omni_mercury_engine.models.biometric.DeepFace") as mock_deepface:
         mock_deepface.analyze.return_value = [
             {
                 "age": 30,
@@ -87,7 +87,7 @@ def test_biometric_extract_features_comprehensive():
 
     image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
 
-    with patch("omni_anomaly_engine.models.biometric.DeepFace") as mock_deepface:
+    with patch("omni_mercury_engine.models.biometric.DeepFace") as mock_deepface:
         mock_deepface.analyze.return_value = [
             {
                 "face_confidence": 0.95,
@@ -120,7 +120,7 @@ def test_biometric_deepface_failure_handling():
 
     image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
 
-    with patch("omni_anomaly_engine.models.biometric.DeepFace") as mock_deepface:
+    with patch("omni_mercury_engine.models.biometric.DeepFace") as mock_deepface:
         mock_deepface.analyze.side_effect = Exception("DeepFace failed")
 
         result = model.predict(image)
@@ -157,7 +157,7 @@ def test_biometric_invalid_image_shape():
 
     invalid_image = np.random.randint(0, 255, (10, 10), dtype=np.uint8)
 
-    with patch("omni_anomaly_engine.models.biometric.DeepFace") as mock_deepface:
+    with patch("omni_mercury_engine.models.biometric.DeepFace") as mock_deepface:
         mock_deepface.analyze.side_effect = Exception("Invalid shape")
         result = model.predict(invalid_image)
         assert "error" in result or "model_type" in result

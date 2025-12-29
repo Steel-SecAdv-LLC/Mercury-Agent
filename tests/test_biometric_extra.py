@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@ Additional biometric tests to boost coverage above 85%
 import numpy as np
 import torch
 
-from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
+from omni_mercury_engine.models.biometric import BiometricAnomalyModel
 
 
 def test_biometric_with_invalid_model():

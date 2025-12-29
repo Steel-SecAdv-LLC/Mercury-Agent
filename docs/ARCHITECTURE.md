@@ -1,8 +1,8 @@
-# OMNI ♱ AVA Architecture
+# Mercury Agent ♱ Architecture
 
 ## Overview
 
-The OMNI ♱ AVA implements a ML-Centric Hybrid Fusion architecture that integrates 18 diverse scientific and computational paradigms into a unified anomaly detection framework. This document describes the system architecture, data flow, and key design decisions.
+The Mercury Agent ♱ implements a ML-Centric Hybrid Fusion architecture that integrates 18 diverse scientific and computational paradigms into a unified anomaly detection framework. This document describes the system architecture, data flow, and key design decisions.
 
 ## System Architecture Diagram
 
@@ -328,7 +328,7 @@ config.models['biometric'].use_harmonic_features = False
 ### Training Loop
 
 ```python
-from omni_anomaly_engine.ml.training import FusionTrainer
+from omni_mercury_engine.ml.training import FusionTrainer
 
 trainer = FusionTrainer(
     learning_rate=0.001,
@@ -366,7 +366,7 @@ trainer.optimizer_type = 'ava_harmonic'  # or 'ava_base', 'ava_momentum', 'ava_e
 
 **Multi-Node Processing** (using Communication utilities):
 ```python
-from omni_anomaly_engine.utils.comm import AsyncMessageQueue
+from omni_mercury_engine.utils.comm import AsyncMessageQueue
 
 queue = AsyncMessageQueue()
 
@@ -397,7 +397,7 @@ results = await queue.receive()
 
 ### Overview
 
-The OMNI ♱ AVA includes comprehensive infrastructure monitoring capabilities spanning **8 major frameworks** with **11 specialized modules** organized by thematic impact areas. The system implements the **InfrastructureCoordinator** for flexible module selection, allowing users to run 1, 2, 5, or all modules simultaneously based on their specific needs.
+The Mercury Agent ♱ includes comprehensive infrastructure monitoring capabilities spanning **8 major frameworks** with **11 specialized modules** organized by thematic impact areas. The system implements the **InfrastructureCoordinator** for flexible module selection, allowing users to run 1, 2, 5, or all modules simultaneously based on their specific needs.
 
 ### Supported Frameworks
 
@@ -435,7 +435,7 @@ infrastructure/
 The **InfrastructureCoordinator** provides flexible module selection and execution:
 
 ```python
-from omni_anomaly_engine.infrastructure import InfrastructureCoordinator
+from omni_mercury_engine.infrastructure import InfrastructureCoordinator
 
 # Initialize coordinator (loads all 11 modules automatically)
 coordinator = InfrastructureCoordinator()
@@ -499,7 +499,7 @@ Each module is tagged with category and priority for flexible selection:
 The **fusion_network.py** includes enhanced STEM discipline routing for optimized multi-engine detection:
 
 ```python
-from omni_anomaly_engine.ml.fusion_network import HybridFusionNetwork
+from omni_mercury_engine.ml.fusion_network import HybridFusionNetwork
 
 fusion = HybridFusionNetwork(
     input_dims={...},
@@ -516,7 +516,7 @@ fusion = HybridFusionNetwork(
 ### Example: Critical Infrastructure Monitoring Pipeline
 
 ```python
-from omni_anomaly_engine.infrastructure import InfrastructureCoordinator
+from omni_mercury_engine.infrastructure import InfrastructureCoordinator
 import numpy as np
 
 # Initialize coordinator
@@ -617,8 +617,8 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
-COPY omni_anomaly_engine/ ./omni_anomaly_engine/
-CMD ["python", "-m", "omni_anomaly_engine.cli"]
+COPY omni_mercury_engine/ ./omni_mercury_engine/
+CMD ["python", "-m", "omni_mercury_engine.cli"]
 ```
 
 ### API Endpoint (FastAPI)
@@ -626,7 +626,7 @@ CMD ["python", "-m", "omni_anomaly_engine.cli"]
 ```python
 @app.post("/detect")
 async def detect_anomaly(data: AnomalyRequest):
-    engine = OmniAnomalyEngine(config)
+    engine = OmniMercuryEngine(config)
     result = engine.detect(data.features)
     return {
         "anomaly_score": result["score"],
@@ -713,7 +713,7 @@ conda install -c conda-forge qutip
 pytest tests/test_harmonic_encoder.py -v
 
 # Run with coverage
-pytest tests/ --cov=omni_anomaly_engine --cov-report=html
+pytest tests/ --cov=omni_mercury_engine --cov-report=html
 ```
 
 ### Integration Tests
@@ -756,7 +756,7 @@ pytest tests/test_harmonic_biometric.py -v
 ```python
 import logging
 
-logger = logging.getLogger('omni_anomaly_engine')
+logger = logging.getLogger('omni_mercury_engine')
 logger.info(f"Detected anomaly: score={score}, components={components}")
 ```
 
@@ -764,7 +764,7 @@ logger.info(f"Detected anomaly: score={score}, components={components}")
 
 ### Overview
 
-The OMNI ♱ AVA implements **Lyapunov stability theory** to guarantee convergence and prevent divergence in the state evolution of the OmniAvaEngine. This provides mathematical rigor ensuring the system remains stable during iterative updates.
+The Mercury Agent ♱ implements **Lyapunov stability theory** to guarantee convergence and prevent divergence in the state evolution of the OmniMercuryEngine. This provides mathematical rigor ensuring the system remains stable during iterative updates.
 
 ### Theoretical Foundation
 
@@ -775,7 +775,7 @@ A **Lyapunov function** V(𝔄) is a scalar-valued function that measures the "e
 1. **Positive Definite**: V(𝔄) > 0 for all 𝔄 ≠ 𝔄_equilibrium, and V(𝔄_equilibrium) = 0
 2. **Decreasing Along Trajectories**: ΔV = V(𝔄_{t+1}) - V(𝔄_t) < 0
 
-In the OMNI ♱ AVA, the Lyapunov function is defined as:
+In the Mercury Agent ♱, the Lyapunov function is defined as:
 
 ```
 V(𝔄_t) = ||𝔄_t - 𝔄_target||²
@@ -785,7 +785,7 @@ where 𝔄_target is the desired equilibrium state (typically a vector of ones s
 
 #### Implementation
 
-Location: `omni_anomaly_engine/core/fusion.py:914-920`
+Location: `omni_mercury_engine/core/fusion.py:914-920`
 
 ```python
 V = self.np.sum((state - target_state) ** 2)
@@ -799,7 +799,7 @@ if delta_V > 0 and t > 5:  # Stability violation
 
 ### Formal Proof of Convergence
 
-**Theorem**: The OmniAvaEngine converges exponentially to the equilibrium state under Lyapunov stability.
+**Theorem**: The OmniMercuryEngine converges exponentially to the equilibrium state under Lyapunov stability.
 
 **Proof**:
 
@@ -942,7 +942,7 @@ This combination of **classical control theory**, **ethical AI principles**, and
 
 ## Conclusion
 
-The OMNI ♱ AVA successfully integrates **18 engines** (13 original + 5 new fully integrated + 1 optional utilities) with **11 infrastructure monitoring modules** across **8 major frameworks** into a production-ready ML-centric platform. The hybrid fusion approach balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
+The Mercury Agent ♱ successfully integrates **18 engines** (13 original + 5 new fully integrated + 1 optional utilities) with **11 infrastructure monitoring modules** across **8 major frameworks** into a production-ready ML-centric platform. The hybrid fusion approach balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
 
 ### Core ML Achievements:
 - ✅ Hybrid fusion (feature + decision level) with multi-head attention
@@ -984,4 +984,4 @@ The OMNI ♱ AVA successfully integrates **18 engines** (13 original + 5 new ful
 - **332KB research findings** covering 27+ topics with full citations
 - **322 optimization experiments** documented (Ava, ethical scalars, fusion weights, harmonics)
 
-The OMNI ♱ AVA represents a **unique contribution to AI research** by bridging ancient wisdom with cutting-edge technology, implementing biological defense mechanisms, integrating regenerative design principles, and maintaining rigorous scientific standards while preserving traceability through memorial codes. The system is **production-ready, ethically aligned, and freely accessible** under GPL v3 license for humanitarian impact.
+The Mercury Agent ♱ represents a **unique contribution to AI research** by bridging ancient wisdom with cutting-edge technology, implementing biological defense mechanisms, integrating regenerative design principles, and maintaining rigorous scientific standards while preserving traceability through memorial codes. The system is **production-ready, ethically aligned, and freely accessible** under GPL v3 license for humanitarian impact.

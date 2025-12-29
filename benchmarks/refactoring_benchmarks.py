@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -32,7 +32,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from omni_anomaly_engine.core.three_r_mechanism import (
+from omni_mercury_engine.core.three_r_mechanism import (
     RefactoringConfig,
     RefactoringEngine,
 )

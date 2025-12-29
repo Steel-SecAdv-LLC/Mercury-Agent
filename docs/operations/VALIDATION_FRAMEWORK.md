@@ -1,8 +1,8 @@
-# OMNI-AVA Real-World Validation Framework
+# Mercury-Agent Real-World Validation Framework
 
 ## Overview
 
-This document outlines the comprehensive framework for validating OMNI-AVA's performance claims using real-world data, as identified in DISCOVERIES.md (Issue 11.1). All current performance metrics are based on simulated data; this framework provides the methodology for rigorous real-world validation.
+This document outlines the comprehensive framework for validating Mercury-Agent's performance claims using real-world data, as identified in DISCOVERIES.md (Issue 11.1). All current performance metrics are based on simulated data; this framework provides the methodology for rigorous real-world validation.
 
 ---
 
@@ -198,7 +198,7 @@ class SchumannValidation:
 ### 2.2 Data Quality Framework
 
 ```python
-# src/omni_anomaly_engine/validation/data_quality.py
+# src/omni_mercury_engine/validation/data_quality.py
 
 from dataclasses import dataclass
 from typing import List, Dict, Any
@@ -224,7 +224,7 @@ class DataQualityReport:
         ])
 
 class DataQualityValidator:
-    """Validates data quality for OMNI-AVA validation datasets."""
+    """Validates data quality for Mercury-Agent validation datasets."""
 
     def __init__(self, schema: Dict[str, Any]):
         self.schema = schema
@@ -305,7 +305,7 @@ stages:
     cmd: python scripts/run_validation.py
     deps:
       - data/processed/
-      - src/omni_anomaly_engine/
+      - src/omni_mercury_engine/
     outs:
       - results/validation/
     metrics:
@@ -320,7 +320,7 @@ stages:
 ### 3.1 A/B Testing Framework
 
 ```python
-# src/omni_anomaly_engine/validation/ab_testing.py
+# src/omni_mercury_engine/validation/ab_testing.py
 
 import numpy as np
 from scipy import stats
@@ -417,7 +417,7 @@ class ABTestFramework:
 ### 3.2 Cross-Validation Strategy
 
 ```python
-# src/omni_anomaly_engine/validation/cross_validation.py
+# src/omni_mercury_engine/validation/cross_validation.py
 
 from sklearn.model_selection import (
     StratifiedKFold,
@@ -504,7 +504,7 @@ class ValidationStrategy:
 ### 4.1 Mathematical Proof Framework
 
 ```python
-# src/omni_anomaly_engine/validation/golden_ratio.py
+# src/omni_mercury_engine/validation/golden_ratio.py
 
 import numpy as np
 from scipy.optimize import minimize
@@ -659,7 +659,7 @@ r² = r + 1, whose positive solution is φ.
 ### 4.2 Bayesian Optimization for Ratio Selection
 
 ```python
-# src/omni_anomaly_engine/validation/bayesian_optimization.py
+# src/omni_mercury_engine/validation/bayesian_optimization.py
 
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern
@@ -772,7 +772,7 @@ class BayesianRatioOptimizer:
 ```yaml
 # validation/preregistration.yaml
 study:
-  title: "Validation of OMNI-AVA Multi-Domain Anomaly Detection Framework"
+  title: "Validation of Mercury-Agent Multi-Domain Anomaly Detection Framework"
   authors:
     - name: "Steel Security Advisors LLC Research Team"
       affiliation: "Steel Security Advisors LLC"
@@ -787,7 +787,7 @@ study:
       type: confirmatory
 
     - id: H3
-      description: "OMNI-AVA medical detection achieves AUC > 0.85 on MIMIC-III"
+      description: "Mercury-Agent medical detection achieves AUC > 0.85 on MIMIC-III"
       type: confirmatory
 
   design:
@@ -813,7 +813,7 @@ study:
 ### 5.2 Reproducibility Package Structure
 
 ```
-omni-ava-validation/
+mercury-agent-validation/
 ├── README.md
 ├── requirements.txt
 ├── environment.yml

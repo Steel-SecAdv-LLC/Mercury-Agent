@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -22,8 +22,8 @@ from __future__ import annotations
 Test neural and consciousness models
 """
 
-from omni_anomaly_engine.models.consciousness import ConsciousnessPreservationModel
-from omni_anomaly_engine.models.neural import NeuralCognitiveModel
+from omni_mercury_engine.models.consciousness import ConsciousnessPreservationModel
+from omni_mercury_engine.models.neural import NeuralCognitiveModel
 
 
 def test_neural_model_initialization():

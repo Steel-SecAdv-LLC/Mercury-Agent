@@ -1,4 +1,4 @@
-# Core dependencies for OMNI-AVA (lightweight, for CI testing/linting)
+# Core dependencies for Mercury-Agent (lightweight, for CI testing/linting)
 # These are the minimal dependencies needed for basic functionality and testing
 
 numpy>=1.24.0

@@ -1,5 +1,5 @@
 """
-OMNI AVA (O+A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -32,7 +32,7 @@ Verifies:
 import tempfile
 from pathlib import Path
 
-from omni_anomaly_engine.agentic.bayesian_calibrator import (
+from omni_mercury_engine.agentic.bayesian_calibrator import (
     BayesianConfidenceCalibrator,
     CalibrationConfig,
     ContextStats,

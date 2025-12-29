@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -24,8 +24,8 @@ Test fusion mechanisms
 
 import torch
 
-from omni_anomaly_engine.core.fusion import HybridFusionLayer
-from omni_anomaly_engine.ml.fusion_network import OmniFusionModel
+from omni_mercury_engine.core.fusion import HybridFusionLayer
+from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 
 
 def test_hybrid_fusion_initialization():
@@ -224,7 +224,7 @@ class TestGatedFusion:
 
     def test_gated_fusion_forward(self):
         """Test gated fusion forward pass."""
-        from omni_anomaly_engine.ml.fusion_network import GatedFusion
+        from omni_mercury_engine.ml.fusion_network import GatedFusion
 
         fusion = GatedFusion(input_dim=64, hidden_dim=32)
 
@@ -237,7 +237,7 @@ class TestGatedFusion:
 
     def test_gated_fusion_with_gate_return(self):
         """Test gated fusion returns gate values."""
-        from omni_anomaly_engine.ml.fusion_network import GatedFusion
+        from omni_mercury_engine.ml.fusion_network import GatedFusion
 
         fusion = GatedFusion(input_dim=64, hidden_dim=32)
 
@@ -257,7 +257,7 @@ class TestMultimodalFusion:
 
     def test_multimodal_fusion_forward(self):
         """Test multimodal fusion forward pass."""
-        from omni_anomaly_engine.ml.fusion_network import MultimodalFusion
+        from omni_mercury_engine.ml.fusion_network import MultimodalFusion
 
         fusion = MultimodalFusion(
             modality_dims={"visual": 128, "audio": 64, "text": 256},
@@ -276,7 +276,7 @@ class TestMultimodalFusion:
 
     def test_multimodal_fusion_partial_modalities(self):
         """Test multimodal fusion with partial modalities."""
-        from omni_anomaly_engine.ml.fusion_network import MultimodalFusion
+        from omni_mercury_engine.ml.fusion_network import MultimodalFusion
 
         fusion = MultimodalFusion(
             modality_dims={"visual": 128, "audio": 64, "text": 256},
@@ -296,7 +296,7 @@ class TestMultimodalFusion:
         """Test multimodal fusion raises error with no valid modalities."""
         import pytest
 
-        from omni_anomaly_engine.ml.fusion_network import MultimodalFusion
+        from omni_mercury_engine.ml.fusion_network import MultimodalFusion
 
         fusion = MultimodalFusion(
             modality_dims={"visual": 128, "audio": 64},
@@ -316,7 +316,7 @@ class TestFusionNetworkBasic:
 
     def test_fusion_network_basic_forward(self):
         """Test basic fusion network forward pass."""
-        from omni_anomaly_engine.ml.fusion_network import FusionNetwork
+        from omni_mercury_engine.ml.fusion_network import FusionNetwork
 
         network = FusionNetwork(
             input_dims=[64, 128, 32],
@@ -336,7 +336,7 @@ class TestFusionNetworkBasic:
 
     def test_fusion_network_single_modality(self):
         """Test fusion network with single modality."""
-        from omni_anomaly_engine.ml.fusion_network import FusionNetwork
+        from omni_mercury_engine.ml.fusion_network import FusionNetwork
 
         network = FusionNetwork(
             input_dims=[64],

@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ from __future__ import annotations
 
 """Extended tests for three_r_mechanism to reach >95% coverage."""
 
-from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
+from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
 
 class TestThreeRExtended:
@@ -49,7 +49,7 @@ class TestThreeRExtended:
 
     def test_multiverse_optimization_basic(self):
         """Test multiverse optimization with default settings."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig
 
         config = RefactoringConfig(enable_multiverse_optimization=True)
         engine = RefactoringEngine(config)
@@ -63,7 +63,7 @@ class TestThreeRExtended:
 
     def test_resonance_feedback_loop(self):
         """Test resonance feedback loop."""
-        from omni_anomaly_engine.core.three_r_mechanism import RefactoringConfig
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig
 
         config = RefactoringConfig(enable_resonance_feedback=True)
         engine = RefactoringEngine(config)

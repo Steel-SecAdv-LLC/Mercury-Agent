@@ -3,9 +3,9 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 metadata:
-  name: omni-ava-production
+  name: mercury-agent-production
 
-namespace: omni-ava
+namespace: mercury-agent
 
 commonLabels:
   environment: production
@@ -21,30 +21,30 @@ patches:
       apiVersion: apps/v1
       kind: Deployment
       metadata:
-        name: omni-ava-api
+        name: mercury-agent-api
       spec:
         replicas: 3
     target:
       kind: Deployment
-      name: omni-ava-api
+      name: mercury-agent-api
 
   - patch: |-
       apiVersion: apps/v1
       kind: Deployment
       metadata:
-        name: omni-ava-engine
+        name: mercury-agent-engine
       spec:
         replicas: 2
     target:
       kind: Deployment
-      name: omni-ava-engine
+      name: mercury-agent-engine
 
   # Production resource allocation
   - patch: |-
       apiVersion: apps/v1
       kind: Deployment
       metadata:
-        name: omni-ava-api
+        name: mercury-agent-api
       spec:
         template:
           spec:
@@ -59,13 +59,13 @@ patches:
                     memory: "4Gi"
     target:
       kind: Deployment
-      name: omni-ava-api
+      name: mercury-agent-api
 
   - patch: |-
       apiVersion: apps/v1
       kind: Deployment
       metadata:
-        name: omni-ava-engine
+        name: mercury-agent-engine
       spec:
         template:
           spec:
@@ -80,62 +80,62 @@ patches:
                     memory: "16Gi"
     target:
       kind: Deployment
-      name: omni-ava-engine
+      name: mercury-agent-engine
 
   # Production HPA settings
   - patch: |-
       apiVersion: autoscaling/v2
       kind: HorizontalPodAutoscaler
       metadata:
-        name: omni-ava-api-hpa
+        name: mercury-agent-api-hpa
       spec:
         minReplicas: 3
         maxReplicas: 20
     target:
       kind: HorizontalPodAutoscaler
-      name: omni-ava-api-hpa
+      name: mercury-agent-api-hpa
 
   - patch: |-
       apiVersion: autoscaling/v2
       kind: HorizontalPodAutoscaler
       metadata:
-        name: omni-ava-engine-hpa
+        name: mercury-agent-engine-hpa
       spec:
         minReplicas: 2
         maxReplicas: 10
     target:
       kind: HorizontalPodAutoscaler
-      name: omni-ava-engine-hpa
+      name: mercury-agent-engine-hpa
 
   # Production storage
   - patch: |-
       apiVersion: v1
       kind: PersistentVolumeClaim
       metadata:
-        name: omni-ava-data
+        name: mercury-agent-data
       spec:
         resources:
           requests:
             storage: 50Gi
     target:
       kind: PersistentVolumeClaim
-      name: omni-ava-data
+      name: mercury-agent-data
 
   - patch: |-
       apiVersion: v1
       kind: PersistentVolumeClaim
       metadata:
-        name: omni-ava-models
+        name: mercury-agent-models
       spec:
         resources:
           requests:
             storage: 100Gi
     target:
       kind: PersistentVolumeClaim
-      name: omni-ava-models
+      name: mercury-agent-models
 
 configMapGenerator:
-  - name: omni-ava-config
+  - name: mercury-agent-config
     behavior: merge
     literals:
       - OMNI_LOG_LEVEL=WARNING

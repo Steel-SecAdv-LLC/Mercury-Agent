@@ -28,13 +28,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build --no-cache -t omni-ava-mercury:latest .
+        run: docker build --no-cache -t mercury-agent-mercury:latest .
 
       - name: Run Trivy vulnerability scanner in standalone mode
         continue-on-error: true
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: omni-ava-mercury:latest
+          image-ref: mercury-agent-mercury:latest
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN

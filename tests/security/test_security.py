@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -22,9 +22,9 @@ from __future__ import annotations
 Test security modules
 """
 
-from omni_anomaly_engine.security.encryption import SecureDataHandler
-from omni_anomaly_engine.security.rate_limiting import RateLimiter
-from omni_anomaly_engine.security.threat_detection import BanishmentAction, ThreatDetector
+from omni_mercury_engine.security.encryption import SecureDataHandler
+from omni_mercury_engine.security.rate_limiting import RateLimiter
+from omni_mercury_engine.security.threat_detection import BanishmentAction, ThreatDetector
 
 
 def test_threat_detector_initialization():

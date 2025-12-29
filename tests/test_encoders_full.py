@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -40,7 +40,7 @@ pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
 
 # Conditional imports - only when torch is available
 if HAS_TORCH:
-    from omni_anomaly_engine.ml.encoders import (
+    from omni_mercury_engine.ml.encoders import (
         AffectiveEncoder,
         AstrophysicalEncoder,
         BiometricEncoder,
@@ -48,7 +48,7 @@ if HAS_TORCH:
         StatisticalEncoder,
         TemporalEncoder,
     )
-    from omni_anomaly_engine.ml.harmonic_encoder import HarmonicEncoder
+    from omni_mercury_engine.ml.harmonic_encoder import HarmonicEncoder
 
 
 def test_statistical_encoder_with_precomputed():

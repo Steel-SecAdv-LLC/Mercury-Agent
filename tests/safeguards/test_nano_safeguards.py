@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -23,8 +23,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.core.exceptions import DetectorException
-from omni_anomaly_engine.safeguards.nano_safeguards import (
+from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.safeguards.nano_safeguards import (
     HierarchicalMicroScanner,
     NanoSafeguardDetector,
     NanoSafeguardResult,

@@ -1,8 +1,8 @@
 # Security Policy
 
-## OMNI AVA Security Framework
+## Mercury Agent ♱ Security Framework
 
-OMNI AVA is a security-focused AI framework developed by Steel Security Advisory LLC. We take security seriously and are committed to maintaining the integrity, confidentiality, and availability of our systems and user data.
+Mercury Agent ♱ is a security-focused AI framework developed by Steel Security Advisory LLC. We take security seriously and are committed to maintaining the integrity, confidentiality, and availability of our systems and user data.
 
 ## Supported Versions
 
@@ -15,12 +15,12 @@ We provide security updates for the following versions:
 
 ## Reporting a Vulnerability
 
-We appreciate the security community's efforts in helping keep OMNI AVA secure. If you discover a security vulnerability, please follow our responsible disclosure process.
+We appreciate the security community's efforts in helping keep Mercury Agent ♱ secure. If you discover a security vulnerability, please follow our responsible disclosure process.
 
 ### How to Report
 
 1. **Email**: Send a detailed report to security@steelsecurityadvisors.com
-2. **Subject Line**: Use the format `[SECURITY] OMNI-AVA: Brief Description`
+2. **Subject Line**: Use the format `[SECURITY] Mercury-Agent: Brief Description`
 3. **PGP Encryption**: For sensitive reports, request our PGP public key
 
 ### What to Include
@@ -51,7 +51,7 @@ Please provide as much information as possible:
 
 ### Code Security
 
-OMNI AVA implements multiple layers of security:
+Mercury Agent ♱ implements multiple layers of security:
 
 - **Static Analysis**: Bandit security scanning in CI/CD pipeline
 - **Dependency Scanning**: Regular audits with Safety and pip-audit
@@ -108,13 +108,13 @@ security:
 
 ### Updates
 
-- **Regular Updates**: Keep OMNI AVA and dependencies updated
+- **Regular Updates**: Keep Mercury Agent ♱ and dependencies updated
 - **Security Advisories**: Subscribe to our security mailing list
 - **Vulnerability Monitoring**: Use tools like Dependabot or Snyk
 
 ## Ethical Security Considerations
 
-OMNI AVA includes security intelligence capabilities. Users must:
+Mercury Agent ♱ includes security intelligence capabilities. Users must:
 
 1. **Legal Compliance**: Ensure all usage complies with applicable laws
 2. **Authorization**: Obtain proper authorization before security testing
@@ -137,7 +137,7 @@ OMNI AVA includes security intelligence capabilities. Users must:
 
 ## Security Audits
 
-OMNI AVA undergoes regular security assessments:
+Mercury Agent ♱ undergoes regular security assessments:
 
 - **Automated Scanning**: Daily CI/CD security scans
 - **Dependency Audits**: Weekly dependency vulnerability checks
@@ -146,7 +146,7 @@ OMNI AVA undergoes regular security assessments:
 
 ## Compliance
 
-OMNI AVA is designed with compliance in mind:
+Mercury Agent ♱ is designed with compliance in mind:
 
 - **OWASP**: Follows OWASP Top 10 security guidelines
 - **CWE**: Addresses Common Weakness Enumeration patterns
@@ -160,7 +160,7 @@ OMNI AVA is designed with compliance in mind:
 
 ## Acknowledgments
 
-We thank the security researchers who have helped improve OMNI AVA's security. Contributors will be acknowledged here with their permission.
+We thank the security researchers who have helped improve Mercury Agent ♱'s security. Contributors will be acknowledged here with their permission.
 
 ---
 

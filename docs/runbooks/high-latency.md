@@ -1,9 +1,9 @@
-# OMNI-AVA Runbook: High Latency
+# Mercury-Agent Runbook: High Latency
 
-## Alert: OmniAvaHighLatency
+## Alert: OmniMercuryHighLatency
 
 ### Overview
-This runbook provides guidance for responding to high latency alerts in the OMNI-AVA platform, where response times exceed acceptable thresholds.
+This runbook provides guidance for responding to high latency alerts in the Mercury-Agent platform, where response times exceed acceptable thresholds.
 
 ### Alert Threshold
 - **Warning**: P95 latency > 500ms for 10 minutes
@@ -22,40 +22,40 @@ This runbook provides guidance for responding to high latency alerts in the OMNI
 ```promql
 # Prometheus queries for latency analysis
 # P50 latency
-histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{app="omni-ava"}[5m])) by (le))
+histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{app="mercury-agent"}[5m])) by (le))
 
 # P95 latency
-histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{app="omni-ava"}[5m])) by (le))
+histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{app="mercury-agent"}[5m])) by (le))
 
 # P99 latency
-histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{app="omni-ava"}[5m])) by (le))
+histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{app="mercury-agent"}[5m])) by (le))
 ```
 
 ### 2. Identify Slow Endpoints
 ```bash
 # Check logs for slow requests
-kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=200 | grep -E "duration=[0-9]+\.[0-9]+" | sort -t= -k2 -rn | head -20
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=api --tail=200 | grep -E "duration=[0-9]+\.[0-9]+" | sort -t= -k2 -rn | head -20
 
 # Check by endpoint (Prometheus)
-histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{app="omni-ava"}[5m])) by (le, path))
+histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{app="mercury-agent"}[5m])) by (le, path))
 ```
 
 ### 3. Check Resource Utilization
 ```bash
 # View CPU and memory usage
-kubectl top pods -n omni-ava
+kubectl top pods -n mercury-agent
 
 # Check for CPU throttling
-kubectl get pods -n omni-ava -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[*].resources.limits.cpu}{"\n"}{end}'
+kubectl get pods -n mercury-agent -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[*].resources.limits.cpu}{"\n"}{end}'
 ```
 
 ### 4. Check Dependencies
 ```bash
 # Check engine response times
-kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=100 | grep -i "duration\|time"
+kubectl logs -n mercury-agent -l app.kubernetes.io/component=engine --tail=100 | grep -i "duration\|time"
 
 # Check network latency between pods
-kubectl exec -n omni-ava deployment/omni-ava-api -- curl -w "@/dev/stdin" -o /dev/null -s http://omni-ava-engine:8080/health <<< "time_total: %{time_total}s\n"
+kubectl exec -n mercury-agent deployment/mercury-agent-api -- curl -w "@/dev/stdin" -o /dev/null -s http://mercury-agent-engine:8080/health <<< "time_total: %{time_total}s\n"
 ```
 
 ---
@@ -72,15 +72,15 @@ kubectl exec -n omni-ava deployment/omni-ava-api -- curl -w "@/dev/stdin" -o /de
 **Actions:**
 1. Scale horizontally:
    ```bash
-   kubectl scale deployment omni-ava-api -n omni-ava --replicas=6
+   kubectl scale deployment mercury-agent-api -n mercury-agent --replicas=6
    ```
 2. Increase CPU limits:
    ```bash
-   kubectl patch deployment omni-ava-api -n omni-ava -p '{"spec":{"template":{"spec":{"containers":[{"name":"api","resources":{"limits":{"cpu":"4"}}}]}}}}'
+   kubectl patch deployment mercury-agent-api -n mercury-agent -p '{"spec":{"template":{"spec":{"containers":[{"name":"api","resources":{"limits":{"cpu":"4"}}}]}}}}'
    ```
 3. Check HPA configuration:
    ```bash
-   kubectl get hpa -n omni-ava -o yaml
+   kubectl get hpa -n mercury-agent -o yaml
    ```
 
 ### Scenario 2: Slow Detection Processing
@@ -93,15 +93,15 @@ kubectl exec -n omni-ava deployment/omni-ava-api -- curl -w "@/dev/stdin" -o /de
 **Actions:**
 1. Check model inference times:
    ```bash
-   kubectl logs -n omni-ava -l app.kubernetes.io/component=engine --tail=100 | grep -i "inference"
+   kubectl logs -n mercury-agent -l app.kubernetes.io/component=engine --tail=100 | grep -i "inference"
    ```
 2. Enable model caching:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava ENABLE_MODEL_CACHE=true
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent ENABLE_MODEL_CACHE=true
    ```
 3. Reduce batch sizes for faster response:
    ```bash
-   kubectl set env deployment/omni-ava-engine -n omni-ava MAX_BATCH_SIZE=16
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent MAX_BATCH_SIZE=16
    ```
 
 ### Scenario 3: Network Issues
@@ -114,15 +114,15 @@ kubectl exec -n omni-ava deployment/omni-ava-api -- curl -w "@/dev/stdin" -o /de
 **Actions:**
 1. Check network policies:
    ```bash
-   kubectl get networkpolicies -n omni-ava
+   kubectl get networkpolicies -n mercury-agent
    ```
 2. Verify service endpoints:
    ```bash
-   kubectl get endpoints -n omni-ava
+   kubectl get endpoints -n mercury-agent
    ```
 3. Check for DNS resolution issues:
    ```bash
-   kubectl exec -n omni-ava deployment/omni-ava-api -- nslookup omni-ava-engine
+   kubectl exec -n mercury-agent deployment/mercury-agent-api -- nslookup mercury-agent-engine
    ```
 
 ### Scenario 4: Database/Storage Latency
@@ -135,7 +135,7 @@ kubectl exec -n omni-ava deployment/omni-ava-api -- curl -w "@/dev/stdin" -o /de
 **Actions:**
 1. Check PVC performance:
    ```bash
-   kubectl exec -n omni-ava deployment/omni-ava-engine -- dd if=/dev/zero of=/data/test bs=1M count=100 oflag=direct
+   kubectl exec -n mercury-agent deployment/mercury-agent-engine -- dd if=/dev/zero of=/data/test bs=1M count=100 oflag=direct
    ```
 2. Consider using faster storage class
 3. Implement caching layer for frequently accessed data
@@ -146,7 +146,7 @@ kubectl exec -n omni-ava deployment/omni-ava-api -- curl -w "@/dev/stdin" -o /de
 
 If latency doesn't improve after following these steps:
 
-1. **Notify team** via Slack #omni-ava-alerts
+1. **Notify team** via Slack #mercury-agent-alerts
 2. **Check for broader infrastructure issues**
 3. **Engage infrastructure team** if cluster-wide
 

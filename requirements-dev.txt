@@ -1,4 +1,4 @@
-# OMNI ♱ AVA Development Dependencies
+# Mercury Agent ♱ Development Dependencies
 # Install with: pip install -r requirements-dev.txt
 
 # Testing

@@ -1,9 +1,9 @@
-# OMNI-AVA Runbook: All Replicas Down
+# Mercury-Agent Runbook: All Replicas Down
 
-## Alert: OmniAvaAllReplicasDown
+## Alert: OmniMercuryAllReplicasDown
 
 ### Overview
-This runbook provides guidance for responding when all OMNI-AVA replicas are unavailable, resulting in a complete service outage.
+This runbook provides guidance for responding when all Mercury-Agent replicas are unavailable, resulting in a complete service outage.
 
 ### Alert Threshold
 - **Critical**: All replicas unavailable for 1 minute
@@ -21,13 +21,13 @@ This runbook provides guidance for responding when all OMNI-AVA replicas are una
 ### 1. Check Pod Status
 ```bash
 # View all pods and their status
-kubectl get pods -n omni-ava -o wide
+kubectl get pods -n mercury-agent -o wide
 
 # Check for pending or failed pods
-kubectl get pods -n omni-ava --field-selector=status.phase!=Running
+kubectl get pods -n mercury-agent --field-selector=status.phase!=Running
 
 # View recent events
-kubectl get events -n omni-ava --sort-by='.lastTimestamp' | head -30
+kubectl get events -n mercury-agent --sort-by='.lastTimestamp' | head -30
 ```
 
 ### 2. Check Node Health
@@ -39,29 +39,29 @@ kubectl get nodes
 kubectl describe nodes | grep -A5 "Conditions:"
 
 # Check if pods are unschedulable
-kubectl get pods -n omni-ava -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.conditions[?(@.type=="PodScheduled")].status}{"\n"}{end}'
+kubectl get pods -n mercury-agent -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.conditions[?(@.type=="PodScheduled")].status}{"\n"}{end}'
 ```
 
 ### 3. Check Deployment Status
 ```bash
 # View deployment details
-kubectl describe deployment omni-ava-api -n omni-ava
-kubectl describe deployment omni-ava-engine -n omni-ava
+kubectl describe deployment mercury-agent-api -n mercury-agent
+kubectl describe deployment mercury-agent-engine -n mercury-agent
 
 # Check replica sets
-kubectl get replicasets -n omni-ava
+kubectl get replicasets -n mercury-agent
 ```
 
 ### 4. Check Resource Availability
 ```bash
 # Check namespace resource quotas
-kubectl describe resourcequota -n omni-ava
+kubectl describe resourcequota -n mercury-agent
 
 # Check PVC status
-kubectl get pvc -n omni-ava
+kubectl get pvc -n mercury-agent
 
 # Check if storage is available
-kubectl describe pvc -n omni-ava
+kubectl describe pvc -n mercury-agent
 ```
 
 ---
@@ -85,7 +85,7 @@ kubectl describe pvc -n omni-ava
    ```
 3. Force reschedule pods:
    ```bash
-   kubectl delete pods -n omni-ava --all --grace-period=0 --force
+   kubectl delete pods -n mercury-agent --all --grace-period=0 --force
    ```
 4. Contact infrastructure team for node recovery
 
@@ -98,12 +98,12 @@ kubectl describe pvc -n omni-ava
 **Actions:**
 1. Check image pull secrets:
    ```bash
-   kubectl get secrets -n omni-ava | grep docker
-   kubectl describe secret <secret-name> -n omni-ava
+   kubectl get secrets -n mercury-agent | grep docker
+   kubectl describe secret <secret-name> -n mercury-agent
    ```
 2. Verify image exists:
    ```bash
-   kubectl describe pod <pod-name> -n omni-ava | grep -A5 "Events:"
+   kubectl describe pod <pod-name> -n mercury-agent | grep -A5 "Events:"
    ```
 3. Update image pull secret if expired:
    ```bash
@@ -111,7 +111,7 @@ kubectl describe pvc -n omni-ava
      --docker-server=ghcr.io \
      --docker-username=<username> \
      --docker-password=<token> \
-     -n omni-ava --dry-run=client -o yaml | kubectl apply -f -
+     -n mercury-agent --dry-run=client -o yaml | kubectl apply -f -
    ```
 
 ### Scenario 3: Resource Quota Exceeded
@@ -123,11 +123,11 @@ kubectl describe pvc -n omni-ava
 **Actions:**
 1. Check current quota usage:
    ```bash
-   kubectl describe resourcequota -n omni-ava
+   kubectl describe resourcequota -n mercury-agent
    ```
 2. Temporarily increase quota or reduce replica count:
    ```bash
-   kubectl scale deployment omni-ava-api -n omni-ava --replicas=2
+   kubectl scale deployment mercury-agent-api -n mercury-agent --replicas=2
    ```
 3. Request quota increase from cluster admin
 
@@ -140,7 +140,7 @@ kubectl describe pvc -n omni-ava
 **Actions:**
 1. Check PVC status:
    ```bash
-   kubectl describe pvc -n omni-ava
+   kubectl describe pvc -n mercury-agent
    ```
 2. Check storage class availability:
    ```bash
@@ -148,7 +148,7 @@ kubectl describe pvc -n omni-ava
    ```
 3. If PVC is stuck, delete and recreate (data loss warning):
    ```bash
-   kubectl delete pvc <pvc-name> -n omni-ava
+   kubectl delete pvc <pvc-name> -n mercury-agent
    kubectl apply -f k8s/base/pvc.yaml
    ```
 
@@ -160,7 +160,7 @@ This is a **critical incident** requiring immediate escalation:
 
 1. **Page on-call engineer immediately** via PagerDuty
 2. **Create P1 incident** in incident management system
-3. **Notify stakeholders** via Slack #omni-ava-incidents
+3. **Notify stakeholders** via Slack #mercury-agent-incidents
 4. **Start incident bridge call** if not resolved in 5 minutes
 
 ### Escalation Contacts

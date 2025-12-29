@@ -8,7 +8,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create non-root user (extra safety)
-ARG USERNAME=omniava
+ARG USERNAME=mercuryagent
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 RUN groupadd --gid $USER_GID $USERNAME \
@@ -28,4 +28,4 @@ COPY --chown=$USERNAME:$USER_GID . .
 RUN pip install --no-cache-dir -e .
 
 # Default to API server for production; override for training: docker run ... python src/mercury/train.py
-CMD ["python", "-m", "uvicorn", "omni_anomaly_engine.api.server:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "omni_mercury_engine.api.server:app", "--host", "0.0.0.0", "--port", "8000"]

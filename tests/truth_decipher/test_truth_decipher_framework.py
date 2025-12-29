@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -34,7 +34,7 @@ Five-Phase Architecture (Enhanced with Cognitive Layer):
 
 import numpy as np
 
-from omni_anomaly_engine.truth_decipher import TruthDecipherFramework, TruthDecipherResult
+from omni_mercury_engine.truth_decipher import TruthDecipherFramework, TruthDecipherResult
 
 
 class TestTruthDecipherFramework:

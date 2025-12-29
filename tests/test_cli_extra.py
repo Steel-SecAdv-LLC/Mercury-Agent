@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -29,7 +29,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from omni_anomaly_engine.cli import main
+from omni_mercury_engine.cli import main
 
 
 def test_security_command_help():

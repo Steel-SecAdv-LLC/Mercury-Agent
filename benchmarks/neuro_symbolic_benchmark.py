@@ -1,5 +1,5 @@
 """
-OMNI AVA (O+A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -37,15 +37,15 @@ from matplotlib.gridspec import GridSpec
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from omni_anomaly_engine.agentic.mercury_a_agent import (
+from omni_mercury_engine.agentic.mercury_a_agent import (
     DomainType,
     MercuryAgent,
     create_mercury_agent,
 )
-from omni_anomaly_engine.cognitive.ethical_bounding import (
+from omni_mercury_engine.cognitive.ethical_bounding import (
     BenevolenceScorer,
 )
-from omni_anomaly_engine.cognitive.neurosymbolic_fusion import (
+from omni_mercury_engine.cognitive.neurosymbolic_fusion import (
     FusionStrategy,
     MemoryType,
     NeurosymbolicFusionEngine,
@@ -726,7 +726,8 @@ def create_comprehensive_report(results: dict[str, Any], output_dir: Path) -> No
     )
 
     fig.suptitle(
-        "OMNI-AVA Neuro-Symbolic Evolution\n" "7-Phase Cognitive Architecture Benchmark Report",
+        "Mercury-Agent Neuro-Symbolic Evolution\n"
+        "7-Phase Cognitive Architecture Benchmark Report",
         fontsize=16,
         fontweight="bold",
         y=0.98,

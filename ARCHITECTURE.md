@@ -1,12 +1,12 @@
-# OMNI AVA Architecture
+# Mercury Agent ♱ Architecture
 
 ## Overview
 
-OMNI AVA (O♱A) is a comprehensive multi-domain anomaly detection and intelligence fusion system. This document describes the unified architecture after the consolidation effort.
+Mercury Agent ♱ is a comprehensive multi-domain anomaly detection and intelligence fusion system. This document describes the unified architecture after the consolidation effort.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                           OMNI AVA Architecture                               │
+│                           Mercury Agent ♱ Architecture                               │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐      │
@@ -35,7 +35,7 @@ OMNI AVA (O♱A) is a comprehensive multi-domain anomaly detection and intellige
 │                                   │                                          │
 │                                   ▼                                          │
 │              ┌───────────────────────────────────────────────┐               │
-│              │            OmniAvaEngine (Main)                │               │
+│              │            OmniMercuryEngine (Main)                │               │
 │              │   Unified detection, fusion, and inference     │               │
 │              └───────────────────────────────────────────────┘               │
 │                                                                              │
@@ -44,14 +44,14 @@ OMNI AVA (O♱A) is a comprehensive multi-domain anomaly detection and intellige
 
 ## Core Components
 
-### 1. OmniAvaEngine (`engine.py`)
+### 1. OmniMercuryEngine (`engine.py`)
 
 The main orchestration engine that integrates all detection capabilities:
 
 ```python
-from omni_anomaly_engine.engine import OmniAvaEngine
+from omni_mercury_engine.engine import OmniMercuryEngine
 
-engine = OmniAvaEngine(mode="fusion", device="cuda")
+engine = OmniMercuryEngine(mode="fusion", device="cuda")
 result = engine.detect_with_fusion(data)
 ```
 
@@ -67,7 +67,7 @@ result = engine.detect_with_fusion(data)
 Central bridge connecting 50+ detectors for unified access:
 
 ```python
-from omni_anomaly_engine.core.detector_registry import DetectorRegistry
+from omni_mercury_engine.core.detector_registry import DetectorRegistry
 
 registry = DetectorRegistry(auto_discover=True)
 features = registry.extract_all_features(data, parallel=True)
@@ -91,7 +91,7 @@ aggregated = registry.aggregate_features(features, target_dim=128)
 Unified LTN-based neurosymbolic reasoning for explainable AI:
 
 ```python
-from omni_anomaly_engine.models.neurosymbolic import (
+from omni_mercury_engine.models.neurosymbolic import (
     NeurosymbolicEngine,
     ReasoningMode,
 )
@@ -123,7 +123,7 @@ explanation = engine.explain(hybrid_result)
 CRISPR-inspired adaptive defense with component health monitoring:
 
 ```python
-from omni_anomaly_engine.resilience.self_healing import SelfHealingEngine
+from omni_mercury_engine.resilience.self_healing import SelfHealingEngine
 
 healer = SelfHealingEngine(max_signatures=1000)
 
@@ -148,7 +148,7 @@ health = healer.get_system_health()
 Psychological operations analysis for All-Source Intelligence:
 
 ```python
-from omni_anomaly_engine.security.psyop import PSYOPAnalyzer
+from omni_mercury_engine.security.psyop import PSYOPAnalyzer
 
 analyzer = PSYOPAnalyzer()
 
@@ -284,8 +284,8 @@ Combines neural networks with symbolic logic:
 ## Module Organization
 
 ```
-omni_anomaly_engine/
-├── engine.py                    # Main OmniAvaEngine orchestrator
+omni_mercury_engine/
+├── engine.py                    # Main OmniMercuryEngine orchestrator
 ├── core/
 │   ├── base.py                  # BaseDetector, BaseModel abstracts
 │   ├── config.py                # Engine configuration
@@ -323,7 +323,7 @@ omni_anomaly_engine/
 ### Engine Configuration
 
 ```python
-from omni_anomaly_engine.core.config import EngineConfig
+from omni_mercury_engine.core.config import EngineConfig
 
 config = EngineConfig(
     threshold=0.5,
@@ -332,7 +332,7 @@ config = EngineConfig(
     memory_threshold_mb=2048,
 )
 
-engine = OmniAvaEngine(config=config, mode="fusion", device="cuda")
+engine = OmniMercuryEngine(config=config, mode="fusion", device="cuda")
 ```
 
 ### Detector Registry Configuration
@@ -350,7 +350,7 @@ registry = DetectorRegistry(
 ### 1. With External Intelligence Sources
 
 ```python
-from omni_anomaly_engine.security.int_sources import IntelligenceSourceRegistry
+from omni_mercury_engine.security.int_sources import IntelligenceSourceRegistry
 
 intel_registry = IntelligenceSourceRegistry()
 sources = intel_registry.get_by_discipline("SIGINT")
@@ -359,7 +359,7 @@ sources = intel_registry.get_by_discipline("SIGINT")
 ### 2. With PSYOP Analysis
 
 ```python
-from omni_anomaly_engine.security.psyop import PSYOPAnalyzer
+from omni_mercury_engine.security.psyop import PSYOPAnalyzer
 
 psyop = PSYOPAnalyzer()
 features = psyop.extract_features(data)  # For fusion pipeline
@@ -369,7 +369,7 @@ result = psyop.predict(data)             # For direct analysis
 ### 3. With Self-Healing System
 
 ```python
-from omni_anomaly_engine.resilience.self_healing import SelfHealingEngine
+from omni_mercury_engine.resilience.self_healing import SelfHealingEngine
 
 healer = SelfHealingEngine()
 engine.self_healing = healer
@@ -405,7 +405,7 @@ registry.register(
 ### Adding New Rules
 
 ```python
-from omni_anomaly_engine.models.neurosymbolic import SymbolicRule
+from omni_mercury_engine.models.neurosymbolic import SymbolicRule
 
 engine.add_rule(SymbolicRule(
     name="custom_rule",
@@ -422,9 +422,53 @@ engine.add_rule(SymbolicRule(
 - Ethical constraints enforced via symbolic rules
 - No sensitive data logged by default
 
+## Omni-Codes: Bio-Inspired Helical Parameters
+
+Mercury Agent ♱ integrates the **Omni-Codes** from [Ava Guardian](https://github.com/Steel-SecAdv-LLC/Ava-Guardian), providing bio-inspired helical parameters for ethical AI alignment and system stability.
+
+### Seven Foundational Codes
+
+| Code | Symbol | Domain | Helical Parameters |
+|------|--------|--------|-------------------|
+| `👁20A07∞_XΔEΛX_ϵ19A89Ϙ` | 👁∞ | Omni-Directional System | r=20.0, p=0.7 |
+| `Ϙ15A11ϵ_ΞΛMΔΞ_ϖ20A19Φ` | Ϙϵ | Omni-Percipient Future | r=15.0, p=1.1 |
+| `Φ07A09ϖ_ΨΔAΛΨ_ϵ19A88Σ` | Φϖ | Omni-Indivisible Guardian | r=7.0, p=0.9 |
+| `Σ19L12ϵ_ΞΛEΔΞ_ϖ19A92Ω` | Σϵ | Omni-Benevolent Stone | r=19.0, p=1.2 |
+| `Ω20V11ϖ_ΨΔSΛΨ_ϵ20A15Θ` | Ωϖ | Omni-Scient Curiosity | r=20.0, p=1.1 |
+| `Θ25M01ϵ_ΞΛLΔΞ_ϖ19A91Γ` | Θϵ | Omni-Universal Discipline | r=25.0, p=0.1 |
+| `Γ19L11ϖ_XΔHΛX_∞19A84♰` | Γϖ | Omni-Potent Lifeforce | r=19.0, p=1.1 |
+
+### Architectural Benefits
+
+- **Helical data encoding**: Mirrors DNA double-helix stability for robust data structures
+- **Self-healing capabilities**: CRISPR-inspired adaptations for system resilience
+- **Evolutionary adaptability**: Dynamic parameter tuning based on stability calculations
+- **Canonical hashing**: Cryptographic integrity through structured encoding
+
+### Integration with Autonomy
+
+The Omni-Codes tie directly into the agent's autonomy system:
+
+```python
+from omni_mercury_engine.utils.constants import OmniCodes, compute_ethical_autonomy
+
+# Stability calculation: |r| * p for each code
+total_stability = OmniCodes.get_total_stability()  # ~115.8
+
+# Autonomy bounded by ethical constraints
+autonomy = compute_ethical_autonomy(
+    base_autonomy=0.8,
+    ethical_threshold=0.99,
+    use_omni_codes=True
+)  # Returns up to 0.95
+
+# Validate system stability
+is_stable = OmniCodes.validate_stability(min_total=50.0)  # True
+```
+
 ## Version History
 
-- **v1.0.0**: Initial consolidation with unified OmniAvaEngine
+- **v1.0.0**: Initial consolidation with unified OmniMercuryEngine
 - Merged duplicate implementations (kept Location 2)
 - Unified neurosymbolic architecture (LTN-based)
 - Added DetectorRegistry bridge

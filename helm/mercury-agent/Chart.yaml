@@ -1,0 +1,71 @@
+# Mercury-Agent Helm Chart
+# Neural-Symbolic AI Framework for Multi-Domain Anomaly Detection
+apiVersion: v2
+name: mercury-agent
+description: |
+  Mercury-Agent (Omnidisciplinary Neural-Symbolic AI Virtual Analyst) is a comprehensive
+  anomaly detection framework supporting medical, security intelligence, planetary
+  monitoring, chemistry, and consciousness research domains.
+
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+# Minimum Kubernetes version required
+kubeVersion: ">=1.23.0-0"
+
+home: https://github.com/Steel-SecAdv-LLC/Mercury-Agent
+icon: https://raw.githubusercontent.com/Steel-SecAdv-LLC/Mercury-Agent/main/docs/images/logo.png
+sources:
+  - https://github.com/Steel-SecAdv-LLC/Mercury-Agent
+
+maintainers:
+  - name: Steel Security Advisors LLC
+    email: admin@steel-secadv.com
+    url: https://steel-secadv.com
+
+keywords:
+  - anomaly-detection
+  - machine-learning
+  - neural-symbolic
+  - ai
+  - security
+  - medical
+  - monitoring
+
+annotations:
+  artifacthub.io/category: machine-learning
+  artifacthub.io/license: GPL-3.0-or-later
+  artifacthub.io/operator: "false"
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/changes: |
+    - Initial Helm chart release
+    - Added Kubernetes deployment manifests
+    - Implemented HPA and PDB
+    - Added monitoring integration
+
+dependencies:
+  # Optional: Prometheus for metrics
+  - name: prometheus
+    version: "25.x.x"
+    repository: "https://prometheus-community.github.io/helm-charts"
+    condition: prometheus.enabled
+    tags:
+      - monitoring
+
+  # Optional: Grafana for dashboards
+  - name: grafana
+    version: "7.x.x"
+    repository: "https://grafana.github.io/helm-charts"
+    condition: grafana.enabled
+    tags:
+      - monitoring
+
+  # Optional: Redis for caching
+  - name: redis
+    version: "18.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled
+    tags:
+      - cache

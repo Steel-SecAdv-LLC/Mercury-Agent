@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for evaluation metrics module.
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from omni_anomaly_engine.evaluation.metrics import (
+from omni_mercury_engine.evaluation.metrics import (
     AnomalyMetrics,
     compute_auc_pr,
     compute_auc_roc,

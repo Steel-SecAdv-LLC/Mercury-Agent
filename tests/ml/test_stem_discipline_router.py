@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ Tests for STEM Discipline Router for multi-engine fusion.
 
 import torch
 
-from omni_anomaly_engine.ml.fusion_network import STEMDisciplineRouter
+from omni_mercury_engine.ml.fusion_network import STEMDisciplineRouter
 
 
 class TestSTEMDisciplineRouter:

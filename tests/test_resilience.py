@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -24,15 +24,15 @@ Test resilience modules
 
 import time
 
-from omni_anomaly_engine.resilience.circuit_breaker import CircuitBreaker
-from omni_anomaly_engine.resilience.health_monitoring import HealthMonitor
-from omni_anomaly_engine.resilience.retry import RetryPolicy
-from omni_anomaly_engine.resilience.self_healing import SelfHealingEngine
+from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker
+from omni_mercury_engine.resilience.health_monitoring import HealthMonitor
+from omni_mercury_engine.resilience.retry import RetryPolicy
+from omni_mercury_engine.resilience.self_healing import SelfHealingEngine
 
 
 def test_circuit_breaker_closed_state():
     """Test circuit breaker in closed state"""
-    from omni_anomaly_engine.resilience.circuit_breaker import CircuitState
+    from omni_mercury_engine.resilience.circuit_breaker import CircuitState
 
     breaker = CircuitBreaker(failure_threshold=3, recovery_timeout=1)
 
@@ -46,7 +46,7 @@ def test_circuit_breaker_closed_state():
 
 def test_circuit_breaker_open_state():
     """Test circuit breaker transitions to open state"""
-    from omni_anomaly_engine.resilience.circuit_breaker import CircuitState
+    from omni_mercury_engine.resilience.circuit_breaker import CircuitState
 
     breaker = CircuitBreaker(failure_threshold=2, recovery_timeout=1)
 
@@ -64,7 +64,7 @@ def test_circuit_breaker_open_state():
 
 def test_circuit_breaker_half_open_state():
     """Test circuit breaker half-open state"""
-    from omni_anomaly_engine.resilience.circuit_breaker import CircuitState
+    from omni_mercury_engine.resilience.circuit_breaker import CircuitState
 
     breaker = CircuitBreaker(failure_threshold=2, recovery_timeout=0.1)
 
@@ -143,7 +143,7 @@ def test_health_monitor_initialization():
 
 def test_health_monitor_record_metrics():
     """Test recording health metrics"""
-    from omni_anomaly_engine.resilience.health_monitoring import HealthMetrics
+    from omni_mercury_engine.resilience.health_monitoring import HealthMetrics
 
     monitor = HealthMonitor()
     metrics = HealthMetrics(cpu_usage=0.5, memory_usage=0.6, response_time=0.1, error_rate=0.01)
@@ -155,7 +155,7 @@ def test_health_monitor_record_metrics():
 
 def test_health_monitor_get_current_health():
     """Test getting current health status"""
-    from omni_anomaly_engine.resilience.health_monitoring import HealthMetrics
+    from omni_mercury_engine.resilience.health_monitoring import HealthMetrics
 
     monitor = HealthMonitor()
     metrics = HealthMetrics(cpu_usage=0.5, memory_usage=0.6, response_time=0.1, error_rate=0.01)

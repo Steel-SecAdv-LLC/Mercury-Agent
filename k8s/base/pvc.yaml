@@ -1,12 +1,12 @@
-# OMNI-AVA Persistent Volume Claims
+# Mercury-Agent Persistent Volume Claims
 # Storage configuration for data, models, and logs
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: omni-ava-data
-  namespace: omni-ava
+  name: mercury-agent-data
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: storage
 spec:
   accessModes:
@@ -20,10 +20,10 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: omni-ava-models
-  namespace: omni-ava
+  name: mercury-agent-models
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: storage
 spec:
   accessModes:
@@ -37,10 +37,10 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: omni-ava-backup
-  namespace: omni-ava
+  name: mercury-agent-backup
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: backup
 spec:
   accessModes:
@@ -56,9 +56,9 @@ spec:
 # apiVersion: storage.k8s.io/v1
 # kind: StorageClass
 # metadata:
-#   name: omni-ava-fast
+#   name: mercury-agent-fast
 #   labels:
-#     app.kubernetes.io/name: omni-ava
+#     app.kubernetes.io/name: mercury-agent
 # provisioner: ebs.csi.aws.com
 # parameters:
 #   type: gp3
@@ -73,7 +73,7 @@ spec:
 # apiVersion: storage.k8s.io/v1
 # kind: StorageClass
 # metadata:
-#   name: omni-ava-fast
+#   name: mercury-agent-fast
 # provisioner: pd.csi.storage.gke.io
 # parameters:
 #   type: pd-ssd
@@ -85,7 +85,7 @@ spec:
 # apiVersion: storage.k8s.io/v1
 # kind: StorageClass
 # metadata:
-#   name: omni-ava-fast
+#   name: mercury-agent-fast
 # provisioner: disk.csi.azure.com
 # parameters:
 #   skuName: Premium_LRS
@@ -97,9 +97,9 @@ spec:
 apiVersion: snapshot.storage.k8s.io/v1
 kind: VolumeSnapshotClass
 metadata:
-  name: omni-ava-snapshot
+  name: mercury-agent-snapshot
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
 # Change driver based on cloud provider
 driver: ebs.csi.aws.com
 deletionPolicy: Retain

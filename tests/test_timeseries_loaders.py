@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for time-series dataset loaders.
@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from omni_anomaly_engine.datasets.base import DatasetConfig
-from omni_anomaly_engine.datasets.timeseries import (
+from omni_mercury_engine.datasets.base import DatasetConfig
+from omni_mercury_engine.datasets.timeseries import (
     NABLoader,
     SMAPMSLLoader,
     SMDLoader,

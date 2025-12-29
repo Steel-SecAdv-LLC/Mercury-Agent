@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ Tests for Federated Learning module.
 
 import numpy as np
 
-from omni_anomaly_engine.federated import (
+from omni_mercury_engine.federated import (
     CISAFederatedCoordinator,
     FederatedAnomalyDetector,
     FederatedStrategy,

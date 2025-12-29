@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from omni_anomaly_engine.cli import main
+from omni_mercury_engine.cli import main
 
 
 def test_cli_main_help():
@@ -35,7 +35,7 @@ def test_cli_main_help():
     runner = CliRunner()
     result = runner.invoke(main, ["--help"])
     assert result.exit_code == 0
-    assert "OMNI ♱ AVA" in result.output
+    assert "Mercury Agent ♱" in result.output
 
 
 def test_detect_help():

@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for SOTA anomaly detection models.
@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 import torch
 
-from omni_anomaly_engine.models.sota.association_discrepancy import (
+from omni_mercury_engine.models.sota.association_discrepancy import (
     AnomalyTransformerEncoder,
     AssociationConfig,
     AssociationDiscrepancyLoss,
@@ -19,7 +19,7 @@ from omni_anomaly_engine.models.sota.association_discrepancy import (
     SeriesAssociation,
     apply_ethical_constraints,
 )
-from omni_anomaly_engine.models.sota.maat import (
+from omni_mercury_engine.models.sota.maat import (
     GatedFeatureFusion,
     MAATConfig,
     MAATEncoderLayer,
@@ -29,7 +29,7 @@ from omni_anomaly_engine.models.sota.maat import (
     SelectiveSSM,
     SparseAttention,
 )
-from omni_anomaly_engine.models.sota.tranad import (
+from omni_mercury_engine.models.sota.tranad import (
     AdversarialTrainer,
     FocusScoreConditioning,
     MAMLOptimizer,

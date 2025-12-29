@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -39,15 +39,15 @@ class TestTimeGPTAdapter:
 
     def test_timegpt_initialization(self):
         """Test TimeGPT adapter can be initialized."""
-        from omni_anomaly_engine.models.foundation import TimeGPTAdapter
+        from omni_mercury_engine.models.foundation import TimeGPTAdapter
 
         adapter = TimeGPTAdapter()
         assert adapter is not None
 
     def test_timegpt_config(self):
         """Test TimeGPT with custom config."""
-        from omni_anomaly_engine.models.foundation import TimeGPTAdapter
-        from omni_anomaly_engine.models.foundation.timegpt_adapter import TimeGPTConfig
+        from omni_mercury_engine.models.foundation import TimeGPTAdapter
+        from omni_mercury_engine.models.foundation.timegpt_adapter import TimeGPTConfig
 
         config = TimeGPTConfig(
             model="timegpt-1-long-horizon",
@@ -59,7 +59,7 @@ class TestTimeGPTAdapter:
 
     def test_timegpt_detect_mock(self, univariate_data):
         """Test TimeGPT anomaly detection with mock mode."""
-        from omni_anomaly_engine.models.foundation import TimeGPTAdapter
+        from omni_mercury_engine.models.foundation import TimeGPTAdapter
 
         # Without API key, should use mock mode
         adapter = TimeGPTAdapter()
@@ -70,7 +70,7 @@ class TestTimeGPTAdapter:
 
     def test_timegpt_forecast(self, univariate_data):
         """Test TimeGPT forecasting."""
-        from omni_anomaly_engine.models.foundation import TimeGPTAdapter
+        from omni_mercury_engine.models.foundation import TimeGPTAdapter
 
         adapter = TimeGPTAdapter()
         forecast = adapter.forecast(univariate_data, horizon=10)
@@ -84,15 +84,15 @@ class TestChronosAdapter:
 
     def test_chronos_initialization(self):
         """Test Chronos adapter can be initialized."""
-        from omni_anomaly_engine.models.foundation import ChronosAdapter
+        from omni_mercury_engine.models.foundation import ChronosAdapter
 
         adapter = ChronosAdapter()
         assert adapter is not None
 
     def test_chronos_config(self):
         """Test Chronos with custom config."""
-        from omni_anomaly_engine.models.foundation import ChronosAdapter
-        from omni_anomaly_engine.models.foundation.chronos_adapter import ChronosConfig
+        from omni_mercury_engine.models.foundation import ChronosAdapter
+        from omni_mercury_engine.models.foundation.chronos_adapter import ChronosConfig
 
         config = ChronosConfig(
             model_name="amazon/chronos-t5-small",
@@ -104,7 +104,7 @@ class TestChronosAdapter:
 
     def test_chronos_detect_mock(self, univariate_data):
         """Test Chronos anomaly detection with mock mode."""
-        from omni_anomaly_engine.models.foundation import ChronosAdapter
+        from omni_mercury_engine.models.foundation import ChronosAdapter
 
         adapter = ChronosAdapter()
         result = adapter.detect(univariate_data)
@@ -115,7 +115,7 @@ class TestChronosAdapter:
 
     def test_chronos_forecast(self, univariate_data):
         """Test Chronos forecasting."""
-        from omni_anomaly_engine.models.foundation import ChronosAdapter
+        from omni_mercury_engine.models.foundation import ChronosAdapter
 
         adapter = ChronosAdapter()
         forecast = adapter.forecast(univariate_data, horizon=10)
@@ -128,15 +128,15 @@ class TestMatrixProfileAdapter:
 
     def test_matrix_profile_initialization(self):
         """Test Matrix Profile adapter can be initialized."""
-        from omni_anomaly_engine.models.foundation import MatrixProfileAdapter
+        from omni_mercury_engine.models.foundation import MatrixProfileAdapter
 
         adapter = MatrixProfileAdapter()
         assert adapter is not None
 
     def test_matrix_profile_config(self):
         """Test Matrix Profile with custom config."""
-        from omni_anomaly_engine.models.foundation import MatrixProfileAdapter
-        from omni_anomaly_engine.models.foundation.matrix_profile import MatrixProfileConfig
+        from omni_mercury_engine.models.foundation import MatrixProfileAdapter
+        from omni_mercury_engine.models.foundation.matrix_profile import MatrixProfileConfig
 
         config = MatrixProfileConfig(
             window_size=50,
@@ -148,7 +148,7 @@ class TestMatrixProfileAdapter:
 
     def test_matrix_profile_detect(self, time_series_with_anomaly):
         """Test Matrix Profile anomaly detection."""
-        from omni_anomaly_engine.models.foundation import MatrixProfileAdapter
+        from omni_mercury_engine.models.foundation import MatrixProfileAdapter
 
         adapter = MatrixProfileAdapter()
         result = adapter.detect(time_series_with_anomaly)
@@ -159,7 +159,7 @@ class TestMatrixProfileAdapter:
 
     def test_matrix_profile_find_motifs(self, univariate_data):
         """Test motif discovery."""
-        from omni_anomaly_engine.models.foundation import MatrixProfileAdapter
+        from omni_mercury_engine.models.foundation import MatrixProfileAdapter
 
         adapter = MatrixProfileAdapter()
         motifs = adapter.find_motifs(univariate_data, top_k=3)
@@ -169,7 +169,7 @@ class TestMatrixProfileAdapter:
 
     def test_matrix_profile_find_discords(self, time_series_with_anomaly):
         """Test discord (anomaly) discovery."""
-        from omni_anomaly_engine.models.foundation import MatrixProfileAdapter
+        from omni_mercury_engine.models.foundation import MatrixProfileAdapter
 
         adapter = MatrixProfileAdapter()
         discords = adapter.find_discords(time_series_with_anomaly, top_k=5)
@@ -183,15 +183,15 @@ class TestFoundationEnsemble:
 
     def test_ensemble_initialization(self):
         """Test Foundation Ensemble can be initialized."""
-        from omni_anomaly_engine.models.foundation import FoundationEnsemble
+        from omni_mercury_engine.models.foundation import FoundationEnsemble
 
         ensemble = FoundationEnsemble()
         assert ensemble is not None
 
     def test_ensemble_config(self):
         """Test Foundation Ensemble with custom config."""
-        from omni_anomaly_engine.models.foundation import FoundationEnsemble
-        from omni_anomaly_engine.models.foundation.ensemble import EnsembleConfig
+        from omni_mercury_engine.models.foundation import FoundationEnsemble
+        from omni_mercury_engine.models.foundation.ensemble import EnsembleConfig
 
         config = EnsembleConfig(
             adapters=["matrix_profile"],
@@ -203,7 +203,7 @@ class TestFoundationEnsemble:
 
     def test_ensemble_detect(self, time_series_with_anomaly):
         """Test Foundation Ensemble anomaly detection."""
-        from omni_anomaly_engine.models.foundation import FoundationEnsemble
+        from omni_mercury_engine.models.foundation import FoundationEnsemble
 
         ensemble = FoundationEnsemble()
         result = ensemble.detect(time_series_with_anomaly)
@@ -214,8 +214,8 @@ class TestFoundationEnsemble:
 
     def test_ensemble_aggregation_methods(self, univariate_data):
         """Test different aggregation methods."""
-        from omni_anomaly_engine.models.foundation import FoundationEnsemble
-        from omni_anomaly_engine.models.foundation.ensemble import EnsembleConfig
+        from omni_mercury_engine.models.foundation import FoundationEnsemble
+        from omni_mercury_engine.models.foundation.ensemble import EnsembleConfig
 
         for method in ["mean", "max", "voting"]:
             config = EnsembleConfig(
@@ -232,14 +232,14 @@ class TestBaseFoundationAdapter:
 
     def test_base_adapter_initialization(self):
         """Test BaseFoundationAdapter can be initialized."""
-        from omni_anomaly_engine.models.foundation.base_foundation import BaseFoundationAdapter
+        from omni_mercury_engine.models.foundation.base_foundation import BaseFoundationAdapter
 
         adapter = BaseFoundationAdapter()
         assert adapter is not None
 
     def test_base_adapter_interface(self):
         """Test base adapter has required interface."""
-        from omni_anomaly_engine.models.foundation.base_foundation import BaseFoundationAdapter
+        from omni_mercury_engine.models.foundation.base_foundation import BaseFoundationAdapter
 
         adapter = BaseFoundationAdapter()
 

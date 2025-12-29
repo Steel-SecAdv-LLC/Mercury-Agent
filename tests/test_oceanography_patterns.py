@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ from typing import Any
 
 import numpy as np
 
-from omni_anomaly_engine.ocean.oceanography_patterns import OceanographyPatterns, WavePattern
+from omni_mercury_engine.ocean.oceanography_patterns import OceanographyPatterns, WavePattern
 
 
 def test_oceanography_initialization():

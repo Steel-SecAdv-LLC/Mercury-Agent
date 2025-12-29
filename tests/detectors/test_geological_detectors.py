@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -23,19 +23,19 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.detectors.geological.flood_detector import (
+from omni_mercury_engine.detectors.geological.flood_detector import (
     FloodDetector,
     FloodPredictionResult,
     FloodSeverity,
     FloodType,
 )
-from omni_anomaly_engine.detectors.geological.hurricane_detector import (
+from omni_mercury_engine.detectors.geological.hurricane_detector import (
     CycloneType,
     HurricaneDetector,
     HurricanePredictionResult,
     SaffirSimpsonCategory,
 )
-from omni_anomaly_engine.detectors.geological.tornado_detector import (
+from omni_mercury_engine.detectors.geological.tornado_detector import (
     TornadoDetector,
     TornadoIntensity,
     TornadoPredictionResult,

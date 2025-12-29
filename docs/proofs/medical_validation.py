@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from assets.loaders import generate_mimic_vitals
 
-from omni_anomaly_engine.medical.medical_cure_predictor import MedicalCurePredictor
+from omni_mercury_engine.medical.medical_cure_predictor import MedicalCurePredictor
 
 
 def validate_medical_predictor():

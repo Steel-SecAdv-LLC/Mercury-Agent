@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -28,7 +28,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
-from omni_anomaly_engine.medical.medical_cure_predictor import (
+from omni_mercury_engine.medical.medical_cure_predictor import (
     MedicalCurePredictor,
     TemporalVitalSignsDetector,
 )

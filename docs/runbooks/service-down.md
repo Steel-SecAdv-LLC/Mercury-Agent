@@ -1,13 +1,13 @@
-# OMNI-AVA Runbook: Service Down
+# Mercury-Agent Runbook: Service Down
 
-## Alert: OmniAvaServiceDown / OmniAvaAllReplicasDown
+## Alert: OmniMercuryServiceDown / OmniMercuryAllReplicasDown
 
 ### Overview
-This runbook provides guidance for responding when the OMNI-AVA service is down or unavailable.
+This runbook provides guidance for responding when the Mercury-Agent service is down or unavailable.
 
 ### Alert Thresholds
-- **OmniAvaServiceDown**: Service endpoint returns down for > 1 minute
-- **OmniAvaAllReplicasDown**: Zero available replicas for > 1 minute
+- **OmniMercuryServiceDown**: Service endpoint returns down for > 1 minute
+- **OmniMercuryAllReplicasDown**: Zero available replicas for > 1 minute
 
 ### Impact
 - **Critical**: Complete service outage
@@ -21,25 +21,25 @@ This runbook provides guidance for responding when the OMNI-AVA service is down 
 ### 1. Verify the Alert
 ```bash
 # Check pod status
-kubectl get pods -n omni-ava
+kubectl get pods -n mercury-agent
 
 # Check endpoint directly
-kubectl exec -n omni-ava deployment/omni-ava-api -- curl -s localhost:8000/health || echo "Health check failed"
+kubectl exec -n mercury-agent deployment/mercury-agent-api -- curl -s localhost:8000/health || echo "Health check failed"
 
 # Check service endpoints
-kubectl get endpoints omni-ava-api -n omni-ava
+kubectl get endpoints mercury-agent-api -n mercury-agent
 ```
 
 ### 2. Check for Recent Changes
 ```bash
 # View recent deployments
-kubectl rollout history deployment/omni-ava-api -n omni-ava
+kubectl rollout history deployment/mercury-agent-api -n mercury-agent
 
 # Check for recent config changes
-kubectl get configmap omni-ava-config -n omni-ava -o yaml
+kubectl get configmap mercury-agent-config -n mercury-agent -o yaml
 
 # View recent events
-kubectl get events -n omni-ava --sort-by='.lastTimestamp' | head -30
+kubectl get events -n mercury-agent --sort-by='.lastTimestamp' | head -30
 ```
 
 ---
@@ -50,38 +50,38 @@ kubectl get events -n omni-ava --sort-by='.lastTimestamp' | head -30
 
 **Symptoms:**
 ```bash
-$ kubectl get pods -n omni-ava
+$ kubectl get pods -n mercury-agent
 NAME                            READY   STATUS             RESTARTS   AGE
-omni-ava-api-xxx-yyy           0/1     CrashLoopBackOff   5          10m
+mercury-agent-api-xxx-yyy           0/1     CrashLoopBackOff   5          10m
 ```
 
 **Actions:**
 1. Check pod logs:
    ```bash
-   kubectl logs -n omni-ava -l app.kubernetes.io/component=api --previous
+   kubectl logs -n mercury-agent -l app.kubernetes.io/component=api --previous
    ```
 2. Check for configuration errors:
    ```bash
-   kubectl describe pod -n omni-ava -l app.kubernetes.io/component=api
+   kubectl describe pod -n mercury-agent -l app.kubernetes.io/component=api
    ```
 3. If config issue, fix and redeploy:
    ```bash
-   kubectl rollout restart deployment/omni-ava-api -n omni-ava
+   kubectl rollout restart deployment/mercury-agent-api -n mercury-agent
    ```
 
 ### Scenario 2: Pods in Pending State
 
 **Symptoms:**
 ```bash
-$ kubectl get pods -n omni-ava
+$ kubectl get pods -n mercury-agent
 NAME                            READY   STATUS    RESTARTS   AGE
-omni-ava-api-xxx-yyy           0/1     Pending   0          10m
+mercury-agent-api-xxx-yyy           0/1     Pending   0          10m
 ```
 
 **Actions:**
 1. Check resource availability:
    ```bash
-   kubectl describe pod -n omni-ava -l app.kubernetes.io/component=api | grep -A 10 Events
+   kubectl describe pod -n mercury-agent -l app.kubernetes.io/component=api | grep -A 10 Events
    ```
 2. Check node capacity:
    ```bash
@@ -90,54 +90,54 @@ omni-ava-api-xxx-yyy           0/1     Pending   0          10m
    ```
 3. Check PVC status:
    ```bash
-   kubectl get pvc -n omni-ava
-   kubectl describe pvc -n omni-ava
+   kubectl get pvc -n mercury-agent
+   kubectl describe pvc -n mercury-agent
    ```
 
 ### Scenario 3: Pods Running but Not Ready
 
 **Symptoms:**
 ```bash
-$ kubectl get pods -n omni-ava
+$ kubectl get pods -n mercury-agent
 NAME                            READY   STATUS    RESTARTS   AGE
-omni-ava-api-xxx-yyy           0/1     Running   0          10m
+mercury-agent-api-xxx-yyy           0/1     Running   0          10m
 ```
 
 **Actions:**
 1. Check readiness probe:
    ```bash
-   kubectl describe pod -n omni-ava -l app.kubernetes.io/component=api | grep -A 10 "Readiness"
+   kubectl describe pod -n mercury-agent -l app.kubernetes.io/component=api | grep -A 10 "Readiness"
    ```
 2. Check application startup:
    ```bash
-   kubectl logs -n omni-ava -l app.kubernetes.io/component=api --tail=100
+   kubectl logs -n mercury-agent -l app.kubernetes.io/component=api --tail=100
    ```
 3. Verify dependencies are available:
    ```bash
-   kubectl exec -n omni-ava deployment/omni-ava-api -- python -c "from omni_anomaly_engine import OmniAnomalyEngine; print('OK')"
+   kubectl exec -n mercury-agent deployment/mercury-agent-api -- python -c "from omni_mercury_engine import OmniMercuryEngine; print('OK')"
    ```
 
 ### Scenario 4: No Pods Scheduled
 
 **Symptoms:**
 ```bash
-$ kubectl get pods -n omni-ava
-No resources found in omni-ava namespace.
+$ kubectl get pods -n mercury-agent
+No resources found in mercury-agent namespace.
 ```
 
 **Actions:**
 1. Check deployment status:
    ```bash
-   kubectl get deployment -n omni-ava
-   kubectl describe deployment omni-ava-api -n omni-ava
+   kubectl get deployment -n mercury-agent
+   kubectl describe deployment mercury-agent-api -n mercury-agent
    ```
 2. Check if deployment was scaled to zero:
    ```bash
-   kubectl get deployment omni-ava-api -n omni-ava -o jsonpath='{.spec.replicas}'
+   kubectl get deployment mercury-agent-api -n mercury-agent -o jsonpath='{.spec.replicas}'
    ```
 3. Scale up if needed:
    ```bash
-   kubectl scale deployment omni-ava-api -n omni-ava --replicas=3
+   kubectl scale deployment mercury-agent-api -n mercury-agent --replicas=3
    ```
 
 ---
@@ -148,30 +148,30 @@ No resources found in omni-ava namespace.
 If a recent deployment caused the issue:
 ```bash
 # Rollback to previous version
-kubectl rollout undo deployment/omni-ava-api -n omni-ava
+kubectl rollout undo deployment/mercury-agent-api -n mercury-agent
 
 # Verify rollback
-kubectl rollout status deployment/omni-ava-api -n omni-ava
+kubectl rollout status deployment/mercury-agent-api -n mercury-agent
 ```
 
 ### Quick Recovery: Force Restart
 If pods are stuck:
 ```bash
 # Force delete stuck pods
-kubectl delete pods -n omni-ava -l app.kubernetes.io/component=api --force --grace-period=0
+kubectl delete pods -n mercury-agent -l app.kubernetes.io/component=api --force --grace-period=0
 
 # Trigger new deployment
-kubectl rollout restart deployment/omni-ava-api -n omni-ava
+kubectl rollout restart deployment/mercury-agent-api -n mercury-agent
 ```
 
 ### Recovery: Fix Configuration
 If configuration is broken:
 ```bash
 # Edit configmap
-kubectl edit configmap omni-ava-config -n omni-ava
+kubectl edit configmap mercury-agent-config -n mercury-agent
 
 # Restart pods to pick up changes
-kubectl rollout restart deployment/omni-ava-api -n omni-ava
+kubectl rollout restart deployment/mercury-agent-api -n mercury-agent
 ```
 
 ---

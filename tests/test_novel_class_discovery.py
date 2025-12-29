@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -25,7 +25,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.core.novel_class_discovery import (
+from omni_mercury_engine.core.novel_class_discovery import (
     MultiElementBinarization,
     NovelClassDiscovery,
 )

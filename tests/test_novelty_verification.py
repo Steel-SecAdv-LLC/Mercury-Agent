@@ -1,5 +1,5 @@
 """
-OMNI AVA (O+A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 Comprehensive Novelty and Discovery Verification Tests.
@@ -25,7 +25,7 @@ class TestDoubleHelixEngine:
 
     def test_golden_ratio_constants(self):
         """Verify phi constants are correctly defined."""
-        from omni_anomaly_engine.core.double_helix_engine import PHI, PHI_CUBED, PHI_SQUARED
+        from omni_mercury_engine.core.double_helix_engine import PHI, PHI_CUBED, PHI_SQUARED
 
         expected_phi = (1 + np.sqrt(5)) / 2
         assert abs(PHI - expected_phi) < 1e-10, "PHI should be golden ratio"
@@ -34,27 +34,27 @@ class TestDoubleHelixEngine:
 
     def test_lyapunov_stability_decay(self):
         """Verify Lyapunov stability decay constant."""
-        from omni_anomaly_engine.core.double_helix_engine import LAMBDA_DECAY
+        from omni_mercury_engine.core.double_helix_engine import LAMBDA_DECAY
 
         assert LAMBDA_DECAY == 0.18, "Lambda decay should be 0.18"
 
     def test_evolution_modes(self):
         """Test that evolution modes are defined."""
-        from omni_anomaly_engine.core.double_helix_engine import EvolutionMode
+        from omni_mercury_engine.core.double_helix_engine import EvolutionMode
 
         modes = list(EvolutionMode)
         assert len(modes) >= 4, f"Expected 4+ evolution modes, got {len(modes)}"
 
     def test_term_types(self):
         """Test that term types are defined."""
-        from omni_anomaly_engine.core.double_helix_engine import TermType
+        from omni_mercury_engine.core.double_helix_engine import TermType
 
         types = list(TermType)
         assert len(types) >= 6, f"Expected 6+ term types, got {len(types)}"
 
     def test_phi_optimized_term_weights(self):
         """Verify phi-optimization in term weights."""
-        from omni_anomaly_engine.core.double_helix_engine import AvaEquationEngine
+        from omni_mercury_engine.core.double_helix_engine import AvaEquationEngine
 
         engine = AvaEquationEngine(dimension=8)
 
@@ -64,7 +64,7 @@ class TestDoubleHelixEngine:
 
     def test_18_evolution_terms(self):
         """Verify 18+ evolution terms as claimed."""
-        from omni_anomaly_engine.core.double_helix_engine import AvaEquationEngine
+        from omni_mercury_engine.core.double_helix_engine import AvaEquationEngine
 
         engine = AvaEquationEngine(dimension=8)
         num_terms = len(engine.term_weights)
@@ -76,14 +76,14 @@ class TestEthicalScalars:
 
     def test_ethical_scalars_exist(self):
         """Verify ethical scalars are defined."""
-        from omni_anomaly_engine.core.ethical_config import EthicalScalars
+        from omni_mercury_engine.core.ethical_config import EthicalScalars
 
         scalars = EthicalScalars()
         assert scalars is not None
 
     def test_to_dict_method(self):
         """Verify scalars can be exported."""
-        from omni_anomaly_engine.core.ethical_config import EthicalScalars
+        from omni_mercury_engine.core.ethical_config import EthicalScalars
 
         scalars = EthicalScalars()
         config = scalars.to_dict()
@@ -135,7 +135,7 @@ class TestNovelClassDiscovery:
 
     def test_mebin_initialization(self):
         """Test MEBin initialization."""
-        from omni_anomaly_engine.core.novel_class_discovery import MultiElementBinarization
+        from omni_mercury_engine.core.novel_class_discovery import MultiElementBinarization
 
         mebin = MultiElementBinarization()
         assert mebin.rotation_angles == [0, 90, 180, 270]
@@ -143,7 +143,7 @@ class TestNovelClassDiscovery:
 
     def test_mebin_binarization(self):
         """Test Multi-Element Binarization."""
-        from omni_anomaly_engine.core.novel_class_discovery import MultiElementBinarization
+        from omni_mercury_engine.core.novel_class_discovery import MultiElementBinarization
 
         mebin = MultiElementBinarization()
 
@@ -156,7 +156,7 @@ class TestNovelClassDiscovery:
 
     def test_ncd_initialization(self):
         """Test NCD initialization."""
-        from omni_anomaly_engine.core.novel_class_discovery import NovelClassDiscovery
+        from omni_mercury_engine.core.novel_class_discovery import NovelClassDiscovery
 
         ncd = NovelClassDiscovery()
         assert ncd.enable_mebin is True
@@ -164,7 +164,7 @@ class TestNovelClassDiscovery:
 
     def test_kmeans_clustering(self):
         """Test K-means clustering in novel class discovery."""
-        from omni_anomaly_engine.core.novel_class_discovery import NovelClassDiscovery
+        from omni_mercury_engine.core.novel_class_discovery import NovelClassDiscovery
 
         ncd = NovelClassDiscovery({"num_clusters": 3})
 
@@ -180,7 +180,7 @@ class TestNovelClassDiscovery:
 
     def test_class_statistics(self):
         """Test class statistics computation."""
-        from omni_anomaly_engine.core.novel_class_discovery import NovelClassDiscovery
+        from omni_mercury_engine.core.novel_class_discovery import NovelClassDiscovery
 
         ncd = NovelClassDiscovery()
         class_assignments = np.array([0, 1, 0, 2, 1, 0, 2, 1, 0])
@@ -197,7 +197,7 @@ class TestGoldenRatioUniversality:
 
     def test_phi_constant_accuracy(self):
         """Verify phi is the true golden ratio."""
-        from omni_anomaly_engine.core.double_helix_engine import PHI
+        from omni_mercury_engine.core.double_helix_engine import PHI
 
         # Golden ratio from quadratic formula: (1 + sqrt(5)) / 2
         true_phi = (1 + np.sqrt(5)) / 2
@@ -206,14 +206,14 @@ class TestGoldenRatioUniversality:
 
     def test_phi_self_similar_property(self):
         """Verify phi's self-similar property: phi^2 = phi + 1."""
-        from omni_anomaly_engine.core.double_helix_engine import PHI, PHI_SQUARED
+        from omni_mercury_engine.core.double_helix_engine import PHI, PHI_SQUARED
 
         # phi^2 should equal phi + 1
         assert abs(PHI_SQUARED - (PHI + 1)) < 1e-10, "phi^2 should equal phi + 1"
 
     def test_phi_reciprocal_property(self):
         """Verify phi's reciprocal property: 1/phi = phi - 1."""
-        from omni_anomaly_engine.core.double_helix_engine import PHI
+        from omni_mercury_engine.core.double_helix_engine import PHI
 
         # 1/phi should equal phi - 1
         assert abs(1 / PHI - (PHI - 1)) < 1e-10, "1/phi should equal phi - 1"
@@ -225,14 +225,14 @@ class TestPyTorchDependentFeatures:
 
     def test_medical_specialties(self):
         """Verify 24 ABMS board specialties are defined."""
-        from omni_anomaly_engine.medical.abms_disciplines import ABMSSpecialty
+        from omni_mercury_engine.medical.abms_disciplines import ABMSSpecialty
 
         specialties = list(ABMSSpecialty)
         assert len(specialties) == 24, f"Expected 24 specialties, got {len(specialties)}"
 
     def test_schumann_detector(self):
         """Test Schumann resonance detector."""
-        from omni_anomaly_engine.space.schumann_resonance import SchumannResonanceDetector
+        from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
 
         detector = SchumannResonanceDetector()
         assert abs(detector.fundamental_freq - 7.83) < 0.1

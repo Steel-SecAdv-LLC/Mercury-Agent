@@ -6,11 +6,11 @@
 
 ## Executive Summary
 
-The OMNI ♱ AVA implements a multi-layered protection framework integrating quantum-resistant cryptography, ethical overwatch mechanisms, CRISPR-inspired self-healing, regenerative architecture, and mathematical stability guarantees.
+The Mercury Agent ♱ implements a multi-layered protection framework integrating quantum-resistant cryptography, ethical overwatch mechanisms, CRISPR-inspired self-healing, regenerative architecture, and mathematical stability guarantees.
 
 ## 1. Quantum-Resistant Cryptography
 
-**Status**: ✅ Implemented in `omni_anomaly_engine/security/encryption.py`
+**Status**: ✅ Implemented in `omni_mercury_engine/security/encryption.py`
 
 LWE (Learning With Errors) lattice-based cryptography provides resistance to both classical and quantum attacks.
 
@@ -21,7 +21,7 @@ LWE (Learning With Errors) lattice-based cryptography provides resistance to bot
 
 ## 2. Ethical Overwatch (150+ Scalars)
 
-**Status**: ✅ Implemented in `omni_anomaly_engine/core/ethical_governance.py`
+**Status**: ✅ Implemented in `omni_mercury_engine/core/ethical_governance.py`
 
 - Omnibenevolent Core (30): Compassion (1.22), Justice (1.20), Survivor-First (1.45)
 - Ancient Deity-Inspired (20): Thoth, Ma'at, Athena
@@ -32,7 +32,7 @@ LWE (Learning With Errors) lattice-based cryptography provides resistance to bot
 
 ## 3. Self-Healing (CRISPR-Inspired)
 
-**Status**: ✅ Implemented in `omni_anomaly_engine/core/self_healing.py`
+**Status**: ✅ Implemented in `omni_mercury_engine/core/self_healing.py`
 
 Three-stage adaptive immunity:
 1. Acquisition: Capture novel anomaly signatures
@@ -49,13 +49,13 @@ Three-stage adaptive immunity:
 
 ## 5. Lyapunov Stability
 
-**Status**: ✅ Implemented in `omni_anomaly_engine/core/fusion.py:392-445`
+**Status**: ✅ Implemented in `omni_mercury_engine/core/fusion.py:392-445`
 
 **Stability Condition**: ΔV = V(𝔄_{t+1}) - V(𝔄_t) < 0
 **Convergence Rate**: O(e^{-0.13t}) proven via eigenvalue analysis
 **Rollback**: Automatic reversion if stability violated
 
-**Nano-Safeguards (𝐍 Term)**: Implemented in `omni_anomaly_engine/safeguards/nano_safeguards.py` - 5-stream micro-anomaly detection via convergence, dimensional, hierarchical, resonance, and molecular analysis.
+**Nano-Safeguards (𝐍 Term)**: Implemented in `omni_mercury_engine/safeguards/nano_safeguards.py` - 5-stream micro-anomaly detection via convergence, dimensional, hierarchical, resonance, and molecular analysis.
 
 ## 6. Double-Helix Resilience
 
@@ -70,10 +70,10 @@ Three-stage adaptive immunity:
 ## 7. Overwatch Nexus and Response (Medical Interdiction and Intervention)
 
 **Status**: ✅ Implemented across reorganized modules:
-- Counterintelligence: `omni_anomaly_engine/security/counterintelligence.py`
-- Cyber Defense: `omni_anomaly_engine/security/cyber_fortress.py`, `quantum_risk_cyber.py`
-- Medical/Pandemic: `omni_anomaly_engine/medical/pandemic/`
-- Humanitarian: `omni_anomaly_engine/infrastructure/humanitarian/crisis_monitoring/`
+- Counterintelligence: `omni_mercury_engine/security/counterintelligence.py`
+- Cyber Defense: `omni_mercury_engine/security/cyber_fortress.py`, `quantum_risk_cyber.py`
+- Medical/Pandemic: `omni_mercury_engine/medical/pandemic/`
+- Humanitarian: `omni_mercury_engine/infrastructure/humanitarian/crisis_monitoring/`
 
 Proactive counterintelligence with humanitarian focus and medical-field equivalence.
 

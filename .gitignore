@@ -133,7 +133,9 @@ dmypy.json
 *.joblib
 /trained_models/
 /model_weights/
-data/
+/data/
+# Allow source code data module
+!src/omni_mercury_engine/data/
 logs/
 runs/
 

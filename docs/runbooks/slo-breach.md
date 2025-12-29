@@ -1,9 +1,9 @@
-# OMNI-AVA Runbook: SLO Breach
+# Mercury-Agent Runbook: SLO Breach
 
-## Alert: OmniAvaSLOBreach
+## Alert: OmniMercurySLOBreach
 
 ### Overview
-This runbook provides guidance when the OMNI-AVA service is approaching or has breached its Service Level Objectives (SLOs).
+This runbook provides guidance when the Mercury-Agent service is approaching or has breached its Service Level Objectives (SLOs).
 
 ### Alert Threshold
 - **Critical**: Error budget remaining < 10%
@@ -33,10 +33,10 @@ Error Budget = 0.1% × 30 days × 24 hours × 60 minutes = 43.2 minutes/month
 ### Current Status Query
 ```promql
 # Remaining error budget percentage
-omni_ava:error_budget:remaining
+omni_mercury:error_budget:remaining
 
 # Error budget consumption rate (days to exhaust)
-omni_ava:error_budget:consumption_rate
+omni_mercury:error_budget:consumption_rate
 ```
 
 ---
@@ -46,19 +46,19 @@ omni_ava:error_budget:consumption_rate
 ### 1. Identify Contributing Factors
 ```bash
 # Check error rate trend
-# Prometheus: sum(rate(http_requests_total{app="omni-ava",status=~"5.."}[1h])) / sum(rate(http_requests_total{app="omni-ava"}[1h]))
+# Prometheus: sum(rate(http_requests_total{app="mercury-agent",status=~"5.."}[1h])) / sum(rate(http_requests_total{app="mercury-agent"}[1h]))
 
 # Check latency trend
-# Prometheus: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{app="omni-ava"}[1h])) by (le))
+# Prometheus: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{app="mercury-agent"}[1h])) by (le))
 
 # View historical incidents
-kubectl get events -n omni-ava --field-selector reason=Unhealthy
+kubectl get events -n mercury-agent --field-selector reason=Unhealthy
 ```
 
 ### 2. Review Recent Changes
 ```bash
 # Deployment history
-kubectl rollout history deployment/omni-ava-api -n omni-ava
+kubectl rollout history deployment/mercury-agent-api -n mercury-agent
 
 # Recent config changes
 git log --oneline -20 k8s/ helm/
@@ -70,7 +70,7 @@ kubectl get nodes -o wide
 ### 3. Analyze Traffic Patterns
 ```bash
 # Request volume changes
-# Prometheus: sum(rate(http_requests_total{app="omni-ava"}[1h]))
+# Prometheus: sum(rate(http_requests_total{app="mercury-agent"}[1h]))
 
 # Geographic distribution (if available)
 # Check Cloudflare/CDN analytics
@@ -85,16 +85,16 @@ kubectl get nodes -o wide
 #### 1. Increase Redundancy
 ```bash
 # Scale up API replicas
-kubectl scale deployment omni-ava-api -n omni-ava --replicas=5
+kubectl scale deployment mercury-agent-api -n mercury-agent --replicas=5
 
 # Verify HPA limits allow scaling
-kubectl get hpa omni-ava-api -n omni-ava -o yaml
+kubectl get hpa mercury-agent-api -n mercury-agent -o yaml
 ```
 
 #### 2. Enable Feature Flags
 ```bash
 # Disable non-critical features
-kubectl set env deployment/omni-ava-api -n omni-ava \
+kubectl set env deployment/mercury-agent-api -n mercury-agent \
   OMNI_ENABLE_ADVANCED_DETECTION=false \
   OMNI_ENABLE_PROFILING=false
 ```
@@ -102,7 +102,7 @@ kubectl set env deployment/omni-ava-api -n omni-ava \
 #### 3. Implement Traffic Management
 ```bash
 # Add rate limiting
-kubectl annotate ingress omni-ava -n omni-ava \
+kubectl annotate ingress mercury-agent -n mercury-agent \
   nginx.ingress.kubernetes.io/limit-rps="50" --overwrite
 
 # Enable circuit breaker (if using service mesh)
@@ -110,10 +110,10 @@ kubectl apply -f - <<EOF
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: omni-ava-circuit-breaker
-  namespace: omni-ava
+  name: mercury-agent-circuit-breaker
+  namespace: mercury-agent
 spec:
-  host: omni-ava-api
+  host: mercury-agent-api
   trafficPolicy:
     connectionPool:
       tcp:
@@ -140,10 +140,10 @@ EOF
 ```bash
 # Upgrade node pool (cloud provider specific)
 # AWS EKS example:
-eksctl scale nodegroup --cluster omni-ava --name standard-workers --nodes 5
+eksctl scale nodegroup --cluster mercury-agent --name standard-workers --nodes 5
 
 # Increase resource limits
-kubectl patch deployment omni-ava-api -n omni-ava -p '
+kubectl patch deployment mercury-agent-api -n mercury-agent -p '
 {
   "spec": {
     "template": {
@@ -179,7 +179,7 @@ kubectl patch deployment omni-ava-api -n omni-ava -p '
 ## Communication
 
 ### Internal Communication
-1. Update #omni-ava-incidents Slack channel
+1. Update #mercury-agent-incidents Slack channel
 2. Send status update to engineering leadership
 3. Schedule war room if SLO breach imminent
 

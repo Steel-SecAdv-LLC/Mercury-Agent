@@ -1,5 +1,5 @@
 """
-Tests for omni_anomaly_engine.utils.report_generator module.
+Tests for omni_mercury_engine.utils.report_generator module.
 
 Tests report generation functionality.
 """
@@ -11,7 +11,7 @@ from datetime import datetime
 
 import pytest
 
-from omni_anomaly_engine.utils.report_generator import (
+from omni_mercury_engine.utils.report_generator import (
     AnomalyReport,
     ExecutiveSummary,
     ReportFormat,

@@ -1,5 +1,5 @@
 """
-Tests for omni_anomaly_engine.utils.rng module.
+Tests for omni_mercury_engine.utils.rng module.
 
 Tests the DeterministicRNG, RNGRegistry, RNGContext, and ThreadSafeRNGManager.
 """
@@ -11,7 +11,7 @@ import threading
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.utils.rng import (
+from omni_mercury_engine.utils.rng import (
     DeterministicRNG,
     RNGContext,
     RNGRegistry,

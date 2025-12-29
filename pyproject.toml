@@ -1,4 +1,4 @@
-# OMNI ♱ AVA Project Configuration
+# Mercury Agent ♱ Project Configuration
 # Copyright (C) 2025 Steel Security Advisory LLC
 # SPDX-License-Identifier: GPL-3.0+
 
@@ -7,9 +7,9 @@ requires = ["setuptools>=78.1.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "omni-anomaly-engine"
+name = "omni-mercury-engine"
 version = "1.0.0"
-description = "OMNI ♱ AVA: ML-Centric Multi-Domain Anomaly Detection Framework"
+description = "Mercury Agent ♱: ML-Centric Multi-Domain Anomaly Detection Framework"
 readme = "README.md"
 license = {text = "GPL-3.0+"}
 requires-python = ">=3.11"
@@ -106,15 +106,15 @@ dev = [
 
 # Full installation with all features
 all = [
-    "omni-anomaly-engine[visual,vlm,foundation,face,api]",
+    "omni-mercury-engine[visual,vlm,foundation,face,api]",
 ]
 
 [project.urls]
-Homepage = "https://github.com/Steel-SecAdv-LLC/OMNI-AVA"
-Documentation = "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/tree/main/docs"
-Repository = "https://github.com/Steel-SecAdv-LLC/OMNI-AVA.git"
-Issues = "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/issues"
-Changelog = "https://github.com/Steel-SecAdv-LLC/OMNI-AVA/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent"
+Documentation = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/tree/main/docs"
+Repository = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent.git"
+Issues = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/issues"
+Changelog = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/CHANGELOG.md"
 
 # =============================================================================
 # Black Configuration
@@ -145,7 +145,7 @@ extend-exclude = '''
 [tool.isort]
 profile = "black"
 line_length = 100
-known_first_party = ["omni_anomaly_engine"]
+known_first_party = ["omni_mercury_engine"]
 known_third_party = ["torch", "numpy", "scipy", "sklearn", "pandas", "fastapi"]
 sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
 skip_gitignore = true
@@ -235,53 +235,53 @@ ignore_missing_imports = true
 # Override for ML modules with nn.Module subclasses
 [[tool.mypy.overrides]]
 module = [
-    "omni_anomaly_engine.ml.*",
-    "omni_anomaly_engine.models.sota.*",
-    "omni_anomaly_engine.detectors.*",
+    "omni_mercury_engine.ml.*",
+    "omni_mercury_engine.models.sota.*",
+    "omni_mercury_engine.detectors.*",
 ]
 ignore_errors = true
 
 # Override for API and GUI modules (FastAPI/Starlette typing issues)
 [[tool.mypy.overrides]]
 module = [
-    "omni_anomaly_engine.api.*",
-    "omni_anomaly_engine.gui.*",
+    "omni_mercury_engine.api.*",
+    "omni_mercury_engine.gui.*",
 ]
 ignore_errors = true
 
 # Override for modules with complex third-party integrations
 [[tool.mypy.overrides]]
 module = [
-    "omni_anomaly_engine.models.foundation.*",
-    "omni_anomaly_engine.models.biometric_advanced",
-    "omni_anomaly_engine.cognitive.*",
-    "omni_anomaly_engine.ethical.*",
-    "omni_anomaly_engine.space.*",
-    "omni_anomaly_engine.medical.*",
-    "omni_anomaly_engine.resilience.*",
-    "omni_anomaly_engine.safeguards.*",
-    "omni_anomaly_engine.validation.*",
-    "omni_anomaly_engine.security.*",
-    "omni_anomaly_engine.agentic.*",
-    "omni_anomaly_engine.core.*",
-    "omni_anomaly_engine.data.*",
-    "omni_anomaly_engine.datasets.*",
-    "omni_anomaly_engine.emergent.*",
-    "omni_anomaly_engine.energy.*",
-    "omni_anomaly_engine.evaluation.*",
-    "omni_anomaly_engine.federated.*",
-    "omni_anomaly_engine.infrastructure.*",
-    "omni_anomaly_engine.models.*",
-    "omni_anomaly_engine.quantum.*",
-    "omni_anomaly_engine.utils.*",
-    "omni_anomaly_engine.integrations.*",
-    "omni_anomaly_engine.metrics.*",
-    "omni_anomaly_engine.ocean.*",
-    "omni_anomaly_engine.scaling.*",
-    "omni_anomaly_engine.truth_decipher",
-    "omni_anomaly_engine.cli",
-    "omni_anomaly_engine.engine",
-    "omni_anomaly_engine",
+    "omni_mercury_engine.models.foundation.*",
+    "omni_mercury_engine.models.biometric_advanced",
+    "omni_mercury_engine.cognitive.*",
+    "omni_mercury_engine.ethical.*",
+    "omni_mercury_engine.space.*",
+    "omni_mercury_engine.medical.*",
+    "omni_mercury_engine.resilience.*",
+    "omni_mercury_engine.safeguards.*",
+    "omni_mercury_engine.validation.*",
+    "omni_mercury_engine.security.*",
+    "omni_mercury_engine.agentic.*",
+    "omni_mercury_engine.core.*",
+    "omni_mercury_engine.data.*",
+    "omni_mercury_engine.datasets.*",
+    "omni_mercury_engine.emergent.*",
+    "omni_mercury_engine.energy.*",
+    "omni_mercury_engine.evaluation.*",
+    "omni_mercury_engine.federated.*",
+    "omni_mercury_engine.infrastructure.*",
+    "omni_mercury_engine.models.*",
+    "omni_mercury_engine.quantum.*",
+    "omni_mercury_engine.utils.*",
+    "omni_mercury_engine.integrations.*",
+    "omni_mercury_engine.metrics.*",
+    "omni_mercury_engine.ocean.*",
+    "omni_mercury_engine.scaling.*",
+    "omni_mercury_engine.truth_decipher",
+    "omni_mercury_engine.cli",
+    "omni_mercury_engine.engine",
+    "omni_mercury_engine",
 ]
 ignore_errors = true
 
@@ -317,7 +317,7 @@ asyncio_mode = "auto"
 # Coverage Configuration
 # =============================================================================
 [tool.coverage.run]
-source = ["src/omni_anomaly_engine"]
+source = ["src/omni_mercury_engine"]
 branch = true
 parallel = true
 omit = [
@@ -425,7 +425,7 @@ ignore-imports = true
 [tool.bandit]
 exclude_dirs = ["tests", "venv", ".venv", "build", "dist"]
 skips = ["B101", "B311"]  # Skip assert and random warnings in tests
-targets = ["src/omni_anomaly_engine"]
+targets = ["src/omni_mercury_engine"]
 
 [tool.bandit.assert_used]
 skips = ["*_test.py", "test_*.py"]
@@ -514,7 +514,7 @@ ignore = [
 "docs/**/*.py" = ["RUF015"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["omni_anomaly_engine"]
+known-first-party = ["omni_mercury_engine"]
 
 # =============================================================================
 # Pydocstyle Configuration
@@ -530,7 +530,7 @@ add-ignore = ["D100", "D104", "D105", "D107"]
 # =============================================================================
 [tool.vulture]
 min_confidence = 80
-paths = ["src/omni_anomaly_engine"]
+paths = ["src/omni_mercury_engine"]
 exclude = ["tests/", "venv/", ".venv/", "build/", "dist/"]
 sort_by_size = true
 
@@ -586,7 +586,7 @@ exclude = [
 # =============================================================================
 [tool.semantic_release]
 version_variable = [
-    "src/omni_anomaly_engine/__init__.py:__version__",
+    "src/omni_mercury_engine/__init__.py:__version__",
     "pyproject.toml:version",
 ]
 branch = "main"

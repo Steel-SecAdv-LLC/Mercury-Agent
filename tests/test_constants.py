@@ -1,5 +1,5 @@
 """
-Tests for omni_anomaly_engine.utils.constants module.
+Tests for omni_mercury_engine.utils.constants module.
 
 Tests mathematical constants, precision handling, and validation.
 """
@@ -11,7 +11,7 @@ import math
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.utils.constants import (
+from omni_mercury_engine.utils.constants import (
     MathematicalConstants,
     Precision,
     get_constant,

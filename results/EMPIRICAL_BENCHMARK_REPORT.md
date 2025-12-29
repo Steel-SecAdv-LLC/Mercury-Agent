@@ -1,10 +1,10 @@
-# OMNI-AVA Empirical Benchmark Report
+# Mercury-Agent Empirical Benchmark Report
 
 **Generated:** 2025-12-08T02:36:45.495210+00:00
 
 ## Methodology
 
-This benchmark compares OMNI-AVA against established anomaly detection algorithms using publicly available datasets from scikit-learn.
+This benchmark compares Mercury-Agent against established anomaly detection algorithms using publicly available datasets from scikit-learn.
 
 ### Datasets
 
@@ -28,11 +28,11 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 | IsolationForest | 0.756 | 0.269 | 0.015 |
 | OneClassSVM | 0.700 | 0.190 | 0.009 |
 | LocalOutlierFactor | 0.593 | 0.223 | 0.009 |
-| OMNI-AVA | 0.201 | 0.247 | 0.268 |
+| Mercury-Agent | 0.201 | 0.247 | 0.268 |
 
 ## Honest Assessment
 
-**Verdict:** OMNI-AVA ranks #5, 0.562 ROC-AUC below best baseline
+**Verdict:** Mercury-Agent ranks #5, 0.562 ROC-AUC below best baseline
 
 ### Methodology Notes
 
@@ -52,7 +52,7 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 
 ## Detailed Results
 
-### OMNI-AVA on breast_cancer
+### Mercury-Agent on breast_cancer
 
 - ROC-AUC: 0.2284
 - PR-AUC: -0.2490
@@ -102,7 +102,7 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 - False Positive Rate: 0.2243
 - Inference Latency: 0.0027 ms/sample
 
-### OMNI-AVA on digits_8
+### Mercury-Agent on digits_8
 
 - ROC-AUC: 0.4418
 - PR-AUC: -0.0803
@@ -152,7 +152,7 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 - False Positive Rate: 0.0984
 - Inference Latency: 0.0022 ms/sample
 
-### OMNI-AVA on covtype
+### Mercury-Agent on covtype
 
 - ROC-AUC: 0.0630
 - PR-AUC: -0.0025
@@ -202,7 +202,7 @@ This benchmark compares OMNI-AVA against established anomaly detection algorithm
 - False Positive Rate: 0.0071
 - Inference Latency: 0.0010 ms/sample
 
-### OMNI-AVA on kddcup99
+### Mercury-Agent on kddcup99
 
 - ROC-AUC: 0.0714
 - PR-AUC: -0.0162

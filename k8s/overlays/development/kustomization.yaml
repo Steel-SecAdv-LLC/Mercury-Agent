@@ -3,9 +3,9 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 metadata:
-  name: omni-ava-development
+  name: mercury-agent-development
 
-namespace: omni-ava-dev
+namespace: mercury-agent-dev
 
 commonLabels:
   environment: development
@@ -21,30 +21,30 @@ patches:
       apiVersion: apps/v1
       kind: Deployment
       metadata:
-        name: omni-ava-api
+        name: mercury-agent-api
       spec:
         replicas: 1
     target:
       kind: Deployment
-      name: omni-ava-api
+      name: mercury-agent-api
 
   - patch: |-
       apiVersion: apps/v1
       kind: Deployment
       metadata:
-        name: omni-ava-engine
+        name: mercury-agent-engine
       spec:
         replicas: 1
     target:
       kind: Deployment
-      name: omni-ava-engine
+      name: mercury-agent-engine
 
   # Reduce resource limits
   - patch: |-
       apiVersion: apps/v1
       kind: Deployment
       metadata:
-        name: omni-ava-api
+        name: mercury-agent-api
       spec:
         template:
           spec:
@@ -59,37 +59,37 @@ patches:
                     memory: "1Gi"
     target:
       kind: Deployment
-      name: omni-ava-api
+      name: mercury-agent-api
 
   # Disable HPA in development
   - patch: |-
       apiVersion: autoscaling/v2
       kind: HorizontalPodAutoscaler
       metadata:
-        name: omni-ava-api-hpa
+        name: mercury-agent-api-hpa
       spec:
         minReplicas: 1
         maxReplicas: 2
     target:
       kind: HorizontalPodAutoscaler
-      name: omni-ava-api-hpa
+      name: mercury-agent-api-hpa
 
   # Reduce storage
   - patch: |-
       apiVersion: v1
       kind: PersistentVolumeClaim
       metadata:
-        name: omni-ava-data
+        name: mercury-agent-data
       spec:
         resources:
           requests:
             storage: 5Gi
     target:
       kind: PersistentVolumeClaim
-      name: omni-ava-data
+      name: mercury-agent-data
 
 configMapGenerator:
-  - name: omni-ava-config
+  - name: mercury-agent-config
     behavior: merge
     literals:
       - OMNI_LOG_LEVEL=DEBUG

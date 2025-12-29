@@ -1,0 +1,49 @@
+{{- if .Values.api.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mercury-agent.fullname" . }}-api
+  namespace: {{ include "mercury-agent.namespace" . }}
+  labels:
+    {{- include "mercury-agent.api.labels" . | nindent 4 }}
+  {{- with .Values.api.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.api.service.type }}
+  selector:
+    {{- include "mercury-agent.api.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.api.service.port }}
+      targetPort: {{ .Values.api.service.targetPort }}
+      protocol: TCP
+    {{- if .Values.metrics.enabled }}
+    - name: metrics
+      port: {{ .Values.api.service.metricsPort }}
+      targetPort: {{ .Values.metrics.port }}
+      protocol: TCP
+    {{- end }}
+{{- end }}
+---
+{{- if .Values.engine.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mercury-agent.fullname" . }}-engine
+  namespace: {{ include "mercury-agent.namespace" . }}
+  labels:
+    {{- include "mercury-agent.engine.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "mercury-agent.engine.selectorLabels" . | nindent 4 }}
+  ports:
+    {{- if .Values.metrics.enabled }}
+    - name: metrics
+      port: {{ .Values.metrics.port }}
+      targetPort: {{ .Values.metrics.port }}
+      protocol: TCP
+    {{- end }}
+{{- end }}

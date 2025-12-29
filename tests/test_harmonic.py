@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ Test harmonic encoder functionality
 
 import numpy as np
 
-from omni_anomaly_engine.ml.harmonic_encoder import (
+from omni_mercury_engine.ml.harmonic_encoder import (
     FourierHarmonicAnalyzer,
     QuantumHarmonicOscillator,
     SphericalHarmonicDecomposer,

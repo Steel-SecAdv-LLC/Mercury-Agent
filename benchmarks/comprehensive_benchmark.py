@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Comprehensive benchmark for OMNI ♱ AVA enhancements.
+Comprehensive benchmark for Mercury Agent ♱ enhancements.
 
 Benchmarks module instantiation, detection performance, and scalability
 across 1, 5, and all 12 infrastructure modules.
@@ -31,9 +31,9 @@ from typing import Any
 import numpy as np
 from sklearn.metrics import f1_score, precision_score, recall_score
 
-from omni_anomaly_engine.infrastructure import InfrastructureCoordinator
-from omni_anomaly_engine.models.simulation import SimulationModule
-from omni_anomaly_engine.space.space_exploration_analyzer import SpaceExplorationAnalyzer
+from omni_mercury_engine.infrastructure import InfrastructureCoordinator
+from omni_mercury_engine.models.simulation import SimulationModule
+from omni_mercury_engine.space.space_exploration_analyzer import SpaceExplorationAnalyzer
 
 
 def benchmark_module_instantiation() -> dict[str, float]:
@@ -153,7 +153,7 @@ def benchmark_cosmic_ray_detection() -> dict[str, Any]:
 def run_all_benchmarks() -> dict[str, Any]:
     """Run all benchmarks and return results."""
     print("=" * 70)
-    print("OMNI-AVA COMPREHENSIVE BENCHMARK")
+    print("Mercury-Agent COMPREHENSIVE BENCHMARK")
     print("=" * 70)
 
     results = {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()), "benchmarks": {}}

@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -47,7 +47,7 @@ class TestGOSNNFallback:
         """Create GlobalOmniScalarNetwork instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.core.global_omni_scalar_network import (
+        from omni_mercury_engine.core.global_omni_scalar_network import (
             GlobalOmniScalarNetwork,
         )
 
@@ -94,7 +94,7 @@ class TestGOSNNErrorHandling:
         """Create GlobalOmniScalarNetwork instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.core.global_omni_scalar_network import (
+        from omni_mercury_engine.core.global_omni_scalar_network import (
             GlobalOmniScalarNetwork,
         )
 
@@ -136,7 +136,7 @@ class TestScalarRegistration:
         """Create GlobalOmniScalarNetwork instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.core.global_omni_scalar_network import (
+        from omni_mercury_engine.core.global_omni_scalar_network import (
             GlobalOmniScalarNetwork,
         )
 
@@ -144,7 +144,7 @@ class TestScalarRegistration:
 
     def test_register_scalars(self, gosnn):
         """Test scalar registration."""
-        from omni_anomaly_engine.core.global_omni_scalar_network import ScalarGroup
+        from omni_mercury_engine.core.global_omni_scalar_network import ScalarGroup
 
         gosnn.register_scalars(
             component_name="test_component",
@@ -154,7 +154,7 @@ class TestScalarRegistration:
 
     def test_register_scalars_with_metadata(self, gosnn):
         """Test scalar registration with metadata."""
-        from omni_anomaly_engine.core.global_omni_scalar_network import ScalarGroup
+        from omni_mercury_engine.core.global_omni_scalar_network import ScalarGroup
 
         gosnn.register_scalars(
             component_name="test_component",
@@ -165,7 +165,7 @@ class TestScalarRegistration:
 
     def test_scalar_groups(self):
         """Test all scalar groups exist."""
-        from omni_anomaly_engine.core.global_omni_scalar_network import ScalarGroup
+        from omni_mercury_engine.core.global_omni_scalar_network import ScalarGroup
 
         assert ScalarGroup.ETHICAL is not None
         assert ScalarGroup.PERFORMANCE is not None
@@ -185,7 +185,7 @@ class TestEthicalGating:
         """Create GlobalOmniScalarNetwork instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.core.global_omni_scalar_network import (
+        from omni_mercury_engine.core.global_omni_scalar_network import (
             GlobalOmniScalarNetwork,
         )
 
@@ -193,7 +193,7 @@ class TestEthicalGating:
 
     def test_sigma_sacred_default(self):
         """Test sigma_sacred default value."""
-        from omni_anomaly_engine.core.global_omni_scalar_network import (
+        from omni_mercury_engine.core.global_omni_scalar_network import (
             SIGMA_SACRED_THRESHOLD,
         )
 
@@ -201,7 +201,7 @@ class TestEthicalGating:
 
     def test_sigma_sacred_medical_fallback(self):
         """Test sigma_sacred medical fallback value."""
-        from omni_anomaly_engine.core.global_omni_scalar_network import (
+        from omni_mercury_engine.core.global_omni_scalar_network import (
             SIGMA_SACRED_MEDICAL_FALLBACK,
         )
 
@@ -239,7 +239,7 @@ class TestDetectorRegistry128D:
         """Create DetectorRegistry instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.core.detector_registry import DetectorRegistry
+        from omni_mercury_engine.core.detector_registry import DetectorRegistry
 
         return DetectorRegistry()
 
@@ -253,7 +253,7 @@ class TestDetectorRegistry128D:
 
     def test_aggregate_features_128d(self, registry, deterministic_rng):
         """Test feature aggregation produces 128D output."""
-        from omni_anomaly_engine.core.detector_registry import FeatureExtractionResult
+        from omni_mercury_engine.core.detector_registry import FeatureExtractionResult
 
         detector_features = {
             "landslide": FeatureExtractionResult(
@@ -286,7 +286,7 @@ class TestDetectorRegistry128D:
 
     def test_l2_normalization_applied(self, registry, deterministic_rng):
         """Test L2 normalization is applied."""
-        from omni_anomaly_engine.core.detector_registry import FeatureExtractionResult
+        from omni_mercury_engine.core.detector_registry import FeatureExtractionResult
 
         detector_features = {
             "landslide": FeatureExtractionResult(
@@ -319,7 +319,7 @@ class TestDetectorRegistry128D:
 
     def test_golden_ratio_scaling(self, registry, deterministic_rng):
         """Test golden ratio scaling is applied."""
-        from omni_anomaly_engine.core.detector_registry import FeatureExtractionResult
+        from omni_mercury_engine.core.detector_registry import FeatureExtractionResult
 
         detector_features = {
             "landslide": FeatureExtractionResult(
@@ -350,7 +350,7 @@ class TestDetectorRegistry128D:
 
     def test_omni_scalars_registered(self, registry, deterministic_rng):
         """Test omni-scalars are registered."""
-        from omni_anomaly_engine.core.detector_registry import FeatureExtractionResult
+        from omni_mercury_engine.core.detector_registry import FeatureExtractionResult
 
         detector_features = {
             "landslide": FeatureExtractionResult(
@@ -392,13 +392,13 @@ class TestPHIConstant:
 
     def test_phi_value(self):
         """Test PHI constant value."""
-        from omni_anomaly_engine.core.global_omni_scalar_network import PHI
+        from omni_mercury_engine.core.global_omni_scalar_network import PHI
 
         assert abs(PHI - 1.618033988749895) < 1e-10
 
     def test_phi_golden_ratio_property(self):
         """Test PHI satisfies golden ratio property."""
-        from omni_anomaly_engine.core.global_omni_scalar_network import PHI
+        from omni_mercury_engine.core.global_omni_scalar_network import PHI
 
         assert abs(PHI - (1 + np.sqrt(5)) / 2) < 1e-10
 
@@ -413,13 +413,13 @@ class TestLyapunovStability:
 
     def test_lambda_lyapunov_value(self):
         """Test LAMBDA_LYAPUNOV constant value."""
-        from omni_anomaly_engine.core.global_omni_scalar_network import LAMBDA_LYAPUNOV
+        from omni_mercury_engine.core.global_omni_scalar_network import LAMBDA_LYAPUNOV
 
         assert LAMBDA_LYAPUNOV == 0.25
 
     def test_lyapunov_stability_bound(self):
         """Test Lyapunov stability bound V <= epsilon * e^(-0.25t)."""
-        from omni_anomaly_engine.core.global_omni_scalar_network import LAMBDA_LYAPUNOV
+        from omni_mercury_engine.core.global_omni_scalar_network import LAMBDA_LYAPUNOV
 
         epsilon = 1.0
         t = 10.0
@@ -437,12 +437,12 @@ class TestEngineGOSNNIntegration:
 
     @pytest.fixture
     def engine(self):
-        """Create OmniAnomalyEngine instance."""
+        """Create OmniMercuryEngine instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.engine import OmniAnomalyEngine
+        from omni_mercury_engine.engine import OmniMercuryEngine
 
-        return OmniAnomalyEngine()
+        return OmniMercuryEngine()
 
     def test_engine_has_gosnn(self, engine):
         """Test engine has GOSNN integration via fusion model."""
@@ -475,7 +475,7 @@ class TestTriadicPhiWeighting:
         """Create TriadicPhiWeighting instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.core.global_omni_scalar_network import (
+        from omni_mercury_engine.core.global_omni_scalar_network import (
             TriadicPhiWeighting,
         )
 
@@ -516,7 +516,7 @@ class TestAvaDominanceEquation:
         """Create ThreeRMechanism instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.core.three_r_mechanism import ThreeRMechanism
+        from omni_mercury_engine.core.three_r_mechanism import ThreeRMechanism
 
         return ThreeRMechanism()
 
@@ -557,16 +557,16 @@ class TestGOSNNFullIntegration:
         """Create full GOSNN setup."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.core.detector_registry import DetectorRegistry
-        from omni_anomaly_engine.core.global_omni_scalar_network import (
+        from omni_mercury_engine.core.detector_registry import DetectorRegistry
+        from omni_mercury_engine.core.global_omni_scalar_network import (
             GlobalOmniScalarNetwork,
         )
-        from omni_anomaly_engine.engine import OmniAnomalyEngine
+        from omni_mercury_engine.engine import OmniMercuryEngine
 
         return {
             "gosnn": GlobalOmniScalarNetwork(),
             "registry": DetectorRegistry(),
-            "engine": OmniAnomalyEngine(),
+            "engine": OmniMercuryEngine(),
         }
 
     def test_all_components_initialize(self, full_setup):
@@ -597,7 +597,7 @@ class TestOmniScalarLegacyAliases:
         """Create GlobalOmniScalarNetwork instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.core.global_omni_scalar_network import (
+        from omni_mercury_engine.core.global_omni_scalar_network import (
             GlobalOmniScalarNetwork,
             reset_global_network,
         )
@@ -686,7 +686,7 @@ class TestOmniScalarValues:
         """Create GlobalOmniScalarNetwork instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.core.global_omni_scalar_network import (
+        from omni_mercury_engine.core.global_omni_scalar_network import (
             GlobalOmniScalarNetwork,
             reset_global_network,
         )
@@ -743,7 +743,7 @@ class TestBiasAuditOmniScalars:
         """Create GlobalOmniScalarNetwork instance."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
-        from omni_anomaly_engine.core.global_omni_scalar_network import (
+        from omni_mercury_engine.core.global_omni_scalar_network import (
             GlobalOmniScalarNetwork,
             reset_global_network,
         )

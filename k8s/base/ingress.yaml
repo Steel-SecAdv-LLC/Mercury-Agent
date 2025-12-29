@@ -1,12 +1,12 @@
-# OMNI-AVA Ingress Configuration
+# Mercury-Agent Ingress Configuration
 # Routes external traffic to the API service with TLS termination
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: omni-ava-ingress
-  namespace: omni-ava
+  name: mercury-agent-ingress
+  namespace: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: ingress
   annotations:
     # Nginx Ingress Controller annotations
@@ -40,42 +40,42 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - omni-ava.example.com
-        - api.omni-ava.example.com
-      secretName: omni-ava-tls-cert
+        - mercury-agent.example.com
+        - api.mercury-agent.example.com
+      secretName: mercury-agent-tls-cert
   rules:
-    - host: omni-ava.example.com
+    - host: mercury-agent.example.com
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: omni-ava-api
+                name: mercury-agent-api
                 port:
                   number: 80
-    - host: api.omni-ava.example.com
+    - host: api.mercury-agent.example.com
       http:
         paths:
           - path: /api
             pathType: Prefix
             backend:
               service:
-                name: omni-ava-api
+                name: mercury-agent-api
                 port:
                   number: 80
           - path: /health
             pathType: Exact
             backend:
               service:
-                name: omni-ava-api
+                name: mercury-agent-api
                 port:
                   number: 80
           - path: /metrics
             pathType: Exact
             backend:
               service:
-                name: omni-ava-api
+                name: mercury-agent-api
                 port:
                   number: 80
 ---
@@ -115,8 +115,8 @@ spec:
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
-#   name: omni-ava-alb-ingress
-#   namespace: omni-ava
+#   name: mercury-agent-alb-ingress
+#   namespace: mercury-agent
 #   annotations:
 #     kubernetes.io/ingress.class: alb
 #     alb.ingress.kubernetes.io/scheme: internet-facing
@@ -131,13 +131,13 @@ spec:
 #     alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
 # spec:
 #   rules:
-#     - host: omni-ava.example.com
+#     - host: mercury-agent.example.com
 #       http:
 #         paths:
 #           - path: /
 #             pathType: Prefix
 #             backend:
 #               service:
-#                 name: omni-ava-api
+#                 name: mercury-agent-api
 #                 port:
 #                   number: 80

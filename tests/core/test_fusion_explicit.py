@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import torch
 
-from omni_anomaly_engine.core.fusion import EarlyFusionEncoder, HybridFusionLayer
+from omni_mercury_engine.core.fusion import EarlyFusionEncoder, HybridFusionLayer
 
 
 def test_extract_features():

@@ -1,12 +1,12 @@
-# Kustomize base configuration for OMNI-AVA
+# Kustomize base configuration for Mercury-Agent
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 metadata:
-  name: omni-ava-base
+  name: mercury-agent-base
 
 commonLabels:
-  app.kubernetes.io/name: omni-ava
+  app.kubernetes.io/name: mercury-agent
   app.kubernetes.io/managed-by: kustomize
 
 resources:
@@ -23,8 +23,8 @@ resources:
   - ingress.yaml
 
 configMapGenerator:
-  - name: omni-ava-app-info
+  - name: mercury-agent-app-info
     literals:
-      - app-name=omni-ava
+      - app-name=mercury-agent
       - version=1.0.0
       - environment=base

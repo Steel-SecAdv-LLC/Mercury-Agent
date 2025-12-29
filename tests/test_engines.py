@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -22,11 +22,11 @@ from __future__ import annotations
 
 import numpy as np
 
-from omni_anomaly_engine.core.extended_anomaly_engine import (
+from omni_mercury_engine.core.extended_anomaly_engine import (
     EngineConfig,
     EvolutionEngine,
     IntegrationEngine,
-    OmniAva,
+    OmniMercury,
     SecurityEngine,
 )
 
@@ -96,10 +96,10 @@ class TestIntegrationEngine:
         assert "test_api" in engine.integrations
 
 
-class TestOmniAva:
+class TestOmniMercury:
     def test_initialization(self):
         config = EngineConfig(enable_3r_mechanism=True, enable_security=True)
-        engine = OmniAva(config)
+        engine = OmniMercury(config)
 
         assert engine.config is not None
         assert engine.three_r is not None
@@ -109,7 +109,7 @@ class TestOmniAva:
         config = EngineConfig(
             enable_3r_mechanism=False, enable_evolution=False, enable_security=False
         )
-        engine = OmniAva(config)
+        engine = OmniMercury(config)
 
         assert engine.three_r is None
         assert engine.evolution_engine is None
@@ -117,7 +117,7 @@ class TestOmniAva:
 
     def test_detect_anomaly(self):
         config = EngineConfig(enable_3r_mechanism=False)
-        engine = OmniAva(config)
+        engine = OmniMercury(config)
         data = np.random.randn(50)
 
         result = engine.detect_anomaly(data, use_3r_enhancement=False)
@@ -127,7 +127,7 @@ class TestOmniAva:
 
     def test_detect_anomaly_with_3r(self):
         config = EngineConfig(enable_3r_mechanism=True)
-        engine = OmniAva(config)
+        engine = OmniMercury(config)
         data = np.random.randn(50)
 
         result = engine.detect_anomaly(data, use_3r_enhancement=True)
@@ -138,7 +138,7 @@ class TestOmniAva:
 
     def test_detect_anomaly_with_resonance_analysis(self):
         config = EngineConfig(enable_3r_mechanism=True)
-        engine = OmniAva(config)
+        engine = OmniMercury(config)
         data = np.random.randn(100)
 
         result = engine.detect_anomaly(data, use_3r_enhancement=True)
@@ -147,7 +147,7 @@ class TestOmniAva:
 
     def test_detect_obvious_anomaly(self):
         config = EngineConfig(enable_3r_mechanism=False)
-        engine = OmniAva(config)
+        engine = OmniMercury(config)
 
         data = np.ones(100)
         data[50] = 100.0
@@ -158,7 +158,7 @@ class TestOmniAva:
 
     def test_detect_anomaly_empty_data(self):
         config = EngineConfig(enable_3r_mechanism=False)
-        engine = OmniAva(config)
+        engine = OmniMercury(config)
         data = np.array([])
 
         result = engine.detect_anomaly(data, use_3r_enhancement=False)
@@ -167,7 +167,7 @@ class TestOmniAva:
 
     def test_detect_anomaly_constant_data(self):
         config = EngineConfig(enable_3r_mechanism=False)
-        engine = OmniAva(config)
+        engine = OmniMercury(config)
         data = np.ones(50)
 
         result = engine.detect_anomaly(data, use_3r_enhancement=False)
@@ -175,7 +175,7 @@ class TestOmniAva:
         assert result["anomaly_score"] == 0.0
 
     def test_validate_input_security(self):
-        engine = OmniAva()
+        engine = OmniMercury()
 
         result = engine.validate_input_security("normal input")
 
@@ -183,7 +183,7 @@ class TestOmniAva:
 
     def test_validate_input_security_disabled(self):
         config = EngineConfig(enable_security=False)
-        engine = OmniAva(config)
+        engine = OmniMercury(config)
 
         result = engine.validate_input_security("any input")
 
@@ -191,7 +191,7 @@ class TestOmniAva:
 
     def test_evolve_detector(self):
         config = EngineConfig(enable_evolution=True)
-        engine = OmniAva(config)
+        engine = OmniMercury(config)
 
         def fitness_fn(x):
             return -np.sum(x**2)
@@ -204,7 +204,7 @@ class TestOmniAva:
 
     def test_evolve_detector_disabled(self):
         config = EngineConfig(enable_evolution=False)
-        engine = OmniAva(config)
+        engine = OmniMercury(config)
 
         def fitness_fn(x):
             return -np.sum(x**2)

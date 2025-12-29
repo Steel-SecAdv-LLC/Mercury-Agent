@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -24,8 +24,8 @@ import numpy as np
 import pytest
 import torch
 
-from omni_anomaly_engine.core.exceptions import DetectorException
-from omni_anomaly_engine.detectors.spatial import SpatialAnomalyDetector
+from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
 
 
 class TestSpatialAnomalyDetector:

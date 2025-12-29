@@ -1,23 +1,23 @@
-# OMNI-AVA Kubernetes Namespace Configuration
-# Provides isolation and resource management for the OMNI-AVA application
+# Mercury-Agent Kubernetes Namespace Configuration
+# Provides isolation and resource management for the Mercury-Agent application
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: omni-ava
+  name: mercury-agent
   labels:
-    app.kubernetes.io/name: omni-ava
+    app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: namespace
-    app.kubernetes.io/part-of: omni-ava-platform
+    app.kubernetes.io/part-of: mercury-agent-platform
   annotations:
-    description: "OMNI-AVA Neural-Symbolic AI Framework for Multi-Domain Anomaly Detection"
+    description: "Mercury-Agent Neural-Symbolic AI Framework for Multi-Domain Anomaly Detection"
     owner: "Steel Security Advisors LLC"
 ---
 # Resource Quota for the namespace
 apiVersion: v1
 kind: ResourceQuota
 metadata:
-  name: omni-ava-quota
-  namespace: omni-ava
+  name: mercury-agent-quota
+  namespace: mercury-agent
 spec:
   hard:
     requests.cpu: "20"
@@ -34,8 +34,8 @@ spec:
 apiVersion: v1
 kind: LimitRange
 metadata:
-  name: omni-ava-limits
-  namespace: omni-ava
+  name: mercury-agent-limits
+  namespace: mercury-agent
 spec:
   limits:
     - default:

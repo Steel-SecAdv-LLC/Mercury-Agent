@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -32,7 +32,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from omni_anomaly_engine.ml.training import (
+from omni_mercury_engine.ml.training import (
     AvaExponentialDecayOptimizer,
     AvaHarmonicOptimizer,
     AvaMomentumOptimizer,

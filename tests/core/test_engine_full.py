@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -27,12 +27,12 @@ import tempfile
 
 import numpy as np
 
-from omni_anomaly_engine.engine import OmniAnomalyEngine
+from omni_mercury_engine.engine import OmniMercuryEngine
 
 
 def test_engine_detect_with_all_detectors():
     """Test detection with all detector types enabled"""
-    engine = OmniAnomalyEngine()
+    engine = OmniMercuryEngine()
 
     data = np.random.randn(50, 3)
 
@@ -48,7 +48,7 @@ def test_engine_detect_with_all_detectors():
 
 def test_engine_detect_with_subset():
     """Test detection with subset of detectors"""
-    engine = OmniAnomalyEngine()
+    engine = OmniMercuryEngine()
 
     data = np.random.randn(50, 3)
 
@@ -60,7 +60,7 @@ def test_engine_detect_with_subset():
 
 def test_engine_fusion_mode():
     """Test fusion mode initialization"""
-    engine = OmniAnomalyEngine(mode="fusion")
+    engine = OmniMercuryEngine(mode="fusion")
 
     assert engine.fusion_model is not None
     assert engine.fusion_inference is not None
@@ -68,7 +68,7 @@ def test_engine_fusion_mode():
 
 def test_engine_biometric_detection():
     """Test biometric anomaly detection"""
-    engine = OmniAnomalyEngine()
+    engine = OmniMercuryEngine()
 
     image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
 
@@ -80,7 +80,7 @@ def test_engine_biometric_detection():
 
 def test_engine_security_scan():
     """Test security vulnerability scanning"""
-    engine = OmniAnomalyEngine()
+    engine = OmniMercuryEngine()
 
     payloads = [
         "SELECT * FROM users",
@@ -96,7 +96,7 @@ def test_engine_security_scan():
 
 def test_engine_save_load_cycle():
     """Test complete save/load cycle"""
-    engine = OmniAnomalyEngine(mode="fusion")
+    engine = OmniMercuryEngine(mode="fusion")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         save_path = os.path.join(tmpdir, "test_engine.pt")
@@ -104,7 +104,7 @@ def test_engine_save_load_cycle():
         engine.save_model(save_path)
         assert os.path.exists(save_path)
 
-        loaded_engine = OmniAnomalyEngine(mode="fusion")
+        loaded_engine = OmniMercuryEngine(mode="fusion")
         loaded_engine.load_model(save_path)
 
         assert loaded_engine is not None
@@ -112,17 +112,17 @@ def test_engine_save_load_cycle():
 
 def test_engine_configure():
     """Test engine configuration"""
-    from omni_anomaly_engine.core.config import EngineConfig
+    from omni_mercury_engine.core.config import EngineConfig
 
     config = EngineConfig()
-    engine = OmniAnomalyEngine(config=config)
+    engine = OmniMercuryEngine(config=config)
 
     assert engine.config is not None
 
 
 def test_engine_batch_detection():
     """Test batch anomaly detection"""
-    engine = OmniAnomalyEngine()
+    engine = OmniMercuryEngine()
 
     batch_data = [
         np.random.randn(50, 3),
@@ -138,7 +138,7 @@ def test_engine_batch_detection():
 
 def test_engine_with_fusion_inference():
     """Test detection using fusion network"""
-    engine = OmniAnomalyEngine(mode="fusion")
+    engine = OmniMercuryEngine(mode="fusion")
 
     test_data = np.random.randn(50, 3)
     results = engine.detect_with_fusion(test_data)

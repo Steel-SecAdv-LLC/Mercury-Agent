@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 Tests for Neural Memory Layer - Memory Embeddings and Pattern Detection
@@ -12,7 +12,7 @@ import time
 import numpy as np
 import pytest
 
-from omni_anomaly_engine.cognitive.neural_memory_layer import (
+from omni_mercury_engine.cognitive.neural_memory_layer import (
     AnomalyPredictor,
     DetectedPattern,
     KMeansClusterer,

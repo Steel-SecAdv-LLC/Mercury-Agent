@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -24,10 +24,10 @@ Test model modules
 
 import numpy as np
 
-from omni_anomaly_engine.models.affective import AffectiveAnomalyModel
-from omni_anomaly_engine.models.astrophysical import AstrophysicalAnomalyModel
-from omni_anomaly_engine.models.biometric import BiometricAnomalyModel
-from omni_anomaly_engine.models.quantum import QuantumAnomalyModel
+from omni_mercury_engine.models.affective import AffectiveAnomalyModel
+from omni_mercury_engine.models.astrophysical import AstrophysicalAnomalyModel
+from omni_mercury_engine.models.biometric import BiometricAnomalyModel
+from omni_mercury_engine.models.quantum import QuantumAnomalyModel
 
 
 def test_quantum_model(sample_data):

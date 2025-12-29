@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -38,7 +38,7 @@ from typing import Any
 import numpy as np
 
 from benchmarks.statistical_validation import statistical_analysis
-from omni_anomaly_engine.core.three_r_mechanism import RefactoringEngine as ImprovedEngine
+from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine as ImprovedEngine
 
 
 def load_baseline_engine():
@@ -412,10 +412,10 @@ if __name__ == "__main__":
 
     if len(functions) < 10:
         print("\nWARNING: Not enough functions from benchmark repos.")
-        print("Falling back to using OMNI ♱ AVA's own Python files...")
+        print("Falling back to using Mercury Agent ♱'s own Python files...")
 
         fallback_paths = [
-            Path(__file__).parent.parent / "omni_anomaly_engine",
+            Path(__file__).parent.parent / "omni_mercury_engine",
             Path(__file__).parent.parent / "src",
         ]
         functions = extract_test_functions(fallback_paths, max_functions=100)

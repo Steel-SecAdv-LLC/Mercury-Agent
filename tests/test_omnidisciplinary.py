@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@ import pytest
 
 def test_medical_abms_import():
     """Test ABMS medical module imports correctly"""
-    from omni_anomaly_engine.medical.abms_disciplines import ABMSDisciplineDetector
+    from omni_mercury_engine.medical.abms_disciplines import ABMSDisciplineDetector
 
     detector = ABMSDisciplineDetector()
     assert detector is not None
@@ -34,7 +34,7 @@ def test_medical_abms_import():
 
 def test_intelligence_fusion_import():
     """Test intelligence fusion module imports correctly"""
-    from omni_anomaly_engine.security.intelligence_fusion import IntelligenceFusionEngine
+    from omni_mercury_engine.security.intelligence_fusion import IntelligenceFusionEngine
 
     engine = IntelligenceFusionEngine()
     assert engine is not None
@@ -42,7 +42,7 @@ def test_intelligence_fusion_import():
 
 def test_schumann_resonance_import():
     """Test Schumann resonance module imports correctly"""
-    from omni_anomaly_engine.space.schumann_resonance import SchumannResonanceDetector
+    from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
 
     detector = SchumannResonanceDetector()
     assert detector is not None
@@ -50,7 +50,7 @@ def test_schumann_resonance_import():
 
 def test_chemistry_import():
     """Test chemistry module imports correctly"""
-    from omni_anomaly_engine.models.chemistry import ChemistryAnomalyDetector
+    from omni_mercury_engine.models.chemistry import ChemistryAnomalyDetector
 
     detector = ChemistryAnomalyDetector()
     assert detector is not None
@@ -58,7 +58,7 @@ def test_chemistry_import():
 
 def test_parapsychology_import():
     """Test parapsychology module imports correctly"""
-    from omni_anomaly_engine.models.parapsychology import ParapsychologyDetector
+    from omni_mercury_engine.models.parapsychology import ParapsychologyDetector
 
     detector = ParapsychologyDetector()
     assert detector is not None
@@ -66,7 +66,7 @@ def test_parapsychology_import():
 
 def test_medical_abms_basic_detection():
     """Test ABMS medical detection with simulated data"""
-    from omni_anomaly_engine.medical.abms_disciplines import ABMSDisciplineDetector
+    from omni_mercury_engine.medical.abms_disciplines import ABMSDisciplineDetector
 
     detector = ABMSDisciplineDetector()
     patient_data = {
@@ -87,7 +87,7 @@ def test_medical_abms_basic_detection():
 
 def test_schumann_resonance_detection():
     """Test Schumann resonance detection with synthetic signal"""
-    from omni_anomaly_engine.space.schumann_resonance import SchumannResonanceDetector
+    from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
 
     detector = SchumannResonanceDetector(sampling_rate=100.0)
 
@@ -101,9 +101,9 @@ def test_schumann_resonance_detection():
 
 def test_engine_with_new_models():
     """Test that engine initializes with all new models"""
-    from omni_anomaly_engine import OmniAnomalyEngine
+    from omni_mercury_engine import OmniMercuryEngine
 
-    engine = OmniAnomalyEngine(mode="fusion")
+    engine = OmniMercuryEngine(mode="fusion")
 
     assert "medical_abms" in engine.models
     assert "intelligence_fusion" in engine.models

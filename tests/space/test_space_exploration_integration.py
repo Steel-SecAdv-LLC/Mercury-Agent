@@ -1,5 +1,5 @@
 """
-OMNI ♱ AVA (O♱A)
+Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -25,7 +25,7 @@ Tests end-to-end functionality with Hubble-inspired scenarios.
 
 import numpy as np
 
-from omni_anomaly_engine.space import SpaceExplorationAnalyzer
+from omni_mercury_engine.space import SpaceExplorationAnalyzer
 
 
 class TestSpaceExplorationIntegration:
