@@ -76,7 +76,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 
 ## 7-Phase Neuro-Symbolic Evolution
 
-The Mercury Agent implements a comprehensive 7-phase cognitive architecture that progressively builds from basic neural memory to superintelligence bootstrap capabilities:
+Mercury Agent ♱ implements a comprehensive 7-phase cognitive architecture that progressively builds from basic neural memory to superintelligence bootstrap capabilities:
 
 | Phase | Component | Description | Key Features |
 |-------|-----------|-------------|--------------|
@@ -519,8 +519,8 @@ Optimized for both accuracy and interpretability:
 
 ```bash
 # Clone repository
-git clone https://github.com/Steel-SecAdv-LLC/Mercury Agent ♱.git
-cd Mercury Agent ♱
+git clone https://github.com/Steel-SecAdv-LLC/Mercury-Agent.git
+cd Mercury-Agent
 
 # Install core dependencies
 pip install -e .
@@ -930,8 +930,8 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 ```bash
 # Clone repository
-git clone https://github.com/Steel-SecAdv-LLC/Mercury Agent ♱.git
-cd Mercury Agent ♱
+git clone https://github.com/Steel-SecAdv-LLC/Mercury-Agent.git
+cd Mercury-Agent
 
 # Install development dependencies
 pip install -e ".[dev]"

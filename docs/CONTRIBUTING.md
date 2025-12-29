@@ -37,8 +37,8 @@ When opening issues, use provided templates:
 
 1. **Clone the repository** (if working from a repo):
    ```bash
-   git clone https://github.com/Steel-SecAdv-LLC/Mercury Agent ♱.git
-   cd Mercury Agent ♱
+      git clone https://github.com/Steel-SecAdv-LLC/Mercury-Agent.git
+      cd Mercury-Agent
    ```
 
 2. **Create virtual environment**:
