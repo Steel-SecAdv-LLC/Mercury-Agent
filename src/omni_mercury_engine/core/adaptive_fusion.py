@@ -71,10 +71,7 @@ class AttentionVisualization:
             mean_weights = mean_weights.mean(dim=0)
 
         values, indices = torch.topk(mean_weights, min(k, len(self.detector_names)))
-        return [
-            (self.detector_names[idx.item()], val.item())
-            for idx, val in zip(indices, values)
-        ]
+        return [(self.detector_names[idx.item()], val.item()) for idx, val in zip(indices, values)]
 
 
 class TemperatureScaledAttention(nn.Module):
@@ -163,7 +160,9 @@ class TemperatureScaledAttention(nn.Module):
         v = v.transpose(1, 2)
 
         # Compute attention scores with temperature scaling
-        scores = torch.matmul(q, k.transpose(-2, -1)) / (self.scale * self.temperature.clamp(min=0.1))
+        scores = torch.matmul(q, k.transpose(-2, -1)) / (
+            self.scale * self.temperature.clamp(min=0.1)
+        )
 
         # Apply softmax
         attention_weights = F.softmax(scores, dim=-1)
@@ -504,9 +503,7 @@ class UncertaintyQuantifier(nn.Module):
         aleatoric_uncertainty = aleatoric_var.mean().item()
 
         # Total uncertainty
-        total_std = torch.sqrt(
-            mc_samples.var(dim=0) + aleatoric_var.unsqueeze(-1)
-        )
+        total_std = torch.sqrt(mc_samples.var(dim=0) + aleatoric_var.unsqueeze(-1))
 
         # Compute confidence intervals
         z_score = 1.96 if confidence_level == 0.95 else 2.576  # 95% or 99%
@@ -648,14 +645,10 @@ class AdaptiveFusionLayer(nn.Module):
             - temperature: Current attention temperature
         """
         # Apply adaptive head attention
-        adaptive_out, adaptive_attn = self.adaptive_attention(
-            x, x, x, return_attention=True
-        )
+        adaptive_out, adaptive_attn = self.adaptive_attention(x, x, x, return_attention=True)
 
         # Apply temperature-scaled attention
-        temp_out, temp_attn = self.temp_attention(
-            x, x, x, return_attention=True
-        )
+        temp_out, temp_attn = self.temp_attention(x, x, x, return_attention=True)
 
         # Combine outputs using learned gate
         adaptive_pooled = adaptive_out.mean(dim=1)
@@ -666,9 +659,7 @@ class AdaptiveFusionLayer(nn.Module):
 
         # Apply sparse attention if enabled
         if self.enable_sparse:
-            sparse_out, sparse_attn = self.sparse_attention(
-                x, x, x, return_attention=True
-            )
+            sparse_out, sparse_attn = self.sparse_attention(x, x, x, return_attention=True)
             sparse_pooled = sparse_out.mean(dim=1)
             # Blend with sparse output
             fused = 0.7 * fused + 0.3 * sparse_pooled

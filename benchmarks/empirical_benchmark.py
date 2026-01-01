@@ -343,7 +343,9 @@ def _generate_synthetic_time_series(
 
     for idx in anomaly_indices:
         anomaly_type = rng.choice(["point", "contextual", "collective"])
-        affected_features = rng.choice(n_features, rng.randint(1, n_features // 2 + 1), replace=False)
+        affected_features = rng.choice(
+            n_features, rng.randint(1, n_features // 2 + 1), replace=False
+        )
 
         if anomaly_type == "point":
             # Sudden spike
@@ -406,9 +408,7 @@ def prepare_smd_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
             indices = np.random.RandomState(42).choice(len(X), n_samples, replace=False)
             X, y = X[indices], y[indices]
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.3, random_state=42
-        )
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)
@@ -469,9 +469,7 @@ def prepare_smap_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
             indices = np.random.RandomState(43).choice(len(X), n_samples, replace=False)
             X, y = X[indices], y[indices]
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.3, random_state=42
-        )
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)
@@ -532,9 +530,7 @@ def prepare_msl_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
             indices = np.random.RandomState(44).choice(len(X), n_samples, replace=False)
             X, y = X[indices], y[indices]
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.3, random_state=42
-        )
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)
@@ -578,6 +574,7 @@ def prepare_swat_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
                 test_file = path / "SWaT_test.csv"
                 if train_file.exists() and test_file.exists():
                     import pandas as pd
+
                     train_df = pd.read_csv(train_file)
                     test_df = pd.read_csv(test_file)
                     # Assume last column is label
@@ -598,9 +595,7 @@ def prepare_swat_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
             indices = np.random.RandomState(45).choice(len(X), n_samples, replace=False)
             X, y = X[indices], y[indices]
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.3, random_state=42
-        )
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)
@@ -858,11 +853,13 @@ class FallbackTelemetry:
         """Record a fallback event with telemetry."""
         self.fallback_counts[reason] = self.fallback_counts.get(reason, 0) + 1
         self.last_fallback_time = datetime.now(UTC).isoformat()
-        self.fallback_reasons.append({
-            "reason": reason,
-            "details": details,
-            "timestamp": self.last_fallback_time,
-        })
+        self.fallback_reasons.append(
+            {
+                "reason": reason,
+                "details": details,
+                "timestamp": self.last_fallback_time,
+            }
+        )
         logger.warning(f"Fallback triggered: {reason} - {details}")
 
     def get_summary(self) -> dict[str, Any]:
@@ -958,8 +955,7 @@ class OmniMercuryDetector:
             self._attempt_engine_initialization()
         else:
             self.telemetry.record_fallback(
-                "import_failure",
-                "OmniMercuryEngine not available - using fallback strategy"
+                "import_failure", "OmniMercuryEngine not available - using fallback strategy"
             )
             self._in_fallback_mode = True
 
@@ -987,13 +983,12 @@ class OmniMercuryDetector:
                 self._last_recovery_attempt = datetime.now(UTC).isoformat()
 
                 self.telemetry.record_fallback(
-                    "initialization_error",
-                    f"Attempt {attempt + 1}/{self.max_retry_attempts}: {e}"
+                    "initialization_error", f"Attempt {attempt + 1}/{self.max_retry_attempts}: {e}"
                 )
 
                 if attempt < self.max_retry_attempts - 1:
                     # Exponential backoff
-                    wait_time = self.retry_backoff_base ** attempt
+                    wait_time = self.retry_backoff_base**attempt
                     logger.info(f"Retrying engine initialization in {wait_time:.1f}s...")
                     time.sleep(wait_time)
 
@@ -1008,8 +1003,14 @@ class OmniMercuryDetector:
 
         # Check for available detector types
         detector_types = [
-            "statistical", "isolation_forest", "lof", "autoencoder",
-            "transformer", "lstm", "cnn", "ensemble"
+            "statistical",
+            "isolation_forest",
+            "lof",
+            "autoencoder",
+            "transformer",
+            "lstm",
+            "cnn",
+            "ensemble",
         ]
 
         for detector_type in detector_types:
@@ -1024,9 +1025,7 @@ class OmniMercuryDetector:
         if self.fallback_strategy == FallbackStrategy.LOF:
             try:
                 self._lof_detector = LocalOutlierFactor(
-                    contamination=self.contamination,
-                    novelty=True,
-                    n_neighbors=min(20, len(X) - 1)
+                    contamination=self.contamination, novelty=True, n_neighbors=min(20, len(X) - 1)
                 )
                 self._lof_detector.fit(X)
                 logger.info("LOF fallback detector initialized")
@@ -1036,9 +1035,7 @@ class OmniMercuryDetector:
         elif self.fallback_strategy == FallbackStrategy.ISOLATION_FOREST:
             try:
                 self._iforest_detector = IsolationForest(
-                    contamination=self.contamination,
-                    random_state=42,
-                    n_estimators=100
+                    contamination=self.contamination, random_state=42, n_estimators=100
                 )
                 self._iforest_detector.fit(X)
                 logger.info("IsolationForest fallback detector initialized")
@@ -1058,8 +1055,7 @@ class OmniMercuryDetector:
             self.cov_inv = np.linalg.pinv(cov)
         except Exception as e:
             self.telemetry.record_fallback(
-                "covariance_failure",
-                f"Failed to compute covariance inverse: {e}"
+                "covariance_failure", f"Failed to compute covariance inverse: {e}"
             )
 
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -1083,10 +1079,7 @@ class OmniMercuryDetector:
             except Exception as e:
                 self._error_count += 1
                 self._last_error = str(e)
-                self.telemetry.record_fallback(
-                    "runtime_error",
-                    f"Engine scoring failed: {e}"
-                )
+                self.telemetry.record_fallback("runtime_error", f"Engine scoring failed: {e}")
                 self._in_fallback_mode = True
 
         # Use fallback strategy
@@ -1116,7 +1109,10 @@ class OmniMercuryDetector:
             except Exception as e:
                 logger.warning(f"LOF fallback failed: {e}")
 
-        if self.fallback_strategy == FallbackStrategy.ISOLATION_FOREST and self._iforest_detector is not None:
+        if (
+            self.fallback_strategy == FallbackStrategy.ISOLATION_FOREST
+            and self._iforest_detector is not None
+        ):
             try:
                 return -self._iforest_detector.decision_function(X)
             except Exception as e:
@@ -1237,6 +1233,7 @@ def get_detector_health_endpoint() -> dict[str, Any]:
     # Check SOTA models
     try:
         import importlib.util
+
         tranad_spec = importlib.util.find_spec("omni_mercury_engine.models.sota.tranad")
         health_status["components"]["TranAD"] = {
             "available": tranad_spec is not None,
@@ -1262,8 +1259,7 @@ def get_detector_health_endpoint() -> dict[str, Any]:
 
     # Determine overall status
     unavailable_count = sum(
-        1 for c in health_status["components"].values()
-        if c.get("status") != "operational"
+        1 for c in health_status["components"].values() if c.get("status") != "operational"
     )
     if unavailable_count > len(health_status["components"]) // 2:
         health_status["status"] = "degraded"
@@ -1273,9 +1269,7 @@ def get_detector_health_endpoint() -> dict[str, Any]:
     return health_status
 
 
-def compute_metrics(
-    y_true: np.ndarray, y_pred: np.ndarray, y_scores: np.ndarray
-) -> dict[str, Any]:
+def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_scores: np.ndarray) -> dict[str, Any]:
     """Compute comprehensive evaluation metrics including confusion matrix."""
     y_pred_binary = (y_pred == -1).astype(int)
 
@@ -1519,8 +1513,10 @@ def run_full_benchmark(
     print("Comparing against near-peer anomaly detection systems")
     print("=" * 70)
     print()
-    print(f"Configuration: K-Fold={use_kfold} (n={n_folds}), "
-          f"Time-Series={include_time_series}, SOTA={include_sota}")
+    print(
+        f"Configuration: K-Fold={use_kfold} (n={n_folds}), "
+        f"Time-Series={include_time_series}, SOTA={include_sota}"
+    )
     print()
 
     datasets = []
@@ -1608,10 +1604,12 @@ def run_full_benchmark(
 
     # Add SOTA models if requested
     if include_sota:
-        detectors.extend([
-            (TranADDetector, "TranAD", {"window_size": 10}),
-            (MAATDetector, "MAAT", {"window_size": 100}),
-        ])
+        detectors.extend(
+            [
+                (TranADDetector, "TranAD", {"window_size": 10}),
+                (MAATDetector, "MAAT", {"window_size": 100}),
+            ]
+        )
 
     results: list[BenchmarkResult] = []
     kfold_results: dict[str, dict[str, KFoldResult]] = {}
@@ -1662,15 +1660,18 @@ def run_full_benchmark(
                         inference_latency_ms=np.mean(
                             [r.inference_latency_ms for r in kfold_result.fold_results]
                         ),
-                        train_time_ms=np.mean(
-                            [r.train_time_ms for r in kfold_result.fold_results]
-                        ),
+                        train_time_ms=np.mean([r.train_time_ms for r in kfold_result.fold_results]),
                         n_samples=len(X_combined),
                         n_features=X_combined.shape[1],
                         anomaly_ratio=np.mean(y_combined),
                         timestamp=datetime.now(UTC).isoformat(),
                         fold_metrics=[
-                            {"roc_auc": r.roc_auc, "f1": r.f1, "precision": r.precision, "recall": r.recall}
+                            {
+                                "roc_auc": r.roc_auc,
+                                "f1": r.f1,
+                                "precision": r.precision,
+                                "recall": r.recall,
+                            }
                             for r in kfold_result.fold_results
                         ],
                         roc_auc_std=kfold_result.std_roc_auc,
@@ -1689,7 +1690,11 @@ def run_full_benchmark(
                 else:
                     # Single train/test split
                     result = benchmark_detector(
-                        detector_class, detector_name, dataset, contamination=contamination, **kwargs
+                        detector_class,
+                        detector_name,
+                        dataset,
+                        contamination=contamination,
+                        **kwargs,
                     )
                     results.append(result)
                     print(

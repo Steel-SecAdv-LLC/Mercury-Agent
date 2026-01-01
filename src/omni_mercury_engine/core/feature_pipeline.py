@@ -391,7 +391,9 @@ class FeatureImputer:
 
         # Limit history size
         if len(self._detector_history[detector_name]) > self.max_history:
-            self._detector_history[detector_name] = self._detector_history[detector_name][-self.max_history:]
+            self._detector_history[detector_name] = self._detector_history[detector_name][
+                -self.max_history :
+            ]
 
         # Update statistics
         history = np.array(self._detector_history[detector_name])
@@ -551,8 +553,16 @@ class FeatureVersionManager:
             n_features=n_features,
             feature_names=feature_names or [f"feature_{i}" for i in range(n_features)],
             dtypes=[str(features.dtype)] * n_features,
-            min_values=np.min(features, axis=0).tolist() if features.ndim > 1 else [float(np.min(features))],
-            max_values=np.max(features, axis=0).tolist() if features.ndim > 1 else [float(np.max(features))],
+            min_values=(
+                np.min(features, axis=0).tolist()
+                if features.ndim > 1
+                else [float(np.min(features))]
+            ),
+            max_values=(
+                np.max(features, axis=0).tolist()
+                if features.ndim > 1
+                else [float(np.max(features))]
+            ),
         )
 
         self.register_schema(schema)
@@ -634,6 +644,7 @@ class RedisCache:
 
         try:
             import redis
+
             self._client = redis.Redis(host=host, port=port, db=db)
             self._client.ping()
             logger.info(f"Redis cache connected: {host}:{port}")
@@ -836,9 +847,11 @@ class FeaturePipeline:
             cache_ttl: Cache TTL in seconds
         """
         self.standardizer = FeatureStandardizer(strategy=scaling_strategy)
-        self.selector = FeatureSelector(
-            selection_ratio=selection_ratio, method=selection_method
-        ) if selection_ratio < 1.0 else None
+        self.selector = (
+            FeatureSelector(selection_ratio=selection_ratio, method=selection_method)
+            if selection_ratio < 1.0
+            else None
+        )
         self.imputer = FeatureImputer(strategy=imputation_strategy)
         self.version_manager = FeatureVersionManager()
         self.feature_store = FeatureStore(backend=cache_backend, ttl=cache_ttl)
@@ -966,8 +979,6 @@ class FeaturePipeline:
         """Get pipeline metrics."""
         return {
             "cache_metrics": self.feature_store.get_metrics(),
-            "feature_importance": (
-                self.selector.get_feature_importance() if self.selector else {}
-            ),
+            "feature_importance": (self.selector.get_feature_importance() if self.selector else {}),
             "fitted": self._fitted,
         }
