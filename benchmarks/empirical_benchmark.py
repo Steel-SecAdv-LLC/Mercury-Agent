@@ -1214,9 +1214,10 @@ class OmniMercuryDetector:
         logistic regression. This is more stable and produces meaningful scores.
 
         The approach:
-        1. Extract scores from all available detectors on training samples
-        2. Fit a logistic regression to learn optimal detector weights
-        3. Use these weights during inference to combine detector scores
+        1. Fit all detectors on training data (normal samples only)
+        2. Extract scores from all available detectors on training samples
+        3. Fit a logistic regression to learn optimal detector weights
+        4. Use these weights during inference to combine detector scores
 
         Args:
             X: Training features (raw input data)
@@ -1232,7 +1233,29 @@ class OmniMercuryDetector:
 
             logger.info(f"Learning detector weights from {len(X)} training samples...")
 
-            # Extract scores from all detectors for each training sample
+            # Step 1: Fit all detectors on normal training data
+            # This is critical - detectors must be fitted before they can produce scores
+            normal_mask = y == 0
+            X_normal = X[normal_mask] if normal_mask.sum() > 10 else X
+            logger.info(f"Fitting detectors on {len(X_normal)} normal samples...")
+
+            fitted_detectors = []
+            for name, detector in self.engine.detectors.items():
+                try:
+                    if hasattr(detector, "fit"):
+                        detector.fit(X_normal)
+                        fitted_detectors.append(name)
+                        logger.debug(f"Fitted detector: {name}")
+                except Exception as e:
+                    logger.debug(f"Failed to fit detector {name}: {e}")
+
+            if not fitted_detectors:
+                logger.warning("No detectors could be fitted, skipping weight learning")
+                return
+
+            logger.info(f"Successfully fitted {len(fitted_detectors)} detectors")
+
+            # Step 2: Extract scores from all detectors for each training sample
             # Mercury-Agent detectors use detect() method which returns dict with scores
             detector_names = list(self.engine.detectors.keys())
             n_detectors = len(detector_names)
@@ -1248,13 +1271,20 @@ class OmniMercuryDetector:
                             result = detector.detect(sample_reshaped)
                             if isinstance(result, dict):
                                 # Extract score from result dict
+                                # Mercury-Agent detectors return "scores" (plural) as arrays
                                 score = result.get(
-                                    "score",
+                                    "scores",
                                     result.get(
-                                        "anomaly_score",
-                                        result.get("confidence", 0.5),
+                                        "score",
+                                        result.get(
+                                            "anomaly_score",
+                                            result.get("confidence", 0.5),
+                                        ),
                                     ),
                                 )
+                                # Handle array scores (take mean if array)
+                                if hasattr(score, "__len__") and not isinstance(score, str):
+                                    score = float(np.mean(score))
                                 score_matrix[i, j] = float(score)
                             else:
                                 score_matrix[i, j] = float(result) if result is not None else 0.5
@@ -1272,13 +1302,19 @@ class OmniMercuryDetector:
 
             # Check if we have enough variance in scores
             score_std = np.std(score_matrix, axis=0)
-            valid_detectors = score_std > 0.01
-            if valid_detectors.sum() < 1:
+            valid_detectors_mask = score_std > 0.01
+            if valid_detectors_mask.sum() < 1:
                 logger.warning("No detectors with score variance, skipping weight learning")
                 return
 
-            X_scores = score_matrix[valid_mask]
-            y_valid = y[valid_mask]
+            # Filter to only use detectors with variance
+            X_scores = score_matrix[:, valid_detectors_mask]
+            y_valid = y
+
+            # Store which detectors have variance (for inference)
+            valid_detector_names = [
+                name for name, valid in zip(detector_names, valid_detectors_mask) if valid
+            ]
 
             # Normalize scores
             scaler = StandardScaler()
@@ -1295,7 +1331,8 @@ class OmniMercuryDetector:
             lr.fit(X_scaled, y_valid)
 
             # Store learned components for inference
-            self._detector_names = detector_names
+            # IMPORTANT: Store only the valid detector names, not all detector names
+            self._detector_names = valid_detector_names
             self._score_scaler = scaler
             self._fusion_lr = lr
             self._fusion_trained = True
@@ -1303,7 +1340,7 @@ class OmniMercuryDetector:
             # Log learned weights
             weights = lr.coef_[0]
             top_detectors = sorted(
-                zip(detector_names, weights), key=lambda x: abs(x[1]), reverse=True
+                zip(valid_detector_names, weights), key=lambda x: abs(x[1]), reverse=True
             )[:5]
             logger.info(
                 f"Fusion weights learned. Top detectors: "
@@ -1554,7 +1591,7 @@ class OmniMercuryDetector:
         returns anomaly_prob (0.0-1.0) where higher values indicate more anomalous samples.
         """
         # Use trained fusion classifier if available - this produces meaningful scores
-        if getattr(self, "_fusion_trained", False) and hasattr(self, "_fusion_classifier"):
+        if getattr(self, "_fusion_trained", False) and hasattr(self, "_fusion_lr"):
             return self._compute_trained_fusion_scores(X)
 
         # Fall back to engine's detect_with_fusion
@@ -1602,13 +1639,20 @@ class OmniMercuryDetector:
                         if hasattr(detector, "detect"):
                             result = detector.detect(sample_reshaped)
                             if isinstance(result, dict):
+                                # Mercury-Agent detectors return "scores" (plural) as arrays
                                 score = result.get(
-                                    "score",
+                                    "scores",
                                     result.get(
-                                        "anomaly_score",
-                                        result.get("confidence", 0.5),
+                                        "score",
+                                        result.get(
+                                            "anomaly_score",
+                                            result.get("confidence", 0.5),
+                                        ),
                                     ),
                                 )
+                                # Handle array scores (take mean if array)
+                                if hasattr(score, "__len__") and not isinstance(score, str):
+                                    score = float(np.mean(score))
                                 score_matrix[i, j] = float(score)
                             else:
                                 score_matrix[i, j] = float(result) if result is not None else 0.5
