@@ -80,7 +80,10 @@ jobs:
         run: flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503,E402,E501
 
       - name: Run pydocstyle (docstring checks)
-        run: pydocstyle src/omni_mercury_engine/ --convention=google || true
+        # Informational only - docstring style enforcement is advisory
+        # Many docstrings use alternative valid formatting conventions
+        continue-on-error: true
+        run: pydocstyle src/omni_mercury_engine/ --convention=google --add-ignore=D212,D415
 
   # ===========================================================================
   # Stage 2: Type Checking
@@ -355,8 +358,11 @@ jobs:
         run: pip install -e .
 
       - name: Run integration tests
+        # Integration tests may require external services or specific setup
+        # Failures here are informational - core tests are the blocking gate
+        continue-on-error: true
         run: |
-          pytest tests/integration/ -v --timeout=60 || true
+          pytest tests/integration/ -v --timeout=60
 
   # ===========================================================================
   # Stage 7: Ethics Audit
@@ -387,7 +393,10 @@ jobs:
           pip install numpy scipy torch scikit-learn sympy
 
       - name: Run ethics audit
-        run: python benchmarks/run_ethics_audit.py || true
+        # Ethics audit is an advisory check for AI alignment verification
+        # Failures indicate areas needing review but don't block the pipeline
+        continue-on-error: true
+        run: python benchmarks/run_ethics_audit.py
 
   # ===========================================================================
   # Stage 8: Docker Build
@@ -470,9 +479,12 @@ jobs:
           pip install sphinx sphinx-rtd-theme myst-parser sphinx-autodoc-typehints
 
       - name: Build documentation
+        # Documentation build is informational - may fail due to missing autodoc sources
+        # Core functionality is validated in code-quality and core-tests stages
+        continue-on-error: true
         run: |
           cd docs
-          sphinx-build -b html . _build/html || true
+          sphinx-build -b html . _build/html
 
   # ===========================================================================
   # Final Status Check
@@ -486,9 +498,20 @@ jobs:
     steps:
       - name: Check all jobs
         run: |
+          # Check all blocking jobs
           if [[ "${{ needs.code-quality.result }}" == "failure" ]] || \
-             [[ "${{ needs.core-tests.result }}" == "failure" ]]; then
+             [[ "${{ needs.type-checking.result }}" == "failure" ]] || \
+             [[ "${{ needs.core-tests.result }}" == "failure" ]] || \
+             [[ "${{ needs.security-scan.result }}" == "failure" ]]; then
             echo "❌ CI Pipeline Failed"
+            echo "  code-quality: ${{ needs.code-quality.result }}"
+            echo "  type-checking: ${{ needs.type-checking.result }}"
+            echo "  core-tests: ${{ needs.core-tests.result }}"
+            echo "  security-scan: ${{ needs.security-scan.result }}"
             exit 1
           fi
           echo "✅ CI Pipeline Passed"
+          echo "  code-quality: ${{ needs.code-quality.result }}"
+          echo "  type-checking: ${{ needs.type-checking.result }}"
+          echo "  core-tests: ${{ needs.core-tests.result }}"
+          echo "  security-scan: ${{ needs.security-scan.result }}"
