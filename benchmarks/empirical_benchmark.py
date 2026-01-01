@@ -1982,8 +1982,21 @@ def generate_honest_assessment(
     return assessment
 
 
-def save_results(results: dict[str, Any], output_dir: Path) -> None:
-    """Save benchmark results to files."""
+def save_results(results: dict[str, Any], output_dir: Path | str) -> None:
+    """Save benchmark results to files.
+
+    Args:
+        results: Benchmark results dictionary
+        output_dir: Directory path (Path or str) to save results to.
+            If a string ending in .json is passed, uses its parent directory.
+    """
+    # Handle string inputs and convert to Path
+    if isinstance(output_dir, str):
+        output_dir = Path(output_dir)
+        # If a JSON filename was passed, use its parent directory
+        if output_dir.suffix == ".json":
+            output_dir = output_dir.parent if output_dir.parent != Path() else Path(".")
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
     json_path = output_dir / "empirical_benchmark_results.json"
