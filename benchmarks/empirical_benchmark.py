@@ -959,9 +959,9 @@ class OmniMercuryDetector:
         # Initialize fallback detectors based on strategy
         self._initialize_fallback_detectors(X)
 
-        # Attempt to initialize Mercury-Agent engine
+        # Attempt to initialize Mercury-Agent engine with training data for warmup
         if MERCURY_AGENT_AVAILABLE:
-            self._attempt_engine_initialization()
+            self._attempt_engine_initialization(X_train=X)
         else:
             self.telemetry.record_fallback(
                 "import_failure", "OmniMercuryEngine not available - using fallback strategy"
@@ -1032,14 +1032,28 @@ class OmniMercuryDetector:
             # Default to inverted based on empirical observation
             self._score_inverted = True
 
-    def _attempt_engine_initialization(self) -> bool:
-        """Attempt to initialize the engine with retry logic."""
+    def _attempt_engine_initialization(self, X_train: np.ndarray | None = None) -> bool:
+        """Attempt to initialize the engine with retry logic.
+
+        Args:
+            X_train: Training data to pre-fit the engine's detectors.
+                     This prevents per-sample fitting during scoring which
+                     causes errors with kNN-based detectors.
+        """
         for attempt in range(self.max_retry_attempts):
             try:
-                self.engine = OmniMercuryEngine(mode="statistical", device="cpu")
+                # CRITICAL: Use mode="fusion" to get continuous anomaly_prob scores
+                # mode="statistical" causes detect_with_fusion() to fall back to detect()
+                # which doesn't return continuous scores for ROC-AUC computation
+                self.engine = OmniMercuryEngine(mode="fusion", device="cpu")
                 self._in_fallback_mode = False
                 self._success_count += 1
-                logger.info("OmniMercuryEngine initialized successfully")
+                logger.info("OmniMercuryEngine initialized successfully (mode=fusion)")
+
+                # Pre-fit the engine's detectors on training data to avoid
+                # per-sample fitting during scoring (which causes n_neighbors errors)
+                if X_train is not None and len(X_train) > 1:
+                    self._warmup_engine_detectors(X_train)
 
                 # Track available detectors for partial mode
                 if self.enable_partial_mode:
@@ -1066,6 +1080,31 @@ class OmniMercuryDetector:
         self.engine = None
         self._in_fallback_mode = True
         return False
+
+    def _warmup_engine_detectors(self, X_train: np.ndarray) -> None:
+        """Pre-fit engine detectors on training data.
+
+        This prevents per-sample fitting during scoring which causes
+        errors with kNN-based detectors (n_neighbors < n_samples_fit).
+        """
+        if self.engine is None:
+            return
+
+        try:
+            # Fit all base detectors on training data
+            for name, detector in self.engine.detectors.items():
+                try:
+                    if not detector.is_fitted():
+                        detector.fit(X_train)
+                        logger.debug(f"Pre-fitted detector: {name}")
+                except Exception as e:
+                    logger.warning(f"Failed to pre-fit detector {name}: {e}")
+
+            logger.info(
+                f"Pre-fitted {len(self.engine.detectors)} engine detectors on training data"
+            )
+        except Exception as e:
+            logger.warning(f"Engine detector warmup failed: {e}")
 
     def _track_available_detectors(self) -> None:
         """Track which detectors are available in partial mode."""
