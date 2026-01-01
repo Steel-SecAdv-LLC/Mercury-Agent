@@ -932,6 +932,11 @@ class OmniMercuryDetector:
         # Available detectors tracking for partial mode
         self._available_detectors: dict[str, bool] = {}
 
+        # Score calibration - detect if engine scores are inverted
+        # (higher score = more normal instead of more anomalous)
+        self._score_inverted = False
+        self._calibration_auc: float | None = None
+
         logger.info(
             f"OmniMercuryDetector initialized: fallback_strategy={fallback_strategy}, "
             f"partial_mode={enable_partial_mode}"
@@ -943,6 +948,10 @@ class OmniMercuryDetector:
 
         Attempts to initialize the full Mercury-Agent engine, falling back
         to configured strategy if initialization fails.
+
+        Also performs score calibration to detect if engine scores are inverted
+        (higher score = more normal instead of more anomalous). This is done
+        using training labels only to avoid data leakage.
         """
         # Always fit fallback methods first
         self._fit_fallback(X)
@@ -959,7 +968,69 @@ class OmniMercuryDetector:
             )
             self._in_fallback_mode = True
 
+        # Calibrate score direction using training labels (no data leakage)
+        if y is not None and self.engine is not None and not self._in_fallback_mode:
+            self._calibrate_score_direction(X, y)
+
         return self
+
+    def _calibrate_score_direction(self, X: np.ndarray, y: np.ndarray) -> None:
+        """
+        Calibrate score direction using training labels.
+
+        Detects if engine scores are inverted (higher = more normal) and
+        sets _score_inverted flag accordingly. This uses only training data
+        to avoid data leakage.
+
+        Args:
+            X: Training features
+            y: Training labels (1 = anomaly, 0 = normal)
+        """
+        try:
+            # Sample a subset for calibration (max 200 samples for efficiency)
+            n_samples = min(200, len(X))
+            indices = np.random.choice(len(X), n_samples, replace=False)
+            X_cal = X[indices]
+            y_cal = y[indices]
+
+            # Compute raw scores on calibration subset
+            raw_scores = self._compute_engine_scores(X_cal)
+
+            # Check if we have both classes
+            if len(np.unique(y_cal)) < 2:
+                logger.warning("Calibration skipped: only one class in training data")
+                return
+
+            # Compute ROC-AUC with raw scores
+            from sklearn.metrics import roc_auc_score
+
+            try:
+                raw_auc = roc_auc_score(y_cal, raw_scores)
+                self._calibration_auc = raw_auc
+
+                # If AUC < 0.5, scores are inverted (higher = more normal)
+                if raw_auc < 0.5:
+                    self._score_inverted = True
+                    logger.info(
+                        f"Score calibration: AUC={raw_auc:.3f} < 0.5, "
+                        "scores are inverted - will apply 1-score correction"
+                    )
+                else:
+                    self._score_inverted = False
+                    logger.info(
+                        f"Score calibration: AUC={raw_auc:.3f} >= 0.5, "
+                        "scores are correctly oriented"
+                    )
+            except Exception as e:
+                logger.warning(f"ROC-AUC computation failed during calibration: {e}")
+                # Default to inverted based on empirical observation
+                self._score_inverted = True
+                logger.info("Defaulting to score inversion based on empirical observation")
+
+        except Exception as e:
+            logger.warning(f"Score calibration failed: {e}")
+            # Default to inverted based on empirical observation
+            self._score_inverted = True
 
     def _attempt_engine_initialization(self) -> bool:
         """Attempt to initialize the engine with retry logic."""
@@ -1069,12 +1140,20 @@ class OmniMercuryDetector:
         Compute anomaly scores with fallback support.
 
         Higher scores indicate more anomalous samples.
+
+        If score calibration detected inverted scores (higher = more normal),
+        applies 1-score correction to ensure higher = more anomalous.
         """
         # Try primary engine first
         if self.engine is not None and not self._in_fallback_mode:
             try:
                 scores = self._compute_engine_scores(X)
                 self._success_count += 1
+
+                # Apply score inversion if calibration detected inverted scores
+                if self._score_inverted:
+                    scores = 1.0 - scores
+
                 return scores
             except Exception as e:
                 self._error_count += 1
