@@ -96,6 +96,63 @@ warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+def fetch_with_retry(
+    fetch_func: callable,
+    dataset_name: str,
+    max_retries: int = 5,
+    base_delay: float = 2.0,
+    **fetch_kwargs,
+) -> Any | None:
+    """
+    Fetch a dataset with exponential backoff retry logic.
+
+    Handles intermittent HTTP 403 errors from sklearn's data servers (OpenML, UCI)
+    which can rate-limit or block CI IPs temporarily.
+
+    Args:
+        fetch_func: The sklearn fetch function to call (e.g., fetch_covtype)
+        dataset_name: Name of the dataset for logging
+        max_retries: Maximum number of retry attempts (default: 5)
+        base_delay: Base delay in seconds for exponential backoff (default: 2.0)
+        **fetch_kwargs: Additional keyword arguments to pass to fetch_func
+
+    Returns:
+        The fetched data object, or None if all retries failed
+    """
+    for attempt in range(max_retries):
+        try:
+            data = fetch_func(**fetch_kwargs)
+            if attempt > 0:
+                logger.info(f"Successfully fetched {dataset_name} on attempt {attempt + 1}")
+            return data
+        except Exception as e:
+            error_msg = str(e)
+            is_http_error = any(
+                code in error_msg for code in ["403", "429", "500", "502", "503", "504"]
+            )
+
+            if attempt < max_retries - 1:
+                delay = base_delay * (2**attempt)  # Exponential backoff
+                if is_http_error:
+                    logger.warning(
+                        f"HTTP error fetching {dataset_name} (attempt {attempt + 1}/{max_retries}): "
+                        f"{error_msg}. Retrying in {delay:.1f}s..."
+                    )
+                else:
+                    logger.warning(
+                        f"Error fetching {dataset_name} (attempt {attempt + 1}/{max_retries}): "
+                        f"{error_msg}. Retrying in {delay:.1f}s..."
+                    )
+                time.sleep(delay)
+            else:
+                logger.error(
+                    f"Failed to fetch {dataset_name} after {max_retries} attempts: {error_msg}"
+                )
+                return None
+    return None
+
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
@@ -227,81 +284,151 @@ def prepare_digits_dataset() -> DatasetInfo:
     )
 
 
-def prepare_covtype_dataset(n_samples: int = 5000) -> DatasetInfo:
+def prepare_covtype_dataset(n_samples: int = 5000) -> DatasetInfo | None:
     """
     Prepare forest cover type dataset for anomaly detection.
     Rare cover type (type 4) treated as anomaly.
+
+    Uses retry logic with exponential backoff for HTTP errors.
+    Falls back to synthetic data if the real dataset is unavailable.
     """
-    try:
-        data = fetch_covtype(as_frame=False)
-        X, y = data.data, data.target
+    # Try to fetch with retry logic
+    data = fetch_with_retry(
+        fetch_covtype,
+        "covtype",
+        max_retries=5,
+        base_delay=2.0,
+        as_frame=False,
+    )
 
-        if len(X) > n_samples * 3:
-            indices = np.random.RandomState(42).choice(len(X), n_samples * 3, replace=False)
-            X, y = X[indices], y[indices]
+    if data is not None:
+        try:
+            X, y = data.data, data.target
 
-        y_anomaly = (y == 4).astype(int)
+            if len(X) > n_samples * 3:
+                indices = np.random.RandomState(42).choice(len(X), n_samples * 3, replace=False)
+                X, y = X[indices], y[indices]
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y_anomaly, test_size=0.3, random_state=42
-        )
+            y_anomaly = (y == 4).astype(int)
 
-        scaler = StandardScaler()
-        X_train = scaler.fit_transform(X_train)
-        X_test = scaler.transform(X_test)
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y_anomaly, test_size=0.3, random_state=42
+            )
 
-        return DatasetInfo(
-            name="covtype",
-            X_train=X_train,
-            X_test=X_test,
-            y_train=y_train,
-            y_test=y_test,
-            description="Forest cover type (type 4=anomaly)",
-            domain="environmental",
-        )
-    except Exception as e:
-        print(f"Warning: Could not load covtype dataset: {e}")
-        return None
+            scaler = StandardScaler()
+            X_train = scaler.fit_transform(X_train)
+            X_test = scaler.transform(X_test)
+
+            return DatasetInfo(
+                name="covtype",
+                X_train=X_train,
+                X_test=X_test,
+                y_train=y_train,
+                y_test=y_test,
+                description="Forest cover type (type 4=anomaly)",
+                domain="environmental",
+            )
+        except Exception as e:
+            logger.warning(f"Error processing covtype dataset: {e}")
+
+    # Fallback to synthetic data
+    logger.info("Covtype dataset unavailable, generating synthetic environmental data")
+    X, y = _generate_synthetic_time_series(
+        n_samples=n_samples, n_features=54, anomaly_ratio=0.03, seed=45
+    )
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    return DatasetInfo(
+        name="covtype_synthetic",
+        X_train=X_train,
+        X_test=X_test,
+        y_train=y_train,
+        y_test=y_test,
+        description="Synthetic environmental data (covtype fallback)",
+        domain="environmental",
+    )
 
 
-def prepare_kddcup_dataset(n_samples: int = 5000) -> DatasetInfo:
+def prepare_kddcup_dataset(n_samples: int = 5000) -> DatasetInfo | None:
     """
     Prepare KDDCup99 dataset for anomaly detection.
     Attack traffic treated as anomaly.
+
+    Uses retry logic with exponential backoff for HTTP errors.
+    Falls back to synthetic data if the real dataset is unavailable.
     """
-    try:
-        data = fetch_kddcup99(subset="SA", percent10=True, as_frame=False)
-        X, y = data.data, data.target
+    # Try to fetch with retry logic
+    data = fetch_with_retry(
+        fetch_kddcup99,
+        "KDDCup99",
+        max_retries=5,
+        base_delay=2.0,
+        subset="SA",
+        percent10=True,
+        as_frame=False,
+    )
 
-        numeric_mask = np.array([isinstance(x[0], (int, float, np.number)) for x in X[:1].T])
-        X_numeric = X[:, numeric_mask].astype(float)
+    if data is not None:
+        try:
+            X, y = data.data, data.target
 
-        y_anomaly = (y != b"normal.").astype(int)
+            numeric_mask = np.array([isinstance(x[0], (int, float, np.number)) for x in X[:1].T])
+            X_numeric = X[:, numeric_mask].astype(float)
 
-        if len(X_numeric) > n_samples * 3:
-            indices = np.random.RandomState(42).choice(len(X_numeric), n_samples * 3, replace=False)
-            X_numeric, y_anomaly = X_numeric[indices], y_anomaly[indices]
+            y_anomaly = (y != b"normal.").astype(int)
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X_numeric, y_anomaly, test_size=0.3, random_state=42
-        )
+            if len(X_numeric) > n_samples * 3:
+                indices = np.random.RandomState(42).choice(
+                    len(X_numeric), n_samples * 3, replace=False
+                )
+                X_numeric, y_anomaly = X_numeric[indices], y_anomaly[indices]
 
-        scaler = StandardScaler()
-        X_train = scaler.fit_transform(X_train)
-        X_test = scaler.transform(X_test)
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_numeric, y_anomaly, test_size=0.3, random_state=42
+            )
 
-        return DatasetInfo(
-            name="kddcup99",
-            X_train=X_train,
-            X_test=X_test,
-            y_train=y_train,
-            y_test=y_test,
-            description="Network intrusion detection (attacks=anomaly)",
-            domain="cybersecurity",
-        )
-    except Exception as e:
-        print(f"Warning: Could not load KDDCup99 dataset: {e}")
-        return None
+            scaler = StandardScaler()
+            X_train = scaler.fit_transform(X_train)
+            X_test = scaler.transform(X_test)
+
+            return DatasetInfo(
+                name="kddcup99",
+                X_train=X_train,
+                X_test=X_test,
+                y_train=y_train,
+                y_test=y_test,
+                description="Network intrusion detection (attacks=anomaly)",
+                domain="cybersecurity",
+            )
+        except Exception as e:
+            logger.warning(f"Error processing KDDCup99 dataset: {e}")
+
+    # Fallback to synthetic data
+    logger.info("KDDCup99 dataset unavailable, generating synthetic cybersecurity data")
+    X, y = _generate_synthetic_time_series(
+        n_samples=n_samples, n_features=41, anomaly_ratio=0.20, seed=46
+    )
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    return DatasetInfo(
+        name="kddcup99_synthetic",
+        X_train=X_train,
+        X_test=X_test,
+        y_train=y_train,
+        y_test=y_test,
+        description="Synthetic cybersecurity data (KDDCup99 fallback)",
+        domain="cybersecurity",
+    )
 
 
 def _generate_synthetic_time_series(
@@ -2000,7 +2127,7 @@ def save_results(results: dict[str, Any], output_path: Path | str) -> None:
         # File mode: write to the exact JSON path specified
         json_path = output_path
         # Create parent directory if needed
-        parent_dir = json_path.parent if json_path.parent != Path() else Path(".")
+        parent_dir = json_path.parent if json_path.parent != Path() else Path()
         parent_dir.mkdir(parents=True, exist_ok=True)
         # Report goes as sibling with .md extension (benchmark_results.json -> benchmark_report.md)
         report_path = parent_dir / (json_path.stem.replace("_results", "_report") + ".md")
