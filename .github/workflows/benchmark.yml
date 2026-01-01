@@ -209,11 +209,57 @@ jobs:
                   report.append(f'| {r[\"detector_name\"]} | {r[\"roc_auc\"]:.4f} | {r[\"f1\"]:.4f} | {r[\"precision\"]:.4f} | {r[\"recall\"]:.4f} |')
               report.append('')
 
+          # Add synthetic dataset tracking section
+          dataset_names = list(dataset_results.keys())
+          synthetic_datasets = [d for d in dataset_names if '_synthetic' in d]
+          real_datasets = [d for d in dataset_names if '_synthetic' not in d]
+          synthetic_ratio = len(synthetic_datasets) / len(dataset_names) if dataset_names else 0
+
+          report.append('## Data Source Transparency')
+          report.append('')
+          report.append(f'- **Real datasets:** {len(real_datasets)} ({", ".join(real_datasets) if real_datasets else "none"})')
+          report.append(f'- **Synthetic fallbacks:** {len(synthetic_datasets)} ({", ".join(synthetic_datasets) if synthetic_datasets else "none"})')
+          report.append(f'- **Synthetic ratio:** {synthetic_ratio:.1%}')
+          if synthetic_ratio > 0.5:
+              report.append('')
+              report.append('**WARNING:** >50% of datasets used synthetic fallbacks. Results may not reflect real-world performance.')
+          report.append('')
+
           # Write report
           with open('benchmark_report.md', 'w') as f:
               f.write('\n'.join(report))
 
           print('Benchmark report generated: benchmark_report.md')
+          print(f'Data sources: {len(real_datasets)} real, {len(synthetic_datasets)} synthetic ({synthetic_ratio:.1%} synthetic)')
+          "
+
+      - name: Check synthetic data quality gate
+        run: |
+          cd benchmarks
+          python -c "
+          import json
+          import sys
+
+          with open('benchmark_results.json', 'r') as f:
+              results = json.load(f)
+
+          # Count synthetic vs real datasets
+          dataset_names = set(r['dataset_name'] for r in results.get('results', []))
+          synthetic_count = sum(1 for d in dataset_names if '_synthetic' in d)
+          total_count = len(dataset_names)
+          synthetic_ratio = synthetic_count / total_count if total_count else 0
+
+          print(f'Dataset sources: {total_count - synthetic_count} real, {synthetic_count} synthetic')
+          print(f'Synthetic ratio: {synthetic_ratio:.1%}')
+
+          if synthetic_ratio > 0.5:
+              print('WARNING: >50% of datasets used synthetic fallbacks.')
+              print('This may indicate external data sources are unavailable.')
+              print('Benchmark results may not reflect real-world performance.')
+              # Note: Not failing CI, just warning for transparency
+              # sys.exit(1)
+          else:
+              print('Quality gate passed: majority of datasets are from real sources.')
           "
 
       - name: Upload benchmark results

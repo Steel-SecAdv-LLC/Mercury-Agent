@@ -57,6 +57,7 @@ Features:
 - Confusion matrix generation
 """
 
+import io
 import json
 import logging
 import sys
@@ -68,6 +69,8 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pandas as pd
+import requests
 import torch
 from sklearn.covariance import EllipticEnvelope
 from sklearn.datasets import (
@@ -149,6 +152,57 @@ def fetch_with_retry(
                 logger.error(
                     f"Failed to fetch {dataset_name} after {max_retries} attempts: {error_msg}"
                 )
+                return None
+    return None
+
+
+# Browser-like headers to bypass anti-bot restrictions on dataset servers
+_BROWSER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
+
+
+def fetch_from_mirror(
+    url: str,
+    dataset_name: str,
+    max_retries: int = 3,
+    base_delay: float = 2.0,
+    timeout: int = 60,
+) -> bytes | None:
+    """
+    Fetch dataset from a mirror URL with browser-like headers.
+
+    Used as fallback when sklearn's fetch functions fail due to HTTP 403 errors
+    from rate-limiting or anti-bot measures on OpenML/Figshare servers.
+
+    Args:
+        url: Direct URL to the dataset file
+        dataset_name: Name of the dataset for logging
+        max_retries: Maximum retry attempts (default: 3)
+        base_delay: Base delay for exponential backoff (default: 2.0)
+        timeout: Request timeout in seconds (default: 60)
+
+    Returns:
+        Raw bytes of the downloaded file, or None if all attempts failed
+    """
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(url, headers=_BROWSER_HEADERS, timeout=timeout)
+            response.raise_for_status()
+            logger.info(f"Successfully fetched {dataset_name} from mirror: {url}")
+            return response.content
+        except requests.exceptions.RequestException as e:
+            if attempt < max_retries - 1:
+                delay = base_delay * (2**attempt)
+                logger.warning(
+                    f"Mirror fetch failed for {dataset_name} (attempt {attempt + 1}/{max_retries}): "
+                    f"{e}. Retrying in {delay:.1f}s..."
+                )
+                time.sleep(delay)
+            else:
+                logger.warning(f"All mirror attempts failed for {dataset_name}: {e}")
                 return None
     return None
 
@@ -290,13 +344,17 @@ def prepare_covtype_dataset(n_samples: int = 5000) -> DatasetInfo | None:
     Rare cover type (type 4) treated as anomaly.
 
     Uses retry logic with exponential backoff for HTTP errors.
-    Falls back to synthetic data if the real dataset is unavailable.
+    Falls back to UCI mirror if sklearn fetch fails (HTTP 403).
+    Falls back to synthetic data only as last resort.
     """
-    # Try to fetch with retry logic
+    X, y = None, None
+    source = "synthetic"
+
+    # Try sklearn's fetch_covtype first (uses OpenML/Figshare)
     data = fetch_with_retry(
         fetch_covtype,
         "covtype",
-        max_retries=5,
+        max_retries=3,
         base_delay=2.0,
         as_frame=False,
     )
@@ -304,35 +362,59 @@ def prepare_covtype_dataset(n_samples: int = 5000) -> DatasetInfo | None:
     if data is not None:
         try:
             X, y = data.data, data.target
-
-            if len(X) > n_samples * 3:
-                indices = np.random.RandomState(42).choice(len(X), n_samples * 3, replace=False)
-                X, y = X[indices], y[indices]
-
-            y_anomaly = (y == 4).astype(int)
-
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y_anomaly, test_size=0.3, random_state=42
-            )
-
-            scaler = StandardScaler()
-            X_train = scaler.fit_transform(X_train)
-            X_test = scaler.transform(X_test)
-
-            return DatasetInfo(
-                name="covtype",
-                X_train=X_train,
-                X_test=X_test,
-                y_train=y_train,
-                y_test=y_test,
-                description="Forest cover type (type 4=anomaly)",
-                domain="environmental",
-            )
+            source = "sklearn"
+            logger.info("Successfully loaded covtype from sklearn (OpenML)")
         except Exception as e:
-            logger.warning(f"Error processing covtype dataset: {e}")
+            logger.warning(f"Error processing sklearn covtype data: {e}")
+            X, y = None, None
 
-    # Fallback to synthetic data
-    logger.info("Covtype dataset unavailable, generating synthetic environmental data")
+    # Fallback: Try UCI mirror with browser headers
+    if X is None:
+        logger.info("Trying UCI mirror for covtype dataset...")
+        uci_url = "https://archive.ics.uci.edu/static/public/31/data.csv"
+        content = fetch_from_mirror(uci_url, "covtype")
+        if content is not None:
+            try:
+                df = pd.read_csv(io.BytesIO(content))
+                X = df.iloc[:, :-1].values.astype(float)
+                y = df.iloc[:, -1].values.astype(int)
+                source = "uci_mirror"
+                logger.info(f"Successfully loaded covtype from UCI mirror ({len(X)} samples)")
+            except Exception as e:
+                logger.warning(f"Error parsing UCI covtype data: {e}")
+                X, y = None, None
+
+    # Process real data if available
+    if X is not None and y is not None:
+        if len(X) > n_samples * 3:
+            indices = np.random.RandomState(42).choice(len(X), n_samples * 3, replace=False)
+            X, y = X[indices], y[indices]
+
+        y_anomaly = (y == 4).astype(int)
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y_anomaly, test_size=0.3, random_state=42
+        )
+
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+
+        return DatasetInfo(
+            name="covtype",
+            X_train=X_train,
+            X_test=X_test,
+            y_train=y_train,
+            y_test=y_test,
+            description=f"Forest cover type (type 4=anomaly) [source: {source}]",
+            domain="environmental",
+        )
+
+    # Last resort: synthetic data
+    logger.warning(
+        "FALLBACK: All covtype sources failed (sklearn + UCI mirror). "
+        "Using synthetic data - benchmark results may differ from real dataset."
+    )
     X, y = _generate_synthetic_time_series(
         n_samples=n_samples, n_features=54, anomaly_ratio=0.03, seed=45
     )
@@ -360,13 +442,18 @@ def prepare_kddcup_dataset(n_samples: int = 5000) -> DatasetInfo | None:
     Attack traffic treated as anomaly.
 
     Uses retry logic with exponential backoff for HTTP errors.
-    Falls back to synthetic data if the real dataset is unavailable.
+    Falls back to NSL-KDD from GitHub if sklearn fetch fails (HTTP 403).
+    Falls back to synthetic data only as last resort.
     """
-    # Try to fetch with retry logic
+    X_numeric, y_anomaly = None, None
+    source = "synthetic"
+    dataset_name = "kddcup99"
+
+    # Try sklearn's fetch_kddcup99 first
     data = fetch_with_retry(
         fetch_kddcup99,
         "KDDCup99",
-        max_retries=5,
+        max_retries=3,
         base_delay=2.0,
         subset="SA",
         percent10=True,
@@ -376,40 +463,77 @@ def prepare_kddcup_dataset(n_samples: int = 5000) -> DatasetInfo | None:
     if data is not None:
         try:
             X, y = data.data, data.target
-
             numeric_mask = np.array([isinstance(x[0], (int, float, np.number)) for x in X[:1].T])
             X_numeric = X[:, numeric_mask].astype(float)
-
             y_anomaly = (y != b"normal.").astype(int)
-
-            if len(X_numeric) > n_samples * 3:
-                indices = np.random.RandomState(42).choice(
-                    len(X_numeric), n_samples * 3, replace=False
-                )
-                X_numeric, y_anomaly = X_numeric[indices], y_anomaly[indices]
-
-            X_train, X_test, y_train, y_test = train_test_split(
-                X_numeric, y_anomaly, test_size=0.3, random_state=42
-            )
-
-            scaler = StandardScaler()
-            X_train = scaler.fit_transform(X_train)
-            X_test = scaler.transform(X_test)
-
-            return DatasetInfo(
-                name="kddcup99",
-                X_train=X_train,
-                X_test=X_test,
-                y_train=y_train,
-                y_test=y_test,
-                description="Network intrusion detection (attacks=anomaly)",
-                domain="cybersecurity",
-            )
+            source = "sklearn"
+            logger.info("Successfully loaded KDDCup99 from sklearn")
         except Exception as e:
-            logger.warning(f"Error processing KDDCup99 dataset: {e}")
+            logger.warning(f"Error processing sklearn KDDCup99 data: {e}")
+            X_numeric, y_anomaly = None, None
 
-    # Fallback to synthetic data
-    logger.info("KDDCup99 dataset unavailable, generating synthetic cybersecurity data")
+    # Fallback: Try NSL-KDD from GitHub (improved version of KDDCup99)
+    if X_numeric is None:
+        logger.info("Trying NSL-KDD from GitHub as KDDCup99 alternative...")
+        nsl_url = "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTrain%2B.txt"
+        content = fetch_from_mirror(nsl_url, "NSL-KDD")
+        if content is not None:
+            try:
+                # NSL-KDD format: 41 features + label + difficulty (43 cols total)
+                # Lines end with $ which we need to strip
+                lines = content.decode("utf-8").strip().split("\n")
+                rows = [line.rstrip("$").split(",") for line in lines if line.strip()]
+
+                # Extract numeric features (columns 0, 4-40 are numeric)
+                # Columns 1-3 are categorical (protocol, service, flag)
+                numeric_cols = [0] + list(range(4, 41))
+                X_list = []
+                y_list = []
+                for row in rows:
+                    if len(row) >= 42:
+                        features = [float(row[i]) for i in numeric_cols]
+                        X_list.append(features)
+                        label = row[41].strip()
+                        y_list.append(0 if label == "normal" else 1)
+
+                X_numeric = np.array(X_list)
+                y_anomaly = np.array(y_list)
+                source = "nsl_kdd_github"
+                dataset_name = "nsl_kdd"
+                logger.info(f"Successfully loaded NSL-KDD from GitHub ({len(X_numeric)} samples)")
+            except Exception as e:
+                logger.warning(f"Error parsing NSL-KDD data: {e}")
+                X_numeric, y_anomaly = None, None
+
+    # Process real data if available
+    if X_numeric is not None and y_anomaly is not None:
+        if len(X_numeric) > n_samples * 3:
+            indices = np.random.RandomState(42).choice(len(X_numeric), n_samples * 3, replace=False)
+            X_numeric, y_anomaly = X_numeric[indices], y_anomaly[indices]
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_numeric, y_anomaly, test_size=0.3, random_state=42
+        )
+
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+
+        return DatasetInfo(
+            name=dataset_name,
+            X_train=X_train,
+            X_test=X_test,
+            y_train=y_train,
+            y_test=y_test,
+            description=f"Network intrusion detection (attacks=anomaly) [source: {source}]",
+            domain="cybersecurity",
+        )
+
+    # Last resort: synthetic data
+    logger.warning(
+        "FALLBACK: All KDDCup99/NSL-KDD sources failed. "
+        "Using synthetic data - benchmark results may differ from real dataset."
+    )
     X, y = _generate_synthetic_time_series(
         n_samples=n_samples, n_features=41, anomaly_ratio=0.20, seed=46
     )
@@ -509,6 +633,7 @@ def prepare_smd_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
         ]
 
         X, y = None, None
+        is_synthetic = True
         for path in smd_paths:
             if path.exists():
                 # Load real SMD data
@@ -522,10 +647,12 @@ def prepare_smd_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
                     label_files = list(path.glob("test_label/*.txt"))
                     if label_files:
                         y = np.concatenate([np.loadtxt(f) for f in label_files[:3]])
+                    is_synthetic = False
+                    logger.info(f"Successfully loaded SMD from {path}")
                     break
 
         if X is None:
-            logger.info("SMD dataset not found, generating synthetic time-series data")
+            logger.warning("SMD dataset not found, generating synthetic time-series data")
             X, y = _generate_synthetic_time_series(
                 n_samples=n_samples, n_features=38, anomaly_ratio=0.04, seed=42
             )
@@ -541,13 +668,14 @@ def prepare_smd_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
 
+        dataset_name = "smd_synthetic" if is_synthetic else "smd"
         return DatasetInfo(
-            name="smd",
+            name=dataset_name,
             X_train=X_train,
             X_test=X_test,
             y_train=y_train,
             y_test=y_test,
-            description="Server Machine Dataset (server metrics anomaly)",
+            description=f"Server Machine Dataset (server metrics anomaly) [{'synthetic' if is_synthetic else 'real'}]",
             domain="infrastructure",
             is_time_series=True,
             window_size=window_size,
@@ -572,6 +700,7 @@ def prepare_smap_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
         ]
 
         X, y = None, None
+        is_synthetic = True
         for path in smap_paths:
             if path.exists():
                 train_file = path / "SMAP_train.npy"
@@ -584,10 +713,12 @@ def prepare_smap_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
                     if label_file.exists():
                         y_test_raw = np.load(label_file)
                         y = np.concatenate([np.zeros(len(X_train_raw)), y_test_raw])
+                    is_synthetic = False
+                    logger.info(f"Successfully loaded SMAP from {path}")
                     break
 
         if X is None:
-            logger.info("SMAP dataset not found, generating synthetic time-series data")
+            logger.warning("SMAP dataset not found, generating synthetic time-series data")
             X, y = _generate_synthetic_time_series(
                 n_samples=n_samples, n_features=25, anomaly_ratio=0.05, seed=43
             )
@@ -602,13 +733,14 @@ def prepare_smap_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
 
+        dataset_name = "smap_synthetic" if is_synthetic else "smap"
         return DatasetInfo(
-            name="smap",
+            name=dataset_name,
             X_train=X_train,
             X_test=X_test,
             y_train=y_train,
             y_test=y_test,
-            description="SMAP satellite telemetry (sensor anomaly)",
+            description=f"SMAP satellite telemetry (sensor anomaly) [{'synthetic' if is_synthetic else 'real'}]",
             domain="aerospace",
             is_time_series=True,
             window_size=window_size,
@@ -633,6 +765,7 @@ def prepare_msl_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
         ]
 
         X, y = None, None
+        is_synthetic = True
         for path in msl_paths:
             if path.exists():
                 train_file = path / "MSL_train.npy"
@@ -645,10 +778,12 @@ def prepare_msl_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
                     if label_file.exists():
                         y_test_raw = np.load(label_file)
                         y = np.concatenate([np.zeros(len(X_train_raw)), y_test_raw])
+                    is_synthetic = False
+                    logger.info(f"Successfully loaded MSL from {path}")
                     break
 
         if X is None:
-            logger.info("MSL dataset not found, generating synthetic time-series data")
+            logger.warning("MSL dataset not found, generating synthetic time-series data")
             X, y = _generate_synthetic_time_series(
                 n_samples=n_samples, n_features=55, anomaly_ratio=0.06, seed=44
             )
@@ -663,13 +798,14 @@ def prepare_msl_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
 
+        dataset_name = "msl_synthetic" if is_synthetic else "msl"
         return DatasetInfo(
-            name="msl",
+            name=dataset_name,
             X_train=X_train,
             X_test=X_test,
             y_train=y_train,
             y_test=y_test,
-            description="Mars Science Laboratory telemetry (rover anomaly)",
+            description=f"Mars Science Laboratory telemetry (rover anomaly) [{'synthetic' if is_synthetic else 'real'}]",
             domain="aerospace",
             is_time_series=True,
             window_size=window_size,
@@ -695,13 +831,12 @@ def prepare_swat_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
         ]
 
         X, y = None, None
+        is_synthetic = True
         for path in swat_paths:
             if path.exists():
                 train_file = path / "SWaT_train.csv"
                 test_file = path / "SWaT_test.csv"
                 if train_file.exists() and test_file.exists():
-                    import pandas as pd
-
                     train_df = pd.read_csv(train_file)
                     test_df = pd.read_csv(test_file)
                     # Assume last column is label
@@ -710,10 +845,12 @@ def prepare_swat_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
                     y_test_raw = test_df.iloc[:, -1].values
                     X = np.vstack([X_train_raw, X_test_raw])
                     y = np.concatenate([np.zeros(len(X_train_raw)), y_test_raw])
+                    is_synthetic = False
+                    logger.info(f"Successfully loaded SWaT from {path}")
                     break
 
         if X is None:
-            logger.info("SWaT dataset not found, generating synthetic time-series data")
+            logger.warning("SWaT dataset not found, generating synthetic time-series data")
             X, y = _generate_synthetic_time_series(
                 n_samples=n_samples, n_features=51, anomaly_ratio=0.12, seed=45
             )
@@ -728,13 +865,14 @@ def prepare_swat_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
 
+        dataset_name = "swat_synthetic" if is_synthetic else "swat"
         return DatasetInfo(
-            name="swat",
+            name=dataset_name,
             X_train=X_train,
             X_test=X_test,
             y_train=y_train,
             y_test=y_test,
-            description="Secure Water Treatment (ICS attack detection)",
+            description=f"Secure Water Treatment (ICS attack detection) [{'synthetic' if is_synthetic else 'real'}]",
             domain="critical_infrastructure",
             is_time_series=True,
             window_size=window_size,
