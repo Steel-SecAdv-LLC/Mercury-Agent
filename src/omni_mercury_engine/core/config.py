@@ -172,7 +172,7 @@ class ConfigurationManager:
     - Configuration drift detection
     """
 
-    ENV_PREFIX = "OMNI_AVA_"
+    ENV_PREFIX = "MERCURY_AGENT_"
 
     def __init__(self) -> None:
         self._config: dict[str, Any] = {}
@@ -268,7 +268,7 @@ class ConfigurationManager:
         Load configuration from environment variables.
 
         Environment variables follow the pattern:
-        OMNI_AVA_<SECTION>__<KEY>=value
+        MERCURY_AGENT_<SECTION>__<KEY>=value
 
         Nested keys use double underscores.
         """

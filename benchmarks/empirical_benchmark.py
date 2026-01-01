@@ -81,9 +81,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 try:
     from omni_mercury_engine.engine import OmniMercuryEngine
 
-    OMNI_AVA_AVAILABLE = True
+    MERCURY_AGENT_AVAILABLE = True
 except ImportError:
-    OMNI_AVA_AVAILABLE = False
+    MERCURY_AGENT_AVAILABLE = False
     print("Warning: OmniMercuryEngine not available, using mock implementation")
 
 
@@ -270,7 +270,7 @@ class OmniMercuryDetector:
         """Fit the detector on training data."""
         self._fit_fallback(X)
 
-        if OMNI_AVA_AVAILABLE:
+        if MERCURY_AGENT_AVAILABLE:
             try:
                 self.engine = OmniMercuryEngine(mode="statistical", device="cpu")
             except Exception:

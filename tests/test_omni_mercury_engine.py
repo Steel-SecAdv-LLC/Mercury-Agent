@@ -19,7 +19,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Comprehensive test suite for Enhanced Omni-AVA Equation Engine
+Comprehensive test suite for Enhanced Mercury Agent Equation Engine
 
 Tests convergence, all 22 terms, threat detection, and ethical integration.
 """

@@ -19,7 +19,7 @@ Note:
     )
 
     To suppress this deprecation warning, set the environment variable:
-        OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS=1
+        MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS=1
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ class SelfHealingDeprecationWarning(DeprecationWarning):
     omni_mercury_engine.core.self_healing module.
 
     To suppress this warning:
-        - Set OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS=1 environment variable
+        - Set MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS=1 environment variable
         - Use warnings.filterwarnings('ignore', category=SelfHealingDeprecationWarning)
         - Import from omni_mercury_engine.resilience.self_healing directly
     """
@@ -62,7 +62,7 @@ class SelfHealingDeprecationWarning(DeprecationWarning):
 
 def _emit_deprecation_warning() -> None:
     """Emit deprecation warning if not suppressed."""
-    if os.environ.get("OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS", "").lower() in (
+    if os.environ.get("MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS", "").lower() in (
         "1",
         "true",
         "yes",
@@ -72,7 +72,7 @@ def _emit_deprecation_warning() -> None:
     warnings.warn(
         "omni_mercury_engine.core.self_healing is deprecated. "
         "Use omni_mercury_engine.resilience.self_healing instead. "
-        "Set OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS=1 to suppress this warning.",
+        "Set MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS=1 to suppress this warning.",
         SelfHealingDeprecationWarning,
         stacklevel=3,
     )
