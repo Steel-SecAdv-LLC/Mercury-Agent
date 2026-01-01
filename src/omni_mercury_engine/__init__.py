@@ -66,6 +66,6 @@ __all__ = [
     "EngineConfig",
     "FusionException",
     "ModelException",
-    "OmniMercuryEngine",
     "OmniAnomalyException",
+    "OmniMercuryEngine",
 ]

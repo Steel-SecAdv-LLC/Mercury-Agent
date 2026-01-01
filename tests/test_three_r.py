@@ -18,8 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-from typing import Any
-
 """Test suite for 3R Mechanism"""
 
 import numpy as np
