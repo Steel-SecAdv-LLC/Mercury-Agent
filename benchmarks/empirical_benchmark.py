@@ -1154,6 +1154,12 @@ class OmniMercuryDetector:
         self._score_inverted = False
         self._calibration_auc: float | None = None
 
+        # Trained fusion state (logistic regression approach)
+        self._fusion_trained = False
+        self._fusion_lr = None
+        self._score_scaler = None
+        self._detector_names: list[str] = []
+
         logger.info(
             f"OmniMercuryDetector initialized: fallback_strategy={fallback_strategy}, "
             f"partial_mode={enable_partial_mode}"
@@ -1165,6 +1171,9 @@ class OmniMercuryDetector:
 
         Attempts to initialize the full Mercury-Agent engine, falling back
         to configured strategy if initialization fails.
+
+        When labels are provided, trains the fusion model on extracted features
+        to produce meaningful anomaly probabilities instead of random outputs.
 
         Also performs score calibration to detect if engine scores are inverted
         (higher score = more normal instead of more anomalous). This is done
@@ -1185,11 +1194,128 @@ class OmniMercuryDetector:
             )
             self._in_fallback_mode = True
 
+        # Train fusion model on extracted features when labels are available
+        # This is the key step that makes the fusion model produce meaningful scores
+        if y is not None and self.engine is not None and not self._in_fallback_mode:
+            self._train_fusion_on_features(X, y)
+
         # Calibrate score direction using training labels (no data leakage)
         if y is not None and self.engine is not None and not self._in_fallback_mode:
             self._calibrate_score_direction(X, y)
 
         return self
+
+    def _train_fusion_on_features(self, X: np.ndarray, y: np.ndarray) -> None:
+        """
+        Learn optimal detector weights from training data.
+
+        Instead of training a neural network (which can collapse to constant outputs),
+        this method learns optimal weights for combining detector scores using
+        logistic regression. This is more stable and produces meaningful scores.
+
+        The approach:
+        1. Extract scores from all available detectors on training samples
+        2. Fit a logistic regression to learn optimal detector weights
+        3. Use these weights during inference to combine detector scores
+
+        Args:
+            X: Training features (raw input data)
+            y: Training labels (1 = anomaly, 0 = normal)
+        """
+        if self.engine is None:
+            logger.warning("Cannot train fusion: engine not initialized")
+            return
+
+        try:
+            from sklearn.linear_model import LogisticRegression
+            from sklearn.preprocessing import StandardScaler
+
+            logger.info(f"Learning detector weights from {len(X)} training samples...")
+
+            # Extract scores from all detectors for each training sample
+            # Mercury-Agent detectors use detect() method which returns dict with scores
+            detector_names = list(self.engine.detectors.keys())
+            n_detectors = len(detector_names)
+            score_matrix = np.zeros((len(X), n_detectors))
+
+            for i, sample in enumerate(X):
+                sample_reshaped = sample.reshape(1, -1)
+                for j, name in enumerate(detector_names):
+                    detector = self.engine.detectors[name]
+                    try:
+                        # Use detect() method which all Mercury-Agent detectors have
+                        if hasattr(detector, "detect"):
+                            result = detector.detect(sample_reshaped)
+                            if isinstance(result, dict):
+                                # Extract score from result dict
+                                score = result.get(
+                                    "score",
+                                    result.get(
+                                        "anomaly_score",
+                                        result.get("confidence", 0.5),
+                                    ),
+                                )
+                                score_matrix[i, j] = float(score)
+                            else:
+                                score_matrix[i, j] = float(result) if result is not None else 0.5
+                        elif hasattr(detector, "decision_function"):
+                            score = detector.decision_function(sample_reshaped)
+                            score_matrix[i, j] = float(np.ravel(score)[0])
+                        elif hasattr(detector, "score_samples"):
+                            score = detector.score_samples(sample_reshaped)
+                            score_matrix[i, j] = float(np.ravel(score)[0])
+                        else:
+                            score_matrix[i, j] = 0.5
+                    except Exception as e:
+                        logger.debug(f"Detector {name} failed on sample {i}: {e}")
+                        score_matrix[i, j] = 0.5
+
+            # Check if we have enough variance in scores
+            score_std = np.std(score_matrix, axis=0)
+            valid_detectors = score_std > 0.01
+            if valid_detectors.sum() < 1:
+                logger.warning("No detectors with score variance, skipping weight learning")
+                return
+
+            X_scores = score_matrix[valid_mask]
+            y_valid = y[valid_mask]
+
+            # Normalize scores
+            scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(X_scores)
+
+            # Fit logistic regression to learn optimal weights
+            # Use L2 regularization to prevent overfitting
+            lr = LogisticRegression(
+                C=1.0,
+                max_iter=200,
+                solver="lbfgs",
+                class_weight="balanced",  # Handle class imbalance
+            )
+            lr.fit(X_scaled, y_valid)
+
+            # Store learned components for inference
+            self._detector_names = detector_names
+            self._score_scaler = scaler
+            self._fusion_lr = lr
+            self._fusion_trained = True
+
+            # Log learned weights
+            weights = lr.coef_[0]
+            top_detectors = sorted(
+                zip(detector_names, weights), key=lambda x: abs(x[1]), reverse=True
+            )[:5]
+            logger.info(
+                f"Fusion weights learned. Top detectors: "
+                f"{[(n, f'{w:.3f}') for n, w in top_detectors]}"
+            )
+
+        except Exception as e:
+            logger.warning(f"Fusion weight learning failed: {e}")
+            import traceback
+
+            traceback.print_exc()
+            self._fusion_trained = False
 
     def _calibrate_score_direction(self, X: np.ndarray, y: np.ndarray) -> None:
         """
@@ -1423,9 +1549,15 @@ class OmniMercuryDetector:
     def _compute_engine_scores(self, X: np.ndarray) -> np.ndarray:
         """Compute scores using the Mercury-Agent engine.
 
-        Uses detect_with_fusion() which returns anomaly_prob (0.0-1.0)
-        where higher values indicate more anomalous samples.
+        If a trained fusion classifier is available (from _train_fusion_on_features),
+        uses that for scoring. Otherwise falls back to detect_with_fusion() which
+        returns anomaly_prob (0.0-1.0) where higher values indicate more anomalous samples.
         """
+        # Use trained fusion classifier if available - this produces meaningful scores
+        if getattr(self, "_fusion_trained", False) and hasattr(self, "_fusion_classifier"):
+            return self._compute_trained_fusion_scores(X)
+
+        # Fall back to engine's detect_with_fusion
         scores = []
         for sample in X:
             try:
@@ -1449,6 +1581,63 @@ class OmniMercuryDetector:
                     score = 0.5
             scores.append(score)
         return np.array(scores)
+
+    def _compute_trained_fusion_scores(self, X: np.ndarray) -> np.ndarray:
+        """Compute scores using the trained fusion weights.
+
+        This method uses the logistic regression trained during fit() to produce
+        meaningful anomaly probabilities based on detector scores.
+        """
+        n_detectors = len(self._detector_names)
+        score_matrix = np.zeros((len(X), n_detectors))
+
+        # Extract scores from all detectors for each sample (same as training)
+        for i, sample in enumerate(X):
+            sample_reshaped = sample.reshape(1, -1)
+            for j, name in enumerate(self._detector_names):
+                if name in self.engine.detectors:
+                    detector = self.engine.detectors[name]
+                    try:
+                        # Use detect() method which all Mercury-Agent detectors have
+                        if hasattr(detector, "detect"):
+                            result = detector.detect(sample_reshaped)
+                            if isinstance(result, dict):
+                                score = result.get(
+                                    "score",
+                                    result.get(
+                                        "anomaly_score",
+                                        result.get("confidence", 0.5),
+                                    ),
+                                )
+                                score_matrix[i, j] = float(score)
+                            else:
+                                score_matrix[i, j] = float(result) if result is not None else 0.5
+                        elif hasattr(detector, "decision_function"):
+                            score = detector.decision_function(sample_reshaped)
+                            score_matrix[i, j] = float(np.ravel(score)[0])
+                        elif hasattr(detector, "score_samples"):
+                            score = detector.score_samples(sample_reshaped)
+                            score_matrix[i, j] = float(np.ravel(score)[0])
+                        else:
+                            score_matrix[i, j] = 0.5
+                    except Exception:
+                        score_matrix[i, j] = 0.5
+
+        # Normalize using training statistics
+        try:
+            X_scaled = self._score_scaler.transform(score_matrix)
+        except Exception:
+            # If scaling fails, use raw scores
+            X_scaled = score_matrix
+
+        # Get probabilities from logistic regression
+        try:
+            probs = self._fusion_lr.predict_proba(X_scaled)[:, 1]
+            return probs
+        except Exception as e:
+            logger.warning(f"Logistic regression prediction failed: {e}")
+            # Fall back to mean of detector scores
+            return np.mean(score_matrix, axis=1)
 
     def _score_fallback(self, X: np.ndarray) -> np.ndarray:
         """
