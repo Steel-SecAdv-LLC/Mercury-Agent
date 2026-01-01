@@ -235,23 +235,23 @@ The three engines work together to create emergent detection capabilities:
 | **Ava Equation** | All 3R | Unified anomaly scoring: `A = R·H·O` |
 | **Asymptotic Horizons** | Resonance + Refactoring | Convergence guarantees via Lyapunov stability |
 
-### The Ava-Dominance Equation
+### The AVA Anomaly Fusion Equation (AAFE)
 
 The unified 3R scoring function with ethical gating:
 
 ```
-A = (w_R·R(x) + w_H·H(ω) + w_O·O(θ)) · σ_Sacred^φ
+A = (w_R·R(x) + w_H·H(ω) + w_O·O(θ)) · η_Ethical^Φ
 ```
 
 Where:
 - `R(x)` = Recursion score (multi-scale hierarchical analysis)
 - `H(ω)` = Harmonic/Resonance score (frequency coherence)
 - `O(θ)` = Optimization/Refactoring score (adaptive theta)
-- `σ_Sacred` = Ethical threshold (default 0.96, medical fallback 0.93)
-- `φ` = Golden ratio (1.618033988749895)
-- Weights `w_R=0.35`, `w_H=0.35`, `w_O=0.30` sum to 1.0
+- `η_Ethical` = Ethical compliance threshold (default 0.96, medical fallback 0.93)
+- `Φ` = Golden ratio constant (1.618033988749895)
+- Fusion weights `w_R=0.35`, `w_H=0.35`, `w_O=0.30` sum to 1.0
 
-**Lyapunov Stability**: Convergence guaranteed via `V̇ ≤ -λV` where `λ=0.25` (elevated from 0.18 for 25% faster convergence).
+**Lyapunov Stability**: Convergence guaranteed via `V̇ ≤ -λV` where convergence rate `λ=0.25` (elevated from 0.18 for 25% faster convergence).
 
 ### Integration with Mercury Agent ♱
 

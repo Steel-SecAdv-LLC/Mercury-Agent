@@ -1,25 +1,25 @@
 # Mathematical Derivations for Mercury-Agent
 
-This document provides rigorous mathematical foundations for the key algorithms and equations used in Mercury-Agent, including the Ava-Dominance Equation, Lyapunov stability proofs, and harmonic synergy computations.
+This document provides rigorous mathematical foundations for the key algorithms and equations used in Mercury-Agent, including the AVA Anomaly Fusion Equation (AAFE), Lyapunov stability proofs, and harmonic synergy computations.
 
-## 1. Ava-Dominance Equation
+## 1. AVA Anomaly Fusion Equation (AAFE)
 
 ### 1.1 Definition
 
-The Ava-Dominance Equation provides a unified scoring mechanism for the 3R (Recursion-Resonance-Refactoring) mechanism with ethical gating:
+The AVA Anomaly Fusion Equation (AAFE) provides a unified scoring mechanism for the 3R (Recursion-Resonance-Refactoring) mechanism with ethical gating:
 
 ```
-A = (w_R · R(x) + w_H · H(ω) + w_O · O(θ)) · σ_Sacred^φ
+A = (w_R · R(x) + w_H · H(ω) + w_O · O(θ)) · η_Ethical^Φ
 ```
 
 Where:
-- `A` is the Ava-Dominance score (0 to 1)
+- `A` is the Anomaly Fusion score (0 to 1)
 - `R(x)` is the Recursion score from hierarchical feature extraction
 - `H(ω)` is the Resonance score from frequency-domain analysis (harmonic synergy)
 - `O(θ)` is the Optimization score from refactoring analysis
-- `w_R, w_H, w_O` are learned weights that sum to 1
-- `σ_Sacred` is the ethical compliance threshold (0.93-0.96)
-- `φ = 1.618033988749895` is the golden ratio
+- `w_R, w_H, w_O` are learned fusion weights that sum to 1
+- `η_Ethical` is the ethical compliance threshold (0.93-0.96)
+- `Φ = 1.618033988749895` is the golden ratio constant
 
 ### 1.2 Component Definitions
 
@@ -73,7 +73,7 @@ This ensures that higher ethical compliance amplifies the dominance score while 
 
 ### 2.1 Stability Guarantee
 
-The 3R mechanism with Ava-Dominance provides Lyapunov stability with exponential convergence:
+The 3R mechanism with the AVA Anomaly Fusion Equation (AAFE) provides Lyapunov stability with exponential convergence:
 
 ```
 V(S_t) ≤ ε · e^{-λt}
@@ -87,7 +87,7 @@ Where:
 
 ### 2.2 Proof of Convergence
 
-**Theorem**: Under the Ava-Dominance Equation with λ=0.25, the system state converges exponentially to the equilibrium with V̇ ≤ -0.25 V.
+**Theorem**: Under the AVA Anomaly Fusion Equation (AAFE) with convergence rate λ=0.25, the system state converges exponentially to the equilibrium with V̇ ≤ -0.25 V.
 
 **Proof**:
 
@@ -108,7 +108,7 @@ Where:
    
    where Ṡ = dS/dt is the state evolution.
 
-3. **System dynamics under Double-Helix with Ava-Dominance**:
+3. **System dynamics under Double-Helix with AAFE**:
    
    The state evolution follows:
    ```
@@ -116,16 +116,16 @@ Where:
    ```
    
    where:
-   - λ = 0.25 is the Lyapunov decay rate
-   - g(S, A(x)) represents the bounded perturbation from Ava-Dominance
-   - A(x) = (w_R·R(x) + w_H·H(ω) + w_O·O(θ))·σ_Sacred^φ
+   - λ = 0.25 is the convergence rate parameter
+   - g(S, A(x)) represents the bounded perturbation from the Anomaly Fusion Equation
+   - A(x) = (w_R·R(x) + w_H·H(ω) + w_O·O(θ))·η_Ethical^Φ
 
-4. **Bound the Ava-Dominance perturbation**:
+4. **Bound the Anomaly Fusion perturbation**:
    
    Since all components are normalized:
    - 0 ≤ R(x), H(ω), O(θ) ≤ 1
    - w_R + w_H + w_O = 1, w_i ≥ 0
-   - 0 ≤ σ_Sacred ≤ 1
+   - 0 ≤ η_Ethical ≤ 1
    
    Therefore:
    ```

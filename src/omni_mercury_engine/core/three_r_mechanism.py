@@ -49,61 +49,85 @@ if TYPE_CHECKING:
 
     from numpy.typing import NDArray
 
-# Golden ratio constant for Ava-Dominance Equation
-PHI: float = 1.618033988749895
+# Golden ratio constant for AVA Anomaly Fusion Equation (AAFE)
+GOLDEN_RATIO_CONSTANT: float = 1.618033988749895
 
-# Lyapunov decay rate (elevated from 0.18 for 25% faster stability)
-LAMBDA_LYAPUNOV: float = 0.25
+# Convergence rate parameter (Lyapunov decay rate, elevated from 0.18 for 25% faster stability)
+CONVERGENCE_RATE_PARAMETER: float = 0.25
+
+# Backward-compatible aliases (deprecated, use new names)
+PHI: float = GOLDEN_RATIO_CONSTANT
+LAMBDA_LYAPUNOV: float = CONVERGENCE_RATE_PARAMETER
 
 
 @dataclass
-class AvaDominanceResult:
-    """Result of Ava-Dominance Equation computation.
+class AnomalyFusionResult:
+    """Result of AVA Anomaly Fusion Equation (AAFE) computation.
 
-    The Ava-Dominance Equation provides unified scoring for precision dominance:
-    A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * sigma_Sacred^phi
+    The AVA Anomaly Fusion Equation (AAFE) provides unified scoring for precision dominance:
+    A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * η_Ethical^Φ
 
     Where:
         - R(x): Recursion component (hierarchical feature extraction)
         - H(omega): Resonance/Harmonic component (frequency-domain analysis)
         - O(theta): Refactoring/Optimization component (adaptive enhancement)
-        - sigma_Sacred: Ethical compliance score (0.93-0.96)
-        - phi: Golden ratio (1.618) for harmonic scaling
-        - w_R, w_H, w_O: Learned weights that sum to 1.0
+        - η_Ethical: Ethical compliance threshold (0.93-0.96)
+        - Φ: Golden ratio constant (1.618) for harmonic scaling
+        - w_R, w_H, w_O: Learned fusion weights that sum to 1.0
 
     Attributes:
-        dominance_score: Final A(x) score combining all components
+        fusion_score: Final A(x) score combining all components
         recursion_score: R(x) component value
         resonance_score: H(omega) component value (harmonic synergy)
         optimization_score: O(theta) component value
-        sigma_sacred: Ethical compliance score used
-        weights: Dictionary of learned weights {w_R, w_H, w_O}
+        ethical_compliance_threshold: Ethical compliance score used (η_Ethical)
+        fusion_weights: Dictionary of learned weights {w_R, w_H, w_O}
         lyapunov_bound: Upper bound on convergence: V(S_t) <= epsilon * e^(-lambda*t)
         convergence_rate: Estimated convergence rate (lambda = 0.25)
     """
 
-    dominance_score: float
+    fusion_score: float
     recursion_score: float
     resonance_score: float
     optimization_score: float
-    sigma_sacred: float
-    weights: dict[str, float]
+    ethical_compliance_threshold: float
+    fusion_weights: dict[str, float]
     lyapunov_bound: float
-    convergence_rate: float = LAMBDA_LYAPUNOV
+    convergence_rate: float = CONVERGENCE_RATE_PARAMETER
+
+    # Backward-compatible property aliases
+    @property
+    def dominance_score(self) -> float:
+        """Alias for fusion_score (deprecated)."""
+        return self.fusion_score
+
+    @property
+    def sigma_sacred(self) -> float:
+        """Alias for ethical_compliance_threshold (deprecated)."""
+        return self.ethical_compliance_threshold
+
+    @property
+    def weights(self) -> dict[str, float]:
+        """Alias for fusion_weights (deprecated)."""
+        return self.fusion_weights
 
 
-class AvaDominanceEquation:
+# Backward-compatible alias for AvaDominanceResult
+AvaDominanceResult = AnomalyFusionResult
+
+
+class AnomalyFusionEquation:
     """
-    Ava-Dominance Equation for unified precision scoring in 3R mechanism.
+    AVA Anomaly Fusion Equation (AAFE) for unified precision scoring in 3R mechanism.
 
     Implements the mathematical framework:
-    A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * sigma_Sacred^phi
+    A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * η_Ethical^Φ
 
     This equation provides:
     1. Mathematical superiority over baselines (NSL-KDD F1=0.797 -> target 0.92+)
     2. Lyapunov stability guarantee: V(S_t) <= epsilon * e^(-0.25t)
-    3. Ethical gating via sigma_Sacred^phi scaling
-    4. Harmonic synergy through golden ratio (phi) weighting
+    3. Ethical gating via η_Ethical^Φ scaling
+    4. Harmonic synergy through golden ratio (Φ) weighting
 
     The weights w_R, w_H, w_O are learned via attention fusion and sum to 1.0.
     Default initialization uses golden ratio proportions for optimal harmony.
@@ -111,21 +135,37 @@ class AvaDominanceEquation:
 
     def __init__(
         self,
-        sigma_sacred: float = 0.96,
-        lambda_lyapunov: float = LAMBDA_LYAPUNOV,
+        ethical_compliance_threshold: float = 0.96,
+        convergence_rate: float = CONVERGENCE_RATE_PARAMETER,
         initial_weights: dict[str, float] | None = None,
+        # Backward-compatible parameter aliases
+        sigma_sacred: float | None = None,
+        lambda_lyapunov: float | None = None,
     ):
-        """Initialize Ava-Dominance Equation.
+        """Initialize AVA Anomaly Fusion Equation (AAFE).
 
         Args:
-            sigma_sacred: Ethical compliance threshold (0.93-0.96)
-            lambda_lyapunov: Lyapunov decay rate for stability (default 0.25)
+            ethical_compliance_threshold: Ethical compliance threshold η_Ethical (0.93-0.96)
+            convergence_rate: Convergence rate parameter for stability (default 0.25)
             initial_weights: Optional initial weights {w_R, w_H, w_O}
+            sigma_sacred: Deprecated alias for ethical_compliance_threshold
+            lambda_lyapunov: Deprecated alias for convergence_rate
         """
-        self.sigma_sacred = max(0.90, min(0.99, sigma_sacred))
-        self.lambda_lyapunov = lambda_lyapunov
-        self.phi = PHI
+        # Handle backward-compatible parameter aliases
+        if sigma_sacred is not None:
+            ethical_compliance_threshold = sigma_sacred
+        if lambda_lyapunov is not None:
+            convergence_rate = lambda_lyapunov
+
+        self.ethical_compliance_threshold = max(0.90, min(0.99, ethical_compliance_threshold))
+        self.convergence_rate_param = convergence_rate
+        self.golden_ratio = GOLDEN_RATIO_CONSTANT
         self.logger = logging.getLogger(__name__)
+
+        # Backward-compatible aliases
+        self.sigma_sacred = self.ethical_compliance_threshold
+        self.lambda_lyapunov = self.convergence_rate_param
+        self.phi = self.golden_ratio
 
         # Initialize weights using golden ratio proportions if not provided
         if initial_weights is None:
@@ -150,20 +190,31 @@ class AvaDominanceEquation:
         recursion_score: float,
         resonance_score: float,
         optimization_score: float,
+        ethical_threshold_override: float | None = None,
+        # Backward-compatible parameter alias
         sigma_sacred_override: float | None = None,
-    ) -> AvaDominanceResult:
-        """Compute Ava-Dominance score.
+    ) -> AnomalyFusionResult:
+        """Compute AVA Anomaly Fusion Equation (AAFE) score.
 
         Args:
             recursion_score: R(x) from hierarchical feature extraction
             resonance_score: H(omega) from frequency-domain analysis
             optimization_score: O(theta) from adaptive enhancement
-            sigma_sacred_override: Optional override for sigma_Sacred threshold
+            ethical_threshold_override: Optional override for η_Ethical threshold
+            sigma_sacred_override: Deprecated alias for ethical_threshold_override
 
         Returns:
-            AvaDominanceResult with all component scores and metadata
+            AnomalyFusionResult with all component scores and metadata
         """
-        sigma = sigma_sacred_override if sigma_sacred_override is not None else self.sigma_sacred
+        # Handle backward-compatible parameter alias
+        if sigma_sacred_override is not None:
+            ethical_threshold_override = sigma_sacred_override
+
+        eta = (
+            ethical_threshold_override
+            if ethical_threshold_override is not None
+            else self.ethical_compliance_threshold
+        )
 
         # Compute weighted sum of components
         weighted_sum = (
@@ -172,30 +223,30 @@ class AvaDominanceEquation:
             + self.weights["w_O"] * optimization_score
         )
 
-        # Apply sigma_Sacred^phi scaling for ethical gating
+        # Apply η_Ethical^Φ scaling for ethical gating
         # This provides ~10-15% false positive reduction via stricter ethical gating
-        ethical_scaling = sigma**self.phi
+        ethical_scaling = eta**self.golden_ratio
 
-        # Final dominance score
-        dominance_score = weighted_sum * ethical_scaling
+        # Final fusion score
+        fusion_score = weighted_sum * ethical_scaling
 
         # Compute Lyapunov bound: V(S_t) <= epsilon * e^(-lambda*t)
         self.time_step += 1
         epsilon = 1.0  # Initial bound
-        lyapunov_bound = epsilon * np.exp(-self.lambda_lyapunov * self.time_step)
+        lyapunov_bound = epsilon * np.exp(-self.convergence_rate_param * self.time_step)
 
         # Track convergence
-        self.convergence_history.append(dominance_score)
+        self.convergence_history.append(fusion_score)
 
-        return AvaDominanceResult(
-            dominance_score=dominance_score,
+        return AnomalyFusionResult(
+            fusion_score=fusion_score,
             recursion_score=recursion_score,
             resonance_score=resonance_score,
             optimization_score=optimization_score,
-            sigma_sacred=sigma,
-            weights=self.weights.copy(),
+            ethical_compliance_threshold=eta,
+            fusion_weights=self.weights.copy(),
             lyapunov_bound=lyapunov_bound,
-            convergence_rate=self.lambda_lyapunov,
+            convergence_rate=self.convergence_rate_param,
         )
 
     def update_weights(
@@ -265,7 +316,7 @@ class AvaDominanceEquation:
         return is_stable, estimated_lambda
 
     def get_dominance_proof(self) -> dict[str, Any]:
-        """Generate mathematical proof of dominance over baselines.
+        """Generate mathematical proof of fusion equation dominance over baselines.
 
         Returns:
             Dictionary containing proof elements for MATH_DERIVATIONS.md
@@ -273,15 +324,16 @@ class AvaDominanceEquation:
         is_stable, estimated_lambda = self.verify_lyapunov_stability()
 
         return {
-            "equation": "A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * sigma_Sacred^phi",
-            "phi": self.phi,
-            "sigma_sacred": self.sigma_sacred,
-            "weights": self.weights,
+            "equation": "A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * η_Ethical^Φ",
+            "equation_name": "AVA Anomaly Fusion Equation (AAFE)",
+            "golden_ratio_constant": self.golden_ratio,
+            "ethical_compliance_threshold": self.ethical_compliance_threshold,
+            "fusion_weights": self.weights,
             "lyapunov_stability": {
                 "is_stable": is_stable,
-                "target_lambda": self.lambda_lyapunov,
-                "estimated_lambda": estimated_lambda,
-                "convergence_bound": f"V(S_t) <= epsilon * e^(-{self.lambda_lyapunov}*t)",
+                "target_convergence_rate": self.convergence_rate_param,
+                "estimated_convergence_rate": estimated_lambda,
+                "convergence_bound": f"V(S_t) <= epsilon * e^(-{self.convergence_rate_param}*t)",
             },
             "baseline_comparison": {
                 "nsl_kdd_f1": 0.797,
@@ -289,10 +341,18 @@ class AvaDominanceEquation:
                 "improvement_factor": 0.92 / 0.797,  # ~1.154 (15.4% improvement)
             },
             "ethical_scaling": {
-                "sigma_sacred_phi": self.sigma_sacred**self.phi,
+                "eta_ethical_phi": self.ethical_compliance_threshold**self.golden_ratio,
                 "fp_reduction_estimate": "10-15% via stricter ethical gating",
             },
+            # Backward-compatible keys
+            "phi": self.phi,
+            "sigma_sacred": self.sigma_sacred,
+            "weights": self.weights,
         }
+
+
+# Backward-compatible alias for AvaDominanceEquation
+AvaDominanceEquation = AnomalyFusionEquation
 
 
 class RecursionEngine:
