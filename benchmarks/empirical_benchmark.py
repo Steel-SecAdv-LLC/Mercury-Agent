@@ -1086,14 +1086,32 @@ class OmniMercuryDetector:
         return self._score_fallback(X)
 
     def _compute_engine_scores(self, X: np.ndarray) -> np.ndarray:
-        """Compute scores using the Mercury-Agent engine."""
+        """Compute scores using the Mercury-Agent engine.
+
+        Uses detect_with_fusion() which returns anomaly_prob (0.0-1.0)
+        where higher values indicate more anomalous samples.
+        """
         scores = []
         for sample in X:
-            result = self.engine.detect(sample.reshape(1, -1))
-            if isinstance(result, dict):
-                score = result.get("anomaly_score", result.get("score", 0.5))
-            else:
-                score = float(result) if result is not None else 0.5
+            try:
+                # Use detect_with_fusion for proper anomaly probability scores
+                result = self.engine.detect_with_fusion(sample.reshape(1, -1), enable_gosnn=False)
+                if isinstance(result, dict):
+                    # anomaly_prob is the primary score (0.0-1.0, higher = more anomalous)
+                    score = result.get(
+                        "anomaly_prob", result.get("anomaly_score", result.get("score", 0.5))
+                    )
+                else:
+                    score = float(result) if result is not None else 0.5
+            except Exception:
+                # Fallback to basic detect if fusion fails
+                result = self.engine.detect(sample.reshape(1, -1))
+                if isinstance(result, dict):
+                    # Convert is_anomaly boolean to score
+                    is_anomaly = result.get("is_anomaly", False)
+                    score = 1.0 if is_anomaly else 0.0
+                else:
+                    score = 0.5
             scores.append(score)
         return np.array(scores)
 
