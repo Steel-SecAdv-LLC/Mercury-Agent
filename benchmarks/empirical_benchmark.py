@@ -1749,6 +1749,7 @@ def benchmark_detector_kfold(
         try:
             train_scores = detector.decision_function(X_train)
             from sklearn.metrics import roc_auc_score
+
             # Check if scores need inversion (AUC < 0.5 means scores are inverted)
             if len(np.unique(y_train)) >= 2:
                 train_auc = roc_auc_score(y_train, train_scores)
