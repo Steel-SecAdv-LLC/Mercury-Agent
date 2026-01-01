@@ -1982,29 +1982,38 @@ def generate_honest_assessment(
     return assessment
 
 
-def save_results(results: dict[str, Any], output_dir: Path | str) -> None:
+def save_results(results: dict[str, Any], output_path: Path | str) -> None:
     """Save benchmark results to files.
 
     Args:
         results: Benchmark results dictionary
-        output_dir: Directory path (Path or str) to save results to.
-            If a string ending in .json is passed, uses its parent directory.
+        output_path: Either a directory path or a JSON file path.
+            - If a .json file path: writes JSON to that exact file, report to sibling .md
+            - If a directory: writes to empirical_benchmark_results.json and report inside it
     """
     # Handle string inputs and convert to Path
-    if isinstance(output_dir, str):
-        output_dir = Path(output_dir)
-        # If a JSON filename was passed, use its parent directory
-        if output_dir.suffix == ".json":
-            output_dir = output_dir.parent if output_dir.parent != Path() else Path(".")
+    if isinstance(output_path, str):
+        output_path = Path(output_path)
 
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # Determine if this is file mode (explicit .json path) or directory mode
+    if output_path.suffix == ".json":
+        # File mode: write to the exact JSON path specified
+        json_path = output_path
+        # Create parent directory if needed
+        parent_dir = json_path.parent if json_path.parent != Path() else Path(".")
+        parent_dir.mkdir(parents=True, exist_ok=True)
+        # Report goes as sibling with .md extension (benchmark_results.json -> benchmark_report.md)
+        report_path = parent_dir / (json_path.stem.replace("_results", "_report") + ".md")
+    else:
+        # Directory mode: use standard filenames inside the directory
+        output_path.mkdir(parents=True, exist_ok=True)
+        json_path = output_path / "empirical_benchmark_results.json"
+        report_path = output_path / "EMPIRICAL_BENCHMARK_REPORT.md"
 
-    json_path = output_dir / "empirical_benchmark_results.json"
     with open(json_path, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\nResults saved to: {json_path}")
 
-    report_path = output_dir / "EMPIRICAL_BENCHMARK_REPORT.md"
     with open(report_path, "w") as f:
         f.write("# Mercury-Agent Empirical Benchmark Report\n\n")
         f.write(f"**Generated:** {results['timestamp']}\n\n")
