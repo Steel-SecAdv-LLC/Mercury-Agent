@@ -331,8 +331,10 @@ class MaatBalanceEngine:
         self, ethical_scores: dict[str, float], heart_weight: float
     ) -> dict[str, float]:
         """Compute omni-scalars from Ma'at balance analysis."""
+        epsilon = 1e-10
+        safe_heart_weight = max(abs(heart_weight), epsilon)
         return {
-            "maat_balance_scalar": 1.0 / heart_weight if heart_weight > 0 else 1.0,
+            "maat_balance_scalar": 1.0 / safe_heart_weight,
             "truth_scalar": ethical_scores.get("truth", 0.5) * 1.3,
             "justice_scalar": ethical_scores.get("justice", 0.5) * 1.3,
             "cosmic_order_scalar": 1.0 + (1.0 - abs(heart_weight - 1.0)) * 0.3,
@@ -622,9 +624,11 @@ class SacredGeometryProcessor:
         sorted_data = np.sort(flat)[::-1]
 
         alignments = []
+        epsilon = 1e-10
         for i in range(min(10, len(sorted_data) - 1)):
-            if sorted_data[i + 1] != 0:
-                ratio = sorted_data[i] / sorted_data[i + 1]
+            denominator = sorted_data[i + 1]
+            if abs(denominator) > epsilon:
+                ratio = sorted_data[i] / denominator
                 alignment = 1.0 / (1.0 + abs(ratio - self.PHI))
                 alignments.append(alignment)
 
@@ -655,11 +659,13 @@ class SacredGeometryProcessor:
             return 0.5
 
         sqrt_3 = math.sqrt(3)
+        epsilon = 1e-10
 
         ratios = []
         for i in range(0, len(flat) - 1, 2):
-            if flat[i + 1] != 0:
-                ratio = flat[i] / flat[i + 1]
+            denominator = flat[i + 1]
+            if abs(denominator) > epsilon:
+                ratio = flat[i] / denominator
                 alignment = 1.0 / (1.0 + abs(ratio - sqrt_3))
                 ratios.append(alignment)
 

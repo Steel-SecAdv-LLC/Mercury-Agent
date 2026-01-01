@@ -34,7 +34,7 @@ class TestJWTAuthMissingKey:
         # Clear any existing JWT_SECRET_KEY
         with patch.dict(os.environ, {}, clear=True):
             # Remove production indicators
-            os.environ.pop("OMNI_AVA_ENV", None)
+            os.environ.pop("MERCURY_AGENT_ENV", None)
             os.environ.pop("ENV", None)
             os.environ.pop("ENVIRONMENT", None)
             os.environ.pop("JWT_SECRET_KEY", None)
@@ -54,7 +54,7 @@ class TestJWTAuthMissingKey:
         """Test JWT auth raises error when key missing and fallback disabled."""
         with patch.dict(os.environ, {}, clear=True):
             os.environ.pop("JWT_SECRET_KEY", None)
-            os.environ.pop("OMNI_AVA_ENV", None)
+            os.environ.pop("MERCURY_AGENT_ENV", None)
 
             from omni_mercury_engine.api.auth import JWTAuth
 
@@ -63,7 +63,7 @@ class TestJWTAuthMissingKey:
 
     def test_jwt_auth_missing_key_production_raises(self):
         """Test JWT auth raises error in production without key."""
-        with patch.dict(os.environ, {"OMNI_AVA_ENV": "production"}, clear=True):
+        with patch.dict(os.environ, {"MERCURY_AGENT_ENV": "production"}, clear=True):
             os.environ.pop("JWT_SECRET_KEY", None)
 
             from omni_mercury_engine.api.auth import JWTAuth

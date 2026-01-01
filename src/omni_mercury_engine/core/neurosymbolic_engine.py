@@ -19,7 +19,7 @@ Note:
         from omni_mercury_engine.core.code_analysis import CodeAnalysisEngine
 
     To suppress this deprecation warning, set the environment variable:
-        OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS=1
+        MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS=1
 """
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ class NeurosymbolicEngineDeprecationWarning(DeprecationWarning):
     omni_mercury_engine.core.neurosymbolic_engine module.
 
     To suppress this warning:
-        - Set OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS=1 environment variable
+        - Set MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS=1 environment variable
         - Use warnings.filterwarnings('ignore', category=NeurosymbolicEngineDeprecationWarning)
         - Import from the new locations directly
     """
@@ -64,7 +64,7 @@ class NeurosymbolicEngineDeprecationWarning(DeprecationWarning):
 
 def _emit_deprecation_warning() -> None:
     """Emit deprecation warning if not suppressed."""
-    if os.environ.get("OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS", "").lower() in (
+    if os.environ.get("MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS", "").lower() in (
         "1",
         "true",
         "yes",
@@ -75,7 +75,7 @@ def _emit_deprecation_warning() -> None:
         "omni_mercury_engine.core.neurosymbolic_engine is deprecated. "
         "Use omni_mercury_engine.core.code_analysis for AST analysis or "
         "omni_mercury_engine.models.neurosymbolic for LTN-based detection. "
-        "Set OMNI_AVA_SUPPRESS_DEPRECATION_WARNINGS=1 to suppress this warning.",
+        "Set MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS=1 to suppress this warning.",
         NeurosymbolicEngineDeprecationWarning,
         stacklevel=3,
     )

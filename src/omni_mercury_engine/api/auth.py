@@ -381,7 +381,7 @@ class JWTAuth:
     """
 
     # Development fallback key - NEVER use in production
-    _DEV_FALLBACK_KEY = "OMNI_AVA_DEV_FALLBACK_KEY_DO_NOT_USE_IN_PRODUCTION"
+    _DEV_FALLBACK_KEY = "MERCURY_AGENT_DEV_FALLBACK_KEY_DO_NOT_USE_IN_PRODUCTION"
     _warned_about_fallback = False
 
     def __init__(
@@ -413,7 +413,7 @@ class JWTAuth:
 
         if self.secret_key is None:
             # Check if we're in a production environment
-            is_production = os.getenv("OMNI_AVA_ENV", "").lower() == "production"
+            is_production = os.getenv("MERCURY_AGENT_ENV", "").lower() == "production"
             is_production = is_production or os.getenv("ENV", "").lower() == "production"
             is_production = is_production or os.getenv("ENVIRONMENT", "").lower() == "production"
 

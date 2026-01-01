@@ -766,7 +766,7 @@ class DoubleHelixEvolutionEngine:
 
     def step(self, state: np.ndarray[Any, Any], t: int = 0) -> np.ndarray[Any, Any]:
         """
-        Single iterative step of Omni-AVA equation with Double-Helix evolution.
+        Single iterative step of Mercury Agent equation with Double-Helix evolution.
 
         Args:
             state: Current state vector 𝔄_t
