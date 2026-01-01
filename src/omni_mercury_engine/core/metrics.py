@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # Try to import prometheus_client, fall back to no-op implementations
 try:
-    from prometheus_client import Counter, Histogram, Gauge, REGISTRY
+    from prometheus_client import REGISTRY, Counter, Gauge, Histogram
 
     PROMETHEUS_AVAILABLE = True
     logger.info("Prometheus metrics enabled")
