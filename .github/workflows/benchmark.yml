@@ -114,8 +114,10 @@ jobs:
           save_results(results, 'benchmark_results.json')
 
           # Extract key metrics for CI check
-          summary = results.get('summary', {})
-          mercury_metrics = summary.get('Mercury-Agent', {})
+          # Handle both nested (per_detector) and flat summary formats
+          summary_root = results.get('summary', {})
+          per_detector = summary_root.get('per_detector', summary_root)
+          mercury_metrics = per_detector.get('Mercury-Agent', {})
           mean_roc_auc = mercury_metrics.get('mean_roc_auc', 0.0)
           mean_f1 = mercury_metrics.get('mean_f1', 0.0)
 
@@ -167,8 +169,13 @@ jobs:
           report.append('| Detector | Mean ROC-AUC | Std ROC-AUC | Mean F1 | Std F1 |')
           report.append('|----------|-------------|-------------|---------|--------|')
 
-          summary = results.get('summary', {})
-          for detector, metrics in summary.items():
+          # Handle both nested (per_detector) and flat summary formats
+          summary_root = results.get('summary', {})
+          per_detector = summary_root.get('per_detector', summary_root)
+          for detector, metrics in per_detector.items():
+              # Skip non-detector entries (like 'rankings', 'honest_assessment')
+              if not isinstance(metrics, dict) or 'mean_roc_auc' not in metrics:
+                  continue
               mean_roc = metrics.get('mean_roc_auc', 0.0)
               std_roc = metrics.get('std_roc_auc', 0.0)
               mean_f1 = metrics.get('mean_f1', 0.0)
@@ -277,8 +284,10 @@ jobs:
               current = json.load(f)
 
           # Extract Mercury-Agent metrics
-          summary = current.get('summary', {})
-          mercury = summary.get('Mercury-Agent', {})
+          # Handle both nested (per_detector) and flat summary formats
+          summary_root = current.get('summary', {})
+          per_detector = summary_root.get('per_detector', summary_root)
+          mercury = per_detector.get('Mercury-Agent', {})
           current_roc_auc = mercury.get('mean_roc_auc', 0.0)
           current_f1 = mercury.get('mean_f1', 0.0)
 
