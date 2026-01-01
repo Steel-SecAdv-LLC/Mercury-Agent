@@ -26,9 +26,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import asdict, dataclass, field
-from typing import Any, Type
+from typing import TYPE_CHECKING, Any
 
-import torch.nn as nn
+if TYPE_CHECKING:
+    from torch import nn
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ class ModelInfo:
     """
 
     name: str
-    model_class: Type[nn.Module]
+    model_class: type[nn.Module]
     config_class: type
     description: str
     paper_reference: str
@@ -135,7 +136,7 @@ class SOTARegistry:
     def register(
         cls,
         name: str,
-        model_class: Type[nn.Module],
+        model_class: type[nn.Module],
         config_class: type,
         description: str = "",
         paper_reference: str = "",

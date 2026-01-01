@@ -21,13 +21,16 @@ from __future__ import annotations
 import logging
 import time
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Generator
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
 
 # Try to import prometheus_client, fall back to no-op implementations
 try:
-    from prometheus_client import REGISTRY, Counter, Gauge, Histogram
+    from prometheus_client import Counter, Gauge, Histogram
 
     PROMETHEUS_AVAILABLE = True
     logger.info("Prometheus metrics enabled")
@@ -42,7 +45,7 @@ class NoOpMetric:
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         pass
 
-    def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
+    def labels(self, *args: Any, **kwargs: Any) -> NoOpMetric:
         return self
 
     def inc(self, amount: float = 1) -> None:
@@ -57,14 +60,14 @@ class NoOpMetric:
     def observe(self, amount: float) -> None:
         pass
 
-    def time(self) -> "NoOpContextManager":
+    def time(self) -> NoOpContextManager:
         return NoOpContextManager()
 
 
 class NoOpContextManager:
     """No-op context manager for timing."""
 
-    def __enter__(self) -> "NoOpContextManager":
+    def __enter__(self) -> NoOpContextManager:
         return self
 
     def __exit__(self, *args: Any) -> None:
