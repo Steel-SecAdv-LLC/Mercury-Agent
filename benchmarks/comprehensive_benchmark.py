@@ -36,6 +36,23 @@ from omni_mercury_engine.models.simulation import SimulationModule
 from omni_mercury_engine.space.space_exploration_analyzer import SpaceExplorationAnalyzer
 
 
+def validate_metrics(metrics: dict[str, Any], benchmark_name: str) -> None:
+    """Validate that all classification metrics are within valid range [0, 1].
+
+    Raises:
+        ValueError: If any metric is outside the valid range [0, 1].
+    """
+    metric_keys = ["precision", "recall", "f1", "f1_score", "roc_auc", "accuracy"]
+    for key in metric_keys:
+        if key in metrics:
+            value = metrics[key]
+            if not (0.0 <= value <= 1.0):
+                raise ValueError(
+                    f"Invalid metric in {benchmark_name}: {key}={value} "
+                    f"(must be in range [0, 1])"
+                )
+
+
 def benchmark_module_instantiation() -> dict[str, float]:
     """Benchmark module instantiation times."""
     results = {}
@@ -182,6 +199,12 @@ def run_all_benchmarks() -> dict[str, Any]:
     print(
         f"  ✓ Events detected: {results['benchmarks']['cosmic_ray']['cosmic_ray_events_detected']}"
     )
+
+    # Validate all metrics are within valid range [0, 1] to prevent regression
+    print("\n[5/5] Validating metric invariants...")
+    for benchmark_name, benchmark_results in results["benchmarks"].items():
+        validate_metrics(benchmark_results, benchmark_name)
+    print("  ✓ All metrics within valid range [0, 1]")
 
     print("\n" + "=" * 70)
     print("BENCHMARK COMPLETE")

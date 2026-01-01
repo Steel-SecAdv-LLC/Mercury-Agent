@@ -106,7 +106,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2025-10-14
 
 ### Added
-- Initial release of Mercury Agent ♱ (formerly Mercury Agent ♱)
+- Initial release of Mercury Agent ♱ (formerly Omni-Anomaly-Engine)
 - 13 fused detection engines with neural network fusion
 - 150+ ethical scalars from ancient wisdom and modern principles
 - 17+ infrastructure modules for critical sectors (healthcare, cyber, energy, etc.)
@@ -124,7 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 150+ domain-specific ethical scalars
 
 ### Changed
-- Renamed from Mercury Agent ♱ to Mercury Agent ♱
+- Renamed from Omni-Anomaly-Engine to Mercury Agent ♱
 - Enhanced CLI with argparse for humanitarian demo
 - Improved documentation with simulation disclaimers
 

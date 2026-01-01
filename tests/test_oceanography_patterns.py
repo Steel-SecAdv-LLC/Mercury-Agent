@@ -18,8 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-from typing import Any
-
 """Tests for Oceanography Patterns module"""
 
 import numpy as np

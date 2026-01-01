@@ -351,7 +351,7 @@ class TestEthicalEngineProperties:
     @settings(max_examples=50)
     def test_maat_balance_bounded_output(self, ethical_scores: dict[str, Any]):
         """Ma'at balance should always produce bounded heart weight."""
-        from omni_mercury_engine.ethical.sacred_wisdom_engine import MaatBalanceEngine
+        from omni_mercury_engine.ethical.ethical_constraint_engine import MaatBalanceEngine
 
         engine = MaatBalanceEngine()
         result = engine.weigh_heart_against_feather(ethical_scores)
@@ -373,7 +373,7 @@ class TestEthicalEngineProperties:
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
     def test_sacred_geometry_bounded_scores(self, data: np.ndarray[Any, Any]):
         """Sacred geometry analysis should produce scores in [0, 1]."""
-        from omni_mercury_engine.ethical.sacred_wisdom_engine import SacredGeometryProcessor
+        from omni_mercury_engine.ethical.ethical_constraint_engine import SacredGeometryProcessor
 
         processor = SacredGeometryProcessor()
         result = processor.analyze_sacred_geometry(data)
