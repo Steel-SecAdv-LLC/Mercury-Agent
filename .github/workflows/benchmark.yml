@@ -229,8 +229,10 @@ jobs:
 
           report.append('## Data Source Transparency')
           report.append('')
-          report.append(f'- **Real datasets:** {len(real_datasets)} ({", ".join(real_datasets) if real_datasets else "none"})')
-          report.append(f'- **Synthetic fallbacks:** {len(synthetic_datasets)} ({", ".join(synthetic_datasets) if synthetic_datasets else "none"})')
+          real_list = ', '.join(real_datasets) if real_datasets else 'none'
+          synth_list = ', '.join(synthetic_datasets) if synthetic_datasets else 'none'
+          report.append(f'- **Real datasets:** {len(real_datasets)} ({real_list})')
+          report.append(f'- **Synthetic fallbacks:** {len(synthetic_datasets)} ({synth_list})')
           report.append(f'- **Synthetic ratio:** {synthetic_ratio:.1%}')
           if synthetic_ratio > 0.5:
               report.append('')
