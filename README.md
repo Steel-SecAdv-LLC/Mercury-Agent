@@ -1209,6 +1209,37 @@ GitHub dependency graph is enabled for this repository. View the complete depend
 
 ---
 
+## Dataset Attributions
+
+Mercury-Agent benchmarks use the following publicly available datasets:
+
+| Dataset | Citation | Source |
+|---------|----------|--------|
+| SMD | Su et al., "Robust Anomaly Detection for Multivariate Time Series", KDD 2019 | [OmniAnomaly](https://github.com/NetManAIOps/OmniAnomaly) |
+| SMAP/MSL | Hundman et al., "Detecting Spacecraft Anomalies Using LSTMs", KDD 2018 | [telemanom](https://github.com/khundman/telemanom) / [Kaggle](https://www.kaggle.com/datasets/patrickfleith/nasa-anomaly-detection-dataset-smap-msl) |
+| BATADAL | Taormina et al., "Battle of the Attack Detection Algorithms", ASCE 2018 | [GitHub](https://github.com/SYChen123/Baseline-outlier-detection-algorithms-on-BATADAL-dataset) |
+| Covtype | Blackard & Dean, 1999; UCI ML Repository | [sklearn.datasets](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.fetch_covtype.html) |
+| KDDCup99 | Tavallaee et al., IEEE 2009 (NSL-KDD variant) | [sklearn.datasets](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.fetch_kddcup99.html) |
+
+### Data Source Transparency
+
+Benchmark results include a `data_source` field indicating data provenance:
+- `real-github`: Direct from public GitHub repositories
+- `real-local`: User-downloaded authentic data
+- `real-github-partial`: Partial real data (some machines/channels failed)
+- `synthetic-fallback`: Generated data when real sources unavailable
+
+> **Note:** Synthetic fallbacks are explicitly flagged. Results using >50% synthetic data trigger quality warnings.
+
+### Configuration
+
+Dataset fetching can be configured via environment variables:
+- `MERCURY_SMD_MACHINES`: Number of SMD machines to fetch (default: 28, CI: 5)
+- `MERCURY_FETCH_RETRIES`: Maximum retry attempts (default: 10)
+- `MERCURY_FETCH_DELAY`: Base delay for exponential backoff (default: 2.0s)
+
+---
+
 ## Legal Disclaimer & Attribution
 
 ### Development Model

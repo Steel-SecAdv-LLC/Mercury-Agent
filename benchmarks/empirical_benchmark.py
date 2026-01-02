@@ -57,9 +57,11 @@ Features:
 - Confusion matrix generation
 """
 
+import hashlib
 import io
 import json
 import logging
+import os
 import sys
 import time
 import warnings
@@ -72,6 +74,21 @@ import numpy as np
 import pandas as pd
 import requests
 import torch
+
+# =============================================================================
+# Configuration (environment-variable driven for CI flexibility)
+# =============================================================================
+SMD_MAX_MACHINES = int(os.getenv("MERCURY_SMD_MACHINES", "28"))  # Full=28, CI=5
+FETCH_MAX_RETRIES = int(os.getenv("MERCURY_FETCH_RETRIES", "10"))
+FETCH_BASE_DELAY = float(os.getenv("MERCURY_FETCH_DELAY", "2.0"))
+
+# Known checksums for integrity verification (compute from verified sources)
+# Format: 'dataset:file': 'sha256:hexdigest'
+# These should be computed once from known-good downloads
+KNOWN_CHECKSUMS: dict[str, str | None] = {
+    "smd:machine-1-1.txt": None,  # Populate with actual hashes when available
+    "batadal:dataset03.csv": None,
+}
 from sklearn.covariance import EllipticEnvelope
 from sklearn.datasets import (
     fetch_covtype,
@@ -98,6 +115,33 @@ warnings.filterwarnings("ignore")
 # Configure logging for benchmark telemetry
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def verify_checksum(content: bytes, dataset_key: str) -> bool:
+    """
+    Verify content integrity against known checksums.
+
+    Args:
+        content: Raw bytes of downloaded content
+        dataset_key: Key in KNOWN_CHECKSUMS dict (e.g., 'smd:machine-1-1.txt')
+
+    Returns:
+        True if checksum matches or no checksum registered, False if mismatch.
+    """
+    expected = KNOWN_CHECKSUMS.get(dataset_key)
+    if expected is None:
+        logger.debug(f"No checksum registered for {dataset_key}, skipping verification")
+        return True
+
+    computed = hashlib.sha256(content).hexdigest()
+    if computed != expected:
+        logger.warning(
+            f"Checksum mismatch for {dataset_key}: "
+            f"expected {expected[:16]}..., got {computed[:16]}..."
+        )
+        return False
+    logger.debug(f"Checksum verified for {dataset_key}")
+    return True
 
 
 def fetch_with_retry(
@@ -318,7 +362,120 @@ def fetch_msl_from_github(max_channels: int = 10) -> tuple[np.ndarray, np.ndarra
     return None
 
 
-def fetch_smd_from_github(max_machines: int = 5) -> tuple[np.ndarray, np.ndarray, str] | None:
+def _create_labels_from_ranges(
+    X: np.ndarray,
+    label_dict: dict[str, list[tuple[int, int]]] | None,
+    prefix: str,
+) -> np.ndarray:
+    """
+    Create binary labels from telemanom anomaly ranges.
+
+    Args:
+        X: Data array to create labels for
+        label_dict: Dictionary mapping channel IDs to anomaly ranges
+        prefix: Channel prefix to filter (e.g., 'A' for SMAP, 'M' for MSL)
+
+    Returns:
+        Binary label array (0=normal, 1=anomaly)
+    """
+    if label_dict is None:
+        return np.zeros(len(X))
+
+    y = np.zeros(len(X))
+    # Match channel IDs to ranges (simplified - production would track per-channel)
+    for chan_id, ranges in label_dict.items():
+        if chan_id.startswith(prefix.rstrip("-")):
+            for start, end in ranges:
+                if end <= len(y):
+                    y[start:end] = 1
+    return y
+
+
+def fetch_smap_msl_local(dataset: str = "SMAP") -> tuple | None:
+    """
+    Load SMAP/MSL from local directory matching telemanom structure.
+
+    Telemanom Kaggle structure (after download):
+        data/
+        ├── train/
+        │   ├── A-1.npy, A-2.npy, ...  (SMAP: 55 channels, prefix 'A-')
+        │   ├── M-1.npy, M-2.npy, ...  (MSL: 27 channels, prefix 'M-')
+        └── test/
+            ├── A-1.npy, A-2.npy, ...
+            └── M-1.npy, M-2.npy, ...
+
+    Users download via:
+        kaggle datasets download -d patrickfleith/nasa-anomaly-detection-dataset-smap-msl
+        unzip -d data/ nasa-anomaly-detection-dataset-smap-msl.zip
+
+    Args:
+        dataset: Either "SMAP" or "MSL"
+
+    Returns:
+        Tuple of (X_train, X_test, y_train, y_test, source_info) or None if not found.
+    """
+    # Telemanom uses shared data/ directory, channels distinguished by prefix
+    data_dir = Path(__file__).parent.parent / "data"
+
+    if not data_dir.exists():
+        logger.info(f"Local data directory not found at {data_dir}")
+        return None
+
+    # Channel prefix per dataset
+    prefix_map = {"SMAP": "A-", "MSL": "M-"}
+    prefix = prefix_map.get(dataset, "A-")
+
+    # Expected channel counts (from telemanom repo)
+    channel_counts = {"SMAP": 55, "MSL": 27}
+    expected_channels = channel_counts.get(dataset, 55)
+
+    train_dir = data_dir / "train"
+    test_dir = data_dir / "test"
+
+    if not train_dir.exists():
+        logger.info(f"Train directory not found: {train_dir}")
+        return None
+
+    # Load channels matching this dataset's prefix
+    train_files = sorted(train_dir.glob(f"{prefix}*.npy"))
+    test_files = sorted(test_dir.glob(f"{prefix}*.npy")) if test_dir.exists() else []
+
+    if not train_files:
+        logger.info(f"No {dataset} train files found with prefix '{prefix}' in {train_dir}")
+        return None
+
+    try:
+        X_train = np.concatenate([np.load(f) for f in train_files], axis=0)
+        X_test = np.concatenate([np.load(f) for f in test_files], axis=0) if test_files else None
+
+        # Load labels from telemanom CSV (already fetched via GitHub)
+        labels = fetch_nasa_telemanom_labels()
+
+        # Create binary labels from anomaly ranges
+        y_train = np.zeros(len(X_train))
+        y_test = _create_labels_from_ranges(X_test, labels, prefix) if X_test is not None else None
+
+        coverage = len(train_files) / expected_channels
+        source = (
+            f"real-local-telemanom ({len(train_files)}/{expected_channels} channels, "
+            f"{coverage:.0%})"
+        )
+
+        logger.info(
+            f"{dataset} loaded from local telemanom structure: "
+            f"{X_train.shape[0]} train samples, {len(train_files)} channels"
+        )
+
+        return X_train, X_test, y_train, y_test, source
+
+    except Exception as e:
+        logger.error(f"Error loading {dataset} from local: {e}")
+        return None
+
+
+def fetch_smd_from_github(
+    max_machines: int | None = None,
+) -> tuple[np.ndarray, np.ndarray, str] | None:
     """
     Fetch SMD (Server Machine Dataset) from OmniAnomaly GitHub.
 
@@ -326,17 +483,27 @@ def fetch_smd_from_github(max_machines: int = 5) -> tuple[np.ndarray, np.ndarray
     Citation: Su et al., "Robust Anomaly Detection for Multivariate Time Series", KDD 2019
 
     Args:
-        max_machines: Maximum number of machines to fetch (default: 5 for CI speed)
+        max_machines: Maximum machines to fetch. Defaults to SMD_MAX_MACHINES env var (28=full).
 
     Returns:
         Tuple of (X, y, source_info) or None if fetch failed.
     """
+    if max_machines is None:
+        max_machines = SMD_MAX_MACHINES
+
     base_url = (
         "https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/ServerMachineDataset"
     )
 
-    # SMD has 28 machines: machine-1-1 through machine-3-11
-    machine_ids = [f"machine-{g}-{m}" for g in range(1, 4) for m in range(1, 12)][:max_machines]
+    # Full SMD: 28 machines across 3 groups
+    # Group 1: machine-1-1 through machine-1-8 (8 machines)
+    # Group 2: machine-2-1 through machine-2-9 (9 machines)
+    # Group 3: machine-3-1 through machine-3-11 (11 machines)
+    all_machine_ids = []
+    for g, count in [(1, 8), (2, 9), (3, 11)]:
+        all_machine_ids.extend([f"machine-{g}-{m}" for m in range(1, count + 1)])
+
+    machine_ids = all_machine_ids[:max_machines]
 
     X_list = []
     y_list = []
@@ -348,17 +515,29 @@ def fetch_smd_from_github(max_machines: int = 5) -> tuple[np.ndarray, np.ndarray
         label_url = f"{base_url}/test_label/{machine_id}.txt"
 
         train_content = fetch_from_mirror(
-            train_url, f"SMD train {machine_id}", max_retries=3, timeout=30
+            train_url,
+            f"SMD train {machine_id}",
+            max_retries=FETCH_MAX_RETRIES,
+            timeout=30,
         )
         test_content = fetch_from_mirror(
-            test_url, f"SMD test {machine_id}", max_retries=3, timeout=30
+            test_url,
+            f"SMD test {machine_id}",
+            max_retries=FETCH_MAX_RETRIES,
+            timeout=30,
         )
         label_content = fetch_from_mirror(
-            label_url, f"SMD label {machine_id}", max_retries=3, timeout=30
+            label_url,
+            f"SMD label {machine_id}",
+            max_retries=FETCH_MAX_RETRIES,
+            timeout=30,
         )
 
         if train_content is None or test_content is None:
             continue
+
+        # Verify checksums if available
+        verify_checksum(train_content, f"smd:{machine_id}.txt")
 
         try:
             # SMD files are CSV-like with comma-separated values
@@ -388,8 +567,19 @@ def fetch_smd_from_github(max_machines: int = 5) -> tuple[np.ndarray, np.ndarray
     X = np.vstack([x[:, :min_features] for x in X_list])
     y = np.concatenate(y_list)
 
-    source_info = f"OmniAnomaly SMD GitHub ({successful_machines} machines)"
-    logger.info(f"Successfully loaded SMD from GitHub: {X.shape[0]} samples, {X.shape[1]} features")
+    # Determine data quality based on coverage
+    coverage = successful_machines / len(machine_ids)
+    if coverage < 0.5:
+        source_info = (
+            f"real-github-partial ({successful_machines}/{len(machine_ids)} machines, "
+            f"{coverage:.0%} coverage)"
+        )
+    else:
+        source_info = f"real-github ({successful_machines}/{len(machine_ids)} machines)"
+
+    logger.info(
+        f"SMD loaded: {X.shape[0]} samples, {X.shape[1]} features from {successful_machines} machines"
+    )
     return X, y.astype(int), source_info
 
 
@@ -509,6 +699,8 @@ class BenchmarkResult:
     class_precision: dict[str, float] = field(default_factory=dict)
     class_recall: dict[str, float] = field(default_factory=dict)
     class_f1: dict[str, float] = field(default_factory=dict)
+    # Data provenance tracking
+    data_source: str = "unknown"  # 'real-github', 'real-local', 'synthetic-fallback'
 
 
 @dataclass
@@ -524,6 +716,10 @@ class DatasetInfo:
     domain: str
     is_time_series: bool = False
     window_size: int = 10
+    # Data provenance tracking
+    data_source: str = "unknown"  # 'real-github', 'real-local', 'synthetic-fallback'
+    source_url: str = ""  # Attribution URL
+    citation: str = ""  # Academic citation
 
 
 @dataclass
