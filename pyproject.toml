@@ -7,7 +7,7 @@ requires = ["setuptools>=78.1.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "omni-mercury-engine"
+name = "mercury-agent"
 version = "1.0.0"
 description = "Mercury Agent ♱: ML-Centric Multi-Domain Anomaly Detection Framework"
 readme = "README.md"
@@ -106,7 +106,7 @@ dev = [
 
 # Full installation with all features
 all = [
-    "omni-mercury-engine[visual,vlm,foundation,face,api]",
+    "mercury-agent[visual,vlm,foundation,face,api]",
 ]
 
 [project.urls]
