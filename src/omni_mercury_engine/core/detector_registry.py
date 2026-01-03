@@ -79,6 +79,9 @@ from typing import Any, Protocol
 import numpy as np
 import torch
 
+from omni_mercury_engine.resilience.api_circuit_breakers import get_detector_breaker
+from omni_mercury_engine.resilience.circuit_breaker import CircuitState
+
 logger = logging.getLogger(__name__)
 
 
@@ -295,7 +298,11 @@ class DetectorRegistry:
         name: str,
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
     ) -> FeatureExtractionResult:
-        """Extract features from a single detector.
+        """Extract features from a single detector with circuit breaker protection.
+
+        Uses circuit breaker pattern to prevent cascade failures when a detector
+        repeatedly fails. If the circuit is open, returns a failed result immediately
+        without invoking the detector.
 
         Args:
             name: Detector name
@@ -314,11 +321,25 @@ class DetectorRegistry:
                 error=f"Detector '{name}' not found",
             )
 
+        breaker = get_detector_breaker(name)
+
+        if breaker.state == CircuitState.OPEN:
+            logger.debug(f"Circuit breaker OPEN for detector '{name}', skipping")
+            return FeatureExtractionResult(
+                detector_name=name,
+                features=None,
+                scores=None,
+                execution_time_ms=0,
+                success=False,
+                error=f"Circuit breaker open for detector '{name}'",
+            )
+
         info = self._detectors[name]
         detector = info.instance
         start_time = time.perf_counter()
 
-        try:
+        def _execute_detector() -> FeatureExtractionResult:
+            """Inner function to execute detector, wrapped by circuit breaker."""
             # Try to fit if needed
             if hasattr(detector, "is_fitted") and not detector.is_fitted():
                 if hasattr(detector, "fit") and not isinstance(data, dict):
@@ -352,6 +373,9 @@ class DetectorRegistry:
                 execution_time_ms=execution_time,
                 success=True,
             )
+
+        try:
+            return breaker.call(_execute_detector)
 
         except Exception as e:
             execution_time = (time.perf_counter() - start_time) * 1000
