@@ -558,6 +558,16 @@ wsl --install
 pip install -e ".[all]"
 ```
 
+### Package Naming
+
+The package uses the following naming conventions:
+
+- **Package Name**: `mercury-agent` (used in pip install and pyproject.toml)
+- **CLI Command**: `mercury-agent` (the command-line interface)
+- **Internal Module**: `omni_mercury_engine` (the Python import path)
+
+This means you install with `pip install mercury-agent` but import with `from omni_mercury_engine import ...`. The internal module name preserves backward compatibility with the original codebase while the package and CLI names reflect the current project identity.
+
 ### External Dependencies
 
 **DeepFace/dlib (Optional)**:
@@ -612,40 +622,115 @@ mercury-agent security --help
 <details>
 <summary><strong>Docker Quick Start</strong></summary>
 
-### Production Image
+### Building the Image
 
 ```bash
-# Build production image
-docker build -t mercury-agent:latest --target production .
+# Build the Docker image
+docker build -t mercury-agent:latest .
+```
 
-# Run with required environment variables
+### Usage Mode 1: API Server (Default)
+
+The default entrypoint runs the FastAPI server for production inference:
+
+```bash
+# Run API server (default mode)
 docker run -d \
   -e JWT_SECRET_KEY=$(openssl rand -hex 32) \
   -e OMNI_RATE_LIMIT_ENABLED=true \
   -p 8000:8000 \
   mercury-agent:latest
+
+# API documentation available at http://localhost:8000/docs
+# Health check: http://localhost:8000/health
 ```
 
-### Development Image
+### Usage Mode 2: Training Mode
+
+Override the default command to run training jobs:
 
 ```bash
-# Build development image
-docker build -t mercury-agent:dev --target development .
+# Train all disaster detection neural networks
+docker run -it \
+  -v $(pwd)/models:/app/models \
+  mercury-agent:latest \
+  python -c "from omni_mercury_engine.detectors.geological.disaster_detectors import train_all_disaster_networks; train_all_disaster_networks()"
 
-# Run with volume mount for development
-docker run -it -v $(pwd):/app mercury-agent:dev /bin/bash
+# Train with GPU support (requires nvidia-docker)
+docker run -it --gpus all \
+  -v $(pwd)/models:/app/models \
+  mercury-agent:latest \
+  python -c "from omni_mercury_engine.detectors.geological.disaster_detectors import train_all_disaster_networks; train_all_disaster_networks(device='cuda')"
+
+# Run benchmarks
+docker run -it \
+  -v $(pwd)/results:/app/results \
+  mercury-agent:latest \
+  python benchmarks/empirical_benchmark.py
 ```
 
-### Container Defaults
+### Usage Mode 3: Inference Mode (Batch Processing)
 
-The Dockerfile now defaults to running the FastAPI server for production inference. To run training instead, override the CMD:
+Run batch inference on data files:
 
 ```bash
-# Run training instead of API server
-docker run -it mercury-agent:latest python src/mercury/train.py
+# Run anomaly detection on a data file
+docker run -it \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/output:/app/output \
+  mercury-agent:latest \
+  python -c "
+from omni_mercury_engine import OmniMercuryEngine
+import numpy as np
+
+engine = OmniMercuryEngine(mode='fusion')
+data = np.load('/app/data/input.npy')
+result = engine.detect_with_fusion(data)
+print(f'Anomaly Score: {result[\"anomaly_score\"]:.3f}')
+"
+
+# Use CLI for detection
+docker run -it \
+  -v $(pwd)/data:/app/data \
+  mercury-agent:latest \
+  mercury-agent detect --input /app/data/input.csv --detector fusion
 ```
 
-This supports scalable deployments via Kubernetes/Helm where the API server handles inference requests while training jobs can be run as separate batch workloads.
+### Usage Mode 4: Interactive Development
+
+```bash
+# Start interactive shell for development
+docker run -it \
+  -v $(pwd):/app \
+  mercury-agent:latest \
+  /bin/bash
+
+# Run tests inside container
+docker run -it \
+  -v $(pwd):/app \
+  mercury-agent:latest \
+  pytest tests/ -v
+```
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `JWT_SECRET_KEY` | Secret key for JWT authentication (required for API) | None |
+| `OMNI_RATE_LIMIT_ENABLED` | Enable API rate limiting | `false` |
+| `OMNI_ML_ENABLED` | Enable ML features | `true` |
+| `OMNI_QUANTUM_ENABLED` | Enable post-quantum crypto | `false` |
+
+### Volume Mounts
+
+| Mount Point | Purpose |
+|-------------|---------|
+| `/app/data` | Input data files |
+| `/app/models` | Trained model checkpoints |
+| `/app/results` | Benchmark and inference results |
+| `/app/output` | Output files from batch processing |
+
+This architecture supports scalable deployments via Kubernetes/Helm where the API server handles inference requests while training jobs can be run as separate batch workloads.
 
 </details>
 
@@ -795,6 +880,7 @@ mypy src/
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Detailed system architecture |
 | [docs/PROTECTION_OVERVIEW.md](docs/PROTECTION_OVERVIEW.md) | Security protection overview |
 | [docs/MEMORIAL_CODES.md](docs/MEMORIAL_CODES.md) | Memorial codes documentation |
+| [docs/ROUTING_GUIDE.md](docs/ROUTING_GUIDE.md) | Request routing and fallback chains |
 
 </details>
 

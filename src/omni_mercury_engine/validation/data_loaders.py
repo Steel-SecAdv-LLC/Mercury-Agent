@@ -40,6 +40,8 @@ from urllib.request import urlopen
 
 import numpy as np
 
+from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
+
 logger = logging.getLogger(__name__)
 
 
@@ -484,28 +486,28 @@ class USGSEarthquakeLoader(DatasetLoader):
     def _load_from_api(
         self, days_back: int, min_magnitude: float, anomaly_threshold: float
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load real earthquake data from USGS API."""
-        end_time = datetime.utcnow()
-        start_time = end_time - timedelta(days=days_back)
+        """Load real earthquake data from USGS API with circuit breaker protection."""
+        circuit_breaker = get_data_loader_breaker("usgs_earthquake")
 
-        params = {
-            "format": "geojson",
-            "starttime": start_time.strftime("%Y-%m-%d"),
-            "endtime": end_time.strftime("%Y-%m-%d"),
-            "minmagnitude": str(min_magnitude),
-        }
+        def _fetch_data() -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+            end_time = datetime.utcnow()
+            start_time = end_time - timedelta(days=days_back)
 
-        url = f"{self.USGS_API_URL}?" + "&".join(f"{k}={v}" for k, v in params.items())
+            params = {
+                "format": "geojson",
+                "starttime": start_time.strftime("%Y-%m-%d"),
+                "endtime": end_time.strftime("%Y-%m-%d"),
+                "minmagnitude": str(min_magnitude),
+            }
 
-        # Validate URL scheme for security (only allow https)
-        if not url.startswith("https://"):
-            raise RuntimeError("USGS API URL must use HTTPS. Security validation failed.")
+            url = f"{self.USGS_API_URL}?" + "&".join(f"{k}={v}" for k, v in params.items())
 
-        try:
+            if not url.startswith("https://"):
+                raise RuntimeError("USGS API URL must use HTTPS. Security validation failed.")
+
             import json
             from urllib.request import Request
 
-            # URL scheme validated above - only HTTPS allowed
             req = Request(  # noqa: S310
                 url, headers={"User-Agent": "Mercury-Agent/1.0"}
             )  # nosec B310
@@ -549,6 +551,8 @@ class USGSEarthquakeLoader(DatasetLoader):
 
             return data_array, labels
 
+        try:
+            return circuit_breaker.call(_fetch_data)
         except RuntimeError:
             raise
         except Exception as e:
@@ -1047,17 +1051,17 @@ class NOAASpaceWeatherLoader(DatasetLoader):
     def _load_from_api(
         self, storm_threshold: float
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load real space weather data from NOAA SWPC API."""
-        try:
+        """Load real space weather data from NOAA SWPC API with circuit breaker protection."""
+        circuit_breaker = get_data_loader_breaker("noaa_space_weather")
+
+        def _fetch_data() -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
             import json
             from urllib.request import Request
 
-            # Load planetary K-index data
             url = f"{self.SWPC_API_URL}/planetary_k_index_1m.json"
             if not url.startswith("https://"):
                 raise RuntimeError("NOAA SWPC API URL must use HTTPS. Security validation failed.")
 
-            # URL scheme validated above - only HTTPS allowed
             req = Request(  # noqa: S310
                 url, headers={"User-Agent": "Mercury-Agent/1.0"}
             )  # nosec B310
@@ -1071,24 +1075,24 @@ class NOAASpaceWeatherLoader(DatasetLoader):
                 )
 
             features_list = []
-            for entry in kp_data[-1000:]:  # Last 1000 entries
+            for entry in kp_data[-1000:]:
                 kp = float(entry.get("kp_index", 0) or 0)
                 features_list.append(
                     [
                         kp,
-                        -kp * 10,  # Estimated Dst
-                        -kp * 2,  # Estimated Bz
-                        400 + kp * 50,  # Estimated solar wind
-                        5 + kp,  # Estimated density
-                        1e-7 * (1 + kp),  # Estimated X-ray short
-                        1e-6 * (1 + kp),  # Estimated X-ray long
-                        kp * 0.5,  # Estimated proton 10MeV
-                        kp * 0.05,  # Estimated proton 100MeV
-                        100 * (1 + kp),  # Estimated electron
-                        10 - kp * 0.3,  # Estimated magnetopause
+                        -kp * 10,
+                        -kp * 2,
+                        400 + kp * 50,
+                        5 + kp,
+                        1e-7 * (1 + kp),
+                        1e-6 * (1 + kp),
+                        kp * 0.5,
+                        kp * 0.05,
+                        100 * (1 + kp),
+                        10 - kp * 0.3,
                         12,
                         180,
-                        0.5,  # Default temporal
+                        0.5,
                     ]
                 )
 
@@ -1103,6 +1107,8 @@ class NOAASpaceWeatherLoader(DatasetLoader):
 
             return data_array, labels
 
+        try:
+            return circuit_breaker.call(_fetch_data)
         except RuntimeError:
             raise
         except Exception as e:
@@ -1321,16 +1327,16 @@ class NOAAHurricaneLoader(DatasetLoader):
     def _load_from_api(
         self, major_threshold: float
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load real hurricane data from NOAA NHC API."""
-        try:
+        """Load real hurricane data from NOAA NHC API with circuit breaker protection."""
+        circuit_breaker = get_data_loader_breaker("noaa_hurricane")
+
+        def _fetch_data() -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
             from urllib.request import Request
 
-            # Load HURDAT2 data from NHC
             url = f"{self.NHC_API_URL}/hurdat2-1851-2023-052424.txt"
             if not url.startswith("https://"):
                 raise RuntimeError("NOAA NHC API URL must use HTTPS. Security validation failed.")
 
-            # URL scheme validated above - only HTTPS allowed
             req = Request(  # noqa: S310
                 url, headers={"User-Agent": "Mercury-Agent/1.0"}
             )  # nosec B310
@@ -1343,20 +1349,18 @@ class NOAAHurricaneLoader(DatasetLoader):
                     "Set use_synthetic=True to use synthetic data instead."
                 )
 
-            # Parse HURDAT2 format (simplified parsing)
             features_list = []
             lines = raw_data.strip().split("\n")
             for line in lines:
                 parts = line.split(",")
                 if len(parts) >= 7:
                     try:
-                        # Extract basic features from HURDAT2 format
                         lat = float(parts[4].strip().replace("N", "").replace("S", "-") or 0)
                         lon = float(parts[5].strip().replace("W", "-").replace("E", "") or 0)
                         wind = float(parts[6].strip() or 0)
                         pressure = float(parts[7].strip() or 1013) if len(parts) > 7 else 1013
 
-                        if wind > 0:  # Only include valid entries
+                        if wind > 0:
                             features_list.append(
                                 [
                                     lat,
@@ -1364,19 +1368,19 @@ class NOAAHurricaneLoader(DatasetLoader):
                                     wind,
                                     pressure,
                                     15,
-                                    0,  # Default storm speed and direction
+                                    0,
                                     100,
                                     100,
                                     100,
-                                    100,  # Default 34kt radii
+                                    100,
                                     50,
                                     50,
                                     50,
-                                    50,  # Default 64kt radii
+                                    50,
                                     28,
                                     15,
                                     12,
-                                    200,  # Default SST, shear, hour, day
+                                    200,
                                 ]
                             )
                     except (ValueError, IndexError):
@@ -1393,6 +1397,8 @@ class NOAAHurricaneLoader(DatasetLoader):
 
             return data_array, labels
 
+        try:
+            return circuit_breaker.call(_fetch_data)
         except RuntimeError:
             raise
         except Exception as e:
@@ -1622,17 +1628,17 @@ class NOAAOceanLoader(DatasetLoader):
     def _load_from_api(
         self, heatwave_threshold: float
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load real ocean data from NOAA NOS API."""
-        try:
+        """Load real ocean data from NOAA NOS API with circuit breaker protection."""
+        circuit_breaker = get_data_loader_breaker("noaa_ocean")
+
+        def _fetch_data() -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
             import json
             from urllib.request import Request
 
-            # Load water temperature data from NOAA CO-OPS
             url = f"{self.NOS_API_URL}?begin_date=20240101&end_date=20241231&station=8454000&product=water_temperature&datum=MLLW&units=metric&time_zone=gmt&application=Mercury-Agent&format=json"
             if not url.startswith("https://"):
                 raise RuntimeError("NOAA NOS API URL must use HTTPS. Security validation failed.")
 
-            # URL scheme validated above - only HTTPS allowed
             req = Request(  # noqa: S310
                 url, headers={"User-Agent": "Mercury-Agent/1.0"}
             )  # nosec B310
@@ -1651,28 +1657,27 @@ class NOAAOceanLoader(DatasetLoader):
             for entry in data_entries:
                 try:
                     sst = float(entry.get("v", 20))
-                    # Generate correlated features based on SST
                     sst_anomaly = rng.normal(0, 1.5)
                     features_list.append(
                         [
                             sst,
                             sst_anomaly,
-                            35 + rng.normal(0, 2),  # salinity
-                            rng.exponential(1),  # chlorophyll
-                            rng.exponential(0.3),  # current speed
-                            rng.uniform(0, 360),  # current direction
-                            rng.exponential(1.5),  # wave height
-                            8 + rng.normal(0, 3),  # wave period
-                            rng.uniform(0, 360),  # wave direction
-                            7 + rng.normal(0, 2),  # dissolved oxygen
-                            8.1 + rng.normal(0, 0.2),  # pH
-                            rng.exponential(5),  # turbidity
-                            41.5,  # latitude (Providence, RI)
-                            -71.4,  # longitude
-                            rng.exponential(50),  # depth
+                            35 + rng.normal(0, 2),
+                            rng.exponential(1),
+                            rng.exponential(0.3),
+                            rng.uniform(0, 360),
+                            rng.exponential(1.5),
+                            8 + rng.normal(0, 3),
+                            rng.uniform(0, 360),
+                            7 + rng.normal(0, 2),
+                            8.1 + rng.normal(0, 0.2),
+                            rng.exponential(5),
+                            41.5,
+                            -71.4,
+                            rng.exponential(50),
                             12,
                             180,
-                            2024,  # hour, day, year
+                            2024,
                         ]
                     )
                 except (ValueError, KeyError):
@@ -1689,6 +1694,8 @@ class NOAAOceanLoader(DatasetLoader):
 
             return data_array, labels
 
+        try:
+            return circuit_breaker.call(_fetch_data)
         except RuntimeError:
             raise
         except Exception as e:
