@@ -47,13 +47,16 @@ __all__ = [
     "ConvergenceMonitor",
     "CrossModalAttention",
     "DifferenceTargetPropagation",
+    "FairnessAuditor",
     "FusionInference",
     "FusionTrainer",
+    "MemoryEfficientCache",
     "MultiEnvPPOTrainer",
     "MultiHeadDetectorAttention",
     "OmniFusionModel",
     "PPOConfig",
     "PPOTrainer",
+    "ParallelExecutor",
     "QuantumEncoder",
     "SpatialAttention",
     "StatisticalEncoder",
@@ -62,15 +65,9 @@ __all__ = [
     "TemporalAttention",
     "TemporalEncoder",
     "TrainingStats",
-    # Drift detection (requires scipy)
-    "create_drift_detector",
-    # Fairness auditing (standalone, no heavy deps)
-    "FairnessAuditor",
-    "compute_fairness_score",
-    # Optimization utilities
     "apply_all_optimizations",
-    "MemoryEfficientCache",
-    "ParallelExecutor",
+    "compute_fairness_score",
+    "create_drift_detector",
 ]
 
 # Lazy imports - only load when torch is available OR during type checking

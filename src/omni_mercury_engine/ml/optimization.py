@@ -36,8 +36,8 @@ import logging
 import os
 import sys
 from collections import OrderedDict
-from dataclasses import dataclass, field
-from functools import lru_cache, wraps
+from dataclasses import dataclass
+from functools import wraps
 from typing import Any, TypeVar
 
 import numpy as np
@@ -228,10 +228,10 @@ class MemoryManager:
         self._torch_available = False
 
         try:
-            import torch
+            import importlib.util
 
-            self._torch_available = True
-        except ImportError:
+            self._torch_available = importlib.util.find_spec("torch") is not None
+        except Exception:
             pass
 
     def get_memory_usage(self) -> dict[str, float]:
@@ -353,10 +353,10 @@ class ParallelExecutor:
         self._joblib_available = False
 
         try:
-            from joblib import Parallel, delayed
+            import importlib.util
 
-            self._joblib_available = True
-        except ImportError:
+            self._joblib_available = importlib.util.find_spec("joblib") is not None
+        except Exception:
             logger.warning("joblib not installed, parallel execution disabled")
 
     def map(
@@ -432,8 +432,8 @@ class DDPScaler:
             local_rank: Local process rank
         """
         self.backend = backend
-        self.world_size = world_size or int(os.environ.get("WORLD_SIZE", 1))
-        self.local_rank = local_rank or int(os.environ.get("LOCAL_RANK", 0))
+        self.world_size = world_size or int(os.environ.get("WORLD_SIZE", "1"))
+        self.local_rank = local_rank or int(os.environ.get("LOCAL_RANK", "0"))
         self.is_initialized = False
 
     def setup(self) -> bool:

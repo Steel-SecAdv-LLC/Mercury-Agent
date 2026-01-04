@@ -300,10 +300,10 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
     def _check_availability(self) -> None:
         """Check if transformers is available and model can be loaded."""
         try:
-            from transformers import AutoModelForCausalLM, AutoTokenizer
+            import importlib.util
 
-            self._is_available = True
-        except ImportError:
+            self._is_available = importlib.util.find_spec("transformers") is not None
+        except Exception:
             logger.warning("transformers not installed. HuggingFace adapter unavailable.")
             self._is_available = False
 
