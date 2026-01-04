@@ -65,6 +65,10 @@ class LLMConfig:
     base_url: str | None = None
     timeout: float = 30.0
 
+    # HuggingFace specific - revision pinning for supply chain security (CWE-494)
+    # Set to a specific commit SHA for reproducible and secure model loading
+    revision: str | None = None
+
     # Anomaly detection specific
     anomaly_prompt_template: str = ""
     include_context: bool = True
@@ -308,20 +312,53 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
             self._is_available = False
 
     def _load_model(self) -> None:
-        """Lazy load the model."""
+        """Lazy load the model.
+
+        Security Note: For supply chain security (CWE-494), we require revision
+        pinning when loading models from HuggingFace Hub. Set config.revision to
+        a specific commit SHA for reproducible and secure model loading.
+        Local paths (starting with '/' or '.') are allowed without revision.
+        """
         if self._model is not None:
+            return
+
+        # Check if model_name is a local path (doesn't need revision pinning)
+        is_local_path = (
+            self.config.model_name.startswith("/")
+            or self.config.model_name.startswith("./")
+            or self.config.model_name.startswith("../")
+        )
+
+        # Require revision for remote models (supply chain security)
+        if not is_local_path and not self.config.revision:
+            logger.warning(
+                f"HuggingFace model '{self.config.model_name}' requested without revision pinning. "
+                "For supply chain security (CWE-494), set config.revision to a specific commit SHA. "
+                "Adapter will be marked as unavailable."
+            )
+            self._is_available = False
             return
 
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
-            self._tokenizer = AutoTokenizer.from_pretrained(self.config.model_name)
-            self._model = AutoModelForCausalLM.from_pretrained(
+            # Use revision for remote models, None for local paths
+            revision = self.config.revision if not is_local_path else None
+
+            # Revision pinning is enforced at runtime above - remote models require
+            # config.revision to be set, otherwise adapter is marked unavailable.
+            # Local paths are allowed without revision. Bandit cannot verify this statically.
+            self._tokenizer = AutoTokenizer.from_pretrained(  # nosec B615
                 self.config.model_name,
+                revision=revision,
+            )
+            self._model = AutoModelForCausalLM.from_pretrained(  # nosec B615
+                self.config.model_name,
+                revision=revision,
                 torch_dtype=torch.float16,
                 device_map="auto",
             )
-            logger.info(f"Loaded HuggingFace model: {self.config.model_name}")
+            logger.info(f"Loaded HuggingFace model: {self.config.model_name} (revision: {revision})")
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
             self._is_available = False
