@@ -275,7 +275,7 @@ class BaseDetector(ABC):
         return self._metrics
 
     @abstractmethod
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> "BaseDetector":
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> BaseDetector:
         """Fit the detector to normal/training data.
 
         Args:
@@ -426,7 +426,6 @@ class BaseModel(ABC):
         Returns:
             Uncertainty tensor of shape [batch_size].
         """
-        import numpy as np
 
         if isinstance(data, torch.Tensor):
             return torch.zeros(data.shape[0])

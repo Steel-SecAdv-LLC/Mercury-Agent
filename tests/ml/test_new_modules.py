@@ -28,7 +28,6 @@ Tests for new modules added in Claude's branch:
 """
 
 import numpy as np
-import pytest
 
 
 class TestDriftDetection:

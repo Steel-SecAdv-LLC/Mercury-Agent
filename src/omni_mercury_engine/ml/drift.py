@@ -117,7 +117,7 @@ class KolmogorovSmirnovDriftDetector:
         self.correction = correction
         self.reference_data: np.ndarray | None = None
 
-    def fit(self, reference_data: np.ndarray) -> "KolmogorovSmirnovDriftDetector":
+    def fit(self, reference_data: np.ndarray) -> KolmogorovSmirnovDriftDetector:
         """
         Fit the detector with reference (baseline) data.
 
@@ -264,7 +264,7 @@ class PopulationStabilityIndexDetector:
         self.reference_data: np.ndarray | None = None
         self.bin_edges: list[np.ndarray] = []
 
-    def fit(self, reference_data: np.ndarray) -> "PopulationStabilityIndexDetector":
+    def fit(self, reference_data: np.ndarray) -> PopulationStabilityIndexDetector:
         """
         Fit the detector with reference data.
 
@@ -422,7 +422,7 @@ class ChiSquaredDriftDetector:
         self.reference_data: np.ndarray | None = None
         self.reference_counts: list[dict[Any, int]] = []
 
-    def fit(self, reference_data: np.ndarray) -> "ChiSquaredDriftDetector":
+    def fit(self, reference_data: np.ndarray) -> ChiSquaredDriftDetector:
         """
         Fit the detector with reference data.
 
@@ -668,7 +668,7 @@ class EnsembleDriftDetector:
         self.psi_detector = PopulationStabilityIndexDetector(psi_threshold_low=psi_threshold)
         self.is_fitted = False
 
-    def fit(self, reference_data: np.ndarray) -> "EnsembleDriftDetector":
+    def fit(self, reference_data: np.ndarray) -> EnsembleDriftDetector:
         """
         Fit all detectors with reference data.
 

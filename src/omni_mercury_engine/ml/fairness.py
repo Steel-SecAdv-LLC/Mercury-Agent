@@ -475,7 +475,7 @@ class BiasmitigationProcessor:
         predictions: np.ndarray,
         labels: np.ndarray,
         sensitive_features: np.ndarray,
-    ) -> "BiasmitigationProcessor":
+    ) -> BiasmitigationProcessor:
         """
         Fit the mitigation processor.
 

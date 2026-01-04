@@ -114,7 +114,7 @@ class EthicalConfig(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_weights(self) -> "EthicalConfig":
+    def validate_weights(self) -> EthicalConfig:
         """Ensure fairness and safety weights sum to 1.0."""
         total = self.fairness_weight + self.safety_weight
         if abs(total - 1.0) > 1e-6:
@@ -352,7 +352,7 @@ class MercuryEngineConfig(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def adjust_for_domain(self) -> "MercuryEngineConfig":
+    def adjust_for_domain(self) -> MercuryEngineConfig:
         """Adjust ethical thresholds based on domain risk level."""
         high_risk_domains = {DomainType.CYBER, DomainType.MEDICAL, DomainType.SECURITY}
         critical_domains = {DomainType.INFRASTRUCTURE, DomainType.HUMANITARIAN}
@@ -360,12 +360,10 @@ class MercuryEngineConfig(BaseModel):
         if self.domain in high_risk_domains:
             # Higher risk domains use lower sigma_sacred (0.93 fallback)
             # This allows more sensitivity for critical detection
-            if self.ethical.sigma_sacred_threshold > 0.93:
-                self.ethical.sigma_sacred_threshold = 0.93
+            self.ethical.sigma_sacred_threshold = min(self.ethical.sigma_sacred_threshold, 0.93)
         elif self.domain in critical_domains:
             # Critical domains require stricter benevolence
-            if self.ethical.benevolence_threshold < 0.995:
-                self.ethical.benevolence_threshold = 0.995
+            self.ethical.benevolence_threshold = max(self.ethical.benevolence_threshold, 0.995)
 
         return self
 
@@ -415,12 +413,12 @@ class MercuryEngineConfig(BaseModel):
         return self.model_dump()
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "MercuryEngineConfig":
+    def from_dict(cls, data: dict[str, Any]) -> MercuryEngineConfig:
         """Create from dictionary."""
         return cls.model_validate(data)
 
     @classmethod
-    def for_domain(cls, domain: DomainType | str, **kwargs: Any) -> "MercuryEngineConfig":
+    def for_domain(cls, domain: DomainType | str, **kwargs: Any) -> MercuryEngineConfig:
         """Create domain-optimized configuration.
 
         Args:
