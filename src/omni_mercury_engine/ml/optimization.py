@@ -115,9 +115,7 @@ class MemoryEfficientCache:
         elif isinstance(obj, (list, tuple)):
             return sum(self._estimate_size(x) for x in obj)
         elif isinstance(obj, dict):
-            return sum(
-                self._estimate_size(k) + self._estimate_size(v) for k, v in obj.items()
-            )
+            return sum(self._estimate_size(k) + self._estimate_size(v) for k, v in obj.items())
         else:
             return sys.getsizeof(obj)
 
@@ -136,8 +134,7 @@ class MemoryEfficientCache:
 
         # Evict if necessary
         while (
-            self.current_size + size > self.max_size_bytes
-            or len(self.cache) >= self.max_entries
+            self.current_size + size > self.max_size_bytes or len(self.cache) >= self.max_entries
         ) and self.cache:
             oldest_key, (_, oldest_size) = self.cache.popitem(last=False)
             self.current_size -= oldest_size
@@ -253,12 +250,8 @@ class MemoryManager:
             import torch
 
             if torch.cuda.is_available():
-                usage["cuda_allocated_mb"] = (
-                    torch.cuda.memory_allocated() / (1024 * 1024)
-                )
-                usage["cuda_reserved_mb"] = (
-                    torch.cuda.memory_reserved() / (1024 * 1024)
-                )
+                usage["cuda_allocated_mb"] = torch.cuda.memory_allocated() / (1024 * 1024)
+                usage["cuda_reserved_mb"] = torch.cuda.memory_reserved() / (1024 * 1024)
 
         return usage
 
@@ -464,9 +457,7 @@ class DDPScaler:
                     rank=self.local_rank,
                 )
                 self.is_initialized = True
-                logger.info(
-                    f"DDP initialized: rank {self.local_rank}/{self.world_size}"
-                )
+                logger.info(f"DDP initialized: rank {self.local_rank}/{self.world_size}")
             return True
 
         except Exception as e:

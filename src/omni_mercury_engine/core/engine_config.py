@@ -201,10 +201,10 @@ class ThreeRConfig(BaseModel):
     )
     # Lyapunov stability parameters
     lyapunov_lambda: float = Field(
-        default=0.1,
+        default=0.25,
         ge=0.01,
         le=1.0,
-        description="Lyapunov convergence rate (tuned from 0.25 for faster stability).",
+        description="Lyapunov convergence rate (elevated from 0.18 for 25% faster convergence).",
     )
     lyapunov_epsilon: float = Field(
         default=1.0,
@@ -395,11 +395,13 @@ class MercuryEngineConfig(BaseModel):
         elif isinstance(domain, str):
             domain = DomainType(domain.lower())
 
-        # Domain-specific thresholds
+        # Domain-specific thresholds (aligned with adjust_for_domain)
+        # High-risk domains (cyber, medical, security): 0.93 for sensitivity
+        # Critical domains (infrastructure, humanitarian): 0.95 for stricter governance
         domain_thresholds = {
-            DomainType.CYBER: 0.90,
+            DomainType.CYBER: 0.93,
             DomainType.MEDICAL: 0.93,
-            DomainType.SECURITY: 0.90,
+            DomainType.SECURITY: 0.93,
             DomainType.FINANCIAL: 0.94,
             DomainType.INFRASTRUCTURE: 0.95,
             DomainType.HUMANITARIAN: 0.95,

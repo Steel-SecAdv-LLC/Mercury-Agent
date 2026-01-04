@@ -102,6 +102,7 @@ jobs:
 
       - name: Run tests
         run: |
+          set -o pipefail
           pytest tests/ -v --tb=short -x -q --timeout=60 2>&1 | head -100
 
   # ============================================================================

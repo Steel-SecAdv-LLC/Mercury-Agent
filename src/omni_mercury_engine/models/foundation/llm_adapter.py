@@ -266,13 +266,16 @@ class MockLLMAdapter(BaseLLMAdapter):
             or len(prompt) > 1000
         )
 
-        return json.dumps({
-            "is_anomaly": is_anomaly,
-            "anomaly_score": 0.85 if is_anomaly else 0.15,
-            "confidence": 0.75,
-            "category": "mock_anomaly" if is_anomaly else "normal",
-            "explanation": "Mock analysis: " + ("Detected anomaly indicators" if is_anomaly else "Data appears normal"),
-        })
+        return json.dumps(
+            {
+                "is_anomaly": is_anomaly,
+                "anomaly_score": 0.85 if is_anomaly else 0.15,
+                "confidence": 0.75,
+                "category": "mock_anomaly" if is_anomaly else "normal",
+                "explanation": "Mock analysis: "
+                + ("Detected anomaly indicators" if is_anomaly else "Data appears normal"),
+            }
+        )
 
     def is_available(self) -> bool:
         """Mock adapter is always available."""
@@ -327,13 +330,15 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
         """Generate text using HuggingFace model."""
         if not self._is_available:
-            return json.dumps({
-                "is_anomaly": False,
-                "anomaly_score": 0.0,
-                "confidence": 0.0,
-                "category": "unavailable",
-                "explanation": "HuggingFace model not available",
-            })
+            return json.dumps(
+                {
+                    "is_anomaly": False,
+                    "anomaly_score": 0.0,
+                    "confidence": 0.0,
+                    "category": "unavailable",
+                    "explanation": "HuggingFace model not available",
+                }
+            )
 
         self._load_model()
 

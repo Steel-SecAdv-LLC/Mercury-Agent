@@ -165,7 +165,11 @@ class KolmogorovSmirnovDriftDetector:
         feature_drifts = {}
 
         for i in range(n_features):
-            ref_col = self.reference_data[:, i] if self.reference_data.shape[1] > i else self.reference_data[:, 0]
+            ref_col = (
+                self.reference_data[:, i]
+                if self.reference_data.shape[1] > i
+                else self.reference_data[:, 0]
+            )
             cur_col = current_data[:, i]
 
             statistic, p_value = stats.ks_2samp(ref_col, cur_col)
@@ -205,9 +209,11 @@ class KolmogorovSmirnovDriftDetector:
                 "total_features": n_features,
                 "correction_method": self.correction,
             },
-            message=f"Drift detected in {n_drifting}/{n_features} features"
-            if is_drift
-            else f"No significant drift detected (p={min_p_value:.4f})",
+            message=(
+                f"Drift detected in {n_drifting}/{n_features} features"
+                if is_drift
+                else f"No significant drift detected (p={min_p_value:.4f})"
+            ),
         )
 
     def _compute_severity(self, p_value: float, threshold: float) -> DriftSeverity:
@@ -333,7 +339,11 @@ class PopulationStabilityIndexDetector:
         feature_drifts = {}
 
         for i in range(n_features):
-            ref_col = self.reference_data[:, i] if self.reference_data.shape[1] > i else self.reference_data[:, 0]
+            ref_col = (
+                self.reference_data[:, i]
+                if self.reference_data.shape[1] > i
+                else self.reference_data[:, 0]
+            )
             cur_col = current_data[:, i]
             edges = self.bin_edges[i] if i < len(self.bin_edges) else self.bin_edges[0]
 
@@ -350,7 +360,9 @@ class PopulationStabilityIndexDetector:
 
         # Count drifting features
         n_high_drift = sum(1 for p in psi_values if p >= self.psi_threshold_high)
-        n_low_drift = sum(1 for p in psi_values if self.psi_threshold_low <= p < self.psi_threshold_high)
+        n_low_drift = sum(
+            1 for p in psi_values if self.psi_threshold_low <= p < self.psi_threshold_high
+        )
 
         return DriftResult(
             is_drift=is_drift,
@@ -367,9 +379,11 @@ class PopulationStabilityIndexDetector:
                 "n_low_drift_features": n_low_drift,
                 "total_features": n_features,
             },
-            message=f"PSI drift detected: {n_high_drift} high, {n_low_drift} moderate"
-            if is_drift
-            else f"No significant PSI drift detected (max_psi={max_psi:.4f})",
+            message=(
+                f"PSI drift detected: {n_high_drift} high, {n_low_drift} moderate"
+                if is_drift
+                else f"No significant PSI drift detected (max_psi={max_psi:.4f})"
+            ),
         )
 
     def _compute_severity(self, psi: float) -> DriftSeverity:
@@ -428,7 +442,9 @@ class ChiSquaredDriftDetector:
             unique, counts = np.unique(self.reference_data[:, i], return_counts=True)
             self.reference_counts.append(dict(zip(unique, counts)))
 
-        logger.info(f"Chi-squared drift detector fitted with {len(self.reference_data)} reference samples")
+        logger.info(
+            f"Chi-squared drift detector fitted with {len(self.reference_data)} reference samples"
+        )
         return self
 
     def detect(
@@ -463,7 +479,11 @@ class ChiSquaredDriftDetector:
         feature_drifts = {}
 
         for i in range(n_features):
-            ref_counts = self.reference_counts[i] if i < len(self.reference_counts) else self.reference_counts[0]
+            ref_counts = (
+                self.reference_counts[i]
+                if i < len(self.reference_counts)
+                else self.reference_counts[0]
+            )
 
             # Get current counts
             cur_unique, cur_counts = np.unique(current_data[:, i], return_counts=True)
@@ -506,9 +526,11 @@ class ChiSquaredDriftDetector:
                 "n_drifting_features": n_drifting,
                 "total_features": n_features,
             },
-            message=f"Categorical drift detected in {n_drifting}/{n_features} features"
-            if is_drift
-            else f"No significant categorical drift detected (p={min_p_value:.4f})",
+            message=(
+                f"Categorical drift detected in {n_drifting}/{n_features} features"
+                if is_drift
+                else f"No significant categorical drift detected (p={min_p_value:.4f})"
+            ),
         )
 
     def _compute_severity(self, p_value: float, threshold: float) -> DriftSeverity:
@@ -699,7 +721,13 @@ class EnsembleDriftDetector:
 
         # Combine severities (take max)
         severities = [r.severity for r in results]
-        severity_order = [DriftSeverity.NONE, DriftSeverity.LOW, DriftSeverity.MEDIUM, DriftSeverity.HIGH, DriftSeverity.CRITICAL]
+        severity_order = [
+            DriftSeverity.NONE,
+            DriftSeverity.LOW,
+            DriftSeverity.MEDIUM,
+            DriftSeverity.HIGH,
+            DriftSeverity.CRITICAL,
+        ]
         max_severity = max(severities, key=lambda s: severity_order.index(s))
 
         # Combine feature drifts
@@ -726,16 +754,23 @@ class EnsembleDriftDetector:
                 "voting_strategy": self.voting,
                 "votes": drift_votes,
             },
-            message=f"Ensemble drift: {sum(drift_votes)}/{len(drift_votes)} detectors triggered"
-            if is_drift
-            else "No ensemble drift detected",
+            message=(
+                f"Ensemble drift: {sum(drift_votes)}/{len(drift_votes)} detectors triggered"
+                if is_drift
+                else "No ensemble drift detected"
+            ),
         )
 
 
 def create_drift_detector(
     detector_type: str = "ks",
     **kwargs: Any,
-) -> KolmogorovSmirnovDriftDetector | PopulationStabilityIndexDetector | ChiSquaredDriftDetector | EnsembleDriftDetector:
+) -> (
+    KolmogorovSmirnovDriftDetector
+    | PopulationStabilityIndexDetector
+    | ChiSquaredDriftDetector
+    | EnsembleDriftDetector
+):
     """
     Factory function to create drift detectors.
 
@@ -754,6 +789,8 @@ def create_drift_detector(
     }
 
     if detector_type not in detectors:
-        raise ValueError(f"Unknown detector type: {detector_type}. Choose from {list(detectors.keys())}")
+        raise ValueError(
+            f"Unknown detector type: {detector_type}. Choose from {list(detectors.keys())}"
+        )
 
     return detectors[detector_type](**kwargs)

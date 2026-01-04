@@ -386,7 +386,10 @@ class FairnessAuditor:
             group_scores["tpr"] = eo_results["group_tpr"]
             group_scores["fpr"] = eo_results["group_fpr"]
 
-            if max(eo_results["tpr_difference"], eo_results["fpr_difference"]) > self.config.max_disparity:
+            if (
+                max(eo_results["tpr_difference"], eo_results["fpr_difference"])
+                > self.config.max_disparity
+            ):
                 violations.append(
                     f"Equalized odds violation: TPR diff {eo_results['tpr_difference']:.3f}, "
                     f"FPR diff {eo_results['fpr_difference']:.3f}"
@@ -407,9 +410,7 @@ class FairnessAuditor:
                 violations.append(
                     f"Disparate impact violation: min ratio {di_results['min_ratio']:.3f} < 0.8"
                 )
-                recommendations.append(
-                    "Review selection criteria for potential discrimination"
-                )
+                recommendations.append("Review selection criteria for potential discrimination")
 
         # Compute calibration if labels available
         if labels is not None and FairnessMetric.CALIBRATION in self.config.metrics:
