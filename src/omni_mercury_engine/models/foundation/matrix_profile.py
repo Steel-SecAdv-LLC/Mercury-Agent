@@ -102,8 +102,10 @@ class MatrixProfileDetector(BaseFoundationModel):
         elif isinstance(config, dict):
             config = MatrixProfileConfig(**config)
 
-        super().__init__(config)
+        # Set typed config BEFORE calling super().__init__() to avoid AttributeError
+        # when the base class accesses self.config property
         self.mp_config: MatrixProfileConfig = config
+        super().__init__(config)
 
         self._stumpy_available = False
         self._gpu_available = False
@@ -115,11 +117,14 @@ class MatrixProfileDetector(BaseFoundationModel):
 
     @config.setter
     def config(self, value: dict[str, Any] | MatrixProfileConfig) -> None:
-        """Set config (required for base class compatibility)."""
-        # Base class sets this as dict, we store it but return typed config
+        """Set config (required for base class compatibility).
+
+        The base class sets self.config to a dict during __init__.
+        We intercept this and store it, but always return the typed config.
+        """
         if isinstance(value, MatrixProfileConfig):
             self.mp_config = value
-        # If dict, it's from base class init - ignore since we already have typed config
+        # If dict, it's from base class init - we already have typed config set
 
     def _initialize_model(self) -> None:
         """Check STUMPY availability."""

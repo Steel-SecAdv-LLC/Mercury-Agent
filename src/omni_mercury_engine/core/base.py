@@ -374,8 +374,11 @@ class BaseModel(ABC):
         Args:
             config: Configuration dictionary with model parameters.
         """
-        self.config = config or {}
-        self._name = self.config.get("name", self.__class__.__name__)
+        self._config_dict = config or {}
+        # Use _config_dict for internal access to avoid property override issues
+        # Child classes may override self.config with a property that returns a typed config
+        self.config = self._config_dict
+        self._name = self._config_dict.get("name", self.__class__.__name__)
 
     @property
     def name(self) -> str:

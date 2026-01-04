@@ -8,6 +8,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Runtime Pipeline Integration**: Integrated drift.py, fairness.py, optimization.py, and llm_adapter.py into the main detection pipeline
+  - `enable_drift_detection()`: Monitor for data distribution shifts with ensemble drift detection
+  - `enable_fairness_auditing()`: Bias auditing and fairness assessment for ethical AI compliance
+  - `enable_llm_enhancement()`: Zero-shot LLM-based anomaly explanation enhancement
+  - `OptimizationConfig` and `ParallelExecutor` for performance optimization
+  - Drift detection results included in `detect_with_fusion()` output
+  - LLM enhancement results included for detected anomalies
+
+### Fixed
+- **ML Tests CI Failure**: Fixed initialization order in foundation model adapters
+  - TimeGPTAdapter: Set `timegpt_config` before `super().__init__()` to avoid AttributeError
+  - ChronosAdapter: Set `chronos_config` before `super().__init__()` to avoid AttributeError
+  - MatrixProfileDetector: Set `mp_config` before `super().__init__()` to avoid AttributeError
+  - FoundationEnsemble: Set `ensemble_config` before `super().__init__()` to avoid AttributeError
+  - BaseModel: Use `_config_dict` for internal access to avoid property override issues
+  - Added config setters to all adapter classes for base class compatibility
+- **Code Quality**: All quality checks now pass
+  - Black formatting: 0 issues
+  - isort import sorting: 0 issues
+  - flake8 linting: 0 issues
+  - mypy type checking: 0 issues (down from 1,000+ previously)
+
+### Changed
 - **Deep 3R Integration in Geological Detectors**: Full RecursionEngine, ResonanceEngine, and RefactoringEngine integration
   - TornadoDetector: 3R engines with max_depth=5 for recursion, sampling_rate=1.0 for resonance
   - HurricaneDetector: 3R engines for tropical cyclone pattern analysis

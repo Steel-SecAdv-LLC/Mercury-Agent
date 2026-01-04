@@ -103,8 +103,10 @@ class ChronosAdapter(BaseFoundationModel):
         if config.model_size in self.MODEL_SIZES:
             config.model_name = self.MODEL_SIZES[config.model_size]
 
-        super().__init__(config)
+        # Set typed config BEFORE calling super().__init__() to avoid AttributeError
+        # when the base class accesses self.config property
         self.chronos_config: ChronosConfig = config
+        super().__init__(config)
 
         self._pipeline: Any = None
 
@@ -115,11 +117,14 @@ class ChronosAdapter(BaseFoundationModel):
 
     @config.setter
     def config(self, value: dict[str, Any] | ChronosConfig) -> None:
-        """Set config (required for base class compatibility)."""
-        # Base class sets this as dict, we store it but return typed config
+        """Set config (required for base class compatibility).
+
+        The base class sets self.config to a dict during __init__.
+        We intercept this and store it, but always return the typed config.
+        """
         if isinstance(value, ChronosConfig):
             self.chronos_config = value
-        # If dict, it's from base class init - ignore since we already have typed config
+        # If dict, it's from base class init - we already have typed config set
 
     def _initialize_model(self) -> None:
         """Initialize Chronos pipeline."""
