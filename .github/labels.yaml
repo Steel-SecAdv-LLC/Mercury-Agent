@@ -1,0 +1,206 @@
+# Mercury Agent ♱ GitHub Labels Configuration
+#
+# This file defines issue and PR labels for consistent categorization.
+# Apply using GitHub CLI: gh label create --force --name "name" --color "color" --description "desc"
+# Or use a label sync tool like github-label-sync
+
+# Priority Labels
+- name: "priority: critical"
+  color: "b60205"
+  description: "Requires immediate attention - security or production issues"
+
+- name: "priority: high"
+  color: "d93f0b"
+  description: "High priority - significant impact on users"
+
+- name: "priority: medium"
+  color: "fbca04"
+  description: "Medium priority - should be addressed soon"
+
+- name: "priority: low"
+  color: "0e8a16"
+  description: "Low priority - nice to have improvements"
+
+# Type Labels
+- name: "type: bug"
+  color: "d73a4a"
+  description: "Something isn't working as expected"
+
+- name: "type: feature"
+  color: "a2eeef"
+  description: "New feature or enhancement request"
+
+- name: "type: documentation"
+  color: "0075ca"
+  description: "Documentation improvements or additions"
+
+- name: "type: refactor"
+  color: "d4c5f9"
+  description: "Code refactoring without behavior change"
+
+- name: "type: performance"
+  color: "f9d0c4"
+  description: "Performance optimization"
+
+- name: "type: security"
+  color: "b60205"
+  description: "Security-related issue or enhancement"
+
+- name: "type: testing"
+  color: "bfd4f2"
+  description: "Testing improvements or additions"
+
+- name: "type: ci/cd"
+  color: "c5def5"
+  description: "CI/CD pipeline improvements"
+
+- name: "type: dependencies"
+  color: "0366d6"
+  description: "Dependency updates or issues"
+
+# Component Labels
+- name: "component: core"
+  color: "1d76db"
+  description: "Core engine functionality"
+
+- name: "component: fusion"
+  color: "5319e7"
+  description: "Fusion layer and attention mechanisms"
+
+- name: "component: detectors"
+  color: "006b75"
+  description: "Anomaly detectors"
+
+- name: "component: models"
+  color: "0052cc"
+  description: "ML models and foundation models"
+
+- name: "component: ethical"
+  color: "e99695"
+  description: "Ethical governance and benevolence"
+
+- name: "component: api"
+  color: "7057ff"
+  description: "API and server functionality"
+
+- name: "component: cli"
+  color: "008672"
+  description: "Command-line interface"
+
+- name: "component: medical"
+  color: "ff6b6b"
+  description: "Medical domain functionality"
+
+- name: "component: infrastructure"
+  color: "3182bd"
+  description: "Infrastructure monitoring"
+
+- name: "component: space"
+  color: "9c27b0"
+  description: "Space and cosmic analysis"
+
+# Domain Labels
+- name: "domain: cyber"
+  color: "2196f3"
+  description: "Cybersecurity domain"
+
+- name: "domain: medical"
+  color: "e91e63"
+  description: "Healthcare and medical domain"
+
+- name: "domain: financial"
+  color: "4caf50"
+  description: "Financial and economic domain"
+
+- name: "domain: humanitarian"
+  color: "ff9800"
+  description: "Humanitarian and crisis response"
+
+# Status Labels
+- name: "status: needs triage"
+  color: "ededed"
+  description: "Needs initial review and categorization"
+
+- name: "status: investigating"
+  color: "fbca04"
+  description: "Under investigation"
+
+- name: "status: in progress"
+  color: "0e8a16"
+  description: "Actively being worked on"
+
+- name: "status: blocked"
+  color: "d93f0b"
+  description: "Blocked by external factors"
+
+- name: "status: ready for review"
+  color: "5319e7"
+  description: "Ready for code review"
+
+- name: "status: needs info"
+  color: "d876e3"
+  description: "Needs more information from reporter"
+
+# Effort Labels
+- name: "effort: small"
+  color: "c2e0c6"
+  description: "Small change (< 1 day)"
+
+- name: "effort: medium"
+  color: "fef2c0"
+  description: "Medium change (1-3 days)"
+
+- name: "effort: large"
+  color: "f9d0c4"
+  description: "Large change (> 3 days)"
+
+# Quality Labels
+- name: "good first issue"
+  color: "7057ff"
+  description: "Good for newcomers"
+
+- name: "help wanted"
+  color: "008672"
+  description: "Community contributions welcome"
+
+- name: "hacktoberfest"
+  color: "ff6a00"
+  description: "Hacktoberfest eligible"
+
+# Release Labels
+- name: "release: breaking"
+  color: "b60205"
+  description: "Contains breaking changes"
+
+- name: "release: patch"
+  color: "0e8a16"
+  description: "Patch release candidate"
+
+- name: "release: minor"
+  color: "1d76db"
+  description: "Minor release candidate"
+
+- name: "release: major"
+  color: "5319e7"
+  description: "Major release candidate"
+
+# ML/AI Labels
+- name: "ml: training"
+  color: "ff7043"
+  description: "Training pipeline changes"
+
+- name: "ml: inference"
+  color: "ab47bc"
+  description: "Inference optimization"
+
+- name: "ml: sota"
+  color: "26a69a"
+  description: "State-of-the-art model integration"
+
+- name: "ml: drift"
+  color: "7e57c2"
+  description: "Data/model drift detection"
+
+- name: "ml: fairness"
+  color: "ec407a"
+  description: "Fairness and bias mitigation"

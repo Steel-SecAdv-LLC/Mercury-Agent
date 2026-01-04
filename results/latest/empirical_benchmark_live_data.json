@@ -1,0 +1,71 @@
+{
+  "timestamp": "2026-01-04T07:32:57.399066",
+  "live_data_sources": {
+    "SMD": {
+      "samples": 246575,
+      "features": 38,
+      "machines": 5,
+      "source": "real-github"
+    },
+    "BATADAL": {
+      "samples": 10850,
+      "features": 43,
+      "source": "real-github"
+    },
+    "NSL-KDD": {
+      "samples": 125973,
+      "source": "real-github"
+    },
+    "Covtype": {
+      "samples": 581012,
+      "source": "real-uci-mirror"
+    },
+    "SMAP": {
+      "source": "synthetic-fallback",
+      "note": "Kaggle auth required"
+    },
+    "MSL": {
+      "source": "synthetic-fallback",
+      "note": "Kaggle auth required"
+    }
+  },
+  "omni_mercury_kfold_results": {
+    "dataset_1_folds": [
+      0.916,
+      0.908,
+      0.967,
+      0.918,
+      0.917
+    ],
+    "dataset_2_folds": [
+      0.882,
+      0.892,
+      0.803,
+      0.824,
+      0.853
+    ]
+  },
+  "fusion_weights": {
+    "statistical_dominant": [
+      2.179,
+      2.214,
+      2.422,
+      2.329,
+      2.182
+    ],
+    "directive_dominant": [
+      2.082,
+      2.159,
+      2.172,
+      2.147,
+      2.35
+    ]
+  },
+  "mean_auc_by_domain": {
+    "Space Weather (NOAA)": 0.925,
+    "Server Metrics (SMD)": 0.851,
+    "Water Treatment (BATADAL)": 0.882,
+    "Network Intrusion (NSL-KDD)": 0.892,
+    "Forest Cover (Covtype)": 0.867
+  }
+}

@@ -109,8 +109,10 @@ class FoundationEnsemble(BaseFoundationModel):
         elif isinstance(config, dict):
             config = EnsembleConfig(**config)
 
-        super().__init__(config)
+        # Set typed config BEFORE calling super().__init__() to avoid AttributeError
+        # when the base class accesses self.config property
         self.ensemble_config: EnsembleConfig = config
+        super().__init__(config)
 
         # Initialize weights
         n_models = len(config.models)
@@ -129,11 +131,14 @@ class FoundationEnsemble(BaseFoundationModel):
 
     @config.setter
     def config(self, value: dict[str, Any] | EnsembleConfig) -> None:
-        """Set config (required for base class compatibility)."""
-        # Base class sets this as dict, we store it but return typed config
+        """Set config (required for base class compatibility).
+
+        The base class sets self.config to a dict during __init__.
+        We intercept this and store it, but always return the typed config.
+        """
         if isinstance(value, EnsembleConfig):
             self.ensemble_config = value
-        # If dict, it's from base class init - ignore since we already have typed config
+        # If dict, it's from base class init - we already have typed config set
 
     def _initialize_model(self) -> None:
         """Initialize all ensemble models."""

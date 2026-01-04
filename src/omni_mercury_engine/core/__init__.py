@@ -38,14 +38,73 @@ from omni_mercury_engine.core.global_omni_scalar_network import (
 
 __all__ = [
     "AvaEquationEngine",
+    "DomainType",
     "DoubleHelixEvolutionEngine",
     "EnhancementResult",
+    "EthicalConfig",
     "EthicalGate",
+    "FusionWeightConfig",
     "GlobalOmniScalarNetwork",
     "HelixConfig",
+    "MercuryEngineConfig",
     "MultiHeadAttentionFusion",
     "ScalarGroup",
     "ScalarRegistration",
+    "ThreeRConfig",
+    "get_default_config",
     "get_global_scalar_network",
     "reset_global_network",
 ]
+
+
+# Lazy imports for engine configuration (requires pydantic)
+def get_default_config():  # type: ignore[no-untyped-def]
+    """Get the global default configuration. Lazy import to avoid pydantic at module load."""
+    from omni_mercury_engine.core.engine_config import get_default_config as _get
+
+    return _get()
+
+
+class MercuryEngineConfig:
+    """Lazy-loaded MercuryEngineConfig wrapper."""
+
+    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from omni_mercury_engine.core.engine_config import MercuryEngineConfig as _Config
+
+        return _Config(*args, **kwargs)
+
+
+class EthicalConfig:
+    """Lazy-loaded EthicalConfig wrapper."""
+
+    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from omni_mercury_engine.core.engine_config import EthicalConfig as _Config
+
+        return _Config(*args, **kwargs)
+
+
+class FusionWeightConfig:
+    """Lazy-loaded FusionWeightConfig wrapper."""
+
+    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from omni_mercury_engine.core.engine_config import FusionWeightConfig as _Config
+
+        return _Config(*args, **kwargs)
+
+
+class ThreeRConfig:
+    """Lazy-loaded ThreeRConfig wrapper."""
+
+    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from omni_mercury_engine.core.engine_config import ThreeRConfig as _Config
+
+        return _Config(*args, **kwargs)
+
+
+class DomainType:
+    """Lazy-loaded DomainType wrapper."""
+
+    def __new__(cls, value):  # type: ignore[no-untyped-def]
+        from omni_mercury_engine.core.engine_config import DomainType as _DomainType
+
+        return _DomainType(value)

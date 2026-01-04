@@ -1,0 +1,314 @@
+# Mercury Agent ♱ Release Workflow
+#
+# Automated release workflow for versioning and publishing.
+# Triggers on version tags (v*) or manual dispatch.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.1)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Is this a pre-release?'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+env:
+  PYTHON_VERSION: '3.12'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ============================================================================
+  # Validate Release
+  # ============================================================================
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            PRERELEASE="${{ github.event.inputs.prerelease }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            # Check if version contains pre-release identifiers
+            if [[ "$VERSION" =~ (alpha|beta|rc|dev) ]]; then
+              PRERELEASE="true"
+            else
+              PRERELEASE="false"
+            fi
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$PRERELEASE" >> $GITHUB_OUTPUT
+          echo "📦 Version: $VERSION (prerelease: $PRERELEASE)"
+
+      - name: Validate version format
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "❌ Invalid version format: $VERSION"
+            echo "Expected format: X.Y.Z or X.Y.Z-suffix"
+            exit 1
+          fi
+          echo "✅ Version format valid: $VERSION"
+
+  # ============================================================================
+  # Run Tests
+  # ============================================================================
+  test:
+    name: Run Tests
+    needs: validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: |
+          set -o pipefail
+          pytest tests/ -v --tb=short -x -q --timeout=60 2>&1 | head -100
+
+  # ============================================================================
+  # Build Package
+  # ============================================================================
+  build:
+    name: Build Package
+    needs: [validate, test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Update version in pyproject.toml
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          sed -i "s/version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+          echo "Updated version to $VERSION"
+
+      - name: Build package
+        run: |
+          python -m build
+          ls -la dist/
+
+      - name: Verify package
+        run: |
+          twine check dist/*
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 30
+
+  # ============================================================================
+  # Build Docker Image
+  # ============================================================================
+  docker:
+    name: Build Docker Image
+    needs: [validate, test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.validate.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.validate.outputs.version }}
+            type=semver,pattern={{major}},value=${{ needs.validate.outputs.version }}
+            type=raw,value=latest,enable=${{ needs.validate.outputs.is_prerelease == 'false' }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ needs.validate.outputs.version }}
+
+  # ============================================================================
+  # Create GitHub Release
+  # ============================================================================
+  release:
+    name: Create Release
+    needs: [validate, build, docker]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+
+          # Get previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          if [ -n "$PREV_TAG" ]; then
+            echo "## Changes since $PREV_TAG" > CHANGELOG_EXCERPT.md
+            echo "" >> CHANGELOG_EXCERPT.md
+
+            # Get commit messages
+            git log --pretty=format:"- %s (%h)" ${PREV_TAG}..HEAD >> CHANGELOG_EXCERPT.md
+          else
+            echo "## Initial Release" > CHANGELOG_EXCERPT.md
+            echo "" >> CHANGELOG_EXCERPT.md
+            echo "First release of Mercury Agent ♱" >> CHANGELOG_EXCERPT.md
+          fi
+
+          echo "" >> CHANGELOG_EXCERPT.md
+          echo "---" >> CHANGELOG_EXCERPT.md
+          echo "" >> CHANGELOG_EXCERPT.md
+          echo "### Installation" >> CHANGELOG_EXCERPT.md
+          echo "" >> CHANGELOG_EXCERPT.md
+          echo "\`\`\`bash" >> CHANGELOG_EXCERPT.md
+          echo "pip install mercury-agent==$VERSION" >> CHANGELOG_EXCERPT.md
+          echo "\`\`\`" >> CHANGELOG_EXCERPT.md
+          echo "" >> CHANGELOG_EXCERPT.md
+          echo "### Docker" >> CHANGELOG_EXCERPT.md
+          echo "" >> CHANGELOG_EXCERPT.md
+          echo "\`\`\`bash" >> CHANGELOG_EXCERPT.md
+          echo "docker pull ghcr.io/${{ github.repository }}:$VERSION" >> CHANGELOG_EXCERPT.md
+          echo "\`\`\`" >> CHANGELOG_EXCERPT.md
+
+          cat CHANGELOG_EXCERPT.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.validate.outputs.version }}
+          name: Mercury Agent ♱ v${{ needs.validate.outputs.version }}
+          body_path: CHANGELOG_EXCERPT.md
+          draft: false
+          prerelease: ${{ needs.validate.outputs.is_prerelease == 'true' }}
+          files: |
+            dist/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================================================
+  # Publish to PyPI (Optional - requires PYPI_TOKEN secret)
+  # ============================================================================
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [validate, build, release]
+    runs-on: ubuntu-latest
+    if: needs.validate.outputs.is_prerelease == 'false'
+    environment:
+      name: pypi
+      url: https://pypi.org/p/mercury-agent
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+        continue-on-error: true  # Don't fail if PyPI is not configured
+
+  # ============================================================================
+  # Post-Release Notifications
+  # ============================================================================
+  notify:
+    name: Post-Release
+    needs: [validate, release]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Release Summary
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          PRERELEASE="${{ needs.validate.outputs.is_prerelease }}"
+
+          echo "🎉 Mercury Agent ♱ v$VERSION Released!"
+          echo ""
+          echo "Release Type: $([ "$PRERELEASE" == "true" ] && echo "Pre-release" || echo "Stable")"
+          echo "GitHub Release: https://github.com/${{ github.repository }}/releases/tag/v$VERSION"
+          echo "Docker Image: ghcr.io/${{ github.repository }}:$VERSION"
+          echo ""
+          echo "✅ All release tasks completed successfully!"

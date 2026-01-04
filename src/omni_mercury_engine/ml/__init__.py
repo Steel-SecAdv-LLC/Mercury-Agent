@@ -47,13 +47,16 @@ __all__ = [
     "ConvergenceMonitor",
     "CrossModalAttention",
     "DifferenceTargetPropagation",
+    "FairnessAuditor",
     "FusionInference",
     "FusionTrainer",
+    "MemoryEfficientCache",
     "MultiEnvPPOTrainer",
     "MultiHeadDetectorAttention",
     "OmniFusionModel",
     "PPOConfig",
     "PPOTrainer",
+    "ParallelExecutor",
     "QuantumEncoder",
     "SpatialAttention",
     "StatisticalEncoder",
@@ -62,6 +65,9 @@ __all__ = [
     "TemporalAttention",
     "TemporalEncoder",
     "TrainingStats",
+    "apply_all_optimizations",
+    "compute_fairness_score",
+    "create_drift_detector",
 ]
 
 # Lazy imports - only load when torch is available OR during type checking
@@ -105,3 +111,54 @@ def _require_torch() -> None:
         raise ImportError(
             "PyTorch is required for ML components. " "Install with: pip install torch torchvision"
         )
+
+
+# Lazy imports for drift detection (requires scipy)
+def create_drift_detector(*args, **kwargs):  # type: ignore[no-untyped-def]
+    """Create a drift detector. Lazy import to avoid scipy dependency at module load."""
+    from omni_mercury_engine.ml.drift import create_drift_detector as _create
+
+    return _create(*args, **kwargs)
+
+
+# Lazy imports for fairness auditing (requires numpy only)
+def compute_fairness_score(*args, **kwargs):  # type: ignore[no-untyped-def]
+    """Compute fairness score. Lazy import to avoid loading full module."""
+    from omni_mercury_engine.ml.fairness import compute_fairness_score as _compute
+
+    return _compute(*args, **kwargs)
+
+
+class FairnessAuditor:
+    """Lazy-loaded FairnessAuditor wrapper."""
+
+    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from omni_mercury_engine.ml.fairness import FairnessAuditor as _FairnessAuditor
+
+        return _FairnessAuditor(*args, **kwargs)
+
+
+# Lazy imports for optimization utilities
+def apply_all_optimizations(*args, **kwargs):  # type: ignore[no-untyped-def]
+    """Apply all optimizations. Lazy import to avoid psutil/joblib dependency."""
+    from omni_mercury_engine.ml.optimization import apply_all_optimizations as _apply
+
+    return _apply(*args, **kwargs)
+
+
+class MemoryEfficientCache:
+    """Lazy-loaded MemoryEfficientCache wrapper."""
+
+    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from omni_mercury_engine.ml.optimization import MemoryEfficientCache as _Cache
+
+        return _Cache(*args, **kwargs)
+
+
+class ParallelExecutor:
+    """Lazy-loaded ParallelExecutor wrapper."""
+
+    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from omni_mercury_engine.ml.optimization import ParallelExecutor as _Executor
+
+        return _Executor(*args, **kwargs)

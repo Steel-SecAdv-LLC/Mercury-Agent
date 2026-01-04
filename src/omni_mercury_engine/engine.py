@@ -112,13 +112,33 @@ from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
 from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
 from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 from omni_mercury_engine.medical.abms_disciplines import ABMSDisciplineDetector
+
+# Runtime pipeline integration modules
+from omni_mercury_engine.ml.drift import (
+    DriftResult,
+    EnsembleDriftDetector,
+)
+from omni_mercury_engine.ml.fairness import (
+    BiasAuditConfig,
+    FairnessAuditor,
+    FairnessReport,
+)
 from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 from omni_mercury_engine.ml.inference import FusionInference
+from omni_mercury_engine.ml.optimization import (
+    OptimizationConfig,
+    ParallelExecutor,
+)
 from omni_mercury_engine.models.affective import AffectiveAnomalyModel
 from omni_mercury_engine.models.astrophysical import AstrophysicalAnomalyModel
 from omni_mercury_engine.models.biometric import BiometricAnomalyModel
 from omni_mercury_engine.models.chemistry import ChemistryAnomalyDetector
 from omni_mercury_engine.models.consciousness import ConsciousnessPreservationModel
+from omni_mercury_engine.models.foundation.llm_adapter import (
+    LLMConfig,
+    LLMProvider,
+    ZeroShotAnomalyDetector,
+)
 from omni_mercury_engine.models.neural import NeuralCognitiveModel
 from omni_mercury_engine.models.parapsychology import ParapsychologyDetector
 from omni_mercury_engine.models.quantum import QuantumAnomalyModel
@@ -448,6 +468,7 @@ class OmniMercuryEngine:
         self._init_models()
         self._init_fusion()
         self._init_resilience()
+        self._init_runtime_pipeline()
 
         logger.info(f"OmniMercuryEngine initialized (mode={mode}, device={self.device})")
 
@@ -513,6 +534,256 @@ class OmniMercuryEngine:
     def _init_resilience(self) -> None:
         """Initialize resilience and self-healing components."""
         self.self_healing = SelfHealingEngine()
+
+    def _init_runtime_pipeline(self) -> None:
+        """Initialize runtime pipeline integration modules.
+
+        Sets up drift detection, fairness auditing, optimization, and LLM
+        enhancement components for the detection pipeline. These modules
+        provide optional stages that can be enabled via configuration.
+
+        Components initialized:
+            - drift_detector: Ensemble drift detector for distribution monitoring
+            - fairness_auditor: Bias auditing and fairness assessment
+            - optimization_config: Performance optimization settings
+            - parallel_executor: Parallel execution manager
+            - llm_detector: Zero-shot LLM-based anomaly detection (optional)
+        """
+        self.drift_detector: EnsembleDriftDetector | None = None
+        self.fairness_auditor: FairnessAuditor | None = None
+        self.llm_detector: ZeroShotAnomalyDetector | None = None
+        self._baseline_features: np.ndarray[Any, Any] | None = None
+
+        self.optimization_config = OptimizationConfig(
+            enable_joblib=True,
+            n_jobs=self.MAX_WORKERS,
+            enable_torch_compile=False,
+            enable_memory_tracking=True,
+            memory_threshold_mb=self.memory_monitor.threshold_mb,
+        )
+
+        self.parallel_executor = ParallelExecutor(
+            n_jobs=self.optimization_config.n_jobs,
+        )
+
+        logger.debug("Runtime pipeline modules initialized")
+
+    def enable_drift_detection(
+        self,
+        baseline_data: np.ndarray[Any, Any] | None = None,
+        feature_names: list[str] | None = None,
+    ) -> None:
+        """Enable drift detection for the detection pipeline.
+
+        Drift detection monitors for distribution shifts between the baseline
+        data and incoming detection requests. This is critical for detecting
+        when model performance may degrade due to data drift.
+
+        Args:
+            baseline_data: Reference data for drift comparison. If None,
+                the first detection batch will be used as baseline.
+            feature_names: Optional names for features for detailed reporting.
+
+        Example:
+            >>> engine = OmniMercuryEngine()
+            >>> engine.enable_drift_detection(training_data)
+            >>> result = engine.detect_with_fusion(new_data)
+            >>> if result.get("drift_detected"):
+            ...     print("Data drift detected!")
+        """
+        self.drift_detector = EnsembleDriftDetector(
+            feature_names=feature_names,
+            significance_level=0.05,
+        )
+        if baseline_data is not None:
+            self._baseline_features = baseline_data
+            self.drift_detector.fit(baseline_data)
+        logger.info("Drift detection enabled")
+
+    def enable_fairness_auditing(
+        self,
+        sensitive_features: list[str] | None = None,
+        fairness_threshold: float = 0.8,
+    ) -> None:
+        """Enable fairness auditing for detection results.
+
+        Fairness auditing monitors for bias in detection outcomes across
+        sensitive demographic groups. This supports ethical AI principles
+        and regulatory compliance.
+
+        Args:
+            sensitive_features: List of feature names that are sensitive
+                attributes (e.g., age, gender, race).
+            fairness_threshold: Minimum fairness score threshold (0-1).
+                Default 0.8 for 80% fairness requirement.
+
+        Example:
+            >>> engine = OmniMercuryEngine()
+            >>> engine.enable_fairness_auditing(
+            ...     sensitive_features=["age_group", "region"],
+            ...     fairness_threshold=0.85
+            ... )
+        """
+        audit_config = BiasAuditConfig(
+            sensitive_features=sensitive_features or [],
+            fairness_threshold=fairness_threshold,
+            enable_mitigation=True,
+        )
+        self.fairness_auditor = FairnessAuditor(config=audit_config)
+        logger.info(f"Fairness auditing enabled with threshold={fairness_threshold}")
+
+    def enable_llm_enhancement(
+        self,
+        provider: str = "mock",
+        model_name: str | None = None,
+        api_key: str | None = None,
+        timeout_seconds: float = 30.0,
+    ) -> None:
+        """Enable LLM-based anomaly explanation enhancement.
+
+        LLM enhancement provides natural language explanations for detected
+        anomalies using zero-shot classification. This is a non-blocking
+        optional stage that enhances detection results with interpretability.
+
+        Args:
+            provider: LLM provider name ('mock', 'huggingface', 'openai').
+                Default 'mock' for testing without API calls.
+            model_name: Model identifier for the provider.
+            api_key: API key for the provider (if required).
+            timeout_seconds: Maximum time to wait for LLM response.
+
+        Example:
+            >>> engine = OmniMercuryEngine()
+            >>> engine.enable_llm_enhancement(
+            ...     provider="huggingface",
+            ...     model_name="facebook/bart-large-mnli"
+            ... )
+        """
+        try:
+            llm_provider = LLMProvider(provider.lower())
+        except ValueError:
+            llm_provider = LLMProvider.MOCK
+            logger.warning(f"Unknown LLM provider '{provider}', using mock")
+
+        llm_config = LLMConfig(
+            provider=llm_provider,
+            model_name=model_name or "mock-model",
+            api_key=api_key,
+            timeout=timeout_seconds,
+            max_retries=2,
+        )
+        self.llm_detector = ZeroShotAnomalyDetector(config=llm_config)
+        logger.info(f"LLM enhancement enabled with provider={provider}")
+
+    def _check_drift(
+        self,
+        features: np.ndarray[Any, Any],
+    ) -> DriftResult | None:
+        """Check for data drift against baseline.
+
+        Args:
+            features: Current feature data to check for drift.
+
+        Returns:
+            DriftResult if drift detection is enabled, None otherwise.
+        """
+        if self.drift_detector is None:
+            return None
+
+        if self._baseline_features is None:
+            self._baseline_features = features
+            self.drift_detector.fit(features)
+            return None
+
+        try:
+            drift_result = self.drift_detector.detect(features)
+            if drift_result.is_drift:
+                logger.warning(
+                    f"Data drift detected: severity={drift_result.severity.name}, "
+                    f"p_value={drift_result.p_value:.4f}"
+                )
+            return drift_result
+        except Exception as e:
+            logger.error(f"Drift detection error: {e}")
+            return None
+
+    def _audit_fairness(
+        self,
+        predictions: np.ndarray[Any, Any],
+        sensitive_data: dict[str, np.ndarray[Any, Any]] | None = None,
+    ) -> FairnessReport | None:
+        """Audit detection results for fairness.
+
+        Args:
+            predictions: Model predictions to audit.
+            sensitive_data: Dictionary mapping sensitive feature names
+                to their values for the predictions.
+
+        Returns:
+            FairnessReport if fairness auditing is enabled, None otherwise.
+        """
+        if self.fairness_auditor is None or sensitive_data is None:
+            return None
+
+        try:
+            fairness_report = self.fairness_auditor.audit(
+                predictions=predictions,
+                sensitive_features=sensitive_data,
+            )
+            if not fairness_report.is_fair:
+                logger.warning(
+                    f"Fairness violation detected: score={fairness_report.overall_fairness_score:.3f}, "
+                    f"violations={len(fairness_report.violations)}"
+                )
+            return fairness_report
+        except Exception as e:
+            logger.error(f"Fairness audit error: {e}")
+            return None
+
+    def _enhance_with_llm(
+        self,
+        data: np.ndarray[Any, Any] | dict[str, Any],
+        detection_result: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Enhance detection results with LLM explanations.
+
+        Args:
+            data: Original input data.
+            detection_result: Detection result to enhance.
+
+        Returns:
+            LLM enhancement result if enabled, None otherwise.
+        """
+        if self.llm_detector is None:
+            return None
+
+        if not detection_result.get("is_anomaly", False):
+            return None
+
+        try:
+            if isinstance(data, dict):
+                data_str = str(data)[:1000]
+            else:
+                data_str = f"Numerical data shape: {data.shape}"
+
+            llm_result = self.llm_detector.detect(
+                text=f"Anomaly detected in: {data_str}",
+                candidate_labels=[
+                    "security_threat",
+                    "system_failure",
+                    "data_corruption",
+                    "unusual_pattern",
+                    "normal_variation",
+                ],
+            )
+            return {
+                "llm_explanation": llm_result.explanation,
+                "llm_category": llm_result.category,
+                "llm_confidence": llm_result.confidence,
+            }
+        except Exception as e:
+            logger.error(f"LLM enhancement error: {e}")
+            return None
 
     def _get_executor(self) -> ThreadPoolExecutor:
         """Get or create thread pool executor.
@@ -1014,6 +1285,28 @@ class OmniMercuryEngine:
         # Add GOSNN metadata if integration was enabled
         if gosnn_metadata:
             result["gosnn_metadata"] = gosnn_metadata
+
+        # Runtime Pipeline Integration: Drift Detection
+        if self.drift_detector is not None:
+            if isinstance(data, np.ndarray):
+                drift_result = self._check_drift(data)
+            elif isinstance(data, torch.Tensor):
+                drift_result = self._check_drift(data.cpu().numpy())
+            else:
+                drift_result = None
+
+            if drift_result is not None:
+                result["drift_detection"] = {
+                    "is_drift": drift_result.is_drift,
+                    "severity": drift_result.severity.name if drift_result.severity else None,
+                    "p_value": drift_result.p_value,
+                    "message": drift_result.message,
+                }
+
+        # Runtime Pipeline Integration: LLM Enhancement (non-blocking)
+        llm_enhancement = self._enhance_with_llm(data, result)
+        if llm_enhancement is not None:
+            result["llm_enhancement"] = llm_enhancement
 
         return result
 
