@@ -555,15 +555,15 @@ class OmniMercuryEngine:
         self._baseline_features: np.ndarray[Any, Any] | None = None
 
         self.optimization_config = OptimizationConfig(
-            enable_parallelization=True,
-            max_workers=self.MAX_WORKERS,
+            enable_joblib=True,
+            n_jobs=self.MAX_WORKERS,
             enable_torch_compile=False,
-            enable_memory_optimization=True,
-            memory_limit_gb=self.memory_monitor.threshold_mb / 1024,
+            enable_memory_tracking=True,
+            memory_threshold_mb=self.memory_monitor.threshold_mb,
         )
 
         self.parallel_executor = ParallelExecutor(
-            max_workers=self.optimization_config.max_workers,
+            n_jobs=self.optimization_config.n_jobs,
         )
 
         logger.debug("Runtime pipeline modules initialized")
