@@ -358,7 +358,9 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
                 torch_dtype=torch.float16,
                 device_map="auto",
             )
-            logger.info(f"Loaded HuggingFace model: {self.config.model_name} (revision: {revision})")
+            logger.info(
+                f"Loaded HuggingFace model: {self.config.model_name} (revision: {revision})"
+            )
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
             self._is_available = False
