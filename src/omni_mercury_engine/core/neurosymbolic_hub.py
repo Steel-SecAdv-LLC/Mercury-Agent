@@ -25,10 +25,9 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Protocol
+from typing import Any
 
 import numpy as np
-from scipy import stats
 from scipy.optimize import minimize
 
 logger = logging.getLogger(__name__)
@@ -410,7 +409,6 @@ class NeuralEncoder:
             # NumPy fallback - use statistical features
             mean = np.mean(X, axis=1)
             std = np.std(X, axis=1) + 1e-10
-            max_val = np.max(np.abs(X), axis=1)
 
             # Simple anomaly score based on deviation
             z_score = np.abs(mean) / std
@@ -418,7 +416,7 @@ class NeuralEncoder:
 
             return score
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> "NeuralEncoder":
+    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> NeuralEncoder:
         """Fit encoder (placeholder for training)."""
         self._fitted = True
 
@@ -432,8 +430,8 @@ class NeuralEncoder:
             try:
                 # Regularized least squares
                 lambda_reg = 0.01
-                I = np.eye(X_aug.shape[1])
-                self.weights = np.linalg.solve(X_aug.T @ X_aug + lambda_reg * I, X_aug.T @ y)
+                identity_mat = np.eye(X_aug.shape[1])
+                self.weights = np.linalg.solve(X_aug.T @ X_aug + lambda_reg * identity_mat, X_aug.T @ y)
             except np.linalg.LinAlgError:
                 self.weights = np.zeros(X_aug.shape[1])
 
@@ -602,7 +600,7 @@ class NeuroSymbolicHub:
         X: np.ndarray,
         y: np.ndarray | None = None,
         validation_split: float = 0.2,
-    ) -> "NeuroSymbolicHub":
+    ) -> NeuroSymbolicHub:
         """
         Fit the neuro-symbolic hub.
 

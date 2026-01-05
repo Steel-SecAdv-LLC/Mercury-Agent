@@ -27,7 +27,6 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
-from sklearn.ensemble import IsolationForest
 from sklearn.linear_model import LogisticRegression
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -36,24 +35,18 @@ from omni_mercury_engine.core.benevolence_optimization import (
     BENEVOLENCE_THRESHOLD,
     BenevolenceLoss,
     MultiObjectiveLoss,
-    ParetoOptimizer,
 )
 from omni_mercury_engine.core.calibration import (
-    CalibrationEnsemble,
     IsotonicCalibration,
     PlattScaling,
-    TemperatureScaling,
     compute_ece,
     compute_mce,
-    evaluate_calibration,
 )
 from omni_mercury_engine.core.conformal_prediction import (
     AdaptiveConformalInference,
-    ConformalAnomalyDetector,
     SplitConformalPredictor,
 )
 from omni_mercury_engine.core.rigorous_benchmark import (
-    GLOBAL_SEED,
     MetricResult,
     RigorousBenchmarkHarness,
     compute_event_metrics,

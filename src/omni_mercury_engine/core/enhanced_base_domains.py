@@ -20,13 +20,10 @@ from __future__ import annotations
 
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol
+from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
-from scipy import stats
-from scipy.ndimage import histogram
-from scipy.signal import find_peaks
 
 logger = logging.getLogger(__name__)
 
@@ -495,25 +492,25 @@ class SpatialAutocorrelation:
         if denominator == 0 or w_sum == 0:
             return 0.0, 0.0, 0.0
 
-        I = (n / w_sum) * (numerator / denominator)
+        morans_i = (n / w_sum) * (numerator / denominator)
 
         # Expected value under null hypothesis
-        E_I = -1 / (n - 1)
+        expected_i = -1 / (n - 1)
 
         # Variance (under normality assumption)
         s1 = np.sum((weights + weights.T) ** 2) / 2
         s2 = np.sum((weights.sum(axis=0) + weights.sum(axis=1)) ** 2)
         s0 = w_sum
 
-        var_I = (
+        var_i = (
             n * ((n**2 - 3 * n + 3) * s1 - n * s2 + 3 * s0**2)
             - (np.sum(deviations**4) / denominator**2) * ((n**2 - n) * s1 - 2 * n * s2 + 6 * s0**2)
-        ) / ((n - 1) * (n - 2) * (n - 3) * s0**2) - E_I**2
+        ) / ((n - 1) * (n - 2) * (n - 3) * s0**2) - expected_i**2
 
-        var_I = max(var_I, 1e-10)
-        z_score = (I - E_I) / np.sqrt(var_I)
+        var_i = max(var_i, 1e-10)
+        z_score = (morans_i - expected_i) / np.sqrt(var_i)
 
-        return float(I), float(E_I), float(z_score)
+        return float(morans_i), float(expected_i), float(z_score)
 
     def compute_gearys_c(
         self,
@@ -660,7 +657,7 @@ class EnhancedBaseDetector:
         self,
         X: np.ndarray,
         y: np.ndarray | None = None,
-    ) -> "EnhancedBaseDetector":
+    ) -> EnhancedBaseDetector:
         """
         Fit enhanced detector.
 
@@ -797,8 +794,8 @@ class EnhancedBaseDetector:
             if X.ndim == 2:
                 # Use score-based weights
                 weights = np.exp(-np.abs(np.subtract.outer(scores, scores)))
-                I, E_I, z = self.spatial_metrics.compute_morans_i(scores, weights)
-                metrics.spatial_autocorrelation = I
+                morans_i, _expected_i, _z = self.spatial_metrics.compute_morans_i(scores, weights)
+                metrics.spatial_autocorrelation = morans_i
 
         elif self.domain == "dimensional":
             # Spectral divergence from detector if available

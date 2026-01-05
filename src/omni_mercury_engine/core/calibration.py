@@ -26,7 +26,6 @@ from sklearn.calibration import calibration_curve
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import brier_score_loss, log_loss
-from sklearn.model_selection import cross_val_predict
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +148,7 @@ class PlattScaling:
         )
         self._fitted = False
 
-    def fit(self, y_prob: np.ndarray, y_true: np.ndarray) -> "PlattScaling":
+    def fit(self, y_prob: np.ndarray, y_true: np.ndarray) -> PlattScaling:
         """
         Fit Platt scaling calibrator.
 
@@ -220,7 +219,7 @@ class IsotonicCalibration:
         )
         self._fitted = False
 
-    def fit(self, y_prob: np.ndarray, y_true: np.ndarray) -> "IsotonicCalibration":
+    def fit(self, y_prob: np.ndarray, y_true: np.ndarray) -> IsotonicCalibration:
         """
         Fit isotonic regression calibrator.
 
@@ -291,7 +290,7 @@ class TemperatureScaling:
         """Convert logits to probabilities."""
         return 1 / (1 + np.exp(-z))
 
-    def fit(self, y_prob: np.ndarray, y_true: np.ndarray) -> "TemperatureScaling":
+    def fit(self, y_prob: np.ndarray, y_true: np.ndarray) -> TemperatureScaling:
         """
         Fit temperature parameter by minimizing NLL.
 
@@ -366,7 +365,7 @@ class CalibrationEnsemble:
         y_prob: np.ndarray,
         y_true: np.ndarray,
         validation_split: float = 0.3,
-    ) -> "CalibrationEnsemble":
+    ) -> CalibrationEnsemble:
         """
         Fit all calibrators and select best.
 

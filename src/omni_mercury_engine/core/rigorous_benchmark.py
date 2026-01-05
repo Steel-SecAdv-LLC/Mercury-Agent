@@ -28,7 +28,6 @@ from scipy import stats
 from sklearn.metrics import (
     average_precision_score,
     brier_score_loss,
-    confusion_matrix,
     f1_score,
     precision_score,
     recall_score,

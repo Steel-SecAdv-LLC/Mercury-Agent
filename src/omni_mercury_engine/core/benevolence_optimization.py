@@ -19,10 +19,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 import numpy as np
-from scipy.optimize import differential_evolution, minimize
 
 logger = logging.getLogger(__name__)
 
@@ -394,8 +396,6 @@ class ParetoOptimizer:
             ParetoFront with non-dominated solutions
         """
         np.random.seed(self.seed)
-
-        n_params = len(bounds)
 
         # Initialize population
         population = []

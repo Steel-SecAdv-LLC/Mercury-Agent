@@ -193,10 +193,10 @@ class TestSpatialAutocorrelation:
     def test_morans_i_clustered(self, spatial, clustered_data):
         """Clustered data should have positive Moran's I."""
         values, weights = clustered_data
-        I, E_I, z = spatial.compute_morans_i(values, weights)
+        morans_i, expected_i, z = spatial.compute_morans_i(values, weights)
 
-        assert I > E_I  # Positive autocorrelation
-        assert I > 0  # Clustering
+        assert morans_i > expected_i  # Positive autocorrelation
+        assert morans_i > 0  # Clustering
 
     def test_morans_i_random(self, spatial):
         """Random data should have Moran's I near expected value."""
@@ -206,10 +206,10 @@ class TestSpatialAutocorrelation:
         weights = np.random.uniform(0, 1, (n, n))
         np.fill_diagonal(weights, 0)
 
-        I, E_I, z = spatial.compute_morans_i(values, weights)
+        morans_i, expected_i, z = spatial.compute_morans_i(values, weights)
 
         # Should be near expected value (-1/(n-1))
-        assert abs(I - E_I) < 1.0
+        assert abs(morans_i - expected_i) < 1.0
 
     def test_gearys_c(self, spatial, clustered_data):
         """Clustered data should have Geary's C < 1."""

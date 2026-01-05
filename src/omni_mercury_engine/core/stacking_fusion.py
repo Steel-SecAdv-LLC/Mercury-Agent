@@ -21,9 +21,8 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 import numpy as np
-from scipy import stats
 from scipy.optimize import minimize
-from sklearn.linear_model import LogisticRegression, RidgeClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_predict
 
 logger = logging.getLogger(__name__)
@@ -110,7 +109,7 @@ class StackingFusion:
         self.detector_names: list[str] = []
         self._fitted = False
 
-    def add_detector(self, name: str, detector: Any) -> "StackingFusion":
+    def add_detector(self, name: str, detector: Any) -> StackingFusion:
         """
         Add a base detector to the ensemble.
 
@@ -125,7 +124,7 @@ class StackingFusion:
         self.detector_names.append(name)
         return self
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "StackingFusion":
+    def fit(self, X: np.ndarray, y: np.ndarray) -> StackingFusion:
         """
         Fit stacking ensemble.
 
@@ -166,7 +165,7 @@ class StackingFusion:
                         )
                         if oof_pred.ndim == 2:
                             oof_pred = oof_pred[:, 1]
-                    except:
+                    except (AttributeError, ValueError, TypeError):
                         oof_pred = cross_val_predict(
                             detector,
                             X,
@@ -250,7 +249,7 @@ class StackingFusion:
                     pred = detector.predict_proba(X)
                     if pred.ndim == 2:
                         pred = pred[:, 1]
-                except:
+                except (AttributeError, ValueError, TypeError):
                     pred = detector.predict(X).astype(float)
             else:
                 pred = detector.predict(X).astype(float)
@@ -322,12 +321,12 @@ class BayesianModelAveraging:
         self.weights: BayesianWeights | None = None
         self._fitted = False
 
-    def add_detector(self, name: str, detector: Any) -> "BayesianModelAveraging":
+    def add_detector(self, name: str, detector: Any) -> BayesianModelAveraging:
         """Add a detector to the ensemble."""
         self.detectors[name] = detector
         return self
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "BayesianModelAveraging":
+    def fit(self, X: np.ndarray, y: np.ndarray) -> BayesianModelAveraging:
         """
         Fit BMA ensemble and compute posterior weights.
 
@@ -374,7 +373,7 @@ class BayesianModelAveraging:
                             if isinstance(p, (int, float))
                         ]
                     )
-                except:
+                except (AttributeError, ValueError, TypeError):
                     k = 10  # Default estimate
 
                 # BIC
@@ -456,7 +455,7 @@ class BayesianModelAveraging:
                 proba = detector.predict_proba(X)
                 if proba.ndim == 2:
                     proba = proba[:, 1]
-            except:
+            except (AttributeError, ValueError, TypeError):
                 proba = detector.predict(X).astype(float)
 
             weighted_sum += weight * proba
@@ -516,7 +515,7 @@ class EthicallyConstrainedFusion:
         name: str,
         detector: Any,
         ethical_score: float = 1.0,
-    ) -> "EthicallyConstrainedFusion":
+    ) -> EthicallyConstrainedFusion:
         """
         Add detector with ethical score.
 
@@ -529,7 +528,7 @@ class EthicallyConstrainedFusion:
         self.ethical_scores[name] = ethical_score
         return self
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "EthicallyConstrainedFusion":
+    def fit(self, X: np.ndarray, y: np.ndarray) -> EthicallyConstrainedFusion:
         """
         Fit fusion with ethical constraints.
 
@@ -557,13 +556,13 @@ class EthicallyConstrainedFusion:
                 proba = detector.predict_proba(X)
                 if proba.ndim == 2:
                     proba = proba[:, 1]
-            except:
+            except (AttributeError, ValueError, TypeError):
                 proba = detector.predict(X).astype(float)
 
             detector_preds.append(proba)
 
         detector_preds = np.array(detector_preds).T  # (n_samples, n_detectors)
-        ethical_vec = np.array([self.ethical_scores[name] for name in self.detectors.keys()])
+        ethical_vec = np.array([self.ethical_scores[name] for name in self.detectors])
 
         # Optimize weights with ethical constraints
         def objective(w):
@@ -633,7 +632,7 @@ class EthicallyConstrainedFusion:
                 proba = detector.predict_proba(X)
                 if proba.ndim == 2:
                     proba = proba[:, 1]
-            except:
+            except (AttributeError, ValueError, TypeError):
                 proba = detector.predict(X).astype(float)
 
             # Apply ethical gating: scale by detector's ethical score
@@ -651,7 +650,7 @@ class EthicallyConstrainedFusion:
         if not self._fitted:
             return {}
 
-        ethical_vec = np.array([self.ethical_scores[name] for name in self.detectors.keys()])
+        ethical_vec = np.array([self.ethical_scores[name] for name in self.detectors])
         avg_ethical = np.sum(self.weights * ethical_vec)
 
         return {

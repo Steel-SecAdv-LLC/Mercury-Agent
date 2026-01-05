@@ -24,7 +24,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
-from scipy import stats
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +118,7 @@ class ScalarImportanceAnalyzer:
 
         importances = {}
         history_arr = np.array(
-            [[h.get(name, 0.0) for name in scalars.keys()] for h in self._history]
+            [[h.get(name, 0.0) for name in scalars] for h in self._history]
         )
 
         scalar_names = list(scalars.keys())
@@ -288,7 +287,7 @@ class EthicalGateOptimizer:
         # Check hard constraint
         passes = True
 
-        # Check σ_Sacred hard constraint
+        # Check sigma_Sacred hard constraint
         domain = context.get("domain") if context else None
         threshold = SIGMA_SACRED_HARD
         if domain and domain.lower() in ["medical", "healthcare", "clinical"]:

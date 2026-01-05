@@ -25,7 +25,6 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 import numpy as np
-from scipy import stats
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +160,7 @@ class GOSNNIntegration:
         weight: float = 1.0,
         ethical_score: float = 1.0,
         **config_kwargs,
-    ) -> "GOSNNIntegration":
+    ) -> GOSNNIntegration:
         """
         Add a detection domain to the integration.
 
@@ -187,7 +186,7 @@ class GOSNNIntegration:
 
         return self
 
-    def add_base_domains(self) -> "GOSNNIntegration":
+    def add_base_domains(self) -> GOSNNIntegration:
         """
         Add standard base domain detectors.
 
@@ -196,7 +195,6 @@ class GOSNNIntegration:
         try:
             from omni_mercury_engine.core.enhanced_base_domains import (
                 EnhancedBaseDetector,
-                create_enhanced_detector,
             )
             from omni_mercury_engine.detectors.dimensional import (
                 DimensionalAnomalyDetector,
@@ -248,7 +246,7 @@ class GOSNNIntegration:
 
         return self
 
-    def add_model_domains(self) -> "GOSNNIntegration":
+    def add_model_domains(self) -> GOSNNIntegration:
         """
         Add model domain components.
 
@@ -259,7 +257,6 @@ class GOSNNIntegration:
                 EnhancedAffectiveModel,
                 EnhancedBiometricModel,
                 EnhancedQuantumModel,
-                LyapunovStabilityAnalyzer,
             )
 
             # Quantum model
@@ -299,7 +296,7 @@ class GOSNNIntegration:
         X: np.ndarray,
         y: np.ndarray | None = None,
         validation_split: float = 0.2,
-    ) -> "GOSNNIntegration":
+    ) -> GOSNNIntegration:
         """
         Fit all domains and integration components.
 

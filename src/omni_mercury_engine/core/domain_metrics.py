@@ -24,13 +24,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
-from scipy import stats
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
     brier_score_loss,
     f1_score,
-    precision_recall_curve,
     precision_score,
     recall_score,
     roc_auc_score,

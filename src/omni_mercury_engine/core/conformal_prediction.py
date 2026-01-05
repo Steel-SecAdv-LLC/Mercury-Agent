@@ -90,7 +90,7 @@ class SplitConformalPredictor:
     def fit(
         self,
         nonconformity_scores: np.ndarray,
-    ) -> "SplitConformalPredictor":
+    ) -> SplitConformalPredictor:
         """
         Fit the conformal predictor on calibration scores.
 
@@ -206,7 +206,7 @@ class CrossConformalPredictor:
         self,
         X: np.ndarray,
         scoring_fn: ScoringFunction,
-    ) -> "CrossConformalPredictor":
+    ) -> CrossConformalPredictor:
         """
         Fit using cross-validation aggregation.
 
@@ -223,7 +223,7 @@ class CrossConformalPredictor:
         self.fold_thresholds = []
 
         for train_idx, cal_idx in kf.split(X):
-            X_train, X_cal = X[train_idx], X[cal_idx]
+            _X_train, X_cal = X[train_idx], X[cal_idx]
 
             # Compute scores on calibration fold
             cal_scores = scoring_fn(X_cal)
@@ -388,7 +388,7 @@ class ConformalAnomalyDetector:
 
         self._fitted = False
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> "ConformalAnomalyDetector":
+    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> ConformalAnomalyDetector:
         """
         Fit detector and calibrate conformal predictor.
 
@@ -586,7 +586,7 @@ def add_conformal_to_detector(
             try:
                 s = detector.predict_proba(X)
                 return s[:, 1] if s.ndim == 2 else s
-            except:
+            except (AttributeError, ValueError, TypeError):
                 return -detector.decision_function(X)
 
         conformal.fit(X_cal, score_fn)
