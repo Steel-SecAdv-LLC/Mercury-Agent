@@ -63,9 +63,9 @@ Subject to projection onto the probability simplex.
 
 ### 1.4 Ethical Scaling
 
-The `σ_Sacred^φ` term provides ethical gating:
-- When `σ_Sacred = 0.96`: scaling factor = 0.96^1.618 ≈ 0.935
-- When `σ_Sacred = 0.93`: scaling factor = 0.93^1.618 ≈ 0.888
+The `σ_Immutable^φ` term provides ethical gating:
+- When `σ_Immutable = 0.96`: scaling factor = 0.96^1.618 ≈ 0.935
+- When `σ_Immutable = 0.93`: scaling factor = 0.93^1.618 ≈ 0.888
 
 This ensures that higher ethical compliance amplifies the dominance score while maintaining mathematical stability.
 
@@ -129,7 +129,7 @@ Where:
    
    Therefore:
    ```
-   0 ≤ A(x) ≤ σ_Sacred^φ ≤ 0.96^1.618 ≈ 0.935 < 1
+   0 ≤ A(x) ≤ σ_Immutable^φ ≤ 0.96^1.618 ≈ 0.935 < 1
    ```
    
    The perturbation g(S, A(x)) satisfies:
@@ -291,11 +291,11 @@ def compute_harmonic_synergy(attention_output, head_weights):
 2. **Golden Ratio Optimality**: The triadic structure maximizes information flow when attention patterns align with φ-weighted bands
 3. **Frequency Coherence**: High synergy indicates coherent frequency patterns across attention heads
 
-## 4. Sigma Sacred Threshold Analysis
+## 4. Sigma Immutable Threshold Analysis
 
 ### 4.1 Threshold Selection
 
-The σ_Sacred threshold balances precision and recall:
+The σ_Immutable threshold (formerly σ_Sacred) balances precision and recall:
 
 | Threshold | False Positive Reduction | False Negative Risk |
 |-----------|--------------------------|---------------------|
@@ -332,7 +332,7 @@ def ab_test_sigma(data, threshold_a=0.93, threshold_b=0.96):
 
 ### 5.1 Target Performance
 
-The Ava-Dominance Equation targets F1 ≥ 0.92 on synthetic data, compared to baselines:
+The Omni-Dominance Equation targets F1 ≥ 0.92 on synthetic data, compared to baselines:
 - NSL-KDD baseline: F1 = 0.797
 - Target improvement: +15.4% absolute, +19.3% relative
 
@@ -342,7 +342,7 @@ The dominance arises from three factors:
 
 1. **Multi-scale Analysis**: R(x) captures hierarchical patterns missed by single-scale methods
 2. **Frequency Domain**: H(ω) detects periodic anomalies invisible in time domain
-3. **Ethical Gating**: σ_Sacred^φ filters spurious detections while preserving true positives
+3. **Ethical Gating**: σ_Immutable^φ filters spurious detections while preserving true positives
 
 ### 5.3 Convergence Superiority
 
@@ -360,18 +360,18 @@ This represents a 39% improvement in convergence speed.
 To validate the theoretical claims, we conduct A/B testing with 300-epoch training runs:
 
 **Configuration A (Baseline)**:
-- Standard anomaly detection without Ava-Dominance
+- Standard anomaly detection without Omni-Dominance
 - λ = 0.18 (original decay rate)
-- No ethical gating (σ_Sacred = 1.0)
+- No ethical gating (σ_Immutable = 1.0)
 
-**Configuration B (Ava-Dominance)**:
-- Full 3R mechanism with Ava-Dominance Equation
+**Configuration B (Omni-Dominance)**:
+- Full 3R mechanism with Omni-Dominance Equation
 - λ = 0.25 (elevated decay rate)
-- Ethical gating with σ_Sacred = 0.96
+- Ethical gating with σ_Immutable = 0.96
 
 ### 6.2 Benchmark Results (300 Epochs)
 
-| Metric | Baseline (A) | Ava-Dominance (B) | Improvement |
+| Metric | Baseline (A) | Omni-Dominance (B) | Improvement |
 |--------|--------------|-------------------|-------------|
 | F1 Score | 0.797 | 0.923 | +15.8% |
 | Precision | 0.812 | 0.941 | +15.9% |
@@ -394,7 +394,7 @@ All improvements are statistically significant at α = 0.05.
 
 ### 6.4 Sigma Sacred A/B Comparison
 
-| σ_Sacred | F1 Score | FP Rate | FN Rate | Recommendation |
+| σ_Immutable | F1 Score | FP Rate | FN Rate | Recommendation |
 |----------|----------|---------|---------|----------------|
 | 0.93 | 0.918 | 0.072 | 0.091 | Medical domains |
 | 0.94 | 0.920 | 0.066 | 0.094 | Humanitarian |
@@ -405,24 +405,24 @@ All improvements are statistically significant at α = 0.05.
 
 ```python
 def run_ab_benchmark(n_epochs=300, n_runs=10):
-    """Run A/B benchmark comparing baseline vs Ava-Dominance."""
+    """Run A/B benchmark comparing baseline vs Omni-Dominance."""
     results_a, results_b = [], []
-    
+
     for run in range(n_runs):
         # Configuration A: Baseline
         model_a = create_baseline_model()
-        history_a = train_model(model_a, n_epochs, lambda_val=0.18, sigma_sacred=1.0)
+        history_a = train_model(model_a, n_epochs, lambda_val=0.18, sigma_immutable=1.0)
         results_a.append(evaluate_model(model_a))
-        
-        # Configuration B: Ava-Dominance
-        model_b = create_ava_dominance_model()
-        history_b = train_model(model_b, n_epochs, lambda_val=0.25, sigma_sacred=0.96)
+
+        # Configuration B: Omni-Dominance
+        model_b = create_omni_dominance_model()
+        history_b = train_model(model_b, n_epochs, lambda_val=0.25, sigma_immutable=0.96)
         results_b.append(evaluate_model(model_b))
-    
+
     # Compute statistics
     f1_improvement = np.mean([b['f1'] - a['f1'] for a, b in zip(results_a, results_b)])
     fp_reduction = np.mean([(a['fp'] - b['fp']) / a['fp'] for a, b in zip(results_a, results_b)])
-    
+
     return {
         'f1_improvement': f1_improvement,
         'fp_reduction': fp_reduction,
@@ -434,7 +434,7 @@ def run_ab_benchmark(n_epochs=300, n_runs=10):
 
 1. **F1 Uplift Validated**: The +15-30% F1 improvement claim is validated with observed +15.8% improvement
 2. **Convergence Acceleration**: λ=0.25 achieves 27% faster convergence than λ=0.18
-3. **False Positive Reduction**: σ_Sacred gating reduces FP by 68.6% with minimal FN increase
+3. **False Positive Reduction**: σ_Immutable gating reduces FP by 68.6% with minimal FN increase
 4. **Stability Maintained**: V̇ ≤ -0.25 V bound holds throughout all 300 epochs
 
 ## 7. Implementation Notes
@@ -447,7 +447,7 @@ def run_ab_benchmark(n_epochs=300, n_runs=10):
 
 ### 7.2 Computational Complexity
 
-- Ava-Dominance computation: O(n log n) due to FFT
+- Omni-Dominance computation: O(n log n) due to FFT
 - Weight update: O(1) per iteration
 - Lyapunov verification: O(history_length)
 

@@ -2,10 +2,12 @@
 Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
-Comprehensive Novelty and Discovery Verification Tests.
+Comprehensive Discovery and Innovation Verification Tests.
 Tests the key claims made in NOVELTY_PROOFS.md and DISCOVERIES.md.
 
 Note: Some tests require PyTorch and are marked with pytest.mark.skipif.
+
+This file was renamed from test_novelty_verification.py for clarity.
 """
 
 from __future__ import annotations

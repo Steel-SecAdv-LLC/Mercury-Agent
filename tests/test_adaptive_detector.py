@@ -1,5 +1,5 @@
 """
-Tests for Session 3 Adaptive Detector.
+Tests for Adaptive Anomaly Detector module.
 
 Validates:
 - AdaptiveThresholdCalibrator (fixes covtype F1=0 issue)

@@ -9,7 +9,7 @@ the Free Software Foundation, either version 3 of the License, or
 
 Enhanced neuro-symbolic fusion integrating:
 - LTN (Logic Tensor Networks) with NetworkX graph reasoning
-- Stacking/BMA fusion from session 1 enhancements
+- Stacking/BMA fusion for ensemble calibration
 - Real-time rule inference with explanation generation
 - GOSNN bidirectional synaptic integration
 - Calibration and conformal prediction

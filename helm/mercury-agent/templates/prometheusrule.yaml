@@ -9,7 +9,7 @@ metadata:
 spec:
   groups:
     # =========================================================================
-    # Session 3 Enhancements: Benevolence and Ethical Monitoring
+    # Benevolence and Ethical Monitoring Rules
     # =========================================================================
     - name: mercury-agent.benevolence
       interval: 30s

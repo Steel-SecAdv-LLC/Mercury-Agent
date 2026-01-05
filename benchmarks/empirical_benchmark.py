@@ -110,7 +110,7 @@ from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import OneClassSVM
 
-# Import adaptive detector for Session 3 enhancements
+# Import adaptive detector for targeted performance enhancements
 try:
     from omni_mercury_engine.core.adaptive_detector import (
         AdaptiveAnomalyDetector,
@@ -1860,7 +1860,7 @@ class OmniMercuryDetector:
         self._score_scaler = None
         self._detector_names: list[str] = []
 
-        # Session 3 Enhancement: Adaptive detector for targeted improvements
+        # Adaptive Enhancement: Adaptive detector for targeted improvements
         # Addresses: covtype (F1=0), batadal (AUC=0.5458), smd (F1=0.06)
         self._adaptive_detector: AdaptiveAnomalyDetector | None = None
         self._dataset_hint: str | None = None
@@ -1871,7 +1871,7 @@ class OmniMercuryDetector:
                 sigma_sacred=0.96,
                 auto_profile=True,
             )
-            logger.info("Session 3: AdaptiveAnomalyDetector initialized")
+            logger.info("Adaptive: AdaptiveAnomalyDetector initialized")
 
         logger.info(
             f"OmniMercuryDetector initialized: fallback_strategy={fallback_strategy}, "
@@ -2261,7 +2261,7 @@ class OmniMercuryDetector:
                 "covariance_failure", f"Failed to compute covariance inverse: {e}"
             )
 
-        # Session 3: Fit adaptive detector with dataset profiling
+        # Adaptive: Fit adaptive detector with dataset profiling
         if self._adaptive_detector is not None:
             try:
                 self._adaptive_detector.fit(X)
@@ -2274,7 +2274,7 @@ class OmniMercuryDetector:
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Predict anomaly labels (-1 for anomaly, 1 for normal).
 
-        Session 3 Enhancement: Uses AdaptiveThresholdCalibrator when available
+        Adaptive Enhancement: Uses AdaptiveThresholdCalibrator when available
         to address the covtype F1=0 issue (good AUC but zero predictions).
         """
         # Try adaptive detector with calibrated threshold first
@@ -2295,7 +2295,7 @@ class OmniMercuryDetector:
         """
         Set dataset hint for adaptive detection strategy selection.
 
-        Session 3 Enhancement: Allows dataset-specific optimization.
+        Adaptive Enhancement: Allows dataset-specific optimization.
         Maps dataset names to optimal detection profiles.
         """
         self._dataset_hint = dataset_name.lower()
@@ -2450,14 +2450,14 @@ class OmniMercuryDetector:
         """
         Fallback scoring using configured strategy.
 
-        Session 3 Enhancement: Prioritizes AdaptiveAnomalyDetector which provides:
+        Adaptive Enhancement: Prioritizes AdaptiveAnomalyDetector which provides:
         - Otsu threshold calibration for covtype (fixes F1=0 issue)
         - Covariance-aware detection for batadal (rivals EllipticEnvelope)
         - Temporal pattern detection for smd (time-series aware)
 
         Supports: adaptive, mahalanobis, lof, isolation_forest, euclidean
         """
-        # Session 3: Use adaptive detector first (addresses covtype, batadal, smd issues)
+        # Adaptive: Use adaptive detector first (addresses covtype, batadal, smd issues)
         if self._adaptive_detector is not None:
             try:
                 result = self._adaptive_detector.detect(X)

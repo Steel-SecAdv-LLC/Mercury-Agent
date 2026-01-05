@@ -17,7 +17,12 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Script to generate NOVELTY_PATTERNS.md with deep analysis
+Script to generate scalar analysis reports for Mercury Agent.
+
+Analyzes ethical scalar distribution across categories and generates
+reports for documentation purposes.
+
+Note: This file was renamed from create_novelty_report.py.
 """
 
 import re

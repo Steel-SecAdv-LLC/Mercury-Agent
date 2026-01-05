@@ -22,13 +22,24 @@ from __future__ import annotations
 Global Omni-Scalar Network (GOSNN) - Intelligence Fusion Hub
 
 Implements a comprehensive scalar monitoring and fusion system with
-~700 omni-scalars architecture. Provides:
+~180 omni-scalars organized into 8 major categories:
 
-- 37-dimensional quantum fusion with multi-head attention
-- Ethical gating with sigma_Sacred threshold enforcement
+- ETHICAL (~27 scalars): Core ethical values and operational constraints
+- COSMIC (~7 scalars): Universe-scale harmony and telos alignment
+- QUANTUM_CONSCIOUSNESS (~7 scalars): Quantum-inspired processing
+- HUMANITARIAN (~9 scalars): Crisis response and human welfare
+- SECURITY (~6 scalars): Threat detection and cyber defense
+- SOFTWARE_ENGINEERING (~45 scalars): Code quality, optimization, and 3R synergy
+- MEDICAL (~10 scalars): Healthcare and diagnostic support
+- ADVANCED_REASONING (~15 scalars): Logic, inference, and knowledge synthesis
+
+Key Features:
+- 37-dimensional quantum fusion with 32-head attention
+- Ethical gating with sigma_Immutable threshold enforcement
 - Component-based scalar registration and enhancement
 - Global intelligence score computation
 - Triadic harmony computation using golden ratio (phi = 1.618)
+- Bidirectional synaptic integration with 3R mechanism
 
 The GOSNN serves as a central hub for aggregating insights from multiple
 specialized engines and maintaining system-wide ethical alignment.
@@ -53,9 +64,13 @@ PHI: float = 1.618033988749895
 # Lyapunov stability constant (elevated from 0.18 for 25% faster convergence)
 LAMBDA_LYAPUNOV: float = 0.25
 
-# Sigma Sacred thresholds for ethical gating
-SIGMA_SACRED_THRESHOLD: float = 0.96  # Default elevated threshold
-SIGMA_SACRED_MEDICAL_FALLBACK: float = 0.93  # Medical domain fallback
+# Sigma Immutable thresholds for ethical gating (Civilization-First principle)
+SIGMA_IMMUTABLE_DEFAULT: float = 0.96  # Default elevated threshold
+SIGMA_IMMUTABLE_MEDICAL: float = 0.93  # Medical domain fallback (avoid false negatives)
+
+# Backward compatibility aliases (deprecated in v2.0)
+SIGMA_SACRED_THRESHOLD: float = SIGMA_IMMUTABLE_DEFAULT
+SIGMA_SACRED_MEDICAL_FALLBACK: float = SIGMA_IMMUTABLE_MEDICAL
 
 try:
     import torch
@@ -69,18 +84,23 @@ except ImportError:
 
 
 class ScalarGroup(Enum):
-    """Thematic groups for omni-scalars."""
+    """Thematic groups for omni-scalars (~180 total across 8 major categories)."""
 
-    ETHICAL = "ethical"
-    COSMIC = "cosmic"
-    QUANTUM_CONSCIOUSNESS = "quantum_consciousness"
+    # Core categories (~180 scalars total)
+    ETHICAL = "ethical"  # ~27 scalars
+    COSMIC = "cosmic"  # ~7 scalars
+    QUANTUM_CONSCIOUSNESS = "quantum_consciousness"  # ~7 scalars
+    HUMANITARIAN = "humanitarian"  # ~9 scalars
+    SECURITY = "security"  # ~6 scalars
+    SOFTWARE_ENGINEERING = "software_engineering"  # ~45 scalars (NEW)
+    MEDICAL = "medical"  # ~10 scalars (expanded)
+    ADVANCED_REASONING = "advanced_reasoning"  # ~15 scalars (NEW)
+
+    # Legacy/specialized categories (for backward compatibility)
     MATHEMATICAL_MYSTERIES = "mathematical_mysteries"
     PARADOX_DEFENSE = "paradox_defense"
     PHYSICS_THEORIES = "physics_theories"
     SUSTAINABILITY = "sustainability"
-    HUMANITARIAN = "humanitarian"
-    SECURITY = "security"
-    MEDICAL = "medical"
     CRISIS_RESPONSE = "crisis_response"
     AI_GUARDIAN = "ai_guardian"
     PERFORMANCE = "performance"
@@ -246,7 +266,7 @@ class TriadicPhiWeighting:
         """Compute harmonic synergy score from attention output.
 
         The synergy score measures how well the triadic weighting produces
-        coherent frequency patterns (H(omega) in the Ava-Dominance Equation).
+        coherent frequency patterns (H(omega) in the Omni-Dominance Equation).
 
         Args:
             attention_output: Output from attention mechanism
@@ -285,7 +305,7 @@ class MultiHeadAttentionFusion:
 
     The triadic phi-weighting applies golden ratio (phi = 1.618) scaling to
     attention scores, creating coherent frequency patterns that enhance the
-    H(omega) component of the Ava-Dominance Equation.
+    H(omega) component of the Omni-Dominance Equation.
     """
 
     def __init__(
@@ -386,55 +406,98 @@ class MultiHeadAttentionFusion:
         return (result, harmonic_synergy) if return_synergy else result
 
 
-def get_sigma_sacred_threshold(domain: str | None = None) -> float:
+def get_sigma_immutable_threshold(domain: str | None = None) -> float:
     """
-    Get the sigma_Sacred threshold for ethical gating.
+    Get the sigma_Immutable threshold for ethical gating (Civilization-First principle).
 
-    The threshold can be configured via environment variable SIGMA_SACRED_THRESHOLD.
+    The threshold can be configured via environment variable SIGMA_IMMUTABLE_THRESHOLD
+    (or SIGMA_SACRED_THRESHOLD for backward compatibility).
     Default is 0.96 for stricter ethical gating (~10-15% false positive reduction).
     Medical domains use 0.93 fallback to avoid false negatives in critical scenarios.
+
+    The sigma_Immutable threshold represents an inviolable ethical constraint that
+    cannot be overridden, ensuring Civilization-First principles are maintained.
 
     Args:
         domain: Optional domain identifier (e.g., "medical", "security", "humanitarian")
 
     Returns:
-        Sigma_Sacred threshold value (0.93-0.96)
+        sigma_Immutable threshold value (0.93-0.96)
     """
+    import warnings
+
     # Medical domains use lower threshold to avoid false negatives
     MEDICAL_DOMAINS = {"medical", "healthcare", "clinical", "diagnostic", "patient"}
 
     if domain and domain.lower() in MEDICAL_DOMAINS:
-        return 0.93
+        return SIGMA_IMMUTABLE_MEDICAL
 
-    # Check environment variable for custom threshold
-    env_threshold = os.environ.get("SIGMA_SACRED_THRESHOLD")
+    # Check environment variable for custom threshold (new name first, then legacy)
+    env_threshold = os.environ.get("SIGMA_IMMUTABLE_THRESHOLD")
+    if env_threshold is None:
+        env_threshold = os.environ.get("SIGMA_SACRED_THRESHOLD")
+        if env_threshold is not None:
+            warnings.warn(
+                "SIGMA_SACRED_THRESHOLD is deprecated; use SIGMA_IMMUTABLE_THRESHOLD",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
     if env_threshold:
         try:
             threshold = float(env_threshold)
-            # Clamp to valid range
-            return max(0.90, min(0.99, threshold))
+            # Clamp to valid range with hard minimum of 0.93
+            return max(0.93, min(0.99, threshold))
         except ValueError:
             pass
 
     # Default elevated threshold for precision dominance
-    return 0.96
+    return SIGMA_IMMUTABLE_DEFAULT
+
+
+def get_sigma_sacred_threshold(domain: str | None = None) -> float:
+    """
+    DEPRECATED: Use get_sigma_immutable_threshold instead.
+
+    This function is maintained for backward compatibility and will be
+    removed in v2.0.
+    """
+    import warnings
+
+    warnings.warn(
+        "get_sigma_sacred_threshold is deprecated; use get_sigma_immutable_threshold",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return get_sigma_immutable_threshold(domain)
 
 
 class GlobalOmniScalarNetwork:
     """
     Global Omni-Scalar Network (GOSNN) - Central Intelligence Fusion Hub.
 
-    Aggregates ~700 omni-scalars from multiple components and provides:
+    Aggregates ~180 omni-scalars across 8 major categories:
+    - ETHICAL (~27): Core ethical values and Civilization-First principles
+    - COSMIC (~7): Universe-scale harmony and telos alignment
+    - QUANTUM_CONSCIOUSNESS (~7): Quantum-inspired processing
+    - HUMANITARIAN (~9): Crisis response and human welfare
+    - SECURITY (~6): Threat detection and cyber defense
+    - SOFTWARE_ENGINEERING (~45): Code quality, optimization, 3R synergy
+    - MEDICAL (~10): Healthcare and diagnostic support
+    - ADVANCED_REASONING (~15): Logic, inference, knowledge synthesis
+
+    Key Features:
     - 37D quantum fusion with 32-head attention and triadic phi-weighting
-    - Ethical gating with configurable σ_Sacred threshold (0.96 default, 0.93 for medical)
+    - Ethical gating with configurable σ_Immutable threshold (0.96 default, 0.93 for medical)
     - Component-based scalar registration
     - Global intelligence score computation
     - Triadic harmony using golden ratio (φ = 1.618)
     - Bidirectional synaptic integration with 3R mechanism
 
-    The σ_Sacred threshold can be configured via SIGMA_SACRED_THRESHOLD environment
-    variable. Default is 0.96 for ~10-15% false positive reduction via stricter
-    ethical gating. Medical domains automatically use 0.93 fallback.
+    The σ_Immutable threshold can be configured via SIGMA_IMMUTABLE_THRESHOLD
+    environment variable (SIGMA_SACRED_THRESHOLD also supported for compatibility).
+    Default is 0.96 for ~10-15% false positive reduction via stricter ethical gating.
+    Medical domains automatically use 0.93 fallback.
 
     This is implemented as a singleton to ensure consistent global state.
     """
@@ -444,11 +507,14 @@ class GlobalOmniScalarNetwork:
 
     # Class constants
     PHI = PHI  # Use module-level constant
-    SIGMA_SACRED_DEFAULT = 0.96
-    SIGMA_SACRED_MEDICAL = 0.93
+    SIGMA_IMMUTABLE_DEFAULT = 0.96
+    SIGMA_IMMUTABLE_MEDICAL = 0.93
     MIN_EMPATHY = 1.22
     MIN_MORALITY = 1.20
     TARGET_BOOST_RATIO = 0.60
+    # Backward compatibility aliases (deprecated in v2.0)
+    SIGMA_SACRED_DEFAULT = SIGMA_IMMUTABLE_DEFAULT
+    SIGMA_SACRED_MEDICAL = SIGMA_IMMUTABLE_MEDICAL
 
     def __new__(cls, *args: Any, **kwargs: Any) -> GlobalOmniScalarNetwork:
         """Singleton pattern implementation."""
@@ -487,8 +553,10 @@ class GlobalOmniScalarNetwork:
         self.domain = domain
         self.logger = logging.getLogger(__name__)
 
-        # Get domain-appropriate sigma_Sacred threshold
-        self.sigma_sacred_threshold = get_sigma_sacred_threshold(domain)
+        # Get domain-appropriate sigma_Immutable threshold
+        self.sigma_immutable_threshold = get_sigma_immutable_threshold(domain)
+        # Backward compatibility alias (deprecated in v2.0)
+        self.sigma_sacred_threshold = self.sigma_immutable_threshold
 
         self.registered_scalars: dict[str, ScalarRegistration] = {}
         self.scalar_groups: dict[ScalarGroup, dict[str, float]] = {
@@ -496,7 +564,7 @@ class GlobalOmniScalarNetwork:
         }
 
         # Initialize ethical gate with configurable threshold
-        self.ethical_gate = EthicalGate(threshold=self.sigma_sacred_threshold)
+        self.ethical_gate = EthicalGate(threshold=self.sigma_immutable_threshold)
 
         # Initialize 32-head attention with triadic phi-weighting
         self.attention_fusion = MultiHeadAttentionFusion(
@@ -506,7 +574,7 @@ class GlobalOmniScalarNetwork:
             enable_triadic_phi=enable_triadic_phi,
         )
 
-        # Track harmonic synergy for Ava-Dominance Equation
+        # Track harmonic synergy for Omni-Dominance Equation
         self.last_harmonic_synergy: float = 0.5
 
         self._initialize_default_scalars()
@@ -514,7 +582,7 @@ class GlobalOmniScalarNetwork:
 
         self.logger.info(
             f"GOSNN initialized: device={device}, quantum_mode={quantum_mode}, "
-            f"max_dimensions={max_dimensions}, sigma_sacred={self.sigma_sacred_threshold:.2f}, "
+            f"max_dimensions={max_dimensions}, sigma_immutable={self.sigma_immutable_threshold:.2f}, "
             f"attention_heads={num_attention_heads}, triadic_phi={enable_triadic_phi}"
         )
 
@@ -597,6 +665,91 @@ class GlobalOmniScalarNetwork:
             "omniaudit_compliance": 1.20,
             "omnicyber_fortress": 1.28,
             "omnizero_trust": 1.22,
+        }
+
+        # SOFTWARE_ENGINEERING scalars (~45 scalars for code quality, optimization, 3R synergy)
+        self.scalar_groups[ScalarGroup.SOFTWARE_ENGINEERING] = {
+            # Code Quality Metrics (15 scalars)
+            "omni_code_complexity": 1.20,  # Cyclomatic/cognitive complexity control
+            "omni_code_coverage": 1.25,  # Test coverage percentage
+            "omni_property_test_coverage": 1.22,  # Property-based testing depth
+            "omni_type_safety_index": 1.28,  # Static type coverage
+            "omni_lint_compliance": 1.15,  # Linting rule adherence
+            "omni_documentation_quality": 1.18,  # Docstring/comment coverage
+            "omni_api_consistency": 1.20,  # API design coherence
+            "omni_dependency_health": 1.22,  # Dependency freshness/security
+            "omni_code_duplication": 0.85,  # Lower is better (penalty scalar)
+            "omni_technical_debt": 0.80,  # Lower is better (penalty scalar)
+            "omni_maintainability_index": 1.25,  # Aggregate maintainability
+            "omni_readability_score": 1.20,  # Code readability metrics
+            "omni_modularity_factor": 1.22,  # Module coupling/cohesion
+            "omni_interface_clarity": 1.18,  # Clean interface design
+            "omni_abstraction_level": 1.20,  # Appropriate abstraction depth
+            # Optimization Metrics (15 scalars)
+            "omni_runtime_optimization": 1.30,  # Runtime performance efficiency
+            "omni_memory_efficiency": 1.25,  # Memory usage optimization
+            "omni_algorithmic_efficiency": 1.28,  # Big-O complexity control
+            "omni_cache_hit_ratio": 1.22,  # Cache effectiveness
+            "omni_latency_reduction": 1.25,  # Response time optimization
+            "omni_throughput_factor": 1.24,  # Processing throughput
+            "omni_resource_utilization": 1.20,  # CPU/GPU utilization balance
+            "omni_parallel_efficiency": 1.26,  # Parallelization effectiveness
+            "omni_io_optimization": 1.22,  # I/O operation efficiency
+            "omni_network_efficiency": 1.20,  # Network call optimization
+            "omni_garbage_collection_health": 1.18,  # GC pressure management
+            "omni_startup_time": 1.15,  # Initialization speed
+            "omni_shutdown_grace": 1.12,  # Clean shutdown efficiency
+            "omni_hotpath_optimization": 1.28,  # Critical path performance
+            "omni_vectorization_factor": 1.24,  # SIMD/vectorization usage
+            # 3R Synergy & Correctness (15 scalars)
+            "omni_3r_synergy_factor": 1.35,  # 3R mechanism integration strength
+            "omni_recursion_depth_control": 1.22,  # Recursion safety bounds
+            "omni_resonance_stability": 1.25,  # Frequency analysis coherence
+            "omni_refactoring_confidence": 1.28,  # Safe refactoring score
+            "omni_lyapunov_convergence_rate": 1.30,  # Convergence speed (λ=0.25)
+            "omni_precision_recall_harmonic": 1.25,  # F1-like balance metric
+            "omni_false_positive_reduction": 1.28,  # FP suppression strength
+            "omni_false_negative_reduction": 1.22,  # FN recovery capability
+            "omni_detection_confidence": 1.26,  # Anomaly detection certainty
+            "omni_explanation_depth": 1.20,  # Explainability quality
+            "omni_regression_prevention": 1.25,  # Regression test coverage
+            "omni_invariant_preservation": 1.28,  # Invariant enforcement
+            "omni_contract_compliance": 1.22,  # Design-by-contract adherence
+            "omni_mutation_test_score": 1.24,  # Mutation testing effectiveness
+            "omni_fuzzing_resilience": 1.26,  # Fuzz testing robustness
+        }
+
+        # MEDICAL scalars (~10 scalars for healthcare and diagnostics)
+        self.scalar_groups[ScalarGroup.MEDICAL] = {
+            "omni_diagnostic_accuracy": 1.30,  # Diagnostic precision
+            "omni_patient_safety": 1.40,  # Patient harm prevention (highest)
+            "omni_treatment_efficacy": 1.28,  # Treatment effectiveness
+            "omni_false_alarm_minimization": 1.25,  # Reduce alert fatigue
+            "omni_critical_alert_sensitivity": 1.35,  # Catch critical conditions
+            "omni_hipaa_compliance": 1.30,  # Privacy compliance
+            "omni_clinical_explainability": 1.28,  # Medical explanation quality
+            "omni_drug_interaction_check": 1.32,  # Medication safety
+            "omni_triage_accuracy": 1.30,  # Emergency prioritization
+            "omni_outcome_prediction": 1.25,  # Prognosis reliability
+        }
+
+        # ADVANCED_REASONING scalars (~15 scalars for logic, inference, knowledge)
+        self.scalar_groups[ScalarGroup.ADVANCED_REASONING] = {
+            "omni_logical_consistency": 1.28,  # Logical coherence
+            "omni_inference_depth": 1.25,  # Reasoning chain depth
+            "omni_abductive_reasoning": 1.22,  # Hypothesis generation
+            "omni_deductive_strength": 1.26,  # Logical deduction quality
+            "omni_inductive_generalization": 1.24,  # Pattern generalization
+            "omni_analogical_transfer": 1.22,  # Cross-domain reasoning
+            "omni_causal_inference": 1.28,  # Causal relationship detection
+            "omni_counterfactual_reasoning": 1.25,  # What-if analysis
+            "omni_temporal_reasoning": 1.24,  # Time-based logic
+            "omni_spatial_reasoning": 1.22,  # Spatial relationship understanding
+            "omni_knowledge_synthesis": 1.26,  # Information integration
+            "omni_uncertainty_quantification": 1.28,  # Uncertainty handling
+            "omni_belief_revision": 1.24,  # Belief update consistency
+            "omni_metacognitive_awareness": 1.22,  # Self-knowledge accuracy
+            "omni_common_sense_reasoning": 1.25,  # Commonsense inference
         }
 
         # Initialize legacy alias mapping for backward compatibility
@@ -733,7 +886,7 @@ class GlobalOmniScalarNetwork:
         1. Collects all registered scalars from components
         2. Evaluates ethical compliance via sigma_Sacred threshold
         3. Fuses dimensional states using 32-head attention with triadic phi-weighting
-        4. Computes harmonic synergy for the Ava-Dominance Equation H(omega) term
+        4. Computes harmonic synergy for the Omni-Dominance Equation H(omega) term
         5. Returns enhanced scalars with fusion metadata
 
         Args:
@@ -756,11 +909,11 @@ class GlobalOmniScalarNetwork:
         if not passes_gate:
             warnings.append(
                 f"Ethical gate warning: score {ethical_score:.3f} below threshold "
-                f"{self.sigma_sacred_threshold:.2f}"
+                f"{self.sigma_immutable_threshold:.2f}"
             )
             self.logger.warning(
                 f"Ethical gate triggered for {requesting_component}: "
-                f"score={ethical_score:.3f}, threshold={self.sigma_sacred_threshold:.2f}"
+                f"score={ethical_score:.3f}, threshold={self.sigma_immutable_threshold:.2f}"
             )
 
         dimensional_states = self._prepare_dimensional_states(base_scalars, context)
@@ -773,7 +926,7 @@ class GlobalOmniScalarNetwork:
             fused_state = fuse_result
             harmonic_synergy = 0.5
 
-        # Store harmonic synergy for Ava-Dominance Equation
+        # Store harmonic synergy for Omni-Dominance Equation
         self.last_harmonic_synergy = harmonic_synergy
 
         enhanced_scalars = self._apply_enhancement(base_scalars, fused_state, ethical_score)

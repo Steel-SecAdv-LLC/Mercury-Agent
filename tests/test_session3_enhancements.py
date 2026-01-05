@@ -1,5 +1,5 @@
 """
-Mercury Agent - Session 3 Enhancement Tests
+Mercury Agent - Neuro-Symbolic Hub and GOSNN Enhancement Tests
 Copyright (C) 2025 Steel Security Advisory LLC
 
 Comprehensive tests for:
@@ -413,7 +413,7 @@ class TestIntegration:
         assert len(results) == 10
 
     def test_gosnn_integration_layer(self):
-        """Test integration with GOSNN integration layer from Session 2."""
+        """Test integration with GOSNN integration layer."""
         try:
             from omni_mercury_engine.core.gosnn_integration import (
                 GOSNNIntegration,
@@ -431,7 +431,7 @@ class TestIntegration:
             pytest.skip("GOSNN integration module not available")
 
     def test_calibration_integration(self):
-        """Test integration with calibration from Session 1."""
+        """Test integration with calibration module."""
         try:
             from omni_mercury_engine.core.calibration import CalibrationEnsemble
 
