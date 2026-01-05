@@ -281,7 +281,7 @@ class MercuryGuardianAdapter:
             Dictionary with availability status for each algorithm
         """
         return {
-            "ava_guardian_available": AVA_GUARDIAN_AVAILABLE,
+            "mercury_guardian_available": AVA_GUARDIAN_AVAILABLE,
             "dilithium_available": DILITHIUM_AVAILABLE,
             "kyber_available": KYBER_AVAILABLE,
             "timing_monitor_enabled": self.timing_monitor is not None,

@@ -388,7 +388,7 @@ class TestEthicalEngineProperties:
         from omni_mercury_engine.ethical.ethical_constraint_engine import ImmutableGeometryProcessor
 
         processor = ImmutableGeometryProcessor()
-        result = processor.analyze_geometry_analysis(data)
+        result = processor.analyze_geometry(data)
 
         # Property: All scores should be bounded [0, 1]
         assert 0.0 <= result.golden_ratio_alignment <= 1.0
