@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # Constants from 3R mechanism
 PHI = 1.618033988749895  # Golden ratio
 BENEVOLENCE_THRESHOLD = 0.99
-SIGMA_SACRED_DEFAULT = 0.96
+SIGMA_IMMUTABLE_DEFAULT = 0.96
 LYAPUNOV_LAMBDA = 0.25
 
 
@@ -52,7 +52,7 @@ class IntegrationResult:
     # Ethical metrics
     benevolence_score: float = 1.0
     ethical_compliance: bool = True
-    sigma_sacred_value: float = 0.96
+    sigma_immutable_value: float = 0.96
 
     # Performance metadata
     fusion_method: str = "stacking"
@@ -111,7 +111,7 @@ class GOSNNIntegration:
 
     def __init__(
         self,
-        sigma_sacred: float = SIGMA_SACRED_DEFAULT,
+        sigma_immutable: float = SIGMA_IMMUTABLE_DEFAULT,
         benevolence_threshold: float = BENEVOLENCE_THRESHOLD,
         fusion_method: str = "ethical",
         use_calibration: bool = True,
@@ -123,7 +123,7 @@ class GOSNNIntegration:
         Initialize GOSNN integration.
 
         Args:
-            sigma_sacred: Ethical threshold (0.93-0.96)
+            sigma_immutable: Ethical threshold (0.93-0.96)
             benevolence_threshold: Required benevolence level
             fusion_method: Fusion strategy ("stacking", "bma", "ethical")
             use_calibration: Whether to apply probability calibration
@@ -131,7 +131,7 @@ class GOSNNIntegration:
             conformal_alpha: Conformal significance level
             seed: Random seed for reproducibility
         """
-        self.sigma_sacred = sigma_sacred
+        self.sigma_immutable = sigma_immutable
         self.benevolence_threshold = benevolence_threshold
         self.fusion_method = fusion_method
         self.use_calibration = use_calibration
@@ -464,7 +464,7 @@ class GOSNNIntegration:
             domain_weights=self._domain_weights.copy(),
             benevolence_score=benevolence_score,
             ethical_compliance=ethical_compliance,
-            sigma_sacred_value=self.sigma_sacred,
+            sigma_immutable_value=self.sigma_immutable,
             fusion_method=self.fusion_method,
             calibration_method="auto" if self._calibrator else "none",
             processing_time_ms=processing_time,
@@ -489,7 +489,7 @@ class GOSNNIntegration:
                 self._fusion = BayesianModelAveraging()
             else:  # ethical
                 self._fusion = EthicallyConstrainedFusion(
-                    sigma_sacred=self.sigma_sacred,
+                    sigma_immutable=self.sigma_immutable,
                 )
 
             # Initialize domain weights based on ethical scores
@@ -667,11 +667,11 @@ class GOSNNIntegration:
         avg_ethical = np.mean(list(domain_ethical_scores.values()))
 
         return {
-            "sigma_sacred": self.sigma_sacred,
+            "sigma_immutable": self.sigma_immutable,
             "benevolence_threshold": self.benevolence_threshold,
             "domain_ethical_scores": domain_ethical_scores,
             "average_ethical_score": avg_ethical,
-            "passes_threshold": avg_ethical >= self.sigma_sacred,
+            "passes_threshold": avg_ethical >= self.sigma_immutable,
             "fusion_method": self.fusion_method,
             "calibration_enabled": self.use_calibration,
             "conformal_enabled": self.use_conformal,
@@ -680,7 +680,7 @@ class GOSNNIntegration:
 
 def create_integrated_detector(
     domains: list[str] | None = None,
-    sigma_sacred: float = SIGMA_SACRED_DEFAULT,
+    sigma_immutable: float = SIGMA_IMMUTABLE_DEFAULT,
     fusion_method: str = "ethical",
     **kwargs,
 ) -> GOSNNIntegration:
@@ -689,7 +689,7 @@ def create_integrated_detector(
 
     Args:
         domains: List of domains to include (None = all)
-        sigma_sacred: Ethical threshold
+        sigma_immutable: Ethical threshold
         fusion_method: Fusion strategy
         **kwargs: Additional arguments
 
@@ -697,7 +697,7 @@ def create_integrated_detector(
         Configured GOSNNIntegration instance
     """
     integration = GOSNNIntegration(
-        sigma_sacred=sigma_sacred,
+        sigma_immutable=sigma_immutable,
         fusion_method=fusion_method,
         **kwargs,
     )

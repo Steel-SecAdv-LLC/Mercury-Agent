@@ -2,10 +2,12 @@
 Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
-Comprehensive Novelty and Discovery Verification Tests.
+Comprehensive Discovery and Innovation Verification Tests.
 Tests the key claims made in NOVELTY_PROOFS.md and DISCOVERIES.md.
 
 Note: Some tests require PyTorch and are marked with pytest.mark.skipif.
+
+This file was renamed from test_novelty_verification.py for clarity.
 """
 
 from __future__ import annotations
@@ -54,9 +56,9 @@ class TestDoubleHelixEngine:
 
     def test_phi_optimized_term_weights(self):
         """Verify phi-optimization in term weights."""
-        from omni_mercury_engine.core.double_helix_engine import AvaEquationEngine
+        from omni_mercury_engine.core.double_helix_engine import MercuryEquationEngine
 
-        engine = AvaEquationEngine(dimension=8)
+        engine = MercuryEquationEngine(dimension=8)
 
         # Check that weights sum to 1 (normalized)
         total_weight = sum(engine.term_weights.values())
@@ -64,9 +66,9 @@ class TestDoubleHelixEngine:
 
     def test_18_evolution_terms(self):
         """Verify 18+ evolution terms as claimed."""
-        from omni_mercury_engine.core.double_helix_engine import AvaEquationEngine
+        from omni_mercury_engine.core.double_helix_engine import MercuryEquationEngine
 
-        engine = AvaEquationEngine(dimension=8)
+        engine = MercuryEquationEngine(dimension=8)
         num_terms = len(engine.term_weights)
         assert num_terms >= 18, f"Expected 18+ terms, got {num_terms}"
 

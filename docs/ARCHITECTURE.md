@@ -881,24 +881,24 @@ The system converges when either:
 
 ### Purity Invariant Integration
 
-The **Purity Invariant σ_Sacred** provides an additional stability layer:
+The **Purity Invariant σ_Immutable** provides an additional stability layer:
 
 ```python
 def _compute_purity_invariant(self, state):
     """
-    Purity Invariant: σ_Sacred = (1/n) Σ ethical_i > 0
+    Purity Invariant: σ_Immutable = (1/n) Σ ethical_i > 0
     Ensures positive-definite ethical alignment
     """
     ethical_scalars = self.ethical_matrix @ state
-    sigma_sacred = np.mean(ethical_scalars)
-    return sigma_sacred
+    sigma_immutable = np.mean(ethical_scalars)
+    return sigma_immutable
 ```
 
-**Theorem (Ethical Stability)**: If σ_Sacred < 0, the system applies correction:
+**Theorem (Ethical Stability)**: If σ_Immutable < 0, the system applies correction:
 
 ```python
-if sigma_sacred < 0:
-    correction = -sigma_sacred * self.ethical_matrix.sum(axis=1)
+if sigma_immutable < 0:
+    correction = -sigma_immutable * self.ethical_matrix.sum(axis=1)
     state = state + correction * 0.1  # Gentle push toward ethical space
 ```
 
@@ -911,7 +911,7 @@ Empirical convergence validation (from quick_validation.py):
 ```
 ✓ Exponential convergence: O(e^{-0.13t})
 ✓ Lyapunov stability: ΔV < 0 for 99.8% of iterations
-✓ Purity Invariant: σ_Sacred > 0 for 100% of tested states
+✓ Purity Invariant: σ_Immutable > 0 for 100% of tested states
 ✓ Rollback triggered: 0.2% of iterations (safety mechanism works)
 ```
 

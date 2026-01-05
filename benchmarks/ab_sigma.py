@@ -8,10 +8,10 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-A/B Benchmark: Sigma Sacred Threshold Comparison
+A/B Benchmark: Sigma Immutable Threshold Comparison
 
-Compares detection performance between sigma_sacred=0.93 (medical fallback)
-and sigma_sacred=0.96 (default) across 300 epochs of training.
+Compares detection performance between sigma_immutable=0.93 (medical fallback)
+and sigma_immutable=0.96 (default) across 300 epochs of training.
 
 Metrics tracked:
 - F1 Score
@@ -57,8 +57,8 @@ if not HAS_TORCH:
 # Constants
 PHI = 1.618033988749895
 LAMBDA_LYAPUNOV = 0.25
-SIGMA_SACRED_DEFAULT = 0.96
-SIGMA_SACRED_MEDICAL = 0.93
+SIGMA_IMMUTABLE_DEFAULT = 0.96
+SIGMA_IMMUTABLE_MEDICAL = 0.93
 
 
 @dataclass
@@ -90,7 +90,7 @@ class EpochMetrics:
     false_positive_rate: float
     false_negative_rate: float
     lyapunov_stable: bool
-    sigma_sacred: float
+    sigma_immutable: float
     convergence_rate: float = 0.0
 
 
@@ -193,21 +193,21 @@ def compute_metrics(
 
 def simulate_training_epoch(
     epoch: int,
-    sigma_sacred: float,
+    sigma_immutable: float,
     base_f1: float = 0.75,
     convergence_rate: float = 0.02,
     noise_std: float = 0.02,
 ) -> EpochMetrics:
     """Simulate a training epoch with sigma-dependent performance.
 
-    Higher sigma_sacred leads to:
+    Higher sigma_immutable leads to:
     - Better F1 score (more conservative predictions)
     - Lower false positive rate
     - Slightly higher false negative rate
 
     Args:
         epoch: Current epoch number
-        sigma_sacred: Sigma sacred threshold
+        sigma_immutable: Sigma Immutable threshold
         base_f1: Base F1 score at epoch 0
         convergence_rate: Rate of convergence
         noise_std: Standard deviation of noise
@@ -217,7 +217,7 @@ def simulate_training_epoch(
     """
     progress = 1 - np.exp(-convergence_rate * epoch)
 
-    sigma_bonus = (sigma_sacred - 0.93) / (0.96 - 0.93) * 0.05
+    sigma_bonus = (sigma_immutable - 0.93) / (0.96 - 0.93) * 0.05
 
     target_f1 = base_f1 + 0.17 + sigma_bonus
     f1 = base_f1 + (target_f1 - base_f1) * progress + np.random.randn() * noise_std
@@ -246,7 +246,7 @@ def simulate_training_epoch(
         false_positive_rate=max(0.01, min(0.3, fpr)),
         false_negative_rate=max(0.01, min(0.3, fnr)),
         lyapunov_stable=lyapunov_stable,
-        sigma_sacred=sigma_sacred,
+        sigma_immutable=sigma_immutable,
         convergence_rate=convergence_rate * (1 + sigma_bonus),
     )
 
@@ -273,13 +273,13 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkResult:
     )
 
     logger.info(f"\n{'='*60}")
-    logger.info(f"Training with sigma_sacred = {config.sigma_a} (Group A)")
+    logger.info(f"Training with sigma_immutable = {config.sigma_a} (Group A)")
     logger.info(f"{'='*60}")
 
     for epoch in range(config.epochs):
         metrics = simulate_training_epoch(
             epoch=epoch,
-            sigma_sacred=config.sigma_a,
+            sigma_immutable=config.sigma_a,
             base_f1=0.75,
             convergence_rate=0.015,
         )
@@ -293,13 +293,13 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkResult:
             )
 
     logger.info(f"\n{'='*60}")
-    logger.info(f"Training with sigma_sacred = {config.sigma_b} (Group B)")
+    logger.info(f"Training with sigma_immutable = {config.sigma_b} (Group B)")
     logger.info(f"{'='*60}")
 
     for epoch in range(config.epochs):
         metrics = simulate_training_epoch(
             epoch=epoch,
-            sigma_sacred=config.sigma_b,
+            sigma_immutable=config.sigma_b,
             base_f1=0.75,
             convergence_rate=0.018,
         )
@@ -443,7 +443,9 @@ def save_results(result: BenchmarkResult, output_dir: str) -> str:
 
 def main():
     """Main entry point for A/B sigma benchmark."""
-    parser = argparse.ArgumentParser(description="A/B Benchmark: Sigma Sacred Threshold Comparison")
+    parser = argparse.ArgumentParser(
+        description="A/B Benchmark: Sigma Immutable Threshold Comparison"
+    )
     parser.add_argument("--epochs", type=int, default=300, help="Number of training epochs")
     parser.add_argument("--sigma-a", type=float, default=0.93, help="Sigma A value (medical)")
     parser.add_argument("--sigma-b", type=float, default=0.96, help="Sigma B value (default)")

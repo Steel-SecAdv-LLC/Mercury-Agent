@@ -8,23 +8,24 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-A/B Benchmark: Baseline vs Ava-Dominance Equation
+A/B Benchmark: Baseline vs weighted fusion Equation
 
 Compares detection performance between baseline anomaly detection
-and the Ava-Dominance equation: A = (w_R*R(x) + w_H*H(omega) + w_O*O(theta)) * sigma_Sacred^phi
+and the weighted fusion equation: A = (w_R*R(x) + w_H*H(omega) + w_O*O(theta)) * sigma_Immutable^phi
 
 Metrics tracked:
-- F1 Score (target: 0.797 baseline -> 0.92+ with Ava-Dominance)
+- F1 Score (target: 0.797 baseline -> 0.92+ with weighted fusion)
 - False Positive Rate (target: -5-15% reduction)
 - Convergence Rate
 - Lyapunov Stability (lambda >= 0.25)
 - Training Speedup (target: 2-3x with advanced optimizers)
 
 Expected Results:
-- Ava-Dominance should achieve F1 >= 0.92 (vs 0.797 baseline)
-- Ava-Dominance should reduce FP by 5-15%
-- Ava-Dominance should converge 25-28% faster (lambda=0.25 vs 0.18)
+- weighted fusion should achieve F1 >= 0.92 (vs 0.797 baseline)
+- weighted fusion should reduce FP by 5-15%
+- weighted fusion should converge 25-28% faster (lambda=0.25 vs 0.18)
 - Both should maintain Lyapunov stability
+
 """
 
 import argparse
@@ -35,6 +36,7 @@ import sys
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from typing import Any
 
 import numpy as np
 
@@ -56,10 +58,10 @@ if not HAS_TORCH:
 # Constants
 PHI = 1.618033988749895
 LAMBDA_LYAPUNOV_BASELINE = 0.18
-LAMBDA_LYAPUNOV_AVA = 0.25
-SIGMA_SACRED = 0.96
+LAMBDA_LYAPUNOV_ENHANCED = 0.25  # weighted fusion convergence rate
+SIGMA_IMMUTABLE = 0.96  # Ethical threshold (Civilization-First)
 
-# Ava-Dominance weights
+# weighted fusion weights
 W_R = 0.35  # Recursion weight
 W_H = 0.35  # Harmonic/Resonance weight
 W_O = 0.30  # Optimization/Refactoring weight
@@ -67,7 +69,7 @@ W_O = 0.30  # Optimization/Refactoring weight
 
 @dataclass
 class BenchmarkConfig:
-    """Configuration for A/B dominance benchmark."""
+    """Configuration for A/B fusion benchmark."""
 
     epochs: int = 300
     batch_size: int = 32
@@ -79,9 +81,9 @@ class BenchmarkConfig:
     output_dir: str = "benchmark_results"
     log_interval: int = 10
     use_advanced_optimizers: bool = True
-    sigma_sacred: float = 0.96
+    sigma_immutable: float = 0.96
     lambda_baseline: float = 0.18
-    lambda_ava: float = 0.25
+    lambda_enhanced: float = 0.25
 
 
 @dataclass
@@ -98,7 +100,7 @@ class EpochMetrics:
     lyapunov_stable: bool
     lambda_lyapunov: float
     convergence_rate: float = 0.0
-    ava_dominance_score: float = 0.0
+    fusion_score: float = 0.0
     recursion_score: float = 0.0
     resonance_score: float = 0.0
     refactoring_score: float = 0.0
@@ -108,38 +110,38 @@ class EpochMetrics:
 class BenchmarkResult:
     """Results from A/B benchmark."""
 
-    config: dict
-    baseline_metrics: list = field(default_factory=list)
-    ava_dominance_metrics: list = field(default_factory=list)
-    baseline_final: dict = field(default_factory=dict)
-    ava_dominance_final: dict = field(default_factory=dict)
-    comparison: dict = field(default_factory=dict)
+    config: dict[str, Any]
+    baseline_metrics: list[dict[str, Any]] = field(default_factory=list)
+    fusion_metrics: list[dict[str, Any]] = field(default_factory=list)
+    baseline_final: dict[str, Any] = field(default_factory=dict)
+    fusion_final: dict[str, Any] = field(default_factory=dict)
+    comparison: dict[str, Any] = field(default_factory=dict)
     timestamp: str = ""
     duration_seconds: float = 0.0
 
 
-def compute_ava_dominance(
+def compute_fusion(
     recursion_score: float,
     resonance_score: float,
     refactoring_score: float,
-    sigma_sacred: float = SIGMA_SACRED,
+    sigma_immutable: float = SIGMA_IMMUTABLE,
 ) -> float:
-    """Compute Ava-Dominance score.
+    """Compute weighted fusion score.
 
-    A = (w_R*R(x) + w_H*H(omega) + w_O*O(theta)) * sigma_Sacred^phi
+    A = (w_R*R(x) + w_H*H(omega) + w_O*O(theta)) * sigma_Immutable^phi
 
     Args:
         recursion_score: R(x) - Recursion/multi-scale analysis score
         resonance_score: H(omega) - Harmonic/frequency coherence score
         refactoring_score: O(theta) - Optimization/adaptive theta score
-        sigma_sacred: Ethical threshold (default 0.96)
+        sigma_immutable: Ethical threshold (default 0.96)
 
     Returns:
-        Ava-Dominance score
+        weighted fusion score
     """
     weighted_sum = W_R * recursion_score + W_H * resonance_score + W_O * refactoring_score
-    ava_score = weighted_sum * (sigma_sacred**PHI)
-    return ava_score
+    fusion_score: float = float(weighted_sum * (sigma_immutable**PHI))
+    return fusion_score
 
 
 def simulate_baseline_epoch(
@@ -191,29 +193,29 @@ def simulate_baseline_epoch(
         lyapunov_stable=lyapunov_stable,
         lambda_lyapunov=lambda_lyapunov,
         convergence_rate=lambda_lyapunov,
-        ava_dominance_score=0.0,
+        fusion_score=0.0,
         recursion_score=0.0,
         resonance_score=0.0,
         refactoring_score=0.0,
     )
 
 
-def simulate_ava_dominance_epoch(
+def simulate_fusion_epoch(
     epoch: int,
-    lambda_lyapunov: float = LAMBDA_LYAPUNOV_AVA,
-    sigma_sacred: float = SIGMA_SACRED,
+    lambda_lyapunov: float = LAMBDA_LYAPUNOV_ENHANCED,
+    sigma_immutable: float = SIGMA_IMMUTABLE,
     base_f1: float = 0.60,
     target_f1: float = 0.923,
     noise_std: float = 0.015,
 ) -> EpochMetrics:
-    """Simulate an Ava-Dominance training epoch.
+    """Simulate an weighted fusion training epoch.
 
     Args:
         epoch: Current epoch number
         lambda_lyapunov: Lyapunov convergence rate (elevated to 0.25)
-        sigma_sacred: Ethical threshold
+        sigma_immutable: Ethical threshold (sigma_Immutable)
         base_f1: Base F1 score at epoch 0
-        target_f1: Target F1 score (higher with Ava-Dominance)
+        target_f1: Target F1 score (higher with weighted fusion)
         noise_std: Standard deviation of noise (lower with better convergence)
 
     Returns:
@@ -225,15 +227,15 @@ def simulate_ava_dominance_epoch(
     resonance_score = 0.65 + 0.30 * progress + np.random.randn() * 0.02
     refactoring_score = 0.6 + 0.35 * progress + np.random.randn() * 0.02
 
-    ava_score = compute_ava_dominance(
+    fusion_score = compute_fusion(
         recursion_score=recursion_score,
         resonance_score=resonance_score,
         refactoring_score=refactoring_score,
-        sigma_sacred=sigma_sacred,
+        sigma_immutable=sigma_immutable,
     )
 
-    ava_boost = ava_score * 0.1
-    f1 = base_f1 + (target_f1 - base_f1) * progress + ava_boost + np.random.randn() * noise_std
+    fusion_boost = fusion_score * 0.1
+    f1 = base_f1 + (target_f1 - base_f1) * progress + fusion_boost + np.random.randn() * noise_std
 
     base_fpr = 0.20
     target_fpr = 0.05
@@ -261,7 +263,7 @@ def simulate_ava_dominance_epoch(
         lyapunov_stable=lyapunov_stable,
         lambda_lyapunov=lambda_lyapunov,
         convergence_rate=lambda_lyapunov,
-        ava_dominance_score=ava_score,
+        fusion_score=fusion_score,
         recursion_score=recursion_score,
         resonance_score=resonance_score,
         refactoring_score=refactoring_score,
@@ -269,7 +271,7 @@ def simulate_ava_dominance_epoch(
 
 
 def run_benchmark(config: BenchmarkConfig) -> BenchmarkResult:
-    """Run A/B dominance benchmark.
+    """Run A/B fusion benchmark.
 
     Args:
         config: Benchmark configuration
@@ -277,9 +279,11 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkResult:
     Returns:
         BenchmarkResult with all metrics
     """
-    logger.info("Starting A/B Dominance Benchmark: Baseline vs Ava-Dominance")
+    logger.info("Starting A/B Fusion Benchmark: Baseline vs weighted fusion")
     logger.info(f"Epochs: {config.epochs}")
-    logger.info(f"Lambda Baseline: {config.lambda_baseline}, Lambda Ava: {config.lambda_ava}")
+    logger.info(
+        f"Lambda Baseline: {config.lambda_baseline}, Lambda Enhanced: {config.lambda_enhanced}"
+    )
 
     start_time = time.time()
 
@@ -310,22 +314,22 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkResult:
             )
 
     logger.info(f"\n{'='*60}")
-    logger.info("Training AVA-DOMINANCE (3R + phi-weighting + sigma_sacred)")
+    logger.info("Training WEIGHTED-FUSION (3R + phi-weighting + sigma_Immutable)")
     logger.info(f"{'='*60}")
 
     for epoch in range(config.epochs):
-        metrics = simulate_ava_dominance_epoch(
+        metrics = simulate_fusion_epoch(
             epoch=epoch,
-            lambda_lyapunov=config.lambda_ava,
-            sigma_sacred=config.sigma_sacred,
+            lambda_lyapunov=config.lambda_enhanced,
+            sigma_immutable=config.sigma_immutable,
         )
-        result.ava_dominance_metrics.append(asdict(metrics))
+        result.fusion_metrics.append(asdict(metrics))
 
         if epoch % config.log_interval == 0 or epoch == config.epochs - 1:
             logger.info(
                 f"Epoch {epoch:3d}: F1={metrics.f1_score:.4f}, "
                 f"FPR={metrics.false_positive_rate:.4f}, "
-                f"Ava={metrics.ava_dominance_score:.4f}, "
+                f"Fusion={metrics.fusion_score:.4f}, "
                 f"Lambda={metrics.lambda_lyapunov:.2f}"
             )
 
@@ -340,58 +344,55 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkResult:
         "avg_f1_last_10": np.mean([m["f1_score"] for m in result.baseline_metrics[-10:]]),
     }
 
-    result.ava_dominance_final = {
-        "f1_score": result.ava_dominance_metrics[-1]["f1_score"],
-        "precision": result.ava_dominance_metrics[-1]["precision"],
-        "recall": result.ava_dominance_metrics[-1]["recall"],
-        "false_positive_rate": result.ava_dominance_metrics[-1]["false_positive_rate"],
-        "false_negative_rate": result.ava_dominance_metrics[-1]["false_negative_rate"],
-        "lyapunov_stable": result.ava_dominance_metrics[-1]["lyapunov_stable"],
-        "lambda_lyapunov": result.ava_dominance_metrics[-1]["lambda_lyapunov"],
-        "ava_dominance_score": result.ava_dominance_metrics[-1]["ava_dominance_score"],
-        "avg_f1_last_10": np.mean([m["f1_score"] for m in result.ava_dominance_metrics[-10:]]),
+    result.fusion_final = {
+        "f1_score": result.fusion_metrics[-1]["f1_score"],
+        "precision": result.fusion_metrics[-1]["precision"],
+        "recall": result.fusion_metrics[-1]["recall"],
+        "false_positive_rate": result.fusion_metrics[-1]["false_positive_rate"],
+        "false_negative_rate": result.fusion_metrics[-1]["false_negative_rate"],
+        "lyapunov_stable": result.fusion_metrics[-1]["lyapunov_stable"],
+        "lambda_lyapunov": result.fusion_metrics[-1]["lambda_lyapunov"],
+        "fusion_score": result.fusion_metrics[-1]["fusion_score"],
+        "avg_f1_last_10": np.mean([m["f1_score"] for m in result.fusion_metrics[-10:]]),
     }
 
     f1_improvement = (
-        (result.ava_dominance_final["f1_score"] - result.baseline_final["f1_score"])
+        (result.fusion_final["f1_score"] - result.baseline_final["f1_score"])
         / result.baseline_final["f1_score"]
         * 100
     )
     fpr_reduction = (
-        (
-            result.baseline_final["false_positive_rate"]
-            - result.ava_dominance_final["false_positive_rate"]
-        )
+        (result.baseline_final["false_positive_rate"] - result.fusion_final["false_positive_rate"])
         / result.baseline_final["false_positive_rate"]
         * 100
     )
-    convergence_speedup = config.lambda_ava / config.lambda_baseline
+    convergence_speedup = config.lambda_enhanced / config.lambda_baseline
 
     baseline_convergence_epoch = next(
         (i for i, m in enumerate(result.baseline_metrics) if m["f1_score"] >= 0.75),
         config.epochs,
     )
-    ava_convergence_epoch = next(
-        (i for i, m in enumerate(result.ava_dominance_metrics) if m["f1_score"] >= 0.75),
+    enhanced_convergence_epoch = next(
+        (i for i, m in enumerate(result.fusion_metrics) if m["f1_score"] >= 0.75),
         config.epochs,
     )
-    training_speedup = baseline_convergence_epoch / max(1, ava_convergence_epoch)
+    training_speedup = baseline_convergence_epoch / max(1, enhanced_convergence_epoch)
 
     result.comparison = {
         "f1_improvement_percent": f1_improvement,
-        "f1_absolute_improvement": result.ava_dominance_final["f1_score"]
+        "f1_absolute_improvement": result.fusion_final["f1_score"]
         - result.baseline_final["f1_score"],
         "fpr_reduction_percent": fpr_reduction,
         "convergence_speedup": convergence_speedup,
         "training_speedup": training_speedup,
-        "ava_better_f1": result.ava_dominance_final["f1_score"] > result.baseline_final["f1_score"],
-        "ava_lower_fpr": result.ava_dominance_final["false_positive_rate"]
+        "enhanced_better_f1": result.fusion_final["f1_score"] > result.baseline_final["f1_score"],
+        "enhanced_lower_fpr": result.fusion_final["false_positive_rate"]
         < result.baseline_final["false_positive_rate"],
         "both_lyapunov_stable": result.baseline_final["lyapunov_stable"]
-        and result.ava_dominance_final["lyapunov_stable"],
-        "ava_meets_f1_target": result.ava_dominance_final["f1_score"] >= 0.92,
+        and result.fusion_final["lyapunov_stable"],
+        "enhanced_meets_f1_target": result.fusion_final["f1_score"] >= 0.92,
         "baseline_f1": result.baseline_final["f1_score"],
-        "ava_f1": result.ava_dominance_final["f1_score"],
+        "enhanced_f1": result.fusion_final["f1_score"],
         "f1_improvement_15_30_percent": 15 <= f1_improvement <= 30,
         "fpr_reduction_5_15_percent": 5 <= fpr_reduction <= 15,
         "speedup_2_3x": 2.0 <= training_speedup <= 3.0 or convergence_speedup >= 1.3,
@@ -415,8 +416,8 @@ def print_summary(result: BenchmarkResult) -> None:
     print("\nConfiguration:")
     print(f"  Epochs: {result.config['epochs']}")
     print(f"  Lambda Baseline: {result.config['lambda_baseline']}")
-    print(f"  Lambda Ava-Dominance: {result.config['lambda_ava']}")
-    print(f"  Sigma Sacred: {result.config['sigma_sacred']}")
+    print(f"  Lambda weighted fusion: {result.config['lambda_enhanced']}")
+    print(f"  Sigma Immutable: {result.config['sigma_immutable']}")
     print(f"  Duration: {result.duration_seconds:.2f} seconds")
 
     print("\nBASELINE Final Metrics:")
@@ -427,19 +428,19 @@ def print_summary(result: BenchmarkResult) -> None:
     print(f"  Lyapunov Stable: {result.baseline_final['lyapunov_stable']}")
     print(f"  Lambda: {result.baseline_final['lambda_lyapunov']:.2f}")
 
-    print("\nAVA-DOMINANCE Final Metrics:")
-    print(f"  F1 Score: {result.ava_dominance_final['f1_score']:.4f}")
-    print(f"  Precision: {result.ava_dominance_final['precision']:.4f}")
-    print(f"  Recall: {result.ava_dominance_final['recall']:.4f}")
-    print(f"  False Positive Rate: {result.ava_dominance_final['false_positive_rate']:.4f}")
-    print(f"  Lyapunov Stable: {result.ava_dominance_final['lyapunov_stable']}")
-    print(f"  Lambda: {result.ava_dominance_final['lambda_lyapunov']:.2f}")
-    print(f"  Ava-Dominance Score: {result.ava_dominance_final['ava_dominance_score']:.4f}")
+    print("\nWEIGHTED-FUSION Final Metrics:")
+    print(f"  F1 Score: {result.fusion_final['f1_score']:.4f}")
+    print(f"  Precision: {result.fusion_final['precision']:.4f}")
+    print(f"  Recall: {result.fusion_final['recall']:.4f}")
+    print(f"  False Positive Rate: {result.fusion_final['false_positive_rate']:.4f}")
+    print(f"  Lyapunov Stable: {result.fusion_final['lyapunov_stable']}")
+    print(f"  Lambda: {result.fusion_final['lambda_lyapunov']:.2f}")
+    print(f"  weighted fusion Score: {result.fusion_final['fusion_score']:.4f}")
 
     print("\nComparison:")
     print(f"  F1 Improvement: {result.comparison['f1_improvement_percent']:.2f}%")
     print(
-        f"  F1 Absolute: {result.comparison['baseline_f1']:.4f} -> {result.comparison['ava_f1']:.4f}"
+        f"  F1 Absolute: {result.comparison['baseline_f1']:.4f} -> {result.comparison['enhanced_f1']:.4f}"
     )
     print(f"  FPR Reduction: {result.comparison['fpr_reduction_percent']:.2f}%")
     print(f"  Convergence Speedup: {result.comparison['convergence_speedup']:.2f}x")
@@ -447,7 +448,7 @@ def print_summary(result: BenchmarkResult) -> None:
     print(f"  Both Lyapunov Stable: {result.comparison['both_lyapunov_stable']}")
 
     print("\nValidation (Expected Results):")
-    print(f"  F1 >= 0.92 Target Met: {result.comparison['ava_meets_f1_target']}")
+    print(f"  F1 >= 0.92 Target Met: {result.comparison['enhanced_meets_f1_target']}")
     print(f"  F1 Improvement 15-30%: {result.comparison['f1_improvement_15_30_percent']}")
     print(f"  FPR Reduction 5-15%: {result.comparison['fpr_reduction_5_15_percent']}")
     print(f"  Speedup 2-3x: {result.comparison['speedup_2_3x']}")
@@ -468,18 +469,18 @@ def save_results(result: BenchmarkResult, output_dir: str) -> str:
     os.makedirs(output_dir, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"ab_dominance_benchmark_{timestamp}.json"
+    filename = f"ab_fusion_benchmark_{timestamp}.json"
     filepath = os.path.join(output_dir, filename)
 
     result_dict = {
         "config": result.config,
         "baseline_final": result.baseline_final,
-        "ava_dominance_final": result.ava_dominance_final,
+        "fusion_final": result.fusion_final,
         "comparison": result.comparison,
         "timestamp": result.timestamp,
         "duration_seconds": result.duration_seconds,
         "baseline_metrics": result.baseline_metrics,
-        "ava_dominance_metrics": result.ava_dominance_metrics,
+        "fusion_metrics": result.fusion_metrics,
     }
 
     with open(filepath, "w") as f:
@@ -489,15 +490,17 @@ def save_results(result: BenchmarkResult, output_dir: str) -> str:
     return filepath
 
 
-def main():
-    """Main entry point for A/B dominance benchmark."""
+def main() -> int:
+    """Main entry point for A/B fusion benchmark."""
     parser = argparse.ArgumentParser(
-        description="A/B Benchmark: Baseline vs Ava-Dominance Equation"
+        description="A/B Benchmark: Baseline vs weighted fusion Equation"
     )
     parser.add_argument("--epochs", type=int, default=300, help="Number of training epochs")
     parser.add_argument("--lambda-baseline", type=float, default=0.18, help="Baseline lambda")
-    parser.add_argument("--lambda-ava", type=float, default=0.25, help="Ava-Dominance lambda")
-    parser.add_argument("--sigma-sacred", type=float, default=0.96, help="Sigma sacred threshold")
+    parser.add_argument("--lambda-ava", type=float, default=0.25, help="weighted fusion lambda")
+    parser.add_argument(
+        "--sigma-immutable", type=float, default=0.96, help="Sigma Immutable threshold"
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument(
         "--output-dir", type=str, default="benchmark_results", help="Output directory"
@@ -509,8 +512,8 @@ def main():
     config = BenchmarkConfig(
         epochs=args.epochs,
         lambda_baseline=args.lambda_baseline,
-        lambda_ava=args.lambda_ava,
-        sigma_sacred=args.sigma_sacred,
+        lambda_enhanced=args.lambda_enhanced,
+        sigma_immutable=args.sigma_immutable,
         seed=args.seed,
         output_dir=args.output_dir,
         log_interval=args.log_interval,
@@ -522,8 +525,8 @@ def main():
 
     save_results(result, config.output_dir)
 
-    if result.comparison["ava_meets_f1_target"]:
-        logger.info("BENCHMARK PASSED: F1 >= 0.92 target met with Ava-Dominance")
+    if result.comparison["enhanced_meets_f1_target"]:
+        logger.info("BENCHMARK PASSED: F1 >= 0.92 target met with weighted fusion")
         return 0
     else:
         logger.warning("BENCHMARK WARNING: F1 target not met")

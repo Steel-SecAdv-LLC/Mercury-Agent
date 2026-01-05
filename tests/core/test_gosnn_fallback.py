@@ -14,7 +14,7 @@ Covers:
 - Fallback to raw features on error
 - last_harmonic_synergy initialization
 - Scalar registration with omni_ prefix
-- Ethical gating with sigma_sacred threshold
+- Ethical gating with sigma_immutable threshold
 - DetectorRegistry 128D normalization
 """
 
@@ -178,7 +178,7 @@ class TestScalarRegistration:
 
 
 class TestEthicalGating:
-    """Tests for ethical gating with sigma_sacred threshold."""
+    """Tests for ethical gating with sigma_immutable threshold."""
 
     @pytest.fixture
     def gosnn(self):
@@ -191,21 +191,21 @@ class TestEthicalGating:
 
         return GlobalOmniScalarNetwork()
 
-    def test_sigma_sacred_default(self):
-        """Test sigma_sacred default value."""
+    def test_sigma_immutable_default(self):
+        """Test sigma_immutable default value."""
         from omni_mercury_engine.core.global_omni_scalar_network import (
-            SIGMA_SACRED_THRESHOLD,
+            SIGMA_IMMUTABLE_THRESHOLD,
         )
 
-        assert SIGMA_SACRED_THRESHOLD == 0.96
+        assert SIGMA_IMMUTABLE_THRESHOLD == 0.96
 
-    def test_sigma_sacred_medical_fallback(self):
-        """Test sigma_sacred medical fallback value."""
+    def test_sigma_immutable_medical_fallback(self):
+        """Test sigma_immutable medical fallback value."""
         from omni_mercury_engine.core.global_omni_scalar_network import (
-            SIGMA_SACRED_MEDICAL_FALLBACK,
+            SIGMA_IMMUTABLE_MEDICAL_FALLBACK,
         )
 
-        assert SIGMA_SACRED_MEDICAL_FALLBACK == 0.93
+        assert SIGMA_IMMUTABLE_MEDICAL_FALLBACK == 0.93
 
     def test_ethical_gate_passes_high_benevolence(self, gosnn):
         """Test ethical gate passes with high benevolence."""
@@ -504,12 +504,12 @@ class TestTriadicPhiWeighting:
 
 
 # =============================================================================
-# Ava-Dominance Equation Tests
+# weighted fusion Equation Tests
 # =============================================================================
 
 
-class TestAvaDominanceEquation:
-    """Tests for Ava-Dominance equation implementation."""
+class TestFusionEquation:
+    """Tests for weighted fusion equation implementation."""
 
     @pytest.fixture
     def three_r(self):
@@ -520,12 +520,12 @@ class TestAvaDominanceEquation:
 
         return ThreeRMechanism()
 
-    def test_ava_dominance_exists(self, three_r):
-        """Test Ava-Dominance method exists."""
-        assert hasattr(three_r, "compute_ava_dominance") or hasattr(three_r, "ava_dominance")
+    def test_fusion_exists(self, three_r):
+        """Test weighted fusion method exists."""
+        assert hasattr(three_r, "compute_fusion") or hasattr(three_r, "fusion")
 
-    def test_ava_dominance_components(self, three_r):
-        """Test Ava-Dominance has R, H, O components."""
+    def test_fusion_components(self, three_r):
+        """Test weighted fusion has R, H, O components."""
         # ThreeRMechanism uses *_engine naming convention
         assert (
             hasattr(three_r, "recursion_engine")

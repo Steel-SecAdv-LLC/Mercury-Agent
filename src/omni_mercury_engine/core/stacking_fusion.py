@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 PHI = 1.618033988749895
 
 # Default ethical threshold
-SIGMA_SACRED_DEFAULT = 0.96
+SIGMA_IMMUTABLE_DEFAULT = 0.96
 
 
 class BaseDetector(Protocol):
@@ -483,13 +483,13 @@ class EthicallyConstrainedFusion:
     Fusion with ethical constraints integrated from GOSNN.
 
     Learns optimal detector weights while ensuring ethical
-    compliance through sigma_Sacred threshold gating and
+    compliance through sigma_Immutable threshold gating and
     benevolence weighting.
     """
 
     def __init__(
         self,
-        sigma_sacred: float = SIGMA_SACRED_DEFAULT,
+        sigma_immutable: float = SIGMA_IMMUTABLE_DEFAULT,
         benevolence_weight: float = 0.1,
         use_golden_ratio: bool = True,
     ):
@@ -497,11 +497,11 @@ class EthicallyConstrainedFusion:
         Initialize ethically constrained fusion.
 
         Args:
-            sigma_sacred: Ethical threshold (0.93-0.96)
+            sigma_immutable: Ethical threshold (0.93-0.96)
             benevolence_weight: Weight for benevolence term in loss
             use_golden_ratio: Apply phi-based harmonic weighting
         """
-        self.sigma_sacred = sigma_sacred
+        self.sigma_immutable = sigma_immutable
         self.benevolence_weight = benevolence_weight
         self.use_golden_ratio = use_golden_ratio
 
@@ -580,9 +580,9 @@ class EthicallyConstrainedFusion:
             # Ethical penalty: penalize low-ethical detectors
             ethical_penalty = self.benevolence_weight * np.sum(w * (1 - ethical_vec))
 
-            # Sigma_sacred constraint: average ethical score must exceed threshold
+            # Sigma_immutable constraint: average ethical score must exceed threshold
             avg_ethical = np.sum(w * ethical_vec)
-            constraint_penalty = 10.0 * max(0, self.sigma_sacred - avg_ethical)
+            constraint_penalty = 10.0 * max(0, self.sigma_immutable - avg_ethical)
 
             return bce + ethical_penalty + constraint_penalty
 
@@ -613,7 +613,7 @@ class EthicallyConstrainedFusion:
         logger.info(
             f"EthicallyConstrainedFusion fitted: "
             f"weights={dict(zip(self.detectors.keys(), self.weights))}, "
-            f"avg_ethical={avg_ethical:.3f}, threshold={self.sigma_sacred}"
+            f"avg_ethical={avg_ethical:.3f}, threshold={self.sigma_immutable}"
         )
 
         return self
@@ -655,8 +655,8 @@ class EthicallyConstrainedFusion:
 
         return {
             "average_ethical_score": avg_ethical,
-            "sigma_sacred_threshold": self.sigma_sacred,
-            "passes_threshold": avg_ethical >= self.sigma_sacred,
+            "sigma_immutable_threshold": self.sigma_immutable,
+            "passes_threshold": avg_ethical >= self.sigma_immutable,
             "detector_weights": dict(zip(self.detectors.keys(), self.weights)),
             "detector_ethical_scores": self.ethical_scores.copy(),
         }

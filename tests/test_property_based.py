@@ -198,7 +198,7 @@ class TestDoubleHelixEngineProperties:
     @settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.too_slow])
     def test_evolution_preserves_finite_values(self, initial_state: np.ndarray[Any, Any]):
         """Evolution should never produce NaN or Inf values."""
-        from omni_mercury_engine.core.double_helix_engine import AvaEquationEngine
+        from omni_mercury_engine.core.double_helix_engine import MercuryEquationEngine
 
         # Skip if initial state has bad values or is too small
         assume(np.all(np.isfinite(initial_state)))
@@ -208,7 +208,7 @@ class TestDoubleHelixEngineProperties:
         # This is a valid constraint since the engine expects normalized state vectors
         normalized_state = initial_state / (np.linalg.norm(initial_state) + 1e-10)
 
-        engine = AvaEquationEngine(dimension=len(initial_state))
+        engine = MercuryEquationEngine(dimension=len(initial_state))
         final_state, history = engine.converge(normalized_state, max_iter=10)
 
         # Property: Output should always be finite
@@ -221,9 +221,9 @@ class TestDoubleHelixEngineProperties:
     @settings(max_examples=20, suppress_health_check=[HealthCheck.too_slow])
     def test_evolution_dimension_consistency(self, dim: int):
         """Evolution should preserve state dimension."""
-        from omni_mercury_engine.core.double_helix_engine import AvaEquationEngine
+        from omni_mercury_engine.core.double_helix_engine import MercuryEquationEngine
 
-        engine = AvaEquationEngine(dimension=dim)
+        engine = MercuryEquationEngine(dimension=dim)
         initial_state = np.random.randn(dim)
         final_state, history = engine.converge(initial_state, max_iter=5)
 
@@ -383,19 +383,19 @@ class TestEthicalEngineProperties:
         )
     )
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
-    def test_sacred_geometry_bounded_scores(self, data: np.ndarray[Any, Any]):
-        """Sacred geometry analysis should produce scores in [0, 1]."""
-        from omni_mercury_engine.ethical.ethical_constraint_engine import SacredGeometryProcessor
+    def test_geometry_analysis_bounded_scores(self, data: np.ndarray[Any, Any]):
+        """Immutable geometry analysis should produce scores in [0, 1]."""
+        from omni_mercury_engine.ethical.ethical_constraint_engine import ImmutableGeometryProcessor
 
-        processor = SacredGeometryProcessor()
-        result = processor.analyze_sacred_geometry(data)
+        processor = ImmutableGeometryProcessor()
+        result = processor.analyze_geometry(data)
 
         # Property: All scores should be bounded [0, 1]
         assert 0.0 <= result.golden_ratio_alignment <= 1.0
         assert 0.0 <= result.fibonacci_spiral_score <= 1.0
         assert 0.0 <= result.vesica_piscis_score <= 1.0
         assert 0.0 <= result.platonic_harmony <= 1.0
-        assert 0.0 <= result.overall_sacred_score <= 1.0
+        assert 0.0 <= result.overall_geometry_score <= 1.0
 
 
 class TestDetectorRegistryProperties:

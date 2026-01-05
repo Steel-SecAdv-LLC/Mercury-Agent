@@ -308,10 +308,10 @@ class TestEngineConfig:
         )
 
         cyber_config = MercuryEngineConfig(domain=DomainType.CYBER)
-        assert cyber_config.ethical.sigma_sacred_threshold == 0.93
+        assert cyber_config.ethical.sigma_immutable_threshold == 0.93
 
         medical_config = MercuryEngineConfig(domain=DomainType.MEDICAL)
-        assert medical_config.ethical.sigma_sacred_threshold == 0.93
+        assert medical_config.ethical.sigma_immutable_threshold == 0.93
 
     def test_get_ethical_threshold_for_domain(self) -> None:
         """get_ethical_threshold_for_domain should return correct values."""
@@ -360,10 +360,10 @@ class TestEngineConfig:
         )
 
         cyber = create_cyber_config()
-        assert cyber.ethical.sigma_sacred_threshold == 0.93
+        assert cyber.ethical.sigma_immutable_threshold == 0.93
 
         medical = create_medical_config()
-        assert medical.ethical.sigma_sacred_threshold == 0.93
+        assert medical.ethical.sigma_immutable_threshold == 0.93
 
         infra = create_infrastructure_config()
         assert infra.ethical.benevolence_threshold == 0.995

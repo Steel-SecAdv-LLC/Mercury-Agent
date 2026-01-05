@@ -70,7 +70,7 @@ class BenchmarkMetrics:
 
     # Ethical metrics
     benevolence_score: float = 1.0
-    sigma_sacred: float = 0.96
+    sigma_immutable: float = 0.96
 
     # Timing
     fit_time_ms: float = 0.0
@@ -135,7 +135,7 @@ class BenchmarkResult:
                 "event_f1": self.metrics.event_f1,
                 "time_to_detection": self.metrics.time_to_detection,
                 "benevolence_score": self.metrics.benevolence_score,
-                "sigma_sacred": self.metrics.sigma_sacred,
+                "sigma_immutable": self.metrics.sigma_immutable,
             },
             "n_folds": self.n_folds,
             "seed": self.seed,

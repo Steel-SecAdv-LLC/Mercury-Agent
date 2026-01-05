@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 # Constants
 PHI = 1.618033988749895  # Golden ratio
 BENEVOLENCE_THRESHOLD = 0.99
-SIGMA_SACRED_DEFAULT = 0.96
+SIGMA_IMMUTABLE_DEFAULT = 0.96
 
 
 @dataclass
@@ -151,7 +151,7 @@ class MetricsCalculator:
     def __init__(
         self,
         benevolence_threshold: float = BENEVOLENCE_THRESHOLD,
-        sigma_sacred: float = SIGMA_SACRED_DEFAULT,
+        sigma_immutable: float = SIGMA_IMMUTABLE_DEFAULT,
         n_calibration_bins: int = 10,
     ):
         """
@@ -159,11 +159,11 @@ class MetricsCalculator:
 
         Args:
             benevolence_threshold: Minimum required benevolence
-            sigma_sacred: Ethical threshold
+            sigma_immutable: Ethical threshold
             n_calibration_bins: Bins for calibration metrics
         """
         self.benevolence_threshold = benevolence_threshold
-        self.sigma_sacred = sigma_sacred
+        self.sigma_immutable = sigma_immutable
         self.n_calibration_bins = n_calibration_bins
 
     def compute_all_metrics(
@@ -507,7 +507,7 @@ class MetricsCalculator:
             # Ethical compliance check - explicitly cast to Python bool to avoid numpy.bool_
             metrics.ethical_compliance = bool(
                 metrics.benevolence_index >= self.benevolence_threshold
-                and metrics.harm_reduction_score >= self.sigma_sacred
+                and metrics.harm_reduction_score >= self.sigma_immutable
             )
 
         except Exception as e:

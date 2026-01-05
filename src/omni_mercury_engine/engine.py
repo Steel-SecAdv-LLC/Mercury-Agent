@@ -1138,14 +1138,14 @@ class OmniMercuryEngine:
 
         GOSNN Integration (Synaptic Fusion):
             1. Extract features from all detectors and models
-            2. Call GOSNN.get_enhanced_scalars() for ethical gating (sigma_Sacred)
+            2. Call GOSNN.get_enhanced_scalars() for ethical gating (sigma_Immutable)
             3. Apply 32-head attention with triadic phi-weighting for harmonic synergy
             4. Feed enhanced scalars back to fusion for adaptive weighting
             5. Return results with ethical compliance metadata
 
         Args:
             data: Input data for detection.
-            domain: Optional domain identifier for sigma_Sacred threshold tuning
+            domain: Optional domain identifier for sigma_Immutable threshold tuning
                     (e.g., "medical" uses 0.93 fallback instead of 0.96 default)
             enable_gosnn: Enable GOSNN synaptic integration (default True)
 
@@ -1158,9 +1158,9 @@ class OmniMercuryEngine:
                 - detector_importance: Dict of detector weights
                 - mode: Detection mode ('fusion')
                 - gosnn_metadata: GOSNN integration metadata (if enabled):
-                    - ethical_gate_passed: Whether sigma_Sacred threshold was met
-                    - sigma_sacred_score: Ethical compliance score
-                    - harmonic_synergy: H(omega) component for Ava-Dominance Equation
+                    - ethical_gate_passed: Whether sigma_Immutable threshold was met
+                    - sigma_immutable_score: Ethical compliance score
+                    - harmonic_synergy: H(omega) component for weighted fusion Equation
                     - intelligence_contribution: GOSNN intelligence score
                     - warnings: Any ethical warnings
 
@@ -1215,11 +1215,11 @@ class OmniMercuryEngine:
                 # Store GOSNN metadata for transparency
                 gosnn_metadata = {
                     "ethical_gate_passed": enhancement_result.ethical_gate_passed,
-                    "sigma_sacred_score": enhancement_result.fusion_score,
+                    "sigma_immutable_score": enhancement_result.fusion_score,
                     "harmonic_synergy": gosnn.last_harmonic_synergy,
                     "intelligence_contribution": enhancement_result.intelligence_contribution,
                     "warnings": enhancement_result.warnings,
-                    "sigma_sacred_threshold": gosnn.sigma_sacred_threshold,
+                    "sigma_immutable_threshold": gosnn.sigma_immutable_threshold,
                 }
 
                 # Register detector scalars with GOSNN for bidirectional feedback
@@ -1252,7 +1252,7 @@ class OmniMercuryEngine:
                     "ethical_gate_passed": True,  # Assume ethical for graceful degradation
                     "fallback_mode": True,
                     "fallback_scalars": fallback_scalars,
-                    "sigma_sacred_score": 0.96,  # Default threshold
+                    "sigma_immutable_score": 0.96,  # Default threshold
                     "harmonic_synergy": 0.5,  # Neutral synergy
                 }
 

@@ -40,16 +40,16 @@ if TYPE_CHECKING:
 
 __all__ = [
     "AnomalyDataset",
-    "AvaExponentialDecayOptimizer",
-    "AvaHarmonicOptimizer",
-    "AvaMomentumOptimizer",
-    "AvaOptimizer",
     "EarlyStopping",
     "FusionTrainer",
     "LearningRateScheduler",
+    "MercuryExponentialDecayOptimizer",
+    "MercuryHarmonicOptimizer",
+    "MercuryMomentumOptimizer",
+    "MercuryOptimizer",
     "Trainer",
     "TrainingConfig",
-    "create_ava_optimizer",
+    "create_mercury_optimizer",
 ]
 
 
@@ -362,9 +362,9 @@ class Trainer:
         self.epoch = checkpoint.get("epoch", 0)
 
 
-class AvaOptimizer(optim.Optimizer):
+class MercuryOptimizer(optim.Optimizer):
     """
-    Base Ava optimizer with state evolution dynamics
+    Base Mercury optimizer with state evolution dynamics
     """
 
     def __init__(
@@ -415,9 +415,9 @@ class AvaOptimizer(optim.Optimizer):
         return loss
 
 
-class AvaMomentumOptimizer(optim.Optimizer):
+class MercuryMomentumOptimizer(optim.Optimizer):
     """
-    Ava optimizer with momentum variant
+    Mercury optimizer with momentum variant
     """
 
     def __init__(
@@ -456,9 +456,9 @@ class AvaMomentumOptimizer(optim.Optimizer):
         return loss
 
 
-class AvaExponentialDecayOptimizer(optim.Optimizer):
+class MercuryExponentialDecayOptimizer(optim.Optimizer):
     """
-    Ava optimizer with exponential decay
+    Mercury optimizer with exponential decay
     """
 
     def __init__(
@@ -499,9 +499,9 @@ class AvaExponentialDecayOptimizer(optim.Optimizer):
         return loss
 
 
-class AvaHarmonicOptimizer(optim.Optimizer):
+class MercuryHarmonicOptimizer(optim.Optimizer):
     """
-    Ava optimizer with harmonic oscillator variant
+    Mercury optimizer with harmonic oscillator variant
     """
 
     def __init__(
@@ -546,22 +546,22 @@ class AvaHarmonicOptimizer(optim.Optimizer):
         return loss
 
 
-def create_ava_optimizer(
+def create_mercury_optimizer(
     params: Any, variant: str = "base", lr: float = 0.001, **kwargs: Any
 ) -> optim.Optimizer:
     """
-    Factory function to create Ava optimizer variants
+    Factory function to create Mercury optimizer variants
     """
     if variant == "base":
-        return AvaOptimizer(params, lr=lr, **kwargs)
+        return MercuryOptimizer(params, lr=lr, **kwargs)
     elif variant == "momentum":
-        return AvaMomentumOptimizer(params, lr=lr, **kwargs)
+        return MercuryMomentumOptimizer(params, lr=lr, **kwargs)
     elif variant == "exp_decay":
-        return AvaExponentialDecayOptimizer(params, lr=lr, **kwargs)
+        return MercuryExponentialDecayOptimizer(params, lr=lr, **kwargs)
     elif variant == "harmonic":
-        return AvaHarmonicOptimizer(params, lr=lr, **kwargs)
+        return MercuryHarmonicOptimizer(params, lr=lr, **kwargs)
     else:
-        raise ValueError(f"Unknown Ava optimizer variant: {variant}")
+        raise ValueError(f"Unknown Mercury optimizer variant: {variant}")
 
 
 class AnomalyDataset(
@@ -707,7 +707,7 @@ class FusionTrainer(pl.LightningModule):
 
         if optimizer_type.startswith("ava_"):
             variant = optimizer_type.replace("ava_", "")
-            optimizer = create_ava_optimizer(
+            optimizer = create_mercury_optimizer(
                 self.parameters(),
                 variant=variant,
                 lr=self.learning_rate,

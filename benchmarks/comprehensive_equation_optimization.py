@@ -20,7 +20,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Comprehensive Equation Optimization Experiments
 
 Optimizes all engine equations exhaustively:
-- Ava equation (primary)
+- Mercury equation (primary)
 - Ethical scalars (~135 scalars)
 - Fusion weights
 - Harmonic coefficients
@@ -42,9 +42,9 @@ from pathlib import Path
 import numpy as np
 
 
-def optimize_ava_equation():
+def optimize_mercury_equation():
     """
-    Optimize Ava equation variations.
+    Optimize Mercury equation variations.
 
     Test different combinations of:
     - Weight coefficients (w1, w2, w3, ...)
@@ -59,7 +59,7 @@ def optimize_ava_equation():
     exponents = np.arange(1.0, 3.1, 0.5)  # 5 values
     tensor_factors = np.arange(0.1, 1.1, 0.3)  # 4 values
 
-    print("Optimizing Ava equation configurations...")
+    print("Optimizing Mercury equation configurations...")
 
     experiment_id = 0
     for w1, w2, w3 in itertools.product(weights[:3], repeat=3):
@@ -67,7 +67,7 @@ def optimize_ava_equation():
             for t1 in tensor_factors[:2]:
                 experiment_id += 1
 
-                score = _evaluate_ava_config(w1, w2, w3, e1, e2, t1)
+                score = _evaluate_mercury_config(w1, w2, w3, e1, e2, t1)
 
                 results.append(
                     {
@@ -79,18 +79,18 @@ def optimize_ava_equation():
                         "e2": float(e2),
                         "t1": float(t1),
                         "score": float(score),
-                        "equation_type": "ava_primary",
+                        "equation_type": "mercury_primary",
                     }
                 )
 
-                if experiment_id >= 150:  # Limit to 150 for Ava
+                if experiment_id >= 150:  # Limit to 150 for Mercury
                     break
             if experiment_id >= 150:
                 break
         if experiment_id >= 150:
             break
 
-    print(f"  Completed {experiment_id} Ava equation experiments")
+    print(f"  Completed {experiment_id} Mercury equation experiments")
     return results
 
 
@@ -220,8 +220,8 @@ def optimize_harmonic_coefficients():
     return results
 
 
-def _evaluate_ava_config(w1, w2, w3, e1, e2, t1):
-    """Simulate Ava equation evaluation."""
+def _evaluate_mercury_config(w1, w2, w3, e1, e2, t1):
+    """Simulate Mercury equation evaluation."""
     base_score = (w1**e1) + (w2**e2) + (w3 * (e1 + e2) / 2)
     tensor_adjustment = t1 * np.sqrt(w1 * w2 * w3)
     noise = np.random.randn() * 0.05  # Small noise for realism
@@ -271,7 +271,7 @@ def main():
     print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print()
 
-    ava_results = optimize_ava_equation()
+    mercury_results = optimize_mercury_equation()
     ethical_results = optimize_ethical_scalars()
     fusion_results = optimize_fusion_weights()
     harmonic_results = optimize_harmonic_coefficients()
@@ -279,18 +279,18 @@ def main():
     all_results = {
         "metadata": {
             "timestamp": datetime.now().isoformat(),
-            "total_experiments": len(ava_results)
+            "total_experiments": len(mercury_results)
             + len(ethical_results)
             + len(fusion_results)
             + len(harmonic_results),
             "optimization_areas": [
-                "ava_equation",
+                "mercury_equation",
                 "ethical_scalars",
                 "fusion_weights",
                 "harmonic_coefficients",
             ],
         },
-        "ava_equation": ava_results,
+        "mercury_equation": mercury_results,
         "ethical_scalars": ethical_results,
         "fusion_weights": fusion_results,
         "harmonic_coefficients": harmonic_results,
@@ -310,16 +310,20 @@ def main():
     print(f"Results saved to {output_path}")
     print()
 
-    best_ava = max(ava_results, key=lambda x: x["score"])
+    best_mercury = max(mercury_results, key=lambda x: x["score"])
     best_ethical = max(ethical_results, key=lambda x: x["score"])
     best_fusion = max(fusion_results, key=lambda x: x["score"])
     best_harmonic = max(harmonic_results, key=lambda x: x["score"])
 
     print("BEST CONFIGURATIONS:")
     print("-" * 60)
-    print(f"Ava Equation (score={best_ava['score']:.4f}):")
-    print(f"  w1={best_ava['w1']:.2f}, w2={best_ava['w2']:.2f}, w3={best_ava['w3']:.2f}")
-    print(f"  e1={best_ava['e1']:.2f}, e2={best_ava['e2']:.2f}, t1={best_ava['t1']:.2f}")
+    print(f"Mercury Equation (score={best_mercury['score']:.4f}):")
+    print(
+        f"  w1={best_mercury['w1']:.2f}, w2={best_mercury['w2']:.2f}, w3={best_mercury['w3']:.2f}"
+    )
+    print(
+        f"  e1={best_mercury['e1']:.2f}, e2={best_mercury['e2']:.2f}, t1={best_mercury['t1']:.2f}"
+    )
     print()
     print(f"Ethical Scalars (score={best_ethical['score']:.4f}):")
     print(f"  Group: {best_ethical['scalar_group']}")

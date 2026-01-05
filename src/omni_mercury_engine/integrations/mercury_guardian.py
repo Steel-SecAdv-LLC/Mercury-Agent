@@ -227,7 +227,7 @@ class EWMATimingMonitor:
         return 0.5
 
 
-class AvaGuardianAdapter:
+class MercuryGuardianAdapter:
     """Adapter integrating Ava-Guardian PQC with Mercury Agent ♱.
 
     Provides post-quantum cryptographic operations with:
@@ -281,7 +281,7 @@ class AvaGuardianAdapter:
             Dictionary with availability status for each algorithm
         """
         return {
-            "ava_guardian_available": AVA_GUARDIAN_AVAILABLE,
+            "mercury_guardian_available": AVA_GUARDIAN_AVAILABLE,
             "dilithium_available": DILITHIUM_AVAILABLE,
             "kyber_available": KYBER_AVAILABLE,
             "timing_monitor_enabled": self.timing_monitor is not None,
@@ -746,10 +746,10 @@ class AvaGuardianAdapter:
         return scalars
 
 
-def create_ava_guardian_adapter(
+def create_mercury_guardian_adapter(
     enable_timing_monitor: bool = True,
     gosnn_synapse_enabled: bool = True,
-) -> AvaGuardianAdapter:
+) -> MercuryGuardianAdapter:
     """Factory function to create Ava-Guardian adapter.
 
     Args:
@@ -757,9 +757,9 @@ def create_ava_guardian_adapter(
         gosnn_synapse_enabled: Enable GOSNN ethical gate synapse
 
     Returns:
-        Configured AvaGuardianAdapter instance
+        Configured MercuryGuardianAdapter instance
     """
-    return AvaGuardianAdapter(
+    return MercuryGuardianAdapter(
         enable_timing_monitor=enable_timing_monitor,
         gosnn_synapse_enabled=gosnn_synapse_enabled,
     )
@@ -769,13 +769,13 @@ __all__ = [
     "AVA_GUARDIAN_AVAILABLE",
     "DILITHIUM_AVAILABLE",
     "KYBER_AVAILABLE",
-    "AvaGuardianAdapter",
     "CryptoAnomaly",
     "CryptoAnomalyType",
     "DilithiumKeyPair",
     "EWMATimingMonitor",
     "KyberEncapsulation",
     "KyberKeyPair",
+    "MercuryGuardianAdapter",
     "TimingStats",
-    "create_ava_guardian_adapter",
+    "create_mercury_guardian_adapter",
 ]

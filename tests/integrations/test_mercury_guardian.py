@@ -10,7 +10,7 @@ the Free Software Foundation, either version 3 of the License, or
 Tests for Ava-Guardian integration adapter with post-quantum cryptography.
 
 Covers:
-- AvaGuardianAdapter initialization and availability
+- MercuryGuardianAdapter initialization and availability
 - EWMA/MAD timing anomaly detection
 - Crypto anomaly types and recording
 - GOSNN synapse integration
@@ -26,19 +26,19 @@ import numpy as np
 import pytest
 
 # =============================================================================
-# AvaGuardianAdapter Tests
+# MercuryGuardianAdapter Tests
 # =============================================================================
 
 
-class TestAvaGuardianAdapter:
-    """Tests for AvaGuardianAdapter."""
+class TestMercuryGuardianAdapter:
+    """Tests for MercuryGuardianAdapter."""
 
     @pytest.fixture
     def adapter(self):
-        """Create AvaGuardianAdapter instance."""
-        from omni_mercury_engine.integrations.ava_guardian import AvaGuardianAdapter
+        """Create MercuryGuardianAdapter instance."""
+        from omni_mercury_engine.integrations.mercury_guardian import MercuryGuardianAdapter
 
-        return AvaGuardianAdapter(
+        return MercuryGuardianAdapter(
             enable_timing_monitor=True,
             timing_alpha=0.1,
             mad_threshold=3.0,
@@ -47,20 +47,20 @@ class TestAvaGuardianAdapter:
 
     @pytest.fixture
     def adapter_no_timing(self):
-        """Create AvaGuardianAdapter without timing monitor."""
-        from omni_mercury_engine.integrations.ava_guardian import AvaGuardianAdapter
+        """Create MercuryGuardianAdapter without timing monitor."""
+        from omni_mercury_engine.integrations.mercury_guardian import MercuryGuardianAdapter
 
-        return AvaGuardianAdapter(
+        return MercuryGuardianAdapter(
             enable_timing_monitor=False,
             gosnn_synapse_enabled=True,
         )
 
     @pytest.fixture
     def adapter_no_gosnn(self):
-        """Create AvaGuardianAdapter without GOSNN synapse."""
-        from omni_mercury_engine.integrations.ava_guardian import AvaGuardianAdapter
+        """Create MercuryGuardianAdapter without GOSNN synapse."""
+        from omni_mercury_engine.integrations.mercury_guardian import MercuryGuardianAdapter
 
-        return AvaGuardianAdapter(
+        return MercuryGuardianAdapter(
             enable_timing_monitor=True,
             gosnn_synapse_enabled=False,
         )
@@ -89,7 +89,7 @@ class TestAvaGuardianAdapter:
     def test_get_pqc_status(self, adapter):
         """Test PQC status retrieval."""
         status = adapter.get_pqc_status()
-        assert "ava_guardian_available" in status
+        assert "mercury_guardian_available" in status
         assert "dilithium_available" in status
         assert "kyber_available" in status
         assert "timing_monitor_enabled" in status
@@ -128,7 +128,7 @@ class TestEWMATimingMonitor:
     @pytest.fixture
     def monitor(self):
         """Create EWMATimingMonitor instance."""
-        from omni_mercury_engine.integrations.ava_guardian import EWMATimingMonitor
+        from omni_mercury_engine.integrations.mercury_guardian import EWMATimingMonitor
 
         return EWMATimingMonitor(alpha=0.1, mad_threshold=3.0)
 
@@ -214,7 +214,7 @@ class TestCryptoAnomaly:
 
     def test_crypto_anomaly_creation(self):
         """Test CryptoAnomaly creation."""
-        from omni_mercury_engine.integrations.ava_guardian import (
+        from omni_mercury_engine.integrations.mercury_guardian import (
             CryptoAnomaly,
             CryptoAnomalyType,
         )
@@ -233,7 +233,7 @@ class TestCryptoAnomaly:
 
     def test_crypto_anomaly_types(self):
         """Test all CryptoAnomalyType values."""
-        from omni_mercury_engine.integrations.ava_guardian import CryptoAnomalyType
+        from omni_mercury_engine.integrations.mercury_guardian import CryptoAnomalyType
 
         assert CryptoAnomalyType.TIMING_ANOMALY.value == "timing_anomaly"
         assert CryptoAnomalyType.SIGNATURE_FAILURE.value == "signature_failure"
@@ -254,7 +254,7 @@ class TestTimingStats:
 
     def test_timing_stats_defaults(self):
         """Test TimingStats default values."""
-        from omni_mercury_engine.integrations.ava_guardian import TimingStats
+        from omni_mercury_engine.integrations.mercury_guardian import TimingStats
 
         stats = TimingStats()
         assert stats.ewma_mean == 0.0
@@ -265,7 +265,7 @@ class TestTimingStats:
 
     def test_timing_stats_custom(self):
         """Test TimingStats with custom values."""
-        from omni_mercury_engine.integrations.ava_guardian import TimingStats
+        from omni_mercury_engine.integrations.mercury_guardian import TimingStats
 
         stats = TimingStats(
             ewma_mean=10.0,
@@ -288,10 +288,10 @@ class TestAttackSimulation:
 
     @pytest.fixture
     def adapter(self):
-        """Create AvaGuardianAdapter instance."""
-        from omni_mercury_engine.integrations.ava_guardian import AvaGuardianAdapter
+        """Create MercuryGuardianAdapter instance."""
+        from omni_mercury_engine.integrations.mercury_guardian import MercuryGuardianAdapter
 
-        return AvaGuardianAdapter(
+        return MercuryGuardianAdapter(
             enable_timing_monitor=True,
             gosnn_synapse_enabled=True,
         )
@@ -350,10 +350,10 @@ class TestAnomalyRecording:
 
     @pytest.fixture
     def adapter(self):
-        """Create AvaGuardianAdapter instance."""
-        from omni_mercury_engine.integrations.ava_guardian import AvaGuardianAdapter
+        """Create MercuryGuardianAdapter instance."""
+        from omni_mercury_engine.integrations.mercury_guardian import MercuryGuardianAdapter
 
-        return AvaGuardianAdapter(
+        return MercuryGuardianAdapter(
             enable_timing_monitor=True,
             gosnn_synapse_enabled=False,
         )
@@ -390,35 +390,35 @@ class TestAnomalyRecording:
 
 
 class TestFactoryFunction:
-    """Tests for create_ava_guardian_adapter factory function."""
+    """Tests for create_mercury_guardian_adapter factory function."""
 
     def test_create_adapter_default(self):
         """Test factory function with defaults."""
-        from omni_mercury_engine.integrations.ava_guardian import (
-            create_ava_guardian_adapter,
+        from omni_mercury_engine.integrations.mercury_guardian import (
+            create_mercury_guardian_adapter,
         )
 
-        adapter = create_ava_guardian_adapter()
+        adapter = create_mercury_guardian_adapter()
         assert adapter is not None
         assert adapter.timing_monitor is not None
         assert adapter.gosnn_synapse_enabled is True
 
     def test_create_adapter_no_timing(self):
         """Test factory function without timing monitor."""
-        from omni_mercury_engine.integrations.ava_guardian import (
-            create_ava_guardian_adapter,
+        from omni_mercury_engine.integrations.mercury_guardian import (
+            create_mercury_guardian_adapter,
         )
 
-        adapter = create_ava_guardian_adapter(enable_timing_monitor=False)
+        adapter = create_mercury_guardian_adapter(enable_timing_monitor=False)
         assert adapter.timing_monitor is None
 
     def test_create_adapter_no_gosnn(self):
         """Test factory function without GOSNN synapse."""
-        from omni_mercury_engine.integrations.ava_guardian import (
-            create_ava_guardian_adapter,
+        from omni_mercury_engine.integrations.mercury_guardian import (
+            create_mercury_guardian_adapter,
         )
 
-        adapter = create_ava_guardian_adapter(gosnn_synapse_enabled=False)
+        adapter = create_mercury_guardian_adapter(gosnn_synapse_enabled=False)
         assert adapter.gosnn_synapse_enabled is False
 
 
@@ -436,42 +436,42 @@ class TestModuleImports:
             AVA_GUARDIAN_AVAILABLE,
             DILITHIUM_AVAILABLE,
             KYBER_AVAILABLE,
-            AvaGuardianAdapter,
             CryptoAnomaly,
             CryptoAnomalyType,
             EWMATimingMonitor,
-            create_ava_guardian_adapter,
+            MercuryGuardianAdapter,
+            create_mercury_guardian_adapter,
         )
 
-        assert AvaGuardianAdapter is not None
+        assert MercuryGuardianAdapter is not None
         assert EWMATimingMonitor is not None
         assert CryptoAnomaly is not None
         assert CryptoAnomalyType is not None
-        assert create_ava_guardian_adapter is not None
+        assert create_mercury_guardian_adapter is not None
         assert isinstance(AVA_GUARDIAN_AVAILABLE, bool)
         assert isinstance(DILITHIUM_AVAILABLE, bool)
         assert isinstance(KYBER_AVAILABLE, bool)
 
-    def test_import_from_ava_guardian_module(self):
-        """Test importing directly from ava_guardian module."""
-        from omni_mercury_engine.integrations.ava_guardian import (
-            AvaGuardianAdapter,
+    def test_import_from_mercury_guardian_module(self):
+        """Test importing directly from mercury_guardian module."""
+        from omni_mercury_engine.integrations.mercury_guardian import (
             CryptoAnomaly,
             CryptoAnomalyType,
             EWMATimingMonitor,
+            MercuryGuardianAdapter,
             TimingStats,
-            create_ava_guardian_adapter,
+            create_mercury_guardian_adapter,
         )
 
         assert all(
             x is not None
             for x in [
-                AvaGuardianAdapter,
+                MercuryGuardianAdapter,
                 EWMATimingMonitor,
                 CryptoAnomaly,
                 CryptoAnomalyType,
                 TimingStats,
-                create_ava_guardian_adapter,
+                create_mercury_guardian_adapter,
             ]
         )
 
@@ -486,14 +486,14 @@ class TestGracefulFallback:
 
     @pytest.fixture
     def adapter(self):
-        """Create AvaGuardianAdapter instance."""
-        from omni_mercury_engine.integrations.ava_guardian import AvaGuardianAdapter
+        """Create MercuryGuardianAdapter instance."""
+        from omni_mercury_engine.integrations.mercury_guardian import MercuryGuardianAdapter
 
-        return AvaGuardianAdapter()
+        return MercuryGuardianAdapter()
 
     def test_dilithium_keygen_fallback(self, adapter):
         """Test Dilithium keygen returns None when unavailable."""
-        from omni_mercury_engine.integrations.ava_guardian import DILITHIUM_AVAILABLE
+        from omni_mercury_engine.integrations.mercury_guardian import DILITHIUM_AVAILABLE
 
         result = adapter.generate_dilithium_keypair()
         if not DILITHIUM_AVAILABLE:
@@ -503,7 +503,7 @@ class TestGracefulFallback:
 
     def test_kyber_keygen_fallback(self, adapter):
         """Test Kyber keygen returns None when unavailable."""
-        from omni_mercury_engine.integrations.ava_guardian import KYBER_AVAILABLE
+        from omni_mercury_engine.integrations.mercury_guardian import KYBER_AVAILABLE
 
         result = adapter.generate_kyber_keypair()
         if not KYBER_AVAILABLE:
@@ -546,10 +546,10 @@ class TestGOSNNScalars:
 
     @pytest.fixture
     def adapter(self):
-        """Create AvaGuardianAdapter instance."""
-        from omni_mercury_engine.integrations.ava_guardian import AvaGuardianAdapter
+        """Create MercuryGuardianAdapter instance."""
+        from omni_mercury_engine.integrations.mercury_guardian import MercuryGuardianAdapter
 
-        return AvaGuardianAdapter()
+        return MercuryGuardianAdapter()
 
     def test_scalars_have_omni_prefix(self, adapter):
         """Test all scalars have omni_ prefix."""

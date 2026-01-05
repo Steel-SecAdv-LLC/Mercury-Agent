@@ -9,7 +9,7 @@ the Free Software Foundation, either version 3 of the License, or
 
 Optimizations for the Global Omni-Scalar Network (GOSNN):
 - SHAP-based scalar importance analysis
-- Tightened ethical gating (σ_Sacred ≥0.93 as hard constraint)
+- Tightened ethical gating (σ_Immutable ≥0.93 as hard constraint)
 - Scalar pruning for low-impact components
 - Multi-head attention optimization (32-head triadic φ-weighting)
 - Bidirectional synaptic integration with <2% overhead
@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 
 # Constants
 PHI = 1.618033988749895
-SIGMA_SACRED_HARD = 0.93  # Hard minimum
-SIGMA_SACRED_TARGET = 0.96  # Target threshold
+SIGMA_IMMUTABLE_HARD = 0.93  # Hard minimum
+SIGMA_IMMUTABLE_TARGET = 0.96  # Target threshold
 BENEVOLENCE_MIN = 0.99
 LYAPUNOV_LAMBDA = 0.25
 
@@ -64,7 +64,7 @@ class OptimizationResult:
     important_scalars: list[str]
 
     # Ethical compliance
-    sigma_sacred_value: float
+    sigma_immutable_value: float
     benevolence_value: float
     ethical_compliant: bool
 
@@ -152,7 +152,7 @@ class ScalarImportanceAnalyzer:
             if (
                 "ethical" in name.lower()
                 or "benevolence" in name.lower()
-                or "sacred" in name.lower()
+                or "immutable" in name.lower()
             ):
                 prunable = False
                 pruning_reason = ""
@@ -208,22 +208,22 @@ class ScalarImportanceAnalyzer:
 
 class EthicalGateOptimizer:
     """
-    Optimized ethical gating with hard σ_Sacred constraint.
+    Optimized ethical gating with hard σ_Immutable constraint.
 
     Enforces:
-    - σ_Sacred ≥ 0.93 as hard minimum (blocks if violated)
+    - σ_Immutable ≥ 0.93 as hard minimum (blocks if violated)
     - Benevolence ≥ 0.99 as operational requirement
     - Lyapunov stability for convergence
     """
 
     def __init__(
         self,
-        sigma_sacred_hard: float = SIGMA_SACRED_HARD,
-        sigma_sacred_target: float = SIGMA_SACRED_TARGET,
+        sigma_immutable_hard: float = SIGMA_IMMUTABLE_HARD,
+        sigma_immutable_target: float = SIGMA_IMMUTABLE_TARGET,
         benevolence_min: float = BENEVOLENCE_MIN,
     ):
-        self.sigma_sacred_hard = sigma_sacred_hard
-        self.sigma_sacred_target = sigma_sacred_target
+        self.sigma_immutable_hard = sigma_immutable_hard
+        self.sigma_immutable_target = sigma_immutable_target
         self.benevolence_min = benevolence_min
 
         self._violation_count = 0
@@ -285,16 +285,16 @@ class EthicalGateOptimizer:
         # Check hard constraint
         passes = True
 
-        # Check sigma_Sacred hard constraint
+        # Check sigma_Immutable hard constraint
         domain = context.get("domain") if context else None
-        threshold = SIGMA_SACRED_HARD
+        threshold = SIGMA_IMMUTABLE_HARD
         if domain and domain.lower() in ["medical", "healthcare", "clinical"]:
-            threshold = SIGMA_SACRED_HARD  # No relaxation for medical
+            threshold = SIGMA_IMMUTABLE_HARD  # No relaxation for medical
 
         if ethical_score < threshold:
             passes = False
             violations.append(
-                f"σ_Sacred violation: {ethical_score:.3f} < {threshold} (hard constraint)"
+                f"σ_Immutable violation: {ethical_score:.3f} < {threshold} (hard constraint)"
             )
             self._violation_count += 1
 
@@ -306,9 +306,9 @@ class EthicalGateOptimizer:
             self._violation_count += 1
 
         # Soft warning for target (not blocking)
-        if ethical_score < self.sigma_sacred_target and passes:
+        if ethical_score < self.sigma_immutable_target and passes:
             violations.append(
-                f"Warning: ethical score {ethical_score:.3f} < target {self.sigma_sacred_target}"
+                f"Warning: ethical score {ethical_score:.3f} < target {self.sigma_immutable_target}"
             )
 
         self._last_ethical_score = ethical_score
@@ -441,19 +441,19 @@ class GOSNNOptimizer:
 
     def __init__(
         self,
-        sigma_sacred: float = SIGMA_SACRED_TARGET,
+        sigma_immutable: float = SIGMA_IMMUTABLE_TARGET,
         target_overhead_percent: float = 2.0,
         seed: int = 42,
     ):
-        self.sigma_sacred = sigma_sacred
+        self.sigma_immutable = sigma_immutable
         self.target_overhead = target_overhead_percent
         self.seed = seed
 
         # Sub-optimizers
         self.importance_analyzer = ScalarImportanceAnalyzer(seed)
         self.ethical_gate = EthicalGateOptimizer(
-            sigma_sacred_hard=SIGMA_SACRED_HARD,
-            sigma_sacred_target=sigma_sacred,
+            sigma_immutable_hard=SIGMA_IMMUTABLE_HARD,
+            sigma_immutable_target=sigma_immutable,
         )
         self.attention_optimizer = AttentionOptimizer(
             target_overhead_percent=target_overhead_percent
@@ -547,7 +547,7 @@ class GOSNNOptimizer:
             total_scalars=len(all_scalars),
             pruned_scalars=len(prunable),
             important_scalars=[imp.name for imp in important],
-            sigma_sacred_value=ethical_score,
+            sigma_immutable_value=ethical_score,
             benevolence_value=benevolence,
             ethical_compliant=passes,
             recommendations=recommendations,
@@ -558,7 +558,7 @@ class GOSNNOptimizer:
         elapsed = (time.perf_counter() - start_time) * 1000
         logger.info(
             f"GOSNN optimization completed in {elapsed:.1f}ms: "
-            f"ethical={passes}, σ_sacred={ethical_score:.3f}, "
+            f"ethical={passes}, σ_immutable={ethical_score:.3f}, "
             f"prunable={len(prunable)}"
         )
 
@@ -591,7 +591,7 @@ class GOSNNOptimizer:
             "total_optimizations": len(self._optimization_history),
             "ethical_violation_rate": self.ethical_gate.get_violation_rate(),
             "attention_cache_stats": self.attention_optimizer.get_cache_stats(),
-            "sigma_sacred_target": self.sigma_sacred,
+            "sigma_immutable_target": self.sigma_immutable,
             "target_overhead_percent": self.target_overhead,
         }
 
@@ -599,7 +599,7 @@ class GOSNNOptimizer:
 def optimize_gosnn(
     gosnn: Any,
     X: np.ndarray | None = None,
-    sigma_sacred: float = SIGMA_SACRED_TARGET,
+    sigma_immutable: float = SIGMA_IMMUTABLE_TARGET,
     **kwargs,
 ) -> OptimizationResult:
     """
@@ -608,11 +608,11 @@ def optimize_gosnn(
     Args:
         gosnn: GlobalOmniScalarNetwork instance
         X: Optional data for profiling
-        sigma_sacred: Ethical threshold
+        sigma_immutable: Ethical threshold
         **kwargs: Additional arguments
 
     Returns:
         OptimizationResult
     """
-    optimizer = GOSNNOptimizer(sigma_sacred=sigma_sacred, **kwargs)
+    optimizer = GOSNNOptimizer(sigma_immutable=sigma_immutable, **kwargs)
     return optimizer.optimize(gosnn, X)

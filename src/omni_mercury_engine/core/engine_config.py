@@ -68,16 +68,16 @@ class EthicalConfig(BaseModel):
     """Ethical governance configuration with domain-specific thresholds.
 
     Ethical thresholds are adjusted based on domain risk:
-    - High-risk domains (cyber, medical): sigma_sacred >= 0.93
-    - Standard domains: sigma_sacred >= 0.96
+    - High-risk domains (cyber, medical): sigma_immutable >= 0.93
+    - Standard domains: sigma_immutable >= 0.96
     - Critical domains: benevolence >= 0.99
     """
 
-    sigma_sacred_threshold: float = Field(
+    sigma_immutable_threshold: float = Field(
         default=0.96,
         ge=0.80,
         le=0.99,
-        description="Ethical purity threshold (σ_Sacred). Higher = stricter ethical gating.",
+        description="Ethical purity threshold (σ_Immutable). Higher = stricter ethical gating.",
     )
     benevolence_threshold: float = Field(
         default=0.99,
@@ -358,9 +358,11 @@ class MercuryEngineConfig(BaseModel):
         critical_domains = {DomainType.INFRASTRUCTURE, DomainType.HUMANITARIAN}
 
         if self.domain in high_risk_domains:
-            # Higher risk domains use lower sigma_sacred (0.93 fallback)
+            # Higher risk domains use lower sigma_immutable (0.93 fallback)
             # This allows more sensitivity for critical detection
-            self.ethical.sigma_sacred_threshold = min(self.ethical.sigma_sacred_threshold, 0.93)
+            self.ethical.sigma_immutable_threshold = min(
+                self.ethical.sigma_immutable_threshold, 0.93
+            )
         elif self.domain in critical_domains:
             # Critical domains require stricter benevolence
             self.ethical.benevolence_threshold = max(self.ethical.benevolence_threshold, 0.995)
@@ -386,7 +388,7 @@ class MercuryEngineConfig(BaseModel):
             domain: Domain override, or use configured domain.
 
         Returns:
-            Appropriate sigma_sacred threshold for the domain.
+            Appropriate sigma_immutable threshold for the domain.
         """
         if domain is None:
             domain = self.domain
@@ -406,7 +408,7 @@ class MercuryEngineConfig(BaseModel):
             DomainType.SPACE: 0.94,
             DomainType.GENERAL: 0.96,
         }
-        return domain_thresholds.get(domain, self.ethical.sigma_sacred_threshold)
+        return domain_thresholds.get(domain, self.ethical.sigma_immutable_threshold)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""

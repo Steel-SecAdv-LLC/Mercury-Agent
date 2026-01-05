@@ -17,8 +17,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Ava Equation Optimization Experiments
-Runs 10,000+ iterations to find optimal parameters for Ava optimizers.
+Mercury Equation Optimization Experiments
+Runs 10,000+ iterations to find optimal parameters for Mercury optimizers.
 """
 
 import sys
@@ -33,10 +33,10 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.ml.training import (
-    AvaExponentialDecayOptimizer,
-    AvaHarmonicOptimizer,
-    AvaMomentumOptimizer,
-    AvaOptimizer,
+    MercuryExponentialDecayOptimizer,
+    MercuryHarmonicOptimizer,
+    MercuryMomentumOptimizer,
+    MercuryOptimizer,
 )
 
 
@@ -112,16 +112,16 @@ def run_optimizer_experiment(
     }
 
 
-def grid_search_ava_base(
+def grid_search_mercury_base(
     num_experiments: int = 1000,
 ) -> list[tuple[dict, dict]]:
     """
-    Grid search over AvaOptimizer parameters.
+    Grid search over MercuryOptimizer parameters.
 
     Returns:
         List of (params, results) tuples sorted by performance
     """
-    print(f"Running {num_experiments} experiments for AvaOptimizer...")
+    print(f"Running {num_experiments} experiments for MercuryOptimizer...")
 
     lr_values = np.logspace(-4, -1, 10)
     alpha_values = np.linspace(0.01, 0.5, 10)
@@ -138,7 +138,7 @@ def grid_search_ava_base(
             "quantum_noise": float(np.random.choice(quantum_noise_values)),
         }
 
-        results = run_optimizer_experiment(AvaOptimizer, params, num_iterations=500, seed=i)
+        results = run_optimizer_experiment(MercuryOptimizer, params, num_iterations=500, seed=i)
 
         experiments.append((params, results))
 
@@ -150,19 +150,19 @@ def grid_search_ava_base(
     return experiments
 
 
-def grid_search_ava_variants(
+def grid_search_mercury_variants(
     num_experiments: int = 500,
 ) -> dict[str, list[tuple[dict, dict]]]:
     """
-    Grid search over all Ava optimizer variants.
+    Grid search over all Mercury optimizer variants.
 
     Returns:
         Dict mapping variant name to sorted experiments
     """
     variants = {
-        "momentum": AvaMomentumOptimizer,
-        "exp_decay": AvaExponentialDecayOptimizer,
-        "harmonic": AvaHarmonicOptimizer,
+        "momentum": MercuryMomentumOptimizer,
+        "exp_decay": MercuryExponentialDecayOptimizer,
+        "harmonic": MercuryHarmonicOptimizer,
     }
 
     all_results = {}
@@ -206,13 +206,13 @@ def grid_search_ava_variants(
 
 
 def main():
-    """Run all Ava equation experiments and save results."""
+    """Run all Mercury equation experiments and save results."""
     print("=" * 60)
     print("AVA EQUATION OPTIMIZATION EXPERIMENTS")
     print("Target: 10,000+ total iterations")
     print("=" * 60)
 
-    base_experiments = grid_search_ava_base(num_experiments=5000)
+    base_experiments = grid_search_mercury_base(num_experiments=5000)
 
     print(f"\n{'='*60}")
     print("TOP 10 AVAOPTIMIZER CONFIGURATIONS:")
@@ -222,7 +222,7 @@ def main():
         print(f"   Parameters: {params}")
         print(f"   Convergence: {results['convergence_speed']:.6e}")
 
-    variant_experiments = grid_search_ava_variants(num_experiments=2000)
+    variant_experiments = grid_search_mercury_variants(num_experiments=2000)
 
     print(f"\n{'='*60}")
     print("BEST CONFIGURATION PER VARIANT:")
@@ -236,7 +236,7 @@ def main():
 
     total_experiments = 5000 + sum(len(exps) for exps in variant_experiments.values())
 
-    results_path = Path(__file__).parent / "ava_optimization_results.json"
+    results_path = Path(__file__).parent / "mercury_optimization_results.json"
     with open(results_path, "w") as f:
         json.dump(
             {

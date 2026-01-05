@@ -42,19 +42,19 @@ pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
 if HAS_TORCH:
     from omni_mercury_engine.ml.training import (
         AnomalyDataset,
-        AvaExponentialDecayOptimizer,
-        AvaHarmonicOptimizer,
-        AvaMomentumOptimizer,
-        AvaOptimizer,
         FusionTrainer,
-        create_ava_optimizer,
+        MercuryExponentialDecayOptimizer,
+        MercuryHarmonicOptimizer,
+        MercuryMomentumOptimizer,
+        MercuryOptimizer,
+        create_mercury_optimizer,
     )
 
 
-def test_ava_optimizer_with_closure():
-    """Test AvaOptimizer with closure function"""
+def test_mercury_optimizer_with_closure():
+    """Test MercuryOptimizer with closure function"""
     param = torch.randn(10, 10, requires_grad=True)
-    optimizer = AvaOptimizer([param], lr=0.001, alpha=0.2, beta=0.8)
+    optimizer = MercuryOptimizer([param], lr=0.001, alpha=0.2, beta=0.8)
 
     def closure():
         optimizer.zero_grad()
@@ -67,9 +67,9 @@ def test_ava_optimizer_with_closure():
 
 
 def test_ava_momentum_optimizer_step():
-    """Test AvaMomentumOptimizer step function"""
+    """Test MercuryMomentumOptimizer step function"""
     param = torch.randn(10, 10, requires_grad=True)
-    optimizer = AvaMomentumOptimizer([param], lr=0.001, alpha=0.2, momentum=0.85)
+    optimizer = MercuryMomentumOptimizer([param], lr=0.001, alpha=0.2, momentum=0.85)
 
     loss = (param**2).sum()
     loss.backward()
@@ -79,9 +79,9 @@ def test_ava_momentum_optimizer_step():
 
 
 def test_ava_momentum_optimizer_with_closure():
-    """Test AvaMomentumOptimizer with closure"""
+    """Test MercuryMomentumOptimizer with closure"""
     param = torch.randn(10, 10, requires_grad=True)
-    optimizer = AvaMomentumOptimizer([param], lr=0.001)
+    optimizer = MercuryMomentumOptimizer([param], lr=0.001)
 
     def closure():
         optimizer.zero_grad()
@@ -94,9 +94,9 @@ def test_ava_momentum_optimizer_with_closure():
 
 
 def test_ava_exp_decay_optimizer_step():
-    """Test AvaExponentialDecayOptimizer step function"""
+    """Test MercuryExponentialDecayOptimizer step function"""
     param = torch.randn(10, 10, requires_grad=True)
-    optimizer = AvaExponentialDecayOptimizer([param], lr=0.001, alpha=0.2, decay_rate=0.95)
+    optimizer = MercuryExponentialDecayOptimizer([param], lr=0.001, alpha=0.2, decay_rate=0.95)
 
     loss = (param**2).sum()
     loss.backward()
@@ -106,9 +106,9 @@ def test_ava_exp_decay_optimizer_step():
 
 
 def test_ava_exp_decay_optimizer_with_closure():
-    """Test AvaExponentialDecayOptimizer with closure"""
+    """Test MercuryExponentialDecayOptimizer with closure"""
     param = torch.randn(10, 10, requires_grad=True)
-    optimizer = AvaExponentialDecayOptimizer([param], lr=0.001)
+    optimizer = MercuryExponentialDecayOptimizer([param], lr=0.001)
 
     def closure():
         optimizer.zero_grad()
@@ -121,9 +121,9 @@ def test_ava_exp_decay_optimizer_with_closure():
 
 
 def test_ava_harmonic_optimizer_step():
-    """Test AvaHarmonicOptimizer step function"""
+    """Test MercuryHarmonicOptimizer step function"""
     param = torch.randn(10, 10, requires_grad=True)
-    optimizer = AvaHarmonicOptimizer([param], lr=0.001, alpha=0.2, omega=0.15)
+    optimizer = MercuryHarmonicOptimizer([param], lr=0.001, alpha=0.2, omega=0.15)
 
     loss = (param**2).sum()
     loss.backward()
@@ -133,9 +133,9 @@ def test_ava_harmonic_optimizer_step():
 
 
 def test_ava_harmonic_optimizer_with_closure():
-    """Test AvaHarmonicOptimizer with closure"""
+    """Test MercuryHarmonicOptimizer with closure"""
     param = torch.randn(10, 10, requires_grad=True)
-    optimizer = AvaHarmonicOptimizer([param], lr=0.001)
+    optimizer = MercuryHarmonicOptimizer([param], lr=0.001)
 
     def closure():
         optimizer.zero_grad()
@@ -147,12 +147,12 @@ def test_ava_harmonic_optimizer_with_closure():
     assert loss is not None
 
 
-def test_create_ava_optimizer_invalid_variant():
-    """Test create_ava_optimizer with invalid variant"""
+def test_create_mercury_optimizer_invalid_variant():
+    """Test create_mercury_optimizer with invalid variant"""
     params = [torch.randn(10, 10, requires_grad=True)]
 
-    with pytest.raises(ValueError, match="Unknown Ava optimizer variant"):
-        create_ava_optimizer(params, variant="invalid_variant", lr=0.001)
+    with pytest.raises(ValueError, match="Unknown Mercury optimizer variant"):
+        create_mercury_optimizer(params, variant="invalid_variant", lr=0.001)
 
 
 def test_anomaly_dataset_with_scores():
@@ -180,7 +180,7 @@ def test_fusion_trainer_with_ava_base_optimizer():
 
     config = trainer.configure_optimizers()
     assert "optimizer" in config
-    assert isinstance(config["optimizer"], AvaOptimizer)
+    assert isinstance(config["optimizer"], MercuryOptimizer)
 
 
 def test_fusion_trainer_with_ava_momentum_optimizer():
@@ -190,7 +190,7 @@ def test_fusion_trainer_with_ava_momentum_optimizer():
 
     config = trainer.configure_optimizers()
     assert "optimizer" in config
-    assert isinstance(config["optimizer"], AvaMomentumOptimizer)
+    assert isinstance(config["optimizer"], MercuryMomentumOptimizer)
 
 
 def test_fusion_trainer_with_ava_exp_decay_optimizer():
@@ -200,7 +200,7 @@ def test_fusion_trainer_with_ava_exp_decay_optimizer():
 
     config = trainer.configure_optimizers()
     assert "optimizer" in config
-    assert isinstance(config["optimizer"], AvaExponentialDecayOptimizer)
+    assert isinstance(config["optimizer"], MercuryExponentialDecayOptimizer)
 
 
 def test_fusion_trainer_with_ava_harmonic_optimizer():
@@ -210,4 +210,4 @@ def test_fusion_trainer_with_ava_harmonic_optimizer():
 
     config = trainer.configure_optimizers()
     assert "optimizer" in config
-    assert isinstance(config["optimizer"], AvaHarmonicOptimizer)
+    assert isinstance(config["optimizer"], MercuryHarmonicOptimizer)

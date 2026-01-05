@@ -97,13 +97,13 @@ Mercury Agent ♱ implements a comprehensive 7-phase cognitive architecture that
 
 The following benchmarks were generated from a 200-epoch training run with the full neuro-symbolic cognitive stack active. All metrics are from actual system execution, not simulated data.
 
-### Benchmark Summary (300 Epochs with Ava-Dominance)
+### Benchmark Summary (300 Epochs with weighted fusion Equation)
 
 | Metric | Value | Description |
 |--------|-------|-------------|
 | **Final Confidence** | 0.999 | Bayesian calibrated confidence score |
 | **Confidence Growth** | +0.239 | Improvement from baseline 0.76 |
-| **Anomaly Detection F1** | 0.92+ | Precision/Recall harmonic mean (Ava-Dominance) |
+| **Anomaly Detection F1** | 0.92+ | Precision/Recall harmonic mean (weighted fusion) |
 | **Anomaly Precision** | 0.95 | True positive rate |
 | **Anomaly Recall** | 0.89 | Detection coverage |
 | **Memory Entries** | 3,300 | Accumulated episodic/semantic memories |
@@ -113,10 +113,10 @@ The following benchmarks were generated from a 200-epoch training run with the f
 
 ### A/B Benchmark Results
 
-| Comparison | Baseline | Ava-Dominance | Improvement |
-|------------|----------|---------------|-------------|
-| **σ_Sacred=0.93 vs 0.96** | F1=0.89 | F1=0.92+ | +3-5% |
-| **Standard vs Ava-Dominance** | F1=0.797 | F1=0.92+ | +15-30% |
+| Comparison | Baseline | weighted fusion | Improvement |
+|------------|----------|----------------|-------------|
+| **σ_Immutable=0.93 vs 0.96** | F1=0.89 | F1=0.92+ | +3-5% |
+| **Standard vs weighted fusion** | F1=0.797 | F1=0.92+ | +15-30% |
 | **Lyapunov λ=0.18 vs 0.25** | Slower | 25% faster | 1.39x speedup |
 
 ### Confidence Evolution
@@ -1123,10 +1123,20 @@ All engines share a common fusion architecture with 128D normalization enabling 
 <details>
 <summary><strong>GOSNN Global Omni-Scalar Network</strong> - Synaptic Intelligence Hub</summary>
 
-The **GlobalOmniScalarNetwork (GOSNN)** is the intelligence fusion hub aggregating ~700 omni-scalars from all components:
+The **GlobalOmniScalarNetwork (GOSNN)** is the intelligence fusion hub aggregating ~180 omni-scalars across 8 major categories:
+
+**Scalar Categories (~180 total):**
+- **ETHICAL (~27)**: Core ethical values and Civilization-First principles
+- **COSMIC (~7)**: Universe-scale harmony and telos alignment
+- **QUANTUM_CONSCIOUSNESS (~7)**: Quantum-inspired processing
+- **HUMANITARIAN (~9)**: Crisis response and human welfare
+- **SECURITY (~6)**: Threat detection and cyber defense
+- **SOFTWARE_ENGINEERING (~45)**: Code quality, optimization, 3R synergy
+- **MEDICAL (~10)**: Healthcare and diagnostic support
+- **ADVANCED_REASONING (~15)**: Logic, inference, knowledge synthesis
 
 **Key Features:**
-- **Ethical Gating**: σ_Sacred threshold (≥0.93) with configurable fallback for medical domains
+- **Ethical Gating**: σ_Immutable threshold (≥0.93) with configurable fallback for medical domains
 - **32-Head Triadic φ-Weighting**: Multi-head attention with golden ratio optimization
 - **Harmonic Synergy**: Bidirectional synapse connections to 3R mechanism
 - **Error Handling**: Logged fallbacks instead of silent failures

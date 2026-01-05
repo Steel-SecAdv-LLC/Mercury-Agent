@@ -104,16 +104,16 @@ def main():
         with open(results_path) as f:
             optimization_results = json.load(f)
 
-        best_ava = max(optimization_results["ava_equation"], key=lambda x: x["score"])
+        best_mercury = max(optimization_results["mercury_equation"], key=lambda x: x["score"])
         optimized_config = {
-            "w1": best_ava["w1"],
-            "w2": best_ava["w2"],
-            "w3": best_ava["w3"],
-            "e1": best_ava["e1"],
-            "e2": best_ava["e2"],
-            "t1": best_ava["t1"],
+            "w1": best_mercury["w1"],
+            "w2": best_mercury["w2"],
+            "w3": best_mercury["w3"],
+            "e1": best_mercury["e1"],
+            "e2": best_mercury["e2"],
+            "t1": best_mercury["t1"],
         }
-        print("Loaded best Ava config from optimization results:")
+        print("Loaded best Mercury config from optimization results:")
         print(f"  {optimized_config}")
     else:
         optimized_config = {"w1": 0.50, "w2": 1.00, "w3": 1.00, "e1": 1.00, "e2": 2.00, "t1": 0.40}
