@@ -276,7 +276,7 @@ class TestGOSNNOptimizer:
 
         # Verify optimization produces valid results
         assert result.total_scalars > 0
-        # σ_Sacred and ethical compliance depend on scalar values
+        # sigma_Sacred and ethical compliance depend on scalar values
         # The optimizer should produce a valid sigma_sacred_value
         assert 0.0 <= result.sigma_sacred_value <= 1.0
         # Benevolence should be computed
@@ -492,7 +492,7 @@ class TestIntegration:
         # Assertions - verify pipeline produces valid results
         assert len(results) == 20
         assert all(r.benevolence_score >= 0 for r in results)
-        # σ_Sacred and ethical compliance depend on scalar values
+        # sigma_Sacred and ethical compliance depend on scalar values
         assert 0.0 <= opt_result.sigma_sacred_value <= 1.0
         assert opt_result.benevolence_value >= 0.0
 
