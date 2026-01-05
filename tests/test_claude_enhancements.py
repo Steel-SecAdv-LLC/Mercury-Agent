@@ -1,5 +1,5 @@
 """
-Mercury Agent - Property-Based Tests for Claude Enhancements
+Mercury Agent - Property-Based Tests for Caduceus ⚚ Enhancements
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
