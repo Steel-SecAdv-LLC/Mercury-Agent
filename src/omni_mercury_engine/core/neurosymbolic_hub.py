@@ -41,6 +41,7 @@ LYAPUNOV_LAMBDA = 0.25
 
 try:
     import networkx as nx
+
     NETWORKX_AVAILABLE = True
 except ImportError:
     NETWORKX_AVAILABLE = False
@@ -49,6 +50,7 @@ except ImportError:
 try:
     import torch
     from torch import nn
+
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
@@ -58,6 +60,7 @@ except ImportError:
 
 class FusionMode(Enum):
     """Fusion modes for neuro-symbolic integration."""
+
     NEURAL_DOMINANT = "neural_dominant"  # 70% neural, 30% symbolic
     SYMBOLIC_DOMINANT = "symbolic_dominant"  # 30% neural, 70% symbolic
     BALANCED = "balanced"  # 50% neural, 50% symbolic
@@ -159,7 +162,7 @@ class SymbolicRule:
                     return False, 0.0
             elif "<=" in part:
                 key, val = part.split("<=")
-                ctx_val = context.get(key.strip(), float('inf'))
+                ctx_val = context.get(key.strip(), float("inf"))
                 if not isinstance(ctx_val, (int, float)):
                     return False, 0.0
                 if ctx_val > float(val.strip()):
@@ -173,7 +176,7 @@ class SymbolicRule:
                     return False, 0.0
             elif "<" in part:
                 key, val = part.split("<")
-                ctx_val = context.get(key.strip(), float('inf'))
+                ctx_val = context.get(key.strip(), float("inf"))
                 if not isinstance(ctx_val, (int, float)):
                     return False, 0.0
                 if ctx_val >= float(val.strip()):
@@ -230,11 +233,7 @@ class KnowledgeGraph:
 
         if self.graph is not None:
             # Add rule node
-            self.graph.add_node(
-                rule.rule_id,
-                type="rule",
-                confidence=rule.confidence
-            )
+            self.graph.add_node(rule.rule_id, type="rule", confidence=rule.confidence)
 
             # Add edges from premise to rule
             premise_parts = rule.premise.lower().replace(" and ", ",").split(",")
@@ -278,11 +277,7 @@ class KnowledgeGraph:
 
         return derived, rules_fired
 
-    def backward_chain(
-        self,
-        goal: str,
-        context: dict[str, Any]
-    ) -> tuple[bool, list[str]]:
+    def backward_chain(self, goal: str, context: dict[str, Any]) -> tuple[bool, list[str]]:
         """
         Perform backward chaining to find proof for goal.
 
@@ -308,10 +303,7 @@ class KnowledgeGraph:
 
         return False, []
 
-    def get_anomaly_indicators(
-        self,
-        context: dict[str, Any]
-    ) -> tuple[float, list[str]]:
+    def get_anomaly_indicators(self, context: dict[str, Any]) -> tuple[float, list[str]]:
         """
         Compute symbolic anomaly score based on rule firings.
 
@@ -326,9 +318,14 @@ class KnowledgeGraph:
 
         # Check for anomaly-related conclusions
         anomaly_conclusions = {
-            "is_anomalous", "security_alert", "behavioral_anomaly",
-            "high_risk", "critical_deviation", "ethical_violation",
-            "unusual_pattern", "threat_detected"
+            "is_anomalous",
+            "security_alert",
+            "behavioral_anomaly",
+            "high_risk",
+            "critical_deviation",
+            "ethical_violation",
+            "unusual_pattern",
+            "threat_detected",
         }
 
         anomaly_count = 0
@@ -341,9 +338,7 @@ class KnowledgeGraph:
                 for rule_id in rules_fired:
                     if self.rules[rule_id].conclusion == conclusion:
                         confidence_sum += self.rules[rule_id].confidence
-                        explanations.append(
-                            self.rules[rule_id].generate_explanation(context)
-                        )
+                        explanations.append(self.rules[rule_id].generate_explanation(context))
                         break
 
         if anomaly_count == 0:
@@ -375,7 +370,7 @@ class NeuralEncoder:
                 nn.Linear(hidden_dim, hidden_dim // 2),
                 nn.ReLU(),
                 nn.Linear(hidden_dim // 2, 1),
-                nn.Sigmoid()
+                nn.Sigmoid(),
             )
             # Initialize weights
             for module in self.encoder:
@@ -404,7 +399,7 @@ class NeuralEncoder:
         if X.shape[1] < self.input_dim:
             X = np.pad(X, ((0, 0), (0, self.input_dim - X.shape[1])))
         elif X.shape[1] > self.input_dim:
-            X = X[:, :self.input_dim]
+            X = X[:, : self.input_dim]
 
         if TORCH_AVAILABLE:
             with torch.no_grad():
@@ -429,17 +424,16 @@ class NeuralEncoder:
 
         if not TORCH_AVAILABLE and y is not None:
             # Fit simple weights using normal equations
-            X_pad = np.pad(X, ((0, 0), (0, max(0, self.input_dim - X.shape[1]))))[:, :self.input_dim]
+            X_pad = np.pad(X, ((0, 0), (0, max(0, self.input_dim - X.shape[1]))))[
+                :, : self.input_dim
+            ]
             X_aug = np.column_stack([X_pad, np.ones(len(X))])
 
             try:
                 # Regularized least squares
                 lambda_reg = 0.01
                 I = np.eye(X_aug.shape[1])
-                self.weights = np.linalg.solve(
-                    X_aug.T @ X_aug + lambda_reg * I,
-                    X_aug.T @ y
-                )
+                self.weights = np.linalg.solve(X_aug.T @ X_aug + lambda_reg * I, X_aug.T @ y)
             except np.linalg.LinAlgError:
                 self.weights = np.zeros(X_aug.shape[1])
 
@@ -528,7 +522,7 @@ class NeuroSymbolicHub:
                 conclusion="is_anomalous",
                 confidence=0.85,
                 category="statistical",
-                explanation_template="Statistical deviation ≥2σ detected"
+                explanation_template="Statistical deviation ≥2σ detected",
             ),
             SymbolicRule(
                 rule_id="rare_pattern",
@@ -536,7 +530,7 @@ class NeuroSymbolicHub:
                 conclusion="unusual_pattern",
                 confidence=0.9,
                 category="pattern",
-                explanation_template="Rare pattern (frequency < 1%)"
+                explanation_template="Rare pattern (frequency < 1%)",
             ),
             SymbolicRule(
                 rule_id="threat_detected",
@@ -544,7 +538,7 @@ class NeuroSymbolicHub:
                 conclusion="security_alert",
                 confidence=0.95,
                 category="security",
-                explanation_template="Security threat (score ≥70%, unauthorized)"
+                explanation_template="Security threat (score ≥70%, unauthorized)",
             ),
             SymbolicRule(
                 rule_id="temporal_anomaly",
@@ -552,7 +546,7 @@ class NeuroSymbolicHub:
                 conclusion="is_anomalous",
                 confidence=0.88,
                 category="temporal",
-                explanation_template="Temporal deviation ≥3σ"
+                explanation_template="Temporal deviation ≥3σ",
             ),
             SymbolicRule(
                 rule_id="spatial_cluster",
@@ -560,7 +554,7 @@ class NeuroSymbolicHub:
                 conclusion="cluster_detected",
                 confidence=0.82,
                 category="spatial",
-                explanation_template="Spatial clustering (Moran's I ≥0.5)"
+                explanation_template="Spatial clustering (Moran's I ≥0.5)",
             ),
             # Ethical rules (immutable)
             SymbolicRule(
@@ -570,7 +564,7 @@ class NeuroSymbolicHub:
                 confidence=1.0,
                 category="ethical",
                 provenance="system",
-                explanation_template="Benevolence below 0.99 threshold"
+                explanation_template="Benevolence below 0.99 threshold",
             ),
             SymbolicRule(
                 rule_id="sigma_sacred_violation",
@@ -579,7 +573,7 @@ class NeuroSymbolicHub:
                 confidence=1.0,
                 category="ethical",
                 provenance="system",
-                explanation_template="Ethical score below σ_sacred (0.93)"
+                explanation_template="Ethical score below σ_sacred (0.93)",
             ),
             SymbolicRule(
                 rule_id="harm_detection",
@@ -588,7 +582,7 @@ class NeuroSymbolicHub:
                 confidence=0.95,
                 category="ethical",
                 provenance="system",
-                explanation_template="Potential harm detected (≥50%)"
+                explanation_template="Potential harm detected (≥50%)",
             ),
         ]
 
@@ -654,6 +648,7 @@ class NeuroSymbolicHub:
         """Set up Platt scaling calibration."""
         try:
             from omni_mercury_engine.core.calibration import PlattScaling
+
             self._calibrator = PlattScaling()
             self._calibrator.fit(scores, labels)
         except ImportError:
@@ -678,6 +673,7 @@ class NeuroSymbolicHub:
             meta_features = np.column_stack([neural_scores, symbolic_scores])
 
             from sklearn.linear_model import LogisticRegression
+
             self._meta_learner = LogisticRegression(
                 solver="lbfgs", max_iter=1000, random_state=self.seed
             )
@@ -696,10 +692,7 @@ class NeuroSymbolicHub:
                 return bce
 
             result = minimize(
-                objective,
-                [0.6, 0.4],
-                method="L-BFGS-B",
-                bounds=[(0.1, 0.9), (0.1, 0.9)]
+                objective, [0.6, 0.4], method="L-BFGS-B", bounds=[(0.1, 0.9), (0.1, 0.9)]
             )
 
             w = np.abs(result.x)
@@ -742,7 +735,9 @@ class NeuroSymbolicHub:
             # Build context for this sample
             sample_context = {
                 **context,
-                "deviation_score": float(np.abs(X[i] - np.mean(X[i])).max() / (np.std(X[i]) + 1e-10)),
+                "deviation_score": float(
+                    np.abs(X[i] - np.mean(X[i])).max() / (np.std(X[i]) + 1e-10)
+                ),
                 "max_value": float(np.max(np.abs(X[i]))),
                 "neural_score": float(neural_scores[i]),
             }
@@ -795,7 +790,13 @@ class NeuroSymbolicHub:
             # Compute confidence
             # Higher agreement between neural and symbolic = higher confidence
             agreement = 1 - abs(neural_score - symbolic_score)
-            confidence = 0.5 + 0.5 * agreement * min(neural_score, symbolic_score, 1 - neural_score, 1 - symbolic_score) * 4
+            confidence = (
+                0.5
+                + 0.5
+                * agreement
+                * min(neural_score, symbolic_score, 1 - neural_score, 1 - symbolic_score)
+                * 4
+            )
             confidence = min(max(confidence, 0.0), 1.0)
 
             # Determine if anomaly
@@ -815,34 +816,42 @@ class NeuroSymbolicHub:
             # Build reasoning chain
             reasoning_chain = [
                 {"step": "neural_encoding", "score": neural_score, "weight": neural_weight},
-                {"step": "symbolic_reasoning", "score": symbolic_score, "weight": symbolic_weight,
-                 "rules_fired": rules_fired},
+                {
+                    "step": "symbolic_reasoning",
+                    "score": symbolic_score,
+                    "weight": symbolic_weight,
+                    "rules_fired": rules_fired,
+                },
                 {"step": "fusion", "fused_score": fused_score, "mode": self.fusion_mode.value},
             ]
 
             if calibrated_score is not None:
-                reasoning_chain.append({"step": "calibration", "calibrated_score": calibrated_score})
+                reasoning_chain.append(
+                    {"step": "calibration", "calibrated_score": calibrated_score}
+                )
 
             sample_time = (time.time() - sample_start) * 1000
 
-            results.append(ExplainableOutput(
-                anomaly_score=fused_score,
-                is_anomaly=is_anomaly,
-                confidence=confidence,
-                neural_score=neural_score,
-                symbolic_score=symbolic_score,
-                neural_weight=neural_weight,
-                symbolic_weight=symbolic_weight,
-                rules_fired=rules_fired,
-                explanations=explanations if return_explanations else [],
-                reasoning_chain=reasoning_chain if return_explanations else [],
-                calibrated_score=calibrated_score,
-                benevolence_score=benevolence_score,
-                ethical_compliant=ethical_compliant,
-                ethical_violations=ethical_violations,
-                fusion_mode=self.fusion_mode.value,
-                processing_time_ms=sample_time,
-            ))
+            results.append(
+                ExplainableOutput(
+                    anomaly_score=fused_score,
+                    is_anomaly=is_anomaly,
+                    confidence=confidence,
+                    neural_score=neural_score,
+                    symbolic_score=symbolic_score,
+                    neural_weight=neural_weight,
+                    symbolic_weight=symbolic_weight,
+                    rules_fired=rules_fired,
+                    explanations=explanations if return_explanations else [],
+                    reasoning_chain=reasoning_chain if return_explanations else [],
+                    calibrated_score=calibrated_score,
+                    benevolence_score=benevolence_score,
+                    ethical_compliant=ethical_compliant,
+                    ethical_violations=ethical_violations,
+                    fusion_mode=self.fusion_mode.value,
+                    processing_time_ms=sample_time,
+                )
+            )
 
         total_time = (time.time() - start_time) * 1000
         self._inference_count += n_samples
@@ -856,11 +865,7 @@ class NeuroSymbolicHub:
         scores = np.array([r.anomaly_score for r in results])
         return np.column_stack([1 - scores, scores])
 
-    def _compute_benevolence(
-        self,
-        context: dict[str, Any],
-        anomaly_score: float
-    ) -> float:
+    def _compute_benevolence(self, context: dict[str, Any], anomaly_score: float) -> float:
         """
         Compute benevolence score for ethical compliance.
 
@@ -932,9 +937,7 @@ class NeuroSymbolicHub:
             "rule_count": len(self.knowledge_graph.rules),
             "fact_count": len(self.knowledge_graph.facts),
             "inference_count": self._inference_count,
-            "avg_latency_ms": (
-                self._total_processing_time / max(self._inference_count, 1)
-            ),
+            "avg_latency_ms": (self._total_processing_time / max(self._inference_count, 1)),
             "fitted": self._fitted,
             "calibration_enabled": self._calibrator is not None,
             "sigma_sacred": self.sigma_sacred,

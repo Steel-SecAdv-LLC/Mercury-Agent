@@ -271,30 +271,26 @@ class MetricsCalculator:
             return not (e1[1] + tolerance < e2[0] or e2[1] + tolerance < e1[0])
 
         # Event recall
-        detected = sum(
-            1 for te in true_events
-            if any(events_overlap(te, pe) for pe in pred_events)
-        )
+        detected = sum(1 for te in true_events if any(events_overlap(te, pe) for pe in pred_events))
         metrics.event_recall = detected / len(true_events)
 
         # Event precision
-        matched = sum(
-            1 for pe in pred_events
-            if any(events_overlap(pe, te) for te in true_events)
-        )
+        matched = sum(1 for pe in pred_events if any(events_overlap(pe, te) for te in true_events))
         metrics.event_precision = matched / len(pred_events)
 
         # Event F1
         if metrics.event_precision + metrics.event_recall > 0:
             metrics.event_f1 = (
-                2 * metrics.event_precision * metrics.event_recall /
-                (metrics.event_precision + metrics.event_recall)
+                2
+                * metrics.event_precision
+                * metrics.event_recall
+                / (metrics.event_precision + metrics.event_recall)
             )
 
         # Time to detection
         detection_times = []
         for start, end in true_events:
-            event_preds = y_pred[start:end + 1]
+            event_preds = y_pred[start : end + 1]
             detected_idx = np.where(event_preds == 1)[0]
             if len(detected_idx) > 0:
                 detection_times.append(detected_idx[0])
@@ -335,8 +331,8 @@ class MetricsCalculator:
         true_events = self._extract_events(y_true)
 
         for start, end in true_events:
-            if np.any(y_pred[start:end + 1] == 1):
-                y_adjusted[start:end + 1] = 1
+            if np.any(y_pred[start : end + 1] == 1):
+                y_adjusted[start : end + 1] = 1
 
         return y_adjusted
 
@@ -418,10 +414,26 @@ class MetricsCalculator:
             metrics.demographic_parity = min(rate_0, rate_1) / (max(rate_0, rate_1) + 1e-10)
 
             # True/False Positive Rates
-            tpr_0 = np.mean(y_pred[group_0 & (y_true == 1)]) if np.sum(group_0 & (y_true == 1)) > 0 else 0.5
-            tpr_1 = np.mean(y_pred[group_1 & (y_true == 1)]) if np.sum(group_1 & (y_true == 1)) > 0 else 0.5
-            fpr_0 = np.mean(y_pred[group_0 & (y_true == 0)]) if np.sum(group_0 & (y_true == 0)) > 0 else 0.5
-            fpr_1 = np.mean(y_pred[group_1 & (y_true == 0)]) if np.sum(group_1 & (y_true == 0)) > 0 else 0.5
+            tpr_0 = (
+                np.mean(y_pred[group_0 & (y_true == 1)])
+                if np.sum(group_0 & (y_true == 1)) > 0
+                else 0.5
+            )
+            tpr_1 = (
+                np.mean(y_pred[group_1 & (y_true == 1)])
+                if np.sum(group_1 & (y_true == 1)) > 0
+                else 0.5
+            )
+            fpr_0 = (
+                np.mean(y_pred[group_0 & (y_true == 0)])
+                if np.sum(group_0 & (y_true == 0)) > 0
+                else 0.5
+            )
+            fpr_1 = (
+                np.mean(y_pred[group_1 & (y_true == 0)])
+                if np.sum(group_1 & (y_true == 0)) > 0
+                else 0.5
+            )
 
             # Equalized Odds (average of TPR and FPR parity)
             tpr_parity = min(tpr_0, tpr_1) / (max(tpr_0, tpr_1) + 1e-10)
@@ -452,7 +464,7 @@ class MetricsCalculator:
 
             # Moran's I
             numerator = np.sum(weights_norm * np.outer(deviations, deviations))
-            denominator = np.sum(deviations ** 2)
+            denominator = np.sum(deviations**2)
             w_sum = np.sum(weights_norm)
 
             if denominator > 0 and w_sum > 0:
@@ -491,14 +503,13 @@ class MetricsCalculator:
 
             # Combined benevolence index with golden ratio weighting
             metrics.benevolence_index = (
-                (PHI * metrics.harm_reduction_score + metrics.equity_score) /
-                (PHI + 1)
-            )
+                PHI * metrics.harm_reduction_score + metrics.equity_score
+            ) / (PHI + 1)
 
             # Ethical compliance check
             metrics.ethical_compliance = (
-                metrics.benevolence_index >= self.benevolence_threshold and
-                metrics.harm_reduction_score >= self.sigma_sacred
+                metrics.benevolence_index >= self.benevolence_threshold
+                and metrics.harm_reduction_score >= self.sigma_sacred
             )
 
         except Exception as e:
@@ -512,10 +523,10 @@ class MetricsCalculator:
         """
         # Detection performance (50%)
         detection_score = (
-            0.3 * metrics.roc_auc +
-            0.3 * metrics.pr_auc +
-            0.2 * metrics.f1_score +
-            0.2 * (1 - metrics.brier_score)
+            0.3 * metrics.roc_auc
+            + 0.3 * metrics.pr_auc
+            + 0.2 * metrics.f1_score
+            + 0.2 * (1 - metrics.brier_score)
         )
 
         # Event performance (20%)
@@ -523,9 +534,7 @@ class MetricsCalculator:
 
         # Fairness (15%)
         fairness_score = (
-            metrics.demographic_parity +
-            metrics.equalized_odds +
-            metrics.disparate_impact
+            metrics.demographic_parity + metrics.equalized_odds + metrics.disparate_impact
         ) / 3
 
         # Benevolence (15%)
@@ -533,10 +542,10 @@ class MetricsCalculator:
 
         # Weighted combination
         overall = (
-            0.50 * detection_score +
-            0.20 * event_score +
-            0.15 * fairness_score +
-            0.15 * benevolence_score
+            0.50 * detection_score
+            + 0.20 * event_score
+            + 0.15 * fairness_score
+            + 0.15 * benevolence_score
         )
 
         # Apply ethical gate
@@ -601,7 +610,9 @@ class DomainSpecificMetrics:
         y_true = y_pred  # Self-supervised
 
         metrics = calculator.compute_all_metrics(
-            y_true, y_pred, scores,
+            y_true,
+            y_pred,
+            scores,
             spatial_weights=spatial_weights,
         )
 
@@ -617,9 +628,7 @@ class DomainSpecificMetrics:
     ) -> dict[str, float]:
         """Compute graph domain metrics."""
         # Use adjacency as spatial weights
-        return DomainSpecificMetrics.compute_spatial_metrics(
-            node_scores, adjacency_matrix
-        )
+        return DomainSpecificMetrics.compute_spatial_metrics(node_scores, adjacency_matrix)
 
 
 def compute_benchmark_metrics(
@@ -643,6 +652,4 @@ def compute_benchmark_metrics(
         ComprehensiveMetrics instance
     """
     calculator = MetricsCalculator()
-    return calculator.compute_all_metrics(
-        y_true, y_pred, y_prob, **kwargs
-    )
+    return calculator.compute_all_metrics(y_true, y_pred, y_prob, **kwargs)

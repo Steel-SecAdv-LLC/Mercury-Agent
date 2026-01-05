@@ -543,8 +543,10 @@ def calibrate_detector(
     y_prob_calibrated = calibrator.calibrate(y_prob)
 
     result = evaluate_calibration(
-        y_cal, y_prob, y_prob_calibrated,
-        method=method if method != "auto" else getattr(calibrator, "best_method", "auto")
+        y_cal,
+        y_prob,
+        y_prob_calibrated,
+        method=method if method != "auto" else getattr(calibrator, "best_method", "auto"),
     )
 
     return calibrator, result

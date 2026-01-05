@@ -93,11 +93,17 @@ class BenchmarkMetrics:
 
         # Brier is lower=better
         if baseline.brier_score > 0:
-            improvements["brier_score"] = -(self.brier_score - baseline.brier_score) / baseline.brier_score * 100
+            improvements["brier_score"] = (
+                -(self.brier_score - baseline.brier_score) / baseline.brier_score * 100
+            )
 
         # Time-to-detection is lower=better
         if baseline.time_to_detection > 0:
-            improvements["time_to_detection"] = -(self.time_to_detection - baseline.time_to_detection) / baseline.time_to_detection * 100
+            improvements["time_to_detection"] = (
+                -(self.time_to_detection - baseline.time_to_detection)
+                / baseline.time_to_detection
+                * 100
+            )
 
         return improvements
 
@@ -156,7 +162,9 @@ class SyntheticDataGenerator:
         self.seed = seed
         self.rng = np.random.default_rng(seed)
 
-    def generate_smd_like(self, n_samples: int = 5000, n_features: int = 38) -> tuple[np.ndarray, np.ndarray]:
+    def generate_smd_like(
+        self, n_samples: int = 5000, n_features: int = 38
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Generate data mimicking SMD (Server Machine Dataset).
 
@@ -169,7 +177,7 @@ class SyntheticDataGenerator:
 
         # Add temporal correlations
         for i in range(1, n_samples):
-            X[i] = 0.7 * X[i-1] + 0.3 * X[i]
+            X[i] = 0.7 * X[i - 1] + 0.3 * X[i]
 
         # Add periodic patterns
         t = np.linspace(0, 10 * np.pi, n_samples)
@@ -191,12 +199,14 @@ class SyntheticDataGenerator:
         for _ in range(n_segments):
             start = self.rng.integers(100, n_samples - 100)
             length = self.rng.integers(5, 20)
-            X[start:start+length] *= 2
-            y[start:start+length] = 1
+            X[start : start + length] *= 2
+            y[start : start + length] = 1
 
         return X, y
 
-    def generate_nslkdd_like(self, n_samples: int = 5000, n_features: int = 41) -> tuple[np.ndarray, np.ndarray]:
+    def generate_nslkdd_like(
+        self, n_samples: int = 5000, n_features: int = 41
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Generate data mimicking NSL-KDD.
 
@@ -226,7 +236,9 @@ class SyntheticDataGenerator:
 
         return X, y
 
-    def generate_batadal_like(self, n_samples: int = 5000, n_features: int = 43) -> tuple[np.ndarray, np.ndarray]:
+    def generate_batadal_like(
+        self, n_samples: int = 5000, n_features: int = 43
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Generate data mimicking BATADAL.
 
@@ -251,7 +263,7 @@ class SyntheticDataGenerator:
 
         # Flow rates (correlated with pumps)
         for j in range(14, 21):
-            X[:, j] = X[:, j-7] * 10 + self.rng.standard_normal(n_samples) * 2
+            X[:, j] = X[:, j - 7] * 10 + self.rng.standard_normal(n_samples) * 2
 
         # Pressure readings
         for j in range(21, n_features):
@@ -266,9 +278,9 @@ class SyntheticDataGenerator:
             start = self.rng.integers(100, n_samples - attack_length - 100)
 
             # Attack: manipulate sensor readings
-            X[start:start+attack_length, :7] += 15  # Tank levels
-            X[start:start+attack_length, 14:21] *= 0.5  # Flow rates
-            y[start:start+attack_length] = 1
+            X[start : start + attack_length, :7] += 15  # Tank levels
+            X[start : start + attack_length, 14:21] *= 0.5  # Flow rates
+            y[start : start + attack_length] = 1
 
         return X, y
 
@@ -317,17 +329,15 @@ class RealWorldBenchmarkRunner:
             "SMD": DatasetInfo(
                 name="SMD",
                 domain="timeseries",
-                description="Server Machine Dataset - multi-dimensional time-series"
+                description="Server Machine Dataset - multi-dimensional time-series",
             ),
             "NSL-KDD": DatasetInfo(
-                name="NSL-KDD",
-                domain="cyber",
-                description="Network Intrusion Detection"
+                name="NSL-KDD", domain="cyber", description="Network Intrusion Detection"
             ),
             "BATADAL": DatasetInfo(
                 name="BATADAL",
                 domain="infrastructure",
-                description="Water Infrastructure Cyber-Physical Attacks"
+                description="Water Infrastructure Cyber-Physical Attacks",
             ),
         }
 
@@ -360,7 +370,9 @@ class RealWorldBenchmarkRunner:
 
         if real_data is not None:
             X, y = real_data
-            info = self.datasets.get(name.replace("_", "-"), DatasetInfo(name=name, domain="unknown"))
+            info = self.datasets.get(
+                name.replace("_", "-"), DatasetInfo(name=name, domain="unknown")
+            )
             info.n_samples = len(X)
             info.n_features = X.shape[1]
             info.anomaly_ratio = float(np.mean(y))
@@ -434,6 +446,7 @@ class RealWorldBenchmarkRunner:
                         return data["X"], data["y"]
                     elif pattern.endswith(".csv"):
                         import pandas as pd
+
                         df = pd.read_csv(file_path)
                         X = df.drop("label", axis=1, errors="ignore").values
                         y = df.get("label", np.zeros(len(df))).values
@@ -567,23 +580,22 @@ class RealWorldBenchmarkRunner:
             # Event-based metrics for time-series
             event_f1, ttd = self._compute_event_metrics(y_test, y_pred)
 
-            fold_results.append({
-                "roc_auc": roc_auc,
-                "pr_auc": pr_auc,
-                "f1": f1,
-                "precision": precision,
-                "recall": recall,
-                "brier_score": brier,
-                "event_f1": event_f1,
-                "time_to_detection": ttd,
-                "fit_time_ms": fit_time,
-                "predict_time_ms": predict_time,
-            })
-
-            logger.debug(
-                f"Fold {fold_idx + 1}/{self.n_folds}: "
-                f"AUC={roc_auc:.3f}, F1={f1:.3f}"
+            fold_results.append(
+                {
+                    "roc_auc": roc_auc,
+                    "pr_auc": pr_auc,
+                    "f1": f1,
+                    "precision": precision,
+                    "recall": recall,
+                    "brier_score": brier,
+                    "event_f1": event_f1,
+                    "time_to_detection": ttd,
+                    "fit_time_ms": fit_time,
+                    "predict_time_ms": predict_time,
+                }
             )
+
+            logger.debug(f"Fold {fold_idx + 1}/{self.n_folds}: " f"AUC={roc_auc:.3f}, F1={f1:.3f}")
 
         # Aggregate results
         metrics = BenchmarkMetrics(
@@ -604,10 +616,14 @@ class RealWorldBenchmarkRunner:
         f1_values = [f["f1"] for f in fold_results]
 
         if len(auc_values) > 1:
-            ci = stats.t.interval(0.95, len(auc_values) - 1, loc=np.mean(auc_values), scale=stats.sem(auc_values))
+            ci = stats.t.interval(
+                0.95, len(auc_values) - 1, loc=np.mean(auc_values), scale=stats.sem(auc_values)
+            )
             metrics.roc_auc_ci = (ci[0], ci[1])
 
-            ci = stats.t.interval(0.95, len(f1_values) - 1, loc=np.mean(f1_values), scale=stats.sem(f1_values))
+            ci = stats.t.interval(
+                0.95, len(f1_values) - 1, loc=np.mean(f1_values), scale=stats.sem(f1_values)
+            )
             metrics.f1_ci = (ci[0], ci[1])
 
         # Get benevolence if detector supports it
@@ -641,6 +657,7 @@ class RealWorldBenchmarkRunner:
         y_pred: np.ndarray,
     ) -> tuple[float, float]:
         """Compute event-based F1 and time-to-detection."""
+
         # Extract events
         def get_events(arr):
             events = []
@@ -668,13 +685,15 @@ class RealWorldBenchmarkRunner:
 
         # Event F1
         detected = sum(
-            1 for te in true_events
+            1
+            for te in true_events
             if any(not (te[1] < pe[0] or pe[1] < te[0]) for pe in pred_events)
         )
         event_recall = detected / len(true_events)
 
         matched = sum(
-            1 for pe in pred_events
+            1
+            for pe in pred_events
             if any(not (pe[1] < te[0] or te[1] < pe[0]) for te in true_events)
         )
         event_precision = matched / len(pred_events)
@@ -687,7 +706,7 @@ class RealWorldBenchmarkRunner:
         # Time-to-detection
         ttd_values = []
         for te_start, te_end in true_events:
-            event_preds = y_pred[te_start:te_end + 1]
+            event_preds = y_pred[te_start : te_end + 1]
             detected_idx = np.where(event_preds == 1)[0]
             if len(detected_idx) > 0:
                 ttd_values.append(detected_idx[0])
@@ -770,9 +789,7 @@ def run_all_benchmarks(
     results = {}
     for dataset_name in ["SMD", "NSL-KDD", "BATADAL"]:
         try:
-            results[dataset_name] = runner.run_benchmark(
-                detector, dataset_name, detector_name
-            )
+            results[dataset_name] = runner.run_benchmark(detector, dataset_name, detector_name)
         except Exception as e:
             logger.error(f"Benchmark failed for {dataset_name}: {e}")
 

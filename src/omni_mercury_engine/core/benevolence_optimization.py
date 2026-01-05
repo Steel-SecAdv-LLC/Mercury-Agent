@@ -261,14 +261,10 @@ class MultiObjectiveLoss:
         """
         # Detection loss (binary cross-entropy)
         proba = np.clip(predictions, 1e-10, 1 - 1e-10)
-        detection_loss = -np.mean(
-            labels * np.log(proba) + (1 - labels) * np.log(1 - proba)
-        )
+        detection_loss = -np.mean(labels * np.log(proba) + (1 - labels) * np.log(1 - proba))
 
         # Benevolence score
-        benevolence = self.benevolence_loss.compute(
-            predictions, labels, sensitive_attrs
-        )
+        benevolence = self.benevolence_loss.compute(predictions, labels, sensitive_attrs)
 
         # Fairness score (equalized odds)
         fairness = self._compute_fairness(predictions, labels, sensitive_attrs)
@@ -276,16 +272,12 @@ class MultiObjectiveLoss:
         # Check constraints
         violations = []
         if benevolence < self.benevolence_threshold:
-            violations.append(
-                f"Benevolence {benevolence:.3f} < {self.benevolence_threshold}"
-            )
+            violations.append(f"Benevolence {benevolence:.3f} < {self.benevolence_threshold}")
 
         # Combined loss with constraint penalty
         constraint_penalty = 0.0
         if benevolence < self.benevolence_threshold:
-            constraint_penalty = self.penalty_factor * (
-                self.benevolence_threshold - benevolence
-            )
+            constraint_penalty = self.penalty_factor * (self.benevolence_threshold - benevolence)
 
         combined_loss = (
             self.detection_weight * detection_loss
@@ -408,10 +400,7 @@ class ParetoOptimizer:
         # Initialize population
         population = []
         for _ in range(self.population_size):
-            params = np.array([
-                np.random.uniform(low, high)
-                for low, high in bounds
-            ])
+            params = np.array([np.random.uniform(low, high) for low, high in bounds])
             objectives = self.objective_fn(params)
             population.append(ParetoSolution(params, objectives))
 
@@ -464,8 +453,7 @@ class ParetoOptimizer:
         # Filter by benevolence constraint
         # benevolence is stored as (1 - benevolence), so constraint is (1 - threshold)
         constrained_solutions = [
-            s for s in pareto_solutions
-            if s.objectives[1] <= (1 - benevolence_constraint)
+            s for s in pareto_solutions if s.objectives[1] <= (1 - benevolence_constraint)
         ]
 
         if not constrained_solutions:
@@ -551,16 +539,13 @@ class ParetoOptimizer:
             distances[sorted_idx[-1]] = float("inf")
 
             # Range for normalization
-            obj_range = (
-                front[sorted_idx[-1]].objectives[m] - front[sorted_idx[0]].objectives[m]
-            )
+            obj_range = front[sorted_idx[-1]].objectives[m] - front[sorted_idx[0]].objectives[m]
             if obj_range == 0:
                 continue
 
             for i in range(1, n - 1):
                 distances[sorted_idx[i]] += (
-                    front[sorted_idx[i + 1]].objectives[m]
-                    - front[sorted_idx[i - 1]].objectives[m]
+                    front[sorted_idx[i + 1]].objectives[m] - front[sorted_idx[i - 1]].objectives[m]
                 ) / obj_range
 
         # Select top by distance
@@ -669,11 +654,13 @@ def optimize_benevolent_detector(
 
         result = mo_loss.compute(predictions, y_train, sensitive_attrs)
 
-        return np.array([
-            result.detection_loss,
-            1 - result.benevolence_score,
-            1 - result.fairness_score,
-        ])
+        return np.array(
+            [
+                result.detection_loss,
+                1 - result.benevolence_score,
+                1 - result.fairness_score,
+            ]
+        )
 
     optimizer = ParetoOptimizer(
         objective_fn=objective,

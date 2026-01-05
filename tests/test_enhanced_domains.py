@@ -28,6 +28,7 @@ class TestAdaptiveThresholdOptimizer:
         from omni_mercury_engine.core.enhanced_base_domains import (
             AdaptiveThresholdOptimizer,
         )
+
         return AdaptiveThresholdOptimizer(method="otsu")
 
     @pytest.fixture
@@ -50,6 +51,7 @@ class TestAdaptiveThresholdOptimizer:
         from omni_mercury_engine.core.enhanced_base_domains import (
             AdaptiveThresholdOptimizer,
         )
+
         optimizer = AdaptiveThresholdOptimizer(method="percentile", percentile=95)
         result = optimizer.compute_threshold(sample_scores)
 
@@ -60,6 +62,7 @@ class TestAdaptiveThresholdOptimizer:
         from omni_mercury_engine.core.enhanced_base_domains import (
             AdaptiveThresholdOptimizer,
         )
+
         optimizer = AdaptiveThresholdOptimizer(method="bayesian")
         result = optimizer.compute_threshold(sample_scores)
 
@@ -71,6 +74,7 @@ class TestAdaptiveThresholdOptimizer:
         from omni_mercury_engine.core.enhanced_base_domains import (
             AdaptiveThresholdOptimizer,
         )
+
         optimizer = AdaptiveThresholdOptimizer(method="f1_max")
         labels = (sample_scores > 0.5).astype(int)
         result = optimizer.compute_threshold(sample_scores, labels)
@@ -78,13 +82,16 @@ class TestAdaptiveThresholdOptimizer:
         assert result.method == "f1_max"
         assert result.confidence > 0.0  # F1 score
 
-    @given(st.lists(st.floats(min_value=0, max_value=1, allow_nan=False), min_size=20, max_size=100))
+    @given(
+        st.lists(st.floats(min_value=0, max_value=1, allow_nan=False), min_size=20, max_size=100)
+    )
     @settings(max_examples=10)
     def test_threshold_within_range(self, scores):
         """Threshold should always be within score range."""
         from omni_mercury_engine.core.enhanced_base_domains import (
             AdaptiveThresholdOptimizer,
         )
+
         if len(set(scores)) < 2:
             return
 
@@ -101,6 +108,7 @@ class TestEventBasedMetrics:
     @pytest.fixture
     def metrics(self):
         from omni_mercury_engine.core.enhanced_base_domains import EventBasedMetrics
+
         return EventBasedMetrics(tolerance=2, min_event_length=1)
 
     def test_extract_single_event(self, metrics):
@@ -158,6 +166,7 @@ class TestSpatialAutocorrelation:
     @pytest.fixture
     def spatial(self):
         from omni_mercury_engine.core.enhanced_base_domains import SpatialAutocorrelation
+
         return SpatialAutocorrelation(normalize=True)
 
     @pytest.fixture
@@ -217,6 +226,7 @@ class TestEnhancedQuantumModel:
     @pytest.fixture
     def quantum(self):
         from omni_mercury_engine.core.enhanced_model_domains import EnhancedQuantumModel
+
         return EnhancedQuantumModel(num_qubits=4, seed=SEED)
 
     @pytest.fixture
@@ -297,6 +307,7 @@ class TestEnhancedBiometricModel:
     @pytest.fixture
     def biometric(self):
         from omni_mercury_engine.core.enhanced_model_domains import EnhancedBiometricModel
+
         return EnhancedBiometricModel(enforce_fairness=True, fairness_threshold=0.8)
 
     def test_fairness_metrics_balanced(self, biometric):
@@ -370,6 +381,7 @@ class TestLyapunovStabilityAnalyzer:
     @pytest.fixture
     def analyzer(self):
         from omni_mercury_engine.core.enhanced_model_domains import LyapunovStabilityAnalyzer
+
         return LyapunovStabilityAnalyzer(embedding_dim=5, tau=1)
 
     def test_embedding_shape(self, analyzer):
@@ -411,6 +423,7 @@ class TestEnhancedAffectiveModel:
     @pytest.fixture
     def affective(self):
         from omni_mercury_engine.core.enhanced_model_domains import EnhancedAffectiveModel
+
         return EnhancedAffectiveModel(n_emotions=6, seed=SEED)
 
     def test_emotional_entropy_uniform(self, affective):
@@ -465,6 +478,7 @@ class TestDomainMetrics:
     @pytest.fixture
     def calculator(self):
         from omni_mercury_engine.core.domain_metrics import MetricsCalculator
+
         return MetricsCalculator()
 
     @pytest.fixture
@@ -503,7 +517,9 @@ class TestDomainMetrics:
         protected = np.random.binomial(1, 0.5, len(y_true))
 
         metrics = calculator.compute_all_metrics(
-            y_true, y_pred, y_prob,
+            y_true,
+            y_pred,
+            y_prob,
             protected_attrs=protected,
         )
 
@@ -548,6 +564,7 @@ class TestGOSNNIntegration:
     @pytest.fixture
     def integration(self):
         from omni_mercury_engine.core.gosnn_integration import GOSNNIntegration
+
         return GOSNNIntegration(
             sigma_sacred=0.96,
             fusion_method="ethical",
@@ -565,9 +582,11 @@ class TestGOSNNIntegration:
 
     def test_add_domain(self, integration):
         """Should add domain correctly."""
+
         class MockDetector:
             def fit(self, X, y=None):
                 pass
+
             def detect(self, X):
                 return {"scores": np.zeros(len(X))}
 
@@ -590,6 +609,7 @@ class TestGOSNNIntegration:
         class MockDetector:
             def fit(self, X, y=None):
                 pass
+
             def detect(self, X):
                 np.random.seed(SEED)
                 return {"scores": np.random.uniform(0, 1, len(X))}
@@ -610,9 +630,11 @@ class TestGOSNNIntegration:
 
     def test_ethical_report(self, integration):
         """Should generate ethical compliance report."""
+
         class MockDetector:
             def fit(self, X, y=None):
                 pass
+
             def detect(self, X):
                 return {"scores": np.zeros(len(X))}
 
@@ -626,9 +648,11 @@ class TestGOSNNIntegration:
 
     def test_domain_weights_normalization(self, integration):
         """Domain weights should be normalized."""
+
         class MockDetector:
             def fit(self, X, y=None):
                 pass
+
             def detect(self, X):
                 return {"scores": np.zeros(len(X))}
 
@@ -711,7 +735,16 @@ class TestPropertyBased:
 
             calculator = MetricsCalculator()
             calculator._compute_benevolence_metrics(
-                type("Metrics", (), {"harm_reduction_score": 0, "equity_score": 0, "benevolence_index": 0, "ethical_compliance": True})(),
+                type(
+                    "Metrics",
+                    (),
+                    {
+                        "harm_reduction_score": 0,
+                        "equity_score": 0,
+                        "benevolence_index": 0,
+                        "ethical_compliance": True,
+                    },
+                )(),
                 y_true,
                 y_pred,
                 None,

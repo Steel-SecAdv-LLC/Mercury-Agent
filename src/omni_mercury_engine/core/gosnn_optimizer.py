@@ -118,10 +118,9 @@ class ScalarImportanceAnalyzer:
             return self._simple_importance(scalars)
 
         importances = {}
-        history_arr = np.array([
-            [h.get(name, 0.0) for name in scalars.keys()]
-            for h in self._history
-        ])
+        history_arr = np.array(
+            [[h.get(name, 0.0) for name in scalars.keys()] for h in self._history]
+        )
 
         scalar_names = list(scalars.keys())
 
@@ -153,7 +152,11 @@ class ScalarImportanceAnalyzer:
                     pruning_reason = "Low correlation (<0.2)"
 
             # Don't prune ethical scalars
-            if "ethical" in name.lower() or "benevolence" in name.lower() or "sacred" in name.lower():
+            if (
+                "ethical" in name.lower()
+                or "benevolence" in name.lower()
+                or "sacred" in name.lower()
+            ):
                 prunable = False
                 pruning_reason = ""
 
@@ -250,8 +253,11 @@ class EthicalGateOptimizer:
 
         # Compute ethical score from ethical scalars
         ethical_scalars = {
-            k: v for k, v in scalars.items()
-            if any(x in k.lower() for x in ["moral", "ethical", "benevolence", "empathy", "compassion"])
+            k: v
+            for k, v in scalars.items()
+            if any(
+                x in k.lower() for x in ["moral", "ethical", "benevolence", "empathy", "compassion"]
+            )
         }
 
         if ethical_scalars:
@@ -299,9 +305,7 @@ class EthicalGateOptimizer:
         benevolence = scalars.get("omnibenevolence", scalars.get("benevolence", 1.0))
         if isinstance(benevolence, (int, float)) and benevolence < self.benevolence_min:
             passes = False
-            violations.append(
-                f"Benevolence violation: {benevolence:.3f} < {self.benevolence_min}"
-            )
+            violations.append(f"Benevolence violation: {benevolence:.3f} < {self.benevolence_min}")
             self._violation_count += 1
 
         # Soft warning for target (not blocking)
@@ -356,10 +360,10 @@ class AttentionOptimizer:
         weights[:heads_per_band] = PHI
 
         # Band 2: Key-dominant (unity)
-        weights[heads_per_band:2 * heads_per_band] = 1.0
+        weights[heads_per_band : 2 * heads_per_band] = 1.0
 
         # Band 3: Value-dominant (1/φ)
-        weights[2 * heads_per_band:] = 1 / PHI
+        weights[2 * heads_per_band :] = 1 / PHI
 
         # Normalize
         weights = weights * (self.num_heads / np.sum(weights))
@@ -397,7 +401,9 @@ class AttentionOptimizer:
                 weighted = attention_scores * self.triadic_weights[:, np.newaxis, np.newaxis]
             elif attention_scores.ndim == 4:
                 # [batch, num_heads, seq_len, seq_len]
-                weighted = attention_scores * self.triadic_weights[np.newaxis, :, np.newaxis, np.newaxis]
+                weighted = (
+                    attention_scores * self.triadic_weights[np.newaxis, :, np.newaxis, np.newaxis]
+                )
             else:
                 weighted = attention_scores * np.mean(self.triadic_weights)
 
@@ -495,11 +501,9 @@ class GOSNNOptimizer:
 
         # Identify prunable scalars
         prunable = [imp for imp in importances.values() if imp.prunable]
-        important = sorted(
-            importances.values(),
-            key=lambda x: x.importance_score,
-            reverse=True
-        )[:10]
+        important = sorted(importances.values(), key=lambda x: x.importance_score, reverse=True)[
+            :10
+        ]
 
         if prunable:
             recommendations.append(
@@ -508,9 +512,7 @@ class GOSNNOptimizer:
             )
 
         # Evaluate ethical compliance
-        passes, ethical_score, violations = self.ethical_gate.evaluate(
-            all_scalars, context
-        )
+        passes, ethical_score, violations = self.ethical_gate.evaluate(all_scalars, context)
 
         if not passes:
             recommendations.append("CRITICAL: Ethical gate violation - review scalars")

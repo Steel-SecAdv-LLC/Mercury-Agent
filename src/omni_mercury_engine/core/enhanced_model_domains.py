@@ -129,7 +129,7 @@ class EnhancedQuantumModel:
             state = np.ones(len(data)) / np.sqrt(len(data))
 
         # Pad to 2^n dimension
-        target_dim = 2 ** self.num_qubits
+        target_dim = 2**self.num_qubits
         if len(state) < target_dim:
             state = np.pad(state, (0, target_dim - len(state)))
         elif len(state) > target_dim:
@@ -307,15 +307,19 @@ class EnhancedQuantumModel:
 
             # Eigenvalue features
             eigenvalues = np.sort(np.abs(np.linalg.eigvals(rho)))[::-1]
-            top_eigenvalues = eigenvalues[:8] if len(eigenvalues) >= 8 else np.pad(
-                eigenvalues, (0, 8 - len(eigenvalues))
+            top_eigenvalues = (
+                eigenvalues[:8]
+                if len(eigenvalues) >= 8
+                else np.pad(eigenvalues, (0, 8 - len(eigenvalues)))
             )
 
-            features = np.concatenate([
-                [entropy, purity, coherence, entanglement],
-                top_eigenvalues,
-                [np.mean(eigenvalues), np.std(eigenvalues)],
-            ])
+            features = np.concatenate(
+                [
+                    [entropy, purity, coherence, entanglement],
+                    top_eigenvalues,
+                    [np.mean(eigenvalues), np.std(eigenvalues)],
+                ]
+            )
 
             features_list.append(features)
 
@@ -770,9 +774,11 @@ class EnhancedAffectiveModel:
         features_norm = (features - features.min()) / (features.max() - features.min() + 1e-10)
 
         # Compute VA coordinates
-        valence = float(np.mean(features_norm[:len(features_norm)//3]))
-        arousal = float(np.mean(features_norm[len(features_norm)//3:2*len(features_norm)//3]))
-        dominance = float(np.mean(features_norm[2*len(features_norm)//3:]))
+        valence = float(np.mean(features_norm[: len(features_norm) // 3]))
+        arousal = float(
+            np.mean(features_norm[len(features_norm) // 3 : 2 * len(features_norm) // 3])
+        )
+        dominance = float(np.mean(features_norm[2 * len(features_norm) // 3 :]))
 
         return {
             "valence": valence,
@@ -805,17 +811,19 @@ class EnhancedAffectiveModel:
         negative_mean = np.mean(temporal_emotions[:, negative_idx])
 
         # Entropy over time (high variability = potential distress)
-        temporal_entropy = np.mean([
-            self.compute_emotional_entropy(temporal_emotions[t])
-            for t in range(len(temporal_emotions))
-        ])
+        temporal_entropy = np.mean(
+            [
+                self.compute_emotional_entropy(temporal_emotions[t])
+                for t in range(len(temporal_emotions))
+            ]
+        )
 
         # Sustained negative emotion check
         negative_duration = np.sum(np.argmax(temporal_emotions, axis=1) >= 2)
         sustained_negative = negative_duration / len(temporal_emotions)
 
         # Combined distress score
-        distress_score = (0.4 * negative_mean + 0.3 * temporal_entropy + 0.3 * sustained_negative)
+        distress_score = 0.4 * negative_mean + 0.3 * temporal_entropy + 0.3 * sustained_negative
 
         return {
             "distress_level": float(distress_score),
@@ -845,19 +853,25 @@ class EnhancedAffectiveModel:
             sample = data[i]
 
             # Simulate emotion probabilities from data
-            emotion_probs = np.abs(sample[:self.n_emotions]) if len(sample) >= self.n_emotions else np.ones(self.n_emotions) / self.n_emotions
+            emotion_probs = (
+                np.abs(sample[: self.n_emotions])
+                if len(sample) >= self.n_emotions
+                else np.ones(self.n_emotions) / self.n_emotions
+            )
             emotion_probs = emotion_probs / (np.sum(emotion_probs) + 1e-10)
 
             # Compute features
             entropy = self.compute_emotional_entropy(emotion_probs)
             va = self.analyze_valence_arousal(sample)
 
-            features = np.concatenate([
-                emotion_probs,
-                [entropy],
-                [va["valence"], va["arousal"], va["dominance"]],
-                [np.mean(sample), np.std(sample), np.max(sample), np.min(sample)],
-            ])
+            features = np.concatenate(
+                [
+                    emotion_probs,
+                    [entropy],
+                    [va["valence"], va["arousal"], va["dominance"]],
+                    [np.mean(sample), np.std(sample), np.max(sample), np.min(sample)],
+                ]
+            )
 
             features_list.append(features)
 

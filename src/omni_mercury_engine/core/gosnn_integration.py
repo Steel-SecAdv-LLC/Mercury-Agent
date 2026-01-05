@@ -76,14 +76,11 @@ class IntegrationResult:
 class DetectorProtocol(Protocol):
     """Protocol for detectors in the integration layer."""
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> Any:
-        ...
+    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> Any: ...
 
-    def detect(self, X: np.ndarray) -> dict[str, Any]:
-        ...
+    def detect(self, X: np.ndarray) -> dict[str, Any]: ...
 
-    def extract_features(self, X: np.ndarray) -> np.ndarray:
-        ...
+    def extract_features(self, X: np.ndarray) -> np.ndarray: ...
 
 
 @dataclass
@@ -225,7 +222,7 @@ class GOSNNIntegration:
                 ("temporal", TemporalAnomalyDetector, 1.0, 0.97),
                 ("spatial", SpatialAnomalyDetector, 1.0 / PHI, 0.96),
                 ("dimensional", DimensionalAnomalyDetector, 1.0, 0.95),
-                ("graph", GraphBasedAnomalyDetector, 1.0 / (PHI ** 2), 0.94),
+                ("graph", GraphBasedAnomalyDetector, 1.0 / (PHI**2), 0.94),
             ]
 
             for name, detector_class, weight, ethical_score in domain_configs:
@@ -375,8 +372,7 @@ class GOSNNIntegration:
 
         self._fitted = True
         logger.info(
-            f"GOSNNIntegration fitted: {len(self.domains)} domains, "
-            f"fusion={self.fusion_method}"
+            f"GOSNNIntegration fitted: {len(self.domains)} domains, " f"fusion={self.fusion_method}"
         )
 
         return self
@@ -397,6 +393,7 @@ class GOSNNIntegration:
             IntegrationResult with detection outputs
         """
         import time
+
         start_time = time.time()
 
         if not self._fitted:
@@ -450,9 +447,7 @@ class GOSNNIntegration:
         threshold = self._compute_adaptive_threshold(calibrated_scores)
 
         # Apply benevolence weighting
-        benevolence_adjusted = self._apply_benevolence_adjustment(
-            calibrated_scores, threshold
-        )
+        benevolence_adjusted = self._apply_benevolence_adjustment(calibrated_scores, threshold)
 
         # Final predictions
         is_anomaly = benevolence_adjusted > threshold
@@ -510,22 +505,16 @@ class GOSNNIntegration:
             # Normalize
             total = sum(self._domain_weights.values())
             if total > 0:
-                self._domain_weights = {
-                    k: v / total for k, v in self._domain_weights.items()
-                }
+                self._domain_weights = {k: v / total for k, v in self._domain_weights.items()}
 
         except ImportError:
             # Fallback to simple weighted average
             self._domain_weights = {
-                name: config.weight
-                for name, config in self.domains.items()
-                if config.enabled
+                name: config.weight for name, config in self.domains.items() if config.enabled
             }
             total = sum(self._domain_weights.values())
             if total > 0:
-                self._domain_weights = {
-                    k: v / total for k, v in self._domain_weights.items()
-                }
+                self._domain_weights = {k: v / total for k, v in self._domain_weights.items()}
 
     def _setup_calibration(
         self,
@@ -675,9 +664,7 @@ class GOSNNIntegration:
     def get_ethical_report(self) -> dict[str, Any]:
         """Generate ethical compliance report."""
         domain_ethical_scores = {
-            name: config.ethical_score
-            for name, config in self.domains.items()
-            if config.enabled
+            name: config.ethical_score for name, config in self.domains.items() if config.enabled
         }
 
         avg_ethical = np.mean(list(domain_ethical_scores.values()))

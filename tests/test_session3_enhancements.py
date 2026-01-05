@@ -98,12 +98,14 @@ class TestNeuroSymbolicHub:
         hub = NeuroSymbolicHub(seed=SEED)
 
         # Add custom rule
-        hub.add_rule(SymbolicRule(
-            rule_id="test_rule",
-            premise="test_condition >= 1.0",
-            conclusion="test_alert",
-            confidence=0.9,
-        ))
+        hub.add_rule(
+            SymbolicRule(
+                rule_id="test_rule",
+                premise="test_condition >= 1.0",
+                conclusion="test_alert",
+                confidence=0.9,
+            )
+        )
 
         # Predict with context that triggers rule
         X = np.random.randn(1, 64)
@@ -208,21 +210,25 @@ class TestGOSNNOptimizer:
         )
 
         # Should pass with high ethical scalars
-        passes, score, violations = gate.evaluate({
-            "omnimorality": 1.2,
-            "omniempathy": 1.2,
-            "omnibenevolence": 0.99,
-        })
+        passes, score, violations = gate.evaluate(
+            {
+                "omnimorality": 1.2,
+                "omniempathy": 1.2,
+                "omnibenevolence": 0.99,
+            }
+        )
 
         assert passes is True
         assert score >= 0.93
 
         # Should fail with low ethical scalars
-        passes, score, violations = gate.evaluate({
-            "omnimorality": 0.3,
-            "omniempathy": 0.3,
-            "omnibenevolence": 0.5,
-        })
+        passes, score, violations = gate.evaluate(
+            {
+                "omnimorality": 0.3,
+                "omniempathy": 0.3,
+                "omnibenevolence": 0.5,
+            }
+        )
 
         assert passes is False
         assert len(violations) > 0
@@ -317,11 +323,7 @@ class TestRealWorldBenchmark:
                 scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
                 return np.column_stack([1 - scores, scores])
 
-        result = runner.run_benchmark(
-            IFWrapper(),
-            "SMD",
-            "IsolationForest"
-        )
+        result = runner.run_benchmark(IFWrapper(), "SMD", "IsolationForest")
 
         assert result.metrics.roc_auc > 0.4  # Should be above random
         assert result.metrics.f1 >= 0.0
@@ -348,11 +350,7 @@ class TestRealWorldBenchmark:
             def predict_proba(self, X):
                 return self.hub.predict_proba(X)
 
-        result = runner.run_benchmark(
-            NSHWrapper(),
-            "SMD",
-            "NeuroSymbolicHub"
-        )
+        result = runner.run_benchmark(NSHWrapper(), "SMD", "NeuroSymbolicHub")
 
         assert result.metrics.roc_auc >= 0.0
         assert result.detector_name == "NeuroSymbolicHub"
@@ -520,11 +518,13 @@ class TestEthicalConstraints:
 
         # Record history
         for _ in range(20):
-            analyzer.record_scalars({
-                "omnibenevolence": 0.99,
-                "omnimorality": 1.2,
-                "regular_scalar": 0.1,
-            })
+            analyzer.record_scalars(
+                {
+                    "omnibenevolence": 0.99,
+                    "omnimorality": 1.2,
+                    "regular_scalar": 0.1,
+                }
+            )
 
         importances = analyzer.compute_importance(
             {"omnibenevolence": 0.99, "omnimorality": 1.2, "regular_scalar": 0.1},

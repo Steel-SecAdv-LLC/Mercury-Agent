@@ -72,17 +72,22 @@ from omni_mercury_engine.core.stacking_fusion import (
 # Hypothesis Strategies
 # =============================================================================
 
+
 @st.composite
-def binary_classification_data(draw, min_samples=20, max_samples=200, min_features=2, max_features=20):
+def binary_classification_data(
+    draw, min_samples=20, max_samples=200, min_features=2, max_features=20
+):
     """Generate valid binary classification data."""
     n_samples = draw(st.integers(min_value=min_samples, max_value=max_samples))
     n_features = draw(st.integers(min_value=min_features, max_value=max_features))
 
-    X = draw(arrays(
-        dtype=np.float64,
-        shape=(n_samples, n_features),
-        elements=st.floats(min_value=-10, max_value=10, allow_nan=False, allow_infinity=False),
-    ))
+    X = draw(
+        arrays(
+            dtype=np.float64,
+            shape=(n_samples, n_features),
+            elements=st.floats(min_value=-10, max_value=10, allow_nan=False, allow_infinity=False),
+        )
+    )
 
     # Ensure balanced classes (at least 20% of each)
     n_positive = max(2, int(n_samples * draw(st.floats(min_value=0.2, max_value=0.5))))
@@ -97,11 +102,13 @@ def binary_classification_data(draw, min_samples=20, max_samples=200, min_featur
 def probability_array(draw, size=100):
     """Generate valid probability arrays."""
     n = draw(st.integers(min_value=10, max_value=size))
-    return draw(arrays(
-        dtype=np.float64,
-        shape=(n,),
-        elements=st.floats(min_value=0.01, max_value=0.99, allow_nan=False),
-    ))
+    return draw(
+        arrays(
+            dtype=np.float64,
+            shape=(n,),
+            elements=st.floats(min_value=0.01, max_value=0.99, allow_nan=False),
+        )
+    )
 
 
 @st.composite
@@ -118,6 +125,7 @@ def binary_labels(draw, size=100):
 # =============================================================================
 # Rigorous Benchmark Tests
 # =============================================================================
+
 
 class TestRigorousBenchmark:
     """Property-based tests for benchmark harness."""
@@ -190,6 +198,7 @@ class TestRigorousBenchmark:
 # Calibration Tests
 # =============================================================================
 
+
 class TestCalibration:
     """Property-based tests for calibration modules."""
 
@@ -255,6 +264,7 @@ class TestCalibration:
 # Conformal Prediction Tests
 # =============================================================================
 
+
 class TestConformalPrediction:
     """Property-based tests for conformal prediction."""
 
@@ -277,8 +287,9 @@ class TestConformalPrediction:
         empirical_coverage = np.mean(cal_scores <= threshold)
 
         # Allow some slack due to finite sample
-        assert abs(empirical_coverage - coverage) < 0.1, \
-            f"Coverage {empirical_coverage} far from target {coverage}"
+        assert (
+            abs(empirical_coverage - coverage) < 0.1
+        ), f"Coverage {empirical_coverage} far from target {coverage}"
 
     @given(st.floats(min_value=0.8, max_value=0.99))
     @settings(max_examples=20)
@@ -300,8 +311,9 @@ class TestConformalPrediction:
         stats = aci.get_coverage_stats()
 
         # Should be close to target after many updates
-        assert abs(stats["empirical_coverage"] - target_coverage) < 0.15, \
-            f"Adaptive coverage {stats['empirical_coverage']} far from {target_coverage}"
+        assert (
+            abs(stats["empirical_coverage"] - target_coverage) < 0.15
+        ), f"Adaptive coverage {stats['empirical_coverage']} far from {target_coverage}"
 
     def test_conformal_threshold_positive(self):
         """Conformal threshold should always be positive."""
@@ -317,6 +329,7 @@ class TestConformalPrediction:
 # =============================================================================
 # Fusion Tests
 # =============================================================================
+
 
 class TestFusion:
     """Property-based tests for ensemble fusion."""
@@ -368,8 +381,9 @@ class TestFusion:
         compliance = fusion.get_ethical_compliance()
 
         # Average ethical score should be >= threshold
-        assert compliance["average_ethical_score"] >= sigma_sacred * 0.9, \
-            f"Ethical score {compliance['average_ethical_score']} below threshold"
+        assert (
+            compliance["average_ethical_score"] >= sigma_sacred * 0.9
+        ), f"Ethical score {compliance['average_ethical_score']} below threshold"
 
     @given(st.floats(min_value=1.0, max_value=3.0))
     @settings(max_examples=10)
@@ -383,6 +397,7 @@ class TestFusion:
 # =============================================================================
 # Benevolence Optimization Tests
 # =============================================================================
+
 
 class TestBenevolenceOptimization:
     """Property-based tests for multi-objective benevolence optimization."""
@@ -431,13 +446,15 @@ class TestBenevolenceOptimization:
 
     def test_benevolence_threshold_constant(self):
         """Verify benevolence threshold matches requirements."""
-        assert BENEVOLENCE_THRESHOLD == 0.99, \
-            f"Benevolence threshold {BENEVOLENCE_THRESHOLD} != 0.99"
+        assert (
+            BENEVOLENCE_THRESHOLD == 0.99
+        ), f"Benevolence threshold {BENEVOLENCE_THRESHOLD} != 0.99"
 
 
 # =============================================================================
 # Integration Tests
 # =============================================================================
+
 
 class TestIntegration:
     """Integration tests combining multiple modules."""
@@ -469,9 +486,7 @@ class TestIntegration:
         # Benchmark
         harness = RigorousBenchmarkHarness(n_folds=3)
         result = harness.benchmark_detector(
-            detector, X, y,
-            detector_name="SimpleDetector",
-            dataset_name="TestData"
+            detector, X, y, detector_name="SimpleDetector", dataset_name="TestData"
         )
 
         assert result.roc_auc.mean >= 0.5  # Better than random

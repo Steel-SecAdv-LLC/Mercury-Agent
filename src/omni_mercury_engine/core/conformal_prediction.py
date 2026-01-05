@@ -431,6 +431,7 @@ class ConformalAnomalyDetector:
             # For cross-conformal, need scoring function
             def score_fn(X):
                 return self._get_anomaly_scores(X)
+
             self.conformal.fit(X_cal, score_fn)
 
         self._fitted = True
@@ -523,7 +524,7 @@ class ConformalAnomalyDetector:
 
         # Empirical coverage: fraction of true labels in prediction sets
         # For anomaly detection: correct predictions
-        correct = (predictions == y_test)
+        correct = predictions == y_test
         empirical_coverage = np.mean(correct)
 
         # Per-class coverage

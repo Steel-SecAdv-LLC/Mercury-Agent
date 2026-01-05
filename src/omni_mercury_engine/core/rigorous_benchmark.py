@@ -121,9 +121,17 @@ class BenchmarkResult:
 
     def finalize(self) -> None:
         """Compute all statistics after folds complete."""
-        for metric in [self.roc_auc, self.f1, self.precision, self.recall,
-                       self.brier, self.pr_auc, self.event_precision,
-                       self.event_recall, self.event_f1]:
+        for metric in [
+            self.roc_auc,
+            self.f1,
+            self.precision,
+            self.recall,
+            self.brier,
+            self.pr_auc,
+            self.event_precision,
+            self.event_recall,
+            self.event_f1,
+        ]:
             metric.compute_stats()
 
     def to_dict(self) -> dict[str, Any]:
@@ -134,10 +142,16 @@ class BenchmarkResult:
             "n_folds": self.n_folds,
             "seed": self.seed,
             "metrics": {
-                "roc_auc": {"mean": self.roc_auc.mean, "std": self.roc_auc.std,
-                           "ci": [self.roc_auc.ci_lower, self.roc_auc.ci_upper]},
-                "f1": {"mean": self.f1.mean, "std": self.f1.std,
-                       "ci": [self.f1.ci_lower, self.f1.ci_upper]},
+                "roc_auc": {
+                    "mean": self.roc_auc.mean,
+                    "std": self.roc_auc.std,
+                    "ci": [self.roc_auc.ci_lower, self.roc_auc.ci_upper],
+                },
+                "f1": {
+                    "mean": self.f1.mean,
+                    "std": self.f1.std,
+                    "ci": [self.f1.ci_lower, self.f1.ci_upper],
+                },
                 "precision": {"mean": self.precision.mean, "std": self.precision.std},
                 "recall": {"mean": self.recall.mean, "std": self.recall.std},
                 "brier": {"mean": self.brier.mean, "std": self.brier.std},
@@ -158,11 +172,13 @@ class BenchmarkResult:
 def set_all_seeds(seed: int = GLOBAL_SEED) -> None:
     """Set all random seeds for reproducibility."""
     import random
+
     random.seed(seed)
     np.random.seed(seed)
 
     try:
         import torch
+
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
@@ -191,12 +207,7 @@ def stratified_split(
         X_train, X_test, y_train, y_test
     """
     set_all_seeds(seed)
-    return train_test_split(
-        X, y,
-        test_size=test_size,
-        random_state=seed,
-        stratify=y
-    )
+    return train_test_split(X, y, test_size=test_size, random_state=seed, stratify=y)
 
 
 def compute_event_metrics(
@@ -219,6 +230,7 @@ def compute_event_metrics(
     Returns:
         (event_precision, event_recall, event_f1)
     """
+
     def get_events(arr: np.ndarray) -> list[tuple[int, int]]:
         """Extract contiguous event ranges."""
         events = []
@@ -357,9 +369,7 @@ class RigorousBenchmarkHarness:
         self.compute_event_metrics_flag = compute_event_metrics
 
         set_all_seeds(seed)
-        logger.info(
-            f"RigorousBenchmarkHarness initialized: n_folds={n_folds}, seed={seed}"
-        )
+        logger.info(f"RigorousBenchmarkHarness initialized: n_folds={n_folds}, seed={seed}")
 
     def benchmark_detector(
         self,
@@ -521,7 +531,8 @@ class RigorousBenchmarkHarness:
 
         improvement = (
             (np.mean(metric_a) - np.mean(metric_b)) / np.mean(metric_b) * 100
-            if np.mean(metric_b) > 0 else 0.0
+            if np.mean(metric_b) > 0
+            else 0.0
         )
 
         return {
@@ -544,10 +555,13 @@ class RigorousBenchmarkHarness:
             "effect_size": {
                 "cohens_d": cohens_d,
                 "interpretation": (
-                    "large" if abs(cohens_d) > 0.8 else
-                    "medium" if abs(cohens_d) > 0.5 else
-                    "small" if abs(cohens_d) > 0.2 else
-                    "negligible"
+                    "large"
+                    if abs(cohens_d) > 0.8
+                    else (
+                        "medium"
+                        if abs(cohens_d) > 0.5
+                        else "small" if abs(cohens_d) > 0.2 else "negligible"
+                    )
                 ),
             },
         }
@@ -653,9 +667,7 @@ def run_baseline_benchmarks(
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
             return scores
 
-    results["LOF"] = harness.benchmark_detector(
-        LOFWrapper(), X, y, "LOF", dataset_name
-    )
+    results["LOF"] = harness.benchmark_detector(LOFWrapper(), X, y, "LOF", dataset_name)
 
     # Elliptic Envelope
     class EEWrapper:

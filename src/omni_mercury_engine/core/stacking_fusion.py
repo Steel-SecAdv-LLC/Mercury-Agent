@@ -38,14 +38,11 @@ SIGMA_SACRED_DEFAULT = 0.96
 class BaseDetector(Protocol):
     """Protocol for base detectors in ensemble."""
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> None:
-        ...
+    def fit(self, X: np.ndarray, y: np.ndarray) -> None: ...
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        ...
+    def predict(self, X: np.ndarray) -> np.ndarray: ...
 
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        ...
+    def predict_proba(self, X: np.ndarray) -> np.ndarray: ...
 
 
 @dataclass
@@ -161,7 +158,9 @@ class StackingFusion:
                 if self.use_proba:
                     try:
                         oof_pred = cross_val_predict(
-                            detector, X, y,
+                            detector,
+                            X,
+                            y,
                             cv=self.cv_folds,
                             method="predict_proba",
                         )
@@ -169,12 +168,16 @@ class StackingFusion:
                             oof_pred = oof_pred[:, 1]
                     except:
                         oof_pred = cross_val_predict(
-                            detector, X, y,
+                            detector,
+                            X,
+                            y,
                             cv=self.cv_folds,
                         ).astype(float)
                 else:
                     oof_pred = cross_val_predict(
-                        detector, X, y,
+                        detector,
+                        X,
+                        y,
                         cv=self.cv_folds,
                     ).astype(float)
 
@@ -275,7 +278,7 @@ class StackingFusion:
             # For linear meta-learners
             coefs = self.meta_learner.coef_[0]
             if self.passthrough:
-                coefs = coefs[:len(self.detector_names)]
+                coefs = coefs[: len(self.detector_names)]
 
             # Normalize to sum to 1
             weights = np.abs(coefs) / (np.sum(np.abs(coefs)) + 1e-10)
@@ -364,10 +367,13 @@ class BayesianModelAveraging:
 
                 # Number of parameters (approximate)
                 try:
-                    k = np.sum([
-                        np.prod(p.shape) for p in detector.get_params().values()
-                        if isinstance(p, (int, float))
-                    ])
+                    k = np.sum(
+                        [
+                            np.prod(p.shape)
+                            for p in detector.get_params().values()
+                            if isinstance(p, (int, float))
+                        ]
+                    )
                 except:
                     k = 10  # Default estimate
 
@@ -557,9 +563,7 @@ class EthicallyConstrainedFusion:
             detector_preds.append(proba)
 
         detector_preds = np.array(detector_preds).T  # (n_samples, n_detectors)
-        ethical_vec = np.array([
-            self.ethical_scores[name] for name in self.detectors.keys()
-        ])
+        ethical_vec = np.array([self.ethical_scores[name] for name in self.detectors.keys()])
 
         # Optimize weights with ethical constraints
         def objective(w):
@@ -575,9 +579,7 @@ class EthicallyConstrainedFusion:
             bce = -np.mean(y * np.log(pred) + (1 - y) * np.log(1 - pred))
 
             # Ethical penalty: penalize low-ethical detectors
-            ethical_penalty = self.benevolence_weight * np.sum(
-                w * (1 - ethical_vec)
-            )
+            ethical_penalty = self.benevolence_weight * np.sum(w * (1 - ethical_vec))
 
             # Sigma_sacred constraint: average ethical score must exceed threshold
             avg_ethical = np.sum(w * ethical_vec)
@@ -649,9 +651,7 @@ class EthicallyConstrainedFusion:
         if not self._fitted:
             return {}
 
-        ethical_vec = np.array([
-            self.ethical_scores[name] for name in self.detectors.keys()
-        ])
+        ethical_vec = np.array([self.ethical_scores[name] for name in self.detectors.keys()])
         avg_ethical = np.sum(self.weights * ethical_vec)
 
         return {

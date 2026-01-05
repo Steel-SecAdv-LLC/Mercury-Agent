@@ -419,15 +419,11 @@ class EventBasedMetrics:
             return not (e1[1] + self.tolerance < e2[0] or e2[1] + self.tolerance < e1[0])
 
         # Event recall: fraction of true events detected
-        detected = sum(
-            1 for te in true_events if any(events_overlap(te, pe) for pe in pred_events)
-        )
+        detected = sum(1 for te in true_events if any(events_overlap(te, pe) for pe in pred_events))
         event_recall = detected / len(true_events)
 
         # Event precision: fraction of predictions matching true events
-        matched = sum(
-            1 for pe in pred_events if any(events_overlap(pe, te) for te in true_events)
-        )
+        matched = sum(1 for pe in pred_events if any(events_overlap(pe, te) for te in true_events))
         event_precision = matched / len(pred_events)
 
         # F1
@@ -511,8 +507,7 @@ class SpatialAutocorrelation:
 
         var_I = (
             n * ((n**2 - 3 * n + 3) * s1 - n * s2 + 3 * s0**2)
-            - (np.sum(deviations**4) / denominator**2)
-            * ((n**2 - n) * s1 - 2 * n * s2 + 6 * s0**2)
+            - (np.sum(deviations**4) / denominator**2) * ((n**2 - n) * s1 - 2 * n * s2 + 6 * s0**2)
         ) / ((n - 1) * (n - 2) * (n - 3) * s0**2) - E_I**2
 
         var_I = max(var_I, 1e-10)
