@@ -80,7 +80,7 @@ class BenchmarkMetrics:
     roc_auc_ci: tuple[float, float] = (0.0, 0.0)
     f1_ci: tuple[float, float] = (0.0, 0.0)
 
-    def improvement_over(self, baseline: "BenchmarkMetrics") -> dict[str, float]:
+    def improvement_over(self, baseline: BenchmarkMetrics) -> dict[str, float]:
         """Compute improvement percentages over baseline."""
         improvements = {}
         for metric in ["roc_auc", "pr_auc", "f1", "precision", "recall", "event_f1"]:
@@ -493,11 +493,15 @@ class RealWorldBenchmarkRunner:
         )
 
         # Stratified K-fold
-        from sklearn.model_selection import StratifiedKFold
         from sklearn.metrics import (
-            roc_auc_score, average_precision_score, f1_score,
-            precision_score, recall_score, brier_score_loss
+            average_precision_score,
+            brier_score_loss,
+            f1_score,
+            precision_score,
+            recall_score,
+            roc_auc_score,
         )
+        from sklearn.model_selection import StratifiedKFold
 
         skf = StratifiedKFold(n_splits=self.n_folds, shuffle=True, random_state=self.seed)
 
@@ -719,9 +723,9 @@ class RealWorldBenchmarkRunner:
 
         # Wilcoxon
         try:
-            w_stat, w_pvalue = stats.wilcoxon(values_a, values_b)
+            _w_stat, w_pvalue = stats.wilcoxon(values_a, values_b)
         except ValueError:
-            w_stat, w_pvalue = 0.0, 1.0
+            _w_stat, w_pvalue = 0.0, 1.0
 
         # Effect size
         diff = np.array(values_a) - np.array(values_b)
