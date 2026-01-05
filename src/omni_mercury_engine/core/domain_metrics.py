@@ -504,8 +504,8 @@ class MetricsCalculator:
                 PHI * metrics.harm_reduction_score + metrics.equity_score
             ) / (PHI + 1)
 
-            # Ethical compliance check
-            metrics.ethical_compliance = (
+            # Ethical compliance check - explicitly cast to Python bool to avoid numpy.bool_
+            metrics.ethical_compliance = bool(
                 metrics.benevolence_index >= self.benevolence_threshold
                 and metrics.harm_reduction_score >= self.sigma_sacred
             )
