@@ -190,7 +190,9 @@ class TestDoubleHelixEngineProperties:
         npst.arrays(
             dtype=np.float64,
             shape=st.integers(min_value=4, max_value=64),
-            elements=st.floats(min_value=-0.5, max_value=0.5, allow_nan=False, allow_infinity=False),
+            elements=st.floats(
+                min_value=-0.5, max_value=0.5, allow_nan=False, allow_infinity=False
+            ),
         )
     )
     @settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.too_slow])
