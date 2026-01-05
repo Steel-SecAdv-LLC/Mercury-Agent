@@ -47,7 +47,7 @@ if HAS_TORCH:
         MercuryHarmonicOptimizer,
         MercuryMomentumOptimizer,
         MercuryOptimizer,
-        create_ava_optimizer,
+        create_mercury_optimizer,
     )
 
 
@@ -174,11 +174,11 @@ def test_ava_harmonic_optimizer():
     assert optimizer is not None
 
 
-def test_create_ava_optimizer_factory():
+def test_create_mercury_optimizer_factory():
     """Test Mercury optimizer factory function"""
     params = [torch.randn(10, 10, requires_grad=True)]
 
     variants = ["base", "momentum", "exp_decay", "harmonic"]
     for variant in variants:
-        optimizer = create_ava_optimizer(params, variant=variant, lr=0.001)
+        optimizer = create_mercury_optimizer(params, variant=variant, lr=0.001)
         assert optimizer is not None
