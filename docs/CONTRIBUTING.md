@@ -4,7 +4,7 @@ Thank you for your interest in contributing to the Mercury Agent ♱! This docum
 
 ## AI-Assisted Development
 
-We welcome AI-assisted contributions (e.g., via Devin, GitHub Copilot):
+We welcome AI-assisted contributions (e.g., via Dev ⚕, GitHub Copilot):
 - All AI-assisted PRs must include tests and documentation
 - Human review required for all contributions
 - Clearly indicate AI-assisted work in PR description

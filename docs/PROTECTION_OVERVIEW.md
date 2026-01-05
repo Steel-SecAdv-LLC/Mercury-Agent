@@ -161,6 +161,6 @@ Proactive counterintelligence with humanitarian focus and medical-field equivale
 
 ---
 
-**Maintainer**: Devin (AI Software Engineer)
+**Maintainer**: Dev ⚕ (AI Software Engineer)
 **Review Cycle**: Quarterly
 **Next Review**: 2026-01-15

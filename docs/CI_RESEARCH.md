@@ -527,7 +527,7 @@ The Overwatch Nexus and Response module integrates authoritative .gov and .edu r
 
 ---
 
-**Document Maintainer**: Devin (AI Software Engineer)
+**Document Maintainer**: Dev ⚕ (AI Software Engineer)
 **Review Cycle**: Quarterly
 **Next Review**: 2026-01-15
 
