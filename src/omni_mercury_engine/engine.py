@@ -1160,7 +1160,7 @@ class OmniMercuryEngine:
                 - gosnn_metadata: GOSNN integration metadata (if enabled):
                     - ethical_gate_passed: Whether sigma_Immutable threshold was met
                     - sigma_immutable_score: Ethical compliance score
-                    - harmonic_synergy: H(omega) component for Ava-Dominance Equation
+                    - harmonic_synergy: H(omega) component for weighted fusion Equation
                     - intelligence_contribution: GOSNN intelligence score
                     - warnings: Any ethical warnings
 

@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Benevolence Optimization Module - Ethical Gating Variations
 
 This module implements 6 mathematical variations for the ethical gating threshold
-(sigma_Immutable) as part of the Ava-Dominance Equation optimization.
+(sigma_Immutable) as part of the weighted fusion Equation optimization.
 
 Mathematical Variations:
 1. Quadratic: (threshold - sigma)^2 for convex Lyapunov stability

@@ -266,7 +266,7 @@ class TriadicPhiWeighting:
         """Compute harmonic synergy score from attention output.
 
         The synergy score measures how well the triadic weighting produces
-        coherent frequency patterns (H(omega) in the Ava-Dominance Equation).
+        coherent frequency patterns (H(omega) in the weighted fusion Equation).
 
         Args:
             attention_output: Output from attention mechanism
@@ -305,7 +305,7 @@ class MultiHeadAttentionFusion:
 
     The triadic phi-weighting applies golden ratio (phi = 1.618) scaling to
     attention scores, creating coherent frequency patterns that enhance the
-    H(omega) component of the Ava-Dominance Equation.
+    H(omega) component of the weighted fusion Equation.
     """
 
     def __init__(
@@ -557,7 +557,7 @@ class GlobalOmniScalarNetwork:
             enable_triadic_phi=enable_triadic_phi,
         )
 
-        # Track harmonic synergy for Ava-Dominance Equation
+        # Track harmonic synergy for weighted fusion Equation
         self.last_harmonic_synergy: float = 0.5
 
         self._initialize_default_scalars()
@@ -869,7 +869,7 @@ class GlobalOmniScalarNetwork:
         1. Collects all registered scalars from components
         2. Evaluates ethical compliance via sigma_Immutable threshold
         3. Fuses dimensional states using 32-head attention with triadic phi-weighting
-        4. Computes harmonic synergy for the Ava-Dominance Equation H(omega) term
+        4. Computes harmonic synergy for the weighted fusion Equation H(omega) term
         5. Returns enhanced scalars with fusion metadata
 
         Args:
@@ -909,7 +909,7 @@ class GlobalOmniScalarNetwork:
             fused_state = fuse_result
             harmonic_synergy = 0.5
 
-        # Store harmonic synergy for Ava-Dominance Equation
+        # Store harmonic synergy for weighted fusion Equation
         self.last_harmonic_synergy = harmonic_synergy
 
         enhanced_scalars = self._apply_enhancement(base_scalars, fused_state, ethical_score)

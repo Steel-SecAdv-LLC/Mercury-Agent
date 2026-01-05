@@ -346,7 +346,7 @@ class HybridSignatureProvider:
         return classical_valid, pqc_valid
 
 
-class AvaGuardianCrypto:
+class MercuryCrypto:
     """
     Unified cryptographic interface for Mercury Agent ♱.
 
@@ -354,7 +354,7 @@ class AvaGuardianCrypto:
     selection based on security requirements and available backends.
 
     Example:
-        crypto = AvaGuardianCrypto(security_level=SecurityLevel.POST_QUANTUM)
+        crypto = MercuryCrypto(security_level=SecurityLevel.POST_QUANTUM)
         keypair = crypto.generate_signing_keypair()
         signature = crypto.sign(b"anomaly detection result", keypair.secret_key)
         is_valid = crypto.verify(b"anomaly detection result", signature, keypair.public_key)
@@ -381,7 +381,7 @@ class AvaGuardianCrypto:
         self._kem_keypair: KeyPair | None = None
 
         logger.info(
-            f"AvaGuardianCrypto initialized (level={security_level.value}, "
+            f"MercuryCrypto initialized (level={security_level.value}, "
             f"backend={backend.value})"
         )
 
@@ -537,7 +537,7 @@ class AvaGuardianCrypto:
 
 __all__ = [
     "AlgorithmType",
-    "AvaGuardianCrypto",
+    "MercuryCrypto",
     "CryptoBackend",
     "CryptoPackageConfig",
     "CryptoPackageResult",

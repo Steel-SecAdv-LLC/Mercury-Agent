@@ -2062,14 +2062,14 @@ class RefactoringTransformer(ast.NodeTransformer):
 class ThreeRMechanism:
     """
     Unified Recursion-Resonance-Refactoring mechanism for adaptive
-    anomaly detection enhancement with Ava-Dominance Equation integration.
+    anomaly detection enhancement with weighted fusion Equation integration.
 
     The 3R mechanism combines three mathematical perspectives:
     - Recursion R(x): Hierarchical multi-scale feature extraction
     - Resonance H(omega): Frequency-domain analysis for harmonic patterns
     - Refactoring O(theta): Adaptive optimization and enhancement
 
-    Ava-Dominance Equation:
+    weighted fusion Equation:
         A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * sigma_Immutable^phi
 
     This provides:
@@ -2087,7 +2087,7 @@ class ThreeRMechanism:
         sigma_immutable: float = 0.96,
         lambda_lyapunov: float = LAMBDA_LYAPUNOV,
     ):
-        """Initialize 3R Mechanism with Ava-Dominance Equation.
+        """Initialize 3R Mechanism with weighted fusion Equation.
 
         Args:
             max_recursion_depth: Maximum depth for recursive feature extraction
@@ -2101,8 +2101,8 @@ class ThreeRMechanism:
         self.refactoring_engine = RefactoringEngine()
         self.enable_auto_optimize = enable_auto_optimize
 
-        # Initialize Ava-Dominance Equation for precision dominance
-        self.ava_dominance = AvaDominanceEquation(
+        # Initialize weighted fusion Equation for precision dominance
+        self.fusion = AvaDominanceEquation(
             sigma_immutable=sigma_immutable,
             lambda_lyapunov=lambda_lyapunov,
         )
@@ -2113,7 +2113,7 @@ class ThreeRMechanism:
         self.last_optimization_score: float = 0.5
 
         logging.info(
-            f"3R Mechanism initialized with Ava-Dominance: "
+            f"3R Mechanism initialized with weighted fusion: "
             f"sigma_immutable={sigma_immutable}, lambda={lambda_lyapunov}"
         )
 
@@ -2172,14 +2172,14 @@ class ThreeRMechanism:
         data: NDArray[Any],
         sigma_immutable_override: float | None = None,
     ) -> AvaDominanceResult:
-        """Compute Ava-Dominance score for input data.
+        """Compute weighted fusion score for input data.
 
         This method integrates all three 3R components:
         - R(x): Recursion score from hierarchical feature extraction
         - H(omega): Resonance score from frequency-domain analysis
         - O(theta): Optimization score from refactoring analysis
 
-        The final score is computed via the Ava-Dominance Equation:
+        The final score is computed via the weighted fusion Equation:
         A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * sigma_Immutable^phi
 
         Args:
@@ -2232,8 +2232,8 @@ class ThreeRMechanism:
         self.last_resonance_score = resonance_score
         self.last_optimization_score = optimization_score
 
-        # Compute Ava-Dominance score
-        return self.ava_dominance.compute(
+        # Compute weighted fusion score
+        return self.fusion.compute(
             recursion_score=recursion_score,
             resonance_score=resonance_score,
             optimization_score=optimization_score,
@@ -2246,7 +2246,7 @@ class ThreeRMechanism:
         Returns:
             Dictionary containing proof elements for MATH_DERIVATIONS.md
         """
-        return self.ava_dominance.get_dominance_proof()
+        return self.fusion.get_dominance_proof()
 
     def verify_stability(self) -> tuple[bool, float]:
         """Verify Lyapunov stability of the 3R mechanism.
@@ -2254,17 +2254,17 @@ class ThreeRMechanism:
         Returns:
             Tuple of (is_stable, estimated_decay_rate)
         """
-        return self.ava_dominance.verify_lyapunov_stability()
+        return self.fusion.verify_lyapunov_stability()
 
     def update_dominance_weights(
         self,
         attention_weights: NDArray[Any],
         learning_rate: float = 0.01,
     ) -> None:
-        """Update Ava-Dominance weights via attention fusion from GOSNN.
+        """Update weighted fusion weights via attention fusion from GOSNN.
 
         Args:
             attention_weights: Attention scores from fusion layer [w_R, w_H, w_O]
             learning_rate: Learning rate for weight update
         """
-        self.ava_dominance.update_weights(attention_weights, learning_rate)
+        self.fusion.update_weights(attention_weights, learning_rate)

@@ -42,10 +42,10 @@ pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
 if HAS_TORCH:
     from omni_mercury_engine.ml.training import (
         AnomalyDataset,
-        AvaExponentialDecayOptimizer,
-        AvaHarmonicOptimizer,
-        AvaMomentumOptimizer,
-        AvaOptimizer,
+        MercuryExponentialDecayOptimizer,
+        MercuryHarmonicOptimizer,
+        MercuryMomentumOptimizer,
+        MercuryOptimizer,
         FusionTrainer,
         create_ava_optimizer,
     )
@@ -137,16 +137,16 @@ def test_fusion_trainer_configure_optimizers():
 
 
 def test_ava_optimizer_base():
-    """Test base Ava optimizer"""
+    """Test base Mercury optimizer"""
     params = [torch.randn(10, 10, requires_grad=True)]
-    optimizer = AvaOptimizer(params, lr=0.001)
+    optimizer = MercuryOptimizer(params, lr=0.001)
     assert optimizer is not None
 
 
 def test_ava_optimizer_step():
-    """Test Ava optimizer step"""
+    """Test Mercury optimizer step"""
     param = torch.randn(10, 10, requires_grad=True)
-    optimizer = AvaOptimizer([param], lr=0.001)
+    optimizer = MercuryOptimizer([param], lr=0.001)
 
     loss = (param**2).sum()
     loss.backward()
@@ -156,26 +156,26 @@ def test_ava_optimizer_step():
 def test_ava_momentum_optimizer():
     """Test Ava momentum optimizer"""
     params = [torch.randn(10, 10, requires_grad=True)]
-    optimizer = AvaMomentumOptimizer(params, lr=0.001)
+    optimizer = MercuryMomentumOptimizer(params, lr=0.001)
     assert optimizer is not None
 
 
 def test_ava_exp_decay_optimizer():
     """Test Ava exponential decay optimizer"""
     params = [torch.randn(10, 10, requires_grad=True)]
-    optimizer = AvaExponentialDecayOptimizer(params, lr=0.001)
+    optimizer = MercuryExponentialDecayOptimizer(params, lr=0.001)
     assert optimizer is not None
 
 
 def test_ava_harmonic_optimizer():
     """Test Ava harmonic optimizer"""
     params = [torch.randn(10, 10, requires_grad=True)]
-    optimizer = AvaHarmonicOptimizer(params, lr=0.001)
+    optimizer = MercuryHarmonicOptimizer(params, lr=0.001)
     assert optimizer is not None
 
 
 def test_create_ava_optimizer_factory():
-    """Test Ava optimizer factory function"""
+    """Test Mercury optimizer factory function"""
     params = [torch.randn(10, 10, requires_grad=True)]
 
     variants = ["base", "momentum", "exp_decay", "harmonic"]

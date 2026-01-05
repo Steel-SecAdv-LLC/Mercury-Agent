@@ -27,7 +27,7 @@ and post-quantum cryptographic protection.
 
 from omni_mercury_engine.security.crypto_api import (
     AlgorithmType,
-    AvaGuardianCrypto,
+    MercuryCrypto,
     CryptoBackend,
     CryptoPackageConfig,
     CryptoPackageResult,
@@ -74,7 +74,7 @@ __all__ = [
     "LIBOQS_AVAILABLE",
     "SPHINCS_AVAILABLE",
     "AlgorithmType",
-    "AvaGuardianCrypto",
+    "MercuryCrypto",
     "CryptoBackend",
     "CryptoPackageConfig",
     "CryptoPackageResult",

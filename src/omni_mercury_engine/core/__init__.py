@@ -21,7 +21,7 @@ from __future__ import annotations
 """Core modules for Mercury Agent ♱."""
 
 from omni_mercury_engine.core.double_helix_engine import (
-    AvaEquationEngine,
+    MercuryEquationEngine,
     DoubleHelixEvolutionEngine,
     HelixConfig,
 )
@@ -37,7 +37,7 @@ from omni_mercury_engine.core.global_omni_scalar_network import (
 )
 
 __all__ = [
-    "AvaEquationEngine",
+    "MercuryEquationEngine",
     "DomainType",
     "DoubleHelixEvolutionEngine",
     "EnhancementResult",

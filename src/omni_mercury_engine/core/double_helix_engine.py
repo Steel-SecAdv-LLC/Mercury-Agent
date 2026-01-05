@@ -129,7 +129,7 @@ class EvolutionConfig:
         self.enable_optimization_terms = value
 
 
-class AvaEquationEngine:
+class MercuryEquationEngine:
     """
     Double-Helix Evolution Engine implementing 18+ Ava Equation variants.
 
@@ -138,7 +138,7 @@ class AvaEquationEngine:
     and ethical/stability constraints.
 
     Example:
-        engine = AvaEquationEngine(dimension=64)
+        engine = MercuryEquationEngine(dimension=64)
         initial_state = np.random.randn(64)
         final_state, history = engine.converge(initial_state, max_iter=100)
     """
@@ -181,7 +181,7 @@ class AvaEquationEngine:
         self.current_state: EvolutionState | None = None
 
         logger.info(
-            f"AvaEquationEngine initialized (dim={dimension}, " f"mode={self.config.mode.value})"
+            f"MercuryEquationEngine initialized (dim={dimension}, " f"mode={self.config.mode.value})"
         )
 
     def _normalize_weights(self) -> None:
@@ -541,7 +541,7 @@ class AvaEquationEngine:
 
 
 # Aliases for backward compatibility and naming consistency
-DoubleHelixEvolutionEngine = AvaEquationEngine
+DoubleHelixEvolutionEngine = MercuryEquationEngine
 HelixConfig = EvolutionConfig
 
 __all__ = [
@@ -550,7 +550,7 @@ __all__ = [
     "PHI_CUBED",
     "PHI_SQUARED",
     "SIGMA_QUADRATIC_THRESHOLD",
-    "AvaEquationEngine",
+    "MercuryEquationEngine",
     "DoubleHelixEvolutionEngine",
     "EvolutionConfig",
     "EvolutionMode",

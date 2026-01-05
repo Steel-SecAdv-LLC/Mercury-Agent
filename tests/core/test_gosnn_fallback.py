@@ -504,12 +504,12 @@ class TestTriadicPhiWeighting:
 
 
 # =============================================================================
-# Ava-Dominance Equation Tests
+# weighted fusion Equation Tests
 # =============================================================================
 
 
-class TestAvaDominanceEquation:
-    """Tests for Ava-Dominance equation implementation."""
+class TestFusionEquation:
+    """Tests for weighted fusion equation implementation."""
 
     @pytest.fixture
     def three_r(self):
@@ -520,12 +520,12 @@ class TestAvaDominanceEquation:
 
         return ThreeRMechanism()
 
-    def test_ava_dominance_exists(self, three_r):
-        """Test Ava-Dominance method exists."""
-        assert hasattr(three_r, "compute_ava_dominance") or hasattr(three_r, "ava_dominance")
+    def test_fusion_exists(self, three_r):
+        """Test weighted fusion method exists."""
+        assert hasattr(three_r, "compute_fusion") or hasattr(three_r, "fusion")
 
-    def test_ava_dominance_components(self, three_r):
-        """Test Ava-Dominance has R, H, O components."""
+    def test_fusion_components(self, three_r):
+        """Test weighted fusion has R, H, O components."""
         # ThreeRMechanism uses *_engine naming convention
         assert (
             hasattr(three_r, "recursion_engine")
