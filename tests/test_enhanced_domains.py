@@ -9,9 +9,10 @@ Comprehensive tests for:
 - GOSNN integration layer
 """
 
-import pytest
 import numpy as np
-from hypothesis import given, settings, strategies as st
+import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 # Constants for testing
 SEED = 42

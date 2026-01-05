@@ -22,8 +22,8 @@ class TestNeuroSymbolicHub:
     def test_hub_initialization(self):
         """Test hub initializes correctly."""
         from omni_mercury_engine.core.neurosymbolic_hub import (
-            NeuroSymbolicHub,
             FusionMode,
+            NeuroSymbolicHub,
         )
 
         hub = NeuroSymbolicHub(
@@ -39,9 +39,9 @@ class TestNeuroSymbolicHub:
     def test_phi_weighted_fusion(self):
         """Test golden ratio weighting."""
         from omni_mercury_engine.core.neurosymbolic_hub import (
-            NeuroSymbolicHub,
-            FusionMode,
             PHI,
+            FusionMode,
+            NeuroSymbolicHub,
         )
 
         hub = NeuroSymbolicHub(fusion_mode=FusionMode.PHI_WEIGHTED, seed=SEED)
@@ -134,8 +134,8 @@ class TestNeuroSymbolicHub:
     def test_fit_learns_weights(self):
         """Test fitting learns optimal fusion weights."""
         from omni_mercury_engine.core.neurosymbolic_hub import (
-            NeuroSymbolicHub,
             FusionMode,
+            NeuroSymbolicHub,
         )
 
         hub = NeuroSymbolicHub(
@@ -248,11 +248,11 @@ class TestGOSNNOptimizer:
 
     def test_full_optimization(self):
         """Test full GOSNN optimization."""
-        from omni_mercury_engine.core.gosnn_optimizer import GOSNNOptimizer
         from omni_mercury_engine.core.global_omni_scalar_network import (
             GlobalOmniScalarNetwork,
             reset_global_network,
         )
+        from omni_mercury_engine.core.gosnn_optimizer import GOSNNOptimizer
 
         # Reset singleton
         reset_global_network()
@@ -295,8 +295,9 @@ class TestRealWorldBenchmark:
 
     def test_benchmark_runner_sklearn_detector(self):
         """Test benchmark with sklearn detector."""
-        from omni_mercury_engine.core.realworld_benchmark import RealWorldBenchmarkRunner
         from sklearn.ensemble import IsolationForest
+
+        from omni_mercury_engine.core.realworld_benchmark import RealWorldBenchmarkRunner
 
         runner = RealWorldBenchmarkRunner(n_folds=3, seed=SEED)
 
@@ -328,8 +329,8 @@ class TestRealWorldBenchmark:
 
     def test_benchmark_with_neurosymbolic_hub(self):
         """Test benchmark with neuro-symbolic hub."""
-        from omni_mercury_engine.core.realworld_benchmark import RealWorldBenchmarkRunner
         from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
+        from omni_mercury_engine.core.realworld_benchmark import RealWorldBenchmarkRunner
 
         runner = RealWorldBenchmarkRunner(n_folds=3, seed=SEED)
 
@@ -383,8 +384,8 @@ class TestIntegration:
     def test_neurosymbolic_with_stacking_fusion(self):
         """Test neuro-symbolic hub with stacking fusion."""
         from omni_mercury_engine.core.neurosymbolic_hub import (
-            NeuroSymbolicHub,
             FusionMode,
+            NeuroSymbolicHub,
         )
 
         hub = NeuroSymbolicHub(
@@ -449,12 +450,12 @@ class TestIntegration:
 
     def test_end_to_end_pipeline(self):
         """Test complete pipeline from data to ethical detection."""
-        from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
-        from omni_mercury_engine.core.gosnn_optimizer import GOSNNOptimizer
         from omni_mercury_engine.core.global_omni_scalar_network import (
             GlobalOmniScalarNetwork,
             reset_global_network,
         )
+        from omni_mercury_engine.core.gosnn_optimizer import GOSNNOptimizer
+        from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
 
         # Reset GOSNN singleton
         reset_global_network()
