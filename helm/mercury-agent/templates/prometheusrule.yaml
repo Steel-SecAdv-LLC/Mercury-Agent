@@ -1,0 +1,232 @@
+{{- if and .Values.metrics.enabled .Values.metrics.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "mercury-agent.fullname" . }}-rules
+  namespace: {{ include "mercury-agent.namespace" . }}
+  labels:
+    {{- include "mercury-agent.labels" . | nindent 4 }}
+spec:
+  groups:
+    # =========================================================================
+    # Session 3 Enhancements: Benevolence and Ethical Monitoring
+    # =========================================================================
+    - name: mercury-agent.benevolence
+      interval: 30s
+      rules:
+        # Alert if benevolence drops below 0.99 threshold
+        - alert: MercuryBenevolenceViolation
+          expr: |
+            mercury_agent_benevolence_score < 0.99
+          for: 1m
+          labels:
+            severity: critical
+            component: ethical
+          annotations:
+            summary: "Benevolence score below 0.99 threshold"
+            description: |
+              Mercury Agent benevolence score {{ `{{ $value | printf "%.3f" }}` }}
+              is below the required 0.99 threshold.
+              This requires immediate attention.
+
+        # Alert if sigma_sacred drops below 0.93 hard limit
+        - alert: MercurySigmaSacredViolation
+          expr: |
+            mercury_agent_sigma_sacred < 0.93
+          for: 30s
+          labels:
+            severity: critical
+            component: ethical
+          annotations:
+            summary: "σ_Sacred below hard limit (0.93)"
+            description: |
+              Mercury Agent σ_Sacred score {{ `{{ $value | printf "%.3f" }}` }}
+              is below the hard limit of 0.93.
+              Ethical gate is blocking operations.
+
+        # Warning when sigma_sacred between 0.93 and 0.96
+        - alert: MercurySigmaSacredWarning
+          expr: |
+            mercury_agent_sigma_sacred >= 0.93 and mercury_agent_sigma_sacred < 0.96
+          for: 5m
+          labels:
+            severity: warning
+            component: ethical
+          annotations:
+            summary: "σ_Sacred below target (0.96)"
+            description: |
+              Mercury Agent σ_Sacred score {{ `{{ $value | printf "%.3f" }}` }}
+              is above hard limit but below target of 0.96.
+
+    # =========================================================================
+    # GOSNN Hub Monitoring
+    # =========================================================================
+    - name: mercury-agent.gosnn
+      interval: 30s
+      rules:
+        # Alert if GOSNN global intelligence score drops
+        - alert: MercuryGOSNNIntelligenceDrop
+          expr: |
+            rate(mercury_agent_gosnn_intelligence_score[5m]) < -0.1
+          for: 2m
+          labels:
+            severity: warning
+            component: gosnn
+          annotations:
+            summary: "GOSNN intelligence score declining"
+            description: |
+              Global intelligence score is declining at rate
+              {{ `{{ $value | printf "%.3f" }}` }} per 5m.
+
+        # Alert if attention overhead exceeds target
+        - alert: MercuryGOSNNAttentionOverhead
+          expr: |
+            mercury_agent_gosnn_attention_overhead_percent > 5
+          for: 5m
+          labels:
+            severity: warning
+            component: gosnn
+          annotations:
+            summary: "GOSNN attention overhead exceeds target"
+            description: |
+              Attention mechanism overhead {{ `{{ $value | printf "%.1f" }}` }}%
+              exceeds target of 2%.
+
+        # Alert if too many scalars are prunable
+        - alert: MercuryGOSNNScalarOptimization
+          expr: |
+            mercury_agent_gosnn_prunable_scalars / mercury_agent_gosnn_total_scalars > 0.2
+          for: 10m
+          labels:
+            severity: info
+            component: gosnn
+          annotations:
+            summary: "High number of prunable GOSNN scalars"
+            description: |
+              {{ `{{ $value | printf "%.1f" }}` }}% of GOSNN scalars are prunable.
+              Consider running optimization.
+
+    # =========================================================================
+    # Neuro-Symbolic Hub Monitoring
+    # =========================================================================
+    - name: mercury-agent.neurosymbolic
+      interval: 30s
+      rules:
+        # Alert if symbolic reasoning is not contributing
+        - alert: MercurySymbolicReasoningDegraded
+          expr: |
+            mercury_agent_neurosymbolic_symbolic_weight < 0.1
+          for: 10m
+          labels:
+            severity: warning
+            component: neurosymbolic
+          annotations:
+            summary: "Symbolic reasoning weight very low"
+            description: |
+              Symbolic reasoning weight {{ `{{ $value | printf "%.2f" }}` }}
+              is below 10%. This may indicate rule coverage issues.
+
+        # Track inference latency
+        - alert: MercuryNeuroSymbolicLatency
+          expr: |
+            mercury_agent_neurosymbolic_avg_latency_ms > 100
+          for: 5m
+          labels:
+            severity: warning
+            component: neurosymbolic
+          annotations:
+            summary: "Neuro-symbolic inference latency high"
+            description: |
+              Average inference latency {{ `{{ $value | printf "%.1f" }}` }}ms
+              exceeds 100ms threshold.
+
+    # =========================================================================
+    # Anomaly Detection Performance
+    # =========================================================================
+    - name: mercury-agent.detection
+      interval: 60s
+      rules:
+        # Track ROC-AUC performance
+        - alert: MercuryDetectionPerformance
+          expr: |
+            mercury_agent_detection_roc_auc < 0.7
+          for: 15m
+          labels:
+            severity: warning
+            component: detection
+          annotations:
+            summary: "Detection ROC-AUC below threshold"
+            description: |
+              ROC-AUC {{ `{{ $value | printf "%.3f" }}` }} is below 0.7.
+              Detection accuracy may be degraded.
+
+        # Track false positive rate
+        - alert: MercuryFalsePositiveRate
+          expr: |
+            mercury_agent_detection_false_positive_rate > 0.1
+          for: 10m
+          labels:
+            severity: warning
+            component: detection
+          annotations:
+            summary: "High false positive rate"
+            description: |
+              False positive rate {{ `{{ $value | printf "%.2f" }}` }}
+              exceeds 10% threshold.
+
+    # =========================================================================
+    # Infrastructure Health
+    # =========================================================================
+    - name: mercury-agent.health
+      interval: 30s
+      rules:
+        # Pod health
+        - alert: MercuryAgentPodNotReady
+          expr: |
+            kube_pod_status_ready{namespace="{{ include "mercury-agent.namespace" . }}", condition="true"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: infrastructure
+          annotations:
+            summary: "Mercury Agent pod not ready"
+            description: |
+              Pod {{ `{{ $labels.pod }}` }} is not in ready state for 5 minutes.
+
+        # Memory usage
+        - alert: MercuryAgentHighMemory
+          expr: |
+            container_memory_usage_bytes{namespace="{{ include "mercury-agent.namespace" . }}"} /
+            container_spec_memory_limit_bytes > 0.9
+          for: 5m
+          labels:
+            severity: warning
+            component: infrastructure
+          annotations:
+            summary: "High memory usage"
+            description: |
+              Container {{ `{{ $labels.container }}` }} memory usage
+              at {{ `{{ $value | printf "%.1f" }}` }}% of limit.
+
+        # CPU throttling
+        - alert: MercuryAgentCPUThrottling
+          expr: |
+            rate(container_cpu_cfs_throttled_seconds_total{namespace="{{ include "mercury-agent.namespace" . }}"}[5m]) > 0.1
+          for: 10m
+          labels:
+            severity: warning
+            component: infrastructure
+          annotations:
+            summary: "CPU throttling detected"
+            description: |
+              Container {{ `{{ $labels.container }}` }} is being CPU throttled.
+
+{{- with .Values.metrics.prometheusRule.rules }}
+    # =========================================================================
+    # Custom Rules
+    # =========================================================================
+    - name: mercury-agent.custom
+      rules:
+        {{- toYaml . | nindent 8 }}
+{{- end }}
+{{- end }}
