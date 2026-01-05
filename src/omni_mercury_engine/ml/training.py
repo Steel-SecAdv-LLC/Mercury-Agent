@@ -49,7 +49,7 @@ __all__ = [
     "MercuryOptimizer",
     "Trainer",
     "TrainingConfig",
-    "create_ava_optimizer",
+    "create_mercury_optimizer",
 ]
 
 
@@ -546,7 +546,7 @@ class MercuryHarmonicOptimizer(optim.Optimizer):
         return loss
 
 
-def create_ava_optimizer(
+def create_mercury_optimizer(
     params: Any, variant: str = "base", lr: float = 0.001, **kwargs: Any
 ) -> optim.Optimizer:
     """
@@ -707,7 +707,7 @@ class FusionTrainer(pl.LightningModule):
 
         if optimizer_type.startswith("ava_"):
             variant = optimizer_type.replace("ava_", "")
-            optimizer = create_ava_optimizer(
+            optimizer = create_mercury_optimizer(
                 self.parameters(),
                 variant=variant,
                 lr=self.learning_rate,
