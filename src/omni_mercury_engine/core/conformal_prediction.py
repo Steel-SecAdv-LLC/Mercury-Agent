@@ -223,7 +223,7 @@ class CrossConformalPredictor:
         self.fold_thresholds = []
 
         for train_idx, cal_idx in kf.split(X):
-            _X_train, X_cal = X[train_idx], X[cal_idx]
+            X_cal = X[cal_idx]
 
             # Compute scores on calibration fold
             cal_scores = scoring_fn(X_cal)

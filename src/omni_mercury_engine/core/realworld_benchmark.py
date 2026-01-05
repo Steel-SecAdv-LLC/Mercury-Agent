@@ -742,9 +742,9 @@ class RealWorldBenchmarkRunner:
 
         # Wilcoxon
         try:
-            _w_stat, w_pvalue = stats.wilcoxon(values_a, values_b)
+            w_pvalue = stats.wilcoxon(values_a, values_b).pvalue
         except ValueError:
-            _w_stat, w_pvalue = 0.0, 1.0
+            w_pvalue = 1.0
 
         # Effect size
         diff = np.array(values_a) - np.array(values_b)
