@@ -117,9 +117,7 @@ class ScalarImportanceAnalyzer:
             return self._simple_importance(scalars)
 
         importances = {}
-        history_arr = np.array(
-            [[h.get(name, 0.0) for name in scalars] for h in self._history]
-        )
+        history_arr = np.array([[h.get(name, 0.0) for name in scalars] for h in self._history])
 
         scalar_names = list(scalars.keys())
 

@@ -431,7 +431,9 @@ class NeuralEncoder:
                 # Regularized least squares
                 lambda_reg = 0.01
                 identity_mat = np.eye(X_aug.shape[1])
-                self.weights = np.linalg.solve(X_aug.T @ X_aug + lambda_reg * identity_mat, X_aug.T @ y)
+                self.weights = np.linalg.solve(
+                    X_aug.T @ X_aug + lambda_reg * identity_mat, X_aug.T @ y
+                )
             except np.linalg.LinAlgError:
                 self.weights = np.zeros(X_aug.shape[1])
 
