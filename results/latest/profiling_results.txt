@@ -1,0 +1,74 @@
+Mercury Agent - Performance Profiling Results
+======================================================================
+
+Import Profiling:
+         2514507 function calls (2462710 primitive calls) in 3.425 seconds
+
+   Ordered by: cumulative time
+   List reduced from 8267 to 10 due to restriction <10>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       15    0.000    0.000    4.186    0.279 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/torch/_jit_internal.py:1027(_overload)
+   211/83    0.002    0.000    1.291    0.016 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/torch/_ops.py:370(fallthrough)
+        1    0.000    0.000    1.092    1.092 /home/ubuntu/repos/Mercury-Agent/src/omni_mercury_engine/core/neurosymbolic_hub.py:1(<module>)
+25698/20651    0.012    0.000    0.898    0.000 {built-in method builtins.hasattr}
+     36/5    0.000    0.000    0.886    0.177 /home/ubuntu/.pyenv/versions/3.12.8/lib/python3.12/importlib/__init__.py:73(import_module)
+     36/5    0.000    0.000    0.886    0.177 <frozen importlib._bootstrap>:1375(_gcd_import)
+     32/1    0.000    0.000    0.885    0.885 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/scipy/__init__.py:129(__getattr__)
+        1    0.000    0.000    0.884    0.884 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/scipy/stats/__init__.py:1(<module>)
+        1    0.001    0.001    0.766    0.766 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/scipy/stats/_stats_py.py:1(<module>)
+        1    0.000    0.000    0.748    0.748 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/torch/nn/__init__.py:1(<module>)
+
+
+
+
+Fit Profiling:
+         2894 function calls (2711 primitive calls) in 0.012 seconds
+
+   Ordered by: cumulative time
+   List reduced from 307 to 15 due to restriction <15>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.012    0.012 /home/ubuntu/repos/Mercury-Agent/src/omni_mercury_engine/core/neurosymbolic_hub.py:606(fit)
+        1    0.000    0.000    0.009    0.009 /home/ubuntu/repos/Mercury-Agent/src/omni_mercury_engine/core/neurosymbolic_hub.py:653(_setup_calibration)
+        1    0.000    0.000    0.009    0.009 /home/ubuntu/repos/Mercury-Agent/src/omni_mercury_engine/core/calibration.py:152(fit)
+        1    0.000    0.000    0.009    0.009 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/sklearn/base.py:1319(wrapper)
+        1    0.000    0.000    0.008    0.008 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/sklearn/linear_model/_logistic.py:1086(fit)
+        1    0.000    0.000    0.008    0.008 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/sklearn/linear_model/_logistic.py:86(_logistic_regression_path)
+        1    0.000    0.000    0.007    0.007 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/scipy/optimize/_minimize.py:54(minimize)
+        1    0.000    0.000    0.007    0.007 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/scipy/optimize/_lbfgsb_py.py:294(_minimize_lbfgsb)
+       26    0.005    0.000    0.005    0.000 {built-in method scipy.optimize._lbfgsb.setulb}
+        1    0.000    0.000    0.003    0.003 /home/ubuntu/repos/Mercury-Agent/src/omni_mercury_engine/core/neurosymbolic_hub.py:390(encode)
+      8/1    0.000    0.000    0.002    0.002 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py:1771(_wrapped_call_impl)
+      8/1    0.000    0.000    0.002    0.002 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py:1779(_call_impl)
+        1    0.000    0.000    0.002    0.002 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/torch/nn/modules/container.py:245(forward)
+       13    0.000    0.000    0.001    0.000 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/scipy/optimize/_differentiable_functions.py:400(fun_and_grad)
+        3    0.000    0.000    0.001    0.000 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/torch/nn/modules/linear.py:130(forward)
+
+
+
+
+Predict Profiling:
+         59640 function calls (59626 primitive calls) in 0.053 seconds
+
+   Ordered by: cumulative time
+   List reduced from 155 to 15 due to restriction <15>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.003    0.003    0.053    0.053 /home/ubuntu/repos/Mercury-Agent/src/omni_mercury_engine/core/neurosymbolic_hub.py:710(predict)
+      100    0.000    0.000    0.022    0.000 /home/ubuntu/repos/Mercury-Agent/src/omni_mercury_engine/core/calibration.py:181(calibrate)
+      100    0.000    0.000    0.022    0.000 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/sklearn/linear_model/_logistic.py:1302(predict_proba)
+      100    0.001    0.000    0.019    0.000 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/sklearn/linear_model/_base.py:395(_predict_proba_lr)
+      100    0.001    0.000    0.017    0.000 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/sklearn/linear_model/_base.py:341(decision_function)
+      200    0.002    0.000    0.016    0.000 /home/ubuntu/repos/Mercury-Agent/src/omni_mercury_engine/core/neurosymbolic_hub.py:249(forward_chain)
+     2540    0.008    0.000    0.014    0.000 /home/ubuntu/repos/Mercury-Agent/src/omni_mercury_engine/core/neurosymbolic_hub.py:133(evaluate)
+      100    0.001    0.000    0.011    0.000 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/sklearn/utils/validation.py:2793(validate_data)
+      100    0.000    0.000    0.010    0.000 /home/ubuntu/repos/Mercury-Agent/src/omni_mercury_engine/core/neurosymbolic_hub.py:311(get_anomaly_indicators)
+      100    0.001    0.000    0.010    0.000 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/sklearn/utils/validation.py:725(check_array)
+      200    0.000    0.000    0.005    0.000 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/sklearn/utils/validation.py:1621(check_is_fitted)
+      100    0.001    0.000    0.004    0.000 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/sklearn/utils/validation.py:103(_assert_all_finite)
+        1    0.000    0.000    0.003    0.003 /home/ubuntu/repos/Mercury-Agent/src/omni_mercury_engine/core/neurosymbolic_hub.py:390(encode)
+      8/1    0.000    0.000    0.003    0.003 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py:1771(_wrapped_call_impl)
+      8/1    0.000    0.000    0.003    0.003 /home/ubuntu/repos/Mercury-Agent/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py:1779(_call_impl)
+
+

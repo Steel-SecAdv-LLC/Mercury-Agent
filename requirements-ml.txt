@@ -28,3 +28,6 @@ nixtla>=0.5.0  # TimeGPT API client
 # API dependencies for integration tests
 fastapi>=0.109.0
 httpx>=0.25.0
+
+# Testing dependencies for ML tests
+hypothesis>=6.0.0  # Property-based testing for benevolence/sigma_sacred

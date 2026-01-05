@@ -1,0 +1,56 @@
+{
+  "datasets": {
+    "SMD": {
+      "roc_auc": 0.5182526259270446,
+      "pr_auc": 0.30373050673107066,
+      "f1": 0.18507052436907503,
+      "precision": 1.0,
+      "recall": 0.10215488215488215,
+      "brier_score": 0.1386952869194848,
+      "event_f1": 0.2902698707576757,
+      "time_to_detection": 1.4858053221288514,
+      "benevolence_score": 1.0,
+      "sigma_sacred": 0.96,
+      "fit_time_ms": 13.518564999981209,
+      "predict_time_ms": 339.8807920000081
+    },
+    "NSL-KDD": {
+      "roc_auc": 0.18092000000000003,
+      "pr_auc": 0.1198000964743365,
+      "f1": 0.003404255319148936,
+      "precision": 0.011428571428571429,
+      "recall": 0.002,
+      "brier_score": 0.2240420006009461,
+      "event_f1": 0.004081632653061225,
+      "time_to_detection": 1.2331910001957715,
+      "benevolence_score": 1.0,
+      "sigma_sacred": 0.96,
+      "fit_time_ms": 13.536159400018732,
+      "predict_time_ms": 323.0536741999913
+    },
+    "BATADAL": {
+      "roc_auc": 0.4932671735672492,
+      "pr_auc": 0.08262644059271464,
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "brier_score": 0.08088211149967461,
+      "event_f1": 0.0,
+      "time_to_detection": 23.1,
+      "benevolence_score": 1.0,
+      "sigma_sacred": 0.96,
+      "fit_time_ms": 10.086522199958381,
+      "predict_time_ms": 337.3638321999806
+    }
+  },
+  "summary": {
+    "mean_roc_auc": 0.39747993316476454,
+    "mean_f1": 0.06282492656274132,
+    "mean_brier": 0.14787313300670182,
+    "mean_benevolence": 1.0,
+    "brier_target_met": false,
+    "benevolence_threshold_met": true
+  },
+  "ethical_compliance": {},
+  "timestamp": "2026-01-05 03:14:37"
+}
