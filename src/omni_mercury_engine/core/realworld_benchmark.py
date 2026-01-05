@@ -46,6 +46,10 @@ class DatasetInfo:
     n_features: int = 0
     anomaly_ratio: float = 0.0
     description: str = ""
+    # Provenance tracking for real data validation
+    source: str = "unknown"  # "real-local", "real-download", "synthetic"
+    checksum: str = ""
+    used_synthetic: bool = False
 
 
 @dataclass
@@ -111,7 +115,7 @@ class BenchmarkResult:
     timestamp: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary."""
+        """Convert to dictionary with full provenance tracking."""
         return {
             "dataset": self.dataset.name,
             "detector": self.detector_name,
@@ -124,9 +128,20 @@ class BenchmarkResult:
                 "brier_score": self.metrics.brier_score,
                 "event_f1": self.metrics.event_f1,
                 "time_to_detection": self.metrics.time_to_detection,
+                "benevolence_score": self.metrics.benevolence_score,
+                "sigma_sacred": self.metrics.sigma_sacred,
             },
             "n_folds": self.n_folds,
             "seed": self.seed,
+            "provenance": {
+                "source": self.dataset.source,
+                "checksum": self.dataset.checksum,
+                "used_synthetic": self.dataset.used_synthetic,
+                "n_samples": self.dataset.n_samples,
+                "n_features": self.dataset.n_features,
+                "anomaly_ratio": self.dataset.anomaly_ratio,
+            },
+            "timestamp": self.timestamp,
         }
 
 
@@ -275,10 +290,25 @@ class RealWorldBenchmarkRunner:
         n_folds: int = 10,
         seed: int = GLOBAL_SEED,
         data_dir: str | Path | None = None,
+        use_synthetic: bool = False,
+        min_real_samples: int = 100,
     ):
+        """
+        Initialize the benchmark runner.
+
+        Args:
+            n_folds: Number of cross-validation folds
+            seed: Random seed for reproducibility
+            data_dir: Directory containing real dataset files
+            use_synthetic: If True, allow synthetic data fallback (default: False)
+                          When False, raises RuntimeError if real data unavailable
+            min_real_samples: Minimum required real samples (fails if not met)
+        """
         self.n_folds = n_folds
         self.seed = seed
         self.data_dir = Path(data_dir) if data_dir else None
+        self.use_synthetic = use_synthetic
+        self.min_real_samples = min_real_samples
 
         self.synthetic_generator = SyntheticDataGenerator(seed)
 
@@ -302,7 +332,8 @@ class RealWorldBenchmarkRunner:
         }
 
         logger.info(
-            f"RealWorldBenchmarkRunner initialized: n_folds={n_folds}, seed={seed}"
+            f"RealWorldBenchmarkRunner initialized: n_folds={n_folds}, seed={seed}, "
+            f"use_synthetic={use_synthetic}, min_real_samples={min_real_samples}"
         )
 
     def load_dataset(self, name: str) -> tuple[np.ndarray, np.ndarray, DatasetInfo]:
@@ -314,28 +345,71 @@ class RealWorldBenchmarkRunner:
 
         Returns:
             Tuple of (X, y, info)
+
+        Raises:
+            RuntimeError: If real data unavailable and use_synthetic=False
         """
+        import hashlib
+
         name = name.upper().replace("-", "_").replace(" ", "_")
 
         # Try to load real data
+        real_data = None
         if self.data_dir:
             real_data = self._try_load_real(name)
-            if real_data is not None:
-                X, y = real_data
-                info = self.datasets.get(name.replace("_", "-"), DatasetInfo(name=name, domain="unknown"))
-                info.n_samples = len(X)
-                info.n_features = X.shape[1]
-                info.anomaly_ratio = np.mean(y)
-                return X, y, info
 
-        # Fall back to synthetic
-        logger.info(f"Using synthetic data for {name}")
+        if real_data is not None:
+            X, y = real_data
+            info = self.datasets.get(name.replace("_", "-"), DatasetInfo(name=name, domain="unknown"))
+            info.n_samples = len(X)
+            info.n_features = X.shape[1]
+            info.anomaly_ratio = float(np.mean(y))
+            info.source = "real-local"
+            info.checksum = hashlib.sha256(X.tobytes()).hexdigest()[:16]
+            info.used_synthetic = False
+
+            # Validate minimum samples
+            if len(X) < self.min_real_samples:
+                raise RuntimeError(
+                    f"{name}: Loaded {len(X)} samples but minimum is {self.min_real_samples}. "
+                    f"Dataset may be incomplete or corrupted."
+                )
+
+            logger.info(
+                f"Loaded REAL data for {name}: {info.n_samples} samples, "
+                f"{info.n_features} features, checksum={info.checksum}"
+            )
+            return X, y, info
+
+        # Real data not available - check if synthetic fallback is allowed
+        if not self.use_synthetic:
+            raise RuntimeError(
+                f"REAL DATA REQUIRED: {name} dataset not found and use_synthetic=False. "
+                f"To run benchmarks on real data, either:\n"
+                f"  1. Set data_dir to a directory containing {name.lower()}.npz or {name.lower()}_train.csv\n"
+                f"  2. Download the dataset from its official source\n"
+                f"  3. Set use_synthetic=True to allow synthetic fallback (NOT RECOMMENDED for validation)\n"
+                f"\nDataset sources:\n"
+                f"  - SMD: https://github.com/NetManAIOps/OmniAnomaly\n"
+                f"  - NSL-KDD: https://www.unb.ca/cic/datasets/nsl.html\n"
+                f"  - BATADAL: https://www.batadal.net/\n"
+                f"\nSynthetic data is NOT acceptable for production validation per Civilization-First principles."
+            )
+
+        # Fall back to synthetic (only if explicitly allowed)
+        logger.warning(
+            f"SYNTHETIC FALLBACK: Using synthetic data for {name}. "
+            f"Results should NOT be used for production validation claims."
+        )
         X, y = self._generate_synthetic(name)
 
         info = self.datasets.get(name.replace("_", "-"), DatasetInfo(name=name, domain="unknown"))
         info.n_samples = len(X)
         info.n_features = X.shape[1]
-        info.anomaly_ratio = np.mean(y)
+        info.anomaly_ratio = float(np.mean(y))
+        info.source = "synthetic"
+        info.checksum = hashlib.sha256(X.tobytes()).hexdigest()[:16]
+        info.used_synthetic = True
 
         return X, y, info
 
