@@ -201,6 +201,15 @@ class GOSNNIntegration:
                 EnhancedBaseDetector,
                 create_enhanced_detector,
             )
+            from omni_mercury_engine.detectors.dimensional import (
+                DimensionalAnomalyDetector,
+            )
+            from omni_mercury_engine.detectors.graph_based import (
+                GraphBasedAnomalyDetector,
+            )
+            from omni_mercury_engine.detectors.spatial import (
+                SpatialAnomalyDetector,
+            )
 
             # Import base detectors
             from omni_mercury_engine.detectors.statistical import (
@@ -208,15 +217,6 @@ class GOSNNIntegration:
             )
             from omni_mercury_engine.detectors.temporal import (
                 TemporalAnomalyDetector,
-            )
-            from omni_mercury_engine.detectors.spatial import (
-                SpatialAnomalyDetector,
-            )
-            from omni_mercury_engine.detectors.dimensional import (
-                DimensionalAnomalyDetector,
-            )
-            from omni_mercury_engine.detectors.graph_based import (
-                GraphBasedAnomalyDetector,
             )
 
             # Add enhanced domains
@@ -259,9 +259,9 @@ class GOSNNIntegration:
         """
         try:
             from omni_mercury_engine.core.enhanced_model_domains import (
-                EnhancedQuantumModel,
-                EnhancedBiometricModel,
                 EnhancedAffectiveModel,
+                EnhancedBiometricModel,
+                EnhancedQuantumModel,
                 LyapunovStabilityAnalyzer,
             )
 
@@ -486,9 +486,9 @@ class GOSNNIntegration:
         """Set up fusion strategy."""
         try:
             from omni_mercury_engine.core.stacking_fusion import (
-                StackingFusion,
                 BayesianModelAveraging,
                 EthicallyConstrainedFusion,
+                StackingFusion,
             )
 
             if self.fusion_method == "stacking":

@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 import numpy as np
-from scipy.optimize import minimize, differential_evolution
+from scipy.optimize import differential_evolution, minimize
 
 logger = logging.getLogger(__name__)
 

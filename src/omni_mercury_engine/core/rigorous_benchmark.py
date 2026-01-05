@@ -25,16 +25,16 @@ from typing import Any, Protocol
 
 import numpy as np
 from scipy import stats
-from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.metrics import (
-    roc_auc_score,
+    average_precision_score,
+    brier_score_loss,
+    confusion_matrix,
     f1_score,
     precision_score,
     recall_score,
-    brier_score_loss,
-    average_precision_score,
-    confusion_matrix,
+    roc_auc_score,
 )
+from sklearn.model_selection import StratifiedKFold, train_test_split
 
 # Fixed seed for reproducibility
 GLOBAL_SEED = 42
@@ -573,10 +573,10 @@ def run_baseline_benchmarks(
     Returns:
         Dictionary mapping detector name to BenchmarkResult
     """
-    from sklearn.ensemble import IsolationForest
-    from sklearn.svm import OneClassSVM
-    from sklearn.neighbors import LocalOutlierFactor
     from sklearn.covariance import EllipticEnvelope
+    from sklearn.ensemble import IsolationForest
+    from sklearn.neighbors import LocalOutlierFactor
+    from sklearn.svm import OneClassSVM
 
     harness = RigorousBenchmarkHarness(n_folds=n_folds, seed=seed)
     results = {}
