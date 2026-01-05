@@ -8,12 +8,13 @@ pandas>=2.0.0
 click>=8.1.0
 pydantic>=2.0.0
 bcrypt>=4.0.1
-requests>=2.31.0
+requests>=2.32.0  # Security: SSL/TLS improvements
 tqdm>=4.65.0
 networkx>=3.0
 
 # Cryptography (required for security features, JWT)
-cryptography>=41.0.0
+# Updated to >=43.0.1 for latest security patches
+cryptography>=43.0.1
 
 # API Server Dependencies
 fastapi>=0.109.0

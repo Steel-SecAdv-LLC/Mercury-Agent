@@ -1,0 +1,27 @@
+# Mercury Agent ♱ Trivy Ignore Configuration
+# This file specifies vulnerabilities to ignore during Trivy scans
+# Use with caution - only ignore after careful assessment
+
+# =============================================================================
+# Ignored Vulnerabilities with Justification
+# =============================================================================
+
+# CVE-2025-14104: util-linux heap buffer overread
+# Justification: Only affects SUID binaries with 256-byte usernames.
+# Mercury Agent doesn't handle user passwd operations and runs as non-root.
+# Mitigated by: Running as non-root user in container
+# Review date: 2025-01-05
+# CVE-2025-14104
+
+# =============================================================================
+# False Positives
+# =============================================================================
+# Add false positives here with justification
+
+# =============================================================================
+# Accepted Risks
+# =============================================================================
+# Add accepted risks here with:
+# - Risk assessment
+# - Mitigation measures
+# - Review date
