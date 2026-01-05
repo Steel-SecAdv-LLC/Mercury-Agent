@@ -72,9 +72,7 @@ class TestAdaptiveThresholdCalibrator:
 
     def test_empty_predictions_fallback(self):
         """Test fallback when MAD produces no predictions."""
-        calibrator = AdaptiveThresholdCalibrator(
-            contamination=0.05, min_contamination=0.01
-        )
+        calibrator = AdaptiveThresholdCalibrator(contamination=0.05, min_contamination=0.01)
 
         # Uniform scores (no clear outliers)
         scores = np.random.uniform(0, 1, 1000)
@@ -111,9 +109,7 @@ class TestCovarianceAwareDetector:
         detector = CovarianceAwareDetector(contamination=0.1)
 
         # Training data (normal)
-        X_train = np.random.multivariate_normal(
-            mean=[0, 0], cov=[[1, 0.5], [0.5, 1]], size=500
-        )
+        X_train = np.random.multivariate_normal(mean=[0, 0], cov=[[1, 0.5], [0.5, 1]], size=500)
 
         detector.fit(X_train)
 
@@ -146,9 +142,7 @@ class TestTemporalPatternDetector:
 
     def test_transform_adds_features(self):
         """Test that temporal transformation adds features."""
-        detector = TemporalPatternDetector(
-            window_sizes=[5, 10], lag_features=2, include_diff=True
-        )
+        detector = TemporalPatternDetector(window_sizes=[5, 10], lag_features=2, include_diff=True)
 
         X = np.random.randn(100, 5)  # 100 samples, 5 features
         X_transformed = detector.transform(X)
@@ -159,9 +153,7 @@ class TestTemporalPatternDetector:
 
     def test_lag_features(self):
         """Test lag features are computed correctly."""
-        detector = TemporalPatternDetector(
-            window_sizes=[], lag_features=1, include_diff=False
-        )
+        detector = TemporalPatternDetector(window_sizes=[], lag_features=1, include_diff=False)
 
         # Simple time series
         X = np.array([[1], [2], [3], [4], [5]], dtype=float)
@@ -357,9 +349,7 @@ class TestIntegration:
 
         # Predictions should primarily be in the anomaly region
         anomaly_pred_in_anomaly = result.predictions[n_normal:].sum()
-        assert (
-            anomaly_pred_in_anomaly > n_anomaly * 0.3
-        ), "Should detect significant anomalies"
+        assert anomaly_pred_in_anomaly > n_anomaly * 0.3, "Should detect significant anomalies"
 
     def test_batadal_scenario(self):
         """Test batadal-like data (covariance structured)."""
@@ -417,9 +407,7 @@ class TestIntegration:
 
         # Check that anomaly points have higher scores
         anomaly_scores = [result.scores[i] for i in anomaly_indices]
-        normal_scores = [
-            result.scores[i] for i in range(n) if i not in anomaly_indices
-        ]
+        normal_scores = [result.scores[i] for i in range(n) if i not in anomaly_indices]
 
         assert np.mean(anomaly_scores) > np.percentile(
             normal_scores, 80

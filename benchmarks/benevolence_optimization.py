@@ -67,6 +67,7 @@ except ImportError:
 # Try to import matplotlib for visualization
 try:
     import matplotlib.pyplot as plt
+
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
     MATPLOTLIB_AVAILABLE = False
@@ -125,7 +126,7 @@ class GatingFormConfig:
             raise ImmutableEthicsError(
                 "Threshold cannot be lowered below medical fallback",
                 self.threshold,
-                SIGMA_IMMUTABLE_MEDICAL
+                SIGMA_IMMUTABLE_MEDICAL,
             )
         if self.k <= 0:
             raise ValueError("Sharpness parameter k must be positive")
@@ -226,7 +227,7 @@ class EthicalGatingForms:
             threshold=threshold,
             form_type=GatingFormType.QUADRATIC,
             gradient=gradient,
-            metadata={"convexity": "positive_definite"}
+            metadata={"convexity": "positive_definite"},
         )
 
     def linear(self, sigma: float, threshold: float | None = None) -> GatingResult:
@@ -260,7 +261,7 @@ class EthicalGatingForms:
             threshold=threshold,
             form_type=GatingFormType.LINEAR,
             gradient=gradient,
-            metadata={"note": "non_differentiable_at_threshold"}
+            metadata={"note": "non_differentiable_at_threshold"},
         )
 
     def sigmoid(
@@ -304,7 +305,7 @@ class EthicalGatingForms:
             threshold=threshold,
             form_type=GatingFormType.SIGMOID,
             gradient=gradient,
-            metadata={"k": k, "sigmoid_value": sigmoid_value}
+            metadata={"k": k, "sigmoid_value": sigmoid_value},
         )
 
     def exponential(
@@ -348,14 +349,11 @@ class EthicalGatingForms:
             threshold=threshold,
             form_type=GatingFormType.EXPONENTIAL,
             gradient=gradient,
-            metadata={"k": k}
+            metadata={"k": k},
         )
 
     def piecewise(
-        self,
-        sigma: float,
-        threshold: float | None = None,
-        delta: float | None = None
+        self, sigma: float, threshold: float | None = None, delta: float | None = None
     ) -> GatingResult:
         """
         Piecewise (hybrid) penalty: linear for small deviations, quadratic for large.
@@ -406,14 +404,11 @@ class EthicalGatingForms:
             threshold=threshold,
             form_type=GatingFormType.PIECEWISE,
             gradient=gradient,
-            metadata={"delta": delta, "regime": "linear" if deviation < delta else "quadratic"}
+            metadata={"delta": delta, "regime": "linear" if deviation < delta else "quadratic"},
         )
 
     def gaussian_rbf(
-        self,
-        sigma: float,
-        threshold: float | None = None,
-        variance: float | None = None
+        self, sigma: float, threshold: float | None = None, variance: float | None = None
     ) -> GatingResult:
         """
         Gaussian RBF penalty: exp(-((sigma - threshold)^2)/(2*var)).
@@ -457,7 +452,7 @@ class EthicalGatingForms:
             threshold=threshold,
             form_type=GatingFormType.GAUSSIAN_RBF,
             gradient=gradient,
-            metadata={"variance": variance, "gaussian_value": gaussian}
+            metadata={"variance": variance, "gaussian_value": gaussian},
         )
 
     def apply(self, sigma: float, form_type: GatingFormType | None = None) -> GatingResult:
@@ -485,9 +480,7 @@ class EthicalGatingForms:
         return form_map[form_type](sigma)
 
     def compute_lyapunov_stability(
-        self,
-        sigma_trajectory: np.ndarray,
-        target_sigma: float | None = None
+        self, sigma_trajectory: np.ndarray, target_sigma: float | None = None
     ) -> tuple[float, bool]:
         """
         Compute Lyapunov exponent for sigma trajectory stability.
@@ -540,7 +533,7 @@ class BenevolenceOptimizer:
     def __init__(
         self,
         base_threshold: float = SIGMA_IMMUTABLE_DEFAULT,
-        high_stakes_threshold: float = SIGMA_IMMUTABLE_HIGH_STAKES
+        high_stakes_threshold: float = SIGMA_IMMUTABLE_HIGH_STAKES,
     ):
         """
         Initialize the benevolence optimizer.
@@ -560,7 +553,7 @@ class BenevolenceOptimizer:
         form_type: GatingFormType,
         sigma_range: np.ndarray | None = None,
         n_simulations: int = 1000,
-        config: GatingFormConfig | None = None
+        config: GatingFormConfig | None = None,
     ) -> BenchmarkResult:
         """
         Benchmark a single gating form.
@@ -659,17 +652,14 @@ class BenevolenceOptimizer:
             metadata={
                 "n_simulations": n_simulations,
                 "elapsed_time": elapsed_time,
-            }
+            },
         )
 
         self.benchmark_results[form_type] = result
         return result
 
     def _simulate_trajectory(
-        self,
-        initial_sigma: float,
-        form_type: GatingFormType,
-        max_epochs: int = 200
+        self, initial_sigma: float, form_type: GatingFormType, max_epochs: int = 200
     ) -> list[float]:
         """Simulate sigma trajectory under gating form."""
         trajectory = [initial_sigma]
@@ -697,7 +687,9 @@ class BenevolenceOptimizer:
 
         return trajectory
 
-    def benchmark_all_forms(self, n_simulations: int = 1000) -> dict[GatingFormType, BenchmarkResult]:
+    def benchmark_all_forms(
+        self, n_simulations: int = 1000
+    ) -> dict[GatingFormType, BenchmarkResult]:
         """
         Benchmark all gating forms.
 
@@ -716,9 +708,7 @@ class BenevolenceOptimizer:
         return self.benchmark_results
 
     def get_optimal_form(
-        self,
-        domain: str = "general",
-        optimization_target: str = "f1"
+        self, domain: str = "general", optimization_target: str = "f1"
     ) -> tuple[GatingFormType, BenchmarkResult]:
         """
         Get optimal gating form for domain and optimization target.
@@ -760,9 +750,7 @@ class BenevolenceOptimizer:
         return best_form, candidates[best_form]
 
     def generate_visualization(
-        self,
-        output_dir: str = "docs/images",
-        sigma_range: np.ndarray | None = None
+        self, output_dir: str = "docs/images", sigma_range: np.ndarray | None = None
     ) -> dict[str, str]:
         """
         Generate visualization plots for gating forms.
@@ -789,7 +777,7 @@ class BenevolenceOptimizer:
         # Plot 1: Penalty curves for all forms
         fig, ax = plt.subplots(figsize=(12, 8))
 
-        colors = ['blue', 'green', 'red', 'purple', 'orange', 'brown']
+        colors = ["blue", "green", "red", "purple", "orange", "brown"]
 
         for i, form_type in enumerate(GatingFormType):
             config = GatingFormConfig(form_type=form_type)
@@ -798,23 +786,28 @@ class BenevolenceOptimizer:
             penalties = [gating.apply(s, form_type).penalty for s in sigma_range]
             ax.plot(sigma_range, penalties, label=form_type.value, color=colors[i], linewidth=2)
 
-        ax.axvline(x=SIGMA_IMMUTABLE_DEFAULT, color='black', linestyle='--',
-                   label=f'sigma_Immutable={SIGMA_IMMUTABLE_DEFAULT}', alpha=0.7)
-        ax.set_xlabel('sigma (Ethical Compliance Score)', fontsize=12)
-        ax.set_ylabel('Penalty', fontsize=12)
+        ax.axvline(
+            x=SIGMA_IMMUTABLE_DEFAULT,
+            color="black",
+            linestyle="--",
+            label=f"sigma_Immutable={SIGMA_IMMUTABLE_DEFAULT}",
+            alpha=0.7,
+        )
+        ax.set_xlabel("sigma (Ethical Compliance Score)", fontsize=12)
+        ax.set_ylabel("Penalty", fontsize=12)
         ax.set_title(
             "Ethical Gating Penalty Curves\n"
             "Civilization-First Philosophy: sigma_Immutable Enforcement",
             fontsize=14,
         )
-        ax.legend(loc='upper right')
+        ax.legend(loc="upper right")
         ax.grid(True, alpha=0.3)
         ax.set_xlim(0.5, 1.0)
 
         penalty_path = output_path / "penalty_curves.png"
-        plt.savefig(penalty_path, dpi=150, bbox_inches='tight')
+        plt.savefig(penalty_path, dpi=150, bbox_inches="tight")
         plt.close()
-        generated_files['penalty_curves'] = str(penalty_path)
+        generated_files["penalty_curves"] = str(penalty_path)
 
         # Plot 2: Gradient curves
         fig, ax = plt.subplots(figsize=(12, 8))
@@ -826,24 +819,28 @@ class BenevolenceOptimizer:
             gradients = [gating.apply(s, form_type).gradient or 0 for s in sigma_range]
             ax.plot(sigma_range, gradients, label=form_type.value, color=colors[i], linewidth=2)
 
-        ax.axvline(x=SIGMA_IMMUTABLE_DEFAULT, color='black', linestyle='--',
-                   label=f'sigma_Immutable={SIGMA_IMMUTABLE_DEFAULT}', alpha=0.7)
-        ax.axhline(y=0, color='gray', linestyle='-', alpha=0.5)
-        ax.set_xlabel('sigma (Ethical Compliance Score)', fontsize=12)
-        ax.set_ylabel('Gradient', fontsize=12)
+        ax.axvline(
+            x=SIGMA_IMMUTABLE_DEFAULT,
+            color="black",
+            linestyle="--",
+            label=f"sigma_Immutable={SIGMA_IMMUTABLE_DEFAULT}",
+            alpha=0.7,
+        )
+        ax.axhline(y=0, color="gray", linestyle="-", alpha=0.5)
+        ax.set_xlabel("sigma (Ethical Compliance Score)", fontsize=12)
+        ax.set_ylabel("Gradient", fontsize=12)
         ax.set_title(
-            "Ethical Gating Gradient Curves\n"
-            "Gradient Flow for Lyapunov Stability",
+            "Ethical Gating Gradient Curves\n" "Gradient Flow for Lyapunov Stability",
             fontsize=14,
         )
-        ax.legend(loc='upper right')
+        ax.legend(loc="upper right")
         ax.grid(True, alpha=0.3)
         ax.set_xlim(0.5, 1.0)
 
         gradient_path = output_path / "gradient_curves.png"
-        plt.savefig(gradient_path, dpi=150, bbox_inches='tight')
+        plt.savefig(gradient_path, dpi=150, bbox_inches="tight")
         plt.close()
-        generated_files['gradient_curves'] = str(gradient_path)
+        generated_files["gradient_curves"] = str(gradient_path)
 
         # Plot 3: Benchmark comparison
         if self.benchmark_results:
@@ -853,42 +850,46 @@ class BenevolenceOptimizer:
 
             # F1 Scores
             f1_scores = [r.f1_score for r in self.benchmark_results.values()]
-            axes[0, 0].bar(form_names, f1_scores, color='steelblue')
-            axes[0, 0].set_ylabel('F1 Score')
-            axes[0, 0].set_title('F1 Score by Gating Form')
-            axes[0, 0].tick_params(axis='x', rotation=45)
+            axes[0, 0].bar(form_names, f1_scores, color="steelblue")
+            axes[0, 0].set_ylabel("F1 Score")
+            axes[0, 0].set_title("F1 Score by Gating Form")
+            axes[0, 0].tick_params(axis="x", rotation=45)
 
             # Convergence Epochs
             convergence = [r.convergence_epochs for r in self.benchmark_results.values()]
-            axes[0, 1].bar(form_names, convergence, color='forestgreen')
-            axes[0, 1].set_ylabel('Epochs')
-            axes[0, 1].set_title('Convergence Speed (lower is better)')
-            axes[0, 1].tick_params(axis='x', rotation=45)
+            axes[0, 1].bar(form_names, convergence, color="forestgreen")
+            axes[0, 1].set_ylabel("Epochs")
+            axes[0, 1].set_title("Convergence Speed (lower is better)")
+            axes[0, 1].tick_params(axis="x", rotation=45)
 
             # Lyapunov Exponent
             lyapunov = [r.lyapunov_exponent for r in self.benchmark_results.values()]
-            axes[1, 0].bar(form_names, lyapunov, color='darkorange')
-            axes[1, 0].axhline(y=LAMBDA_LYAPUNOV, color='red', linestyle='--',
-                              label=f'Target lambda={LAMBDA_LYAPUNOV}')
-            axes[1, 0].set_ylabel('Lyapunov Exponent')
-            axes[1, 0].set_title('Lyapunov Stability')
-            axes[1, 0].tick_params(axis='x', rotation=45)
+            axes[1, 0].bar(form_names, lyapunov, color="darkorange")
+            axes[1, 0].axhline(
+                y=LAMBDA_LYAPUNOV,
+                color="red",
+                linestyle="--",
+                label=f"Target lambda={LAMBDA_LYAPUNOV}",
+            )
+            axes[1, 0].set_ylabel("Lyapunov Exponent")
+            axes[1, 0].set_title("Lyapunov Stability")
+            axes[1, 0].tick_params(axis="x", rotation=45)
             axes[1, 0].legend()
 
             # Overhead
             overhead = [r.overhead_percent for r in self.benchmark_results.values()]
-            axes[1, 1].bar(form_names, overhead, color='crimson')
-            axes[1, 1].axhline(y=2.0, color='red', linestyle='--', label='Target <2%')
-            axes[1, 1].set_ylabel('Overhead (%)')
-            axes[1, 1].set_title('Computational Overhead')
-            axes[1, 1].tick_params(axis='x', rotation=45)
+            axes[1, 1].bar(form_names, overhead, color="crimson")
+            axes[1, 1].axhline(y=2.0, color="red", linestyle="--", label="Target <2%")
+            axes[1, 1].set_ylabel("Overhead (%)")
+            axes[1, 1].set_title("Computational Overhead")
+            axes[1, 1].tick_params(axis="x", rotation=45)
             axes[1, 1].legend()
 
             plt.tight_layout()
             benchmark_path = output_path / "benchmark_comparison.png"
-            plt.savefig(benchmark_path, dpi=150, bbox_inches='tight')
+            plt.savefig(benchmark_path, dpi=150, bbox_inches="tight")
             plt.close()
-            generated_files['benchmark_comparison'] = str(benchmark_path)
+            generated_files["benchmark_comparison"] = str(benchmark_path)
 
         self.logger.info(f"Generated {len(generated_files)} visualization files in {output_dir}")
         return generated_files
@@ -904,9 +905,9 @@ def validate_symbolic_convexity() -> dict[str, Any]:
     if not SYMPY_AVAILABLE:
         return {"error": "SymPy not available"}
 
-    sigma = Symbol('sigma', real=True, positive=True)
-    threshold = Symbol('theta', real=True, positive=True)
-    k = Symbol('k', real=True, positive=True)
+    sigma = Symbol("sigma", real=True, positive=True)
+    threshold = Symbol("theta", real=True, positive=True)
+    k = Symbol("k", real=True, positive=True)
 
     results: dict[str, Any] = {}
 
@@ -914,39 +915,38 @@ def validate_symbolic_convexity() -> dict[str, Any]:
     quadratic = (threshold - sigma) ** 2
     quadratic_grad = diff(quadratic, sigma)
     quadratic_hess = diff(quadratic_grad, sigma)
-    results['quadratic'] = {
-        'penalty': str(quadratic),
-        'gradient': str(quadratic_grad),
-        'hessian': str(quadratic_hess),
-        'is_convex': str(simplify(quadratic_hess)) == '2'
+    results["quadratic"] = {
+        "penalty": str(quadratic),
+        "gradient": str(quadratic_grad),
+        "hessian": str(quadratic_hess),
+        "is_convex": str(simplify(quadratic_hess)) == "2",
     }
 
     # Sigmoid form (simplified)
     sigmoid = 1 / (1 + sp_exp(k * (sigma - threshold)))
     sigmoid_grad = diff(sigmoid, sigma)
-    results['sigmoid'] = {
-        'penalty': str(sigmoid),
-        'gradient': str(simplify(sigmoid_grad)),
-        'note': 'Smooth and differentiable everywhere'
+    results["sigmoid"] = {
+        "penalty": str(sigmoid),
+        "gradient": str(simplify(sigmoid_grad)),
+        "note": "Smooth and differentiable everywhere",
     }
 
     # Exponential form
     exponential = sp_exp(-k * (sigma - threshold))
     exp_grad = diff(exponential, sigma)
     exp_hess = diff(exp_grad, sigma)
-    results['exponential'] = {
-        'penalty': str(exponential),
-        'gradient': str(simplify(exp_grad)),
-        'hessian': str(simplify(exp_hess)),
-        'is_convex': True  # Exponential is always convex
+    results["exponential"] = {
+        "penalty": str(exponential),
+        "gradient": str(simplify(exp_grad)),
+        "hessian": str(simplify(exp_hess)),
+        "is_convex": True,  # Exponential is always convex
     }
 
     return results
 
 
 def run_comprehensive_benchmark(
-    output_dir: str = "results/gating_optimization",
-    n_simulations: int = 1000
+    output_dir: str = "results/gating_optimization", n_simulations: int = 1000
 ) -> dict[str, Any]:
     """
     Run comprehensive benchmark of all gating forms.
@@ -1007,7 +1007,7 @@ def run_comprehensive_benchmark(
         symbolic_results = validate_symbolic_convexity()
         print("\nSymbolic Validation:")
         for form, props in symbolic_results.items():
-            if isinstance(props, dict) and 'is_convex' in props:
+            if isinstance(props, dict) and "is_convex" in props:
                 print(f"  {form}: convex={props['is_convex']}")
 
     # Save results
@@ -1032,7 +1032,7 @@ def run_comprehensive_benchmark(
                 "stability_score": result.stability_score,
             }
             for form, result in results.items()
-        }
+        },
     }
 
     results_path = output_path / "gating_optimization.json"

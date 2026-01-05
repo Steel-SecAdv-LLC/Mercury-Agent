@@ -117,6 +117,7 @@ try:
         DatasetSpecificEnsemble,
         DatasetProfile,
     )
+
     ADAPTIVE_DETECTOR_AVAILABLE = True
 except ImportError:
     ADAPTIVE_DETECTOR_AVAILABLE = False

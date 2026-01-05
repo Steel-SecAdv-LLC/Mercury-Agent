@@ -129,9 +129,7 @@ class AdaptiveThresholdCalibrator:
             predictions = np.zeros(len(scores), dtype=np.int32)
             return threshold, predictions
 
-        normalized = ((scores - score_min) / (score_max - score_min) * 255).astype(
-            np.int32
-        )
+        normalized = ((scores - score_min) / (score_max - score_min) * 255).astype(np.int32)
 
         # Compute histogram
         hist, _ = np.histogram(normalized, bins=256, range=(0, 256))
@@ -402,27 +400,21 @@ class TemporalPatternDetector:
                 # Rolling mean
                 rolling_mean = self._rolling_stat(X, window, np.mean)
                 augmented_features.append(rolling_mean)
-                self._feature_names.extend(
-                    [f"rmean{window}_{i}" for i in range(n_features)]
-                )
+                self._feature_names.extend([f"rmean{window}_{i}" for i in range(n_features)])
 
                 # Rolling std
                 rolling_std = self._rolling_stat(X, window, np.std)
                 augmented_features.append(rolling_std)
-                self._feature_names.extend(
-                    [f"rstd{window}_{i}" for i in range(n_features)]
-                )
+                self._feature_names.extend([f"rstd{window}_{i}" for i in range(n_features)])
 
                 # Deviation from rolling mean (z-score like)
                 deviation = np.zeros_like(X)
                 nonzero_std = rolling_std > 1e-10
-                deviation[nonzero_std] = (
-                    X[nonzero_std] - rolling_mean[nonzero_std]
-                ) / rolling_std[nonzero_std]
+                deviation[nonzero_std] = (X[nonzero_std] - rolling_mean[nonzero_std]) / rolling_std[
+                    nonzero_std
+                ]
                 augmented_features.append(deviation)
-                self._feature_names.extend(
-                    [f"rdev{window}_{i}" for i in range(n_features)]
-                )
+                self._feature_names.extend([f"rdev{window}_{i}" for i in range(n_features)])
 
         return np.hstack(augmented_features)
 
@@ -471,9 +463,7 @@ class AdaptiveAnomalyDetector:
 
         # Component detectors
         self._calibrator = AdaptiveThresholdCalibrator(contamination=contamination)
-        self._covariance_detector = CovarianceAwareDetector(
-            contamination=contamination
-        )
+        self._covariance_detector = CovarianceAwareDetector(contamination=contamination)
         self._temporal_transformer = TemporalPatternDetector()
 
         # State
@@ -717,9 +707,7 @@ class AdaptiveAnomalyDetector:
         combined_scores = 0.6 * cov_scores_norm + 0.4 * proj_scores_norm
 
         # Use Otsu for bimodal threshold selection
-        threshold, predictions = self._calibrator.calibrate(
-            combined_scores, method="otsu"
-        )
+        threshold, predictions = self._calibrator.calibrate(combined_scores, method="otsu")
 
         return DetectionResult(
             scores=combined_scores,
@@ -739,9 +727,7 @@ class AdaptiveAnomalyDetector:
         scores = self._covariance_detector.score_samples(X)
 
         # Use percentile calibration
-        threshold, predictions = self._calibrator.calibrate(
-            scores, method="percentile"
-        )
+        threshold, predictions = self._calibrator.calibrate(scores, method="percentile")
 
         return DetectionResult(
             scores=scores,
@@ -773,9 +759,7 @@ class AdaptiveAnomalyDetector:
         score_variance = result.scores.var()
         lyapunov = 1.0 / (1.0 + score_variance)
 
-        passes_ethics = (
-            sigma_sacred >= 0.93 and benevolence >= self.benevolence_threshold
-        )
+        passes_ethics = sigma_sacred >= 0.93 and benevolence >= self.benevolence_threshold
 
         return {
             "passes": passes_ethics,
@@ -783,12 +767,10 @@ class AdaptiveAnomalyDetector:
             "sigma_sacred": sigma_sacred,
             "lyapunov_stability": lyapunov,
             "anomaly_ratio": anomaly_ratio,
-            "violations": []
-            if passes_ethics
-            else (
-                ["σ_Sacred < 0.93"]
-                if sigma_sacred < 0.93
-                else ["benevolence < 0.99"]
+            "violations": (
+                []
+                if passes_ethics
+                else (["σ_Sacred < 0.93"] if sigma_sacred < 0.93 else ["benevolence < 0.99"])
             ),
         }
 
