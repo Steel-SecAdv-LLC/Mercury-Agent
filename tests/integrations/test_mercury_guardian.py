@@ -436,10 +436,10 @@ class TestModuleImports:
             AVA_GUARDIAN_AVAILABLE,
             DILITHIUM_AVAILABLE,
             KYBER_AVAILABLE,
-            MercuryGuardianAdapter,
             CryptoAnomaly,
             CryptoAnomalyType,
             EWMATimingMonitor,
+            MercuryGuardianAdapter,
             create_mercury_guardian_adapter,
         )
 
@@ -455,10 +455,10 @@ class TestModuleImports:
     def test_import_from_mercury_guardian_module(self):
         """Test importing directly from mercury_guardian module."""
         from omni_mercury_engine.integrations.mercury_guardian import (
-            MercuryGuardianAdapter,
             CryptoAnomaly,
             CryptoAnomalyType,
             EWMATimingMonitor,
+            MercuryGuardianAdapter,
             TimingStats,
             create_mercury_guardian_adapter,
         )

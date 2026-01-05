@@ -27,7 +27,6 @@ and post-quantum cryptographic protection.
 
 from omni_mercury_engine.security.crypto_api import (
     AlgorithmType,
-    MercuryCrypto,
     CryptoBackend,
     CryptoPackageConfig,
     CryptoPackageResult,
@@ -36,6 +35,7 @@ from omni_mercury_engine.security.crypto_api import (
     HybridSignatureProvider,
     KeyPair,
     KyberProvider,
+    MercuryCrypto,
     MLDSAProvider,
     SecurityLevel,
     Signature,
@@ -74,7 +74,6 @@ __all__ = [
     "LIBOQS_AVAILABLE",
     "SPHINCS_AVAILABLE",
     "AlgorithmType",
-    "MercuryCrypto",
     "CryptoBackend",
     "CryptoPackageConfig",
     "CryptoPackageResult",
@@ -88,6 +87,7 @@ __all__ = [
     "KyberKeyPair",
     "KyberProvider",
     "MLDSAProvider",
+    "MercuryCrypto",
     "PQCBackend",
     "RateLimiter",
     "SecureDataHandler",

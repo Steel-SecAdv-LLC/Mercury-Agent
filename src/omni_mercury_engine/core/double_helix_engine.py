@@ -181,7 +181,8 @@ class MercuryEquationEngine:
         self.current_state: EvolutionState | None = None
 
         logger.info(
-            f"MercuryEquationEngine initialized (dim={dimension}, " f"mode={self.config.mode.value})"
+            f"MercuryEquationEngine initialized (dim={dimension}, "
+            f"mode={self.config.mode.value})"
         )
 
     def _normalize_weights(self) -> None:
@@ -550,11 +551,11 @@ __all__ = [
     "PHI_CUBED",
     "PHI_SQUARED",
     "SIGMA_QUADRATIC_THRESHOLD",
-    "MercuryEquationEngine",
     "DoubleHelixEvolutionEngine",
     "EvolutionConfig",
     "EvolutionMode",
     "EvolutionState",
     "HelixConfig",
+    "MercuryEquationEngine",
     "TermType",
 ]

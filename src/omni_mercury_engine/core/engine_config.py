@@ -360,7 +360,9 @@ class MercuryEngineConfig(BaseModel):
         if self.domain in high_risk_domains:
             # Higher risk domains use lower sigma_immutable (0.93 fallback)
             # This allows more sensitivity for critical detection
-            self.ethical.sigma_immutable_threshold = min(self.ethical.sigma_immutable_threshold, 0.93)
+            self.ethical.sigma_immutable_threshold = min(
+                self.ethical.sigma_immutable_threshold, 0.93
+            )
         elif self.domain in critical_domains:
             # Critical domains require stricter benevolence
             self.ethical.benevolence_threshold = max(self.ethical.benevolence_threshold, 0.995)

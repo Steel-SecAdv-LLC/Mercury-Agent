@@ -42,11 +42,11 @@ pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
 if HAS_TORCH:
     from omni_mercury_engine.ml.training import (
         AnomalyDataset,
+        FusionTrainer,
         MercuryExponentialDecayOptimizer,
         MercuryHarmonicOptimizer,
         MercuryMomentumOptimizer,
         MercuryOptimizer,
-        FusionTrainer,
         create_ava_optimizer,
     )
 

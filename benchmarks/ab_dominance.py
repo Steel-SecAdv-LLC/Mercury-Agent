@@ -281,7 +281,9 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkResult:
     """
     logger.info("Starting A/B Fusion Benchmark: Baseline vs weighted fusion")
     logger.info(f"Epochs: {config.epochs}")
-    logger.info(f"Lambda Baseline: {config.lambda_baseline}, Lambda Enhanced: {config.lambda_enhanced}")
+    logger.info(
+        f"Lambda Baseline: {config.lambda_baseline}, Lambda Enhanced: {config.lambda_enhanced}"
+    )
 
     start_time = time.time()
 
@@ -360,10 +362,7 @@ def run_benchmark(config: BenchmarkConfig) -> BenchmarkResult:
         * 100
     )
     fpr_reduction = (
-        (
-            result.baseline_final["false_positive_rate"]
-            - result.fusion_final["false_positive_rate"]
-        )
+        (result.baseline_final["false_positive_rate"] - result.fusion_final["false_positive_rate"])
         / result.baseline_final["false_positive_rate"]
         * 100
     )

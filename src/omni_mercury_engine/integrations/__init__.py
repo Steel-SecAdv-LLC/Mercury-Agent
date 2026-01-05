@@ -18,17 +18,17 @@ This package provides:
 
 from __future__ import annotations
 
+from omni_mercury_engine.integrations.http.client import HTTPClient, HTTPClientConfig, HTTPResponse
 from omni_mercury_engine.integrations.mercury_guardian import (
     AVA_GUARDIAN_AVAILABLE,
     DILITHIUM_AVAILABLE,
     KYBER_AVAILABLE,
-    MercuryGuardianAdapter,
     CryptoAnomaly,
     CryptoAnomalyType,
     EWMATimingMonitor,
+    MercuryGuardianAdapter,
     create_mercury_guardian_adapter,
 )
-from omni_mercury_engine.integrations.http.client import HTTPClient, HTTPClientConfig, HTTPResponse
 from omni_mercury_engine.integrations.routing.fallback import (
     FallbackChain,
     FallbackHandler,
@@ -40,7 +40,6 @@ __all__ = [
     "AVA_GUARDIAN_AVAILABLE",
     "DILITHIUM_AVAILABLE",
     "KYBER_AVAILABLE",
-    "MercuryGuardianAdapter",
     "CryptoAnomaly",
     "CryptoAnomalyType",
     "EWMATimingMonitor",
@@ -50,6 +49,7 @@ __all__ = [
     "HTTPClient",
     "HTTPClientConfig",
     "HTTPResponse",
+    "MercuryGuardianAdapter",
     "RequestRouter",
     "Route",
     "RouteMatch",

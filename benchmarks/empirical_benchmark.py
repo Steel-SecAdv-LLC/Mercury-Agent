@@ -114,8 +114,8 @@ from sklearn.svm import OneClassSVM
 try:
     from omni_mercury_engine.core.adaptive_detector import (
         AdaptiveAnomalyDetector,
-        DatasetSpecificEnsemble,
         DatasetProfile,
+        DatasetSpecificEnsemble,
     )
 
     ADAPTIVE_DETECTOR_AVAILABLE = True

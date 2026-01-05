@@ -381,8 +381,7 @@ class MercuryCrypto:
         self._kem_keypair: KeyPair | None = None
 
         logger.info(
-            f"MercuryCrypto initialized (level={security_level.value}, "
-            f"backend={backend.value})"
+            f"MercuryCrypto initialized (level={security_level.value}, " f"backend={backend.value})"
         )
 
     def generate_signing_keypair(self, algorithm: AlgorithmType | None = None) -> KeyPair:
@@ -537,7 +536,6 @@ class MercuryCrypto:
 
 __all__ = [
     "AlgorithmType",
-    "MercuryCrypto",
     "CryptoBackend",
     "CryptoPackageConfig",
     "CryptoPackageResult",
@@ -548,6 +546,7 @@ __all__ = [
     "KeyPair",
     "KyberProvider",
     "MLDSAProvider",
+    "MercuryCrypto",
     "SecurityLevel",
     "Signature",
     "SphincsProvider",

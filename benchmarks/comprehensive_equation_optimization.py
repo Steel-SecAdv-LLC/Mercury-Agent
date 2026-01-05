@@ -318,8 +318,12 @@ def main():
     print("BEST CONFIGURATIONS:")
     print("-" * 60)
     print(f"Mercury Equation (score={best_mercury['score']:.4f}):")
-    print(f"  w1={best_mercury['w1']:.2f}, w2={best_mercury['w2']:.2f}, w3={best_mercury['w3']:.2f}")
-    print(f"  e1={best_mercury['e1']:.2f}, e2={best_mercury['e2']:.2f}, t1={best_mercury['t1']:.2f}")
+    print(
+        f"  w1={best_mercury['w1']:.2f}, w2={best_mercury['w2']:.2f}, w3={best_mercury['w3']:.2f}"
+    )
+    print(
+        f"  e1={best_mercury['e1']:.2f}, e2={best_mercury['e2']:.2f}, t1={best_mercury['t1']:.2f}"
+    )
     print()
     print(f"Ethical Scalars (score={best_ethical['score']:.4f}):")
     print(f"  Group: {best_ethical['scalar_group']}")
