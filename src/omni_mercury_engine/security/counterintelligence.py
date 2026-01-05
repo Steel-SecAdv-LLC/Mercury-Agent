@@ -27,7 +27,7 @@ Integrates with existing intelligence fusion engine for all-source threat analys
 Mathematical Foundations:
 - Psi P (Ψ_P): Non-local detection via quantum-inspired phase correlation
 - Chaos Λ: Bifurcation detection in threat evolution trajectories
-- σ_Sacred: Purity Invariant enforcement for ethical CI operations
+- σ_Immutable: Purity Invariant enforcement for ethical CI operations
 
 References:
 - Intelligence fusion: omni_mercury_engine/security/intelligence_fusion.py
@@ -78,13 +78,13 @@ class OverwatchNexus:
     Features:
     - Proactive CI threat detection (foreign penetration, insider risks, anomalies)
     - Medical Interdiction and Intervention (bio-threats, pandemic forecasting)
-    - Ethical overwatch with σ_Sacred invariant enforcement
+    - Ethical overwatch with σ_Immutable invariant enforcement
     - Integration with existing intelligence fusion (13 INT disciplines)
     - Survivor-first humanitarian prioritization
 
     **Ethical Safeguards:**
     - ci_ethical_threshold (0.85): Non-discriminatory operations gate
-    - Purity Invariant (σ_Sacred > 0): Rollback on ethical violations
+    - Purity Invariant (σ_Immutable > 0): Rollback on ethical violations
     - Bias audits: Ensemble fairness checks across all detections
     - Toggleable: enable_ci flag prevents mission creep
 
@@ -158,7 +158,7 @@ class OverwatchNexus:
         purity_score = self._compute_purity_invariant(fusion_result)
 
         if purity_score <= 0:
-            self.logger.warning("Purity Invariant violated (σ_Sacred <= 0), applying correction")
+            self.logger.warning("Purity Invariant violated (σ_Immutable <= 0), applying correction")
             return self._apply_ethical_rollback(fusion_result)
 
         chaos_score = self._detect_bifurcation(data_stream)
@@ -221,13 +221,13 @@ class OverwatchNexus:
 
     def _compute_purity_invariant(self, fusion_result: IntelligenceFusionResult) -> float:
         """
-        Compute Purity Invariant (σ_Sacred) for ethical compliance.
+        Compute Purity Invariant (σ_Immutable) for ethical compliance.
 
         Based on fusion.py:433 implementation. Ensures positive-definite
-        ethical alignment. If σ_Sacred <= 0, triggers rollback.
+        ethical alignment. If σ_Immutable <= 0, triggers rollback.
 
         Returns:
-            Sacred scalar (>0 = compliant, <=0 = violation)
+            Immutable scalar (>0 = compliant, <=0 = violation)
         """
         ethical_alignment = (
             self.ethical_scalars.omni_compassionate

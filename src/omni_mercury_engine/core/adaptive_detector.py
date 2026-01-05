@@ -453,12 +453,12 @@ class AdaptiveAnomalyDetector:
         self,
         contamination: float = 0.05,
         benevolence_threshold: float = 0.99,
-        sigma_sacred: float = 0.96,
+        sigma_immutable: float = 0.96,
         auto_profile: bool = True,
     ):
         self.contamination = contamination
         self.benevolence_threshold = benevolence_threshold
-        self.sigma_sacred = sigma_sacred
+        self.sigma_immutable = sigma_immutable
         self.auto_profile = auto_profile
 
         # Component detectors
@@ -743,7 +743,7 @@ class AdaptiveAnomalyDetector:
         """
         Evaluate detection result against ethical constraints.
 
-        Ensures sigma_Sacred >= 0.93 (hard) and benevolence >= 0.99.
+        Ensures sigma_Immutable >= 0.93 (hard) and benevolence >= 0.99.
         """
         # Compute fairness metrics
         anomaly_ratio = result.predictions.mean()
@@ -752,25 +752,25 @@ class AdaptiveAnomalyDetector:
         benevolence = 1.0 - min(anomaly_ratio, 0.5) / 0.5
         benevolence = max(benevolence, 0.0)
 
-        # sigma_Sacred based on confidence and calibration quality
-        sigma_sacred = result.confidence * 0.95 + 0.05
+        # sigma_Immutable based on confidence and calibration quality
+        sigma_immutable = result.confidence * 0.95 + 0.05
 
         # Lyapunov stability factor
         score_variance = result.scores.var()
         lyapunov = 1.0 / (1.0 + score_variance)
 
-        passes_ethics = sigma_sacred >= 0.93 and benevolence >= self.benevolence_threshold
+        passes_ethics = sigma_immutable >= 0.93 and benevolence >= self.benevolence_threshold
 
         return {
             "passes": passes_ethics,
             "benevolence": benevolence,
-            "sigma_sacred": sigma_sacred,
+            "sigma_immutable": sigma_immutable,
             "lyapunov_stability": lyapunov,
             "anomaly_ratio": anomaly_ratio,
             "violations": (
                 []
                 if passes_ethics
-                else (["σ_Sacred < 0.93"] if sigma_sacred < 0.93 else ["benevolence < 0.99"])
+                else (["σ_Immutable < 0.93"] if sigma_immutable < 0.93 else ["benevolence < 0.99"])
             ),
         }
 

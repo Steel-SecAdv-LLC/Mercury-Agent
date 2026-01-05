@@ -281,9 +281,9 @@ class TestAdaptiveAnomalyDetector:
         ethics = detector.evaluate_ethics(result)
 
         assert "benevolence" in ethics
-        assert "sigma_sacred" in ethics
+        assert "sigma_immutable" in ethics
         assert "passes" in ethics
-        assert ethics["sigma_sacred"] >= 0.0
+        assert ethics["sigma_immutable"] >= 0.0
 
 
 class TestDatasetSpecificEnsemble:

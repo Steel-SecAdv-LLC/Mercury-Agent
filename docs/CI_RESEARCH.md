@@ -63,7 +63,7 @@ This document summarizes findings from reliable .gov and .edu sources on counter
 
 **Overwatch Nexus Implementation:**
 - Hive firewall extension with Byzantine fault tolerance
-- Real-time threat detection with ethical overwatch (σ_Sacred enforcement)
+- Real-time threat detection with ethical overwatch (σ_Immutable enforcement)
 - Dimensional downsampling for micro-anomaly detection
 
 ---
@@ -306,7 +306,7 @@ This document summarizes findings from reliable .gov and .edu sources on counter
 
 ### Overwatch Nexus Ethical Framework
 
-**σ_Sacred (Purity Invariant):**
+**σ_Immutable (Purity Invariant):**
 - Positive-definite ethical alignment enforcement
 - Automatic rollback on ethical violations (σ ≤ 0)
 - Mathematical proof via determinant > 0 condition
@@ -467,7 +467,7 @@ This document summarizes findings from reliable .gov and .edu sources on counter
 ### Code Structure (Reorganized by Domain)
 
 **Security Module** (`omni_mercury_engine/security/`):
-- `counterintelligence.py` - OverwatchNexus class with proactive_ci() method, σ_Sacred Purity Invariant enforcement
+- `counterintelligence.py` - OverwatchNexus class with proactive_ci() method, σ_Immutable Purity Invariant enforcement
 - `anti_terrorism/pattern_recognition.py` - Radicalization pattern detection
 - `cyber_fortress.py` - Unified cyber defense capabilities
 - `quantum_risk_cyber.py` - Quantum threat assessment
@@ -489,7 +489,7 @@ This document summarizes findings from reliable .gov and .edu sources on counter
 **Unit Tests:**
 - 100% coverage requirement with RNG-seeded reproducibility
 - Bias audit tests using diverse synthetic datasets
-- Ethical rollback validation (σ_Sacred ≤ 0 triggers)
+- Ethical rollback validation (σ_Immutable ≤ 0 triggers)
 
 **Integration Tests:**
 - Intelligence fusion with existing IntelligenceFusionEngine
@@ -508,7 +508,7 @@ This document summarizes findings from reliable .gov and .edu sources on counter
 The Overwatch Nexus and Response module integrates authoritative .gov and .edu research to provide ethical, proactive counterintelligence with Medical Interdiction and Intervention capabilities. All implementations are grounded in open-source technologies (GPL v3 License) with clear disclaimers for operational deployment requirements.
 
 **Key Innovations:**
-1. σ_Sacred Purity Invariant for ethical CI enforcement
+1. σ_Immutable Purity Invariant for ethical CI enforcement
 2. Medical Interdiction via QBM bio-threat modeling and SEIR pandemic forecasting
 3. Survivor-first humanitarian prioritization
 4. All-source intelligence fusion with 13 INT disciplines

@@ -28,7 +28,7 @@ LWE (Learning With Errors) lattice-based cryptography provides resistance to bot
 - PhD-Inspired Advanced (20): Quantum ML resilience, adversarial robustness
 - Operational (80): Bias mitigation, fairness, transparency
 
-**Purity Invariant (σ_Sacred)**: Enforces positive-definite ethical alignment at state level.
+**Purity Invariant (σ_Immutable)**: Enforces positive-definite ethical alignment at state level.
 
 ## 3. Self-Healing (CRISPR-Inspired)
 
@@ -84,7 +84,7 @@ Proactive counterintelligence with humanitarian focus and medical-field equivale
 - **Humanitarian Overwatch**: Crisis monitoring via GEOINT fusion, survivor-first prioritization
 
 **Ethical Enforcement**:
-- **σ_Sacred Purity Invariant**: Automatic rollback on ethical violations (det(ethical_matrix) > 0)
+- **σ_Immutable Purity Invariant**: Automatic rollback on ethical violations (det(ethical_matrix) > 0)
 - **CI Ethical Threshold**: 0.85 gate for non-discriminatory operations
 - **Bias Audits**: Ensemble fairness checks across all fusions/detections
 - **Survivor-First**: Vulnerable population prioritization in all handlers
@@ -110,7 +110,7 @@ Proactive counterintelligence with humanitarian focus and medical-field equivale
 **Mathematical Proofs**:
 - QBM energy bounded: |E| ≤ ||J||_F * n^2
 - SEIR convergence: R0 < 1 → exponential decay to disease-free equilibrium
-- Purity Invariant: σ_Sacred = det(ethical_matrix) > 0 enforced at each fusion
+- Purity Invariant: σ_Immutable = det(ethical_matrix) > 0 enforced at each fusion
 
 **Legal Disclaimer**: This is a simulation-based research tool. Operational deployment requires appropriate clearances, compliance with U.S. laws (CFAA, BIS export controls), and ethical reviews. No sensitive data included; open-source data only.
 
@@ -122,7 +122,7 @@ Proactive counterintelligence with humanitarian focus and medical-field equivale
 |-------|--------|--------------|
 | Quantum Crypto | ✅ LWE | Quantum + classical attacks |
 | Ethical Overwatch | ✅ 150+ scalars | Bias, unfairness, harm |
-| Purity Invariant | ✅ σ_Sacred | Ethical divergence |
+| Purity Invariant | ✅ σ_Immutable | Ethical divergence |
 | Self-Healing | ✅ CRISPR | Novel threats |
 | Lyapunov Stability | ✅ ΔV<0 | Divergence, instability |
 | Double-Helix | ✅ 22⊗4 | Single-point failures |

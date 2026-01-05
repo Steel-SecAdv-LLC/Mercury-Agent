@@ -114,13 +114,13 @@ class WisdomQuotient:
 
 @dataclass
 class GeometryAnalysis:
-    """Sacred geometry analysis result."""
+    """Immutable geometry analysis result."""
 
     golden_ratio_alignment: float
     fibonacci_spiral_score: float
     vesica_piscis_score: float
     platonic_harmony: float
-    overall_sacred_score: float
+    overall_geometry_score: float
     patterns_detected: list[str] = field(default_factory=list)
 
 
@@ -578,7 +578,7 @@ class GeometricPatternProcessor:
             fibonacci_spiral_score=fibonacci,
             vesica_piscis_score=vesica,
             platonic_harmony=platonic,
-            overall_sacred_score=overall,
+            overall_geometry_score=overall,
             patterns_detected=patterns,
         )
 
@@ -691,7 +691,7 @@ class GeometricPatternProcessor:
         vesica: float,
         platonic: float,
     ) -> list[str]:
-        """Detect which sacred patterns are present."""
+        """Detect which geometric patterns are present."""
         patterns = []
         threshold = 0.6
 
@@ -705,7 +705,7 @@ class GeometricPatternProcessor:
             patterns.append("Platonic Harmony")
 
         if not patterns:
-            patterns.append("No strong sacred patterns detected")
+            patterns.append("No strong geometric patterns detected")
 
         return patterns
 
@@ -949,7 +949,7 @@ class PercipienceEngine:
                 "failed_dimensions": verification_result.failed_dimensions,
             },
             "geometric_patterns": {
-                "overall_score": geometry_result.overall_sacred_score,
+                "overall_score": geometry_result.overall_geometry_score,
                 "golden_ratio_alignment": geometry_result.golden_ratio_alignment,
                 "patterns_detected": geometry_result.patterns_detected,
             },
@@ -981,7 +981,7 @@ class PercipienceEngine:
         archetype_scores[AlignmentArchetype.BALANCE.value] = geometry.golden_ratio_alignment
         archetype_scores[AlignmentArchetype.STRATEGY.value] = geometry.platonic_harmony
         archetype_scores[AlignmentArchetype.KNOWLEDGE.value] = geometry.fibonacci_spiral_score
-        archetype_scores[AlignmentArchetype.WISDOM.value] = geometry.overall_sacred_score
+        archetype_scores[AlignmentArchetype.WISDOM.value] = geometry.overall_geometry_score
         archetype_scores[AlignmentArchetype.COMMUNICATION.value] = geometry.vesica_piscis_score
 
         dominant = max(archetype_scores.items(), key=lambda x: x[1])
@@ -1044,7 +1044,7 @@ class PercipienceEngine:
             scalars["verification_pass_rate"] = len(verification_result.passed_dimensions) / 12.0
 
         if geometry_result:
-            scalars["geometric_pattern_scalar"] = geometry_result.overall_sacred_score * 1.2
+            scalars["geometric_pattern_scalar"] = geometry_result.overall_geometry_score * 1.2
             scalars["golden_ratio_scalar"] = geometry_result.golden_ratio_alignment * 1.618
             scalars["fibonacci_scalar"] = geometry_result.fibonacci_spiral_score * 1.15
 
@@ -1085,7 +1085,7 @@ class PercipienceEngine:
         balance_score = 1.0 if balance_result.is_balanced else 0.5
         wisdom_score = wisdom_quotient.total_score
         verification_score = verification_result.overall_score
-        geometry_score = geometry_result.overall_sacred_score
+        geometry_score = geometry_result.overall_geometry_score
 
         overall = (
             0.30 * balance_score

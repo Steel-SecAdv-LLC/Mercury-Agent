@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 # Constants
 PHI = 1.618033988749895  # Golden ratio
 BENEVOLENCE_THRESHOLD = 0.99
-SIGMA_SACRED_DEFAULT = 0.96
+SIGMA_IMMUTABLE_DEFAULT = 0.96
 LYAPUNOV_LAMBDA = 0.25
 
 try:
@@ -459,7 +459,7 @@ class NeuroSymbolicHub:
         self,
         input_dim: int = 64,
         fusion_mode: FusionMode = FusionMode.PHI_WEIGHTED,
-        sigma_sacred: float = SIGMA_SACRED_DEFAULT,
+        sigma_immutable: float = SIGMA_IMMUTABLE_DEFAULT,
         benevolence_threshold: float = BENEVOLENCE_THRESHOLD,
         use_calibration: bool = True,
         seed: int = 42,
@@ -470,14 +470,14 @@ class NeuroSymbolicHub:
         Args:
             input_dim: Input feature dimension
             fusion_mode: Mode for combining neural and symbolic
-            sigma_sacred: Ethical threshold (0.93-0.96)
+            sigma_immutable: Ethical threshold (0.93-0.96)
             benevolence_threshold: Required benevolence (default 0.99)
             use_calibration: Apply probability calibration
             seed: Random seed for reproducibility
         """
         self.input_dim = input_dim
         self.fusion_mode = fusion_mode
-        self.sigma_sacred = sigma_sacred
+        self.sigma_immutable = sigma_immutable
         self.benevolence_threshold = benevolence_threshold
         self.use_calibration = use_calibration
         self.seed = seed
@@ -509,7 +509,7 @@ class NeuroSymbolicHub:
 
         logger.info(
             f"NeuroSymbolicHub initialized: fusion={fusion_mode.value}, "
-            f"sigma_sacred={sigma_sacred}, benevolence≥{benevolence_threshold}"
+            f"sigma_immutable={sigma_immutable}, benevolence≥{benevolence_threshold}"
         )
 
     def _initialize_default_rules(self) -> None:
@@ -567,13 +567,13 @@ class NeuroSymbolicHub:
                 explanation_template="Benevolence below 0.99 threshold",
             ),
             SymbolicRule(
-                rule_id="sigma_sacred_violation",
+                rule_id="sigma_immutable_violation",
                 premise="ethical_score < 0.93",
                 conclusion="ethical_violation",
                 confidence=1.0,
                 category="ethical",
                 provenance="system",
-                explanation_template="Ethical score below σ_sacred (0.93)",
+                explanation_template="Ethical score below σ_immutable (0.93)",
             ),
             SymbolicRule(
                 rule_id="harm_detection",
@@ -940,7 +940,7 @@ class NeuroSymbolicHub:
             "avg_latency_ms": (self._total_processing_time / max(self._inference_count, 1)),
             "fitted": self._fitted,
             "calibration_enabled": self._calibrator is not None,
-            "sigma_sacred": self.sigma_sacred,
+            "sigma_immutable": self.sigma_immutable,
             "benevolence_threshold": self.benevolence_threshold,
         }
 

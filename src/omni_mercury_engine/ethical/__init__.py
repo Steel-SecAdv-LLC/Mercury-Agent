@@ -18,8 +18,8 @@ from __future__ import annotations
 from omni_mercury_engine.ethical.ethical_constraint_engine import (
     AthenaWisdomEngine,
     MaatBalanceEngine,
-    SacredGeometryProcessor,
-    SacredWisdomEngine,
+    ImmutableGeometryProcessor,
+    ImmutableWisdomEngine,
     TwelveFoldVerificationSystem,
     VerificationDimension,
     WisdomArchetype,
@@ -28,8 +28,8 @@ from omni_mercury_engine.ethical.ethical_constraint_engine import (
 __all__ = [
     "AthenaWisdomEngine",
     "MaatBalanceEngine",
-    "SacredGeometryProcessor",
-    "SacredWisdomEngine",
+    "ImmutableGeometryProcessor",
+    "ImmutableWisdomEngine",
     "TwelveFoldVerificationSystem",
     "VerificationDimension",
     "WisdomArchetype",

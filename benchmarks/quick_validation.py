@@ -22,7 +22,7 @@ Quick Validation Script with Sympy Proofs
 Validates OmniMercuryEngine convergence properties symbolically:
 - O(e^{-0.13 t}) exponential convergence bound
 - Lyapunov stability (ΔV < 0)
-- Purity Invariant (σ_Sacred > 0)
+- Purity Invariant (σ_Immutable > 0)
 
 Run on initialization to confirm mathematical properties.
 """
@@ -105,7 +105,7 @@ def prove_lyapunov_stability() -> dict[str, Any]:
 
 def prove_purity_invariant() -> dict[str, Any]:
     """
-    Prove Purity Invariant σ_Sacred > 0 for positive-definite ethical matrix.
+    Prove Purity Invariant σ_Immutable > 0 for positive-definite ethical matrix.
 
     For symmetric matrix M constructed from ethical scalars:
     det(M) > 0 and x^T M x > 0 for all x ≠ 0
@@ -133,7 +133,7 @@ def prove_purity_invariant() -> dict[str, Any]:
             "determinant": str(det_M),
             "eigenvalues_positive": is_positive_definite,
             "quadratic_form": str(quadratic_form),
-            "interpretation": "Ethical matrix is positive-definite, ensuring σ_Sacred > 0",
+            "interpretation": "Ethical matrix is positive-definite, ensuring σ_Immutable > 0",
         }
     except Exception as e:
         return {
@@ -220,7 +220,7 @@ def run_all_validations() -> dict[str, Any]:
     print(f"   Condition: {stability_proof['stable_for_alpha']}")
     print()
 
-    print("3. Proving Purity Invariant (σ_Sacred > 0)...")
+    print("3. Proving Purity Invariant (σ_Immutable > 0)...")
     purity_proof = prove_purity_invariant()
     print(f"   ✓ Proven: {purity_proof['proven']}")
     if purity_proof["proven"]:

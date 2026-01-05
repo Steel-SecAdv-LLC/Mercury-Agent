@@ -102,7 +102,7 @@ class AnomalyFusionResult:
         return self.fusion_score
 
     @property
-    def sigma_sacred(self) -> float:
+    def sigma_immutable(self) -> float:
         """Alias for ethical_compliance_threshold (deprecated)."""
         return self.ethical_compliance_threshold
 
@@ -139,7 +139,7 @@ class AnomalyFusionEquation:
         convergence_rate: float = CONVERGENCE_RATE_PARAMETER,
         initial_weights: dict[str, float] | None = None,
         # Backward-compatible parameter aliases
-        sigma_sacred: float | None = None,
+        sigma_immutable: float | None = None,
         lambda_lyapunov: float | None = None,
     ):
         """Initialize AVA Anomaly Fusion Equation (AAFE).
@@ -148,12 +148,12 @@ class AnomalyFusionEquation:
             ethical_compliance_threshold: Ethical compliance threshold η_Ethical (0.93-0.96)
             convergence_rate: Convergence rate parameter for stability (default 0.25)
             initial_weights: Optional initial weights {w_R, w_H, w_O}
-            sigma_sacred: Deprecated alias for ethical_compliance_threshold
+            sigma_immutable: Deprecated alias for ethical_compliance_threshold
             lambda_lyapunov: Deprecated alias for convergence_rate
         """
         # Handle backward-compatible parameter aliases
-        if sigma_sacred is not None:
-            ethical_compliance_threshold = sigma_sacred
+        if sigma_immutable is not None:
+            ethical_compliance_threshold = sigma_immutable
         if lambda_lyapunov is not None:
             convergence_rate = lambda_lyapunov
 
@@ -163,7 +163,7 @@ class AnomalyFusionEquation:
         self.logger = logging.getLogger(__name__)
 
         # Backward-compatible aliases
-        self.sigma_sacred = self.ethical_compliance_threshold
+        self.sigma_immutable = self.ethical_compliance_threshold
         self.lambda_lyapunov = self.convergence_rate_param
         self.phi = self.golden_ratio
 
@@ -192,7 +192,7 @@ class AnomalyFusionEquation:
         optimization_score: float,
         ethical_threshold_override: float | None = None,
         # Backward-compatible parameter alias
-        sigma_sacred_override: float | None = None,
+        sigma_immutable_override: float | None = None,
     ) -> AnomalyFusionResult:
         """Compute AVA Anomaly Fusion Equation (AAFE) score.
 
@@ -201,14 +201,14 @@ class AnomalyFusionEquation:
             resonance_score: H(omega) from frequency-domain analysis
             optimization_score: O(theta) from adaptive enhancement
             ethical_threshold_override: Optional override for η_Ethical threshold
-            sigma_sacred_override: Deprecated alias for ethical_threshold_override
+            sigma_immutable_override: Deprecated alias for ethical_threshold_override
 
         Returns:
             AnomalyFusionResult with all component scores and metadata
         """
         # Handle backward-compatible parameter alias
-        if sigma_sacred_override is not None:
-            ethical_threshold_override = sigma_sacred_override
+        if sigma_immutable_override is not None:
+            ethical_threshold_override = sigma_immutable_override
 
         eta = (
             ethical_threshold_override
@@ -346,7 +346,7 @@ class AnomalyFusionEquation:
             },
             # Backward-compatible keys
             "phi": self.phi,
-            "sigma_sacred": self.sigma_sacred,
+            "sigma_immutable": self.sigma_immutable,
             "weights": self.weights,
         }
 
@@ -2070,12 +2070,12 @@ class ThreeRMechanism:
     - Refactoring O(theta): Adaptive optimization and enhancement
 
     Ava-Dominance Equation:
-        A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * sigma_Sacred^phi
+        A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * sigma_Immutable^phi
 
     This provides:
     - Mathematical superiority over baselines (NSL-KDD F1=0.797 -> target 0.92+)
     - Lyapunov stability guarantee: V(S_t) <= epsilon * e^(-0.25t)
-    - Ethical gating via sigma_Sacred^phi scaling
+    - Ethical gating via sigma_Immutable^phi scaling
     - Harmonic synergy through golden ratio (phi=1.618) weighting
     """
 
@@ -2084,7 +2084,7 @@ class ThreeRMechanism:
         max_recursion_depth: int = 5,
         sampling_rate: float = 1.0,
         enable_auto_optimize: bool = True,
-        sigma_sacred: float = 0.96,
+        sigma_immutable: float = 0.96,
         lambda_lyapunov: float = LAMBDA_LYAPUNOV,
     ):
         """Initialize 3R Mechanism with Ava-Dominance Equation.
@@ -2093,7 +2093,7 @@ class ThreeRMechanism:
             max_recursion_depth: Maximum depth for recursive feature extraction
             sampling_rate: Sampling rate for resonance analysis
             enable_auto_optimize: Enable automatic optimization
-            sigma_sacred: Ethical compliance threshold (0.93-0.96)
+            sigma_immutable: Ethical compliance threshold (0.93-0.96)
             lambda_lyapunov: Lyapunov decay rate for stability (default 0.25)
         """
         self.recursion_engine = RecursionEngine(max_depth=max_recursion_depth)
@@ -2103,7 +2103,7 @@ class ThreeRMechanism:
 
         # Initialize Ava-Dominance Equation for precision dominance
         self.ava_dominance = AvaDominanceEquation(
-            sigma_sacred=sigma_sacred,
+            sigma_immutable=sigma_immutable,
             lambda_lyapunov=lambda_lyapunov,
         )
 
@@ -2114,7 +2114,7 @@ class ThreeRMechanism:
 
         logging.info(
             f"3R Mechanism initialized with Ava-Dominance: "
-            f"sigma_sacred={sigma_sacred}, lambda={lambda_lyapunov}"
+            f"sigma_immutable={sigma_immutable}, lambda={lambda_lyapunov}"
         )
 
     def enhance_features(
@@ -2170,7 +2170,7 @@ class ThreeRMechanism:
     def compute_dominance_score(
         self,
         data: NDArray[Any],
-        sigma_sacred_override: float | None = None,
+        sigma_immutable_override: float | None = None,
     ) -> AvaDominanceResult:
         """Compute Ava-Dominance score for input data.
 
@@ -2180,11 +2180,11 @@ class ThreeRMechanism:
         - O(theta): Optimization score from refactoring analysis
 
         The final score is computed via the Ava-Dominance Equation:
-        A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * sigma_Sacred^phi
+        A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * sigma_Immutable^phi
 
         Args:
             data: Input data array for analysis
-            sigma_sacred_override: Optional override for sigma_Sacred threshold
+            sigma_immutable_override: Optional override for sigma_Immutable threshold
 
         Returns:
             AvaDominanceResult with all component scores and metadata
@@ -2237,7 +2237,7 @@ class ThreeRMechanism:
             recursion_score=recursion_score,
             resonance_score=resonance_score,
             optimization_score=optimization_score,
-            sigma_sacred_override=sigma_sacred_override,
+            sigma_immutable_override=sigma_immutable_override,
         )
 
     def get_dominance_proof(self) -> dict[str, Any]:

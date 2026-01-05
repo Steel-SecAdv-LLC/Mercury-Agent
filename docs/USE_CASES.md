@@ -25,7 +25,7 @@ The NSL-KDD dataset contains 41 network connection features for detecting variou
 - Precision: 0.92+
 - Recall: 0.89+
 - F1 Score: 0.90+
-- False Positive Reduction: 10-15% via sigma_Sacred threshold
+- False Positive Reduction: 10-15% via sigma_Immutable threshold
 
 **Ethical Considerations**: All detections are logged with full audit trails. No personal data is collected without explicit consent. Survivor-first principle prioritizes protecting potential victims over attribution.
 
@@ -94,7 +94,7 @@ ICU patient vital signs and laboratory values for early sepsis detection.
 - Specificity: 80%+
 - Lead Time: 4-6 hours before clinical diagnosis
 
-**Ethical Safeguards**: Medical domain uses sigma_Sacred threshold of 0.93 (vs 0.96 default) to minimize false negatives in life-critical scenarios. All predictions require clinical validation before action. omnimedical_discovery scalar (1.30) prioritizes patient safety.
+**Ethical Safeguards**: Medical domain uses sigma_Immutable threshold of 0.93 (vs 0.96 default) to minimize false negatives in life-critical scenarios. All predictions require clinical validation before action. omnimedical_discovery scalar (1.30) prioritizes patient safety.
 
 **Disclaimer**: This is a simulation-based research tool. Clinical deployment requires IRB approval, HIPAA compliance, and validation by licensed medical professionals.
 

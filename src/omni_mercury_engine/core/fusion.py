@@ -733,7 +733,7 @@ class DoubleHelixEvolutionEngine:
     - ζ𝐙 + ℏ𝐡_q + 𝐕𝐐𝐄 + 𝐐𝐁𝐌 + 𝐀𝐭𝐭𝐧 + 𝐅 + 𝐒 + 𝐈 + 𝐑𝐞𝐥 + ξ𝐀𝐥 + Ω + η_t
 
     Helix_2 (Ethical Verification Strand): Purity/benevolence terms
-    - α𝐇 + ℓ𝐋 + σ_Sacred + ∞_b
+    - α𝐇 + ℓ𝐋 + σ_Immutable + ∞_b
 
     Intertwined via tensor product for replication/resilience.
     Ethical guards enforce threshold >0.8 for rollback and net-positive outcomes.
@@ -896,7 +896,7 @@ class DoubleHelixEvolutionEngine:
         """
         Initialize positive-definite ethical matrix for Purity Invariant.
 
-        σ_Sacred(𝔄_t) = det(ethical_matrix) > 0
+        σ_Immutable(𝔄_t) = det(ethical_matrix) > 0
 
         Constructs matrix from ethical scalars ensuring positive definiteness.
         """
@@ -926,30 +926,30 @@ class DoubleHelixEvolutionEngine:
 
     def _compute_purity_invariant(self, state: np.ndarray[Any, Any]) -> float:
         """
-        Compute Purity Invariant σ_Sacred.
+        Compute Purity Invariant σ_Immutable.
 
-        σ_Sacred(𝔄_t) = det(ethical_matrix) > 0
+        σ_Immutable(𝔄_t) = det(ethical_matrix) > 0
 
         Args:
             state: Current state vector
 
         Returns:
-            Sacred scalar (positive if pure, negative if violated)
+            Immutable scalar (positive if pure, negative if violated)
         """
         det = self.np.linalg.det(self.ethical_matrix)
 
         state_normalized = state / (self.np.linalg.norm(state) + 1e-8)
         ethical_alignment = state_normalized @ self.ethical_matrix @ state_normalized
 
-        sacred_scalar = det * ethical_alignment
+        immutable_scalar = det * ethical_alignment
 
-        return float(sacred_scalar)
+        return float(immutable_scalar)
 
     def _apply_purity_correction(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Apply purity correction to banish negative divergences.
 
-        If σ_Sacred <= 0, projects state onto positive-definite subspace.
+        If σ_Immutable <= 0, projects state onto positive-definite subspace.
 
         Args:
             state: State to correct
@@ -957,9 +957,9 @@ class DoubleHelixEvolutionEngine:
         Returns:
             Corrected state
         """
-        sacred = self._compute_purity_invariant(state)
+        immutable = self._compute_purity_invariant(state)
 
-        if sacred <= 0:
+        if immutable <= 0:
             eigenvalues, eigenvectors = self.np.linalg.eigh(self.ethical_matrix)
             positive_mask = eigenvalues > 0
 
@@ -1037,7 +1037,7 @@ class DoubleHelixEvolutionEngine:
         Helix_2 Ethical Verification Strand: Purity/benevolence terms.
 
         Backward/verification strand with ethical focus.
-        Includes ethical refinement, Light/Love, sacred purity, and boundedness.
+        Includes ethical refinement, Light/Love, immutable purity, and boundedness.
         """
         strand = self.np.zeros_like(state)
 
@@ -1047,9 +1047,9 @@ class DoubleHelixEvolutionEngine:
             strand += self.ell * self._term_L(state)
 
         if self.enable_purity_invariant:
-            sacred_scalar = self._compute_purity_invariant(state)
-            if sacred_scalar > 0:
-                strand += state * (sacred_scalar * 0.01)
+            immutable_scalar = self._compute_purity_invariant(state)
+            if immutable_scalar > 0:
+                strand += state * (immutable_scalar * 0.01)
 
         return strand
 

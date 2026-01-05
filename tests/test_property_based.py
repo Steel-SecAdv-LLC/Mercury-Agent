@@ -383,19 +383,19 @@ class TestEthicalEngineProperties:
         )
     )
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
-    def test_sacred_geometry_bounded_scores(self, data: np.ndarray[Any, Any]):
-        """Sacred geometry analysis should produce scores in [0, 1]."""
-        from omni_mercury_engine.ethical.ethical_constraint_engine import SacredGeometryProcessor
+    def test_geometry_analysis_bounded_scores(self, data: np.ndarray[Any, Any]):
+        """Immutable geometry analysis should produce scores in [0, 1]."""
+        from omni_mercury_engine.ethical.ethical_constraint_engine import ImmutableGeometryProcessor
 
-        processor = SacredGeometryProcessor()
-        result = processor.analyze_sacred_geometry(data)
+        processor = ImmutableGeometryProcessor()
+        result = processor.analyze_geometry_analysis(data)
 
         # Property: All scores should be bounded [0, 1]
         assert 0.0 <= result.golden_ratio_alignment <= 1.0
         assert 0.0 <= result.fibonacci_spiral_score <= 1.0
         assert 0.0 <= result.vesica_piscis_score <= 1.0
         assert 0.0 <= result.platonic_harmony <= 1.0
-        assert 0.0 <= result.overall_sacred_score <= 1.0
+        assert 0.0 <= result.overall_geometry_score <= 1.0
 
 
 class TestDetectorRegistryProperties:

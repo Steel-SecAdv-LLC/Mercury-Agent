@@ -1868,7 +1868,7 @@ class OmniMercuryDetector:
             self._adaptive_detector = AdaptiveAnomalyDetector(
                 contamination=contamination,
                 benevolence_threshold=0.99,
-                sigma_sacred=0.96,
+                sigma_immutable=0.96,
                 auto_profile=True,
             )
             logger.info("Adaptive: AdaptiveAnomalyDetector initialized")

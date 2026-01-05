@@ -69,8 +69,8 @@ SIGMA_IMMUTABLE_DEFAULT: float = 0.96  # Default elevated threshold
 SIGMA_IMMUTABLE_MEDICAL: float = 0.93  # Medical domain fallback (avoid false negatives)
 
 # Backward compatibility aliases (deprecated in v2.0)
-SIGMA_SACRED_THRESHOLD: float = SIGMA_IMMUTABLE_DEFAULT
-SIGMA_SACRED_MEDICAL_FALLBACK: float = SIGMA_IMMUTABLE_MEDICAL
+SIGMA_IMMUTABLE_THRESHOLD: float = SIGMA_IMMUTABLE_DEFAULT
+SIGMA_IMMUTABLE_MEDICAL_FALLBACK: float = SIGMA_IMMUTABLE_MEDICAL
 
 try:
     import torch
@@ -132,7 +132,7 @@ class EthicalGate:
     """
     Neural network gate for ethical compliance verification.
 
-    Blocks operations if ethical score falls below σ_Sacred threshold (0.93).
+    Blocks operations if ethical score falls below σ_Immutable threshold (0.93).
     Uses a simple feedforward network: 256 → 64 → 1 with Sigmoid activation.
     """
 
@@ -266,7 +266,7 @@ class TriadicPhiWeighting:
         """Compute harmonic synergy score from attention output.
 
         The synergy score measures how well the triadic weighting produces
-        coherent frequency patterns (H(omega) in the Omni-Dominance Equation).
+        coherent frequency patterns (H(omega) in the Ava-Dominance Equation).
 
         Args:
             attention_output: Output from attention mechanism
@@ -305,7 +305,7 @@ class MultiHeadAttentionFusion:
 
     The triadic phi-weighting applies golden ratio (phi = 1.618) scaling to
     attention scores, creating coherent frequency patterns that enhance the
-    H(omega) component of the Omni-Dominance Equation.
+    H(omega) component of the Ava-Dominance Equation.
     """
 
     def __init__(
@@ -411,7 +411,7 @@ def get_sigma_immutable_threshold(domain: str | None = None) -> float:
     Get the sigma_Immutable threshold for ethical gating (Civilization-First principle).
 
     The threshold can be configured via environment variable SIGMA_IMMUTABLE_THRESHOLD
-    (or SIGMA_SACRED_THRESHOLD for backward compatibility).
+    (or SIGMA_IMMUTABLE_THRESHOLD for backward compatibility).
     Default is 0.96 for stricter ethical gating (~10-15% false positive reduction).
     Medical domains use 0.93 fallback to avoid false negatives in critical scenarios.
 
@@ -435,10 +435,10 @@ def get_sigma_immutable_threshold(domain: str | None = None) -> float:
     # Check environment variable for custom threshold (new name first, then legacy)
     env_threshold = os.environ.get("SIGMA_IMMUTABLE_THRESHOLD")
     if env_threshold is None:
-        env_threshold = os.environ.get("SIGMA_SACRED_THRESHOLD")
+        env_threshold = os.environ.get("SIGMA_IMMUTABLE_THRESHOLD")
         if env_threshold is not None:
             warnings.warn(
-                "SIGMA_SACRED_THRESHOLD is deprecated; use SIGMA_IMMUTABLE_THRESHOLD",
+                "SIGMA_IMMUTABLE_THRESHOLD is deprecated; use SIGMA_IMMUTABLE_THRESHOLD",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -453,23 +453,6 @@ def get_sigma_immutable_threshold(domain: str | None = None) -> float:
 
     # Default elevated threshold for precision dominance
     return SIGMA_IMMUTABLE_DEFAULT
-
-
-def get_sigma_sacred_threshold(domain: str | None = None) -> float:
-    """
-    DEPRECATED: Use get_sigma_immutable_threshold instead.
-
-    This function is maintained for backward compatibility and will be
-    removed in v2.0.
-    """
-    import warnings
-
-    warnings.warn(
-        "get_sigma_sacred_threshold is deprecated; use get_sigma_immutable_threshold",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return get_sigma_immutable_threshold(domain)
 
 
 class GlobalOmniScalarNetwork:
@@ -495,7 +478,7 @@ class GlobalOmniScalarNetwork:
     - Bidirectional synaptic integration with 3R mechanism
 
     The σ_Immutable threshold can be configured via SIGMA_IMMUTABLE_THRESHOLD
-    environment variable (SIGMA_SACRED_THRESHOLD also supported for compatibility).
+    environment variable (SIGMA_IMMUTABLE_THRESHOLD also supported for compatibility).
     Default is 0.96 for ~10-15% false positive reduction via stricter ethical gating.
     Medical domains automatically use 0.93 fallback.
 
@@ -513,8 +496,8 @@ class GlobalOmniScalarNetwork:
     MIN_MORALITY = 1.20
     TARGET_BOOST_RATIO = 0.60
     # Backward compatibility aliases (deprecated in v2.0)
-    SIGMA_SACRED_DEFAULT = SIGMA_IMMUTABLE_DEFAULT
-    SIGMA_SACRED_MEDICAL = SIGMA_IMMUTABLE_MEDICAL
+    SIGMA_IMMUTABLE_DEFAULT = SIGMA_IMMUTABLE_DEFAULT
+    SIGMA_IMMUTABLE_MEDICAL = SIGMA_IMMUTABLE_MEDICAL
 
     def __new__(cls, *args: Any, **kwargs: Any) -> GlobalOmniScalarNetwork:
         """Singleton pattern implementation."""
@@ -556,7 +539,7 @@ class GlobalOmniScalarNetwork:
         # Get domain-appropriate sigma_Immutable threshold
         self.sigma_immutable_threshold = get_sigma_immutable_threshold(domain)
         # Backward compatibility alias (deprecated in v2.0)
-        self.sigma_sacred_threshold = self.sigma_immutable_threshold
+        self.sigma_immutable_threshold = self.sigma_immutable_threshold
 
         self.registered_scalars: dict[str, ScalarRegistration] = {}
         self.scalar_groups: dict[ScalarGroup, dict[str, float]] = {
@@ -574,7 +557,7 @@ class GlobalOmniScalarNetwork:
             enable_triadic_phi=enable_triadic_phi,
         )
 
-        # Track harmonic synergy for Omni-Dominance Equation
+        # Track harmonic synergy for Ava-Dominance Equation
         self.last_harmonic_synergy: float = 0.5
 
         self._initialize_default_scalars()
@@ -884,9 +867,9 @@ class GlobalOmniScalarNetwork:
 
         This method performs bidirectional synaptic integration:
         1. Collects all registered scalars from components
-        2. Evaluates ethical compliance via sigma_Sacred threshold
+        2. Evaluates ethical compliance via sigma_Immutable threshold
         3. Fuses dimensional states using 32-head attention with triadic phi-weighting
-        4. Computes harmonic synergy for the Omni-Dominance Equation H(omega) term
+        4. Computes harmonic synergy for the Ava-Dominance Equation H(omega) term
         5. Returns enhanced scalars with fusion metadata
 
         Args:
@@ -926,7 +909,7 @@ class GlobalOmniScalarNetwork:
             fused_state = fuse_result
             harmonic_synergy = 0.5
 
-        # Store harmonic synergy for Omni-Dominance Equation
+        # Store harmonic synergy for Ava-Dominance Equation
         self.last_harmonic_synergy = harmonic_synergy
 
         enhanced_scalars = self._apply_enhancement(base_scalars, fused_state, ethical_score)
@@ -1193,7 +1176,7 @@ def get_global_scalar_network(
 
     The GOSNN provides bidirectional synaptic integration with the 3R mechanism
     and other components. It uses 32-head attention with triadic phi-weighting
-    for harmonic synergy and configurable sigma_Sacred threshold for ethical gating.
+    for harmonic synergy and configurable sigma_Immutable threshold for ethical gating.
 
     Args:
         device: Computation device ('cpu' or 'cuda')
@@ -1207,8 +1190,8 @@ def get_global_scalar_network(
         GlobalOmniScalarNetwork singleton instance
 
     Note:
-        The sigma_Sacred threshold can also be configured via the
-        SIGMA_SACRED_THRESHOLD environment variable. Default is 0.96 for
+        The sigma_Immutable threshold can also be configured via the
+        SIGMA_IMMUTABLE_THRESHOLD environment variable. Default is 0.96 for
         ~10-15% false positive reduction. Medical domains use 0.93 fallback.
     """
     global _global_network

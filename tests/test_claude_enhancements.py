@@ -359,14 +359,14 @@ class TestFusion:
         assert abs(np.sum(bma.weights.weights) - 1.0) < 1e-6
 
     def test_ethical_fusion_constraint(self):
-        """Ethical fusion should respect sigma_sacred threshold."""
+        """Ethical fusion should respect sigma_immutable threshold."""
         np.random.seed(42)
         X = np.random.randn(100, 10)
         y = np.random.randint(0, 2, 100)
 
-        sigma_sacred = 0.90
+        sigma_immutable = 0.90
 
-        fusion = EthicallyConstrainedFusion(sigma_sacred=sigma_sacred)
+        fusion = EthicallyConstrainedFusion(sigma_immutable=sigma_immutable)
         fusion.add_detector("lr1", LogisticRegression(), ethical_score=0.95)
         fusion.add_detector("lr2", LogisticRegression(C=0.1), ethical_score=0.85)
 
@@ -375,7 +375,7 @@ class TestFusion:
 
         # Average ethical score should be >= threshold
         assert (
-            compliance["average_ethical_score"] >= sigma_sacred * 0.9
+            compliance["average_ethical_score"] >= sigma_immutable * 0.9
         ), f"Ethical score {compliance['average_ethical_score']} below threshold"
 
     @given(st.floats(min_value=1.0, max_value=3.0))

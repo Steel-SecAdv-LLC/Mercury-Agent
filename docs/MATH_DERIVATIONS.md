@@ -295,7 +295,7 @@ def compute_harmonic_synergy(attention_output, head_weights):
 
 ### 4.1 Threshold Selection
 
-The σ_Immutable threshold (formerly σ_Sacred) balances precision and recall:
+The σ_Immutable threshold (formerly σ_Immutable) balances precision and recall:
 
 | Threshold | False Positive Reduction | False Negative Risk |
 |-----------|--------------------------|---------------------|
@@ -332,7 +332,7 @@ def ab_test_sigma(data, threshold_a=0.93, threshold_b=0.96):
 
 ### 5.1 Target Performance
 
-The Omni-Dominance Equation targets F1 ≥ 0.92 on synthetic data, compared to baselines:
+The Ava-Dominance Equation targets F1 ≥ 0.92 on synthetic data, compared to baselines:
 - NSL-KDD baseline: F1 = 0.797
 - Target improvement: +15.4% absolute, +19.3% relative
 
@@ -360,18 +360,18 @@ This represents a 39% improvement in convergence speed.
 To validate the theoretical claims, we conduct A/B testing with 300-epoch training runs:
 
 **Configuration A (Baseline)**:
-- Standard anomaly detection without Omni-Dominance
+- Standard anomaly detection without Ava-Dominance
 - λ = 0.18 (original decay rate)
 - No ethical gating (σ_Immutable = 1.0)
 
-**Configuration B (Omni-Dominance)**:
-- Full 3R mechanism with Omni-Dominance Equation
+**Configuration B (Ava-Dominance)**:
+- Full 3R mechanism with Ava-Dominance Equation
 - λ = 0.25 (elevated decay rate)
 - Ethical gating with σ_Immutable = 0.96
 
 ### 6.2 Benchmark Results (300 Epochs)
 
-| Metric | Baseline (A) | Omni-Dominance (B) | Improvement |
+| Metric | Baseline (A) | Ava-Dominance (B) | Improvement |
 |--------|--------------|-------------------|-------------|
 | F1 Score | 0.797 | 0.923 | +15.8% |
 | Precision | 0.812 | 0.941 | +15.9% |
@@ -405,7 +405,7 @@ All improvements are statistically significant at α = 0.05.
 
 ```python
 def run_ab_benchmark(n_epochs=300, n_runs=10):
-    """Run A/B benchmark comparing baseline vs Omni-Dominance."""
+    """Run A/B benchmark comparing baseline vs Ava-Dominance."""
     results_a, results_b = [], []
 
     for run in range(n_runs):
@@ -414,8 +414,8 @@ def run_ab_benchmark(n_epochs=300, n_runs=10):
         history_a = train_model(model_a, n_epochs, lambda_val=0.18, sigma_immutable=1.0)
         results_a.append(evaluate_model(model_a))
 
-        # Configuration B: Omni-Dominance
-        model_b = create_omni_dominance_model()
+        # Configuration B: Ava-Dominance
+        model_b = create_ava_dominance_model()
         history_b = train_model(model_b, n_epochs, lambda_val=0.25, sigma_immutable=0.96)
         results_b.append(evaluate_model(model_b))
 
@@ -447,7 +447,7 @@ def run_ab_benchmark(n_epochs=300, n_runs=10):
 
 ### 7.2 Computational Complexity
 
-- Omni-Dominance computation: O(n log n) due to FFT
+- Ava-Dominance computation: O(n log n) due to FFT
 - Weight update: O(1) per iteration
 - Lyapunov verification: O(history_length)
 

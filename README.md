@@ -97,13 +97,13 @@ Mercury Agent ♱ implements a comprehensive 7-phase cognitive architecture that
 
 The following benchmarks were generated from a 200-epoch training run with the full neuro-symbolic cognitive stack active. All metrics are from actual system execution, not simulated data.
 
-### Benchmark Summary (300 Epochs with Omni-Dominance Equation)
+### Benchmark Summary (300 Epochs with Ava-Dominance Equation)
 
 | Metric | Value | Description |
 |--------|-------|-------------|
 | **Final Confidence** | 0.999 | Bayesian calibrated confidence score |
 | **Confidence Growth** | +0.239 | Improvement from baseline 0.76 |
-| **Anomaly Detection F1** | 0.92+ | Precision/Recall harmonic mean (Omni-Dominance) |
+| **Anomaly Detection F1** | 0.92+ | Precision/Recall harmonic mean (Ava-Dominance) |
 | **Anomaly Precision** | 0.95 | True positive rate |
 | **Anomaly Recall** | 0.89 | Detection coverage |
 | **Memory Entries** | 3,300 | Accumulated episodic/semantic memories |
@@ -113,10 +113,10 @@ The following benchmarks were generated from a 200-epoch training run with the f
 
 ### A/B Benchmark Results
 
-| Comparison | Baseline | Omni-Dominance | Improvement |
+| Comparison | Baseline | Ava-Dominance | Improvement |
 |------------|----------|----------------|-------------|
 | **σ_Immutable=0.93 vs 0.96** | F1=0.89 | F1=0.92+ | +3-5% |
-| **Standard vs Omni-Dominance** | F1=0.797 | F1=0.92+ | +15-30% |
+| **Standard vs Ava-Dominance** | F1=0.797 | F1=0.92+ | +15-30% |
 | **Lyapunov λ=0.18 vs 0.25** | Slower | 25% faster | 1.39x speedup |
 
 ### Confidence Evolution

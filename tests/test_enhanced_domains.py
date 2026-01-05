@@ -566,7 +566,7 @@ class TestGOSNNIntegration:
         from omni_mercury_engine.core.gosnn_integration import GOSNNIntegration
 
         return GOSNNIntegration(
-            sigma_sacred=0.96,
+            sigma_immutable=0.96,
             fusion_method="ethical",
             use_calibration=False,  # Disable for simpler testing
             use_conformal=False,
@@ -642,7 +642,7 @@ class TestGOSNNIntegration:
 
         report = integration.get_ethical_report()
 
-        assert "sigma_sacred" in report
+        assert "sigma_immutable" in report
         assert "domain_ethical_scores" in report
         assert "passes_threshold" in report
 
@@ -680,7 +680,7 @@ class TestIntegrationWithRealDetectors:
 
             integration = create_integrated_detector(
                 domains=["model"],
-                sigma_sacred=0.96,
+                sigma_immutable=0.96,
             )
 
             assert integration is not None

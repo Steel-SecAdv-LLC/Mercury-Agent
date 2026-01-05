@@ -165,11 +165,11 @@ class TestGOSNNOptimizer:
         from omni_mercury_engine.core.gosnn_optimizer import GOSNNOptimizer
 
         optimizer = GOSNNOptimizer(
-            sigma_sacred=0.96,
+            sigma_immutable=0.96,
             target_overhead_percent=2.0,
         )
 
-        assert optimizer.sigma_sacred == 0.96
+        assert optimizer.sigma_immutable == 0.96
         assert optimizer.target_overhead == 2.0
 
     def test_scalar_importance_analysis(self):
@@ -201,12 +201,12 @@ class TestGOSNNOptimizer:
         assert importances["stable_scalar"].stability_score > 0.5
 
     def test_ethical_gate_hard_constraint(self):
-        """Test σ_Sacred hard constraint at 0.93."""
+        """Test σ_Immutable hard constraint at 0.93."""
         from omni_mercury_engine.core.gosnn_optimizer import EthicalGateOptimizer
 
         gate = EthicalGateOptimizer(
-            sigma_sacred_hard=0.93,
-            sigma_sacred_target=0.96,
+            sigma_immutable_hard=0.93,
+            sigma_immutable_target=0.96,
         )
 
         # Should pass with very high ethical scalars (values are normalized by /2, so need ~1.9+ to get 0.93+)
@@ -276,9 +276,9 @@ class TestGOSNNOptimizer:
 
         # Verify optimization produces valid results
         assert result.total_scalars > 0
-        # sigma_Sacred and ethical compliance depend on scalar values
-        # The optimizer should produce a valid sigma_sacred_value
-        assert 0.0 <= result.sigma_sacred_value <= 1.0
+        # sigma_Immutable and ethical compliance depend on scalar values
+        # The optimizer should produce a valid sigma_immutable_value
+        assert 0.0 <= result.sigma_immutable_value <= 1.0
         # Benevolence should be computed
         assert result.benevolence_value >= 0.0
 
@@ -420,12 +420,12 @@ class TestIntegration:
             )
 
             integration = GOSNNIntegration(
-                sigma_sacred=0.96,
+                sigma_immutable=0.96,
                 benevolence_threshold=0.99,
             )
 
             # Should initialize without error
-            assert integration.sigma_sacred == 0.96
+            assert integration.sigma_immutable == 0.96
 
         except ImportError:
             pytest.skip("GOSNN integration module not available")
@@ -492,8 +492,8 @@ class TestIntegration:
         # Assertions - verify pipeline produces valid results
         assert len(results) == 20
         assert all(r.benevolence_score >= 0 for r in results)
-        # sigma_Sacred and ethical compliance depend on scalar values
-        assert 0.0 <= opt_result.sigma_sacred_value <= 1.0
+        # sigma_Immutable and ethical compliance depend on scalar values
+        assert 0.0 <= opt_result.sigma_immutable_value <= 1.0
         assert opt_result.benevolence_value >= 0.0
 
 
@@ -509,11 +509,11 @@ class TestEthicalConstraints:
         # Cannot set below threshold
         assert hub.benevolence_threshold == 0.99
 
-    def test_sigma_sacred_hard_limit(self):
-        """Test σ_Sacred hard limit at 0.93."""
+    def test_sigma_immutable_hard_limit(self):
+        """Test σ_Immutable hard limit at 0.93."""
         from omni_mercury_engine.core.gosnn_optimizer import EthicalGateOptimizer
 
-        gate = EthicalGateOptimizer(sigma_sacred_hard=0.93)
+        gate = EthicalGateOptimizer(sigma_immutable_hard=0.93)
 
         # Should block if below 0.93
         passes, _, _ = gate.evaluate({"omnibenevolence": 0.5})
