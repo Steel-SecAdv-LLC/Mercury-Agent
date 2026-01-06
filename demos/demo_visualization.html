@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mercury Agent - Live Anomaly Detection Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
+            color: #00ff00;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .banner {
+            text-align: center;
+            padding: 20px;
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            background: rgba(0, 255, 0, 0.05);
+        }
+        .banner h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        .banner .subtitle {
+            color: #888;
+            font-size: 1.1em;
+        }
+        .section {
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        .section-title {
+            color: #00ff00;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #333;
+        }
+        .detection-row {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .detection-row.anomaly {
+            background: rgba(255, 0, 0, 0.2);
+            border-left: 3px solid #ff4444;
+        }
+        .detection-row.normal {
+            background: rgba(0, 255, 0, 0.1);
+            border-left: 3px solid #00ff00;
+        }
+        .timestamp {
+            color: #888;
+            margin-right: 15px;
+            min-width: 180px;
+        }
+        .status {
+            font-weight: bold;
+            margin-right: 15px;
+            min-width: 80px;
+        }
+        .status.anomaly {
+            color: #ff4444;
+        }
+        .status.normal {
+            color: #00ff00;
+        }
+        .metric {
+            margin-right: 15px;
+            color: #aaa;
+        }
+        .metric span {
+            color: #fff;
+        }
+        .threat-details {
+            margin-left: 200px;
+            padding: 5px 10px;
+            background: rgba(255, 0, 0, 0.1);
+            border-radius: 4px;
+            font-size: 0.85em;
+            color: #ff8888;
+        }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+        .summary-item {
+            text-align: center;
+            padding: 15px;
+            background: rgba(0, 255, 0, 0.1);
+            border-radius: 8px;
+        }
+        .summary-item .value {
+            font-size: 2em;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        .summary-item .label {
+            color: #888;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.9em;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .live-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #ff0000;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 1s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="banner">
+            <h1>MERCURY AGENT</h1>
+            <div class="subtitle">Neuro-Symbolic AI | Ethical Governance | Civilization-First</div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <span class="live-indicator"></span>
+                LIVE DETECTION - Domain: SECURITY
+            </div>
+            <div id="detections">
+                <!-- Detections will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">DETECTION SUMMARY</div>
+            <div class="summary">
+                <div class="summary-item">
+                    <div class="value" id="total-samples">0</div>
+                    <div class="label">Total Samples</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value" id="anomalies-detected">0</div>
+                    <div class="label">Anomalies Detected</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value" id="detection-rate">0%</div>
+                    <div class="label">Detection Rate</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">ETHICAL AI METRICS</div>
+            <div class="summary">
+                <div class="summary-item">
+                    <div class="value" id="avg-confidence">0.00</div>
+                    <div class="label">Avg Confidence</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value" id="avg-benevolence">0.99</div>
+                    <div class="label">Avg Benevolence</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value" id="runtime">0.00s</div>
+                    <div class="label">Runtime</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            Mercury Agent - Civilization-First AI | GPL v3.0 | Steel Security Advisory LLC
+        </div>
+    </div>
+
+    <script>
+        // Sample detection data (simulated from live demo)
+        const detections = [
+            { timestamp: "2026-01-06 02:21:17.325", isAnomaly: true, score: 1.000, confidence: 0.990, benevolence: 0.990, threat: "HIGH", bytes: "9246/600" },
+            { timestamp: "2026-01-06 02:21:17.442", isAnomaly: false, score: 0.797, confidence: 0.831, benevolence: 0.990 },
+            { timestamp: "2026-01-06 02:21:17.560", isAnomaly: false, score: 0.852, confidence: 0.822, benevolence: 0.990 },
+            { timestamp: "2026-01-06 02:21:17.678", isAnomaly: true, score: 1.000, confidence: 0.990, benevolence: 0.990, threat: "HIGH", bytes: "6725/675" },
+            { timestamp: "2026-01-06 02:21:17.796", isAnomaly: false, score: 0.803, confidence: 0.830, benevolence: 0.990 },
+            { timestamp: "2026-01-06 02:21:17.913", isAnomaly: true, score: 1.000, confidence: 0.990, benevolence: 0.990, threat: "HIGH", bytes: "9797/15343" },
+            { timestamp: "2026-01-06 02:21:18.031", isAnomaly: false, score: 0.814, confidence: 0.828, benevolence: 0.990 },
+            { timestamp: "2026-01-06 02:21:18.148", isAnomaly: false, score: 0.803, confidence: 0.830, benevolence: 0.990 },
+            { timestamp: "2026-01-06 02:21:18.266", isAnomaly: false, score: 0.814, confidence: 0.828, benevolence: 0.990 },
+            { timestamp: "2026-01-06 02:21:18.383", isAnomaly: false, score: 0.876, confidence: 0.819, benevolence: 0.990 },
+            { timestamp: "2026-01-06 02:21:18.501", isAnomaly: false, score: 0.826, confidence: 0.826, benevolence: 0.990 },
+            { timestamp: "2026-01-06 02:21:18.619", isAnomaly: false, score: 0.846, confidence: 0.823, benevolence: 0.990 },
+            { timestamp: "2026-01-06 02:21:18.736", isAnomaly: false, score: 0.793, confidence: 0.831, benevolence: 0.990 },
+            { timestamp: "2026-01-06 02:21:18.854", isAnomaly: false, score: 0.834, confidence: 0.825, benevolence: 0.990 },
+            { timestamp: "2026-01-06 02:21:18.972", isAnomaly: true, score: 1.000, confidence: 0.990, benevolence: 0.990, threat: "HIGH", bytes: "6306/7950" }
+        ];
+
+        const detectionsContainer = document.getElementById('detections');
+        let currentIndex = 0;
+        let totalConfidence = 0;
+        let totalBenevolence = 0;
+        let anomalyCount = 0;
+
+        function addDetection() {
+            if (currentIndex >= detections.length) {
+                return;
+            }
+
+            const d = detections[currentIndex];
+            const row = document.createElement('div');
+            row.className = `detection-row ${d.isAnomaly ? 'anomaly' : 'normal'}`;
+            
+            let html = `
+                <span class="timestamp">[${currentIndex + 1}/${detections.length}] ${d.timestamp}</span>
+                <span class="status ${d.isAnomaly ? 'anomaly' : 'normal'}">${d.isAnomaly ? 'ANOMALY' : 'NORMAL '}</span>
+                <span class="metric">Score: <span>${d.score.toFixed(3)}</span></span>
+                <span class="metric">Conf: <span>${d.confidence.toFixed(3)}</span></span>
+                <span class="metric">Benev: <span>${d.benevolence.toFixed(3)}</span></span>
+            `;
+            row.innerHTML = html;
+            detectionsContainer.appendChild(row);
+
+            if (d.isAnomaly && d.threat) {
+                const details = document.createElement('div');
+                details.className = 'threat-details';
+                details.innerHTML = `Threat: ${d.threat} | Bytes: ${d.bytes}`;
+                detectionsContainer.appendChild(details);
+                anomalyCount++;
+            }
+
+            totalConfidence += d.confidence;
+            totalBenevolence += d.benevolence;
+            currentIndex++;
+
+            // Update summary
+            document.getElementById('total-samples').textContent = currentIndex;
+            document.getElementById('anomalies-detected').textContent = anomalyCount;
+            document.getElementById('detection-rate').textContent = ((anomalyCount / currentIndex) * 100).toFixed(1) + '%';
+            document.getElementById('avg-confidence').textContent = (totalConfidence / currentIndex).toFixed(4);
+            document.getElementById('avg-benevolence').textContent = (totalBenevolence / currentIndex).toFixed(4);
+            document.getElementById('runtime').textContent = ((currentIndex * 0.12) + 0.3).toFixed(2) + 's';
+
+            // Scroll to bottom
+            detectionsContainer.scrollTop = detectionsContainer.scrollHeight;
+
+            if (currentIndex < detections.length) {
+                setTimeout(addDetection, 300);
+            }
+        }
+
+        // Start the demo after a short delay
+        setTimeout(addDetection, 1000);
+    </script>
+</body>
+</html>
