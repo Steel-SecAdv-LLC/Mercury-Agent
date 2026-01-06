@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Thread-safe with configurable max entries (10,000 default)
 - **GOSNN Detection Cache** (`core/gosnn_integration.py`): 2x speedup for repeated queries
   - `TTLCache` class with LRU eviction and configurable TTL (300s default)
-  - MD5-based array hashing for cache keys
+  - SHA-256 array hashing for cache keys
   - Thread-safe operations with hit/miss statistics
   - `get_detection_cache()` for global cache access
 - **GOSNN Performance Monitor** (`core/gosnn_integration.py`): Latency tracking
