@@ -22,6 +22,10 @@ Comprehensive benchmark for Mercury Agent ♱ enhancements.
 
 Benchmarks module instantiation, detection performance, and scalability
 across 1, 5, and all 12 infrastructure modules.
+
+Includes real-world data benchmarks:
+- NSL-KDD: Network intrusion detection (security domain)
+- MIMIC-III Demo: Medical ICU data (medical domain)
 """
 
 import json
@@ -34,6 +38,11 @@ from sklearn.metrics import f1_score, precision_score, recall_score
 from omni_mercury_engine.infrastructure import InfrastructureCoordinator
 from omni_mercury_engine.models.simulation import SimulationModule
 from omni_mercury_engine.space.space_exploration_analyzer import SpaceExplorationAnalyzer
+
+from benchmarks.real_data_benchmarks import (
+    MIMICDemoBenchmark,
+    NSLKDDBenchmark,
+)
 
 
 def validate_metrics(metrics: dict[str, Any], benchmark_name: str) -> None:
@@ -167,15 +176,59 @@ def benchmark_cosmic_ray_detection() -> dict[str, Any]:
     }
 
 
-def run_all_benchmarks() -> dict[str, Any]:
-    """Run all benchmarks and return results."""
+def benchmark_real_data_nsl_kdd() -> dict[str, Any]:
+    """Run NSL-KDD network intrusion detection benchmark."""
+    benchmark = NSLKDDBenchmark()
+    result = benchmark.run_benchmark(max_samples=10000, n_folds=3)
+    return {
+        "dataset": result.dataset_name,
+        "domain": result.domain,
+        "num_samples": result.num_samples,
+        "num_features": result.num_features,
+        "precision": result.precision,
+        "recall": result.recall,
+        "f1": result.f1,
+        "roc_auc": result.roc_auc,
+        "runtime_seconds": result.runtime_seconds,
+        "data_source": result.data_source,
+        "bias_metrics": result.bias_metrics,
+    }
+
+
+def benchmark_real_data_mimic() -> dict[str, Any]:
+    """Run MIMIC-III demo medical benchmark."""
+    benchmark = MIMICDemoBenchmark()
+    result = benchmark.run_benchmark(n_patients=1000, n_folds=3)
+    return {
+        "dataset": result.dataset_name,
+        "domain": result.domain,
+        "num_samples": result.num_samples,
+        "num_features": result.num_features,
+        "precision": result.precision,
+        "recall": result.recall,
+        "f1": result.f1,
+        "roc_auc": result.roc_auc,
+        "runtime_seconds": result.runtime_seconds,
+        "data_source": result.data_source,
+        "bias_metrics": result.bias_metrics,
+    }
+
+
+def run_all_benchmarks(include_real_data: bool = True) -> dict[str, Any]:
+    """Run all benchmarks and return results.
+
+    Args:
+        include_real_data: Whether to include real-data benchmarks (NSL-KDD, MIMIC-III)
+    """
     print("=" * 70)
     print("Mercury-Agent COMPREHENSIVE BENCHMARK")
     print("=" * 70)
 
     results = {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()), "benchmarks": {}}
 
-    print("\n[1/4] Benchmarking module instantiation...")
+    total_steps = 6 if include_real_data else 4
+
+    print(f"\n[1/{total_steps}] Benchmarking module instantiation...")
     results["benchmarks"]["module_instantiation"] = benchmark_module_instantiation()
     print(f"  ✓ 1 module: {results['benchmarks']['module_instantiation']['1_module_ms']:.2f} ms")
     print(f"  ✓ 5 modules: {results['benchmarks']['module_instantiation']['5_modules_ms']:.2f} ms")
@@ -183,25 +236,38 @@ def run_all_benchmarks() -> dict[str, Any]:
         f"  ✓ All modules: {results['benchmarks']['module_instantiation']['all_modules_ms']:.2f} ms"
     )
 
-    print("\n[2/4] Benchmarking space exploration analyzer...")
+    print(f"\n[2/{total_steps}] Benchmarking space exploration analyzer...")
     results["benchmarks"]["space_exploration"] = benchmark_space_exploration()
     print(f"  ✓ Runtime: {results['benchmarks']['space_exploration']['runtime_ms']:.2f} ms")
     print(f"  ✓ Anomaly detected: {results['benchmarks']['space_exploration']['anomaly_detected']}")
 
-    print("\n[3/4] Benchmarking simulation module...")
+    print(f"\n[3/{total_steps}] Benchmarking simulation module...")
     results["benchmarks"]["simulation"] = benchmark_simulation_module()
     print(f"  ✓ Collatz: {results['benchmarks']['simulation']['collatz_exploration_ms']:.2f} ms")
     print(f"  ✓ Millennium: {results['benchmarks']['simulation']['millennium_analysis_ms']:.2f} ms")
 
-    print("\n[4/4] Benchmarking cosmic ray detection...")
+    print(f"\n[4/{total_steps}] Benchmarking cosmic ray detection...")
     results["benchmarks"]["cosmic_ray"] = benchmark_cosmic_ray_detection()
     print(f"  ✓ Runtime: {results['benchmarks']['cosmic_ray']['runtime_ms']:.2f} ms")
     print(
         f"  ✓ Events detected: {results['benchmarks']['cosmic_ray']['cosmic_ray_events_detected']}"
     )
 
+    if include_real_data:
+        print(f"\n[5/{total_steps}] Benchmarking NSL-KDD (security domain)...")
+        results["benchmarks"]["nsl_kdd"] = benchmark_real_data_nsl_kdd()
+        print(f"  ✓ F1 Score: {results['benchmarks']['nsl_kdd']['f1']:.4f}")
+        print(f"  ✓ ROC-AUC: {results['benchmarks']['nsl_kdd']['roc_auc']:.4f}")
+        print(f"  ✓ Data Source: {results['benchmarks']['nsl_kdd']['data_source']}")
+
+        print(f"\n[6/{total_steps}] Benchmarking MIMIC-III Demo (medical domain)...")
+        results["benchmarks"]["mimic_demo"] = benchmark_real_data_mimic()
+        print(f"  ✓ F1 Score: {results['benchmarks']['mimic_demo']['f1']:.4f}")
+        print(f"  ✓ ROC-AUC: {results['benchmarks']['mimic_demo']['roc_auc']:.4f}")
+        print(f"  ✓ Data Source: {results['benchmarks']['mimic_demo']['data_source']}")
+
     # Validate all metrics are within valid range [0, 1] to prevent regression
-    print("\n[5/5] Validating metric invariants...")
+    print(f"\n[{total_steps + 1}/{total_steps + 1}] Validating metric invariants...")
     for benchmark_name, benchmark_results in results["benchmarks"].items():
         validate_metrics(benchmark_results, benchmark_name)
     print("  ✓ All metrics within valid range [0, 1]")
