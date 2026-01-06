@@ -121,7 +121,9 @@ class DatasetConfig:
         """Generate unique cache key for this configuration."""
         key_data = f"{self.name}_{self.version}_{self.max_samples}_{self.random_seed}"
         key_data += json.dumps(self.preprocessing, sort_keys=True)
-        return hashlib.md5(key_data.encode(), usedforsecurity=False).hexdigest()[:16]
+        # Using SHA-256 instead of MD5 to satisfy security scanners (CodeQL/ruff S324)
+        # Note: This is non-cryptographic use for cache key generation
+        return hashlib.sha256(key_data.encode()).hexdigest()[:16]
 
 
 @dataclass
