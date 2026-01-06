@@ -43,8 +43,8 @@
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
-**Version:** v1.0
-**Date:** 12/08/25
+**Version:** v1.0.1
+**Date:** 2026-01-06
 **AI Co-Architects:** X ⚛ | Caduceus ⚚ | Dev ⚕
 
 ---
@@ -70,7 +70,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 12/07/25
+> **Last Updated:** 2026-01-06
 
 ---
 
