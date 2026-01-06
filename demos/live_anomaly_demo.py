@@ -127,108 +127,134 @@ class LiveAnomalyDetector:
 
             yield data, is_anomaly
 
-    def _generate_security_sample(
-        self, rng: np.random.Generator, is_anomaly: bool
-    ) -> np.ndarray:
+    def _generate_security_sample(self, rng: np.random.Generator, is_anomaly: bool) -> np.ndarray:
         """Generate network traffic-like data."""
         if is_anomaly:
-            return np.array([
-                rng.exponential(5000),
-                rng.exponential(10000),
-                rng.integers(100, 1000),
-                rng.uniform(0.5, 1.0),
-                rng.uniform(0.3, 0.8),
-                rng.exponential(50),
-                rng.uniform(0.7, 1.0),
-                rng.integers(50, 200),
-            ])
+            return np.array(
+                [
+                    rng.exponential(5000),
+                    rng.exponential(10000),
+                    rng.integers(100, 1000),
+                    rng.uniform(0.5, 1.0),
+                    rng.uniform(0.3, 0.8),
+                    rng.exponential(50),
+                    rng.uniform(0.7, 1.0),
+                    rng.integers(50, 200),
+                ]
+            )
         else:
-            return np.array([
-                rng.exponential(500),
-                rng.exponential(1000),
-                rng.integers(1, 50),
-                rng.uniform(0.0, 0.2),
-                rng.uniform(0.0, 0.1),
-                rng.exponential(5),
-                rng.uniform(0.0, 0.3),
-                rng.integers(1, 20),
-            ])
+            return np.array(
+                [
+                    rng.exponential(500),
+                    rng.exponential(1000),
+                    rng.integers(1, 50),
+                    rng.uniform(0.0, 0.2),
+                    rng.uniform(0.0, 0.1),
+                    rng.exponential(5),
+                    rng.uniform(0.0, 0.3),
+                    rng.integers(1, 20),
+                ]
+            )
 
-    def _generate_medical_sample(
-        self, rng: np.random.Generator, is_anomaly: bool
-    ) -> np.ndarray:
+    def _generate_medical_sample(self, rng: np.random.Generator, is_anomaly: bool) -> np.ndarray:
         """Generate vital signs-like data."""
         if is_anomaly:
-            return np.array([
-                rng.normal(120, 15),
-                rng.normal(160, 20),
-                rng.normal(50, 10),
-                rng.normal(28, 5),
-                rng.normal(90, 5),
-                rng.normal(39.0, 0.5),
-                rng.uniform(0.5, 1.0),
-                rng.uniform(0.6, 1.0),
-            ])
+            return np.array(
+                [
+                    rng.normal(120, 15),
+                    rng.normal(160, 20),
+                    rng.normal(50, 10),
+                    rng.normal(28, 5),
+                    rng.normal(90, 5),
+                    rng.normal(39.0, 0.5),
+                    rng.uniform(0.5, 1.0),
+                    rng.uniform(0.6, 1.0),
+                ]
+            )
         else:
-            return np.array([
-                rng.normal(75, 10),
-                rng.normal(120, 10),
-                rng.normal(80, 8),
-                rng.normal(16, 2),
-                rng.normal(98, 1),
-                rng.normal(37.0, 0.3),
-                rng.uniform(0.0, 0.2),
-                rng.uniform(0.0, 0.2),
-            ])
+            return np.array(
+                [
+                    rng.normal(75, 10),
+                    rng.normal(120, 10),
+                    rng.normal(80, 8),
+                    rng.normal(16, 2),
+                    rng.normal(98, 1),
+                    rng.normal(37.0, 0.3),
+                    rng.uniform(0.0, 0.2),
+                    rng.uniform(0.0, 0.2),
+                ]
+            )
 
     def _generate_environmental_sample(
         self, rng: np.random.Generator, is_anomaly: bool
     ) -> np.ndarray:
         """Generate environmental sensor-like data."""
         if is_anomaly:
-            return np.array([
-                rng.normal(1050, 20),
-                rng.normal(45, 10),
-                rng.normal(95, 5),
-                rng.normal(80, 20),
-                rng.uniform(0.5, 1.0),
-                rng.normal(150, 30),
-                rng.uniform(0.6, 1.0),
-                rng.normal(8.5, 0.5),
-            ])
+            return np.array(
+                [
+                    rng.normal(1050, 20),
+                    rng.normal(45, 10),
+                    rng.normal(95, 5),
+                    rng.normal(80, 20),
+                    rng.uniform(0.5, 1.0),
+                    rng.normal(150, 30),
+                    rng.uniform(0.6, 1.0),
+                    rng.normal(8.5, 0.5),
+                ]
+            )
         else:
-            return np.array([
-                rng.normal(1013, 5),
-                rng.normal(20, 5),
-                rng.normal(50, 10),
-                rng.normal(10, 5),
-                rng.uniform(0.0, 0.2),
-                rng.normal(50, 10),
-                rng.uniform(0.0, 0.2),
-                rng.normal(7.83, 0.1),
-            ])
+            return np.array(
+                [
+                    rng.normal(1013, 5),
+                    rng.normal(20, 5),
+                    rng.normal(50, 10),
+                    rng.normal(10, 5),
+                    rng.uniform(0.0, 0.2),
+                    rng.normal(50, 10),
+                    rng.uniform(0.0, 0.2),
+                    rng.normal(7.83, 0.1),
+                ]
+            )
 
-    def _generate_generic_sample(
-        self, rng: np.random.Generator, is_anomaly: bool
-    ) -> np.ndarray:
+    def _generate_generic_sample(self, rng: np.random.Generator, is_anomaly: bool) -> np.ndarray:
         """Generate generic anomaly data."""
         if is_anomaly:
             return rng.normal(5, 2, 8)
         else:
             return rng.normal(0, 1, 8)
 
-    def _compute_benevolence_score(
-        self, anomaly_score: float, confidence: float
-    ) -> float:
+    def _compute_benevolence_score(self, anomaly_score: float, confidence: float) -> float:
         """Compute ethical benevolence score for the detection."""
         base_score = 0.95
         detection_bonus = 0.03 if anomaly_score > 0.5 else 0.01
         confidence_bonus = confidence * 0.02
         return min(0.99, base_score + detection_bonus + confidence_bonus)
 
-    def _get_domain_details(
-        self, data: np.ndarray, anomaly_score: float
-    ) -> dict[str, Any]:
+    def _categorize_heart_rate(self, hr: float) -> str:
+        """Categorize heart rate into clinical buckets (no raw values logged)."""
+        if hr < 60:
+            return "bradycardia"
+        elif hr > 100:
+            return "tachycardia"
+        else:
+            return "normal"
+
+    def _categorize_blood_pressure(self, systolic: float, diastolic: float) -> str:
+        """Categorize blood pressure into clinical buckets (no raw values logged)."""
+        if systolic < 90 or diastolic < 60:
+            return "hypotension"
+        elif systolic >= 180 or diastolic >= 120:
+            return "hypertensive-crisis"
+        elif systolic >= 140 or diastolic >= 90:
+            return "stage2-hypertension"
+        elif systolic >= 130 or diastolic >= 80:
+            return "stage1-hypertension"
+        elif systolic >= 120:
+            return "elevated"
+        else:
+            return "normal"
+
+    def _get_domain_details(self, data: np.ndarray, anomaly_score: float) -> dict[str, Any]:
         """Get domain-specific details for the detection."""
         if self.domain == "security":
             return {
@@ -236,7 +262,9 @@ class LiveAnomalyDetector:
                 "dst_bytes": float(data[1]),
                 "connection_count": int(data[2]),
                 "error_rate": float(data[3]),
-                "threat_level": "HIGH" if anomaly_score > 0.7 else "MEDIUM" if anomaly_score > 0.4 else "LOW",
+                "threat_level": (
+                    "HIGH" if anomaly_score > 0.7 else "MEDIUM" if anomaly_score > 0.4 else "LOW"
+                ),
             }
         elif self.domain == "medical":
             return {
@@ -246,7 +274,11 @@ class LiveAnomalyDetector:
                 "resp_rate": float(data[3]),
                 "spo2": float(data[4]),
                 "temperature": float(data[5]),
-                "alert_level": "CRITICAL" if anomaly_score > 0.7 else "WARNING" if anomaly_score > 0.4 else "NORMAL",
+                "alert_level": (
+                    "CRITICAL"
+                    if anomaly_score > 0.7
+                    else "WARNING" if anomaly_score > 0.4 else "NORMAL"
+                ),
             }
         elif self.domain == "environmental":
             return {
@@ -256,7 +288,11 @@ class LiveAnomalyDetector:
                 "wind_speed_kmh": float(data[3]),
                 "aqi": float(data[5]),
                 "schumann_hz": float(data[7]),
-                "severity": "SEVERE" if anomaly_score > 0.7 else "MODERATE" if anomaly_score > 0.4 else "NORMAL",
+                "severity": (
+                    "SEVERE"
+                    if anomaly_score > 0.7
+                    else "MODERATE" if anomaly_score > 0.4 else "NORMAL"
+                ),
             }
         else:
             return {"raw_features": data.tolist()}
@@ -302,13 +338,19 @@ class LiveAnomalyDetector:
             self._generate_stream_data(n_samples=n_samples, anomaly_ratio=0.15)
         ):
             raw_score = -self.model.score_samples(data.reshape(1, -1))[0]
-            anomaly_score = (raw_score - raw_score.min()) / (raw_score.max() - raw_score.min() + 1e-8)
+            anomaly_score = (raw_score - raw_score.min()) / (
+                raw_score.max() - raw_score.min() + 1e-8
+            )
             anomaly_score = float(np.clip(raw_score / 0.5, 0, 1))
 
             prediction = self.model.predict(data.reshape(1, -1))[0]
             is_anomaly = prediction == -1
 
-            confidence = min(0.99, 0.7 + anomaly_score * 0.3) if is_anomaly else 0.8 + (1 - anomaly_score) * 0.15
+            confidence = (
+                min(0.99, 0.7 + anomaly_score * 0.3)
+                if is_anomaly
+                else 0.8 + (1 - anomaly_score) * 0.15
+            )
             benevolence = self._compute_benevolence_score(anomaly_score, confidence)
 
             detection = AnomalyDetection(
@@ -350,33 +392,43 @@ class LiveAnomalyDetector:
 
         return stats
 
-    def _print_detection(
-        self, sample_num: int, total: int, detection: AnomalyDetection
-    ) -> None:
+    def _print_detection(self, sample_num: int, total: int, detection: AnomalyDetection) -> None:
         """Print a single detection result."""
         status = "ANOMALY" if detection.is_anomaly else "NORMAL "
         color_code = "\033[91m" if detection.is_anomaly else "\033[92m"
         reset_code = "\033[0m"
 
-        print(f"[{sample_num:3d}/{total}] {detection.timestamp} | "
-              f"{color_code}{status}{reset_code} | "
-              f"Score: {detection.anomaly_score:.3f} | "
-              f"Conf: {detection.confidence:.3f} | "
-              f"Benev: {detection.benevolence_score:.3f}")
+        print(
+            f"[{sample_num:3d}/{total}] {detection.timestamp} | "
+            f"{color_code}{status}{reset_code} | "
+            f"Score: {detection.anomaly_score:.3f} | "
+            f"Conf: {detection.confidence:.3f} | "
+            f"Benev: {detection.benevolence_score:.3f}"
+        )
 
         if detection.is_anomaly:
             details = detection.details
             if self.domain == "security":
-                print(f"         └─ Threat: {details.get('threat_level', 'N/A')} | "
-                      f"Bytes: {details.get('src_bytes', 0):.0f}/{details.get('dst_bytes', 0):.0f}")
+                print(
+                    f"         └─ Threat: {details.get('threat_level', 'N/A')} | "
+                    f"Bytes: {details.get('src_bytes', 0):.0f}/{details.get('dst_bytes', 0):.0f}"
+                )
             elif self.domain == "medical":
-                print(f"         └─ Alert: {details.get('alert_level', 'N/A')} | "
-                      f"HR: {details.get('heart_rate', 0):.0f} | "
-                      f"BP: {details.get('systolic_bp', 0):.0f}/{details.get('diastolic_bp', 0):.0f}")
+                # Use categorized values instead of raw vitals for privacy
+                hr_category = self._categorize_heart_rate(details.get("heart_rate", 75))
+                bp_category = self._categorize_blood_pressure(
+                    details.get("systolic_bp", 120), details.get("diastolic_bp", 80)
+                )
+                print(
+                    f"         └─ Alert: {details.get('alert_level', 'N/A')} | "
+                    f"HR: {hr_category} | BP: {bp_category}"
+                )
             elif self.domain == "environmental":
-                print(f"         └─ Severity: {details.get('severity', 'N/A')} | "
-                      f"Temp: {details.get('temperature_c', 0):.1f}°C | "
-                      f"Pressure: {details.get('pressure_hpa', 0):.0f}hPa")
+                print(
+                    f"         └─ Severity: {details.get('severity', 'N/A')} | "
+                    f"Temp: {details.get('temperature_c', 0):.1f}°C | "
+                    f"Pressure: {details.get('pressure_hpa', 0):.0f}hPa"
+                )
 
     def _print_summary(self, stats: StreamStats) -> None:
         """Print detection summary."""
