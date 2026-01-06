@@ -26,7 +26,10 @@ from typing import Any
 
 import numpy as np
 
-_ETHICAL_ANCHOR = "I19A09A07A88"
+from omni_mercury_engine.utils.constants import OmniCodes
+
+# Omni-Code: Omni-Indivisible Guardian (unified protection and integrity)
+_ETHICAL_ANCHOR = OmniCodes.OMNI_INDIVISIBLE.code
 
 
 class AstrophysicalAnomalyModel:

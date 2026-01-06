@@ -63,7 +63,10 @@ from typing import Any
 
 import numpy as np
 
-_FOUNDATION_HASH = "D19L12E19A92"
+from omni_mercury_engine.utils.constants import OmniCodes
+
+# Omni-Code: Omni-Benevolent Stone (ethical foundation and humanitarian alignment)
+_FOUNDATION_HASH = OmniCodes.OMNI_BENEVOLENT.code
 
 try:
     import torch

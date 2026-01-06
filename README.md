@@ -983,7 +983,7 @@ mypy src/
 |----------|-------------|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Detailed system architecture |
 | [docs/PROTECTION_OVERVIEW.md](docs/PROTECTION_OVERVIEW.md) | Security protection overview |
-| [docs/MEMORIAL_CODES.md](docs/MEMORIAL_CODES.md) | Memorial codes documentation |
+| [docs/OMNI_CODES.md](docs/OMNI_CODES.md) | Omni-Codes reference documentation |
 | [docs/ROUTING_GUIDE.md](docs/ROUTING_GUIDE.md) | Request routing and fallback chains |
 
 </details>
@@ -1285,7 +1285,7 @@ if adapter.pqc_available:
 
 Mercury Agent ♱ integrates the **Omni-Codes** from [Ava Guardian](https://github.com/Steel-SecAdv-LLC/Ava-Guardian), providing bio-inspired helical parameters for ethical AI alignment and system stability.
 
-**Seven Foundational Codes:**
+**The Seven Omni-Codes:**
 
 | Code | Symbol | Domain | Helical Parameters |
 |------|--------|--------|-------------------|
