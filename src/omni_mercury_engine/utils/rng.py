@@ -345,7 +345,9 @@ class RNGState:
             "seed": self.seed,
             "version": self.version,
             "numpy_state_hash": (
-                hashlib.md5(str(self.numpy_state).encode(), usedforsecurity=False).hexdigest()
+                # Using SHA-256 instead of MD5 to satisfy security scanners (CodeQL/ruff S324)
+                # Note: This is non-cryptographic use for state hashing
+                hashlib.sha256(str(self.numpy_state).encode()).hexdigest()
                 if self.numpy_state
                 else None
             ),
