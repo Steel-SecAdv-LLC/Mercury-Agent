@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import logging
 import time
-from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -447,9 +446,6 @@ class TestIntegration:
         integration._fitted = True  # Skip fit for test
         integration.domains = {}
         integration._domain_weights = {}
-
-        # Mock the detection to just return a result
-        X = np.random.randn(10, 5)
 
         # Note: Full integration test would require setting up detectors
         # This is a unit test for the caching mechanism
