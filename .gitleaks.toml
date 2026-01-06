@@ -1,0 +1,21 @@
+# Gitleaks configuration for Mercury-Agent
+# https://github.com/gitleaks/gitleaks
+
+title = "Mercury-Agent Gitleaks Configuration"
+
+# Allowlist specific findings that are false positives or test data
+[allowlist]
+  description = "Allowlist for test data and false positives"
+  
+  # Allowlist the specific fingerprint from Claude's test file
+  # This is a test API key used in unit tests for PII masking validation
+  # The test verifies that the PIIMaskingFilter correctly redacts API keys
+  # Fingerprint format: commit:file:rule:line
+  commits = [
+    "20ba7c58f919818c3d855f8677433130664a932c"
+  ]
+  
+  # Also allowlist test files that intentionally contain fake secrets for testing
+  paths = [
+    '''tests/security/test_audit_improvements\.py''',
+  ]

@@ -368,11 +368,165 @@ def get_pqc_capabilities() -> dict[str, Any]:
     }
 
 
+# =============================================================================
+# Cryptographic Audit Trail (Ava-Guardian PQC Fortification)
+# =============================================================================
+@dataclass
+class CryptoOperation:
+    """Audit record for cryptographic operations."""
+
+    timestamp: float
+    operation: str
+    algorithm: str
+    backend: str
+    success: bool
+    error: str | None = None
+    key_id: str | None = None
+
+
+class CryptoAuditTrail:
+    """
+    Cryptographic audit trail for PQC operations.
+
+    Provides tamper-evident logging of all cryptographic operations
+    for security compliance and forensic analysis.
+    """
+
+    def __init__(self, max_entries: int = 10000) -> None:
+        """Initialize audit trail with maximum entry limit."""
+        self._entries: list[CryptoOperation] = []
+        self._max_entries = max_entries
+        import threading
+
+        self._lock = threading.Lock()
+
+    def log_operation(
+        self,
+        operation: str,
+        algorithm: str,
+        success: bool,
+        error: str | None = None,
+        key_id: str | None = None,
+    ) -> None:
+        """Log a cryptographic operation to the audit trail."""
+        import time
+
+        entry = CryptoOperation(
+            timestamp=time.time(),
+            operation=operation,
+            algorithm=algorithm,
+            backend=get_active_backend().value,
+            success=success,
+            error=error,
+            key_id=key_id,
+        )
+
+        with self._lock:
+            self._entries.append(entry)
+            # Rotate oldest entries if at capacity
+            if len(self._entries) > self._max_entries:
+                self._entries = self._entries[-self._max_entries :]
+
+    def get_recent_operations(self, count: int = 100) -> list[dict[str, Any]]:
+        """Get recent operations for audit review."""
+        with self._lock:
+            recent = self._entries[-count:]
+            return [
+                {
+                    "timestamp": e.timestamp,
+                    "operation": e.operation,
+                    "algorithm": e.algorithm,
+                    "backend": e.backend,
+                    "success": e.success,
+                    "error": e.error,
+                }
+                for e in recent
+            ]
+
+    def get_failure_summary(self) -> dict[str, int]:
+        """Get summary of operation failures by type."""
+        with self._lock:
+            failures: dict[str, int] = {}
+            for entry in self._entries:
+                if not entry.success:
+                    key = f"{entry.operation}:{entry.algorithm}"
+                    failures[key] = failures.get(key, 0) + 1
+            return failures
+
+
+# Global audit trail instance
+_crypto_audit = CryptoAuditTrail()
+
+
+def get_crypto_audit_trail() -> CryptoAuditTrail:
+    """Get the global crypto audit trail instance."""
+    return _crypto_audit
+
+
+def validate_pqc_environment() -> dict[str, Any]:
+    """
+    Validate the PQC environment for production readiness.
+
+    Returns:
+        Dictionary with validation results and recommendations.
+
+    Raises:
+        RuntimeError: If constant-time is required but unavailable.
+    """
+    issues: list[str] = []
+    warnings: list[str] = []
+
+    # Check constant-time requirement
+    if require_constant_time() and not LIBOQS_AVAILABLE:
+        issues.append(
+            "AVA_REQUIRE_CONSTANT_TIME=true but liboqs not available. "
+            "Install liboqs-python for production security."
+        )
+
+    # Check backend security level
+    backend = get_active_backend()
+    if backend == PQCBackend.SIMULATION:
+        warnings.append(
+            "Using SIMULATION backend - cryptographic operations are NOT SECURE. "
+            "Install liboqs-python or pqcrypto for real PQC."
+        )
+    elif backend == PQCBackend.PQCRYPTO:
+        warnings.append(
+            "Using pqcrypto backend - may have timing side-channels. "
+            "Upgrade to liboqs-python for constant-time implementations."
+        )
+
+    # Check algorithm availability
+    if not DILITHIUM_AVAILABLE:
+        warnings.append("ML-DSA-65 (Dilithium) not available for digital signatures.")
+    if not KYBER_AVAILABLE:
+        warnings.append("Kyber-1024 not available for key encapsulation.")
+    if not SPHINCS_AVAILABLE:
+        warnings.append("SPHINCS+ not available for hash-based signatures.")
+
+    is_production_ready = len(issues) == 0 and backend == PQCBackend.LIBOQS
+
+    result = {
+        "production_ready": is_production_ready,
+        "backend": backend.value,
+        "issues": issues,
+        "warnings": warnings,
+        "algorithms": get_pqc_capabilities()["algorithms"],
+    }
+
+    if issues and require_constant_time():
+        raise RuntimeError(f"PQC environment validation failed: {'; '.join(issues)}")
+
+    return result
+
+
 __all__ = [
     "DILITHIUM_AVAILABLE",
     "KYBER_AVAILABLE",
     "LIBOQS_AVAILABLE",
     "SPHINCS_AVAILABLE",
+    "CryptoAuditTrail",
+    "CryptoOperation",
     "DilithiumKeyPair",
     "KyberEncapsulation",
     "KyberKeyPair",
@@ -384,9 +538,11 @@ __all__ = [
     "generate_kyber_keypair",
     "generate_sphincs_keypair",
     "get_active_backend",
+    "get_crypto_audit_trail",
     "get_pqc_capabilities",
     "kyber_decapsulate",
     "kyber_encapsulate",
     "sphincs_sign",
     "sphincs_verify",
+    "validate_pqc_environment",
 ]

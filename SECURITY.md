@@ -67,9 +67,14 @@ Mercury Agent ♱ implements multiple layers of security:
 ### API Security
 
 - **Authentication**: JWT-based authentication with secure token handling
-- **Rate Limiting**: Built-in rate limiting to prevent abuse
+- **Rate Limiting**: Built-in rate limiting to prevent abuse (100 req/min, burst of 20)
 - **Input Validation**: Comprehensive input sanitization and validation
-- **CORS Configuration**: Configurable cross-origin resource sharing
+- **CORS Configuration**: Environment-aware cross-origin resource sharing
+  - Production: Requires explicit `MERCURY_CORS_ORIGINS` configuration
+  - Development: Allows localhost origins by default
+- **PII Masking**: Automatic redaction of sensitive data in logs
+  - Email addresses, phone numbers, SSNs, credit cards
+  - API keys, bearer tokens, IP addresses
 
 ### Data Protection
 
@@ -77,6 +82,11 @@ Mercury Agent ♱ implements multiple layers of security:
 - **Encryption in Transit**: TLS 1.3 for all network communications
 - **Data Minimization**: Collection limited to necessary data only
 - **Audit Logging**: Comprehensive logging for security events
+- **Cryptographic Audit Trail**: Tamper-evident logging of all PQC operations
+  - `CryptoAuditTrail` class for operation tracking
+  - Thread-safe with configurable max entries (10,000 default)
+  - Failure summary reporting for security analysis
+  - `validate_pqc_environment()` for production readiness checks
 
 ## Security Best Practices for Users
 
@@ -203,5 +213,5 @@ We thank the security researchers who have helped improve Mercury Agent ♱'s se
 
 ---
 
-*Last Updated: January 2026*
-*Version: 1.0.1*
+*Last Updated: 2026-01-06*
+*Version: 1.0.2*
