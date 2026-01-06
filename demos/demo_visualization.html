@@ -268,12 +268,12 @@
             detectionsContainer.scrollTop = detectionsContainer.scrollHeight;
 
             if (currentIndex < detections.length) {
-                setTimeout(addDetection, 300);
+                setTimeout(addDetection, 700);  // Slower: 700ms per frame for longer video
             }
         }
 
         // Start the demo after a short delay
-        setTimeout(addDetection, 1000);
+        setTimeout(addDetection, 2000);  // 2 second initial delay
     </script>
 </body>
 </html>
