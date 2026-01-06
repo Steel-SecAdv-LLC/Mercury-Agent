@@ -115,7 +115,6 @@ try:
     from omni_mercury_engine.core.adaptive_detector import (
         AdaptiveAnomalyDetector,
         DatasetProfile,
-        DatasetSpecificEnsemble,
     )
 
     ADAPTIVE_DETECTOR_AVAILABLE = True
