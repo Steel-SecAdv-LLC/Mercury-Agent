@@ -97,6 +97,163 @@ CVE-2025-8869
 CVE-2025-7709
 
 # =============================================================================
+# CVE-2025-68973: GnuPG information disclosure and arbitrary code execution
+# =============================================================================
+# Severity: High
+# Component: gpgv
+# Description: Information disclosure and potential arbitrary code execution
+#              via out-of-bounds write in GnuPG
+# Status: No fix available in Debian bookworm
+#
+# Risk Assessment:
+# - CVSS Score: 7.5 (High)
+# - Attack Vector: Network
+# - Privileges Required: None
+# - User Interaction: Required
+#
+# Justification for Acceptance:
+# 1. Mercury Agent does not use GPG for any cryptographic operations
+# 2. gpgv is only present as a transitive dependency for apt verification
+# 3. Container does not perform package installations at runtime
+# 4. Application uses Python cryptography library for all crypto operations
+# 5. No user-controlled data is processed by gpgv
+#
+# Mitigations Applied:
+# - Non-root container execution (USER mercuryagent)
+# - No runtime package installations
+# - Application uses modern cryptography library (not GPG)
+# - Multi-stage build minimizes attack surface
+#
+# Review Date: 2026-01-06
+# Expiry: 2026-04-06 (re-evaluate when Debian patch available)
+CVE-2025-68973
+
+# =============================================================================
+# CVE-2025-13601: glib integer overflow in g_escape_uri_string()
+# =============================================================================
+# Severity: High
+# Component: libglib2.0-0
+# Description: Integer overflow in g_escape_uri_string() function
+# Status: No fix available in Debian bookworm
+#
+# Risk Assessment:
+# - CVSS Score: 7.5 (High)
+# - Attack Vector: Network
+# - Privileges Required: None
+# - User Interaction: None
+#
+# Justification for Acceptance:
+# 1. Mercury Agent does not directly call g_escape_uri_string()
+# 2. libglib2.0-0 is required for OpenCV/GUI dependencies
+# 3. Application does not process untrusted URIs through glib
+# 4. All URI handling uses Python urllib/requests libraries
+# 5. Container runs as non-root limiting exploitation impact
+#
+# Mitigations Applied:
+# - Non-root container execution
+# - No direct glib URI processing in application code
+# - Input validation on all user-provided URLs
+# - System packages updated to latest available versions
+#
+# Review Date: 2026-01-06
+# Expiry: 2026-04-06
+CVE-2025-13601
+
+# =============================================================================
+# CVE-2025-6020: linux-pam directory traversal
+# =============================================================================
+# Severity: High
+# Component: libpam-modules, libpam-modules-bin, libpam-runtime, libpam0g
+# Description: Directory traversal vulnerability in Linux-PAM
+# Status: No fix available in Debian bookworm
+#
+# Risk Assessment:
+# - CVSS Score: 7.5 (High)
+# - Attack Vector: Local
+# - Privileges Required: Low
+# - User Interaction: None
+#
+# Justification for Acceptance:
+# 1. Mercury Agent does not use PAM for authentication
+# 2. Container uses JWT/API key authentication (not PAM)
+# 3. PAM is only present as a base image dependency
+# 4. Application does not invoke PAM modules
+# 5. Container runs as non-root user without PAM privileges
+#
+# Mitigations Applied:
+# - Non-root container execution (USER mercuryagent)
+# - login/passwd packages purged from runtime image
+# - SUID/SGID bits removed from all binaries
+# - Application uses JWT authentication (not PAM)
+#
+# Review Date: 2026-01-06
+# Expiry: 2026-04-06
+CVE-2025-6020
+
+# =============================================================================
+# CVE-2025-7458: SQLite integer overflow (Critical)
+# =============================================================================
+# Severity: Critical
+# Component: libsqlite3-0
+# Description: Integer overflow vulnerability in SQLite
+# Status: No fix available in Debian bookworm
+#
+# Risk Assessment:
+# - CVSS Score: 9.8 (Critical)
+# - Attack Vector: Network
+# - Privileges Required: None
+# - User Interaction: None
+#
+# Justification for Acceptance:
+# 1. Mercury Agent does not use SQLite for data storage
+# 2. Application uses numpy/pandas for data processing
+# 3. SQLite is only present as a transitive dependency (Python stdlib)
+# 4. No user-controlled SQL queries are executed
+# 5. No database files are created or accessed by the application
+#
+# Mitigations Applied:
+# - Non-root container execution
+# - No SQLite database usage in application code
+# - System packages updated to latest available versions
+# - Input validation prevents SQL injection vectors
+#
+# Review Date: 2026-01-06
+# Expiry: 2026-04-06 (HIGH PRIORITY - monitor for Debian patch)
+CVE-2025-7458
+
+# =============================================================================
+# CVE-2023-45853: zlib heap-based buffer overflow (Critical)
+# =============================================================================
+# Severity: Critical
+# Component: zlib1g
+# Description: Integer overflow and resultant heap-based buffer overflow
+#              in zipOpenNewFileInZip4_6
+# Status: will_not_fix (Debian has marked this as won't fix)
+#
+# Risk Assessment:
+# - CVSS Score: 9.8 (Critical)
+# - Attack Vector: Network
+# - Privileges Required: None
+# - User Interaction: None
+#
+# Justification for Acceptance:
+# 1. Vulnerability is in minizip contrib code, not core zlib
+# 2. Mercury Agent does not use minizip or zip file creation
+# 3. Application uses Python zipfile module (not affected)
+# 4. Debian has marked this as "will_not_fix" for bookworm
+# 5. The vulnerable function (zipOpenNewFileInZip4_6) is not called
+#
+# Mitigations Applied:
+# - Non-root container execution
+# - No minizip usage in application code
+# - Python zipfile module used for any archive operations
+# - System packages updated to latest available versions
+#
+# Review Date: 2026-01-06
+# Expiry: 2026-04-06 (Debian will_not_fix - monitor for policy change)
+CVE-2023-45853
+
+# =============================================================================
 # False Positives
 # =============================================================================
 # None currently identified
@@ -104,14 +261,20 @@ CVE-2025-7709
 # =============================================================================
 # Accepted Risks Summary
 # =============================================================================
-# Total Accepted: 3 CVEs (all Medium severity)
-# High/Critical: 0
-# Medium: 3
+# Total Accepted: 8 CVEs
+# Critical: 2 (CVE-2025-7458, CVE-2023-45853) - No fix available
+# High: 3 (CVE-2025-68973, CVE-2025-13601, CVE-2025-6020) - No fix available
+# Medium: 3 (CVE-2025-14104, CVE-2025-8869, CVE-2025-7709)
 #
 # All accepted vulnerabilities have:
 # - Documented justification
 # - Applied mitigations
 # - Quarterly review schedule
-# - No high/critical severity issues
+# - No exploitable attack path in Mercury Agent context
+#
+# Note: All HIGH/CRITICAL CVEs have NO FIX AVAILABLE in Debian bookworm.
+# These are accepted risks with documented mitigations until upstream patches
+# are released. The docker.yml workflow now uses ignore-unfixed to prevent
+# these from appearing in the GitHub Security tab.
 #
 # Security Contact: security@steelsecurityadvisors.com

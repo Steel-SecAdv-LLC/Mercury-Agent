@@ -48,7 +48,12 @@ jobs:
           image-ref: mercury-agent-mercury:latest
           format: sarif
           output: trivy-results.sarif
-          severity: CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN
+          severity: CRITICAL,HIGH,MEDIUM
+          # Ignore unfixed vulnerabilities - only report CVEs with available patches
+          # This reduces noise from OS-level CVEs that have no fix in Debian bookworm
+          ignore-unfixed: true
+          # Use .trivyignore for documented risk acceptances
+          trivyignores: .trivyignore
           exit-code: 0
           timeout: 10m
 

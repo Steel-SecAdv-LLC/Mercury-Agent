@@ -413,10 +413,13 @@ class ConfigurationManager:
         # Check rollout percentage
         if flag.rollout_percentage < 100.0 and user_id:
             # Deterministic hash for consistent user experience
+            # Using SHA-256 instead of MD5 to satisfy security scanners
+            # Note: This is not security-sensitive (just bucketing), but SHA-256
+            # eliminates CodeQL weak-hash alerts while maintaining determinism
             import hashlib
 
             user_hash = int(
-                hashlib.md5(f"{name}:{user_id}".encode(), usedforsecurity=False).hexdigest()[:8],
+                hashlib.sha256(f"{name}:{user_id}".encode()).hexdigest()[:8],
                 16,
             )
             return (user_hash % 100) < flag.rollout_percentage
@@ -435,8 +438,9 @@ class ConfigurationManager:
         if user_id:
             import hashlib
 
+            # Using SHA-256 instead of MD5 to satisfy security scanners
             user_hash = int(
-                hashlib.md5(f"{name}:{user_id}".encode(), usedforsecurity=False).hexdigest()[:8],
+                hashlib.sha256(f"{name}:{user_id}".encode()).hexdigest()[:8],
                 16,
             )
             variant_names = list(flag.variants.keys())
