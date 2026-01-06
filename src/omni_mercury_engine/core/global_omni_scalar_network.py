@@ -406,8 +406,7 @@ def get_sigma_immutable_threshold(domain: str | None = None) -> float:
     """
     Get the sigma_Immutable threshold for ethical gating (Civilization-First principle).
 
-    The threshold can be configured via environment variable SIGMA_IMMUTABLE_THRESHOLD
-    (or SIGMA_IMMUTABLE_THRESHOLD for backward compatibility).
+    The threshold can be configured via environment variable SIGMA_IMMUTABLE_THRESHOLD.
     Default is 0.96 for stricter ethical gating (~10-15% false positive reduction).
     Medical domains use 0.93 fallback to avoid false negatives in critical scenarios.
 
@@ -420,24 +419,14 @@ def get_sigma_immutable_threshold(domain: str | None = None) -> float:
     Returns:
         sigma_Immutable threshold value (0.93-0.96)
     """
-    import warnings
-
     # Medical domains use lower threshold to avoid false negatives
     MEDICAL_DOMAINS = {"medical", "healthcare", "clinical", "diagnostic", "patient"}
 
     if domain and domain.lower() in MEDICAL_DOMAINS:
         return SIGMA_IMMUTABLE_MEDICAL
 
-    # Check environment variable for custom threshold (new name first, then legacy)
+    # Check environment variable for custom threshold
     env_threshold = os.environ.get("SIGMA_IMMUTABLE_THRESHOLD")
-    if env_threshold is None:
-        env_threshold = os.environ.get("SIGMA_IMMUTABLE_THRESHOLD")
-        if env_threshold is not None:
-            warnings.warn(
-                "SIGMA_IMMUTABLE_THRESHOLD is deprecated; use SIGMA_IMMUTABLE_THRESHOLD",
-                DeprecationWarning,
-                stacklevel=2,
-            )
 
     if env_threshold:
         try:
@@ -474,9 +463,8 @@ class GlobalOmniScalarNetwork:
     - Bidirectional synaptic integration with 3R mechanism
 
     The σ_Immutable threshold can be configured via SIGMA_IMMUTABLE_THRESHOLD
-    environment variable (SIGMA_IMMUTABLE_THRESHOLD also supported for compatibility).
-    Default is 0.96 for ~10-15% false positive reduction via stricter ethical gating.
-    Medical domains automatically use 0.93 fallback.
+    environment variable. Default is 0.96 for ~10-15% false positive reduction
+    via stricter ethical gating. Medical domains automatically use 0.93 fallback.
 
     This is implemented as a singleton to ensure consistent global state.
     """

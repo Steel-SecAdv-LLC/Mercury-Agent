@@ -981,7 +981,7 @@ mypy src/
 
 | Document | Description |
 |----------|-------------|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Detailed system architecture |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Detailed system architecture |
 | [docs/PROTECTION_OVERVIEW.md](docs/PROTECTION_OVERVIEW.md) | Security protection overview |
 | [docs/OMNI_CODES.md](docs/OMNI_CODES.md) | Omni-Codes reference documentation |
 | [docs/ROUTING_GUIDE.md](docs/ROUTING_GUIDE.md) | Request routing and fallback chains |
