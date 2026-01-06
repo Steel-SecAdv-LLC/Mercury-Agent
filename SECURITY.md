@@ -135,6 +135,45 @@ Mercury Agent ♱ includes security intelligence capabilities. Users must:
 - **Adversarial Inputs**: Be aware of potential adversarial attacks on ML models
 - **Training Data**: Ensure training data is from trusted sources
 
+## Current Vulnerability Status
+
+*Last Scan: January 2026*
+
+### Accepted Vulnerabilities (with Mitigations)
+
+The following vulnerabilities have been assessed and accepted with documented mitigations:
+
+| CVE | Severity | Component | Status | Mitigation |
+|-----|----------|-----------|--------|------------|
+| CVE-2025-14104 | Medium | util-linux | Accepted | Non-root execution, SUID bits removed, no passwd operations |
+| CVE-2025-8869 | Medium | pip | Accepted | pip >=25.0, HTTPS-only, no runtime pip install |
+| CVE-2025-7709 | Medium | SQLite | Accepted | No FTS5 usage, non-root execution |
+
+### Vulnerability Assessment Process
+
+All vulnerabilities undergo the following assessment:
+
+1. **Severity Analysis**: CVSS score and attack vector evaluation
+2. **Applicability Check**: Does the vulnerability affect Mercury Agent's use case?
+3. **Mitigation Review**: What controls are in place to reduce risk?
+4. **Documentation**: Full justification recorded in `.trivyignore`
+5. **Quarterly Review**: Re-evaluate accepted risks every 90 days
+
+### Container Security Hardening
+
+Mercury Agent's Docker container implements defense-in-depth:
+
+- **Multi-stage Build**: Separates build and runtime environments
+- **Non-root User**: Application runs as `mercuryagent` (UID 1000)
+- **SUID/SGID Removal**: All setuid/setgid bits removed from binaries
+- **Minimal Packages**: Only essential runtime dependencies installed
+- **Package Purge**: `login` and `passwd` packages removed from runtime
+- **Clean Filesystem**: No package caches or temporary files retained
+
+### Unresolved Vulnerabilities
+
+As of the last scan, there are **0 high/critical** and **3 medium** severity vulnerabilities, all with documented mitigations and acceptance justifications. See `.trivyignore` for complete details.
+
 ## Security Audits
 
 Mercury Agent ♱ undergoes regular security assessments:
@@ -164,5 +203,5 @@ We thank the security researchers who have helped improve Mercury Agent ♱'s se
 
 ---
 
-*Last Updated: December 2025*
-*Version: 1.0.0*
+*Last Updated: January 2026*
+*Version: 1.0.1*
