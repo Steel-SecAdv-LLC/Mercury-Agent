@@ -61,6 +61,39 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Free disk space
+      run: |
+        # Remove unused toolchains to free up disk space for large Docker images
+        # This is necessary for ML-heavy images with torch/pytorch dependencies
+        echo "=== Disk space before cleanup ==="
+        df -h /
+        
+        # Remove Android SDK (saves ~10GB)
+        sudo rm -rf /usr/local/lib/android || true
+        
+        # Remove .NET SDK (saves ~2GB)
+        sudo rm -rf /usr/share/dotnet || true
+        
+        # Remove Haskell/GHC (saves ~5GB)
+        sudo rm -rf /opt/ghc || true
+        sudo rm -rf /usr/local/.ghcup || true
+        
+        # Remove CodeQL (saves ~1GB)
+        sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+        
+        # Remove Swift (saves ~1GB)
+        sudo rm -rf /usr/share/swift || true
+        
+        # Clean apt cache
+        sudo apt-get clean || true
+        
+        # Prune Docker to free space
+        docker system prune -af || true
+        docker builder prune -af || true
+        
+        echo "=== Disk space after cleanup ==="
+        df -h /
+
     - name: Build Docker image
       run: docker build -t mercury-agent:scan .
 
