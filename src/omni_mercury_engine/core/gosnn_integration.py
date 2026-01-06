@@ -20,7 +20,11 @@ Provides unified API for multi-domain anomaly detection with ethical constraints
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import threading
+import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -33,6 +37,186 @@ PHI = 1.618033988749895  # Golden ratio
 BENEVOLENCE_THRESHOLD = 0.99
 SIGMA_IMMUTABLE_DEFAULT = 0.96
 LYAPUNOV_LAMBDA = 0.25
+
+# Performance optimization constants
+CACHE_MAX_SIZE = 1000  # Maximum cache entries
+CACHE_TTL_SECONDS = 300  # Cache time-to-live
+
+
+# =============================================================================
+# LRU Cache with TTL for Detection Results (2x Speedup Target)
+# =============================================================================
+class TTLCache:
+    """Thread-safe LRU cache with TTL for caching detection results."""
+
+    def __init__(self, max_size: int = CACHE_MAX_SIZE, ttl: float = CACHE_TTL_SECONDS) -> None:
+        """Initialize cache with size and TTL limits."""
+        self._cache: OrderedDict[str, tuple[float, Any]] = OrderedDict()
+        self._max_size = max_size
+        self._ttl = ttl
+        self._lock = threading.Lock()
+        self._hits = 0
+        self._misses = 0
+
+    def _compute_key(self, data: np.ndarray) -> str:
+        """Compute cache key from numpy array using fast hashing."""
+        # Use tobytes() for efficient array hashing
+        return hashlib.md5(data.tobytes()).hexdigest()
+
+    def get(self, data: np.ndarray) -> Any | None:
+        """Get cached result if valid."""
+        key = self._compute_key(data)
+        with self._lock:
+            if key in self._cache:
+                timestamp, value = self._cache[key]
+                if time.time() - timestamp < self._ttl:
+                    # Move to end (most recently used)
+                    self._cache.move_to_end(key)
+                    self._hits += 1
+                    return value
+                else:
+                    # Expired, remove
+                    del self._cache[key]
+            self._misses += 1
+            return None
+
+    def set(self, data: np.ndarray, value: Any) -> None:
+        """Store result in cache."""
+        key = self._compute_key(data)
+        with self._lock:
+            # Remove oldest if at capacity
+            while len(self._cache) >= self._max_size:
+                self._cache.popitem(last=False)
+            self._cache[key] = (time.time(), value)
+
+    def clear(self) -> None:
+        """Clear all cached entries."""
+        with self._lock:
+            self._cache.clear()
+            self._hits = 0
+            self._misses = 0
+
+    @property
+    def stats(self) -> dict[str, Any]:
+        """Get cache statistics."""
+        with self._lock:
+            total = self._hits + self._misses
+            return {
+                "size": len(self._cache),
+                "max_size": self._max_size,
+                "hits": self._hits,
+                "misses": self._misses,
+                "hit_rate": self._hits / total if total > 0 else 0.0,
+            }
+
+
+# =============================================================================
+# Performance Monitor for GOSNN Operations
+# =============================================================================
+@dataclass
+class PerformanceMetric:
+    """Single performance measurement."""
+
+    operation: str
+    duration_ms: float
+    timestamp: float
+    success: bool
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+class GOSNNPerformanceMonitor:
+    """
+    Performance monitor for GOSNN operations.
+
+    Tracks latency, throughput, and identifies bottlenecks
+    for optimization targeting <2% overhead.
+    """
+
+    def __init__(self, max_entries: int = 5000) -> None:
+        """Initialize performance monitor."""
+        self._metrics: list[PerformanceMetric] = []
+        self._max_entries = max_entries
+        self._lock = threading.Lock()
+
+    def record(
+        self,
+        operation: str,
+        duration_ms: float,
+        success: bool = True,
+        **metadata: Any,
+    ) -> None:
+        """Record a performance metric."""
+        metric = PerformanceMetric(
+            operation=operation,
+            duration_ms=duration_ms,
+            timestamp=time.time(),
+            success=success,
+            metadata=metadata,
+        )
+        with self._lock:
+            self._metrics.append(metric)
+            if len(self._metrics) > self._max_entries:
+                self._metrics = self._metrics[-self._max_entries:]
+
+    def get_summary(self, operation: str | None = None) -> dict[str, Any]:
+        """Get performance summary for operations."""
+        with self._lock:
+            metrics = self._metrics
+            if operation:
+                metrics = [m for m in metrics if m.operation == operation]
+
+            if not metrics:
+                return {"count": 0, "mean_ms": 0, "p50_ms": 0, "p95_ms": 0, "p99_ms": 0}
+
+            durations = [m.duration_ms for m in metrics]
+            durations_sorted = sorted(durations)
+
+            return {
+                "count": len(metrics),
+                "mean_ms": float(np.mean(durations)),
+                "std_ms": float(np.std(durations)),
+                "min_ms": float(min(durations)),
+                "max_ms": float(max(durations)),
+                "p50_ms": float(np.percentile(durations_sorted, 50)),
+                "p95_ms": float(np.percentile(durations_sorted, 95)),
+                "p99_ms": float(np.percentile(durations_sorted, 99)),
+                "success_rate": sum(1 for m in metrics if m.success) / len(metrics),
+            }
+
+    def get_bottlenecks(self, threshold_ms: float = 100.0) -> list[dict[str, Any]]:
+        """Identify operations exceeding latency threshold."""
+        with self._lock:
+            bottlenecks = []
+            ops_seen: set[str] = set()
+            for metric in self._metrics:
+                if metric.duration_ms > threshold_ms and metric.operation not in ops_seen:
+                    ops_seen.add(metric.operation)
+                    bottlenecks.append({
+                        "operation": metric.operation,
+                        "duration_ms": metric.duration_ms,
+                        "metadata": metric.metadata,
+                    })
+            return sorted(bottlenecks, key=lambda x: x["duration_ms"], reverse=True)[:10]
+
+    def reset(self) -> None:
+        """Reset all metrics."""
+        with self._lock:
+            self._metrics.clear()
+
+
+# Global instances
+_detection_cache = TTLCache()
+_performance_monitor = GOSNNPerformanceMonitor()
+
+
+def get_detection_cache() -> TTLCache:
+    """Get the global detection cache instance."""
+    return _detection_cache
+
+
+def get_performance_monitor() -> GOSNNPerformanceMonitor:
+    """Get the global performance monitor instance."""
+    return _performance_monitor
 
 
 @dataclass
@@ -378,6 +562,7 @@ class GOSNNIntegration:
         self,
         X: np.ndarray,
         return_details: bool = False,
+        use_cache: bool = True,
     ) -> IntegrationResult:
         """
         Perform integrated multi-domain anomaly detection.
@@ -385,16 +570,25 @@ class GOSNNIntegration:
         Args:
             X: Input data
             return_details: Whether to return detailed domain outputs
+            use_cache: Whether to use detection result caching (2x speedup)
 
         Returns:
             IntegrationResult with detection outputs
         """
-        import time
-
         start_time = time.time()
 
         if not self._fitted:
             raise RuntimeError("Must call fit() before detect()")
+
+        # Check cache for repeated detections (2x speedup for repeated queries)
+        cache = get_detection_cache()
+        monitor = get_performance_monitor()
+
+        if use_cache:
+            cached_result = cache.get(X)
+            if cached_result is not None:
+                monitor.record("detect_cached", (time.time() - start_time) * 1000)
+                return cached_result
 
         # Collect domain predictions
         domain_scores = {}
@@ -455,7 +649,7 @@ class GOSNNIntegration:
 
         processing_time = (time.time() - start_time) * 1000
 
-        return IntegrationResult(
+        result = IntegrationResult(
             is_anomaly=is_anomaly,
             anomaly_scores=fused_scores,
             calibrated_scores=calibrated_scores,
@@ -469,6 +663,22 @@ class GOSNNIntegration:
             calibration_method="auto" if self._calibrator else "none",
             processing_time_ms=processing_time,
         )
+
+        # Cache result for 2x speedup on repeated queries
+        if use_cache:
+            cache.set(X, result)
+
+        # Record performance metrics
+        monitor.record(
+            "detect",
+            processing_time,
+            success=True,
+            n_samples=len(X),
+            n_domains=len(self.domains),
+            cache_hit=False,
+        )
+
+        return result
 
     def _setup_fusion(
         self,

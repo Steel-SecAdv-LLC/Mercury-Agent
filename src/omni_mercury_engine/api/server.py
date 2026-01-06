@@ -40,16 +40,53 @@ Example:
             -d '{"data": [1.0, 2.0, 1.5, 10.0, 1.8], "sensitivity": 0.5}'
 """
 
+import logging
 import os
+import re
 import time
 from enum import Enum
 from typing import Any
 
 import numpy as np
 from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
+
+# Configure PII-masking logger
+logger = logging.getLogger(__name__)
+
+
+class PIIMaskingFilter(logging.Filter):
+    """Filter to mask PII data in log messages for security compliance."""
+
+    # Patterns for common PII data types
+    PII_PATTERNS = [
+        (re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'), '[EMAIL_REDACTED]'),
+        (re.compile(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b'), '[PHONE_REDACTED]'),
+        (re.compile(r'\b\d{3}[-]?\d{2}[-]?\d{4}\b'), '[SSN_REDACTED]'),
+        (re.compile(r'\b(?:\d{4}[-\s]?){3}\d{4}\b'), '[CARD_REDACTED]'),
+        (re.compile(r'(?i)(api[_-]?key|apikey|secret|password|token|auth)["\']?\s*[:=]\s*["\']?[\w\-]+'),
+         r'\1=[REDACTED]'),
+        (re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b'), '[IP_REDACTED]'),
+        (re.compile(r'Bearer\s+[\w\-\.]+'), 'Bearer [TOKEN_REDACTED]'),
+    ]
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Mask PII in log record message."""
+        if hasattr(record, 'msg') and isinstance(record.msg, str):
+            msg = record.msg
+            for pattern, replacement in self.PII_PATTERNS:
+                msg = pattern.sub(replacement, msg)
+            record.msg = msg
+        return True
+
+
+# Apply PII masking filter to all security-related loggers
+for logger_name in ['omni_mercury_engine.api', 'omni_mercury_engine.security', 'uvicorn.access']:
+    _logger = logging.getLogger(logger_name)
+    _logger.addFilter(PIIMaskingFilter())
 
 # API version information
 API_VERSION = "1.0.0"
@@ -264,6 +301,47 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 # Register rate limiting middleware
 app.add_middleware(RateLimitMiddleware)
+
+# =============================================================================
+# CORS Middleware Configuration (Security Hardening)
+# =============================================================================
+# Configure CORS based on environment
+_cors_origins_env = os.getenv("MERCURY_CORS_ORIGINS", "")
+_cors_allow_credentials = os.getenv("MERCURY_CORS_CREDENTIALS", "false").lower() == "true"
+
+# In production, explicitly specify allowed origins
+# In development, allow localhost origins
+if os.getenv("MERCURY_AGENT_ENV", "").lower() == "production":
+    # Production: require explicit origin configuration
+    if _cors_origins_env:
+        _allowed_origins = [origin.strip() for origin in _cors_origins_env.split(",")]
+    else:
+        # Default to same-origin only in production (no CORS)
+        _allowed_origins = []
+else:
+    # Development: allow common local development origins
+    _allowed_origins = [
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://localhost:8080",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000",
+        "http://127.0.0.1:8080",
+    ]
+    # Add any custom origins from environment
+    if _cors_origins_env:
+        _allowed_origins.extend([origin.strip() for origin in _cors_origins_env.split(",")])
+
+if _allowed_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_allowed_origins,
+        allow_credentials=_cors_allow_credentials,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+        expose_headers=["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
+    )
+    logger.info(f"CORS enabled for origins: {len(_allowed_origins)} configured")
 
 
 # Enums for API parameters
