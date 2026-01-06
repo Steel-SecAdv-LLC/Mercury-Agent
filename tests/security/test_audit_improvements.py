@@ -64,18 +64,20 @@ class TestPIIMaskingFilter:
         from omni_mercury_engine.api.server import PIIMaskingFilter
 
         filter_instance = PIIMaskingFilter()
+        # Use obviously fake test value to avoid secret detection false positives
+        test_key = "test-key-for-unit-testing-only"  # nosec B105
         record = logging.LogRecord(
             name="test",
             level=logging.INFO,
             pathname="",
             lineno=0,
-            msg='Authentication with api_key="sk-abc123xyz"',
+            msg=f'Authentication with api_key="{test_key}"',
             args=(),
             exc_info=None,
         )
         filter_instance.filter(record)
         assert "[REDACTED]" in record.msg
-        assert "sk-abc123xyz" not in record.msg
+        assert test_key not in record.msg
 
     def test_bearer_token_masking(self) -> None:
         """Test that bearer tokens are masked."""

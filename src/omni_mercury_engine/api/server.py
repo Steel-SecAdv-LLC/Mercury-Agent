@@ -63,19 +63,23 @@ class PIIMaskingFilter(logging.Filter):
 
     # Patterns for common PII data types
     PII_PATTERNS = [
-        (re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'), '[EMAIL_REDACTED]'),
-        (re.compile(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b'), '[PHONE_REDACTED]'),
-        (re.compile(r'\b\d{3}[-]?\d{2}[-]?\d{4}\b'), '[SSN_REDACTED]'),
-        (re.compile(r'\b(?:\d{4}[-\s]?){3}\d{4}\b'), '[CARD_REDACTED]'),
-        (re.compile(r'(?i)(api[_-]?key|apikey|secret|password|token|auth)["\']?\s*[:=]\s*["\']?[\w\-]+'),
-         r'\1=[REDACTED]'),
-        (re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b'), '[IP_REDACTED]'),
-        (re.compile(r'Bearer\s+[\w\-\.]+'), 'Bearer [TOKEN_REDACTED]'),
+        (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"), "[EMAIL_REDACTED]"),
+        (re.compile(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b"), "[PHONE_REDACTED]"),
+        (re.compile(r"\b\d{3}[-]?\d{2}[-]?\d{4}\b"), "[SSN_REDACTED]"),
+        (re.compile(r"\b(?:\d{4}[-\s]?){3}\d{4}\b"), "[CARD_REDACTED]"),
+        (
+            re.compile(
+                r'(?i)(api[_-]?key|apikey|secret|password|token|auth)["\']?\s*[:=]\s*["\']?[\w\-]+'
+            ),
+            r"\1=[REDACTED]",
+        ),
+        (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"), "[IP_REDACTED]"),
+        (re.compile(r"Bearer\s+[\w\-\.]+"), "Bearer [TOKEN_REDACTED]"),
     ]
 
     def filter(self, record: logging.LogRecord) -> bool:
         """Mask PII in log record message."""
-        if hasattr(record, 'msg') and isinstance(record.msg, str):
+        if hasattr(record, "msg") and isinstance(record.msg, str):
             msg = record.msg
             for pattern, replacement in self.PII_PATTERNS:
                 msg = pattern.sub(replacement, msg)
@@ -84,7 +88,7 @@ class PIIMaskingFilter(logging.Filter):
 
 
 # Apply PII masking filter to all security-related loggers
-for logger_name in ['omni_mercury_engine.api', 'omni_mercury_engine.security', 'uvicorn.access']:
+for logger_name in ["omni_mercury_engine.api", "omni_mercury_engine.security", "uvicorn.access"]:
     _logger = logging.getLogger(logger_name)
     _logger.addFilter(PIIMaskingFilter())
 

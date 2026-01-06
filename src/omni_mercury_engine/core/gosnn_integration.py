@@ -156,7 +156,7 @@ class GOSNNPerformanceMonitor:
         with self._lock:
             self._metrics.append(metric)
             if len(self._metrics) > self._max_entries:
-                self._metrics = self._metrics[-self._max_entries:]
+                self._metrics = self._metrics[-self._max_entries :]
 
     def get_summary(self, operation: str | None = None) -> dict[str, Any]:
         """Get performance summary for operations."""
@@ -191,11 +191,13 @@ class GOSNNPerformanceMonitor:
             for metric in self._metrics:
                 if metric.duration_ms > threshold_ms and metric.operation not in ops_seen:
                     ops_seen.add(metric.operation)
-                    bottlenecks.append({
-                        "operation": metric.operation,
-                        "duration_ms": metric.duration_ms,
-                        "metadata": metric.metadata,
-                    })
+                    bottlenecks.append(
+                        {
+                            "operation": metric.operation,
+                            "duration_ms": metric.duration_ms,
+                            "metadata": metric.metadata,
+                        }
+                    )
             return sorted(bottlenecks, key=lambda x: x["duration_ms"], reverse=True)[:10]
 
     def reset(self) -> None:

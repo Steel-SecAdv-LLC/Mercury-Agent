@@ -397,6 +397,7 @@ class CryptoAuditTrail:
         self._entries: list[CryptoOperation] = []
         self._max_entries = max_entries
         import threading
+
         self._lock = threading.Lock()
 
     def log_operation(
@@ -409,6 +410,7 @@ class CryptoAuditTrail:
     ) -> None:
         """Log a cryptographic operation to the audit trail."""
         import time
+
         entry = CryptoOperation(
             timestamp=time.time(),
             operation=operation,
@@ -423,7 +425,7 @@ class CryptoAuditTrail:
             self._entries.append(entry)
             # Rotate oldest entries if at capacity
             if len(self._entries) > self._max_entries:
-                self._entries = self._entries[-self._max_entries:]
+                self._entries = self._entries[-self._max_entries :]
 
     def get_recent_operations(self, count: int = 100) -> list[dict[str, Any]]:
         """Get recent operations for audit review."""
@@ -513,9 +515,7 @@ def validate_pqc_environment() -> dict[str, Any]:
     }
 
     if issues and require_constant_time():
-        raise RuntimeError(
-            f"PQC environment validation failed: {'; '.join(issues)}"
-        )
+        raise RuntimeError(f"PQC environment validation failed: {'; '.join(issues)}")
 
     return result
 
