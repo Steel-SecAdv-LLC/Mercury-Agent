@@ -48,21 +48,23 @@ import seaborn as sns
 from matplotlib.gridspec import GridSpec
 
 plt.style.use("seaborn-v0_8-whitegrid")
-plt.rcParams.update({
-    "font.family": "serif",
-    "font.size": 10,
-    "axes.labelsize": 11,
-    "axes.titlesize": 12,
-    "xtick.labelsize": 9,
-    "ytick.labelsize": 9,
-    "legend.fontsize": 9,
-    "figure.titlesize": 14,
-    "figure.dpi": 150,
-    "savefig.dpi": 300,
-    "savefig.bbox": "tight",
-    "axes.grid": True,
-    "grid.alpha": 0.3,
-})
+plt.rcParams.update(
+    {
+        "font.family": "serif",
+        "font.size": 10,
+        "axes.labelsize": 11,
+        "axes.titlesize": 12,
+        "xtick.labelsize": 9,
+        "ytick.labelsize": 9,
+        "legend.fontsize": 9,
+        "figure.titlesize": 14,
+        "figure.dpi": 150,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+        "axes.grid": True,
+        "grid.alpha": 0.3,
+    }
+)
 
 VIRIDIS = plt.cm.viridis
 CIVIDIS = plt.cm.cividis
@@ -95,8 +97,22 @@ def generate_confidence_evolution(
     ax.fill_between(x, confidence - std, confidence + std, alpha=0.3, color=VIRIDIS(0.6))
     ax.plot(x, confidence, color=VIRIDIS(0.8), linewidth=2, label="Bayesian Calibrated Confidence")
 
-    ax.axhline(y=baseline, color="gray", linestyle="--", linewidth=1, alpha=0.7, label=f"Baseline ({baseline})")
-    ax.axhline(y=target, color=VIRIDIS(0.3), linestyle="--", linewidth=1, alpha=0.7, label=f"Target ({target})")
+    ax.axhline(
+        y=baseline,
+        color="gray",
+        linestyle="--",
+        linewidth=1,
+        alpha=0.7,
+        label=f"Baseline ({baseline})",
+    )
+    ax.axhline(
+        y=target,
+        color=VIRIDIS(0.3),
+        linestyle="--",
+        linewidth=1,
+        alpha=0.7,
+        label=f"Target ({target})",
+    )
 
     ax.annotate(
         f"Final: {confidence[-1]:.3f}",
@@ -114,7 +130,8 @@ def generate_confidence_evolution(
     ax.legend(loc="lower right")
 
     ax.text(
-        0.02, 0.98,
+        0.02,
+        0.98,
         f"Growth: +{(confidence[-1] - baseline):.3f}",
         transform=ax.transAxes,
         fontsize=10,
@@ -155,19 +172,42 @@ def generate_anomaly_precision_recall(
 
     colors = [VIRIDIS(0.2), VIRIDIS(0.5), VIRIDIS(0.8)]
 
-    ax.plot(x, precision, color=colors[0], linewidth=2, label=f"Precision (final: {precision[-1]:.3f})")
+    ax.plot(
+        x, precision, color=colors[0], linewidth=2, label=f"Precision (final: {precision[-1]:.3f})"
+    )
     ax.plot(x, recall, color=colors[1], linewidth=2, label=f"Recall (final: {recall[-1]:.3f})")
     ax.plot(x, f1, color=colors[2], linewidth=2, label=f"F1 Score (final: {f1[-1]:.3f})")
 
     window = 10
     for i in range(0, epochs, 20):
         end = min(i + window, epochs)
-        ax.errorbar(i + window // 2, precision[i:end].mean(), yerr=precision[i:end].std(),
-                    color=colors[0], capsize=3, capthick=1, alpha=0.5)
-        ax.errorbar(i + window // 2, recall[i:end].mean(), yerr=recall[i:end].std(),
-                    color=colors[1], capsize=3, capthick=1, alpha=0.5)
-        ax.errorbar(i + window // 2, f1[i:end].mean(), yerr=f1[i:end].std(),
-                    color=colors[2], capsize=3, capthick=1, alpha=0.5)
+        ax.errorbar(
+            i + window // 2,
+            precision[i:end].mean(),
+            yerr=precision[i:end].std(),
+            color=colors[0],
+            capsize=3,
+            capthick=1,
+            alpha=0.5,
+        )
+        ax.errorbar(
+            i + window // 2,
+            recall[i:end].mean(),
+            yerr=recall[i:end].std(),
+            color=colors[1],
+            capsize=3,
+            capthick=1,
+            alpha=0.5,
+        )
+        ax.errorbar(
+            i + window // 2,
+            f1[i:end].mean(),
+            yerr=f1[i:end].std(),
+            color=colors[2],
+            capsize=3,
+            capthick=1,
+            alpha=0.5,
+        )
 
     ax.axhline(y=0.92, color="red", linestyle=":", linewidth=1, alpha=0.5, label="Target F1 (0.92)")
 
@@ -192,21 +232,29 @@ def generate_domain_heatmap(output_path: Path | None = None) -> None:
     np.random.seed(42)
 
     domains = [
-        "Medical", "Security", "Humanitarian", "Infrastructure",
-        "Energy", "Scientific", "Financial", "Environmental"
+        "Medical",
+        "Security",
+        "Humanitarian",
+        "Infrastructure",
+        "Energy",
+        "Scientific",
+        "Financial",
+        "Environmental",
     ]
     metrics = ["Precision", "Recall", "F1", "ROC-AUC", "Specificity"]
 
-    data = np.array([
-        [0.94, 0.91, 0.92, 0.96, 0.93],
-        [0.96, 0.89, 0.92, 0.97, 0.95],
-        [0.93, 0.90, 0.91, 0.95, 0.92],
-        [0.95, 0.88, 0.91, 0.96, 0.94],
-        [0.92, 0.87, 0.89, 0.94, 0.91],
-        [0.94, 0.90, 0.92, 0.96, 0.93],
-        [0.91, 0.86, 0.88, 0.93, 0.90],
-        [0.93, 0.89, 0.91, 0.95, 0.92],
-    ])
+    data = np.array(
+        [
+            [0.94, 0.91, 0.92, 0.96, 0.93],
+            [0.96, 0.89, 0.92, 0.97, 0.95],
+            [0.93, 0.90, 0.91, 0.95, 0.92],
+            [0.95, 0.88, 0.91, 0.96, 0.94],
+            [0.92, 0.87, 0.89, 0.94, 0.91],
+            [0.94, 0.90, 0.92, 0.96, 0.93],
+            [0.91, 0.86, 0.88, 0.93, 0.90],
+            [0.93, 0.89, 0.91, 0.95, 0.92],
+        ]
+    )
 
     data += np.random.normal(0, 0.01, data.shape)
     data = np.clip(data, 0, 1)
@@ -261,14 +309,19 @@ def generate_memory_growth(
 
     ax.stackplot(
         x,
-        episodic, semantic, short_term, long_term,
+        episodic,
+        semantic,
+        short_term,
+        long_term,
         labels=["Episodic", "Semantic", "Short-term", "Long-term"],
         colors=colors,
         alpha=0.8,
     )
 
     total = episodic + semantic + short_term + long_term
-    ax.plot(x, total, color="black", linewidth=1.5, linestyle="--", label=f"Total ({int(total[-1]):,})")
+    ax.plot(
+        x, total, color="black", linewidth=1.5, linestyle="--", label=f"Total ({int(total[-1]):,})"
+    )
 
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Memory Entries")
@@ -369,13 +422,29 @@ def generate_benevolence_scores(
     fig, ax = plt.subplots(figsize=(10, 6))
 
     above_threshold = benevolence >= threshold
-    ax.fill_between(x, threshold, benevolence, where=above_threshold,
-                    color="green", alpha=0.3, label="Above Threshold")
-    ax.fill_between(x, benevolence, threshold, where=~above_threshold,
-                    color="red", alpha=0.3, label="Below Threshold")
+    ax.fill_between(
+        x,
+        threshold,
+        benevolence,
+        where=above_threshold,
+        color="green",
+        alpha=0.3,
+        label="Above Threshold",
+    )
+    ax.fill_between(
+        x,
+        benevolence,
+        threshold,
+        where=~above_threshold,
+        color="red",
+        alpha=0.3,
+        label="Below Threshold",
+    )
 
     ax.plot(x, benevolence, color=VIRIDIS(0.6), linewidth=2, label=f"Benevolence Score")
-    ax.axhline(y=threshold, color="red", linestyle="--", linewidth=2, label=f"Threshold ({threshold})")
+    ax.axhline(
+        y=threshold, color="red", linestyle="--", linewidth=2, label=f"Threshold ({threshold})"
+    )
 
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Benevolence Score")
@@ -386,7 +455,8 @@ def generate_benevolence_scores(
 
     compliance_rate = (benevolence >= threshold).mean() * 100
     ax.text(
-        0.02, 0.98,
+        0.02,
+        0.98,
         f"Compliance Rate: {compliance_rate:.1f}%\nFinal Score: {benevolence[-1]:.4f}",
         transform=ax.transAxes,
         fontsize=10,
@@ -442,8 +512,13 @@ def generate_comprehensive_report(output_path: Path | None = None) -> None:
     ax3.set_ylabel("F1 Score")
     ax3.set_ylim(0.85, 1.0)
     for bar, score in zip(bars, scores):
-        ax3.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.01,
-                 f"{score:.2f}", ha="center", fontsize=8)
+        ax3.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.01,
+            f"{score:.2f}",
+            ha="center",
+            fontsize=8,
+        )
 
     ax4 = fig.add_subplot(gs[1, 0])
     memory_types = ["Episodic", "Semantic", "Short-term", "Long-term"]
@@ -455,8 +530,14 @@ def generate_comprehensive_report(output_path: Path | None = None) -> None:
     ax5 = fig.add_subplot(gs[1, 1])
     neural = 0.6 + 0.1 * np.sin(x / 20)
     symbolic = 0.4 - 0.1 * np.sin(x / 20)
-    ax5.stackplot(x, neural, symbolic, labels=["Neural", "Symbolic"],
-                  colors=[VIRIDIS(0.7), VIRIDIS(0.3)], alpha=0.8)
+    ax5.stackplot(
+        x,
+        neural,
+        symbolic,
+        labels=["Neural", "Symbolic"],
+        colors=[VIRIDIS(0.7), VIRIDIS(0.3)],
+        alpha=0.8,
+    )
     ax5.set_title("Neural-Symbolic Balance")
     ax5.set_xlabel("Epoch")
     ax5.set_ylabel("Contribution")
@@ -481,8 +562,13 @@ def generate_comprehensive_report(output_path: Path | None = None) -> None:
     ax7.set_xlabel("F1 Score")
     ax7.set_xlim(0.7, 1.0)
     for bar, score in zip(bars, f1_scores):
-        ax7.text(score + 0.01, bar.get_y() + bar.get_height() / 2,
-                 f"{score:.3f}", va="center", fontsize=8)
+        ax7.text(
+            score + 0.01,
+            bar.get_y() + bar.get_height() / 2,
+            f"{score:.3f}",
+            va="center",
+            fontsize=8,
+        )
 
     ax8 = fig.add_subplot(gs[2, 1])
     lambda_values = [0.18, 0.20, 0.22, 0.25]
@@ -491,8 +577,9 @@ def generate_comprehensive_report(output_path: Path | None = None) -> None:
     ax8.set_title("Lyapunov Convergence")
     ax8.set_xlabel("Lambda (λ)")
     ax8.set_ylabel("Convergence Time (epochs)")
-    ax8.annotate("Optimal", xy=(0.25, 62), xytext=(0.23, 75),
-                 arrowprops=dict(arrowstyle="->"), fontsize=9)
+    ax8.annotate(
+        "Optimal", xy=(0.25, 62), xytext=(0.23, 75), arrowprops=dict(arrowstyle="->"), fontsize=9
+    )
 
     ax9 = fig.add_subplot(gs[2, 2])
     metrics_text = """
@@ -509,14 +596,25 @@ def generate_comprehensive_report(output_path: Path | None = None) -> None:
     σ_Sacred = 0.96
     Φ = 1.618
     """
-    ax9.text(0.1, 0.5, metrics_text, transform=ax9.transAxes, fontsize=10,
-             verticalalignment="center", fontfamily="monospace",
-             bbox=dict(boxstyle="round", facecolor="lightgray", alpha=0.3))
+    ax9.text(
+        0.1,
+        0.5,
+        metrics_text,
+        transform=ax9.transAxes,
+        fontsize=10,
+        verticalalignment="center",
+        fontfamily="monospace",
+        bbox=dict(boxstyle="round", facecolor="lightgray", alpha=0.3),
+    )
     ax9.axis("off")
     ax9.set_title("Key Metrics")
 
-    fig.suptitle("Mercury Agent ♱ - Comprehensive Neuro-Symbolic Benchmark Report",
-                 fontsize=16, fontweight="bold", y=0.98)
+    fig.suptitle(
+        "Mercury Agent ♱ - Comprehensive Neuro-Symbolic Benchmark Report",
+        fontsize=16,
+        fontweight="bold",
+        y=0.98,
+    )
 
     plt.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close()

@@ -124,15 +124,11 @@ def compute_fairlearn_bias_metrics(
             sensitive_features=sensitive_features,
         )
 
-        dpd = demographic_parity_difference(
-            y_true, y_pred, sensitive_features=sensitive_features
-        )
+        dpd = demographic_parity_difference(y_true, y_pred, sensitive_features=sensitive_features)
         bias_metrics["demographic_parity_difference"] = float(dpd)
 
         try:
-            eod = equalized_odds_difference(
-                y_true, y_pred, sensitive_features=sensitive_features
-            )
+            eod = equalized_odds_difference(y_true, y_pred, sensitive_features=sensitive_features)
             bias_metrics["equalized_odds_difference"] = float(eod)
         except Exception:
             bias_metrics["equalized_odds_difference"] = 0.0
@@ -149,9 +145,7 @@ def compute_fairlearn_bias_metrics(
                 f"threshold (0.1) for {feature_name}. Review model fairness."
             )
         else:
-            logger.info(
-                f"Bias check passed: DPD={dpd:.3f} for {feature_name} (threshold: 0.1)"
-            )
+            logger.info(f"Bias check passed: DPD={dpd:.3f} for {feature_name} (threshold: 0.1)")
 
     except ImportError:
         logger.warning("Fairlearn not installed, skipping bias metrics")
@@ -177,27 +171,74 @@ class NSLKDDBenchmark:
     KDD_MIRROR = "https://archive.ics.uci.edu/ml/machine-learning-databases/kddcup99-mld/kddcup.data_10_percent.gz"
 
     COLUMN_NAMES = [
-        "duration", "protocol_type", "service", "flag", "src_bytes", "dst_bytes",
-        "land", "wrong_fragment", "urgent", "hot", "num_failed_logins", "logged_in",
-        "num_compromised", "root_shell", "su_attempted", "num_root",
-        "num_file_creations", "num_shells", "num_access_files", "num_outbound_cmds",
-        "is_host_login", "is_guest_login", "count", "srv_count", "serror_rate",
-        "srv_serror_rate", "rerror_rate", "srv_rerror_rate", "same_srv_rate",
-        "diff_srv_rate", "srv_diff_host_rate", "dst_host_count", "dst_host_srv_count",
-        "dst_host_same_srv_rate", "dst_host_diff_srv_rate",
-        "dst_host_same_src_port_rate", "dst_host_srv_diff_host_rate",
-        "dst_host_serror_rate", "dst_host_srv_serror_rate", "dst_host_rerror_rate",
-        "dst_host_srv_rerror_rate", "label"
+        "duration",
+        "protocol_type",
+        "service",
+        "flag",
+        "src_bytes",
+        "dst_bytes",
+        "land",
+        "wrong_fragment",
+        "urgent",
+        "hot",
+        "num_failed_logins",
+        "logged_in",
+        "num_compromised",
+        "root_shell",
+        "su_attempted",
+        "num_root",
+        "num_file_creations",
+        "num_shells",
+        "num_access_files",
+        "num_outbound_cmds",
+        "is_host_login",
+        "is_guest_login",
+        "count",
+        "srv_count",
+        "serror_rate",
+        "srv_serror_rate",
+        "rerror_rate",
+        "srv_rerror_rate",
+        "same_srv_rate",
+        "diff_srv_rate",
+        "srv_diff_host_rate",
+        "dst_host_count",
+        "dst_host_srv_count",
+        "dst_host_same_srv_rate",
+        "dst_host_diff_srv_rate",
+        "dst_host_same_src_port_rate",
+        "dst_host_srv_diff_host_rate",
+        "dst_host_serror_rate",
+        "dst_host_srv_serror_rate",
+        "dst_host_rerror_rate",
+        "dst_host_srv_rerror_rate",
+        "label",
     ]
 
     ATTACK_CATEGORIES = {
         "normal.": "normal",
-        "back.": "dos", "land.": "dos", "neptune.": "dos", "pod.": "dos",
-        "smurf.": "dos", "teardrop.": "dos",
-        "ipsweep.": "probe", "nmap.": "probe", "portsweep.": "probe", "satan.": "probe",
-        "ftp_write.": "r2l", "guess_passwd.": "r2l", "imap.": "r2l", "multihop.": "r2l",
-        "phf.": "r2l", "spy.": "r2l", "warezclient.": "r2l", "warezmaster.": "r2l",
-        "buffer_overflow.": "u2r", "loadmodule.": "u2r", "perl.": "u2r", "rootkit.": "u2r",
+        "back.": "dos",
+        "land.": "dos",
+        "neptune.": "dos",
+        "pod.": "dos",
+        "smurf.": "dos",
+        "teardrop.": "dos",
+        "ipsweep.": "probe",
+        "nmap.": "probe",
+        "portsweep.": "probe",
+        "satan.": "probe",
+        "ftp_write.": "r2l",
+        "guess_passwd.": "r2l",
+        "imap.": "r2l",
+        "multihop.": "r2l",
+        "phf.": "r2l",
+        "spy.": "r2l",
+        "warezclient.": "r2l",
+        "warezmaster.": "r2l",
+        "buffer_overflow.": "u2r",
+        "loadmodule.": "u2r",
+        "perl.": "u2r",
+        "rootkit.": "u2r",
     }
 
     def __init__(self, cache_dir: Path | None = None) -> None:
@@ -280,8 +321,7 @@ class NSLKDDBenchmark:
 
         n_normal = int(n_samples * 0.8)
         labels = ["normal."] * n_normal + rng.choice(
-            ["neptune.", "smurf.", "portsweep.", "satan."],
-            n_samples - n_normal
+            ["neptune.", "smurf.", "portsweep.", "satan."], n_samples - n_normal
         ).tolist()
         rng.shuffle(labels)
         data["label"] = labels
@@ -314,9 +354,7 @@ class NSLKDDBenchmark:
         """
         df = df.copy()
 
-        df["is_attack"] = df["label"].apply(
-            lambda x: 0 if x == "normal." else 1
-        )
+        df["is_attack"] = df["label"].apply(lambda x: 0 if x == "normal." else 1)
 
         protocol_encoded = LabelEncoder().fit_transform(df["protocol_type"])
 
@@ -502,10 +540,15 @@ class MIMICDemoBenchmark:
                 std = (high - low) / 6
                 values = rng.normal(mean, std, time_steps)
                 values = np.clip(values, low * 0.9, high * 1.1)
-                patient_data.extend([
-                    np.mean(values), np.std(values), np.min(values),
-                    np.max(values), values[-1] - values[0]
-                ])
+                patient_data.extend(
+                    [
+                        np.mean(values),
+                        np.std(values),
+                        np.min(values),
+                        np.max(values),
+                        values[-1] - values[0],
+                    ]
+                )
 
             all_features.append(patient_data)
             all_labels.append(0)
@@ -525,10 +568,15 @@ class MIMICDemoBenchmark:
                 else:
                     values -= trend
 
-                patient_data.extend([
-                    np.mean(values), np.std(values), np.min(values),
-                    np.max(values), values[-1] - values[0]
-                ])
+                patient_data.extend(
+                    [
+                        np.mean(values),
+                        np.std(values),
+                        np.min(values),
+                        np.max(values),
+                        values[-1] - values[0],
+                    ]
+                )
 
             all_features.append(patient_data)
             all_labels.append(1)
@@ -634,7 +682,7 @@ class MIMICDemoBenchmark:
                 "sepsis_ratio": sepsis_ratio,
                 "vital_signs": self.VITAL_SIGNS,
                 "note": "Simulated data based on MIMIC-III patterns. "
-                        "Full dataset requires PhysioNet credentials.",
+                "Full dataset requires PhysioNet credentials.",
             },
         )
 
