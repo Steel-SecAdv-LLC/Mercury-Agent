@@ -68,10 +68,6 @@ LAMBDA_LYAPUNOV: float = 0.25
 SIGMA_IMMUTABLE_DEFAULT: float = 0.96  # Default elevated threshold
 SIGMA_IMMUTABLE_MEDICAL: float = 0.93  # Medical domain fallback (avoid false negatives)
 
-# Backward compatibility aliases (deprecated in v2.0)
-SIGMA_IMMUTABLE_THRESHOLD: float = SIGMA_IMMUTABLE_DEFAULT
-SIGMA_IMMUTABLE_MEDICAL_FALLBACK: float = SIGMA_IMMUTABLE_MEDICAL
-
 try:
     import torch
     from torch import nn
