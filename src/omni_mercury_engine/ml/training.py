@@ -553,11 +553,12 @@ class LyapunovAnomalyLoss(nn.Module):
     Training loss with Lyapunov stability constraint for anomaly detection.
 
     Mathematical Foundation:
-        Loss = L_recon + λ·L_KL + μ·L_stability
+        Loss = L_recon + λ_kl·L_KL + λ_sup·L_supervised + μ·L_stability
 
         Where:
             L_recon = MSE(x, x_recon) - reconstruction loss
             L_KL = -0.5 * mean(1 + logvar - mu² - exp(logvar)) - VAE KL divergence
+            L_supervised = BCE(anomaly_scores, labels) - direct anomaly supervision
             L_stability = max(0, V̇ + α·V) - Lyapunov violation penalty
 
         Lyapunov Stability Condition:
@@ -573,6 +574,7 @@ class LyapunovAnomalyLoss(nn.Module):
 
     Args:
         lambda_kl: Weight for KL divergence term. Set to 0.0 for non-VAE models.
+        lambda_supervised: Weight for supervised anomaly loss (default: 1.0)
         mu_stability: Weight for Lyapunov stability term (default: 0.1)
         alpha: Lyapunov convergence rate parameter (default: 0.25, matches
                CONVERGENCE_RATE_PARAMETER from three_r_mechanism.py)
@@ -585,6 +587,7 @@ class LyapunovAnomalyLoss(nn.Module):
         ...     x=x,
         ...     x_recon=output["reconstruction"],
         ...     anomaly_scores=output["anomaly_scores"],
+        ...     labels=labels,  # Optional: add supervised signal
         ... )
         >>> loss_dict["total"].backward()
 
@@ -600,12 +603,14 @@ class LyapunovAnomalyLoss(nn.Module):
     def __init__(
         self,
         lambda_kl: float = 0.0,
+        lambda_supervised: float = 1.0,
         mu_stability: float = 0.1,
         alpha: float = 0.25,
         reduction: str = "mean",
     ):
         super().__init__()
         self.lambda_kl = lambda_kl
+        self.lambda_supervised = lambda_supervised
         self.mu_stability = mu_stability
         self.alpha = alpha
         self.reduction = reduction
@@ -626,6 +631,7 @@ class LyapunovAnomalyLoss(nn.Module):
         x: torch.Tensor,
         x_recon: torch.Tensor,
         anomaly_scores: torch.Tensor,
+        labels: torch.Tensor | None = None,
         mu: torch.Tensor | None = None,
         logvar: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
@@ -635,7 +641,8 @@ class LyapunovAnomalyLoss(nn.Module):
         Args:
             x: Original input tensor [batch_size, seq_len, dim] or [batch_size, dim]
             x_recon: Reconstructed tensor (same shape as x)
-            anomaly_scores: Anomaly scores [batch_size]
+            anomaly_scores: Anomaly scores [batch_size], expected in [0, 1]
+            labels: Binary anomaly labels [batch_size] (optional, enables supervised loss)
             mu: VAE mean (optional, only for VAE models)
             logvar: VAE log variance (optional, only for VAE models)
 
@@ -643,6 +650,7 @@ class LyapunovAnomalyLoss(nn.Module):
             Dict containing:
                 - total: Total weighted loss (for backward())
                 - reconstruction: Reconstruction loss component
+                - supervised: Supervised BCE loss (0 if labels not provided)
                 - kl: KL divergence component (0 if lambda_kl=0)
                 - stability: Lyapunov stability violation penalty
                 - lyapunov_V: Current Lyapunov function value V(s)
@@ -653,6 +661,18 @@ class LyapunovAnomalyLoss(nn.Module):
             L_recon = torch.nn.functional.mse_loss(x_recon, x, reduction="mean")
         else:
             L_recon = torch.nn.functional.mse_loss(x_recon, x, reduction="sum")
+
+        # Supervised anomaly loss (BCE) - CRITICAL for accuracy
+        if labels is not None and self.lambda_supervised > 0:
+            # Convert labels to binary float in [0, 1]
+            if labels.dim() > 1:
+                labels = labels[:, 0]  # Take first column if multi-dim
+            binary_labels = (labels > 0).float()
+            L_supervised = torch.nn.functional.binary_cross_entropy(
+                anomaly_scores, binary_labels, reduction="mean"
+            )
+        else:
+            L_supervised = torch.tensor(0.0, device=x.device)
 
         # KL divergence (for VAE models only)
         if self.lambda_kl > 0 and mu is not None and logvar is not None:
@@ -686,12 +706,18 @@ class LyapunovAnomalyLoss(nn.Module):
         # Store current scores for next iteration (detached to prevent graph issues)
         self.prev_scores = anomaly_scores.detach().clone()
 
-        # Total loss
-        total = L_recon + self.lambda_kl * L_kl + self.mu_stability * L_stability
+        # Total loss: reconstruction + supervised + KL + stability
+        total = (
+            L_recon
+            + self.lambda_supervised * L_supervised
+            + self.lambda_kl * L_kl
+            + self.mu_stability * L_stability
+        )
 
         return {
             "total": total,
             "reconstruction": L_recon,
+            "supervised": L_supervised,
             "kl": L_kl,
             "stability": L_stability,
             "lyapunov_V": V_t,
@@ -982,22 +1008,24 @@ class ThreeRAnomalyTrainer(pl.LightningModule):
         batch: tuple[torch.Tensor, torch.Tensor],
         batch_idx: int,
     ) -> torch.Tensor:
-        """Training step with Lyapunov-constrained loss."""
+        """Training step with Lyapunov-constrained loss and supervised signal."""
         x, labels = batch
 
         # Forward pass
         output = self.forward(x)
 
-        # Compute loss
+        # Compute loss WITH labels for supervised signal (critical for accuracy)
         loss_dict = self.criterion(
             x=x,
             x_recon=output["reconstruction"],
             anomaly_scores=output["anomaly_scores"],
+            labels=labels,  # Pass labels for supervised BCE loss
         )
 
         # Log metrics
         self.log("train_loss", loss_dict["total"], prog_bar=True)
         self.log("train_recon_loss", loss_dict["reconstruction"])
+        self.log("train_supervised_loss", loss_dict["supervised"])
         self.log("train_stability_loss", loss_dict["stability"])
         self.log("train_lyapunov_V", loss_dict["lyapunov_V"])
 
@@ -1024,11 +1052,12 @@ class ThreeRAnomalyTrainer(pl.LightningModule):
         # Forward pass
         output = self.forward(x)
 
-        # Compute loss (without updating stability state)
+        # Compute loss with labels for consistency
         loss_dict = self.criterion(
             x=x,
             x_recon=output["reconstruction"],
             anomaly_scores=output["anomaly_scores"],
+            labels=labels,
         )
 
         # Compute F1 and recall

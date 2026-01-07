@@ -167,12 +167,13 @@ class ThreeRAttentionBlock(nn.Module):
         self.output_proj = nn.Linear(d_model, d_model)
         self.output_norm = nn.LayerNorm(d_model)
 
-        # Anomaly score head
+        # Anomaly score head (sigmoid for [0,1] bounded output)
         self.anomaly_head = nn.Sequential(
             nn.Linear(d_model, d_model // 2),
             nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(d_model // 2, 1),
+            nn.Sigmoid(),  # Bound output to [0, 1] for proper thresholding
         )
 
     def init_from_resonance_engine(
@@ -434,11 +435,12 @@ class ThreeRAnomalyTransformer(nn.Module):
             nn.Linear(d_model, input_dim),
         )
 
-        # Aggregated anomaly score
+        # Aggregated anomaly score (sigmoid for [0,1] bounded output)
         self.score_aggregator = nn.Sequential(
             nn.Linear(d_model, d_model // 2),
             nn.GELU(),
             nn.Linear(d_model // 2, 1),
+            nn.Sigmoid(),  # Bound output to [0, 1] for proper thresholding
         )
 
     def forward(
