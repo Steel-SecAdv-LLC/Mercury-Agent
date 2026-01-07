@@ -711,3 +711,109 @@ class TestNewEnginePatterns:
         assert "classified_issues" in result
         assert "refactoring_suggestions" in result
         assert "optimization_status" in result
+
+
+class TestNeuralVerifierIntegration:
+    """Tests for neural verifier integration with ThreeRMechanism."""
+
+    def test_neural_verifier_initialization(self):
+        """Test that neural verifier is initialized with ThreeRMechanism."""
+        mechanism = ThreeRMechanism()
+
+        assert mechanism._neural_input_dim == 64
+        assert mechanism._neural_d_model == 128
+        assert mechanism._torch_available is True
+        assert mechanism._neural_verifier is not None
+
+    def test_compute_dominance_score_with_neural_verification(self):
+        """Test compute_dominance_score includes neural verification."""
+        mechanism = ThreeRMechanism()
+        data = np.random.randn(100)
+
+        result = mechanism.compute_dominance_score(data)
+
+        assert result.fusion_score >= 0.0
+        assert result.fusion_score <= 1.0
+        assert result.recursion_score >= 0.0
+        assert result.resonance_score >= 0.0
+        assert result.optimization_score >= 0.0
+        assert result.neural_anomaly_score is not None
+        assert result.neural_anomaly_score >= 0.0
+        assert result.neural_anomaly_score <= 1.0
+        assert isinstance(result.dual_verified, bool)
+
+    def test_neural_score_stored_for_gosnn(self):
+        """Test that neural score is stored for GOSNN integration."""
+        mechanism = ThreeRMechanism()
+        data = np.random.randn(50)
+
+        mechanism.compute_dominance_score(data)
+
+        assert mechanism.last_neural_score is not None
+        assert mechanism.last_neural_score >= 0.0
+        assert mechanism.last_neural_score <= 1.0
+
+    def test_dual_verification_agreement(self):
+        """Test dual verification when scores agree."""
+        mechanism = ThreeRMechanism()
+        data = np.random.randn(100)
+
+        result = mechanism.compute_dominance_score(data, anomaly_threshold=0.5)
+
+        traditional_is_anomaly = result.fusion_score >= 0.5
+        neural_is_anomaly = result.neural_anomaly_score >= 0.5
+
+        if traditional_is_anomaly == neural_is_anomaly:
+            assert result.dual_verified is True
+        else:
+            assert result.dual_verified is False
+
+    def test_custom_neural_dimensions(self):
+        """Test ThreeRMechanism with custom neural dimensions."""
+        mechanism = ThreeRMechanism(neural_input_dim=32, neural_d_model=64)
+
+        assert mechanism._neural_input_dim == 32
+        assert mechanism._neural_d_model == 64
+        assert mechanism._neural_verifier is not None
+
+    def test_neural_verification_with_small_data(self):
+        """Test neural verification handles small input data."""
+        mechanism = ThreeRMechanism()
+        data = np.array([1.0, 2.0, 3.0])
+
+        result = mechanism.compute_dominance_score(data)
+
+        assert result.neural_anomaly_score is not None
+        assert result.neural_anomaly_score >= 0.0
+        assert result.neural_anomaly_score <= 1.0
+
+    def test_neural_verification_with_large_data(self):
+        """Test neural verification handles large input data."""
+        mechanism = ThreeRMechanism()
+        data = np.random.randn(1000)
+
+        result = mechanism.compute_dominance_score(data)
+
+        assert result.neural_anomaly_score is not None
+        assert result.neural_anomaly_score >= 0.0
+        assert result.neural_anomaly_score <= 1.0
+
+    def test_anomaly_fusion_result_has_neural_fields(self):
+        """Test AnomalyFusionResult dataclass has neural verification fields."""
+        from omni_mercury_engine.core.three_r_mechanism import AnomalyFusionResult
+
+        result = AnomalyFusionResult(
+            fusion_score=0.8,
+            recursion_score=0.7,
+            resonance_score=0.6,
+            optimization_score=0.5,
+            ethical_compliance_threshold=0.96,
+            fusion_weights={"w_R": 0.447, "w_H": 0.276, "w_O": 0.276},
+            lyapunov_bound=0.1,
+            convergence_rate=0.25,
+            neural_anomaly_score=0.75,
+            dual_verified=True,
+        )
+
+        assert result.neural_anomaly_score == 0.75
+        assert result.dual_verified is True

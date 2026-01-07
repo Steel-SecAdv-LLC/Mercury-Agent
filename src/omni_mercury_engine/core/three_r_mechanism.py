@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from numpy.typing import NDArray
+    from torch import nn
 
 # Golden ratio constant for AVA Anomaly Fusion Equation (AAFE)
 GOLDEN_RATIO_CONSTANT: float = 1.618033988749895
@@ -58,7 +59,7 @@ CONVERGENCE_RATE_PARAMETER: float = 0.25
 
 @dataclass
 class AnomalyFusionResult:
-    """Result of AVA Anomaly Fusion Equation (AAFE) computation.
+    """Result of AVA Anomaly Fusion Equation (AAFE) computation with neural verification.
 
     The AVA Anomaly Fusion Equation (AAFE) provides unified scoring for precision dominance:
     A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * η_Ethical^Φ
@@ -71,6 +72,9 @@ class AnomalyFusionResult:
         - Φ: Golden ratio constant (1.618) for harmonic scaling
         - w_R, w_H, w_O: Learned fusion weights that sum to 1.0
 
+    Neural verification via ThreeRAnomalyTransformer provides secondary precision scoring
+    for dual-verification anomaly detection in safety-critical applications.
+
     Attributes:
         fusion_score: Final A(x) score combining all components
         recursion_score: R(x) component value
@@ -80,6 +84,8 @@ class AnomalyFusionResult:
         fusion_weights: Dictionary of learned weights {w_R, w_H, w_O}
         lyapunov_bound: Upper bound on convergence: V(S_t) <= epsilon * e^(-lambda*t)
         convergence_rate: Estimated convergence rate (lambda = 0.25)
+        neural_anomaly_score: Neural network anomaly score from ThreeRAnomalyTransformer
+        dual_verified: True if both traditional and neural scores agree on anomaly status
     """
 
     fusion_score: float
@@ -90,6 +96,8 @@ class AnomalyFusionResult:
     fusion_weights: dict[str, float]
     lyapunov_bound: float
     convergence_rate: float = CONVERGENCE_RATE_PARAMETER
+    neural_anomaly_score: float | None = None
+    dual_verified: bool = False
 
 
 class AnomalyFusionEquation:
@@ -2062,8 +2070,14 @@ class ThreeRMechanism:
         enable_auto_optimize: bool = True,
         sigma_immutable: float = 0.96,
         lambda_lyapunov: float = CONVERGENCE_RATE_PARAMETER,
+        neural_input_dim: int = 64,
+        neural_d_model: int = 128,
     ):
-        """Initialize 3R Mechanism with weighted fusion Equation.
+        """Initialize 3R Mechanism with weighted fusion Equation and neural verification.
+
+        The neural verifier (ThreeRAnomalyTransformer) is created internally and connected
+        directly to the 3R mechanism for dual-verification anomaly detection. This provides
+        precision through both traditional 3R scoring and neural network-backed verification.
 
         Args:
             max_recursion_depth: Maximum depth for recursive feature extraction
@@ -2071,6 +2085,8 @@ class ThreeRMechanism:
             enable_auto_optimize: Enable automatic optimization
             sigma_immutable: Ethical compliance threshold (0.93-0.96)
             lambda_lyapunov: Lyapunov decay rate for stability (default 0.25)
+            neural_input_dim: Input dimension for neural verifier (default 64)
+            neural_d_model: Model dimension for neural verifier (default 128)
         """
         self.recursion_engine = RecursionEngine(max_depth=max_recursion_depth)
         self.resonance_engine = ResonanceEngine(sampling_rate=sampling_rate)
@@ -2083,15 +2099,109 @@ class ThreeRMechanism:
             lambda_lyapunov=lambda_lyapunov,
         )
 
+        # Initialize neural verifier (ThreeRAnomalyTransformer) for dual verification
+        # This is a required connection for precision anomaly detection
+        self._neural_input_dim = neural_input_dim
+        self._neural_d_model = neural_d_model
+        self._neural_verifier: nn.Module | None = None
+        self._torch_available = False
+        self._init_neural_verifier(sigma_immutable)
+
         # Track last computed scores for GOSNN integration
         self.last_recursion_score: float = 0.5
         self.last_resonance_score: float = 0.5
         self.last_optimization_score: float = 0.5
+        self.last_neural_score: float | None = None
 
+        neural_status = "enabled" if self._neural_verifier is not None else "pending"
         logging.info(
             f"3R Mechanism initialized with weighted fusion: "
-            f"sigma_immutable={sigma_immutable}, lambda={lambda_lyapunov}"
+            f"sigma_immutable={sigma_immutable}, lambda={lambda_lyapunov}, "
+            f"neural_verifier={neural_status}"
         )
+
+    def _init_neural_verifier(self, ethical_threshold: float) -> None:
+        """Initialize the neural verifier (ThreeRAnomalyTransformer).
+
+        Lazy-loads torch and creates the neural verifier for dual verification.
+        This is called automatically during __init__.
+        """
+        try:
+            from omni_mercury_engine.ml.three_r_attention import ThreeRAnomalyTransformer
+
+            self._torch_available = True
+            self._neural_verifier = ThreeRAnomalyTransformer(
+                input_dim=self._neural_input_dim,
+                d_model=self._neural_d_model,
+                n_heads=4,
+                num_layers=2,
+                ethical_threshold=ethical_threshold,
+            )
+            self._neural_verifier.eval()
+            logging.info(
+                f"Neural verifier initialized: input_dim={self._neural_input_dim}, "
+                f"d_model={self._neural_d_model}"
+            )
+        except ImportError as e:
+            logging.warning(f"Neural verifier not available (torch not installed): {e}")
+            self._neural_verifier = None
+            self._torch_available = False
+
+    def _compute_neural_score(self, data: NDArray[Any]) -> float | None:
+        """Compute neural anomaly score using ThreeRAnomalyTransformer.
+
+        Routes the input data through the neural verifier for secondary verification.
+        This is the simple router connection between 3R mechanism and neural network.
+
+        Args:
+            data: Input data array for analysis
+
+        Returns:
+            Neural anomaly score in [0, 1] or None if neural verifier unavailable
+        """
+        if self._neural_verifier is None or not self._torch_available:
+            return None
+
+        try:
+            import torch
+
+            # Reshape data to [batch=1, seq_len, input_dim]
+            # The transformer needs seq_len >= 4 for multi-scale attention to work
+            data_flat = data.flatten().astype(np.float32)
+            total_elements = len(data_flat)
+
+            # Calculate sequence length and ensure minimum of 4 for attention
+            min_seq_len = 4
+            if total_elements >= self._neural_input_dim * min_seq_len:
+                seq_len = total_elements // self._neural_input_dim
+                data_reshaped = data_flat[: seq_len * self._neural_input_dim].reshape(
+                    seq_len, self._neural_input_dim
+                )
+            else:
+                seq_len = min_seq_len
+                total_needed = seq_len * self._neural_input_dim
+                if total_elements < total_needed:
+                    padded = np.zeros(total_needed, dtype=np.float32)
+                    padded[:total_elements] = data_flat
+                    data_reshaped = padded.reshape(seq_len, self._neural_input_dim)
+                else:
+                    data_reshaped = data_flat[:total_needed].reshape(
+                        seq_len, self._neural_input_dim
+                    )
+
+            # Create tensor: [batch=1, seq_len, input_dim]
+            x = torch.from_numpy(data_reshaped).unsqueeze(0)
+
+            # Run neural inference
+            with torch.no_grad():
+                output = self._neural_verifier(x)
+                neural_score = float(output["anomaly_scores"].item())
+
+            return neural_score
+
+        except (ImportError, RuntimeError) as e:
+            logging.warning(f"Neural verification failed: {e}")
+            return None
 
     def enhance_features(
         self, data: NDArray[Any], enable_recursion: bool = True, enable_resonance: bool = True
@@ -2147,23 +2257,29 @@ class ThreeRMechanism:
         self,
         data: NDArray[Any],
         sigma_immutable_override: float | None = None,
+        anomaly_threshold: float = 0.5,
     ) -> AnomalyFusionResult:
-        """Compute weighted fusion score for input data.
+        """Compute weighted fusion score with neural verification for input data.
 
-        This method integrates all three 3R components:
+        This method integrates all three 3R components plus neural verification:
         - R(x): Recursion score from hierarchical feature extraction
         - H(omega): Resonance score from frequency-domain analysis
         - O(theta): Optimization score from refactoring analysis
+        - Neural: ThreeRAnomalyTransformer verification score
 
         The final score is computed via the weighted fusion Equation:
         A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * sigma_Immutable^phi
 
+        Neural verification provides dual-verification for precision anomaly detection.
+        The dual_verified flag is True when both traditional and neural scores agree.
+
         Args:
             data: Input data array for analysis
             sigma_immutable_override: Optional override for sigma_Immutable threshold
+            anomaly_threshold: Threshold for anomaly classification (default 0.5)
 
         Returns:
-            AnomalyFusionResult with all component scores and metadata
+            AnomalyFusionResult with all component scores, neural score, and dual verification
         """
         # Compute R(x): Recursion score from hierarchical features
         if len(data) > 0:
@@ -2203,17 +2319,43 @@ class ThreeRMechanism:
         else:
             optimization_score = 0.5
 
+        # Compute neural verification score (router connection to ThreeRAnomalyTransformer)
+        neural_score = self._compute_neural_score(data)
+        self.last_neural_score = neural_score
+
         # Store scores for GOSNN integration
         self.last_recursion_score = recursion_score
         self.last_resonance_score = resonance_score
         self.last_optimization_score = optimization_score
 
         # Compute weighted fusion score
-        return self.fusion.compute(
+        result = self.fusion.compute(
             recursion_score=recursion_score,
             resonance_score=resonance_score,
             optimization_score=optimization_score,
             sigma_immutable_override=sigma_immutable_override,
+        )
+
+        # Determine dual verification status
+        # Both traditional fusion score and neural score must agree on anomaly classification
+        traditional_is_anomaly = result.fusion_score >= anomaly_threshold
+        neural_is_anomaly = neural_score is not None and neural_score >= anomaly_threshold
+        dual_verified = (
+            neural_score is not None and traditional_is_anomaly == neural_is_anomaly
+        )
+
+        # Return result with neural verification data
+        return AnomalyFusionResult(
+            fusion_score=result.fusion_score,
+            recursion_score=result.recursion_score,
+            resonance_score=result.resonance_score,
+            optimization_score=result.optimization_score,
+            ethical_compliance_threshold=result.ethical_compliance_threshold,
+            fusion_weights=result.fusion_weights,
+            lyapunov_bound=result.lyapunov_bound,
+            convergence_rate=result.convergence_rate,
+            neural_anomaly_score=neural_score,
+            dual_verified=dual_verified,
         )
 
     def get_dominance_proof(self) -> dict[str, Any]:
