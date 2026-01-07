@@ -80,4 +80,6 @@ def test_multiverse_report():
 
     assert report["total_universes"] > 0
     assert "system_version" in report
-    assert "V20" in report["system_version"]
+    # Verify system_version contains the OMNI_PERCIPIENT Omni-Code
+    # The code contains "20A19" (vigesimal encoding) not "V20"
+    assert "20A19" in report["system_version"]
