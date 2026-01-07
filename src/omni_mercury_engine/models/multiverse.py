@@ -38,12 +38,14 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from omni_mercury_engine.utils.constants import OmniCodes
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-_VITALITY_HASH = "V20V11M16V19"
+# Omni-Code: Omni-Percipient Future (predictive foresight and anticipatory analysis)
+_VITALITY_HASH = OmniCodes.OMNI_PERCIPIENT.code
 
 
 class UniverseState(Enum):

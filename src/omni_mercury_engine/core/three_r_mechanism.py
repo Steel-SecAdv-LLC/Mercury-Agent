@@ -55,10 +55,6 @@ GOLDEN_RATIO_CONSTANT: float = 1.618033988749895
 # Convergence rate parameter (Lyapunov decay rate, elevated from 0.18 for 25% faster stability)
 CONVERGENCE_RATE_PARAMETER: float = 0.25
 
-# Backward-compatible aliases (deprecated, use new names)
-PHI: float = GOLDEN_RATIO_CONSTANT
-LAMBDA_LYAPUNOV: float = CONVERGENCE_RATE_PARAMETER
-
 
 @dataclass
 class AnomalyFusionResult:
@@ -94,26 +90,6 @@ class AnomalyFusionResult:
     fusion_weights: dict[str, float]
     lyapunov_bound: float
     convergence_rate: float = CONVERGENCE_RATE_PARAMETER
-
-    # Backward-compatible property aliases
-    @property
-    def dominance_score(self) -> float:
-        """Alias for fusion_score (deprecated)."""
-        return self.fusion_score
-
-    @property
-    def sigma_immutable(self) -> float:
-        """Alias for ethical_compliance_threshold (deprecated)."""
-        return self.ethical_compliance_threshold
-
-    @property
-    def weights(self) -> dict[str, float]:
-        """Alias for fusion_weights (deprecated)."""
-        return self.fusion_weights
-
-
-# Backward-compatible alias for AvaDominanceResult
-AvaDominanceResult = AnomalyFusionResult
 
 
 class AnomalyFusionEquation:
@@ -2085,7 +2061,7 @@ class ThreeRMechanism:
         sampling_rate: float = 1.0,
         enable_auto_optimize: bool = True,
         sigma_immutable: float = 0.96,
-        lambda_lyapunov: float = LAMBDA_LYAPUNOV,
+        lambda_lyapunov: float = CONVERGENCE_RATE_PARAMETER,
     ):
         """Initialize 3R Mechanism with weighted fusion Equation.
 
@@ -2171,7 +2147,7 @@ class ThreeRMechanism:
         self,
         data: NDArray[Any],
         sigma_immutable_override: float | None = None,
-    ) -> AvaDominanceResult:
+    ) -> AnomalyFusionResult:
         """Compute weighted fusion score for input data.
 
         This method integrates all three 3R components:
@@ -2187,7 +2163,7 @@ class ThreeRMechanism:
             sigma_immutable_override: Optional override for sigma_Immutable threshold
 
         Returns:
-            AvaDominanceResult with all component scores and metadata
+            AnomalyFusionResult with all component scores and metadata
         """
         # Compute R(x): Recursion score from hierarchical features
         if len(data) > 0:
