@@ -100,9 +100,7 @@ def plot_confidence_evolution(
     epoch_summaries = results["epoch_summaries"]
     epochs = [s["epoch"] for s in epoch_summaries]
     confidences = [s["avg_plan_confidence"] for s in epoch_summaries]
-    _legacy_confidences = [
-        s.get("avg_legacy_confidence", 0.76) for s in epoch_summaries
-    ]
+    _legacy_confidences = [s.get("avg_legacy_confidence", 0.76) for s in epoch_summaries]
 
     # Plot legacy baseline
     ax.axhline(
