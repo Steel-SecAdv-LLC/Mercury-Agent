@@ -21,8 +21,8 @@ from __future__ import annotations
 from typing import Any
 
 """
-Harmonic analysis encoder using spherical harmonics and Fourier analysis
-Extracted from Harmonic Analysis Engine with memorial codes removed
+Harmonic analysis encoder using spherical harmonics and Fourier analysis.
+Provides frequency-domain feature extraction for anomaly detection.
 """
 
 
@@ -218,8 +218,8 @@ class FourierHarmonicAnalyzer:
 
 class QuantumHarmonicOscillator:
     """
-    Quantum harmonic oscillator model for state evolution
-    Based on quantum mechanics principles (not memorial codes)
+    Quantum harmonic oscillator model for state evolution.
+    Based on quantum mechanics principles for coherent state evolution.
     """
 
     def __init__(self, mass: float = 1.0, omega: float = 1.0, hbar: float = 1.0) -> None:

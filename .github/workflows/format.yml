@@ -22,4 +22,4 @@ jobs:
         run: pip install black>=24.0.0
 
       - name: Check formatting with Black
-        run: black --check src/ tests/ benchmarks/ tools/ examples/ setup.py
+        run: black --check src/ tests/ benchmarks/ tools/ examples/

@@ -38,9 +38,7 @@ Features:
 - High-resolution PNG/SVG export
 """
 
-import json
 from pathlib import Path
-from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -441,7 +439,7 @@ def generate_benevolence_scores(
         label="Below Threshold",
     )
 
-    ax.plot(x, benevolence, color=VIRIDIS(0.6), linewidth=2, label=f"Benevolence Score")
+    ax.plot(x, benevolence, color=VIRIDIS(0.6), linewidth=2, label="Benevolence Score")
     ax.axhline(
         y=threshold, color="red", linestyle="--", linewidth=2, label=f"Threshold ({threshold})"
     )

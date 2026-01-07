@@ -406,7 +406,7 @@ OMEGA_CONSTANT = MathematicalConstants.OMEGA.value
 # =============================================================================
 # Omni-Codes: Bio-Inspired Helical Parameters from Ava Guardian
 # =============================================================================
-# Seven foundational codes governing ethical AI alignment and system stability.
+# Seven Omni-Codes governing ethical AI alignment and system stability.
 # Integrated from Ava Guardian (https://github.com/Steel-SecAdv-LLC/Ava-Guardian)
 # Each code has helical parameters (r, p) inspired by DNA double-helix stability.
 # =============================================================================

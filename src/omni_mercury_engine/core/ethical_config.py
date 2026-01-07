@@ -30,11 +30,7 @@ decision-making processes, ensuring alignment with compassionate and just AI pri
 from dataclasses import dataclass, field
 from typing import Any
 
-_SYSTEM_INVARIANT_X = "X20A07E9A89"
-_SYSTEM_INVARIANT_I = "I19A09A07A88"
-_SYSTEM_INVARIANT_V = "V20V11M16V19"
-_SYSTEM_INVARIANT_D = "D19L12E19A92"
-_SYSTEM_INVARIANT_C = "C19V11C20V15"
+from omni_mercury_engine.utils.constants import OmniCodes
 
 
 @dataclass
@@ -340,11 +336,13 @@ class EngineConfig:
                 "Commitment - Long-term dedication to beneficial outcomes",
             ],
             "system_integrity": [
-                _SYSTEM_INVARIANT_X,
-                _SYSTEM_INVARIANT_I,
-                _SYSTEM_INVARIANT_V,
-                _SYSTEM_INVARIANT_D,
-                _SYSTEM_INVARIANT_C,
+                OmniCodes.OMNI_DIRECTIONAL.code,
+                OmniCodes.OMNI_INDIVISIBLE.code,
+                OmniCodes.OMNI_PERCIPIENT.code,
+                OmniCodes.OMNI_BENEVOLENT.code,
+                OmniCodes.OMNI_UNIVERSAL.code,
+                OmniCodes.OMNI_SCIENT.code,
+                OmniCodes.OMNI_POTENT.code,
             ],
         }
 

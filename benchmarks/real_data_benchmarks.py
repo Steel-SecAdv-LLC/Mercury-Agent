@@ -32,22 +32,19 @@ All benchmarks include:
 """
 
 import gzip
-import hashlib
 import json
 import logging
 import time
-import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from urllib.request import urlopen, urlretrieve
+from urllib.request import urlretrieve
 
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import IsolationForest
 from sklearn.metrics import (
     f1_score,
-    precision_recall_curve,
     precision_score,
     recall_score,
     roc_auc_score,

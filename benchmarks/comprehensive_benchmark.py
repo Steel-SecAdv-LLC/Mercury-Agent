@@ -35,14 +35,13 @@ from typing import Any
 import numpy as np
 from sklearn.metrics import f1_score, precision_score, recall_score
 
-from omni_mercury_engine.infrastructure import InfrastructureCoordinator
-from omni_mercury_engine.models.simulation import SimulationModule
-from omni_mercury_engine.space.space_exploration_analyzer import SpaceExplorationAnalyzer
-
 from benchmarks.real_data_benchmarks import (
     MIMICDemoBenchmark,
     NSLKDDBenchmark,
 )
+from omni_mercury_engine.infrastructure import InfrastructureCoordinator
+from omni_mercury_engine.models.simulation import SimulationModule
+from omni_mercury_engine.space.space_exploration_analyzer import SpaceExplorationAnalyzer
 
 
 def validate_metrics(metrics: dict[str, Any], benchmark_name: str) -> None:

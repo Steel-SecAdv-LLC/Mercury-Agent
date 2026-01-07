@@ -56,8 +56,8 @@ def test_gravitational_field_computation():
     assert np.all(grav_fields >= 0)
 
 
-def test_memorial_code():
-    """Test memorial code preservation"""
+def test_omni_code_integration():
+    """Test Omni-Code integration in astrophysical model"""
     model = AstrophysicalAnomalyModel()
     data = np.random.randn(2, 6)
 

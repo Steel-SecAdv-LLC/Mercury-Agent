@@ -194,18 +194,18 @@ class TestEthicalGating:
     def test_sigma_immutable_default(self):
         """Test sigma_immutable default value."""
         from omni_mercury_engine.core.global_omni_scalar_network import (
-            SIGMA_IMMUTABLE_THRESHOLD,
+            SIGMA_IMMUTABLE_DEFAULT,
         )
 
-        assert SIGMA_IMMUTABLE_THRESHOLD == 0.96
+        assert SIGMA_IMMUTABLE_DEFAULT == 0.96
 
     def test_sigma_immutable_medical_fallback(self):
         """Test sigma_immutable medical fallback value."""
         from omni_mercury_engine.core.global_omni_scalar_network import (
-            SIGMA_IMMUTABLE_MEDICAL_FALLBACK,
+            SIGMA_IMMUTABLE_MEDICAL,
         )
 
-        assert SIGMA_IMMUTABLE_MEDICAL_FALLBACK == 0.93
+        assert SIGMA_IMMUTABLE_MEDICAL == 0.93
 
     def test_ethical_gate_passes_high_benevolence(self, gosnn):
         """Test ethical gate passes with high benevolence."""
