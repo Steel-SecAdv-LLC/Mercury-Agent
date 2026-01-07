@@ -2340,9 +2340,7 @@ class ThreeRMechanism:
         # Both traditional fusion score and neural score must agree on anomaly classification
         traditional_is_anomaly = result.fusion_score >= anomaly_threshold
         neural_is_anomaly = neural_score is not None and neural_score >= anomaly_threshold
-        dual_verified = (
-            neural_score is not None and traditional_is_anomaly == neural_is_anomaly
-        )
+        dual_verified = neural_score is not None and traditional_is_anomaly == neural_is_anomaly
 
         # Return result with neural verification data
         return AnomalyFusionResult(
