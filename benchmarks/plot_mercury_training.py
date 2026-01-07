@@ -102,7 +102,7 @@ def plot_confidence_evolution(
     confidences = [s["avg_plan_confidence"] for s in epoch_summaries]
     _legacy_confidences = [
         s.get("avg_legacy_confidence", 0.76) for s in epoch_summaries
-    ]  # noqa: F841
+    ]
 
     # Plot legacy baseline
     ax.axhline(

@@ -586,7 +586,7 @@ class BenevolenceOptimizer:
             trajectory = self._simulate_trajectory(initial_sigma, form_type, max_epochs=200)
 
             # Check convergence
-            _final_sigma = trajectory[-1] if len(trajectory) > 0 else initial_sigma  # noqa: F841
+            _final_sigma = trajectory[-1] if len(trajectory) > 0 else initial_sigma
             converged_epoch = len(trajectory)
 
             for i, sigma in enumerate(trajectory):

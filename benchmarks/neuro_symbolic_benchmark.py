@@ -298,7 +298,7 @@ def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
     epoch_metrics: list[EpochMetrics] = []
     _domain_metrics: dict[str, list[DomainMetrics]] = {
         d.value: [] for d in DomainType
-    }  # noqa: F841
+    }
 
     # Simulated ground truth for precision/recall
     true_positives = 0
