@@ -107,8 +107,8 @@ if HAS_TORCH or TYPE_CHECKING:
         TrainingStats,
     )
     from omni_mercury_engine.ml.three_r_attention import (
-        ThreeRAttentionBlock,
         ThreeRAnomalyTransformer,
+        ThreeRAttentionBlock,
     )
     from omni_mercury_engine.ml.training import (
         FusionTrainer,

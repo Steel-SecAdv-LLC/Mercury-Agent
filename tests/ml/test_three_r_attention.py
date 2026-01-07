@@ -12,8 +12,8 @@ import pytest
 import torch
 
 from omni_mercury_engine.ml.three_r_attention import (
-    ThreeRAttentionBlock,
     ThreeRAnomalyTransformer,
+    ThreeRAttentionBlock,
 )
 from omni_mercury_engine.ml.training import LyapunovAnomalyLoss
 
@@ -67,7 +67,7 @@ class TestThreeRAttentionBlock:
         """Test ethical scaling is applied correctly."""
         block = ThreeRAttentionBlock(d_model=64, ethical_threshold=0.96)
 
-        expected_scale = 0.96 ** 1.618033988749895
+        expected_scale = 0.96**1.618033988749895
         assert abs(scores_dict := block(torch.randn(2, 10, 64))[1])
         assert "ethical_scale" in scores_dict
         assert abs(scores_dict["ethical_scale"] - expected_scale) < 1e-6
@@ -283,16 +283,17 @@ class TestIntegration:
 
         # Simulate training batch
         x = torch.randn(8, 100, 25)
-        labels = torch.randint(0, 2, (8,))
+        labels = torch.randint(0, 2, (8,)).float()
 
         # Forward
         output = model(x)
 
-        # Loss
+        # Loss (with labels for supervised signal)
         loss_dict = loss_fn(
             x=x,
             x_recon=output["reconstruction"],
             anomaly_scores=output["anomaly_scores"],
+            labels=labels,
         )
 
         # Backward
@@ -313,9 +314,7 @@ class TestIntegration:
         engine = ResonanceEngine(sampling_rate=1.0)
 
         # Generate synthetic training data
-        training_data = np.sin(np.linspace(0, 10 * np.pi, 1000)) + 0.1 * np.random.randn(
-            1000
-        )
+        training_data = np.sin(np.linspace(0, 10 * np.pi, 1000)) + 0.1 * np.random.randn(1000)
 
         # Initialize from engine
         block.init_from_resonance_engine(engine, training_data)

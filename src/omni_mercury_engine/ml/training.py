@@ -559,10 +559,10 @@ class LyapunovAnomalyLoss(nn.Module):
             L_recon = MSE(x, x_recon) - reconstruction loss
             L_KL = -0.5 * mean(1 + logvar - mu² - exp(logvar)) - VAE KL divergence
             L_supervised = BCE(anomaly_scores, labels) - direct anomaly supervision
-            L_stability = max(0, V̇ + α·V) - Lyapunov violation penalty
+            L_stability = max(0, dV/dt + alpha*V) - Lyapunov violation penalty
 
         Lyapunov Stability Condition:
-            V̇ ≤ -α·V ensures exponential convergence of anomaly scores
+            dV/dt <= -alpha*V ensures exponential convergence of anomaly scores
 
     This loss forces the model to learn dynamics where anomaly scores converge
     (stable) rather than diverge (unstable). For life-critical applications,
@@ -654,7 +654,7 @@ class LyapunovAnomalyLoss(nn.Module):
                 - kl: KL divergence component (0 if lambda_kl=0)
                 - stability: Lyapunov stability violation penalty
                 - lyapunov_V: Current Lyapunov function value V(s)
-                - stability_violated: Boolean indicating if V̇ + αV > 0
+                - stability_violated: Boolean indicating if dV/dt + alpha*V > 0
         """
         # Reconstruction loss (MSE)
         if self.reduction == "mean":
@@ -688,11 +688,11 @@ class LyapunovAnomalyLoss(nn.Module):
         if self.prev_scores is not None:
             V_prev = self.prev_scores.pow(2).mean()
 
-            # Discrete approximation of V̇
+            # Discrete approximation of dV/dt
             V_dot = V_t - V_prev
 
-            # Stability violation: V̇ + αV > 0 means diverging
-            # We penalize any positive value of (V̇ + αV)
+            # Stability violation: dV/dt + alpha*V > 0 means diverging
+            # We penalize any positive value of (dV/dt + alpha*V)
             stability_violation = torch.nn.functional.relu(V_dot + self.alpha * V_t)
             L_stability = stability_violation
 
@@ -929,7 +929,7 @@ class ThreeRAnomalyTrainer(pl.LightningModule):
 
     Features:
         - Reconstruction-based anomaly detection
-        - Lyapunov stability constraint (V̇ ≤ -αV)
+        - Lyapunov stability constraint (dV/dt <= -alpha*V)
         - Optional VAE-style KL divergence
         - Multi-scale 3R attention mechanism
         - Golden-ratio AAFE fusion weights

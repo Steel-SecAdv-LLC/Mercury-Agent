@@ -1,5 +1,4 @@
-"""
-Mercury Agent ♱
+"""Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -25,7 +24,7 @@ Implements the complete 3R (Recursion-Resonance-Refactoring) mechanism as a
 differentiable PyTorch module with AAFE fusion for anomaly detection.
 
 Mathematical Foundation:
-    A = (w_R · R(x) + w_H · H(ω) + w_O · O(θ)) × η^Φ
+    A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * eta^Phi
 
 Where:
     R(x)  : Recursion - Multi-scale hierarchical attention (RecursionEngine)
@@ -51,8 +50,8 @@ if TYPE_CHECKING:
     from omni_mercury_engine.core.three_r_mechanism import ResonanceEngine
 
 __all__ = [
-    "ThreeRAttentionBlock",
     "ThreeRAnomalyTransformer",
+    "ThreeRAttentionBlock",
 ]
 
 # Golden ratio constant (matches GOLDEN_RATIO_CONSTANT in three_r_mechanism.py)
@@ -63,8 +62,7 @@ LAMBDA_LYAPUNOV = 0.25
 
 
 class ThreeRAttentionBlock(nn.Module):
-    """
-    Complete 3R Attention Block mapping to existing engines.
+    """Complete 3R Attention Block mapping to existing engines.
 
     Implements differentiable versions of:
         - R(x) → RecursionEngine (hierarchical_feature_extraction)
@@ -88,6 +86,7 @@ class ThreeRAttentionBlock(nn.Module):
         >>> output, scores = block(x)
         >>> print(output.shape)  # [32, 100, 256]
         >>> print(scores["fusion_weights"])  # {"w_R": 0.447, "w_H": 0.276, "w_O": 0.276}
+
     """
 
     def __init__(
@@ -110,14 +109,18 @@ class ThreeRAttentionBlock(nn.Module):
         # R(x): RECURSION - Multi-scale hierarchical attention
         # Maps to: RecursionEngine.hierarchical_feature_extraction
         # ═══════════════════════════════════════════════════════════════════
-        self.recursion_attns = nn.ModuleList([
-            nn.MultiheadAttention(d_model, n_heads, dropout=dropout, batch_first=True)
-            for _ in range(num_scales)
-        ])
-        self.recursion_downsample = nn.ModuleList([
-            nn.AvgPool1d(kernel_size=2**i, stride=2**i) if i > 0 else nn.Identity()
-            for i in range(num_scales)
-        ])
+        self.recursion_attns = nn.ModuleList(
+            [
+                nn.MultiheadAttention(d_model, n_heads, dropout=dropout, batch_first=True)
+                for _ in range(num_scales)
+            ],
+        )
+        self.recursion_downsample = nn.ModuleList(
+            [
+                nn.AvgPool1d(kernel_size=2**i, stride=2**i) if i > 0 else nn.Identity()
+                for i in range(num_scales)
+            ],
+        )
         self.recursion_proj = nn.Linear(d_model * num_scales, d_model)
         self.recursion_norm = nn.LayerNorm(d_model)
 
@@ -155,8 +158,8 @@ class ThreeRAttentionBlock(nn.Module):
         # AAFE Fusion weights (golden ratio from three_r_mechanism.py:147-154)
         # ═══════════════════════════════════════════════════════════════════
         phi_sum = PHI + 1.0 + (1.0 / PHI)  # ≈ 3.618
-        self.register_buffer("w_R", torch.tensor(PHI / phi_sum))        # ≈ 0.447
-        self.register_buffer("w_H", torch.tensor(1.0 / phi_sum))        # ≈ 0.276
+        self.register_buffer("w_R", torch.tensor(PHI / phi_sum))  # ≈ 0.447
+        self.register_buffer("w_H", torch.tensor(1.0 / phi_sum))  # ≈ 0.276
         self.register_buffer("w_O", torch.tensor((1.0 / PHI) / phi_sum))  # ≈ 0.276
 
         # Ethical threshold and golden ratio for scaling
@@ -189,6 +192,7 @@ class ThreeRAttentionBlock(nn.Module):
         Args:
             resonance_engine: Instance of ResonanceEngine from three_r_mechanism.py
             training_data: Training data array for frequency extraction
+
         """
         freqs, mags = resonance_engine.compute_resonance_spectrum(training_data)
 
@@ -198,20 +202,17 @@ class ThreeRAttentionBlock(nn.Module):
 
         with torch.no_grad():
             self.resonance_freqs.data[:num_freqs] = torch.from_numpy(
-                freqs[top_idx].astype(np.float32)
+                freqs[top_idx].astype(np.float32),
             )
             norm_mags = mags[top_idx] / (mags[top_idx].sum() + 1e-8)
-            self.resonance_alpha.data[:num_freqs] = torch.from_numpy(
-                norm_mags.astype(np.float32)
-            )
+            self.resonance_alpha.data[:num_freqs] = torch.from_numpy(norm_mags.astype(np.float32))
 
     def forward(
         self,
         x: torch.Tensor,
         return_component_outputs: bool = False,
     ) -> tuple[torch.Tensor, dict[str, Any]]:
-        """
-        Forward pass implementing all 3Rs with AAFE fusion.
+        """Forward pass implementing all 3Rs with AAFE fusion.
 
         Args:
             x: Input tensor [batch_size, seq_len, d_model]
@@ -226,6 +227,7 @@ class ThreeRAttentionBlock(nn.Module):
                 - fusion_weights: {"w_R": float, "w_H": float, "w_O": float}
                 - anomaly_scores: Per-sample anomaly scores [batch_size]
                 - discrepancy: KL divergence map [batch_size, seq_len]
+
         """
         B, T, D = x.shape
         device = x.device
@@ -236,7 +238,7 @@ class ThreeRAttentionBlock(nn.Module):
         # ═══════════════════════════════════════════════════════════════════
         scale_outputs = []
         for i, (attn, downsample) in enumerate(
-            zip(self.recursion_attns, self.recursion_downsample, strict=False)
+            zip(self.recursion_attns, self.recursion_downsample, strict=False),
         ):
             # Downsample (mirrors RecursionEngine._downsample)
             if i > 0:
@@ -276,7 +278,7 @@ class ThreeRAttentionBlock(nn.Module):
         prior = torch.zeros(T, T, device=device)
         for k in range(self.max_freqs):
             prior = prior + self.resonance_alpha[k] * torch.cos(
-                2 * np.pi * self.resonance_freqs[k] * distances
+                2 * np.pi * self.resonance_freqs[k] * distances,
             )
         prior = F.softmax(prior, dim=-1)
 
@@ -291,7 +293,9 @@ class ThreeRAttentionBlock(nn.Module):
             (series + 1e-10).log(),
             prior.unsqueeze(0).expand(B, -1, -1),
             reduction="none",
-        ).sum(dim=-1)  # [B, T]
+        ).sum(
+            dim=-1,
+        )  # [B, T]
 
         H_score = H_omega.mean()
 
@@ -304,9 +308,7 @@ class ThreeRAttentionBlock(nn.Module):
         # Mirrors RefactoringEngine adaptive optimization
         # ═══════════════════════════════════════════════════════════════════
         # Analyze complexity of R and input
-        complexity_features = self.refactor_complexity_analyzer(
-            torch.cat([R_x, x], dim=-1)
-        )
+        complexity_features = self.refactor_complexity_analyzer(torch.cat([R_x, x], dim=-1))
 
         # Adaptive gate: decides how much to use refined vs original features
         gate_input = torch.cat([R_x, H_proj, x], dim=-1)
@@ -316,17 +318,13 @@ class ThreeRAttentionBlock(nn.Module):
         O_theta = self.refactor_norm(O_theta)
         O_score = gate.mean()
 
-        # ═══════════════════════════════════════════════════════════════════
-        # AAFE Fusion: A = (w_R·R + w_H·H + w_O·O) × η^Φ
-        # ═══════════════════════════════════════════════════════════════════
-        fused = (
-            self.w_R * R_x +
-            self.w_H * H_proj +
-            self.w_O * O_theta
-        )
+        # ===================================================================
+        # AAFE Fusion: A = (w_R*R + w_H*H + w_O*O) * eta^phi
+        # ===================================================================
+        fused = self.w_R * R_x + self.w_H * H_proj + self.w_O * O_theta
 
         # Ethical scaling (reduces false positives 10-15%)
-        ethical_scale = self.eta ** self.phi
+        ethical_scale = self.eta**self.phi
         output = fused * ethical_scale
 
         # Final projection and residual
@@ -361,13 +359,13 @@ class ThreeRAttentionBlock(nn.Module):
 
 
 class ThreeRAnomalyTransformer(nn.Module):
-    """
-    Full 3R Anomaly Transformer model for time-series anomaly detection.
+    """Full 3R Anomaly Transformer model for time-series anomaly detection.
 
     Architecture:
-        Input → Embedding → [ThreeRAttentionBlock × N] → Decoder → Reconstruction
-                                                      ↓
-                                              Anomaly Scores
+        Input -> Embedding -> [ThreeRAttentionBlock x N] -> Decoder -> Reconstruction
+                                                         |
+                                                         v
+                                                 Anomaly Scores
 
     Combines 3R attention with reconstruction-based anomaly detection.
     Compatible with LyapunovAnomalyLoss for stability-constrained training.
@@ -388,6 +386,7 @@ class ThreeRAnomalyTransformer(nn.Module):
         >>> output = model(x)
         >>> print(output["reconstruction"].shape)  # [32, 100, 25]
         >>> print(output["anomaly_scores"].shape)  # [32]
+
     """
 
     def __init__(
@@ -413,17 +412,19 @@ class ThreeRAnomalyTransformer(nn.Module):
         self.pos_encoding = nn.Parameter(torch.randn(1, 1024, d_model) * 0.02)
 
         # Stack of 3R attention blocks
-        self.layers = nn.ModuleList([
-            ThreeRAttentionBlock(
-                d_model=d_model,
-                n_heads=n_heads,
-                num_scales=num_scales,
-                max_freqs=max_freqs,
-                ethical_threshold=ethical_threshold,
-                dropout=dropout,
-            )
-            for _ in range(num_layers)
-        ])
+        self.layers = nn.ModuleList(
+            [
+                ThreeRAttentionBlock(
+                    d_model=d_model,
+                    n_heads=n_heads,
+                    num_scales=num_scales,
+                    max_freqs=max_freqs,
+                    ethical_threshold=ethical_threshold,
+                    dropout=dropout,
+                )
+                for _ in range(num_layers)
+            ],
+        )
 
         # Decoder for reconstruction
         self.decoder = nn.Sequential(
@@ -448,8 +449,7 @@ class ThreeRAnomalyTransformer(nn.Module):
         x: torch.Tensor,
         return_latent: bool = False,
     ) -> dict[str, torch.Tensor]:
-        """
-        Forward pass through 3R Anomaly Transformer.
+        """Forward pass through 3R Anomaly Transformer.
 
         Args:
             x: Input tensor [batch_size, seq_len, input_dim]
@@ -461,6 +461,7 @@ class ThreeRAnomalyTransformer(nn.Module):
                 - anomaly_scores: Per-sample anomaly scores [batch_size]
                 - layer_scores: List of per-layer score dicts
                 - discrepancy: Final layer discrepancy [batch_size, seq_len]
+
         """
         B, T, _ = x.shape
 
@@ -504,6 +505,7 @@ class ThreeRAnomalyTransformer(nn.Module):
         Args:
             resonance_engine: Instance of ResonanceEngine
             training_data: Training data for frequency extraction
+
         """
         for layer in self.layers:
             layer.init_from_resonance_engine(resonance_engine, training_data)
