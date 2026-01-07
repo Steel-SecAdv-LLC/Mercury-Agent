@@ -43,10 +43,12 @@ __all__ = [
     "EarlyStopping",
     "FusionTrainer",
     "LearningRateScheduler",
+    "LyapunovAnomalyLoss",
     "MercuryExponentialDecayOptimizer",
     "MercuryHarmonicOptimizer",
     "MercuryMomentumOptimizer",
     "MercuryOptimizer",
+    "ThreeRAnomalyTrainer",
     "Trainer",
     "TrainingConfig",
     "create_mercury_optimizer",
@@ -546,6 +548,163 @@ class MercuryHarmonicOptimizer(optim.Optimizer):
         return loss
 
 
+class LyapunovAnomalyLoss(nn.Module):
+    """
+    Training loss with Lyapunov stability constraint for anomaly detection.
+
+    Mathematical Foundation:
+        Loss = L_recon + λ·L_KL + μ·L_stability
+
+        Where:
+            L_recon = MSE(x, x_recon) - reconstruction loss
+            L_KL = -0.5 * mean(1 + logvar - mu² - exp(logvar)) - VAE KL divergence
+            L_stability = max(0, V̇ + α·V) - Lyapunov violation penalty
+
+        Lyapunov Stability Condition:
+            V̇ ≤ -α·V ensures exponential convergence of anomaly scores
+
+    This loss forces the model to learn dynamics where anomaly scores converge
+    (stable) rather than diverge (unstable). For life-critical applications,
+    unstable predictions are dangerous.
+
+    The Lyapunov function V(s) = s² (quadratic) is used, where s is the anomaly
+    score. The discrete-time derivative approximation V̇ ≈ V_t - V_{t-1} penalizes
+    any increase beyond the allowed rate.
+
+    Args:
+        lambda_kl: Weight for KL divergence term. Set to 0.0 for non-VAE models.
+        mu_stability: Weight for Lyapunov stability term (default: 0.1)
+        alpha: Lyapunov convergence rate parameter (default: 0.25, matches
+               CONVERGENCE_RATE_PARAMETER from three_r_mechanism.py)
+        reduction: Loss reduction method ('mean' or 'sum')
+
+    Example:
+        >>> loss_fn = LyapunovAnomalyLoss(lambda_kl=0.0, mu_stability=0.1)
+        >>> output = model(x)
+        >>> loss_dict = loss_fn(
+        ...     x=x,
+        ...     x_recon=output["reconstruction"],
+        ...     anomaly_scores=output["anomaly_scores"],
+        ... )
+        >>> loss_dict["total"].backward()
+
+    Note:
+        For non-VAE models (most transformer-based AD), set lambda_kl=0.0 and
+        do not pass mu/logvar parameters. The loss will skip KL computation.
+
+    Reference:
+        - Lyapunov stability theory for neural networks
+        - CONVERGENCE_RATE_PARAMETER = 0.25 from three_r_mechanism.py
+    """
+
+    def __init__(
+        self,
+        lambda_kl: float = 0.0,
+        mu_stability: float = 0.1,
+        alpha: float = 0.25,
+        reduction: str = "mean",
+    ):
+        super().__init__()
+        self.lambda_kl = lambda_kl
+        self.mu_stability = mu_stability
+        self.alpha = alpha
+        self.reduction = reduction
+
+        # State for tracking previous scores (for V̇ computation)
+        self.prev_scores: torch.Tensor | None = None
+
+        # Track stability metrics
+        self.stability_violations = 0
+        self.total_steps = 0
+
+    def reset_state(self) -> None:
+        """Reset previous scores state. Call at start of each epoch."""
+        self.prev_scores = None
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        x_recon: torch.Tensor,
+        anomaly_scores: torch.Tensor,
+        mu: torch.Tensor | None = None,
+        logvar: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor]:
+        """
+        Compute Lyapunov-constrained anomaly detection loss.
+
+        Args:
+            x: Original input tensor [batch_size, seq_len, dim] or [batch_size, dim]
+            x_recon: Reconstructed tensor (same shape as x)
+            anomaly_scores: Anomaly scores [batch_size]
+            mu: VAE mean (optional, only for VAE models)
+            logvar: VAE log variance (optional, only for VAE models)
+
+        Returns:
+            Dict containing:
+                - total: Total weighted loss (for backward())
+                - reconstruction: Reconstruction loss component
+                - kl: KL divergence component (0 if lambda_kl=0)
+                - stability: Lyapunov stability violation penalty
+                - lyapunov_V: Current Lyapunov function value V(s)
+                - stability_violated: Boolean indicating if V̇ + αV > 0
+        """
+        # Reconstruction loss (MSE)
+        if self.reduction == "mean":
+            L_recon = torch.nn.functional.mse_loss(x_recon, x, reduction="mean")
+        else:
+            L_recon = torch.nn.functional.mse_loss(x_recon, x, reduction="sum")
+
+        # KL divergence (for VAE models only)
+        if self.lambda_kl > 0 and mu is not None and logvar is not None:
+            # KL(q(z|x) || p(z)) for Gaussian
+            L_kl = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
+        else:
+            L_kl = torch.tensor(0.0, device=x.device)
+
+        # Lyapunov stability constraint
+        # V(s) = s² (quadratic Lyapunov function)
+        V_t = anomaly_scores.pow(2).mean()
+
+        if self.prev_scores is not None:
+            V_prev = self.prev_scores.pow(2).mean()
+
+            # Discrete approximation of V̇
+            V_dot = V_t - V_prev
+
+            # Stability violation: V̇ + αV > 0 means diverging
+            # We penalize any positive value of (V̇ + αV)
+            stability_violation = torch.nn.functional.relu(V_dot + self.alpha * V_t)
+            L_stability = stability_violation
+
+            # Track metrics
+            self.total_steps += 1
+            if stability_violation.item() > 0:
+                self.stability_violations += 1
+        else:
+            L_stability = torch.tensor(0.0, device=x.device)
+
+        # Store current scores for next iteration (detached to prevent graph issues)
+        self.prev_scores = anomaly_scores.detach().clone()
+
+        # Total loss
+        total = L_recon + self.lambda_kl * L_kl + self.mu_stability * L_stability
+
+        return {
+            "total": total,
+            "reconstruction": L_recon,
+            "kl": L_kl,
+            "stability": L_stability,
+            "lyapunov_V": V_t,
+            "stability_violated": L_stability.item() > 0 if self.prev_scores is not None else False,
+        }
+
+    def get_stability_rate(self) -> float:
+        """Get percentage of steps where stability was maintained."""
+        if self.total_steps == 0:
+            return 1.0
+        return 1.0 - (self.stability_violations / self.total_steps)
+
+
 def create_mercury_optimizer(
     params: Any, variant: str = "base", lr: float = 0.001, **kwargs: Any
 ) -> optim.Optimizer:
@@ -732,4 +891,201 @@ class FusionTrainer(pl.LightningModule):
                 "scheduler": scheduler,
                 "monitor": "val_loss",
             },
+        }
+
+
+class ThreeRAnomalyTrainer(pl.LightningModule):
+    """
+    PyTorch Lightning trainer for 3R Anomaly Transformer with Lyapunov stability.
+
+    Integrates ThreeRAnomalyTransformer with LyapunovAnomalyLoss for
+    stability-constrained anomaly detection training.
+
+    Features:
+        - Reconstruction-based anomaly detection
+        - Lyapunov stability constraint (V̇ ≤ -αV)
+        - Optional VAE-style KL divergence
+        - Multi-scale 3R attention mechanism
+        - Golden-ratio AAFE fusion weights
+
+    Args:
+        input_dim: Input feature dimension
+        d_model: Model dimension (default: 256)
+        n_heads: Attention heads (default: 8)
+        num_layers: Number of 3R attention layers (default: 2)
+        learning_rate: Learning rate (default: 0.001)
+        lambda_kl: KL divergence weight, 0.0 for non-VAE (default: 0.0)
+        mu_stability: Lyapunov stability weight (default: 0.1)
+        alpha: Lyapunov convergence rate (default: 0.25)
+        ethical_threshold: η_Ethical threshold (default: 0.96)
+
+    Example:
+        >>> trainer = ThreeRAnomalyTrainer(input_dim=25)
+        >>> pl_trainer = pl.Trainer(max_epochs=100)
+        >>> pl_trainer.fit(trainer, train_loader, val_loader)
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        d_model: int = 256,
+        n_heads: int = 8,
+        num_layers: int = 2,
+        num_scales: int = 3,
+        max_freqs: int = 5,
+        learning_rate: float = 0.001,
+        weight_decay: float = 0.0001,
+        lambda_kl: float = 0.0,
+        mu_stability: float = 0.1,
+        alpha: float = 0.25,
+        ethical_threshold: float = 0.96,
+        dropout: float = 0.1,
+    ):
+        super().__init__()
+
+        # Import here to avoid circular imports
+        from omni_mercury_engine.ml.three_r_attention import ThreeRAnomalyTransformer
+
+        self.model = ThreeRAnomalyTransformer(
+            input_dim=input_dim,
+            d_model=d_model,
+            n_heads=n_heads,
+            num_layers=num_layers,
+            num_scales=num_scales,
+            max_freqs=max_freqs,
+            ethical_threshold=ethical_threshold,
+            dropout=dropout,
+        )
+
+        self.criterion = LyapunovAnomalyLoss(
+            lambda_kl=lambda_kl,
+            mu_stability=mu_stability,
+            alpha=alpha,
+        )
+
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
+
+        # Save hyperparameters for checkpointing
+        self.save_hyperparameters(ignore=["model", "criterion"])
+
+        # Metrics tracking
+        self.training_stability_rate = 0.0
+        self.validation_metrics: dict[str, float] = {}
+
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
+        """Forward pass through 3R Anomaly Transformer."""
+        return self.model(x)
+
+    def training_step(
+        self,
+        batch: tuple[torch.Tensor, torch.Tensor],
+        batch_idx: int,
+    ) -> torch.Tensor:
+        """Training step with Lyapunov-constrained loss."""
+        x, labels = batch
+
+        # Forward pass
+        output = self.forward(x)
+
+        # Compute loss
+        loss_dict = self.criterion(
+            x=x,
+            x_recon=output["reconstruction"],
+            anomaly_scores=output["anomaly_scores"],
+        )
+
+        # Log metrics
+        self.log("train_loss", loss_dict["total"], prog_bar=True)
+        self.log("train_recon_loss", loss_dict["reconstruction"])
+        self.log("train_stability_loss", loss_dict["stability"])
+        self.log("train_lyapunov_V", loss_dict["lyapunov_V"])
+
+        return loss_dict["total"]
+
+    def on_train_epoch_start(self) -> None:
+        """Reset loss state at start of each epoch."""
+        self.criterion.reset_state()
+
+    def on_train_epoch_end(self) -> None:
+        """Log stability rate at end of epoch."""
+        stability_rate = self.criterion.get_stability_rate()
+        self.log("train_stability_rate", stability_rate)
+        self.training_stability_rate = stability_rate
+
+    def validation_step(
+        self,
+        batch: tuple[torch.Tensor, torch.Tensor],
+        batch_idx: int,
+    ) -> None:
+        """Validation step with metric computation."""
+        x, labels = batch
+
+        # Forward pass
+        output = self.forward(x)
+
+        # Compute loss (without updating stability state)
+        loss_dict = self.criterion(
+            x=x,
+            x_recon=output["reconstruction"],
+            anomaly_scores=output["anomaly_scores"],
+        )
+
+        # Compute F1 and recall
+        anomaly_scores = output["anomaly_scores"]
+        preds = (anomaly_scores > 0.5).float()
+
+        # Handle multi-dimensional labels
+        if labels.dim() > 1:
+            labels = labels[:, 0]
+
+        binary_labels = (labels > 0).float()
+
+        # Metrics
+        tp = ((preds == 1) & (binary_labels == 1)).float().sum()
+        fp = ((preds == 1) & (binary_labels == 0)).float().sum()
+        fn = ((preds == 0) & (binary_labels == 1)).float().sum()
+
+        precision = tp / (tp + fp + 1e-8)
+        recall = tp / (tp + fn + 1e-8)
+        f1 = 2 * precision * recall / (precision + recall + 1e-8)
+
+        # Log metrics
+        self.log("val_loss", loss_dict["total"], prog_bar=True)
+        self.log("val_recon_loss", loss_dict["reconstruction"])
+        self.log("val_f1", f1, prog_bar=True)
+        self.log("val_recall", recall, prog_bar=True)
+        self.log("val_precision", precision)
+
+    def configure_optimizers(self) -> dict[str, Any]:
+        """Configure AdamW optimizer with cosine annealing."""
+        optimizer = optim.AdamW(
+            self.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.weight_decay,
+        )
+
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            T_max=100,
+            eta_min=1e-6,
+        )
+
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "epoch",
+            },
+        }
+
+    def get_ablation_config(self) -> dict[str, Any]:
+        """Get current configuration for ablation studies."""
+        return {
+            "input_dim": self.model.input_dim,
+            "d_model": self.model.d_model,
+            "lambda_kl": self.criterion.lambda_kl,
+            "mu_stability": self.criterion.mu_stability,
+            "alpha": self.criterion.alpha,
+            "learning_rate": self.learning_rate,
         }

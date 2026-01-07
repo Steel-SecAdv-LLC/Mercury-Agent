@@ -1,0 +1,289 @@
+# Mercury Agent - 3R Anomaly Transformer Ablation Configurations
+# ═══════════════════════════════════════════════════════════════
+#
+# Ablation studies for evaluating the contribution of:
+# 1. Lyapunov stability constraint (mu_stability)
+# 2. Convergence rate parameter (alpha)
+# 3. Model architecture (d_model, num_layers)
+# 4. Domain-specific thresholds (ethical_threshold)
+#
+# Target Metrics (realistic based on SOTA):
+#   NSL-KDD: F1 0.88-0.92, Recall 0.85-0.90
+#   SMD/SMAP: F1 0.90-0.94
+#   Medical (MIMIC-III): Recall > 0.93 (prioritize)
+#
+# Usage:
+#   python scripts/run_ablation.py --config configs/ablation_3r_lyapunov.yaml
+
+# ═══════════════════════════════════════════════════════════════
+# BASELINE (without Lyapunov constraint)
+# ═══════════════════════════════════════════════════════════════
+baseline:
+  model:
+    input_dim: 25  # NSL-KDD feature dimension
+    d_model: 256
+    n_heads: 8
+    num_layers: 2
+    num_scales: 3
+    max_freqs: 5
+    dropout: 0.1
+    ethical_threshold: 0.96
+
+  loss:
+    lambda_kl: 0.0  # No VAE
+    mu_stability: 0.0  # NO Lyapunov constraint
+    alpha: 0.25
+
+  training:
+    learning_rate: 0.001
+    weight_decay: 0.0001
+    batch_size: 64
+    epochs: 100
+
+  expected_metrics:
+    f1_range: [0.85, 0.88]
+    recall_range: [0.82, 0.86]
+    stability_rate: null  # Not tracked
+
+# ═══════════════════════════════════════════════════════════════
+# LYAPUNOV STABILITY ABLATION
+# ═══════════════════════════════════════════════════════════════
+
+# mu_stability = 0.05 (light constraint)
+lyapunov_light:
+  model:
+    input_dim: 25
+    d_model: 256
+    n_heads: 8
+    num_layers: 2
+    num_scales: 3
+    max_freqs: 5
+    dropout: 0.1
+    ethical_threshold: 0.96
+
+  loss:
+    lambda_kl: 0.0
+    mu_stability: 0.05
+    alpha: 0.25
+
+  training:
+    learning_rate: 0.001
+    weight_decay: 0.0001
+    batch_size: 64
+    epochs: 100
+
+  expected_metrics:
+    f1_range: [0.86, 0.89]
+    recall_range: [0.83, 0.87]
+    stability_rate: [0.85, 0.95]
+
+# mu_stability = 0.1 (recommended)
+lyapunov_recommended:
+  model:
+    input_dim: 25
+    d_model: 256
+    n_heads: 8
+    num_layers: 2
+    num_scales: 3
+    max_freqs: 5
+    dropout: 0.1
+    ethical_threshold: 0.96
+
+  loss:
+    lambda_kl: 0.0
+    mu_stability: 0.1
+    alpha: 0.25
+
+  training:
+    learning_rate: 0.001
+    weight_decay: 0.0001
+    batch_size: 64
+    epochs: 100
+
+  expected_metrics:
+    f1_range: [0.87, 0.91]
+    recall_range: [0.84, 0.88]
+    stability_rate: [0.90, 0.98]
+
+# mu_stability = 0.2 (strong constraint)
+lyapunov_strong:
+  model:
+    input_dim: 25
+    d_model: 256
+    n_heads: 8
+    num_layers: 2
+    num_scales: 3
+    max_freqs: 5
+    dropout: 0.1
+    ethical_threshold: 0.96
+
+  loss:
+    lambda_kl: 0.0
+    mu_stability: 0.2
+    alpha: 0.25
+
+  training:
+    learning_rate: 0.001
+    weight_decay: 0.0001
+    batch_size: 64
+    epochs: 100
+
+  expected_metrics:
+    f1_range: [0.85, 0.90]
+    recall_range: [0.82, 0.87]
+    stability_rate: [0.95, 0.99]
+    # Note: Strong constraint may reduce performance slightly
+    # but improves stability significantly
+
+# ═══════════════════════════════════════════════════════════════
+# CONVERGENCE RATE ABLATION (alpha parameter)
+# ═══════════════════════════════════════════════════════════════
+
+alpha_slow:
+  model:
+    input_dim: 25
+    d_model: 256
+    n_heads: 8
+    num_layers: 2
+    ethical_threshold: 0.96
+
+  loss:
+    lambda_kl: 0.0
+    mu_stability: 0.1
+    alpha: 0.1  # Slower convergence requirement
+
+  training:
+    learning_rate: 0.001
+    batch_size: 64
+    epochs: 100
+
+alpha_fast:
+  model:
+    input_dim: 25
+    d_model: 256
+    n_heads: 8
+    num_layers: 2
+    ethical_threshold: 0.96
+
+  loss:
+    lambda_kl: 0.0
+    mu_stability: 0.1
+    alpha: 0.5  # Faster convergence requirement
+
+  training:
+    learning_rate: 0.001
+    batch_size: 64
+    epochs: 100
+
+# ═══════════════════════════════════════════════════════════════
+# DOMAIN-SPECIFIC CONFIGURATIONS
+# ═══════════════════════════════════════════════════════════════
+
+# Medical domain (MIMIC-III sepsis detection)
+# Priority: HIGH RECALL (missing sepsis is catastrophic)
+medical_sepsis:
+  model:
+    input_dim: 34  # MIMIC-III vital signs + labs
+    d_model: 256
+    n_heads: 8
+    num_layers: 3  # Deeper for complex patterns
+    num_scales: 3
+    max_freqs: 8  # More frequencies for physiological signals
+    dropout: 0.1
+    ethical_threshold: 0.93  # Lower threshold for medical
+
+  loss:
+    lambda_kl: 0.0
+    mu_stability: 0.05  # Lighter stability for high recall
+    alpha: 0.25
+
+  training:
+    learning_rate: 0.0005  # Lower LR for stability
+    weight_decay: 0.0001
+    batch_size: 32
+    epochs: 150
+
+  expected_metrics:
+    recall_target: 0.93  # PRIORITY
+    f1_range: [0.82, 0.88]  # Accept lower F1 for recall
+    stability_rate: [0.85, 0.95]
+
+# Cybersecurity domain (NSL-KDD intrusion detection)
+# Priority: BALANCED F1 (both FP and FN matter)
+security_intrusion:
+  model:
+    input_dim: 122  # NSL-KDD full feature set
+    d_model: 256
+    n_heads: 8
+    num_layers: 2
+    num_scales: 3
+    max_freqs: 5
+    dropout: 0.1
+    ethical_threshold: 0.96
+
+  loss:
+    lambda_kl: 0.0
+    mu_stability: 0.1
+    alpha: 0.25
+
+  training:
+    learning_rate: 0.001
+    weight_decay: 0.0001
+    batch_size: 64
+    epochs: 100
+
+  expected_metrics:
+    f1_target: 0.90
+    recall_range: [0.85, 0.90]
+    precision_range: [0.88, 0.93]
+    stability_rate: [0.90, 0.98]
+
+# Infrastructure monitoring (SMD/SMAP)
+# Priority: LOW LATENCY + STABILITY
+infrastructure_monitoring:
+  model:
+    input_dim: 38  # SMD feature dimension
+    d_model: 128  # Smaller for speed
+    n_heads: 4
+    num_layers: 2
+    num_scales: 2  # Fewer scales for speed
+    max_freqs: 5
+    dropout: 0.1
+    ethical_threshold: 0.96
+
+  loss:
+    lambda_kl: 0.0
+    mu_stability: 0.15  # Stronger stability for infrastructure
+    alpha: 0.25
+
+  training:
+    learning_rate: 0.001
+    weight_decay: 0.0001
+    batch_size: 128  # Larger batch for speed
+    epochs: 80
+
+  expected_metrics:
+    f1_range: [0.88, 0.92]
+    latency_ms: 10  # Target inference time
+    stability_rate: [0.92, 0.99]
+
+# ═══════════════════════════════════════════════════════════════
+# ABLATION STUDY DESIGN
+# ═══════════════════════════════════════════════════════════════
+#
+# Table: Expected Results (50K samples NSL-KDD subset)
+# ┌─────────────────────┬───────┬────────┬───────────────────┐
+# │ Config              │ F1    │ Recall │ Stability Rate    │
+# ├─────────────────────┼───────┼────────┼───────────────────┤
+# │ baseline            │ 0.86  │ 0.84   │ N/A               │
+# │ lyapunov_light      │ 0.87  │ 0.85   │ 0.90              │
+# │ lyapunov_recommended│ 0.89  │ 0.86   │ 0.94              │
+# │ lyapunov_strong     │ 0.87  │ 0.84   │ 0.97              │
+# └─────────────────────┴───────┴────────┴───────────────────┘
+#
+# Hypothesis:
+#   - mu_stability=0.1 provides best F1/stability tradeoff
+#   - mu_stability>0.15 hurts F1 but improves stability
+#   - mu_stability=0 (baseline) has unstable predictions
+#
+# ═══════════════════════════════════════════════════════════════
