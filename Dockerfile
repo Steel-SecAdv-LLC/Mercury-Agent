@@ -24,14 +24,17 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Upgrade pip to latest to address CVE-2025-8869 (symlink extraction vulnerability)
 RUN pip install --no-cache-dir --upgrade pip>=25.0 setuptools>=75.0.0 wheel
 
-# Copy and install requirements
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy pyproject.toml and install dependencies
+# Note: requirements.txt was removed in consolidation, using pyproject.toml instead
+COPY pyproject.toml .
+COPY src/ ./src/
 
-# Copy and install the package
-COPY . /app
+# Install the package with all dependencies
 WORKDIR /app
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir .[full]
+
+# Copy remaining application files
+COPY . /app
 
 # =============================================================================
 # Stage 2: Runtime - Minimal image with only runtime dependencies
