@@ -353,9 +353,48 @@ Where:
 - `O(θ)` = Optimization/Refactoring score (adaptive theta)
 - `η_Ethical` = Ethical compliance threshold (default 0.96, medical fallback 0.93)
 - `Φ` = Golden ratio constant (1.618033988749895)
-- Fusion weights `w_R=0.35`, `w_H=0.35`, `w_O=0.30` sum to 1.0
+- Golden-ratio fusion weights: `w_R = φ/(φ+1+1/φ) ≈ 0.447`, `w_H = 1/(φ+1+1/φ) ≈ 0.276`, `w_O = (1/φ)/(φ+1+1/φ) ≈ 0.276` (sum to 1.0)
 
 **Lyapunov Stability**: Convergence guaranteed via `V̇ ≤ -λV` where convergence rate `λ=0.25` (elevated from 0.18 for 25% faster convergence).
+
+### 3R Anomaly Transformer (PyTorch)
+
+The `ThreeRAnomalyTransformer` provides a differentiable PyTorch implementation of the 3R mechanism for end-to-end training:
+
+```python
+from omni_mercury_engine.ml import ThreeRAnomalyTransformer, LyapunovAnomalyLoss
+
+# Initialize model with domain-specific configuration
+model = ThreeRAnomalyTransformer(
+    input_dim=25,           # Feature dimension (e.g., NSL-KDD)
+    d_model=256,            # Model dimension
+    n_heads=8,              # Attention heads
+    num_layers=2,           # 3R attention layers
+    ethical_threshold=0.96, # Domain-specific (0.93 for medical)
+)
+
+# Lyapunov-constrained loss for stable predictions
+loss_fn = LyapunovAnomalyLoss(
+    mu_stability=0.1,       # Stability constraint weight
+    alpha=0.25,             # Convergence rate (matches CONVERGENCE_RATE_PARAMETER)
+)
+
+# Training step
+output = model(x)  # x: [batch, seq_len, input_dim]
+loss = loss_fn(
+    x=x,
+    x_recon=output["reconstruction"],
+    anomaly_scores=output["anomaly_scores"],
+    labels=labels,  # Supervised signal for accuracy
+)
+```
+
+**Key Features:**
+- **Golden-ratio AAFE weights**: Mathematically grounded fusion (0.447/0.276/0.276)
+- **Bounded outputs**: Sigmoid activation ensures anomaly scores in [0, 1]
+- **Supervised + unsupervised**: BCE loss with labels + reconstruction loss
+- **Lyapunov stability**: Penalizes divergent predictions for safety-critical applications
+- **Domain configs**: See `configs/ablation_3r_lyapunov.yaml` for medical/security/infrastructure presets
 
 ### Integration with Mercury Agent ♱
 
@@ -364,6 +403,7 @@ The 3R mechanism is integrated throughout Mercury Agent ♱:
 - **Fusion Network**: Multi-head attention combines 3R outputs across domains
 - **Ethical Governance**: Refactoring engine ensures Lyapunov stability constraints
 - **Self-Healing**: CRISPR-inspired adaptation uses recursive pattern learning
+- **PyTorch Training**: `ThreeRAnomalyTrainer` (Lightning) for end-to-end training with stability constraints
 
 </details>
 

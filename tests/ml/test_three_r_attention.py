@@ -68,7 +68,7 @@ class TestThreeRAttentionBlock:
         block = ThreeRAttentionBlock(d_model=64, ethical_threshold=0.96)
 
         expected_scale = 0.96**1.618033988749895
-        assert abs(scores_dict := block(torch.randn(2, 10, 64))[1])
+        _, scores_dict = block(torch.randn(2, 10, 64))
         assert "ethical_scale" in scores_dict
         assert abs(scores_dict["ethical_scale"] - expected_scale) < 1e-6
 
