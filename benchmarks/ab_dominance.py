@@ -483,8 +483,22 @@ def save_results(result: BenchmarkResult, output_dir: str) -> str:
         "fusion_metrics": result.fusion_metrics,
     }
 
+    def convert_numpy(obj):
+        """Convert numpy types to JSON-serializable Python types."""
+        if isinstance(obj, dict):
+            return {k: convert_numpy(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_numpy(v) for v in obj]
+        elif isinstance(obj, (np.bool_, np.integer)):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return obj
+
     with open(filepath, "w") as f:
-        json.dump(result_dict, f, indent=2)
+        json.dump(convert_numpy(result_dict), f, indent=2)
 
     logger.info(f"Results saved to: {filepath}")
     return filepath
@@ -497,7 +511,7 @@ def main() -> int:
     )
     parser.add_argument("--epochs", type=int, default=300, help="Number of training epochs")
     parser.add_argument("--lambda-baseline", type=float, default=0.18, help="Baseline lambda")
-    parser.add_argument("--lambda-ava", type=float, default=0.25, help="weighted fusion lambda")
+    parser.add_argument("--lambda-enhanced", type=float, default=0.25, help="weighted fusion lambda")
     parser.add_argument(
         "--sigma-immutable", type=float, default=0.96, help="Sigma Immutable threshold"
     )

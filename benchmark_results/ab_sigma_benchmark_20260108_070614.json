@@ -1,0 +1,21 @@
+{
+  "config": {
+    "epochs": 300,
+    "batch_size": 32,
+    "learning_rate": 0.001,
+    "sigma_a": 0.93,
+    "sigma_b": 0.96,
+    "n_samples": 1000,
+    "n_features": 64,
+    "n_classes": 5,
+    "seed": 42,
+    "output_dir": "benchmark_results",
+    "log_interval": 30
+  },
+  "sigma_a_final": {
+    "f1_score": 0.9176901731429405,
+    "precision": 0.9433474117037545,
+    "recall": 0.9175353209089385,
+    "false_positive_rate": 0.05665258829624554,
+    "false_negative_rate": 0.08246467909106142,
+    "lyapunov_stable": 
