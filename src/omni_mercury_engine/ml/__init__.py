@@ -50,6 +50,7 @@ __all__ = [
     "FairnessAuditor",
     "FusionInference",
     "FusionTrainer",
+    "LyapunovAnomalyLoss",
     "MemoryEfficientCache",
     "MultiEnvPPOTrainer",
     "MultiHeadDetectorAttention",
@@ -64,6 +65,9 @@ __all__ = [
     "SyntheticGradientPredictor",
     "TemporalAttention",
     "TemporalEncoder",
+    "ThreeRAnomalyTrainer",
+    "ThreeRAnomalyTransformer",
+    "ThreeRAttentionBlock",
     "TrainingStats",
     "apply_all_optimizations",
     "compute_fairness_score",
@@ -102,7 +106,15 @@ if HAS_TORCH or TYPE_CHECKING:
         PPOTrainer,
         TrainingStats,
     )
-    from omni_mercury_engine.ml.training import FusionTrainer
+    from omni_mercury_engine.ml.three_r_attention import (
+        ThreeRAnomalyTransformer,
+        ThreeRAttentionBlock,
+    )
+    from omni_mercury_engine.ml.training import (
+        FusionTrainer,
+        LyapunovAnomalyLoss,
+        ThreeRAnomalyTrainer,
+    )
 
 
 def _require_torch() -> None:

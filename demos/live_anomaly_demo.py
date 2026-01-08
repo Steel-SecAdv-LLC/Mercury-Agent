@@ -37,12 +37,12 @@ Usage:
 
 import argparse
 import json
-import sys
 import time
+from collections.abc import Generator
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 import numpy as np
 from sklearn.ensemble import IsolationForest
