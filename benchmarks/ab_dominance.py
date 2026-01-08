@@ -40,6 +40,10 @@ from typing import Any
 
 import numpy as np
 
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+from omni_mercury_engine.utils import convert_numpy_for_json
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -484,7 +488,7 @@ def save_results(result: BenchmarkResult, output_dir: str) -> str:
     }
 
     with open(filepath, "w") as f:
-        json.dump(result_dict, f, indent=2)
+        json.dump(convert_numpy_for_json(result_dict), f, indent=2)
 
     logger.info(f"Results saved to: {filepath}")
     return filepath
@@ -497,7 +501,9 @@ def main() -> int:
     )
     parser.add_argument("--epochs", type=int, default=300, help="Number of training epochs")
     parser.add_argument("--lambda-baseline", type=float, default=0.18, help="Baseline lambda")
-    parser.add_argument("--lambda-ava", type=float, default=0.25, help="weighted fusion lambda")
+    parser.add_argument(
+        "--lambda-enhanced", type=float, default=0.25, help="weighted fusion lambda"
+    )
     parser.add_argument(
         "--sigma-immutable", type=float, default=0.96, help="Sigma Immutable threshold"
     )

@@ -36,8 +36,13 @@ import sys
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from typing import Any
 
 import numpy as np
+
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+from omni_mercury_engine.utils import convert_numpy_for_json
 
 # Configure logging
 logging.basicConfig(
@@ -98,12 +103,12 @@ class EpochMetrics:
 class BenchmarkResult:
     """Results from A/B benchmark."""
 
-    config: dict
-    sigma_a_metrics: list = field(default_factory=list)
-    sigma_b_metrics: list = field(default_factory=list)
-    sigma_a_final: dict = field(default_factory=dict)
-    sigma_b_final: dict = field(default_factory=dict)
-    comparison: dict = field(default_factory=dict)
+    config: dict[str, Any]
+    sigma_a_metrics: list[dict[str, Any]] = field(default_factory=list)
+    sigma_b_metrics: list[dict[str, Any]] = field(default_factory=list)
+    sigma_a_final: dict[str, Any] = field(default_factory=dict)
+    sigma_b_final: dict[str, Any] = field(default_factory=dict)
+    comparison: dict[str, Any] = field(default_factory=dict)
     timestamp: str = ""
     duration_seconds: float = 0.0
 
@@ -114,7 +119,7 @@ def generate_synthetic_data(
     n_classes: int,
     seed: int,
     anomaly_ratio: float = 0.1,
-) -> tuple:
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     """Generate synthetic anomaly detection data.
 
     Args:
@@ -143,17 +148,17 @@ def generate_synthetic_data(
 
     shuffle_idx = np.random.permutation(n_samples)
     features = features[shuffle_idx]
-    labels = labels[shuffle_idx]
+    labels = labels[shuffle_idx]  # type: ignore[assignment]
     class_labels = class_labels[shuffle_idx]
 
     return features, labels, class_labels
 
 
 def compute_metrics(
-    predictions: np.ndarray,
-    labels: np.ndarray,
+    predictions: np.ndarray[Any, Any],
+    labels: np.ndarray[Any, Any],
     threshold: float = 0.5,
-) -> dict:
+) -> dict[str, Any]:
     """Compute classification metrics.
 
     Args:
@@ -435,13 +440,13 @@ def save_results(result: BenchmarkResult, output_dir: str) -> str:
     }
 
     with open(filepath, "w") as f:
-        json.dump(result_dict, f, indent=2)
+        json.dump(convert_numpy_for_json(result_dict), f, indent=2)
 
     logger.info(f"Results saved to: {filepath}")
     return filepath
 
 
-def main():
+def main() -> int:
     """Main entry point for A/B sigma benchmark."""
     parser = argparse.ArgumentParser(
         description="A/B Benchmark: Sigma Immutable Threshold Comparison"

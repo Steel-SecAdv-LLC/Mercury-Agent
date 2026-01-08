@@ -44,8 +44,9 @@ jobs:
           push: false
           load: false
           tags: mercury-agent-mercury:latest
+          # Cache reading only - cache writing removed to prevent BlobNotFound failures
+          # when GitHub Actions cache infrastructure has transient issues
           cache-from: type=gha
-          cache-to: type=gha,mode=min
           outputs: type=docker,dest=/tmp/mercury-image.tar
 
       - name: Run Trivy vulnerability scanner on tarball

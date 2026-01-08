@@ -274,6 +274,45 @@ def compute_time_dilation(
     return time_dilation
 
 
+def convert_numpy_for_json(obj: Any) -> Any:
+    """
+    Recursively convert numpy types to JSON-serializable Python types.
+
+    This utility handles the common issue of numpy types not being directly
+    serializable to JSON. It recursively processes dictionaries, lists, and
+    numpy scalar/array types.
+
+    Args:
+        obj: Any Python object that may contain numpy types
+
+    Returns:
+        The same structure with numpy types converted to native Python types:
+        - np.bool_ -> bool
+        - np.integer -> int
+        - np.floating -> float
+        - np.ndarray -> list
+
+    Example:
+        >>> import numpy as np
+        >>> data = {"score": np.float64(0.95), "counts": np.array([1, 2, 3])}
+        >>> convert_numpy_for_json(data)
+        {'score': 0.95, 'counts': [1, 2, 3]}
+    """
+    if isinstance(obj, dict):
+        return {k: convert_numpy_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_for_json(v) for v in obj]
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    return obj
+
+
 __all__ = [
     "MPMATH_AVAILABLE",
     "SYMPY_AVAILABLE",
@@ -309,6 +348,7 @@ __all__ = [
     "compute_complexity",
     "compute_time_dilation",
     "configure_logging",
+    "convert_numpy_for_json",
     "correlation_context",
     "decompress_information",
     "detect_singularity",

@@ -13,7 +13,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
-[![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yaml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yaml)
+[![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
 [![Tests](https://img.shields.io/badge/tests-1880%2B-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-83%25%2B-brightgreen.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-orange.svg)](#3r-recursion-resonance-refactoring)
@@ -1044,6 +1044,9 @@ mypy src/
 
 ## Cross-Platform Support
 
+<details>
+<summary><strong>Platform Compatibility Matrix</strong></summary>
+
 | Platform | Status | Notes |
 |----------|--------|-------|
 | Linux (Ubuntu 22.04+) | Full support | Primary development platform |
@@ -1051,6 +1054,8 @@ mypy src/
 | Windows (10/11) | Full support | WSL2 recommended |
 | Docker | Full support | Multi-stage build |
 | Kubernetes | Full support | Helm charts included |
+
+</details>
 
 ---
 
@@ -1425,12 +1430,17 @@ GitHub dependency graph is enabled for this repository. View the complete depend
 
 ## Contact and Support
 
+<details>
+<summary><strong>Contact Information</strong></summary>
+
 | Type | Contact |
 |------|---------|
-| General Inquiries | support@steelsecurityadvisors.com |
+| General Inquiries | steel.sa.llc@gmail.com |
 | Security Issues | See [SECURITY.md](SECURITY.md) for responsible disclosure |
 | GitHub Issues | [Issues Page](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/issues) |
 | GitHub Repository | [Mercury Agent ♱](https://github.com/Steel-SecAdv-LLC/Mercury-Agent) |
+
+</details>
 
 ---
 
