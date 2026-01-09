@@ -6,7 +6,6 @@ Copyright (C) 2025 Steel Security Advisory LLC
 """
 
 import numpy as np
-import pytest
 import torch
 from torch import nn
 
@@ -236,7 +235,7 @@ class TestEnsembleOmniFusionModel:
         predictions = torch.tensor([0.9, 0.8, 0.6, 0.4])
         targets = torch.tensor([1.0, 1.0, 0.0, 0.0])
 
-        initial_weights = ensemble.detector_weights.clone()
+        ensemble.detector_weights.clone()
         ensemble.update_boosting_weights(predictions, targets, detector_idx=0)
 
         assert len(ensemble._training_errors) > 0

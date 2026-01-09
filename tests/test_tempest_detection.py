@@ -6,7 +6,6 @@ Copyright (C) 2025 Steel Security Advisory LLC
 """
 
 import numpy as np
-import pytest
 import torch
 
 from omni_mercury_engine.security.tempest_detection import (
@@ -58,7 +57,7 @@ class TestTEMPESTAnalysisResult:
             threat_level="no_threat",
             risk_score=0.0,
         )
-        assert result.emanation_detected == False
+        assert not result.emanation_detected
         assert result.confidence == 0.0
         assert result.emanation_types == []
         assert result.countermeasures == []
@@ -80,7 +79,7 @@ class TestTEMPESTAnalysisResult:
             countermeasures=["Deploy TEMPEST-certified displays"],
             compliance_status={"zone1_shielding": False},
         )
-        assert result.emanation_detected == True
+        assert result.emanation_detected
         assert result.confidence == 0.85
         assert len(result.emanation_types) == 1
         assert result.signal_strength_dbm == -50.0
@@ -100,7 +99,7 @@ class TestRFSpectrumAnalyzer:
         """Test analysis with empty data."""
         analyzer = RFSpectrumAnalyzer()
         result = analyzer.analyze_spectrum({})
-        assert result["emanation_detected"] == False
+        assert not result["emanation_detected"]
 
     def test_analyze_spectrum_no_emanation(self):
         """Test analysis with no emanation detected."""
@@ -110,7 +109,7 @@ class TestRFSpectrumAnalyzer:
             "power_dbm": [-110.0, -115.0, -120.0],
         }
         result = analyzer.analyze_spectrum(spectrum_data)
-        assert result["emanation_detected"] == False
+        assert not result["emanation_detected"]
 
     def test_analyze_spectrum_with_emanation(self):
         """Test analysis with emanation detected."""
@@ -139,7 +138,7 @@ class TestRFSpectrumAnalyzer:
         frequencies = [1e6, 2e6, 3e6]
         power_levels = [-50.0, -40.0, -60.0]
         result = analyzer._detect_band_emanation(frequencies, power_levels, 100e6, 200e6)
-        assert result["detected"] == False
+        assert not result["detected"]
 
 
 class TestVideoEmanationDetector:
@@ -194,7 +193,7 @@ class TestSideChannelVulnerabilityAssessor:
             "distance_to_boundary_m": 25.0,
         }
         result = assessor.assess_vulnerabilities(equipment_data)
-        assert result["vulnerabilities_detected"] == False
+        assert not result["vulnerabilities_detected"]
         assert len(result["vulnerabilities"]) == 0
 
     def test_assess_vulnerabilities_with_issues(self):
@@ -207,7 +206,7 @@ class TestSideChannelVulnerabilityAssessor:
             "distance_to_boundary_m": 5.0,
         }
         result = assessor.assess_vulnerabilities(equipment_data)
-        assert result["vulnerabilities_detected"] == True
+        assert result["vulnerabilities_detected"]
         assert "insufficient_em_shielding" in result["vulnerabilities"]
         assert "unfiltered_power_lines" in result["vulnerabilities"]
         assert "unshielded_cables" in result["vulnerabilities"]
@@ -223,11 +222,11 @@ class TestSideChannelVulnerabilityAssessor:
             "distance_to_boundary_m": 25.0,
         }
         compliance = assessor._check_compliance(equipment_data)
-        assert compliance["zone1_shielding"] == False  # 70 < 80
-        assert compliance["zone2_shielding"] == True  # 70 >= 60
-        assert compliance["zone3_shielding"] == True  # 70 >= 40
-        assert compliance["power_line_filtering"] == True
-        assert compliance["control_zone"] == True
+        assert not compliance["zone1_shielding"]  # 70 < 80
+        assert compliance["zone2_shielding"]  # 70 >= 60
+        assert compliance["zone3_shielding"]  # 70 >= 40
+        assert compliance["power_line_filtering"]
+        assert compliance["control_zone"]
 
 
 class TestEMSECCountermeasureGenerator:
@@ -273,9 +272,9 @@ class TestTEMPESTDetector:
     def test_init_default(self):
         """Test initialization with default parameters."""
         detector = TEMPESTDetector()
-        assert detector.enable_rf_analysis == True
-        assert detector.enable_video_detection == True
-        assert detector.enable_vulnerability_assessment == True
+        assert detector.enable_rf_analysis
+        assert detector.enable_video_detection
+        assert detector.enable_vulnerability_assessment
         assert detector.rf_analyzer is not None
         assert detector.video_detector is not None
         assert detector.vulnerability_assessor is not None
@@ -296,7 +295,7 @@ class TestTEMPESTDetector:
         detector = TEMPESTDetector()
         result = detector.detect_tempest_threats({})
         assert isinstance(result, TEMPESTAnalysisResult)
-        assert result.emanation_detected == False
+        assert not result.emanation_detected
 
     def test_detect_tempest_threats_with_spectrum(self):
         """Test detection with spectrum data."""

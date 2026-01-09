@@ -6,7 +6,6 @@ Copyright (C) 2025 Steel Security Advisory LLC
 """
 
 import numpy as np
-import pytest
 
 from omni_mercury_engine.models.quantum_engine import (
     AnnealingResult,
@@ -200,7 +199,7 @@ class TestGroverSearchResult:
             quantum_queries=3,
             speedup=2.67,
         )
-        assert result.found == True
+        assert result.found
         assert result.result == 5
         assert result.target == 5
         assert result.success_probability == 0.95

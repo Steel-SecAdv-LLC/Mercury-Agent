@@ -6,7 +6,6 @@ Copyright (C) 2025 Steel Security Advisory LLC
 """
 
 import numpy as np
-import pytest
 import torch
 
 from omni_mercury_engine.space.disaster_precursor_detector import (
@@ -243,7 +242,7 @@ class TestSeismicCorrelator:
         schumann_anomaly = {"risk_score": 0.9}
         seismic_data = np.array([6.0, 6.5, 7.0, 6.8, 6.2])
         result = correlator.correlate_seismic(schumann_anomaly, seismic_data)
-        assert result["significant"] == True
+        assert result["significant"]
         assert result["precursor_likelihood"] > 0
 
 

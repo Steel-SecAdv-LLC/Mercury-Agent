@@ -5,7 +5,6 @@ Mercury Agent
 Copyright (C) 2025 Steel Security Advisory LLC
 """
 
-import pytest
 
 from omni_mercury_engine.security.anti_terrorism.pattern_recognition import (
     TerrorismPatternDetector,
@@ -25,7 +24,7 @@ class TestTerrorismThreatResult:
             threat_indicators=["indicator1", "indicator2"],
             recommended_actions=["action1"],
         )
-        assert result.threat_detected == True
+        assert result.threat_detected
         assert result.radicalization_stage == "indoctrination"
         assert result.confidence == 0.75
         assert len(result.threat_indicators) == 2
@@ -52,7 +51,7 @@ class TestTerrorismPatternDetector:
         detector = TerrorismPatternDetector()
         result = detector.detect_radicalization()
         assert isinstance(result, TerrorismThreatResult)
-        assert result.threat_detected == False
+        assert not result.threat_detected
         assert result.radicalization_stage == "pre_radicalization"
 
     def test_detect_radicalization_low_threat(self):
@@ -60,7 +59,7 @@ class TestTerrorismPatternDetector:
         detector = TerrorismPatternDetector()
         osint_data = {"threat_score": 0.2, "indicators": ["suspicious_activity"]}
         result = detector.detect_radicalization(osint_data=osint_data)
-        assert result.threat_detected == False
+        assert not result.threat_detected
         assert result.radicalization_stage == "pre_radicalization"
 
     def test_detect_radicalization_identification_stage(self):
@@ -68,7 +67,7 @@ class TestTerrorismPatternDetector:
         detector = TerrorismPatternDetector()
         osint_data = {"threat_score": 0.4, "indicators": ["extremist_content"]}
         result = detector.detect_radicalization(osint_data=osint_data)
-        assert result.threat_detected == False
+        assert not result.threat_detected
         assert result.radicalization_stage == "identification"
 
     def test_detect_radicalization_indoctrination_stage(self):
@@ -76,7 +75,7 @@ class TestTerrorismPatternDetector:
         detector = TerrorismPatternDetector()
         osint_data = {"threat_score": 0.6, "indicators": ["radicalization_signs"]}
         result = detector.detect_radicalization(osint_data=osint_data)
-        assert result.threat_detected == True
+        assert result.threat_detected
         assert result.radicalization_stage == "indoctrination"
 
     def test_detect_radicalization_action_planning_stage(self):
@@ -84,7 +83,7 @@ class TestTerrorismPatternDetector:
         detector = TerrorismPatternDetector()
         osint_data = {"threat_score": 0.8, "indicators": ["planning_activity"]}
         result = detector.detect_radicalization(osint_data=osint_data)
-        assert result.threat_detected == True
+        assert result.threat_detected
         assert result.radicalization_stage == "action_planning"
 
     def test_detect_radicalization_imminent_action_stage(self):
@@ -92,7 +91,7 @@ class TestTerrorismPatternDetector:
         detector = TerrorismPatternDetector()
         osint_data = {"threat_score": 0.95, "indicators": ["imminent_threat"]}
         result = detector.detect_radicalization(osint_data=osint_data)
-        assert result.threat_detected == True
+        assert result.threat_detected
         assert result.radicalization_stage == "imminent_action"
 
     def test_detect_radicalization_with_comint(self):
@@ -100,7 +99,7 @@ class TestTerrorismPatternDetector:
         detector = TerrorismPatternDetector()
         comint_data = {"threat_score": 0.7, "indicators": ["encrypted_comms"]}
         result = detector.detect_radicalization(comint_data=comint_data)
-        assert result.threat_detected == True
+        assert result.threat_detected
         assert "encrypted_comms" in result.threat_indicators
 
     def test_detect_radicalization_combined_data(self):
@@ -109,7 +108,7 @@ class TestTerrorismPatternDetector:
         osint_data = {"threat_score": 0.5, "indicators": ["osint_indicator"]}
         comint_data = {"threat_score": 0.8, "indicators": ["comint_indicator"]}
         result = detector.detect_radicalization(osint_data=osint_data, comint_data=comint_data)
-        assert result.threat_detected == True
+        assert result.threat_detected
         assert result.confidence == 0.8  # Max of the two
         assert "osint_indicator" in result.threat_indicators
         assert "comint_indicator" in result.threat_indicators

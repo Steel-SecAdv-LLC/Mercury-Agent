@@ -6,7 +6,6 @@ Copyright (C) 2025 Steel Security Advisory LLC
 """
 
 import numpy as np
-import pytest
 import torch
 
 from omni_mercury_engine.space.solar_storm_detector import (
@@ -157,7 +156,7 @@ class TestCMETracker:
             "direction_latitude_deg": 0,
         }
         result = tracker.track_cme(cme_data)
-        assert result["cme_detected"] == False
+        assert not result["cme_detected"]
 
     def test_track_earth_directed_cme(self) -> None:
         """Test tracking Earth-directed CME."""

@@ -6,7 +6,6 @@ Copyright (C) 2025 Steel Security Advisory LLC
 """
 
 import numpy as np
-import pytest
 import torch
 
 from omni_mercury_engine.security.cybint_subprocessor import (
@@ -80,7 +79,7 @@ class TestCYBINTAnalysisResult:
             threat_severity="low",
             risk_score=0.0,
         )
-        assert result.threat_detected == False
+        assert not result.threat_detected
         assert result.apt_group is None
         assert result.ttps_detected == []
 
@@ -103,7 +102,7 @@ class TestCYBINTAnalysisResult:
             recommended_actions=["isolate"],
             defensive_measures=["block"],
         )
-        assert result.threat_detected == True
+        assert result.threat_detected
         assert result.apt_group == "apt28_fancy_bear"
         assert len(result.ttps_detected) == 2
 
@@ -183,7 +182,7 @@ class TestC2InfrastructureDetector:
         """Test C2 detection with empty data."""
         detector = C2InfrastructureDetector()
         result = detector.detect_c2({})
-        assert result["c2_detected"] == False
+        assert not result["c2_detected"]
         assert result["c2_indicators"] == []
 
     def test_detect_c2_with_beaconing(self):
@@ -193,7 +192,7 @@ class TestC2InfrastructureDetector:
             "connection_intervals": [60, 60, 60, 60, 60, 60],  # Regular intervals
         }
         result = detector.detect_c2(network_data)
-        assert result["c2_detected"] == True
+        assert result["c2_detected"]
         assert "beaconing_activity" in result["c2_indicators"]
 
     def test_detect_c2_with_dga(self):
@@ -217,7 +216,7 @@ class TestC2InfrastructureDetector:
             "patterns": ["periodic_callback"],
         }
         result = detector.detect_c2(network_data)
-        assert result["c2_detected"] == True
+        assert result["c2_detected"]
         assert "http_beacon" in result["c2_indicators"]
 
     def test_calculate_entropy(self):
@@ -292,10 +291,10 @@ class TestCYBINTSubProcessor:
     def test_init_default(self):
         """Test initialization with default parameters."""
         processor = CYBINTSubProcessor()
-        assert processor.enable_apt_attribution == True
-        assert processor.enable_malware_classification == True
-        assert processor.enable_c2_detection == True
-        assert processor.enable_zero_day_analysis == True
+        assert processor.enable_apt_attribution
+        assert processor.enable_malware_classification
+        assert processor.enable_c2_detection
+        assert processor.enable_zero_day_analysis
         assert processor.apt_recognizer is not None
         assert processor.malware_classifier is not None
         assert processor.c2_detector is not None
@@ -319,7 +318,7 @@ class TestCYBINTSubProcessor:
         processor = CYBINTSubProcessor()
         result = processor.process_cybint({})
         assert isinstance(result, CYBINTAnalysisResult)
-        assert result.threat_detected == False
+        assert not result.threat_detected
 
     def test_process_cybint_with_threat_features(self):
         """Test processing with threat features."""

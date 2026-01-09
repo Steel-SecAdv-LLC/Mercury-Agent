@@ -260,7 +260,7 @@ class TestSOTARegistry:
     def test_ensure_initialized(self) -> None:
         """Test that registry auto-initializes with default models."""
         SOTARegistry.clear()
-        models = SOTARegistry.list_models()
+        SOTARegistry.list_models()
         assert SOTARegistry._initialized is True
 
 
