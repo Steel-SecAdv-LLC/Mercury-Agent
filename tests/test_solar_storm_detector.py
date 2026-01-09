@@ -264,9 +264,7 @@ class TestSolarStormDetector:
     def test_predict_with_flare(self) -> None:
         """Test prediction with flare data."""
         detector = SolarStormDetector()
-        storm_data = {
-            "xray_data": {"flux_short_wm2": 5e-5, "flux_long_wm2": 1e-9}
-        }
+        storm_data = {"xray_data": {"flux_short_wm2": 5e-5, "flux_long_wm2": 1e-9}}
         result = detector.predict_solar_storm(storm_data)
         assert result.flare_detected is True
         assert result.flare_class == "M"

@@ -225,7 +225,7 @@ class TestC2InfrastructureDetector:
         detector = C2InfrastructureDetector()
         entropy = detector._calculate_entropy("aaaaaa")
         assert entropy == 0.0  # All same characters
-        
+
         entropy = detector._calculate_entropy("abcdef")
         assert entropy > 0  # Different characters
 

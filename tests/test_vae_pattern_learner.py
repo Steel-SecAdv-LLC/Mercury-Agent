@@ -204,9 +204,7 @@ class TestVAEPatternLearner:
         result_anomaly = learner.predict(X_anomaly)
 
         # Anomalous data should have higher scores on average
-        assert np.mean(result_anomaly["anomaly_scores"]) > np.mean(
-            result_normal["anomaly_scores"]
-        )
+        assert np.mean(result_anomaly["anomaly_scores"]) > np.mean(result_normal["anomaly_scores"])
 
     def test_fit_returns_self(self):
         """Test that fit returns self for method chaining."""

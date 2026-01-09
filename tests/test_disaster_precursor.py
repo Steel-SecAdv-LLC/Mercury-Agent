@@ -318,7 +318,7 @@ class TestDisasterPrecursorDetector:
     def test_assess_risk_level(self) -> None:
         """Test risk level assessment."""
         detector = DisasterPrecursorDetector()
-        
+
         result_low = DisasterPrecursorResult(
             precursor_detected=False,
             confidence=0.2,
@@ -326,7 +326,7 @@ class TestDisasterPrecursorDetector:
             risk_level="low",
         )
         assert detector._assess_risk_level(result_low) == "low"
-        
+
         result_high = DisasterPrecursorResult(
             precursor_detected=True,
             confidence=0.7,

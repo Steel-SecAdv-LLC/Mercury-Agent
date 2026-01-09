@@ -214,70 +214,70 @@ class TestPSYOPAnalyzer:
     def test_classify_narrative_type(self):
         """Test narrative type classification."""
         analyzer = PSYOPAnalyzer()
-        
+
         neutral_type = analyzer._classify_narrative_type(
-            "The sun rises in the east.",
-            {"source_credibility": 0.8, "has_citations": True}
+            "The sun rises in the east.", {"source_credibility": 0.8, "has_citations": True}
         )
         assert neutral_type == NarrativeType.NEUTRAL
 
     def test_extract_themes(self):
         """Test theme extraction."""
         analyzer = PSYOPAnalyzer()
-        themes = analyzer._extract_themes(
-            "The government election affects democracy and freedom."
-        )
+        themes = analyzer._extract_themes("The government election affects democracy and freedom.")
         assert "political" in themes
 
     def test_detect_emotional_appeals(self):
         """Test emotional appeal detection."""
         analyzer = PSYOPAnalyzer()
-        
+
         appeals = analyzer._detect_emotional_appeals("This is a dangerous threat!")
         assert "fear" in appeals
-        
+
         appeals = analyzer._detect_emotional_appeals("Victory and freedom await!")
         assert "hope" in appeals
-        
+
         appeals = analyzer._detect_emotional_appeals("Act now immediately!")
         assert "urgency" in appeals
 
     def test_detect_exploited_biases(self):
         """Test bias detection."""
         analyzer = PSYOPAnalyzer()
-        
+
         biases = analyzer._detect_exploited_biases("Everyone knows this is true.")
         assert CognitiveBias.BANDWAGON_EFFECT in biases
-        
+
         biases = analyzer._detect_exploited_biases("Experts and scientists agree.")
         assert CognitiveBias.AUTHORITY_BIAS in biases
 
     def test_assess_credibility(self):
         """Test credibility assessment."""
         analyzer = PSYOPAnalyzer()
-        
-        high_cred = analyzer._assess_credibility({
-            "source_reputation": 0.9,
-            "has_citations": True,
-            "author_verified": True,
-            "corroborating_sources": 3,
-        })
+
+        high_cred = analyzer._assess_credibility(
+            {
+                "source_reputation": 0.9,
+                "has_citations": True,
+                "author_verified": True,
+                "corroborating_sources": 3,
+            }
+        )
         assert high_cred > 0.7
-        
-        low_cred = analyzer._assess_credibility({
-            "source_reputation": 0.2,
-            "anonymous_source": True,
-            "sensationalist_headline": True,
-        })
+
+        low_cred = analyzer._assess_credibility(
+            {
+                "source_reputation": 0.2,
+                "anonymous_source": True,
+                "sensationalist_headline": True,
+            }
+        )
         assert low_cred < 0.5
 
     def test_detect_amplification_indicators(self):
         """Test amplification indicator detection."""
         analyzer = PSYOPAnalyzer()
-        
+
         indicators = analyzer._detect_amplification_indicators(
-            {"shares": 10000, "comments": 100},
-            {"time_to_viral_hours": 0.5}
+            {"shares": 10000, "comments": 100}, {"time_to_viral_hours": 0.5}
         )
         assert "high_share_to_comment_ratio" in indicators
         assert "unusually_rapid_spread" in indicators

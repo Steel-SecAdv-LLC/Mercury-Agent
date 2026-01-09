@@ -78,8 +78,20 @@ class TestNetworkFlowAnalyzer:
         """Test analysis with normal flow data."""
         analyzer = NetworkFlowAnalyzer()
         flow_data = [
-            {"src_ip": "192.168.1.1", "dst_ip": "10.0.0.1", "dst_port": 80, "protocol": "TCP", "bytes": 1000},
-            {"src_ip": "192.168.1.2", "dst_ip": "10.0.0.1", "dst_port": 443, "protocol": "TCP", "bytes": 2000},
+            {
+                "src_ip": "192.168.1.1",
+                "dst_ip": "10.0.0.1",
+                "dst_port": 80,
+                "protocol": "TCP",
+                "bytes": 1000,
+            },
+            {
+                "src_ip": "192.168.1.2",
+                "dst_ip": "10.0.0.1",
+                "dst_port": 443,
+                "protocol": "TCP",
+                "bytes": 2000,
+            },
         ]
         result = analyzer.analyze_flows(flow_data)
         assert "statistics" in result
@@ -90,13 +102,15 @@ class TestNetworkFlowAnalyzer:
         analyzer = NetworkFlowAnalyzer()
         flow_data = []
         for port in range(1, 100):
-            flow_data.append({
-                "src_ip": "192.168.1.100",
-                "dst_ip": "10.0.0.1",
-                "dst_port": port,
-                "protocol": "TCP",
-                "bytes": 100,
-            })
+            flow_data.append(
+                {
+                    "src_ip": "192.168.1.100",
+                    "dst_ip": "10.0.0.1",
+                    "dst_port": port,
+                    "protocol": "TCP",
+                    "bytes": 100,
+                }
+            )
         result = analyzer.analyze_flows(flow_data)
         assert "port_scanning" in result.get("anomalies", [])
 
@@ -105,13 +119,15 @@ class TestNetworkFlowAnalyzer:
         analyzer = NetworkFlowAnalyzer()
         flow_data = []
         for i in range(200):
-            flow_data.append({
-                "src_ip": f"192.168.1.{i % 255}",
-                "dst_ip": "10.0.0.1",
-                "dst_port": 80,
-                "protocol": "TCP",
-                "bytes": 1000,
-            })
+            flow_data.append(
+                {
+                    "src_ip": f"192.168.1.{i % 255}",
+                    "dst_ip": "10.0.0.1",
+                    "dst_port": 80,
+                    "protocol": "TCP",
+                    "bytes": 1000,
+                }
+            )
         result = analyzer.analyze_flows(flow_data)
         assert "statistics" in result
 
@@ -120,14 +136,16 @@ class TestNetworkFlowAnalyzer:
         analyzer = NetworkFlowAnalyzer()
         flow_data = []
         for i in range(20):
-            flow_data.append({
-                "src_ip": "192.168.1.1",
-                "dst_ip": "10.0.0.1",
-                "dst_port": 443,
-                "protocol": "TCP",
-                "bytes": 10000000,
-                "direction": "outbound",
-            })
+            flow_data.append(
+                {
+                    "src_ip": "192.168.1.1",
+                    "dst_ip": "10.0.0.1",
+                    "dst_port": 443,
+                    "protocol": "TCP",
+                    "bytes": 10000000,
+                    "direction": "outbound",
+                }
+            )
         result = analyzer.analyze_flows(flow_data)
         assert "statistics" in result
 
@@ -136,13 +154,15 @@ class TestNetworkFlowAnalyzer:
         analyzer = NetworkFlowAnalyzer()
         flow_data = []
         for port in range(1, 150):
-            flow_data.append({
-                "src_ip": "192.168.1.100",
-                "dst_ip": "10.0.0.1",
-                "dst_port": port,
-                "protocol": "TCP",
-                "bytes": 100,
-            })
+            flow_data.append(
+                {
+                    "src_ip": "192.168.1.100",
+                    "dst_ip": "10.0.0.1",
+                    "dst_port": port,
+                    "protocol": "TCP",
+                    "bytes": 100,
+                }
+            )
         result = analyzer.analyze_flows(flow_data)
         assert "suspicious_sources" in result
 
@@ -324,7 +344,13 @@ class TestTrafficAnalysisEngine:
         engine = TrafficAnalysisEngine()
         traffic_data = {
             "flow_records": [
-                {"src_ip": "192.168.1.1", "dst_ip": "10.0.0.1", "dst_port": 80, "protocol": "TCP", "bytes": 1000},
+                {
+                    "src_ip": "192.168.1.1",
+                    "dst_ip": "10.0.0.1",
+                    "dst_port": 80,
+                    "protocol": "TCP",
+                    "bytes": 1000,
+                },
             ]
         }
         result = engine.analyze_traffic(traffic_data)

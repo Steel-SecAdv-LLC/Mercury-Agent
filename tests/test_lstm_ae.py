@@ -138,9 +138,7 @@ class TestAnomalyDetector:
         """Test basic training."""
         detector = AnomalyDetector(input_dim=5, seq_len=10, hidden_dim=16, latent_dim=8)
         train_data = np.random.randn(200, 5).astype(np.float32)
-        history = detector.fit(
-            train_data, epochs=2, batch_size=16, verbose=False, early_stopping=5
-        )
+        history = detector.fit(train_data, epochs=2, batch_size=16, verbose=False, early_stopping=5)
         assert "train_loss" in history
         assert "val_loss" in history
         assert detector.threshold is not None

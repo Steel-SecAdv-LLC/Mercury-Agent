@@ -224,8 +224,8 @@ class TestSideChannelVulnerabilityAssessor:
         }
         compliance = assessor._check_compliance(equipment_data)
         assert compliance["zone1_shielding"] == False  # 70 < 80
-        assert compliance["zone2_shielding"] == True   # 70 >= 60
-        assert compliance["zone3_shielding"] == True   # 70 >= 40
+        assert compliance["zone2_shielding"] == True  # 70 >= 60
+        assert compliance["zone3_shielding"] == True  # 70 >= 40
         assert compliance["power_line_filtering"] == True
         assert compliance["control_zone"] == True
 
@@ -329,9 +329,7 @@ class TestTEMPESTDetector:
     def test_detect_tempest_threats_with_video(self):
         """Test detection with video emanation features."""
         detector = TEMPESTDetector()
-        tempest_data = {
-            "video_emanation_features": np.random.randn(128).astype(np.float32)
-        }
+        tempest_data = {"video_emanation_features": np.random.randn(128).astype(np.float32)}
         result = detector.detect_tempest_threats(tempest_data)
         assert isinstance(result, TEMPESTAnalysisResult)
         assert result.reconstruction_feasibility >= 0
@@ -355,6 +353,10 @@ class TestTEMPESTDetector:
         result = detector.detect_tempest_threats(tempest_data)
         assert isinstance(result, TEMPESTAnalysisResult)
         assert result.threat_level in [
-            "no_threat", "low_risk", "moderate_risk", "high_risk", "critical_risk"
+            "no_threat",
+            "low_risk",
+            "moderate_risk",
+            "high_risk",
+            "critical_risk",
         ]
         assert len(result.countermeasures) > 0
