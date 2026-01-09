@@ -5,7 +5,6 @@ Mercury Agent
 Copyright (C) 2025 Steel Security Advisory LLC
 """
 
-
 from omni_mercury_engine.security.anti_terrorism.pattern_recognition import (
     TerrorismPatternDetector,
     TerrorismThreatResult,
