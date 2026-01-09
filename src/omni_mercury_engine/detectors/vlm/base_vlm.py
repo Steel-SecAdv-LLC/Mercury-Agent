@@ -137,6 +137,21 @@ class BaseVLMDetector(BaseDetector):
         """Get the detector configuration (alias for backward compatibility)."""
         return self._vlm_config_ref
 
+    @config.setter
+    def config(self, value: VLMConfig | dict[str, Any]) -> None:
+        """Set the detector configuration.
+
+        Args:
+            value: VLMConfig instance or dict. If dict, it's stored separately
+                   for BaseDetector compatibility but doesn't override vlm_config.
+        """
+        if isinstance(value, VLMConfig):
+            self._vlm_config_ref = value
+            self.vlm_config = value
+        # If it's a dict (from BaseDetector.__init__), store it separately
+        # but don't override the VLM config
+        self._base_config_dict = value if isinstance(value, dict) else {}
+
     @property
     def model(self) -> Any:
         """Get the LVLM model."""
