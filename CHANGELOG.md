@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-01-09
+
+### Security - v1.1.0 CodeQL Remediation
+- **PBKDF2-HMAC-SHA256 API Key Hashing**: Upgraded from plain SHA256 to PBKDF2-HMAC-SHA256 with 100,000 iterations (`api/auth.py`)
+  - Configurable via `API_KEY_HASH_SALT` and `API_KEY_HASH_ITERATIONS` environment variables
+  - Provides strong protection against brute-force and rainbow table attacks
+- **URL Sanitization**: Fixed incomplete URL substring sanitization with proper `urlparse` validation (`test_dataset_loaders.py`)
+- **Sensitive Data Logging**: Changed 6 locations from `info` to `debug` level with redacted messages
+- **Superclass Attribute Shadowing**: Fixed inheritance issues in `BaseVLMDetector` and `BaseVisualDetector`
+- **Empty Except Blocks**: Added explanatory comments to 25+ empty except blocks
+- **Explicit Exports**: Added TYPE_CHECKING imports for 33 explicit exports in `__init__.py` files
+- **Redundant Assignments**: Removed 3 redundant self-assignments in `global_omni_scalar_network.py`
+- **Illegal Raise**: Fixed by adding validation and using `RuntimeError` (`resilience.py`)
+- **Parameter Name**: Corrected argument name from `significance_level` to `p_value_threshold` (`engine.py`)
+
+### Changed - v1.1.0
+- All documentation updated to v1.1.0 with 2026-01-09 date
+- README.md comprehensively updated with latest benchmarks and features
+- Test coverage increased by 20% (from 58% to 78%+)
+
 ## [Unreleased]
 
 ### Added - 2026-01-06 Security Audit
