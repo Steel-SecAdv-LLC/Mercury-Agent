@@ -232,7 +232,7 @@ class MemoryManager:
 
             self._torch_available = importlib.util.find_spec("torch") is not None
         except Exception:
-            pass
+            pass  # torch availability check failed, assume not available
 
     def get_memory_usage(self) -> dict[str, float]:
         """Get current memory usage in MB."""
@@ -498,7 +498,7 @@ class DDPScaler:
                 dist.destroy_process_group()
                 self.is_initialized = False
             except Exception:
-                pass
+                pass  # DDP cleanup failed, process group may not exist
 
 
 @dataclass

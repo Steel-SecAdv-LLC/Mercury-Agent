@@ -267,7 +267,7 @@ EXPLANATION: [Your detailed explanation]
                     confidence = min(max(conf_val, 0.0), 1.0)
                     break
                 except ValueError:
-                    pass
+                    pass  # Invalid confidence value, try next pattern
 
         # Extract explanation
         explanation = response

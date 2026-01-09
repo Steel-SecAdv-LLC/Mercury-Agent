@@ -632,7 +632,7 @@ class RealWorldBenchmarkRunner:
                 scalars = detector.get_gosnn_scalars()
                 metrics.benevolence_score = scalars.get("benevolence", 1.0)
         except Exception:
-            pass
+            pass  # Benevolence scoring optional, continue without it
 
         result = BenchmarkResult(
             dataset=info,

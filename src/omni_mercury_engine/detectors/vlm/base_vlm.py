@@ -107,6 +107,9 @@ class BaseVLMDetector(BaseDetector):
         Args:
             config: Detector configuration
         """
+        # Call parent __init__ first to initialize base attributes
+        super().__init__(config={"threshold": 0.5, "name": self.__class__.__name__})
+
         if config is None:
             self.vlm_config = VLMConfig()
         elif isinstance(config, dict):
@@ -115,20 +118,19 @@ class BaseVLMDetector(BaseDetector):
             self.vlm_config = config
 
         # Expose config property for test compatibility
-        self._config = self.vlm_config
+        self._vlm_config_ref = self.vlm_config
 
-        # Initialize BaseDetector attributes manually (avoid calling __init__ which sets self.config)
-        self.threshold = 0.5
-        self._is_fitted = True  # VLM doesn't need fitting - mark as ready
+        # VLM doesn't need fitting - mark as ready
+        self._is_fitted = True
 
         self.device = torch.device(self.vlm_config.device)
         self._model: Any = None
         self._processor: Any = None
 
     @property
-    def config(self) -> VLMConfig:
-        """Get the detector configuration."""
-        return self._config
+    def vlm_detector_config(self) -> VLMConfig:
+        """Get the VLM detector configuration."""
+        return self._vlm_config_ref
 
     @property
     def model(self) -> Any:

@@ -249,6 +249,9 @@ def retry(
             delay = initial_delay
             last_exception: Exception | None = None
 
+            if max_attempts < 1:
+                raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
+
             for attempt in range(1, max_attempts + 1):
                 try:
                     return func(*args, **kwargs)
@@ -269,7 +272,7 @@ def retry(
                     time.sleep(delay)
                     delay = min(delay * backoff_factor, max_delay)
 
-            raise last_exception  # type: ignore
+            raise RuntimeError(f"Retry logic error in {func.__name__}")
 
         return wrapper  # type: ignore
 

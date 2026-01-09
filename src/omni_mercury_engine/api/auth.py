@@ -196,10 +196,28 @@ class APIKeyStore:
         self._keys: dict[str, APIKey] = {}
         self._key_lookup: dict[str, str] = {}  # hash -> key_id
 
+    # Salt for API key hashing - in production, use a secure secret from environment
+    _HASH_SALT = os.getenv("API_KEY_HASH_SALT", "mercury-agent-api-key-salt-v1")
+
     @staticmethod
     def hash_key(key: str) -> str:
-        """Hash an API key for storage."""
-        return hashlib.sha256(key.encode()).hexdigest()
+        """Hash an API key for storage using HMAC-SHA256.
+
+        Uses HMAC with a salt to provide better security than plain SHA256.
+        For API keys (high-entropy random tokens), this provides adequate
+        protection against rainbow table attacks.
+
+        Security Note:
+            In production, set API_KEY_HASH_SALT environment variable to a
+            secure random value. Generate with: `openssl rand -hex 32`
+        """
+        import hmac
+
+        return hmac.new(
+            key=APIKeyStore._HASH_SALT.encode(),
+            msg=key.encode(),
+            digestmod=hashlib.sha256,
+        ).hexdigest()
 
     def create_key(
         self,

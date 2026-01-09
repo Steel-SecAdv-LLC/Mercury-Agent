@@ -298,7 +298,7 @@ class PatchCoreDetector(BaseVisualDetector):
                 distances, indices = self._nn_index.search(query_np, k)
                 return distances, indices
         except (ImportError, AttributeError):
-            pass
+            pass  # faiss not available, fall back to sklearn
 
         # Sklearn fallback
         distances, indices = self._nn_index.kneighbors(query_np, n_neighbors=k)

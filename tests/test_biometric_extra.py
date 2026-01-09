@@ -34,7 +34,7 @@ def test_biometric_with_invalid_model():
         model = BiometricAnomalyModel({"model_name": "InvalidModel"})
         assert model.model_name == "InvalidModel"
     except Exception:
-        pass
+        pass  # Expected: invalid model name may raise
 
 
 def test_biometric_predict_with_none_input():

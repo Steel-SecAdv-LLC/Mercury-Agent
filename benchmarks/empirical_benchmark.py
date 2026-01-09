@@ -2313,7 +2313,7 @@ class OmniMercuryDetector:
             for key, profile in profile_mapping.items():
                 if key in self._dataset_hint:
                     self._adaptive_detector._profile = profile
-                    logger.info(f"Dataset hint set: {dataset_name} -> {profile}")
+                    logger.debug("Dataset profile configured for adaptive detection")
                     break
 
     def decision_function(self, X: np.ndarray) -> np.ndarray:

@@ -162,27 +162,27 @@ def benchmark_execution_time(
                     try:
                         _ = engine.analyze_with_harmonics(test_func)
                     except (AttributeError, Exception):
-                        pass
+                        pass  # Method may not exist in baseline engine
 
                     try:
                         _ = engine.explore_quantum_refactoring_paths(test_func, num_paths=3)
                     except (AttributeError, Exception):
-                        pass
+                        pass  # Method may not exist in baseline engine
 
                     try:
                         _ = engine.detect_pattern_resonance(test_func)
                     except (AttributeError, Exception):
-                        pass
+                        pass  # Method may not exist in baseline engine
 
                     try:
                         _ = engine.analyze_with_neurosymbolic(test_func)
                     except (AttributeError, Exception):
-                        pass
+                        pass  # Method may not exist in baseline engine
 
                     try:
                         _ = engine.orchestrate_refactoring(test_func)
                     except (AttributeError, Exception):
-                        pass
+                        pass  # Method may not exist in baseline engine
 
                 end = time.perf_counter()
                 iter_times.append(end - start)
@@ -254,7 +254,7 @@ def benchmark_memory_usage(
                     _ = engine.analyze_with_neurosymbolic(test_func)
                     _ = engine.orchestrate_refactoring(test_func)
                 except (AttributeError, Exception):
-                    pass
+                    pass  # Methods may not exist in baseline engine
 
             current, peak = tracemalloc.get_traced_memory()
             tracemalloc.stop()

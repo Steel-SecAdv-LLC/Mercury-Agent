@@ -717,7 +717,7 @@ class TestPropertyBased:
             assert 0 <= entropy <= 1.01
 
         except ImportError:
-            pass
+            pass  # Expected: optional dependency may not be installed
 
     @given(
         st.integers(min_value=10, max_value=100),
@@ -751,7 +751,7 @@ class TestPropertyBased:
             )
 
         except (ImportError, Exception):
-            pass
+            pass  # Expected: optional dependency or computation may fail
 
 
 if __name__ == "__main__":

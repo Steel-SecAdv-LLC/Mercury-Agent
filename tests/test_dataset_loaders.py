@@ -167,13 +167,16 @@ class TestBATADALLoader:
 
     def test_batadal_download_url(self):
         """Test BATADAL has valid download URL."""
+        from urllib.parse import urlparse
+
         from omni_mercury_engine.datasets.industrial import BATADALLoader
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(name="batadal", data_dir=str(tmpdir))
             loader = BATADALLoader(config)
 
-            assert "batadal.net" in loader.DATASET_URL
+            parsed_url = urlparse(loader.DATASET_URL)
+            assert parsed_url.netloc == "batadal.net" or parsed_url.netloc.endswith(".batadal.net")
 
 
 class TestUCRLoader:

@@ -25,6 +25,20 @@ A unified toolkit for anomaly detection across security, biometrics, temporal pa
 and multi-dimensional data using neural network fusion of specialized detectors.
 """
 
+from typing import TYPE_CHECKING
+
+# Type-only imports for static analysis (CodeQL, mypy, etc.)
+# These are not imported at runtime to support lazy loading
+if TYPE_CHECKING:
+    from omni_mercury_engine.core.config import EngineConfig as EngineConfig
+    from omni_mercury_engine.core.exceptions import (
+        DetectorException as DetectorException,
+        FusionException as FusionException,
+        ModelException as ModelException,
+        OmniAnomalyException as OmniAnomalyException,
+    )
+    from omni_mercury_engine.engine import OmniMercuryEngine as OmniMercuryEngine
+
 # Lazy imports to support running without ML dependencies (torch)
 # The OmniMercuryEngine requires torch, but we defer the import to allow
 # CLI help commands and other lightweight operations to work without it.
