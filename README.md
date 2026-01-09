@@ -22,7 +22,7 @@
 
 ```
               +===============================================================================+
-              |                                   Mercury Agent ♱ v1.1                                       |
+              |                                   Mercury Agent ♱ v1.1                        |
               |Neuro-Symbolic AI for Autonomous Anomaly Detection Paradigm with PQC-Protected |
               |                                                                               |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security    |
