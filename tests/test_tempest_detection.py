@@ -10,8 +10,8 @@ import pytest
 import torch
 
 from omni_mercury_engine.security.tempest_detection import (
-    EMSECCountermeasureGenerator,
     EmanationType,
+    EMSECCountermeasureGenerator,
     RFSpectrumAnalyzer,
     SideChannelVulnerabilityAssessor,
     TEMPESTAnalysisResult,
