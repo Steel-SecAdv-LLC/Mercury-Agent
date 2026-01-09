@@ -106,21 +106,21 @@ class TestGOSNNErrorHandling:
             try:
                 gosnn.forward(None)
             except Exception:
-                pass
+                pass  # Expected: GOSNN should handle None input gracefully
 
     def test_gosnn_handles_empty_input(self, gosnn):
         """Test GOSNN handles empty input."""
         try:
             gosnn.forward(torch.tensor([]))
         except Exception:
-            pass
+            pass  # Expected: GOSNN may raise on empty tensor
 
     def test_gosnn_handles_wrong_dimensions(self, gosnn):
         """Test GOSNN handles wrong dimensions."""
         try:
             gosnn.forward(torch.randn(1, 1, 1, 1))
         except Exception:
-            pass
+            pass  # Expected: GOSNN may raise on wrong dimensions
 
 
 # =============================================================================
@@ -223,7 +223,7 @@ class TestEthicalGating:
             try:
                 gosnn.apply_ethical_gate(features, benevolence)
             except Exception:
-                pass
+                pass  # Expected: ethical gate may block low benevolence
 
 
 # =============================================================================
@@ -459,7 +459,7 @@ class TestEngineGOSNNIntegration:
             try:
                 engine.detect_with_fusion(None)
             except Exception:
-                pass
+                pass  # Expected: engine may raise on None input
 
 
 # =============================================================================

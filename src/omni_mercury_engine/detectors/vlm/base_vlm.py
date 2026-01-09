@@ -107,6 +107,7 @@ class BaseVLMDetector(BaseDetector):
         Args:
             config: Detector configuration
         """
+        # Initialize VLM config first
         if config is None:
             self.vlm_config = VLMConfig()
         elif isinstance(config, dict):
@@ -115,20 +116,50 @@ class BaseVLMDetector(BaseDetector):
             self.vlm_config = config
 
         # Expose config property for test compatibility
-        self._config = self.vlm_config
+        self._vlm_config_ref = self.vlm_config
 
-        # Initialize BaseDetector attributes manually (avoid calling __init__ which sets self.config)
+        # Initialize BaseDetector attributes directly instead of calling super().__init__()
+        # This avoids the conflict where BaseDetector expects self.config to be a dict
+        # but our config property returns VLMConfig
+        from omni_mercury_engine.core.base import DetectorMetrics
+
+        self._base_config_dict: dict[str, Any] = {
+            "threshold": 0.5,
+            "name": self.__class__.__name__,
+        }
         self.threshold = 0.5
         self._is_fitted = True  # VLM doesn't need fitting - mark as ready
+        self._name = self.__class__.__name__
+        self._metrics = DetectorMetrics()
 
         self.device = torch.device(self.vlm_config.device)
         self._model: Any = None
         self._processor: Any = None
 
     @property
+    def vlm_detector_config(self) -> VLMConfig:
+        """Get the VLM detector configuration."""
+        return self._vlm_config_ref
+
+    @property
     def config(self) -> VLMConfig:
-        """Get the detector configuration."""
-        return self._config
+        """Get the detector configuration (alias for backward compatibility)."""
+        return self._vlm_config_ref
+
+    @config.setter
+    def config(self, value: VLMConfig | dict[str, Any]) -> None:
+        """Set the detector configuration.
+
+        Args:
+            value: VLMConfig instance or dict. If dict, it's stored separately
+                   for BaseDetector compatibility but doesn't override vlm_config.
+        """
+        if isinstance(value, VLMConfig):
+            self._vlm_config_ref = value
+            self.vlm_config = value
+        # If it's a dict (from BaseDetector.__init__), store it separately
+        # but don't override the VLM config
+        self._base_config_dict = value if isinstance(value, dict) else {}
 
     @property
     def model(self) -> Any:

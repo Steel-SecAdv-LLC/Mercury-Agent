@@ -196,10 +196,30 @@ class APIKeyStore:
         self._keys: dict[str, APIKey] = {}
         self._key_lookup: dict[str, str] = {}  # hash -> key_id
 
+    # Salt for API key hashing - in production, use a secure secret from environment
+    _HASH_SALT = os.getenv("API_KEY_HASH_SALT", "mercury-agent-api-key-salt-v1")
+    # Number of PBKDF2 iterations - higher is more secure but slower
+    _HASH_ITERATIONS = int(os.getenv("API_KEY_HASH_ITERATIONS", "100000"))
+
     @staticmethod
     def hash_key(key: str) -> str:
-        """Hash an API key for storage."""
-        return hashlib.sha256(key.encode()).hexdigest()
+        """Hash an API key for storage using PBKDF2-HMAC-SHA256.
+
+        Uses PBKDF2 (Password-Based Key Derivation Function 2) which is a
+        computationally expensive hash function suitable for credential storage.
+        This provides protection against brute-force and rainbow table attacks.
+
+        Security Note:
+            In production, set API_KEY_HASH_SALT environment variable to a
+            secure random value. Generate with: `openssl rand -hex 32`
+            Optionally adjust API_KEY_HASH_ITERATIONS (default: 100000).
+        """
+        return hashlib.pbkdf2_hmac(
+            hash_name="sha256",
+            password=key.encode(),
+            salt=APIKeyStore._HASH_SALT.encode(),
+            iterations=APIKeyStore._HASH_ITERATIONS,
+        ).hex()
 
     def create_key(
         self,

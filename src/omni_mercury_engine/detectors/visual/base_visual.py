@@ -106,12 +106,16 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         else:
             self.visual_config = config
 
-        # Expose config property for test compatibility
-        self._config = self.visual_config
+        # Expose config reference for internal use
+        self._visual_config_ref = self.visual_config
 
-        # Initialize BaseDetector attributes manually (avoid calling __init__ which sets self.config)
+        # Initialize BaseDetector attributes
+        # Note: We don't call BaseDetector.__init__() because we inherit from nn.Module
+        # and need to avoid MRO conflicts. Instead, we manually set the required attributes.
         self.threshold = self.visual_config.threshold
         self._is_fitted = False
+        self._name = self.__class__.__name__
+        self._metrics = None  # Will be initialized on first access if needed
 
         self.device = torch.device(self.visual_config.device)
         self._backbone: nn.Module | None = None
@@ -122,9 +126,14 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         self.register_buffer("_norm_std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
 
     @property
+    def visual_detector_config(self) -> VisualDetectorConfig:
+        """Get the visual detector configuration."""
+        return self._visual_config_ref
+
+    @property
     def config(self) -> VisualDetectorConfig:
-        """Get the detector configuration."""
-        return self._config
+        """Get the detector configuration (alias for backward compatibility)."""
+        return self._visual_config_ref
 
     @property
     def backbone(self) -> nn.Module:

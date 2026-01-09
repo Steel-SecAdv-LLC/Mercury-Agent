@@ -592,9 +592,9 @@ class OmniMercuryEngine:
             ...     print("Data drift detected!")
         """
         self.drift_detector = EnsembleDriftDetector(
-            feature_names=feature_names,
-            significance_level=0.05,
+            p_value_threshold=0.05,
         )
+        self._drift_feature_names = feature_names
         if baseline_data is not None:
             self._baseline_features = baseline_data
             self.drift_detector.fit(baseline_data)

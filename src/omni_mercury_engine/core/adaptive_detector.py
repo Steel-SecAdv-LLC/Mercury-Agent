@@ -572,7 +572,7 @@ class AdaptiveAnomalyDetector:
         elif self.auto_profile:
             self._profile = self.profile_dataset(X)
 
-        logger.info(f"Fitting AdaptiveAnomalyDetector with profile: {self._profile}")
+        logger.debug("Fitting AdaptiveAnomalyDetector with selected profile")
 
         # Fit covariance detector for relevant profiles
         if self._profile in [

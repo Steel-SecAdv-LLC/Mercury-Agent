@@ -635,7 +635,7 @@ class GOSNNIntegration:
             try:
                 confidence_intervals = self._conformal.predict(X)
             except Exception:
-                pass
+                pass  # Conformal prediction optional, continue without intervals
 
         # Compute adaptive threshold
         threshold = self._compute_adaptive_threshold(calibrated_scores)

@@ -967,9 +967,9 @@ def run_comprehensive_benchmark(
     print("=" * 70)
     print("Benevolence Optimization: Ethical Gating Form Benchmarks")
     print("=" * 70)
-    print(f"Civilization-First Philosophy: sigma_Immutable >= {SIGMA_IMMUTABLE_MEDICAL}")
-    print(f"Benevolence Requirement: >= {BENEVOLENCE_THRESHOLD}")
-    print(f"Target Lyapunov Exponent: >= {LAMBDA_LYAPUNOV}")
+    print("Civilization-First Philosophy: sigma_Immutable threshold active")
+    print("Benevolence Requirement: threshold active")
+    print("Target Lyapunov Exponent: threshold active")
     print("=" * 70)
     print()
 

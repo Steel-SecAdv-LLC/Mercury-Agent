@@ -120,10 +120,7 @@ class OverwatchNexus:
         self.enable_ci = self.config.get("enable_ci", self.engine_config.enable_ci)
         self.enable_medical_interdiction = self.config.get("enable_medical_interdiction", True)
 
-        self.logger.info(
-            f"Overwatch Nexus and Response Engine initialized (CI: {self.enable_ci}, "
-            f"Medical Interdiction: {self.enable_medical_interdiction})"
-        )
+        self.logger.debug("Overwatch Nexus and Response Engine initialized")
 
     def proactive_ci(
         self, data_stream: Any, intel_reports: dict[str, Any] | None = None

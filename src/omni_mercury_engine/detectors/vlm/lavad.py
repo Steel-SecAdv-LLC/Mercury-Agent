@@ -236,7 +236,7 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
                 confidence = float(match.group(1))
                 confidence = min(max(confidence, 0.0), 1.0)
             except ValueError:
-                pass
+                pass  # Invalid confidence value, use default 0.5
 
         # Explanation
         explanation = response
@@ -261,7 +261,7 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
             try:
                 frames.append(int(part) - 1)  # Convert to 0-indexed
             except ValueError:
-                pass
+                pass  # Skip non-integer frame references
 
         return frames
 

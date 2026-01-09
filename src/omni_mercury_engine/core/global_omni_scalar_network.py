@@ -479,9 +479,6 @@ class GlobalOmniScalarNetwork:
     MIN_EMPATHY = 1.22
     MIN_MORALITY = 1.20
     TARGET_BOOST_RATIO = 0.60
-    # Backward compatibility aliases (deprecated in v2.0)
-    SIGMA_IMMUTABLE_DEFAULT = SIGMA_IMMUTABLE_DEFAULT
-    SIGMA_IMMUTABLE_MEDICAL = SIGMA_IMMUTABLE_MEDICAL
 
     def __new__(cls, *args: Any, **kwargs: Any) -> GlobalOmniScalarNetwork:
         """Singleton pattern implementation."""
@@ -522,8 +519,6 @@ class GlobalOmniScalarNetwork:
 
         # Get domain-appropriate sigma_Immutable threshold
         self.sigma_immutable_threshold = get_sigma_immutable_threshold(domain)
-        # Backward compatibility alias (deprecated in v2.0)
-        self.sigma_immutable_threshold = self.sigma_immutable_threshold
 
         self.registered_scalars: dict[str, ScalarRegistration] = {}
         self.scalar_groups: dict[ScalarGroup, dict[str, float]] = {
@@ -547,10 +542,10 @@ class GlobalOmniScalarNetwork:
         self._initialize_default_scalars()
         self._initialized = True
 
-        self.logger.info(
-            f"GOSNN initialized: device={device}, quantum_mode={quantum_mode}, "
-            f"max_dimensions={max_dimensions}, sigma_immutable={self.sigma_immutable_threshold:.2f}, "
-            f"attention_heads={num_attention_heads}, triadic_phi={enable_triadic_phi}"
+        self.logger.debug(
+            "GOSNN initialized with %d dimensions and %d attention heads",
+            max_dimensions,
+            num_attention_heads,
         )
 
     def _initialize_default_scalars(self) -> None:

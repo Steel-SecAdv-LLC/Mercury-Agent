@@ -24,6 +24,63 @@ Model modules for Mercury Agent ♱ anomaly detection.
 Uses lazy imports to avoid circular dependency issues during package initialization.
 """
 
+from typing import TYPE_CHECKING
+
+# Type-only imports for static analysis (CodeQL, mypy, etc.)
+# These are not imported at runtime to support lazy loading
+if TYPE_CHECKING:
+    from omni_mercury_engine.models.affective import AffectiveAnomalyModel as AffectiveAnomalyModel
+    from omni_mercury_engine.models.astrophysical import (
+        AstrophysicalAnomalyModel as AstrophysicalAnomalyModel,
+    )
+    from omni_mercury_engine.models.biometric import BiometricAnomalyModel as BiometricAnomalyModel
+    from omni_mercury_engine.models.biometric_advanced import (
+        AdvancedBiometricEngine as AdvancedBiometricEngine,
+    )
+    from omni_mercury_engine.models.biometric_advanced import (
+        AgeProgressionEngine as AgeProgressionEngine,
+    )
+    from omni_mercury_engine.models.biometric_advanced import QuantumAgeVariant as QuantumAgeVariant
+    from omni_mercury_engine.models.chemistry import (
+        ChemistryAnomalyDetector as ChemistryAnomalyDetector,
+    )
+    from omni_mercury_engine.models.consciousness import (
+        ConsciousnessPreservationModel as ConsciousnessPreservationModel,
+    )
+    from omni_mercury_engine.models.multiverse import MultiverseOmniEngine as MultiverseOmniEngine
+    from omni_mercury_engine.models.neural import NeuralCognitiveModel as NeuralCognitiveModel
+    from omni_mercury_engine.models.neurosymbolic import NeurosymbolicEngine as NeurosymbolicEngine
+    from omni_mercury_engine.models.parapsychology import (
+        ParapsychologyDetector as ParapsychologyDetector,
+    )
+    from omni_mercury_engine.models.quantum import QuantumAnomalyModel as QuantumAnomalyModel
+    from omni_mercury_engine.models.quantum_engine import QuantumCircuit as QuantumCircuit
+    from omni_mercury_engine.models.quantum_engine import QuantumEngine as QuantumEngine
+    from omni_mercury_engine.models.quantum_engine import QuantumGate as QuantumGate
+    from omni_mercury_engine.models.simulation import SimulationModule as SimulationModule
+    from omni_mercury_engine.models.sota.association_discrepancy import (
+        AnomalyTransformerEncoder as AnomalyTransformerEncoder,
+    )
+    from omni_mercury_engine.models.sota.association_discrepancy import (
+        AssociationDiscrepancyModule as AssociationDiscrepancyModule,
+    )
+    from omni_mercury_engine.models.sota.association_discrepancy import (
+        PriorAssociation as PriorAssociation,
+    )
+    from omni_mercury_engine.models.sota.association_discrepancy import (
+        SeriesAssociation as SeriesAssociation,
+    )
+    from omni_mercury_engine.models.sota.maat import GatedFeatureFusion as GatedFeatureFusion
+    from omni_mercury_engine.models.sota.maat import MAATModel as MAATModel
+    from omni_mercury_engine.models.sota.maat import MambaSSM as MambaSSM
+    from omni_mercury_engine.models.sota.maat import SparseAttention as SparseAttention
+    from omni_mercury_engine.models.sota.tranad import AdversarialTrainer as AdversarialTrainer
+    from omni_mercury_engine.models.sota.tranad import (
+        FocusScoreConditioning as FocusScoreConditioning,
+    )
+    from omni_mercury_engine.models.sota.tranad import MAMLOptimizer as MAMLOptimizer
+    from omni_mercury_engine.models.sota.tranad import TranADModel as TranADModel
+
 __all__ = [
     "AdvancedBiometricEngine",
     "AdversarialTrainer",

@@ -237,7 +237,7 @@ class SimplePubSub:
                     else:
                         callback(message)
                 except Exception:
-                    pass
+                    pass  # Callback errors should not break pub/sub
 
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
