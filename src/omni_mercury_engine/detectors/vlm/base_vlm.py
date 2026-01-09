@@ -107,9 +107,7 @@ class BaseVLMDetector(BaseDetector):
         Args:
             config: Detector configuration
         """
-        # Call parent __init__ first to initialize base attributes
-        super().__init__(config={"threshold": 0.5, "name": self.__class__.__name__})
-
+        # Initialize VLM config first
         if config is None:
             self.vlm_config = VLMConfig()
         elif isinstance(config, dict):
@@ -120,8 +118,19 @@ class BaseVLMDetector(BaseDetector):
         # Expose config property for test compatibility
         self._vlm_config_ref = self.vlm_config
 
-        # VLM doesn't need fitting - mark as ready
-        self._is_fitted = True
+        # Initialize BaseDetector attributes directly instead of calling super().__init__()
+        # This avoids the conflict where BaseDetector expects self.config to be a dict
+        # but our config property returns VLMConfig
+        from omni_mercury_engine.core.base import DetectorMetrics
+
+        self._base_config_dict: dict[str, Any] = {
+            "threshold": 0.5,
+            "name": self.__class__.__name__,
+        }
+        self.threshold = 0.5
+        self._is_fitted = True  # VLM doesn't need fitting - mark as ready
+        self._name = self.__class__.__name__
+        self._metrics = DetectorMetrics()
 
         self.device = torch.device(self.vlm_config.device)
         self._model: Any = None
