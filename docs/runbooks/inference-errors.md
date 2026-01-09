@@ -132,7 +132,7 @@ kubectl logs -n mercury-agent -l app.kubernetes.io/component=engine --tail=100 |
    ```
 2. Rollback to previous model version:
    ```bash
-   kubectl set env deployment/mercury-agent-engine -n mercury-agent MODEL_VERSION=v1.2.0
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent MODEL_VERSION=v1.1.0
    kubectl rollout restart deployment/mercury-agent-engine -n mercury-agent
    ```
 3. Verify API compatibility with model version

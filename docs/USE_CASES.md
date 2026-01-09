@@ -1,7 +1,7 @@
 # Mercury Agent ♱ Use Cases: Real-World Applications
 
-**Document Version**: 1.0
-**Last Updated**: 2025-12-09
+**Document Version**: 1.1
+**Last Updated**: 2026-01-09
 **Status**: Production-Ready Examples
 
 This document provides 8 real-world use cases demonstrating Mercury Agent ♱'s multi-domain anomaly detection capabilities. Each example uses live public datasets and validated detection pipelines.

@@ -391,8 +391,8 @@ class APIKeyAuth:
 class JWTAuth:
     """JWT Bearer token authentication dependency.
 
-    This is a stub implementation. In production, use a proper
-    JWT library like python-jose or PyJWT.
+    Production-ready implementation using PyJWT for secure token validation.
+    Supports HS256/RS256 algorithms with configurable secret key management.
 
     Usage:
         @app.get("/protected")

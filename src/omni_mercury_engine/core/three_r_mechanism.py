@@ -36,7 +36,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from scipy import fft, signal
+from scipy import fft, optimize, signal
 
 from omni_mercury_engine.core.ai_ethics import EthicalAutonomyGovernor, EthicsConfig
 from omni_mercury_engine.core.code_analysis import NeurosymbolicConfig as CodeAnalysisConfig
@@ -337,6 +337,226 @@ class AnomalyFusionEquation:
 
 # Backward-compatible alias for AvaDominanceEquation
 AvaDominanceEquation = AnomalyFusionEquation
+
+
+class AAFEWeightOptimizer:
+    """Optimizer for AAFE weights using scipy.optimize.
+
+    Uses constrained optimization to find optimal weights (w_R, w_H, w_O)
+    that maximize F1 score on labeled anomaly detection data while
+    maintaining ethical constraints.
+
+    The optimization respects:
+    - Weight sum constraint: w_R + w_H + w_O = 1.0
+    - Non-negativity: all weights >= 0
+    - Ethical threshold: η_Ethical >= 0.93 (medical) or 0.96 (default)
+
+    Example:
+        optimizer = AAFEWeightOptimizer(domain="medical")
+        X_train = [...]  # List of (R, H, O) score tuples
+        y_train = [...]  # Binary labels (1=anomaly, 0=normal)
+        result = optimizer.optimize(X_train, y_train)
+        print(f"Optimal weights: {result['weights']}")
+        print(f"F1 improvement: {result['f1_improvement']:.2%}")
+    """
+
+    # Domain-specific ethical thresholds (sigma_Immutable)
+    DOMAIN_THRESHOLDS: dict[str, float] = {
+        "medical": 0.93,
+        "security": 0.96,
+        "humanitarian": 0.95,
+        "infrastructure": 0.995,
+        "default": 0.96,
+    }
+
+    def __init__(
+        self,
+        domain: str = "default",
+        golden_ratio_init: bool = True,
+        max_iterations: int = 100,
+        tolerance: float = 1e-6,
+    ) -> None:
+        """Initialize AAFE weight optimizer.
+
+        Args:
+            domain: Domain for ethical threshold selection
+            golden_ratio_init: If True, initialize with golden ratio weights
+            max_iterations: Maximum optimization iterations
+            tolerance: Convergence tolerance
+        """
+        self.domain = domain
+        self.ethical_threshold = self.DOMAIN_THRESHOLDS.get(
+            domain, self.DOMAIN_THRESHOLDS["default"]
+        )
+        self.golden_ratio = GOLDEN_RATIO_CONSTANT
+        self.max_iterations = max_iterations
+        self.tolerance = tolerance
+        self.logger = logging.getLogger(__name__)
+
+        # Initialize weights
+        if golden_ratio_init:
+            phi_sum = self.golden_ratio + 1.0 + (1.0 / self.golden_ratio)
+            self.initial_weights = np.array(
+                [
+                    self.golden_ratio / phi_sum,  # w_R
+                    1.0 / phi_sum,  # w_H
+                    (1.0 / self.golden_ratio) / phi_sum,  # w_O
+                ]
+            )
+        else:
+            self.initial_weights = np.array([1 / 3, 1 / 3, 1 / 3])
+
+        self.optimized_weights: np.ndarray | None = None
+        self.optimization_history: list[dict[str, Any]] = []
+
+    def _compute_aafe_scores(
+        self,
+        weights: np.ndarray,
+        X: np.ndarray,
+    ) -> np.ndarray:
+        """Compute AAFE scores for given weights and input data.
+
+        Args:
+            weights: Array [w_R, w_H, w_O]
+            X: Array of shape (n_samples, 3) with [R, H, O] scores
+
+        Returns:
+            Array of AAFE scores
+        """
+        # A = (w_R * R + w_H * H + w_O * O) * η^Φ
+        weighted_sum = np.dot(X, weights)
+        ethical_scaling = self.ethical_threshold**self.golden_ratio
+        return weighted_sum * ethical_scaling
+
+    def _objective_function(
+        self,
+        weights: np.ndarray,
+        X: np.ndarray,
+        y: np.ndarray,
+        threshold: float = 0.5,
+    ) -> float:
+        """Objective function to minimize (negative F1 score).
+
+        Args:
+            weights: Array [w_R, w_H, w_O]
+            X: Array of shape (n_samples, 3) with [R, H, O] scores
+            y: Binary labels (1=anomaly, 0=normal)
+            threshold: Classification threshold
+
+        Returns:
+            Negative F1 score (for minimization)
+        """
+        scores = self._compute_aafe_scores(weights, X)
+        predictions = (scores >= threshold).astype(int)
+
+        # Compute F1 score
+        tp = np.sum((predictions == 1) & (y == 1))
+        fp = np.sum((predictions == 1) & (y == 0))
+        fn = np.sum((predictions == 0) & (y == 1))
+
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+
+        return -f1  # Negative for minimization
+
+    def optimize(
+        self,
+        X: list[tuple[float, float, float]] | np.ndarray,
+        y: list[int] | np.ndarray,
+        threshold: float = 0.5,
+    ) -> dict[str, Any]:
+        """Optimize AAFE weights on labeled data.
+
+        Args:
+            X: Training data - list of (R, H, O) score tuples or array
+            y: Binary labels (1=anomaly, 0=normal)
+            threshold: Classification threshold for F1 computation
+
+        Returns:
+            Dict with optimized weights, metrics, and improvement stats
+        """
+        X_arr = np.array(X)
+        y_arr = np.array(y)
+
+        if X_arr.shape[1] != 3:
+            raise ValueError("X must have 3 columns: [R, H, O] scores")
+
+        # Compute baseline F1 with initial weights
+        baseline_f1 = -self._objective_function(self.initial_weights, X_arr, y_arr, threshold)
+
+        # Constraints: weights sum to 1
+        constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}
+
+        # Bounds: all weights >= 0 and <= 1
+        bounds = [(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)]
+
+        # Optimize using SLSQP (Sequential Least Squares Programming)
+        result = optimize.minimize(
+            self._objective_function,
+            self.initial_weights,
+            args=(X_arr, y_arr, threshold),
+            method="SLSQP",
+            bounds=bounds,
+            constraints=constraints,
+            options={"maxiter": self.max_iterations, "ftol": self.tolerance},
+        )
+
+        self.optimized_weights = result.x
+        optimized_f1 = -result.fun
+
+        # Compute improvement
+        f1_improvement = (optimized_f1 - baseline_f1) / baseline_f1 if baseline_f1 > 0 else 0.0
+
+        # Store optimization result
+        optimization_result = {
+            "weights": {
+                "w_R": float(self.optimized_weights[0]),
+                "w_H": float(self.optimized_weights[1]),
+                "w_O": float(self.optimized_weights[2]),
+            },
+            "initial_weights": {
+                "w_R": float(self.initial_weights[0]),
+                "w_H": float(self.initial_weights[1]),
+                "w_O": float(self.initial_weights[2]),
+            },
+            "baseline_f1": baseline_f1,
+            "optimized_f1": optimized_f1,
+            "f1_improvement": f1_improvement,
+            "domain": self.domain,
+            "ethical_threshold": self.ethical_threshold,
+            "convergence": {
+                "success": result.success,
+                "iterations": result.nit,
+                "message": result.message,
+            },
+        }
+
+        self.optimization_history.append(optimization_result)
+        self.logger.info(
+            f"AAFE optimization complete: F1 {baseline_f1:.4f} -> {optimized_f1:.4f} "
+            f"({f1_improvement:+.2%})"
+        )
+
+        return optimization_result
+
+    def get_optimized_equation(self) -> AnomalyFusionEquation | None:
+        """Get AnomalyFusionEquation instance with optimized weights.
+
+        Returns:
+            AnomalyFusionEquation with optimized weights, or None if not optimized
+        """
+        if self.optimized_weights is None:
+            return None
+
+        return AnomalyFusionEquation(
+            ethical_compliance_threshold=self.ethical_threshold,
+            initial_weights={
+                "w_R": float(self.optimized_weights[0]),
+                "w_H": float(self.optimized_weights[1]),
+                "w_O": float(self.optimized_weights[2]),
+            },
+        )
 
 
 class RecursionEngine:

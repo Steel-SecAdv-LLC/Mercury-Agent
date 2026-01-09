@@ -53,10 +53,10 @@ LABEL maintainer="Steel Security Advisory LLC <support@steelsecurityadvisors.com
 LABEL org.opencontainers.image.title="Mercury Agent"
 LABEL org.opencontainers.image.description="ML-Centric Multi-Domain Anomaly Detection Framework"
 LABEL org.opencontainers.image.vendor="Steel Security Advisory LLC"
-LABEL org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.version="1.1.0"
 LABEL org.opencontainers.image.licenses="GPL-3.0"
 LABEL security.hardened="true"
-LABEL security.scan-date="2026-01-06"
+LABEL security.scan-date="2026-01-09"
 
 # Critical security patches - updates system packages
 # Note: util-linux vulnerabilities (CVE-2025-14104) are mitigated by:

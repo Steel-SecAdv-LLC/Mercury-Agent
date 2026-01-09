@@ -805,9 +805,9 @@ study:
     exploratory: "Neural architecture search"
 
   timeline:
-    registration_date: "2024-XX-XX"
-    data_collection_start: "2024-XX-XX"
-    data_collection_end: "2024-XX-XX"
+    registration_date: "2026-XX-XX"
+    data_collection_start: "2026-XX-XX"
+    data_collection_end: "2026-XX-XX"
 ```
 
 ### 5.2 Reproducibility Package Structure

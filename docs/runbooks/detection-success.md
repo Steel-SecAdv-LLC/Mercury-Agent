@@ -133,7 +133,7 @@ kubectl logs -n mercury-agent -l app.kubernetes.io/component=api --tail=100 | gr
 2. Compare with baseline performance
 3. Consider model retraining or rollback:
    ```bash
-   kubectl set env deployment/mercury-agent-engine -n mercury-agent MODEL_VERSION=v1.2.0
+   kubectl set env deployment/mercury-agent-engine -n mercury-agent MODEL_VERSION=v1.1.0
    ```
 4. Engage ML team for investigation
 

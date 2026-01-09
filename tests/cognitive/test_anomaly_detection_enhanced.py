@@ -16,9 +16,9 @@ from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
     ExternalDataIntegrator,
     HiddenMarkovPredictor,
     MemoryKnowledgeGraph,
-    MockEnvironmentalSource,
-    MockGeologicalSource,
     PredictionType,
+    SimulatedEnvironmentalSource,
+    SimulatedGeologicalSource,
     ValueExtractor,
 )
 
@@ -204,18 +204,18 @@ class TestHiddenMarkovPredictor:
 class TestExternalDataSources:
     """Tests for external data sources."""
 
-    def test_mock_geological_source(self):
-        """Test mock geological source."""
-        source = MockGeologicalSource()
+    def test_simulated_geological_source(self):
+        """Test simulated geological source."""
+        source = SimulatedGeologicalSource()
         data = source.fetch()
 
         assert len(data) == 1
         assert data[0].source_type == DataSourceType.GEOLOGICAL
         assert "magnitude" in data[0].data
 
-    def test_mock_environmental_source(self):
-        """Test mock environmental source."""
-        source = MockEnvironmentalSource()
+    def test_simulated_environmental_source(self):
+        """Test simulated environmental source."""
+        source = SimulatedEnvironmentalSource()
         data = source.fetch()
 
         assert len(data) == 1
@@ -235,15 +235,15 @@ class TestExternalDataIntegrator:
     def test_register_source(self):
         """Test source registration."""
         integrator = ExternalDataIntegrator()
-        integrator.register_source("geo", MockGeologicalSource())
+        integrator.register_source("geo", SimulatedGeologicalSource())
 
         assert "geo" in integrator.sources
 
     def test_fetch_all(self):
         """Test fetching from all sources."""
         integrator = ExternalDataIntegrator()
-        integrator.register_source("geo", MockGeologicalSource())
-        integrator.register_source("env", MockEnvironmentalSource())
+        integrator.register_source("geo", SimulatedGeologicalSource())
+        integrator.register_source("env", SimulatedEnvironmentalSource())
 
         data = integrator.fetch_all()
         assert len(data) == 2
@@ -251,7 +251,7 @@ class TestExternalDataIntegrator:
     def test_align_with_internal(self):
         """Test alignment with internal patterns."""
         integrator = ExternalDataIntegrator()
-        integrator.register_source("geo", MockGeologicalSource())
+        integrator.register_source("geo", SimulatedGeologicalSource())
         integrator.fetch_all()
 
         internal_patterns = [
@@ -264,7 +264,7 @@ class TestExternalDataIntegrator:
     def test_get_statistics(self):
         """Test statistics retrieval."""
         integrator = ExternalDataIntegrator()
-        integrator.register_source("geo", MockGeologicalSource())
+        integrator.register_source("geo", SimulatedGeologicalSource())
 
         stats = integrator.get_statistics()
         assert stats["num_sources"] == 1
