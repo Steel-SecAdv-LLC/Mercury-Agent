@@ -86,10 +86,7 @@ class TestJWTAuthExpiredToken:
     @pytest.fixture
     def expired_token(self):
         """Create an expired JWT token."""
-        try:
-            import jwt
-        except ImportError:
-            pytest.skip("PyJWT not installed")
+        jwt = pytest.importorskip("jwt")
 
         payload = {
             "sub": "test_user",
@@ -138,10 +135,7 @@ class TestJWTAuthMalformedToken:
     @pytest.mark.asyncio
     async def test_invalid_signature_returns_none(self, jwt_auth):
         """Test that tokens with invalid signatures return None."""
-        try:
-            import jwt
-        except ImportError:
-            pytest.skip("PyJWT not installed")
+        jwt = pytest.importorskip("jwt")
 
         # Create token with different key
         payload = {
@@ -172,10 +166,7 @@ class TestJWTAuthMissingClaims:
     @pytest.mark.asyncio
     async def test_missing_sub_claim_returns_none(self, jwt_auth):
         """Test that tokens missing 'sub' claim return None."""
-        try:
-            import jwt
-        except ImportError:
-            pytest.skip("PyJWT not installed")
+        jwt = pytest.importorskip("jwt")
 
         # Token without 'sub' claim
         payload = {
@@ -193,10 +184,7 @@ class TestJWTAuthMissingClaims:
     @pytest.mark.asyncio
     async def test_missing_exp_claim_returns_none(self, jwt_auth):
         """Test that tokens missing 'exp' claim return None."""
-        try:
-            import jwt
-        except ImportError:
-            pytest.skip("PyJWT not installed")
+        jwt = pytest.importorskip("jwt")
 
         # Token without 'exp' claim
         payload = {
@@ -226,10 +214,7 @@ class TestJWTAuthValidToken:
     @pytest.mark.asyncio
     async def test_valid_token_returns_user(self, jwt_auth):
         """Test that valid tokens return User object."""
-        try:
-            import jwt
-        except ImportError:
-            pytest.skip("PyJWT not installed")
+        jwt = pytest.importorskip("jwt")
 
         payload = {
             "sub": "test_user_123",

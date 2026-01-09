@@ -427,9 +427,7 @@ class SepsisDataset(MIMICLoader):
         sepsis_idx = np.random.choice(n_samples, n_sepsis, replace=False)
 
         for feature in self.FEATURE_NAMES:
-            values = np.zeros(n_samples)
-
-            # Normal ranges
+            # Generate feature values based on feature type
             if feature == "heart_rate":
                 values = np.random.normal(80, 15, n_samples)
                 values[sepsis_idx] = np.random.normal(110, 20, n_sepsis)  # Tachycardia

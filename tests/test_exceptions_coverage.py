@@ -48,6 +48,8 @@ class TestExceptions:
         with pytest.raises(DetectorException):
             raise DetectorException("Detector error")
 
+    def test_detector_exception_inheritance(self):
+        """Test detector exception inherits from base."""
         with pytest.raises(OmniAnomalyException):
             raise DetectorException("Also a base exception")
 
@@ -56,6 +58,8 @@ class TestExceptions:
         with pytest.raises(ModelException):
             raise ModelException("Model error")
 
+    def test_model_exception_inheritance(self):
+        """Test model exception inherits from base."""
         with pytest.raises(OmniAnomalyException):
             raise ModelException("Also a base exception")
 
@@ -64,6 +68,8 @@ class TestExceptions:
         with pytest.raises(FusionException):
             raise FusionException("Fusion error")
 
+    def test_fusion_exception_inheritance(self):
+        """Test fusion exception inherits from base."""
         with pytest.raises(OmniAnomalyException):
             raise FusionException("Also a base exception")
 
@@ -72,6 +78,8 @@ class TestExceptions:
         with pytest.raises(ConfigException):
             raise ConfigException("Config error")
 
+    def test_config_exception_inheritance(self):
+        """Test config exception inherits from base."""
         with pytest.raises(OmniAnomalyException):
             raise ConfigException("Also a base exception")
 
@@ -80,6 +88,8 @@ class TestExceptions:
         with pytest.raises(DataException):
             raise DataException("Data error")
 
+    def test_data_exception_inheritance(self):
+        """Test data exception inherits from base."""
         with pytest.raises(OmniAnomalyException):
             raise DataException("Also a base exception")
 
@@ -88,6 +98,8 @@ class TestExceptions:
         with pytest.raises(SecurityException):
             raise SecurityException("Security error")
 
+    def test_security_exception_inheritance(self):
+        """Test security exception inherits from base."""
         with pytest.raises(OmniAnomalyException):
             raise SecurityException("Also a base exception")
 

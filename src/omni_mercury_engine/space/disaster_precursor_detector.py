@@ -171,10 +171,10 @@ class GeomageticCorrelator:
         geomagnetic_status = self._classify_geomagnetic_activity(kp)
 
         space_weather_factor = 1.0
-        if kp > 5.0:
-            space_weather_factor = 1.3
-        elif kp > 7.0:
+        if kp > 7.0:
             space_weather_factor = 1.6
+        elif kp > 5.0:
+            space_weather_factor = 1.3
 
         dst_disturbance = dst < -50
 

@@ -253,8 +253,8 @@ class BiasDetector:
 
         threshold = self.thresholds[metric]
         group_scores: dict[str, float] = {}
-        disparity = 0.0
-        overall_score = 1.0
+        # Initialize with defaults - will be overwritten in each branch
+        is_fair = True
 
         if metric == FairnessMetric.DEMOGRAPHIC_PARITY:
             disparity = abs(

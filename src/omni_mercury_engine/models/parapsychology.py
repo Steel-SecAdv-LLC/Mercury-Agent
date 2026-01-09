@@ -247,6 +247,10 @@ class ParapsychologyDetector:
         Returns:
             Parapsychology anomaly result with statistical analysis
         """
+        # Initialize variables that may not be set in all branches
+        hit_rate: float | None = None
+        variance_ratio: float | None = None
+
         if "trial_results" in experimental_data and "targets" in experimental_data:
             psi_type = self._determine_psi_type(experimental_data, metadata)
             hit_rate, z_score, p_value, effect_size = self._analyze_esp_trials(
@@ -258,15 +262,12 @@ class ParapsychologyDetector:
             variance_ratio, z_score, p_value, effect_size = self._analyze_reg_output(
                 experimental_data["reg_output"]
             )
-            hit_rate = None
 
         elif "physiological" in experimental_data:
             psi_type = PsiPhenomenon.PRESENTIMENT
             z_score, p_value, effect_size = self._analyze_presentiment(
                 experimental_data["physiological"]
             )
-            hit_rate = None
-            variance_ratio = None
 
         else:
             return ParapsychologyResult(

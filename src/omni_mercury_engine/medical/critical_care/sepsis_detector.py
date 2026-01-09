@@ -196,21 +196,35 @@ class SOFACalculator:
             return 4
 
     def _calculate_cardiovascular(self, data: dict[str, Any]) -> int:
-        """Cardiovascular score based on MAP and vasopressors"""
+        """Cardiovascular score based on MAP and vasopressors.
+
+        SOFA cardiovascular scoring:
+        0: MAP >= 70, no vasopressors
+        1: MAP < 70
+        2: Dopamine <= 5 OR dobutamine (any dose) OR norepinephrine <= 0.1
+        3: Dopamine > 5 AND <= 15 OR norepinephrine > 0.1 AND <= 0.5
+        4: Dopamine > 15 OR norepinephrine > 0.5
+        """
         map_val = data.get("mean_arterial_pressure", 75)
         dopamine = data.get("dopamine_mcg_kg_min", 0.0)
         norepinephrine = data.get("norepinephrine_mcg_kg_min", 0.0)
 
-        if map_val >= 70 and dopamine == 0 and norepinephrine == 0:
-            return 0
-        elif map_val < 70:
-            return 1
-        elif dopamine <= 5 or norepinephrine <= 0.1:
-            return 2
-        elif dopamine > 5 or (norepinephrine > 0.1 and norepinephrine <= 0.5):
-            return 3
-        else:
+        # Score 4: High-dose vasopressors
+        if dopamine > 15 or norepinephrine > 0.5:
             return 4
+        # Score 3: Moderate-dose vasopressors
+        if (dopamine > 5 and dopamine <= 15) or (norepinephrine > 0.1 and norepinephrine <= 0.5):
+            return 3
+        # Score 2: Low-dose vasopressors
+        if dopamine > 0 and dopamine <= 5:
+            return 2
+        if norepinephrine > 0 and norepinephrine <= 0.1:
+            return 2
+        # Score 1: Hypotension without vasopressors
+        if map_val < 70:
+            return 1
+        # Score 0: Normal
+        return 0
 
     def _calculate_cns(self, data: dict[str, Any]) -> int:
         """CNS score based on Glasgow Coma Scale"""

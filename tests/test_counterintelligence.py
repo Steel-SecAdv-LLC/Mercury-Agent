@@ -5,10 +5,7 @@ Mercury Agent
 Copyright (C) 2025 Steel Security Advisory LLC
 """
 
-from unittest.mock import MagicMock
-
 import numpy as np
-import pytest
 import torch
 
 from omni_mercury_engine.security.counterintelligence import (

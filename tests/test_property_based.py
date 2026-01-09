@@ -547,10 +547,8 @@ class TestFusionNetworkProperties:
     @settings(max_examples=10, deadline=None, suppress_health_check=[HealthCheck.too_slow])
     def test_fusion_forward_pass_output_shapes(self, batch_size: int):
         """Fusion network forward pass should produce correct output shapes."""
-        try:
-            from omni_mercury_engine.ml.fusion_network import OmniFusionModel
-        except ImportError:
-            pytest.skip("OmniFusionModel not available")
+        fusion_network = pytest.importorskip("omni_mercury_engine.ml.fusion_network")
+        OmniFusionModel = fusion_network.OmniFusionModel
 
         # OmniFusionModel expects feature_dims dict, hidden_dim, num_heads, dropout, num_classes
         feature_dims = {"statistical": 10, "temporal": 32}
@@ -592,10 +590,8 @@ class TestValidationPipelineProperties:
     @settings(max_examples=20)
     def test_invalid_dataset_name_handled(self, dataset_name: str):
         """Invalid dataset names should be handled gracefully."""
-        try:
-            from omni_mercury_engine.validation.data_loaders import get_loader
-        except ImportError:
-            pytest.skip("data_loaders not available")
+        data_loaders = pytest.importorskip("omni_mercury_engine.validation.data_loaders")
+        get_loader = data_loaders.get_loader
 
         # Property: Invalid dataset names should not crash
         try:
@@ -618,10 +614,8 @@ class TestKnowledgeGraphProperties:
     @settings(max_examples=20)
     def test_query_nonexistent_node_handled(self, node_name: str):
         """Querying non-existent nodes should be handled gracefully."""
-        try:
-            from omni_mercury_engine.cognitive.knowledge_graph import KnowledgeGraph
-        except ImportError:
-            pytest.skip("KnowledgeGraph not available")
+        knowledge_graph = pytest.importorskip("omni_mercury_engine.cognitive.knowledge_graph")
+        KnowledgeGraph = knowledge_graph.KnowledgeGraph
 
         kg = KnowledgeGraph()
 

@@ -657,6 +657,9 @@ class AdaptiveFusionLayer(nn.Module):
         gate = self.fusion_gate(torch.cat([adaptive_pooled, temp_pooled], dim=-1))
         fused = gate * adaptive_pooled + (1 - gate) * temp_pooled
 
+        # Initialize sparse_attn for potential use in return value
+        sparse_attn: torch.Tensor | None = None
+
         # Apply sparse attention if enabled
         if self.enable_sparse:
             sparse_out, sparse_attn = self.sparse_attention(x, x, x, return_attention=True)
