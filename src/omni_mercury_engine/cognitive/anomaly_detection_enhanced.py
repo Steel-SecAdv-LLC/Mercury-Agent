@@ -490,14 +490,18 @@ class ExternalDataSource(ABC):
         pass
 
 
-class MockGeologicalSource(ExternalDataSource):
-    """Mock geological data source (USGS-style)."""
+class SimulatedGeologicalSource(ExternalDataSource):
+    """Simulated geological data source (USGS-style) for development/testing.
+
+    Generates synthetic earthquake data for testing anomaly detection pipelines.
+    In production, implement a real USGS API client that extends ExternalDataSource.
+    """
 
     def __init__(self) -> None:
-        self.source_name = "mock_usgs"
+        self.source_name = "simulated_usgs"
 
     def fetch(self) -> list[ExternalDataPoint]:
-        """Fetch mock geological data."""
+        """Fetch simulated geological data for testing."""
         return [
             ExternalDataPoint(
                 source_type=DataSourceType.GEOLOGICAL,
@@ -517,14 +521,18 @@ class MockGeologicalSource(ExternalDataSource):
         return DataSourceType.GEOLOGICAL
 
 
-class MockEnvironmentalSource(ExternalDataSource):
-    """Mock environmental data source (NOAA-style)."""
+class SimulatedEnvironmentalSource(ExternalDataSource):
+    """Simulated environmental data source (NOAA-style) for development/testing.
+
+    Generates synthetic weather and environmental data for testing anomaly detection.
+    In production, implement a real NOAA API client that extends ExternalDataSource.
+    """
 
     def __init__(self) -> None:
-        self.source_name = "mock_noaa"
+        self.source_name = "simulated_noaa"
 
     def fetch(self) -> list[ExternalDataPoint]:
-        """Fetch mock environmental data."""
+        """Fetch simulated environmental data for testing."""
         return [
             ExternalDataPoint(
                 source_type=DataSourceType.ENVIRONMENTAL,
@@ -768,12 +776,17 @@ class EnhancedAnomalyDetector:
 
     Main interface for Phase 4 capabilities combining internal
     memory-driven patterns with external data sources.
+
+    The detector supports both real and simulated data sources. By default,
+    simulated sources are registered for development/testing. In production,
+    register real data sources using register_external_source().
     """
 
     def __init__(
         self,
         benevolence_threshold: float = 0.99,
         hmm_states: int = 3,
+        use_simulated_sources: bool = True,
     ):
         """
         Initialize enhanced anomaly detector.
@@ -781,8 +794,12 @@ class EnhancedAnomalyDetector:
         Args:
             benevolence_threshold: Minimum benevolence score
             hmm_states: Number of HMM states
+            use_simulated_sources: If True, register simulated data sources for
+                development/testing. Set to False in production and register
+                real data sources using register_external_source().
         """
         self.benevolence_threshold = benevolence_threshold
+        self.use_simulated_sources = use_simulated_sources
 
         self.memory_graph = MemoryKnowledgeGraph()
         self.bayesian_predictor = BayesianPredictor()
@@ -790,15 +807,34 @@ class EnhancedAnomalyDetector:
         self.external_integrator = ExternalDataIntegrator()
         self.value_extractor = ValueExtractor(benevolence_threshold=benevolence_threshold)
 
-        self._register_default_sources()
+        if use_simulated_sources:
+            self._register_simulated_sources()
         self._prediction_counter = 0
 
-        logger.info("EnhancedAnomalyDetector initialized")
+        mode = "simulated" if use_simulated_sources else "production"
+        logger.info(f"EnhancedAnomalyDetector initialized in {mode} mode")
 
-    def _register_default_sources(self) -> None:
-        """Register default external data sources."""
-        self.external_integrator.register_source("geological", MockGeologicalSource())
-        self.external_integrator.register_source("environmental", MockEnvironmentalSource())
+    def _register_simulated_sources(self) -> None:
+        """Register simulated data sources for development/testing.
+
+        These sources generate synthetic data for testing purposes.
+        In production, use register_external_source() to add real data feeds.
+        """
+        self.external_integrator.register_source(
+            "geological_simulated", SimulatedGeologicalSource()
+        )
+        self.external_integrator.register_source(
+            "environmental_simulated", SimulatedEnvironmentalSource()
+        )
+
+    def register_external_source(self, name: str, source: ExternalDataSource) -> None:
+        """Register a real external data source for production use.
+
+        Args:
+            name: Unique name for the data source
+            source: ExternalDataSource implementation (e.g., USGS, NOAA API client)
+        """
+        self.external_integrator.register_source(name, source)
 
     def add_memory(
         self,

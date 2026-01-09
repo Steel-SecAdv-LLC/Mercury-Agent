@@ -165,7 +165,7 @@ class HealthChecker:
         >>> results = await checker.run_checks()
     """
 
-    def __init__(self, version: str = "1.0.0") -> None:
+    def __init__(self, version: str = "1.1.0") -> None:
         """Initialize health checker.
 
         Args:

@@ -466,6 +466,6 @@ def run_ab_benchmark(n_epochs=300, n_runs=10):
 
 ---
 
-*Document Version: 1.0*
-*Last Updated: December 8, 2025*
+*Document Version: 1.1*
+*Last Updated: January 9, 2026*
 *Author: Mercury-Agent Development Team*
