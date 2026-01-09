@@ -382,7 +382,7 @@ def generate_neural_symbolic_contribution(
     labels = [f"Neural\n({avg_neural:.1%})", f"Symbolic\n({avg_symbolic:.1%})"]
     colors = [VIRIDIS(0.7), VIRIDIS(0.3)]
 
-    wedges, texts, autotexts = ax2.pie(
+    ax2.pie(
         sizes,
         labels=labels,
         colors=colors,

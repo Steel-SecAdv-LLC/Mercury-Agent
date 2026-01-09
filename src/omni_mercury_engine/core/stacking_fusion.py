@@ -109,17 +109,22 @@ class StackingFusion:
         self.detector_names: list[str] = []
         self._fitted = False
 
-    def add_detector(self, name: str, detector: Any) -> StackingFusion:
+    def add_detector(
+        self, name: str, detector: Any, ethical_score: float | None = None
+    ) -> StackingFusion:
         """
         Add a base detector to the ensemble.
 
         Args:
             name: Unique name for detector
             detector: Fitted or unfitted detector
+            ethical_score: Optional ethical score (ignored for StackingFusion, included for API compatibility)
 
         Returns:
             Self for method chaining
         """
+        # ethical_score is accepted but not used in StackingFusion (for API compatibility)
+        _ = ethical_score
         self.detectors[name] = detector
         self.detector_names.append(name)
         return self
@@ -321,8 +326,21 @@ class BayesianModelAveraging:
         self.weights: BayesianWeights | None = None
         self._fitted = False
 
-    def add_detector(self, name: str, detector: Any) -> BayesianModelAveraging:
-        """Add a detector to the ensemble."""
+    def add_detector(
+        self, name: str, detector: Any, ethical_score: float | None = None
+    ) -> BayesianModelAveraging:
+        """Add a detector to the ensemble.
+
+        Args:
+            name: Unique name for detector
+            detector: Detector instance
+            ethical_score: Optional ethical score (ignored for BMA, included for API compatibility)
+
+        Returns:
+            Self for method chaining
+        """
+        # ethical_score is accepted but not used in BMA (for API compatibility)
+        _ = ethical_score
         self.detectors[name] = detector
         return self
 

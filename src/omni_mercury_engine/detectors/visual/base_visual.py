@@ -135,6 +135,20 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         """Get the detector configuration (alias for backward compatibility)."""
         return self._visual_config_ref
 
+    @config.setter
+    def config(self, value: VisualDetectorConfig | dict[str, Any]) -> None:
+        """Set the detector configuration.
+
+        Args:
+            value: VisualDetectorConfig instance or dict.
+        """
+        if isinstance(value, VisualDetectorConfig):
+            self._visual_config_ref = value
+            self.visual_config = value
+        elif isinstance(value, dict):
+            self._visual_config_ref = VisualDetectorConfig(**value)
+            self.visual_config = self._visual_config_ref
+
     @property
     def backbone(self) -> nn.Module:
         """Get the backbone feature extractor."""

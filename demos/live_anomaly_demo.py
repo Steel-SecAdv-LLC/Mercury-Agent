@@ -537,7 +537,8 @@ Examples:
 
     for domain in domains:
         detector = LiveAnomalyDetector(domain=domain)
-        stats = detector.run_live_detection(
+        # Run detection - stats printed during execution if verbose
+        detector.run_live_detection(
             n_samples=args.samples,
             delay_ms=args.delay,
             verbose=not args.quiet,

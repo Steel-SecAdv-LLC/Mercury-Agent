@@ -31,7 +31,7 @@ class TestReportFormat:
 
     def test_format_values(self):
         """Test format values are strings."""
-        for fmt in ReportFormat:
+        for fmt in list(ReportFormat):
             assert isinstance(fmt.value, str)
 
 
