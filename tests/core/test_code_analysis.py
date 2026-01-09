@@ -175,22 +175,26 @@ for i in range(10):
         assert result["patterns"]["nesting_depth"] >= 2
 
     def test_neural_analysis_disabled(self, engine):
-        """Test neural analysis when disabled."""
+        """Test neural analysis when disabled returns statistical fallback."""
         features = np.array([1.0, 2.0, 3.0, 4.0])
         result = engine.neural_analysis(features)
 
-        assert result["method"] == "neural"
-        assert result["available"] is False
+        assert result["method"] == "statistical_fallback"
+        assert result["available"] is True
+        assert result["neural_model_trained"] is False
+        assert "statistics" in result
 
     def test_neural_analysis_enabled_no_model(self):
-        """Test neural analysis when enabled but no model."""
+        """Test neural analysis when enabled but no model returns statistical fallback."""
         config = NeurosymbolicConfig(enable_neural=True)
         engine = NeurosymbolicEngine(config=config)
 
         features = np.array([1.0, 2.0, 3.0, 4.0])
         result = engine.neural_analysis(features)
 
-        assert result["available"] is False
+        assert result["available"] is True
+        assert result["neural_model_trained"] is False
+        assert result["method"] == "statistical_fallback"
 
     def test_hybrid_analysis(self, engine, sample_code_ast):
         """Test hybrid analysis combining symbolic and neural."""
@@ -201,7 +205,7 @@ for i in range(10):
         assert "hybrid_confidence" in result
 
         assert result["symbolic"]["method"] == "symbolic"
-        assert result["neural"]["method"] == "neural"
+        assert result["neural"]["method"] == "statistical_fallback"
 
     def test_train_model_no_data(self, engine):
         """Test training without data."""
