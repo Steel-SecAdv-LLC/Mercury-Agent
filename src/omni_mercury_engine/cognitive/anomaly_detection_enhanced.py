@@ -42,9 +42,11 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
+import httpx
 import numpy as np
 
 try:
@@ -550,6 +552,236 @@ class SimulatedEnvironmentalSource(ExternalDataSource):
 
     def get_source_type(self) -> DataSourceType:
         return DataSourceType.ENVIRONMENTAL
+
+
+class USGSEarthquakeSource(ExternalDataSource):
+    """Real USGS Earthquake API client for production use.
+
+    Fetches real-time earthquake data from the USGS Earthquake Hazards Program API.
+    API Documentation: https://earthquake.usgs.gov/fdsnws/event/1/
+
+    This is a free API that requires no authentication.
+    Rate limits are generous for reasonable use cases.
+
+    Example:
+        source = USGSEarthquakeSource(min_magnitude=4.0, max_results=10)
+        detector.register_external_source("usgs_earthquakes", source)
+    """
+
+    USGS_API_BASE = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+
+    def __init__(
+        self,
+        min_magnitude: float = 2.5,
+        max_results: int = 20,
+        days_back: int = 7,
+        timeout_seconds: float = 30.0,
+    ) -> None:
+        """Initialize USGS earthquake data source.
+
+        Args:
+            min_magnitude: Minimum earthquake magnitude to fetch (default 2.5)
+            max_results: Maximum number of results to return (default 20)
+            days_back: Number of days to look back for earthquakes (default 7)
+            timeout_seconds: HTTP request timeout in seconds (default 30)
+        """
+        self.source_name = "usgs_earthquake"
+        self.min_magnitude = min_magnitude
+        self.max_results = max_results
+        self.days_back = days_back
+        self.timeout_seconds = timeout_seconds
+        self._client = httpx.Client(timeout=timeout_seconds)
+
+    def fetch(self) -> list[ExternalDataPoint]:
+        """Fetch real earthquake data from USGS API.
+
+        Returns:
+            List of ExternalDataPoint objects with earthquake data.
+            Returns empty list if API call fails (with warning logged).
+        """
+        end_time = datetime.now(UTC)
+        start_time = end_time - timedelta(days=self.days_back)
+
+        params = {
+            "format": "geojson",
+            "starttime": start_time.strftime("%Y-%m-%d"),
+            "endtime": end_time.strftime("%Y-%m-%d"),
+            "minmagnitude": self.min_magnitude,
+            "limit": self.max_results,
+            "orderby": "time",
+        }
+
+        try:
+            response = self._client.get(self.USGS_API_BASE, params=params)
+            response.raise_for_status()
+            data = response.json()
+
+            results: list[ExternalDataPoint] = []
+            for feature in data.get("features", []):
+                props = feature.get("properties", {})
+                coords = feature.get("geometry", {}).get("coordinates", [0, 0, 0])
+
+                magnitude = props.get("mag", 0.0)
+                confidence = min(0.99, 0.7 + (magnitude / 10.0) * 0.3)
+
+                results.append(
+                    ExternalDataPoint(
+                        source_type=DataSourceType.GEOLOGICAL,
+                        source_name=self.source_name,
+                        data={
+                            "event_type": "earthquake",
+                            "event_id": feature.get("id", "unknown"),
+                            "magnitude": magnitude,
+                            "magnitude_type": props.get("magType", "unknown"),
+                            "depth_km": coords[2] if len(coords) > 2 else 0.0,
+                            "latitude": coords[1] if len(coords) > 1 else 0.0,
+                            "longitude": coords[0] if len(coords) > 0 else 0.0,
+                            "place": props.get("place", "Unknown location"),
+                            "time_utc": props.get("time", 0),
+                            "tsunami_alert": props.get("tsunami", 0) == 1,
+                            "felt_reports": props.get("felt", 0),
+                            "alert_level": props.get("alert", "none"),
+                            "significance": props.get("sig", 0),
+                        },
+                        confidence=confidence,
+                        timestamp=datetime.fromtimestamp(props.get("time", 0) / 1000, tz=UTC),
+                    )
+                )
+
+            logger.info(f"USGS API: Fetched {len(results)} earthquakes (M>={self.min_magnitude})")
+            return results
+
+        except httpx.HTTPStatusError as e:
+            logger.warning(f"USGS API HTTP error: {e.response.status_code}")
+            return []
+        except httpx.RequestError as e:
+            logger.warning(f"USGS API request error: {e}")
+            return []
+        except (KeyError, ValueError) as e:
+            logger.warning(f"USGS API parse error: {e}")
+            return []
+
+    def get_source_type(self) -> DataSourceType:
+        return DataSourceType.GEOLOGICAL
+
+    def __del__(self) -> None:
+        """Clean up HTTP client on deletion."""
+        if hasattr(self, "_client"):
+            self._client.close()
+
+
+class NOAAWeatherSource(ExternalDataSource):
+    """Real NOAA Weather API client for production use.
+
+    Fetches real-time weather alerts from the National Weather Service API.
+    API Documentation: https://www.weather.gov/documentation/services-web-api
+
+    This is a free API that requires no authentication.
+    A User-Agent header is required per NOAA API guidelines.
+
+    Example:
+        source = NOAAWeatherSource(state="CA")
+        detector.register_external_source("noaa_weather", source)
+    """
+
+    NOAA_API_BASE = "https://api.weather.gov"
+
+    def __init__(
+        self,
+        state: str | None = None,
+        zone: str | None = None,
+        timeout_seconds: float = 30.0,
+    ) -> None:
+        """Initialize NOAA weather data source.
+
+        Args:
+            state: Two-letter state code to filter alerts (e.g., "CA", "TX")
+            zone: Specific NWS zone ID (e.g., "CAZ006")
+            timeout_seconds: HTTP request timeout in seconds (default 30)
+        """
+        self.source_name = "noaa_weather"
+        self.state = state
+        self.zone = zone
+        self.timeout_seconds = timeout_seconds
+        self._client = httpx.Client(
+            timeout=timeout_seconds,
+            headers={
+                "User-Agent": "MercuryAgent/1.1.0 (steel.sa.llc@gmail.com)",
+                "Accept": "application/geo+json",
+            },
+        )
+
+    def fetch(self) -> list[ExternalDataPoint]:
+        """Fetch real weather alerts from NOAA API.
+
+        Returns:
+            List of ExternalDataPoint objects with weather alert data.
+            Returns empty list if API call fails (with warning logged).
+        """
+        url = f"{self.NOAA_API_BASE}/alerts/active"
+        params: dict[str, str] = {"status": "actual"}
+
+        if self.state:
+            params["area"] = self.state
+        if self.zone:
+            params["zone"] = self.zone
+
+        try:
+            response = self._client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+
+            results: list[ExternalDataPoint] = []
+            for feature in data.get("features", []):
+                props = feature.get("properties", {})
+
+                severity = props.get("severity", "Unknown")
+                severity_map = {"Extreme": 0.99, "Severe": 0.9, "Moderate": 0.75, "Minor": 0.6}
+                confidence = severity_map.get(severity, 0.5)
+
+                results.append(
+                    ExternalDataPoint(
+                        source_type=DataSourceType.ENVIRONMENTAL,
+                        source_name=self.source_name,
+                        data={
+                            "event_type": "weather_alert",
+                            "alert_id": props.get("id", "unknown"),
+                            "event": props.get("event", "Unknown"),
+                            "severity": severity,
+                            "certainty": props.get("certainty", "Unknown"),
+                            "urgency": props.get("urgency", "Unknown"),
+                            "headline": props.get("headline", ""),
+                            "description": props.get("description", "")[:500],
+                            "instruction": props.get("instruction", "")[:500],
+                            "area_desc": props.get("areaDesc", "Unknown area"),
+                            "effective": props.get("effective", ""),
+                            "expires": props.get("expires", ""),
+                            "sender": props.get("senderName", "NWS"),
+                        },
+                        confidence=confidence,
+                    )
+                )
+
+            logger.info(f"NOAA API: Fetched {len(results)} active weather alerts")
+            return results
+
+        except httpx.HTTPStatusError as e:
+            logger.warning(f"NOAA API HTTP error: {e.response.status_code}")
+            return []
+        except httpx.RequestError as e:
+            logger.warning(f"NOAA API request error: {e}")
+            return []
+        except (KeyError, ValueError) as e:
+            logger.warning(f"NOAA API parse error: {e}")
+            return []
+
+    def get_source_type(self) -> DataSourceType:
+        return DataSourceType.ENVIRONMENTAL
+
+    def __del__(self) -> None:
+        """Clean up HTTP client on deletion."""
+        if hasattr(self, "_client"):
+            self._client.close()
 
 
 class ExternalDataIntegrator:
