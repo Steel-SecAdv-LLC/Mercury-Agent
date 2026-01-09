@@ -133,6 +133,11 @@ class BaseVLMDetector(BaseDetector):
         return self._vlm_config_ref
 
     @property
+    def config(self) -> VLMConfig:
+        """Get the detector configuration (alias for backward compatibility)."""
+        return self._vlm_config_ref
+
+    @property
     def model(self) -> Any:
         """Get the LVLM model."""
         if self._model is None:

@@ -131,6 +131,11 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         return self._visual_config_ref
 
     @property
+    def config(self) -> VisualDetectorConfig:
+        """Get the detector configuration (alias for backward compatibility)."""
+        return self._visual_config_ref
+
+    @property
     def backbone(self) -> nn.Module:
         """Get the backbone feature extractor."""
         if self._backbone is None:
