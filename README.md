@@ -43,7 +43,7 @@
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
-**Version:** v1.1.0
+**Version:** v1.1.
 **Date:** 2026-01-09
 **AI Co-Architects:** X ⚛ | Caduceus ⚚ | Dev ⚕
 
@@ -1545,12 +1545,12 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 
-*Last updated: 01/09/26*
-
-</div>
-
 <div align="center">
 
 <img width="27" height="29" alt="image" src="https://github.com/user-attachments/assets/12254743-9798-46df-bc27-4b25857141fe" />
+
+</div>
+
+*Last updated: 2026-01-08*
 
 </div>
