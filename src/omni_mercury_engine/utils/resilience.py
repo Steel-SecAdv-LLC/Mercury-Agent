@@ -272,9 +272,7 @@ def retry(
                     time.sleep(delay)
                     delay = min(delay * backoff_factor, max_delay)
 
-            raise RuntimeError(
-                f"Retry logic error in {func.__name__}: {last_exception}"
-            )
+            raise RuntimeError(f"Retry logic error in {func.__name__}: {last_exception}")
 
         return wrapper  # type: ignore
 
