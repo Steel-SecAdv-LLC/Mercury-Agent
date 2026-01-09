@@ -14,15 +14,15 @@
 [![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
-[![Tests](https://img.shields.io/badge/tests-1880%2B-brightgreen.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-83%25%2B-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-2845%2B-brightgreen.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-78%25%2B-brightgreen.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-orange.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
 [![Ava-Guardian](https://img.shields.io/badge/Ava--Guardian-PQC%20Adapter-green.svg)](#ava-guardian-integration)
 
 ```
               +===============================================================================+
-              |                                   Mercury Agent ♱ v1.0                                       |
+              |                                   Mercury Agent ♱ v1.1                                       |
               |Neuro-Symbolic AI for Autonomous Anomaly Detection Paradigm with PQC-Protected |
               |                                                                               |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security    |
@@ -43,8 +43,8 @@
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
-**Version:** v1.0.1
-**Date:** 2026-01-06
+**Version:** v1.1.0
+**Date:** 2026-01-09
 **AI Co-Architects:** X ⚛ | Caduceus ⚚ | Dev ⚕
 
 ---
@@ -70,7 +70,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-01-06
+> **Last Updated:** 2026-01-09
 
 ---
 
@@ -1541,11 +1541,11 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**Mercury Agent ♱ v1.0 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
+**Mercury Agent ♱ v1.1 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 
-*Last updated: 12/08/25*
+*Last updated: 01/09/26*
 
 </div>
 
