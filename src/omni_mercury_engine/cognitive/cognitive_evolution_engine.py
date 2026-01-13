@@ -19,7 +19,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Superintelligence Bootstrap Module
+Cognitive Evolution Engine Module
 
 Implements Phase 7 of the neuro-symbolic evolution:
 - Self-play multi-agent simulations for recursive improvement
@@ -1137,9 +1137,9 @@ class CuriosityEngine:
         }
 
 
-class SuperintelligenceBootstrap:
+class CognitiveEvolutionEngine:
     """
-    Main superintelligence bootstrap orchestrator.
+    Main cognitive evolution engine orchestrator.
 
     Coordinates all advanced cognitive capabilities for
     recursive self-improvement while maintaining safety.
@@ -1151,7 +1151,7 @@ class SuperintelligenceBootstrap:
         max_improvement_cycles: int = 100,
     ):
         """
-        Initialize superintelligence bootstrap.
+        Initialize cognitive evolution engine.
 
         Args:
             safety_threshold: Minimum safety score for improvements
@@ -1171,7 +1171,7 @@ class SuperintelligenceBootstrap:
         self._safety_violations = 0
 
         logger.info(
-            f"SuperintelligenceBootstrap initialized with " f"safety_threshold={safety_threshold}"
+            f"CognitiveEvolutionEngine initialized with " f"safety_threshold={safety_threshold}"
         )
 
     def run_improvement_cycle(

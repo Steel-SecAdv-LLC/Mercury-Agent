@@ -99,6 +99,10 @@ class DatabaseStub:
         self._tables: dict[str, list[dict[str, Any]]] = {}
         self._schemas: dict[str, list[str]] = {}
 
+        # Connection state
+        self._connected = False
+        self._in_transaction = False
+
         # Metrics
         self._query_count = 0
         self._error_count = 0
@@ -257,7 +261,7 @@ class DatabaseStub:
             raise DatabaseError(f"Query error: {e}", query=sql) from e
 
     async def execute(self, sql: str) -> QueryResult:
-        """Execute an INSERT/UPDATE/DELETE query.
+        """Execute an INSERT/UPDATE/DELETE/CREATE/DROP query.
 
         Args:
             sql: SQL statement.
@@ -270,16 +274,82 @@ class DatabaseStub:
         self._maybe_fail(sql)
 
         sql_upper = sql.upper().strip()
+        affected = 0
 
-        # Simulate affected rows
-        if sql_upper.startswith("INSERT"):
+        # Handle CREATE TABLE
+        if sql_upper.startswith("CREATE TABLE"):
+            # Parse table name and columns
+            match = re.search(r"CREATE\s+TABLE\s+(\w+)\s*\((.+)\)", sql, re.IGNORECASE)
+            if match:
+                table_name = match.group(1).lower()
+                columns_str = match.group(2)
+                # Parse column names (ignore types)
+                columns = []
+                for col_def in columns_str.split(","):
+                    col_name = col_def.strip().split()[0].lower()
+                    columns.append(col_name)
+                self._tables[table_name] = []
+                self._schemas[table_name] = columns
+            affected = 0
+
+        # Handle DROP TABLE
+        elif sql_upper.startswith("DROP TABLE"):
+            match = re.search(r"DROP\s+TABLE\s+(\w+)", sql, re.IGNORECASE)
+            if match:
+                table_name = match.group(1).lower()
+                if table_name in self._tables:
+                    del self._tables[table_name]
+                if table_name in self._schemas:
+                    del self._schemas[table_name]
+            affected = 0
+
+        # Handle INSERT
+        elif sql_upper.startswith("INSERT"):
+            match = re.search(
+                r"INSERT\s+INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)",
+                sql,
+                re.IGNORECASE,
+            )
+            if match:
+                table_name = match.group(1).lower()
+                columns = [c.strip().lower() for c in match.group(2).split(",")]
+                values_str = match.group(3)
+                # Parse values (handle strings and numbers)
+                values = []
+                for v in values_str.split(","):
+                    v = v.strip()
+                    if v.upper() == "NULL":
+                        values.append(None)
+                    elif v.startswith("'") and v.endswith("'"):
+                        values.append(v[1:-1])
+                    else:
+                        try:
+                            if "." in v:
+                                values.append(float(v))
+                            else:
+                                values.append(int(v))
+                        except ValueError:
+                            values.append(v)
+                # Create row
+                if table_name in self._tables:
+                    row = dict(zip(columns, values))
+                    self._tables[table_name].append(row)
             affected = 1
+
+        # Handle UPDATE
         elif sql_upper.startswith("UPDATE"):
             affected = self._rng.randint(0, 10)
+
+        # Handle DELETE
         elif sql_upper.startswith("DELETE"):
             affected = self._rng.randint(0, 5)
+
+        # Check for invalid SQL syntax (basic validation)
         else:
-            affected = 0
+            # If it doesn't match any known pattern, it might be invalid
+            valid_starts = ("SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER")
+            if not any(sql_upper.startswith(s) for s in valid_starts):
+                raise DatabaseError(f"Syntax error in SQL: {sql}", query=sql)
 
         return QueryResult(
             rows=[],
@@ -343,6 +413,93 @@ class DatabaseStub:
                 "healthy": False,
                 "error": str(e),
             }
+
+    async def connect(self) -> bool:
+        """Connect to the database.
+
+        Returns:
+            True if connection successful.
+        """
+        await self._simulate_latency()
+        self._maybe_fail("")
+        self._connected = True
+        return True
+
+    async def disconnect(self) -> None:
+        """Disconnect from the database."""
+        await self._simulate_latency()
+        self._connected = False
+
+    async def is_connected(self) -> bool:
+        """Check if connected to database.
+
+        Returns:
+            True if connected.
+        """
+        return self._connected
+
+    async def begin(self) -> None:
+        """Begin a transaction."""
+        await self._simulate_latency()
+        self._maybe_fail("")
+        self._in_transaction = True
+
+    async def commit(self) -> None:
+        """Commit the current transaction."""
+        await self._simulate_latency()
+        self._in_transaction = False
+
+    async def rollback(self) -> None:
+        """Rollback the current transaction."""
+        await self._simulate_latency()
+        self._in_transaction = False
+
+    async def list_tables(self) -> list[str]:
+        """List all tables in the database.
+
+        Returns:
+            List of table names.
+        """
+        await self._simulate_latency()
+        self._maybe_fail("")
+        return list(self._tables.keys())
+
+    async def describe(self, table: str) -> list[str]:
+        """Get schema for a table.
+
+        Args:
+            table: Table name.
+
+        Returns:
+            List of column names.
+
+        Raises:
+            DatabaseError: If table not found.
+        """
+        await self._simulate_latency()
+        self._maybe_fail("")
+
+        if table not in self._schemas:
+            raise DatabaseError(f"Table not found: {table}")
+
+        return self._schemas[table]
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get database statistics.
+
+        Returns:
+            Dictionary with database statistics.
+        """
+        await self._simulate_latency()
+        return {
+            "total_queries": self._query_count,
+            "tables_count": len(self._tables),
+            "error_count": self._error_count,
+            "avg_latency_ms": (
+                self._total_latency / self._query_count if self._query_count > 0 else 0
+            ),
+            "total_rows": sum(len(t) for t in self._tables.values()),
+        }
 
 
 class TransactionContext:

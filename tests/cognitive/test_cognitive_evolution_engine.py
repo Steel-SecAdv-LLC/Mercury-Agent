@@ -2,14 +2,15 @@
 Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisory LLC
 
-Tests for Superintelligence Bootstrap module.
+Tests for Cognitive Evolution Engine module.
 """
 
 from __future__ import annotations
 
-from omni_mercury_engine.cognitive.superintelligence_bootstrap import (
+from omni_mercury_engine.cognitive.cognitive_evolution_engine import (
     AgentRole,
     ChainOfThoughtReasoner,
+    CognitiveEvolutionEngine,
     Counterfactual,
     CounterfactualSimulator,
     CuriosityEngine,
@@ -23,7 +24,6 @@ from omni_mercury_engine.cognitive.superintelligence_bootstrap import (
     SelfPlaySimulator,
     SimulationAgent,
     SimulationResult,
-    SuperintelligenceBootstrap,
     TheoryOfMind,
     ThoughtChain,
 )
@@ -457,18 +457,18 @@ class TestCuriosityEngine:
         assert stats["explorations_performed"] == 2
 
 
-class TestSuperintelligenceBootstrap:
-    """Tests for SuperintelligenceBootstrap class."""
+class TestCognitiveEvolutionEngine:
+    """Tests for CognitiveEvolutionEngine class."""
 
     def test_init(self):
-        """Test bootstrap initialization."""
-        bootstrap = SuperintelligenceBootstrap()
-        assert bootstrap.safety_threshold == 0.99
-        assert bootstrap.max_improvement_cycles == 100
+        """Test engine initialization."""
+        engine = CognitiveEvolutionEngine()
+        assert engine.safety_threshold == 0.99
+        assert engine.max_improvement_cycles == 100
 
     def test_init_custom_params(self):
         """Test bootstrap with custom parameters."""
-        bootstrap = SuperintelligenceBootstrap(
+        bootstrap = CognitiveEvolutionEngine(
             safety_threshold=0.95,
             max_improvement_cycles=50,
         )
@@ -477,7 +477,7 @@ class TestSuperintelligenceBootstrap:
 
     def test_run_improvement_cycle(self):
         """Test running improvement cycle."""
-        bootstrap = SuperintelligenceBootstrap()
+        bootstrap = CognitiveEvolutionEngine()
         result = bootstrap.run_improvement_cycle(
             scenario={"type": "anomaly", "severity": "medium"},
         )
@@ -489,7 +489,7 @@ class TestSuperintelligenceBootstrap:
 
     def test_run_improvement_cycle_with_rules(self):
         """Test improvement cycle with rules."""
-        bootstrap = SuperintelligenceBootstrap()
+        bootstrap = CognitiveEvolutionEngine()
         rules = [
             Rule(
                 rule_id="rule_001",
@@ -509,7 +509,7 @@ class TestSuperintelligenceBootstrap:
 
     def test_max_cycles_limit(self):
         """Test maximum cycles limit."""
-        bootstrap = SuperintelligenceBootstrap(max_improvement_cycles=2)
+        bootstrap = CognitiveEvolutionEngine(max_improvement_cycles=2)
 
         bootstrap.run_improvement_cycle({"test": True})
         bootstrap.run_improvement_cycle({"test": True})
@@ -519,7 +519,7 @@ class TestSuperintelligenceBootstrap:
 
     def test_infer_user_intent(self):
         """Test user intent inference."""
-        bootstrap = SuperintelligenceBootstrap()
+        bootstrap = CognitiveEvolutionEngine()
         result = bootstrap.infer_user_intent(
             behaviors=["search", "analyze"],
             context={"role": "analyst"},
@@ -529,7 +529,7 @@ class TestSuperintelligenceBootstrap:
 
     def test_simulate_counterfactual(self):
         """Test counterfactual simulation."""
-        bootstrap = SuperintelligenceBootstrap()
+        bootstrap = CognitiveEvolutionEngine()
         result = bootstrap.simulate_counterfactual(
             scenario={"risk": "high"},
             intervention="mitigate_risk",
@@ -539,7 +539,7 @@ class TestSuperintelligenceBootstrap:
 
     def test_reason_about(self):
         """Test chain-of-thought reasoning."""
-        bootstrap = SuperintelligenceBootstrap()
+        bootstrap = CognitiveEvolutionEngine()
         result = bootstrap.reason_about(
             query="What is the root cause?",
             context={"symptoms": ["a", "b"]},
@@ -549,7 +549,7 @@ class TestSuperintelligenceBootstrap:
 
     def test_explore_novelty(self):
         """Test novelty exploration."""
-        bootstrap = SuperintelligenceBootstrap()
+        bootstrap = CognitiveEvolutionEngine()
         result = bootstrap.explore_novelty(
             target="unknown_pattern",
             data={"value": 42},
@@ -559,7 +559,7 @@ class TestSuperintelligenceBootstrap:
 
     def test_get_statistics(self):
         """Test statistics retrieval."""
-        bootstrap = SuperintelligenceBootstrap()
+        bootstrap = CognitiveEvolutionEngine()
         bootstrap.run_improvement_cycle({"test": True})
 
         stats = bootstrap.get_statistics()
@@ -642,7 +642,7 @@ class TestIntegration:
 
     def test_full_improvement_pipeline(self):
         """Test complete improvement pipeline."""
-        bootstrap = SuperintelligenceBootstrap(
+        bootstrap = CognitiveEvolutionEngine(
             safety_threshold=0.5,
             max_improvement_cycles=10,
         )
@@ -668,7 +668,7 @@ class TestIntegration:
 
     def test_multi_cycle_improvement(self):
         """Test multiple improvement cycles."""
-        bootstrap = SuperintelligenceBootstrap(max_improvement_cycles=5)
+        bootstrap = CognitiveEvolutionEngine(max_improvement_cycles=5)
 
         for i in range(3):
             result = bootstrap.run_improvement_cycle(
@@ -678,7 +678,7 @@ class TestIntegration:
 
     def test_cognitive_capabilities_integration(self):
         """Test integration of all cognitive capabilities."""
-        bootstrap = SuperintelligenceBootstrap()
+        bootstrap = CognitiveEvolutionEngine()
 
         intent = bootstrap.infer_user_intent(["analyze data"])
         assert intent.inferred_intent is not None
@@ -694,7 +694,7 @@ class TestIntegration:
 
     def test_safety_enforcement(self):
         """Test that safety is enforced."""
-        bootstrap = SuperintelligenceBootstrap(safety_threshold=1.0)
+        bootstrap = CognitiveEvolutionEngine(safety_threshold=1.0)
 
         result = bootstrap.run_improvement_cycle({"risky": True})
 

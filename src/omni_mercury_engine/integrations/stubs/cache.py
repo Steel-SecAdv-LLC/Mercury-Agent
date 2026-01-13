@@ -198,11 +198,13 @@ class CacheStub:
         self._evict_if_needed()
 
         now = time.time()
+        # TTL of 0 means expire immediately
+        expires_at = now + ttl if ttl and ttl > 0 else (now - 1 if ttl == 0 else None)
         entry = CacheEntry(
             key=key,
             value=value,
             created_at=now,
-            expires_at=now + ttl if ttl else None,
+            expires_at=expires_at,
             ttl=ttl,
         )
         self._cache[key] = entry
@@ -247,28 +249,28 @@ class CacheStub:
             return False
         return True
 
-    async def mget(self, keys: list[str]) -> list[Any | None]:
+    async def mget(self, keys: list[str]) -> dict[str, Any | None]:
         """Get multiple values.
 
         Args:
             keys: List of cache keys.
 
         Returns:
-            List of values (None for missing keys).
+            Dictionary mapping keys to values (None for missing keys).
         """
         await self._simulate_latency()
         self._maybe_fail()
 
-        results = []
+        results: dict[str, Any | None] = {}
         for key in keys:
             entry = self._cache.get(key)
             if entry and not entry.is_expired:
                 entry.hits += 1
                 self._hits += 1
-                results.append(entry.value)
+                results[key] = entry.value
             else:
                 self._misses += 1
-                results.append(None)
+                results[key] = None
         return results
 
     async def mset(self, mapping: dict[str, Any], ttl: int | None = None) -> bool:
@@ -344,24 +346,24 @@ class CacheStub:
         entry.ttl = ttl
         return True
 
-    async def ttl(self, key: str) -> int:
+    async def ttl(self, key: str) -> int | None:
         """Get remaining TTL for key.
 
         Args:
             key: Cache key.
 
         Returns:
-            Remaining TTL in seconds, -1 if no TTL, -2 if not exists.
+            Remaining TTL in seconds, None if no TTL or key doesn't exist.
         """
         await self._simulate_latency()
         self._maybe_fail()
 
         entry = self._cache.get(key)
         if entry is None or entry.is_expired:
-            return -2
+            return None
 
         if entry.expires_at is None:
-            return -1
+            return None
 
         remaining = int(entry.expires_at - time.time())
         return max(0, remaining)
@@ -399,6 +401,99 @@ class CacheStub:
         count = len(self._cache)
         self._cache.clear()
         return count
+
+    async def clear(self) -> None:
+        """Clear all entries from cache (alias for flush)."""
+        await self.flush()
+
+    async def mdelete(self, keys: list[str]) -> int:
+        """Delete multiple keys from cache.
+
+        Args:
+            keys: List of cache keys to delete.
+
+        Returns:
+            Number of keys deleted.
+        """
+        await self._simulate_latency()
+        self._maybe_fail()
+
+        deleted = 0
+        for key in keys:
+            if key in self._cache:
+                del self._cache[key]
+                self._deletes += 1
+                deleted += 1
+        return deleted
+
+    async def decr(self, key: str, amount: int = 1) -> int:
+        """Decrement integer value.
+
+        Args:
+            key: Cache key.
+            amount: Amount to decrement.
+
+        Returns:
+            New value.
+        """
+        return await self.incr(key, -amount)
+
+    async def persist(self, key: str) -> bool:
+        """Remove expiration from key.
+
+        Args:
+            key: Cache key.
+
+        Returns:
+            True if key exists and expiration was removed.
+        """
+        await self._simulate_latency()
+        self._maybe_fail()
+
+        entry = self._cache.get(key)
+        if entry is None or entry.is_expired:
+            return False
+
+        entry.expires_at = None
+        entry.ttl = None
+        return True
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get cache statistics.
+
+        Returns:
+            Dictionary with cache statistics.
+        """
+        await self._simulate_latency()
+        self._maybe_fail()
+
+        return {
+            "total_entries": len(self._cache),
+            "hits": self._hits,
+            "misses": self._misses,
+            "hit_rate": (
+                self._hits / (self._hits + self._misses) if (self._hits + self._misses) > 0 else 0
+            ),
+            "sets": self._sets,
+            "deletes": self._deletes,
+            "max_size": self._max_size,
+        }
+
+    async def size(self) -> int:
+        """Get number of entries in cache.
+
+        Returns:
+            Number of entries.
+        """
+        await self._simulate_latency()
+        self._maybe_fail()
+
+        # Clean expired entries first
+        expired = [k for k, v in self._cache.items() if v.is_expired]
+        for key in expired:
+            del self._cache[key]
+
+        return len(self._cache)
 
     def get_metrics(self) -> dict[str, Any]:
         """Get cache metrics."""
