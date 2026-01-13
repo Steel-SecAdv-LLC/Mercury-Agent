@@ -8,7 +8,6 @@ Tests for CICIDS 2017 dataset loader - REAL network intrusion data.
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from omni_mercury_engine.datasets import CICIDSLoader, DatasetConfig
 
