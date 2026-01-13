@@ -37,11 +37,13 @@ class NSLKDDLoader(DatasetLoader):
     """
     NSL-KDD Network Intrusion Detection Dataset Loader.
 
-    Improved version of KDD'99 with:
+    Downloads REAL NSL-KDD data from GitHub mirror. Improved version of KDD'99 with:
     - Removed duplicate records
     - Balanced difficulty levels
     - Standard train/test splits
+    - ~125K training + ~22K test records
 
+    Data source: https://github.com/defcom17/NSL_KDD
     Reference: https://www.unb.ca/cic/datasets/nsl.html
     """
 
@@ -52,8 +54,14 @@ class NSLKDDLoader(DatasetLoader):
     KDD CUP 99 data set. IEEE Symposium on Computational Intelligence. 2009."""
     REQUIRES_CREDENTIALS = False
 
-    # NSL-KDD feature names
-    FEATURE_NAMES = [
+    # GitHub raw URLs for NSL-KDD data
+    NSLKDD_URLS = {
+        "train": "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTrain+.txt",
+        "test": "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTest+.txt",
+    }
+
+    # Column names for NSL-KDD (41 features + 2 labels)
+    COLUMN_NAMES = [
         "duration",
         "protocol_type",
         "service",
@@ -95,178 +103,354 @@ class NSLKDDLoader(DatasetLoader):
         "dst_host_srv_serror_rate",
         "dst_host_rerror_rate",
         "dst_host_srv_rerror_rate",
+        "label",
+        "difficulty",
     ]
 
-    # Attack categories
-    ATTACK_TYPES = {
+    # Categorical columns that need encoding
+    CATEGORICAL_COLS = ["protocol_type", "service", "flag"]
+
+    # Attack type to category mapping
+    ATTACK_CATEGORIES = {
+        # Normal
+        "normal": "normal",
+        # DoS attacks
+        "back": "dos",
+        "land": "dos",
+        "neptune": "dos",
+        "pod": "dos",
+        "smurf": "dos",
+        "teardrop": "dos",
+        "apache2": "dos",
+        "udpstorm": "dos",
+        "processtable": "dos",
+        "mailbomb": "dos",
+        # Probe attacks
+        "satan": "probe",
+        "ipsweep": "probe",
+        "nmap": "probe",
+        "portsweep": "probe",
+        "mscan": "probe",
+        "saint": "probe",
+        # R2L attacks
+        "guess_passwd": "r2l",
+        "ftp_write": "r2l",
+        "imap": "r2l",
+        "phf": "r2l",
+        "multihop": "r2l",
+        "warezmaster": "r2l",
+        "warezclient": "r2l",
+        "spy": "r2l",
+        "xlock": "r2l",
+        "xsnoop": "r2l",
+        "snmpguess": "r2l",
+        "snmpgetattack": "r2l",
+        "httptunnel": "r2l",
+        "sendmail": "r2l",
+        "named": "r2l",
+        "worm": "r2l",
+        # U2R attacks
+        "buffer_overflow": "u2r",
+        "loadmodule": "u2r",
+        "rootkit": "u2r",
+        "perl": "u2r",
+        "sqlattack": "u2r",
+        "xterm": "u2r",
+        "ps": "u2r",
+    }
+
+    # Category to integer mapping
+    CATEGORY_LABELS = {
         "normal": 0,
-        "dos": 1,  # Denial of Service
-        "probe": 2,  # Probing
-        "r2l": 3,  # Remote to Local
-        "u2r": 4,  # User to Root
+        "dos": 1,
+        "probe": 2,
+        "r2l": 3,
+        "u2r": 4,
     }
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize NSL-KDD loader.
+
+        Args:
+            config: Dataset configuration. Preprocessing options:
+                - binary (bool): Use binary classification (default True)
+                - include_test (bool): Include test set in data (default True)
+        """
         super().__init__(config)
         self.binary_labels = config.preprocessing.get("binary", True)
+        self.include_test = config.preprocessing.get("include_test", True)
+        self._features: np.ndarray | None = None
+        self._labels: np.ndarray | None = None
+        self._is_real_data = False
+        self._encoders: dict[str, dict[str, int]] = {}
+
+    @property
+    def is_real_data(self) -> bool:
+        """Return True if real data was loaded (not synthetic fallback)."""
+        return self._is_real_data
 
     def download(self) -> bool:
-        """Download or generate NSL-KDD data."""
-        return self._create_synthetic_nslkdd()
+        """Download NSL-KDD dataset from GitHub.
 
-    def _create_synthetic_nslkdd(self) -> bool:
-        """Create synthetic NSL-KDD-like data."""
+        Returns:
+            True if download successful, False otherwise.
+        """
+        if not PANDAS_AVAILABLE:
+            logger.warning("pandas required for NSL-KDD processing")
+            return self._create_synthetic_fallback()
+
+        dataset_dir = self.data_path
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        cache_file = dataset_dir / "nslkdd_real.npz"
+
+        if cache_file.exists():
+            logger.info(f"NSL-KDD data already cached at {cache_file}")
+            self._is_real_data = True
+            return True
+
+        try:
+            import urllib.request
+
+            dfs = []
+            for split, url in self.NSLKDD_URLS.items():
+                if split == "test" and not self.include_test:
+                    continue
+
+                logger.info(f"Downloading NSL-KDD {split} from GitHub...")
+
+                with urllib.request.urlopen(url, timeout=120) as response:  # noqa: S310
+                    content = response.read().decode("utf-8")
+
+                # Parse CSV (no header in file)
+                df = pd.read_csv(
+                    io.StringIO(content),
+                    names=self.COLUMN_NAMES,
+                    header=None,
+                )
+                df["split"] = split
+                dfs.append(df)
+                logger.info(f"  Downloaded {len(df)} {split} records")
+
+            combined_df = pd.concat(dfs, ignore_index=True)
+            logger.info(f"Total: {len(combined_df)} NSL-KDD records")
+
+            # Process the data
+            features, labels = self._process_nslkdd_dataframe(combined_df)
+
+            # Save to cache
+            np.savez_compressed(cache_file, features=features, labels=labels)
+            self._features = features
+            self._labels = labels
+            self._is_real_data = True
+
+            logger.info(
+                f"NSL-KDD loaded: {len(features)} samples, "
+                f"{(labels > 0).sum() if self.binary_labels else len(np.unique(labels))} "
+                f"{'attacks' if self.binary_labels else 'categories'} (is_real_data=True)"
+            )
+            return True
+
+        except Exception as e:
+            logger.warning(f"NSL-KDD download failed: {e}")
+            logger.warning("Falling back to SYNTHETIC data.")
+            return self._create_synthetic_fallback()
+
+    def _process_nslkdd_dataframe(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+        """Process NSL-KDD dataframe: encode categoricals and labels.
+
+        Args:
+            df: Raw NSL-KDD dataframe
+
+        Returns:
+            Tuple of (features, labels) numpy arrays
+        """
+        # Extract and encode labels
+        raw_labels = df["label"].str.strip()
+        if self.binary_labels:
+            # Binary: 0 = normal, 1 = attack
+            labels = np.array([0 if lbl == "normal" else 1 for lbl in raw_labels], dtype=np.int64)
+        else:
+            # Multi-class: map to category
+            labels = np.array(
+                [
+                    self.CATEGORY_LABELS.get(
+                        self.ATTACK_CATEGORIES.get(lbl.strip(), "dos"), 1
+                    )
+                    for lbl in raw_labels
+                ],
+                dtype=np.int64,
+            )
+
+        # Drop non-feature columns
+        feature_df = df.drop(columns=["label", "difficulty", "split"], errors="ignore")
+
+        # Encode categorical columns
+        for col in self.CATEGORICAL_COLS:
+            if col in feature_df.columns:
+                unique_vals = feature_df[col].unique()
+                self._encoders[col] = {val: idx for idx, val in enumerate(unique_vals)}
+                feature_df[col] = feature_df[col].map(self._encoders[col])
+
+        # Convert to numeric
+        features = feature_df.values.astype(np.float32)
+
+        # Handle NaN values
+        features = np.nan_to_num(features, nan=0.0)
+
+        # Apply max_samples limit if specified
+        if self.config.max_samples and len(features) > self.config.max_samples:
+            np.random.seed(self.config.random_seed)
+            indices = np.random.choice(len(features), self.config.max_samples, replace=False)
+            features = features[indices]
+            labels = labels[indices]
+
+        return features, labels
+
+    def _create_synthetic_fallback(self) -> bool:
+        """Create synthetic NSL-KDD-like data as fallback.
+
+        WARNING: Results from synthetic data do NOT reflect real-world performance.
+        """
+        logger.warning(
+            "Creating SYNTHETIC NSL-KDD approximation. "
+            "Results will NOT reflect real-world performance."
+        )
+
         np.random.seed(self.config.random_seed)
         n_samples = self.config.max_samples or 10000
+        n_features = 41  # NSL-KDD has 41 features
 
+        # Generate features with attack-like patterns
         features = []
         labels = []
 
-        attack_probs = {
-            "normal": 0.4,
-            "dos": 0.3,
-            "probe": 0.15,
-            "r2l": 0.1,
-            "u2r": 0.05,
-        }
+        attack_probs = {"normal": 0.53, "dos": 0.36, "probe": 0.08, "r2l": 0.02, "u2r": 0.01}
 
-        for _i in range(n_samples):
+        for _ in range(n_samples):
             attack_type = np.random.choice(list(attack_probs.keys()), p=list(attack_probs.values()))
 
-            if attack_type == "normal":
-                params = self._generate_normal_connection()
-            elif attack_type == "dos":
-                params = self._generate_dos_attack()
+            # Generate base features
+            feature_vec = np.zeros(n_features)
+            feature_vec[0] = np.random.exponential(60)  # duration
+            feature_vec[1] = np.random.choice([0, 1, 2])  # protocol
+            feature_vec[2] = np.random.choice(range(70))  # service
+            feature_vec[3] = np.random.choice(range(11))  # flag
+            feature_vec[4] = np.random.exponential(1000)  # src_bytes
+            feature_vec[5] = np.random.exponential(500)  # dst_bytes
+            feature_vec[22:34] = np.random.random(12)  # rate features
+
+            # Attack-specific modifications
+            if attack_type == "dos":
+                feature_vec[0] = np.random.exponential(1)
+                feature_vec[22] = np.random.poisson(300)
             elif attack_type == "probe":
-                params = self._generate_probe_attack()
+                feature_vec[29] = np.random.beta(10, 2)
             elif attack_type == "r2l":
-                params = self._generate_r2l_attack()
-            else:  # u2r
-                params = self._generate_u2r_attack()
+                feature_vec[10] = np.random.poisson(3)
+            elif attack_type == "u2r":
+                feature_vec[13] = 1
 
-            feature_vec = [params.get(f, 0) for f in self.FEATURE_NAMES]
             features.append(feature_vec)
+            labels.append(0 if attack_type == "normal" else 1 if self.binary_labels else self.CATEGORY_LABELS[attack_type])
 
-            if self.binary_labels:
-                labels.append(0 if attack_type == "normal" else 1)
-            else:
-                labels.append(self.ATTACK_TYPES[attack_type])
-
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+        self._features = np.array(features, dtype=np.float32)
+        self._labels = np.array(labels, dtype=np.int64)
+        self._is_real_data = False
 
         save_path = self.data_path / "synthetic_nslkdd.npz"
-        np.savez_compressed(save_path, features=features, labels=labels)
+        np.savez_compressed(save_path, features=self._features, labels=self._labels)
 
-        logger.info(f"Generated {n_samples} NSL-KDD samples, {(labels > 0).sum()} attacks")
+        logger.info(
+            f"Generated SYNTHETIC {n_samples} NSL-KDD samples, "
+            f"{(self._labels > 0).sum()} attacks (is_real_data=False)"
+        )
         return True
 
-    def _generate_normal_connection(self) -> dict[str, Any]:
-        """Generate features for normal network connection."""
-        return {
-            "duration": np.random.exponential(60),
-            "protocol_type": np.random.choice([0, 1, 2]),  # tcp, udp, icmp
-            "service": np.random.choice(range(70)),
-            "flag": np.random.choice(range(11)),
-            "src_bytes": np.random.exponential(1000),
-            "dst_bytes": np.random.exponential(500),
-            "land": 0,
-            "wrong_fragment": 0,
-            "urgent": 0,
-            "hot": np.random.poisson(1),
-            "num_failed_logins": 0,
-            "logged_in": 1,
-            "num_compromised": 0,
-            "root_shell": 0,
-            "su_attempted": 0,
-            "num_root": 0,
-            "num_file_creations": np.random.poisson(2),
-            "num_shells": 0,
-            "num_access_files": np.random.poisson(3),
-            "num_outbound_cmds": 0,
-            "is_host_login": 0,
-            "is_guest_login": 0,
-            "count": np.random.poisson(10),
-            "srv_count": np.random.poisson(10),
-            "serror_rate": np.random.beta(1, 20),
-            "srv_serror_rate": np.random.beta(1, 20),
-            "rerror_rate": np.random.beta(1, 20),
-            "srv_rerror_rate": np.random.beta(1, 20),
-            "same_srv_rate": np.random.beta(10, 1),
-            "diff_srv_rate": np.random.beta(1, 10),
-            "srv_diff_host_rate": np.random.beta(2, 10),
-            "dst_host_count": np.random.poisson(50),
-            "dst_host_srv_count": np.random.poisson(30),
-            "dst_host_same_srv_rate": np.random.beta(10, 2),
-            "dst_host_diff_srv_rate": np.random.beta(2, 10),
-            "dst_host_same_src_port_rate": np.random.beta(5, 5),
-            "dst_host_srv_diff_host_rate": np.random.beta(2, 10),
-            "dst_host_serror_rate": np.random.beta(1, 20),
-            "dst_host_srv_serror_rate": np.random.beta(1, 20),
-            "dst_host_rerror_rate": np.random.beta(1, 20),
-            "dst_host_srv_rerror_rate": np.random.beta(1, 20),
-        }
-
-    def _generate_dos_attack(self) -> dict[str, Any]:
-        """Generate features for DoS attack."""
-        params = self._generate_normal_connection()
-        # DoS characteristics: high volume, short connections
-        params["duration"] = np.random.exponential(1)
-        params["count"] = np.random.poisson(300)
-        params["srv_count"] = np.random.poisson(300)
-        params["same_srv_rate"] = np.random.beta(20, 1)
-        params["dst_host_count"] = np.random.poisson(200)
-        params["serror_rate"] = np.random.beta(10, 2)
-        return params
-
-    def _generate_probe_attack(self) -> dict[str, Any]:
-        """Generate features for probing/scanning attack."""
-        params = self._generate_normal_connection()
-        # Probe characteristics: many destinations, varied services
-        params["duration"] = np.random.exponential(5)
-        params["diff_srv_rate"] = np.random.beta(10, 2)
-        params["srv_diff_host_rate"] = np.random.beta(10, 2)
-        params["dst_host_diff_srv_rate"] = np.random.beta(10, 2)
-        params["dst_host_count"] = np.random.poisson(150)
-        params["rerror_rate"] = np.random.beta(5, 5)
-        return params
-
-    def _generate_r2l_attack(self) -> dict[str, Any]:
-        """Generate features for Remote-to-Local attack."""
-        params = self._generate_normal_connection()
-        # R2L characteristics: failed logins, suspicious activity
-        params["num_failed_logins"] = np.random.poisson(3)
-        params["logged_in"] = np.random.choice([0, 1])
-        params["hot"] = np.random.poisson(5)
-        params["num_compromised"] = np.random.poisson(2)
-        params["num_access_files"] = np.random.poisson(10)
-        return params
-
-    def _generate_u2r_attack(self) -> dict[str, Any]:
-        """Generate features for User-to-Root attack."""
-        params = self._generate_normal_connection()
-        # U2R characteristics: privilege escalation
-        params["root_shell"] = 1
-        params["su_attempted"] = np.random.choice([0, 1, 2])
-        params["num_root"] = np.random.poisson(3)
-        params["num_shells"] = np.random.poisson(2)
-        params["num_file_creations"] = np.random.poisson(10)
-        return params
-
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Load raw NSL-KDD data from cached files."""
+        # Check for real data cache first
+        real_cache = self.data_path / "nslkdd_real.npz"
+        if real_cache.exists():
+            data = np.load(real_cache)
+            self._features = data["features"]
+            self._labels = data["labels"]
+            self._is_real_data = True
+            logger.info(f"Loaded REAL NSL-KDD data from {real_cache}")
+            return self._features, self._labels
+
+        # Check for synthetic fallback
         synthetic_path = self.data_path / "synthetic_nslkdd.npz"
         if synthetic_path.exists():
             data = np.load(synthetic_path)
-            return data["features"], data["labels"]
-        raise FileNotFoundError("NSL-KDD data not found")
+            self._features = data["features"]
+            self._labels = data["labels"]
+            self._is_real_data = False
+            logger.info("Loaded SYNTHETIC NSL-KDD data (is_real_data=False)")
+            return self._features, self._labels
+
+        raise FileNotFoundError("NSL-KDD data not found. Run download() first.")
+
+    def load_data(self) -> tuple[np.ndarray, np.ndarray]:
+        """Load NSL-KDD dataset features and labels.
+
+        This is the main entry point for loading the dataset.
+        Automatically downloads if not present.
+
+        Returns:
+            Tuple of (features, labels) numpy arrays
+        """
+        if self._features is not None and self._labels is not None:
+            return self._features, self._labels
+
+        try:
+            return self._load_raw()
+        except FileNotFoundError:
+            self.download()
+            return self._load_raw()
 
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess network traffic features."""
+        # Handle inf/nan
+        data = np.nan_to_num(data, nan=0.0, posinf=1e10, neginf=0)
         # Log transform for high-variance features
         data = np.log1p(np.abs(data))
         # Z-score normalize
         data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)
         return data.astype(np.float32)
+
+    def get_metadata(self) -> dict[str, Any]:
+        """Get dataset metadata."""
+        if self._features is None:
+            self.load_data()
+
+        return {
+            "name": "NSL-KDD",
+            "source": "GitHub (defcom17/NSL_KDD)",
+            "n_samples": len(self._features) if self._features is not None else 0,
+            "n_features": self._features.shape[1] if self._features is not None else 0,
+            "n_classes": 2 if self.binary_labels else 5,
+            "label_type": "binary" if self.binary_labels else "multiclass",
+            "attack_categories": list(self.CATEGORY_LABELS.keys()),
+            "is_real_data": self._is_real_data,
+            "url": self.DATASET_URL,
+            "citation": self.CITATION,
+        }
+
+    def get_statistics(self) -> dict[str, Any]:
+        """Get statistics about loaded data."""
+        if self._features is None:
+            self.load_data()
+
+        return {
+            "n_samples": len(self._features),
+            "n_features": self._features.shape[1],
+            "n_attacks": int((self._labels > 0).sum()) if self.binary_labels else None,
+            "attack_ratio": float((self._labels > 0).mean()) if self.binary_labels else None,
+            "class_distribution": {
+                str(k): int(v) for k, v in zip(*np.unique(self._labels, return_counts=True))
+            },
+            "is_real_data": self._is_real_data,
+        }
 
 
 class CICIDSLoader(DatasetLoader):

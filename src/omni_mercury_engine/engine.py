@@ -994,6 +994,64 @@ class OmniMercuryEngine:
         else:
             return torch.full((batch_size, 1), float(scores), dtype=torch.float32)
 
+    def _get_anomaly_threshold(
+        self,
+        current_score: float,
+        all_scores: np.ndarray | None = None,
+    ) -> float:
+        """Determine anomaly threshold based on configuration.
+
+        This method addresses the threshold calibration issue where a fixed
+        threshold of 0.5 fails on highly imbalanced datasets. It supports:
+        1. Fixed threshold from config.anomaly_threshold
+        2. Contamination-based percentile threshold (like sklearn IsolationForest)
+        3. Adaptive threshold based on score distribution
+
+        Args:
+            current_score: The anomaly probability to evaluate.
+            all_scores: Array of all anomaly scores for percentile calculation.
+
+        Returns:
+            The threshold to use for anomaly classification.
+
+        Example:
+            >>> # Fixed threshold (default)
+            >>> engine.config.anomaly_threshold = 0.3
+            >>> threshold = engine._get_anomaly_threshold(0.4, scores)
+            >>> # Returns 0.3
+
+            >>> # Contamination-based (top 5% = anomaly)
+            >>> engine.config.contamination = 0.05
+            >>> threshold = engine._get_anomaly_threshold(0.4, scores)
+            >>> # Returns 95th percentile of scores
+        """
+        # If contamination is set, use percentile-based threshold
+        if self.config.contamination is not None and all_scores is not None:
+            if len(all_scores) > 0:
+                # Calculate the (1 - contamination) percentile
+                # e.g., contamination=0.05 means we want 95th percentile as threshold
+                percentile = (1.0 - self.config.contamination) * 100
+                threshold = float(np.percentile(all_scores, percentile))
+                logger.debug(
+                    f"Using contamination-based threshold: {threshold:.4f} "
+                    f"(contamination={self.config.contamination})"
+                )
+                return threshold
+
+        # If adaptive threshold is enabled, use dynamic calibration
+        if self.config.adaptive_threshold and all_scores is not None:
+            if len(all_scores) > 1:
+                mean_score = float(np.mean(all_scores))
+                std_score = float(np.std(all_scores))
+                # Use mean + 2*std as threshold (captures ~95% as normal)
+                threshold = mean_score + 2 * std_score
+                threshold = min(threshold, 0.95)  # Cap at 0.95
+                logger.debug(f"Using adaptive threshold: {threshold:.4f}")
+                return threshold
+
+        # Default: use fixed threshold from config
+        return self.config.anomaly_threshold
+
     def _extract_detector_features(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
     ) -> tuple[Any, ...]:
@@ -1273,13 +1331,20 @@ class OmniMercuryEngine:
         if isinstance(class_pred_val, np.ndarray) or hasattr(class_pred_val, "item"):
             class_pred_val = class_pred_val.item()
 
+        # Determine threshold for anomaly classification
+        threshold = self._get_anomaly_threshold(
+            anomaly_prob_val,
+            fusion_result.get("anomaly_probs", np.array([anomaly_prob_val])),
+        )
+
         result = {
             "anomaly_prob": float(anomaly_prob_val),
-            "is_anomaly": bool(float(anomaly_prob_val) > 0.5),
+            "is_anomaly": bool(float(anomaly_prob_val) > threshold),
             "class_prediction": int(class_pred_val),
             "severity": float(severity_val),
             "detector_importance": fusion_result.get("detector_importance", {}),
             "mode": "fusion",
+            "threshold_used": float(threshold),
         }
 
         # Add GOSNN metadata if integration was enabled
