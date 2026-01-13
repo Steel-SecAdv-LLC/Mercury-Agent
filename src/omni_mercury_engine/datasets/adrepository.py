@@ -315,12 +315,10 @@ class ADRepositoryLoader(DatasetLoader):
             if odds_info.get("requires_auth"):
                 instructions = odds_info.get("instructions", "Authentication required")
                 logger.warning(
-                    f"Dataset '{self.dataset_name}' requires authentication. "
-                    f"{instructions}"
+                    f"Dataset '{self.dataset_name}' requires authentication. " f"{instructions}"
                 )
                 raise ValueError(
-                    f"Dataset '{self.dataset_name}' requires authentication. "
-                    f"{instructions}"
+                    f"Dataset '{self.dataset_name}' requires authentication. " f"{instructions}"
                 )
 
             url = odds_info["url"]

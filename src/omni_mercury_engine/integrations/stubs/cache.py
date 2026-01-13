@@ -471,7 +471,9 @@ class CacheStub:
             "total_entries": len(self._cache),
             "hits": self._hits,
             "misses": self._misses,
-            "hit_rate": self._hits / (self._hits + self._misses) if (self._hits + self._misses) > 0 else 0,
+            "hit_rate": (
+                self._hits / (self._hits + self._misses) if (self._hits + self._misses) > 0 else 0
+            ),
             "sets": self._sets,
             "deletes": self._deletes,
             "max_size": self._max_size,
