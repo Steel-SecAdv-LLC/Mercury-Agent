@@ -27,10 +27,12 @@ from __future__ import annotations
 
 import logging
 import zipfile
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, safe_urlretrieve
 

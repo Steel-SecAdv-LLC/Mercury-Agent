@@ -11,7 +11,6 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-import numpy as np
 import pytest
 import torch
 from torch import nn
@@ -516,8 +515,9 @@ class TestLyapunovAnomalyLoss:
 
         # Second step - stability is computed
         anomaly_scores2 = torch.sigmoid(torch.randn(8))
-        result2 = loss_fn(x, x_recon, anomaly_scores2)
+        _result2 = loss_fn(x, x_recon, anomaly_scores2)
         # Stability loss may or may not be zero depending on score changes
+        assert "stability" in _result2
 
     def test_reset_state(self):
         """Test reset_state clears previous scores."""
