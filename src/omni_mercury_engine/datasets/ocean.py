@@ -22,12 +22,9 @@ from __future__ import annotations
 
 import io
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 try:
     import pandas as pd
@@ -134,11 +131,13 @@ class NOAABuoyLoader(DatasetLoader):
             for station in self.stations:
                 url = self.BASE_URL.format(station=station)
                 try:
-                    logger.info(f"Downloading buoy {station} ({self.BUOY_STATIONS.get(station, 'Unknown')})...")
+                    logger.info(
+                        f"Downloading buoy {station} ({self.BUOY_STATIONS.get(station, 'Unknown')})..."
+                    )
 
-                    req = urllib.request.Request(
+                    req = urllib.request.Request(  # noqa: S310
                         url,
-                        headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
+                        headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},
                     )
                     with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310
                         content = response.read().decode("utf-8")
@@ -220,7 +219,9 @@ class NOAABuoyLoader(DatasetLoader):
 
         # Label anomalies: values > anomaly_std standard deviations from mean
         # This is a simple statistical anomaly labeling approach
-        z_scores = np.abs((features - np.nanmean(features, axis=0)) / (np.nanstd(features, axis=0) + 1e-8))
+        z_scores = np.abs(
+            (features - np.nanmean(features, axis=0)) / (np.nanstd(features, axis=0) + 1e-8)
+        )
         labels = (np.nanmax(z_scores, axis=1) > self.anomaly_std).astype(np.int64)
 
         # Apply max_samples limit if specified
@@ -278,13 +279,13 @@ class NOAABuoyLoader(DatasetLoader):
         anomaly_indices = np.random.choice(n_samples, n_anomalies, replace=False)
 
         # Extreme wave heights
-        features[anomaly_indices[:n_anomalies // 3], 0] *= 5
+        features[anomaly_indices[: n_anomalies // 3], 0] *= 5
 
         # Temperature spikes
-        features[anomaly_indices[n_anomalies // 3:2 * n_anomalies // 3], 4] += 10
+        features[anomaly_indices[n_anomalies // 3 : 2 * n_anomalies // 3], 4] += 10
 
         # Pressure drops (storms)
-        features[anomaly_indices[2 * n_anomalies // 3:], 6] -= 30
+        features[anomaly_indices[2 * n_anomalies // 3 :], 6] -= 30
 
         # Label based on z-scores
         z_scores = np.abs((features - features.mean(axis=0)) / (features.std(axis=0) + 1e-8))
@@ -375,7 +376,7 @@ class NOAABuoyLoader(DatasetLoader):
             "anomaly_ratio": float(self._labels.mean()),
             "feature_means": {
                 name: float(self._features[:, i].mean())
-                for i, name in enumerate(self.FEATURE_COLS[:self._features.shape[1]])
+                for i, name in enumerate(self.FEATURE_COLS[: self._features.shape[1]])
             },
             "is_real_data": self._is_real_data,
         }

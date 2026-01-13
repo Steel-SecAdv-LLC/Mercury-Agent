@@ -28,7 +28,7 @@ except ImportError:
     pd = None
     PANDAS_AVAILABLE = False
 
-from .base import DatasetConfig, DatasetLoader, DatasetRegistry, safe_urlretrieve
+from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -273,9 +273,7 @@ class NSLKDDLoader(DatasetLoader):
             # Multi-class: map to category
             labels = np.array(
                 [
-                    self.CATEGORY_LABELS.get(
-                        self.ATTACK_CATEGORIES.get(lbl.strip(), "dos"), 1
-                    )
+                    self.CATEGORY_LABELS.get(self.ATTACK_CATEGORIES.get(lbl.strip(), "dos"), 1)
                     for lbl in raw_labels
                 ],
                 dtype=np.int64,
@@ -351,7 +349,11 @@ class NSLKDDLoader(DatasetLoader):
                 feature_vec[13] = 1
 
             features.append(feature_vec)
-            labels.append(0 if attack_type == "normal" else 1 if self.binary_labels else self.CATEGORY_LABELS[attack_type])
+            labels.append(
+                0
+                if attack_type == "normal"
+                else 1 if self.binary_labels else self.CATEGORY_LABELS[attack_type]
+            )
 
         self._features = np.array(features, dtype=np.float32)
         self._labels = np.array(labels, dtype=np.int64)
@@ -549,10 +551,14 @@ class CICIDSLoader(DatasetLoader):
             config: Dataset configuration. Preprocessing options:
                 - binary (bool): Use binary classification (default True)
                 - subset (str): Load specific subset ('ddos', 'portscan', etc.)
+                - local_path (str): Path to local CICIDS CSV file or directory
+                - retry_count (int): Number of download retries (default 3)
         """
         super().__init__(config)
         self.binary_labels = config.preprocessing.get("binary", True)
         self.subset = config.preprocessing.get("subset", "all")
+        self.local_path = config.preprocessing.get("local_path", None)
+        self.retry_count = config.preprocessing.get("retry_count", 3)
         self._features: np.ndarray | None = None
         self._labels: np.ndarray | None = None
         self._is_real_data = False
@@ -568,26 +574,42 @@ class CICIDSLoader(DatasetLoader):
         Download CICIDS 2017 dataset from available sources.
 
         Tries sources in order:
-        1. Hugging Face datasets (if library available)
-        2. Distrinet improved version
-        3. Official CIC server
-        4. Falls back to synthetic with WARNING
+        1. Local file path (if specified in config)
+        2. Hugging Face datasets (if library available)
+        3. Distrinet improved version
+        4. Official CIC server
+        5. Falls back to synthetic with WARNING
 
         Returns:
             True if download successful, False otherwise.
         """
-        # Try each source in priority order
+        # First, try loading from local path if specified
+        if self.local_path:
+            if self._load_from_local_path():
+                return True
+            logger.warning(f"Local path {self.local_path} failed, trying remote sources...")
+
+        # Try each remote source in priority order
         for source_id, source_info in self.DATA_SOURCES.items():
-            try:
-                if source_id == "huggingface":
-                    if self._download_from_huggingface():
+            for attempt in range(self.retry_count):
+                try:
+                    if source_id == "huggingface":
+                        if self._download_from_huggingface():
+                            return True
+                        break  # Don't retry HuggingFace if library not available
+                    elif self._download_from_url(source_info):
                         return True
-                else:
-                    if self._download_from_url(source_info):
-                        return True
-            except Exception as e:
-                logger.warning(f"Failed to download from {source_info['name']}: {e}")
-                continue
+                except Exception as e:
+                    if attempt < self.retry_count - 1:
+                        wait_time = 2 ** (attempt + 1)  # Exponential backoff
+                        logger.info(
+                            f"Retry {attempt + 1}/{self.retry_count} for {source_info['name']} in {wait_time}s..."
+                        )
+                        import time
+
+                        time.sleep(wait_time)
+                    else:
+                        logger.warning(f"Failed to download from {source_info['name']}: {e}")
 
         # All sources failed - fall back to synthetic with WARNING
         logger.warning(
@@ -595,6 +617,92 @@ class CICIDSLoader(DatasetLoader):
             "Falling back to SYNTHETIC data. Results will NOT reflect real-world performance."
         )
         return self._create_synthetic_fallback()
+
+    def _load_from_local_path(self) -> bool:
+        """Load CICIDS data from a local file or directory.
+
+        Supports:
+        - Single CSV file
+        - Directory containing multiple CICIDS CSV files
+        - ZIP archive containing CSV files
+
+        Returns:
+            True if loading successful, False otherwise.
+        """
+        if not PANDAS_AVAILABLE:
+            logger.warning("pandas required for CICIDS CSV processing")
+            return False
+
+        local_path = Path(self.local_path) if self.local_path else None
+        if local_path is None or not local_path.exists():
+            logger.warning(f"Local path does not exist: {self.local_path}")
+            return False
+
+        dataset_dir = self.data_path
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        cache_file = dataset_dir / "cicids_local.npz"
+
+        if cache_file.exists():
+            logger.info(f"CICIDS local data already cached at {cache_file}")
+            self._is_real_data = True
+            return True
+
+        try:
+            dfs = []
+
+            if local_path.is_file():
+                if local_path.suffix.lower() == ".csv":
+                    logger.info(f"Loading CICIDS from local CSV: {local_path}")
+                    df = pd.read_csv(local_path, encoding="utf-8", low_memory=False)
+                    dfs.append(df)
+                elif local_path.suffix.lower() == ".zip":
+                    logger.info(f"Loading CICIDS from local ZIP: {local_path}")
+                    with zipfile.ZipFile(local_path) as zf:
+                        for name in zf.namelist():
+                            if name.endswith(".csv"):
+                                logger.info(f"  Extracting: {name}")
+                                with zf.open(name) as f:
+                                    df = pd.read_csv(f, encoding="utf-8", low_memory=False)
+                                    dfs.append(df)
+                else:
+                    logger.warning(f"Unsupported file type: {local_path.suffix}")
+                    return False
+            elif local_path.is_dir():
+                csv_files = list(local_path.glob("*.csv"))
+                if not csv_files:
+                    logger.warning(f"No CSV files found in directory: {local_path}")
+                    return False
+                logger.info(f"Loading {len(csv_files)} CSV files from: {local_path}")
+                for csv_file in csv_files:
+                    logger.info(f"  Loading: {csv_file.name}")
+                    df = pd.read_csv(csv_file, encoding="utf-8", low_memory=False)
+                    dfs.append(df)
+
+            if not dfs:
+                return False
+
+            combined_df = pd.concat(dfs, ignore_index=True)
+            logger.info(f"Loaded {len(combined_df)} records from local source")
+
+            # Clean and process
+            features, labels = self._process_cicids_dataframe(combined_df)
+
+            # Save to cache
+            np.savez_compressed(cache_file, features=features, labels=labels)
+            self._features = features
+            self._labels = labels
+            self._is_real_data = True
+
+            logger.info(
+                f"CICIDS 2017 loaded from local: {len(features)} samples, "
+                f"{(labels > 0).sum() if self.binary_labels else len(np.unique(labels))} "
+                f"{'attacks' if self.binary_labels else 'classes'} (is_real_data=True)"
+            )
+            return True
+
+        except Exception as e:
+            logger.warning(f"Failed to load from local path: {e}")
+            return False
 
     def _download_from_huggingface(self) -> bool:
         """Download CICIDS 2017 from Hugging Face datasets."""
@@ -654,7 +762,6 @@ class CICIDSLoader(DatasetLoader):
         source_name = source_info["name"]
         file_format = source_info.get("format", "zip")
 
-        local_file = dataset_dir / f"cicids_{source_name.lower().replace(' ', '_')}.{file_format}"
         cache_file = dataset_dir / f"cicids_{source_name.lower().replace(' ', '_')}.npz"
 
         if cache_file.exists():
@@ -767,9 +874,7 @@ class CICIDSLoader(DatasetLoader):
             )
         else:
             # Multi-class encoding
-            labels = np.array(
-                [self._encode_label(label) for label in labels_raw], dtype=np.int64
-            )
+            labels = np.array([self._encode_label(label) for label in labels_raw], dtype=np.int64)
 
         # Store unique label names for metadata
         self._label_names = list(labels_raw.unique())
@@ -881,9 +986,7 @@ class CICIDSLoader(DatasetLoader):
         }
 
         for _ in range(n_samples):
-            attack_type = np.random.choice(
-                list(attack_probs.keys()), p=list(attack_probs.values())
-            )
+            attack_type = np.random.choice(list(attack_probs.keys()), p=list(attack_probs.values()))
 
             # Generate features based on attack type
             if attack_type == "benign":
@@ -954,8 +1057,9 @@ class CICIDSLoader(DatasetLoader):
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw CICIDS data from cached files."""
-        # Check for cached processed data
+        # Check for cached processed data (local first, then remote sources, synthetic last)
         for cache_name in [
+            "cicids_local.npz",  # Local file takes priority
             "cicids_huggingface.npz",
             "cicids_distrinet_(improved).npz",
             "cicids_cic_official.npz",
@@ -968,8 +1072,7 @@ class CICIDSLoader(DatasetLoader):
                 self._labels = data["labels"]
                 self._is_real_data = "synthetic" not in cache_name
                 logger.info(
-                    f"Loaded CICIDS from {cache_name} "
-                    f"(is_real_data={self._is_real_data})"
+                    f"Loaded CICIDS from {cache_name} " f"(is_real_data={self._is_real_data})"
                 )
                 return self._features, self._labels
 
@@ -1026,7 +1129,9 @@ class CICIDSLoader(DatasetLoader):
             "n_features": self._features.shape[1] if self._features is not None else 0,
             "n_classes": 2 if self.binary_labels else len(self.ATTACK_LABELS),
             "label_type": "binary" if self.binary_labels else "multiclass",
-            "attack_types": self._label_names if self._label_names else list(self.ATTACK_LABELS.keys()),
+            "attack_types": (
+                self._label_names if self._label_names else list(self.ATTACK_LABELS.keys())
+            ),
             "is_real_data": self._is_real_data,
             "url": self.DATASET_URL,
             "citation": self.CITATION,
