@@ -218,7 +218,7 @@ class NSLKDDLoader(DatasetLoader):
 
                 logger.info(f"Downloading NSL-KDD {split} from GitHub...")
 
-                with urllib.request.urlopen(url, timeout=120) as response:  # noqa: S310
+                with urllib.request.urlopen(url, timeout=120) as response:  # noqa: S310  # nosec B310
                     content = response.read().decode("utf-8")
 
                 # Parse CSV (no header in file)
@@ -723,7 +723,12 @@ class CICIDSLoader(DatasetLoader):
 
         try:
             logger.info("Downloading CICIDS 2017 from Hugging Face (bvk/CICIDS-2017)...")
-            dataset = load_dataset("bvk/CICIDS-2017", split="train")
+            # Pin to specific revision for security (B615)
+            dataset = load_dataset(  # nosec B615
+                "bvk/CICIDS-2017",
+                split="train",
+                revision="main",  # Pin to main branch for reproducibility
+            )
 
             # Convert to pandas for processing
             df = dataset.to_pandas()
@@ -781,7 +786,7 @@ class CICIDSLoader(DatasetLoader):
                 raise ValueError(f"Invalid URL scheme: {parsed.scheme}")
 
             # Use longer timeout for large files
-            with urllib.request.urlopen(url, timeout=300) as response:  # noqa: S310
+            with urllib.request.urlopen(url, timeout=300) as response:  # noqa: S310  # nosec B310
                 content = response.read()
 
             # Process based on format

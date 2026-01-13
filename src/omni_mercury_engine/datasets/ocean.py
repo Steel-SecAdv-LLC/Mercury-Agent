@@ -139,7 +139,7 @@ class NOAABuoyLoader(DatasetLoader):
                         url,
                         headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},
                     )
-                    with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310
+                    with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310  # nosec B310
                         content = response.read().decode("utf-8")
 
                     # Parse the data (space-delimited, first row is header, second is units)
