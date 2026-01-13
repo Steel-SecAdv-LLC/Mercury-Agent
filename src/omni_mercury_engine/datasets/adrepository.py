@@ -26,7 +26,6 @@ Datasets include:
 from __future__ import annotations
 
 import logging
-import os
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -287,7 +286,7 @@ class ADRepositoryLoader(DatasetLoader):
             logger.info(f"Trying fallback mirror: {url}")
             safe_urlretrieve(url, str(local_path))
             self._is_real_data = True
-            logger.info(f"Successfully downloaded from fallback")
+            logger.info("Successfully downloaded from fallback")
             return True
         except Exception as e:
             logger.warning(f"Fallback mirror failed: {e}")
