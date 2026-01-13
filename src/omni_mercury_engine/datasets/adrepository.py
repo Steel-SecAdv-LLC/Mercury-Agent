@@ -416,7 +416,7 @@ class ADRepositoryLoader(DatasetLoader):
     def get_statistics(self) -> dict[str, Any]:
         """Get statistics about loaded data."""
         if self._features is None:
-            self.load()
+            self.load_data()
 
         return {
             "n_samples": len(self._features),

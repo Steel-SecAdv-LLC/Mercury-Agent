@@ -124,7 +124,7 @@ class TestADRepositoryLoader:
         )
         loader = ADRepositoryLoader(config, dataset_name="campaign")
         loader._create_synthetic_fallback()
-        loader.load()
+        loader.load_data()
 
         stats = loader.get_statistics()
 
