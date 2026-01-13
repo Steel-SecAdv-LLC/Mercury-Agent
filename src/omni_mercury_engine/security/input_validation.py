@@ -455,17 +455,12 @@ class InputValidator:
 
         value = value.strip()
 
-        # Check for path traversal patterns
-        for pattern in self.PATH_TRAVERSAL_PATTERNS:
-            if re.search(pattern, value, re.IGNORECASE):
-                errors.append(f"{field_name}: Path traversal detected")
-                break
-
-        # Check null bytes
+        # Check null bytes first (security critical)
         if "\x00" in value:
             errors.append(f"{field_name}: Null bytes not allowed in path")
 
-        # Normalize and check against allowed prefix
+        # Check against allowed prefix FIRST if specified
+        # This takes precedence over path traversal detection
         if allowed_prefix:
             try:
                 from pathlib import Path
@@ -475,8 +470,16 @@ class InputValidator:
 
                 if not normalized.startswith(allowed_normalized):
                     errors.append(f"{field_name}: Path outside allowed directory")
+                    # Return early - path is outside allowed directory
+                    return ValidationResult(False, value, errors, [])
             except Exception:
                 errors.append(f"{field_name}: Invalid path")
+
+        # Check for path traversal patterns
+        for pattern in self.PATH_TRAVERSAL_PATTERNS:
+            if re.search(pattern, value, re.IGNORECASE):
+                errors.append(f"{field_name}: Path traversal detected")
+                break
 
         is_valid = len(errors) == 0
         return ValidationResult(is_valid, value, errors, warnings)

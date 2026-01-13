@@ -177,6 +177,42 @@ class ADRepositoryLoader(DatasetLoader):
         "fallback": "https://raw.githubusercontent.com/mala-lab/ADRepository-Anomaly-detection-datasets/main/",
     }
 
+    # ODDS (Outlier Detection DataSets) - Stony Brook University
+    # These are VERIFIED working URLs for real anomaly detection datasets
+    # Reference: https://odds.cs.stonybrook.edu/
+    ODDS_URLS = {
+        "thyroid": {
+            "url": "https://odds.cs.stonybrook.edu/wp-content/uploads/2016/04/thyroid.mat",
+            "format": "mat",
+        },
+        "smtp": {
+            "url": "https://odds.cs.stonybrook.edu/wp-content/uploads/2016/04/smtp.mat",
+            "format": "mat",
+        },
+        "satellite": {
+            "url": "https://odds.cs.stonybrook.edu/wp-content/uploads/2016/04/satellite.mat",
+            "format": "mat",
+        },
+        "pendigits": {
+            "url": "https://odds.cs.stonybrook.edu/wp-content/uploads/2016/04/pendigits.mat",
+            "format": "mat",
+        },
+        "mammography": {
+            "url": "https://odds.cs.stonybrook.edu/wp-content/uploads/2016/04/mammography.mat",
+            "format": "mat",
+        },
+        "shuttle": {
+            "url": "https://odds.cs.stonybrook.edu/wp-content/uploads/2016/04/shuttle.mat",
+            "format": "mat",
+        },
+        "fraud": {
+            "url": "kaggle://mlg-ulb/creditcardfraud/creditcard.csv",
+            "format": "csv",
+            "requires_auth": True,
+            "instructions": "Run: kaggle datasets download -d mlg-ulb/creditcardfraud",
+        },
+    }
+
     def __init__(self, config: DatasetConfig, dataset_name: str = "thyroid") -> None:
         """
         Initialize ADRepository loader.
@@ -229,8 +265,26 @@ class ADRepositoryLoader(DatasetLoader):
         filename = self.dataset_info["file"]
         local_path = dataset_dir / filename
 
+        # Check for ODDS-downloaded .mat file first
+        if self.dataset_name in self.ODDS_URLS:
+            odds_info = self.ODDS_URLS[self.dataset_name]
+            odds_path = dataset_dir / f"{self.dataset_name}.{odds_info['format']}"
+            if odds_path.exists():
+                self._load_from_file(odds_path)
+                if self._features is not None:
+                    return self._features, self._labels
+
         if not local_path.exists():
             self.download()
+
+        # Check again for ODDS file after download
+        if self.dataset_name in self.ODDS_URLS:
+            odds_info = self.ODDS_URLS[self.dataset_name]
+            odds_path = dataset_dir / f"{self.dataset_name}.{odds_info['format']}"
+            if odds_path.exists():
+                self._load_from_file(odds_path)
+                if self._features is not None:
+                    return self._features, self._labels
 
         if local_path.exists():
             self._load_from_file(local_path)
@@ -249,10 +303,45 @@ class ADRepositoryLoader(DatasetLoader):
         return (data - mean) / std
 
     def _download_from_repository(self) -> bool:
-        """Download from ADRepository GitHub."""
+        """Download from ODDS or ADRepository GitHub."""
         dataset_dir = self.data_path / self.dataset_name
         dataset_dir.mkdir(parents=True, exist_ok=True)
 
+        # Try ODDS URLs first (verified working)
+        if self.dataset_name in self.ODDS_URLS:
+            odds_info = self.ODDS_URLS[self.dataset_name]
+
+            # Check if requires authentication (e.g., Kaggle)
+            if odds_info.get("requires_auth"):
+                instructions = odds_info.get("instructions", "Authentication required")
+                logger.warning(
+                    f"Dataset '{self.dataset_name}' requires authentication. "
+                    f"{instructions}"
+                )
+                raise ValueError(
+                    f"Dataset '{self.dataset_name}' requires authentication. "
+                    f"{instructions}"
+                )
+
+            url = odds_info["url"]
+            file_ext = odds_info["format"]
+            local_path = dataset_dir / f"{self.dataset_name}.{file_ext}"
+
+            if local_path.exists():
+                logger.info(f"Dataset already exists at {local_path}")
+                self._is_real_data = True
+                return True
+
+            try:
+                logger.info(f"Downloading {self.dataset_name} from ODDS: {url}")
+                safe_urlretrieve(url, str(local_path))
+                self._is_real_data = True
+                logger.info(f"Successfully downloaded ODDS dataset to {local_path}")
+                return True
+            except Exception as e:
+                logger.warning(f"ODDS download failed: {e}")
+
+        # Fallback to ADRepository GitHub mirrors
         # Determine folder based on dataset type
         if self.dataset_name in ["smd", "swat", "dsads", "epilepsy"]:
             folder = "Time%20Series"
@@ -354,12 +443,25 @@ class ADRepositoryLoader(DatasetLoader):
 
         return self._load_raw()
 
+    def _load_mat_file(self, path: Path) -> None:
+        """Load MATLAB .mat file from ODDS repository."""
+        from scipy.io import loadmat
+
+        data = loadmat(str(path))
+        self._features = data["X"].astype(np.float32)
+        self._labels = data["y"].ravel().astype(np.int64)
+        self._is_real_data = True
+        logger.info(f"Loaded .mat file from {path.name} (real_data=True)")
+
     def _load_from_file(self, path: Path) -> None:
         """Load data from downloaded file."""
         suffix = path.suffix.lower()
 
         try:
-            if suffix == ".npz":
+            if suffix == ".mat":
+                self._load_mat_file(path)
+
+            elif suffix == ".npz":
                 data = np.load(path, allow_pickle=True)
                 self._features = data["X"].astype(np.float32)
                 self._labels = data["y"].astype(np.int64)

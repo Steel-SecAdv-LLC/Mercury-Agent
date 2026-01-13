@@ -158,13 +158,13 @@ class CrisisMonitor:
     def _determine_severity(self, crisis_score: float) -> str:
         """Determine crisis severity level."""
         if crisis_score > 0.9:
-            return "CATASTROPHIC"
+            return "critical"
         elif crisis_score > 0.7:
-            return "SEVERE"
+            return "high"
         elif crisis_score > 0.5:
-            return "MODERATE"
+            return "medium"
         else:
-            return "LOW"
+            return "low"
 
     def _estimate_affected_population(
         self, geoint_data: dict[str, Any], crisis_score: float
@@ -183,7 +183,7 @@ class CrisisMonitor:
         elif crisis_type == "natural_disaster":
             groups.extend(["Homeless population", "Rural communities"])
 
-        if severity in ["SEVERE", "CATASTROPHIC"]:
+        if severity in ["high", "critical"]:
             groups.append("General population")
 
         return groups
@@ -213,7 +213,7 @@ class CrisisMonitor:
         """Recommend humanitarian response actions."""
         response = []
 
-        if severity in ["SEVERE", "CATASTROPHIC"]:
+        if severity in ["high", "critical"]:
             response.append("Activate national emergency response (FEMA, Red Cross)")
             response.append("Deploy search and rescue teams")
             response.append("Establish emergency medical facilities")

@@ -455,11 +455,11 @@ class BiasDetector:
 
         return FairnessResult(
             metric=metric,
-            overall_score=overall_score,
+            overall_score=float(overall_score),
             group_scores=group_scores,
-            is_fair=is_fair,
+            is_fair=bool(is_fair),
             threshold=threshold,
-            disparity=disparity,
+            disparity=float(disparity),
             recommendations=recommendations,
         )
 
