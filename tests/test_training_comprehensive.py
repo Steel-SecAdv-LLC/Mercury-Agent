@@ -172,9 +172,7 @@ class TestLearningRateScheduler:
         """Test cosine annealing scheduler."""
         model = nn.Linear(10, 1)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
-        scheduler = LearningRateScheduler(
-            optimizer, mode="cosine", T_max=10, eta_min=0.001
-        )
+        scheduler = LearningRateScheduler(optimizer, mode="cosine", T_max=10, eta_min=0.001)
 
         initial_lr = scheduler.get_last_lr()[0]
         assert initial_lr == 0.1
@@ -190,9 +188,7 @@ class TestLearningRateScheduler:
         """Test reduce on plateau scheduler."""
         model = nn.Linear(10, 1)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
-        scheduler = LearningRateScheduler(
-            optimizer, mode="plateau", step_size=2, gamma=0.5
-        )
+        scheduler = LearningRateScheduler(optimizer, mode="plateau", step_size=2, gamma=0.5)
 
         # Simulate no improvement
         scheduler.step(metric=1.0)
@@ -337,9 +333,7 @@ class TestMercuryOptimizers:
     def test_mercury_optimizer_with_quantum_noise(self):
         """Test MercuryOptimizer with quantum noise."""
         model = self._create_simple_model()
-        optimizer = MercuryOptimizer(
-            model.parameters(), lr=0.01, quantum_noise=0.01
-        )
+        optimizer = MercuryOptimizer(model.parameters(), lr=0.01, quantum_noise=0.01)
 
         x = torch.randn(4, 10)
         y = torch.randn(4, 1)
@@ -372,9 +366,7 @@ class TestMercuryOptimizers:
     def test_mercury_momentum_optimizer(self):
         """Test MercuryMomentumOptimizer."""
         model = self._create_simple_model()
-        optimizer = MercuryMomentumOptimizer(
-            model.parameters(), lr=0.01, alpha=0.1, momentum=0.9
-        )
+        optimizer = MercuryMomentumOptimizer(model.parameters(), lr=0.01, alpha=0.1, momentum=0.9)
 
         x = torch.randn(4, 10)
         y = torch.randn(4, 1)
@@ -407,9 +399,7 @@ class TestMercuryOptimizers:
     def test_mercury_harmonic_optimizer(self):
         """Test MercuryHarmonicOptimizer."""
         model = self._create_simple_model()
-        optimizer = MercuryHarmonicOptimizer(
-            model.parameters(), lr=0.01, alpha=0.1, omega=0.1
-        )
+        optimizer = MercuryHarmonicOptimizer(model.parameters(), lr=0.01, alpha=0.1, omega=0.1)
 
         x = torch.randn(4, 10)
         y = torch.randn(4, 1)
@@ -434,25 +424,19 @@ class TestCreateMercuryOptimizer:
     def test_create_momentum_optimizer(self):
         """Test creating momentum Mercury optimizer."""
         model = nn.Linear(10, 1)
-        optimizer = create_mercury_optimizer(
-            model.parameters(), variant="momentum", lr=0.01
-        )
+        optimizer = create_mercury_optimizer(model.parameters(), variant="momentum", lr=0.01)
         assert isinstance(optimizer, MercuryMomentumOptimizer)
 
     def test_create_exp_decay_optimizer(self):
         """Test creating exponential decay Mercury optimizer."""
         model = nn.Linear(10, 1)
-        optimizer = create_mercury_optimizer(
-            model.parameters(), variant="exp_decay", lr=0.01
-        )
+        optimizer = create_mercury_optimizer(model.parameters(), variant="exp_decay", lr=0.01)
         assert isinstance(optimizer, MercuryExponentialDecayOptimizer)
 
     def test_create_harmonic_optimizer(self):
         """Test creating harmonic Mercury optimizer."""
         model = nn.Linear(10, 1)
-        optimizer = create_mercury_optimizer(
-            model.parameters(), variant="harmonic", lr=0.01
-        )
+        optimizer = create_mercury_optimizer(model.parameters(), variant="harmonic", lr=0.01)
         assert isinstance(optimizer, MercuryHarmonicOptimizer)
 
     def test_create_invalid_variant(self):

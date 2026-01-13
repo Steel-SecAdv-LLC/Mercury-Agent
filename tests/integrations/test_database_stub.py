@@ -137,9 +137,7 @@ class TestDatabaseStubQuery:
     @pytest.mark.asyncio
     async def test_create_table(self, db):
         """Test creating a table."""
-        result = await db.execute(
-            "CREATE TABLE users (id INTEGER, name TEXT, email TEXT)"
-        )
+        result = await db.execute("CREATE TABLE users (id INTEGER, name TEXT, email TEXT)")
         assert result is not None
 
     @pytest.mark.asyncio

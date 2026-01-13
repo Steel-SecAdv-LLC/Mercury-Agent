@@ -60,9 +60,7 @@ class TestAdaptiveDefenseSystem:
 
     def test_init(self):
         """Test system initialization."""
-        system = AdaptiveDefenseSystem(
-            max_signatures=500, similarity_threshold=0.9
-        )
+        system = AdaptiveDefenseSystem(max_signatures=500, similarity_threshold=0.9)
         assert system.max_signatures == 500
         assert system.similarity_threshold == 0.9
         assert len(system.signature_library) == 0

@@ -188,9 +188,7 @@ class ADRepositoryLoader(DatasetLoader):
 
         if self.dataset_name not in ADREPOSITORY_DATASETS:
             available = ", ".join(ADREPOSITORY_DATASETS.keys())
-            raise ValueError(
-                f"Unknown dataset '{dataset_name}'. Available: {available}"
-            )
+            raise ValueError(f"Unknown dataset '{dataset_name}'. Available: {available}")
 
         self.dataset_info = ADREPOSITORY_DATASETS[self.dataset_name]
         self._features: np.ndarray | None = None
@@ -256,7 +254,15 @@ class ADRepositoryLoader(DatasetLoader):
         # Determine folder based on dataset type
         if self.dataset_name in ["smd", "swat", "dsads", "epilepsy"]:
             folder = "Time%20Series"
-        elif self.dataset_name in ["fraud", "backdoor", "campaign", "thyroid", "donors", "census", "celeba"]:
+        elif self.dataset_name in [
+            "fraud",
+            "backdoor",
+            "campaign",
+            "thyroid",
+            "donors",
+            "census",
+            "celeba",
+        ]:
             folder = "Numerical%20Data%20(DevNet)"
         else:
             folder = "Numerical%20Data%20(DevNet)"
@@ -359,6 +365,7 @@ class ADRepositoryLoader(DatasetLoader):
 
             elif suffix == ".csv":
                 import pandas as pd
+
                 df = pd.read_csv(path)
 
                 # Assume last column is label
@@ -369,7 +376,7 @@ class ADRepositoryLoader(DatasetLoader):
             elif suffix == ".zip":
                 # Extract and load
                 extract_dir = path.parent / path.stem
-                with zipfile.ZipFile(path, 'r') as zf:
+                with zipfile.ZipFile(path, "r") as zf:
                     zf.extractall(extract_dir)
 
                 # Find npz or csv files
@@ -431,6 +438,7 @@ class ADRepositoryLoader(DatasetLoader):
 # =============================================================================
 # Convenience Functions
 # =============================================================================
+
 
 def list_available_datasets() -> dict[str, dict]:
     """List all available ADRepository datasets with metadata."""

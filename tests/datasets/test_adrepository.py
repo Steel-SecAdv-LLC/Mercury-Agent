@@ -25,9 +25,17 @@ class TestADRepositoryMetadata:
     def test_datasets_defined(self):
         """Verify all expected datasets are defined."""
         expected = {
-            "fraud", "backdoor", "campaign", "thyroid",
-            "donors", "census", "celeba", "smd", "swat",
-            "dsads", "epilepsy"
+            "fraud",
+            "backdoor",
+            "campaign",
+            "thyroid",
+            "donors",
+            "census",
+            "celeba",
+            "smd",
+            "swat",
+            "dsads",
+            "epilepsy",
         }
         assert expected.issubset(set(ADREPOSITORY_DATASETS.keys()))
 
