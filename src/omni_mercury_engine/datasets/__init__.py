@@ -24,15 +24,27 @@ Real-World Dataset Loaders for Mercury Agent ♱
 All loaders fetch REAL DATA from official sources - NO synthetic fallbacks.
 
 Provides unified access to real-world datasets for benchmarking:
+- ADRepository: 21+ real-world anomaly detection datasets (fraud, backdoor, thyroid, etc.)
 - Time-Series: NAB, SMD, SMAP/MSL (standard anomaly detection benchmarks)
 - Medical: MIMIC-III, MIMIC-IV, PhysioNet (credentialed access)
 - Space: SETI signal archives, NASA exoplanet data
 - Environmental: USGS earthquake API, NOAA storm events, NASA FIRMS
 - Security: NSL-KDD, CICIDS-2017 network intrusion
 
+Quick Start:
+    >>> from omni_mercury_engine.datasets import load_dataset, list_available_datasets
+    >>> print(list_available_datasets())  # See all ADRepository datasets
+    >>> X, y, meta = load_dataset('fraud')  # Load credit card fraud dataset
+
 All loaders follow official source licensing requirements.
 """
 
+from .adrepository import (
+    ADREPOSITORY_DATASETS,
+    ADRepositoryLoader,
+    list_available_datasets,
+    load_dataset,
+)
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, DatasetSplit
 from .benchmarks import BenchmarkResult, RealWorldBenchmarkSuite
 from .environmental import NOAAWeatherLoader, USGSEarthquakeLoader, WildfireDataLoader
@@ -44,6 +56,8 @@ from .timeseries import NABLoader, SMAPMSLLoader, SMDLoader
 from .ucr_archive import CWRUBearingLoader, MBALoader, MSDSLoader, UCRLoader
 
 __all__ = [
+    "ADREPOSITORY_DATASETS",
+    "ADRepositoryLoader",
     "BATADALLoader",
     "BenchmarkResult",
     "CICIDSLoader",
@@ -73,4 +87,6 @@ __all__ = [
     "USGSEarthquakeLoader",
     "WADILoader",
     "WildfireDataLoader",
+    "list_available_datasets",
+    "load_dataset",
 ]
