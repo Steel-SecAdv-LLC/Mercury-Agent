@@ -218,9 +218,9 @@ class NSLKDDLoader(DatasetLoader):
 
                 logger.info(f"Downloading NSL-KDD {split} from GitHub...")
 
-                with urllib.request.urlopen(
+                with urllib.request.urlopen(  # noqa: S310  # nosec B310
                     url, timeout=120
-                ) as response:  # noqa: S310  # nosec B310
+                ) as response:
                     content = response.read().decode("utf-8")
 
                 # Parse CSV (no header in file)
