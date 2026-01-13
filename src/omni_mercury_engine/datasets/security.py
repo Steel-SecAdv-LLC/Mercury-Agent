@@ -12,12 +12,23 @@ References:
 
 from __future__ import annotations
 
+import io
 import logging
+import zipfile
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+try:
+    import pandas as pd
+
+    PANDAS_AVAILABLE = True
+except ImportError:
+    pd = None
+    PANDAS_AVAILABLE = False
+
+from .base import DatasetConfig, DatasetLoader, DatasetRegistry, safe_urlretrieve
 
 logger = logging.getLogger(__name__)
 
@@ -260,12 +271,17 @@ class NSLKDDLoader(DatasetLoader):
 
 class CICIDSLoader(DatasetLoader):
     """
-    CICIDS 2017/2018 Network Intrusion Detection Dataset Loader.
+    CICIDS 2017 Network Intrusion Detection Dataset Loader.
 
-    Modern intrusion dataset with:
-    - Realistic network traffic
+    Modern intrusion dataset (2017) with REAL network traffic containing:
+    - ~2.8M labeled network flows
+    - 80 features per flow
     - Multiple attack types (DDoS, Brute Force, SQL Injection, etc.)
-    - Labeled flows
+
+    Data sources (in order of preference):
+    1. Hugging Face: bvk/CICIDS-2017 (most reliable)
+    2. Distrinet: Improved/corrected version
+    3. Official CIC: http://205.174.165.80 (often unreliable)
 
     Reference: https://www.unb.ca/cic/datasets/ids-2017.html
     """
@@ -278,198 +294,580 @@ class CICIDSLoader(DatasetLoader):
     ICISSP. 2018."""
     REQUIRES_CREDENTIALS = False
 
-    FEATURE_NAMES = [
-        "flow_duration",
-        "total_fwd_packets",
-        "total_bwd_packets",
-        "total_length_fwd_packets",
-        "total_length_bwd_packets",
-        "fwd_packet_length_max",
-        "fwd_packet_length_min",
-        "fwd_packet_length_mean",
-        "bwd_packet_length_max",
-        "bwd_packet_length_min",
-        "bwd_packet_length_mean",
-        "flow_bytes_per_s",
-        "flow_packets_per_s",
-        "flow_iat_mean",
-        "flow_iat_std",
-        "fwd_iat_total",
-        "fwd_iat_mean",
-        "bwd_iat_total",
-        "bwd_iat_mean",
-        "fwd_psh_flags",
-        "bwd_psh_flags",
-        "fwd_urg_flags",
-        "bwd_urg_flags",
-        "fwd_header_length",
-        "bwd_header_length",
-        "fwd_packets_per_s",
-        "bwd_packets_per_s",
-        "min_packet_length",
-        "max_packet_length",
-        "packet_length_mean",
-        "packet_length_std",
-        "packet_length_variance",
-        "fin_flag_count",
-        "syn_flag_count",
-        "rst_flag_count",
-        "psh_flag_count",
-        "ack_flag_count",
-        "urg_flag_count",
-        "cwe_flag_count",
-        "ece_flag_count",
-        "down_up_ratio",
-        "avg_packet_size",
-        "avg_fwd_segment_size",
-        "avg_bwd_segment_size",
-        "fwd_header_length_1",
-        "fwd_avg_bytes_per_bulk",
-        "fwd_avg_packets_per_bulk",
-        "fwd_avg_bulk_rate",
-        "bwd_avg_bytes_per_bulk",
-        "bwd_avg_packets_per_bulk",
-        "bwd_avg_bulk_rate",
-        "subflow_fwd_packets",
-        "subflow_fwd_bytes",
-        "subflow_bwd_packets",
-        "subflow_bwd_bytes",
-        "init_win_bytes_fwd",
-        "init_win_bytes_bwd",
-        "act_data_pkt_fwd",
-        "min_seg_size_forward",
-        "active_mean",
-        "active_std",
-        "active_max",
-        "active_min",
-        "idle_mean",
-        "idle_std",
-        "idle_max",
-        "idle_min",
-    ]
+    # CSV file names from the official CICIDS 2017 release
+    CICIDS_FILES = {
+        "ddos": "Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv",
+        "portscan": "Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
+        "friday_morning": "Friday-WorkingHours-Morning.pcap_ISCX.csv",
+        "infiltration": "Thursday-WorkingHours-Afternoon-Infilteration.pcap_ISCX.csv",
+        "webattacks": "Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv",
+        "tuesday": "Tuesday-WorkingHours.pcap_ISCX.csv",
+        "wednesday": "Wednesday-workingHours.pcap_ISCX.csv",
+        "monday": "Monday-WorkingHours.pcap_ISCX.csv",
+        "all": None,  # Downloads and combines all files
+    }
 
-    ATTACK_TYPES = [
-        "benign",
-        "ddos",
-        "dos_hulk",
-        "dos_slowhttptest",
-        "dos_slowloris",
-        "dos_goldeneye",
-        "ftp_patator",
-        "ssh_patator",
-        "heartbleed",
-        "web_attack_brute_force",
-        "web_attack_xss",
-        "web_attack_sql_injection",
-        "infiltration",
-        "bot",
-        "portscan",
-    ]
+    # Data source URLs (in priority order)
+    DATA_SOURCES = {
+        "huggingface": {
+            "name": "Hugging Face",
+            "dataset_id": "bvk/CICIDS-2017",
+            "requires_lib": True,
+        },
+        "distrinet": {
+            "name": "Distrinet (Improved)",
+            "url": "https://intrusion-detection.distrinet-research.be/Dataset/dataset.zip",
+            "format": "zip",
+        },
+        "cic_official": {
+            "name": "CIC Official",
+            "url": "http://205.174.165.80/CICDataset/CIC-IDS-2017/Dataset/MachineLearningCSV.zip",
+            "format": "zip",
+        },
+    }
+
+    # Label encoding for CICIDS 2017 attack types
+    # Reference: Original dataset documentation
+    ATTACK_LABELS = {
+        "BENIGN": 0,
+        "DDoS": 1,
+        "PortScan": 2,
+        "Bot": 3,
+        "Infiltration": 4,
+        "Web Attack \x96 Brute Force": 5,  # Unicode dash in original
+        "Web Attack – Brute Force": 5,
+        "Web Attack - Brute Force": 5,
+        "Web Attack \x96 XSS": 6,
+        "Web Attack – XSS": 6,
+        "Web Attack - XSS": 6,
+        "Web Attack \x96 Sql Injection": 7,
+        "Web Attack – Sql Injection": 7,
+        "Web Attack - Sql Injection": 7,
+        "FTP-Patator": 8,
+        "SSH-Patator": 9,
+        "DoS slowloris": 10,
+        "DoS Slowhttptest": 11,
+        "DoS Hulk": 12,
+        "DoS GoldenEye": 13,
+        "Heartbleed": 14,
+    }
+
+    # For binary classification
+    BINARY_LABEL_MAP = {
+        "BENIGN": 0,
+        # All attacks map to 1
+    }
 
     def __init__(self, config: DatasetConfig) -> None:
+        """Initialize CICIDS loader.
+
+        Args:
+            config: Dataset configuration. Preprocessing options:
+                - binary (bool): Use binary classification (default True)
+                - subset (str): Load specific subset ('ddos', 'portscan', etc.)
+        """
         super().__init__(config)
+        self.binary_labels = config.preprocessing.get("binary", True)
+        self.subset = config.preprocessing.get("subset", "all")
+        self._features: np.ndarray | None = None
+        self._labels: np.ndarray | None = None
+        self._is_real_data = False
+        self._label_names: list[str] = []
+
+    @property
+    def is_real_data(self) -> bool:
+        """Return True if real data was loaded (not synthetic fallback)."""
+        return self._is_real_data
 
     def download(self) -> bool:
-        return self._create_synthetic_cicids()
+        """
+        Download CICIDS 2017 dataset from available sources.
 
-    def _create_synthetic_cicids(self) -> bool:
-        """Create synthetic CICIDS-like data."""
+        Tries sources in order:
+        1. Hugging Face datasets (if library available)
+        2. Distrinet improved version
+        3. Official CIC server
+        4. Falls back to synthetic with WARNING
+
+        Returns:
+            True if download successful, False otherwise.
+        """
+        # Try each source in priority order
+        for source_id, source_info in self.DATA_SOURCES.items():
+            try:
+                if source_id == "huggingface":
+                    if self._download_from_huggingface():
+                        return True
+                else:
+                    if self._download_from_url(source_info):
+                        return True
+            except Exception as e:
+                logger.warning(f"Failed to download from {source_info['name']}: {e}")
+                continue
+
+        # All sources failed - fall back to synthetic with WARNING
+        logger.warning(
+            "CICIDS 2017: All download sources failed. "
+            "Falling back to SYNTHETIC data. Results will NOT reflect real-world performance."
+        )
+        return self._create_synthetic_fallback()
+
+    def _download_from_huggingface(self) -> bool:
+        """Download CICIDS 2017 from Hugging Face datasets."""
+        try:
+            from datasets import load_dataset
+        except ImportError:
+            logger.info("Hugging Face 'datasets' library not available")
+            return False
+
+        dataset_dir = self.data_path
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        cache_file = dataset_dir / "cicids_huggingface.npz"
+
+        if cache_file.exists():
+            logger.info(f"CICIDS data already cached at {cache_file}")
+            self._is_real_data = True
+            return True
+
+        try:
+            logger.info("Downloading CICIDS 2017 from Hugging Face (bvk/CICIDS-2017)...")
+            dataset = load_dataset("bvk/CICIDS-2017", split="train")
+
+            # Convert to pandas for processing
+            df = dataset.to_pandas()
+            logger.info(f"Downloaded {len(df)} records from Hugging Face")
+
+            # Clean and process the data
+            features, labels = self._process_cicids_dataframe(df)
+
+            # Save to cache
+            np.savez_compressed(cache_file, features=features, labels=labels)
+            self._features = features
+            self._labels = labels
+            self._is_real_data = True
+
+            logger.info(
+                f"CICIDS 2017 loaded from Hugging Face: {len(features)} samples, "
+                f"{(labels > 0).sum() if self.binary_labels else len(np.unique(labels))} "
+                f"{'attacks' if self.binary_labels else 'classes'}"
+            )
+            return True
+
+        except Exception as e:
+            logger.warning(f"Hugging Face download failed: {e}")
+            return False
+
+    def _download_from_url(self, source_info: dict[str, Any]) -> bool:
+        """Download CICIDS from a direct URL source."""
+        if not PANDAS_AVAILABLE:
+            logger.warning("pandas required for CICIDS CSV processing")
+            return False
+
+        dataset_dir = self.data_path
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+
+        url = source_info["url"]
+        source_name = source_info["name"]
+        file_format = source_info.get("format", "zip")
+
+        local_file = dataset_dir / f"cicids_{source_name.lower().replace(' ', '_')}.{file_format}"
+        cache_file = dataset_dir / f"cicids_{source_name.lower().replace(' ', '_')}.npz"
+
+        if cache_file.exists():
+            logger.info(f"CICIDS data already cached at {cache_file}")
+            self._is_real_data = True
+            return True
+
+        try:
+            logger.info(f"Downloading CICIDS 2017 from {source_name}: {url}")
+
+            # Download with timeout
+            import urllib.request
+            from urllib.parse import urlparse
+
+            parsed = urlparse(url)
+            if parsed.scheme not in ("http", "https"):
+                raise ValueError(f"Invalid URL scheme: {parsed.scheme}")
+
+            # Use longer timeout for large files
+            with urllib.request.urlopen(url, timeout=300) as response:  # noqa: S310
+                content = response.read()
+
+            # Process based on format
+            if file_format == "zip":
+                dfs = []
+                with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                    for name in zf.namelist():
+                        if name.endswith(".csv"):
+                            logger.info(f"  Processing: {name}")
+                            with zf.open(name) as f:
+                                df = pd.read_csv(f, encoding="utf-8", low_memory=False)
+                                dfs.append(df)
+
+                if not dfs:
+                    raise ValueError("No CSV files found in archive")
+
+                combined_df = pd.concat(dfs, ignore_index=True)
+            else:
+                combined_df = pd.read_csv(io.BytesIO(content), encoding="utf-8", low_memory=False)
+
+            logger.info(f"Downloaded {len(combined_df)} records from {source_name}")
+
+            # Clean and process
+            features, labels = self._process_cicids_dataframe(combined_df)
+
+            # Save to cache
+            np.savez_compressed(cache_file, features=features, labels=labels)
+            self._features = features
+            self._labels = labels
+            self._is_real_data = True
+
+            logger.info(
+                f"CICIDS 2017 loaded from {source_name}: {len(features)} samples, "
+                f"{(labels > 0).sum() if self.binary_labels else len(np.unique(labels))} "
+                f"{'attacks' if self.binary_labels else 'classes'}"
+            )
+            return True
+
+        except Exception as e:
+            logger.warning(f"{source_name} download failed: {e}")
+            return False
+
+    def _process_cicids_dataframe(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+        """Process CICIDS dataframe: clean data and encode labels.
+
+        Args:
+            df: Raw CICIDS dataframe with features and label column
+
+        Returns:
+            Tuple of (features, labels) numpy arrays
+        """
+        # Standardize column names (strip whitespace, handle variations)
+        df.columns = df.columns.str.strip()
+
+        # Find label column (various names used in different versions)
+        label_col = None
+        for col_name in ["Label", " Label", "label", "LABEL"]:
+            if col_name in df.columns:
+                label_col = col_name
+                break
+
+        if label_col is None:
+            raise ValueError(f"Label column not found. Columns: {list(df.columns)}")
+
+        # Separate features and labels
+        labels_raw = df[label_col].str.strip()
+        features_df = df.drop(columns=[label_col])
+
+        # Remove non-numeric columns (IP addresses, timestamps, etc.)
+        non_numeric_cols = []
+        for col in features_df.columns:
+            if features_df[col].dtype == object:
+                try:
+                    pd.to_numeric(features_df[col], errors="raise")
+                except (ValueError, TypeError):
+                    non_numeric_cols.append(col)
+
+        if non_numeric_cols:
+            logger.info(f"Dropping non-numeric columns: {non_numeric_cols}")
+            features_df = features_df.drop(columns=non_numeric_cols)
+
+        # Clean the data
+        features_df = self._clean_cicids_data(features_df)
+
+        # Encode labels
+        if self.binary_labels:
+            # Binary: 0 = BENIGN, 1 = any attack
+            labels = np.array(
+                [0 if label == "BENIGN" else 1 for label in labels_raw], dtype=np.int64
+            )
+        else:
+            # Multi-class encoding
+            labels = np.array(
+                [self._encode_label(label) for label in labels_raw], dtype=np.int64
+            )
+
+        # Store unique label names for metadata
+        self._label_names = list(labels_raw.unique())
+
+        features = features_df.values.astype(np.float32)
+
+        # Apply max_samples limit if specified
+        if self.config.max_samples and len(features) > self.config.max_samples:
+            np.random.seed(self.config.random_seed)
+            indices = np.random.choice(len(features), self.config.max_samples, replace=False)
+            features = features[indices]
+            labels = labels[indices]
+
+        return features, labels
+
+    def _clean_cicids_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Clean CICIDS data: handle infinity, NaN, and negative values.
+
+        CICIDS 2017 has known data quality issues:
+        - Infinity values in flow rate features
+        - Negative values in duration columns
+        - NaN values from division by zero
+
+        Args:
+            df: Features dataframe
+
+        Returns:
+            Cleaned dataframe
+        """
+        # Convert all to numeric, coercing errors
+        for col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        # Replace infinity values with NaN
+        df = df.replace([np.inf, -np.inf], np.nan)
+
+        # Clip negative durations to 0
+        duration_cols = [col for col in df.columns if "duration" in col.lower()]
+        for col in duration_cols:
+            if col in df.columns:
+                df[col] = df[col].clip(lower=0)
+
+        # Drop rows with NaN values (alternative: impute with median)
+        n_before = len(df)
+        df = df.dropna()
+        n_after = len(df)
+
+        if n_before > n_after:
+            logger.info(f"Dropped {n_before - n_after} rows with NaN/inf values")
+
+        return df
+
+    def _encode_label(self, label: str) -> int:
+        """Encode a label string to integer.
+
+        Args:
+            label: Attack type string (e.g., 'BENIGN', 'DDoS')
+
+        Returns:
+            Integer label code
+        """
+        label = label.strip()
+
+        # Direct lookup
+        if label in self.ATTACK_LABELS:
+            return self.ATTACK_LABELS[label]
+
+        # Handle variations with different dashes/encoding
+        label_lower = label.lower()
+        for known_label, code in self.ATTACK_LABELS.items():
+            if known_label.lower() == label_lower:
+                return code
+
+        # Unknown attack type - log and assign to generic "other"
+        logger.warning(f"Unknown attack type: '{label}' - assigning code 15")
+        return 15
+
+    def _create_synthetic_fallback(self) -> bool:
+        """Create synthetic CICIDS-like data as fallback.
+
+        This is a FALLBACK ONLY when real data cannot be downloaded.
+        Results from synthetic data do NOT reflect real-world performance.
+        """
+        logger.warning(
+            "Creating SYNTHETIC CICIDS approximation. "
+            "Results will NOT reflect real-world performance on actual network traffic."
+        )
+
         np.random.seed(self.config.random_seed)
         n_samples = self.config.max_samples or 10000
 
+        # Use 78 features (typical CICIDS feature count after cleaning)
+        n_features = 78
+
+        # Generate features
         features = []
         labels = []
 
-        for _i in range(n_samples):
+        # Attack distribution approximating real CICIDS
+        attack_probs = {
+            "benign": 0.80,  # CICIDS is heavily imbalanced
+            "ddos": 0.05,
+            "portscan": 0.05,
+            "dos": 0.04,
+            "patator": 0.02,
+            "webattack": 0.02,
+            "infiltration": 0.01,
+            "bot": 0.01,
+        }
+
+        for _ in range(n_samples):
             attack_type = np.random.choice(
-                self.ATTACK_TYPES,
-                p=[
-                    0.5,
-                    0.1,
-                    0.05,
-                    0.05,
-                    0.05,
-                    0.03,
-                    0.03,
-                    0.03,
-                    0.01,
-                    0.03,
-                    0.02,
-                    0.02,
-                    0.02,
-                    0.03,
-                    0.03,
-                ],
+                list(attack_probs.keys()), p=list(attack_probs.values())
             )
 
-            params = self._generate_flow(attack_type)
-            feature_vec = [params.get(f, 0) for f in self.FEATURE_NAMES]
+            # Generate features based on attack type
+            if attack_type == "benign":
+                feature_vec = self._generate_benign_flow(n_features)
+            elif attack_type in ["ddos", "dos"]:
+                feature_vec = self._generate_dos_flow(n_features)
+            elif attack_type == "portscan":
+                feature_vec = self._generate_portscan_flow(n_features)
+            else:
+                feature_vec = self._generate_attack_flow(n_features)
+
             features.append(feature_vec)
             labels.append(0 if attack_type == "benign" else 1)
 
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+        self._features = np.array(features, dtype=np.float32)
+        self._labels = np.array(labels, dtype=np.int64)
+        self._is_real_data = False
 
         save_path = self.data_path / "synthetic_cicids.npz"
-        np.savez_compressed(save_path, features=features, labels=labels)
+        np.savez_compressed(save_path, features=self._features, labels=self._labels)
 
-        logger.info(f"Generated {n_samples} CICIDS samples, {labels.sum()} attacks")
+        logger.info(
+            f"Generated SYNTHETIC {n_samples} CICIDS samples, "
+            f"{self._labels.sum()} attacks (is_real_data=False)"
+        )
         return True
 
-    def _generate_flow(self, attack_type: str) -> dict[str, Any]:
-        """Generate network flow features based on attack type."""
-        base = {
-            "flow_duration": np.random.exponential(10000),
-            "total_fwd_packets": np.random.poisson(10),
-            "total_bwd_packets": np.random.poisson(8),
-            "total_length_fwd_packets": np.random.exponential(1000),
-            "total_length_bwd_packets": np.random.exponential(800),
-            "fwd_packet_length_max": np.random.exponential(1400),
-            "fwd_packet_length_min": np.random.exponential(40),
-            "fwd_packet_length_mean": np.random.exponential(500),
-            "bwd_packet_length_max": np.random.exponential(1400),
-            "bwd_packet_length_min": np.random.exponential(40),
-            "bwd_packet_length_mean": np.random.exponential(400),
-            "flow_bytes_per_s": np.random.exponential(10000),
-            "flow_packets_per_s": np.random.exponential(100),
-            "flow_iat_mean": np.random.exponential(1000),
-            "flow_iat_std": np.random.exponential(500),
-            "syn_flag_count": np.random.poisson(1),
-            "fin_flag_count": np.random.poisson(1),
-            "ack_flag_count": np.random.poisson(5),
-            "rst_flag_count": 0,
-        }
+    def _generate_benign_flow(self, n_features: int) -> np.ndarray:
+        """Generate synthetic benign network flow features."""
+        flow = np.zeros(n_features)
+        # Typical benign traffic characteristics
+        flow[0] = np.random.exponential(10000)  # Flow duration
+        flow[1] = np.random.poisson(10)  # Fwd packets
+        flow[2] = np.random.poisson(8)  # Bwd packets
+        flow[3] = np.random.exponential(1000)  # Fwd bytes
+        flow[4] = np.random.exponential(800)  # Bwd bytes
+        # Random noise for remaining features
+        flow[5:] = np.random.exponential(100, n_features - 5)
+        return flow
 
-        # Attack-specific modifications
-        if attack_type.startswith("ddos") or attack_type.startswith("dos"):
-            base["flow_packets_per_s"] *= 100
-            base["total_fwd_packets"] *= 50
-            base["syn_flag_count"] *= 10
+    def _generate_dos_flow(self, n_features: int) -> np.ndarray:
+        """Generate synthetic DoS attack flow features."""
+        flow = self._generate_benign_flow(n_features)
+        # DoS characteristics: high packet rate, short flows
+        flow[0] = np.random.exponential(100)  # Short duration
+        flow[1] = np.random.poisson(500)  # Many fwd packets
+        flow[11] = np.random.exponential(100000)  # High bytes/sec
+        flow[12] = np.random.exponential(10000)  # High packets/sec
+        return flow
 
-        elif attack_type in ["ftp_patator", "ssh_patator"]:
-            base["total_fwd_packets"] = np.random.poisson(50)
-            base["rst_flag_count"] = np.random.poisson(20)
+    def _generate_portscan_flow(self, n_features: int) -> np.ndarray:
+        """Generate synthetic port scan flow features."""
+        flow = self._generate_benign_flow(n_features)
+        # Port scan: very short flows, mostly SYN
+        flow[0] = np.random.exponential(10)  # Very short duration
+        flow[1] = 1  # Usually 1-2 packets
+        flow[2] = 0  # No response
+        flow[33] = 1  # SYN flag
+        return flow
 
-        elif attack_type == "portscan":
-            base["syn_flag_count"] *= 100
-            base["rst_flag_count"] *= 50
-            base["flow_duration"] = np.random.exponential(100)
-
-        return base
+    def _generate_attack_flow(self, n_features: int) -> np.ndarray:
+        """Generate generic attack flow features."""
+        flow = self._generate_benign_flow(n_features)
+        # Anomalous characteristics
+        flow *= np.random.uniform(0.5, 2.0, n_features)
+        flow[np.random.choice(n_features, 5)] *= 10  # Some features spiked
+        return flow
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        synthetic_path = self.data_path / "synthetic_cicids.npz"
-        if synthetic_path.exists():
-            data = np.load(synthetic_path)
-            return data["features"], data["labels"]
-        raise FileNotFoundError("CICIDS data not found")
+        """Load raw CICIDS data from cached files."""
+        # Check for cached processed data
+        for cache_name in [
+            "cicids_huggingface.npz",
+            "cicids_distrinet_(improved).npz",
+            "cicids_cic_official.npz",
+            "synthetic_cicids.npz",
+        ]:
+            cache_path = self.data_path / cache_name
+            if cache_path.exists():
+                data = np.load(cache_path)
+                self._features = data["features"]
+                self._labels = data["labels"]
+                self._is_real_data = "synthetic" not in cache_name
+                logger.info(
+                    f"Loaded CICIDS from {cache_name} "
+                    f"(is_real_data={self._is_real_data})"
+                )
+                return self._features, self._labels
+
+        raise FileNotFoundError("CICIDS data not found. Run download() first.")
+
+    def load_data(self) -> tuple[np.ndarray, np.ndarray]:
+        """Load CICIDS dataset features and labels.
+
+        This is the main entry point for loading the dataset.
+        Automatically downloads if not present.
+
+        Returns:
+            Tuple of (features, labels) numpy arrays
+        """
+        if self._features is not None and self._labels is not None:
+            return self._features, self._labels
+
+        try:
+            return self._load_raw()
+        except FileNotFoundError:
+            self.download()
+            return self._load_raw()
 
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Preprocess network flow features."""
+        """Preprocess network flow features.
+
+        Applied transformations:
+        1. Replace remaining inf/nan with 0
+        2. Log1p transform (handles high-variance features)
+        3. Z-score normalization
+        """
+        # Handle any remaining problematic values
         data = np.nan_to_num(data, nan=0.0, posinf=1e10, neginf=0)
+
+        # Log transform for high-variance network features
         data = np.log1p(np.abs(data))
-        data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)
+
+        # Z-score normalization
+        mean = data.mean(axis=0)
+        std = data.std(axis=0) + 1e-8
+        data = (data - mean) / std
+
         return data.astype(np.float32)
+
+    def get_metadata(self) -> dict[str, Any]:
+        """Get dataset metadata."""
+        if self._features is None:
+            self.load_data()
+
+        return {
+            "name": "CICIDS 2017",
+            "source": "Canadian Institute for Cybersecurity",
+            "n_samples": len(self._features) if self._features is not None else 0,
+            "n_features": self._features.shape[1] if self._features is not None else 0,
+            "n_classes": 2 if self.binary_labels else len(self.ATTACK_LABELS),
+            "label_type": "binary" if self.binary_labels else "multiclass",
+            "attack_types": self._label_names if self._label_names else list(self.ATTACK_LABELS.keys()),
+            "is_real_data": self._is_real_data,
+            "url": self.DATASET_URL,
+            "citation": self.CITATION,
+        }
+
+    def get_statistics(self) -> dict[str, Any]:
+        """Get statistics about loaded data."""
+        if self._features is None:
+            self.load_data()
+
+        labels = self._labels
+        features = self._features
+
+        return {
+            "n_samples": len(features),
+            "n_features": features.shape[1],
+            "n_attacks": int((labels > 0).sum()) if self.binary_labels else None,
+            "attack_ratio": float((labels > 0).mean()) if self.binary_labels else None,
+            "class_distribution": {
+                str(k): int(v) for k, v in zip(*np.unique(labels, return_counts=True))
+            },
+            "feature_mean": float(features.mean()),
+            "feature_std": float(features.std()),
+            "is_real_data": self._is_real_data,
+        }
 
 
 class ThreatIntelLoader(DatasetLoader):
