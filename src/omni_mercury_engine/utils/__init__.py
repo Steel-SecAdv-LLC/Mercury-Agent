@@ -50,6 +50,7 @@ from omni_mercury_engine.utils.constants import (
 )
 from omni_mercury_engine.utils.logging import (
     ColoredFormatter,
+    LoggerMixin,
     PerformanceLogger,
     StructuredFormatter,
     configure_logging,
@@ -357,6 +358,7 @@ __all__ = [
     "get_global_rng",
     # Logging utilities
     "get_logger",
+    "LoggerMixin",
     "get_rng_registry",
     "get_thread_local_rng",
     "gravitational_lensing",

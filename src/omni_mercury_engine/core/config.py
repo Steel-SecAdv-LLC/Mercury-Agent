@@ -463,11 +463,24 @@ class ConfigurationManager:
 
 
 # Global configuration manager instance
+# Thread Safety: This singleton uses lazy initialization. While the initial creation
+# is not thread-safe (potential race condition on first access from multiple threads),
+# subsequent accesses return the same instance. For production use with multiple threads,
+# call get_config_manager() once during application startup before spawning threads.
 _config_manager: ConfigurationManager | None = None
 
 
 def get_config_manager() -> ConfigurationManager:
-    """Get the global configuration manager."""
+    """Get the global configuration manager singleton.
+
+    Note:
+        This function uses lazy initialization. For thread-safe initialization
+        in multi-threaded applications, call this once during startup before
+        creating worker threads.
+
+    Returns:
+        The global ConfigurationManager instance.
+    """
     global _config_manager
     if _config_manager is None:
         _config_manager = ConfigurationManager()

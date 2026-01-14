@@ -1134,7 +1134,8 @@ class OmniMercuryEngine:
                 detector_features[name] = features
                 scores = result.get("scores", result.get("is_anomaly", 0))
                 detector_scores[name] = self._normalize_scores(scores, features.shape[0])
-            except Exception:
+            except (ValueError, TypeError, RuntimeError, KeyError) as e:
+                logger.debug(f"Detector {name} feature extraction failed: {e}")
                 continue
 
         return detector_features, detector_scores
@@ -1181,7 +1182,8 @@ class OmniMercuryEngine:
                 model_features[name] = features
                 scores = prediction.get("anomaly_scores", 0)
                 model_scores[name] = self._normalize_scores(scores, features.shape[0])
-            except Exception:
+            except (ValueError, TypeError, RuntimeError, KeyError) as e:
+                logger.debug(f"Model {name} feature extraction failed: {e}")
                 continue
 
         return model_features, model_scores

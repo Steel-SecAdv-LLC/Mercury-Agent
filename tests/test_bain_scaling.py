@@ -87,6 +87,7 @@ class TestBainAIScaling:
         )
 
         assert power > 0
+        assert power > 100.0  # Reasonable minimum for 1B param model
         assert power <= scaler.max_power_watts
 
     def test_estimate_power_consumption_large_model(self):
