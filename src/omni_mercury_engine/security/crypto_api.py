@@ -224,9 +224,16 @@ class Ed25519Provider:
             pub_key = Ed25519PublicKey.from_public_bytes(public_key)
             pub_key.verify(signature, message)
             return True
-        except (InvalidSignature, ValueError, TypeError) as e:
+        except (ValueError, TypeError) as e:
             logger.debug(f"Ed25519 verification failed: {type(e).__name__}")
             return False
+        except Exception as e:
+            # Handle InvalidSignature and other cryptography-specific exceptions
+            # InvalidSignature is only available when cryptography is installed
+            if InvalidSignature is not None and isinstance(e, InvalidSignature):
+                logger.debug(f"Ed25519 verification failed: {type(e).__name__}")
+                return False
+            raise
 
 
 class MLDSAProvider:
