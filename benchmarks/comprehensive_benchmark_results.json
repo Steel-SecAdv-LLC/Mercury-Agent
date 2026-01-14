@@ -1,29 +1,29 @@
 {
-  "timestamp": "2025-12-08 02:35:13 UTC",
+  "timestamp": "2026-01-14 05:32:53 UTC",
   "benchmarks": {
     "module_instantiation": {
-      "1_module_ms": 0.03218650817871094,
-      "5_modules_ms": 0.12040138244628906,
-      "all_modules_ms": 0.1780986785888672,
+      "1_module_ms": 0.02002716064453125,
+      "5_modules_ms": 0.10848045349121094,
+      "all_modules_ms": 0.05650520324707031,
       "module_count": 12
     },
     "space_exploration": {
-      "runtime_ms": 0.27942657470703125,
-      "throughput_samples_per_sec": 2147254.6075085322,
+      "runtime_ms": 0.20551681518554688,
+      "throughput_samples_per_sec": 2919469.1415313226,
       "anomaly_detected": true,
       "severity": "low",
       "data_source": "synthetic_orbit"
     },
     "simulation": {
-      "collatz_exploration_ms": 106.55379295349121,
-      "collatz_cases_per_sec": 46924.65525072776,
-      "millennium_analysis_ms": 0.01811981201171875,
-      "multiverse_prediction_ms": 4.54258918762207,
-      "prediction_throughput_samples_per_sec": 22013.877079724978
+      "collatz_exploration_ms": 67.07406044006348,
+      "collatz_cases_per_sec": 74544.46573229208,
+      "millennium_analysis_ms": 0.02956390380859375,
+      "multiverse_prediction_ms": 6.221771240234375,
+      "prediction_throughput_samples_per_sec": 16072.593500919682
     },
     "cosmic_ray": {
-      "runtime_ms": 0.31685829162597656,
-      "throughput_samples_per_sec": 3155984.951091046,
+      "runtime_ms": 0.32448768615722656,
+      "throughput_samples_per_sec": 3081781.0433504777,
       "precision": 1.0,
       "recall": 0.85,
       "f1": 0.918918918918919,
@@ -31,6 +31,32 @@
       "expected_anomalies": 100,
       "severity": "critical",
       "data_source": "synthetic_labeled"
+    },
+    "nsl_kdd": {
+      "dataset": "NSL-KDD",
+      "domain": "security",
+      "num_samples": 10000,
+      "num_features": 41,
+      "precision": 0.19215491559086395,
+      "recall": 0.1935,
+      "f1": 0.19282511210762332,
+      "roc_auc": 0.5017553124999999,
+      "runtime_seconds": 1.7767176628112793,
+      "data_source": "synthetic-fallback",
+      "bias_metrics": {}
+    },
+    "mimic_demo": {
+      "dataset": "MIMIC-III Demo",
+      "domain": "medical",
+      "num_samples": 1000,
+      "num_features": 30,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "roc_auc": 1.0,
+      "runtime_seconds": 0.8237414360046387,
+      "data_source": "synthetic-mimic-demo",
+      "bias_metrics": {}
     }
   }
 }
