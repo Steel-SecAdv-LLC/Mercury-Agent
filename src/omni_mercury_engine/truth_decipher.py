@@ -297,7 +297,7 @@ class TruthDecipherFramework:
                         masks[:10] if len(masks) > 10 else masks,
                     )
                     result["novel_classes"] = novel_result.get("discovered_classes", [])
-            except (ValueError, IndexError, RuntimeError) as e:
+            except (ValueError, IndexError, RuntimeError, AttributeError, TypeError) as e:
                 self.logger.debug(f"Novel class discovery failed (non-critical): {e}")
 
         return result
