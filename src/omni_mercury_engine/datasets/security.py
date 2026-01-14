@@ -107,6 +107,9 @@ class NSLKDDLoader(DatasetLoader):
         "difficulty",
     ]
 
+    # Feature names (41 features, excluding label and difficulty columns)
+    FEATURE_NAMES = COLUMN_NAMES[:-2]
+
     # Categorical columns that need encoding
     CATEGORICAL_COLS = ["protocol_type", "service", "flag"]
 
