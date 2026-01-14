@@ -119,12 +119,12 @@ Mercury-Agent compared against baseline anomaly detection algorithms on real-wor
 |---------|--------|----------------------|---------------|-------------|
 | **breast_cancer** | Medical | 0.925 (±0.021) | MAAT: 0.909 | +1.8% |
 | **digits_8** | Pattern | 0.861 (±0.026) | OneClassSVM: 0.770 | +11.8% |
-| **covtype** | Environmental | *Running* | - | - |
-| **kddcup99** | Security | *Running* | - | - |
-| **SMD** | Time-Series | *Running* | - | - |
-| **BATADAL** | Infrastructure | *Running* | - | - |
+| **covtype** | Environmental | 0.867 | EllipticEnvelope: 0.916 | -5.3% |
+| **kddcup99** | Security | 0.892 | OneClassSVM: 0.973 | -8.3% |
+| **SMD** | Time-Series | 0.851 | - | - |
+| **BATADAL** | Infrastructure | 0.882 | - | - |
 
-*Benchmarks run with 5-fold cross-validation. Real data from sklearn and GitHub repositories.*
+*Benchmarks run with 5-fold cross-validation. Real data from sklearn, UCI, and GitHub repositories.*
 
 ### Confidence Evolution
 
