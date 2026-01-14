@@ -397,7 +397,7 @@ output = "coverage.xml"
 # =============================================================================
 [tool.flake8]
 max-line-length = 100
-extend-ignore = ["E203", "W503", "E402", "E501"]
+extend-ignore = ["E203", "W503", "E402", "E501", "E704"]  # E704: Protocol stubs are valid PEP 544
 exclude = [
     ".git",
     "__pycache__",

@@ -8,8 +8,6 @@ Targets coverage improvement for async communication utilities.
 
 from __future__ import annotations
 
-import asyncio
-
 import pytest
 
 from omni_mercury_engine.utils.comm import (

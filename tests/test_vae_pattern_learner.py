@@ -6,7 +6,6 @@ Copyright (C) 2025 Steel Security Advisory LLC
 """
 
 import numpy as np
-import pytest
 import torch
 
 from omni_mercury_engine.ml.vae_pattern_learner import VAE, VAEPatternLearner

@@ -8,7 +8,6 @@ Copyright (C) 2025 Steel Security Advisory LLC
 import time
 
 import numpy as np
-import pytest
 import torch
 
 from omni_mercury_engine.utils.feature_cache import (

@@ -43,8 +43,8 @@
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
-**Version:** v1.1.
-**Date:** 2026-01-09
+**Version:** v1.1.0
+**Date:** 2026-01-14
 **AI Co-Architects:** X ⚛ | Caduceus ⚚ | Dev ⚕
 
 ---
@@ -70,7 +70,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-01-09
+> **Last Updated:** 2026-01-14
 
 ---
 
@@ -97,27 +97,34 @@ Mercury Agent ♱ implements a comprehensive 7-phase cognitive architecture that
 
 The following benchmarks were generated from a 200-epoch training run with the full neuro-symbolic cognitive stack active. All metrics are from actual system execution, not simulated data.
 
-### Benchmark Summary (300 Epochs with weighted fusion Equation)
+### Benchmark Summary (200 Epochs with Neuro-Symbolic Fusion)
 
 | Metric | Value | Description |
 |--------|-------|-------------|
 | **Final Confidence** | 0.999 | Bayesian calibrated confidence score |
 | **Confidence Growth** | +0.239 | Improvement from baseline 0.76 |
-| **Anomaly Detection F1** | 0.92+ | Precision/Recall harmonic mean (weighted fusion) |
-| **Anomaly Precision** | 0.95 | True positive rate |
-| **Anomaly Recall** | 0.89 | Detection coverage |
+| **Anomaly Detection F1** | 0.797 | Precision/Recall harmonic mean |
+| **Anomaly Precision** | 0.879 | True positive rate |
+| **Anomaly Recall** | 0.729 | Detection coverage |
 | **Memory Entries** | 3,300 | Accumulated episodic/semantic memories |
-| **Benevolence Score** | 0.99+ | Ethical alignment metric |
-| **FP Reduction** | 5-15% | False positive reduction vs baseline |
-| **Convergence Speedup** | 1.39x | Lambda 0.25 vs 0.18 baseline |
+| **Benevolence Score** | 0.663 | Ethical alignment metric (base threshold) |
+| **Neural Contribution** | 47.0% | Neural network pattern detection |
+| **Symbolic Contribution** | 53.0% | Symbolic reasoning inference |
 
-### A/B Benchmark Results
+### Empirical Benchmark Results (K-Fold Cross-Validation)
 
-| Comparison | Baseline | weighted fusion | Improvement |
-|------------|----------|----------------|-------------|
-| **σ_Immutable=0.93 vs 0.96** | F1=0.89 | F1=0.92+ | +3-5% |
-| **Standard vs weighted fusion** | F1=0.797 | F1=0.92+ | +15-30% |
-| **Lyapunov λ=0.18 vs 0.25** | Slower | 25% faster | 1.39x speedup |
+Mercury-Agent compared against baseline anomaly detection algorithms on real-world datasets:
+
+| Dataset | Domain | Mercury-Agent ROC-AUC | Best Baseline | Improvement |
+|---------|--------|----------------------|---------------|-------------|
+| **breast_cancer** | Medical | 0.925 (±0.021) | MAAT: 0.909 | +1.8% |
+| **digits_8** | Pattern | 0.861 (±0.026) | OneClassSVM: 0.770 | +11.8% |
+| **covtype** | Environmental | 0.867 | EllipticEnvelope: 0.916 | -5.3% |
+| **kddcup99** | Security | 0.892 | OneClassSVM: 0.973 | -8.3% |
+| **SMD** | Time-Series | 0.851 | - | - |
+| **BATADAL** | Infrastructure | 0.882 | - | - |
+
+*Benchmarks run with 5-fold cross-validation. Real data from sklearn, UCI, and GitHub repositories.*
 
 ### Confidence Evolution
 
@@ -625,13 +632,13 @@ Optimized for both accuracy and interpretability:
 
 | Operation | Latency | Throughput |
 |-----------|---------|------------|
-| Module Instantiation (1) | 0.016ms | 61,680 ops/sec |
-| Module Instantiation (12) | 0.071ms | 14,085 ops/sec |
-| Space Exploration | 0.218ms | 2,756,388 samples/sec |
-| Cosmic Ray Detection | 0.258ms | 3,869,284 samples/sec |
-| Collatz Exploration | 113.3ms | 44,118 cases/sec |
+| Module Instantiation (1) | 0.020ms | 49,932 ops/sec |
+| Module Instantiation (12) | 0.057ms | 17,697 ops/sec |
+| Space Exploration | 0.206ms | 2,919,469 samples/sec |
+| Cosmic Ray Detection | 0.324ms | 3,081,781 samples/sec |
+| Collatz Exploration | 67.07ms | 74,544 cases/sec |
 
-*Benchmarks from `benchmarks/comprehensive_benchmark_results.json`. Results on synthetic data.*
+*Benchmarks from `benchmarks/comprehensive_benchmark_results.json` (2026-01-14). Results on synthetic data.*
 
 ![Performance Comparison](assets/performance_comparison.png)
 
@@ -642,9 +649,9 @@ Optimized for both accuracy and interpretability:
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| Precision | 1.00 | Synthetic cosmic ray data |
-| Recall | 0.85 | Synthetic cosmic ray data |
-| F1 Score | 0.92 | Synthetic cosmic ray data |
+| Precision | 1.000 | Synthetic cosmic ray data |
+| Recall | 0.850 | Synthetic cosmic ray data |
+| F1 Score | 0.919 | Synthetic cosmic ray data |
 
 > **Important:** These metrics are from synthetic benchmarks. Real-world performance requires validation on domain-specific datasets. Expected variance: 20-40%.
 
@@ -1335,7 +1342,7 @@ Mercury Agent ♱ integrates the **Omni-Codes** from [Ava Guardian](https://gith
 | Code | Symbol | Domain | Helical Parameters |
 |------|--------|--------|-------------------|
 | `👁20A07∞_XΔEΛX_ϵ19A89Ϙ` | 👁∞ | Omni-Directional System | r=20.0, p=0.7 |
-| `Ϙ15A11ϵ_ΞΛMΔΞ_ϖ20A19Φ` | Ϙϵ | Omni-Percipient Future | r=15.0, p=1.1 |
+| `Ϙ16A11ϵ_ΞΛMΔΞ_ϖ20A19Φ` | Ϙϵ | Omni-Percipient Future | r=16.0, p=1.1 |
 | `Φ07A09ϖ_ΨΔAΛΨ_ϵ19A88Σ` | Φϖ | Omni-Indivisible Guardian | r=7.0, p=0.9 |
 | `Σ19L12ϵ_ΞΛEΔΞ_ϖ19A92Ω` | Σϵ | Omni-Benevolent Stone | r=19.0, p=1.2 |
 | `Ω20V11ϖ_ΨΔSΛΨ_ϵ20A15Θ` | Ωϖ | Omni-Scient Curiosity | r=20.0, p=1.1 |
@@ -1551,6 +1558,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 </div>
 
-*Last updated: 2026-01-08*
+*Last updated: 2026-01-14*
 
 </div>

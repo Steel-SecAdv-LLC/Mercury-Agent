@@ -14,7 +14,6 @@ This module tests:
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from omni_mercury_engine.core.config import EngineConfig
 from omni_mercury_engine.engine import OmniMercuryEngine
