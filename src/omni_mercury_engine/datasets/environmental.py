@@ -129,7 +129,7 @@ class USGSEarthquakeLoader(DatasetLoader):
             req = urllib.request.Request(  # noqa: S310
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
-            with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310
+            with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310  # nosec B310
                 data = json.loads(response.read().decode("utf-8"))
 
             features_list = data.get("features", [])
@@ -415,7 +415,9 @@ class NOAAWeatherLoader(DatasetLoader):
                 req = urllib.request.Request(  # noqa: S310
                     url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
                 )
-                with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310
+                with urllib.request.urlopen(
+                    req, timeout=60
+                ) as response:  # noqa: S310  # nosec B310
                     data = json.loads(response.read().decode("utf-8"))
 
                 hourly = data.get("hourly", {})
@@ -627,7 +629,7 @@ class WildfireDataLoader(DatasetLoader):
             req = urllib.request.Request(  # noqa: S310
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
-            with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310
+            with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310  # nosec B310
                 content = response.read().decode("utf-8")
 
             # Parse CSV

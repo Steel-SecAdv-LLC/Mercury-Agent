@@ -259,7 +259,7 @@ class NASAExoplanetLoader(DatasetLoader):
             # Build TAP/ADQL query
             columns = ",".join(self.TAP_COLUMNS.values())
             limit = min(self.config.max_samples or 5000, 5000)
-            query = f"select top {limit} {columns} from ps where pl_rade is not null"  # noqa: S608
+            query = f"select top {limit} {columns} from ps where pl_rade is not null"  # noqa: S608  # nosec B608
 
             params = {
                 "query": query,
@@ -272,7 +272,7 @@ class NASAExoplanetLoader(DatasetLoader):
             req = urllib.request.Request(  # noqa: S310
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
-            with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310
+            with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310  # nosec B310
                 data = json.loads(response.read().decode("utf-8"))
 
             # Parse TAP response
@@ -487,7 +487,7 @@ class SolarDynamicsLoader(DatasetLoader):
             req = urllib.request.Request(  # noqa: S310
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
-            with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310
+            with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310  # nosec B310
                 data = json.loads(response.read().decode("utf-8"))
 
             if not data:

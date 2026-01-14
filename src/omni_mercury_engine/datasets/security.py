@@ -1273,7 +1273,7 @@ class ThreatIntelLoader(DatasetLoader):
                 self.MITRE_STIX_URL,
                 headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},
             )
-            with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310
+            with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310  # nosec B310
                 data = json.loads(response.read().decode("utf-8"))
 
             objects = data.get("objects", [])
