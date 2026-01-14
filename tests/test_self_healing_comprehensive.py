@@ -8,12 +8,10 @@ Targets coverage improvement for AdaptiveDefenseSystem and SelfHealingEngine.
 
 from __future__ import annotations
 
-import json
 import tempfile
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 from omni_mercury_engine.resilience.self_healing import (
     AdaptiveDefenseSystem,

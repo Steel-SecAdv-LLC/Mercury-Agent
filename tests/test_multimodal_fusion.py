@@ -5,7 +5,6 @@ Mercury Agent
 Copyright (C) 2025 Steel Security Advisory LLC
 """
 
-import pytest
 import torch
 from torch import nn
 

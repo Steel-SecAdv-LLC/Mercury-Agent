@@ -6,7 +6,6 @@ Copyright (C) 2025 Steel Security Advisory LLC
 """
 
 import numpy as np
-import pytest
 
 from omni_mercury_engine.security.constant_time import (
     SecureAnomalyChecker,
