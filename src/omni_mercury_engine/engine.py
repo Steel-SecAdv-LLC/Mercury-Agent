@@ -1005,7 +1005,11 @@ class OmniMercuryEngine:
         threshold of 0.5 fails on highly imbalanced datasets. It supports:
         1. Fixed threshold from config.anomaly_threshold
         2. Contamination-based percentile threshold (like sklearn IsolationForest)
-        3. Adaptive threshold based on score distribution
+        3. Adaptive threshold based on score distribution with IQR fallback
+
+        The adaptive threshold uses IQR-based outlier detection when contamination
+        is not explicitly set, which handles extreme class imbalance (e.g., covtype
+        with ~0.5% anomaly rate) better than fixed thresholds.
 
         Args:
             current_score: The anomaly probability to evaluate.
@@ -1024,6 +1028,11 @@ class OmniMercuryEngine:
             >>> engine.config.contamination = 0.05
             >>> threshold = engine._get_anomaly_threshold(0.4, scores)
             >>> # Returns 95th percentile of scores
+
+            >>> # Adaptive with IQR fallback
+            >>> engine.config.adaptive_threshold = True
+            >>> threshold = engine._get_anomaly_threshold(0.4, scores)
+            >>> # Returns IQR-based threshold for extreme imbalance
         """
         # If contamination is set, use percentile-based threshold
         if self.config.contamination is not None and all_scores is not None:
@@ -1038,16 +1047,44 @@ class OmniMercuryEngine:
                 )
                 return threshold
 
-        # If adaptive threshold is enabled, use dynamic calibration
+        # If adaptive threshold is enabled, use IQR-based calibration
+        # This addresses the covtype F1=0 issue where fixed thresholds fail
+        # on extremely imbalanced datasets
         if self.config.adaptive_threshold and all_scores is not None:
             if len(all_scores) > 1:
-                mean_score = float(np.mean(all_scores))
-                std_score = float(np.std(all_scores))
-                # Use mean + 2*std as threshold (captures ~95% as normal)
-                threshold = mean_score + 2 * std_score
-                threshold = min(threshold, 0.95)  # Cap at 0.95
-                logger.debug(f"Using adaptive threshold: {threshold:.4f}")
-                return threshold
+                # IQR-based outlier detection for contamination estimation
+                q1, q3 = np.percentile(all_scores, [25, 75])
+                iqr = q3 - q1
+
+                if iqr > 1e-8:  # Avoid division by zero
+                    # Estimate contamination from score distribution
+                    # Points above Q3 + 1.5*IQR are statistical outliers
+                    upper_fence = q3 + 1.5 * iqr
+                    estimated_contamination = float(np.mean(all_scores > upper_fence))
+                    # Floor at 0.1% to ensure some predictions
+                    estimated_contamination = max(estimated_contamination, 0.001)
+
+                    # Use percentile-based threshold with estimated contamination
+                    percentile = (1.0 - estimated_contamination) * 100
+                    threshold = float(np.percentile(all_scores, percentile))
+
+                    logger.debug(
+                        f"Using adaptive IQR threshold: {threshold:.4f} "
+                        f"(estimated_contamination={estimated_contamination:.4f}, "
+                        f"IQR={iqr:.4f})"
+                    )
+                    return threshold
+                else:
+                    # Fallback: use mean + 2*std when IQR is too small
+                    mean_score = float(np.mean(all_scores))
+                    std_score = float(np.std(all_scores))
+                    if std_score > 1e-8:
+                        threshold = mean_score + 2 * std_score
+                        threshold = min(threshold, 0.95)  # Cap at 0.95
+                        logger.debug(
+                            f"Using adaptive mean+2std threshold: {threshold:.4f}"
+                        )
+                        return threshold
 
         # Default: use fixed threshold from config
         return self.config.anomaly_threshold

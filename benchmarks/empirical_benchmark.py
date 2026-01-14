@@ -2273,8 +2273,13 @@ class OmniMercuryDetector:
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Predict anomaly labels (-1 for anomaly, 1 for normal).
 
-        Adaptive Enhancement: Uses AdaptiveThresholdCalibrator when available
-        to address the covtype F1=0 issue (good AUC but zero predictions).
+        Adaptive Enhancement: Uses IQR-based adaptive threshold calibration
+        to address the covtype F1=0 issue (good AUC but zero predictions on
+        extremely imbalanced datasets).
+
+        The adaptive threshold uses IQR-based outlier detection when the
+        contamination rate is very low (< 1%), which handles extreme class
+        imbalance better than fixed percentile thresholds.
         """
         # Try adaptive detector with calibrated threshold first
         if self._adaptive_detector is not None and self._in_fallback_mode:
@@ -2285,10 +2290,62 @@ class OmniMercuryDetector:
             except Exception:
                 pass
 
-        # Standard threshold-based prediction
+        # Get anomaly scores
         scores = self.decision_function(X)
-        threshold = np.percentile(scores, 100 * (1 - self.contamination))
+
+        # Use adaptive IQR-based threshold for extreme class imbalance
+        # This addresses the covtype F1=0 issue where fixed thresholds fail
+        threshold = self._compute_adaptive_threshold(scores)
+
         return np.where(scores > threshold, -1, 1)
+
+    def _compute_adaptive_threshold(self, scores: np.ndarray) -> float:
+        """Compute adaptive threshold using IQR-based outlier detection.
+
+        This method addresses the threshold calibration issue where a fixed
+        percentile threshold fails on extremely imbalanced datasets (e.g.,
+        covtype with ~0.5% anomaly rate).
+
+        For low contamination rates (< 1%), uses IQR-based outlier detection
+        to estimate the actual contamination from the score distribution.
+        For higher contamination rates, uses the standard percentile approach.
+
+        Args:
+            scores: Array of anomaly scores (higher = more anomalous)
+
+        Returns:
+            Threshold value for anomaly classification
+        """
+        if len(scores) < 2:
+            return np.percentile(scores, 100 * (1 - self.contamination))
+
+        # For very low contamination rates, use IQR-based adaptive threshold
+        if self.contamination < 0.01:
+            q1, q3 = np.percentile(scores, [25, 75])
+            iqr = q3 - q1
+
+            if iqr > 1e-8:  # Avoid division by zero
+                # Estimate contamination from score distribution
+                # Points above Q3 + 1.5*IQR are statistical outliers
+                upper_fence = q3 + 1.5 * iqr
+                estimated_contamination = float(np.mean(scores > upper_fence))
+                # Floor at 0.1% to ensure some predictions
+                estimated_contamination = max(estimated_contamination, 0.001)
+
+                # Use percentile-based threshold with estimated contamination
+                percentile = (1.0 - estimated_contamination) * 100
+                threshold = float(np.percentile(scores, percentile))
+
+                logger.debug(
+                    f"Adaptive IQR threshold: {threshold:.4f} "
+                    f"(estimated_contamination={estimated_contamination:.4f}, "
+                    f"IQR={iqr:.4f})"
+                )
+                return threshold
+
+        # Standard percentile-based threshold for higher contamination rates
+        threshold = np.percentile(scores, 100 * (1 - self.contamination))
+        return float(threshold)
 
     def set_dataset_hint(self, dataset_name: str) -> None:
         """
