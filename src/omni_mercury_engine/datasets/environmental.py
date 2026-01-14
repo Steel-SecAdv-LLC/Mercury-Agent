@@ -473,7 +473,12 @@ class NOAAWeatherLoader(DatasetLoader):
             return False
 
     def _create_synthetic_weather(self) -> bool:
-        """Create synthetic weather observation data."""
+        """Create synthetic weather observation data.
+
+        Generates data matching FEATURE_NAMES:
+        temperature, humidity, pressure, wind_speed, wind_direction,
+        precipitation, cloud_cover, apparent_temperature
+        """
         np.random.seed(self.config.random_seed)
         n_samples = self.config.max_samples or 10000
 
@@ -481,36 +486,29 @@ class NOAAWeatherLoader(DatasetLoader):
         t = np.linspace(0, 4 * np.pi, n_samples)
         seasonal = np.sin(t)
 
+        # Generate features matching FEATURE_NAMES exactly
         data = {
             "temperature": 15 + 15 * seasonal + np.random.normal(0, 5, n_samples),
-            "temperature_anomaly": np.random.normal(0, 2, n_samples),
-            "dewpoint": 10 + 10 * seasonal + np.random.normal(0, 5, n_samples),
             "humidity": np.clip(60 + 20 * np.random.randn(n_samples), 0, 100),
             "pressure": 1013 + np.random.normal(0, 15, n_samples),
-            "pressure_change_3h": np.random.normal(0, 3, n_samples),
             "wind_speed": np.random.exponential(5, n_samples),
-            "wind_gust": np.random.exponential(8, n_samples),
             "wind_direction": np.random.uniform(0, 360, n_samples),
-            "precipitation_1h": np.random.exponential(0.5, n_samples),
-            "precipitation_24h": np.random.exponential(5, n_samples),
-            "visibility": np.clip(10 + np.random.normal(0, 3, n_samples), 0, 50),
+            "precipitation": np.random.exponential(2, n_samples),
             "cloud_cover": np.clip(np.random.normal(50, 30, n_samples), 0, 100),
-            "snow_depth": np.maximum(0, (1 - seasonal) * 10 + np.random.exponential(2, n_samples)),
-            "uv_index": np.clip((1 + seasonal) * 5 + np.random.exponential(1, n_samples), 0, 11),
-            "heat_index": 15 + 20 * seasonal + np.random.normal(0, 5, n_samples),
-            "wind_chill": 15 + 15 * seasonal - 5 * np.random.exponential(1, n_samples),
+            "apparent_temperature": 15 + 15 * seasonal + np.random.normal(0, 6, n_samples),
         }
 
         features = np.column_stack([data[f] for f in self.FEATURE_NAMES])
 
-        # Extreme weather anomalies
+        # Extreme weather anomalies (~10% of samples)
         labels = np.zeros(n_samples, dtype=np.int64)
         extreme_mask = (
-            (np.abs(data["temperature_anomaly"]) > 5)  # Extreme temperature
-            | (data["wind_gust"] > 25)  # Severe wind
-            | (data["precipitation_1h"] > 10)  # Heavy rain
-            | (np.abs(data["pressure_change_3h"]) > 8)  # Rapid pressure change
-            | (data["visibility"] < 1)  # Low visibility
+            (data["temperature"] > 40)
+            | (data["temperature"] < -10)  # Extreme temp
+            | (data["wind_speed"] > 20)  # Severe wind
+            | (data["precipitation"] > 15)  # Heavy rain
+            | (data["pressure"] < 980)
+            | (data["pressure"] > 1040)  # Extreme pressure
         )
         labels[extreme_mask] = 1
 
