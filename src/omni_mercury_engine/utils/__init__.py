@@ -330,6 +330,7 @@ __all__ = [
     "GracefulShutdown",
     "HealthChecker",
     "HealthStatus",
+    "LoggerMixin",
     "MathConstant",
     # Constants
     "MathematicalConstants",
@@ -358,7 +359,6 @@ __all__ = [
     "get_global_rng",
     # Logging utilities
     "get_logger",
-    "LoggerMixin",
     "get_rng_registry",
     "get_thread_local_rng",
     "gravitational_lensing",

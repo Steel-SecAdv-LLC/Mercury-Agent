@@ -523,8 +523,11 @@ class TestCrossDetector3RConsistency:
         resonance_ids = [id(d.resonance_engine) for d in all_detectors.values()]
         refactoring_ids = []
         for name, d in all_detectors.items():
-            # All detectors have core_refactoring_engine for code analysis
-            refactoring_ids.append(id(d.core_refactoring_engine))
+            # FloodDetector uses core_refactoring_engine, others use refactoring_engine
+            if name == "flood":
+                refactoring_ids.append(id(d.core_refactoring_engine))
+            else:
+                refactoring_ids.append(id(d.refactoring_engine))
 
         assert len(set(recursion_ids)) == len(recursion_ids)
         assert len(set(resonance_ids)) == len(resonance_ids)
