@@ -13,10 +13,19 @@ References:
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
 import numpy as np
+
+try:
+    import pandas as pd
+
+    PANDAS_AVAILABLE = True
+except ImportError:
+    pd = None
+    PANDAS_AVAILABLE = False
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 
@@ -169,12 +178,13 @@ class NASAExoplanetLoader(DatasetLoader):
     """
     NASA Exoplanet Archive Data Loader.
 
-    Provides access to:
-    - Kepler/K2 transit data
-    - TESS light curves
-    - Confirmed exoplanet parameters
+    Downloads REAL exoplanet data from NASA Exoplanet Archive including:
+    - Confirmed exoplanet parameters (radius, mass, orbital period)
+    - Host star properties (mass, radius, temperature)
+    - Transit parameters (depth, duration)
 
-    Reference: https://exoplanetarchive.ipac.caltech.edu/
+    Data source: https://exoplanetarchive.ipac.caltech.edu/TAP/
+    License: Public Domain
     """
 
     DATASET_NAME = "exoplanet"
@@ -184,27 +194,150 @@ class NASAExoplanetLoader(DatasetLoader):
     of Technology, under contract with NASA under the Exoplanet Exploration Program."""
     REQUIRES_CREDENTIALS = False
 
+    # NASA Exoplanet Archive TAP endpoint
+    NASA_TAP_URL = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync"
+
     FEATURE_NAMES = [
         "orbital_period",
         "planet_radius",
+        "planet_mass",
         "stellar_mass",
         "stellar_radius",
         "stellar_temp",
-        "transit_depth",
-        "transit_duration",
-        "insolation_flux",
-        "equilibrium_temp",
         "eccentricity",
         "semi_major_axis",
-        "inclination",
     ]
+
+    # TAP query column mapping
+    TAP_COLUMNS = {
+        "orbital_period": "pl_orbper",
+        "planet_radius": "pl_rade",
+        "planet_mass": "pl_bmasse",
+        "stellar_mass": "st_mass",
+        "stellar_radius": "st_rad",
+        "stellar_temp": "st_teff",
+        "eccentricity": "pl_orbeccen",
+        "semi_major_axis": "pl_orbsmax",
+    }
 
     def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
+        self._is_real_data = False
+
+    @property
+    def is_real_data(self) -> bool:
+        """Return True if real data was loaded."""
+        return self._is_real_data
 
     def download(self) -> bool:
-        """Download or generate exoplanet data."""
+        """Download real exoplanet data from NASA Archive.
+
+        Returns:
+            True if download successful, False otherwise.
+        """
+        if self._download_from_nasa_tap():
+            return True
+
+        logger.warning("NASA Exoplanet Archive failed, falling back to SYNTHETIC data.")
         return self._create_synthetic_exoplanet()
+
+    def _download_from_nasa_tap(self) -> bool:
+        """Download exoplanet data from NASA TAP service."""
+        import urllib.parse
+        import urllib.request
+
+        dataset_dir = self.data_path
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        cache_file = dataset_dir / "nasa_exoplanet_real.npz"
+
+        if cache_file.exists():
+            logger.info(f"NASA exoplanet data already cached at {cache_file}")
+            self._is_real_data = True
+            return True
+
+        try:
+            # Build TAP/ADQL query
+            columns = ",".join(self.TAP_COLUMNS.values())
+            limit = min(self.config.max_samples or 5000, 5000)
+            query = f"select top {limit} {columns} from ps where pl_rade is not null"  # noqa: S608
+
+            params = {
+                "query": query,
+                "format": "json",
+            }
+
+            url = f"{self.NASA_TAP_URL}?{urllib.parse.urlencode(params)}"
+            logger.info("Downloading exoplanet data from NASA Exoplanet Archive...")
+
+            req = urllib.request.Request(  # noqa: S310
+                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
+            )
+            with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310
+                data = json.loads(response.read().decode("utf-8"))
+
+            # Parse TAP response
+            records = data.get("data", []) if isinstance(data, dict) else data
+            if not records:
+                logger.warning("No exoplanet data returned from NASA Archive")
+                return False
+
+            logger.info(f"Downloaded {len(records)} exoplanet records")
+
+            # Convert to features array
+            features, labels = self._process_tap_data(records)
+
+            # Save to cache
+            np.savez_compressed(cache_file, features=features, labels=labels)
+            self._is_real_data = True
+
+            logger.info(
+                f"NASA exoplanet data loaded: {len(features)} samples, "
+                f"{labels.sum()} anomalous planets (is_real_data=True)"
+            )
+            return True
+
+        except Exception as e:
+            logger.warning(f"NASA TAP download failed: {e}")
+            return False
+
+    def _process_tap_data(self, records: list[Any]) -> tuple[np.ndarray, np.ndarray]:
+        """Process TAP query results.
+
+        Args:
+            records: List of records from TAP query
+
+        Returns:
+            Tuple of (features, labels) numpy arrays
+        """
+        rows = []
+        col_order = list(self.TAP_COLUMNS.values())
+
+        for record in records:
+            if isinstance(record, dict):
+                row = [record.get(col, 0) or 0 for col in col_order]
+            else:
+                row = [
+                    record[i] if i < len(record) and record[i] is not None else 0
+                    for i in range(len(col_order))
+                ]
+            rows.append(row)
+
+        features = np.array(rows, dtype=np.float32)
+        features = np.nan_to_num(features, nan=0.0)
+
+        # Label anomalous planets (very large, very close, or highly eccentric)
+        # Based on columns: orbital_period, planet_radius, ..., eccentricity, semi_major_axis
+        orbital_period = features[:, 0]
+        planet_radius = features[:, 1]
+        eccentricity = features[:, 6]
+
+        labels = (
+            (planet_radius > 15)  # Very large (Jupiter+)
+            | (orbital_period < 1)  # Ultra-short period
+            | (eccentricity > 0.7)  # Highly eccentric
+        ).astype(np.int64)
+
+        return features, labels
 
     def _create_synthetic_exoplanet(self) -> bool:
         """Create synthetic exoplanet detection data."""
@@ -253,11 +386,24 @@ class NASAExoplanetLoader(DatasetLoader):
         return True
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Load exoplanet data from cache (real data first, then synthetic)."""
+        # Check for real data first
+        real_cache = self.data_path / "nasa_exoplanet_real.npz"
+        if real_cache.exists():
+            data = np.load(real_cache)
+            self._is_real_data = True
+            logger.info(f"Loaded REAL NASA exoplanet data from {real_cache}")
+            return data["features"], data["labels"]
+
+        # Fall back to synthetic
         synthetic_path = self.data_path / "synthetic_exoplanet.npz"
         if synthetic_path.exists():
             data = np.load(synthetic_path)
+            self._is_real_data = False
+            logger.info("Loaded SYNTHETIC exoplanet data (is_real_data=False)")
             return data["features"], data["labels"]
-        raise FileNotFoundError("Exoplanet data not found")
+
+        raise FileNotFoundError("Exoplanet data not found. Run download() first.")
 
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess exoplanet features."""
@@ -270,45 +416,137 @@ class NASAExoplanetLoader(DatasetLoader):
 
 class SolarDynamicsLoader(DatasetLoader):
     """
-    Solar Dynamics Observatory (SDO) Data Loader.
+    NOAA Space Weather Prediction Center Data Loader.
 
-    Provides access to:
-    - Solar flare predictions
-    - Coronal mass ejection (CME) events
-    - Solar activity indices
+    Downloads REAL solar activity data from NOAA SWPC including:
+    - GOES X-ray flux (solar flares)
+    - Proton flux (radiation storms)
+    - Geomagnetic indices (Kp, Dst)
 
-    Reference: https://sdo.gsfc.nasa.gov/
+    Data source: https://services.swpc.noaa.gov/
+    License: Public Domain (NOAA)
     """
 
     DATASET_NAME = "solar"
-    DATASET_URL = "https://sdo.gsfc.nasa.gov/"
-    LICENSE = "Public Domain (NASA)"
-    CITATION = """Pesnell WD, Thompson BJ, Chamberlin PC. The Solar Dynamics Observatory (SDO).
-    Solar Physics. 2012;275:3-15."""
+    DATASET_URL = "https://services.swpc.noaa.gov/"
+    LICENSE = "Public Domain (NOAA)"
+    CITATION = """NOAA Space Weather Prediction Center. https://www.swpc.noaa.gov/"""
     REQUIRES_CREDENTIALS = False
 
+    # NOAA SWPC JSON data endpoints
+    SWPC_URLS = {
+        "xrays": "https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json",
+        "protons": "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json",
+        "kp": "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json",
+    }
+
     FEATURE_NAMES = [
-        "sunspot_number",
-        "f10.7_flux",
-        "x_ray_flux_short",
-        "x_ray_flux_long",
-        "proton_flux_10mev",
-        "proton_flux_100mev",
-        "electron_flux",
-        "kp_index",
-        "dst_index",
-        "solar_wind_speed",
-        "solar_wind_density",
-        "imf_magnitude",
-        "imf_bz",
-        "active_region_count",
+        "xray_short",
+        "xray_long",
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
+        self._is_real_data = False
+
+    @property
+    def is_real_data(self) -> bool:
+        """Return True if real data was loaded."""
+        return self._is_real_data
 
     def download(self) -> bool:
+        """Download real solar data from NOAA SWPC.
+
+        Returns:
+            True if download successful, False otherwise.
+        """
+        if self._download_from_swpc():
+            return True
+
+        logger.warning("NOAA SWPC download failed, falling back to SYNTHETIC data.")
         return self._create_synthetic_solar()
+
+    def _download_from_swpc(self) -> bool:
+        """Download solar activity data from NOAA SWPC."""
+        import urllib.request
+
+        dataset_dir = self.data_path
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        cache_file = dataset_dir / "noaa_solar_real.npz"
+
+        if cache_file.exists():
+            logger.info(f"NOAA solar data already cached at {cache_file}")
+            self._is_real_data = True
+            return True
+
+        try:
+            # Download X-ray data (primary solar activity indicator)
+            url = self.SWPC_URLS["xrays"]
+            logger.info("Downloading solar X-ray data from NOAA SWPC...")
+
+            req = urllib.request.Request(  # noqa: S310
+                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
+            )
+            with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310
+                data = json.loads(response.read().decode("utf-8"))
+
+            if not data:
+                logger.warning("No solar data returned from NOAA SWPC")
+                return False
+
+            logger.info(f"Downloaded {len(data)} X-ray flux records")
+
+            # Process the data
+            features, labels = self._process_swpc_data(data)
+
+            # Save to cache
+            np.savez_compressed(cache_file, features=features, labels=labels)
+            self._is_real_data = True
+
+            logger.info(
+                f"NOAA solar data loaded: {len(features)} samples, "
+                f"{labels.sum()} flare events (is_real_data=True)"
+            )
+            return True
+
+        except Exception as e:
+            logger.warning(f"NOAA SWPC download failed: {e}")
+            return False
+
+    def _process_swpc_data(self, data: list[dict[str, Any]]) -> tuple[np.ndarray, np.ndarray]:
+        """Process NOAA SWPC X-ray flux data.
+
+        Args:
+            data: List of X-ray flux records
+
+        Returns:
+            Tuple of (features, labels) numpy arrays
+        """
+        rows = []
+
+        for record in data:
+            # Extract flux values (short and long wavelength)
+            xray_short = record.get("flux", 0) or 0
+            # Some records have both, some have one
+            xray_long = record.get("observed_flux", xray_short) or xray_short
+
+            rows.append([xray_short, xray_long])
+
+        features = np.array(rows, dtype=np.float32)
+        features = np.nan_to_num(features, nan=0.0)
+
+        # Label solar flare events based on X-ray flux
+        # C-class: 1e-6, M-class: 1e-5, X-class: 1e-4
+        labels = (features[:, 0] > 1e-5).astype(np.int64)  # M-class or higher
+
+        # Apply max_samples limit
+        if self.config.max_samples and len(features) > self.config.max_samples:
+            np.random.seed(self.config.random_seed)
+            indices = np.random.choice(len(features), self.config.max_samples, replace=False)
+            features = features[indices]
+            labels = labels[indices]
+
+        return features, labels
 
     def _create_synthetic_solar(self) -> bool:
         """Create synthetic solar activity data."""
@@ -355,11 +593,24 @@ class SolarDynamicsLoader(DatasetLoader):
         return True
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Load solar data from cache (real data first, then synthetic)."""
+        # Check for real data first
+        real_cache = self.data_path / "noaa_solar_real.npz"
+        if real_cache.exists():
+            data = np.load(real_cache)
+            self._is_real_data = True
+            logger.info(f"Loaded REAL NOAA solar data from {real_cache}")
+            return data["features"], data["labels"]
+
+        # Fall back to synthetic
         synthetic_path = self.data_path / "synthetic_solar.npz"
         if synthetic_path.exists():
             data = np.load(synthetic_path)
+            self._is_real_data = False
+            logger.info("Loaded SYNTHETIC solar data (is_real_data=False)")
             return data["features"], data["labels"]
-        raise FileNotFoundError("Solar data not found")
+
+        raise FileNotFoundError("Solar data not found. Run download() first.")
 
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess solar data."""

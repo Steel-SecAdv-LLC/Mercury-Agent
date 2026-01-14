@@ -1171,14 +1171,16 @@ class CICIDSLoader(DatasetLoader):
 
 class ThreatIntelLoader(DatasetLoader):
     """
-    Threat Intelligence Indicator Dataset Loader.
+    MITRE ATT&CK Threat Intelligence Loader.
 
-    Provides access to:
-    - IOC (Indicators of Compromise) features
-    - MITRE ATT&CK technique patterns
-    - Malware behavior signatures
+    Downloads REAL threat intelligence data from MITRE ATT&CK framework:
+    - Attack techniques with kill chain phases
+    - Threat groups and their techniques
+    - Malware and tools used by adversaries
+    - Mitigations and detection strategies
 
-    Based on MITRE ATT&CK framework and open threat feeds.
+    Data source: https://github.com/mitre-attack/attack-stix-data
+    License: Apache 2.0
     """
 
     DATASET_NAME = "threat-intel"
@@ -1187,55 +1189,186 @@ class ThreatIntelLoader(DatasetLoader):
     CITATION = "MITRE ATT&CK. MITRE Corporation. https://attack.mitre.org/"
     REQUIRES_CREDENTIALS = False
 
+    # MITRE ATT&CK STIX data URL
+    MITRE_STIX_URL = (
+        "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/"
+        "master/enterprise-attack/enterprise-attack.json"
+    )
+
     # MITRE ATT&CK tactics
     TACTICS = [
-        "initial_access",
+        "initial-access",
         "execution",
         "persistence",
-        "privilege_escalation",
-        "defense_evasion",
-        "credential_access",
+        "privilege-escalation",
+        "defense-evasion",
+        "credential-access",
         "discovery",
-        "lateral_movement",
+        "lateral-movement",
         "collection",
-        "command_and_control",
+        "command-and-control",
         "exfiltration",
         "impact",
     ]
 
     FEATURE_NAMES = [
-        "technique_count",
-        "tactic_diversity",
-        "severity_score",
-        "confidence",
-        "source_reputation",
-        "target_criticality",
-        "attack_pattern_match",
-        "ioc_age_days",
-        "ioc_first_seen",
-        "ioc_last_seen",
-        "related_campaigns",
-        "related_groups",
-        "related_malware",
-        "network_indicators",
-        "file_indicators",
-        "registry_indicators",
-        "behavioral_indicators",
-        "temporal_correlation",
-        "geographic_spread",
-        "industry_targeting",
-        "technique_sophistication",
-        "automation_level",
+        "num_kill_chain_phases",
+        "num_platforms",
+        "num_data_sources",
+        "num_mitigations",
+        "num_detections",
+        "is_subtechnique",
+        "tactic_initial_access",
+        "tactic_execution",
+        "tactic_persistence",
+        "tactic_privilege_escalation",
+        "tactic_defense_evasion",
+        "tactic_credential_access",
+        "tactic_discovery",
+        "tactic_lateral_movement",
+        "tactic_collection",
+        "tactic_command_and_control",
+        "tactic_exfiltration",
+        "tactic_impact",
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
+        self._is_real_data = False
+
+    @property
+    def is_real_data(self) -> bool:
+        """Return True if real MITRE ATT&CK data was loaded."""
+        return self._is_real_data
 
     def download(self) -> bool:
+        """Download real MITRE ATT&CK data.
+
+        Returns:
+            True if download successful, False otherwise.
+        """
+        if self._download_from_mitre():
+            return True
+
+        logger.warning("MITRE ATT&CK download failed, falling back to SYNTHETIC data.")
         return self._create_synthetic_threat_intel()
 
+    def _download_from_mitre(self) -> bool:
+        """Download and process MITRE ATT&CK STIX data."""
+        import json
+        import urllib.request
+
+        dataset_dir = self.data_path
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        cache_file = dataset_dir / "mitre_attack_real.npz"
+
+        if cache_file.exists():
+            logger.info(f"MITRE ATT&CK data already cached at {cache_file}")
+            self._is_real_data = True
+            return True
+
+        try:
+            logger.info("Downloading MITRE ATT&CK Enterprise data...")
+            req = urllib.request.Request(  # noqa: S310
+                self.MITRE_STIX_URL,
+                headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},
+            )
+            with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310
+                data = json.loads(response.read().decode("utf-8"))
+
+            objects = data.get("objects", [])
+            if not objects:
+                logger.warning("No objects found in MITRE ATT&CK data")
+                return False
+
+            # Filter to attack-patterns (techniques)
+            techniques = [obj for obj in objects if obj.get("type") == "attack-pattern"]
+            logger.info(f"Downloaded {len(techniques)} ATT&CK techniques")
+
+            # Process into features
+            features, labels = self._process_mitre_data(techniques)
+
+            # Save to cache
+            np.savez_compressed(cache_file, features=features, labels=labels)
+            self._is_real_data = True
+
+            logger.info(
+                f"MITRE ATT&CK data loaded: {len(features)} techniques, "
+                f"{labels.sum()} high-risk (is_real_data=True)"
+            )
+            return True
+
+        except Exception as e:
+            logger.warning(f"MITRE ATT&CK download failed: {e}")
+            return False
+
+    def _process_mitre_data(
+        self, techniques: list[dict[str, Any]]
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Process MITRE ATT&CK techniques into features.
+
+        Args:
+            techniques: List of attack-pattern objects from STIX
+
+        Returns:
+            Tuple of (features, labels) numpy arrays
+        """
+        rows = []
+
+        for tech in techniques:
+            # Extract kill chain phases
+            kill_chain = tech.get("kill_chain_phases", [])
+            phases = [p.get("phase_name", "") for p in kill_chain]
+
+            # Extract platforms
+            platforms = tech.get("x_mitre_platforms", [])
+
+            # Extract data sources
+            data_sources = tech.get("x_mitre_data_sources", [])
+
+            # Check if subtechnique
+            is_sub = tech.get("x_mitre_is_subtechnique", False)
+
+            # Build feature vector
+            row = [
+                len(phases),  # num_kill_chain_phases
+                len(platforms),  # num_platforms
+                len(data_sources),  # num_data_sources
+                0,  # num_mitigations (would need relationships)
+                len(data_sources),  # num_detections (approximation)
+                1 if is_sub else 0,  # is_subtechnique
+            ]
+
+            # One-hot encode tactics
+            for tactic in self.TACTICS:
+                row.append(1 if tactic in phases else 0)
+
+            rows.append(row)
+
+        features = np.array(rows, dtype=np.float32)
+
+        # Label "high-risk" techniques (multiple tactics, many platforms)
+        # This is a heuristic - real risk scoring would use additional context
+        num_phases = features[:, 0]
+        num_platforms = features[:, 1]
+        labels = ((num_phases >= 2) & (num_platforms >= 3)).astype(np.int64)
+
+        # Apply max_samples limit
+        if self.config.max_samples and len(features) > self.config.max_samples:
+            np.random.seed(self.config.random_seed)
+            indices = np.random.choice(len(features), self.config.max_samples, replace=False)
+            features = features[indices]
+            labels = labels[indices]
+
+        return features, labels
+
     def _create_synthetic_threat_intel(self) -> bool:
-        """Create synthetic threat intelligence data."""
+        """Create synthetic MITRE ATT&CK-like threat intelligence data."""
+        logger.warning(
+            "Creating SYNTHETIC threat intel data. "
+            "Results will NOT reflect real MITRE ATT&CK patterns."
+        )
+
         np.random.seed(self.config.random_seed)
         n_samples = self.config.max_samples or 5000
 
@@ -1243,63 +1376,41 @@ class ThreatIntelLoader(DatasetLoader):
         labels = []
 
         for _i in range(n_samples):
-            is_threat = np.random.random() < 0.4
+            is_high_risk = np.random.random() < 0.3
 
-            if is_threat:
-                params = {
-                    "technique_count": np.random.poisson(5) + 1,
-                    "tactic_diversity": np.random.uniform(0.5, 1.0),
-                    "severity_score": np.random.uniform(50, 100),
-                    "confidence": np.random.uniform(60, 100),
-                    "source_reputation": np.random.uniform(60, 100),
-                    "target_criticality": np.random.uniform(50, 100),
-                    "attack_pattern_match": np.random.uniform(0.7, 1.0),
-                    "ioc_age_days": np.random.exponential(30),
-                    "ioc_first_seen": np.random.exponential(90),
-                    "ioc_last_seen": np.random.exponential(7),
-                    "related_campaigns": np.random.poisson(2) + 1,
-                    "related_groups": np.random.poisson(1) + 1,
-                    "related_malware": np.random.poisson(3),
-                    "network_indicators": np.random.poisson(5),
-                    "file_indicators": np.random.poisson(3),
-                    "registry_indicators": np.random.poisson(2),
-                    "behavioral_indicators": np.random.poisson(4),
-                    "temporal_correlation": np.random.uniform(0.5, 1.0),
-                    "geographic_spread": np.random.uniform(1, 50),
-                    "industry_targeting": np.random.uniform(0.3, 1.0),
-                    "technique_sophistication": np.random.uniform(50, 100),
-                    "automation_level": np.random.uniform(30, 100),
-                }
+            if is_high_risk:
+                # High-risk technique: multiple tactics, many platforms
+                num_phases = np.random.randint(2, 5)
+                num_platforms = np.random.randint(3, 8)
+                num_data_sources = np.random.randint(2, 10)
+                num_mitigations = np.random.randint(1, 5)
+                num_detections = np.random.randint(2, 8)
+                is_sub = np.random.random() < 0.3
+                # Random tactic selection (higher probability)
+                tactics = [1 if np.random.random() < 0.4 else 0 for _ in self.TACTICS]
                 labels.append(1)
             else:
-                params = {
-                    "technique_count": np.random.poisson(1),
-                    "tactic_diversity": np.random.uniform(0, 0.3),
-                    "severity_score": np.random.uniform(0, 30),
-                    "confidence": np.random.uniform(10, 50),
-                    "source_reputation": np.random.uniform(20, 60),
-                    "target_criticality": np.random.uniform(0, 40),
-                    "attack_pattern_match": np.random.uniform(0, 0.3),
-                    "ioc_age_days": np.random.exponential(180),
-                    "ioc_first_seen": np.random.exponential(365),
-                    "ioc_last_seen": np.random.exponential(90),
-                    "related_campaigns": 0,
-                    "related_groups": 0,
-                    "related_malware": np.random.poisson(0.5),
-                    "network_indicators": np.random.poisson(1),
-                    "file_indicators": np.random.poisson(0.5),
-                    "registry_indicators": 0,
-                    "behavioral_indicators": np.random.poisson(1),
-                    "temporal_correlation": np.random.uniform(0, 0.3),
-                    "geographic_spread": np.random.uniform(0, 5),
-                    "industry_targeting": np.random.uniform(0, 0.2),
-                    "technique_sophistication": np.random.uniform(0, 30),
-                    "automation_level": np.random.uniform(0, 30),
-                }
+                # Lower-risk technique
+                num_phases = np.random.randint(1, 3)
+                num_platforms = np.random.randint(1, 4)
+                num_data_sources = np.random.randint(0, 5)
+                num_mitigations = np.random.randint(0, 3)
+                num_detections = np.random.randint(0, 4)
+                is_sub = np.random.random() < 0.6
+                # Random tactic selection (lower probability)
+                tactics = [1 if np.random.random() < 0.15 else 0 for _ in self.TACTICS]
                 labels.append(0)
 
-            feature_vec = [params[f] for f in self.FEATURE_NAMES]
-            features.append(feature_vec)
+            row = [
+                num_phases,
+                num_platforms,
+                num_data_sources,
+                num_mitigations,
+                num_detections,
+                1 if is_sub else 0,
+            ] + tactics
+
+            features.append(row)
 
         features = np.array(features, dtype=np.float32)
         labels = np.array(labels, dtype=np.int64)
@@ -1311,11 +1422,24 @@ class ThreatIntelLoader(DatasetLoader):
         return True
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Load threat intel data from cache (real data first, then synthetic)."""
+        # Check for real MITRE ATT&CK data first
+        real_cache = self.data_path / "mitre_attack_real.npz"
+        if real_cache.exists():
+            data = np.load(real_cache)
+            self._is_real_data = True
+            logger.info(f"Loaded REAL MITRE ATT&CK data from {real_cache}")
+            return data["features"], data["labels"]
+
+        # Fall back to synthetic
         synthetic_path = self.data_path / "synthetic_threat_intel.npz"
         if synthetic_path.exists():
             data = np.load(synthetic_path)
+            self._is_real_data = False
+            logger.info("Loaded SYNTHETIC threat intel data (is_real_data=False)")
             return data["features"], data["labels"]
-        raise FileNotFoundError("Threat intel data not found")
+
+        raise FileNotFoundError("Threat intel data not found. Run download() first.")
 
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess threat intelligence features."""
