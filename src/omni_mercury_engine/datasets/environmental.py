@@ -415,9 +415,9 @@ class NOAAWeatherLoader(DatasetLoader):
                 req = urllib.request.Request(  # noqa: S310
                     url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
                 )
-                with urllib.request.urlopen(
+                with urllib.request.urlopen(  # noqa: S310  # nosec B310
                     req, timeout=60
-                ) as response:  # noqa: S310  # nosec B310
+                ) as response:
                     data = json.loads(response.read().decode("utf-8"))
 
                 hourly = data.get("hourly", {})
