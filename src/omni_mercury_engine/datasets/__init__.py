@@ -30,6 +30,7 @@ Provides unified access to real-world datasets for benchmarking:
 - Space: SETI signal archives, NASA exoplanet data
 - Environmental: USGS earthquake API, NOAA storm events, NASA FIRMS
 - Security: NSL-KDD, CICIDS-2017 network intrusion
+- Ocean: NOAA buoy real-time data (wave height, temperature, pressure)
 
 Quick Start:
     >>> from omni_mercury_engine.datasets import load_dataset, list_available_datasets
@@ -50,6 +51,7 @@ from .benchmarks import BenchmarkResult, RealWorldBenchmarkSuite
 from .environmental import NOAAWeatherLoader, USGSEarthquakeLoader, WildfireDataLoader
 from .industrial import BATADALLoader, SWaTLoader, WADILoader
 from .medical import CardiologyDataset, MIMICLoader, PhysioNetLoader, SepsisDataset
+from .ocean import NOAABuoyLoader
 from .security import CICIDSLoader, NSLKDDLoader, ThreatIntelLoader
 from .space import NASAExoplanetLoader, SETILoader, SolarDynamicsLoader
 from .timeseries import NABLoader, SMAPMSLLoader, SMDLoader
@@ -72,6 +74,7 @@ __all__ = [
     "MSDSLoader",
     "NABLoader",
     "NASAExoplanetLoader",
+    "NOAABuoyLoader",
     "NOAAWeatherLoader",
     "NSLKDDLoader",
     "PhysioNetLoader",

@@ -219,9 +219,10 @@ class TestEnvironmentalDatasets:
 
         features, labels = loader.load(DatasetSplit.ALL)
 
-        # ~30% fire detections expected
+        # ~30% fire detections expected, with wider tolerance for small sample variance
+        # With n=100 and p=0.3, std_dev ~= 4.6, so 3-sigma range is ~16-44%
         fire_rate = labels.sum() / len(labels)
-        assert 0.2 < fire_rate < 0.4
+        assert 0.15 < fire_rate < 0.5
 
 
 class TestSecurityDatasets:

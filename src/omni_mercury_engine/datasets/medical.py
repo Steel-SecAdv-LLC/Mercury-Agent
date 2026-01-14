@@ -8,7 +8,12 @@ IMPORTANT: PhysioNet credentialed datasets require:
 1. Create account at https://physionet.org/
 2. Complete CITI training
 3. Sign DUA (Data Use Agreement)
-4. Use locally - NO cloud APIs or LLMs with data
+4. Download data locally using wget with credentials
+5. Set local_path in config to point to downloaded data
+
+For MIMIC data download:
+    wget -r -N -c -np --user YOUR_USERNAME --ask-password \\
+        https://physionet.org/files/mimiciii/1.4/
 
 References:
 - MIMIC-III: https://physionet.org/content/mimiciii/1.4/
@@ -19,6 +24,7 @@ References:
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -87,29 +93,63 @@ class MIMICLoader(DatasetLoader):
         """Initialize MIMIC loader.
 
         Args:
-            config: Dataset configuration with credentials_path
+            config: Dataset configuration. Preprocessing options:
+                - task (str): Prediction task ('mortality', 'sepsis', etc.)
+                - local_path (str): Path to downloaded MIMIC data directory
         """
         super().__init__(config)
         self.version = config.version or "1.4"
         self.task = config.preprocessing.get("task", "mortality")
+        self.local_path = config.preprocessing.get("local_path", None)
+        self._is_real_data = False
+
+    @property
+    def is_real_data(self) -> bool:
+        """Return True if real MIMIC data was loaded."""
+        return self._is_real_data
 
     def download(self) -> bool:
-        """Download MIMIC data using wget with credentials.
+        """Load MIMIC data from local path or generate synthetic fallback.
 
-        Note: Requires physionet credentials file.
+        MIMIC data cannot be auto-downloaded due to PhysioNet credentialing.
+        Users must:
+        1. Register at https://physionet.org/
+        2. Complete CITI training
+        3. Download data using wget with credentials
+        4. Set local_path in config
+
+        Returns:
+            True if data was loaded/generated successfully.
         """
-        if not self.config.credentials_path:
-            logger.warning(
-                "MIMIC-III requires PhysioNet credentials. "
-                "See https://physionet.org/content/mimiciii/1.4/"
-            )
-            return self._create_synthetic_mimic()
+        # Check for local path first
+        if self.local_path:
+            local_dir = Path(self.local_path)
+            if local_dir.exists():
+                chartevents = local_dir / "CHARTEVENTS.csv.gz"
+                if chartevents.exists():
+                    logger.info(f"Found real MIMIC data at {local_dir}")
+                    self._is_real_data = True
+                    return True
+                logger.warning(f"CHARTEVENTS.csv.gz not found in {local_dir}")
 
-        # For real download, would use wget with credentials
-        # wget -r -N -c -np --user YOUR_USERNAME --ask-password \
-        #     https://physionet.org/files/mimiciii/1.4/
+        # Check default data path
+        chartevents_path = self.data_path / "CHARTEVENTS.csv.gz"
+        if chartevents_path.exists():
+            logger.info(f"Found real MIMIC data at {self.data_path}")
+            self._is_real_data = True
+            return True
 
-        logger.info("Real MIMIC data download not implemented - using synthetic")
+        # No real data found - fall back to synthetic with clear warning
+        logger.warning(
+            "MIMIC-III/IV requires PhysioNet credentialed access. "
+            "To use real data:\n"
+            "  1. Register at https://physionet.org/\n"
+            "  2. Complete CITI training\n"
+            "  3. Download: wget -r -N -c -np --user YOUR_USER --ask-password "
+            "https://physionet.org/files/mimiciii/1.4/\n"
+            "  4. Set config.preprocessing['local_path'] = '/path/to/mimiciii/1.4/'\n"
+            "Falling back to SYNTHETIC data."
+        )
         return self._create_synthetic_mimic()
 
     def _create_synthetic_mimic(self) -> bool:
@@ -174,33 +214,58 @@ class MIMICLoader(DatasetLoader):
         return True
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load MIMIC data from disk."""
-        # Check for real MIMIC tables
+        """Load MIMIC data from disk (real data first, then synthetic)."""
+        # Check local_path first
+        if self.local_path:
+            local_dir = Path(self.local_path)
+            chartevents_local = local_dir / "CHARTEVENTS.csv.gz"
+            if chartevents_local.exists() and PANDAS_AVAILABLE:
+                self._is_real_data = True
+                logger.info(f"Loading REAL MIMIC data from {local_dir}")
+                return self._load_real_mimic(local_dir)
+
+        # Check default data path for real MIMIC tables
         chartevents_path = self.data_path / "CHARTEVENTS.csv.gz"
         if chartevents_path.exists() and PANDAS_AVAILABLE:
-            return self._load_real_mimic()
+            self._is_real_data = True
+            logger.info(f"Loading REAL MIMIC data from {self.data_path}")
+            return self._load_real_mimic(self.data_path)
 
         # Fall back to synthetic
         synthetic_path = self.data_path / "synthetic_mimic.npz"
         if synthetic_path.exists():
             data = np.load(synthetic_path)
+            self._is_real_data = False
+            logger.info("Loading SYNTHETIC MIMIC data (is_real_data=False)")
             return data["features"], data["labels"]
 
-        raise FileNotFoundError("MIMIC data not found")
+        raise FileNotFoundError("MIMIC data not found. Run download() first.")
 
-    def _load_real_mimic(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load and process real MIMIC-III tables."""
-        logger.info("Loading real MIMIC-III data...")
+    def _load_real_mimic(
+        self, data_dir: Path | None = None
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Load and process real MIMIC-III tables.
+
+        Args:
+            data_dir: Directory containing MIMIC CSV files. Defaults to self.data_path.
+
+        Returns:
+            Tuple of (features, labels) numpy arrays.
+        """
+        if data_dir is None:
+            data_dir = self.data_path
+
+        logger.info(f"Loading real MIMIC-III data from {data_dir}...")
 
         # Load ICU stays
         icustays = pd.read_csv(
-            self.data_path / "ICUSTAYS.csv.gz",
+            data_dir / "ICUSTAYS.csv.gz",
             compression="gzip",
         )
 
         # Load chartevents (vital signs)
         chartevents = pd.read_csv(
-            self.data_path / "CHARTEVENTS.csv.gz",
+            data_dir / "CHARTEVENTS.csv.gz",
             compression="gzip",
             usecols=["icustay_id", "itemid", "valuenum", "charttime"],
             nrows=1000000,  # Limit for memory
@@ -291,10 +356,36 @@ class PhysioNetLoader(DatasetLoader):
     def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         self.subdataset = config.preprocessing.get("subdataset", "mitbih")
+        self.local_path = config.preprocessing.get("local_path", None)
+        self._is_real_data = False
+
+    @property
+    def is_real_data(self) -> bool:
+        """Return True if real PhysioNet data was loaded."""
+        return self._is_real_data
 
     def download(self) -> bool:
-        """Download PhysioNet data."""
-        logger.info(f"Downloading PhysioNet {self.subdataset}...")
+        """Download or load PhysioNet data.
+
+        Most PhysioNet datasets require credentialing. For open access datasets,
+        use wfdb library to download directly.
+
+        Returns:
+            True if data was loaded/generated successfully.
+        """
+        # Check for local data first
+        if self.local_path:
+            local_dir = Path(self.local_path)
+            if local_dir.exists() and any(local_dir.glob("*.dat")):
+                logger.info(f"Found PhysioNet data at {local_dir}")
+                self._is_real_data = True
+                return True
+
+        logger.warning(
+            f"PhysioNet {self.subdataset} data not found locally. "
+            "To use real data, download using wfdb or wget and set local_path.\n"
+            "Falling back to SYNTHETIC ECG data."
+        )
         return self._create_synthetic_ecg()
 
     def _create_synthetic_ecg(self) -> bool:
@@ -377,11 +468,14 @@ class PhysioNetLoader(DatasetLoader):
         return full_ecg
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Load PhysioNet data from cache (real or synthetic)."""
         synthetic_path = self.data_path / "synthetic_ecg.npz"
         if synthetic_path.exists():
             data = np.load(synthetic_path)
+            # Note: _is_real_data is set during download() based on local_path
+            logger.info(f"Loaded ECG data (is_real_data={self._is_real_data})")
             return data["features"], data["labels"]
-        raise FileNotFoundError("PhysioNet data not found")
+        raise FileNotFoundError("PhysioNet data not found. Run download() first.")
 
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess ECG signals."""

@@ -111,6 +111,19 @@ class EngineConfig:
     cache_dir: str = "./cache"
     log_level: str = "INFO"
 
+    # Threshold calibration settings
+    anomaly_threshold: float = 0.5
+    """Global anomaly decision threshold. Scores > threshold = anomaly."""
+
+    contamination: float | None = None
+    """Expected fraction of anomalies (0.0-1.0). If set, uses percentile-based
+    threshold instead of fixed threshold. Similar to sklearn IsolationForest.
+    Example: contamination=0.05 means top 5% of scores are classified as anomalies."""
+
+    adaptive_threshold: bool = False
+    """If True, automatically calibrate threshold based on score distribution.
+    Uses percentile-based thresholding when contamination is set."""
+
     def __post_init__(self) -> None:
         """Initialize default detector and model configs"""
         if not self.detectors:
