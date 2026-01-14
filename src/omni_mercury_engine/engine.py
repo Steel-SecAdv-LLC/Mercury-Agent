@@ -1081,9 +1081,7 @@ class OmniMercuryEngine:
                     if std_score > 1e-8:
                         threshold = mean_score + 2 * std_score
                         threshold = min(threshold, 0.95)  # Cap at 0.95
-                        logger.debug(
-                            f"Using adaptive mean+2std threshold: {threshold:.4f}"
-                        )
+                        logger.debug(f"Using adaptive mean+2std threshold: {threshold:.4f}")
                         return threshold
 
         # Default: use fixed threshold from config
