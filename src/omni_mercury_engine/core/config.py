@@ -185,7 +185,7 @@ class ConfigurationManager:
     - Configuration drift detection
     """
 
-    ENV_PREFIX = "MERCURY_AGENT_"
+    ENV_PREFIX = "OMNI_"
 
     def __init__(self) -> None:
         self._config: dict[str, Any] = {}
@@ -437,7 +437,7 @@ class ConfigurationManager:
             )
             return (user_hash % 100) < flag.rollout_percentage
 
-        return flag.rollout_percentage >= 100.0 or flag.rollout_percentage == 0.0
+        return flag.rollout_percentage >= 100.0
 
     def get_feature_variant(self, name: str, user_id: str | None = None) -> str | None:
         """Get the variant for A/B testing."""

@@ -360,12 +360,12 @@ class TopographicRunoffPredictor(nn.Module):
         return runoff, time_to_peak, discharge
 
 
-class RefactoringEngine:
+class FloodPredictionOptimizer:
     """
     Dynamic model optimization engine for flood prediction.
 
-    Implements the Refactoring Engine component of 3R for
-    continuously improving prediction models based on feedback.
+    Implements iterative prediction refinement based on observed data
+    for continuously improving flood prediction accuracy.
     """
 
     def __init__(self, max_iterations: int = 10, convergence_threshold: float = 0.01) -> None:
@@ -471,7 +471,8 @@ class FloodDetector:
     Deep 3R Integration:
     - RecursionEngine: Hierarchical multi-scale feature extraction
     - ResonanceEngine: FFT-based frequency-domain anomaly detection
-    - RefactoringEngine: Dynamic model optimization and code analysis
+    - FloodPredictionOptimizer: Iterative prediction refinement
+    - CoreRefactoringEngine: Code complexity analysis (from three_r_mechanism)
     """
 
     def __init__(
@@ -498,7 +499,7 @@ class FloodDetector:
         self.gauge_monitor = RiverGaugeMonitor() if enable_river_gauge else None
         self.soil_model = SoilSaturationModel() if enable_soil else None
         self.runoff_predictor = TopographicRunoffPredictor() if enable_runoff else None
-        self.refactoring_engine = RefactoringEngine() if enable_refactoring else None
+        self.prediction_optimizer = FloodPredictionOptimizer() if enable_refactoring else None
 
         self.recursion_engine = RecursionEngine(max_depth=5)
         self.resonance_engine = ResonanceEngine(sampling_rate=1.0)
@@ -569,7 +570,7 @@ class FloodDetector:
                 "stage_ft": result.river_stage_ft,
                 "discharge_cfs": result.peak_discharge_cfs,
             }
-            refactor_result = self.refactoring_engine.optimize_prediction(
+            refactor_result = self.prediction_optimizer.optimize_prediction(
                 initial_prediction, flood_data["observed_data"]
             )
             result.refactoring_score = 1.0 - refactor_result["final_error"]

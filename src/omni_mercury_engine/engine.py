@@ -1625,18 +1625,20 @@ class OmniMercuryEngine:
         )
 
         # Create data loaders
+        # Use config.num_workers (default 4) for parallel data loading
+        # Set to 0 in config for single-threaded loading (needed for some environments)
         train_loader = DataLoader(
             train_dataset,
             batch_size=batch_size,
             shuffle=True,
-            num_workers=0,
+            num_workers=self.config.num_workers,
             pin_memory=self.device.type == "cuda",
         )
         val_loader = DataLoader(
             val_dataset,
             batch_size=batch_size,
             shuffle=False,
-            num_workers=0,
+            num_workers=self.config.num_workers,
             pin_memory=self.device.type == "cuda",
         )
 

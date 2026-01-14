@@ -391,8 +391,8 @@ class UnivariateRequest(BaseModel):
 
     data: list[float] = Field(
         ...,
-        min_length=0,
-        description="Time series data points.",
+        min_length=3,
+        description="Time series data points. Minimum 3 data points required.",
         json_schema_extra={
             "example": [1.0, 2.0, 1.5, 10.0, 1.8, 2.1, 1.9, 50.0, 2.0],
         },
