@@ -482,10 +482,10 @@ class OmniCodes:
     )
 
     OMNI_PERCIPIENT = OmniCode(
-        code="Ϙ15A11ϵ_ΞΛMΔΞ_ϖ20A19Φ",
+        code="Ϙ16A11ϵ_ΞΛMΔΞ_ϖ20A19Φ",
         symbol="Ϙϵ",
         domain="Omni-Percipient Future",
-        r=15.0,
+        r=16.0,
         p=1.1,
         description="Predictive foresight and anticipatory analysis",
     )

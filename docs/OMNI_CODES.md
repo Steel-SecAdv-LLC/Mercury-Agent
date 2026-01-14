@@ -31,11 +31,11 @@ Omni-Codes are bio-inspired helical parameters that provide:
 
 | Parameter | Value |
 |-----------|-------|
-| Code | `Ϙ15A11ϵ_ΞΛMΔΞ_ϖ20A19Φ` |
+| Code | `Ϙ16A11ϵ_ΞΛMΔΞ_ϖ20A19Φ` |
 | Domain | Omni-Percipient Future |
-| Helical Radius (r) | 15.0 |
+| Helical Radius (r) | 16.0 |
 | Helical Pitch (p) | 1.1 |
-| Stability | 16.5 |
+| Stability | 17.6 |
 
 **Function**: Predictive foresight and anticipatory analysis. Powers multi-hypothesis optimization and solution pathway exploration.
 

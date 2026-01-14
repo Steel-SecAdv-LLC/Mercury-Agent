@@ -539,10 +539,34 @@ class SolarDynamicsLoader(DatasetLoader):
         # C-class: 1e-6, M-class: 1e-5, X-class: 1e-4
         labels = (features[:, 0] > 1e-5).astype(np.int64)  # M-class or higher
 
-        # Apply max_samples limit
+        # Apply max_samples limit with stratified sampling to ensure storm events
         if self.config.max_samples and len(features) > self.config.max_samples:
             np.random.seed(self.config.random_seed)
-            indices = np.random.choice(len(features), self.config.max_samples, replace=False)
+
+            # Stratified sampling: ensure we get some storm events
+            storm_indices = np.where(labels == 1)[0]
+            normal_indices = np.where(labels == 0)[0]
+
+            # Target ~20% storm events (or all available if fewer)
+            n_storms = min(len(storm_indices), max(1, self.config.max_samples // 5))
+            n_normal = self.config.max_samples - n_storms
+
+            # Sample from each class
+            if len(storm_indices) > 0 and n_storms > 0:
+                storm_sample = np.random.choice(
+                    storm_indices, min(n_storms, len(storm_indices)), replace=False
+                )
+            else:
+                storm_sample = np.array([], dtype=np.int64)
+
+            normal_sample = np.random.choice(
+                normal_indices, min(n_normal, len(normal_indices)), replace=False
+            )
+
+            # Combine and shuffle
+            indices = np.concatenate([storm_sample, normal_sample])
+            np.random.shuffle(indices)
+
             features = features[indices]
             labels = labels[indices]
 
@@ -557,32 +581,30 @@ class SolarDynamicsLoader(DatasetLoader):
         t = np.linspace(0, 4 * np.pi, n_samples)  # ~2 solar cycles
         cycle = 0.5 + 0.5 * np.sin(t)
 
+        # Generate X-ray flux data matching FEATURE_NAMES (xray_short, xray_long)
+        xray_short = np.random.exponential(1e-7, n_samples) * (1 + cycle)
+        xray_long = np.random.exponential(1e-6, n_samples) * (1 + cycle)
+
+        # Additional parameters for storm detection
+        kp_index = np.random.randint(0, 9, n_samples).astype(float)
+        dst_index = np.random.normal(-20, 30, n_samples)
+        proton_flux_100mev = np.random.exponential(0.01, n_samples) * (1 + cycle)
+
         data = {
-            "sunspot_number": (100 * cycle + np.random.normal(0, 20, n_samples)).clip(0),
-            "f10.7_flux": (100 + 100 * cycle + np.random.normal(0, 15, n_samples)),
-            "x_ray_flux_short": np.random.exponential(1e-7, n_samples) * (1 + cycle),
-            "x_ray_flux_long": np.random.exponential(1e-6, n_samples) * (1 + cycle),
-            "proton_flux_10mev": np.random.exponential(0.1, n_samples) * (1 + cycle),
-            "proton_flux_100mev": np.random.exponential(0.01, n_samples) * (1 + cycle),
-            "electron_flux": np.random.exponential(100, n_samples) * (1 + cycle),
-            "kp_index": np.random.randint(0, 9, n_samples).astype(float),
-            "dst_index": np.random.normal(-20, 30, n_samples),
-            "solar_wind_speed": np.random.normal(400, 100, n_samples).clip(200),
-            "solar_wind_density": np.random.exponential(5, n_samples),
-            "imf_magnitude": np.random.exponential(5, n_samples),
-            "imf_bz": np.random.normal(0, 5, n_samples),
-            "active_region_count": (5 * cycle + np.random.poisson(3, n_samples)),
+            "xray_short": xray_short,
+            "xray_long": xray_long,
         }
 
         features = np.column_stack([data[f] for f in self.FEATURE_NAMES])
 
         # Label anomalies: solar storm events
+        # Use thresholds appropriate for the exponential distribution
         labels = np.zeros(n_samples, dtype=np.int64)
         storm_mask = (
-            (data["x_ray_flux_short"] > 1e-5)  # X-class flare
-            | (data["kp_index"] >= 7)  # Geomagnetic storm
-            | (data["dst_index"] < -100)  # Major storm
-            | (data["proton_flux_100mev"] > 1)  # SEP event
+            (xray_short > 1e-5)  # X-class flare
+            | (kp_index >= 7)  # Geomagnetic storm
+            | (dst_index < -100)  # Major storm
+            | (proton_flux_100mev > 1)  # SEP event
         )
         labels[storm_mask] = 1
 
