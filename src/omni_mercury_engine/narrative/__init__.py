@@ -72,6 +72,20 @@ from omni_mercury_engine.narrative.interface import (
     ConversationContext,
     create_mercury_interface,
 )
+from omni_mercury_engine.narrative.retriever import (
+    KnowledgeRetriever,
+    RetrievalResult,
+    RetrievalSource,
+    QueryIntent,
+    SearchResponse,
+)
+from omni_mercury_engine.narrative.voice import (
+    MercuryVoice,
+    VoiceResponse,
+    ConversationTurn,
+    ConversationType,
+    create_mercury_voice,
+)
 
 __all__ = [
     # Core engine
@@ -103,4 +117,16 @@ __all__ = [
     "MercuryResponse",
     "ConversationContext",
     "create_mercury_interface",
+    # Retriever
+    "KnowledgeRetriever",
+    "RetrievalResult",
+    "RetrievalSource",
+    "QueryIntent",
+    "SearchResponse",
+    # Voice
+    "MercuryVoice",
+    "VoiceResponse",
+    "ConversationTurn",
+    "ConversationType",
+    "create_mercury_voice",
 ]
