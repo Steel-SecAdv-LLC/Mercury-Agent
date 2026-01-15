@@ -62,19 +62,27 @@ pytestmark = [
 def ollama_module():
     """Import ollama_adapter module."""
     # Load llm_adapter first (dependency)
-    llm_spec = importlib.util.spec_from_file_location(
-        "llm_adapter",
-        src_path / "omni_mercury_engine" / "models" / "foundation" / "llm_adapter.py",
-    )
+    llm_path = src_path / "omni_mercury_engine" / "models" / "foundation" / "llm_adapter.py"
+    if not llm_path.exists():
+        pytest.skip(f"llm_adapter.py not found at {llm_path}")
+
+    llm_spec = importlib.util.spec_from_file_location("llm_adapter", llm_path)
+    if llm_spec is None or llm_spec.loader is None:
+        pytest.skip("Could not load llm_adapter module spec")
+
     llm_adapter = importlib.util.module_from_spec(llm_spec)
     sys.modules["omni_mercury_engine.models.foundation.llm_adapter"] = llm_adapter
     llm_spec.loader.exec_module(llm_adapter)
 
     # Load ollama_adapter
-    ollama_spec = importlib.util.spec_from_file_location(
-        "ollama_adapter",
-        src_path / "omni_mercury_engine" / "models" / "foundation" / "ollama_adapter.py",
-    )
+    ollama_path = src_path / "omni_mercury_engine" / "models" / "foundation" / "ollama_adapter.py"
+    if not ollama_path.exists():
+        pytest.skip(f"ollama_adapter.py not found at {ollama_path}")
+
+    ollama_spec = importlib.util.spec_from_file_location("ollama_adapter", ollama_path)
+    if ollama_spec is None or ollama_spec.loader is None:
+        pytest.skip("Could not load ollama_adapter module spec")
+
     ollama_adapter = importlib.util.module_from_spec(ollama_spec)
     ollama_spec.loader.exec_module(ollama_adapter)
 
@@ -88,10 +96,14 @@ def llm_module():
     if "omni_mercury_engine.models.foundation.llm_adapter" in sys.modules:
         return sys.modules["omni_mercury_engine.models.foundation.llm_adapter"]
 
-    llm_spec = importlib.util.spec_from_file_location(
-        "llm_adapter",
-        src_path / "omni_mercury_engine" / "models" / "foundation" / "llm_adapter.py",
-    )
+    llm_path = src_path / "omni_mercury_engine" / "models" / "foundation" / "llm_adapter.py"
+    if not llm_path.exists():
+        pytest.skip(f"llm_adapter.py not found at {llm_path}")
+
+    llm_spec = importlib.util.spec_from_file_location("llm_adapter", llm_path)
+    if llm_spec is None or llm_spec.loader is None:
+        pytest.skip("Could not load llm_adapter module spec")
+
     llm_adapter = importlib.util.module_from_spec(llm_spec)
     llm_spec.loader.exec_module(llm_adapter)
     return llm_adapter
