@@ -42,6 +42,7 @@ Integrates:
 - CRISPRInspiredSelfHealing: 3-stage adaptive anomaly neutralization
 """
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -129,6 +130,7 @@ class TruthDecipherFramework:
         self.enable_novel_discovery = enable_novel_discovery
         self.enable_self_healing = enable_self_healing
         self.enable_cognitive = enable_cognitive
+        self.logger = logging.getLogger(__name__)
 
         # Core detection
         self.anomaly_engine = OmniMercuryEngine(config=self.config)
@@ -318,11 +320,13 @@ class TruthDecipherFramework:
         anomaly_score = discovery_result.get("anomaly_score", 0.0)
         severity = discovery_result.get("severity", 0.0)
 
-        if anomaly_score > 0.9:
+        # Use configurable thresholds for classification bands
+        thresholds = self.config.thresholds
+        if anomaly_score > thresholds.confidence_high:
             issue_type = "CRITICAL"
-        elif anomaly_score > 0.7:
+        elif anomaly_score > thresholds.confidence_medium:
             issue_type = "HIGH"
-        elif anomaly_score > 0.5:
+        elif anomaly_score > thresholds.confidence_low:
             issue_type = "MEDIUM"
         else:
             issue_type = "LOW"
