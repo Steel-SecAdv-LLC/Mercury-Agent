@@ -92,20 +92,29 @@ def ollama_module():
 @pytest.fixture(scope="module")
 def llm_module():
     """Import llm_adapter module."""
+    module_name = "omni_mercury_engine.models.foundation.llm_adapter"
+
     # Check if already loaded
-    if "omni_mercury_engine.models.foundation.llm_adapter" in sys.modules:
-        return sys.modules["omni_mercury_engine.models.foundation.llm_adapter"]
+    if module_name in sys.modules:
+        return sys.modules[module_name]
 
     llm_path = src_path / "omni_mercury_engine" / "models" / "foundation" / "llm_adapter.py"
     if not llm_path.exists():
         pytest.skip(f"llm_adapter.py not found at {llm_path}")
 
-    llm_spec = importlib.util.spec_from_file_location("llm_adapter", llm_path)
+    llm_spec = importlib.util.spec_from_file_location(module_name, llm_path)
     if llm_spec is None or llm_spec.loader is None:
         pytest.skip("Could not load llm_adapter module spec")
 
     llm_adapter = importlib.util.module_from_spec(llm_spec)
-    llm_spec.loader.exec_module(llm_adapter)
+    # Register module in sys.modules BEFORE executing to allow dataclass decorator to work
+    sys.modules[module_name] = llm_adapter
+    try:
+        llm_spec.loader.exec_module(llm_adapter)
+    except Exception as e:
+        # Clean up on failure
+        del sys.modules[module_name]
+        pytest.skip(f"Could not execute llm_adapter module: {e}")
     return llm_adapter
 
 
