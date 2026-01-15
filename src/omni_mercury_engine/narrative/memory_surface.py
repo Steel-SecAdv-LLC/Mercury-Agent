@@ -40,7 +40,7 @@ Not artificial nostalgia - genuine pattern-informed context.
 
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -234,7 +234,7 @@ class MemorySurface:
             MemoryContext with historical awareness
         """
         self._retrieval_count += 1
-        current_time = time.time()
+        _current_time = time.time()  # Reserved for future time-based filtering
 
         # Get similar events
         similar_events = self._find_similar_events(detection_result, domain)

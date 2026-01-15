@@ -41,11 +41,13 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 from omni_mercury_engine.narrative.engine import NarrativeEngine, NarrativeResult
 from omni_mercury_engine.narrative.personality import (
-    CommunicationTone,
     PersonalityEngine,
     PersonalityProfile,
 )
@@ -241,7 +243,7 @@ class MercuryVoice:
         Returns:
             VoiceResponse with truth-dense communication
         """
-        start_time = time.time()
+        _start_time = time.time()  # Reserved for future response timing
         self._queries_handled += 1
         domain = domain or self.default_domain
 
@@ -345,7 +347,7 @@ class MercuryVoice:
         start_time = time.time()
         self._alerts_communicated += 1
 
-        profile = self.personality_engine.get_profile()
+        _profile = self.personality_engine.get_profile()  # Reserved for future alert styling
 
         # Build alert message
         severity = alert_content.get("severity", 0.5)
@@ -498,7 +500,7 @@ class MercuryVoice:
         # Build response from search results
         if search_response.results:
             message = self._build_search_response(user_input, search_response, profile)
-            sources = list(set(r.source.value for r in search_response.results))
+            sources = list({r.source.value for r in search_response.results})
             confidence = max(r.relevance_score for r in search_response.results)
         else:
             # No results found
@@ -574,7 +576,7 @@ class MercuryVoice:
 
         # Additional context if multiple results
         if n_results > 1:
-            sources = set(r.source.value for r in search_response.results)
+            sources = {r.source.value for r in search_response.results}
             parts.append(f"Sources: {', '.join(sources)}.")
 
         return " ".join(parts)

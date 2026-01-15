@@ -38,12 +38,14 @@ but through genuine transparency, truth density, and principled communication.
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 from omni_mercury_engine.narrative.engine import (
     NarrativeEngine,
     NarrativeResult,
-    NarrativeStyle,
 )
 from omni_mercury_engine.narrative.memory_surface import MemoryContext, MemorySurface
 from omni_mercury_engine.narrative.personality import (
@@ -490,7 +492,7 @@ class MercuryConversationInterface:
             Response text
         """
         domain = context.domain if context else self.default_domain
-        profile = self.personality_engine.get_profile(domain)
+        _profile = self.personality_engine.get_profile(domain)  # Reserved for future use
 
         # Simple question handling
         question_lower = question.lower()

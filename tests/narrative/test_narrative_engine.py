@@ -5,8 +5,6 @@ Copyright (C) 2025 Steel Security Advisory LLC
 Tests for NarrativeEngine - Truth-Dense Communication Synthesis.
 """
 
-import time
-
 import pytest
 
 from omni_mercury_engine.narrative.engine import (
@@ -161,7 +159,7 @@ class TestNarrativeEngine:
             "is_reliable": True,
         }
 
-        high_result = engine.synthesize(high_conf)
+        _high_result = engine.synthesize(high_conf)  # Verify no exception
         low_result = engine.synthesize(low_conf)
 
         # Low confidence should have cautionary recommendations

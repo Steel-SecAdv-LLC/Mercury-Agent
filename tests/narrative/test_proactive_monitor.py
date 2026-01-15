@@ -5,7 +5,6 @@ Copyright (C) 2025 Steel Security Advisory LLC
 Tests for ProactiveMonitor - Background Vigilance with Initiative.
 """
 
-import threading
 import time
 
 import pytest

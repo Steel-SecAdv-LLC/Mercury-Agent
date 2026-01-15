@@ -126,12 +126,12 @@ class TestPersonalityEngine:
         assert "confidence" in statement.lower() or "uncertain" in statement.lower()
 
         # High confidence might not need uncertainty statement
-        statement_high = engine.get_uncertainty_statement(confidence=0.95)
+        _statement_high = engine.get_uncertainty_statement(confidence=0.95)  # Verify no exception
         # May be empty for high confidence with default settings
 
     def test_uncertainty_decomposition(self, engine: PersonalityEngine) -> None:
         """Test uncertainty decomposition in statement."""
-        statement = engine.get_uncertainty_statement(
+        _statement = engine.get_uncertainty_statement(  # Verify no exception
             confidence=0.6,
             epistemic=0.2,
             aleatoric=0.15,

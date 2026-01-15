@@ -254,9 +254,9 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 logger.warning(f"Invalid URL scheme for Ollama API: {url}")
                 return False
 
-            req = urllib.request.Request(
+            req = urllib.request.Request(  # noqa: S310 - URL scheme validated above
                 url, method="GET"
-            )  # noqa: S310 - URL scheme validated above
+            )
             req.add_header("Accept", "application/json")
 
             with urllib.request.urlopen(  # noqa: S310 - URL scheme validated above

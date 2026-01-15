@@ -5,8 +5,6 @@ Copyright (C) 2025 Steel Security Advisory LLC
 Tests for MercuryConversationInterface - Unified "Alive" Interface.
 """
 
-import time
-
 import pytest
 
 from omni_mercury_engine.narrative.interface import (

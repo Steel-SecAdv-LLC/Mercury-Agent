@@ -454,9 +454,9 @@ class WebSearchRetriever(BaseExternalRetriever):
                 "https://api.duckduckgo.com/?q=test&format=json",
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
-            with urllib.request.urlopen(
+            with urllib.request.urlopen(  # noqa: S310 - URL scheme is hardcoded https
                 req, timeout=5
-            ) as _:  # noqa: S310 - URL scheme is hardcoded https
+            ) as _:
                 self._is_available = True
         except Exception:
             self._is_available = False

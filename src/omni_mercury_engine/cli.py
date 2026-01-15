@@ -192,7 +192,6 @@ def _start_voice_conversation(
     offline: bool,
 ) -> None:
     """Start the interactive voice conversation loop."""
-    import sys
 
     # Print banner
     click.echo("\n" + "=" * 60)
@@ -335,7 +334,7 @@ def _show_status(voice_instance: Any, llm_chain: Any) -> None:
             click.echo(
                 f"  Ollama: {'available' if status['ollama']['available'] else 'unavailable'}"
             )
-            click.echo(f"  Template Fallback: available")
+            click.echo("  Template Fallback: available")
         except Exception:
             click.echo("  LLM Status: unknown")
     else:
@@ -391,7 +390,7 @@ class _FallbackVoice:
             }
         else:
             return {
-                "message": f"I received your query. For detailed analysis, "
+                "message": "I received your query. For detailed analysis, "
                 "please use the detect command with your data file.",
                 "confidence": 0.7,
             }

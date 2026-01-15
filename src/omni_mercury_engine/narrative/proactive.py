@@ -48,7 +48,10 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 import numpy as np
 
@@ -655,7 +658,7 @@ class ProactiveMonitor:
             acc.count_recent(self.report_interval_sec, now) for acc in self._accumulators.values()
         )
 
-        summary_parts = [
+        _summary_parts = [  # Reserved for future report formatting
             f"Vigilance Report (interval: {self.report_interval_sec / 3600:.1f}h)",
             f"Detections processed: {self._detections_processed}",
             f"Initiatives generated: {self._initiatives_generated}",

@@ -37,8 +37,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-import numpy as np
-
 logger = logging.getLogger(__name__)
 
 
@@ -324,7 +322,7 @@ class KnowledgeRetriever:
         query_lower = query.lower()
 
         # Score each intent
-        scores: dict[QueryIntent, int] = {intent: 0 for intent in QueryIntent}
+        scores: dict[QueryIntent, int] = dict.fromkeys(QueryIntent, 0)
 
         for intent, keywords in self.INTENT_KEYWORDS.items():
             for keyword in keywords:
@@ -485,7 +483,7 @@ class KnowledgeRetriever:
         """Search detection history."""
         results = []
 
-        query_words = context.query.lower().split()
+        _query_words = context.query.lower().split()  # Reserved for future keyword matching
 
         for log_entry in self._detection_log[-100:]:  # Last 100 entries
             detection = log_entry.get("detection", {})

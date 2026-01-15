@@ -74,26 +74,22 @@ from omni_mercury_engine.models.foundation.timegpt_adapter import TimeGPTAdapter
 MatrixProfileAdapter = MatrixProfileDetector
 
 __all__ = [
-    # Base classes
     "BaseFoundationAdapter",
     "BaseFoundationModel",
     "ChronosAdapter",
+    "FallbackLLMChain",
     "ForecastResult",
-    # Ensemble
     "FoundationEnsemble",
     "FoundationModelConfig",
-    "MatrixProfileAdapter",  # Compatibility alias
+    "MatrixProfileAdapter",
     "MatrixProfileDetector",
-    # Time series adapters
-    "TimeGPTAdapter",
-    # LLM adapters - Ollama & Fallback
-    "OllamaLLMAdapter",
-    "OllamaConfig",
-    "OllamaModel",
-    "TemplateLLMAdapter",
-    "FallbackLLMChain",
     "ModelConfiguration",
     "ModelProfile",
-    "create_ollama_adapter",
+    "OllamaConfig",
+    "OllamaLLMAdapter",
+    "OllamaModel",
+    "TemplateLLMAdapter",
+    "TimeGPTAdapter",
     "create_fallback_chain",
+    "create_ollama_adapter",
 ]
