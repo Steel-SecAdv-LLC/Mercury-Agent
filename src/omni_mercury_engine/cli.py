@@ -332,7 +332,9 @@ def _show_status(voice_instance: Any, llm_chain: Any) -> None:
         try:
             status = llm_chain.get_chain_status()
             click.echo(f"  Active LLM: {status['active']}")
-            click.echo(f"  Ollama: {'available' if status['ollama']['available'] else 'unavailable'}")
+            click.echo(
+                f"  Ollama: {'available' if status['ollama']['available'] else 'unavailable'}"
+            )
             click.echo(f"  Template Fallback: available")
         except Exception:
             click.echo("  LLM Status: unknown")

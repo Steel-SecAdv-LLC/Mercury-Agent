@@ -149,9 +149,7 @@ class PatternAccumulator:
         timestamp: float,
     ) -> None:
         """Add pattern observation."""
-        self.patterns.append(
-            {"type": pattern_type, "score": score, "timestamp": timestamp}
-        )
+        self.patterns.append({"type": pattern_type, "score": score, "timestamp": timestamp})
 
     def count_recent(self, window_sec: float, current_time: float) -> int:
         """Count patterns in recent time window."""
@@ -493,9 +491,7 @@ class ProactiveMonitor:
                     },
                     domain=domain,
                     timestamp=timestamp,
-                    vigilance=self._vigilance_levels.get(
-                        domain or "", self.default_vigilance
-                    ),
+                    vigilance=self._vigilance_levels.get(domain or "", self.default_vigilance),
                     triggered_by=f"pattern_accumulation_{recent_count}_in_window",
                 )
 
@@ -527,9 +523,7 @@ class ProactiveMonitor:
         )
 
         # Determine priority
-        priority = self._calculate_priority(
-            initiative_type, severity, confidence, vigilance
-        )
+        priority = self._calculate_priority(initiative_type, severity, confidence, vigilance)
 
         event = InitiativeEvent(
             event_id=f"init_{self._event_counter}_{int(timestamp)}",
@@ -564,10 +558,9 @@ class ProactiveMonitor:
         """Generate human-readable initiative summary."""
         domain_prefix = f"[{domain.upper()}] " if domain else ""
         severity_word = (
-            "Critical" if severity > 0.8 else
-            "High" if severity > 0.6 else
-            "Moderate" if severity > 0.4 else
-            "Low"
+            "Critical"
+            if severity > 0.8
+            else "High" if severity > 0.6 else "Moderate" if severity > 0.4 else "Low"
         )
 
         if initiative_type == InitiativeType.ANOMALY_ALERT:
@@ -659,8 +652,7 @@ class ProactiveMonitor:
 
         # Aggregate statistics
         total_patterns = sum(
-            acc.count_recent(self.report_interval_sec, now)
-            for acc in self._accumulators.values()
+            acc.count_recent(self.report_interval_sec, now) for acc in self._accumulators.values()
         )
 
         summary_parts = [
@@ -690,9 +682,7 @@ class ProactiveMonitor:
         return {
             "running": self._running,
             "default_vigilance": self.default_vigilance.value,
-            "domain_vigilance_levels": {
-                k: v.value for k, v in self._vigilance_levels.items()
-            },
+            "domain_vigilance_levels": {k: v.value for k, v in self._vigilance_levels.items()},
             "detections_processed": self._detections_processed,
             "initiatives_generated": self._initiatives_generated,
             "escalations_triggered": self._escalations_triggered,

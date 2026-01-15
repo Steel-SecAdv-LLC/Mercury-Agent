@@ -228,9 +228,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(self.ollama_config.connect_timeout)
-            result = sock.connect_ex(
-                (self.ollama_config.host, self.ollama_config.port)
-            )
+            result = sock.connect_ex((self.ollama_config.host, self.ollama_config.port))
             sock.close()
 
             if result == 0:
@@ -256,7 +254,9 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 logger.warning(f"Invalid URL scheme for Ollama API: {url}")
                 return False
 
-            req = urllib.request.Request(url, method="GET")  # noqa: S310 - URL scheme validated above
+            req = urllib.request.Request(
+                url, method="GET"
+            )  # noqa: S310 - URL scheme validated above
             req.add_header("Accept", "application/json")
 
             with urllib.request.urlopen(  # noqa: S310 - URL scheme validated above
@@ -269,8 +269,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
 
                 # Check for exact match or base name match
                 model_available = any(
-                    self.ollama_config.model in m or model_base in m
-                    for m in available_models
+                    self.ollama_config.model in m or model_base in m for m in available_models
                 )
 
                 if not model_available:
@@ -425,13 +424,15 @@ class OllamaLLMAdapter(BaseLLMAdapter):
 
     def _unavailable_response(self) -> str:
         """Return response when Ollama is unavailable."""
-        return json.dumps({
-            "is_anomaly": False,
-            "anomaly_score": 0.0,
-            "confidence": 0.0,
-            "category": "unavailable",
-            "explanation": "Ollama LLM not available - using fallback",
-        })
+        return json.dumps(
+            {
+                "is_anomaly": False,
+                "anomaly_score": 0.0,
+                "confidence": 0.0,
+                "category": "unavailable",
+                "explanation": "Ollama LLM not available - using fallback",
+            }
+        )
 
 
 class TemplateLLMAdapter(BaseLLMAdapter):
@@ -498,34 +499,38 @@ class TemplateLLMAdapter(BaseLLMAdapter):
         score = 0.75 if has_high_values else 0.25
         is_anomaly = has_high_values
 
-        return json.dumps({
-            "is_anomaly": is_anomaly,
-            "anomaly_score": score,
-            "confidence": 0.6,
-            "category": "template_analysis",
-            "explanation": (
-                "Template-based analysis detected potential anomaly indicators. "
-                "Full LLM analysis unavailable - using pattern matching fallback."
-                if is_anomaly else
-                "Template-based analysis found no obvious anomaly indicators. "
-                "Note: Operating in offline fallback mode."
-            ),
-        })
+        return json.dumps(
+            {
+                "is_anomaly": is_anomaly,
+                "anomaly_score": score,
+                "confidence": 0.6,
+                "category": "template_analysis",
+                "explanation": (
+                    "Template-based analysis detected potential anomaly indicators. "
+                    "Full LLM analysis unavailable - using pattern matching fallback."
+                    if is_anomaly
+                    else "Template-based analysis found no obvious anomaly indicators. "
+                    "Note: Operating in offline fallback mode."
+                ),
+            }
+        )
 
     def _status_template(self, _prompt: str) -> str:
         """Template for status queries."""
-        return json.dumps({
-            "status": "operational",
-            "mode": "offline_fallback",
-            "llm_available": False,
-            "capabilities": [
-                "anomaly_detection",
-                "pattern_matching",
-                "basic_queries",
-            ],
-            "message": "Mercury Agent operating in offline template mode. "
-                       "Core detection capabilities remain fully functional.",
-        })
+        return json.dumps(
+            {
+                "status": "operational",
+                "mode": "offline_fallback",
+                "llm_available": False,
+                "capabilities": [
+                    "anomaly_detection",
+                    "pattern_matching",
+                    "basic_queries",
+                ],
+                "message": "Mercury Agent operating in offline template mode. "
+                "Core detection capabilities remain fully functional.",
+            }
+        )
 
     def _greeting_template(self, _prompt: str) -> str:
         """Template for greetings."""
@@ -636,9 +641,7 @@ class FallbackLLMChain:
 
         # Import appropriate adapter based on provider
         # Currently returns None - cloud adapters can be added
-        logger.info(
-            f"Cloud adapter for {self.cloud_config.provider} not implemented"
-        )
+        logger.info(f"Cloud adapter for {self.cloud_config.provider} not implemented")
         return None
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
@@ -677,9 +680,7 @@ class FallbackLLMChain:
             "cloud": {
                 "enabled": self.enable_cloud,
                 "available": self._cloud.is_available() if self._cloud else False,
-                "provider": (
-                    self.cloud_config.provider.value if self.cloud_config else None
-                ),
+                "provider": (self.cloud_config.provider.value if self.cloud_config else None),
             },
             "template": {
                 "available": True,
@@ -710,23 +711,27 @@ class ModelConfiguration:
     """
 
     # Model selection preferences
-    preferred_models: list[str] = field(default_factory=lambda: [
-        "llama3.2:3b",  # Default balanced option
-        "mistral:7b",
-        "phi3:mini",
-    ])
+    preferred_models: list[str] = field(
+        default_factory=lambda: [
+            "llama3.2:3b",  # Default balanced option
+            "mistral:7b",
+            "phi3:mini",
+        ]
+    )
 
     # Resource constraints
     max_model_size: str = "medium"  # tiny, small, medium, large, xl
     require_offline: bool = True
 
     # Domain-specific model mapping
-    domain_models: dict[str, str] = field(default_factory=lambda: {
-        "medical": "llama3.1:8b",  # Stronger reasoning for medical
-        "security": "llama3.1:8b",  # Security analysis needs strength
-        "code": "deepseek-coder:6.7b",  # Code-specialized
-        "simple": "llama3.2:1b",  # Fast for simple queries
-    })
+    domain_models: dict[str, str] = field(
+        default_factory=lambda: {
+            "medical": "llama3.1:8b",  # Stronger reasoning for medical
+            "security": "llama3.1:8b",  # Security analysis needs strength
+            "code": "deepseek-coder:6.7b",  # Code-specialized
+            "simple": "llama3.2:1b",  # Fast for simple queries
+        }
+    )
 
     def get_model_for_domain(self, domain: str | None = None) -> str:
         """Get the best model for a given domain."""

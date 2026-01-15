@@ -25,9 +25,7 @@ class TestMercuryConversationInterface:
     def interface(self) -> MercuryConversationInterface:
         """Create test interface (proactive disabled for speed)."""
         return MercuryConversationInterface(
-            enable_proactive=False,
-            enable_memory=True,
-            default_domain="test"
+            enable_proactive=False, enable_memory=True, default_domain="test"
         )
 
     @pytest.fixture
@@ -50,9 +48,7 @@ class TestMercuryConversationInterface:
             "severity": 0.7,
             "confidence": 0.82,
             "is_reliable": True,
-            "reasoning_chain": [
-                {"rule": "threshold", "conclusion": "exceeded", "confidence": 0.9}
-            ],
+            "reasoning_chain": [{"rule": "threshold", "conclusion": "exceeded", "confidence": 0.9}],
             "recommendations": ["Review data"],
         }
 
@@ -201,15 +197,11 @@ class TestMercuryConversationInterfaceProactive:
         if iface.proactive_monitor and iface.proactive_monitor._running:
             iface.stop_proactive_monitoring()
 
-    def test_proactive_initialization(
-        self, interface: MercuryConversationInterface
-    ) -> None:
+    def test_proactive_initialization(self, interface: MercuryConversationInterface) -> None:
         """Test proactive monitor is initialized."""
         assert interface.proactive_monitor is not None
 
-    def test_start_stop_proactive(
-        self, interface: MercuryConversationInterface
-    ) -> None:
+    def test_start_stop_proactive(self, interface: MercuryConversationInterface) -> None:
         """Test starting and stopping proactive monitoring."""
         interface.start_proactive_monitoring()
         assert interface.proactive_monitor._running is True
@@ -222,13 +214,10 @@ class TestMercuryConversationInterfaceProactive:
         interface.set_vigilance(VigilanceLevel.HEIGHTENED, domain="security")
 
         assert (
-            interface.proactive_monitor._vigilance_levels["security"]
-            == VigilanceLevel.HEIGHTENED
+            interface.proactive_monitor._vigilance_levels["security"] == VigilanceLevel.HEIGHTENED
         )
 
-    def test_proactive_callback_registration(
-        self, interface: MercuryConversationInterface
-    ) -> None:
+    def test_proactive_callback_registration(self, interface: MercuryConversationInterface) -> None:
         """Test proactive alert callback registration."""
         events = []
         interface.on_proactive_alert(lambda e: events.append(e))
@@ -251,9 +240,7 @@ class TestCreateMercuryInterface:
     def test_factory_with_options(self) -> None:
         """Test factory with custom options."""
         interface = create_mercury_interface(
-            enable_proactive=False,
-            enable_memory=False,
-            default_domain="medical"
+            enable_proactive=False, enable_memory=False, default_domain="medical"
         )
 
         assert interface.enable_proactive is False
@@ -266,10 +253,7 @@ class TestConversationContext:
 
     def test_creation(self) -> None:
         """Test context creation."""
-        ctx = ConversationContext(
-            session_id="test_session",
-            domain="medical"
-        )
+        ctx = ConversationContext(session_id="test_session", domain="medical")
 
         assert ctx.session_id == "test_session"
         assert ctx.domain == "medical"

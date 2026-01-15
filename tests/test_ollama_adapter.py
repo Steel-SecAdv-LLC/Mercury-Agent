@@ -429,8 +429,10 @@ class TestOfflineOperation:
 
         parsed = json.loads(response)
         assert parsed["is_anomaly"] is True
-        assert "template" in parsed.get("category", "").lower() or \
-               "template" in chain.get_active_adapter()
+        assert (
+            "template" in parsed.get("category", "").lower()
+            or "template" in chain.get_active_adapter()
+        )
 
     def test_offline_status_query(self, ollama_module):
         """Test status queries work offline."""
@@ -488,9 +490,7 @@ class TestLLMAdapterIntegration:
 
     def test_create_llm_detector_ollama(self, llm_module):
         """Test create_llm_detector with ollama provider."""
-        detector = llm_module.create_llm_detector(
-            provider="ollama", model_name="llama3.2:1b"
-        )
+        detector = llm_module.create_llm_detector(provider="ollama", model_name="llama3.2:1b")
 
         assert detector is not None
 

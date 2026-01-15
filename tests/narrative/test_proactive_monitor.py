@@ -185,8 +185,7 @@ class TestProactiveMonitor:
 
         # Should have escalation event
         escalation_events = [
-            e for e in events_received
-            if e.initiative_type == InitiativeType.ESCALATION
+            e for e in events_received if e.initiative_type == InitiativeType.ESCALATION
         ]
         assert len(escalation_events) >= 1
 
@@ -253,8 +252,13 @@ class TestInitiativeType:
     def test_all_types_defined(self) -> None:
         """Ensure all expected initiative types are defined."""
         expected = [
-            "ANOMALY_ALERT", "PATTERN_EMERGENCE", "ESCALATION",
-            "PREDICTION", "CALIBRATION", "MEMORY_INSIGHT", "SCHEDULED_REPORT"
+            "ANOMALY_ALERT",
+            "PATTERN_EMERGENCE",
+            "ESCALATION",
+            "PREDICTION",
+            "CALIBRATION",
+            "MEMORY_INSIGHT",
+            "SCHEDULED_REPORT",
         ]
         for type_name in expected:
             assert hasattr(InitiativeType, type_name)

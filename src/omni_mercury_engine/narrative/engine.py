@@ -119,15 +119,17 @@ class NarrativeResult:
         return {
             "summary": self.summary,
             "detailed_explanation": self.detailed_explanation,
-            "reasoning_chain": {
-                "steps": self.reasoning_chain.steps,
-                "hypotheses_considered": self.reasoning_chain.hypotheses_considered,
-                "hypotheses_rejected": self.reasoning_chain.hypotheses_rejected,
-                "conclusion": self.reasoning_chain.final_conclusion,
-                "confidence_rationale": self.reasoning_chain.confidence_rationale,
-            }
-            if self.reasoning_chain
-            else None,
+            "reasoning_chain": (
+                {
+                    "steps": self.reasoning_chain.steps,
+                    "hypotheses_considered": self.reasoning_chain.hypotheses_considered,
+                    "hypotheses_rejected": self.reasoning_chain.hypotheses_rejected,
+                    "conclusion": self.reasoning_chain.final_conclusion,
+                    "confidence_rationale": self.reasoning_chain.confidence_rationale,
+                }
+                if self.reasoning_chain
+                else None
+            ),
             "confidence": {
                 "level": self.confidence_level.value,
                 "score": self.confidence_score,
@@ -273,9 +275,7 @@ class NarrativeEngine:
         )
 
         # Get historical context if memory surface available
-        historical_context, similar_events = self._get_historical_context(
-            detection_result, domain
-        )
+        historical_context, similar_events = self._get_historical_context(detection_result, domain)
 
         # Generate uncertainty disclosure
         uncertainty_disclosure = self._generate_uncertainty_disclosure(
@@ -286,9 +286,7 @@ class NarrativeEngine:
         )
 
         # Synthesize summary
-        summary = self._generate_summary(
-            anomaly_detected, anomaly_score, severity, domain, style
-        )
+        summary = self._generate_summary(anomaly_detected, anomaly_score, severity, domain, style)
 
         # Synthesize detailed explanation
         detailed = self._generate_detailed_explanation(
@@ -308,9 +306,7 @@ class NarrativeEngine:
         urgency = self._determine_urgency(anomaly_detected, severity, confidence)
 
         # Generate next steps
-        next_steps = self._generate_next_steps(
-            anomaly_detected, confidence_level, domain
-        )
+        next_steps = self._generate_next_steps(anomaly_detected, confidence_level, domain)
 
         generation_time = (time.time() - start_time) * 1000
 
@@ -381,9 +377,7 @@ class NarrativeEngine:
 
         return self.default_style
 
-    def _classify_confidence(
-        self, confidence: float, is_reliable: bool
-    ) -> ConfidenceLevel:
+    def _classify_confidence(self, confidence: float, is_reliable: bool) -> ConfidenceLevel:
         """Classify confidence level with reliability adjustment."""
         # Unreliable predictions get downgraded
         effective_confidence = confidence * (0.8 if not is_reliable else 1.0)
@@ -474,9 +468,7 @@ class NarrativeEngine:
             )
 
         if n_rejected > 0:
-            rationale_parts.append(
-                f"{n_rejected} alternative hypotheses ruled out"
-            )
+            rationale_parts.append(f"{n_rejected} alternative hypotheses ruled out")
 
         return ". ".join(rationale_parts) + "."
 
@@ -488,9 +480,7 @@ class NarrativeEngine:
             return None, []
 
         try:
-            context = self._memory_surface.get_relevant_context(
-                detection_result, domain
-            )
+            context = self._memory_surface.get_relevant_context(detection_result, domain)
             return context.summary, context.similar_event_ids
         except Exception as e:
             self.logger.debug(f"Memory surface lookup failed: {e}")
@@ -514,13 +504,10 @@ class NarrativeEngine:
             )
         elif confidence < 0.5:
             parts.append(
-                f"Moderate uncertainty (confidence: {confidence:.0%}). "
-                "Verification recommended."
+                f"Moderate uncertainty (confidence: {confidence:.0%}). " "Verification recommended."
             )
         elif confidence < 0.7:
-            parts.append(
-                f"Reasonable confidence ({confidence:.0%}), but uncertainty remains."
-            )
+            parts.append(f"Reasonable confidence ({confidence:.0%}), but uncertainty remains.")
         elif confidence < 0.9:
             parts.append(f"High confidence ({confidence:.0%}).")
         else:
@@ -528,19 +515,13 @@ class NarrativeEngine:
 
         # Reliability warning
         if not is_reliable:
-            parts.append(
-                "WARNING: This prediction is flagged as potentially unreliable."
-            )
+            parts.append("WARNING: This prediction is flagged as potentially unreliable.")
 
         # Uncertainty decomposition
         if epistemic > 0.1:
-            parts.append(
-                f"Epistemic uncertainty: {epistemic:.0%} (model knowledge gaps)."
-            )
+            parts.append(f"Epistemic uncertainty: {epistemic:.0%} (model knowledge gaps).")
         if aleatoric > 0.1:
-            parts.append(
-                f"Aleatoric uncertainty: {aleatoric:.0%} (inherent data variability)."
-            )
+            parts.append(f"Aleatoric uncertainty: {aleatoric:.0%} (inherent data variability).")
 
         return " ".join(parts)
 
@@ -556,16 +537,14 @@ class NarrativeEngine:
         domain_prefix = f"[{domain.upper()}] " if domain else ""
 
         if not anomaly_detected:
-            return f"{domain_prefix}No anomaly detected. Systems operating within normal parameters."
+            return (
+                f"{domain_prefix}No anomaly detected. Systems operating within normal parameters."
+            )
 
         severity_word = (
             "critical"
             if severity > 0.8
-            else "significant"
-            if severity > 0.6
-            else "moderate"
-            if severity > 0.4
-            else "minor"
+            else "significant" if severity > 0.6 else "moderate" if severity > 0.4 else "minor"
         )
 
         if style == NarrativeStyle.URGENT:
@@ -617,9 +596,7 @@ class NarrativeEngine:
         # Reasoning chain summary
         reasoning_chain = detection_result.get("reasoning_chain", [])
         if reasoning_chain:
-            parts.append(
-                f"This conclusion is based on {len(reasoning_chain)} reasoning steps."
-            )
+            parts.append(f"This conclusion is based on {len(reasoning_chain)} reasoning steps.")
 
             if style in (NarrativeStyle.EXPLANATORY, NarrativeStyle.ANALYTICAL):
                 # Include key reasoning steps
@@ -639,9 +616,7 @@ class NarrativeEngine:
         # Similar cases
         similar_cases = detection_result.get("similar_cases", [])
         if similar_cases:
-            parts.append(
-                f"This pattern has similarities to {len(similar_cases)} historical cases."
-            )
+            parts.append(f"This pattern has similarities to {len(similar_cases)} historical cases.")
 
         # Triggered indicators
         warnings = detection_result.get("warnings", [])
@@ -706,9 +681,7 @@ class NarrativeEngine:
             recommendations.append("Do not take irreversible action without verification.")
 
         elif confidence_level in (ConfidenceLevel.LOW, ConfidenceLevel.VERY_LOW):
-            recommendations.append(
-                "LOW CONFIDENCE: Treat as preliminary finding only."
-            )
+            recommendations.append("LOW CONFIDENCE: Treat as preliminary finding only.")
             recommendations.append("Gather additional data before drawing conclusions.")
             recommendations.append("Consider alternative explanations.")
 
@@ -722,9 +695,7 @@ class NarrativeEngine:
 
         return recommendations
 
-    def _determine_urgency(
-        self, anomaly_detected: bool, severity: float, confidence: float
-    ) -> str:
+    def _determine_urgency(self, anomaly_detected: bool, severity: float, confidence: float) -> str:
         """Determine urgency level."""
         if not anomaly_detected:
             return "routine"

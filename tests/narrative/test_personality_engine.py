@@ -52,9 +52,7 @@ class TestPersonalityEngine:
 
     def test_domain_overrides(self) -> None:
         """Test domain-specific scalar overrides."""
-        overrides = {
-            "medical": {"omnicompassion": 1.5}
-        }
+        overrides = {"medical": {"omnicompassion": 1.5}}
         engine = PersonalityEngine(domain_overrides=overrides)
 
         # Medical domain should have higher compassion
@@ -64,10 +62,7 @@ class TestPersonalityEngine:
     def test_get_modifiers(self, engine: PersonalityEngine) -> None:
         """Test communication modifier generation."""
         modifiers = engine.get_modifiers(
-            severity=0.8,
-            confidence=0.7,
-            anomaly_detected=True,
-            domain="medical"
+            severity=0.8, confidence=0.7, anomaly_detected=True, domain="medical"
         )
 
         assert isinstance(modifiers, CommunicationModifiers)
@@ -84,7 +79,10 @@ class TestPersonalityEngine:
         )
 
         # High confidence should have strong framing
-        assert "high" in modifiers.confidence_framing.lower() or "reasonable" in modifiers.confidence_framing.lower()
+        assert (
+            "high" in modifiers.confidence_framing.lower()
+            or "reasonable" in modifiers.confidence_framing.lower()
+        )
 
     def test_modifiers_for_low_confidence(self, engine: PersonalityEngine) -> None:
         """Test modifiers for low confidence detection."""
@@ -101,10 +99,7 @@ class TestPersonalityEngine:
         """Test text shaping."""
         profile = engine.get_profile()
         modifiers = engine.get_modifiers(
-            severity=0.7,
-            confidence=0.6,
-            anomaly_detected=True,
-            profile=profile
+            severity=0.7, confidence=0.6, anomaly_detected=True, profile=profile
         )
 
         raw_text = "Anomaly detected with score 0.7."
@@ -159,7 +154,11 @@ class TestPersonalityEngine:
 
         # Default has high explainability (0.9)
         # Should result in detailed verbosity
-        assert profile.verbosity in (VerbosityLevel.DETAILED, VerbosityLevel.COMPREHENSIVE, VerbosityLevel.STANDARD)
+        assert profile.verbosity in (
+            VerbosityLevel.DETAILED,
+            VerbosityLevel.COMPREHENSIVE,
+            VerbosityLevel.STANDARD,
+        )
 
     def test_behavioral_flags(self, engine: PersonalityEngine) -> None:
         """Test behavioral flags are set."""

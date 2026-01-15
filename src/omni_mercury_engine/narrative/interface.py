@@ -283,15 +283,11 @@ class MercuryConversationInterface:
         memory_context = None
         historical_refs = []
         if self.memory_surface:
-            memory_context = self.memory_surface.get_relevant_context(
-                detection_result, domain
-            )
+            memory_context = self.memory_surface.get_relevant_context(detection_result, domain)
             historical_refs = memory_context.similar_event_ids
 
             # Record this event for future memory
-            self.memory_surface.record_event(
-                detection_result, domain, outcome=None
-            )
+            self.memory_surface.record_event(detection_result, domain, outcome=None)
 
         # Get communication modifiers
         modifiers = self.personality_engine.get_modifiers(
@@ -334,11 +330,13 @@ class MercuryConversationInterface:
 
         # Update conversation history
         if context:
-            context.conversation_history.append({
-                "type": "detection",
-                "timestamp": time.time(),
-                "summary": narrative.summary,
-            })
+            context.conversation_history.append(
+                {
+                    "type": "detection",
+                    "timestamp": time.time(),
+                    "summary": narrative.summary,
+                }
+            )
 
         response_time = (time.time() - start_time) * 1000
 
@@ -379,9 +377,7 @@ class MercuryConversationInterface:
         if memory_context and profile.include_historical_context:
             if memory_context.similar_events:
                 n_similar = len(memory_context.similar_events)
-                parts.append(
-                    f"This pattern is similar to {n_similar} previous observation(s)."
-                )
+                parts.append(f"This pattern is similar to {n_similar} previous observation(s).")
 
                 # Add specific insight if highly relevant
                 if memory_context.learned_insights:
@@ -437,9 +433,7 @@ class MercuryConversationInterface:
 
         return follow_ups[:3]
 
-    def on_proactive_alert(
-        self, callback: Callable[[InitiativeEvent], None]
-    ) -> None:
+    def on_proactive_alert(self, callback: Callable[[InitiativeEvent], None]) -> None:
         """
         Register callback for proactive alerts.
 

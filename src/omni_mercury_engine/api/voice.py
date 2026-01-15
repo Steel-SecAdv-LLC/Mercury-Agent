@@ -495,9 +495,11 @@ async def get_status() -> StatusResponse:
     components = {
         "voice_interface": "operational",
         "narrative_engine": "operational" if _get_narrative_engine() else "fallback",
-        "conversation_history": len(voice.get_conversation_history())
-        if hasattr(voice, "get_conversation_history")
-        else 0,
+        "conversation_history": (
+            len(voice.get_conversation_history())
+            if hasattr(voice, "get_conversation_history")
+            else 0
+        ),
     }
 
     statistics = {
@@ -588,7 +590,9 @@ def add_voice_routes(app: Any) -> None:
     if hasattr(app, "openapi_tags"):
         if app.openapi_tags is None:
             app.openapi_tags = []
-        app.openapi_tags.append({
-            "name": "Voice Interface",
-            "description": "Mercury's conversational voice interface for natural language interaction.",
-        })
+        app.openapi_tags.append(
+            {
+                "name": "Voice Interface",
+                "description": "Mercury's conversational voice interface for natural language interaction.",
+            }
+        )

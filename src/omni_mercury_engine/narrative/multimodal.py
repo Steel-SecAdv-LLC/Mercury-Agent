@@ -260,7 +260,11 @@ class MultiModalNarrator:
         """
         if detection.modality in [ModalityType.IMAGE, ModalityType.VIDEO, ModalityType.THERMAL]:
             return self._narrate_visual(detection, domain)
-        elif detection.modality in [ModalityType.AUDIO, ModalityType.SPECTROGRAM, ModalityType.WAVEFORM]:
+        elif detection.modality in [
+            ModalityType.AUDIO,
+            ModalityType.SPECTROGRAM,
+            ModalityType.WAVEFORM,
+        ]:
             return self._narrate_audio(detection, domain)
         else:
             return self._narrate_generic(detection, domain)
@@ -271,13 +275,17 @@ class MultiModalNarrator:
         domain: str | None = None,
     ) -> MultiModalNarration:
         """Generate narration for visual detection."""
-        vocab = self.DOMAIN_VOCABULARY.get(domain or "manufacturing", self.DOMAIN_VOCABULARY["manufacturing"])
+        vocab = self.DOMAIN_VOCABULARY.get(
+            domain or "manufacturing", self.DOMAIN_VOCABULARY["manufacturing"]
+        )
 
         # Build summary
         if detection.anomaly_detected:
             anomaly_term = vocab.get("defect", "anomaly")
             summary = f"Visual analysis detected {anomaly_term} "
-            summary += f"(score: {detection.anomaly_score:.2f}, confidence: {detection.confidence:.0%}). "
+            summary += (
+                f"(score: {detection.anomaly_score:.2f}, confidence: {detection.confidence:.0%}). "
+            )
         else:
             summary = "Visual analysis found no significant anomalies. "
             summary += f"Confidence in assessment: {detection.confidence:.0%}."
@@ -291,8 +299,7 @@ class MultiModalNarrator:
             for region in detection.regions:
                 pos = self._describe_position(region.x, region.y)
                 region_descriptions.append(
-                    f"{region.label} in {pos} region "
-                    f"(score: {region.anomaly_score:.2f})"
+                    f"{region.label} in {pos} region " f"(score: {region.anomaly_score:.2f})"
                 )
 
             visual_description = f"Identified {len(detection.regions)} region(s) of interest: "
@@ -317,9 +324,7 @@ class MultiModalNarrator:
         severity = self._assess_severity(detection.anomaly_score)
 
         # Recommendations
-        recommendations = self._generate_visual_recommendations(
-            detection, domain, severity
-        )
+        recommendations = self._generate_visual_recommendations(detection, domain, severity)
 
         # Confidence statement
         confidence_stmt = self._confidence_statement(detection.confidence, "visual")
@@ -342,7 +347,9 @@ class MultiModalNarrator:
         # Build summary
         if detection.anomaly_detected:
             summary = "Audio analysis detected anomalous sound pattern "
-            summary += f"(score: {detection.anomaly_score:.2f}, confidence: {detection.confidence:.0%}). "
+            summary += (
+                f"(score: {detection.anomaly_score:.2f}, confidence: {detection.confidence:.0%}). "
+            )
 
             if isinstance(detection.anomaly_type, AudioAnomalyType):
                 if detection.anomaly_type == AudioAnomalyType.MACHINERY:
@@ -384,9 +391,7 @@ class MultiModalNarrator:
 
         # Severity and recommendations
         severity = self._assess_severity(detection.anomaly_score)
-        recommendations = self._generate_audio_recommendations(
-            detection, domain, severity
-        )
+        recommendations = self._generate_audio_recommendations(detection, domain, severity)
         confidence_stmt = self._confidence_statement(detection.confidence, "audio")
 
         return MultiModalNarration(
@@ -465,7 +470,9 @@ class MultiModalNarrator:
         if not detection.anomaly_detected:
             return ["Continue routine monitoring"]
 
-        vocab = self.DOMAIN_VOCABULARY.get(domain or "manufacturing", self.DOMAIN_VOCABULARY["manufacturing"])
+        vocab = self.DOMAIN_VOCABULARY.get(
+            domain or "manufacturing", self.DOMAIN_VOCABULARY["manufacturing"]
+        )
 
         if detection.anomaly_score >= 0.7:
             recommendations.append(f"Immediate {vocab.get('action', 'inspection')} recommended")
@@ -540,22 +547,25 @@ def narrate_image_detection(
     # Convert dict to MultiModalDetection
     regions = []
     for r in detection_result.get("regions", []):
-        regions.append(RegionOfInterest(
-            x=r.get("x", 0),
-            y=r.get("y", 0),
-            width=r.get("width", 0),
-            height=r.get("height", 0),
-            confidence=r.get("confidence", 0.5),
-            label=r.get("label", "anomaly"),
-            anomaly_score=r.get("score", 0),
-        ))
+        regions.append(
+            RegionOfInterest(
+                x=r.get("x", 0),
+                y=r.get("y", 0),
+                width=r.get("width", 0),
+                height=r.get("height", 0),
+                confidence=r.get("confidence", 0.5),
+                label=r.get("label", "anomaly"),
+                anomaly_score=r.get("score", 0),
+            )
+        )
 
     detection = MultiModalDetection(
         modality=ModalityType.IMAGE,
-        anomaly_type=AnomalyVisualType(
-            detection_result.get("anomaly_type", "unknown")
-        ) if detection_result.get("anomaly_type") in [e.value for e in AnomalyVisualType]
-        else AnomalyVisualType.UNKNOWN,
+        anomaly_type=(
+            AnomalyVisualType(detection_result.get("anomaly_type", "unknown"))
+            if detection_result.get("anomaly_type") in [e.value for e in AnomalyVisualType]
+            else AnomalyVisualType.UNKNOWN
+        ),
         anomaly_detected=detection_result.get("anomaly_detected", False),
         anomaly_score=detection_result.get("anomaly_score", 0),
         confidence=detection_result.get("confidence", 0.5),
@@ -593,20 +603,23 @@ def narrate_audio_detection(
     # Convert dict to MultiModalDetection
     segments = []
     for s in detection_result.get("segments", []):
-        segments.append(AudioSegment(
-            start_time=s.get("start", 0),
-            end_time=s.get("end", 0),
-            confidence=s.get("confidence", 0.5),
-            label=s.get("label", "anomaly"),
-            anomaly_score=s.get("score", 0),
-        ))
+        segments.append(
+            AudioSegment(
+                start_time=s.get("start", 0),
+                end_time=s.get("end", 0),
+                confidence=s.get("confidence", 0.5),
+                label=s.get("label", "anomaly"),
+                anomaly_score=s.get("score", 0),
+            )
+        )
 
     detection = MultiModalDetection(
         modality=ModalityType.AUDIO,
-        anomaly_type=AudioAnomalyType(
-            detection_result.get("anomaly_type", "unknown")
-        ) if detection_result.get("anomaly_type") in [e.value for e in AudioAnomalyType]
-        else AudioAnomalyType.UNKNOWN,
+        anomaly_type=(
+            AudioAnomalyType(detection_result.get("anomaly_type", "unknown"))
+            if detection_result.get("anomaly_type") in [e.value for e in AudioAnomalyType]
+            else AudioAnomalyType.UNKNOWN
+        ),
         anomaly_detected=detection_result.get("anomaly_detected", False),
         anomaly_score=detection_result.get("anomaly_score", 0),
         confidence=detection_result.get("confidence", 0.5),

@@ -36,9 +36,17 @@ class TestNarrativeEngine:
             "confidence": 0.82,
             "is_reliable": True,
             "reasoning_chain": [
-                {"rule": "statistical_threshold", "conclusion": "z-score exceeded", "confidence": 0.9},
+                {
+                    "rule": "statistical_threshold",
+                    "conclusion": "z-score exceeded",
+                    "confidence": 0.9,
+                },
                 {"rule": "temporal_pattern", "conclusion": "unusual timing", "confidence": 0.75},
-                {"rule": "correlation_check", "conclusion": "correlated anomaly", "confidence": 0.85},
+                {
+                    "rule": "correlation_check",
+                    "conclusion": "correlated anomaly",
+                    "confidence": 0.85,
+                },
             ],
             "causal_factors": ["sensor_drift", "environmental_change"],
             "recommendations": ["Review sensor calibration", "Check environmental logs"],
@@ -101,8 +109,14 @@ class TestNarrativeEngine:
 
         result = engine.synthesize(low_confidence)
 
-        assert "uncertain" in result.uncertainty_disclosure.lower() or "confidence" in result.uncertainty_disclosure.lower()
-        assert "unreliable" in result.uncertainty_disclosure.lower() or "warning" in result.uncertainty_disclosure.lower()
+        assert (
+            "uncertain" in result.uncertainty_disclosure.lower()
+            or "confidence" in result.uncertainty_disclosure.lower()
+        )
+        assert (
+            "unreliable" in result.uncertainty_disclosure.lower()
+            or "warning" in result.uncertainty_disclosure.lower()
+        )
 
     def test_confidence_levels(self, engine: NarrativeEngine) -> None:
         """Test confidence level classification."""
@@ -124,11 +138,11 @@ class TestNarrativeEngine:
                 "is_reliable": reliable,
             }
             result = engine.synthesize(detection)
-            assert result.confidence_level == expected, f"Failed for conf={conf}, reliable={reliable}"
+            assert (
+                result.confidence_level == expected
+            ), f"Failed for conf={conf}, reliable={reliable}"
 
-    def test_recommendations_proportional_to_confidence(
-        self, engine: NarrativeEngine
-    ) -> None:
+    def test_recommendations_proportional_to_confidence(self, engine: NarrativeEngine) -> None:
         """Test that recommendations are proportional to confidence."""
         high_conf = {
             "anomaly_detected": True,
@@ -151,13 +165,25 @@ class TestNarrativeEngine:
         low_result = engine.synthesize(low_conf)
 
         # Low confidence should have cautionary recommendations
-        assert any("verif" in r.lower() or "caution" in r.lower() or "additional" in r.lower()
-                   for r in low_result.recommendations)
+        assert any(
+            "verif" in r.lower() or "caution" in r.lower() or "additional" in r.lower()
+            for r in low_result.recommendations
+        )
 
     def test_urgency_levels(self, engine: NarrativeEngine) -> None:
         """Test urgency determination."""
-        critical = {"anomaly_detected": True, "anomaly_score": 0.95, "severity": 0.95, "confidence": 0.9}
-        moderate = {"anomaly_detected": True, "anomaly_score": 0.6, "severity": 0.5, "confidence": 0.7}
+        critical = {
+            "anomaly_detected": True,
+            "anomaly_score": 0.95,
+            "severity": 0.95,
+            "confidence": 0.9,
+        }
+        moderate = {
+            "anomaly_detected": True,
+            "anomaly_score": 0.6,
+            "severity": 0.5,
+            "confidence": 0.7,
+        }
         low = {"anomaly_detected": True, "anomaly_score": 0.4, "severity": 0.3, "confidence": 0.5}
 
         assert engine.synthesize(critical).urgency_level in ("critical", "high")
@@ -186,9 +212,7 @@ class TestNarrativeEngine:
             "confidence": 0.7,
         }
 
-        result = engine.synthesize(
-            detection, style_override=NarrativeStyle.CLINICAL
-        )
+        result = engine.synthesize(detection, style_override=NarrativeStyle.CLINICAL)
         assert result.style_used == NarrativeStyle.CLINICAL
 
     def test_domain_specific_recommendations(self, engine: NarrativeEngine) -> None:
@@ -205,7 +229,9 @@ class TestNarrativeEngine:
         security_result = engine.synthesize(detection, domain="security")
 
         assert any("clinical" in r.lower() for r in medical_result.recommendations)
-        assert any("log" in r.lower() or "document" in r.lower() for r in security_result.recommendations)
+        assert any(
+            "log" in r.lower() or "document" in r.lower() for r in security_result.recommendations
+        )
 
     def test_narrative_result_to_dict(
         self, engine: NarrativeEngine, sample_detection_result: dict

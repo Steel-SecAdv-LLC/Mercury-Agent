@@ -168,7 +168,8 @@ class ResultCache:
                     # Filter out expired entries
                     now = time.time()
                     self._memory_cache = {
-                        k: v for k, v in data.items()
+                        k: v
+                        for k, v in data.items()
                         if now - v.get("timestamp", 0) < self.ttl_seconds
                     }
             except Exception as e:
@@ -251,8 +252,7 @@ class BaseExternalRetriever(ABC):
 
         # Clean old requests
         self._request_times = [
-            t for t in self._request_times
-            if now - t < self.config.rate_limit_window
+            t for t in self._request_times if now - t < self.config.rate_limit_window
         ]
 
         if len(self._request_times) >= self.config.rate_limit_per_minute:
@@ -352,32 +352,36 @@ class WebSearchRetriever(BaseExternalRetriever):
 
                 # Extract abstract
                 if data.get("Abstract"):
-                    results.append(ExternalResult(
-                        source_type=ExternalSourceType.WEB_SEARCH,
-                        title=data.get("Heading", query),
-                        content=data["Abstract"],
-                        url=data.get("AbstractURL"),
-                        relevance_score=0.9,
-                        metadata={
-                            "source": "duckduckgo",
-                            "type": "abstract",
-                        },
-                    ))
+                    results.append(
+                        ExternalResult(
+                            source_type=ExternalSourceType.WEB_SEARCH,
+                            title=data.get("Heading", query),
+                            content=data["Abstract"],
+                            url=data.get("AbstractURL"),
+                            relevance_score=0.9,
+                            metadata={
+                                "source": "duckduckgo",
+                                "type": "abstract",
+                            },
+                        )
+                    )
 
                 # Extract related topics
                 for topic in data.get("RelatedTopics", [])[:max_results]:
                     if isinstance(topic, dict) and topic.get("Text"):
-                        results.append(ExternalResult(
-                            source_type=ExternalSourceType.WEB_SEARCH,
-                            title=topic.get("FirstURL", "").split("/")[-1].replace("_", " "),
-                            content=topic.get("Text", ""),
-                            url=topic.get("FirstURL"),
-                            relevance_score=0.7,
-                            metadata={
-                                "source": "duckduckgo",
-                                "type": "related",
-                            },
-                        ))
+                        results.append(
+                            ExternalResult(
+                                source_type=ExternalSourceType.WEB_SEARCH,
+                                title=topic.get("FirstURL", "").split("/")[-1].replace("_", " "),
+                                content=topic.get("Text", ""),
+                                url=topic.get("FirstURL"),
+                                relevance_score=0.7,
+                                metadata={
+                                    "source": "duckduckgo",
+                                    "type": "related",
+                                },
+                            )
+                        )
 
         except Exception as e:
             logger.debug(f"DuckDuckGo search failed: {e}")
@@ -416,17 +420,19 @@ class WebSearchRetriever(BaseExternalRetriever):
                 data = json.loads(response.read().decode())
 
                 for item in data.get("results", [])[:max_results]:
-                    results.append(ExternalResult(
-                        source_type=ExternalSourceType.WEB_SEARCH,
-                        title=item.get("title", ""),
-                        content=item.get("content", ""),
-                        url=item.get("url"),
-                        relevance_score=item.get("score", 0.5),
-                        metadata={
-                            "source": "searxng",
-                            "engine": item.get("engine", ""),
-                        },
-                    ))
+                    results.append(
+                        ExternalResult(
+                            source_type=ExternalSourceType.WEB_SEARCH,
+                            title=item.get("title", ""),
+                            content=item.get("content", ""),
+                            url=item.get("url"),
+                            relevance_score=item.get("score", 0.5),
+                            metadata={
+                                "source": "searxng",
+                                "engine": item.get("engine", ""),
+                            },
+                        )
+                    )
 
         except Exception as e:
             logger.debug(f"SearXNG search failed: {e}")
@@ -448,7 +454,9 @@ class WebSearchRetriever(BaseExternalRetriever):
                 "https://api.duckduckgo.com/?q=test&format=json",
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
-            with urllib.request.urlopen(req, timeout=5) as _:  # noqa: S310 - URL scheme is hardcoded https
+            with urllib.request.urlopen(
+                req, timeout=5
+            ) as _:  # noqa: S310 - URL scheme is hardcoded https
                 self._is_available = True
         except Exception:
             self._is_available = False
@@ -464,11 +472,39 @@ class DatabaseRetriever(BaseExternalRetriever):
     """
 
     # Allowed SQL keywords for read-only queries
-    ALLOWED_KEYWORDS = {"select", "from", "where", "and", "or", "order", "by",
-                        "limit", "offset", "join", "left", "right", "inner",
-                        "group", "having", "distinct", "count", "sum", "avg",
-                        "min", "max", "like", "in", "between", "is", "null",
-                        "not", "as", "on", "asc", "desc"}
+    ALLOWED_KEYWORDS = {
+        "select",
+        "from",
+        "where",
+        "and",
+        "or",
+        "order",
+        "by",
+        "limit",
+        "offset",
+        "join",
+        "left",
+        "right",
+        "inner",
+        "group",
+        "having",
+        "distinct",
+        "count",
+        "sum",
+        "avg",
+        "min",
+        "max",
+        "like",
+        "in",
+        "between",
+        "is",
+        "null",
+        "not",
+        "as",
+        "on",
+        "asc",
+        "desc",
+    }
 
     def __init__(
         self,
@@ -590,16 +626,18 @@ class DatabaseRetriever(BaseExternalRetriever):
                 title = str(row_dict.get("name", row_dict.get("title", "Result")))
                 content = json.dumps(row_dict, default=str, indent=2)
 
-                results.append(ExternalResult(
-                    source_type=ExternalSourceType.DATABASE,
-                    title=title,
-                    content=content,
-                    relevance_score=0.8,
-                    metadata={
-                        "source": "database",
-                        "db_path": str(self.db_path),
-                    },
-                ))
+                results.append(
+                    ExternalResult(
+                        source_type=ExternalSourceType.DATABASE,
+                        title=title,
+                        content=content,
+                        relevance_score=0.8,
+                        metadata={
+                            "source": "database",
+                            "db_path": str(self.db_path),
+                        },
+                    )
+                )
 
         except Exception as e:
             logger.error(f"Database query failed: {e}")
@@ -614,9 +652,7 @@ class DatabaseRetriever(BaseExternalRetriever):
             return None
 
         try:
-            cursor = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            )
+            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = [row[0] for row in cursor.fetchall()]
         except Exception:
             return None
@@ -836,23 +872,16 @@ class ExternalInformationRetriever:
             "search_count": self._search_count,
             "cache_hits": self._cache_hits,
             "cache_hit_rate": (
-                self._cache_hits / self._search_count
-                if self._search_count > 0 else 0
+                self._cache_hits / self._search_count if self._search_count > 0 else 0
             ),
             "web_search": {
                 "enabled": self.config.web_search_enabled,
-                "available": (
-                    self._web_search.is_available()
-                    if self._web_search else False
-                ),
+                "available": (self._web_search.is_available() if self._web_search else False),
                 "provider": self.config.web_search_provider.value,
             },
             "database": {
                 "enabled": self.config.database_enabled,
-                "available": (
-                    self._database.is_available()
-                    if self._database else False
-                ),
+                "available": (self._database.is_available() if self._database else False),
                 "path": str(self.config.database_path) if self.config.database_path else None,
             },
             "cache": {

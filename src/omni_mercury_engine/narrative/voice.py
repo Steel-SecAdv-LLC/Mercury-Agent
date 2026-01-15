@@ -261,7 +261,9 @@ class MercuryVoice:
             return response
 
         # Check for help queries directly
-        if any(kw in input_lower for kw in ["help", "how do you work", "what can you do", "guide me"]):
+        if any(
+            kw in input_lower for kw in ["help", "how do you work", "what can you do", "guide me"]
+        ):
             response = self._handle_help_query(user_input, profile)
             self._record_turn(ConversationType.QUERY, "mercury", response.message)
             return response
@@ -270,9 +272,7 @@ class MercuryVoice:
         search_response = self.retriever.search(user_input, domain=domain)
 
         # General query handling with search
-        response = self._handle_general_query(
-            user_input, search_response, profile, domain
-        )
+        response = self._handle_general_query(user_input, search_response, profile, domain)
 
         # Record Mercury's response
         self._record_turn(ConversationType.QUERY, "mercury", response.message)
@@ -302,9 +302,7 @@ class MercuryVoice:
         self.retriever.log_detection(detection_result, domain)
 
         # Generate narrative
-        narrative = self.narrative_engine.synthesize(
-            detection_result, domain=domain
-        )
+        narrative = self.narrative_engine.synthesize(detection_result, domain=domain)
 
         # Build response
         message = self._build_detection_message(narrative, detection_result)
@@ -324,7 +322,9 @@ class MercuryVoice:
             search_results_count=0,
             response_time_ms=response_time,
             suggested_follow_ups=self._generate_detection_follow_ups(narrative),
-            uncertainty_note=narrative.uncertainty_disclosure if narrative.confidence_score < 0.7 else None,
+            uncertainty_note=(
+                narrative.uncertainty_disclosure if narrative.confidence_score < 0.7 else None
+            ),
         )
 
     def alert(

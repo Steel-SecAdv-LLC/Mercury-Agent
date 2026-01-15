@@ -210,11 +210,13 @@ class KnowledgeRetriever:
 
     def log_detection(self, detection: dict[str, Any], domain: str | None = None) -> None:
         """Log a detection for future retrieval."""
-        self._detection_log.append({
-            "detection": detection,
-            "domain": domain,
-            "timestamp": time.time(),
-        })
+        self._detection_log.append(
+            {
+                "detection": detection,
+                "domain": domain,
+                "timestamp": time.time(),
+            }
+        )
 
         # Keep last 1000 detections
         if len(self._detection_log) > 1000:
@@ -358,21 +360,23 @@ class KnowledgeRetriever:
 
                     # Boost by PageRank if available
                     if node.pagerank > 0:
-                        relevance *= (1 + node.pagerank)
+                        relevance *= 1 + node.pagerank
 
-                    results.append(RetrievalResult(
-                        source=RetrievalSource.KNOWLEDGE_GRAPH,
-                        content={
-                            "node_id": node.node_id,
-                            "type": node.node_type.value,
-                            "label": node.label,
-                            "attributes": node.attributes,
-                        },
-                        relevance_score=min(1.0, relevance),
-                        confidence=node.confidence,
-                        timestamp=node.created_at,
-                        metadata={"pagerank": node.pagerank},
-                    ))
+                    results.append(
+                        RetrievalResult(
+                            source=RetrievalSource.KNOWLEDGE_GRAPH,
+                            content={
+                                "node_id": node.node_id,
+                                "type": node.node_type.value,
+                                "label": node.label,
+                                "attributes": node.attributes,
+                            },
+                            relevance_score=min(1.0, relevance),
+                            confidence=node.confidence,
+                            timestamp=node.created_at,
+                            metadata={"pagerank": node.pagerank},
+                        )
+                    )
 
             # Also try spreading activation for related concepts
             if results:
@@ -386,19 +390,21 @@ class KnowledgeRetriever:
                 )[:5]:
                     if node_id != top_node_id and node_id in self._knowledge_graph._nodes:
                         node = self._knowledge_graph._nodes[node_id]
-                        results.append(RetrievalResult(
-                            source=RetrievalSource.KNOWLEDGE_GRAPH,
-                            content={
-                                "node_id": node.node_id,
-                                "type": node.node_type.value,
-                                "label": node.label,
-                                "relation": "associated_via_activation",
-                            },
-                            relevance_score=activation * 0.8,  # Discount associated
-                            confidence=node.confidence,
-                            timestamp=node.created_at,
-                            metadata={"activation": activation},
-                        ))
+                        results.append(
+                            RetrievalResult(
+                                source=RetrievalSource.KNOWLEDGE_GRAPH,
+                                content={
+                                    "node_id": node.node_id,
+                                    "type": node.node_type.value,
+                                    "label": node.label,
+                                    "relation": "associated_via_activation",
+                                },
+                                relevance_score=activation * 0.8,  # Discount associated
+                                confidence=node.confidence,
+                                timestamp=node.created_at,
+                                metadata={"activation": activation},
+                            )
+                        )
 
         except Exception as e:
             self.logger.debug(f"Knowledge graph search failed: {e}")
@@ -426,14 +432,16 @@ class KnowledgeRetriever:
                     if matches > 0:
                         relevance = matches / len(query_words)
 
-                        results.append(RetrievalResult(
-                            source=RetrievalSource.EPISODIC_MEMORY,
-                            content=content,
-                            relevance_score=min(1.0, relevance * entry.importance),
-                            confidence=entry.importance,
-                            timestamp=entry.timestamp,
-                            metadata={"entry_id": entry.entry_id},
-                        ))
+                        results.append(
+                            RetrievalResult(
+                                source=RetrievalSource.EPISODIC_MEMORY,
+                                content=content,
+                                relevance_score=min(1.0, relevance * entry.importance),
+                                confidence=entry.importance,
+                                timestamp=entry.timestamp,
+                                metadata={"entry_id": entry.entry_id},
+                            )
+                        )
 
         except Exception as e:
             self.logger.debug(f"Episodic memory search failed: {e}")
@@ -454,17 +462,19 @@ class KnowledgeRetriever:
             for entry in keyword_results:
                 content = entry.content
                 if isinstance(content, dict):
-                    results.append(RetrievalResult(
-                        source=RetrievalSource.SEMANTIC_MEMORY,
-                        content=content,
-                        relevance_score=content.get("confidence", 0.5),
-                        confidence=content.get("confidence", 0.5),
-                        timestamp=entry.timestamp,
-                        metadata={
-                            "entry_id": entry.entry_id,
-                            "category": content.get("category", "unknown"),
-                        },
-                    ))
+                    results.append(
+                        RetrievalResult(
+                            source=RetrievalSource.SEMANTIC_MEMORY,
+                            content=content,
+                            relevance_score=content.get("confidence", 0.5),
+                            confidence=content.get("confidence", 0.5),
+                            timestamp=entry.timestamp,
+                            metadata={
+                                "entry_id": entry.entry_id,
+                                "category": content.get("category", "unknown"),
+                            },
+                        )
+                    )
 
         except Exception as e:
             self.logger.debug(f"Semantic memory search failed: {e}")
@@ -498,19 +508,21 @@ class KnowledgeRetriever:
                     relevance += 0.2
 
                 if relevance > context.min_relevance:
-                    results.append(RetrievalResult(
-                        source=RetrievalSource.DETECTION_LOG,
-                        content={
-                            "anomaly_score": detection.get("anomaly_score", 0),
-                            "severity": detection.get("severity", 0),
-                            "confidence": detection.get("confidence", 0),
-                            "domain": domain,
-                        },
-                        relevance_score=min(1.0, relevance),
-                        confidence=detection.get("confidence", 0.5),
-                        timestamp=log_entry.get("timestamp", 0),
-                        metadata={"domain": domain},
-                    ))
+                    results.append(
+                        RetrievalResult(
+                            source=RetrievalSource.DETECTION_LOG,
+                            content={
+                                "anomaly_score": detection.get("anomaly_score", 0),
+                                "severity": detection.get("severity", 0),
+                                "confidence": detection.get("confidence", 0),
+                                "domain": domain,
+                            },
+                            relevance_score=min(1.0, relevance),
+                            confidence=detection.get("confidence", 0.5),
+                            timestamp=log_entry.get("timestamp", 0),
+                            metadata={"domain": domain},
+                        )
+                    )
 
         return results
 
@@ -535,19 +547,23 @@ class KnowledgeRetriever:
                         if "frequency" in context.query.lower():
                             relevance += 0.2
 
-                        results.append(RetrievalResult(
-                            source=RetrievalSource.PATTERN_HISTORY,
-                            content={
-                                "pattern_key": pattern_key,
-                                "frequency": frequency,
-                                "first_seen": registry.get("first_seen"),
-                                "last_seen": registry.get("last_seen"),
-                            },
-                            relevance_score=min(1.0, relevance),
-                            confidence=min(1.0, frequency / 10),  # More frequent = more confident
-                            timestamp=registry.get("last_seen", time.time()),
-                            metadata={"pattern_key": pattern_key},
-                        ))
+                        results.append(
+                            RetrievalResult(
+                                source=RetrievalSource.PATTERN_HISTORY,
+                                content={
+                                    "pattern_key": pattern_key,
+                                    "frequency": frequency,
+                                    "first_seen": registry.get("first_seen"),
+                                    "last_seen": registry.get("last_seen"),
+                                },
+                                relevance_score=min(1.0, relevance),
+                                confidence=min(
+                                    1.0, frequency / 10
+                                ),  # More frequent = more confident
+                                timestamp=registry.get("last_seen", time.time()),
+                                metadata={"pattern_key": pattern_key},
+                            )
+                        )
 
         except Exception as e:
             self.logger.debug(f"Pattern history search failed: {e}")

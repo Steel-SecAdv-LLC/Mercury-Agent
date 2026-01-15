@@ -238,7 +238,9 @@ class PersonalityEngine:
         # Derive behavioral flags
         acknowledge_uncertainty = scalars["omnihumility"] > 1.1
         show_reasoning_chain = scalars["omnitransparency"] > self.HIGH_TRANSPARENCY_THRESHOLD
-        include_historical_context = scalars["omniwisdom"] > 1.2 if "omniwisdom" in scalars else True
+        include_historical_context = (
+            scalars["omniwisdom"] > 1.2 if "omniwisdom" in scalars else True
+        )
         provide_alternatives = scalars["omnipatience"] > 1.15
         express_confidence_level = scalars["omnitransparency"] > 0.1
 
@@ -369,13 +371,9 @@ class PersonalityEngine:
 
         # Opening acknowledgment based on empathy and severity
         if profile.empathy_level > 0.5 and severity > 0.7 and anomaly_detected:
-            modifiers.opening_acknowledgment = (
-                "I understand this finding may be concerning."
-            )
+            modifiers.opening_acknowledgment = "I understand this finding may be concerning."
         elif profile.empathy_level > 0.7:
-            modifiers.opening_acknowledgment = (
-                "I want to provide you with clear information."
-            )
+            modifiers.opening_acknowledgment = "I want to provide you with clear information."
 
         # Confidence framing
         if profile.express_confidence_level:
@@ -395,21 +393,15 @@ class PersonalityEngine:
                     "Note: Uncertainty is high. This finding should be verified."
                 )
             else:
-                modifiers.uncertainty_framing = (
-                    "Some uncertainty remains in this assessment."
-                )
+                modifiers.uncertainty_framing = "Some uncertainty remains in this assessment."
 
         # Support statement based on compassion
         if profile.tone == CommunicationTone.SUPPORTIVE:
-            modifiers.support_statement = (
-                "I'm here to help clarify any questions."
-            )
+            modifiers.support_statement = "I'm here to help clarify any questions."
 
         # Follow-up prompt based on patience
         if profile.provide_alternatives:
-            modifiers.follow_up_prompt = (
-                "Would you like me to explore alternative interpretations?"
-            )
+            modifiers.follow_up_prompt = "Would you like me to explore alternative interpretations?"
 
         # Intensity words based on tone
         if profile.tone == CommunicationTone.DIRECT:
@@ -506,10 +498,7 @@ class PersonalityEngine:
                 "Full reasoning transparency enabled. Ready for analysis."
             )
         elif profile.tone == CommunicationTone.CAUTIOUS:
-            return (
-                "Mercury Agent active. "
-                "Note: All findings include uncertainty quantification."
-            )
+            return "Mercury Agent active. " "Note: All findings include uncertainty quantification."
         return "Mercury Agent operational."
 
     def get_uncertainty_statement(
@@ -541,30 +530,23 @@ class PersonalityEngine:
         # Base confidence statement
         if confidence < 0.3:
             parts.append(
-                f"Confidence is low ({confidence:.0%}). "
-                "Multiple interpretations are possible."
+                f"Confidence is low ({confidence:.0%}). " "Multiple interpretations are possible."
             )
         elif confidence < 0.5:
             parts.append(
-                f"Moderate uncertainty ({confidence:.0%} confidence). "
-                "Verification recommended."
+                f"Moderate uncertainty ({confidence:.0%} confidence). " "Verification recommended."
             )
         elif confidence < 0.7:
             parts.append(
-                f"Reasonable confidence ({confidence:.0%}), "
-                "though some uncertainty remains."
+                f"Reasonable confidence ({confidence:.0%}), " "though some uncertainty remains."
             )
 
         # Decomposition if thorough
         if profile.verbosity in (VerbosityLevel.DETAILED, VerbosityLevel.COMPREHENSIVE):
             if epistemic > 0.1:
-                parts.append(
-                    f"Model uncertainty (epistemic): {epistemic:.0%}."
-                )
+                parts.append(f"Model uncertainty (epistemic): {epistemic:.0%}.")
             if aleatoric > 0.1:
-                parts.append(
-                    f"Data variability (aleatoric): {aleatoric:.0%}."
-                )
+                parts.append(f"Data variability (aleatoric): {aleatoric:.0%}.")
 
         return " ".join(parts)
 

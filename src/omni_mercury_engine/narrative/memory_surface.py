@@ -130,13 +130,15 @@ class MemoryContext:
             "pattern_timespan_days": self.pattern_timespan_days,
             "first_seen": self.first_seen,
             "last_seen": self.last_seen,
-            "prediction_accuracy": {
-                "pattern_type": self.prediction_accuracy.pattern_type,
-                "accuracy": self.prediction_accuracy.accuracy,
-                "total_predictions": self.prediction_accuracy.total_predictions,
-            }
-            if self.prediction_accuracy
-            else None,
+            "prediction_accuracy": (
+                {
+                    "pattern_type": self.prediction_accuracy.pattern_type,
+                    "accuracy": self.prediction_accuracy.accuracy,
+                    "total_predictions": self.prediction_accuracy.total_predictions,
+                }
+                if self.prediction_accuracy
+                else None
+            ),
             "learned_insights": self.learned_insights,
             "relevance": {
                 "level": self.overall_relevance.value,
@@ -249,9 +251,7 @@ class MemorySurface:
         )
 
         # Determine overall relevance
-        relevance, relevance_score = self._assess_relevance(
-            similar_events, pattern_stats
-        )
+        relevance, relevance_score = self._assess_relevance(similar_events, pattern_stats)
 
         # Generate summary narrative
         summary = self._generate_context_summary(
@@ -289,9 +289,7 @@ class MemorySurface:
             try:
                 # Create embedding for current detection
                 detection_features = self._extract_features(detection_result)
-                query_embedding = self._neural_memory.vectorizer.transform(
-                    detection_features
-                )
+                query_embedding = self._neural_memory.vectorizer.transform(detection_features)
 
                 # Find similar
                 similar = self._neural_memory.get_similar_memories(
@@ -323,9 +321,7 @@ class MemorySurface:
                 for mem in episodic[: self.max_similar_events - len(similar_events)]:
                     if isinstance(mem.content, dict):
                         # Compute simple feature similarity
-                        similarity = self._compute_feature_similarity(
-                            detection_result, mem.content
-                        )
+                        similarity = self._compute_feature_similarity(detection_result, mem.content)
 
                         if similarity >= self.similarity_threshold:
                             similar_events.append(
@@ -426,9 +422,7 @@ class MemorySurface:
 
         return stats
 
-    def _get_pattern_key(
-        self, detection_result: dict[str, Any], domain: str | None
-    ) -> str:
+    def _get_pattern_key(self, detection_result: dict[str, Any], domain: str | None) -> str:
         """Generate pattern key for tracking."""
         severity_bucket = int(detection_result.get("severity", 0) * 10)
         score_bucket = int(detection_result.get("anomaly_score", 0) * 10)
@@ -483,9 +477,7 @@ class MemorySurface:
 
         # Keep last 100 outcomes per pattern
         if len(self._prediction_outcomes[pattern_key]) > 100:
-            self._prediction_outcomes[pattern_key] = self._prediction_outcomes[
-                pattern_key
-            ][-100:]
+            self._prediction_outcomes[pattern_key] = self._prediction_outcomes[pattern_key][-100:]
 
     def _synthesize_insights(
         self,
@@ -500,18 +492,13 @@ class MemorySurface:
         # Frequency insight
         frequency = pattern_stats.get("frequency", 0)
         if frequency > 10:
-            insights.append(
-                f"This pattern type has been observed {frequency} times in memory."
-            )
+            insights.append(f"This pattern type has been observed {frequency} times in memory.")
         elif frequency > 0:
-            insights.append(
-                f"Similar patterns have occurred {frequency} times previously."
-            )
+            insights.append(f"Similar patterns have occurred {frequency} times previously.")
 
         # Outcome pattern insight
         outcomes_with_escalation = sum(
-            1 for e in similar_events
-            if e.outcome and "escalat" in e.outcome.lower()
+            1 for e in similar_events if e.outcome and "escalat" in e.outcome.lower()
         )
         if outcomes_with_escalation > 0 and len(similar_events) > 0:
             escalation_rate = outcomes_with_escalation / len(similar_events)
@@ -530,9 +517,7 @@ class MemorySurface:
                     f"({acc:.0%} over {prediction_history.total_predictions} cases)."
                 )
             elif acc > 0.6:
-                insights.append(
-                    f"Prediction accuracy for this pattern: {acc:.0%}."
-                )
+                insights.append(f"Prediction accuracy for this pattern: {acc:.0%}.")
             elif acc < 0.5:
                 insights.append(
                     f"Note: Historical prediction accuracy for this pattern is "
@@ -544,9 +529,7 @@ class MemorySurface:
         if first_seen:
             days_tracking = (time.time() - first_seen) / 86400
             if days_tracking > 30:
-                insights.append(
-                    f"This pattern type has been tracked for {days_tracking:.0f} days."
-                )
+                insights.append(f"This pattern type has been tracked for {days_tracking:.0f} days.")
 
         return insights
 
@@ -564,9 +547,7 @@ class MemorySurface:
         avg_similarity = np.mean([e.similarity_score for e in similar_events])
         frequency_factor = min(pattern_stats.get("frequency", 0) / 10, 1.0)
 
-        relevance_score = (
-            0.5 * max_similarity + 0.3 * avg_similarity + 0.2 * frequency_factor
-        )
+        relevance_score = 0.5 * max_similarity + 0.3 * avg_similarity + 0.2 * frequency_factor
 
         # Classify
         if relevance_score > 0.8:
@@ -601,9 +582,7 @@ class MemorySurface:
             if top_similarity > 0.8:
                 top_event = similar_events[0]
                 dt = datetime.fromtimestamp(top_event.timestamp)
-                parts.append(
-                    f"Most similar to event from {dt.strftime('%B %d, %Y')}."
-                )
+                parts.append(f"Most similar to event from {dt.strftime('%B %d, %Y')}.")
         else:
             parts.append("No highly similar historical events found.")
 
@@ -647,9 +626,7 @@ class MemorySurface:
         registry = self._pattern_registry[pattern_key]
         registry["frequency"] += 1
         registry["last_seen"] = current_time
-        registry["timespan_days"] = (
-            current_time - registry["first_seen"]
-        ) / 86400
+        registry["timespan_days"] = (current_time - registry["first_seen"]) / 86400
 
         # Store in neural memory if available
         if self._neural_memory is not None:
