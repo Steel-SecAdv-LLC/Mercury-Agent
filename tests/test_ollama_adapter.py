@@ -36,7 +36,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # Ensure src is on path for direct imports
 src_path = Path(__file__).parent.parent / "src"
 if str(src_path) not in sys.path:
