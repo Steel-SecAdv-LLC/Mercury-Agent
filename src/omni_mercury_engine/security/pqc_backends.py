@@ -219,7 +219,8 @@ def dilithium_verify(message: bytes, signature: bytes, public_key: bytes) -> boo
         try:
             dilithium_fallback.verify(public_key, message, signature)
             return True
-        except Exception:
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Dilithium verification failed: {type(e).__name__}")
             return False
 
     logger.warning("Using simulated verification (NOT SECURE)")

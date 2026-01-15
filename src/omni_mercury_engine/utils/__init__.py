@@ -50,6 +50,7 @@ from omni_mercury_engine.utils.constants import (
 )
 from omni_mercury_engine.utils.logging import (
     ColoredFormatter,
+    LoggerMixin,
     PerformanceLogger,
     StructuredFormatter,
     configure_logging,
@@ -329,6 +330,7 @@ __all__ = [
     "GracefulShutdown",
     "HealthChecker",
     "HealthStatus",
+    "LoggerMixin",
     "MathConstant",
     # Constants
     "MathematicalConstants",

@@ -57,9 +57,16 @@ if TYPE_CHECKING:
 class DetectorResult(TypedDict, total=False):
     """Standard result format for detector.detect() method.
 
-    Required keys:
+    Required (one of the following):
         anomaly_score: Anomaly score in [0, 1] range
-        is_anomaly: Boolean indicating if anomaly detected
+        anomaly_prob: Alias for anomaly_score (use either, not both)
+
+    Note: The decorator `validate_detector_result` ensures one of these
+    keys exists. If neither is present, it derives the score from `scores`
+    or defaults to 0.0.
+
+    Auto-derived if missing:
+        is_anomaly: Boolean indicating if anomaly detected (score > 0.5)
 
     Optional keys:
         severity: Severity score in [0, 1] range
@@ -70,8 +77,9 @@ class DetectorResult(TypedDict, total=False):
         metadata: Additional detector-specific metadata
     """
 
-    anomaly_score: float
-    anomaly_prob: float  # Alias for anomaly_score
+    # Score keys (use one or the other, not both)
+    anomaly_score: float  # Primary: anomaly score in [0, 1]
+    anomaly_prob: float  # Alias: same semantics as anomaly_score
     is_anomaly: bool
     severity: float
     confidence: float

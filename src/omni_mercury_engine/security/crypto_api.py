@@ -67,13 +67,16 @@ from omni_mercury_engine.security.pqc_backends import (
 logger = logging.getLogger(__name__)
 
 ED25519_AVAILABLE = False
+InvalidSignature: type[Exception] | None = None
 try:
+    from cryptography.exceptions import InvalidSignature as _InvalidSignature
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric.ed25519 import (
         Ed25519PrivateKey,
         Ed25519PublicKey,
     )
 
+    InvalidSignature = _InvalidSignature
     ED25519_AVAILABLE = True
 except ImportError:
     logger.debug("cryptography library not available for Ed25519")
@@ -207,13 +210,30 @@ class Ed25519Provider:
         return private_key.sign(message)
 
     def verify(self, message: bytes, signature: bytes, public_key: bytes) -> bool:
-        """Verify Ed25519 signature."""
+        """Verify Ed25519 signature.
+
+        Args:
+            message: Original message bytes
+            signature: Signature bytes to verify
+            public_key: Public key bytes
+
+        Returns:
+            True if signature is valid, False otherwise
+        """
         try:
             pub_key = Ed25519PublicKey.from_public_bytes(public_key)
             pub_key.verify(signature, message)
             return True
-        except Exception:
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Ed25519 verification failed: {type(e).__name__}")
             return False
+        except Exception as e:
+            # Handle InvalidSignature and other cryptography-specific exceptions
+            # InvalidSignature is only available when cryptography is installed
+            if InvalidSignature is not None and isinstance(e, InvalidSignature):
+                logger.debug(f"Ed25519 verification failed: {type(e).__name__}")
+                return False
+            raise
 
 
 class MLDSAProvider:

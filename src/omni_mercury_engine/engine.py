@@ -1134,7 +1134,8 @@ class OmniMercuryEngine:
                 detector_features[name] = features
                 scores = result.get("scores", result.get("is_anomaly", 0))
                 detector_scores[name] = self._normalize_scores(scores, features.shape[0])
-            except Exception:
+            except (ValueError, TypeError, RuntimeError, KeyError, AttributeError, IndexError) as e:
+                logger.debug(f"Detector {name} feature extraction failed: {e}")
                 continue
 
         return detector_features, detector_scores
@@ -1181,7 +1182,8 @@ class OmniMercuryEngine:
                 model_features[name] = features
                 scores = prediction.get("anomaly_scores", 0)
                 model_scores[name] = self._normalize_scores(scores, features.shape[0])
-            except Exception:
+            except (ValueError, TypeError, RuntimeError, KeyError, AttributeError, IndexError) as e:
+                logger.debug(f"Model {name} feature extraction failed: {e}")
                 continue
 
         return model_features, model_scores
@@ -1625,18 +1627,20 @@ class OmniMercuryEngine:
         )
 
         # Create data loaders
+        # Use config.num_workers (default 4) for parallel data loading
+        # Set to 0 in config for single-threaded loading (needed for some environments)
         train_loader = DataLoader(
             train_dataset,
             batch_size=batch_size,
             shuffle=True,
-            num_workers=0,
+            num_workers=self.config.num_workers,
             pin_memory=self.device.type == "cuda",
         )
         val_loader = DataLoader(
             val_dataset,
             batch_size=batch_size,
             shuffle=False,
-            num_workers=0,
+            num_workers=self.config.num_workers,
             pin_memory=self.device.type == "cuda",
         )
 

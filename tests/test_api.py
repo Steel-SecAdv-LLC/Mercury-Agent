@@ -128,10 +128,11 @@ class TestAPI:
         assert response_high.status_code == 200
 
     def test_univariate_empty_data(self):
-        """Test univariate detection with empty data."""
+        """Test univariate detection with empty data returns validation error."""
         response = client.post("/api/v1/detect/univariate", json={"data": []})
 
-        assert response.status_code == 200
+        # Empty data should be rejected with 422 (min_length=3 validation)
+        assert response.status_code == 422
 
     def test_api_returns_correct_types(self):
         """Test API returns correct data types."""

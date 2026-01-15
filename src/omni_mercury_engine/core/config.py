@@ -185,7 +185,7 @@ class ConfigurationManager:
     - Configuration drift detection
     """
 
-    ENV_PREFIX = "MERCURY_AGENT_"
+    ENV_PREFIX = "OMNI_"
 
     def __init__(self) -> None:
         self._config: dict[str, Any] = {}
@@ -437,7 +437,7 @@ class ConfigurationManager:
             )
             return (user_hash % 100) < flag.rollout_percentage
 
-        return flag.rollout_percentage >= 100.0 or flag.rollout_percentage == 0.0
+        return flag.rollout_percentage >= 100.0
 
     def get_feature_variant(self, name: str, user_id: str | None = None) -> str | None:
         """Get the variant for A/B testing."""
@@ -463,11 +463,24 @@ class ConfigurationManager:
 
 
 # Global configuration manager instance
+# Thread Safety: This singleton uses lazy initialization. While the initial creation
+# is not thread-safe (potential race condition on first access from multiple threads),
+# subsequent accesses return the same instance. For production use with multiple threads,
+# call get_config_manager() once during application startup before spawning threads.
 _config_manager: ConfigurationManager | None = None
 
 
 def get_config_manager() -> ConfigurationManager:
-    """Get the global configuration manager."""
+    """Get the global configuration manager singleton.
+
+    Note:
+        This function uses lazy initialization. For thread-safe initialization
+        in multi-threaded applications, call this once during startup before
+        creating worker threads.
+
+    Returns:
+        The global ConfigurationManager instance.
+    """
     global _config_manager
     if _config_manager is None:
         _config_manager = ConfigurationManager()

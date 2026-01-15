@@ -1139,6 +1139,11 @@ class GlobalOmniScalarNetwork:
         return float(np.clip(contribution, 0.0, 1.0))
 
 
+# Global GOSNN singleton instance
+# Thread Safety: Uses lazy initialization with potential race condition on first access.
+# The GlobalOmniScalarNetwork class uses internal locking for thread-safe operations
+# once instantiated. For production multi-threaded use, call get_global_scalar_network()
+# once during application startup before spawning worker threads.
 _global_network: GlobalOmniScalarNetwork | None = None
 
 

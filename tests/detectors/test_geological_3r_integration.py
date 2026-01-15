@@ -37,6 +37,7 @@ from omni_mercury_engine.core.three_r_mechanism import (
 )
 from omni_mercury_engine.detectors.geological.flood_detector import (
     FloodDetector,
+    FloodPredictionOptimizer,
     FloodPredictionResult,
 )
 from omni_mercury_engine.detectors.geological.hurricane_detector import (
@@ -426,16 +427,17 @@ class TestFloodDetector3RIntegration:
         """Test FloodDetector has all 3R engines initialized."""
         assert hasattr(flood_detector, "recursion_engine")
         assert hasattr(flood_detector, "resonance_engine")
-        assert hasattr(flood_detector, "refactoring_engine")
+        assert hasattr(flood_detector, "prediction_optimizer")
         assert flood_detector.recursion_engine is not None
         assert flood_detector.resonance_engine is not None
-        assert flood_detector.refactoring_engine is not None
+        assert flood_detector.prediction_optimizer is not None
 
     def test_flood_detector_3r_engine_types(self, flood_detector):
         """Test 3R engines are correct types."""
         assert isinstance(flood_detector.recursion_engine, RecursionEngine)
         assert isinstance(flood_detector.resonance_engine, ResonanceEngine)
         assert isinstance(flood_detector.core_refactoring_engine, RefactoringEngine)
+        assert isinstance(flood_detector.prediction_optimizer, FloodPredictionOptimizer)
 
     def test_flood_prediction_with_3r(self, flood_detector, flood_data):
         """Test flood prediction uses 3R engines."""
@@ -491,10 +493,16 @@ class TestCrossDetector3RConsistency:
         """Test all detectors have RefactoringEngine."""
         for name, detector in all_detectors.items():
             if name == "flood":
+                # FloodDetector uses core_refactoring_engine for code analysis
+                # and prediction_optimizer for flood prediction refinement
                 assert hasattr(
                     detector, "core_refactoring_engine"
                 ), f"{name} missing core_refactoring_engine"
                 assert isinstance(detector.core_refactoring_engine, RefactoringEngine)
+                assert hasattr(
+                    detector, "prediction_optimizer"
+                ), f"{name} missing prediction_optimizer"
+                assert isinstance(detector.prediction_optimizer, FloodPredictionOptimizer)
             else:
                 assert hasattr(detector, "refactoring_engine"), f"{name} missing refactoring_engine"
                 assert isinstance(detector.refactoring_engine, RefactoringEngine)
@@ -515,6 +523,7 @@ class TestCrossDetector3RConsistency:
         resonance_ids = [id(d.resonance_engine) for d in all_detectors.values()]
         refactoring_ids = []
         for name, d in all_detectors.items():
+            # FloodDetector uses core_refactoring_engine, others use refactoring_engine
             if name == "flood":
                 refactoring_ids.append(id(d.core_refactoring_engine))
             else:

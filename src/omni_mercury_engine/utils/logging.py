@@ -526,3 +526,58 @@ def log_function_call(
         return wrapper
 
     return decorator
+
+
+class LoggerMixin:
+    """Mixin class that provides automatic logger initialization.
+
+    This mixin provides a `logger` property that automatically creates
+    a logger named after the class's module. It reduces boilerplate code
+    for classes that need logging capabilities.
+
+    The logger is lazily initialized on first access and cached.
+
+    Example:
+        Basic usage with inheritance::
+
+            class MyDetector(LoggerMixin):
+                def detect(self, data):
+                    self.logger.info("Starting detection")
+                    # ... detection logic ...
+                    self.logger.debug("Detection complete", result=result)
+                    return result
+
+        With multiple inheritance::
+
+            class MyDetector(BaseDetector, LoggerMixin):
+                def detect(self, data):
+                    self.logger.info("Starting detection")
+                    return super().detect(data)
+
+    Note:
+        The logger name is derived from the class's module path,
+        e.g., "omni_mercury_engine.detectors.statistical" for
+        a class in that module.
+    """
+
+    _logger: logging.Logger | None = None
+
+    @property
+    def logger(self) -> logging.Logger:
+        """Get or create the logger for this instance.
+
+        Returns:
+            Logger instance named after the class's module.
+        """
+        if self._logger is None:
+            self._logger = logging.getLogger(self.__class__.__module__)
+        return self._logger
+
+    @logger.setter
+    def logger(self, value: logging.Logger) -> None:
+        """Allow setting a custom logger if needed.
+
+        Args:
+            value: Custom logger to use instead of auto-created one.
+        """
+        self._logger = value
