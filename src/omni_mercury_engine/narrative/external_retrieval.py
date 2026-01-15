@@ -346,7 +346,7 @@ class WebSearchRetriever(BaseExternalRetriever):
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
 
-            with urllib.request.urlopen(  # nosec B310 - URL scheme is hardcoded https
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme is hardcoded https
                 req, timeout=self.config.web_search_timeout
             ) as response:
                 data = json.loads(response.read().decode())
@@ -415,7 +415,7 @@ class WebSearchRetriever(BaseExternalRetriever):
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
 
-            with urllib.request.urlopen(  # nosec B310 - URL scheme validated above
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme validated above
                 req, timeout=self.config.web_search_timeout
             ) as response:
                 data = json.loads(response.read().decode())
@@ -455,7 +455,7 @@ class WebSearchRetriever(BaseExternalRetriever):
                 "https://api.duckduckgo.com/?q=test&format=json",
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
-            with urllib.request.urlopen(  # nosec B310 - URL scheme is hardcoded https
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme is hardcoded https
                 req, timeout=5
             ) as _:
                 self._is_available = True
@@ -677,7 +677,7 @@ class DatabaseRetriever(BaseExternalRetriever):
             return None
 
         # Build simple search query - table name validated above
-        return f"SELECT * FROM {target_table} LIMIT {max_results}"  # nosec B608
+        return f"SELECT * FROM {target_table} LIMIT {max_results}"  # noqa: S608  # nosec B608
 
     def execute_query(
         self,
