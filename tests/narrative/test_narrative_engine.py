@@ -159,8 +159,11 @@ class TestNarrativeEngine:
             "is_reliable": True,
         }
 
-        _high_result = engine.synthesize(high_conf)  # Verify no exception
+        high_result = engine.synthesize(high_conf)
         low_result = engine.synthesize(low_conf)
+
+        # High confidence should have actionable recommendations
+        assert high_result.recommendations is not None
 
         # Low confidence should have cautionary recommendations
         assert any(

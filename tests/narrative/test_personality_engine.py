@@ -126,12 +126,13 @@ class TestPersonalityEngine:
         assert "confidence" in statement.lower() or "uncertain" in statement.lower()
 
         # High confidence might not need uncertainty statement
-        _statement_high = engine.get_uncertainty_statement(confidence=0.95)  # Verify no exception
+        statement_high = engine.get_uncertainty_statement(confidence=0.95)
         # May be empty for high confidence with default settings
+        assert statement_high is not None  # Should return string (possibly empty)
 
     def test_uncertainty_decomposition(self, engine: PersonalityEngine) -> None:
         """Test uncertainty decomposition in statement."""
-        _statement = engine.get_uncertainty_statement(  # Verify no exception
+        statement = engine.get_uncertainty_statement(
             confidence=0.6,
             epistemic=0.2,
             aleatoric=0.15,
@@ -139,6 +140,7 @@ class TestPersonalityEngine:
 
         # With detailed verbosity, should mention both types
         # Depends on profile verbosity settings
+        assert statement is not None  # Should return string
 
     def test_tone_derivation(self, engine: PersonalityEngine) -> None:
         """Test that tone is correctly derived from scalars."""
