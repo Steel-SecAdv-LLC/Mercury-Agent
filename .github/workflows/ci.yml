@@ -73,8 +73,9 @@ jobs:
 
       - name: Run Flake8 (linting)
         # Flake8 linting is now blocking - codebase has been cleaned up
-        # Ignoring E402 (module level import not at top) and E501 (line too long, handled by Black)
-        run: flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503,E402,E501
+        # Ignoring E402 (module level import not at top), E501 (line too long, handled by Black)
+        # F841 (unused variable) is handled by ruff which respects underscore convention
+        run: flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503,E402,E501,F841
 
       - name: Run pydocstyle (docstring checks)
         # Informational only - docstring style enforcement is advisory
