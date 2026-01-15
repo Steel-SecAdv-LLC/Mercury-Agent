@@ -494,8 +494,7 @@ class MercuryConversationInterface:
         Returns:
             Response text
         """
-        domain = context.domain if context else self.default_domain
-        _profile = self.personality_engine.get_profile(domain)  # Reserved for future use
+        # Domain and profile available via context.domain and self.personality_engine for future use
 
         # Simple question handling
         question_lower = question.lower()

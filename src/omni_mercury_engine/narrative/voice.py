@@ -246,7 +246,7 @@ class MercuryVoice:
         Returns:
             VoiceResponse with truth-dense communication
         """
-        _start_time = time.time()  # Reserved for future response timing
+        # Response timing available via time.time() for future performance tracking
         self._queries_handled += 1
         domain = domain or self.default_domain
 
@@ -349,8 +349,7 @@ class MercuryVoice:
         """
         start_time = time.time()
         self._alerts_communicated += 1
-
-        _profile = self.personality_engine.get_profile()  # Reserved for future alert styling
+        # Profile available via self.personality_engine.get_profile() for future alert styling
 
         # Build alert message
         severity = alert_content.get("severity", 0.5)

@@ -484,8 +484,7 @@ class KnowledgeRetriever:
     def _search_detection_log(self, context: SearchContext) -> list[RetrievalResult]:
         """Search detection history."""
         results = []
-
-        _query_words = context.query.lower().split()  # Reserved for future keyword matching
+        # Query words available via context.query.lower().split() for future keyword matching
 
         for log_entry in self._detection_log[-100:]:  # Last 100 entries
             detection = log_entry.get("detection", {})

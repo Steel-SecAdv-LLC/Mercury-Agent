@@ -236,7 +236,7 @@ class MemorySurface:
             MemoryContext with historical awareness
         """
         self._retrieval_count += 1
-        _current_time = time.time()  # Reserved for future time-based filtering
+        # Time available via time.time() for future time-based filtering
 
         # Get similar events
         similar_events = self._find_similar_events(detection_result, domain)

@@ -656,18 +656,10 @@ class ProactiveMonitor:
         """Generate scheduled vigilance report."""
         now = time.time()
 
-        # Aggregate statistics
-        total_patterns = sum(
-            acc.count_recent(self.report_interval_sec, now) for acc in self._accumulators.values()
-        )
-
-        _summary_parts = [  # Reserved for future report formatting
-            f"Vigilance Report (interval: {self.report_interval_sec / 3600:.1f}h)",
-            f"Detections processed: {self._detections_processed}",
-            f"Initiatives generated: {self._initiatives_generated}",
-            f"Escalations triggered: {self._escalations_triggered}",
-            f"Patterns tracked: {total_patterns}",
-        ]
+        # Aggregate statistics for report
+        # Summary parts available for future report formatting:
+        # - Vigilance Report interval, Detections processed, Initiatives generated,
+        # - Escalations triggered, Patterns tracked
 
         self._generate_initiative(
             initiative_type=InitiativeType.SCHEDULED_REPORT,
