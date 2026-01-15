@@ -254,6 +254,7 @@ class MemoryKnowledgeGraph:
                             relevance = 1.0 / (dist + 1)
                             related.append((target, relevance))
                 except nx.NetworkXError:
+                    # Graph traversal failed; continue with partial results
                     pass
         else:
             visited = {node_id}
@@ -285,6 +286,7 @@ class MemoryKnowledgeGraph:
             try:
                 return nx.pagerank(self.graph, alpha=0.85)
             except Exception:
+                # PageRank computation failed; return uniform centrality
                 return {n: 1.0 / self.graph.number_of_nodes() for n in self.graph.nodes()}
         else:
             n_nodes = len(self.nodes)

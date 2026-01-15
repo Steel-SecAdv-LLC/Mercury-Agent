@@ -376,6 +376,7 @@ class ConfigurationManager:
                 return float(value)
             return int(value)
         except ValueError:
+            # Not a valid number; continue to try other formats
             pass
 
         # JSON array/object
@@ -383,6 +384,7 @@ class ConfigurationManager:
             try:
                 return json.loads(value)
             except json.JSONDecodeError:
+                # Invalid JSON; treat as plain string
                 pass
 
         # String

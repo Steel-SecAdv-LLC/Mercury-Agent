@@ -216,6 +216,7 @@ class ReportGenerator:
             try:
                 return self._template.replace("{{ title }}", str(data.get("title", "")))
             except (TypeError, AttributeError):
+                # Template substitution failed; fall back to default generation
                 pass
 
         lines = []

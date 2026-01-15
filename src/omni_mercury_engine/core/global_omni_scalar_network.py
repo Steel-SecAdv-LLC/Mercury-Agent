@@ -436,6 +436,7 @@ def get_sigma_immutable_threshold(domain: str | None = None) -> float:
             # Clamp to valid range with hard minimum of 0.93
             return max(0.93, min(0.99, threshold))
         except ValueError:
+            # Invalid threshold value in environment; use default
             pass
 
     # Default elevated threshold for precision dominance
