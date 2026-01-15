@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Tests for Vision-Language Model (VLM) anomaly detectors.
 
@@ -25,6 +26,7 @@ Tests AnyAnomaly and LAVAD zero-shot/training-free detectors.
 """
 
 import pytest
+
 
 try:
     import torch

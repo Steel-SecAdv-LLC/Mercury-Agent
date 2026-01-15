@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Detector module for Mercury Agent ♱
 
@@ -47,6 +48,7 @@ from omni_mercury_engine.detectors.visual import (
 
 # Vision-Language Model Detectors
 from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector, BaseVLMDetector, LAVADDetector
+
 
 __all__ = [
     # VLM detectors

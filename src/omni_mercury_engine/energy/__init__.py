@@ -18,8 +18,10 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """Energy optimization modules."""
 
 from omni_mercury_engine.energy.energy_optimization import EnergyOptimization
+
 
 __all__ = ["EnergyOptimization"]

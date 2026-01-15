@@ -10,6 +10,7 @@ the Free Software Foundation, either version 3 of the License, or
 
 from __future__ import annotations
 
+
 """
 Causal Discovery Engine - Production Implementation
 
@@ -38,6 +39,7 @@ from typing import Any
 
 import numpy as np
 from scipy import linalg, stats
+
 
 logger = logging.getLogger(__name__)
 

@@ -24,10 +24,14 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from hypothesis import given, settings
-from hypothesis import strategies as st
+from hypothesis import (
+    given,
+    settings,
+    strategies as st,
+)
 from hypothesis.extra.numpy import arrays
 from sklearn.linear_model import LogisticRegression
+
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -60,6 +64,7 @@ from omni_mercury_engine.core.stacking_fusion import (
     EthicallyConstrainedFusion,
     StackingFusion,
 )
+
 
 # =============================================================================
 # Hypothesis Strategies

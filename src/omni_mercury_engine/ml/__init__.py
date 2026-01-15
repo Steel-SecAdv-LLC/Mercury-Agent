@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Machine Learning module for Mercury Agent ♱
 
@@ -28,6 +29,7 @@ to function without torch installed. Access ML components only when torch is ava
 """
 
 from typing import TYPE_CHECKING
+
 
 # Check if torch is available
 try:

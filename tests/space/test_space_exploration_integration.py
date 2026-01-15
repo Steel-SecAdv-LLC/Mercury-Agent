@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Integration tests for SpaceExplorationAnalyzer with simulated NASA telemetry.
 Tests end-to-end functionality with Hubble-inspired scenarios.

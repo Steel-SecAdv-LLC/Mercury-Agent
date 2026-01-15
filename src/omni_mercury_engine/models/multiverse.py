@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Multi-Hypothesis Optimization Engine - Parallel Solution Space Exploration
 
@@ -40,6 +41,7 @@ import numpy as np
 
 from omni_mercury_engine.utils.constants import OmniCodes
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable

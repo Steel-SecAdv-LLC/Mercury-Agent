@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Proactive Monitor - Background Vigilance with Initiative
 
@@ -50,10 +51,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 import numpy as np
+
 
 logger = logging.getLogger(__name__)
 

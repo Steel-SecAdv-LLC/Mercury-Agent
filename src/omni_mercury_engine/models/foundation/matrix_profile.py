@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Matrix Profile Integration using STUMPY
 
@@ -46,6 +47,7 @@ from omni_mercury_engine.models.foundation.base_foundation import (
     BaseFoundationModel,
     FoundationModelConfig,
 )
+
 
 logger = logging.getLogger(__name__)
 

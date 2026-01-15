@@ -10,6 +10,7 @@ the Free Software Foundation, either version 3 of the License, or
 
 from __future__ import annotations
 
+
 """
 Cognitive Orchestrator - Unified Integration Layer
 
@@ -50,6 +51,7 @@ from omni_mercury_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGra
 from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
 from omni_mercury_engine.cognitive.plasticity_engine import AdaptationType, PlasticityEngine
 from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
 
 logger = logging.getLogger(__name__)
 

@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Bio-Threat Detection Module (Medical Interdiction)
 
@@ -31,5 +32,6 @@ from omni_mercury_engine.medical.pandemic.bio_threats.pathogen_detector import (
     BioThreatResult,
     PathogenDetector,
 )
+
 
 __all__ = ["BioThreatResult", "PathogenDetector"]

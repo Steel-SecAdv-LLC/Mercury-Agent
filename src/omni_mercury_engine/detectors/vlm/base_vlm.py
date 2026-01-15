@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Base classes for Vision-Language Model anomaly detection.
 
@@ -32,6 +33,7 @@ from typing import TYPE_CHECKING, Any
 import torch
 
 from omni_mercury_engine.core.base import BaseDetector
+
 
 if TYPE_CHECKING:
     import numpy as np

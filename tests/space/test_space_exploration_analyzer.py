@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Tests for SpaceExplorationAnalyzer (Hubble-inspired cosmic anomaly detection).
 """

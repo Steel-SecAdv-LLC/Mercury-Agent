@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Global Omni-Scalar Network (GOSNN) - Intelligence Fusion Hub
 
@@ -57,6 +58,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+
 
 # Golden ratio constant for triadic harmony and phi-weighting
 PHI: float = 1.618033988749895

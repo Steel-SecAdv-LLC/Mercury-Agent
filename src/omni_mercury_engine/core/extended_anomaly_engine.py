@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Extended Mercury Agent ♱ with 14-Engine Integration
 Production-ready anomaly detection with 3R mechanism
@@ -31,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable

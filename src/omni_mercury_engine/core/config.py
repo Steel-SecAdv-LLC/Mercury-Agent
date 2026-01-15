@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Configuration classes for Mercury Agent ♱
 
@@ -38,6 +39,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, TypeVar
+
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")

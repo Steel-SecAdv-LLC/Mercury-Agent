@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Geological Hazard Detectors
 
@@ -56,6 +57,7 @@ from omni_mercury_engine.detectors.geological.tornado_detector import (
     TornadoPredictionResult,
     TornadoThreatLevel,
 )
+
 
 __all__ = [
     "CycloneType",

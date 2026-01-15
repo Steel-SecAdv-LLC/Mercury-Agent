@@ -19,6 +19,7 @@ from typing import Any
 import numpy as np
 import pytest
 
+
 # Check if torch is available
 HAS_TORCH = importlib.util.find_spec("torch") is not None
 if HAS_TORCH:
@@ -27,8 +28,13 @@ if HAS_TORCH:
 # Check if hypothesis is available
 hypothesis_available = True
 try:
-    from hypothesis import HealthCheck, assume, given, settings
-    from hypothesis import strategies as st
+    from hypothesis import (
+        HealthCheck,
+        assume,
+        given,
+        settings,
+        strategies as st,
+    )
     from hypothesis.extra import numpy as npst
 except ImportError:
     hypothesis_available = False

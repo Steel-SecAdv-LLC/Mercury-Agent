@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Comprehensive Disaster Detectors for Humanitarian Early Warning
 
@@ -57,6 +58,7 @@ from torch import nn
 
 from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
 from omni_mercury_engine.utils.rng import get_global_rng
+
 
 logger = logging.getLogger(__name__)
 

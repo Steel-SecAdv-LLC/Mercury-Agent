@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """Main OmniMercuryEngine orchestrating all detectors and models.
 
 This module provides the core anomaly detection engine that integrates
@@ -146,6 +147,7 @@ from omni_mercury_engine.resilience.self_healing import SelfHealingEngine
 from omni_mercury_engine.security.intelligence_fusion import IntelligenceFusionEngine
 from omni_mercury_engine.security.threat_detection import ThreatDetector
 from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator

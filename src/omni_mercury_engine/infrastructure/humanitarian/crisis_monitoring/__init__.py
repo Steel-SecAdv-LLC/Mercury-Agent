@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Crisis Monitoring Module for Humanitarian CI
 
@@ -31,5 +32,6 @@ from omni_mercury_engine.infrastructure.humanitarian.crisis_monitoring.crisis_mo
     CrisisAlert,
     CrisisMonitor,
 )
+
 
 __all__ = ["CrisisAlert", "CrisisMonitor"]

@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Unified Neurosymbolic Engine - Fusion of neural networks and symbolic reasoning
 
@@ -64,6 +65,7 @@ from typing import Any
 import numpy as np
 
 from omni_mercury_engine.utils.constants import OmniCodes
+
 
 # Omni-Code: Omni-Benevolent Stone (ethical foundation and humanitarian alignment)
 _FOUNDATION_HASH = OmniCodes.OMNI_BENEVOLENT.code

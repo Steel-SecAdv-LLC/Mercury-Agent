@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Test suite for ethical framework components: Ethical Governor,
 Sigma Directives, Risk Matrix, and Compliance.

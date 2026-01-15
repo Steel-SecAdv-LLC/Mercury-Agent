@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Retry policy implementation
 """
@@ -25,6 +26,7 @@ Retry policy implementation
 import time
 from functools import wraps
 from typing import TYPE_CHECKING, Any
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable
