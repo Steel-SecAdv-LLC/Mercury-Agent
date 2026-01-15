@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 PatchCore: Towards Total Recall in Industrial Anomaly Detection
 
@@ -48,6 +49,7 @@ from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
     VisualDetectorConfig,
 )
+
 
 logger = logging.getLogger(__name__)
 

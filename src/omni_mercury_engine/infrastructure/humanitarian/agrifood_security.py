@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 AgriFood Security Module - Crop yield and food supply anomaly detection
 

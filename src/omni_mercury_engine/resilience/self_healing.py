@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Unified Self-Healing Engine for Autonomous Error Recovery and Adaptive Defense
 
@@ -43,6 +44,7 @@ import numpy as np
 import numpy.typing as npt
 
 from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable

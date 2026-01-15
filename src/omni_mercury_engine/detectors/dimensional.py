@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Dimensional analyzer using PCA, t-SNE, and neural projection
 Enhanced with DB term (dimensional code-breaking via Fourier analysis)
@@ -33,6 +34,7 @@ from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+
 
 if TYPE_CHECKING:
     from sklearn.manifold import TSNE

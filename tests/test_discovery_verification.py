@@ -18,6 +18,7 @@ import numpy as np
 import pytest
 from scipy import stats
 
+
 # Check for torch availability
 TORCH_AVAILABLE = importlib.util.find_spec("torch") is not None
 

@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Report Generator - Plain English Auto-Reporting
 
@@ -215,6 +216,7 @@ class ReportGenerator:
             try:
                 return self._template.replace("{{ title }}", str(data.get("title", "")))
             except (TypeError, AttributeError):
+                # Template substitution failed; fall back to default generation
                 pass
 
         lines = []

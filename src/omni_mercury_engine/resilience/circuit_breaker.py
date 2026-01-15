@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Circuit breaker pattern implementation
 """
@@ -25,6 +26,7 @@ Circuit breaker pattern implementation
 import time
 from enum import Enum
 from typing import TYPE_CHECKING, Any
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable

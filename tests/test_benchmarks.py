@@ -18,12 +18,14 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """Tests for benchmark framework."""
 
 import sys
 from pathlib import Path
 
 import numpy as np
+
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 

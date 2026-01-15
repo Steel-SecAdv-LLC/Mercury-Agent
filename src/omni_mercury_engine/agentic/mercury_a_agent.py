@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Mercury A. Autonomous Agent Framework
 
@@ -45,6 +46,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable

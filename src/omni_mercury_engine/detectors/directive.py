@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Sigma Directive detector implementing PCP, GSIS, RMD, and EOA protocols
 Enhanced with quantum pattern containment and nano-scale detection

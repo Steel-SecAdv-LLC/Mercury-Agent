@@ -18,8 +18,10 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """Scaling and compute optimization modules."""
 
 from omni_mercury_engine.scaling.bain_ai_scaling import BainAIScaling, ComputeResource
+
 
 __all__ = ["BainAIScaling", "ComputeResource"]

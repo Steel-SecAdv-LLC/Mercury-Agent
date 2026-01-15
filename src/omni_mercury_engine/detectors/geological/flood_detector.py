@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Flood Detector - Multi-Parameter Flood Monitoring System
 
@@ -59,9 +60,7 @@ from torch import nn
 
 from omni_mercury_engine.core.three_r_mechanism import (
     RecursionEngine,
-)
-from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine as CoreRefactoringEngine
-from omni_mercury_engine.core.three_r_mechanism import (
+    RefactoringEngine as CoreRefactoringEngine,
     ResonanceEngine,
 )
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng

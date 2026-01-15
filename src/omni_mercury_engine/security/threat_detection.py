@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Cybersecurity threat detection module
 Enhanced with Banish_Void_Undue threat validity assessment
@@ -30,6 +31,7 @@ import re
 import time
 from enum import Enum
 from typing import Any
+
 
 # bcrypt is optional - provide fallback using hashlib
 try:

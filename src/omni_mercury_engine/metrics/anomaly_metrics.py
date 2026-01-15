@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Core anomaly detection metrics.
 
@@ -30,6 +31,7 @@ from typing import Any
 
 import numpy as np
 from scipy.ndimage import label as connected_components
+
 
 logger = logging.getLogger(__name__)
 

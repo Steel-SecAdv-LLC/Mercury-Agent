@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """Cross-border threat intelligence correlation.
 
 Correlates anomaly patterns across international boundaries (EU-US)

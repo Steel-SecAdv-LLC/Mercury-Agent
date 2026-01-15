@@ -18,12 +18,14 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Comprehensive tests for inference module to boost coverage
 """
 
 import numpy as np
 import pytest
+
 
 # Conditional torch import
 try:

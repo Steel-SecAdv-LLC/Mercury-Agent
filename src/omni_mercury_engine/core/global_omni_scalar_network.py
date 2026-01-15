@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Global Omni-Scalar Network (GOSNN) - Intelligence Fusion Hub
 
@@ -57,6 +58,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+
 
 # Golden ratio constant for triadic harmony and phi-weighting
 PHI: float = 1.618033988749895
@@ -434,6 +436,7 @@ def get_sigma_immutable_threshold(domain: str | None = None) -> float:
             # Clamp to valid range with hard minimum of 0.93
             return max(0.93, min(0.99, threshold))
         except ValueError:
+            # Invalid threshold value in environment; use default
             pass
 
     # Default elevated threshold for precision dominance

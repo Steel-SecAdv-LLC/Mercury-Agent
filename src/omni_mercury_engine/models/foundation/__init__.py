@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Foundation Model Adapters for Time-Series Anomaly Detection
 
@@ -57,22 +58,40 @@ from omni_mercury_engine.models.foundation.base_foundation import (
 from omni_mercury_engine.models.foundation.chronos_adapter import ChronosAdapter
 from omni_mercury_engine.models.foundation.ensemble import FoundationEnsemble
 from omni_mercury_engine.models.foundation.matrix_profile import MatrixProfileDetector
+from omni_mercury_engine.models.foundation.ollama_adapter import (
+    FallbackLLMChain,
+    ModelConfiguration,
+    ModelProfile,
+    OllamaConfig,
+    OllamaLLMAdapter,
+    OllamaModel,
+    TemplateLLMAdapter,
+    create_fallback_chain,
+    create_ollama_adapter,
+)
 from omni_mercury_engine.models.foundation.timegpt_adapter import TimeGPTAdapter
+
 
 # Compatibility aliases for tests
 MatrixProfileAdapter = MatrixProfileDetector
 
 __all__ = [
-    # Base classes
     "BaseFoundationAdapter",
     "BaseFoundationModel",
     "ChronosAdapter",
+    "FallbackLLMChain",
     "ForecastResult",
-    # Ensemble
     "FoundationEnsemble",
     "FoundationModelConfig",
-    "MatrixProfileAdapter",  # Compatibility alias
+    "MatrixProfileAdapter",
     "MatrixProfileDetector",
-    # Adapters
+    "ModelConfiguration",
+    "ModelProfile",
+    "OllamaConfig",
+    "OllamaLLMAdapter",
+    "OllamaModel",
+    "TemplateLLMAdapter",
     "TimeGPTAdapter",
+    "create_fallback_chain",
+    "create_ollama_adapter",
 ]

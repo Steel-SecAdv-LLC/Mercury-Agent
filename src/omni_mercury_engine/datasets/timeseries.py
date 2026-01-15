@@ -22,6 +22,7 @@ import numpy as np
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, safe_urlretrieve
 
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -206,6 +207,7 @@ class NABLoader(DatasetLoader):
                 end = datetime.fromisoformat(window[1].replace("Z", "+00:00"))
                 anomaly_ranges.append((start, end))
             except (ValueError, IndexError):
+                # Invalid window format; skip this anomaly window
                 pass
 
         with open(filepath, newline="") as f:
@@ -238,6 +240,7 @@ class NABLoader(DatasetLoader):
                                 is_anomaly = True
                                 break
                     except ValueError:
+                        # Invalid timestamp format; cannot check anomaly window
                         pass
 
                     labels.append(1 if is_anomaly else 0)

@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Enhanced Anomaly Detection - Memory Graph and External Data Integration
 
@@ -48,6 +49,7 @@ from typing import Any
 
 import httpx
 import numpy as np
+
 
 try:
     import networkx as nx
@@ -252,6 +254,7 @@ class MemoryKnowledgeGraph:
                             relevance = 1.0 / (dist + 1)
                             related.append((target, relevance))
                 except nx.NetworkXError:
+                    # Graph traversal failed; continue with partial results
                     pass
         else:
             visited = {node_id}
@@ -283,6 +286,7 @@ class MemoryKnowledgeGraph:
             try:
                 return nx.pagerank(self.graph, alpha=0.85)
             except Exception:
+                # PageRank computation failed; return uniform centrality
                 return {n: 1.0 / self.graph.number_of_nodes() for n in self.graph.nodes()}
         else:
             n_nodes = len(self.nodes)

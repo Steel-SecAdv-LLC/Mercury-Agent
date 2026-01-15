@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """Emerging technology monitoring and anomaly detection.
 
 Monitors 9+ emerging technology categories for novel patterns and

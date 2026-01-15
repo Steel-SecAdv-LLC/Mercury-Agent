@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Ava-Guardian Integration Adapter for Mercury Agent ♱
 
@@ -46,6 +47,7 @@ from typing import Any
 
 import numpy as np
 
+
 logger = logging.getLogger(__name__)
 
 AVA_GUARDIAN_AVAILABLE = False
@@ -53,9 +55,9 @@ DILITHIUM_AVAILABLE = False
 KYBER_AVAILABLE = False
 
 try:
-    from ava_guardian.pqc_backends import DILITHIUM_AVAILABLE as _DILITHIUM_AVAILABLE
-    from ava_guardian.pqc_backends import KYBER_AVAILABLE as _KYBER_AVAILABLE
     from ava_guardian.pqc_backends import (
+        DILITHIUM_AVAILABLE as _DILITHIUM_AVAILABLE,
+        KYBER_AVAILABLE as _KYBER_AVAILABLE,
         DilithiumKeyPair,
         KyberEncapsulation,
         KyberKeyPair,

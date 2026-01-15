@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """FastAPI server for real-time anomaly detection.
 
 This module provides a REST API for multi-domain anomaly detection using
@@ -53,6 +54,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
+
 
 # Configure PII-masking logger
 logger = logging.getLogger(__name__)
@@ -1065,3 +1067,15 @@ def custom_openapi() -> dict[str, Any]:
 
 
 app.openapi = custom_openapi
+
+
+# =============================================================================
+# Include Voice Interface Routes
+# =============================================================================
+try:
+    from omni_mercury_engine.api.voice import router as voice_router
+
+    app.include_router(voice_router)
+    logger.info("Voice interface routes registered")
+except ImportError as e:
+    logger.warning(f"Voice interface routes not available: {e}")

@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Foundation Model Ensemble
 
@@ -42,6 +43,7 @@ from omni_mercury_engine.models.foundation.matrix_profile import (
     MatrixProfileDetector,
 )
 from omni_mercury_engine.models.foundation.timegpt_adapter import TimeGPTAdapter, TimeGPTConfig
+
 
 logger = logging.getLogger(__name__)
 

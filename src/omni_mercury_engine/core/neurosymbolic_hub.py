@@ -30,6 +30,7 @@ from typing import Any
 import numpy as np
 from scipy.optimize import minimize
 
+
 logger = logging.getLogger(__name__)
 
 # Constants
@@ -195,6 +196,7 @@ class SymbolicRule:
             try:
                 return self.explanation_template.format(**context)
             except KeyError:
+                # Template variable not in context; use default format
                 pass
         return f"Rule '{self.rule_id}': {self.premise} -> {self.conclusion} (conf={self.confidence:.2f})"
 
@@ -785,6 +787,7 @@ class NeuroSymbolicHub:
                 try:
                     calibrated_score = float(self._calibrator.calibrate(np.array([fused_score]))[0])
                 except Exception:
+                    # Calibration failed; use uncalibrated score
                     calibrated_score = fused_score
 
             # Compute confidence
