@@ -460,6 +460,7 @@ class WebSearchRetriever(BaseExternalRetriever):
             ) as _:
                 self._is_available = True
         except Exception:
+            # Network or service unavailable; mark as unavailable
             self._is_available = False
 
         return self._is_available
@@ -656,6 +657,7 @@ class DatabaseRetriever(BaseExternalRetriever):
             cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = [row[0] for row in cursor.fetchall()]
         except Exception:
+            # Database query failed; cannot generate SQL without table info
             return None
 
         if not tables:
