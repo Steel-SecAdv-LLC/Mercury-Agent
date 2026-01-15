@@ -79,6 +79,29 @@ from omni_mercury_engine.narrative.retriever import (
     QueryIntent,
     SearchResponse,
 )
+from omni_mercury_engine.narrative.external_retrieval import (
+    ExternalInformationRetriever,
+    ExternalResult,
+    ExternalSearchConfig,
+    ExternalSourceType,
+    WebSearchProvider,
+    WebSearchRetriever,
+    DatabaseRetriever,
+    create_external_retriever,
+)
+from omni_mercury_engine.narrative.multimodal import (
+    MultiModalNarrator,
+    MultiModalDetection,
+    MultiModalNarration,
+    ModalityType,
+    AnomalyVisualType,
+    AudioAnomalyType,
+    RegionOfInterest,
+    AudioSegment,
+    create_multimodal_narrator,
+    narrate_image_detection,
+    narrate_audio_detection,
+)
 from omni_mercury_engine.narrative.voice import (
     MercuryVoice,
     VoiceResponse,
@@ -129,4 +152,25 @@ __all__ = [
     "ConversationTurn",
     "ConversationType",
     "create_mercury_voice",
+    # External Retrieval
+    "ExternalInformationRetriever",
+    "ExternalResult",
+    "ExternalSearchConfig",
+    "ExternalSourceType",
+    "WebSearchProvider",
+    "WebSearchRetriever",
+    "DatabaseRetriever",
+    "create_external_retriever",
+    # Multi-Modal Support
+    "MultiModalNarrator",
+    "MultiModalDetection",
+    "MultiModalNarration",
+    "ModalityType",
+    "AnomalyVisualType",
+    "AudioAnomalyType",
+    "RegionOfInterest",
+    "AudioSegment",
+    "create_multimodal_narrator",
+    "narrate_image_detection",
+    "narrate_audio_detection",
 ]

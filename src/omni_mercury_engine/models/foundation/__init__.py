@@ -57,6 +57,17 @@ from omni_mercury_engine.models.foundation.base_foundation import (
 from omni_mercury_engine.models.foundation.chronos_adapter import ChronosAdapter
 from omni_mercury_engine.models.foundation.ensemble import FoundationEnsemble
 from omni_mercury_engine.models.foundation.matrix_profile import MatrixProfileDetector
+from omni_mercury_engine.models.foundation.ollama_adapter import (
+    FallbackLLMChain,
+    ModelConfiguration,
+    ModelProfile,
+    OllamaConfig,
+    OllamaLLMAdapter,
+    OllamaModel,
+    TemplateLLMAdapter,
+    create_fallback_chain,
+    create_ollama_adapter,
+)
 from omni_mercury_engine.models.foundation.timegpt_adapter import TimeGPTAdapter
 
 # Compatibility aliases for tests
@@ -73,6 +84,16 @@ __all__ = [
     "FoundationModelConfig",
     "MatrixProfileAdapter",  # Compatibility alias
     "MatrixProfileDetector",
-    # Adapters
+    # Time series adapters
     "TimeGPTAdapter",
+    # LLM adapters - Ollama & Fallback
+    "OllamaLLMAdapter",
+    "OllamaConfig",
+    "OllamaModel",
+    "TemplateLLMAdapter",
+    "FallbackLLMChain",
+    "ModelConfiguration",
+    "ModelProfile",
+    "create_ollama_adapter",
+    "create_fallback_chain",
 ]

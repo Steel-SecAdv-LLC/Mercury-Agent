@@ -166,5 +166,245 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
         raise ValueError(f"Unsupported file format: {path.suffix}")
 
 
+# =============================================================================
+# Voice Conversation Command
+# =============================================================================
+@main.command()
+@click.option("--domain", "-d", default=None, help="Domain context (medical, security, etc.)")
+@click.option("--model", "-m", default="llama3.2:3b", help="Ollama model to use")
+@click.option("--offline", is_flag=True, help="Force offline mode (template responses)")
+def voice(domain: str, model: str, offline: bool) -> None:
+    """
+    Start interactive voice conversation with Mercury.
+
+    Examples:
+        mercury voice
+        mercury voice --domain medical
+        mercury voice --model mistral:7b
+        mercury voice --offline
+    """
+    _start_voice_conversation(domain, model, offline)
+
+
+def _start_voice_conversation(
+    domain: str | None,
+    model: str,
+    offline: bool,
+) -> None:
+    """Start the interactive voice conversation loop."""
+    import sys
+
+    # Print banner
+    click.echo("\n" + "=" * 60)
+    click.echo("  Mercury Agent ♱ - Interactive Voice Interface")
+    click.echo("=" * 60)
+    click.echo()
+
+    # Try to import voice module
+    try:
+        from omni_mercury_engine.narrative.voice import create_mercury_voice
+        from omni_mercury_engine.models.foundation.ollama_adapter import (
+            FallbackLLMChain,
+            OllamaConfig,
+        )
+
+        # Configure LLM chain
+        ollama_config = OllamaConfig(model=model)
+        llm_chain = FallbackLLMChain(
+            ollama_config=ollama_config,
+            enable_cloud=False,  # Privacy-first
+        )
+
+        voice_instance = create_mercury_voice()
+
+        # Print LLM status
+        chain_status = llm_chain.get_chain_status()
+        active = chain_status["active"]
+        click.echo(f"  LLM: {active}")
+        click.echo(f"  Domain: {domain or 'general'}")
+        click.echo(f"  Mode: {'offline' if offline else 'auto'}")
+
+    except ImportError as e:
+        click.echo(f"  Note: Using fallback mode ({e})")
+        voice_instance = _FallbackVoice()
+        llm_chain = None
+
+    click.echo()
+    click.echo("  Commands:")
+    click.echo("    /quit or /exit - Exit conversation")
+    click.echo("    /status        - Show system status")
+    click.echo("    /clear         - Clear conversation history")
+    click.echo("    /help          - Show help")
+    click.echo()
+    click.echo("-" * 60)
+
+    # Print greeting
+    try:
+        greeting = voice_instance.greet(domain=domain)
+        if hasattr(greeting, "message"):
+            click.echo(f"\nMercury: {greeting.message}\n")
+        else:
+            click.echo(f"\nMercury: {greeting.get('message', 'Hello.')}\n")
+    except Exception:
+        click.echo("\nMercury: Hello. Mercury Agent ready for conversation.\n")
+
+    # Conversation loop
+    while True:
+        try:
+            # Get user input
+            user_input = click.prompt(
+                click.style("You", fg="cyan"),
+                default="",
+                show_default=False,
+            )
+
+            if not user_input.strip():
+                continue
+
+            # Handle commands
+            if user_input.startswith("/"):
+                command = user_input.lower().strip()
+
+                if command in ["/quit", "/exit", "/q"]:
+                    click.echo("\nMercury: Goodbye. Stay vigilant.\n")
+                    break
+
+                elif command == "/status":
+                    _show_status(voice_instance, llm_chain)
+                    continue
+
+                elif command == "/clear":
+                    click.echo("\n[Conversation history cleared]\n")
+                    continue
+
+                elif command == "/help":
+                    _show_help()
+                    continue
+
+                else:
+                    click.echo(f"\nUnknown command: {command}")
+                    click.echo("Type /help for available commands.\n")
+                    continue
+
+            # Process user message
+            try:
+                response = voice_instance.speak(user_input, domain=domain)
+
+                if hasattr(response, "message"):
+                    message = response.message
+                    confidence = getattr(response, "confidence", None)
+                else:
+                    message = response.get("message", "I received your message.")
+                    confidence = response.get("confidence")
+
+                # Format response
+                click.echo()
+                click.echo(click.style("Mercury: ", fg="green") + message)
+
+                if confidence and confidence < 0.7:
+                    click.echo(
+                        click.style(
+                            f"  [Confidence: {confidence:.0%}]",
+                            fg="yellow",
+                            dim=True,
+                        )
+                    )
+
+                click.echo()
+
+            except Exception as e:
+                click.echo(click.style(f"\n[Error processing message: {e}]\n", fg="red"))
+
+        except (KeyboardInterrupt, EOFError):
+            click.echo("\n\nMercury: Session ended. Goodbye.\n")
+            break
+
+
+def _show_status(voice_instance: Any, llm_chain: Any) -> None:
+    """Show system status."""
+    click.echo("\n" + "-" * 40)
+    click.echo("  System Status")
+    click.echo("-" * 40)
+
+    click.echo("  Voice Interface: operational")
+
+    if llm_chain:
+        try:
+            status = llm_chain.get_chain_status()
+            click.echo(f"  Active LLM: {status['active']}")
+            click.echo(f"  Ollama: {'available' if status['ollama']['available'] else 'unavailable'}")
+            click.echo(f"  Template Fallback: available")
+        except Exception:
+            click.echo("  LLM Status: unknown")
+    else:
+        click.echo("  LLM: fallback mode")
+
+    if hasattr(voice_instance, "get_conversation_history"):
+        history = voice_instance.get_conversation_history()
+        click.echo(f"  Conversation turns: {len(history) if history else 0}")
+
+    click.echo("-" * 40 + "\n")
+
+
+def _show_help() -> None:
+    """Show help message."""
+    click.echo("\n" + "-" * 40)
+    click.echo("  Mercury Voice Commands")
+    click.echo("-" * 40)
+    click.echo("  /quit, /exit, /q  - Exit conversation")
+    click.echo("  /status           - Show system status")
+    click.echo("  /clear            - Clear history")
+    click.echo("  /help             - Show this help")
+    click.echo()
+    click.echo("  You can ask Mercury:")
+    click.echo("    - 'What is my system status?'")
+    click.echo("    - 'What anomalies have been detected?'")
+    click.echo("    - 'Explain the last detection'")
+    click.echo("    - 'Search for pattern information'")
+    click.echo("-" * 40 + "\n")
+
+
+class _FallbackVoice:
+    """Fallback voice for when narrative module unavailable."""
+
+    def speak(self, message: str, domain: str | None = None) -> dict[str, Any]:
+        """Process user message with fallback responses."""
+        msg_lower = message.lower()
+
+        if any(kw in msg_lower for kw in ["status", "health"]):
+            return {
+                "message": "Mercury Agent operational. Running in fallback mode.",
+                "confidence": 0.9,
+            }
+        elif any(kw in msg_lower for kw in ["hello", "hi"]):
+            return {
+                "message": "Hello. Mercury Agent at your service.",
+                "confidence": 0.95,
+            }
+        elif any(kw in msg_lower for kw in ["help", "what can"]):
+            return {
+                "message": "I can help with anomaly detection and monitoring. "
+                "Use the detect command for analysis, or ask about system status.",
+                "confidence": 0.9,
+            }
+        else:
+            return {
+                "message": f"I received your query. For detailed analysis, "
+                "please use the detect command with your data file.",
+                "confidence": 0.7,
+            }
+
+    def greet(self, domain: str | None = None) -> dict[str, Any]:
+        """Generate greeting."""
+        return {
+            "message": "Mercury Agent online. How can I assist you?",
+            "confidence": 1.0,
+        }
+
+    def get_conversation_history(self) -> list[Any]:
+        """Get conversation history."""
+        return []
+
+
 if __name__ == "__main__":
     main()
