@@ -36,9 +36,13 @@ import json
 import logging
 import os
 import socket
+import urllib.parse
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 from omni_mercury_engine.models.foundation.llm_adapter import (
     BaseLLMAdapter,
@@ -47,6 +51,15 @@ from omni_mercury_engine.models.foundation.llm_adapter import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Allowed URL schemes for Ollama API requests
+_ALLOWED_SCHEMES = frozenset({"http", "https"})
+
+
+def _validate_url_scheme(url: str) -> bool:
+    """Validate URL has an allowed scheme (http/https only)."""
+    parsed = urllib.parse.urlparse(url)
+    return parsed.scheme in _ALLOWED_SCHEMES
 
 
 class OllamaModel(str, Enum):
@@ -229,7 +242,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 )
                 self._is_available = False
 
-        except (OSError, socket.error) as e:
+        except OSError as e:
             logger.debug(f"Ollama availability check failed: {e}")
             self._is_available = False
 
@@ -239,10 +252,14 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             import urllib.request
 
             url = f"{self.ollama_config.base_url}/api/tags"
-            req = urllib.request.Request(url, method="GET")
+            if not _validate_url_scheme(url):
+                logger.warning(f"Invalid URL scheme for Ollama API: {url}")
+                return False
+
+            req = urllib.request.Request(url, method="GET")  # noqa: S310 - URL scheme validated above
             req.add_header("Accept", "application/json")
 
-            with urllib.request.urlopen(
+            with urllib.request.urlopen(  # noqa: S310 - URL scheme validated above
                 req, timeout=self.ollama_config.connect_timeout
             ) as response:
                 data = json.loads(response.read().decode())
@@ -292,6 +309,9 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             import urllib.request
 
             url = f"{self.ollama_config.base_url}/api/generate"
+            if not _validate_url_scheme(url):
+                logger.error(f"Invalid URL scheme for Ollama API: {url}")
+                return self._unavailable_response()
 
             payload = {
                 "model": self.ollama_config.model,
@@ -311,10 +331,10 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 payload["system"] = system_prompt
 
             data = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(url, data=data, method="POST")
+            req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310
             req.add_header("Content-Type", "application/json")
 
-            with urllib.request.urlopen(
+            with urllib.request.urlopen(  # noqa: S310 - URL scheme validated above
                 req, timeout=self.ollama_config.timeout
             ) as response:
                 result = json.loads(response.read().decode())
@@ -346,6 +366,9 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             import urllib.request
 
             url = f"{self.ollama_config.base_url}/api/chat"
+            if not _validate_url_scheme(url):
+                logger.error(f"Invalid URL scheme for Ollama API: {url}")
+                return self._unavailable_response()
 
             chat_messages = []
             if system_prompt:
@@ -364,10 +387,10 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             }
 
             data = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(url, data=data, method="POST")
+            req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310
             req.add_header("Content-Type", "application/json")
 
-            with urllib.request.urlopen(
+            with urllib.request.urlopen(  # noqa: S310 - URL scheme validated above
                 req, timeout=self.ollama_config.timeout
             ) as response:
                 result = json.loads(response.read().decode())
@@ -738,9 +761,7 @@ class ModelConfiguration:
         for model_name in self.preferred_models:
             profile = MODEL_PROFILES.get(model_name)
             if profile and profile.size_category in acceptable_sizes:
-                if speed_priority and profile.speed_rating >= 0.8:
-                    return model_name
-                elif not speed_priority:
+                if (speed_priority and profile.speed_rating >= 0.8) or not speed_priority:
                     return model_name
 
         # Default fallback

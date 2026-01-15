@@ -46,10 +46,21 @@ import urllib.request
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Allowed URL schemes for web search requests
+_ALLOWED_SCHEMES = frozenset({"http", "https"})
+
+
+def _validate_url_scheme(url: str) -> bool:
+    """Validate URL has an allowed scheme (http/https only)."""
+    parsed = urllib.parse.urlparse(url)
+    return parsed.scheme in _ALLOWED_SCHEMES
 
 
 class ExternalSourceType(Enum):
@@ -176,7 +187,8 @@ class ResultCache:
     def _cache_key(self, query: str, source: str) -> str:
         """Generate cache key for query."""
         key_str = f"{source}:{query}"
-        return hashlib.md5(key_str.encode()).hexdigest()  # nosec B324
+        # MD5 is safe for non-cryptographic cache key generation
+        return hashlib.md5(key_str.encode()).hexdigest()  # noqa: S324  # nosec B324
 
     def get(self, query: str, source: str) -> list[ExternalResult] | None:
         """Get cached results for query."""
@@ -325,14 +337,15 @@ class WebSearchRetriever(BaseExternalRetriever):
         try:
             # Use DuckDuckGo Instant Answer API (no tracking)
             safe_query = urllib.parse.quote_plus(query)
+            # URL is hardcoded with https:// scheme - safe
             url = f"https://api.duckduckgo.com/?q={safe_query}&format=json&no_html=1"
 
-            req = urllib.request.Request(
+            req = urllib.request.Request(  # noqa: S310 - URL scheme is hardcoded https
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
 
-            with urllib.request.urlopen(
+            with urllib.request.urlopen(  # noqa: S310 - URL scheme is hardcoded https
                 req, timeout=self.config.web_search_timeout
             ) as response:
                 data = json.loads(response.read().decode())
@@ -387,12 +400,17 @@ class WebSearchRetriever(BaseExternalRetriever):
             safe_query = urllib.parse.quote_plus(query)
             url = f"{self.searxng_url}/search?q={safe_query}&format=json"
 
-            req = urllib.request.Request(
+            # Validate URL scheme before making request
+            if not _validate_url_scheme(url):
+                logger.warning(f"Invalid URL scheme for SearXNG: {url}")
+                return results
+
+            req = urllib.request.Request(  # noqa: S310 - URL scheme validated above
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
 
-            with urllib.request.urlopen(
+            with urllib.request.urlopen(  # noqa: S310 - URL scheme validated above
                 req, timeout=self.config.web_search_timeout
             ) as response:
                 data = json.loads(response.read().decode())
@@ -425,12 +443,12 @@ class WebSearchRetriever(BaseExternalRetriever):
             return False
 
         try:
-            # Quick connectivity check
+            # Quick connectivity check - URL is hardcoded with https:// scheme
             req = urllib.request.Request(
                 "https://api.duckduckgo.com/?q=test&format=json",
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
-            with urllib.request.urlopen(req, timeout=5) as _:
+            with urllib.request.urlopen(req, timeout=5) as _:  # noqa: S310 - URL scheme is hardcoded https
                 self._is_available = True
         except Exception:
             self._is_available = False
@@ -615,8 +633,14 @@ class DatabaseRetriever(BaseExternalRetriever):
                 target_table = table
                 break
 
-        # Build simple search query
-        return f"SELECT * FROM {target_table} LIMIT {max_results}"
+        # Validate table name contains only valid identifier characters
+        # This prevents SQL injection even though table names come from sqlite_master
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", target_table):
+            logger.warning(f"Invalid table name format: {target_table}")
+            return None
+
+        # Build simple search query - table name validated above
+        return f"SELECT * FROM {target_table} LIMIT {max_results}"  # noqa: S608
 
     def execute_query(
         self,

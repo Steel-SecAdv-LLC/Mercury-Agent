@@ -341,7 +341,7 @@ class MultiModalNarrator:
         """Generate narration for audio detection."""
         # Build summary
         if detection.anomaly_detected:
-            summary = f"Audio analysis detected anomalous sound pattern "
+            summary = "Audio analysis detected anomalous sound pattern "
             summary += f"(score: {detection.anomaly_score:.2f}, confidence: {detection.confidence:.0%}). "
 
             if isinstance(detection.anomaly_type, AudioAnomalyType):
@@ -351,7 +351,7 @@ class MultiModalNarrator:
                     summary += "Unusual environmental sound detected."
         else:
             summary = "Audio analysis found no significant anomalies. "
-            summary += f"Sound patterns within normal parameters."
+            summary += "Sound patterns within normal parameters."
 
         # Describe segments
         audio_description = None
