@@ -202,9 +202,9 @@ class NarrativeEngine:
         self.use_llm_enhancement = use_llm_enhancement
         self.max_reasoning_steps = max_reasoning_steps
 
-        self._gosnn = None  # Lazy-loaded
-        self._llm_adapter = None  # Lazy-loaded
-        self._memory_surface = None  # Set via set_memory_surface
+        self._gosnn: Any | None = None  # Lazy-loaded
+        self._llm_adapter: Any | None = None  # Lazy-loaded
+        self._memory_surface: Any | None = None  # Set via set_memory_surface
 
         self._synthesis_count = 0
         self.logger = logging.getLogger(__name__)

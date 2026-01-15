@@ -342,7 +342,7 @@ class KnowledgeRetriever:
 
     def _search_knowledge_graph(self, context: SearchContext) -> list[RetrievalResult]:
         """Search knowledge graph."""
-        results = []
+        results: list[RetrievalResult] = []
 
         if self._knowledge_graph is None:
             return results
@@ -413,7 +413,7 @@ class KnowledgeRetriever:
 
     def _search_episodic_memory(self, context: SearchContext) -> list[RetrievalResult]:
         """Search episodic memory for past events."""
-        results = []
+        results: list[RetrievalResult] = []
 
         if self._agent_memory is None:
             return results
@@ -450,7 +450,7 @@ class KnowledgeRetriever:
 
     def _search_semantic_memory(self, context: SearchContext) -> list[RetrievalResult]:
         """Search semantic memory for facts."""
-        results = []
+        results: list[RetrievalResult] = []
 
         if self._agent_memory is None:
             return results
@@ -528,7 +528,7 @@ class KnowledgeRetriever:
 
     def _search_pattern_history(self, context: SearchContext) -> list[RetrievalResult]:
         """Search pattern history from memory surface."""
-        results = []
+        results: list[RetrievalResult] = []
 
         if self._memory_surface is None:
             return results

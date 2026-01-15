@@ -157,7 +157,7 @@ class PersonalityEngine:
         Args:
             domain_overrides: Per-domain scalar overrides
         """
-        self._gosnn = None  # Lazy-loaded
+        self._gosnn: Any | None = None  # Lazy-loaded
         self._domain_overrides = domain_overrides or {}
 
         # Default scalar values (used when GOSNN unavailable)
@@ -199,7 +199,7 @@ class PersonalityEngine:
         # Try GOSNN
         gosnn = self._get_gosnn()
         if gosnn is not None:
-            return gosnn.get_scalar(name, self._default_scalars.get(name, 1.0))
+            return float(gosnn.get_scalar(name, self._default_scalars.get(name, 1.0)))
 
         return self._default_scalars.get(name, 1.0)
 

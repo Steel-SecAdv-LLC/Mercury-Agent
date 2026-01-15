@@ -417,7 +417,7 @@ class MercuryConversationInterface:
         domain: str | None,
     ) -> list[str]:
         """Generate follow-up suggestions based on personality."""
-        follow_ups = []
+        follow_ups: list[str] = []
 
         if not profile.provide_alternatives:
             return follow_ups
@@ -527,7 +527,7 @@ class MercuryConversationInterface:
 
     def get_statistics(self) -> dict[str, Any]:
         """Get comprehensive interface statistics."""
-        stats = {
+        stats: dict[str, Any] = {
             "total_interactions": self._total_interactions,
             "total_detections": self._total_detections_processed,
             "active_sessions": len(self._sessions),

@@ -261,7 +261,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             )
             req.add_header("Accept", "application/json")
 
-            with urllib.request.urlopen(  # noqa: S310 - URL scheme validated above
+            with urllib.request.urlopen(  # nosec B310 - URL scheme validated above
                 req, timeout=self.ollama_config.connect_timeout
             ) as response:
                 data = json.loads(response.read().decode())
@@ -335,7 +335,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310
             req.add_header("Content-Type", "application/json")
 
-            with urllib.request.urlopen(  # noqa: S310 - URL scheme validated above
+            with urllib.request.urlopen(  # nosec B310 - URL scheme validated above
                 req, timeout=self.ollama_config.timeout
             ) as response:
                 result = json.loads(response.read().decode())
@@ -391,7 +391,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310
             req.add_header("Content-Type", "application/json")
 
-            with urllib.request.urlopen(  # noqa: S310 - URL scheme validated above
+            with urllib.request.urlopen(  # nosec B310 - URL scheme validated above
                 req, timeout=self.ollama_config.timeout
             ) as response:
                 result = json.loads(response.read().decode())

@@ -145,7 +145,7 @@ class PatternAccumulator:
     """Tracks pattern accumulation for escalation."""
 
     domain: str
-    patterns: deque = field(default_factory=lambda: deque(maxlen=100))
+    patterns: deque[dict[str, Any]] = field(default_factory=lambda: deque(maxlen=100))
     last_escalation: float = 0.0
 
     def add_pattern(
@@ -225,7 +225,7 @@ class ProactiveMonitor:
 
         # Event tracking
         self._event_counter = 0
-        self._event_queue: queue.Queue = queue.Queue()
+        self._event_queue: queue.Queue[tuple[dict[str, Any], str | None, float]] = queue.Queue()
         self._initiative_callbacks: list[Callable[[InitiativeEvent], None]] = []
         self._last_initiative: dict[str, float] = {}  # For cooldown tracking
 

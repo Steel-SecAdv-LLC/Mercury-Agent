@@ -284,7 +284,7 @@ class MemorySurface:
         domain: str | None,
     ) -> list[SimilarEvent]:
         """Find similar historical events using neural memory."""
-        similar_events = []
+        similar_events: list[SimilarEvent] = []
 
         # Try neural memory similarity search
         if self._neural_memory is not None:
@@ -391,7 +391,7 @@ class MemorySurface:
         hist_domain = historical.get("context", {}).get("domain", "")
         if det_domain and det_domain == hist_domain:
             score += 0.3
-            count += 0.3
+            count += 1
 
         return score / count if count > 0 else 0.0
 

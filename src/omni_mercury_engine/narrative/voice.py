@@ -179,7 +179,7 @@ class MercuryVoice:
         self.retriever = KnowledgeRetriever()
 
         # LLM adapter (if enabled)
-        self._llm_adapter = None
+        self._llm_adapter: Any | None = None
         if enable_llm:
             self._init_llm()
 
