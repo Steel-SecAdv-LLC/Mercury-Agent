@@ -1065,3 +1065,15 @@ def custom_openapi() -> dict[str, Any]:
 
 
 app.openapi = custom_openapi
+
+
+# =============================================================================
+# Include Voice Interface Routes
+# =============================================================================
+try:
+    from omni_mercury_engine.api.voice import router as voice_router
+
+    app.include_router(voice_router)
+    logger.info("Voice interface routes registered")
+except ImportError as e:
+    logger.warning(f"Voice interface routes not available: {e}")

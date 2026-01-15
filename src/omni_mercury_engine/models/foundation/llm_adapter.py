@@ -49,8 +49,10 @@ class LLMProvider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     HUGGINGFACE = "huggingface"
+    OLLAMA = "ollama"  # Local Ollama inference
     LOCAL = "local"
     MOCK = "mock"  # For testing
+    TEMPLATE = "template"  # Fallback template-based responses
 
 
 @dataclass
@@ -608,7 +610,7 @@ def create_llm_detector(
     Factory function to create LLM-based anomaly detector.
 
     Args:
-        provider: LLM provider name
+        provider: LLM provider name (mock, ollama, huggingface, etc.)
         model_name: Model identifier
         **kwargs: Additional configuration
 
@@ -626,5 +628,20 @@ def create_llm_detector(
         model_name=model_name or "gpt-4o",
         **kwargs,
     )
+
+    # Handle Ollama specifically
+    if provider_enum == LLMProvider.OLLAMA:
+        from omni_mercury_engine.models.foundation.ollama_adapter import (
+            OllamaConfig,
+            OllamaLLMAdapter,
+        )
+
+        ollama_config = OllamaConfig(
+            model=model_name or "llama3.2:3b",
+            host=kwargs.get("host", "localhost"),
+            port=kwargs.get("port", 11434),
+        )
+        adapter = OllamaLLMAdapter(config, ollama_config)
+        return ZeroShotAnomalyDetector(config, adapter=adapter)
 
     return ZeroShotAnomalyDetector(config)
