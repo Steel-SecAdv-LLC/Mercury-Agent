@@ -420,6 +420,7 @@ class MemorySurface:
                 analysis = self._neural_memory.analyze()
                 stats["frequency"] = analysis.get("patterns_detected", 0)
             except Exception:
+                # Neural memory may not be fully initialized; use default stats
                 pass
 
         return stats
