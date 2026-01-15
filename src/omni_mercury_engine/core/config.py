@@ -95,6 +95,60 @@ class FusionConfig:
 
 
 @dataclass
+class ThresholdConfig:
+    """Centralized threshold configuration for anomaly detection.
+
+    This configuration class consolidates threshold parameters that were
+    previously hardcoded across multiple modules. Use this class to ensure
+    consistent thresholding behavior across the detection pipeline.
+
+    Usage:
+        config = ThresholdConfig()
+        # Use config.anomaly_default for general anomaly detection
+        # Use config.ethical_minimum for ethical constraint checks
+        # Use config.confidence_high/medium/low for classification bands
+    """
+
+    # General anomaly detection thresholds
+    anomaly_default: float = 0.5
+    """Default threshold for anomaly classification. Scores > threshold = anomaly."""
+
+    anomaly_cap: float = 0.95
+    """Maximum allowed threshold to prevent over-filtering."""
+
+    # Classification confidence bands (used in truth_decipher, etc.)
+    confidence_high: float = 0.9
+    """High confidence threshold for definitive classifications."""
+
+    confidence_medium: float = 0.7
+    """Medium confidence threshold for probable classifications."""
+
+    confidence_low: float = 0.5
+    """Low confidence threshold for possible classifications."""
+
+    # Ethical constraint thresholds
+    ethical_minimum: float = 0.6
+    """Minimum ethical alignment score required for operations."""
+
+    benevolence_required: float = 0.99
+    """Required benevolence score for civilization-first decisions."""
+
+    # Statistical thresholds
+    outlier_percentile: float = 95.0
+    """Percentile threshold for outlier detection (0-100)."""
+
+    iqr_multiplier: float = 1.5
+    """Multiplier for IQR-based outlier detection."""
+
+    # Neural/symbolic fusion weights
+    neural_weight: float = 0.6
+    """Weight for neural component in hybrid scoring."""
+
+    symbolic_weight: float = 0.4
+    """Weight for symbolic component in hybrid scoring."""
+
+
+@dataclass
 class EngineConfig:
     """Main engine configuration"""
 
@@ -106,6 +160,7 @@ class EngineConfig:
     detectors: dict[str, DetectorConfig] = field(default_factory=dict)
     models: dict[str, ModelConfig] = field(default_factory=dict)
     fusion: FusionConfig = field(default_factory=FusionConfig)
+    thresholds: ThresholdConfig = field(default_factory=ThresholdConfig)
 
     model_path: str | None = None
     cache_dir: str = "./cache"
