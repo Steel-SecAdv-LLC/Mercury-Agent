@@ -8,11 +8,11 @@ Tests for PersonalityEngine - Omni-Scalar Shaped Communication.
 import pytest
 
 from omni_mercury_engine.narrative.personality import (
+    CommunicationModifiers,
+    CommunicationTone,
     PersonalityEngine,
     PersonalityProfile,
-    CommunicationTone,
     VerbosityLevel,
-    CommunicationModifiers,
 )
 
 

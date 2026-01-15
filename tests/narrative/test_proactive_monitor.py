@@ -5,16 +5,17 @@ Copyright (C) 2025 Steel Security Advisory LLC
 Tests for ProactiveMonitor - Background Vigilance with Initiative.
 """
 
-import pytest
-import time
 import threading
+import time
+
+import pytest
 
 from omni_mercury_engine.narrative.proactive import (
+    InitiativeEvent,
+    InitiativeThreshold,
+    InitiativeType,
     ProactiveMonitor,
     VigilanceLevel,
-    InitiativeEvent,
-    InitiativeType,
-    InitiativeThreshold,
 )
 
 

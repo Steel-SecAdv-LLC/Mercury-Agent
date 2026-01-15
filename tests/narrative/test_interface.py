@@ -5,13 +5,14 @@ Copyright (C) 2025 Steel Security Advisory LLC
 Tests for MercuryConversationInterface - Unified "Alive" Interface.
 """
 
-import pytest
 import time
 
+import pytest
+
 from omni_mercury_engine.narrative.interface import (
+    ConversationContext,
     MercuryConversationInterface,
     MercuryResponse,
-    ConversationContext,
     create_mercury_interface,
 )
 from omni_mercury_engine.narrative.proactive import VigilanceLevel

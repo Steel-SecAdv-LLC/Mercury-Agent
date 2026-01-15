@@ -39,74 +39,74 @@ Example:
 """
 
 from omni_mercury_engine.narrative.engine import (
-    NarrativeEngine,
-    NarrativeStyle,
-    NarrativeResult,
     ConfidenceLevel,
+    NarrativeEngine,
+    NarrativeResult,
+    NarrativeStyle,
     ReasoningChainNarrative,
 )
-from omni_mercury_engine.narrative.proactive import (
-    ProactiveMonitor,
-    VigilanceLevel,
-    InitiativeEvent,
-    InitiativeType,
-    InitiativeThreshold,
-)
-from omni_mercury_engine.narrative.memory_surface import (
-    MemorySurface,
-    MemoryContext,
-    MemoryRelevance,
-    SimilarEvent,
-    PredictionHistory,
-)
-from omni_mercury_engine.narrative.personality import (
-    PersonalityEngine,
-    PersonalityProfile,
-    CommunicationTone,
-    VerbosityLevel,
-    CommunicationModifiers,
-)
-from omni_mercury_engine.narrative.interface import (
-    MercuryConversationInterface,
-    MercuryResponse,
-    ConversationContext,
-    create_mercury_interface,
-)
-from omni_mercury_engine.narrative.retriever import (
-    KnowledgeRetriever,
-    RetrievalResult,
-    RetrievalSource,
-    QueryIntent,
-    SearchResponse,
-)
 from omni_mercury_engine.narrative.external_retrieval import (
+    DatabaseRetriever,
     ExternalInformationRetriever,
     ExternalResult,
     ExternalSearchConfig,
     ExternalSourceType,
     WebSearchProvider,
     WebSearchRetriever,
-    DatabaseRetriever,
     create_external_retriever,
 )
+from omni_mercury_engine.narrative.interface import (
+    ConversationContext,
+    MercuryConversationInterface,
+    MercuryResponse,
+    create_mercury_interface,
+)
+from omni_mercury_engine.narrative.memory_surface import (
+    MemoryContext,
+    MemoryRelevance,
+    MemorySurface,
+    PredictionHistory,
+    SimilarEvent,
+)
 from omni_mercury_engine.narrative.multimodal import (
-    MultiModalNarrator,
-    MultiModalDetection,
-    MultiModalNarration,
-    ModalityType,
     AnomalyVisualType,
     AudioAnomalyType,
-    RegionOfInterest,
     AudioSegment,
+    ModalityType,
+    MultiModalDetection,
+    MultiModalNarration,
+    MultiModalNarrator,
+    RegionOfInterest,
     create_multimodal_narrator,
-    narrate_image_detection,
     narrate_audio_detection,
+    narrate_image_detection,
+)
+from omni_mercury_engine.narrative.personality import (
+    CommunicationModifiers,
+    CommunicationTone,
+    PersonalityEngine,
+    PersonalityProfile,
+    VerbosityLevel,
+)
+from omni_mercury_engine.narrative.proactive import (
+    InitiativeEvent,
+    InitiativeThreshold,
+    InitiativeType,
+    ProactiveMonitor,
+    VigilanceLevel,
+)
+from omni_mercury_engine.narrative.retriever import (
+    KnowledgeRetriever,
+    QueryIntent,
+    RetrievalResult,
+    RetrievalSource,
+    SearchResponse,
 )
 from omni_mercury_engine.narrative.voice import (
-    MercuryVoice,
-    VoiceResponse,
     ConversationTurn,
     ConversationType,
+    MercuryVoice,
+    VoiceResponse,
     create_mercury_voice,
 )
 

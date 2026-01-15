@@ -5,15 +5,16 @@ Copyright (C) 2025 Steel Security Advisory LLC
 Tests for MemorySurface - Conversational Memory Integration.
 """
 
-import pytest
 import time
 
+import pytest
+
 from omni_mercury_engine.narrative.memory_surface import (
-    MemorySurface,
     MemoryContext,
     MemoryRelevance,
-    SimilarEvent,
+    MemorySurface,
     PredictionHistory,
+    SimilarEvent,
 )
 
 

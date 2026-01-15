@@ -202,11 +202,11 @@ def _start_voice_conversation(
 
     # Try to import voice module
     try:
-        from omni_mercury_engine.narrative.voice import create_mercury_voice
         from omni_mercury_engine.models.foundation.ollama_adapter import (
             FallbackLLMChain,
             OllamaConfig,
         )
+        from omni_mercury_engine.narrative.voice import create_mercury_voice
 
         # Configure LLM chain
         ollama_config = OllamaConfig(model=model)

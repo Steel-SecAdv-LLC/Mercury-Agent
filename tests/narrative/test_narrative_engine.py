@@ -5,14 +5,15 @@ Copyright (C) 2025 Steel Security Advisory LLC
 Tests for NarrativeEngine - Truth-Dense Communication Synthesis.
 """
 
-import pytest
 import time
 
+import pytest
+
 from omni_mercury_engine.narrative.engine import (
-    NarrativeEngine,
-    NarrativeStyle,
-    NarrativeResult,
     ConfidenceLevel,
+    NarrativeEngine,
+    NarrativeResult,
+    NarrativeStyle,
     ReasoningChainNarrative,
 )
 
