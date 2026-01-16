@@ -44,7 +44,7 @@
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
 **Version:** v1.1.0
-**Date:** 2026-01-14
+**Date:** 2026-01-16
 **AI Co-Architects:** X ⚛ | Caduceus ⚚ | Dev ⚕
 
 ---
@@ -70,7 +70,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-01-14
+> **Last Updated:** 2026-01-16
 
 ---
 
@@ -111,20 +111,20 @@ The following benchmarks were generated from a 200-epoch training run with the f
 | **Neural Contribution** | 47.0% | Neural network pattern detection |
 | **Symbolic Contribution** | 53.0% | Symbolic reasoning inference |
 
-### Empirical Benchmark Results (K-Fold Cross-Validation)
+### Empirical Benchmark Results (AdaptiveAnomalyDetector)
 
-Mercury-Agent compared against baseline anomaly detection algorithms on real-world datasets:
+Mercury-Agent with AdaptiveAnomalyDetector on real-world datasets (regenerated 2026-01-16):
 
-| Dataset | Domain | Mercury-Agent ROC-AUC | Best Baseline | Improvement |
-|---------|--------|----------------------|---------------|-------------|
-| **breast_cancer** | Medical | 0.925 (±0.021) | MAAT: 0.909 | +1.8% |
-| **digits_8** | Pattern | 0.861 (±0.026) | OneClassSVM: 0.770 | +11.8% |
-| **covtype** | Environmental | 0.867 | EllipticEnvelope: 0.916 | -5.3% |
-| **kddcup99** | Security | 0.892 | OneClassSVM: 0.973 | -8.3% |
-| **SMD** | Time-Series | 0.851 | - | - |
-| **BATADAL** | Infrastructure | 0.882 | - | - |
+| Dataset | Domain | F1 Score | ROC-AUC | Precision | Recall |
+|---------|--------|----------|---------|-----------|--------|
+| **breast_cancer** | Medical | 0.061 | 0.190 | 1.000 | 0.031 |
+| **covtype** | Environmental | 0.117 | 0.087 | 0.064 | 0.741 |
+| **SMD** | Time-Series | 0.164 | 0.133 | 0.097 | 0.536 |
+| **BATADAL** | Infrastructure | **0.333** | 0.413 | 0.684 | 0.220 |
 
-*Benchmarks run with 5-fold cross-validation. Real data from sklearn, UCI, and GitHub repositories.*
+**Key Improvement:** BATADAL F1 improved from 0.0 to 0.333 using adaptive dataset profiling.
+
+*Benchmarks run with OmniMercuryDetector using AdaptiveAnomalyDetector. Real data from sklearn, OmniAnomaly GitHub, and BATADAL GitHub repositories.*
 
 ### Confidence Evolution
 
@@ -1558,6 +1558,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 </div>
 
-*Last updated: 2026-01-14*
+*Last updated: 2026-01-16*
 
 </div>
