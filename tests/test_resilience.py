@@ -58,7 +58,7 @@ def test_circuit_breaker_open_state():
         try:
             breaker.call(fail_func)
         except Exception:
-            pass
+            pass  # Expected: testing circuit breaker failure counting
 
     assert breaker.state == CircuitState.OPEN
 
@@ -76,7 +76,7 @@ def test_circuit_breaker_half_open_state():
         try:
             breaker.call(fail_func)
         except Exception:
-            pass
+            pass  # Expected: testing circuit breaker failure counting
 
     time.sleep(0.2)
 

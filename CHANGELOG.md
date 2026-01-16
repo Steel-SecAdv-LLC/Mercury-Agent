@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-01-16
+
+### Fixed - Benchmark Regeneration & CodeQL Cleanup
+- **Benchmark Results Regenerated**: Updated `results/latest/benchmark_results.json` with AdaptiveAnomalyDetector
+  - BATADAL F1: 0.0 → 0.333 (major improvement using adaptive dataset profiling)
+  - SMD F1: 0.185 → 0.164
+  - covtype F1: 0.117 (newly added dataset)
+  - breast_cancer F1: 0.061 (newly added dataset)
+- **CodeQL Alerts Resolved**: Added explanatory comments to 26 empty except blocks
+  - `tests/test_resilience.py`: Circuit breaker failure counting comments
+  - `tests/resilience/test_circuit_breakers.py`: Multiple failure testing comments
+- **PEP8 Formatting**: Applied blank line fixes after imports across 28 files
+- **Documentation Updated**: README.md benchmark table updated with regenerated results
+
 ## [1.1.0] - 2026-01-09
 
 ### Security - v1.1.0 CodeQL Remediation

@@ -75,6 +75,7 @@ import pandas as pd
 import requests
 import torch
 
+
 # =============================================================================
 # Configuration (environment-variable driven for CI flexibility)
 # =============================================================================
@@ -109,6 +110,7 @@ from sklearn.model_selection import KFold, StratifiedKFold, train_test_split
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import OneClassSVM
+
 
 # Import adaptive detector for targeted performance enhancements
 try:
@@ -2288,7 +2290,7 @@ class OmniMercuryDetector:
                 # Convert: 1 = anomaly -> -1, 0 = normal -> 1 (sklearn convention)
                 return np.where(result.predictions == 1, -1, 1)
             except Exception:
-                pass
+                pass  # Adaptive detector failed, fall back to threshold-based detection
 
         # Get anomaly scores
         scores = self.decision_function(X)
@@ -2549,7 +2551,7 @@ class OmniMercuryDetector:
                 scores = np.sqrt(np.sum(X_centered @ self.cov_inv * X_centered, axis=1))
                 return scores
             except Exception:
-                pass
+                pass  # Mahalanobis distance failed, fall back to Euclidean
 
         # Final fallback: normalized Euclidean distance
         return np.sqrt(np.sum((X_centered / self.std) ** 2, axis=1))
