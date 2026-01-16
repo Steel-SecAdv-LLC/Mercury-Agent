@@ -867,6 +867,327 @@ class OmniMercuryEngine:
 
         return pseudo_labels
 
+    def calibrate_scores(
+        self,
+        X_cal: np.ndarray[Any, Any],
+        y_cal: np.ndarray[Any, Any],
+        method: str = "isotonic",
+    ) -> dict[str, Any]:
+        """Calibrate fusion model scores using held-out calibration data.
+
+        Post-hoc calibration improves probability estimates, especially
+        for imbalanced datasets like medical anomaly detection where
+        low false positive rates are critical.
+
+        Args:
+            X_cal: Calibration features.
+            y_cal: Calibration labels (0=normal, 1=anomaly).
+            method: Calibration method - "isotonic" (non-parametric),
+                   "platt" (logistic), or "both" (ensemble average).
+
+        Returns:
+            Dictionary with calibration metrics (Brier score before/after).
+
+        Example:
+            >>> engine = OmniMercuryEngine(mode="fusion")
+            >>> engine.fit_fusion(X_train, y_train)
+            >>> metrics = engine.calibrate_scores(X_val, y_val, method="isotonic")
+            >>> print(f"Brier improvement: {metrics['brier_before'] - metrics['brier_after']:.4f}")
+        """
+        from sklearn.isotonic import IsotonicRegression
+        from sklearn.linear_model import LogisticRegression
+        from sklearn.metrics import brier_score_loss
+
+        if self.mode != "fusion":
+            raise ValueError("calibrate_scores() requires mode='fusion'")
+
+        # Get raw scores on calibration data
+        raw_scores = []
+        for sample in X_cal:
+            result = self.detect_with_fusion(sample.reshape(1, -1))
+            raw_scores.append(result.get("anomaly_prob", result.get("score", 0.5)))
+        raw_scores = np.array(raw_scores).flatten()
+
+        # Compute Brier score before calibration
+        brier_before = brier_score_loss(y_cal, raw_scores)
+
+        if method in ("isotonic", "both"):
+            self._isotonic_calibrator = IsotonicRegression(
+                y_min=0, y_max=1, out_of_bounds="clip"
+            )
+            self._isotonic_calibrator.fit(raw_scores, y_cal)
+
+        if method in ("platt", "both"):
+            self._platt_calibrator = LogisticRegression(C=1.0, solver="lbfgs")
+            self._platt_calibrator.fit(raw_scores.reshape(-1, 1), y_cal)
+
+        self._calibration_method = method
+        self._calibration_enabled = True
+
+        # Compute Brier score after calibration
+        calibrated = self._apply_calibration(raw_scores)
+        brier_after = brier_score_loss(y_cal, calibrated)
+
+        logger.info(
+            f"Score calibration fitted ({method}). "
+            f"Brier: {brier_before:.4f} -> {brier_after:.4f}"
+        )
+
+        return {
+            "brier_before": brier_before,
+            "brier_after": brier_after,
+            "improvement": brier_before - brier_after,
+            "method": method,
+        }
+
+    def _apply_calibration(self, scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Apply calibration to raw scores."""
+        if not getattr(self, "_calibration_enabled", False):
+            return scores
+
+        method = getattr(self, "_calibration_method", "isotonic")
+        scores = np.array(scores).flatten()
+
+        if method == "isotonic":
+            return self._isotonic_calibrator.transform(scores)
+        elif method == "platt":
+            return self._platt_calibrator.predict_proba(scores.reshape(-1, 1))[:, 1]
+        elif method == "both":
+            iso_cal = self._isotonic_calibrator.transform(scores)
+            platt_cal = self._platt_calibrator.predict_proba(scores.reshape(-1, 1))[:, 1]
+            return 0.5 * iso_cal + 0.5 * platt_cal
+        return scores
+
+    def tune_hyperparameters(
+        self,
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
+        n_trials: int = 50,
+        validation_split: float = 0.2,
+        metric: str = "roc_auc",
+    ) -> dict[str, Any]:
+        """Tune OmniFusionModel hyperparameters using Optuna.
+
+        Performs efficient hyperparameter search on a validation split
+        to find optimal training parameters for the fusion model.
+
+        Args:
+            X: Training features.
+            y: Training labels (0=normal, 1=anomaly).
+            n_trials: Number of Optuna trials (default: 50).
+            validation_split: Fraction for validation (default: 0.2).
+            metric: Optimization metric - "roc_auc" or "pr_auc".
+
+        Returns:
+            Dictionary with best parameters and validation score.
+
+        Example:
+            >>> engine = OmniMercuryEngine(mode="fusion")
+            >>> best_params = engine.tune_hyperparameters(X_train, y_train, n_trials=30)
+            >>> engine.fit_fusion(X_train, y_train, **best_params['params'])
+        """
+        try:
+            import optuna
+            from sklearn.metrics import average_precision_score, roc_auc_score
+            from sklearn.model_selection import train_test_split
+
+            optuna.logging.set_verbosity(optuna.logging.WARNING)
+        except ImportError:
+            logger.warning("Optuna not installed. Install with: pip install optuna")
+            return {"error": "optuna not installed"}
+
+        if self.mode != "fusion":
+            raise ValueError("tune_hyperparameters() requires mode='fusion'")
+
+        # Split data
+        X_train, X_val, y_train, y_val = train_test_split(
+            X, y, test_size=validation_split, stratify=y, random_state=42
+        )
+
+        def objective(trial: optuna.Trial) -> float:
+            # Hyperparameter search space
+            params = {
+                "epochs": trial.suggest_int("epochs", 10, 100),
+                "batch_size": trial.suggest_categorical("batch_size", [16, 32, 64, 128]),
+                "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-2, log=True),
+                "early_stopping_patience": trial.suggest_int("early_stopping_patience", 5, 20),
+            }
+
+            # Train model with these params
+            try:
+                # Reset model for fresh training
+                self.fusion_model = OmniFusionModel()
+                self.fusion_model.to(self.device)
+                self._fusion_trained = False
+
+                self.fit_fusion(X_train, y_train, **params)
+
+                # Evaluate on validation set
+                val_scores = []
+                for sample in X_val:
+                    result = self.detect_with_fusion(sample.reshape(1, -1))
+                    val_scores.append(result.get("anomaly_prob", 0.5))
+
+                if metric == "roc_auc":
+                    score = roc_auc_score(y_val, val_scores)
+                else:  # pr_auc
+                    score = average_precision_score(y_val, val_scores)
+
+                return score
+
+            except Exception as e:
+                logger.debug(f"Trial failed: {e}")
+                return 0.0
+
+        # Run optimization
+        study = optuna.create_study(direction="maximize")
+        study.optimize(objective, n_trials=n_trials, show_progress_bar=False)
+
+        best_params = study.best_params
+        best_score = study.best_value
+
+        logger.info(
+            f"Hyperparameter tuning complete. "
+            f"Best {metric}: {best_score:.4f}, params: {best_params}"
+        )
+
+        # Retrain with best params on full data
+        self.fusion_model = OmniFusionModel()
+        self.fusion_model.to(self.device)
+        self._fusion_trained = False
+        self.fit_fusion(X, y, **best_params)
+
+        return {
+            "best_score": best_score,
+            "params": best_params,
+            "n_trials": n_trials,
+            "metric": metric,
+        }
+
+    def add_detector(
+        self,
+        name: str,
+        detector: Any,
+    ) -> None:
+        """Add a pluggable detector to the engine.
+
+        Enables extension with custom detectors (e.g., ARIMA for time-series,
+        DBSCAN for spatial clustering) that integrate with the fusion pipeline.
+
+        Args:
+            name: Unique detector name.
+            detector: Detector instance with fit() and detect() methods.
+
+        Raises:
+            ValueError: If detector lacks required methods.
+
+        Example:
+            >>> from sklearn.cluster import DBSCAN
+            >>> engine.add_detector('dbscan', DBSCANDetector(eps=0.5))
+        """
+        if not hasattr(detector, "fit"):
+            raise ValueError(f"Detector {name} must have fit() method")
+        if not hasattr(detector, "detect") and not hasattr(detector, "decision_function"):
+            raise ValueError(f"Detector {name} must have detect() or decision_function()")
+
+        self.detectors[name] = detector
+        logger.info(f"Added pluggable detector: {name}")
+
+    def visualize_embeddings(
+        self,
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any] | None = None,
+        method: str = "tsne",
+        perplexity: int = 30,
+        save_path: str | None = None,
+    ) -> dict[str, Any]:
+        """Generate t-SNE/UMAP visualization of detector features for interpretability.
+
+        Creates 2D embedding visualization of how detectors perceive the data,
+        useful for scientific discovery and understanding anomaly patterns.
+
+        Args:
+            X: Input data.
+            y: Optional labels for coloring (0=normal, 1=anomaly).
+            method: "tsne" or "umap".
+            perplexity: t-SNE perplexity parameter.
+            save_path: Optional path to save visualization.
+
+        Returns:
+            Dictionary with embeddings and visualization metadata.
+
+        Example:
+            >>> result = engine.visualize_embeddings(X_test, y_test, save_path="embeddings.png")
+        """
+        from sklearn.manifold import TSNE
+
+        # Extract features from all detectors
+        all_features = []
+        for name, detector in self.detectors.items():
+            try:
+                if not detector.is_fitted():
+                    detector.fit(X)
+                features = detector.extract_features(X)
+                if isinstance(features, torch.Tensor):
+                    features = features.cpu().numpy()
+                all_features.append(features)
+            except Exception as e:
+                logger.debug(f"Failed to extract features from {name}: {e}")
+
+        if not all_features:
+            return {"error": "No features could be extracted"}
+
+        # Concatenate all detector features
+        combined = np.hstack(all_features)
+
+        # Compute embeddings
+        if method == "tsne":
+            reducer = TSNE(n_components=2, perplexity=min(perplexity, len(X) - 1), random_state=42)
+            embeddings = reducer.fit_transform(combined)
+        else:
+            try:
+                from umap import UMAP
+                reducer = UMAP(n_components=2, random_state=42)
+                embeddings = reducer.fit_transform(combined)
+            except ImportError:
+                logger.warning("UMAP not available, falling back to t-SNE")
+                reducer = TSNE(n_components=2, perplexity=min(perplexity, len(X) - 1), random_state=42)
+                embeddings = reducer.fit_transform(combined)
+
+        result = {
+            "embeddings": embeddings,
+            "method": method,
+            "n_samples": len(X),
+            "n_features": combined.shape[1],
+        }
+
+        # Save visualization if path provided
+        if save_path:
+            try:
+                import matplotlib.pyplot as plt
+
+                fig, ax = plt.subplots(figsize=(10, 8))
+                if y is not None:
+                    scatter = ax.scatter(
+                        embeddings[:, 0], embeddings[:, 1],
+                        c=y, cmap="RdYlGn_r", alpha=0.6, s=20
+                    )
+                    plt.colorbar(scatter, label="Anomaly (1) / Normal (0)")
+                else:
+                    ax.scatter(embeddings[:, 0], embeddings[:, 1], alpha=0.6, s=20)
+
+                ax.set_xlabel(f"{method.upper()} 1")
+                ax.set_ylabel(f"{method.upper()} 2")
+                ax.set_title(f"Detector Feature Embeddings ({method.upper()})")
+                plt.savefig(save_path, dpi=150, bbox_inches="tight")
+                plt.close()
+                result["saved_to"] = save_path
+                logger.info(f"Visualization saved to {save_path}")
+            except ImportError:
+                logger.warning("matplotlib not available for visualization")
+
+        return result
+
     def enable_drift_detection(
         self,
         baseline_data: np.ndarray[Any, Any] | None = None,

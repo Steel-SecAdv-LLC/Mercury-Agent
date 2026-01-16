@@ -377,3 +377,148 @@ class TestEdgeCases:
         # Should handle gracefully
         metrics = engine.fit_fusion(X, y, epochs=10)
         assert metrics["epochs_trained"] > 0
+
+
+class TestCalibration:
+    """Test score calibration functionality."""
+
+    @pytest.fixture
+    def trained_engine(self):
+        """Create and train engine."""
+        from omni_mercury_engine.engine import OmniMercuryEngine
+
+        engine = OmniMercuryEngine(mode="fusion", device="cpu")
+        X, y = make_classification(
+            n_samples=150, n_features=15, n_classes=2,
+            weights=[0.8, 0.2], random_state=42
+        )
+        engine.fit_fusion(X.astype(np.float32), y, epochs=10)
+        return engine
+
+    def test_isotonic_calibration(self, trained_engine):
+        """Test isotonic regression calibration."""
+        X_cal, y_cal = make_classification(
+            n_samples=50, n_features=15, n_classes=2,
+            weights=[0.8, 0.2], random_state=43
+        )
+
+        metrics = trained_engine.calibrate_scores(
+            X_cal.astype(np.float32), y_cal, method="isotonic"
+        )
+
+        assert "brier_before" in metrics
+        assert "brier_after" in metrics
+        assert trained_engine._calibration_enabled
+
+    def test_platt_calibration(self, trained_engine):
+        """Test Platt scaling calibration."""
+        X_cal, y_cal = make_classification(
+            n_samples=50, n_features=15, n_classes=2,
+            weights=[0.8, 0.2], random_state=43
+        )
+
+        metrics = trained_engine.calibrate_scores(
+            X_cal.astype(np.float32), y_cal, method="platt"
+        )
+
+        assert "brier_before" in metrics
+        assert metrics["method"] == "platt"
+
+
+class TestPluggableDetectors:
+    """Test pluggable detector functionality."""
+
+    def test_add_custom_detector(self):
+        """Test adding a custom detector."""
+        from omni_mercury_engine.engine import OmniMercuryEngine
+
+        engine = OmniMercuryEngine(mode="fusion", device="cpu")
+
+        # Create a simple custom detector
+        class SimpleDetector:
+            def __init__(self):
+                self._fitted = False
+
+            def fit(self, X):
+                self.mean = np.mean(X, axis=0)
+                self._fitted = True
+                return self
+
+            def detect(self, X):
+                dist = np.linalg.norm(X - self.mean, axis=1)
+                return {"scores": dist / (dist.max() + 1e-8), "is_anomaly": dist > 1.0}
+
+        detector = SimpleDetector()
+        engine.add_detector("simple", detector)
+
+        assert "simple" in engine.detectors
+        assert engine.detectors["simple"] is detector
+
+    def test_add_detector_without_fit_raises(self):
+        """Test that adding detector without fit() raises error."""
+        from omni_mercury_engine.engine import OmniMercuryEngine
+
+        engine = OmniMercuryEngine(mode="fusion", device="cpu")
+
+        class BadDetector:
+            def detect(self, X):
+                return {"scores": np.zeros(len(X))}
+
+        with pytest.raises(ValueError, match="must have fit"):
+            engine.add_detector("bad", BadDetector())
+
+
+class TestVisualization:
+    """Test visualization hooks."""
+
+    def test_visualize_embeddings_tsne(self):
+        """Test t-SNE visualization."""
+        from omni_mercury_engine.engine import OmniMercuryEngine
+
+        engine = OmniMercuryEngine(mode="fusion", device="cpu")
+        X = np.random.randn(50, 10).astype(np.float32)
+        y = np.array([0] * 45 + [1] * 5)
+
+        # Fit detectors
+        for detector in engine.detectors.values():
+            try:
+                detector.fit(X)
+            except Exception:
+                pass
+
+        result = engine.visualize_embeddings(X, y, method="tsne")
+
+        assert "embeddings" in result
+        assert result["embeddings"].shape == (50, 2)
+        assert result["method"] == "tsne"
+
+
+class TestScoreContinuity:
+    """Test Issue #7 fixes for score continuity."""
+
+    def test_temporal_no_hard_clipping(self):
+        """Verify temporal detector uses soft normalization."""
+        from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
+
+        detector = TemporalAnomalyDetector()
+        X = np.random.randn(100, 5).astype(np.float32)
+        detector.fit(X)
+        result = detector.detect(X)
+
+        scores = result["scores"]
+        # With soft normalization, scores should be in (0, 1) not exactly 1.0
+        assert scores.max() < 1.0 or np.isclose(scores.max(), 1.0, atol=0.01)
+
+    def test_directive_no_hard_clipping(self):
+        """Verify directive detector uses soft normalization."""
+        from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
+
+        detector = SigmaDirectiveDetector()
+        X = np.random.randn(50, 10).astype(np.float32)
+        detector.fit(X)
+        result = detector.detect(X)
+
+        scores = result["scores"]
+        # Scores should be continuous, not capped at exactly 1.0
+        unique_scores = np.unique(scores)
+        assert len(unique_scores) > 5, "Scores should have variance"

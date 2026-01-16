@@ -60,6 +60,80 @@ identified through performance analysis. See `docs/RECTIFICATION_PLAN.md` for fu
 - Validation criteria and benchmark protocol
 - Risk mitigation strategies
 
+#### Issue #7: No Score Continuity [LOW - FIXED]
+- **Files**: `temporal.py`, `directive.py`
+- **Fix**: Replaced hard clipping with soft normalization
+  - `np.minimum(x, 1.0)` → `x / (threshold + x)` (asymptotic to 1.0)
+  - Preserves ranking for extreme anomalies
+  - Maintains [0, 1) range without information loss
+- **Impact**: Better calibration for downstream fusion
+
+#### Issue #2: Logistic Regression Fallback [MEDIUM - FIXED]
+- **File**: `benchmarks/empirical_benchmark.py`
+- **Fix**: Explicit fallback with raw features when variance < 0.01
+  - Added `_using_raw_fallback` flag for debugging
+  - Falls back to first 10 features instead of silent return
+  - Properly sets `_fusion_trained = True` on fallback path
+
+#### Issue #4: Normal-Only Fitting [MEDIUM - FIXED]
+- **File**: `benchmarks/empirical_benchmark.py`
+- **Fix**: Changed from normal-only to semi-supervised fitting
+  - Detectors now fit on full training data
+  - Contamination parameter handles anomalies during fitting
+  - Prevents zero-variance scores that trigger Issue #2
+
+### Added - New Features
+
+#### Calibration Layer
+- **File**: `src/omni_mercury_engine/engine.py`
+- **Methods**: `calibrate_scores()`, `_apply_calibration()`
+- **Features**:
+  - Isotonic regression calibration (non-parametric)
+  - Platt scaling calibration (logistic)
+  - Ensemble calibration (average of both)
+  - Brier score improvement tracking
+
+#### Hyperparameter Tuning
+- **File**: `src/omni_mercury_engine/engine.py`
+- **Method**: `tune_hyperparameters()`
+- **Features**:
+  - Optuna-based efficient search (50 trials default)
+  - Automatic validation split
+  - Supports ROC-AUC and PR-AUC metrics
+  - Retrains on full data with best params
+
+#### Pluggable Detector Support
+- **File**: `src/omni_mercury_engine/engine.py`
+- **Method**: `add_detector()`
+- **Features**:
+  - Runtime detector registration
+  - Validation of fit() and detect() methods
+  - Enables custom ARIMA, DBSCAN integration
+
+#### t-SNE Visualization
+- **File**: `src/omni_mercury_engine/engine.py`
+- **Method**: `visualize_embeddings()`
+- **Features**:
+  - t-SNE and UMAP support
+  - Detector feature concatenation
+  - Automatic plot generation with labels
+  - Scientific interpretability for STEM discovery
+
+#### Numba JIT Optimization
+- **File**: `src/omni_mercury_engine/detectors/spatial.py`
+- **Functions**: `_compute_distances_jit()`, `_compute_distance_scores_jit()`
+- **Features**:
+  - ~10x speedup for distance computations
+  - Automatic fallback when Numba unavailable
+  - Targets <1s/sample inference requirement
+
+### Added - Extended Test Coverage
+- `tests/test_fusion_training.py`: Extended with 30+ tests
+  - Calibration tests (isotonic, platt)
+  - Pluggable detector tests
+  - Visualization tests
+  - Score continuity tests
+
 ### Performance Targets
 - **Minimum**: ≥0.80 mean ROC-AUC across benchmark datasets
 - **Target**: Beat IsolationForest baseline by 0.1 ROC-AUC

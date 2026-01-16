@@ -1928,10 +1928,14 @@ class OmniMercuryDetector:
         logistic regression. This is more stable and produces meaningful scores.
 
         The approach:
-        1. Fit all detectors on training data (normal samples only)
+        1. Fit all detectors on FULL training data (semi-supervised)
         2. Extract scores from all available detectors on training samples
         3. Fit a logistic regression to learn optimal detector weights
         4. Use these weights during inference to combine detector scores
+
+        Fix for Issue #4: Changed from normal-only fitting to semi-supervised
+        fitting on full data. Normal-only fitting caused uniform low scores
+        with zero variance, triggering silent fallback failures.
 
         Args:
             X: Training features (raw input data)
@@ -1939,6 +1943,7 @@ class OmniMercuryDetector:
         """
         if self.engine is None:
             logger.warning("Cannot train fusion: engine not initialized")
+            self._fusion_trained = False  # Fix #2: Explicit flag
             return
 
         try:
@@ -1947,17 +1952,18 @@ class OmniMercuryDetector:
 
             logger.info(f"Learning detector weights from {len(X)} training samples...")
 
-            # Step 1: Fit all detectors on normal training data
-            # This is critical - detectors must be fitted before they can produce scores
-            normal_mask = y == 0
-            X_normal = X[normal_mask] if normal_mask.sum() > 10 else X
-            logger.info(f"Fitting detectors on {len(X_normal)} normal samples...")
+            # Fix for Issue #4: Fit on FULL training data (semi-supervised)
+            # Normal-only fitting causes zero variance in scores
+            # Semi-supervised approach: fit on all data, let contamination handle anomalies
+            logger.info(f"Fitting detectors on full training set ({len(X)} samples)...")
 
             fitted_detectors = []
             for name, detector in self.engine.detectors.items():
                 try:
                     if hasattr(detector, "fit"):
-                        detector.fit(X_normal)
+                        # Fix for Issue #4: Fit on full data, not normal-only
+                        # Detectors with contamination parameter will handle anomalies
+                        detector.fit(X)
                         fitted_detectors.append(name)
                         logger.debug(f"Fitted detector: {name}")
                 except Exception as e:
@@ -2018,7 +2024,28 @@ class OmniMercuryDetector:
             score_std = np.std(score_matrix, axis=0)
             valid_detectors_mask = score_std > 0.01
             if valid_detectors_mask.sum() < 1:
-                logger.warning("No detectors with score variance, skipping weight learning")
+                # Fix for Issue #2: Explicit fallback with raw features
+                logger.warning(
+                    "No detectors with score variance (all std < 0.01). "
+                    "Using raw features as fallback for fusion training."
+                )
+                # Fallback: use raw features instead of detector scores
+                # This prevents silent failure and enables some fusion learning
+                X_fallback = X[:, : min(X.shape[1], 10)]  # First 10 features
+                scaler = StandardScaler()
+                X_scaled = scaler.fit_transform(X_fallback)
+
+                lr = LogisticRegression(
+                    C=1.0, max_iter=200, solver="lbfgs", class_weight="balanced"
+                )
+                lr.fit(X_scaled, y)
+
+                self._detector_names = ["raw_features"]
+                self._score_scaler = scaler
+                self._fusion_lr = lr
+                self._fusion_trained = True
+                self._using_raw_fallback = True  # Flag for debugging
+                logger.info("Fusion trained on raw features fallback")
                 return
 
             # Filter to only use detectors with variance
