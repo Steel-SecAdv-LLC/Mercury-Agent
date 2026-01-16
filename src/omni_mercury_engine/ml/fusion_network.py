@@ -294,6 +294,10 @@ class OmniFusionModel(nn.Module):
                     nn.Dropout(dropout),
                 )
 
+        # Track dynamically created projection layers to fix Issue #6
+        # Previously, new layers were created on every forward pass causing memory leaks
+        self._dynamic_projections: nn.ModuleDict = nn.ModuleDict()
+
         self.fusion_layer = HybridFusionLayer(
             feature_dims=dict.fromkeys(feature_dims.keys(), hidden_dim),
             hidden_dim=hidden_dim,
@@ -322,6 +326,45 @@ class OmniFusionModel(nn.Module):
             nn.Linear(64, 1),
         )
 
+    def _get_or_create_projection(
+        self,
+        name: str,
+        input_dim: int,
+        device: torch.device,
+    ) -> nn.Module:
+        """Get or create a projection layer for dynamic feature dimensions.
+
+        This addresses Issue #6: Feature Dimension Mismatch in Fusion Model.
+        Previously, new layers were created on every forward pass causing:
+        - Memory leaks (layers not garbage collected)
+        - No gradient flow (layers not in model.parameters())
+        - Inconsistent projections between batches
+
+        Layers are now cached in _dynamic_projections ModuleDict and properly
+        tracked in model.parameters() for training.
+
+        Args:
+            name: Detector/model name for the projection.
+            input_dim: Actual input dimension of the features.
+            device: PyTorch device to place the layer on.
+
+        Returns:
+            Projection layer (cached or newly created).
+        """
+        # Create unique key for this name + dimension combination
+        key = f"{name}_{input_dim}"
+
+        if key not in self._dynamic_projections:
+            # Create and register new projection layer
+            proj = nn.Sequential(
+                nn.Linear(input_dim, self.hidden_dim),
+                nn.ReLU(),
+                nn.LayerNorm(self.hidden_dim),
+            ).to(device)
+            self._dynamic_projections[key] = proj
+
+        return self._dynamic_projections[key]
+
     def forward(
         self,
         detector_features: dict[str, torch.Tensor],
@@ -346,15 +389,41 @@ class OmniFusionModel(nn.Module):
         encoded_features = {}
 
         for name, features in detector_features.items():
+            actual_dim = features.shape[1] if features.dim() == 2 else features.shape[-1]
+            expected_dim = self.feature_dims.get(name)
+
             if name in self.encoders:
-                encoded_features[name] = self.encoders[name](features)
+                # Use specialized encoder if dimension matches
+                if expected_dim is None or actual_dim == expected_dim:
+                    try:
+                        encoded_features[name] = self.encoders[name](features)
+                        continue
+                    except RuntimeError:
+                        # Dimension mismatch - fall through to dynamic projection
+                        pass
+
+                # Dimension mismatch - use dynamic projection
+                encoded_features[name] = self._get_or_create_projection(
+                    name, actual_dim, features.device
+                )(features)
+
             elif name in self.generic_encoders:
-                encoded_features[name] = self.generic_encoders[name](features)
+                if expected_dim is None or actual_dim == expected_dim:
+                    encoded_features[name] = self.generic_encoders[name](features)
+                else:
+                    # Dimension mismatch - use dynamic projection
+                    encoded_features[name] = self._get_or_create_projection(
+                        name, actual_dim, features.device
+                    )(features)
+
             elif features.dim() == 2 and features.shape[1] == self.hidden_dim:
                 encoded_features[name] = features
+
             elif features.dim() == 2:
-                proj = nn.Linear(features.shape[1], self.hidden_dim).to(features.device)
-                encoded_features[name] = proj(features)
+                # Fix for Issue #6: Use cached projection instead of creating new layer
+                encoded_features[name] = self._get_or_create_projection(
+                    name, actual_dim, features.device
+                )(features)
 
         if detector_scores is None:
             detector_scores = {

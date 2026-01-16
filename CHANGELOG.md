@@ -5,6 +5,68 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-01-16
+
+### Added - Rectification Plan Implementation
+
+This release implements a comprehensive rectification plan addressing 7 critical issues
+identified through performance analysis. See `docs/RECTIFICATION_PLAN.md` for full details.
+
+#### Issue #1: Untrained Fusion Neural Network [CRITICAL - FIXED]
+- **File**: `src/omni_mercury_engine/engine.py`
+- **Fix**: Added `fit_fusion()` method for training OmniFusionModel
+  - Supports supervised training with labels
+  - Supports semi-supervised training with pseudo-label generation
+  - Implements early stopping, learning rate scheduling, and gradient clipping
+  - GPU/CPU device management with automatic fallback
+  - Checkpoints best model state during training
+- **Impact**: Expected +0.3 ROC-AUC improvement
+
+#### Issue #3: Discrete Score Destruction [HIGH - FIXED]
+- **File**: `src/omni_mercury_engine/detectors/statistical.py`
+- **Fix**: Replaced boolean flags with continuous scores
+  - `z_score_continuous`: Normalized z-score intensity [0, 1]
+  - `iqr_scores`: Distance-based IQR scores instead of boolean
+  - `isolation_forest_scores`: Uses `decision_function()` for continuous output
+  - Backward compatible with legacy keys (`iqr_flags`, `isolation_forest_flags`)
+- **Impact**: Expected +0.4 ROC-AUC improvement
+
+#### Issue #5: Contamination Mismatch [MEDIUM - FIXED]
+- **File**: `src/omni_mercury_engine/detectors/statistical.py`
+- **Fix**: Adaptive contamination estimation in `fit()` method
+  - Estimates contamination from z-score outlier fraction if not configured
+  - Clamps to reasonable range [0.001, 0.5]
+  - Respects explicit configuration when provided
+  - IsolationForest initialized with estimated contamination
+- **Impact**: Expected +0.15 ROC-AUC improvement
+
+#### Issue #6: Feature Dimension Mismatch [HIGH - FIXED]
+- **File**: `src/omni_mercury_engine/ml/fusion_network.py`
+- **Fix**: Dynamic projection layer caching
+  - Added `_get_or_create_projection()` method
+  - Projections cached in `_dynamic_projections` ModuleDict
+  - Properly tracked in `model.parameters()` for gradient flow
+  - Eliminates memory leak from creating new layers each forward pass
+- **Impact**: Stability improvement, no runtime errors
+
+### Added - Test Coverage
+- `tests/test_signal_integrity.py`: 15 tests for continuous score preservation
+- `tests/test_fusion_training.py`: 20 tests for fusion model training
+- GitHub issue templates in `.github/ISSUE_TEMPLATE/`
+
+### Added - Documentation
+- `docs/RECTIFICATION_PLAN.md`: Comprehensive rectification plan with code snippets
+- Phase-by-phase implementation roadmap
+- Validation criteria and benchmark protocol
+- Risk mitigation strategies
+
+### Performance Targets
+- **Minimum**: ≥0.80 mean ROC-AUC across benchmark datasets
+- **Target**: Beat IsolationForest baseline by 0.1 ROC-AUC
+- **Stretch**: <10% false positive rate with statistical significance (p < 0.05)
+
+---
+
 ## [1.1.1] - 2026-01-16
 
 ### Fixed - Benchmark Regeneration & CodeQL Cleanup

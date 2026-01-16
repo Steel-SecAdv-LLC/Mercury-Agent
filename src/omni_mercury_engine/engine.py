@@ -524,6 +524,13 @@ class OmniMercuryEngine:
 
         Sets up the neural network fusion model and inference engine
         when operating in fusion mode.
+
+        Note:
+            Fix for Issue #1: Untrained Fusion Neural Network.
+            The fusion model is initialized with random weights. Users should
+            call fit_fusion() with training data before detection for optimal
+            performance. Detection will still work without training but may
+            produce suboptimal results.
         """
         if self.mode == "fusion":
             self.fusion_model = OmniFusionModel()
@@ -531,6 +538,12 @@ class OmniMercuryEngine:
             self.fusion_inference = FusionInference(
                 model=self.fusion_model,
                 device=str(self.device),
+            )
+            # Track training state - Fix for Issue #1
+            self._fusion_trained = False
+            logger.info(
+                "OmniFusionModel initialized (untrained). Call fit_fusion() "
+                "before detection for optimal performance."
             )
 
     def _init_resilience(self) -> None:
@@ -569,6 +582,290 @@ class OmniMercuryEngine:
         )
 
         logger.debug("Runtime pipeline modules initialized")
+
+    def fit_fusion(
+        self,
+        X: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any] | None = None,
+        epochs: int = 50,
+        batch_size: int = 32,
+        learning_rate: float = 0.001,
+        early_stopping_patience: int = 10,
+        validation_split: float = 0.2,
+        contamination: float | None = None,
+    ) -> dict[str, Any]:
+        """Fit the fusion model on training data with semi-supervised learning.
+
+        This method extracts features from all detectors and trains the OmniFusionModel
+        to produce calibrated anomaly scores. Supports both supervised (with labels)
+        and semi-supervised (estimated pseudo-labels) training.
+
+        This is the primary fix for Issue #1: Untrained Fusion Neural Network.
+
+        Args:
+            X: Training features (n_samples, n_features).
+            y: Optional training labels (1=anomaly, 0=normal). If None, uses
+               semi-supervised learning with pseudo-labels from detector consensus.
+            epochs: Maximum training epochs (default: 50).
+            batch_size: Training batch size (default: 32).
+            learning_rate: Learning rate for optimizer (default: 0.001).
+            early_stopping_patience: Epochs without improvement before stopping.
+            validation_split: Fraction of data for validation.
+            contamination: Expected anomaly fraction for pseudo-labeling. If None,
+                          estimated from data using adaptive methods.
+
+        Returns:
+            Dictionary with training metrics including final_loss, best_loss,
+            epochs_trained, and convergence information.
+
+        Raises:
+            ValueError: If mode is not 'fusion'.
+            RuntimeError: If no detector features could be extracted.
+
+        Example:
+            >>> engine = OmniMercuryEngine(mode="fusion")
+            >>> metrics = engine.fit_fusion(X_train, y_train, epochs=100)
+            >>> print(f"Training loss: {metrics['best_loss']:.4f}")
+            >>> result = engine.detect_with_fusion(X_test)
+        """
+        if self.mode != "fusion":
+            raise ValueError("fit_fusion() requires mode='fusion'")
+
+        # GPU check with fallback
+        device = self.device
+        if device.type == "cuda" and not torch.cuda.is_available():
+            logger.warning("CUDA requested but unavailable, falling back to CPU")
+            device = torch.device("cpu")
+
+        # Convert to numpy if needed
+        if isinstance(X, torch.Tensor):
+            X = X.cpu().numpy()
+
+        n_samples = len(X)
+        logger.info(f"Starting fusion training on {n_samples} samples...")
+
+        # Fit all base detectors first
+        logger.info(f"Fitting {len(self.detectors)} base detectors...")
+        for name, detector in self.detectors.items():
+            try:
+                if not detector.is_fitted():
+                    detector.fit(X)
+                    logger.debug(f"Fitted detector: {name}")
+            except Exception as e:
+                logger.warning(f"Failed to fit detector {name}: {e}")
+
+        # Extract features from all detectors
+        logger.info("Extracting detector features for fusion training...")
+        detector_features: dict[str, torch.Tensor] = {}
+        for name, detector in self.detectors.items():
+            try:
+                features = detector.extract_features(X)
+                if isinstance(features, np.ndarray):
+                    features = torch.tensor(features, dtype=torch.float32)
+                detector_features[name] = features
+                logger.debug(f"Extracted features from {name}: shape={features.shape}")
+            except Exception as e:
+                logger.warning(f"Failed to extract features from {name}: {e}")
+
+        if not detector_features:
+            raise RuntimeError("No detector features could be extracted")
+
+        # Generate pseudo-labels if not provided (semi-supervised)
+        if y is None:
+            logger.info("No labels provided, using semi-supervised pseudo-labeling...")
+            y = self._generate_pseudo_labels(X, contamination)
+
+        if isinstance(y, torch.Tensor):
+            y = y.cpu().numpy()
+
+        # Prepare training data
+        labels_tensor = torch.tensor(y, dtype=torch.float32).unsqueeze(1)
+
+        # Create train/val split
+        n_val = int(n_samples * validation_split)
+        n_train = n_samples - n_val
+
+        indices = torch.randperm(n_samples)
+        train_indices = indices[:n_train]
+        val_indices = indices[n_train:]
+
+        # Training loop with early stopping
+        self.fusion_model.train()
+        self.fusion_model.to(device)
+
+        optimizer = torch.optim.AdamW(
+            self.fusion_model.parameters(), lr=learning_rate, weight_decay=0.01
+        )
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", factor=0.5, patience=5
+        )
+
+        best_val_loss = float("inf")
+        best_state: dict[str, Any] | None = None
+        epochs_without_improvement = 0
+        loss_history: list[dict[str, float]] = []
+
+        for epoch in range(epochs):
+            # Training phase
+            self.fusion_model.train()
+            train_losses: list[float] = []
+
+            for start_idx in range(0, n_train, batch_size):
+                end_idx = min(start_idx + batch_size, n_train)
+                batch_indices = train_indices[start_idx:end_idx]
+
+                # Get batch features
+                batch_features = {
+                    name: feat[batch_indices].to(device)
+                    for name, feat in detector_features.items()
+                }
+                batch_labels = labels_tensor[batch_indices].to(device)
+
+                optimizer.zero_grad()
+                outputs = self.fusion_model(batch_features)
+                loss = torch.nn.functional.binary_cross_entropy(
+                    outputs["anomaly_probs"], batch_labels
+                )
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.fusion_model.parameters(), 1.0)
+                optimizer.step()
+
+                train_losses.append(loss.item())
+
+            # Validation phase
+            self.fusion_model.eval()
+            val_losses: list[float] = []
+
+            with torch.no_grad():
+                for start_idx in range(0, n_val, batch_size):
+                    end_idx = min(start_idx + batch_size, n_val)
+                    batch_indices = val_indices[start_idx:end_idx]
+
+                    batch_features = {
+                        name: feat[batch_indices].to(device)
+                        for name, feat in detector_features.items()
+                    }
+                    batch_labels = labels_tensor[batch_indices].to(device)
+
+                    outputs = self.fusion_model(batch_features)
+                    loss = torch.nn.functional.binary_cross_entropy(
+                        outputs["anomaly_probs"], batch_labels
+                    )
+                    val_losses.append(loss.item())
+
+            avg_train_loss = float(np.mean(train_losses))
+            avg_val_loss = float(np.mean(val_losses)) if val_losses else avg_train_loss
+
+            loss_history.append(
+                {
+                    "epoch": epoch + 1,
+                    "train_loss": avg_train_loss,
+                    "val_loss": avg_val_loss,
+                    "learning_rate": optimizer.param_groups[0]["lr"],
+                }
+            )
+
+            scheduler.step(avg_val_loss)
+
+            if avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
+                best_state = {
+                    k: v.cpu().clone() for k, v in self.fusion_model.state_dict().items()
+                }
+                epochs_without_improvement = 0
+            else:
+                epochs_without_improvement += 1
+
+            if epochs_without_improvement >= early_stopping_patience:
+                logger.info(f"Early stopping at epoch {epoch + 1}")
+                break
+
+            if (epoch + 1) % 10 == 0:
+                logger.info(
+                    f"Epoch {epoch + 1}/{epochs}: train_loss={avg_train_loss:.4f}, "
+                    f"val_loss={avg_val_loss:.4f}"
+                )
+
+        # Restore best model
+        if best_state is not None:
+            self.fusion_model.load_state_dict(best_state)
+
+        self.fusion_model.eval()
+        self._fusion_trained = True
+
+        logger.info(f"Fusion training complete. Best val_loss: {best_val_loss:.4f}")
+
+        return {
+            "final_loss": loss_history[-1]["val_loss"] if loss_history else 0.0,
+            "best_loss": best_val_loss,
+            "epochs_trained": len(loss_history),
+            "best_epoch": len(loss_history) - epochs_without_improvement,
+            "loss_history": loss_history,
+            "early_stopped": epochs_without_improvement >= early_stopping_patience,
+        }
+
+    def _generate_pseudo_labels(
+        self,
+        X: np.ndarray[Any, Any],
+        contamination: float | None = None,
+    ) -> np.ndarray[Any, Any]:
+        """Generate pseudo-labels using detector consensus for semi-supervised learning.
+
+        Uses adaptive contamination estimation and ensemble voting from detector
+        scores to identify likely anomalies for training.
+
+        Args:
+            X: Training features.
+            contamination: Expected anomaly fraction. If None, estimated adaptively.
+
+        Returns:
+            Binary pseudo-labels (0=normal, 1=anomaly).
+        """
+        n_samples = len(X)
+
+        # Collect scores from all detectors
+        all_scores: list[np.ndarray[Any, Any]] = []
+        for name, detector in self.detectors.items():
+            try:
+                if not detector.is_fitted():
+                    detector.fit(X)
+                result = detector.detect(X)
+                scores = result.get("scores", result.get("is_anomaly", np.zeros(n_samples)))
+                if isinstance(scores, (list, np.ndarray)):
+                    scores = np.array(scores).flatten()
+                    if len(scores) == n_samples:
+                        all_scores.append(scores)
+            except Exception as e:
+                logger.debug(f"Failed to get scores from {name}: {e}")
+
+        if not all_scores:
+            # Fallback: use distance from mean
+            mean = np.mean(X, axis=0)
+            distances = np.linalg.norm(X - mean, axis=1)
+            all_scores = [distances / (distances.max() + 1e-8)]
+
+        # Ensemble score (average)
+        ensemble_score = np.mean(all_scores, axis=0)
+
+        # Estimate contamination if not provided
+        if contamination is None:
+            # Use IQR-based estimation
+            q1, q3 = np.percentile(ensemble_score, [25, 75])
+            iqr = q3 - q1
+            upper_fence = q3 + 1.5 * iqr
+            contamination = float(np.mean(ensemble_score > upper_fence))
+            contamination = max(0.001, min(contamination, 0.5))
+
+        # Threshold at (1 - contamination) percentile
+        threshold = np.percentile(ensemble_score, (1 - contamination) * 100)
+        pseudo_labels = (ensemble_score > threshold).astype(float)
+
+        logger.info(
+            f"Generated pseudo-labels: contamination={contamination:.4f}, "
+            f"n_anomalies={int(pseudo_labels.sum())}/{n_samples}"
+        )
+
+        return pseudo_labels
 
     def enable_drift_detection(
         self,
