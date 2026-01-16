@@ -1,56 +1,66 @@
 {
   "datasets": {
-    "SMD": {
-      "roc_auc": 0.5182526259270446,
-      "pr_auc": 0.30373050673107066,
-      "f1": 0.18507052436907503,
+    "breast_cancer": {
+      "roc_auc": 0.19027453271028041,
+      "pr_auc": -0.2401974223263451,
+      "f1": 0.06060606060606061,
       "precision": 1.0,
-      "recall": 0.10215488215488215,
-      "brier_score": 0.1386952869194848,
-      "event_f1": 0.2902698707576757,
-      "time_to_detection": 1.4858053221288514,
+      "recall": 0.03125,
+      "fit_time_ms": 1.9118999999818698,
+      "predict_time_ms": 2.688979999959429,
+      "n_samples": 171,
+      "n_features": 30,
       "benevolence_score": 1.0,
-      "sigma_sacred": 0.96,
-      "fit_time_ms": 13.518564999981209,
-      "predict_time_ms": 339.8807920000081
+      "sigma_sacred": 0.96
     },
-    "NSL-KDD": {
-      "roc_auc": 0.18092000000000003,
-      "pr_auc": 0.1198000964743365,
-      "f1": 0.003404255319148936,
-      "precision": 0.011428571428571429,
-      "recall": 0.002,
-      "brier_score": 0.2240420006009461,
-      "event_f1": 0.004081632653061225,
-      "time_to_detection": 1.2331910001957715,
+    "covtype": {
+      "roc_auc": 0.08746304990436445,
+      "pr_auc": -0.003162006050013082,
+      "f1": 0.11730205278592376,
+      "precision": 0.06369426751592357,
+      "recall": 0.7407407407407407,
+      "fit_time_ms": 11.965637000002971,
+      "predict_time_ms": 16.76440599999296,
+      "n_samples": 4500,
+      "n_features": 54,
       "benevolence_score": 1.0,
-      "sigma_sacred": 0.96,
-      "fit_time_ms": 13.536159400018732,
-      "predict_time_ms": 323.0536741999913
+      "sigma_sacred": 0.96
+    },
+    "SMD": {
+      "roc_auc": 0.13329774844720496,
+      "pr_auc": -0.010073368759093763,
+      "f1": 0.16393442622950818,
+      "precision": 0.0967741935483871,
+      "recall": 0.5357142857142857,
+      "fit_time_ms": 3.673339000101805,
+      "predict_time_ms": 5.773320999992393,
+      "n_samples": 1500,
+      "n_features": 38,
+      "benevolence_score": 1.0,
+      "sigma_sacred": 0.96
     },
     "BATADAL": {
-      "roc_auc": 0.4932671735672492,
-      "pr_auc": 0.08262644059271464,
-      "f1": 0.0,
-      "precision": 0.0,
-      "recall": 0.0,
-      "brier_score": 0.08088211149967461,
-      "event_f1": 0.0,
-      "time_to_detection": 23.1,
+      "roc_auc": 0.4126959856032181,
+      "pr_auc": -0.03400679348967832,
+      "f1": 0.3333333333333333,
+      "precision": 0.6842105263157895,
+      "recall": 0.22033898305084745,
+      "fit_time_ms": 5.113254999969286,
+      "predict_time_ms": 5.340376000049218,
+      "n_samples": 1500,
+      "n_features": 43,
       "benevolence_score": 1.0,
-      "sigma_sacred": 0.96,
-      "fit_time_ms": 10.086522199958381,
-      "predict_time_ms": 337.3638321999806
+      "sigma_sacred": 0.96
     }
   },
   "summary": {
-    "mean_roc_auc": 0.39747993316476454,
-    "mean_f1": 0.06282492656274132,
-    "mean_brier": 0.14787313300670182,
+    "mean_f1": 0.16879396823870646,
+    "mean_roc_auc": 0.20593282916626698,
     "mean_benevolence": 1.0,
-    "brier_target_met": false,
-    "benevolence_threshold_met": true
+    "n_datasets": 4
   },
-  "ethical_compliance": {},
-  "timestamp": "2026-01-05 03:14:37"
+  "metadata": {
+    "timestamp": "2026-01-16 01:46:08",
+    "detector": "OmniMercuryDetector with AdaptiveAnomalyDetector"
+  }
 }

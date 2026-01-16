@@ -52,13 +52,18 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from scipy import stats
 
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 # Try to import sympy for symbolic validation
 try:
-    from sympy import Symbol, diff, simplify
-    from sympy import exp as sp_exp
+    from sympy import (
+        Symbol,
+        diff,
+        exp as sp_exp,
+        simplify,
+    )
 
     SYMPY_AVAILABLE = True
 except ImportError:

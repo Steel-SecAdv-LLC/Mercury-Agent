@@ -11,6 +11,7 @@ import time
 
 import pytest
 
+
 try:
     from omni_mercury_engine.resilience.api_circuit_breakers import (
         DataLoaderCircuitBreaker,
@@ -75,7 +76,7 @@ class TestDataLoaderCircuitBreaker:
             try:
                 breaker.call(failing_fn)
             except Exception:
-                pass
+                pass  # Expected: testing circuit breaker failure counting
 
         assert breaker.state == CircuitState.OPEN
 
@@ -92,7 +93,7 @@ class TestDataLoaderCircuitBreaker:
             try:
                 breaker.call(failing_fn)
             except Exception:
-                pass
+                pass  # Expected: testing circuit breaker failure counting
 
         # Now calls should be blocked
         with pytest.raises(Exception, match="Circuit breaker is OPEN"):
@@ -122,7 +123,7 @@ class TestDetectorCircuitBreaker:
             try:
                 breaker.call(failing_fn)
             except Exception:
-                pass
+                pass  # Expected: testing circuit breaker failure counting
 
         # Should still be closed (threshold is 5)
         assert breaker.state == CircuitState.CLOSED or breaker.failure_count < 5
@@ -131,7 +132,7 @@ class TestDetectorCircuitBreaker:
         try:
             breaker.call(failing_fn)
         except Exception:
-            pass
+            pass  # Expected: testing circuit breaker failure counting
 
         assert breaker.state == CircuitState.OPEN
 
@@ -159,7 +160,7 @@ class TestExternalIntegrationCircuitBreaker:
             try:
                 breaker.call(failing_fn)
             except Exception:
-                pass
+                pass  # Expected: testing circuit breaker failure counting
 
         assert breaker.state == CircuitState.OPEN
 
@@ -183,7 +184,7 @@ class TestCircuitBreakerRecovery:
             try:
                 breaker.call(failing_fn)
             except Exception:
-                pass
+                pass  # Expected: testing circuit breaker failure counting
 
         assert breaker.state == CircuitState.OPEN
 
@@ -195,7 +196,7 @@ class TestCircuitBreakerRecovery:
         try:
             breaker.call(lambda: "test")
         except Exception:
-            pass
+            pass  # Expected: state transition testing
 
         # State should be HALF_OPEN or CLOSED (if call succeeded)
         assert breaker.state in [CircuitState.HALF_OPEN, CircuitState.CLOSED]
@@ -215,7 +216,7 @@ class TestCircuitBreakerRecovery:
             try:
                 breaker.call(failing_fn)
             except Exception:
-                pass
+                pass  # Expected: testing circuit breaker failure counting
 
         # Wait for recovery
         time.sleep(0.15)
@@ -230,7 +231,7 @@ class TestCircuitBreakerRecovery:
             try:
                 breaker.call(lambda: "success")
             except Exception:
-                pass
+                pass  # Expected: recovery testing, exceptions unlikely here
 
         assert breaker.state == CircuitState.CLOSED
 
@@ -324,7 +325,7 @@ class TestBreakerStatistics:
             try:
                 breaker.call(failing_fn)
             except Exception:
-                pass
+                pass  # Expected: testing circuit breaker failure counting
 
         # Reset all
         reset_all_breakers()

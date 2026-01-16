@@ -47,6 +47,7 @@ from typing import Any
 import numpy as np
 from sklearn.ensemble import IsolationForest
 
+
 BANNER = """
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                              ║
