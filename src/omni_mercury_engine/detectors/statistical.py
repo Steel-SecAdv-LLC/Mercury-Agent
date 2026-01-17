@@ -164,11 +164,7 @@ class StatisticalAnomalyDetector(BaseDetector):
             if_normalized = np.full_like(if_raw_scores, 0.5)
 
         # Combine continuous scores with learned weights
-        combined_scores = (
-            z_score_continuous * 0.4
-            + iqr_scores * 0.3
-            + if_normalized * 0.3
-        )
+        combined_scores = z_score_continuous * 0.4 + iqr_scores * 0.3 + if_normalized * 0.3
 
         is_anomaly = combined_scores > self.threshold
 

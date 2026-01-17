@@ -21,6 +21,7 @@ class TestFusionTraining:
     def engine(self):
         """Create engine in fusion mode."""
         from omni_mercury_engine.engine import OmniMercuryEngine
+
         return OmniMercuryEngine(mode="fusion", device="cpu")
 
     @pytest.fixture
@@ -41,7 +42,8 @@ class TestFusionTraining:
         X, y = training_data
 
         metrics = engine.fit_fusion(
-            X, y,
+            X,
+            y,
             epochs=10,
             batch_size=32,
             early_stopping_patience=5,
@@ -58,7 +60,8 @@ class TestFusionTraining:
         X, _ = training_data
 
         metrics = engine.fit_fusion(
-            X, y=None,  # No labels - use pseudo-labeling
+            X,
+            y=None,  # No labels - use pseudo-labeling
             epochs=10,
             contamination=0.15,
         )
@@ -91,7 +94,8 @@ class TestFusionTraining:
         X, y = training_data
 
         metrics = engine.fit_fusion(
-            X, y,
+            X,
+            y,
             epochs=20,
             batch_size=32,
             early_stopping_patience=15,
@@ -104,16 +108,17 @@ class TestFusionTraining:
             late_loss = np.mean([h["train_loss"] for h in history[-3:]])
 
             # Loss should generally decrease (or at least not increase much)
-            assert late_loss <= early_loss * 1.5, (
-                f"Loss should not increase significantly: {early_loss:.4f} -> {late_loss:.4f}"
-            )
+            assert (
+                late_loss <= early_loss * 1.5
+            ), f"Loss should not increase significantly: {early_loss:.4f} -> {late_loss:.4f}"
 
     def test_early_stopping_works(self, engine, training_data):
         """Verify early stopping triggers when loss plateaus."""
         X, y = training_data
 
         metrics = engine.fit_fusion(
-            X, y,
+            X,
+            y,
             epochs=100,  # High epoch count
             early_stopping_patience=3,  # Stop quickly if no improvement
         )
@@ -190,7 +195,7 @@ class TestDynamicDimensions:
         # Create features with mismatched dimensions
         features = {
             "statistical": torch.randn(4, 15),  # Expected 10, got 15
-            "temporal": torch.randn(4, 32),     # Matches expected
+            "temporal": torch.randn(4, 32),  # Matches expected
         }
 
         # Should not raise, should use dynamic projection
@@ -261,9 +266,7 @@ class TestDynamicDimensions:
         params_after = list(model.parameters())
 
         # Should have more parameters after dynamic projection created
-        assert len(params_after) > len(params_before), (
-            "Dynamic projections should add parameters"
-        )
+        assert len(params_after) > len(params_before), "Dynamic projections should add parameters"
 
     def test_gradients_flow_through_dynamic_projections(self):
         """Verify gradients can flow through dynamic projections."""
@@ -292,6 +295,7 @@ class TestPseudoLabeling:
     def engine(self):
         """Create engine in fusion mode."""
         from omni_mercury_engine.engine import OmniMercuryEngine
+
         return OmniMercuryEngine(mode="fusion", device="cpu")
 
     def test_pseudo_labels_generated(self, engine):
@@ -333,9 +337,9 @@ class TestPseudoLabeling:
 
         # Should have approximately contamination * n_samples anomalies
         actual_rate = pseudo_labels.sum() / len(X)
-        assert abs(actual_rate - contamination) < 0.1, (
-            f"Pseudo-label rate {actual_rate:.2f} should be near {contamination}"
-        )
+        assert (
+            abs(actual_rate - contamination) < 0.1
+        ), f"Pseudo-label rate {actual_rate:.2f} should be near {contamination}"
 
 
 class TestEdgeCases:
@@ -388,8 +392,7 @@ class TestCalibration:
 
         engine = OmniMercuryEngine(mode="fusion", device="cpu")
         X, y = make_classification(
-            n_samples=150, n_features=15, n_classes=2,
-            weights=[0.8, 0.2], random_state=42
+            n_samples=150, n_features=15, n_classes=2, weights=[0.8, 0.2], random_state=42
         )
         engine.fit_fusion(X.astype(np.float32), y, epochs=10)
         return engine
@@ -397,8 +400,7 @@ class TestCalibration:
     def test_isotonic_calibration(self, trained_engine):
         """Test isotonic regression calibration."""
         X_cal, y_cal = make_classification(
-            n_samples=50, n_features=15, n_classes=2,
-            weights=[0.8, 0.2], random_state=43
+            n_samples=50, n_features=15, n_classes=2, weights=[0.8, 0.2], random_state=43
         )
 
         metrics = trained_engine.calibrate_scores(
@@ -412,13 +414,10 @@ class TestCalibration:
     def test_platt_calibration(self, trained_engine):
         """Test Platt scaling calibration."""
         X_cal, y_cal = make_classification(
-            n_samples=50, n_features=15, n_classes=2,
-            weights=[0.8, 0.2], random_state=43
+            n_samples=50, n_features=15, n_classes=2, weights=[0.8, 0.2], random_state=43
         )
 
-        metrics = trained_engine.calibrate_scores(
-            X_cal.astype(np.float32), y_cal, method="platt"
-        )
+        metrics = trained_engine.calibrate_scores(X_cal.astype(np.float32), y_cal, method="platt")
 
         assert "brier_before" in metrics
         assert metrics["method"] == "platt"

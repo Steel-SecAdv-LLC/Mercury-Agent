@@ -716,8 +716,7 @@ class OmniMercuryEngine:
 
                 # Get batch features
                 batch_features = {
-                    name: feat[batch_indices].to(device)
-                    for name, feat in detector_features.items()
+                    name: feat[batch_indices].to(device) for name, feat in detector_features.items()
                 }
                 batch_labels = labels_tensor[batch_indices].to(device)
 
@@ -769,9 +768,7 @@ class OmniMercuryEngine:
 
             if avg_val_loss < best_val_loss:
                 best_val_loss = avg_val_loss
-                best_state = {
-                    k: v.cpu().clone() for k, v in self.fusion_model.state_dict().items()
-                }
+                best_state = {k: v.cpu().clone() for k, v in self.fusion_model.state_dict().items()}
                 epochs_without_improvement = 0
             else:
                 epochs_without_improvement += 1
@@ -912,9 +909,7 @@ class OmniMercuryEngine:
         brier_before = brier_score_loss(y_cal, raw_scores)
 
         if method in ("isotonic", "both"):
-            self._isotonic_calibrator = IsotonicRegression(
-                y_min=0, y_max=1, out_of_bounds="clip"
-            )
+            self._isotonic_calibrator = IsotonicRegression(y_min=0, y_max=1, out_of_bounds="clip")
             self._isotonic_calibrator.fit(raw_scores, y_cal)
 
         if method in ("platt", "both"):
@@ -1147,11 +1142,14 @@ class OmniMercuryEngine:
         else:
             try:
                 from umap import UMAP
+
                 reducer = UMAP(n_components=2, random_state=42)
                 embeddings = reducer.fit_transform(combined)
             except ImportError:
                 logger.warning("UMAP not available, falling back to t-SNE")
-                reducer = TSNE(n_components=2, perplexity=min(perplexity, len(X) - 1), random_state=42)
+                reducer = TSNE(
+                    n_components=2, perplexity=min(perplexity, len(X) - 1), random_state=42
+                )
                 embeddings = reducer.fit_transform(combined)
 
         result = {
@@ -1169,8 +1167,7 @@ class OmniMercuryEngine:
                 fig, ax = plt.subplots(figsize=(10, 8))
                 if y is not None:
                     scatter = ax.scatter(
-                        embeddings[:, 0], embeddings[:, 1],
-                        c=y, cmap="RdYlGn_r", alpha=0.6, s=20
+                        embeddings[:, 0], embeddings[:, 1], c=y, cmap="RdYlGn_r", alpha=0.6, s=20
                     )
                     plt.colorbar(scatter, label="Anomaly (1) / Normal (0)")
                 else:
