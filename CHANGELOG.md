@@ -50,8 +50,8 @@ identified through performance analysis. See `docs/RECTIFICATION_PLAN.md` for fu
 - **Impact**: Stability improvement, no runtime errors
 
 ### Added - Test Coverage
-- `tests/test_signal_integrity.py`: 15 tests for continuous score preservation
-- `tests/test_fusion_training.py`: 20 tests for fusion model training
+- `tests/test_signal_integrity.py`: 23 tests for continuous score preservation
+- `tests/test_fusion_training.py`: 33 tests for fusion model training, calibration, and visualization
 - GitHub issue templates in `.github/ISSUE_TEMPLATE/`
 
 ### Added - Documentation
@@ -128,7 +128,7 @@ identified through performance analysis. See `docs/RECTIFICATION_PLAN.md` for fu
   - Targets <1s/sample inference requirement
 
 ### Added - Extended Test Coverage
-- `tests/test_fusion_training.py`: Extended with 30+ tests
+- `tests/test_fusion_training.py`: 33 comprehensive tests
   - Calibration tests (isotonic, platt)
   - Pluggable detector tests
   - Visualization tests
