@@ -10,7 +10,7 @@ Licensed under GNU GPL v3
 
 import numpy as np
 import pytest
-from sklearn.datasets import make_classification, make_blobs
+from sklearn.datasets import make_blobs, make_classification
 from sklearn.metrics import roc_auc_score
 
 from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector

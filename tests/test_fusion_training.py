@@ -12,7 +12,6 @@ import numpy as np
 import pytest
 import torch
 from sklearn.datasets import make_classification
-from sklearn.metrics import roc_auc_score
 
 
 class TestFusionTraining:

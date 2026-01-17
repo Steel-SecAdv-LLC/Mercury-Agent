@@ -34,6 +34,7 @@ from sklearn.neighbors import LocalOutlierFactor
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 
+
 # Numba optimization for distance computation (hot path)
 try:
     from numba import jit
