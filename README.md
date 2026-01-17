@@ -22,7 +22,7 @@
 
 ```
               +===============================================================================+
-              |                                   Mercury Agent ♱ v1.2                        |
+              |                                   Mercury Agent ♱ v1.1                        |
               |Neuro-Symbolic AI for Autonomous Anomaly Detection Paradigm with PQC-Protected |
               |                                                                               |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security    |
@@ -43,7 +43,7 @@
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
-**Version:** v1.2.0
+**Version:** v1.1.0
 **Date:** 2026-01-16
 **AI Co-Architects:** X ⚛ | Caduceus ⚚ | Dev ⚕
 
@@ -123,12 +123,6 @@ Mercury-Agent with AdaptiveAnomalyDetector on real-world datasets (regenerated 2
 | **BATADAL** | Infrastructure | **0.333** | 0.413 | 0.684 | 0.220 |
 
 **Key Improvement:** BATADAL F1 improved from 0.0 to 0.333 using adaptive dataset profiling.
-
-**v1.2.0 Rectification Plan (8 Issues Fixed):**
-- Signal Integrity (#3, #5, #7): Continuous scores, adaptive contamination, soft normalization
-- Fusion Training (#1, #6, #8): Semi-supervised fitting, dynamic projections, 3D tensor handling
-- Detector Fitting (#2, #4): Explicit fallback, semi-supervised training
-- Expected ROC-AUC improvement: +0.90-0.95 post-calibration
 
 *Benchmarks run with OmniMercuryDetector using AdaptiveAnomalyDetector. Real data from sklearn, OmniAnomaly GitHub, and BATADAL GitHub repositories.*
 
