@@ -389,6 +389,14 @@ class OmniFusionModel(nn.Module):
         encoded_features = {}
 
         for name, features in detector_features.items():
+            # Handle 3D tensors by flattening to 2D [batch, seq*features] -> [batch, flat_dim]
+            # This fixes the tensor dimension mismatch error when features have shape
+            # [batch, seq_len, feature_dim] (e.g., quantum features with shape [4, 16, 2])
+            if features.dim() == 3:
+                batch_size = features.shape[0]
+                # Flatten last two dimensions: [batch, seq, feat] -> [batch, seq*feat]
+                features = features.reshape(batch_size, -1)
+
             actual_dim = features.shape[1] if features.dim() == 2 else features.shape[-1]
             expected_dim = self.feature_dims.get(name)
 
