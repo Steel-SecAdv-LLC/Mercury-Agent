@@ -172,9 +172,13 @@ def generate_dilithium_keypair() -> DilithiumKeyPair:
         )
 
     logger.warning("Using simulated Dilithium keys (NOT SECURE)")
+    # For simulation consistency, embed public_key at start of secret_key
+    # so that sign/verify can use the same derived material
+    public_key = os.urandom(1952)
+    secret_key = public_key + os.urandom(4000 - 1952)
     return DilithiumKeyPair(
-        public_key=os.urandom(1952),
-        secret_key=os.urandom(4000),
+        public_key=public_key,
+        secret_key=secret_key,
         algorithm="ML-DSA-65-SIMULATED",
     )
 
@@ -198,7 +202,8 @@ def dilithium_sign(message: bytes, secret_key: bytes) -> bytes:
         return cast("bytes", dilithium_fallback.sign(secret_key, message))
 
     logger.warning("Using simulated signature (NOT SECURE)")
-    return hashlib.sha3_512(secret_key + message).digest()
+    # Use first 1952 bytes (public_key portion) for consistency with verify
+    return hashlib.sha3_512(secret_key[:1952] + message).digest()
 
 
 def dilithium_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
@@ -226,7 +231,8 @@ def dilithium_verify(message: bytes, signature: bytes, public_key: bytes) -> boo
             return False
 
     logger.warning("Using simulated verification (NOT SECURE)")
-    expected = hashlib.sha3_512(public_key[:4000] + message).digest()
+    # public_key is 1952 bytes, matching what sign() uses from secret_key[:1952]
+    expected = hashlib.sha3_512(public_key + message).digest()
     return signature == expected
 
 
@@ -319,9 +325,12 @@ def generate_sphincs_keypair() -> SphincsKeyPair:
         if require_constant_time():
             raise RuntimeError("SPHINCS+ requires liboqs backend")
         logger.warning("Using simulated SPHINCS+ keys (NOT SECURE)")
+        # For simulation consistency, embed public_key at start of secret_key
+        public_key = os.urandom(64)
+        secret_key = public_key + os.urandom(64)
         return SphincsKeyPair(
-            public_key=os.urandom(64),
-            secret_key=os.urandom(128),
+            public_key=public_key,
+            secret_key=secret_key,
             algorithm="SPHINCS+-SIMULATED",
         )
 
@@ -338,7 +347,8 @@ def sphincs_sign(message: bytes, secret_key: bytes) -> bytes:
         return cast("bytes", sig.sign(message))
 
     logger.warning("Using simulated SPHINCS+ signature (NOT SECURE)")
-    return hashlib.sha3_512(secret_key + message).digest()
+    # Use first 64 bytes (public_key portion) for consistency with verify
+    return hashlib.sha3_512(secret_key[:64] + message).digest()
 
 
 def sphincs_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
@@ -348,7 +358,9 @@ def sphincs_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
         return cast("bool", sig.verify(message, signature, public_key))
 
     logger.warning("Using simulated SPHINCS+ verification (NOT SECURE)")
-    return len(signature) == 64
+    # public_key is 64 bytes, matching what sign() uses from secret_key[:64]
+    expected = hashlib.sha3_512(public_key + message).digest()
+    return signature == expected
 
 
 def get_pqc_capabilities() -> dict[str, Any]:
