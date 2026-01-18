@@ -11,6 +11,7 @@ import os
 
 import pytest
 
+
 # Import crypto module components
 try:
     from omni_mercury_engine.security.crypto_api import (
@@ -229,6 +230,10 @@ class TestAlgorithmTypeEnum:
         assert hasattr(AlgorithmType, "ML_DSA_65") or hasattr(AlgorithmType, "DILITHIUM")
 
 
+@pytest.mark.skipif(
+    SIMULATION_MODE,
+    reason="Requires real PQC libraries (liboqs-python or pqcrypto)",
+)
 class TestPostQuantumProviders:
     """Tests for Post-Quantum Cryptographic Providers."""
 
@@ -301,6 +306,10 @@ class TestPostQuantumProviders:
             pytest.skip("SPHINCS+ provider not available")
 
 
+@pytest.mark.skipif(
+    SIMULATION_MODE,
+    reason="Requires real PQC libraries (liboqs-python or pqcrypto)",
+)
 class TestHybridCryptography:
     """Tests for Hybrid Classical+Post-Quantum Operations."""
 
