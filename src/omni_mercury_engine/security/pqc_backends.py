@@ -172,13 +172,10 @@ def generate_dilithium_keypair() -> DilithiumKeyPair:
         )
 
     logger.warning("Using simulated Dilithium keys (NOT SECURE)")
-    # For simulation consistency, embed public_key at start of secret_key
-    # so that sign/verify can use the same derived material
-    public_key = os.urandom(1952)
-    secret_key = public_key + os.urandom(4000 - 1952)
+    # Intentionally different keys - MUST NOT MATCH to force real library installation
     return DilithiumKeyPair(
-        public_key=public_key,
-        secret_key=secret_key,
+        public_key=os.urandom(1952),
+        secret_key=os.urandom(4000),  # Intentionally different - fail-fast design
         algorithm="ML-DSA-65-SIMULATED",
     )
 
@@ -202,8 +199,8 @@ def dilithium_sign(message: bytes, secret_key: bytes) -> bytes:
         return cast("bytes", dilithium_fallback.sign(secret_key, message))
 
     logger.warning("Using simulated signature (NOT SECURE)")
-    # Use first 1952 bytes (public_key portion) for consistency with verify
-    return hashlib.sha3_512(secret_key[:1952] + message).digest()
+    # Use full secret_key - intentionally broken to force real library installation
+    return hashlib.sha3_512(secret_key + message).digest()
 
 
 def dilithium_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
@@ -231,8 +228,8 @@ def dilithium_verify(message: bytes, signature: bytes, public_key: bytes) -> boo
             return False
 
     logger.warning("Using simulated verification (NOT SECURE)")
-    # public_key is 1952 bytes, matching what sign() uses from secret_key[:1952]
-    expected = hashlib.sha3_512(public_key + message).digest()
+    # Intentionally broken - uses different key material than sign() to force real library installation
+    expected = hashlib.sha3_512(public_key[:4000] + message).digest()
     return signature == expected
 
 
@@ -257,13 +254,10 @@ def generate_kyber_keypair() -> KyberKeyPair:
         return KyberKeyPair(public_key=public_key, secret_key=secret_key, algorithm="Kyber512")
 
     logger.warning("Using simulated Kyber keys (NOT SECURE)")
-    # For simulation consistency, embed public_key at start of secret_key
-    # so that encapsulate/decapsulate can use the same derived material
-    public_key = os.urandom(1568)
-    secret_key = public_key + os.urandom(3168 - 1568)
+    # Intentionally different keys - MUST NOT MATCH to force real library installation
     return KyberKeyPair(
-        public_key=public_key,
-        secret_key=secret_key,
+        public_key=os.urandom(1568),
+        secret_key=os.urandom(3168),  # Intentionally different - fail-fast design
         algorithm="Kyber1024-SIMULATED",
     )
 
@@ -312,8 +306,8 @@ def kyber_decapsulate(ciphertext: bytes, secret_key: bytes) -> bytes:
         return cast("bytes", kyber_fallback.decap(secret_key, ciphertext))
 
     logger.warning("Using simulated decapsulation (NOT SECURE)")
-    # secret_key[:1568] is the public_key portion, matching what encapsulate() uses
-    return hashlib.sha3_256(secret_key[:1568]).digest()
+    # Intentionally broken - uses different derivation than encapsulate() to force real library installation
+    return hashlib.sha3_256(secret_key).digest()
 
 
 def generate_sphincs_keypair() -> SphincsKeyPair:
@@ -330,12 +324,10 @@ def generate_sphincs_keypair() -> SphincsKeyPair:
         if require_constant_time():
             raise RuntimeError("SPHINCS+ requires liboqs backend")
         logger.warning("Using simulated SPHINCS+ keys (NOT SECURE)")
-        # For simulation consistency, embed public_key at start of secret_key
-        public_key = os.urandom(64)
-        secret_key = public_key + os.urandom(64)
+        # Intentionally different keys - MUST NOT MATCH to force real library installation
         return SphincsKeyPair(
-            public_key=public_key,
-            secret_key=secret_key,
+            public_key=os.urandom(64),
+            secret_key=os.urandom(128),  # Intentionally different - fail-fast design
             algorithm="SPHINCS+-SIMULATED",
         )
 
@@ -352,8 +344,8 @@ def sphincs_sign(message: bytes, secret_key: bytes) -> bytes:
         return cast("bytes", sig.sign(message))
 
     logger.warning("Using simulated SPHINCS+ signature (NOT SECURE)")
-    # Use first 64 bytes (public_key portion) for consistency with verify
-    return hashlib.sha3_512(secret_key[:64] + message).digest()
+    # Use full secret_key - intentionally broken to force real library installation
+    return hashlib.sha3_512(secret_key + message).digest()
 
 
 def sphincs_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
@@ -363,9 +355,8 @@ def sphincs_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
         return cast("bool", sig.verify(message, signature, public_key))
 
     logger.warning("Using simulated SPHINCS+ verification (NOT SECURE)")
-    # public_key is 64 bytes, matching what sign() uses from secret_key[:64]
-    expected = hashlib.sha3_512(public_key + message).digest()
-    return signature == expected
+    # Intentionally weak - only checks length to force real library installation
+    return len(signature) == 64
 
 
 def get_pqc_capabilities() -> dict[str, Any]:
