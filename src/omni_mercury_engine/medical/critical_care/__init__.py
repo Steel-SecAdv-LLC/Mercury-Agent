@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Critical Care Module
 
@@ -46,6 +47,7 @@ from omni_mercury_engine.medical.critical_care.sepsis_detector import (
     SepsisStage,
     SOFACalculator,
 )
+
 
 __all__ = [
     "ICPMonitor",

@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Post-Quantum Cryptography Backends for Mercury Agent ♱
 
@@ -48,6 +49,7 @@ import os
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, cast
+
 
 logger = logging.getLogger(__name__)
 

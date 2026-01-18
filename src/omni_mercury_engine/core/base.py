@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Abstract base classes for detectors, models, and encoders with enforced interface contracts.
 
@@ -46,6 +47,7 @@ from typing import TYPE_CHECKING, Any, TypedDict
 
 import torch
 from torch import nn
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable

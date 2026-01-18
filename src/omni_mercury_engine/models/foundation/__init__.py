@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Foundation Model Adapters for Time-Series Anomaly Detection
 
@@ -69,6 +70,7 @@ from omni_mercury_engine.models.foundation.ollama_adapter import (
     create_ollama_adapter,
 )
 from omni_mercury_engine.models.foundation.timegpt_adapter import TimeGPTAdapter
+
 
 # Compatibility aliases for tests
 MatrixProfileAdapter = MatrixProfileDetector

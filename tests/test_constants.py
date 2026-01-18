@@ -18,6 +18,7 @@ from omni_mercury_engine.utils.constants import (
     validate_constant,
 )
 
+
 # Create aliases for easier testing
 MC = MathematicalConstants
 PI = MC.PI

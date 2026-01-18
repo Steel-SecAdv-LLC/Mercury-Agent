@@ -31,9 +31,11 @@ from typing import Any
 import matplotlib
 import numpy as np
 
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -50,6 +52,7 @@ from omni_mercury_engine.cognitive.neurosymbolic_fusion import (
     MemoryType,
     NeurosymbolicFusionEngine,
 )
+
 
 # Style configuration
 plt.rcParams.update(

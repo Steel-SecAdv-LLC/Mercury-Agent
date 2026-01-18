@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Benchmark evaluation framework.
 
@@ -35,6 +36,7 @@ import numpy as np
 import torch
 
 from omni_mercury_engine.metrics.anomaly_metrics import AnomalyMetrics
+
 
 logger = logging.getLogger(__name__)
 

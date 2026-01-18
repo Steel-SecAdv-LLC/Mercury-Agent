@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Data module for Mercury Agent.
 
@@ -28,5 +29,6 @@ Provides benchmark dataset loaders for visual anomaly detection:
 """
 
 from . import benchmarks
+
 
 __all__ = ["benchmarks"]

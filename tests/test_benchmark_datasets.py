@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Tests for Benchmark Dataset Loaders.
 
@@ -29,6 +30,7 @@ import importlib.util
 
 import numpy as np
 import pytest
+
 
 HAS_TORCH = importlib.util.find_spec("torch") is not None
 

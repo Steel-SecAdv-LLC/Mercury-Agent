@@ -24,6 +24,7 @@ from typing import Any, Protocol
 import numpy as np
 from sklearn.model_selection import KFold
 
+
 logger = logging.getLogger(__name__)
 
 

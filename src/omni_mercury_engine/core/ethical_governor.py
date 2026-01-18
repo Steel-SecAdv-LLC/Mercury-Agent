@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Ethical Autonomy Governor with Bias Audits and ΣDirective Overrides
 
@@ -45,6 +46,7 @@ from scipy import stats
 from omni_mercury_engine.core.config import ThresholdConfig
 from omni_mercury_engine.core.ethical_config import DEFAULT_CONFIG, EthicalScalars
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
+
 
 # Centralized thresholds for consistent behavior
 _thresholds = ThresholdConfig()

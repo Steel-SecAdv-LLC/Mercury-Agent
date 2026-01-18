@@ -19,6 +19,7 @@ from typing import Any
 import numpy as np
 import pytest
 
+
 # Check if torch is available
 HAS_TORCH = importlib.util.find_spec("torch") is not None
 if HAS_TORCH:

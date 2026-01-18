@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Model modules for Mercury Agent ♱ anomaly detection.
 
@@ -25,6 +26,7 @@ Uses lazy imports to avoid circular dependency issues during package initializat
 """
 
 from typing import TYPE_CHECKING
+
 
 # Type-only imports for static analysis (CodeQL, mypy, etc.)
 # These are not imported at runtime to support lazy loading

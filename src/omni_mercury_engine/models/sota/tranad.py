@@ -35,6 +35,7 @@ import torch.nn.functional as F
 from torch import nn
 from torch.optim import Adam
 
+
 __all__ = [
     "AdversarialTrainer",
     "FocusScoreConditioning",

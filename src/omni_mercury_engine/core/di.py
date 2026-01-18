@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Dependency Injection Framework for Mercury Agent ♱
 
@@ -35,6 +36,7 @@ from abc import ABC  # noqa: F401 - kept for potential future use
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast, runtime_checkable
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable

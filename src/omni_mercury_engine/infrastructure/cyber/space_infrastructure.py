@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """EU Space sector infrastructure anomaly detection.
 
 Monitors satellites, ground stations, and launch facilities for anomalies.

@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Symbolic Logic Layer - Logic Graphs and Explainable Decisions
 
@@ -45,6 +46,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+
 
 try:
     import networkx as nx

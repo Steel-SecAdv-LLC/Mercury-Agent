@@ -27,6 +27,7 @@ from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import brier_score_loss, log_loss
 
+
 logger = logging.getLogger(__name__)
 
 

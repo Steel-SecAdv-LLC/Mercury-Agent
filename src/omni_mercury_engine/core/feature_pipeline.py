@@ -25,6 +25,7 @@ from typing import Any, Protocol
 
 import numpy as np
 
+
 logger = logging.getLogger(__name__)
 
 

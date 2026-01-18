@@ -10,6 +10,7 @@ the Free Software Foundation, either version 3 of the License, or
 
 from __future__ import annotations
 
+
 """
 Multi-Hop Reasoner - Abductive/Deductive/Inductive Reasoning Chains
 
@@ -33,6 +34,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable
