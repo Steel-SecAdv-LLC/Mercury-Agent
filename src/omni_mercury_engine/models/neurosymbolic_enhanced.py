@@ -37,7 +37,6 @@ from typing import Any
 
 import numpy as np
 
-
 _FOUNDATION_HASH = "NS2025_ENHANCED"
 
 try:

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Cardiology Module
 
@@ -38,7 +37,6 @@ from omni_mercury_engine.medical.cardiology.cardiology_predictor import (
     ECGRhythmAnalyzer,
     FraminghamRiskCalculator,
 )
-
 
 __all__ = [
     "ArrhythmiaType",

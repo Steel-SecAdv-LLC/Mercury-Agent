@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Sepsis Detector - Early Sepsis Detection & Septic Shock Prevention
 
@@ -48,7 +47,6 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 from torch import nn
-
 
 if TYPE_CHECKING:
     import numpy as np

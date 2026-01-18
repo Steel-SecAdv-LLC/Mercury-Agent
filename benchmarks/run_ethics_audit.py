@@ -24,7 +24,6 @@ Validates that all optimizations meet ethical standards.
 import sys
 from pathlib import Path
 
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from omni_mercury_engine.core.ai_ethics import EthicalAutonomyGovernor, EthicsConfig

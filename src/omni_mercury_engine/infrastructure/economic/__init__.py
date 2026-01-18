@@ -18,10 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Economic infrastructure and sustainable development monitoring."""
 
 from .world_bank_sectors import WorldBankSectorsMonitor
-
 
 __all__ = ["WorldBankSectorsMonitor"]

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 MVTec AD Dataset Loader.
 
@@ -34,7 +33,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from .base_dataset import BaseDatasetConfig, BaseImageDataset
-
 
 MVTEC_CATEGORIES: list[str] = [
     "bottle",

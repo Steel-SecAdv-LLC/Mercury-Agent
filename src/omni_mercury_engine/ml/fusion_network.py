@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Main neural fusion model integrating all engines
 
@@ -40,7 +39,6 @@ from omni_mercury_engine.ml.encoders import (
     StatisticalEncoder,
     TemporalEncoder,
 )
-
 
 __all__ = [
     "AttentionFusion",

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Pandemic Forecasting Module (Medical Interdiction)
 
@@ -32,6 +31,5 @@ from omni_mercury_engine.medical.pandemic.forecasting.epidemic_model import (
     EpidemicForecaster,
     PandemicForecast,
 )
-
 
 __all__ = ["EpidemicForecaster", "PandemicForecast"]

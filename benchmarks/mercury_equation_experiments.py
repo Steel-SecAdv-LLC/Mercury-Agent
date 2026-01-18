@@ -24,7 +24,6 @@ Runs 10,000+ iterations to find optimal parameters for Mercury optimizers.
 import sys
 from pathlib import Path
 
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import json

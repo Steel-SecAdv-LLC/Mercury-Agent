@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Extended tests for three_r_mechanism to reach >95% coverage."""
 
 from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine

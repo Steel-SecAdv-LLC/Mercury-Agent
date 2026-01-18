@@ -18,10 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Resilience and National Critical Functions monitoring."""
 
 from .ncf_monitor import NCFMonitor
-
 
 __all__ = ["NCFMonitor"]

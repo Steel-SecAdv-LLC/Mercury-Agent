@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 """
 Federated Learning for Privacy-Preserving Anomaly Detection
 

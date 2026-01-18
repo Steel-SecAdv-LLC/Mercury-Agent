@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Novel Anomaly Class Discovery for Industrial Scenarios.
 
 Based on: AnomalyNCD - Towards Novel Anomaly Class Discovery in Industrial Scenarios

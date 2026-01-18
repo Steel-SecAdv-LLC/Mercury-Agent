@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Anomaly Detection Engine Comparison and Benchmarking
 
@@ -26,7 +25,6 @@ Compare Mercury Agent ♱ with top open-source anomaly detection engines.
 """
 
 from .pyod_integration import CombinationMethod, PyODAlgorithm, PyODComparison
-
 
 __all__ = [
     "CombinationMethod",

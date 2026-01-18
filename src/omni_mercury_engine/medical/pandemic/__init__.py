@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Pandemic Detection & Response Module
 
@@ -41,7 +40,6 @@ from omni_mercury_engine.medical.pandemic.pandemic_detector import (
     TransmissionNetworkAnalyzer,
     VariantConcern,
 )
-
 
 __all__ = [
     "BioThreatResult",

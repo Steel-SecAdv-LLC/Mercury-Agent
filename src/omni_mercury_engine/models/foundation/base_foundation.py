@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Base classes for foundation model adapters.
 
@@ -34,7 +33,6 @@ import numpy as np
 import torch
 
 from omni_mercury_engine.core.base import BaseModel
-
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

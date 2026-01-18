@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Comprehensive tests for biometric model to boost coverage
 """
@@ -27,7 +26,6 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
-
 
 # Conditional torch import
 try:

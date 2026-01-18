@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Tests for Chemical and Nuclear Infrastructure Detector."""
 
 import numpy as np

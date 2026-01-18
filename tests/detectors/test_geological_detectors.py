@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Tests for Geological Disaster Detectors (Tornado, Hurricane, Flood)."""
 
 import numpy as np

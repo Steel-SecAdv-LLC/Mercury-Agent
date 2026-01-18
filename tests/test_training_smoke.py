@@ -18,13 +18,11 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Training module smoke tests to boost coverage
 """
 
 import pytest
-
 
 # Conditional torch import
 try:

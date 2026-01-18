@@ -110,7 +110,6 @@ from omni_mercury_engine.narrative.voice import (
     create_mercury_voice,
 )
 
-
 __all__ = [
     "AnomalyVisualType",
     "AudioAnomalyType",

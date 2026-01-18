@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Core anomaly detection metrics.
 
@@ -33,7 +32,6 @@ import numpy as np
 from scipy.ndimage import label as connected_components
 
 from omni_mercury_engine.core.config import ThresholdConfig
-
 
 logger = logging.getLogger(__name__)
 
