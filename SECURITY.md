@@ -65,6 +65,43 @@ Mercury Agent ♱ implements multiple layers of security:
 - **Secure Hash Functions**: SHA-256+ for integrity verification
 - **Key Management**: Secure key generation and storage patterns
 
+### Post-Quantum Cryptography (PQC) Backend Audit Status
+
+Mercury Agent uses NIST-approved post-quantum cryptographic algorithms (ML-DSA-65/Dilithium, Kyber-1024, SPHINCS+-256f) for quantum-resistant security. The following table documents the audit status of available PQC backends:
+
+| Backend | Status | Recommendation |
+|---------|--------|----------------|
+| Ava Guardian | Community-tested, NOT externally audited | Development/Testing (Primary) |
+| liboqs-python | Research-grade, constant-time implementations | Development/Testing (Secondary) |
+| pqcrypto | Experimental, may have timing variations | Development only (Tertiary) |
+| SIMULATION | NOT SECURE - no real cryptography | BLOCKED in production |
+
+**Important Security Considerations:**
+
+1. **Algorithm vs Implementation**: The algorithms (ML-DSA-65, Kyber-1024, SPHINCS+) are NIST-approved and standardized. However, implementation correctness is NOT externally verified for any of the available backends.
+
+2. **Production Deployments**: For production deployments requiring compliance:
+   - Obtain an independent security audit of your chosen backend
+   - Consider FIPS 140-2 Level 3+ HSM for master secrets
+   - Document risk acceptance for unaudited cryptographic code
+
+3. **Backend Priority Chain**: Mercury Agent automatically selects the best available backend:
+   - **Primary**: Ava Guardian (`pip install ava-guardian`)
+   - **Secondary**: liboqs-python (`pip install liboqs-python`)
+   - **Tertiary**: pqcrypto (`pip install pqcrypto`)
+   - **Blocked**: SIMULATION mode is blocked in production environments
+
+4. **Fail-Fast Philosophy**: Mercury Agent refuses to run with simulated cryptography in production. Set `AVA_REQUIRE_REAL_PQC=true` or `AVA_REQUIRE_CONSTANT_TIME=true` to enforce real PQC backends.
+
+5. **Constant-Time Requirement**: For timing-attack resistance, set `AVA_REQUIRE_CONSTANT_TIME=true` to require Ava Guardian or liboqs-python (both provide constant-time implementations).
+
+**References:**
+- [NIST PQC Standardization](https://csrc.nist.gov/projects/post-quantum-cryptography)
+- [Ava Guardian](https://github.com/Steel-SecAdv-LLC/Ava-Guardian)
+- [liboqs / Open Quantum Safe](https://openquantumsafe.org/)
+- [Dilithium (CRYSTALS)](https://pq-crystals.org/dilithium/)
+- [Kyber (CRYSTALS)](https://pq-crystals.org/kyber/)
+
 ### API Security
 
 - **Authentication**: JWT-based authentication with secure token handling
