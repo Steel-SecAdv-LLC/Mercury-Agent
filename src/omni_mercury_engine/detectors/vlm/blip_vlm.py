@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 BLIP Vision-Language Model Detector for Zero-Shot Anomaly Detection.
 
@@ -50,7 +49,6 @@ from omni_mercury_engine.detectors.vlm.base_vlm import (
     LVLMType,
     VLMConfig,
 )
-
 
 logger = logging.getLogger(__name__)
 

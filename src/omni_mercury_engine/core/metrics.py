@@ -23,7 +23,6 @@ import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
-
 if TYPE_CHECKING:
     from collections.abc import Generator
 

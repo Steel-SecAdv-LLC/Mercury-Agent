@@ -25,7 +25,6 @@ from scipy.optimize import minimize
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_predict
 
-
 logger = logging.getLogger(__name__)
 
 # Golden ratio for ethical scaling

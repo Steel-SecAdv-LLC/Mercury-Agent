@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 """
 Harmonic analysis encoder using spherical harmonics and Fourier analysis.
 Provides frequency-domain feature extraction for anomaly detection.

@@ -46,7 +46,6 @@ from .metrics import (
     print_metrics_report,
 )
 
-
 __all__ = [
     "BASELINE_RESULTS",
     "AnomalyMetrics",

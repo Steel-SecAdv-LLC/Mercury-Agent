@@ -41,7 +41,6 @@ from enum import Enum
 from typing import Any
 from urllib.parse import urljoin
 
-
 logger = logging.getLogger(__name__)
 
 

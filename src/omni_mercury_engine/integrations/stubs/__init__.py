@@ -21,7 +21,6 @@ from omni_mercury_engine.integrations.stubs.weather import (
     WeatherServiceStub,
 )
 
-
 __all__ = [
     "CacheEntry",
     # Cache

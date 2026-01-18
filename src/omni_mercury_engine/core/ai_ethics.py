@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 AI Ethics Framework for Mercury Agent ♱
 Implements 8 core ethical principles for autonomous AI operations.

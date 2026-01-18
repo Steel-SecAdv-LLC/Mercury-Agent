@@ -18,11 +18,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Humanitarian infrastructure and workforce monitoring."""
 
 from .essential_workers import EssentialWorkersMonitor
 from .government_facilities import GovernmentFacilitiesMonitor
-
 
 __all__ = ["EssentialWorkersMonitor", "GovernmentFacilitiesMonitor"]

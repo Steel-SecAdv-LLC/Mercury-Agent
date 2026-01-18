@@ -18,14 +18,12 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Space-inspired modules for resilience and optimization."""
 
 from omni_mercury_engine.space.interstellar_objects import InterstellarObjectDetector
 from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
 from omni_mercury_engine.space.space_exploration_analyzer import SpaceExplorationAnalyzer
 from omni_mercury_engine.space.space_inspired import SpaceInspiredResilience
-
 
 __all__ = [
     "InterstellarObjectDetector",

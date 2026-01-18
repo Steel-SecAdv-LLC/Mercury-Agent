@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Base classes for benchmark dataset loaders.
 
@@ -31,7 +30,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np  # noqa: TC002
-
 
 try:
     import torch

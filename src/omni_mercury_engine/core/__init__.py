@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Core modules for Mercury Agent ♱."""
 
 from omni_mercury_engine.core.double_helix_engine import (
@@ -36,7 +35,6 @@ from omni_mercury_engine.core.global_omni_scalar_network import (
     get_global_scalar_network,
     reset_global_network,
 )
-
 
 __all__ = [
     "DomainType",

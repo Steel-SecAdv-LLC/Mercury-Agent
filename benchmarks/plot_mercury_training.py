@@ -29,11 +29,9 @@ from typing import Any
 import matplotlib
 import numpy as np
 
-
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-
 
 # Style configuration for publication-quality figures
 plt.rcParams.update(

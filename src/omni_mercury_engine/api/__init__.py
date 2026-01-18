@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """REST API for Mercury Agent ♱ anomaly detection."""
 
 from .auth import APIKeyAuth, JWTAuth, Permission, User, require_permission, require_role
@@ -28,7 +27,6 @@ from .voice import (
     add_voice_routes,
     router as voice_router,
 )
-
 
 __all__ = [
     # Auth

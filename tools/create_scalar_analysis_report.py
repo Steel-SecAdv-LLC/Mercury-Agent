@@ -28,7 +28,6 @@ Note: This file was renamed from create_novelty_report.py.
 import re
 from collections import defaultdict
 
-
 # Read ethical config
 with open("omni_mercury_engine/core/ethical_config.py") as f:
     ethical_content = f.read()

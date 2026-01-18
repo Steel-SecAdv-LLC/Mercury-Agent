@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Validation Pipeline
 
@@ -39,7 +38,6 @@ from typing import Any
 
 import numpy as np
 from scipy import stats
-
 
 logger = logging.getLogger(__name__)
 

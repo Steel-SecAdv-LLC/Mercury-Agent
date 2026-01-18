@@ -10,7 +10,6 @@ the Free Software Foundation, either version 3 of the License, or
 
 from __future__ import annotations
 
-
 """
 Knowledge Graph Engine - Production Implementation
 
@@ -39,7 +38,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy import sparse
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Utilities subpackage
 Enhanced with Black Hole Engine compression and gravitational lensing utilities
@@ -28,7 +27,6 @@ import zlib
 from typing import Any, Union
 
 import numpy as np
-
 
 # Make torch optional to support environments without ML dependencies
 try:

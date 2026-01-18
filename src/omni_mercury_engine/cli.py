@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 """
 Command-line interface for Mercury Agent ♱
 """
@@ -30,7 +29,6 @@ from pathlib import Path
 
 import click
 import numpy as np
-
 
 # Lazy import to support CLI help without torch dependency
 # OmniMercuryEngine is only imported when actually needed (not for --help)
