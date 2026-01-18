@@ -25,7 +25,6 @@ from omni_mercury_engine.ethical.ethical_constraint_engine import (
     WisdomArchetype,
 )
 
-
 __all__ = [
     "AthenaWisdomEngine",
     "ImmutableGeometryProcessor",

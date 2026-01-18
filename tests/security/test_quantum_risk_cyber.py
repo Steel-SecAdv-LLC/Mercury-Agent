@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Tests for Quantum Risk Cyber module"""
 
 from omni_mercury_engine.security.quantum_risk_cyber import (

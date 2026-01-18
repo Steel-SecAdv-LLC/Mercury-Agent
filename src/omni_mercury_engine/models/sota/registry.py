@@ -28,7 +28,6 @@ import logging
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any
 
-
 if TYPE_CHECKING:
     from torch import nn
 

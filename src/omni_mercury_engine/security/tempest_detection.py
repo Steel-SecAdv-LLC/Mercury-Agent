@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 TEMPEST Detection Module - Electromagnetic Emanation Security
 

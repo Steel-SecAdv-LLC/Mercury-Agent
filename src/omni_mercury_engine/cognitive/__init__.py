@@ -10,7 +10,6 @@ the Free Software Foundation, either version 3 of the License, or
 
 from __future__ import annotations
 
-
 """
 Cognitive Architecture Module for Mercury Agent ♱
 
@@ -63,7 +62,6 @@ from omni_mercury_engine.cognitive.orchestrator import (
 )
 from omni_mercury_engine.cognitive.plasticity_engine import PlasticityEngine
 from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate, UncertaintyQuantifier
-
 
 __all__ = [
     "BattlefieldAssessment",

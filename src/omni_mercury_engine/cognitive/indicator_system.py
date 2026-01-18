@@ -10,7 +10,6 @@ the Free Software Foundation, either version 3 of the License, or
 
 from __future__ import annotations
 
-
 """
 Indicator Development System
 
@@ -34,7 +33,6 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 

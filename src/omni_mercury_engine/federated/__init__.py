@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Federated Learning for Privacy-Preserving Anomaly Detection
 
@@ -31,7 +30,6 @@ from .federated_detector import (
     FederatedStrategy,
     PrivacyLevel,
 )
-
 
 __all__ = [
     "CISAFederatedCoordinator",

@@ -31,12 +31,10 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-
 if TYPE_CHECKING:
     from pathlib import Path
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, safe_urlretrieve
-
 
 logger = logging.getLogger(__name__)
 

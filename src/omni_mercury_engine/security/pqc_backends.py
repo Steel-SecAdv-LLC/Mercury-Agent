@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Mercury Agent ♱ - Post-Quantum Cryptography Backends
 
@@ -71,7 +70,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, cast
 
-
 logger = logging.getLogger(__name__)
 
 # Backend availability flags
@@ -85,7 +83,6 @@ SPHINCS_AVAILABLE = False
 # Try Ava Guardian first (Primary)
 # Use importlib.util.find_spec to check availability without importing unused functions
 import importlib.util
-
 
 if importlib.util.find_spec("ava_guardian") is not None:
     try:

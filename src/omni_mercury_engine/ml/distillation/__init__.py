@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Knowledge Distillation for Anomaly Detection
 
@@ -35,7 +34,6 @@ from omni_mercury_engine.ml.distillation.dual_student import (
     DualStudentConfig,
     DualStudentDistillation,
 )
-
 
 __all__ = [
     "DualStudentConfig",

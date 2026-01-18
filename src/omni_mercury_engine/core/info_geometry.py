@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Information Geometry for Out-of-Distribution Detection.
 
 Based on: IGEOOD - An Information Geometry Approach to Out-of-Distribution Detection

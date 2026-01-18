@@ -30,7 +30,6 @@ from typing import Any
 import numpy as np
 from scipy import stats
 
-
 logger = logging.getLogger(__name__)
 
 # Fixed seed for reproducibility

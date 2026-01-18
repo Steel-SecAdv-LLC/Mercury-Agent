@@ -26,7 +26,6 @@ from torch import nn
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
-
 # Neural fusion layer for combining multiple detector outputs
 #
 # Implements hybrid fusion strategy:

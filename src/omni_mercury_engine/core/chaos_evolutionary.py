@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Chaos-Evolutionary Optimization for Adaptive Hyperparameter Tuning.
 
 Based on: Chaos Game Optimization - A novel metaheuristic algorithm inspired by chaotic dynamics
@@ -33,7 +32,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable

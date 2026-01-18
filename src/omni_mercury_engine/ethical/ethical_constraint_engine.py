@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Ethical Constraint Engine - AI Fairness and Bias Detection Framework
 
@@ -55,7 +54,6 @@ from typing import Any
 import numpy as np
 
 from omni_mercury_engine.core.config import ThresholdConfig
-
 
 # Centralized thresholds for consistent behavior
 _thresholds = ThresholdConfig()

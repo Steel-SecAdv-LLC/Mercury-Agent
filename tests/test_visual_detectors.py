@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Tests for SOTA Visual Anomaly Detection modules.
 
@@ -26,7 +25,6 @@ Tests PatchCore, PaDiM, STFPM, Reverse Distillation, and CFlow detectors.
 """
 
 import pytest
-
 
 try:
     import torch

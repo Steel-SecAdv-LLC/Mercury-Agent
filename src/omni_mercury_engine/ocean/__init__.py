@@ -18,10 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Oceanography-inspired modules for pattern recognition."""
 
 from omni_mercury_engine.ocean.oceanography_patterns import OceanographyPatterns
-
 
 __all__ = ["OceanographyPatterns"]

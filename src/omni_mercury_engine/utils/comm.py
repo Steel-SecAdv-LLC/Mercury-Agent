@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Optional lightweight communication utilities for distributed computing
 Extracted from Communication Engine for future scalability
@@ -30,7 +29,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable

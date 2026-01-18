@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 LAVAD: Harnessing Large Language Models for Training-free Video Anomaly Detection
 
@@ -48,7 +47,6 @@ from torch import nn
 
 from omni_mercury_engine.detectors.vlm.base_vlm import BaseVLMDetector, VLMConfig
 from omni_mercury_engine.detectors.vlm.lvlm_backends import get_lvlm_backend
-
 
 logger = logging.getLogger(__name__)
 

@@ -33,7 +33,6 @@ from typing import Any
 
 import numpy as np
 
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from omni_mercury_engine.core.ethical_config import EthicalScalars

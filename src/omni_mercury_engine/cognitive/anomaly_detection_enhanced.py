@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Enhanced Anomaly Detection - Memory Graph and External Data Integration
 
@@ -49,7 +48,6 @@ from typing import Any
 
 import httpx
 import numpy as np
-
 
 try:
     import networkx as nx

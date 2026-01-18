@@ -47,7 +47,6 @@ from fastapi import HTTPException, Request, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 

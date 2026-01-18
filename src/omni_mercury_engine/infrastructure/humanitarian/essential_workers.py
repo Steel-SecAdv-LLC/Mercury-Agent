@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Essential Critical Infrastructure Workers monitoring.
 
 Monitors workforce continuity for 8 essential worker categories
