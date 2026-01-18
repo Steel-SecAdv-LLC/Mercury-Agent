@@ -43,6 +43,7 @@ from sklearn.neighbors import LocalOutlierFactor
 
 from omni_mercury_engine.utils.logging import LoggerMixin
 
+
 logger = logging.getLogger(__name__)
 
 

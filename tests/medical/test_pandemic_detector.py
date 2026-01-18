@@ -17,11 +17,11 @@ import torch
 from omni_mercury_engine.medical.pandemic.pandemic_detector import (
     CaseSurgeDetector,
     MutationTracker,
+    OutbreakSeverity,
     PandemicDetector,
     PandemicPredictionResult,
-    SeverityLevel,
     TransmissionNetworkAnalyzer,
-    VariantConcernLevel,
+    VariantConcern,
 )
 
 
@@ -115,7 +115,7 @@ class TestMutationTracker:
             "resistance_mutations": [],
         }
         result = tracker.track_mutations(genomic_data)
-        assert result["concern_level"] == VariantConcernLevel.MONITORING
+        assert result["concern_level"] == VariantConcern.MONITORING
         assert result["vaccine_escape_probability"] < 0.2
 
     def test_variant_of_interest(self, tracker: MutationTracker) -> None:
@@ -129,8 +129,8 @@ class TestMutationTracker:
         }
         result = tracker.track_mutations(genomic_data)
         assert result["concern_level"] in [
-            VariantConcernLevel.INTEREST,
-            VariantConcernLevel.CONCERN,
+            VariantConcern.INTEREST,
+            VariantConcern.CONCERN,
         ]
         assert result["vaccine_escape_probability"] > 0.2
 
@@ -145,8 +145,8 @@ class TestMutationTracker:
         }
         result = tracker.track_mutations(genomic_data)
         assert result["concern_level"] in [
-            VariantConcernLevel.CONCERN,
-            VariantConcernLevel.HIGH_CONSEQUENCE,
+            VariantConcern.CONCERN,
+            VariantConcern.HIGH_CONSEQUENCE,
         ]
         assert result["vaccine_escape_probability"] > 0.4
 
@@ -248,7 +248,7 @@ class TestPandemicDetector:
         }
         result = detector.predict_pandemic(pandemic_data)
         assert isinstance(result, PandemicPredictionResult)
-        assert result.severity_level == SeverityLevel.SPORADIC
+        assert result.severity_level == OutbreakSeverity.SPORADIC
 
     def test_cluster_detection(self, detector: PandemicDetector) -> None:
         """Test cluster outbreak detection."""
@@ -270,7 +270,7 @@ class TestPandemicDetector:
             },
         }
         result = detector.predict_pandemic(pandemic_data)
-        assert result.severity_level in [SeverityLevel.CLUSTER, SeverityLevel.OUTBREAK]
+        assert result.severity_level in [OutbreakSeverity.CLUSTER, OutbreakSeverity.OUTBREAK]
         assert result.case_surge_detected is True
 
     def test_epidemic_detection(self, detector: PandemicDetector) -> None:
@@ -293,7 +293,7 @@ class TestPandemicDetector:
             },
         }
         result = detector.predict_pandemic(pandemic_data)
-        assert result.severity_level in [SeverityLevel.EPIDEMIC, SeverityLevel.OUTBREAK]
+        assert result.severity_level in [OutbreakSeverity.EPIDEMIC, OutbreakSeverity.OUTBREAK]
         assert result.doubling_time_days < 5
 
     def test_pandemic_level_detection(self, detector: PandemicDetector) -> None:
@@ -319,7 +319,7 @@ class TestPandemicDetector:
             },
         }
         result = detector.predict_pandemic(pandemic_data)
-        assert result.severity_level == SeverityLevel.PANDEMIC
+        assert result.severity_level == OutbreakSeverity.PANDEMIC
         assert result.r0_estimate > 2.0
         assert len(result.public_health_actions) > 0
         assert len(result.containment_measures) > 0
@@ -386,23 +386,23 @@ class TestPandemicDetector:
         assert hasattr(result, "containment_measures")
 
 
-class TestSeverityLevels:
+class TestOutbreakSeverity:
     """Tests for severity level enumeration."""
 
     def test_severity_ordering(self) -> None:
         """Test that severity levels have correct ordering."""
-        assert SeverityLevel.SPORADIC.value == "sporadic"
-        assert SeverityLevel.CLUSTER.value == "cluster"
-        assert SeverityLevel.OUTBREAK.value == "outbreak"
-        assert SeverityLevel.EPIDEMIC.value == "epidemic"
-        assert SeverityLevel.PANDEMIC.value == "pandemic"
+        assert OutbreakSeverity.SPORADIC.value == "sporadic"
+        assert OutbreakSeverity.CLUSTER.value == "cluster"
+        assert OutbreakSeverity.OUTBREAK.value == "outbreak"
+        assert OutbreakSeverity.EPIDEMIC.value == "epidemic"
+        assert OutbreakSeverity.PANDEMIC.value == "pandemic"
 
     def test_concern_levels(self) -> None:
         """Test variant concern level enumeration."""
-        assert VariantConcernLevel.MONITORING.value == "monitoring"
-        assert VariantConcernLevel.INTEREST.value == "interest"
-        assert VariantConcernLevel.CONCERN.value == "concern"
-        assert VariantConcernLevel.HIGH_CONSEQUENCE.value == "high_consequence"
+        assert VariantConcern.MONITORING.value == "variant_under_monitoring"
+        assert VariantConcern.INTEREST.value == "variant_of_interest"
+        assert VariantConcern.CONCERN.value == "variant_of_concern"
+        assert VariantConcern.HIGH_CONSEQUENCE.value == "variant_of_high_consequence"
 
 
 class TestPandemicEdgeCases:
@@ -422,7 +422,7 @@ class TestPandemicEdgeCases:
         }
         result = detector.predict_pandemic(pandemic_data)
         assert result.outbreak_detected is False
-        assert result.severity_level == SeverityLevel.SPORADIC
+        assert result.severity_level == OutbreakSeverity.SPORADIC
 
     def test_single_spike_then_decline(self, detector: PandemicDetector) -> None:
         """Test spike followed by decline (not sustained outbreak)."""
@@ -433,7 +433,7 @@ class TestPandemicEdgeCases:
         }
         result = detector.predict_pandemic(pandemic_data)
         # Should not classify as sustained outbreak
-        assert result.severity_level in [SeverityLevel.SPORADIC, SeverityLevel.CLUSTER]
+        assert result.severity_level in [OutbreakSeverity.SPORADIC, OutbreakSeverity.CLUSTER]
 
     def test_missing_optional_data(self, detector: PandemicDetector) -> None:
         """Test with minimal required data."""
@@ -496,11 +496,11 @@ class TestPandemicIntegration:
 
         # Severity should escalate
         severity_order = [
-            SeverityLevel.SPORADIC,
-            SeverityLevel.CLUSTER,
-            SeverityLevel.OUTBREAK,
-            SeverityLevel.EPIDEMIC,
-            SeverityLevel.PANDEMIC,
+            OutbreakSeverity.SPORADIC,
+            OutbreakSeverity.CLUSTER,
+            OutbreakSeverity.OUTBREAK,
+            OutbreakSeverity.EPIDEMIC,
+            OutbreakSeverity.PANDEMIC,
         ]
         assert severity_order.index(week4_result.severity_level) >= severity_order.index(
             week1_result.severity_level

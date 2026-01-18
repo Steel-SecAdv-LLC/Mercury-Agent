@@ -103,7 +103,6 @@ import numpy as np
 import torch
 
 from omni_mercury_engine.core.config import EngineConfig
-from omni_mercury_engine.utils.logging import LoggerMixin
 from omni_mercury_engine.core.global_omni_scalar_network import (
     ScalarGroup,
     get_global_scalar_network,
@@ -138,6 +137,7 @@ from omni_mercury_engine.resilience.self_healing import SelfHealingEngine
 from omni_mercury_engine.security.intelligence_fusion import IntelligenceFusionEngine
 from omni_mercury_engine.security.threat_detection import ThreatDetector
 from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
+from omni_mercury_engine.utils.logging import LoggerMixin
 
 
 if TYPE_CHECKING:

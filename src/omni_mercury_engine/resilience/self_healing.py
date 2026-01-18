@@ -46,6 +46,7 @@ import numpy.typing as npt
 from omni_mercury_engine.core.config import ThresholdConfig
 from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker
 
+
 # Centralized thresholds for consistent behavior
 _thresholds = ThresholdConfig()
 

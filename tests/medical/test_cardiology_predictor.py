@@ -17,8 +17,8 @@ import torch
 from omni_mercury_engine.medical.cardiology.cardiology_predictor import (
     ArrhythmiaType,
     CardiacBiomarkerAnalyzer,
-    CardiologyPredictor,
     CardiologyPredictionResult,
+    CardiologyPredictor,
     ECGRhythmAnalyzer,
     FraminghamRiskCalculator,
 )
