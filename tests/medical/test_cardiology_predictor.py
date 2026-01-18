@@ -117,9 +117,10 @@ class TestCardiacBiomarkerAnalyzer:
         }
         result = analyzer.analyze_biomarkers(biomarkers)
         assert len(result["abnormal_markers"]) > 0
-        assert "heart failure" in str(result.get("recommendations", [])).lower() or result[
-            "heart_failure_indicator"
-        ]
+        assert (
+            "heart failure" in str(result.get("recommendations", [])).lower()
+            or result["heart_failure_indicator"]
+        )
 
     def test_mi_detection_combination(self, analyzer: CardiacBiomarkerAnalyzer) -> None:
         """Test MI detection with multiple elevated markers."""

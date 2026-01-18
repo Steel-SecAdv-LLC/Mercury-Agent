@@ -254,8 +254,10 @@ class TestICPMonitor:
             "motor_posturing": False,
         }
         result = monitor.assess_icp(icp_data)
-        assert "cpp_warning" in result or "low_cpp" in result or any(
-            "perfusion" in r.lower() for r in result.get("recommendations", [])
+        assert (
+            "cpp_warning" in result
+            or "low_cpp" in result
+            or any("perfusion" in r.lower() for r in result.get("recommendations", []))
         )
 
 

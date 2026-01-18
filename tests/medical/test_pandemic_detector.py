@@ -355,8 +355,15 @@ class TestPandemicDetector:
     def test_network_hotspot_integration(self, detector: PandemicDetector) -> None:
         """Test transmission network analysis integration."""
         pandemic_data = {
-            "case_data": {"daily_cases": [100, 150, 225, 338, 507, 760, 1140], "serial_interval_days": 5.0},
-            "genomic_data": {"mutation_count": 8, "spike_mutations": ["D614G"], "antigenic_distance": 0.8},
+            "case_data": {
+                "daily_cases": [100, 150, 225, 338, 507, 760, 1140],
+                "serial_interval_days": 5.0,
+            },
+            "genomic_data": {
+                "mutation_count": 8,
+                "spike_mutations": ["D614G"],
+                "antigenic_distance": 0.8,
+            },
             "network_data": {
                 "contact_density": 0.7,
                 "network_features": np.random.randn(10, 64),
@@ -370,7 +377,10 @@ class TestPandemicDetector:
     def test_result_structure(self, detector: PandemicDetector) -> None:
         """Test that result has all required fields."""
         pandemic_data = {
-            "case_data": {"daily_cases": [100, 120, 140, 160, 180, 200, 220], "serial_interval_days": 5.0},
+            "case_data": {
+                "daily_cases": [100, 120, 140, 160, 180, 200, 220],
+                "serial_interval_days": 5.0,
+            },
             "genomic_data": {"mutation_count": 5, "spike_mutations": [], "antigenic_distance": 0.5},
             "geographic_spread": {"countries_affected": 1, "continents_affected": 1},
         }
@@ -427,7 +437,10 @@ class TestPandemicEdgeCases:
     def test_single_spike_then_decline(self, detector: PandemicDetector) -> None:
         """Test spike followed by decline (not sustained outbreak)."""
         pandemic_data = {
-            "case_data": {"daily_cases": [100, 200, 500, 300, 150, 80, 40], "serial_interval_days": 5.0},
+            "case_data": {
+                "daily_cases": [100, 200, 500, 300, 150, 80, 40],
+                "serial_interval_days": 5.0,
+            },
             "genomic_data": {"mutation_count": 3, "spike_mutations": [], "antigenic_distance": 0.3},
             "geographic_spread": {"countries_affected": 1, "continents_affected": 1},
         }
@@ -438,7 +451,10 @@ class TestPandemicEdgeCases:
     def test_missing_optional_data(self, detector: PandemicDetector) -> None:
         """Test with minimal required data."""
         pandemic_data = {
-            "case_data": {"daily_cases": [100, 150, 225, 338, 507, 760, 1140], "serial_interval_days": 5.0},
+            "case_data": {
+                "daily_cases": [100, 150, 225, 338, 507, 760, 1140],
+                "serial_interval_days": 5.0,
+            },
         }
         result = detector.predict_pandemic(pandemic_data)
         assert isinstance(result, PandemicPredictionResult)
@@ -451,7 +467,11 @@ class TestPandemicEdgeCases:
 
         pandemic_data = {
             "case_data": {"daily_cases": daily_cases, "serial_interval_days": 5.0},
-            "genomic_data": {"mutation_count": 10, "spike_mutations": ["D614G"], "antigenic_distance": 1.0},
+            "genomic_data": {
+                "mutation_count": 10,
+                "spike_mutations": ["D614G"],
+                "antigenic_distance": 1.0,
+            },
             "geographic_spread": {"countries_affected": 10, "continents_affected": 2},
         }
         result = detector.predict_pandemic(pandemic_data)
@@ -482,7 +502,10 @@ class TestPandemicIntegration:
 
         # Week 4: Escalation with new mutations
         week4_data = {
-            "case_data": {"daily_cases": [500, 750, 1125, 1688, 2532, 3798, 5697], "serial_interval_days": 5.0},
+            "case_data": {
+                "daily_cases": [500, 750, 1125, 1688, 2532, 3798, 5697],
+                "serial_interval_days": 5.0,
+            },
             "genomic_data": {
                 "mutation_count": 18,
                 "spike_mutations": ["N501Y", "E484K", "K417N"],
@@ -513,16 +536,30 @@ class TestPandemicIntegration:
 
         # Peak outbreak
         peak_data = {
-            "case_data": {"daily_cases": [1000, 1200, 1400, 1500, 1450, 1300, 1100], "serial_interval_days": 5.0},
-            "genomic_data": {"mutation_count": 10, "spike_mutations": ["D614G"], "antigenic_distance": 1.0},
+            "case_data": {
+                "daily_cases": [1000, 1200, 1400, 1500, 1450, 1300, 1100],
+                "serial_interval_days": 5.0,
+            },
+            "genomic_data": {
+                "mutation_count": 10,
+                "spike_mutations": ["D614G"],
+                "antigenic_distance": 1.0,
+            },
             "geographic_spread": {"countries_affected": 5, "continents_affected": 1},
         }
         peak_result = detector.predict_pandemic(peak_data)
 
         # Post-containment
         contained_data = {
-            "case_data": {"daily_cases": [500, 400, 320, 256, 205, 164, 131], "serial_interval_days": 5.0},
-            "genomic_data": {"mutation_count": 10, "spike_mutations": ["D614G"], "antigenic_distance": 1.0},
+            "case_data": {
+                "daily_cases": [500, 400, 320, 256, 205, 164, 131],
+                "serial_interval_days": 5.0,
+            },
+            "genomic_data": {
+                "mutation_count": 10,
+                "spike_mutations": ["D614G"],
+                "antigenic_distance": 1.0,
+            },
             "geographic_spread": {"countries_affected": 5, "continents_affected": 1},
         }
         contained_result = detector.predict_pandemic(contained_data)
