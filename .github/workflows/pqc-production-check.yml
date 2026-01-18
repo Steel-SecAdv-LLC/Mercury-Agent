@@ -24,9 +24,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Install liboqs-python for real PQC
+      - name: Install PQC backends
         run: |
-          pip install liboqs-python || echo "liboqs-python installation failed - will use simulation mode"
+          # Try Ava Guardian first (Primary)
+          pip install ava-guardian || echo "Ava Guardian not available"
+          # Fallback to liboqs (Secondary)
+          pip install liboqs-python || echo "liboqs-python not available"
+
+      - name: Verify backend hierarchy
+        run: |
+          python -c "
+          from omni_mercury_engine.security.pqc_backends import get_active_backend
+          backend = get_active_backend()
+          print(f'Active PQC backend: {backend.value}')
+          assert backend.value != 'simulation', 'CI must use real PQC backend'
+          "
 
       - name: Run security tests with real PQC requirement
         env:
@@ -40,16 +52,33 @@ jobs:
           import sys
           try:
               from omni_mercury_engine.security.pqc_guards import check_pqc_production_readiness
+              from omni_mercury_engine.security.pqc_backends import get_active_backend, PQCBackend
+              
+              # Check backend hierarchy
+              backend = get_active_backend()
+              print(f'Active PQC backend: {backend.value}')
+              
+              # Verify not using simulation
+              if backend == PQCBackend.SIMULATION:
+                  print('ERROR: Running with SIMULATION backend - not allowed in CI')
+                  sys.exit(1)
+              
+              # Check production readiness
               results = check_pqc_production_readiness()
-              if all(results.values()):
-                  print('All PQC algorithms using real implementations')
-                  sys.exit(0)
+              print(f'Backend details: {results}')
+              
+              if results.get('ava_guardian'):
+                  print('Using Ava Guardian (PRIMARY) - all PQC algorithms supported')
+              elif results.get('liboqs'):
+                  print('Using liboqs-python (SECONDARY) - all PQC algorithms supported')
+              elif results.get('pqcrypto'):
+                  print('Using pqcrypto (TERTIARY) - limited algorithm support')
               else:
-                  missing = [k for k, v in results.items() if not v]
-                  print(f'WARNING: Simulation mode active for: {missing}')
-                  print('Install liboqs-python for production security')
-                  sys.exit(0)  # Warning only, not failure
+                  print('WARNING: No real PQC backend detected')
+                  sys.exit(1)
+              
+              sys.exit(0)
           except ImportError as e:
               print(f'PQC guards not available: {e}')
-              sys.exit(0)  # Allow CI to pass during development
+              sys.exit(1)  # Fail CI if PQC module not available
           "
