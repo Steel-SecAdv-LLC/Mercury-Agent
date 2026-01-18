@@ -257,9 +257,13 @@ def generate_kyber_keypair() -> KyberKeyPair:
         return KyberKeyPair(public_key=public_key, secret_key=secret_key, algorithm="Kyber512")
 
     logger.warning("Using simulated Kyber keys (NOT SECURE)")
+    # For simulation consistency, embed public_key at start of secret_key
+    # so that encapsulate/decapsulate can use the same derived material
+    public_key = os.urandom(1568)
+    secret_key = public_key + os.urandom(3168 - 1568)
     return KyberKeyPair(
-        public_key=os.urandom(1568),
-        secret_key=os.urandom(3168),
+        public_key=public_key,
+        secret_key=secret_key,
         algorithm="Kyber1024-SIMULATED",
     )
 
@@ -308,6 +312,7 @@ def kyber_decapsulate(ciphertext: bytes, secret_key: bytes) -> bytes:
         return cast("bytes", kyber_fallback.decap(secret_key, ciphertext))
 
     logger.warning("Using simulated decapsulation (NOT SECURE)")
+    # secret_key[:1568] is the public_key portion, matching what encapsulate() uses
     return hashlib.sha3_256(secret_key[:1568]).digest()
 
 
