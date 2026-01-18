@@ -20,17 +20,37 @@ from __future__ import annotations
 
 
 """
-Post-Quantum Cryptography Backends for Mercury Agent ♱
+Mercury Agent ♱ - Post-Quantum Cryptography Backends
+
+SECURITY NOTICE
+===============
+Backend audit status:
+
+| Backend       | Status                    | Recommendation           |
+|---------------|---------------------------|--------------------------|
+| Ava Guardian  | Community-tested, NOT audited | Development/Testing    |
+| liboqs-python | Research-grade            | Development/Testing      |
+| pqcrypto      | Experimental              | Development only         |
+| SIMULATION    | NOT SECURE                | BLOCKED in production    |
+
+For production deployments requiring compliance:
+- Obtain independent security audit of chosen backend
+- Consider FIPS 140-2 Level 3+ HSM for master secrets
+- Document risk acceptance for unaudited cryptographic code
+
+The algorithms (ML-DSA-65, Kyber-1024, SPHINCS+) are NIST-approved.
+Implementation correctness is NOT externally verified.
+
+PQC Backend Priority:
+1. Ava Guardian (ava_guardian) - Primary, full-featured
+2. liboqs-python (oqs) - Secondary fallback
+3. pqcrypto - Tertiary fallback
+4. SIMULATION - Fail-fast (blocked in production)
 
 Provides quantum-resistant cryptographic primitives using NIST-approved algorithms:
 - ML-DSA-65 (Dilithium): Digital signatures (FIPS 204)
 - Kyber-1024: Key Encapsulation Mechanism (FIPS 203)
 - SPHINCS+-256f: Hash-based signatures for long-term security
-
-Backend Detection Priority:
-1. liboqs-python (preferred, constant-time)
-2. pqcrypto (fallback, may have timing variations)
-3. Simulation mode (for testing without PQC libraries)
 
 Security Note:
     Set AVA_REQUIRE_CONSTANT_TIME=true in production to enforce
@@ -38,6 +58,7 @@ Security Note:
 
 References:
     - NIST PQC Standardization: https://csrc.nist.gov/projects/post-quantum-cryptography
+    - Ava Guardian: https://github.com/Steel-SecAdv-LLC/Ava-Guardian
     - liboqs: https://openquantumsafe.org/
     - Dilithium: https://pq-crystals.org/dilithium/
     - Kyber: https://pq-crystals.org/kyber/
@@ -53,24 +74,52 @@ from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
+# Backend availability flags
+AVA_GUARDIAN_AVAILABLE = False
 LIBOQS_AVAILABLE = False
 PQCRYPTO_AVAILABLE = False
 DILITHIUM_AVAILABLE = False
 KYBER_AVAILABLE = False
 SPHINCS_AVAILABLE = False
 
-try:
-    import oqs
+# Try Ava Guardian first (Primary)
+# Use importlib.util.find_spec to check availability without importing unused functions
+import importlib.util
 
-    LIBOQS_AVAILABLE = True
-    DILITHIUM_AVAILABLE = True
-    KYBER_AVAILABLE = True
-    SPHINCS_AVAILABLE = True
-    logger.info("liboqs backend detected (constant-time implementations)")
-except ImportError:
-    logger.debug("liboqs not available, checking pqcrypto fallback")
 
-if not LIBOQS_AVAILABLE:
+if importlib.util.find_spec("ava_guardian") is not None:
+    try:
+        # Verify the crypto module is accessible
+        import ava_guardian.crypto  # noqa: F401
+
+        AVA_GUARDIAN_AVAILABLE = True
+        DILITHIUM_AVAILABLE = True
+        KYBER_AVAILABLE = True
+        SPHINCS_AVAILABLE = True
+        logger.info("Ava Guardian PQC backend loaded (PRIMARY)")
+    except ImportError:
+        # ava_guardian package exists but crypto module not accessible
+        logger.debug("Ava Guardian package found but crypto module not available")
+else:
+    # Ava Guardian not installed - will try fallback backends
+    logger.debug("Ava Guardian not available, trying fallbacks")
+
+# Try liboqs-python second (Secondary)
+if not AVA_GUARDIAN_AVAILABLE:
+    try:
+        import oqs
+
+        LIBOQS_AVAILABLE = True
+        DILITHIUM_AVAILABLE = True
+        KYBER_AVAILABLE = True
+        SPHINCS_AVAILABLE = True
+        logger.info("liboqs-python PQC backend loaded (SECONDARY)")
+    except ImportError:
+        # liboqs not installed - will try pqcrypto fallback
+        logger.debug("liboqs not available, checking pqcrypto fallback")
+
+# Try pqcrypto third (Tertiary)
+if not AVA_GUARDIAN_AVAILABLE and not LIBOQS_AVAILABLE:
     try:
         import pqcrypto.kem.kyber512 as kyber_fallback
         import pqcrypto.sign.dilithium2 as dilithium_fallback
@@ -79,24 +128,28 @@ if not LIBOQS_AVAILABLE:
         DILITHIUM_AVAILABLE = True
         KYBER_AVAILABLE = True
         logger.warning(
-            "Using pqcrypto fallback - may have timing variations. "
-            "Install liboqs-python for constant-time implementations."
+            "Using pqcrypto fallback (TERTIARY) - may have timing variations. "
+            "Install ava-guardian or liboqs-python for production security."
         )
     except ImportError:
-        logger.info("No PQC backend available, using simulation mode")
+        # No real PQC backend available - will use simulation mode
+        logger.warning("No PQC backend available, using SIMULATION mode (NOT SECURE)")
 
 
 class PQCBackend(Enum):
     """Available PQC backend implementations."""
 
+    AVA_GUARDIAN = "ava-guardian"
     LIBOQS = "liboqs"
     PQCRYPTO = "pqcrypto"
     SIMULATION = "simulation"
 
 
 def get_active_backend() -> PQCBackend:
-    """Get the currently active PQC backend."""
-    if LIBOQS_AVAILABLE:
+    """Return the name of the active PQC backend."""
+    if AVA_GUARDIAN_AVAILABLE:
+        return PQCBackend.AVA_GUARDIAN
+    elif LIBOQS_AVAILABLE:
         return PQCBackend.LIBOQS
     elif PQCRYPTO_AVAILABLE:
         return PQCBackend.PQCRYPTO
@@ -488,10 +541,10 @@ def validate_pqc_environment() -> dict[str, Any]:
     warnings: list[str] = []
 
     # Check constant-time requirement
-    if require_constant_time() and not LIBOQS_AVAILABLE:
+    if require_constant_time() and not (AVA_GUARDIAN_AVAILABLE or LIBOQS_AVAILABLE):
         issues.append(
-            "AVA_REQUIRE_CONSTANT_TIME=true but liboqs not available. "
-            "Install liboqs-python for production security."
+            "AVA_REQUIRE_CONSTANT_TIME=true but no constant-time backend available. "
+            "Install ava-guardian or liboqs-python for production security."
         )
 
     # Check backend security level
@@ -499,12 +552,12 @@ def validate_pqc_environment() -> dict[str, Any]:
     if backend == PQCBackend.SIMULATION:
         warnings.append(
             "Using SIMULATION backend - cryptographic operations are NOT SECURE. "
-            "Install liboqs-python or pqcrypto for real PQC."
+            "Install ava-guardian (primary) or liboqs-python (secondary) for real PQC."
         )
     elif backend == PQCBackend.PQCRYPTO:
         warnings.append(
-            "Using pqcrypto backend - may have timing side-channels. "
-            "Upgrade to liboqs-python for constant-time implementations."
+            "Using pqcrypto backend (tertiary) - may have timing side-channels. "
+            "Upgrade to ava-guardian or liboqs-python for constant-time implementations."
         )
 
     # Check algorithm availability
@@ -515,7 +568,11 @@ def validate_pqc_environment() -> dict[str, Any]:
     if not SPHINCS_AVAILABLE:
         warnings.append("SPHINCS+ not available for hash-based signatures.")
 
-    is_production_ready = len(issues) == 0 and backend == PQCBackend.LIBOQS
+    # Production ready if using Ava Guardian or liboqs (both provide constant-time implementations)
+    is_production_ready = len(issues) == 0 and backend in (
+        PQCBackend.AVA_GUARDIAN,
+        PQCBackend.LIBOQS,
+    )
 
     result = {
         "production_ready": is_production_ready,
@@ -532,6 +589,7 @@ def validate_pqc_environment() -> dict[str, Any]:
 
 
 __all__ = [
+    "AVA_GUARDIAN_AVAILABLE",
     "DILITHIUM_AVAILABLE",
     "KYBER_AVAILABLE",
     "LIBOQS_AVAILABLE",

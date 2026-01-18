@@ -118,6 +118,16 @@ fairness = [
     "fairlearn>=0.9.0",
 ]
 
+# Post-Quantum Cryptography - Primary backend (Ava Guardian)
+pqc = [
+    "ava-guardian>=0.1.0",  # Primary: Steel Security PQC framework
+]
+
+# Post-Quantum Cryptography - Fallback backends
+pqc-fallback = [
+    "liboqs-python>=0.9.0",  # Secondary: liboqs bindings (constant-time)
+]
+
 # Efficiency optimizations
 optimization = [
     "joblib>=1.3.0",
