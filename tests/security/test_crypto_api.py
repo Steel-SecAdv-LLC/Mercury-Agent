@@ -598,9 +598,9 @@ class TestPQCRealImplementation:
             encapsulated = kyber_encapsulate(keypair.public_key)
             recovered = kyber_decapsulate(encapsulated.ciphertext, keypair.secret_key)
 
-            assert recovered == encapsulated.shared_secret, (
-                "Real PQC should produce matching shared secrets"
-            )
+            assert (
+                recovered == encapsulated.shared_secret
+            ), "Real PQC should produce matching shared secrets"
         except ImportError:
             pytest.skip("PQC backends not available")
 
