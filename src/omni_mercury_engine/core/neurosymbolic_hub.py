@@ -30,8 +30,13 @@ from typing import Any
 import numpy as np
 from scipy.optimize import minimize
 
+from omni_mercury_engine.core.config import ThresholdConfig
+
 
 logger = logging.getLogger(__name__)
+
+# Centralized thresholds for consistent behavior
+_thresholds = ThresholdConfig()
 
 # Constants
 PHI = 1.618033988749895  # Golden ratio
@@ -802,9 +807,8 @@ class NeuroSymbolicHub:
             )
             confidence = min(max(confidence, 0.0), 1.0)
 
-            # Determine if anomaly
-            threshold = 0.5
-            is_anomaly = fused_score > threshold
+            # Determine if anomaly using centralized threshold
+            is_anomaly = fused_score > _thresholds.anomaly_default
 
             # Check ethical compliance
             benevolence_score = self._compute_benevolence(sample_context, fused_score)

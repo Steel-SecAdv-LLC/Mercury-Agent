@@ -43,8 +43,12 @@ from typing import Any
 import numpy as np
 from scipy import stats
 
+from omni_mercury_engine.core.config import ThresholdConfig
 from omni_mercury_engine.core.ethical_config import DEFAULT_CONFIG, EthicalScalars
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
+
+# Centralized thresholds for consistent behavior
+_thresholds = ThresholdConfig()
 
 
 @dataclass
@@ -126,9 +130,7 @@ class SigmaDirective:
             + truth_score * self.directive_weights[self.TRUTH]
         ) / sum(self.directive_weights.values())
 
-        threshold = 0.8
-
-        if weighted_score < threshold:
+        if weighted_score < _thresholds.sigma_directive:
             reasoning = self._generate_override_reasoning(
                 justice_score, altruism_score, compassion_score, truth_score
             )
@@ -348,8 +350,7 @@ class EthicalAutonomyGovernor:
 
         statistical_parity = 1.0 - min(demographic_parity_diff, 1.0)
 
-        bias_threshold = 0.1
-        bias_detected = demographic_parity_diff > bias_threshold
+        bias_detected = demographic_parity_diff > _thresholds.bias_detection
 
         mitigation_applied = False
         if bias_detected:

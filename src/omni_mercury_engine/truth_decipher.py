@@ -55,6 +55,7 @@ from omni_mercury_engine.cognitive.case_based_reasoning import CaseOutcome
 from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
 from omni_mercury_engine.core.ai_ethics import EthicalAutonomyGovernor, EthicsResult
 from omni_mercury_engine.core.config import EngineConfig
+from omni_mercury_engine.utils.logging import LoggerMixin
 from omni_mercury_engine.core.novel_class_discovery import NovelClassDiscovery
 from omni_mercury_engine.core.self_healing import CRISPRInspiredSelfHealing
 from omni_mercury_engine.core.three_r_mechanism import ThreeRMechanism
@@ -100,7 +101,7 @@ class TruthDecipherResult:
     blocked_reason: str | None = None
 
 
-class TruthDecipherFramework:
+class TruthDecipherFramework(LoggerMixin):
     """
     Unified orchestrator for anomaly discovery, identification,
     ethical evaluation, and resolution.
@@ -131,7 +132,6 @@ class TruthDecipherFramework:
         self.enable_novel_discovery = enable_novel_discovery
         self.enable_self_healing = enable_self_healing
         self.enable_cognitive = enable_cognitive
-        self.logger = logging.getLogger(__name__)
 
         # Core detection
         self.anomaly_engine = OmniMercuryEngine(config=self.config)

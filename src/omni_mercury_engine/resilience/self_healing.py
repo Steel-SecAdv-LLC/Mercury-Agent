@@ -43,7 +43,11 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import numpy.typing as npt
 
+from omni_mercury_engine.core.config import ThresholdConfig
 from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker
+
+# Centralized thresholds for consistent behavior
+_thresholds = ThresholdConfig()
 
 
 if TYPE_CHECKING:
@@ -387,9 +391,10 @@ class AdaptiveDefenseSystem:
         for _sig_id, signature in self.signature_library.items():
             signature.confidence *= 1 - self.adaptation_rate
 
-        threshold = 0.5
         signatures_to_remove = [
-            sig_id for sig_id, sig in self.signature_library.items() if sig.confidence < threshold
+            sig_id
+            for sig_id, sig in self.signature_library.items()
+            if sig.confidence < _thresholds.anomaly_default
         ]
 
         for sig_id in signatures_to_remove:

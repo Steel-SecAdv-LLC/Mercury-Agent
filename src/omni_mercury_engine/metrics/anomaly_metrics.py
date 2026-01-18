@@ -32,8 +32,13 @@ from typing import Any
 import numpy as np
 from scipy.ndimage import label as connected_components
 
+from omni_mercury_engine.core.config import ThresholdConfig
+
 
 logger = logging.getLogger(__name__)
+
+# Centralized thresholds for consistent behavior
+_thresholds = ThresholdConfig()
 
 
 def _to_numpy(arr: Any) -> np.ndarray[Any, Any]:
@@ -164,7 +169,7 @@ def compute_f1_max(
     thresholds = np.linspace(y_score.min(), y_score.max(), n_thresholds)
 
     best_f1 = 0.0
-    best_threshold = 0.5
+    best_threshold = _thresholds.anomaly_default
 
     for thresh in thresholds:
         y_pred = (y_score >= thresh).astype(int)
@@ -209,7 +214,7 @@ def compute_optimal_threshold(
 
     thresholds = np.linspace(y_score.min(), y_score.max(), 100)
     best_score = 0.0
-    best_threshold = 0.5
+    best_threshold = _thresholds.anomaly_default
 
     for thresh in thresholds:
         y_pred = (y_score >= thresh).astype(int)

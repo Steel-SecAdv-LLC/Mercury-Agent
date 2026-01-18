@@ -51,6 +51,7 @@ from omni_mercury_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGra
 from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
 from omni_mercury_engine.cognitive.plasticity_engine import AdaptationType, PlasticityEngine
 from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+from omni_mercury_engine.utils.logging import LoggerMixin
 
 
 logger = logging.getLogger(__name__)
@@ -112,7 +113,7 @@ class CognitiveAnalysisResult:
         }
 
 
-class CognitiveOrchestrator:
+class CognitiveOrchestrator(LoggerMixin):
     """
     Unified Cognitive Layer for Mercury-Agent.
 

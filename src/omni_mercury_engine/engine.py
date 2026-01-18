@@ -103,6 +103,7 @@ import numpy as np
 import torch
 
 from omni_mercury_engine.core.config import EngineConfig
+from omni_mercury_engine.utils.logging import LoggerMixin
 from omni_mercury_engine.core.global_omni_scalar_network import (
     ScalarGroup,
     get_global_scalar_network,
@@ -354,7 +355,7 @@ class MemoryMonitor:
         }
 
 
-class OmniMercuryEngine:
+class OmniMercuryEngine(LoggerMixin):
     """Unified anomaly detection engine with ML-Centric Hybrid Fusion.
 
     This is the main entry point for the Mercury Agent ♱ anomaly detection system.

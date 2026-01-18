@@ -51,6 +51,7 @@ from torch import nn
 from omni_mercury_engine.core.three_r_mechanism import ResonanceEngine, ThreeRMechanism
 from omni_mercury_engine.models.multiverse import MultiverseOmniEngine
 from omni_mercury_engine.security.threat_detection import ThreatDetector
+from omni_mercury_engine.utils.logging import LoggerMixin
 
 
 @dataclass
@@ -366,7 +367,7 @@ class EncryptedTrafficAnomalyDetector:
         return recs
 
 
-class CyberFortress:
+class CyberFortress(LoggerMixin):
     """
     Unified Cyber Fortress for proactive threat elimination.
 

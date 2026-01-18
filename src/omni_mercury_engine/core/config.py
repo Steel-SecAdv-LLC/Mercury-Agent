@@ -149,6 +149,16 @@ class ThresholdConfig:
     symbolic_weight: float = 0.4
     """Weight for symbolic component in hybrid scoring."""
 
+    # Bias detection thresholds
+    bias_detection: float = 0.1
+    """Threshold for demographic parity bias detection."""
+
+    sigma_directive: float = 0.8
+    """Threshold for Sigma Directive approval of actions."""
+
+    pattern_detection: float = 0.6
+    """Threshold for geometric pattern detection in ethical alignment."""
+
 
 @dataclass
 class EngineConfig:
