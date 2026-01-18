@@ -57,15 +57,17 @@ def check_pqc_production_readiness() -> dict[str, bool]:
         "sphincs": False,
     }
 
-    # Check liboqs
+    # Check liboqs (primary PQC backend)
     try:
         import oqs  # noqa: F401
 
         results["dilithium"] = True
         results["kyber"] = True
         results["sphincs"] = True
+        logger.debug("liboqs-python available - all PQC algorithms supported")
     except ImportError:
-        pass
+        # liboqs not installed - will try fallback backends
+        logger.debug("liboqs-python not available, checking fallback backends")
 
     # Check pqcrypto fallback
     if not all(results.values()):
@@ -73,15 +75,19 @@ def check_pqc_production_readiness() -> dict[str, bool]:
             import pqcrypto.sign.dilithium2 as _
 
             results["dilithium"] = True
+            logger.debug("pqcrypto dilithium available")
         except ImportError:
-            pass
+            # pqcrypto dilithium not available - algorithm will use simulation
+            logger.debug("pqcrypto dilithium not available")
 
         try:
             import pqcrypto.kem.kyber512 as _  # noqa: F401
 
             results["kyber"] = True
+            logger.debug("pqcrypto kyber available")
         except ImportError:
-            pass
+            # pqcrypto kyber not available - algorithm will use simulation
+            logger.debug("pqcrypto kyber not available")
 
     # Enforce production requirement if set
     require_real = os.environ.get("AVA_REQUIRE_REAL_PQC", "").lower() in (
