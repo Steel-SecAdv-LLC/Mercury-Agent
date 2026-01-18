@@ -284,11 +284,13 @@ class TestHybridCryptography:
             from omni_mercury_engine.security.crypto_api import HybridSignatureProvider
 
             provider = HybridSignatureProvider()
-            keypairs = provider.generate_keypairs()
+            classical_kp, pqc_kp = provider.generate_keypairs()
 
-            assert "classical" in keypairs
-            assert "pqc" in keypairs
-            assert keypairs["classical"].algorithm == AlgorithmType.ED25519
+            # classical_kp may be None if Ed25519 is not available
+            assert pqc_kp is not None
+            assert pqc_kp.algorithm == AlgorithmType.ML_DSA_65
+            if classical_kp is not None:
+                assert classical_kp.algorithm == AlgorithmType.ED25519
         except ImportError:
             pytest.skip("Hybrid provider not available")
 
@@ -298,12 +300,22 @@ class TestHybridCryptography:
             from omni_mercury_engine.security.crypto_api import HybridSignatureProvider
 
             provider = HybridSignatureProvider()
-            keypairs = provider.generate_keypairs()
+            classical_kp, pqc_kp = provider.generate_keypairs()
             message = b"Hybrid security message"
 
-            hybrid_sig = provider.sign(message, keypairs)
-            is_valid = provider.verify(message, hybrid_sig, keypairs)
-            assert is_valid is True
+            # sign() requires: message, classical_secret (or None), pqc_secret
+            classical_secret = classical_kp.secret_key if classical_kp else None
+            hybrid_sig = provider.sign(message, classical_secret, pqc_kp.secret_key)
+
+            # verify() requires: message, hybrid_sig, classical_public (or None), pqc_public
+            # Returns tuple (classical_valid, pqc_valid)
+            classical_public = classical_kp.public_key if classical_kp else None
+            classical_valid, pqc_valid = provider.verify(
+                message, hybrid_sig, classical_public, pqc_kp.public_key
+            )
+            assert pqc_valid is True
+            if classical_kp is not None:
+                assert classical_valid is True
         except ImportError:
             pytest.skip("Hybrid provider not available")
 
