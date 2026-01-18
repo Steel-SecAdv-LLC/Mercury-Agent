@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2026-01-17
+
+### Fixed
+- Statistical detector now outputs continuous scores instead of discrete boolean flags
+- Adaptive contamination estimation replaces hardcoded 0.1 default
+- Dynamic projection layers cached in ModuleDict to prevent memory leaks
+- 3D tensor inputs properly handled in fusion model forward pass
+- Soft score normalization preserves ranking information
+- Semi-supervised detector fitting prevents zero-variance score cascade
+
+### Added
+- `fit_fusion()` method for training OmniFusionModel
+- `calibrate_scores()` for isotonic/Platt calibration
+- `tune_hyperparameters()` for Optuna-based optimization
+- `visualize_embeddings()` for t-SNE/UMAP analysis
+- `add_detector()` for runtime detector registration
+- Numba JIT optimization for spatial distance computations
+- 45+ new tests for fusion training and signal integrity
+
 ## [1.1.1] - 2026-01-16
 
 ### Fixed - Benchmark Regeneration & CodeQL Cleanup

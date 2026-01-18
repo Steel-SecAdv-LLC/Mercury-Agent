@@ -150,7 +150,15 @@ class SigmaDirectiveDetector(BaseDetector):
         return torch.tensor(features, dtype=torch.float32)
 
     def _pattern_convergence_protocol(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """PCP: Detect pattern convergence anomalies"""
+        """PCP: Detect pattern convergence anomalies.
+
+        Returns continuous scores without hard clipping to preserve
+        ranking information for downstream fusion models.
+
+        Fix for Issue #7: No Score Continuity. Previously used
+        np.minimum(..., 1.0) which capped scores, losing differentiation
+        between extreme anomalies. Now uses soft normalization.
+        """
         if data.ndim == 1:
             data = data.reshape(-1, 1)
 
@@ -158,7 +166,9 @@ class SigmaDirectiveDetector(BaseDetector):
 
         normalized_diffs = convergence_diffs / (np.linalg.norm(self.baseline_pattern) + 1e-6)
 
-        scores = np.minimum(normalized_diffs / self.convergence_threshold, 1.0)
+        # Soft normalization: x / (threshold + x) approaches 1 asymptotically
+        # Preserves ordering while keeping scores in [0, 1) range
+        scores = normalized_diffs / (self.convergence_threshold + normalized_diffs)
 
         return scores
 
@@ -179,7 +189,12 @@ class SigmaDirectiveDetector(BaseDetector):
         return scores * self.stability_factor
 
     def _recursive_memory_dynamics(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """RMD: Detect anomalies using recursive memory"""
+        """RMD: Detect anomalies using recursive memory.
+
+        Returns continuous scores without hard clipping.
+
+        Fix for Issue #7: Uses soft normalization instead of min(deviation, 1.0).
+        """
         scores = np.zeros(len(data))
 
         for i, sample in enumerate(data):
@@ -190,7 +205,8 @@ class SigmaDirectiveDetector(BaseDetector):
             if len(self.memory_buffer) > 1:
                 memory_mean = np.mean(self.memory_buffer, axis=0)
                 deviation = np.linalg.norm(sample - memory_mean)
-                scores[i] = min(deviation, 1.0)
+                # Soft normalization: deviation / (1 + deviation) for [0, 1) range
+                scores[i] = deviation / (1.0 + deviation)
 
         return scores
 

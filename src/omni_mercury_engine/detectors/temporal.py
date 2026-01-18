@@ -108,7 +108,15 @@ class TemporalAnomalyDetector(BaseDetector):
         return lstm_features
 
     def _detect_trend_anomalies(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Detect anomalies based on trend deviation"""
+        """Detect anomalies based on trend deviation.
+
+        Returns continuous scores without hard clipping to preserve
+        ranking information for downstream fusion models.
+
+        Fix for Issue #7: No Score Continuity. Previously used
+        np.minimum(z_score / 3.0, 1.0) which capped scores at 1.0,
+        losing differentiation between extreme anomalies.
+        """
         if len(data) < self.window_size:
             return np.zeros(len(data))
 
@@ -128,12 +136,19 @@ class TemporalAnomalyDetector(BaseDetector):
                 z_scores = np.abs((current - window_mean) / window_std)
                 z_score = np.max(z_scores)
 
-            scores[i] = np.minimum(z_score / 3.0, 1.0)
+            # Continuous score: sigmoid-like transformation for soft capping
+            # Preserves ordering while keeping scores in reasonable range
+            scores[i] = z_score / (3.0 + z_score)  # Asymptotic to 1.0
 
         return scores
 
     def _detect_sudden_changes(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Detect sudden changes in values"""
+        """Detect sudden changes in values.
+
+        Returns continuous scores without hard clipping.
+
+        Fix for Issue #7: Uses soft normalization instead of np.minimum().
+        """
         if len(data) < 2:
             return np.zeros(len(data))
 
@@ -148,8 +163,10 @@ class TemporalAnomalyDetector(BaseDetector):
         z_scores = np.abs(diffs - diff_mean) / diff_std
 
         if data.ndim == 1:
-            scores = np.minimum(z_scores / self.change_threshold, 1.0)
+            # Soft normalization: score / (threshold + score) for asymptotic behavior
+            scores = z_scores / (self.change_threshold + z_scores)
         else:
-            scores = np.minimum(np.max(z_scores, axis=1) / self.change_threshold, 1.0)
+            max_z = np.max(z_scores, axis=1)
+            scores = max_z / (self.change_threshold + max_z)
 
         return scores
