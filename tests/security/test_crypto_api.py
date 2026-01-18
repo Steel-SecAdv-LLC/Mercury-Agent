@@ -201,3 +201,235 @@ class TestAlgorithmTypeEnum:
         assert hasattr(AlgorithmType, "ED25519")
         # Post-quantum algorithms
         assert hasattr(AlgorithmType, "ML_DSA_65") or hasattr(AlgorithmType, "DILITHIUM")
+
+
+class TestPostQuantumProviders:
+    """Tests for Post-Quantum Cryptographic Providers."""
+
+    def test_mldsa_keypair_generation(self):
+        """Test ML-DSA-65 keypair generation."""
+        try:
+            from omni_mercury_engine.security.crypto_api import MLDSAProvider
+
+            provider = MLDSAProvider()
+            keypair = provider.generate_keypair()
+
+            assert keypair is not None
+            assert keypair.public_key is not None
+            assert keypair.secret_key is not None
+            assert keypair.algorithm == AlgorithmType.ML_DSA_65
+        except ImportError:
+            pytest.skip("ML-DSA provider not available")
+
+    def test_mldsa_sign_verify(self):
+        """Test ML-DSA-65 signature and verification."""
+        try:
+            from omni_mercury_engine.security.crypto_api import MLDSAProvider
+
+            provider = MLDSAProvider()
+            keypair = provider.generate_keypair()
+            message = b"Post-quantum secure message"
+
+            signature = provider.sign(message, keypair.secret_key)
+            is_valid = provider.verify(message, signature, keypair.public_key)
+            assert is_valid is True
+
+            # Wrong message should fail
+            is_valid = provider.verify(b"wrong", signature, keypair.public_key)
+            assert is_valid is False
+        except ImportError:
+            pytest.skip("ML-DSA provider not available")
+
+    def test_kyber_encapsulation(self):
+        """Test Kyber key encapsulation mechanism."""
+        try:
+            from omni_mercury_engine.security.crypto_api import KyberProvider
+
+            provider = KyberProvider()
+            keypair = provider.generate_keypair()
+
+            encapsulated = provider.encapsulate(keypair.public_key)
+            assert encapsulated is not None
+            assert encapsulated.ciphertext is not None
+            assert encapsulated.shared_secret is not None
+
+            # Decapsulation should recover same shared secret
+            recovered = provider.decapsulate(encapsulated.ciphertext, keypair.secret_key)
+            assert recovered == encapsulated.shared_secret
+        except ImportError:
+            pytest.skip("Kyber provider not available")
+
+    def test_sphincs_plus_signatures(self):
+        """Test SPHINCS+ hash-based signatures."""
+        try:
+            from omni_mercury_engine.security.crypto_api import SphincsProvider
+
+            provider = SphincsProvider()
+            keypair = provider.generate_keypair()
+            message = b"Hash-based signature test"
+
+            signature = provider.sign(message, keypair.secret_key)
+            is_valid = provider.verify(message, signature, keypair.public_key)
+            assert is_valid is True
+        except ImportError:
+            pytest.skip("SPHINCS+ provider not available")
+
+
+class TestHybridCryptography:
+    """Tests for Hybrid Classical+Post-Quantum Operations."""
+
+    def test_hybrid_keypair_generation(self):
+        """Test hybrid keypair generation includes both algorithms."""
+        try:
+            from omni_mercury_engine.security.crypto_api import HybridSignatureProvider
+
+            provider = HybridSignatureProvider()
+            keypairs = provider.generate_keypairs()
+
+            assert "classical" in keypairs
+            assert "pqc" in keypairs
+            assert keypairs["classical"].algorithm == AlgorithmType.ED25519
+        except ImportError:
+            pytest.skip("Hybrid provider not available")
+
+    def test_hybrid_signature_verification(self):
+        """Test hybrid signatures require both to verify."""
+        try:
+            from omni_mercury_engine.security.crypto_api import HybridSignatureProvider
+
+            provider = HybridSignatureProvider()
+            keypairs = provider.generate_keypairs()
+            message = b"Hybrid security message"
+
+            hybrid_sig = provider.sign(message, keypairs)
+            is_valid = provider.verify(message, hybrid_sig, keypairs)
+            assert is_valid is True
+        except ImportError:
+            pytest.skip("Hybrid provider not available")
+
+    def test_hybrid_security_level(self):
+        """Test MercuryCrypto with hybrid security level."""
+        crypto = MercuryCrypto(security_level=SecurityLevel.HYBRID)
+        caps = crypto.get_capabilities()
+        assert caps is not None
+
+
+class TestCryptoPackageOperations:
+    """Tests for Crypto Package Operations with Anomaly Data."""
+
+    def test_package_with_anomaly_detection_data(self):
+        """Test packaging typical anomaly detection output."""
+        crypto = MercuryCrypto(security_level=SecurityLevel.CLASSICAL)
+        anomaly_data = {
+            "detector": "omni_mercury_engine",
+            "anomaly_score": 0.87,
+            "is_anomaly": True,
+            "confidence": 0.92,
+            "timestamp": 1704067200,
+            "features": [0.1, 0.2, 0.3, 0.4, 0.5],
+        }
+
+        config = CryptoPackageConfig(
+            include_timestamp=True,
+            sign_data=True,
+        )
+
+        package = crypto.create_crypto_package(anomaly_data, config)
+        assert package is not None
+        assert package.data_hash is not None
+
+    def test_package_deterministic_hash(self):
+        """Test that hashing is deterministic."""
+        crypto = MercuryCrypto()
+        data = {"key": "value", "number": 42}
+        config = CryptoPackageConfig(include_timestamp=False, sign_data=False)
+
+        package1 = crypto.create_crypto_package(data, config)
+        package2 = crypto.create_crypto_package(data, config)
+        assert package1.data_hash == package2.data_hash
+
+    def test_package_different_data_different_hash(self):
+        """Test that different data produces different hash."""
+        crypto = MercuryCrypto()
+        config = CryptoPackageConfig(include_timestamp=False, sign_data=False)
+
+        package1 = crypto.create_crypto_package({"a": 1}, config)
+        package2 = crypto.create_crypto_package({"a": 2}, config)
+        assert package1.data_hash != package2.data_hash
+
+
+class TestCryptoEdgeCases:
+    """Edge case tests for cryptographic operations."""
+
+    def test_empty_message_signing(self):
+        """Test signing empty message."""
+        crypto = MercuryCrypto(security_level=SecurityLevel.CLASSICAL)
+        keypair = crypto.generate_signing_keypair()
+
+        signature = crypto.sign(b"", keypair.secret_key)
+        is_valid = crypto.verify(b"", signature, keypair.public_key)
+        assert is_valid is True
+
+    def test_large_message_signing(self):
+        """Test signing large message."""
+        crypto = MercuryCrypto(security_level=SecurityLevel.CLASSICAL)
+        keypair = crypto.generate_signing_keypair()
+        large_message = b"A" * (1024 * 1024)  # 1MB
+
+        signature = crypto.sign(large_message, keypair.secret_key)
+        is_valid = crypto.verify(large_message, signature, keypair.public_key)
+        assert is_valid is True
+
+    def test_binary_data_signing(self):
+        """Test signing binary data with all byte values."""
+        crypto = MercuryCrypto(security_level=SecurityLevel.CLASSICAL)
+        keypair = crypto.generate_signing_keypair()
+        binary_message = bytes(range(256))
+
+        signature = crypto.sign(binary_message, keypair.secret_key)
+        is_valid = crypto.verify(binary_message, signature, keypair.public_key)
+        assert is_valid is True
+
+    def test_keypair_uniqueness(self):
+        """Test that each keypair is unique."""
+        crypto = MercuryCrypto(security_level=SecurityLevel.CLASSICAL)
+        keypairs = [crypto.generate_signing_keypair() for _ in range(5)]
+
+        public_keys = [kp.public_key for kp in keypairs]
+        assert len(set(public_keys)) == len(public_keys)
+
+
+@pytest.mark.security
+class TestCryptoIntegration:
+    """Integration tests for complete cryptographic workflows."""
+
+    def test_key_rotation_scenario(self):
+        """Test key rotation preserves security guarantees."""
+        crypto = MercuryCrypto(security_level=SecurityLevel.CLASSICAL)
+
+        # Old keypair signs data
+        old_keypair = crypto.generate_signing_keypair()
+        data = b"Important data to sign"
+        old_sig = crypto.sign(data, old_keypair.secret_key)
+
+        # Rotate to new keypair
+        new_keypair = crypto.generate_signing_keypair()
+        new_sig = crypto.sign(data, new_keypair.secret_key)
+
+        # Verify old signature with old key still works
+        assert crypto.verify(data, old_sig, old_keypair.public_key) is True
+
+        # Verify new signature with new key works
+        assert crypto.verify(data, new_sig, new_keypair.public_key) is True
+
+        # Cross-verification fails (security property)
+        assert crypto.verify(data, old_sig, new_keypair.public_key) is False
+        assert crypto.verify(data, new_sig, old_keypair.public_key) is False
+
+    def test_multiple_algorithm_support(self):
+        """Test that multiple algorithms can be used together."""
+        crypto = MercuryCrypto()
+        caps = crypto.get_capabilities()
+
+        # Should support at least classical algorithms
+        assert caps is not None

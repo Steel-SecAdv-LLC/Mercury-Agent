@@ -539,7 +539,7 @@ class RealWorldBenchmarkSuite:
         lines.append("=" * 80)
 
         summary = "\n".join(lines)
-        print(summary)
+        logger.info("Benchmark Summary:\n%s", summary)
         return summary
 
     def save_results(self, filepath: str | Path) -> None:

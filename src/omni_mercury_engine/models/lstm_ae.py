@@ -9,6 +9,7 @@ A working anomaly detector that actually trains and detects.
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 
@@ -16,6 +17,10 @@ import numpy as np
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
+
+from omni_mercury_engine.utils.logging import LoggerMixin
+
+logger = logging.getLogger(__name__)
 
 
 class LSTMAutoencoder(nn.Module):
@@ -99,7 +104,7 @@ class LSTMAutoencoder(nn.Module):
         return error
 
 
-class AnomalyDetector:
+class AnomalyDetector(LoggerMixin):
     """
     Complete anomaly detection pipeline using LSTM-Autoencoder.
 
@@ -171,7 +176,7 @@ class AnomalyDetector:
         # Create sequences
         sequences = self._create_sequences(train_data)
         if verbose:
-            print(f"Created {len(sequences)} sequences of length {self.seq_len}")
+            self.logger.info("Created %d sequences of length %d", len(sequences), self.seq_len)
 
         # Train/val split
         n_val = int(len(sequences) * val_split)
@@ -225,7 +230,9 @@ class AnomalyDetector:
             scheduler.step(val_loss)
 
             if verbose and (epoch + 1) % 5 == 0:
-                print(f"Epoch {epoch+1}/{epochs} - Train: {train_loss:.6f}, Val: {val_loss:.6f}")
+                self.logger.info(
+                    "Epoch %d/%d - Train: %.6f, Val: %.6f", epoch + 1, epochs, train_loss, val_loss
+                )
 
             # Early stopping
             if val_loss < best_val_loss:
@@ -236,7 +243,7 @@ class AnomalyDetector:
                 patience_counter += 1
                 if patience_counter >= early_stopping:
                     if verbose:
-                        print(f"Early stopping at epoch {epoch+1}")
+                        self.logger.info("Early stopping at epoch %d", epoch + 1)
                     break
 
         # Load best model
@@ -253,7 +260,7 @@ class AnomalyDetector:
         self.threshold = np.percentile(train_errors, 95)
 
         if verbose:
-            print(f"Training complete. Threshold set to {self.threshold:.6f}")
+            self.logger.info("Training complete. Threshold set to %.6f", self.threshold)
 
         return history
 
