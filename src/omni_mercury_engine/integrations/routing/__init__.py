@@ -17,6 +17,7 @@ from omni_mercury_engine.integrations.routing.router import (
     RouteNotFoundError,
 )
 
+
 __all__ = [
     "FallbackChain",
     "FallbackError",

@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Benchmark Dataset Loaders for Mercury Agent.
 
@@ -39,6 +40,7 @@ from .base_dataset import (
 from .mvtec import MVTecADConfig, MVTecADDataset
 from .shanghai_tech import ShanghaiTechConfig, ShanghaiTechDataset
 from .ucf_crime import UCFCrimeConfig, UCFCrimeDataset
+
 
 __all__ = [
     "BaseDatasetConfig",

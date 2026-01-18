@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """Tests for Energy Optimization module"""
 
 from omni_mercury_engine.energy.energy_optimization import (

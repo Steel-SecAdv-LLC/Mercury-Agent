@@ -19,6 +19,7 @@ from typing import Any
 
 import numpy as np
 
+
 try:
     import pandas as pd
 
@@ -28,6 +29,7 @@ except ImportError:
     PANDAS_AVAILABLE = False
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+
 
 logger = logging.getLogger(__name__)
 

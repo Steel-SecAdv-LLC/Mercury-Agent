@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
+
 """
 Oceanography-Inspired Pattern Recognition Module
 

@@ -24,6 +24,7 @@ from typing import Any
 import numpy as np
 from scipy import linalg
 
+
 logger = logging.getLogger(__name__)
 
 # Constants

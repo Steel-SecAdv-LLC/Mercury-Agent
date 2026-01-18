@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Neural Memory Layer - Memory Embeddings and Pattern Detection
 
@@ -46,6 +47,7 @@ from typing import Any
 
 import numpy as np
 from scipy.spatial.distance import cdist
+
 
 logger = logging.getLogger(__name__)
 

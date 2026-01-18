@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Real-World Dataset Loaders
 
@@ -41,6 +42,7 @@ from urllib.request import urlopen
 import numpy as np
 
 from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
+
 
 logger = logging.getLogger(__name__)
 

@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Algorithm-Agnostic Cryptographic API for Mercury Agent ♱
 
@@ -63,6 +64,7 @@ from omni_mercury_engine.security.pqc_backends import (
     sphincs_sign,
     sphincs_verify,
 )
+
 
 logger = logging.getLogger(__name__)
 

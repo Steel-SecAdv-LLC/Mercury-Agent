@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """Tests for spherical harmonics analysis feature."""
 
 from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine

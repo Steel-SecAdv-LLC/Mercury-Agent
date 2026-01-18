@@ -22,6 +22,7 @@ import numpy as np
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, safe_urlretrieve
 
+
 if TYPE_CHECKING:
     from pathlib import Path
 

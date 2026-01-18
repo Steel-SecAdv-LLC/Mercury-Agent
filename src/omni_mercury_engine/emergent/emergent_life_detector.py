@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Emergent Life Detector - SETI-like Anomaly Detection for Non-Human Intelligence
 

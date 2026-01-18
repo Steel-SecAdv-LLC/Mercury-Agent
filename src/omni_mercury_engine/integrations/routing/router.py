@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, TypeVar
 
+
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 

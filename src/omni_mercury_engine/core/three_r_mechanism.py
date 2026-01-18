@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Recursion-Resonance-Refactoring (3R) Mechanism
 Adaptive enhancement system using self-referential processing,
@@ -45,6 +46,7 @@ from omni_mercury_engine.core.code_analysis import (
 )
 from omni_mercury_engine.utils.constants import MathematicalConstants
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable

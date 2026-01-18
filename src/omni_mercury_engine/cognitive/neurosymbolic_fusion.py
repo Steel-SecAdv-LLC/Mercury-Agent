@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Neuro-Symbolic Fusion Engine - Hybrid Anomaly Scoring
 
@@ -81,6 +82,7 @@ from omni_mercury_engine.cognitive.symbolic_logic_layer import (
     RuleType,
     SymbolicLogicLayer,
 )
+
 
 logger = logging.getLogger(__name__)
 

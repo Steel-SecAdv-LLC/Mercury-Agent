@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Post-Quantum Cryptography Production Guards
 
@@ -43,6 +44,7 @@ from omni_mercury_engine.security.pqc_backends import (
     PQCBackend,
     get_active_backend,
 )
+
 
 logger = logging.getLogger(__name__)
 

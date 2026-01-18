@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Security module for Mercury Agent ♱
 
@@ -67,6 +68,7 @@ from omni_mercury_engine.security.pqc_backends import (
 )
 from omni_mercury_engine.security.rate_limiting import RateLimiter
 from omni_mercury_engine.security.threat_detection import ThreatDetector
+
 
 __all__ = [
     "DILITHIUM_AVAILABLE",
