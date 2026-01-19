@@ -264,12 +264,29 @@ class BaseDetector(ABC):
         Args:
             config: Configuration dictionary with detector parameters.
                 Common keys:
-                - "threshold": Anomaly threshold (default 0.5)
+                - "threshold": Anomaly threshold (default 0.5, must be in [0, 1])
                 - "name": Detector name for logging
                 - "enable_uncertainty": Enable uncertainty estimation
+
+        Raises:
+            ValueError: If threshold is not in valid [0, 1] range.
         """
         self.config = config or {}
-        self.threshold = self.config.get("threshold", 0.5)
+        raw_threshold = self.config.get("threshold", 0.5)
+
+        # Fix for P0: Validate threshold is in [0, 1] range
+        # Invalid thresholds cause incorrect anomaly classification
+        if not isinstance(raw_threshold, (int, float)):
+            raise ValueError(
+                f"Threshold must be numeric, got {type(raw_threshold).__name__}"
+            )
+        if raw_threshold < 0.0 or raw_threshold > 1.0:
+            raise ValueError(
+                f"Threshold must be in [0, 1] range, got {raw_threshold}. "
+                f"Scores are normalized to [0, 1] and compared against this threshold."
+            )
+
+        self.threshold = float(raw_threshold)
         self._is_fitted = False
         self._name = self.config.get("name", self.__class__.__name__)
         self._metrics = DetectorMetrics()

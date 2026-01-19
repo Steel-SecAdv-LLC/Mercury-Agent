@@ -121,12 +121,16 @@ class SpatialAnomalyDetector(BaseDetector):
         distance_scores = self._compute_distance_scores(data)
         lof_scores = self.lof.decision_function(data)
 
-        distance_scores_norm = (distance_scores - distance_scores.min()) / (
-            distance_scores.max() - distance_scores.min() + 1e-6
-        )
-        lof_scores_norm = (-lof_scores - (-lof_scores).min()) / (
-            (-lof_scores).max() - (-lof_scores).min() + 1e-6
-        )
+        # Safe normalization with NaN/constant array handling
+        # Fix for P0: Division by near-zero in min/max normalization
+        distance_scores_norm = self._safe_normalize(distance_scores)
+        lof_scores_norm = self._safe_normalize(-lof_scores)
+
+        # Validate for NaN propagation before combining
+        if np.any(~np.isfinite(distance_scores_norm)):
+            distance_scores_norm = np.nan_to_num(distance_scores_norm, nan=0.5, posinf=1.0, neginf=0.0)
+        if np.any(~np.isfinite(lof_scores_norm)):
+            lof_scores_norm = np.nan_to_num(lof_scores_norm, nan=0.5, posinf=1.0, neginf=0.0)
 
         combined_scores = (distance_scores_norm + lof_scores_norm) / 2.0
         is_anomaly = combined_scores > self.threshold
@@ -167,6 +171,39 @@ class SpatialAnomalyDetector(BaseDetector):
             features = np.column_stack([features, padding])
 
         return torch.tensor(features, dtype=torch.float32)
+
+    def _safe_normalize(self, scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Safely normalize scores to [0, 1] range.
+
+        Handles edge cases:
+        - Constant arrays (max == min): returns 0.5 for all
+        - NaN values: replaced with 0.5 (neutral score)
+        - Inf values: clipped to valid range
+
+        Fix for P0: Division by near-zero in min/max normalization.
+
+        Args:
+            scores: Raw anomaly scores.
+
+        Returns:
+            Normalized scores in [0, 1] range.
+        """
+        # Handle NaN/Inf first
+        if np.any(~np.isfinite(scores)):
+            scores = np.nan_to_num(scores, nan=0.0, posinf=1e10, neginf=-1e10)
+
+        score_min = scores.min()
+        score_max = scores.max()
+        score_range = score_max - score_min
+
+        # Check for constant array (all same value)
+        if score_range < 1e-10:
+            # Return neutral 0.5 for constant arrays
+            return np.full_like(scores, 0.5)
+
+        # Standard min-max normalization with safe denominator
+        normalized = (scores - score_min) / score_range
+        return np.clip(normalized, 0.0, 1.0)
 
     def _compute_distance_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute distance-based anomaly scores.
