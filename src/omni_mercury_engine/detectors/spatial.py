@@ -128,7 +128,9 @@ class SpatialAnomalyDetector(BaseDetector):
 
         # Validate for NaN propagation before combining
         if np.any(~np.isfinite(distance_scores_norm)):
-            distance_scores_norm = np.nan_to_num(distance_scores_norm, nan=0.5, posinf=1.0, neginf=0.0)
+            distance_scores_norm = np.nan_to_num(
+                distance_scores_norm, nan=0.5, posinf=1.0, neginf=0.0
+            )
         if np.any(~np.isfinite(lof_scores_norm)):
             lof_scores_norm = np.nan_to_num(lof_scores_norm, nan=0.5, posinf=1.0, neginf=0.0)
 

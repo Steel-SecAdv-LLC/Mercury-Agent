@@ -277,9 +277,7 @@ class BaseDetector(ABC):
         # Fix for P0: Validate threshold is in [0, 1] range
         # Invalid thresholds cause incorrect anomaly classification
         if not isinstance(raw_threshold, (int, float)):
-            raise ValueError(
-                f"Threshold must be numeric, got {type(raw_threshold).__name__}"
-            )
+            raise ValueError(f"Threshold must be numeric, got {type(raw_threshold).__name__}")
         if raw_threshold < 0.0 or raw_threshold > 1.0:
             raise ValueError(
                 f"Threshold must be in [0, 1] range, got {raw_threshold}. "
