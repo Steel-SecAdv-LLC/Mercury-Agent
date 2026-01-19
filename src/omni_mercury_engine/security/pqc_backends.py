@@ -86,8 +86,10 @@ import importlib.util
 
 if importlib.util.find_spec("ava_guardian") is not None:
     try:
-        # Verify the crypto module is accessible
-        import ava_guardian.crypto  # noqa: F401
+        # Verify the crypto module is accessible by importing it
+        # Using importlib.import_module to make the intent explicit
+        _ava_crypto = importlib.import_module("ava_guardian.crypto")
+        del _ava_crypto  # Module verified accessible, delete reference
 
         AVA_GUARDIAN_AVAILABLE = True
         DILITHIUM_AVAILABLE = True
