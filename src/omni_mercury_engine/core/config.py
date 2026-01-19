@@ -149,6 +149,46 @@ class ThresholdConfig:
     symbolic_weight: float = 0.4
     """Weight for symbolic component in hybrid scoring."""
 
+    # Bias detection thresholds
+    bias_detection: float = 0.1
+    """Threshold for demographic parity bias detection."""
+
+    sigma_directive: float = 0.8
+    """Threshold for Sigma Directive approval of actions."""
+
+    pattern_detection: float = 0.6
+    """Threshold for geometric pattern detection in ethical alignment."""
+
+
+class ThresholdDefaults:
+    """
+    Original threshold values preserved for reference.
+
+    WARNING: Changing these affects ethical governance, anomaly detection,
+    and security decisions across the entire system.
+
+    These were the original hardcoded values before centralization.
+    Do NOT change without architectural review.
+    """
+
+    # From ethical_governor.py:129 - Sigma Directive weighted score threshold
+    SIGMA_DIRECTIVE_WEIGHTED_SCORE: float = 0.8
+
+    # From ethical_governor.py:351 - Demographic parity bias detection
+    BIAS_DETECTION_DEMOGRAPHIC_PARITY: float = 0.1
+
+    # From neurosymbolic_hub.py:810 - Default anomaly classification threshold
+    ANOMALY_CLASSIFICATION_DEFAULT: float = 0.5
+
+    # From various ethical modules - Immutable benevolence requirement
+    BENEVOLENCE_IMMUTABLE: float = 0.99
+
+    # From ethical alignment modules - Minimum ethical score
+    ETHICAL_MINIMUM: float = 0.6
+
+    # From pattern detection modules - Geometric pattern threshold
+    PATTERN_DETECTION_GEOMETRIC: float = 0.6
+
 
 @dataclass
 class EngineConfig:

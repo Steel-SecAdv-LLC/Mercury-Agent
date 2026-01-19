@@ -43,6 +43,7 @@ from typing import Any
 import numpy as np
 from scipy import stats
 
+from omni_mercury_engine.core.config import ThresholdConfig
 from omni_mercury_engine.core.ethical_config import DEFAULT_CONFIG, EthicalScalars
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -88,14 +89,21 @@ class SigmaDirective:
     COMPASSION = "compassion"
     TRUTH = "truth"
 
-    def __init__(self, ethical_scalars: EthicalScalars) -> None:
+    def __init__(
+        self,
+        ethical_scalars: EthicalScalars,
+        thresholds: ThresholdConfig | None = None,
+    ) -> None:
         """
         Initialize Sigma Directive system.
 
         Args:
             ethical_scalars: Ethical scalar configuration
+            thresholds: Threshold configuration (frozen at construction time)
         """
         self.ethical_scalars = ethical_scalars
+        # Freeze thresholds at construction time to avoid global mutation risk
+        self._thresholds = thresholds or ThresholdConfig()
         self.directive_weights = {
             self.JUSTICE: ethical_scalars.omni_justitia,
             self.ALTRUISM: ethical_scalars.omni_altruistic,
@@ -126,9 +134,7 @@ class SigmaDirective:
             + truth_score * self.directive_weights[self.TRUTH]
         ) / sum(self.directive_weights.values())
 
-        threshold = 0.8
-
-        if weighted_score < threshold:
+        if weighted_score < self._thresholds.sigma_directive:
             reasoning = self._generate_override_reasoning(
                 justice_score, altruism_score, compassion_score, truth_score
             )
@@ -206,6 +212,7 @@ class EthicalAutonomyGovernor:
         p_value_threshold: float = 0.05,
         ethical_threshold: float = 0.8,
         rng: DeterministicRNG | None = None,
+        thresholds: ThresholdConfig | None = None,
     ):
         """
         Initialize Ethical Autonomy Governor.
@@ -217,6 +224,7 @@ class EthicalAutonomyGovernor:
             p_value_threshold: Statistical significance threshold
             ethical_threshold: Minimum ethical score threshold
             rng: Optional DeterministicRNG for reproducibility
+            thresholds: Threshold configuration (frozen at construction time)
         """
         self.ethical_scalars = ethical_scalars or DEFAULT_CONFIG.ethical_scalars
         self.enable_bias_audits = enable_bias_audits
@@ -224,9 +232,13 @@ class EthicalAutonomyGovernor:
         self.p_value_threshold = p_value_threshold
         self.ethical_threshold = ethical_threshold
         self._rng = rng or get_global_rng()
+        # Freeze thresholds at construction time to avoid global mutation risk
+        self._thresholds = thresholds or ThresholdConfig()
 
         self.sigma_directive: SigmaDirective | None = (
-            SigmaDirective(self.ethical_scalars) if enable_sigma_directives else None
+            SigmaDirective(self.ethical_scalars, self._thresholds)
+            if enable_sigma_directives
+            else None
         )
 
         self.decision_history: list[EthicalDecision] = []
@@ -348,8 +360,7 @@ class EthicalAutonomyGovernor:
 
         statistical_parity = 1.0 - min(demographic_parity_diff, 1.0)
 
-        bias_threshold = 0.1
-        bias_detected = demographic_parity_diff > bias_threshold
+        bias_detected = demographic_parity_diff > self._thresholds.bias_detection
 
         mitigation_applied = False
         if bias_detected:

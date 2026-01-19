@@ -31,6 +31,7 @@ https://github.com/yzhao062/pyod
 MIT-compatible implementation using scikit-learn and numpy.
 """
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -39,6 +40,11 @@ import numpy as np
 from sklearn.covariance import EllipticEnvelope
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
+
+from omni_mercury_engine.utils.logging import LoggerMixin
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -53,7 +59,7 @@ class ThreatSignature:
     confidence: float = 0.95
 
 
-class RealTimeThreatDetector:
+class RealTimeThreatDetector(LoggerMixin):
     """
     Real-time threat detection using ensemble anomaly detection.
 
@@ -118,7 +124,7 @@ class RealTimeThreatDetector:
             try:
                 detector.fit(X)
             except Exception as e:
-                print(f"Warning: Failed to fit {name}: {e}")
+                self.logger.warning("Failed to fit %s: %s", name, e)
 
         self.is_fitted = True
         return self
@@ -152,7 +158,7 @@ class RealTimeThreatDetector:
                     score = detector.decision_function(X)
                     scores[name] = score
             except Exception as e:
-                print(f"Warning: Failed to predict with {name}: {e}")
+                self.logger.warning("Failed to predict with %s: %s", name, e)
 
         ensemble_score = np.mean([scores[name] for name in scores], axis=0)
 
@@ -297,4 +303,4 @@ class AdaptiveThreatDetector(RealTimeThreatDetector):
             try:
                 detector.fit(X_new)
             except Exception as e:
-                print(f"Warning: Failed to update {name}: {e}")
+                self.logger.warning("Failed to update %s: %s", name, e)

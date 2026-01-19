@@ -54,6 +54,12 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.core.config import ThresholdConfig
+
+
+# Centralized thresholds for consistent behavior
+_thresholds = ThresholdConfig()
+
 
 class WisdomArchetype(Enum):
     """Archetypal wisdom patterns from various traditions."""
@@ -711,7 +717,7 @@ class ImmutableGeometryProcessor:
     ) -> list[str]:
         """Detect which geometric patterns are present."""
         patterns = []
-        threshold = 0.6
+        threshold = _thresholds.pattern_detection
 
         if golden >= threshold:
             patterns.append("Golden Ratio (φ)")

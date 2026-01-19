@@ -18,14 +18,20 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 """Verification script to test imports and scalar counts."""
 
-from omni_mercury_engine.core import ethical_config as _ethical_config  # noqa: F401
+from omni_mercury_engine.core import ethical_config
 from omni_mercury_engine.core.ethical_config import EthicalScalars
 from omni_mercury_engine.models import (
-    astrophysical as _astrophysical,  # noqa: F401
-    multiverse as _multiverse,  # noqa: F401
-    neurosymbolic as _neurosymbolic,  # noqa: F401
+    astrophysical,
+    multiverse,
+    neurosymbolic,
 )
 
+
+# Verify modules are accessible (satisfies static analysis)
+assert ethical_config is not None, "ethical_config module not loaded"
+assert astrophysical is not None, "astrophysical module not loaded"
+assert multiverse is not None, "multiverse module not loaded"
+assert neurosymbolic is not None, "neurosymbolic module not loaded"
 
 print("✅ All imports successful")
 

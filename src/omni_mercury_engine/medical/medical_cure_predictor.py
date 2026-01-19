@@ -49,6 +49,7 @@ from torch import nn
 
 from omni_mercury_engine.infrastructure.healthcare_emergency import HealthcareEmergencyDetector
 from omni_mercury_engine.models.multiverse import MultiverseOmniEngine
+from omni_mercury_engine.utils.logging import LoggerMixin
 
 
 @dataclass
@@ -456,7 +457,7 @@ class TreatmentPathwayOptimizer:
         return recs
 
 
-class MedicalCurePredictor:
+class MedicalCurePredictor(LoggerMixin):
     """
     Unified medical cure predictor integrating temporal analysis,
     imaging detection, and treatment optimization.
@@ -475,8 +476,6 @@ class MedicalCurePredictor:
         self.temporal_detector = TemporalVitalSignsDetector() if enable_temporal else None
         self.imaging_detector = MedicalImagingAnomalyDetector() if enable_imaging else None
         self.treatment_optimizer = TreatmentPathwayOptimizer() if enable_treatment_opt else None
-
-        self.logger = logging.getLogger(__name__)
 
     def predict_and_cure(self, patient_data: dict[str, Any]) -> MedicalPredictionResult:
         """

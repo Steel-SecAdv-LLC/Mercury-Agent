@@ -30,8 +30,11 @@ from typing import Any
 import numpy as np
 from scipy.optimize import minimize
 
+from omni_mercury_engine.core.config import ThresholdConfig
+
 
 logger = logging.getLogger(__name__)
+
 
 # Constants
 PHI = 1.618033988749895  # Golden ratio
@@ -465,6 +468,7 @@ class NeuroSymbolicHub:
         benevolence_threshold: float = BENEVOLENCE_THRESHOLD,
         use_calibration: bool = True,
         seed: int = 42,
+        thresholds: ThresholdConfig | None = None,
     ):
         """
         Initialize Neuro-Symbolic Hub.
@@ -476,6 +480,7 @@ class NeuroSymbolicHub:
             benevolence_threshold: Required benevolence (default 0.99)
             use_calibration: Apply probability calibration
             seed: Random seed for reproducibility
+            thresholds: Threshold configuration (frozen at construction time)
         """
         self.input_dim = input_dim
         self.fusion_mode = fusion_mode
@@ -484,6 +489,8 @@ class NeuroSymbolicHub:
         self.use_calibration = use_calibration
         self.seed = seed
         self.rng = np.random.default_rng(seed)
+        # Freeze thresholds at construction time to avoid global mutation risk
+        self._thresholds = thresholds or ThresholdConfig()
 
         # Neural component
         self.neural_encoder = NeuralEncoder(input_dim)
@@ -802,9 +809,8 @@ class NeuroSymbolicHub:
             )
             confidence = min(max(confidence, 0.0), 1.0)
 
-            # Determine if anomaly
-            threshold = 0.5
-            is_anomaly = fused_score > threshold
+            # Determine if anomaly using centralized threshold
+            is_anomaly = fused_score > self._thresholds.anomaly_default
 
             # Check ethical compliance
             benevolence_score = self._compute_benevolence(sample_context, fused_score)

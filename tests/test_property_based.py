@@ -596,14 +596,16 @@ class TestValidationPipelineProperties:
     @settings(max_examples=20)
     def test_invalid_dataset_name_handled(self, dataset_name: str):
         """Invalid dataset names should be handled gracefully."""
+        get_loader = None  # Initialize before conditional import
         try:
             from omni_mercury_engine.validation.data_loaders import get_loader
         except (ImportError, AttributeError):
             pytest.skip("get_loader not available")
+            return  # Explicit return after skip for static analysis
 
         # Property: Invalid dataset names should not crash
         try:
-            get_loader(dataset_name)
+            get_loader(dataset_name)  # type: ignore[misc]
             # If it returns something, it should be None or raise an error
         except (ValueError, KeyError, NotImplementedError):
             pass  # Expected behavior for invalid names

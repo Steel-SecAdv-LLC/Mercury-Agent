@@ -137,6 +137,7 @@ from omni_mercury_engine.resilience.self_healing import SelfHealingEngine
 from omni_mercury_engine.security.intelligence_fusion import IntelligenceFusionEngine
 from omni_mercury_engine.security.threat_detection import ThreatDetector
 from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
+from omni_mercury_engine.utils.logging import LoggerMixin
 
 
 if TYPE_CHECKING:
@@ -354,7 +355,7 @@ class MemoryMonitor:
         }
 
 
-class OmniMercuryEngine:
+class OmniMercuryEngine(LoggerMixin):
     """Unified anomaly detection engine with ML-Centric Hybrid Fusion.
 
     This is the main entry point for the Mercury Agent ♱ anomaly detection system.

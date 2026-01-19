@@ -215,12 +215,14 @@ class SOFACalculator:
         if dopamine > 15 or norepinephrine > 0.5:
             return 4
         # Score 3: Moderate-dose vasopressors
-        if (dopamine > 5 and dopamine <= 15) or (norepinephrine > 0.1 and norepinephrine <= 0.5):
+        # Note: dopamine <= 15 and norepinephrine <= 0.5 are guaranteed by the check above
+        if dopamine > 5 or (norepinephrine > 0.1):
             return 3
         # Score 2: Low-dose vasopressors
-        if dopamine > 0 and dopamine <= 5:
+        # Note: dopamine <= 5 and norepinephrine <= 0.1 are guaranteed by the check above
+        if dopamine > 0:
             return 2
-        if norepinephrine > 0 and norepinephrine <= 0.1:
+        if norepinephrine > 0:
             return 2
         # Score 1: Hypotension without vasopressors
         if map_val < 70:
