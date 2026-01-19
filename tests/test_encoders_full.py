@@ -18,22 +18,22 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Comprehensive encoder tests to boost coverage
 """
 
 import pytest
 
+
 # Conditional torch import
 try:
     import torch
-    from torch import nn
 
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
     torch = None  # type: ignore
-    nn = None  # type: ignore
 
 # Skip all tests in this module if torch is not available
 pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
