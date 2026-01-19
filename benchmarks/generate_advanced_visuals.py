@@ -364,7 +364,8 @@ def generate_neural_symbolic_contribution(
     neural_norm = neural / total
     symbolic_norm = symbolic / total
 
-    _fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+    del fig  # Unused but required by plt.subplots unpacking
 
     ax1.fill_between(x, 0, neural_norm, color=VIRIDIS(0.7), alpha=0.7, label="Neural")
     ax1.fill_between(x, neural_norm, 1, color=VIRIDIS(0.3), alpha=0.7, label="Symbolic")
