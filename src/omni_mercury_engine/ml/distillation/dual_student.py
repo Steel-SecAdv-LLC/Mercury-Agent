@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Dual-Student Knowledge Distillation for Anomaly Detection
 
@@ -40,6 +41,7 @@ from typing import Any
 
 import torch
 from torch import nn, optim
+
 
 logger = logging.getLogger(__name__)
 

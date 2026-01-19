@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """Symbolic Reasoning Engine for Explainable Anomaly Detection.
 
 Based on: PyReason - Temporal First-Order Logic Explainable AI
@@ -27,6 +28,7 @@ Provides symbolic reasoning layer for explainable anomaly detection outputs.
 """
 
 from typing import TYPE_CHECKING, Any
+
 
 if TYPE_CHECKING:
     import numpy as np

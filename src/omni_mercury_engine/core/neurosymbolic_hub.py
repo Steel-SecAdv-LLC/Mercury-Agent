@@ -32,6 +32,7 @@ from scipy.optimize import minimize
 
 from omni_mercury_engine.core.config import ThresholdConfig
 
+
 logger = logging.getLogger(__name__)
 
 

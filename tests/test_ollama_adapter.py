@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Tests for Ollama LLM Adapter and Fallback Chain.
 
@@ -35,6 +36,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 
 # Ensure src is on path for direct imports
 src_path = Path(__file__).parent.parent / "src"

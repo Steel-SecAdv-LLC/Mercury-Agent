@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Anti-Terrorism Pattern Recognition Module
 
@@ -31,5 +32,6 @@ from omni_mercury_engine.security.anti_terrorism.pattern_recognition import (
     TerrorismPatternDetector,
     TerrorismThreatResult,
 )
+
 
 __all__ = ["TerrorismPatternDetector", "TerrorismThreatResult"]

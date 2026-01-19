@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """World Bank economic sectors anomaly detection.
 
 Monitors 21 ISIC Rev 4 economic sectors for anomalies with focus

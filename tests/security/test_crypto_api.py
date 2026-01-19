@@ -11,6 +11,7 @@ import os
 
 import pytest
 
+
 # Import crypto module components
 try:
     from omni_mercury_engine.security.crypto_api import (

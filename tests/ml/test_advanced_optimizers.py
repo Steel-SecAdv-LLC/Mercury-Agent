@@ -25,6 +25,7 @@ import importlib.util
 import numpy as np
 import pytest
 
+
 # Optional torch import
 HAS_TORCH = importlib.util.find_spec("torch") is not None
 if HAS_TORCH:

@@ -17,6 +17,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 3R Attention Block for Anomaly Detection
 
@@ -45,6 +46,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
+
 
 if TYPE_CHECKING:
     from omni_mercury_engine.core.three_r_mechanism import ResonanceEngine

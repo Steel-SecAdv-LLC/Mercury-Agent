@@ -34,6 +34,7 @@ from omni_mercury_engine.resilience.self_healing import (
     SelfHealingEngine,
 )
 
+
 # Backward compatibility alias
 CRISPRInspiredSelfHealing = AdaptiveDefenseSystem
 

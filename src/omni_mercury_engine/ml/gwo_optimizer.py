@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+
 """
 Grey Wolf Optimizer for Feature Selection
 
@@ -36,6 +37,7 @@ Reference: Mirjalili et al. (2014) - Grey Wolf Optimizer
 import numpy as np
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable

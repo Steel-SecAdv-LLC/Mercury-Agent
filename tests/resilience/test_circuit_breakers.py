@@ -11,6 +11,7 @@ import time
 
 import pytest
 
+
 try:
     from omni_mercury_engine.resilience.api_circuit_breakers import (
         DataLoaderCircuitBreaker,

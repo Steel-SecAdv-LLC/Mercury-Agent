@@ -18,8 +18,10 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """Scientific and emerging technology monitoring."""
 
 from .emerging_tech_monitor import EmergingTechMonitor
+
 
 __all__ = ["EmergingTechMonitor"]

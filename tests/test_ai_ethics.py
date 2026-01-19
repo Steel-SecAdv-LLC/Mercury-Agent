@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Tests for AI Ethics Framework (src/core/ai_ethics.py)
 """

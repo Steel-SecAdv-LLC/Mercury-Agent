@@ -30,6 +30,7 @@ from typing import Any, Protocol
 
 import numpy as np
 
+
 logger = logging.getLogger(__name__)
 
 # Constants from 3R mechanism

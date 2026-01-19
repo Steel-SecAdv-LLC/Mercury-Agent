@@ -11,6 +11,7 @@ from omni_mercury_engine.integrations.http.client import (
     HTTPResponse,
 )
 
+
 __all__ = [
     "HTTPClient",
     "HTTPClientConfig",

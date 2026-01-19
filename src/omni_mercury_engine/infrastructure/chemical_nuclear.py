@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
+
 """
 CISA Chemical & Nuclear Critical Infrastructure Anomaly Detection
 

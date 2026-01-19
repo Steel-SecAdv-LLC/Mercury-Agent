@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
+
 """
 CISA Healthcare & Emergency Services Critical Infrastructure Anomaly Detection
 

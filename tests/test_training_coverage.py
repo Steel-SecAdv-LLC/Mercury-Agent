@@ -18,11 +18,13 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Additional training tests to boost coverage above 85%
 """
 
 import pytest
+
 
 # Conditional torch import
 try:

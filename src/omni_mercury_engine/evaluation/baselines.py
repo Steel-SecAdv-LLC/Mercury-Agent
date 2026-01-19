@@ -29,6 +29,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+
 # Published baseline results from papers
 # Format: (Precision, Recall, F1) or (F1,) when others not reported
 
