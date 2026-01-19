@@ -41,11 +41,21 @@ from omni_mercury_engine.core.base import BaseDetector
 
 
 class GraphAnomalyDetector(BaseDetector):
-    """Detect anomalies in graph-structured data."""
+    """Detect anomalies in graph-structured data.
+
+    Note: This detector uses z-score thresholds (default 3.0) rather than
+    normalized [0, 1] score thresholds used by other detectors. The threshold
+    represents the number of standard deviations from baseline metrics.
+    """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        # Extract z-score threshold before calling super().__init__()
+        # GraphAnomalyDetector uses z-score thresholds (>1) not normalized [0,1] thresholds
+        config = config.copy() if config else {}
+        z_threshold = config.pop("threshold", 3.0)
         super().__init__(config)
-        self.threshold = self.config.get("threshold", 3.0)
+        # Override with z-score threshold (not subject to [0,1] validation)
+        self.threshold = z_threshold
         self.fitted = False
         self.baseline_metrics = {}
 
