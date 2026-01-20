@@ -39,6 +39,48 @@ if TYPE_CHECKING:
     import numpy as np
 
 
+def _validate_tensor_devices(
+    tensors: dict[str, torch.Tensor], context: str = "tensors"
+) -> tuple[torch.device, torch.dtype]:
+    """Validate all tensors share the same device and dtype.
+
+    Args:
+        tensors: Dictionary of named tensors to validate.
+        context: Description for error messages (e.g., "detector_features").
+
+    Returns:
+        Tuple of (device, dtype) from the tensors.
+
+    Raises:
+        ValueError: If tensors have mismatched devices or dtypes.
+    """
+    if not tensors:
+        raise ValueError(f"Empty {context} dictionary provided")
+
+    devices = set()
+    dtypes = set()
+    for name, tensor in tensors.items():
+        devices.add(tensor.device)
+        dtypes.add(tensor.dtype)
+
+    if len(devices) > 1:
+        device_info = {name: str(t.device) for name, t in tensors.items()}
+        raise ValueError(
+            f"Mixed devices in {context}: {device_info}. "
+            f"All tensors must be on the same device."
+        )
+
+    if len(dtypes) > 1:
+        dtype_info = {name: str(t.dtype) for name, t in tensors.items()}
+        raise ValueError(
+            f"Mixed dtypes in {context}: {dtype_info}. "
+            f"All tensors should have the same dtype for numerical stability."
+        )
+
+    first_tensor = next(iter(tensors.values()))
+    return first_tensor.device, first_tensor.dtype
+
+
 class AttentionFusion(nn.Module):
     """
     Multi-head attention mechanism for detector fusion.
@@ -581,12 +623,27 @@ class HybridFusionLayer(nn.Module):
         Returns:
             fused_representation: [batch_size, hidden_dim] - Fused feature representation
             attention_weights: Dict of attention weights for interpretability
+
+        Raises:
+            ValueError: If tensors have mismatched devices (e.g., some CPU, some CUDA).
         """
-        # Get batch size and device from first available feature tensor
+        # Validate all tensors share the same device and dtype
+        # This catches mixed-device errors early with a clear message
+        device, dtype = _validate_tensor_devices(detector_features, "detector_features")
+
+        # Also validate scores if provided
+        if detector_scores:
+            score_device, score_dtype = _validate_tensor_devices(
+                detector_scores, "detector_scores"
+            )
+            if score_device != device:
+                raise ValueError(
+                    f"Device mismatch: detector_features on {device}, "
+                    f"detector_scores on {score_device}"
+                )
+
         first_tensor = next(iter(detector_features.values()))
         batch_size = first_tensor.shape[0]
-        device = first_tensor.device
-        dtype = first_tensor.dtype
 
         projected_features = []
         for name in self.detector_names:

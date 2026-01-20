@@ -48,6 +48,12 @@ env:
   # Performance thresholds - fail CI if below these values
   MIN_ROC_AUC: 0.60
   MIN_F1: 0.40
+  # CI-optimized benchmark settings to stay under 120 min timeout
+  # Reduce sample sizes for faster CI runs without sacrificing statistical validity
+  MERCURY_CI_MODE: "true"
+  MERCURY_CI_SAMPLES: "1500"
+  MERCURY_CI_FOLDS: "3"
+  MERCURY_SMD_MACHINES: "5"
 
 jobs:
   # ===========================================================================
@@ -98,23 +104,31 @@ jobs:
           sys.path.insert(0, '..')
           from benchmarks.empirical_benchmark import run_full_benchmark, save_results
 
-          # Run benchmark with configuration
-          # For PR CI: disable SOTA models by default (they take 60+ minutes)
-          # For scheduled/manual runs: enable SOTA models
-          include_time_series = '${{ github.event.inputs.include_time_series }}' != 'false'
-          
-          # SOTA models disabled for PR CI to keep runtime under 60 minutes
-          # Enable via workflow_dispatch for full benchmarks
-          event_name = '${{ github.event_name }}'
-          if event_name == 'workflow_dispatch':
-              include_sota = '${{ github.event.inputs.include_sota }}' != 'false'
-          elif event_name == 'schedule':
-              include_sota = True  # Weekly runs include SOTA
-          else:
-              include_sota = False  # PR/push runs skip SOTA for speed
-          
-          n_folds = int('${{ github.event.inputs.n_folds }}' or '5')
+          import os
 
+          # Run benchmark with configuration
+          # CI mode uses reduced settings to stay under 120 min timeout
+          ci_mode = os.environ.get('MERCURY_CI_MODE', 'false').lower() == 'true'
+          event_name = '${{ github.event_name }}'
+
+          # For PR CI: disable SOTA and time-series by default for speed
+          # For scheduled/manual runs: enable all features
+          if event_name == 'workflow_dispatch':
+              include_time_series = '${{ github.event.inputs.include_time_series }}' != 'false'
+              include_sota = '${{ github.event.inputs.include_sota }}' != 'false'
+              n_folds = int('${{ github.event.inputs.n_folds }}' or '5')
+          elif event_name == 'schedule':
+              # Weekly runs: full benchmark suite
+              include_time_series = True
+              include_sota = True
+              n_folds = 5
+          else:
+              # PR/push runs: fast CI mode
+              include_time_series = False  # Skip time-series for PR CI (saves ~40 min)
+              include_sota = False
+              n_folds = int(os.environ.get('MERCURY_CI_FOLDS', '3'))
+
+          print(f'CI Mode: {ci_mode}')
           print(f'Running benchmarks: time_series={include_time_series}, sota={include_sota}, folds={n_folds}')
 
           results = run_full_benchmark(

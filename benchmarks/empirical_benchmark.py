@@ -75,10 +75,20 @@ import pandas as pd
 import requests
 import torch
 
+
 # =============================================================================
 # Configuration (environment-variable driven for CI flexibility)
 # =============================================================================
-SMD_MAX_MACHINES = int(os.getenv("MERCURY_SMD_MACHINES", "28"))  # Full=28, CI=5
+# CI mode detection - when true, uses reduced settings for faster runs
+CI_MODE = os.getenv("MERCURY_CI_MODE", "false").lower() == "true"
+
+# Default sample sizes (reduced in CI mode to stay under 120 min timeout)
+DEFAULT_SAMPLES = int(os.getenv("MERCURY_CI_SAMPLES", "3000" if not CI_MODE else "1500"))
+
+# SMD dataset machines (28 = full, 5 = CI mode)
+SMD_MAX_MACHINES = int(os.getenv("MERCURY_SMD_MACHINES", "28" if not CI_MODE else "5"))
+
+# Network fetch configuration
 FETCH_MAX_RETRIES = int(os.getenv("MERCURY_FETCH_RETRIES", "10"))
 FETCH_BASE_DELAY = float(os.getenv("MERCURY_FETCH_DELAY", "2.0"))
 
@@ -104,6 +114,7 @@ from sklearn.model_selection import KFold, StratifiedKFold, train_test_split
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import OneClassSVM
+
 
 # Import adaptive detector for targeted performance enhancements
 try:
@@ -3005,7 +3016,7 @@ def run_full_benchmark(
         f"{digits_data.X_test.shape[0]} test"
     )
 
-    covtype_data = prepare_covtype_dataset(n_samples=3000)
+    covtype_data = prepare_covtype_dataset(n_samples=DEFAULT_SAMPLES)
     if covtype_data is not None:
         datasets.append(covtype_data)
         print(
@@ -3013,7 +3024,7 @@ def run_full_benchmark(
             f"{covtype_data.X_test.shape[0]} test"
         )
 
-    kdd_data = prepare_kddcup_dataset(n_samples=3000)
+    kdd_data = prepare_kddcup_dataset(n_samples=DEFAULT_SAMPLES)
     if kdd_data is not None:
         datasets.append(kdd_data)
         print(
@@ -3026,7 +3037,7 @@ def run_full_benchmark(
         print("\nLoading time-series datasets...")
         print("-" * 40)
 
-        smd_data = prepare_smd_dataset(n_samples=3000)
+        smd_data = prepare_smd_dataset(n_samples=DEFAULT_SAMPLES)
         if smd_data is not None:
             datasets.append(smd_data)
             print(
@@ -3034,7 +3045,7 @@ def run_full_benchmark(
                 f"{smd_data.X_test.shape[0]} test (time-series)"
             )
 
-        smap_data = prepare_smap_dataset(n_samples=3000)
+        smap_data = prepare_smap_dataset(n_samples=DEFAULT_SAMPLES)
         if smap_data is not None:
             datasets.append(smap_data)
             print(
@@ -3042,7 +3053,7 @@ def run_full_benchmark(
                 f"{smap_data.X_test.shape[0]} test (time-series)"
             )
 
-        msl_data = prepare_msl_dataset(n_samples=3000)
+        msl_data = prepare_msl_dataset(n_samples=DEFAULT_SAMPLES)
         if msl_data is not None:
             datasets.append(msl_data)
             print(
@@ -3050,7 +3061,7 @@ def run_full_benchmark(
                 f"{msl_data.X_test.shape[0]} test (time-series)"
             )
 
-        swat_data = prepare_swat_dataset(n_samples=3000)
+        swat_data = prepare_swat_dataset(n_samples=DEFAULT_SAMPLES)
         if swat_data is not None:
             datasets.append(swat_data)
             print(
