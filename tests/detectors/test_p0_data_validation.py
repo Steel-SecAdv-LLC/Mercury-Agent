@@ -244,12 +244,12 @@ class TestNaNInfHandling:
         assert np.all(np.isfinite(result["scores"])), "Scores contain NaN/Inf"
         assert np.all(result["scores"] >= 0.0) and np.all(result["scores"] <= 1.0)
 
-    def test_dimensional_constant_input_produces_valid_scores(self):
+    def test_dimensional_constant_input_produces_valid_scores(self, deterministic_rng):
         """DimensionalAnalyzer should handle constant input gracefully."""
         detector = DimensionalAnalyzer()
 
         # Training data with some variation
-        train_data = np.random.randn(100, 10)
+        train_data = deterministic_rng.randn(100, 10)
         detector.fit(train_data)
 
         # Test with near-constant data
@@ -304,12 +304,12 @@ class TestEmptyDataValidation:
         with pytest.raises(DetectorException, match="all data values are NaN or Inf"):
             detector.fit(all_inf)
 
-    def test_partial_nan_rows_filtered(self):
+    def test_partial_nan_rows_filtered(self, deterministic_rng):
         """Rows with NaN should be filtered, valid rows used for fitting."""
         detector = StatisticalAnomalyDetector()
 
         # 10 rows, 5 features, rows 0 and 5 have NaN
-        data = np.random.randn(10, 5)
+        data = deterministic_rng.randn(10, 5)
         data[0, :] = np.nan
         data[5, :] = np.nan
 
@@ -524,68 +524,68 @@ class TestScoreRangeValidation:
 class TestEdgeCases:
     """Test edge cases that could cause numerical issues."""
 
-    def test_single_sample_detection(self):
+    def test_single_sample_detection(self, deterministic_rng):
         """Detectors should handle single-sample detection."""
         detector = StatisticalAnomalyDetector()
-        train_data = np.random.randn(100, 5)
+        train_data = deterministic_rng.randn(100, 5)
         detector.fit(train_data)
 
-        single_sample = np.random.randn(1, 5)
+        single_sample = deterministic_rng.randn(1, 5)
         result = detector.detect(single_sample)
 
         assert result["scores"].shape[0] == 1
         assert np.all(np.isfinite(result["scores"]))
 
-    def test_high_dimensional_data(self):
+    def test_high_dimensional_data(self, deterministic_rng):
         """Detectors should handle high-dimensional data."""
         detector = StatisticalAnomalyDetector()
-        train_data = np.random.randn(100, 500)  # 500 features
+        train_data = deterministic_rng.randn(100, 500)  # 500 features
         detector.fit(train_data)
 
-        test_data = np.random.randn(50, 500)
+        test_data = deterministic_rng.randn(50, 500)
         result = detector.detect(test_data)
 
         assert np.all(np.isfinite(result["scores"]))
 
-    def test_very_small_values(self):
+    def test_very_small_values(self, deterministic_rng):
         """Detectors should handle very small values without underflow."""
         detector = StatisticalAnomalyDetector()
-        train_data = np.random.randn(100, 10) * 1e-10
+        train_data = deterministic_rng.randn(100, 10) * 1e-10
         detector.fit(train_data)
 
-        test_data = np.random.randn(50, 10) * 1e-10
+        test_data = deterministic_rng.randn(50, 10) * 1e-10
         result = detector.detect(test_data)
 
         assert np.all(np.isfinite(result["scores"]))
 
-    def test_very_large_values(self):
+    def test_very_large_values(self, deterministic_rng):
         """Detectors should handle very large values without overflow."""
         detector = StatisticalAnomalyDetector()
-        train_data = np.random.randn(100, 10) * 1e6
+        train_data = deterministic_rng.randn(100, 10) * 1e6
         detector.fit(train_data)
 
-        test_data = np.random.randn(50, 10) * 1e6
+        test_data = deterministic_rng.randn(50, 10) * 1e6
         result = detector.detect(test_data)
 
         assert np.all(np.isfinite(result["scores"]))
 
-    def test_mixed_scale_features(self):
+    def test_mixed_scale_features(self, deterministic_rng):
         """Detectors should handle features with vastly different scales."""
         detector = StatisticalAnomalyDetector()
         train_data = np.column_stack(
             [
-                np.random.randn(100) * 1e-5,  # Tiny scale
-                np.random.randn(100) * 1e5,  # Huge scale
-                np.random.randn(100),  # Normal scale
+                deterministic_rng.randn(100) * 1e-5,  # Tiny scale
+                deterministic_rng.randn(100) * 1e5,  # Huge scale
+                deterministic_rng.randn(100),  # Normal scale
             ]
         )
         detector.fit(train_data)
 
         test_data = np.column_stack(
             [
-                np.random.randn(50) * 1e-5,
-                np.random.randn(50) * 1e5,
-                np.random.randn(50),
+                deterministic_rng.randn(50) * 1e-5,
+                deterministic_rng.randn(50) * 1e5,
+                deterministic_rng.randn(50),
             ]
         )
         result = detector.detect(test_data)
