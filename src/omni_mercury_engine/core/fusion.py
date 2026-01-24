@@ -633,9 +633,7 @@ class HybridFusionLayer(nn.Module):
 
         # Also validate scores if provided
         if detector_scores:
-            score_device, score_dtype = _validate_tensor_devices(
-                detector_scores, "detector_scores"
-            )
+            score_device, score_dtype = _validate_tensor_devices(detector_scores, "detector_scores")
             if score_device != device:
                 raise ValueError(
                     f"Device mismatch: detector_features on {device}, "

@@ -326,9 +326,7 @@ class TestDevicePropagation:
 
     def test_hybrid_fusion_cpu_device(self):
         """HybridFusionLayer should handle CPU tensors correctly."""
-        fusion = HybridFusionLayer(
-            feature_dims={"detector1": 32, "detector2": 32}, hidden_dim=64
-        )
+        fusion = HybridFusionLayer(feature_dims={"detector1": 32, "detector2": 32}, hidden_dim=64)
 
         detector_features = {
             "detector1": torch.randn(8, 32),
