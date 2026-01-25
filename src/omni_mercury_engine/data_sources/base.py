@@ -514,7 +514,8 @@ class DataSourceBase(ABC):
 
             except httpx.RequestError as e:
                 last_error = e
-                self._failed_requests += 1
+                with self._metrics_lock:
+                    self._failed_requests += 1
 
                 if attempt < self.config.retry_attempts:
                     logger.warning(
