@@ -165,6 +165,11 @@ class TemperatureScaledAttention(nn.Module):
             self.scale * self.temperature.clamp(min=0.1)
         )
 
+        # Validate attention scores for NaN/Inf before softmax
+        if torch.any(~torch.isfinite(scores)):
+            logger.warning("Non-finite attention scores detected, replacing with zeros")
+            scores = torch.nan_to_num(scores, nan=0.0, posinf=0.0, neginf=-1e9)
+
         # Apply softmax
         attention_weights = F.softmax(scores, dim=-1)
         attention_weights = self.dropout(attention_weights)

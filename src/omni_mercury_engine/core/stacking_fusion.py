@@ -378,10 +378,21 @@ class BayesianModelAveraging:
                 proba = detector.predict_proba(X)
                 if proba.ndim == 2:
                     proba = proba[:, 1]
+
+                # Validate probabilities for NaN/Inf before computing log likelihood
+                if not np.all(np.isfinite(proba)):
+                    logger.warning(f"Non-finite probabilities from {name}, replacing with 0.5")
+                    proba = np.nan_to_num(proba, nan=0.5, posinf=1.0, neginf=0.0)
+
                 proba = np.clip(proba, 1e-10, 1 - 1e-10)
 
                 # Log likelihood
                 ll = np.sum(y * np.log(proba) + (1 - y) * np.log(1 - proba))
+
+                # Validate log likelihood
+                if not np.isfinite(ll):
+                    logger.warning(f"Non-finite log-likelihood from {name}, using fallback")
+                    ll = -1000.0  # Large negative value as fallback
 
                 # Number of parameters (approximate)
                 try:
@@ -577,6 +588,11 @@ class EthicallyConstrainedFusion:
                     proba = proba[:, 1]
             except (AttributeError, ValueError, TypeError):
                 proba = detector.predict(X).astype(float)
+
+            # Validate predictions for NaN/Inf before adding to ensemble
+            if not np.all(np.isfinite(proba)):
+                logger.warning(f"Non-finite predictions from {name}, replacing with 0.5")
+                proba = np.nan_to_num(proba, nan=0.5, posinf=1.0, neginf=0.0)
 
             detector_preds.append(proba)
 

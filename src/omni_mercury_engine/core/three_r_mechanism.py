@@ -23,6 +23,13 @@ from __future__ import annotations
 Recursion-Resonance-Refactoring (3R) Mechanism
 Adaptive enhancement system using self-referential processing,
 frequency-domain amplification, and dynamic optimization.
+
+This module has been refactored into the three_r subpackage for maintainability:
+- three_r/types.py: Enums, dataclasses, constants
+- three_r/engines.py: RecursionEngine, ResonanceEngine
+- three_r/fusion.py: AnomalyFusionEquation, AAFEWeightOptimizer
+
+This file maintains backward compatibility by re-exporting all classes.
 """
 
 import ast
@@ -47,6 +54,22 @@ from omni_mercury_engine.core.code_analysis import (
 from omni_mercury_engine.utils.constants import MathematicalConstants
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
+# Import from refactored subpackage for internal use (maintains backward compat)
+from omni_mercury_engine.core.three_r.engines import RecursionEngine, ResonanceEngine
+from omni_mercury_engine.core.three_r.fusion import AAFEWeightOptimizer, AnomalyFusionEquation
+from omni_mercury_engine.core.three_r.types import (
+    CONVERGENCE_RATE_PARAMETER,
+    GOLDEN_RATIO_CONSTANT,
+    AnomalyDetectionMethod,
+    AnomalyFusionResult,
+    CodeIssue,
+    EvolutionStrategy,
+    IssueSeverity,
+    IssueType,
+    RefactoringConfig,
+    RefactoringResult,
+)
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -54,11 +77,27 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
     from torch import nn
 
-# Golden ratio constant for AVA Anomaly Fusion Equation (AAFE)
-GOLDEN_RATIO_CONSTANT: float = 1.618033988749895
-
-# Convergence rate parameter (Lyapunov decay rate, elevated from 0.18 for 25% faster stability)
-CONVERGENCE_RATE_PARAMETER: float = 0.25
+# Re-export for backward compatibility (these are now imported from three_r subpackage)
+__all__ = [
+    "GOLDEN_RATIO_CONSTANT",
+    "CONVERGENCE_RATE_PARAMETER",
+    "AnomalyFusionResult",
+    "AnomalyFusionEquation",
+    "AAFEWeightOptimizer",
+    "RecursionEngine",
+    "ResonanceEngine",
+    "AnomalyDetectionMethod",
+    "IssueType",
+    "IssueSeverity",
+    "EvolutionStrategy",
+    "RefactoringConfig",
+    "CodeIssue",
+    "RefactoringResult",
+    "CognitiveComplexityVisitor",
+    "RefactoringEngine",
+    "RefactoringTransformer",
+    "ThreeRMechanism",
+]
 
 
 @dataclass

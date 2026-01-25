@@ -31,6 +31,7 @@ Competence, and Commitment.
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -48,6 +49,239 @@ class EthicalPrinciple(Enum):
     COMMITMENT = "commitment"
 
 
+class BlockedActionCategory(Enum):
+    """Categories of actions that are blocked by pre-execution gates."""
+
+    DESTRUCTIVE = "destructive"  # Actions that destroy data or resources
+    EXFILTRATION = "exfiltration"  # Actions that export sensitive data
+    PRIVILEGE_ESCALATION = "privilege_escalation"  # Actions that elevate permissions
+    DECEPTIVE = "deceptive"  # Actions that hide or misrepresent intent
+    UNCONTROLLED = "uncontrolled"  # Actions without rollback capability
+    HARMFUL = "harmful"  # Actions that may cause harm to users or systems
+
+
+@dataclass
+class BlockingGateResult:
+    """Result of pre-execution blocking gate check."""
+
+    blocked: bool
+    category: BlockedActionCategory | None
+    reason: str
+    timestamp: str
+    action_type: str
+    override_allowed: bool = False
+
+    def __repr__(self) -> str:
+        status = "BLOCKED" if self.blocked else "ALLOWED"
+        return f"BlockingGateResult({status}: {self.reason})"
+
+
+class PreExecutionBlockingGate:
+    """
+    Pre-execution blocking gate for safety-critical operations.
+
+    This gate provides a hard stop before any action executes, checking against
+    a configurable set of blocked patterns. Unlike soft ethical scoring, this
+    gate provides binary allow/block decisions for safety-critical scenarios.
+
+    Features:
+    - Pattern-based blocking for dangerous actions
+    - Category-based classification of blocked actions
+    - Audit trail of all gate decisions
+    - Override capability for authorized scenarios
+    - Integration with EthicalAutonomyGovernor
+
+    Example:
+        >>> gate = PreExecutionBlockingGate()
+        >>> result = gate.check_action("delete_all_data", {"target": "production"})
+        >>> if result.blocked:
+        ...     raise RuntimeError(f"Action blocked: {result.reason}")
+    """
+
+    # Default blocked action patterns
+    BLOCKED_PATTERNS: dict[str, BlockedActionCategory] = {
+        # Destructive patterns
+        "delete_all": BlockedActionCategory.DESTRUCTIVE,
+        "drop_database": BlockedActionCategory.DESTRUCTIVE,
+        "format_disk": BlockedActionCategory.DESTRUCTIVE,
+        "rm_rf": BlockedActionCategory.DESTRUCTIVE,
+        "truncate_table": BlockedActionCategory.DESTRUCTIVE,
+        "destroy": BlockedActionCategory.DESTRUCTIVE,
+        "wipe": BlockedActionCategory.DESTRUCTIVE,
+        # Exfiltration patterns
+        "export_credentials": BlockedActionCategory.EXFILTRATION,
+        "dump_secrets": BlockedActionCategory.EXFILTRATION,
+        "send_to_external": BlockedActionCategory.EXFILTRATION,
+        "upload_sensitive": BlockedActionCategory.EXFILTRATION,
+        # Privilege escalation patterns
+        "elevate_privileges": BlockedActionCategory.PRIVILEGE_ESCALATION,
+        "grant_admin": BlockedActionCategory.PRIVILEGE_ESCALATION,
+        "bypass_auth": BlockedActionCategory.PRIVILEGE_ESCALATION,
+        "disable_security": BlockedActionCategory.PRIVILEGE_ESCALATION,
+        # Deceptive patterns
+        "hide_activity": BlockedActionCategory.DECEPTIVE,
+        "falsify_logs": BlockedActionCategory.DECEPTIVE,
+        "spoof_identity": BlockedActionCategory.DECEPTIVE,
+        "mask_origin": BlockedActionCategory.DECEPTIVE,
+    }
+
+    # Blocked parameter patterns (in action params)
+    BLOCKED_PARAM_PATTERNS: dict[str, BlockedActionCategory] = {
+        "force_no_backup": BlockedActionCategory.UNCONTROLLED,
+        "skip_validation": BlockedActionCategory.UNCONTROLLED,
+        "disable_rollback": BlockedActionCategory.UNCONTROLLED,
+        "bypass_checks": BlockedActionCategory.UNCONTROLLED,
+        "ignore_errors": BlockedActionCategory.HARMFUL,
+        "suppress_warnings": BlockedActionCategory.HARMFUL,
+    }
+
+    def __init__(
+        self,
+        enable_blocking: bool = True,
+        custom_patterns: dict[str, BlockedActionCategory] | None = None,
+        allow_overrides: bool = False,
+        override_key: str | None = None,
+    ) -> None:
+        """
+        Initialize pre-execution blocking gate.
+
+        Args:
+            enable_blocking: Whether blocking is active (False for testing)
+            custom_patterns: Additional patterns to block
+            allow_overrides: Whether to allow authorized overrides
+            override_key: Secret key required for overrides
+        """
+        self.enable_blocking = enable_blocking
+        self.allow_overrides = allow_overrides
+        self.override_key = override_key
+        self.audit_log: list[BlockingGateResult] = []
+
+        # Combine default and custom patterns
+        self.blocked_patterns = dict(self.BLOCKED_PATTERNS)
+        if custom_patterns:
+            self.blocked_patterns.update(custom_patterns)
+
+        logging.info(
+            f"PreExecutionBlockingGate initialized: {len(self.blocked_patterns)} patterns, "
+            f"blocking={'enabled' if enable_blocking else 'disabled'}"
+        )
+
+    def check_action(
+        self,
+        action_type: str,
+        action_params: dict[str, Any] | None = None,
+        override_key: str | None = None,
+    ) -> BlockingGateResult:
+        """
+        Check if an action should be blocked before execution.
+
+        This is the primary gate that must be called before any action executes.
+        It provides a hard block for dangerous patterns.
+
+        Args:
+            action_type: Type of action being attempted
+            action_params: Parameters of the action
+            override_key: Optional key to bypass blocking (if allowed)
+
+        Returns:
+            BlockingGateResult indicating if action is blocked
+        """
+        action_params = action_params or {}
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+        # Check for override
+        if (
+            self.allow_overrides
+            and override_key is not None
+            and self.override_key is not None
+            and override_key == self.override_key
+        ):
+            result = BlockingGateResult(
+                blocked=False,
+                category=None,
+                reason="Override authorized",
+                timestamp=timestamp,
+                action_type=action_type,
+                override_allowed=True,
+            )
+            self.audit_log.append(result)
+            return result
+
+        # If blocking disabled (e.g., for testing), allow all
+        if not self.enable_blocking:
+            result = BlockingGateResult(
+                blocked=False,
+                category=None,
+                reason="Blocking disabled",
+                timestamp=timestamp,
+                action_type=action_type,
+            )
+            self.audit_log.append(result)
+            return result
+
+        # Check action type against blocked patterns
+        action_lower = action_type.lower()
+        for pattern, category in self.blocked_patterns.items():
+            if pattern in action_lower:
+                result = BlockingGateResult(
+                    blocked=True,
+                    category=category,
+                    reason=f"Action matches blocked pattern: {pattern}",
+                    timestamp=timestamp,
+                    action_type=action_type,
+                )
+                self.audit_log.append(result)
+                logging.warning(f"BLOCKED ACTION: {action_type} - {result.reason}")
+                return result
+
+        # Check action params against blocked param patterns
+        params_str = str(action_params).lower()
+        for pattern, category in self.BLOCKED_PARAM_PATTERNS.items():
+            if pattern in params_str or action_params.get(pattern, False):
+                result = BlockingGateResult(
+                    blocked=True,
+                    category=category,
+                    reason=f"Parameters contain blocked pattern: {pattern}",
+                    timestamp=timestamp,
+                    action_type=action_type,
+                )
+                self.audit_log.append(result)
+                logging.warning(f"BLOCKED ACTION: {action_type} - {result.reason}")
+                return result
+
+        # Action allowed
+        result = BlockingGateResult(
+            blocked=False,
+            category=None,
+            reason="No blocked patterns detected",
+            timestamp=timestamp,
+            action_type=action_type,
+        )
+        self.audit_log.append(result)
+        return result
+
+    def add_blocked_pattern(self, pattern: str, category: BlockedActionCategory) -> None:
+        """Add a new blocked pattern dynamically."""
+        self.blocked_patterns[pattern] = category
+        logging.info(f"Added blocked pattern: {pattern} -> {category.value}")
+
+    def remove_blocked_pattern(self, pattern: str) -> bool:
+        """Remove a blocked pattern. Returns True if removed."""
+        if pattern in self.blocked_patterns:
+            del self.blocked_patterns[pattern]
+            logging.info(f"Removed blocked pattern: {pattern}")
+            return True
+        return False
+
+    def get_audit_log(self) -> list[BlockingGateResult]:
+        """Get audit log of all gate decisions."""
+        return list(self.audit_log)
+
+    def get_blocked_count(self) -> int:
+        """Get count of blocked actions."""
+        return sum(1 for result in self.audit_log if result.blocked)
+
+
 @dataclass
 class EthicsConfig:
     """Configuration for ethics framework."""
@@ -62,6 +296,10 @@ class EthicsConfig:
     enable_commitment_evolution: bool = True
     min_ethics_score: float = 0.7
     strict_mode: bool = False
+    # Pre-execution blocking gate configuration
+    enable_blocking_gate: bool = True
+    allow_blocking_overrides: bool = False
+    blocking_override_key: str | None = None
 
 
 @dataclass
@@ -101,21 +339,34 @@ class EthicalAutonomyGovernor:
     def __init__(self, config: EthicsConfig | None = None) -> None:
         self.config = config or EthicsConfig()
         self.audit_log: list[dict[str, Any]] = []
-        logging.info("Ethical Autonomy Governor initialized with 8 principles")
+
+        # Initialize pre-execution blocking gate
+        self.blocking_gate = PreExecutionBlockingGate(
+            enable_blocking=self.config.enable_blocking_gate,
+            allow_overrides=self.config.allow_blocking_overrides,
+            override_key=self.config.blocking_override_key,
+        )
+
+        logging.info("Ethical Autonomy Governor initialized with 8 principles and blocking gate")
 
     def evaluate_action(
         self,
         action_type: str,
         action_params: dict[str, Any],
         context: dict[str, Any] | None = None,
+        override_key: str | None = None,
     ) -> EthicsResult:
         """
         Evaluate an action against all 8 ethical principles.
+
+        This method first checks the pre-execution blocking gate, then
+        proceeds with ethical scoring if not blocked.
 
         Args:
             action_type: Type of action (e.g., "refactoring", "optimization")
             action_params: Parameters of the action
             context: Additional context for evaluation
+            override_key: Optional key to bypass blocking gate
 
         Returns:
             EthicsResult with pass/fail and detailed scores
@@ -124,6 +375,34 @@ class EthicalAutonomyGovernor:
         principle_scores: dict[str, float] = {}
         violations: list[str] = []
         recommendations: list[str] = []
+
+        # Pre-execution blocking gate check (hard block before any evaluation)
+        gate_result = self.blocking_gate.check_action(
+            action_type=action_type,
+            action_params=action_params,
+            override_key=override_key,
+        )
+
+        if gate_result.blocked:
+            # Immediately fail with zero score if blocked
+            self.audit_log.append(
+                {
+                    "action_type": action_type,
+                    "action_params": action_params,
+                    "overall_score": 0.0,
+                    "passed": False,
+                    "violations": [f"BLOCKED: {gate_result.reason}"],
+                    "timestamp": gate_result.timestamp,
+                    "blocked_category": gate_result.category.value if gate_result.category else None,
+                }
+            )
+            return EthicsResult(
+                passed=False,
+                overall_score=0.0,
+                principle_scores={p.value: 0.0 for p in EthicalPrinciple},
+                violations=[f"PRE-EXECUTION BLOCK: {gate_result.reason}"],
+                recommendations=["This action is blocked for safety. Review and modify the action."],
+            )
 
         if self.config.enable_compassion_checks:
             compassion_score = self._check_compassion(action_type, action_params, context)
@@ -197,7 +476,7 @@ class EthicalAutonomyGovernor:
                 "overall_score": overall_score,
                 "passed": passed,
                 "violations": violations,
-                "timestamp": None,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
 
