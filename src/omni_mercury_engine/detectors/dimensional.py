@@ -20,14 +20,22 @@ from __future__ import annotations
 
 
 """
-Dimensional analyzer using PCA, t-SNE, and neural projection
+Dimensional analyzer using PCA and neural projection.
+
 Enhanced with DB term (dimensional code-breaking via Fourier analysis)
+for detecting subtle anomalies in high-dimensional data representations.
+
+This module provides multi-modal dimensionality analysis for anomaly detection,
+combining linear (PCA) and non-linear (autoencoder) projection methods with
+spectral analysis in Fourier space.
 """
 
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import torch
+from numpy.typing import NDArray
 from scipy.fft import fft
 from sklearn.decomposition import PCA
 from torch import nn
@@ -36,14 +44,59 @@ from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 
 
-if TYPE_CHECKING:
-    from sklearn.manifold import TSNE
+@dataclass(frozen=True)
+class DimensionalWeights:
+    """Configurable weights for dimensional score combination.
+
+    Attributes:
+        pca_weight: Weight for PCA reconstruction error (default: 0.5).
+        autoencoder_weight: Weight for autoencoder reconstruction error (default: 0.5).
+        db_blend: Blend factor for DB term when enabled (default: 0.3).
+            When DB term is enabled, combined = base * (1 - db_blend) + db * db_blend.
+
+    Example:
+        >>> weights = DimensionalWeights(pca_weight=0.6, autoencoder_weight=0.4)
+        >>> analyzer = DimensionalAnalyzer({"weights": weights})
+    """
+
+    pca_weight: float = 0.5
+    autoencoder_weight: float = 0.5
+    db_blend: float = 0.3
+
+    def __post_init__(self) -> None:
+        """Validate weights configuration."""
+        base_sum = self.pca_weight + self.autoencoder_weight
+        if abs(base_sum - 1.0) > 1e-6:
+            raise ValueError(
+                f"pca_weight + autoencoder_weight must equal 1.0, got {base_sum:.4f}"
+            )
+        if not 0.0 <= self.db_blend <= 1.0:
+            raise ValueError(f"db_blend must be in [0, 1], got {self.db_blend}")
 
 
 class NeuralProjection(nn.Module):
-    """Neural network autoencoder for dimensionality reduction"""
+    """Neural network autoencoder for dimensionality reduction.
+
+    A symmetric encoder-decoder architecture that learns compressed
+    representations of input data. Reconstruction error serves as
+    an anomaly indicator.
+
+    Attributes:
+        encoder: Sequential network mapping input to latent space.
+        decoder: Sequential network reconstructing input from latent.
+
+    Args:
+        input_dim: Dimensionality of input features.
+        latent_dim: Dimensionality of compressed latent space.
+    """
 
     def __init__(self, input_dim: int, latent_dim: int) -> None:
+        """Initialize autoencoder architecture.
+
+        Args:
+            input_dim: Input feature dimension.
+            latent_dim: Latent space dimension (compression target).
+        """
         super().__init__()
         hidden_dim = max(input_dim // 2, latent_dim * 2)
 
@@ -60,38 +113,159 @@ class NeuralProjection(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Forward pass through encoder and decoder.
+
+        Args:
+            x: Input tensor of shape (batch_size, input_dim).
+
+        Returns:
+            Tuple of (latent_representation, reconstructed_input).
+        """
         latent = self.encoder(x)
         reconstructed = self.decoder(latent)
         return latent, reconstructed
 
 
 class DimensionalAnalyzer(BaseDetector):
+    """Multi-dimensional analysis and projection for anomaly detection.
+
+    Combines multiple projection methods to detect anomalies based on
+    reconstruction error and spectral characteristics:
+
+    - **PCA**: Linear projection capturing maximum variance directions.
+      High reconstruction error indicates deviation from principal subspace.
+    - **Neural Autoencoder**: Non-linear learned compression detecting
+      samples that don't fit learned manifold structure.
+    - **DB Term** (optional): Dimensional Code-Breaking via Fourier analysis
+      detecting spectral anomalies invisible in spatial domain.
+
+    Attributes:
+        n_components: Number of PCA/latent components (default: 10).
+        reconstruction_threshold: Threshold multiplier for errors (default: 2.0).
+        use_db_term: Whether to enable spectral analysis (default: True).
+        weights: DimensionalWeights for configurable score combination.
+        min_samples_for_pca: Minimum samples required for PCA fitting.
+
+    Example:
+        >>> analyzer = DimensionalAnalyzer({
+        ...     "n_components": 5,
+        ...     "use_db_term": True,
+        ...     "weights": DimensionalWeights(pca_weight=0.6, autoencoder_weight=0.4),
+        ... })
+        >>> analyzer.fit(training_data)
+        >>> result = analyzer.detect(test_data)
+        >>> anomalies = result["is_anomaly"]
     """
-    Multi-dimensional analysis and projection:
-    - PCA for linear projection
-    - t-SNE for non-linear visualization
-    - Neural autoencoder for learned projection
-    """
+
+    # Minimum samples required for stable PCA estimation
+    MIN_SAMPLES_FOR_PCA = 2
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize DimensionalAnalyzer with configuration.
+
+        Args:
+            config: Configuration dictionary with optional keys:
+                - n_components: Number of PCA/latent dimensions (default: 10)
+                - reconstruction_threshold: Error threshold multiplier (default: 2.0)
+                - use_db_term: Enable DB term spectral analysis (default: True)
+                - weights: DimensionalWeights instance or dict
+                - autoencoder_epochs: Training epochs for autoencoder (default: 100)
+                - autoencoder_lr: Learning rate for autoencoder (default: 0.001)
+
+        Raises:
+            ValueError: If weights configuration is invalid.
+        """
         super().__init__(config)
-        self.n_components = self.config.get("n_components", 10)
-        self.reconstruction_threshold = self.config.get("reconstruction_threshold", 2.0)
-        self.use_db_term = self.config.get("use_db_term", True)
+        self.n_components: int = self.config.get("n_components", 10)
+        self.reconstruction_threshold: float = self.config.get("reconstruction_threshold", 2.0)
+        self.use_db_term: bool = self.config.get("use_db_term", True)
+        self.autoencoder_epochs: int = self.config.get("autoencoder_epochs", 100)
+        self.autoencoder_lr: float = self.config.get("autoencoder_lr", 0.001)
+
+        # Configurable weights (addresses hardcoded magic numbers issue)
+        weights_config = self.config.get("weights", None)
+        if weights_config is None:
+            self.weights = DimensionalWeights()
+        elif isinstance(weights_config, DimensionalWeights):
+            self.weights = weights_config
+        elif isinstance(weights_config, dict):
+            self.weights = DimensionalWeights(**weights_config)
+        else:
+            raise ValueError(
+                f"weights must be DimensionalWeights or dict, got {type(weights_config)}"
+            )
 
         self.pca: PCA | None = None
-        self.tsne: TSNE | None = None
         self.autoencoder: NeuralProjection | None = None
 
         self.input_dim: int | None = None
-        self.baseline_spectral_signature: np.ndarray[Any, Any] | None = None
+        self.baseline_spectral_signature: NDArray[np.float64] | None = None
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> DimensionalAnalyzer:
-        """Fit dimensional analyzers to data"""
+    def fit(self, data: NDArray[np.float64] | torch.Tensor) -> DimensionalAnalyzer:
+        """Fit dimensional analyzers to training data.
+
+        Fits both PCA and neural autoencoder to learn the normal data
+        distribution. Optionally computes baseline spectral signature
+        for DB term analysis.
+
+        Args:
+            data: Training data array of shape (n_samples, n_features) or tensor.
+                Should contain representative normal/non-anomalous samples.
+
+        Returns:
+            Self for method chaining.
+
+        Raises:
+            DetectorException: If data is empty, has insufficient samples for PCA,
+                or contains only NaN/Inf values.
+
+        Note:
+            PCA requires n_samples >= n_components. If fewer samples are provided,
+            n_components is automatically reduced to n_samples - 1.
+
+        Example:
+            >>> analyzer = DimensionalAnalyzer({"n_components": 5})
+            >>> analyzer.fit(training_data)  # Must have at least 2 samples
+        """
         data_np = data.cpu().numpy() if isinstance(data, torch.Tensor) else data
 
-        self.input_dim = data_np.shape[1]
-        n_comp = min(self.n_components, data_np.shape[1])
+        # Validate data shape
+        if data_np.size == 0:
+            raise DetectorException(
+                "Cannot fit DimensionalAnalyzer with empty data."
+            )
+
+        if data_np.ndim == 1:
+            data_np = data_np.reshape(-1, 1)
+
+        n_samples, n_features = data_np.shape
+
+        # Validate minimum samples for PCA (fixes PCA minimum samples issue)
+        if n_samples < self.MIN_SAMPLES_FOR_PCA:
+            raise DetectorException(
+                f"DimensionalAnalyzer requires at least {self.MIN_SAMPLES_FOR_PCA} samples "
+                f"for PCA fitting, got {n_samples}. Provide more training data."
+            )
+
+        # Validate finite values
+        finite_mask = np.isfinite(data_np).all(axis=1)
+        if not np.any(finite_mask):
+            raise DetectorException(
+                "Cannot fit DimensionalAnalyzer: all data values are NaN or Inf."
+            )
+        if not np.all(finite_mask):
+            data_np = data_np[finite_mask]
+            n_samples = data_np.shape[0]
+
+        self.input_dim = n_features
+
+        # Ensure n_components doesn't exceed data dimensions
+        # PCA requires: n_components <= min(n_samples, n_features)
+        max_components = min(n_samples - 1, n_features)
+        n_comp = min(self.n_components, max_components)
+
+        if n_comp < 1:
+            n_comp = 1
 
         self.pca = PCA(n_components=n_comp)
         self.pca.fit(data_np)
@@ -102,9 +276,12 @@ class DimensionalAnalyzer(BaseDetector):
         )
 
         data_tensor = torch.tensor(data_np, dtype=torch.float32)
-        optimizer = torch.optim.Adam(self.autoencoder.parameters(), lr=0.001)
+        optimizer = torch.optim.Adam(
+            self.autoencoder.parameters(),
+            lr=self.autoencoder_lr
+        )
 
-        for _ in range(100):
+        for _ in range(self.autoencoder_epochs):
             _, reconstructed = self.autoencoder(data_tensor)
             loss = nn.functional.mse_loss(reconstructed, data_tensor)
 
@@ -118,27 +295,41 @@ class DimensionalAnalyzer(BaseDetector):
         self._is_fitted = True
         return self
 
-    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """Detect dimensional anomalies with optional auto-calibration.
+    def detect(self, data: NDArray[np.float64] | torch.Tensor) -> dict[str, Any]:
+        """Detect dimensional anomalies using reconstruction error analysis.
 
-        Uses PCA reconstruction error, autoencoder reconstruction error,
-        and optionally DB term (spectral analysis) to compute anomaly scores.
+        Computes anomaly scores based on how well each sample can be reconstructed
+        by the learned projection models. High reconstruction error indicates
+        the sample deviates from the normal data manifold.
 
         Auto-Calibration:
             When auto_calibrate=True (via enable_auto_calibration()), the
             threshold is automatically calibrated based on the score
-            distribution, solving the F1=0 problem.
+            distribution, solving the F1=0 problem where good ROC-AUC
+            is achieved but fixed threshold produces no positive predictions.
+
+        Args:
+            data: Input data array of shape (n_samples, n_features) or tensor.
 
         Returns:
             Dictionary containing:
                 - is_anomaly: Boolean array of anomaly predictions
-                - scores: Normalized combined scores [0, 1]
-                - pca_errors: PCA reconstruction errors
-                - autoencoder_errors: Autoencoder reconstruction errors
-                - db_scores: DB term scores (if enabled)
+                - scores: Normalized combined scores in [0, 1] range
+                - pca_errors: Raw PCA reconstruction errors
+                - autoencoder_errors: Raw autoencoder reconstruction errors
+                - db_scores: DB term spectral scores (None if disabled)
                 - detector_type: "dimensional"
-                - threshold: Effective threshold (may be calibrated)
-                - calibration_diagnostics: Diagnostics if auto-calibrated
+                - threshold: Effective threshold used (may be calibrated)
+                - calibration_diagnostics: CalibrationDiagnostics if auto-calibrated
+
+        Raises:
+            DetectorException: If detector has not been fitted.
+
+        Example:
+            >>> analyzer = DimensionalAnalyzer()
+            >>> analyzer.fit(train_data).enable_auto_calibration(contamination=0.05)
+            >>> result = analyzer.detect(test_data)
+            >>> print(f"Found {result['is_anomaly'].sum()} anomalies")
         """
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
@@ -150,50 +341,62 @@ class DimensionalAnalyzer(BaseDetector):
             data_np = data
             data_tensor = torch.tensor(data, dtype=torch.float32)
 
-        assert self.pca is not None, "PCA must be fitted before detection"
-        assert self.autoencoder is not None, "Autoencoder must be fitted before detection"
+        if data_np.ndim == 1:
+            data_np = data_np.reshape(-1, 1)
+            data_tensor = data_tensor.reshape(-1, 1)
 
+        if self.pca is None:
+            raise DetectorException("PCA must be fitted before detection")
+        if self.autoencoder is None:
+            raise DetectorException("Autoencoder must be fitted before detection")
+
+        # Compute PCA reconstruction error
         pca_components = self.pca.transform(data_np)
         pca_reconstructed = self.pca.inverse_transform(pca_components)
         pca_errors = np.linalg.norm(data_np - pca_reconstructed, axis=1)
 
+        # Compute autoencoder reconstruction error
         with torch.no_grad():
             _, ae_reconstructed = self.autoencoder(data_tensor)
             ae_errors = torch.norm(data_tensor - ae_reconstructed, dim=1).cpu().numpy()
 
-        combined_scores = (pca_errors + ae_errors) / 2.0
+        # Normalize errors to comparable scales before combining
+        pca_errors_norm = self._safe_normalize(pca_errors)
+        ae_errors_norm = self._safe_normalize(ae_errors)
 
-        db_scores = None
+        # Combine using configurable weights (fixes hardcoded magic numbers)
+        combined_scores = (
+            pca_errors_norm * self.weights.pca_weight
+            + ae_errors_norm * self.weights.autoencoder_weight
+        )
+
+        # Optionally blend in DB term spectral analysis
+        db_scores: NDArray[np.float64] | None = None
         if self.use_db_term and self.baseline_spectral_signature is not None:
             db_scores = self._dimensional_code_breaking(data_np)
-            combined_scores = combined_scores * 0.7 + db_scores * 0.3
+            blend = self.weights.db_blend
+            combined_scores = combined_scores * (1 - blend) + db_scores * blend
 
-        # Fix for P0: Safe normalization handling NaN/Inf and constant arrays
-        # Replace NaN/Inf values before normalization
+        # Ensure scores are finite and in valid range
         if np.any(~np.isfinite(combined_scores)):
-            combined_scores = np.nan_to_num(combined_scores, nan=0.5, posinf=1.0, neginf=0.0)
-
-        score_max = combined_scores.max()
-        if score_max < 1e-10:
-            # All scores are near-zero: return neutral 0.5
-            normalized_scores = np.full_like(combined_scores, 0.5)
-        else:
-            normalized_scores = combined_scores / score_max
-            normalized_scores = np.clip(normalized_scores, 0.0, 1.0)
+            combined_scores = np.nan_to_num(
+                combined_scores, nan=0.5, posinf=1.0, neginf=0.0
+            )
+        combined_scores = np.clip(combined_scores, 0.0, 1.0)
 
         # Auto-calibration: compute optimal threshold from score distribution
         effective_threshold = self.threshold
         calibration_diagnostics = None
 
         if self._auto_calibrate:
-            effective_threshold = self.calibrate_threshold(normalized_scores)
+            effective_threshold = self.calibrate_threshold(combined_scores)
             calibration_diagnostics = self._last_diagnostics
 
-        is_anomaly = normalized_scores > effective_threshold
+        is_anomaly = combined_scores > effective_threshold
 
         return {
             "is_anomaly": is_anomaly,
-            "scores": normalized_scores,
+            "scores": combined_scores,
             "pca_errors": pca_errors,
             "autoencoder_errors": ae_errors,
             "db_scores": db_scores,
@@ -201,6 +404,29 @@ class DimensionalAnalyzer(BaseDetector):
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
         }
+
+    def _safe_normalize(self, scores: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Safely normalize scores to [0, 1] range.
+
+        Handles edge cases including constant arrays and NaN/Inf values.
+
+        Args:
+            scores: Raw score array.
+
+        Returns:
+            Normalized scores in [0, 1] range.
+        """
+        if np.any(~np.isfinite(scores)):
+            scores = np.nan_to_num(scores, nan=0.0, posinf=1e10, neginf=-1e10)
+
+        score_min = scores.min()
+        score_max = scores.max()
+        score_range = score_max - score_min
+
+        if score_range < 1e-10:
+            return np.full_like(scores, 0.5)
+
+        return np.clip((scores - score_min) / score_range, 0.0, 1.0)
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract dimensional features for ML fusion"""
