@@ -56,6 +56,13 @@ GOLDEN_RATIO_CONSTANT: float = 1.618033988749895
 # Convergence rate parameter (Lyapunov decay rate)
 CONVERGENCE_RATE_PARAMETER: float = 0.25
 
+# Mathematical constants (default values)
+_GOLDEN_RATIO_CONJUGATE: float = 0.6180339887498948482
+_CATALAN: float = 0.9159655941772190151
+_EULER_MASCHERONI: float = 0.5772156649015328606
+_FEIGENBAUM_DELTA: float = 4.6692016091029906719
+_OMEGA: float = 0.5671432904097838730
+
 
 @dataclass
 class AnomalyFusionResult:
@@ -99,7 +106,11 @@ class AnomalyFusionResult:
 
 @dataclass
 class RefactoringConfig:
-    """Configuration for automatic refactoring operations."""
+    """Configuration for automatic refactoring operations.
+
+    Mathematical constants are sourced from the centralized
+    MathematicalConstants module for precision and consistency.
+    """
 
     max_recursion_depth: int = 10
     complexity_threshold: int = 15
@@ -117,6 +128,82 @@ class RefactoringConfig:
             "lines_of_code": 100.0,
         }
     )
+
+    apply_refactorings: bool = False
+    create_backup: bool = True
+    require_confirmation: bool = True
+    backup_suffix: str = ".bak"
+    max_complexity_threshold: int = 10
+    max_nesting_threshold: int = 4
+
+    enable_caching: bool = True
+    enable_harmonics: bool = True
+    enable_quantum_paths: bool = True
+    enable_pattern_resonance: bool = True
+    enable_neurosymbolic: bool = True
+    quantum_num_paths: int = 1
+    enable_parallel_processing: bool = False
+    enable_resonance_feedback: bool = False
+    resonance_feedback_depth: int = 3
+    enable_multiverse_optimization: bool = False
+
+    golden_ratio: float = _GOLDEN_RATIO_CONJUGATE
+    catalan_constant: float = _CATALAN
+    euler_mascheroni: float = _EULER_MASCHERONI
+    feigenbaum_delta: float = _FEIGENBAUM_DELTA
+    omega_constant: float = _OMEGA
+
+    enable_spherical_harmonics: bool = False
+    spherical_harmonic_degree: int = 4
+    enable_rotation_invariance: bool = False
+
+    enable_quantum_superposition: bool = False
+    superposition_paths: int = 3
+
+    enable_federated_learning: bool = False
+    federated_num_clients: int = 5
+    federated_learning_rate: float = 0.001
+    federated_local_epochs: int = 5
+    federated_aggregation: str = "fedavg"
+
+    enable_symbolic_reasoning: bool = False
+    symbolic_temporal_logic: bool = True
+    symbolic_graph_based: bool = True
+    symbolic_explainability_threshold: float = 0.7
+
+    enable_info_geometry: bool = False
+    info_geom_distance_metric: str = "fisher_rao"
+    info_geom_manifold_dim: int = 10
+    info_geom_approximation: str = "closed_form"
+
+    enable_quantum_kernels: bool = False
+    quantum_kernel_type: str = "quantum_inspired"
+    quantum_num_qubits: int = 4
+    quantum_entanglement_depth: int = 2
+    quantum_gamma: float = 1.0
+
+    enable_novel_class_discovery: bool = False
+    ncd_enable_mebin: bool = True
+    ncd_num_clusters: int = 5
+    ncd_low_semantics_mode: bool = True
+    ncd_non_prominence_mode: bool = True
+
+    enable_multivariate_ts: bool = False
+    mvts_window_size: int = 100
+    mvts_lstm_hidden_dim: int = 64
+    mvts_temporal_conv_filters: int = 32
+    mvts_graph_conv_layers: int = 2
+
+    enable_chaos_creativity: bool = False
+    chaos_creativity_intensity: float = 0.1
+    chaos_creativity_num_hypotheses: int = 10
+
+    enable_chaos_optimization: bool = False
+    chaos_population_size: int = 30
+    chaos_max_iterations: int = 100
+    chaos_map_type: str = "logistic"
+    chaos_alpha: float = 0.8
+    chaos_beta: float = 0.2
 
 
 @dataclass

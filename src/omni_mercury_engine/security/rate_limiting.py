@@ -186,12 +186,20 @@ class RateLimiter:
             window_seconds: Ignored (always uses per-minute rate)
         """
         # Handle legacy parameters
-        if max_requests is not None:
+        is_legacy_mode = max_requests is not None
+        if is_legacy_mode:
             requests_per_minute = max_requests
         _ = window_seconds  # Ignored, kept for backward compatibility
 
         self.requests_per_minute = requests_per_minute
-        self.burst_size = burst_size or max(1, requests_per_minute // 5)
+        # In legacy mode, burst_size defaults to max_requests for backward compatibility
+        # In new mode, burst_size defaults to requests_per_minute // 5
+        if burst_size is not None:
+            self.burst_size = burst_size
+        elif is_legacy_mode:
+            self.burst_size = requests_per_minute  # Legacy: burst = max_requests
+        else:
+            self.burst_size = max(1, requests_per_minute // 5)  # New: burst = rpm / 5
         self.algorithm = algorithm
         self.backend = backend or InMemoryBackend(max_entries=max_entries, ttl_seconds=ttl_seconds)
 
