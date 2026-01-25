@@ -18,6 +18,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+import logging
+import time
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -31,6 +34,12 @@ Research sources:
 - PySyft (https://github.com/OpenMined/PySyft)
 - McMahan et al. "Communication-Efficient Learning" (2017)
 
+Enhanced with:
+- Timeout handling for unresponsive clients
+- Network partition detection and recovery
+- Byzantine fault tolerance for malicious clients
+- Graceful degradation under partial failures
+
 """
 
 from enum import Enum
@@ -38,6 +47,87 @@ from enum import Enum
 import numpy as np
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
+
+
+logger = logging.getLogger(__name__)
+
+
+class ClientStatus(Enum):
+    """Client connection status."""
+
+    CONNECTED = "connected"
+    TIMEOUT = "timeout"
+    PARTITIONED = "partitioned"
+    BYZANTINE = "byzantine"  # Suspected malicious behavior
+    DROPPED = "dropped"
+
+
+@dataclass
+class ClientHealth:
+    """Health metrics for a federated client."""
+
+    client_id: str
+    status: ClientStatus = ClientStatus.CONNECTED
+    last_seen: float = field(default_factory=time.time)
+    consecutive_timeouts: int = 0
+    consecutive_successes: int = 0
+    total_rounds_participated: int = 0
+    suspicious_updates: int = 0
+
+    def update_success(self) -> None:
+        """Record successful client update."""
+        self.last_seen = time.time()
+        self.consecutive_successes += 1
+        self.consecutive_timeouts = 0
+        self.total_rounds_participated += 1
+        if self.status in (ClientStatus.TIMEOUT, ClientStatus.PARTITIONED):
+            self.status = ClientStatus.CONNECTED
+            logger.info(f"Client {self.client_id} reconnected")
+
+    def update_timeout(self) -> None:
+        """Record client timeout."""
+        self.consecutive_timeouts += 1
+        self.consecutive_successes = 0
+        if self.consecutive_timeouts >= 3:
+            self.status = ClientStatus.PARTITIONED
+            logger.warning(f"Client {self.client_id} marked as partitioned after 3 timeouts")
+        else:
+            self.status = ClientStatus.TIMEOUT
+            logger.warning(
+                f"Client {self.client_id} timeout ({self.consecutive_timeouts} consecutive)"
+            )
+
+    def flag_suspicious(self) -> None:
+        """Flag suspicious update from client (potential Byzantine behavior)."""
+        self.suspicious_updates += 1
+        if self.suspicious_updates >= 3:
+            self.status = ClientStatus.BYZANTINE
+            logger.warning(
+                f"Client {self.client_id} marked as Byzantine after 3 suspicious updates"
+            )
+
+
+@dataclass
+class FederationConfig:
+    """Configuration for federation timeout and fault tolerance."""
+
+    # Timeout settings
+    client_timeout_seconds: float = 30.0
+    max_consecutive_timeouts: int = 3
+    partition_detection_threshold: int = 3
+
+    # Byzantine fault tolerance
+    enable_byzantine_detection: bool = True
+    byzantine_threshold: float = 3.0  # Standard deviations for outlier detection
+    min_clients_for_byzantine_detection: int = 4
+
+    # Partial aggregation settings
+    min_clients_for_aggregation: float = 0.5  # Minimum fraction of clients required
+    allow_partial_rounds: bool = True
+
+    # Recovery settings
+    enable_client_recovery: bool = True
+    recovery_cooldown_seconds: float = 60.0
 
 
 class FederatedStrategy(Enum):
@@ -67,6 +157,9 @@ class FederatedAnomalyDetector:
     - Federated averaging (FedAvg) for model aggregation
     - Differential privacy for privacy guarantees
     - Secure aggregation to prevent server from seeing individual updates
+    - Timeout handling for unresponsive clients
+    - Network partition detection and recovery
+    - Byzantine fault tolerance for malicious clients
 
     Use Cases:
     - Multi-hospital patient anomaly detection (HIPAA compliant)
@@ -83,6 +176,7 @@ class FederatedAnomalyDetector:
         epsilon: float = 1.0,
         delta: float = 1e-5,
         rng: DeterministicRNG | None = None,
+        federation_config: FederationConfig | None = None,
     ):
         self.strategy = strategy
         self.privacy_level = privacy_level
@@ -94,6 +188,12 @@ class FederatedAnomalyDetector:
         self.round_number = 0
         self._rng = rng or get_global_rng()
 
+        # Timeout and partition handling configuration
+        self.config = federation_config or FederationConfig()
+        self.client_health: dict[str, ClientHealth] = {}
+        self._partitioned_clients: set[str] = set()
+        self._byzantine_clients: set[str] = set()
+
     def federated_train(
         self,
         client_data: dict[str, np.ndarray[Any, Any]],
@@ -103,6 +203,8 @@ class FederatedAnomalyDetector:
         """
         Train federated anomaly detection model across clients.
 
+        Includes timeout handling, partition detection, and Byzantine fault tolerance.
+
         Args:
             client_data: Dictionary mapping client_id to local training data
             local_epochs: Number of epochs each client trains locally
@@ -111,27 +213,96 @@ class FederatedAnomalyDetector:
         Returns:
             Training results with global model and metrics
         """
+        # Initialize client health tracking
+        for client_id in client_data:
+            if client_id not in self.client_health:
+                self.client_health[client_id] = ClientHealth(client_id=client_id)
+
         rounds_list: list[int] = []
         global_loss_list: list[float] = []
         privacy_budget_spent = 0.0
+        timeout_count = 0
+        byzantine_count = 0
 
         for round_idx in range(num_rounds):
             self.round_number = round_idx + 1
 
             client_updates: list[np.ndarray[Any, Any]] = []
             client_weights: list[int] = []
+            successful_clients: list[str] = []
 
             for client_id, data in client_data.items():
-                local_model_update = self._local_train(
-                    client_id=client_id, data=data, epochs=local_epochs
-                )
+                # Skip partitioned or Byzantine clients
+                health = self.client_health[client_id]
+                if health.status in (ClientStatus.PARTITIONED, ClientStatus.BYZANTINE):
+                    if health.status == ClientStatus.PARTITIONED:
+                        self._partitioned_clients.add(client_id)
+                    else:
+                        self._byzantine_clients.add(client_id)
+                    continue
 
-                if self.privacy_level == PrivacyLevel.DIFFERENTIAL_PRIVACY:
-                    local_model_update = self._add_differential_privacy_noise(local_model_update)
-                    privacy_budget_spent += self.epsilon
+                try:
+                    # Simulate timeout handling (in production, use asyncio.wait_for)
+                    start_time = time.time()
+                    local_model_update = self._local_train_with_timeout(
+                        client_id=client_id, data=data, epochs=local_epochs
+                    )
+                    elapsed = time.time() - start_time
 
-                client_updates.append(local_model_update)
-                client_weights.append(len(data))
+                    if elapsed > self.config.client_timeout_seconds:
+                        # Timeout detected
+                        health.update_timeout()
+                        timeout_count += 1
+                        continue
+
+                    # Check for Byzantine behavior (outlier detection)
+                    if (
+                        self.config.enable_byzantine_detection
+                        and len(client_updates) >= self.config.min_clients_for_byzantine_detection
+                    ):
+                        if self._is_byzantine_update(local_model_update, client_updates):
+                            health.flag_suspicious()
+                            byzantine_count += 1
+                            logger.warning(f"Suspicious update from {client_id} detected")
+                            if health.status == ClientStatus.BYZANTINE:
+                                self._byzantine_clients.add(client_id)
+                                continue
+
+                    if self.privacy_level == PrivacyLevel.DIFFERENTIAL_PRIVACY:
+                        local_model_update = self._add_differential_privacy_noise(
+                            local_model_update
+                        )
+                        privacy_budget_spent += self.epsilon
+
+                    client_updates.append(local_model_update)
+                    client_weights.append(len(data))
+                    successful_clients.append(client_id)
+                    health.update_success()
+
+                except TimeoutError:
+                    health.update_timeout()
+                    timeout_count += 1
+                    logger.warning(f"Client {client_id} timed out in round {self.round_number}")
+                except Exception as e:
+                    logger.error(f"Client {client_id} error: {e}")
+                    health.update_timeout()
+
+            # Check if we have enough clients for aggregation
+            min_clients_needed = int(len(client_data) * self.config.min_clients_for_aggregation)
+            if len(client_updates) < min_clients_needed:
+                if not self.config.allow_partial_rounds:
+                    logger.error(
+                        f"Round {self.round_number} failed: only {len(client_updates)}/{min_clients_needed} clients responded"
+                    )
+                    continue
+                else:
+                    logger.warning(
+                        f"Round {self.round_number}: proceeding with partial aggregation ({len(client_updates)}/{len(client_data)} clients)"
+                    )
+
+            if not client_updates:
+                logger.error(f"Round {self.round_number} skipped: no client updates available")
+                continue
 
             if self.strategy == FederatedStrategy.FEDAVG:
                 aggregated_update = self._federated_averaging(client_updates, client_weights)
@@ -151,6 +322,8 @@ class FederatedAnomalyDetector:
             "rounds": rounds_list,
             "global_loss": global_loss_list,
             "privacy_budget_spent": privacy_budget_spent,
+            "timeout_count": timeout_count,
+            "byzantine_count": byzantine_count,
         }
 
         final_loss = global_loss_list[-1] if global_loss_list else 0.0
@@ -165,7 +338,76 @@ class FederatedAnomalyDetector:
             ),
             "num_clients": len(client_data),
             "final_loss": final_loss,
+            "partitioned_clients": list(self._partitioned_clients),
+            "byzantine_clients": list(self._byzantine_clients),
+            "timeout_count": timeout_count,
         }
+
+    def _local_train_with_timeout(
+        self, client_id: str, data: np.ndarray[Any, Any], epochs: int
+    ) -> np.ndarray[Any, Any]:
+        """Local training with simulated timeout behavior."""
+        # In production, this would use asyncio.wait_for
+        return self._local_train(client_id=client_id, data=data, epochs=epochs)
+
+    def _is_byzantine_update(
+        self,
+        update: np.ndarray[Any, Any],
+        previous_updates: list[np.ndarray[Any, Any]],
+    ) -> bool:
+        """
+        Detect Byzantine (potentially malicious) client updates using outlier detection.
+
+        Uses median absolute deviation to detect updates that deviate significantly
+        from the distribution of other client updates.
+        """
+        if len(previous_updates) < self.config.min_clients_for_byzantine_detection:
+            return False
+
+        # Stack previous updates
+        updates_matrix = np.vstack(previous_updates)
+
+        # Compute median and MAD for each dimension
+        median = np.median(updates_matrix, axis=0)
+        mad = np.median(np.abs(updates_matrix - median), axis=0)
+
+        # Avoid division by zero
+        mad = np.maximum(mad, 1e-10)
+
+        # Compute z-score-like measure using MAD
+        deviation = np.abs(update - median) / mad
+        max_deviation = np.max(deviation)
+
+        return bool(max_deviation > self.config.byzantine_threshold)
+
+    def get_client_health_report(self) -> dict[str, Any]:
+        """Get health report for all tracked clients."""
+        return {
+            client_id: {
+                "status": health.status.value,
+                "consecutive_timeouts": health.consecutive_timeouts,
+                "total_rounds": health.total_rounds_participated,
+                "suspicious_updates": health.suspicious_updates,
+                "last_seen": health.last_seen,
+            }
+            for client_id, health in self.client_health.items()
+        }
+
+    def recover_partitioned_clients(self) -> list[str]:
+        """Attempt to recover partitioned clients by resetting their status."""
+        recovered = []
+        current_time = time.time()
+
+        for client_id in list(self._partitioned_clients):
+            health = self.client_health.get(client_id)
+            if health and (current_time - health.last_seen) > self.config.recovery_cooldown_seconds:
+                health.status = ClientStatus.CONNECTED
+                health.consecutive_timeouts = 0
+                self._partitioned_clients.discard(client_id)
+                recovered.append(client_id)
+                logger.info(f"Client {client_id} recovered from partition")
+
+        return recovered
 
     def federated_detect(
         self, client_data: dict[str, np.ndarray[Any, Any]], use_personalization: bool = True

@@ -36,7 +36,6 @@ References:
 - Quantum resilience: omni_mercury_engine/core/fusion.py (OmniMercuryEngine)
 """
 
-import logging
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -49,6 +48,7 @@ from omni_mercury_engine.security.intelligence_fusion import (
     IntelligenceFusionEngine,
     IntelligenceFusionResult,
 )
+from omni_mercury_engine.utils.logging import LoggerMixin
 
 
 @dataclass
@@ -72,7 +72,7 @@ class OverwatchNexusResult:
     humanitarian_impact: dict[str, Any] | None = None
 
 
-class OverwatchNexus:
+class OverwatchNexus(LoggerMixin):
     """
     Overwatch Nexus and Response Engine for Ethical Counterintelligence
 
@@ -102,7 +102,6 @@ class OverwatchNexus:
         Args:
             config: Configuration dict with CI parameters
         """
-        self.logger = logging.getLogger(__name__)
         self.config = config or {}
 
         self.engine_config = DEFAULT_CONFIG

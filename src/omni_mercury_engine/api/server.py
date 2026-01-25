@@ -44,7 +44,6 @@ Example:
 import logging
 import os
 import re
-import time
 from enum import Enum
 from typing import Any
 
@@ -178,17 +177,12 @@ app = FastAPI(
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Token bucket rate limiting middleware.
 
-    Enforces rate limits per client IP to prevent API abuse.
+    Uses the unified rate limiting module for consistent behavior across the API.
     Configurable via environment variables:
         - OMNI_RATE_LIMIT_ENABLED: Enable/disable rate limiting (default: true)
         - OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE: Max requests per minute (default: 100)
         - OMNI_RATE_LIMIT_BURST: Burst size (default: 20)
     """
-
-    # Maximum number of client entries to track (prevents memory exhaustion)
-    MAX_BUCKET_ENTRIES = 10000
-    # Time-to-live for bucket entries in seconds (5 minutes)
-    BUCKET_TTL = 300
 
     def __init__(
         self,
@@ -197,13 +191,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         burst_size: int | None = None,
     ):
         super().__init__(app)
+        from omni_mercury_engine.security.rate_limiting import RateLimiter
+
         self.enabled = os.getenv("OMNI_RATE_LIMIT_ENABLED", "true").lower() == "true"
         self.requests_per_minute = requests_per_minute or int(
             os.getenv("OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE", "100")
         )
         self.burst_size = burst_size or int(os.getenv("OMNI_RATE_LIMIT_BURST", "20"))
-        self._buckets: dict[str, tuple[float, int]] = {}
-        self._last_cleanup = time.time()
+
+        # Use unified rate limiter
+        self._limiter = RateLimiter(
+            requests_per_minute=self.requests_per_minute,
+            burst_size=self.burst_size,
+        )
 
     def _get_client_id(self, request: Request) -> str:
         """Extract client identifier from request."""
@@ -216,62 +216,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return request.client.host
         return "unknown"
 
-    def _cleanup_stale_buckets(self) -> None:
-        """Remove stale bucket entries to prevent memory leaks."""
-        now = time.time()
-        # Only cleanup every 60 seconds to avoid overhead
-        if now - self._last_cleanup < 60:
-            return
-
-        self._last_cleanup = now
-        stale_threshold = now - self.BUCKET_TTL
-        stale_keys = [
-            client_id
-            for client_id, (last_time, _) in self._buckets.items()
-            if last_time < stale_threshold
-        ]
-        for key in stale_keys:
-            del self._buckets[key]
-
-        # If still over limit, remove oldest entries
-        if len(self._buckets) > self.MAX_BUCKET_ENTRIES:
-            sorted_entries = sorted(self._buckets.items(), key=lambda x: x[1][0])
-            excess = len(self._buckets) - self.MAX_BUCKET_ENTRIES
-            for key, _ in sorted_entries[:excess]:
-                del self._buckets[key]
-
     def _check_rate_limit(self, client_id: str) -> tuple[bool, dict[str, int]]:
-        """Check if request is within rate limit using token bucket algorithm."""
-        now = time.time()
-
-        # Periodically cleanup stale entries
-        self._cleanup_stale_buckets()
-
-        # Get or create bucket entry
-        if client_id in self._buckets:
-            last_time, tokens = self._buckets[client_id]
-        else:
-            last_time, tokens = now, self.burst_size
-
-        # Refill tokens based on elapsed time
-        elapsed = now - last_time
-        refill_rate = self.requests_per_minute / 60.0
-        new_tokens = int(elapsed * refill_rate)
-        tokens = min(self.burst_size, tokens + new_tokens)
-
-        # Rate limit info for headers
-        info = {
-            "limit": self.requests_per_minute,
-            "remaining": max(0, tokens - 1),
-            "reset": int(now) + 60,
+        """Check if request is within rate limit using unified rate limiter."""
+        info = self._limiter.check(client_id)
+        return info.allowed, {
+            "limit": info.limit,
+            "remaining": info.remaining,
+            "reset": info.reset_at,
         }
-
-        if tokens > 0:
-            self._buckets[client_id] = (now, tokens - 1)
-            return True, info
-        else:
-            self._buckets[client_id] = (now, 0)
-            return False, info
 
     async def dispatch(self, request: Request, call_next) -> Response:
         """Process request with rate limiting."""

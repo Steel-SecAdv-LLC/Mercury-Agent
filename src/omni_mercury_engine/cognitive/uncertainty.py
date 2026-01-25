@@ -758,48 +758,57 @@ class UncertaintyQuantifier:
                 logits = np.column_stack([1 - logits, logits])
             self.temperature_scaler.fit(logits, labels)
 
-        # === BINNED CALIBRATION METRICS ===
+        # === BINNED CALIBRATION METRICS (Vectorized O(n) implementation) ===
         bin_boundaries = np.linspace(0, 1, self.calibration_bins + 1)
 
-        expected_conf = []
-        observed_acc = []
-        bin_counts = []
-        adaptive_errors = []
+        # Vectorized binning using digitize (O(n) instead of O(n*bins))
+        bin_indices = np.digitize(confidences, bin_boundaries) - 1
+        bin_indices = np.clip(bin_indices, 0, self.calibration_bins - 1)
 
-        for i in range(self.calibration_bins):
-            mask = (confidences >= bin_boundaries[i]) & (confidences < bin_boundaries[i + 1])
-            bin_count = mask.sum()
+        # Vectorized computation of bin statistics using bincount
+        bin_counts_arr = np.bincount(bin_indices, minlength=self.calibration_bins)
+        bin_conf_sums = np.bincount(
+            bin_indices, weights=confidences, minlength=self.calibration_bins
+        )
+        bin_acc_sums = np.bincount(
+            bin_indices, weights=outcomes.astype(float), minlength=self.calibration_bins
+        )
 
-            if bin_count > 0:
-                expected_conf.append(float(confidences[mask].mean()))
-                observed_acc.append(float(outcomes[mask].mean()))
-                bin_counts.append(int(bin_count))
-                # Adaptive calibration error (weighted by bin size)
-                adaptive_errors.append(
-                    bin_count * abs(confidences[mask].mean() - outcomes[mask].mean())
-                )
-            else:
-                bin_center = (bin_boundaries[i] + bin_boundaries[i + 1]) / 2
-                expected_conf.append(float(bin_center))
-                observed_acc.append(float(bin_center))
-                bin_counts.append(0)
-                adaptive_errors.append(0.0)
+        # Compute per-bin averages and handle empty bins
+        non_empty = bin_counts_arr > 0
+        expected_conf_arr = np.zeros(self.calibration_bins)
+        observed_acc_arr = np.zeros(self.calibration_bins)
 
-        total_samples = sum(bin_counts)
+        # For non-empty bins: compute actual averages
+        expected_conf_arr[non_empty] = bin_conf_sums[non_empty] / bin_counts_arr[non_empty]
+        observed_acc_arr[non_empty] = bin_acc_sums[non_empty] / bin_counts_arr[non_empty]
+
+        # For empty bins: use bin center as fallback
+        bin_centers = (bin_boundaries[:-1] + bin_boundaries[1:]) / 2
+        expected_conf_arr[~non_empty] = bin_centers[~non_empty]
+        observed_acc_arr[~non_empty] = bin_centers[~non_empty]
+
+        # Convert to lists for compatibility
+        expected_conf = expected_conf_arr.tolist()
+        observed_acc = observed_acc_arr.tolist()
+        bin_counts = bin_counts_arr.tolist()
+
+        # Vectorized calibration errors
+        calibration_gaps = np.abs(expected_conf_arr - observed_acc_arr)
+        adaptive_errors_arr = bin_counts_arr * calibration_gaps
+
+        total_samples = int(bin_counts_arr.sum())
 
         # Expected Calibration Error (weighted average)
-        ece = sum(adaptive_errors) / max(total_samples, 1)
+        ece = float(adaptive_errors_arr.sum() / max(total_samples, 1))
 
         # Maximum Calibration Error
-        calibration_gaps = [abs(e - o) for e, o in zip(expected_conf, observed_acc, strict=False)]
-        mce = max(calibration_gaps) if calibration_gaps else 0.0
+        mce = float(calibration_gaps.max()) if len(calibration_gaps) > 0 else 0.0
 
         # Adaptive Calibration Error (handles varying bin sizes better)
         # Uses sqrt weighting to reduce sensitivity to large bins
-        ace = sum(
-            np.sqrt(c) * abs(e - o)
-            for c, e, o in zip(bin_counts, expected_conf, observed_acc, strict=False)
-        ) / (sum(np.sqrt(c) for c in bin_counts) + 1e-10)
+        sqrt_weights = np.sqrt(bin_counts_arr)
+        ace = float((sqrt_weights * calibration_gaps).sum() / (sqrt_weights.sum() + 1e-10))
 
         # Store history
         self._predictions.extend(predictions.tolist())
@@ -1100,7 +1109,11 @@ class UncertaintyQuantifier:
         return float(np.clip(confidence, 0.01, 0.99))
 
     def _compute_ece(self) -> float:
-        """Compute current Expected Calibration Error."""
+        """Compute current Expected Calibration Error using vectorized operations.
+
+        Vectorized implementation for O(n) performance instead of O(n²) with loops.
+        Uses numpy histogram and binned statistics for efficient binning.
+        """
         if len(self._outcomes) < 20:
             return 0.1  # Default for limited data
 
@@ -1109,17 +1122,28 @@ class UncertaintyQuantifier:
 
         # Adaptive binning based on sample size
         n_bins = min(10, max(3, len(confidences) // 50))
-        bin_edges = np.linspace(0, 1, n_bins + 1)
 
-        ece = 0.0
-        for i in range(n_bins):
-            mask = (confidences >= bin_edges[i]) & (confidences < bin_edges[i + 1])
-            if mask.sum() > 0:
-                avg_conf = confidences[mask].mean()
-                avg_acc = outcomes[mask].mean()
-                ece += mask.sum() * abs(avg_conf - avg_acc)
+        # Vectorized binning using digitize (O(n) operation)
+        bin_indices = np.digitize(confidences, np.linspace(0, 1, n_bins + 1)) - 1
+        bin_indices = np.clip(bin_indices, 0, n_bins - 1)
 
-        return float(ece / len(confidences))
+        # Vectorized computation of bin statistics using bincount
+        bin_counts = np.bincount(bin_indices, minlength=n_bins)
+        bin_conf_sums = np.bincount(bin_indices, weights=confidences, minlength=n_bins)
+        bin_acc_sums = np.bincount(bin_indices, weights=outcomes.astype(float), minlength=n_bins)
+
+        # Compute per-bin averages (avoiding division by zero)
+        non_empty = bin_counts > 0
+        avg_confs = np.zeros(n_bins)
+        avg_accs = np.zeros(n_bins)
+        avg_confs[non_empty] = bin_conf_sums[non_empty] / bin_counts[non_empty]
+        avg_accs[non_empty] = bin_acc_sums[non_empty] / bin_counts[non_empty]
+
+        # Vectorized ECE: weighted sum of calibration errors
+        calibration_errors = np.abs(avg_confs - avg_accs) * bin_counts
+        ece = calibration_errors.sum() / len(confidences)
+
+        return float(ece)
 
     def _generate_explanation(
         self,

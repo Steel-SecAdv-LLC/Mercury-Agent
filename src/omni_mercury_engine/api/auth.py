@@ -35,7 +35,6 @@ import hashlib
 import logging
 import os
 import secrets
-import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -631,11 +630,11 @@ class JWTAuth:
         return jwt.encode(payload, secret_key, algorithm=algorithm)
 
 
-class RateLimiter:
-    """Simple in-memory rate limiter.
+class RequestRateLimiter:
+    """Request-aware rate limiter wrapper.
 
-    Uses token bucket algorithm for rate limiting.
-    In production, use Redis for distributed rate limiting.
+    Wraps the unified RateLimiter with FastAPI Request support.
+    Uses the consolidated rate limiting module for actual implementation.
     """
 
     def __init__(
@@ -643,9 +642,14 @@ class RateLimiter:
         requests_per_minute: int = 100,
         burst_size: int = 20,
     ):
+        from omni_mercury_engine.security.rate_limiting import RateLimiter as UnifiedRateLimiter
+
+        self._limiter = UnifiedRateLimiter(
+            requests_per_minute=requests_per_minute,
+            burst_size=burst_size,
+        )
         self.requests_per_minute = requests_per_minute
         self.burst_size = burst_size
-        self._buckets: dict[str, tuple[float, int]] = {}
 
     def _get_key(self, request: Request, user: User | None = None) -> str:
         """Get rate limit key for request."""
@@ -670,37 +674,23 @@ class RateLimiter:
             Tuple of (allowed, rate_limit_info).
         """
         key = self._get_key(request, user)
-        now = time.time()
+        info = self._limiter.check(key)
 
-        if key in self._buckets:
-            last_time, tokens = self._buckets[key]
-            # Refill tokens based on elapsed time
-            elapsed = now - last_time
-            new_tokens = int(elapsed * (self.requests_per_minute / 60))
-            tokens = min(self.burst_size, tokens + new_tokens)
-        else:
-            tokens = self.burst_size
-
-        if tokens > 0:
-            self._buckets[key] = (now, tokens - 1)
-            allowed = True
-        else:
-            allowed = False
-
-        info = {
-            "limit": self.requests_per_minute,
-            "remaining": tokens,
-            "reset": int(now) + 60,
+        return info.allowed, {
+            "limit": info.limit,
+            "remaining": info.remaining,
+            "reset": info.reset_at,
         }
 
-        return allowed, info
 
+# Backward-compatible alias
+RateLimiter = RequestRateLimiter
 
 # Global rate limiter
-_rate_limiter = RateLimiter()
+_rate_limiter = RequestRateLimiter()
 
 
-def get_rate_limiter() -> RateLimiter:
+def get_rate_limiter() -> RequestRateLimiter:
     """Get the rate limiter instance."""
     return _rate_limiter
 

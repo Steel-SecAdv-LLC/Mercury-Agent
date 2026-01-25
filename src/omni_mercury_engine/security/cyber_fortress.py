@@ -40,7 +40,6 @@ Research sources:
 """
 
 import hashlib
-import logging
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -68,7 +67,7 @@ class FortressResult:
     recommendations: list[str] = field(default_factory=list)
 
 
-class ResonanceHashIntegrityChecker:
+class ResonanceHashIntegrityChecker(LoggerMixin):
     """
     Novel hash integrity checking using resonance amplification.
 
@@ -79,7 +78,6 @@ class ResonanceHashIntegrityChecker:
     def __init__(self, threshold_std: float = 10.0) -> None:
         self.resonance = ResonanceEngine(sampling_rate=1.0)
         self.threshold_std = threshold_std
-        self.logger = logging.getLogger(__name__)
 
     def check_integrity(
         self,
@@ -175,7 +173,7 @@ class ResonanceHashIntegrityChecker:
         return recs
 
 
-class MultiverseZeroDaySimulator:
+class MultiverseZeroDaySimulator(LoggerMixin):
     """
     Novel zero-day attack simulation using multiverse optimization.
 
@@ -187,7 +185,6 @@ class MultiverseZeroDaySimulator:
         self.multiverse = MultiverseOmniEngine(
             num_universes=num_universes, state_dim=64, convergence_threshold=0.95
         )
-        self.logger = logging.getLogger(__name__)
 
     def simulate_zero_day(
         self, system_state: np.ndarray[Any, Any], known_vulnerabilities: list[str] | None = None
@@ -251,7 +248,7 @@ class MultiverseZeroDaySimulator:
         return recs
 
 
-class EncryptedTrafficAnomalyDetector:
+class EncryptedTrafficAnomalyDetector(LoggerMixin):
     """
     Novel encrypted traffic behavioral anomaly detection.
 
@@ -269,7 +266,6 @@ class EncryptedTrafficAnomalyDetector:
             nn.Linear(32, 1),
             nn.Sigmoid(),
         )
-        self.logger = logging.getLogger(__name__)
 
     def extract_behavioral_features(
         self, traffic_data: np.ndarray[Any, Any]
@@ -402,7 +398,6 @@ class CyberFortress(LoggerMixin):
         )
 
         self.basic_detector = ThreatDetector()
-        self.logger = logging.getLogger(__name__)
 
     def fortress_scan(self, system_data: dict[str, Any]) -> FortressResult:
         """
