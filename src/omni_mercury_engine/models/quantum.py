@@ -230,7 +230,7 @@ class QuantumAnomalyModel:
         # Adjust entanglement strength based on noise (reduce for noisy environment)
         if noise_level > 0.1:
             # High noise reduces effective entanglement
-            self.entanglement_strength *= (1.0 - noise_level * 0.5)
+            self.entanglement_strength *= 1.0 - noise_level * 0.5
 
     def _apply_noise_channel(
         self, state: np.ndarray[Any, Any], noise_type: str = "depolarizing"
@@ -281,9 +281,7 @@ class QuantumAnomalyModel:
 
         return state
 
-    def _apply_pauli(
-        self, state: np.ndarray[Any, Any], pauli: str
-    ) -> np.ndarray[Any, Any]:
+    def _apply_pauli(self, state: np.ndarray[Any, Any], pauli: str) -> np.ndarray[Any, Any]:
         """
         Apply Pauli operator to state vector.
 
@@ -301,7 +299,7 @@ class QuantumAnomalyModel:
             return np.flip(state)
         elif pauli == "Y":
             # Y = iXZ: flip and phase
-            return 1j * np.flip(state) * np.array([1, -1] * (len(state) // 2 + 1))[:len(state)]
+            return 1j * np.flip(state) * np.array([1, -1] * (len(state) // 2 + 1))[: len(state)]
         elif pauli == "Z":
             # Phase flip: negate odd indices
             result = state.copy()
@@ -338,10 +336,18 @@ class QuantumAnomalyModel:
                 return np.array([0, 0])
 
             # Simplified syndrome: measure parity of amplitude groups
-            syndrome = np.array([
-                int(np.sign(np.sum(state[:n//3])) != np.sign(np.sum(state[n//3:2*n//3]))),
-                int(np.sign(np.sum(state[n//3:2*n//3])) != np.sign(np.sum(state[2*n//3:]))),
-            ])
+            syndrome = np.array(
+                [
+                    int(
+                        np.sign(np.sum(state[: n // 3]))
+                        != np.sign(np.sum(state[n // 3 : 2 * n // 3]))
+                    ),
+                    int(
+                        np.sign(np.sum(state[n // 3 : 2 * n // 3]))
+                        != np.sign(np.sum(state[2 * n // 3 :]))
+                    ),
+                ]
+            )
             return syndrome
 
         elif code == ErrorCorrectionCode.SHOR:
@@ -358,8 +364,14 @@ class QuantumAnomalyModel:
                 # Bit flip syndrome within group
                 third = len(group) // 3
                 if third > 0:
-                    s1 = int(np.sum(np.abs(group[:third])**2) < np.sum(np.abs(group[third:2*third])**2) * 0.5)
-                    s2 = int(np.sum(np.abs(group[third:2*third])**2) < np.sum(np.abs(group[2*third:])**2) * 0.5)
+                    s1 = int(
+                        np.sum(np.abs(group[:third]) ** 2)
+                        < np.sum(np.abs(group[third : 2 * third]) ** 2) * 0.5
+                    )
+                    s2 = int(
+                        np.sum(np.abs(group[third : 2 * third]) ** 2)
+                        < np.sum(np.abs(group[2 * third :]) ** 2) * 0.5
+                    )
                     syndromes.extend([s1, s2])
 
             return np.array(syndromes[:6])  # 6 syndrome bits for Shor code
@@ -447,11 +459,7 @@ class QuantumAnomalyModel:
             return {"enabled": False}
 
         # Calculate average error rate
-        avg_error_rate = (
-            np.mean(self._error_rate_history)
-            if self._error_rate_history
-            else 0.0
-        )
+        avg_error_rate = np.mean(self._error_rate_history) if self._error_rate_history else 0.0
 
         # Calculate correction success (errors detected but state recovered)
         total_errors = sum(1 for e in self._error_rate_history if e > 0)
@@ -461,9 +469,15 @@ class QuantumAnomalyModel:
             "enabled": True,
             "error_correction_code": self._decoherence_config.error_correction_code.value,
             "noise_model": {
-                "depolarizing_rate": self._noise_model.depolarizing_rate if self._noise_model else 0,
-                "amplitude_damping_rate": self._noise_model.amplitude_damping_rate if self._noise_model else 0,
-                "phase_damping_rate": self._noise_model.phase_damping_rate if self._noise_model else 0,
+                "depolarizing_rate": (
+                    self._noise_model.depolarizing_rate if self._noise_model else 0
+                ),
+                "amplitude_damping_rate": (
+                    self._noise_model.amplitude_damping_rate if self._noise_model else 0
+                ),
+                "phase_damping_rate": (
+                    self._noise_model.phase_damping_rate if self._noise_model else 0
+                ),
             },
             "t1_time_us": self._decoherence_config.t1_time,
             "t2_time_us": self._decoherence_config.t2_time,
@@ -474,9 +488,7 @@ class QuantumAnomalyModel:
             "entanglement_strength": self.entanglement_strength,
         }
 
-    def predict_with_noise(
-        self, data: np.ndarray[Any, Any] | dict[str, Any]
-    ) -> dict[str, Any]:
+    def predict_with_noise(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
         """
         Predict anomalies with noise simulation and error correction.
 

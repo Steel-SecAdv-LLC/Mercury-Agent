@@ -31,7 +31,7 @@ Competence, and Commitment.
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -187,7 +187,7 @@ class PreExecutionBlockingGate:
             BlockingGateResult indicating if action is blocked
         """
         action_params = action_params or {}
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
 
         # Check for override
         if (
@@ -393,7 +393,9 @@ class EthicalAutonomyGovernor:
                     "passed": False,
                     "violations": [f"BLOCKED: {gate_result.reason}"],
                     "timestamp": gate_result.timestamp,
-                    "blocked_category": gate_result.category.value if gate_result.category else None,
+                    "blocked_category": (
+                        gate_result.category.value if gate_result.category else None
+                    ),
                 }
             )
             return EthicsResult(
@@ -401,7 +403,9 @@ class EthicalAutonomyGovernor:
                 overall_score=0.0,
                 principle_scores={p.value: 0.0 for p in EthicalPrinciple},
                 violations=[f"PRE-EXECUTION BLOCK: {gate_result.reason}"],
-                recommendations=["This action is blocked for safety. Review and modify the action."],
+                recommendations=[
+                    "This action is blocked for safety. Review and modify the action."
+                ],
             )
 
         if self.config.enable_compassion_checks:
@@ -476,7 +480,7 @@ class EthicalAutonomyGovernor:
                 "overall_score": overall_score,
                 "passed": passed,
                 "violations": violations,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         )
 

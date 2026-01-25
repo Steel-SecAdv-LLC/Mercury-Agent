@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
@@ -94,14 +93,18 @@ class ClientHealth:
             logger.warning(f"Client {self.client_id} marked as partitioned after 3 timeouts")
         else:
             self.status = ClientStatus.TIMEOUT
-            logger.warning(f"Client {self.client_id} timeout ({self.consecutive_timeouts} consecutive)")
+            logger.warning(
+                f"Client {self.client_id} timeout ({self.consecutive_timeouts} consecutive)"
+            )
 
     def flag_suspicious(self) -> None:
         """Flag suspicious update from client (potential Byzantine behavior)."""
         self.suspicious_updates += 1
         if self.suspicious_updates >= 3:
             self.status = ClientStatus.BYZANTINE
-            logger.warning(f"Client {self.client_id} marked as Byzantine after 3 suspicious updates")
+            logger.warning(
+                f"Client {self.client_id} marked as Byzantine after 3 suspicious updates"
+            )
 
 
 @dataclass
@@ -253,7 +256,10 @@ class FederatedAnomalyDetector:
                         continue
 
                     # Check for Byzantine behavior (outlier detection)
-                    if self.config.enable_byzantine_detection and len(client_updates) >= self.config.min_clients_for_byzantine_detection:
+                    if (
+                        self.config.enable_byzantine_detection
+                        and len(client_updates) >= self.config.min_clients_for_byzantine_detection
+                    ):
                         if self._is_byzantine_update(local_model_update, client_updates):
                             health.flag_suspicious()
                             byzantine_count += 1
@@ -263,7 +269,9 @@ class FederatedAnomalyDetector:
                                 continue
 
                     if self.privacy_level == PrivacyLevel.DIFFERENTIAL_PRIVACY:
-                        local_model_update = self._add_differential_privacy_noise(local_model_update)
+                        local_model_update = self._add_differential_privacy_noise(
+                            local_model_update
+                        )
                         privacy_budget_spent += self.epsilon
 
                     client_updates.append(local_model_update)
@@ -283,10 +291,14 @@ class FederatedAnomalyDetector:
             min_clients_needed = int(len(client_data) * self.config.min_clients_for_aggregation)
             if len(client_updates) < min_clients_needed:
                 if not self.config.allow_partial_rounds:
-                    logger.error(f"Round {self.round_number} failed: only {len(client_updates)}/{min_clients_needed} clients responded")
+                    logger.error(
+                        f"Round {self.round_number} failed: only {len(client_updates)}/{min_clients_needed} clients responded"
+                    )
                     continue
                 else:
-                    logger.warning(f"Round {self.round_number}: proceeding with partial aggregation ({len(client_updates)}/{len(client_data)} clients)")
+                    logger.warning(
+                        f"Round {self.round_number}: proceeding with partial aggregation ({len(client_updates)}/{len(client_data)} clients)"
+                    )
 
             if not client_updates:
                 logger.error(f"Round {self.round_number} skipped: no client updates available")

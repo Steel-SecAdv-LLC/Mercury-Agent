@@ -767,8 +767,12 @@ class UncertaintyQuantifier:
 
         # Vectorized computation of bin statistics using bincount
         bin_counts_arr = np.bincount(bin_indices, minlength=self.calibration_bins)
-        bin_conf_sums = np.bincount(bin_indices, weights=confidences, minlength=self.calibration_bins)
-        bin_acc_sums = np.bincount(bin_indices, weights=outcomes.astype(float), minlength=self.calibration_bins)
+        bin_conf_sums = np.bincount(
+            bin_indices, weights=confidences, minlength=self.calibration_bins
+        )
+        bin_acc_sums = np.bincount(
+            bin_indices, weights=outcomes.astype(float), minlength=self.calibration_bins
+        )
 
         # Compute per-bin averages and handle empty bins
         non_empty = bin_counts_arr > 0

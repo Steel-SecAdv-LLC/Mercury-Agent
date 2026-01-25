@@ -37,12 +37,8 @@ Research source: Bain & Company Technology Report 2025
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING
 
 import numpy as np
-
-if TYPE_CHECKING:
-    from numpy.typing import NDArray
 
 
 class AgentState(Enum):
@@ -139,9 +135,7 @@ class AgenticAutonomy:
 
         # Reinforcement learning components
         self.learning_config = learning_config or LearningConfig()
-        self.experience_buffer: deque[Experience] = deque(
-            maxlen=self.learning_config.memory_size
-        )
+        self.experience_buffer: deque[Experience] = deque(maxlen=self.learning_config.memory_size)
         self.exploration_rate = self.learning_config.exploration_rate
         self.policy_metrics = PolicyMetrics()
 
@@ -364,7 +358,7 @@ class AgenticAutonomy:
         # Create unique hash from discretized values
         bucket = 0
         for i, val in enumerate(discretized):
-            bucket += val * (bins ** i)
+            bucket += val * (bins**i)
 
         return bucket
 
@@ -401,8 +395,7 @@ class AgenticAutonomy:
                 # Non-terminal: include discounted future value
                 next_bucket = self._discretize_state(exp.next_state_features)
                 max_next_q = max(
-                    self._q_table.get((next_bucket, a), 0.0)
-                    for a in self.ACTION_TYPES
+                    self._q_table.get((next_bucket, a), 0.0) for a in self.ACTION_TYPES
                 )
                 td_target = (
                     exp.reward * self.learning_config.reward_scale
@@ -455,8 +448,7 @@ class AgenticAutonomy:
 
         # Greedy selection based on Q-values
         q_values = [
-            (action, self.get_q_value(state_features, action))
-            for action in available_actions
+            (action, self.get_q_value(state_features, action)) for action in available_actions
         ]
         best_action = max(q_values, key=lambda x: x[1])[0]
         return best_action
@@ -652,8 +644,8 @@ class AgenticAutonomy:
         alpha = self.learning_config.learning_rate
         current_value = self._workflow_value_estimates.get(workflow_id, 0.0)
         self._workflow_value_estimates[workflow_id] = (
-            (1 - alpha) * current_value + alpha * workflow_reward
-        )
+            1 - alpha
+        ) * current_value + alpha * workflow_reward
 
         # Track execution count
         self._workflow_execution_counts[workflow_id] = (
@@ -664,7 +656,7 @@ class AgenticAutonomy:
         prev_state_features = None
         for step in steps_executed:
             step_type = step.get("type", "unknown")
-            step_result = step.get("result", {})
+            _ = step.get("result", {})  # Result used in _extract_step_features
 
             # Extract features for this step
             current_state_features = self._extract_step_features(step, workflow_results)
@@ -673,7 +665,9 @@ class AgenticAutonomy:
             if prev_state_features is not None:
                 # Compute step reward (discounted portion of workflow reward)
                 step_idx = steps_executed.index(step)
-                discount = self.learning_config.discount_factor ** (len(steps_executed) - step_idx - 1)
+                discount = self.learning_config.discount_factor ** (
+                    len(steps_executed) - step_idx - 1
+                )
                 step_reward = workflow_reward * discount * 0.5  # Partial credit
 
                 experience = Experience(
@@ -758,13 +752,12 @@ class AgenticAutonomy:
         elif status == "escalated":
             # Appropriately escalated - this is correct behavior
             base_reward = 0.6
+        # Unknown or failed status
+        elif total_steps > 0:
+            completion_ratio = completed_steps / total_steps
+            base_reward = completion_ratio * 0.5 - 0.25
         else:
-            # Unknown or failed status
-            if total_steps > 0:
-                completion_ratio = completed_steps / total_steps
-                base_reward = completion_ratio * 0.5 - 0.25
-            else:
-                base_reward = -0.5
+            base_reward = -0.5
 
         # Bonus for efficient execution (fewer decisions needed)
         autonomous_decisions = workflow_results.get("autonomous_decisions", [])
@@ -800,9 +793,14 @@ class AgenticAutonomy:
         features = [
             step_type_encoding.get(step_type, 1.0),
             float(step_result.get("anomaly_score", 0.5)) if isinstance(step_result, dict) else 0.5,
-            float(step_result.get("anomaly_detected", False)) if isinstance(step_result, dict) else 0.0,
+            (
+                float(step_result.get("anomaly_detected", False))
+                if isinstance(step_result, dict)
+                else 0.0
+            ),
             self.autonomy_level,
-            float(workflow_results.get("completed_steps", 0)) / max(workflow_results.get("total_steps", 1), 1),
+            float(workflow_results.get("completed_steps", 0))
+            / max(workflow_results.get("total_steps", 1), 1),
         ]
 
         return tuple(features)
@@ -822,15 +820,11 @@ class AgenticAutonomy:
             self.policy_metrics.successful_actions + self.policy_metrics.failed_actions
         )
         success_rate = (
-            self.policy_metrics.successful_actions / total_evaluated
-            if total_evaluated > 0
-            else 0.0
+            self.policy_metrics.successful_actions / total_evaluated if total_evaluated > 0 else 0.0
         )
 
         # Compute average reward
-        avg_reward = (
-            self.policy_metrics.total_rewards / max(total_evaluated, 1)
-        )
+        avg_reward = self.policy_metrics.total_rewards / max(total_evaluated, 1)
 
         # Compute convergence status from recent TD errors
         is_converged = False

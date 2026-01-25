@@ -29,7 +29,7 @@ import threading
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Protocol
+from typing import Protocol
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 class RateLimitAlgorithm(Enum):
     """Rate limiting algorithm selection."""
 
-    TOKEN_BUCKET = "token_bucket"
+    TOKEN_BUCKET = "token_bucket"  # noqa: S105 - not a password
     SLIDING_WINDOW = "sliding_window"
 
 
@@ -193,9 +193,7 @@ class RateLimiter:
         self.requests_per_minute = requests_per_minute
         self.burst_size = burst_size or max(1, requests_per_minute // 5)
         self.algorithm = algorithm
-        self.backend = backend or InMemoryBackend(
-            max_entries=max_entries, ttl_seconds=ttl_seconds
-        )
+        self.backend = backend or InMemoryBackend(max_entries=max_entries, ttl_seconds=ttl_seconds)
 
         # For sliding window algorithm
         self._sliding_requests: dict[str, list[float]] = {}

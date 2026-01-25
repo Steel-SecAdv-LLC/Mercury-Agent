@@ -19,6 +19,7 @@ from omni_mercury_engine.core.three_r.types import (
     AnomalyFusionResult,
 )
 
+
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
@@ -163,7 +164,9 @@ class AnomalyFusionEquation:
             return
 
         for i, key in enumerate(["w_R", "w_H", "w_O"]):
-            self.weights[key] = (1 - learning_rate) * self.weights[key] + learning_rate * attention_weights[i]
+            self.weights[key] = (1 - learning_rate) * self.weights[
+                key
+            ] + learning_rate * attention_weights[i]
 
         total = sum(self.weights.values())
         self.weights = {k: v / total for k, v in self.weights.items()}

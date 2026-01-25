@@ -47,24 +47,20 @@ from omni_mercury_engine.core.three_r.types import (
     RefactoringResult,
 )
 
+
 __all__ = [
-    # Constants
-    "GOLDEN_RATIO_CONSTANT",
     "CONVERGENCE_RATE_PARAMETER",
-    # Enums
-    "AnomalyDetectionMethod",
-    "IssueType",
-    "IssueSeverity",
-    "EvolutionStrategy",
-    # Dataclasses
-    "AnomalyFusionResult",
-    "RefactoringConfig",
-    "CodeIssue",
-    "RefactoringResult",
-    # Engines
-    "RecursionEngine",
-    "ResonanceEngine",
-    # Fusion
-    "AnomalyFusionEquation",
+    "GOLDEN_RATIO_CONSTANT",
     "AAFEWeightOptimizer",
+    "AnomalyDetectionMethod",
+    "AnomalyFusionEquation",
+    "AnomalyFusionResult",
+    "CodeIssue",
+    "EvolutionStrategy",
+    "IssueSeverity",
+    "IssueType",
+    "RecursionEngine",
+    "RefactoringConfig",
+    "RefactoringResult",
+    "ResonanceEngine",
 ]

@@ -51,8 +51,6 @@ from omni_mercury_engine.core.code_analysis import (
     NeurosymbolicConfig as CodeAnalysisConfig,
     NeurosymbolicEngine as CodeAnalysisEngine,
 )
-from omni_mercury_engine.utils.constants import MathematicalConstants
-from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 # Import from refactored subpackage for internal use (maintains backward compat)
 from omni_mercury_engine.core.three_r.engines import RecursionEngine, ResonanceEngine
@@ -69,6 +67,8 @@ from omni_mercury_engine.core.three_r.types import (
     RefactoringConfig,
     RefactoringResult,
 )
+from omni_mercury_engine.utils.constants import MathematicalConstants
+from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
 if TYPE_CHECKING:
@@ -79,71 +79,32 @@ if TYPE_CHECKING:
 
 # Re-export for backward compatibility (these are now imported from three_r subpackage)
 __all__ = [
-    "GOLDEN_RATIO_CONSTANT",
     "CONVERGENCE_RATE_PARAMETER",
-    "AnomalyFusionResult",
-    "AnomalyFusionEquation",
+    "GOLDEN_RATIO_CONSTANT",
     "AAFEWeightOptimizer",
-    "RecursionEngine",
-    "ResonanceEngine",
     "AnomalyDetectionMethod",
-    "IssueType",
-    "IssueSeverity",
-    "EvolutionStrategy",
-    "RefactoringConfig",
+    "AnomalyFusionEquation",
+    "AnomalyFusionResult",
     "CodeIssue",
-    "RefactoringResult",
     "CognitiveComplexityVisitor",
+    "EvolutionStrategy",
+    "IssueSeverity",
+    "IssueType",
+    "RecursionEngine",
+    "RefactoringConfig",
     "RefactoringEngine",
+    "RefactoringResult",
     "RefactoringTransformer",
+    "ResonanceEngine",
     "ThreeRMechanism",
 ]
 
 
-@dataclass
-class AnomalyFusionResult:
-    """Result of AVA Anomaly Fusion Equation (AAFE) computation with neural verification.
-
-    The AVA Anomaly Fusion Equation (AAFE) provides unified scoring for precision dominance:
-    A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * η_Ethical^Φ
-
-    Where:
-        - R(x): Recursion component (hierarchical feature extraction)
-        - H(omega): Resonance/Harmonic component (frequency-domain analysis)
-        - O(theta): Refactoring/Optimization component (adaptive enhancement)
-        - η_Ethical: Ethical compliance threshold (0.93-0.96)
-        - Φ: Golden ratio constant (1.618) for harmonic scaling
-        - w_R, w_H, w_O: Learned fusion weights that sum to 1.0
-
-    Neural verification via ThreeRAnomalyTransformer provides secondary precision scoring
-    for dual-verification anomaly detection in safety-critical applications.
-
-    Attributes:
-        fusion_score: Final A(x) score combining all components
-        recursion_score: R(x) component value
-        resonance_score: H(omega) component value (harmonic synergy)
-        optimization_score: O(theta) component value
-        ethical_compliance_threshold: Ethical compliance score used (η_Ethical)
-        fusion_weights: Dictionary of learned weights {w_R, w_H, w_O}
-        lyapunov_bound: Upper bound on convergence: V(S_t) <= epsilon * e^(-lambda*t)
-        convergence_rate: Estimated convergence rate (lambda = 0.25)
-        neural_anomaly_score: Neural network anomaly score from ThreeRAnomalyTransformer
-        dual_verified: True if both traditional and neural scores agree on anomaly status
-    """
-
-    fusion_score: float
-    recursion_score: float
-    resonance_score: float
-    optimization_score: float
-    ethical_compliance_threshold: float
-    fusion_weights: dict[str, float]
-    lyapunov_bound: float
-    convergence_rate: float = CONVERGENCE_RATE_PARAMETER
-    neural_anomaly_score: float | None = None
-    dual_verified: bool = False
+# Backward-compatible alias for AvaDominanceEquation
+AvaDominanceEquation = AnomalyFusionEquation
 
 
-class AnomalyFusionEquation:
+class _LegacyAnomalyFusionEquation:
     """
     AVA Anomaly Fusion Equation (AAFE) for unified precision scoring in 3R mechanism.
 
@@ -382,7 +343,7 @@ class AnomalyFusionEquation:
 AvaDominanceEquation = AnomalyFusionEquation
 
 
-class AAFEWeightOptimizer:
+class _LegacyAAFEWeightOptimizer:
     """Optimizer for AAFE weights using scipy.optimize.
 
     Uses constrained optimization to find optimal weights (w_R, w_H, w_O)
@@ -602,7 +563,7 @@ class AAFEWeightOptimizer:
         )
 
 
-class RecursionEngine:
+class _LegacyRecursionEngine:
     """
     Implements recursive self-referential processing for hierarchical
     feature extraction and multi-level optimization.
@@ -669,7 +630,7 @@ class RecursionEngine:
         return data[::2]
 
 
-class ResonanceEngine:
+class _LegacyResonanceEngine:
     """
     Implements frequency-domain signal amplification using Fourier analysis
     for pattern enhancement and anomaly detection.
@@ -753,7 +714,7 @@ class ResonanceEngine:
         }
 
 
-class AnomalyDetectionMethod(Enum):
+class _LegacyAnomalyDetectionMethod(Enum):
     """Methods for detecting code anomalies."""
 
     STATISTICAL = "statistical"
@@ -762,7 +723,7 @@ class AnomalyDetectionMethod(Enum):
     MULTI_VARIATE = "multi_variate"
 
 
-class IssueType(Enum):
+class _LegacyIssueType(Enum):
     """Types of engineering issues in code."""
 
     BUG = "bug"
@@ -773,7 +734,7 @@ class IssueType(Enum):
     LOGIC = "logic"
 
 
-class IssueSeverity(Enum):
+class _LegacyIssueSeverity(Enum):
     """Severity levels for code issues."""
 
     CRITICAL = "critical"
@@ -783,7 +744,7 @@ class IssueSeverity(Enum):
     INFO = "info"
 
 
-class EvolutionStrategy(Enum):
+class _LegacyEvolutionStrategy(Enum):
     """Evolution strategies for adaptive code improvement."""
 
     CONSERVATIVE = "conservative"
@@ -793,7 +754,7 @@ class EvolutionStrategy(Enum):
 
 
 @dataclass
-class RefactoringConfig:
+class _LegacyRefactoringConfig:
     """Configuration for automatic refactoring operations.
 
     Mathematical constants are sourced from the centralized
