@@ -852,5 +852,257 @@ class TestCaching:
         assert config.burst_limit == 20
 
 
+# =============================================================================
+# Feature Vector Tests
+# =============================================================================
+
+
+class TestFeatureVector:
+    """Tests for DataPoint.to_feature_vector() method."""
+
+    def test_feature_vector_default_dim(self, sample_data_point: DataPoint) -> None:
+        """Test feature vector with default dimension."""
+        features = sample_data_point.to_feature_vector()
+        assert features.shape == (32,)
+        assert features.dtype == np.float32
+
+    def test_feature_vector_custom_dim(self, sample_data_point: DataPoint) -> None:
+        """Test feature vector with custom dimension."""
+        features = sample_data_point.to_feature_vector(feature_dim=16)
+        assert features.shape == (16,)
+
+    def test_feature_vector_alert_level_normalized(self, sample_data_point: DataPoint) -> None:
+        """Test that alert level is normalized to [0, 1]."""
+        features = sample_data_point.to_feature_vector()
+        # AlertLevel.MODERATE = 2, normalized: 2/5 = 0.4
+        assert abs(features[0] - 0.4) < 0.01
+
+    def test_feature_vector_confidence(self, sample_data_point: DataPoint) -> None:
+        """Test that confidence is included."""
+        features = sample_data_point.to_feature_vector()
+        # Confidence = 0.9 (index 1)
+        assert features[1] == 0.9
+
+    def test_feature_vector_location(self, sample_data_point: DataPoint) -> None:
+        """Test that location is included and normalized."""
+        features = sample_data_point.to_feature_vector()
+        # Location features start at index 10 (after alert, confidence, 8 one-hot)
+        lat_normalized = 34.0522 / 90.0
+        lon_normalized = -118.2437 / 180.0
+        alt_normalized = min(10.0 / 1000.0, 1.0)
+        assert abs(features[10] - lat_normalized) < 0.01
+        assert abs(features[11] - lon_normalized) < 0.01
+        assert abs(features[12] - alt_normalized) < 0.01
+
+    def test_feature_vector_no_location(self) -> None:
+        """Test feature vector when location is None."""
+        point = DataPoint(
+            source_id="test",
+            source_type=DataSourceType.EARTHQUAKE,
+            event_id="test_001",
+            timestamp=datetime.now(UTC),
+            data={},
+            location=None,
+        )
+        features = point.to_feature_vector()
+        # Location features should be zeros
+        assert features[10] == 0.0
+        assert features[11] == 0.0
+        assert features[12] == 0.0
+
+
+# =============================================================================
+# Location Validation Tests
+# =============================================================================
+
+
+class TestLocationValidation:
+    """Tests for DataPoint location tuple validation."""
+
+    def test_from_dict_with_3_element_location(self) -> None:
+        """Test from_dict with 3-element location tuple."""
+        data = {
+            "source_id": "test",
+            "source_type": "earthquake",
+            "event_id": "test_001",
+            "timestamp": datetime.now(UTC).isoformat(),
+            "data": {},
+            "location": [34.0, -118.0, 10.0],
+        }
+        point = DataPoint.from_dict(data)
+        assert point.location == (34.0, -118.0, 10.0)
+
+    def test_from_dict_with_2_element_location(self) -> None:
+        """Test from_dict with 2-element location tuple (adds default altitude)."""
+        data = {
+            "source_id": "test",
+            "source_type": "earthquake",
+            "event_id": "test_001",
+            "timestamp": datetime.now(UTC).isoformat(),
+            "data": {},
+            "location": [34.0, -118.0],
+        }
+        point = DataPoint.from_dict(data)
+        assert point.location == (34.0, -118.0, 0.0)
+
+    def test_from_dict_with_no_location(self) -> None:
+        """Test from_dict with no location."""
+        data = {
+            "source_id": "test",
+            "source_type": "earthquake",
+            "event_id": "test_001",
+            "timestamp": datetime.now(UTC).isoformat(),
+            "data": {},
+        }
+        point = DataPoint.from_dict(data)
+        assert point.location is None
+
+    def test_from_dict_with_empty_location(self) -> None:
+        """Test from_dict with empty location list."""
+        data = {
+            "source_id": "test",
+            "source_type": "earthquake",
+            "event_id": "test_001",
+            "timestamp": datetime.now(UTC).isoformat(),
+            "data": {},
+            "location": [],
+        }
+        point = DataPoint.from_dict(data)
+        assert point.location is None
+
+
+# =============================================================================
+# Async Context Manager Tests
+# =============================================================================
+
+
+class TestAsyncContextManager:
+    """Tests for async context manager functionality."""
+
+    @pytest.mark.asyncio
+    async def test_async_context_manager_entry_exit(self) -> None:
+        """Test async context manager enter and exit."""
+        source = USGSEarthquakeSource()
+
+        async with source as src:
+            assert src is source
+            # Client should be available but may not be created yet
+
+        # After exit, client should be closed
+        assert source._client is None
+
+    @pytest.mark.asyncio
+    async def test_async_context_manager_cleanup_on_exception(self) -> None:
+        """Test that resources are cleaned up on exception."""
+        source = USGSEarthquakeSource()
+
+        try:
+            async with source as src:
+                # Force client creation
+                await src._get_client()
+                raise ValueError("Test exception")
+        except ValueError:
+            pass
+
+        # Client should still be closed
+        assert source._client is None
+
+
+# =============================================================================
+# Health Check Tests
+# =============================================================================
+
+
+class TestHealthCheck:
+    """Tests for health check functionality."""
+
+    def test_is_healthy_initial_state(self) -> None:
+        """Test initial health state is True."""
+        source = USGSEarthquakeSource()
+        assert source.is_healthy is True
+
+    @pytest.mark.asyncio
+    async def test_health_check_with_mock_success(self) -> None:
+        """Test health check with successful fetch."""
+        source = USGSEarthquakeSource()
+
+        # Mock the fetch method to return success
+        async def mock_fetch(*args, **kwargs):
+            return FetchResult(success=True, data_points=[])
+
+        source.fetch = mock_fetch
+        result = await source.health_check()
+
+        assert result is True
+        assert source.is_healthy is True
+
+    @pytest.mark.asyncio
+    async def test_health_check_with_mock_failure(self) -> None:
+        """Test health check with failed fetch."""
+        source = USGSEarthquakeSource()
+
+        # Mock the fetch method to raise an exception
+        async def mock_fetch(*args, **kwargs):
+            raise Exception("Connection failed")
+
+        source.fetch = mock_fetch
+        result = await source.health_check()
+
+        assert result is False
+        assert source.is_healthy is False
+
+    def test_get_metrics_includes_health(self) -> None:
+        """Test that get_metrics includes health status."""
+        source = USGSEarthquakeSource()
+        metrics = source.get_metrics()
+        assert "is_healthy" in metrics
+        assert metrics["is_healthy"] is True
+
+
+# =============================================================================
+# Thread Safety Tests
+# =============================================================================
+
+
+class TestThreadSafety:
+    """Tests for thread safety features."""
+
+    def test_cache_lock_exists(self) -> None:
+        """Test that cache lock is initialized."""
+        source = USGSEarthquakeSource()
+        import threading
+        assert isinstance(source._cache_lock, type(threading.Lock()))
+
+    def test_rate_limit_lock_exists(self) -> None:
+        """Test that rate limit lock is initialized."""
+        source = USGSEarthquakeSource()
+        import threading
+        assert isinstance(source._rate_limit_lock, type(threading.Lock()))
+
+    def test_metrics_lock_exists(self) -> None:
+        """Test that metrics lock is initialized."""
+        source = USGSEarthquakeSource()
+        import threading
+        assert isinstance(source._metrics_lock, type(threading.Lock()))
+
+    def test_concurrent_cache_access(self) -> None:
+        """Test concurrent cache access doesn't raise exceptions."""
+        import concurrent.futures
+        source = USGSEarthquakeSource()
+
+        def cache_operation(i: int) -> None:
+            # Simulate cache access
+            key = f"test_key_{i}"
+            source._set_cached(key, [])
+            source._get_cached(key)
+            source.clear_cache()
+
+        # Run multiple threads accessing cache
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(cache_operation, i) for i in range(20)]
+            for future in concurrent.futures.as_completed(futures):
+                future.result()  # Will raise if there was an exception
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

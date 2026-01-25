@@ -29,14 +29,19 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import threading
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import httpx
+import numpy as np
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 logger = logging.getLogger(__name__)
 
@@ -169,17 +174,69 @@ class DataPoint:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DataPoint:
         """Create from dictionary."""
+        # Validate location has exactly 3 elements if present
+        location = None
+        if data.get("location"):
+            loc = data["location"]
+            if len(loc) >= 3:
+                location = (float(loc[0]), float(loc[1]), float(loc[2]))
+            elif len(loc) == 2:
+                location = (float(loc[0]), float(loc[1]), 0.0)
+
         return cls(
             source_id=data["source_id"],
             source_type=DataSourceType(data["source_type"]),
             event_id=data["event_id"],
             timestamp=datetime.fromisoformat(data["timestamp"]),
             data=data["data"],
-            location=tuple(data["location"]) if data.get("location") else None,
+            location=location,
             alert_level=AlertLevel(data.get("alert_level", 0)),
             confidence=data.get("confidence", 0.8),
             metadata=data.get("metadata", {}),
         )
+
+    def to_feature_vector(self, feature_dim: int = 32) -> np.ndarray:
+        """Convert DataPoint to a feature vector for ML processing.
+
+        Creates a numerical representation suitable for fusion network input.
+
+        Args:
+            feature_dim: Target feature dimension
+
+        Returns:
+            numpy array of shape (feature_dim,)
+        """
+        features = []
+
+        # Alert level (normalized)
+        features.append(self.alert_level.value / 5.0)
+
+        # Confidence
+        features.append(self.confidence)
+
+        # Source type as one-hot (simplified - use top 8 types)
+        type_idx = min(hash(self.source_type.value) % 8, 7)
+        type_one_hot = [0.0] * 8
+        type_one_hot[type_idx] = 1.0
+        features.extend(type_one_hot)
+
+        # Location features (if available)
+        if self.location:
+            features.append(self.location[0] / 90.0)  # Normalized latitude
+            features.append(self.location[1] / 180.0)  # Normalized longitude
+            features.append(min(self.location[2] / 1000.0, 1.0))  # Normalized altitude
+        else:
+            features.extend([0.0, 0.0, 0.0])
+
+        # Timestamp features (hour of day, day of week)
+        features.append(self.timestamp.hour / 24.0)
+        features.append(self.timestamp.weekday() / 7.0)
+
+        # Pad or truncate to target dimension
+        while len(features) < feature_dim:
+            features.append(0.0)
+
+        return np.array(features[:feature_dim], dtype=np.float32)
 
 
 @dataclass
@@ -322,19 +379,26 @@ class DataSourceBase(ABC):
         self._client: httpx.AsyncClient | None = None
         self._sync_client: httpx.Client | None = None
 
-        # Rate limiting state
+        # Rate limiting state (thread-safe)
+        self._rate_limit_lock = threading.Lock()
         self._last_request_time: float = 0.0
         self._request_count_hour: int = 0
         self._hour_start_time: float = time.time()
 
-        # Cache state
+        # Cache state (thread-safe)
+        self._cache_lock = threading.Lock()
         self._cache: dict[str, tuple[float, list[DataPoint]]] = {}
 
-        # Metrics
+        # Metrics (thread-safe via atomic operations)
+        self._metrics_lock = threading.Lock()
         self._total_requests: int = 0
         self._successful_requests: int = 0
         self._failed_requests: int = 0
         self._total_latency_ms: float = 0.0
+
+        # Health check state
+        self._last_health_check: float = 0.0
+        self._is_healthy: bool = True
 
     @property
     @abstractmethod
@@ -409,22 +473,27 @@ class DataSourceBase(ABC):
 
         for attempt in range(1, self.config.retry_attempts + 1):
             try:
-                self._total_requests += 1
+                with self._metrics_lock:
+                    self._total_requests += 1
                 start_time = time.time()
 
                 response = await client.get(url, params=params)
                 response.raise_for_status()
 
-                self._successful_requests += 1
-                self._total_latency_ms += (time.time() - start_time) * 1000
-                self._last_request_time = time.time()
-                self._request_count_hour += 1
+                latency = (time.time() - start_time) * 1000
+                with self._metrics_lock:
+                    self._successful_requests += 1
+                    self._total_latency_ms += latency
+                with self._rate_limit_lock:
+                    self._last_request_time = time.time()
+                    self._request_count_hour += 1
 
                 return response
 
             except httpx.HTTPStatusError as e:
                 last_error = e
-                self._failed_requests += 1
+                with self._metrics_lock:
+                    self._failed_requests += 1
 
                 if e.response.status_code < 500:
                     # Client error - don't retry
@@ -477,22 +546,27 @@ class DataSourceBase(ABC):
 
         for attempt in range(1, self.config.retry_attempts + 1):
             try:
-                self._total_requests += 1
+                with self._metrics_lock:
+                    self._total_requests += 1
                 start_time = time.time()
 
                 response = client.get(url, params=params)
                 response.raise_for_status()
 
-                self._successful_requests += 1
-                self._total_latency_ms += (time.time() - start_time) * 1000
-                self._last_request_time = time.time()
-                self._request_count_hour += 1
+                latency = (time.time() - start_time) * 1000
+                with self._metrics_lock:
+                    self._successful_requests += 1
+                    self._total_latency_ms += latency
+                with self._rate_limit_lock:
+                    self._last_request_time = time.time()
+                    self._request_count_hour += 1
 
                 return response
 
             except httpx.HTTPStatusError as e:
                 last_error = e
-                self._failed_requests += 1
+                with self._metrics_lock:
+                    self._failed_requests += 1
 
                 if e.response.status_code < 500:
                     raise DataSourceError(
@@ -512,7 +586,8 @@ class DataSourceBase(ABC):
 
             except httpx.RequestError as e:
                 last_error = e
-                self._failed_requests += 1
+                with self._metrics_lock:
+                    self._failed_requests += 1
 
                 if attempt < self.config.retry_attempts:
                     logger.warning(
@@ -529,51 +604,59 @@ class DataSourceBase(ABC):
         )
 
     async def _check_rate_limit(self) -> None:
-        """Check and enforce rate limits."""
-        # Reset hourly counter if needed
-        current_time = time.time()
-        if current_time - self._hour_start_time >= 3600:
-            self._request_count_hour = 0
-            self._hour_start_time = current_time
+        """Check and enforce rate limits (thread-safe)."""
+        with self._rate_limit_lock:
+            # Reset hourly counter if needed
+            current_time = time.time()
+            if current_time - self._hour_start_time >= 3600:
+                self._request_count_hour = 0
+                self._hour_start_time = current_time
 
-        # Check hourly limit
-        if (
-            self.config.rate_limit.requests_per_hour > 0
-            and self._request_count_hour >= self.config.rate_limit.requests_per_hour
-        ):
-            wait_time = 3600 - (current_time - self._hour_start_time)
-            logger.warning(f"{self.source_id}: Rate limit reached, waiting {wait_time:.0f}s")
-            raise DataSourceError(
-                f"Rate limit exceeded ({self.config.rate_limit.requests_per_hour}/hour)",
-                source_id=self.source_id,
-                retryable=True,
-            )
+            # Check hourly limit
+            if (
+                self.config.rate_limit.requests_per_hour > 0
+                and self._request_count_hour >= self.config.rate_limit.requests_per_hour
+            ):
+                wait_time = 3600 - (current_time - self._hour_start_time)
+                logger.warning(f"{self.source_id}: Rate limit reached, waiting {wait_time:.0f}s")
+                raise DataSourceError(
+                    f"Rate limit exceeded ({self.config.rate_limit.requests_per_hour}/hour)",
+                    source_id=self.source_id,
+                    retryable=True,
+                )
 
-        # Enforce minimum interval
-        time_since_last = current_time - self._last_request_time
-        if time_since_last < self.config.rate_limit.min_interval_seconds:
-            await asyncio.sleep(self.config.rate_limit.min_interval_seconds - time_since_last)
+            # Enforce minimum interval
+            time_since_last = current_time - self._last_request_time
+            wait_time = self.config.rate_limit.min_interval_seconds - time_since_last
+
+        # Sleep outside the lock to avoid blocking other operations
+        if wait_time > 0:
+            await asyncio.sleep(wait_time)
 
     def _check_rate_limit_sync(self) -> None:
-        """Synchronous rate limit check."""
-        current_time = time.time()
-        if current_time - self._hour_start_time >= 3600:
-            self._request_count_hour = 0
-            self._hour_start_time = current_time
+        """Synchronous rate limit check (thread-safe)."""
+        with self._rate_limit_lock:
+            current_time = time.time()
+            if current_time - self._hour_start_time >= 3600:
+                self._request_count_hour = 0
+                self._hour_start_time = current_time
 
-        if (
-            self.config.rate_limit.requests_per_hour > 0
-            and self._request_count_hour >= self.config.rate_limit.requests_per_hour
-        ):
-            raise DataSourceError(
-                f"Rate limit exceeded ({self.config.rate_limit.requests_per_hour}/hour)",
-                source_id=self.source_id,
-                retryable=True,
-            )
+            if (
+                self.config.rate_limit.requests_per_hour > 0
+                and self._request_count_hour >= self.config.rate_limit.requests_per_hour
+            ):
+                raise DataSourceError(
+                    f"Rate limit exceeded ({self.config.rate_limit.requests_per_hour}/hour)",
+                    source_id=self.source_id,
+                    retryable=True,
+                )
 
-        time_since_last = current_time - self._last_request_time
-        if time_since_last < self.config.rate_limit.min_interval_seconds:
-            time.sleep(self.config.rate_limit.min_interval_seconds - time_since_last)
+            time_since_last = current_time - self._last_request_time
+            wait_time = self.config.rate_limit.min_interval_seconds - time_since_last
+
+        # Sleep outside the lock to avoid blocking other operations
+        if wait_time > 0:
+            time.sleep(wait_time)
 
     def _get_cache_key(self, params: dict[str, Any] | None = None) -> str:
         """Generate cache key for request parameters."""
@@ -581,32 +664,34 @@ class DataSourceBase(ABC):
         return hashlib.sha256(key_data.encode()).hexdigest()[:16]
 
     def _get_cached(self, cache_key: str) -> list[DataPoint] | None:
-        """Get cached data if valid."""
+        """Get cached data if valid (thread-safe)."""
         if not self.config.cache.enabled:
             return None
 
-        if cache_key in self._cache:
-            timestamp, data = self._cache[cache_key]
-            if time.time() - timestamp < self.config.cache.ttl_seconds:
-                return data
+        with self._cache_lock:
+            if cache_key in self._cache:
+                timestamp, data = self._cache[cache_key]
+                if time.time() - timestamp < self.config.cache.ttl_seconds:
+                    return data
 
-            # Expired, remove
-            del self._cache[cache_key]
+                # Expired, remove
+                del self._cache[cache_key]
 
-        return None
+            return None
 
     def _set_cached(self, cache_key: str, data: list[DataPoint]) -> None:
-        """Store data in cache."""
+        """Store data in cache (thread-safe)."""
         if not self.config.cache.enabled:
             return
 
-        # Enforce max entries
-        if len(self._cache) >= self.config.cache.max_entries:
-            # Remove oldest entry
-            oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k][0])
-            del self._cache[oldest_key]
+        with self._cache_lock:
+            # Enforce max entries
+            if len(self._cache) >= self.config.cache.max_entries:
+                # Remove oldest entry
+                oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k][0])
+                del self._cache[oldest_key]
 
-        self._cache[cache_key] = (time.time(), data)
+            self._cache[cache_key] = (time.time(), data)
 
     @abstractmethod
     async def _fetch_impl(
@@ -700,35 +785,62 @@ class DataSourceBase(ABC):
         use_cache: bool = True,
         **kwargs: Any,
     ) -> FetchResult:
-        """Synchronous version of fetch."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.fetch(start_time, end_time, use_cache, **kwargs)
-        )
+        """Synchronous version of fetch.
+
+        Note: Creates a new event loop if needed (Python 3.10+ compatible).
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            # Already in an async context - can't use run_until_complete
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run,
+                    self.fetch(start_time, end_time, use_cache, **kwargs)
+                )
+                return future.result()
+        else:
+            # No running loop - safe to create one
+            return asyncio.run(self.fetch(start_time, end_time, use_cache, **kwargs))
 
     def get_metrics(self) -> dict[str, Any]:
-        """Get source metrics."""
+        """Get source metrics (thread-safe)."""
+        with self._metrics_lock:
+            total_req = self._total_requests
+            successful_req = self._successful_requests
+            failed_req = self._failed_requests
+            total_latency = self._total_latency_ms
+
+        with self._cache_lock:
+            cache_entries = len(self._cache)
+
+        with self._rate_limit_lock:
+            req_this_hour = self._request_count_hour
+
         return {
             "source_id": self.source_id,
-            "total_requests": self._total_requests,
-            "successful_requests": self._successful_requests,
-            "failed_requests": self._failed_requests,
+            "total_requests": total_req,
+            "successful_requests": successful_req,
+            "failed_requests": failed_req,
             "success_rate": (
-                self._successful_requests / self._total_requests
-                if self._total_requests > 0
-                else 0.0
+                successful_req / total_req if total_req > 0 else 0.0
             ),
             "avg_latency_ms": (
-                self._total_latency_ms / self._successful_requests
-                if self._successful_requests > 0
-                else 0.0
+                total_latency / successful_req if successful_req > 0 else 0.0
             ),
-            "cache_entries": len(self._cache),
-            "requests_this_hour": self._request_count_hour,
+            "cache_entries": cache_entries,
+            "requests_this_hour": req_this_hour,
+            "is_healthy": self._is_healthy,
         }
 
     def clear_cache(self) -> None:
-        """Clear the data cache."""
-        self._cache.clear()
+        """Clear the data cache (thread-safe)."""
+        with self._cache_lock:
+            self._cache.clear()
 
     async def close(self) -> None:
         """Close HTTP clients and release resources."""
@@ -738,6 +850,37 @@ class DataSourceBase(ABC):
         if self._sync_client:
             self._sync_client.close()
             self._sync_client = None
+
+    async def __aenter__(self) -> DataSourceBase:
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Async context manager exit - ensures resources are cleaned up."""
+        await self.close()
+
+    async def health_check(self) -> bool:
+        """Perform a health check on the data source.
+
+        Returns:
+            True if the source is healthy and reachable.
+        """
+        try:
+            # Try a minimal fetch to verify connectivity
+            result = await self.fetch(use_cache=False)
+            self._is_healthy = result.success or result.cached
+            self._last_health_check = time.time()
+            return self._is_healthy
+        except Exception as e:
+            logger.warning(f"{self.source_id}: Health check failed: {e}")
+            self._is_healthy = False
+            self._last_health_check = time.time()
+            return False
+
+    @property
+    def is_healthy(self) -> bool:
+        """Return cached health status."""
+        return self._is_healthy
 
     def __del__(self) -> None:
         """Cleanup on deletion."""
@@ -898,10 +1041,27 @@ class DataSourceManager:
         source_types: list[DataSourceType] | None = None,
         **kwargs: Any,
     ) -> dict[str, FetchResult]:
-        """Synchronous version of fetch_all."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.fetch_all(start_time, end_time, source_types, **kwargs)
-        )
+        """Synchronous version of fetch_all (Python 3.10+ compatible)."""
+        import concurrent.futures
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            # Already in an async context - run in separate thread
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run,
+                    self.fetch_all(start_time, end_time, source_types, **kwargs),
+                )
+                return future.result()
+        else:
+            # No running loop - safe to create one
+            return asyncio.run(
+                self.fetch_all(start_time, end_time, source_types, **kwargs)
+            )
 
     def get_all_data_points(
         self,
