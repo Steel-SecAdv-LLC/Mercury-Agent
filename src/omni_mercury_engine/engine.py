@@ -2194,6 +2194,127 @@ class OmniMercuryEngine(LoggerMixin):
 
         return result
 
+    def detect_with_fusion_calibrated(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
+        labels: np.ndarray[Any, Any] | None = None,
+        calibration_method: str = "auto",
+        contamination: float | None = None,
+        domain: str | None = None,
+        enable_gosnn: bool = True,
+    ) -> dict[str, Any]:
+        """Detect anomalies using ML fusion with automatic threshold calibration.
+
+        This method combines detect_with_fusion with the score calibration system
+        to solve the F1=0 problem where good ROC-AUC is achieved but fixed
+        thresholds produce no positive predictions.
+
+        The calibration is applied to the fusion probability output, ensuring
+        the decision boundary is optimal for the actual score distribution.
+
+        Args:
+            data: Input data for detection
+            labels: Optional ground truth labels (enables optimal F1 calibration)
+            calibration_method: Method for threshold selection:
+                - "auto": Automatically select best method
+                - "percentile": Use percentile based on contamination
+                - "otsu": Otsu's bimodal threshold
+                - "optimal_f1": Find threshold maximizing F1 (requires labels)
+            contamination: Expected anomaly ratio (if known)
+            domain: Domain identifier for GOSNN threshold tuning
+            enable_gosnn: Enable GOSNN synaptic integration
+
+        Returns:
+            Dictionary containing:
+                - anomaly_prob: Fusion probability output
+                - is_anomaly: Calibrated binary predictions
+                - threshold: Calibrated threshold value
+                - threshold_method: Calibration method used
+                - calibration_diagnostics: Full calibration diagnostics
+                - class_prediction: Predicted anomaly class
+                - severity: Anomaly severity score
+                - detector_importance: Attention weights
+                - mode: "fusion_calibrated"
+                - gosnn_metadata: GOSNN integration data (if enabled)
+
+        Example:
+            >>> engine = OmniMercuryEngine(mode="fusion")
+            >>> result = engine.detect_with_fusion_calibrated(
+            ...     data, y_true, calibration_method="auto"
+            ... )
+            >>> print(f"Threshold: {result['threshold']:.4f}")
+            >>> print(f"F1=0 problem solved: {result['is_anomaly'].sum()} anomalies detected")
+        """
+        from omni_mercury_engine.core.score_calibration import (
+            ScoreCalibrationManager,
+            CalibrationMethod,
+        )
+
+        # Run standard fusion detection
+        fusion_result = self.detect_with_fusion(
+            data=data,
+            domain=domain,
+            enable_gosnn=enable_gosnn,
+        )
+
+        # Get fusion probability
+        anomaly_prob = fusion_result.get("anomaly_prob", 0.5)
+
+        # For batch data, we need the full probability array
+        # The fusion_inference returns probs for all samples
+        if self.mode == "fusion":
+            det_features, det_scores = self._extract_detector_features(data)
+            mod_features, mod_scores = self._extract_model_features(data)
+            all_features = {**det_features, **mod_features}
+
+            fusion_output = self.fusion_inference.predict(
+                all_features, return_attention=True
+            )
+            all_probs = fusion_output.get("anomaly_probs", np.array([anomaly_prob]))
+            if isinstance(all_probs, torch.Tensor):
+                all_probs = all_probs.cpu().numpy()
+            all_probs = np.asarray(all_probs).flatten()
+        else:
+            all_probs = np.array([anomaly_prob])
+
+        # Set contamination
+        contamination = contamination or self.config.contamination or 0.05
+
+        # Calibrate threshold on fusion probabilities
+        manager = ScoreCalibrationManager(
+            contamination=contamination,
+            method=CalibrationMethod(calibration_method),
+        )
+
+        calibration_result = manager.calibrate(
+            scores=all_probs,
+            labels=np.asarray(labels) if labels is not None else None,
+        )
+
+        # Build calibrated result
+        result = {
+            "anomaly_prob": float(anomaly_prob) if len(all_probs) == 1 else all_probs,
+            "is_anomaly": calibration_result.predictions,
+            "threshold": calibration_result.threshold,
+            "threshold_method": calibration_result.method.value,
+            "calibration_diagnostics": calibration_result.diagnostics,
+            "calibration_confidence": calibration_result.confidence,
+            "class_prediction": fusion_result.get("class_prediction", 0),
+            "severity": fusion_result.get("severity", 0.0),
+            "detector_importance": fusion_result.get("detector_importance", {}),
+            "mode": "fusion_calibrated",
+        }
+
+        # Carry over GOSNN metadata
+        if "gosnn_metadata" in fusion_result:
+            result["gosnn_metadata"] = fusion_result["gosnn_metadata"]
+
+        # Carry over drift detection
+        if "drift_detection" in fusion_result:
+            result["drift_detection"] = fusion_result["drift_detection"]
+
+        return result
+
     def detect_biometric(
         self,
         reference_image: str | np.ndarray[Any, Any],

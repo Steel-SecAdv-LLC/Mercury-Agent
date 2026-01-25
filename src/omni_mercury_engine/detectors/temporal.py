@@ -69,7 +69,23 @@ class TemporalAnomalyDetector(BaseDetector):
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """Detect temporal anomalies"""
+        """Detect temporal anomalies with optional auto-calibration.
+
+        Auto-Calibration:
+            When auto_calibrate=True (via enable_auto_calibration()), the
+            threshold is automatically calibrated based on the score
+            distribution, solving the F1=0 problem.
+
+        Returns:
+            Dictionary containing:
+                - is_anomaly: Boolean array of anomaly predictions
+                - scores: Combined anomaly scores [0, 1]
+                - trend_flags: Boolean trend anomaly indicators
+                - change_flags: Boolean sudden change indicators
+                - detector_type: "temporal"
+                - threshold: Effective threshold (may be calibrated)
+                - calibration_diagnostics: Diagnostics if auto-calibrated
+        """
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
 
@@ -91,7 +107,15 @@ class TemporalAnomalyDetector(BaseDetector):
         if np.any(~np.isfinite(combined_scores)):
             combined_scores = np.nan_to_num(combined_scores, nan=0.5, posinf=1.0, neginf=0.0)
 
-        is_anomaly = combined_scores > self.threshold
+        # Auto-calibration: compute optimal threshold from score distribution
+        effective_threshold = self.threshold
+        calibration_diagnostics = None
+
+        if self._auto_calibrate:
+            effective_threshold = self.calibrate_threshold(combined_scores)
+            calibration_diagnostics = self._last_diagnostics
+
+        is_anomaly = combined_scores > effective_threshold
 
         return {
             "is_anomaly": is_anomaly,
@@ -99,6 +123,8 @@ class TemporalAnomalyDetector(BaseDetector):
             "trend_flags": trend_anomalies > 0.5,
             "change_flags": change_anomalies > 0.5,
             "detector_type": "temporal",
+            "threshold": effective_threshold,
+            "calibration_diagnostics": calibration_diagnostics,
         }
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:

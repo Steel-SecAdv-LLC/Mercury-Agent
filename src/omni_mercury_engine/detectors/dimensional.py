@@ -119,7 +119,27 @@ class DimensionalAnalyzer(BaseDetector):
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """Detect dimensional anomalies"""
+        """Detect dimensional anomalies with optional auto-calibration.
+
+        Uses PCA reconstruction error, autoencoder reconstruction error,
+        and optionally DB term (spectral analysis) to compute anomaly scores.
+
+        Auto-Calibration:
+            When auto_calibrate=True (via enable_auto_calibration()), the
+            threshold is automatically calibrated based on the score
+            distribution, solving the F1=0 problem.
+
+        Returns:
+            Dictionary containing:
+                - is_anomaly: Boolean array of anomaly predictions
+                - scores: Normalized combined scores [0, 1]
+                - pca_errors: PCA reconstruction errors
+                - autoencoder_errors: Autoencoder reconstruction errors
+                - db_scores: DB term scores (if enabled)
+                - detector_type: "dimensional"
+                - threshold: Effective threshold (may be calibrated)
+                - calibration_diagnostics: Diagnostics if auto-calibrated
+        """
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
 
@@ -161,7 +181,15 @@ class DimensionalAnalyzer(BaseDetector):
             normalized_scores = combined_scores / score_max
             normalized_scores = np.clip(normalized_scores, 0.0, 1.0)
 
-        is_anomaly = normalized_scores > self.threshold
+        # Auto-calibration: compute optimal threshold from score distribution
+        effective_threshold = self.threshold
+        calibration_diagnostics = None
+
+        if self._auto_calibrate:
+            effective_threshold = self.calibrate_threshold(normalized_scores)
+            calibration_diagnostics = self._last_diagnostics
+
+        is_anomaly = normalized_scores > effective_threshold
 
         return {
             "is_anomaly": is_anomaly,
@@ -170,6 +198,8 @@ class DimensionalAnalyzer(BaseDetector):
             "autoencoder_errors": ae_errors,
             "db_scores": db_scores,
             "detector_type": "dimensional",
+            "threshold": effective_threshold,
+            "calibration_diagnostics": calibration_diagnostics,
         }
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:

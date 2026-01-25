@@ -67,7 +67,30 @@ class SigmaDirectiveDetector(BaseDetector):
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """Detect anomalies using Sigma protocols with quantum enhancement"""
+        """Detect anomalies using Sigma protocols with optional auto-calibration.
+
+        Implements multiple Sigma Directive protocols:
+        - PCP (Pattern Convergence Protocol)
+        - GSIS (Gravitational Stability Integrity System)
+        - RMD (Recursive Memory Dynamics)
+        - EOA (Ethical Oversight Amplifier)
+        - Optional: Quantum Pattern Containment, Nano-Scale Detection, Harmonics
+
+        Auto-Calibration:
+            When auto_calibrate=True (via enable_auto_calibration()), the
+            threshold is automatically calibrated based on the score
+            distribution, solving the F1=0 problem.
+
+        Returns:
+            Dictionary containing:
+                - is_anomaly: Boolean array of anomaly predictions
+                - scores: Combined anomaly scores [0, 1]
+                - pcp_scores, gsis_scores, rmd_scores, eoa_scores: Component scores
+                - quantum_scores, nano_scores, harmonic_score: Enhanced scores
+                - detector_type: "directive"
+                - threshold: Effective threshold (may be calibrated)
+                - calibration_diagnostics: Diagnostics if auto-calibrated
+        """
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
 
@@ -104,7 +127,15 @@ class SigmaDirectiveDetector(BaseDetector):
         if harmonic_score > 0:
             combined_scores = combined_scores * 0.9 + harmonic_score * 0.1
 
-        is_anomaly = combined_scores > self.threshold
+        # Auto-calibration: compute optimal threshold from score distribution
+        effective_threshold = self.threshold
+        calibration_diagnostics = None
+
+        if self._auto_calibrate:
+            effective_threshold = self.calibrate_threshold(combined_scores)
+            calibration_diagnostics = self._last_diagnostics
+
+        is_anomaly = combined_scores > effective_threshold
 
         return {
             "is_anomaly": is_anomaly,
@@ -117,6 +148,8 @@ class SigmaDirectiveDetector(BaseDetector):
             "nano_scores": nano_scores,
             "harmonic_score": harmonic_score,
             "detector_type": "directive",
+            "threshold": effective_threshold,
+            "calibration_diagnostics": calibration_diagnostics,
         }
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
