@@ -148,7 +148,19 @@ class DimensionalAnalyzer(BaseDetector):
             db_scores = self._dimensional_code_breaking(data_np)
             combined_scores = combined_scores * 0.7 + db_scores * 0.3
 
-        normalized_scores = combined_scores / (combined_scores.max() + 1e-6)
+        # Fix for P0: Safe normalization handling NaN/Inf and constant arrays
+        # Replace NaN/Inf values before normalization
+        if np.any(~np.isfinite(combined_scores)):
+            combined_scores = np.nan_to_num(combined_scores, nan=0.5, posinf=1.0, neginf=0.0)
+
+        score_max = combined_scores.max()
+        if score_max < 1e-10:
+            # All scores are near-zero: return neutral 0.5
+            normalized_scores = np.full_like(combined_scores, 0.5)
+        else:
+            normalized_scores = combined_scores / score_max
+            normalized_scores = np.clip(normalized_scores, 0.0, 1.0)
+
         is_anomaly = normalized_scores > self.threshold
 
         return {

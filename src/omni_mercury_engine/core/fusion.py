@@ -39,6 +39,48 @@ if TYPE_CHECKING:
     import numpy as np
 
 
+def _validate_tensor_devices(
+    tensors: dict[str, torch.Tensor], context: str = "tensors"
+) -> tuple[torch.device, torch.dtype]:
+    """Validate all tensors share the same device and dtype.
+
+    Args:
+        tensors: Dictionary of named tensors to validate.
+        context: Description for error messages (e.g., "detector_features").
+
+    Returns:
+        Tuple of (device, dtype) from the tensors.
+
+    Raises:
+        ValueError: If tensors have mismatched devices or dtypes.
+    """
+    if not tensors:
+        raise ValueError(f"Empty {context} dictionary provided")
+
+    devices = set()
+    dtypes = set()
+    for name, tensor in tensors.items():
+        devices.add(tensor.device)
+        dtypes.add(tensor.dtype)
+
+    if len(devices) > 1:
+        device_info = {name: str(t.device) for name, t in tensors.items()}
+        raise ValueError(
+            f"Mixed devices in {context}: {device_info}. "
+            f"All tensors must be on the same device."
+        )
+
+    if len(dtypes) > 1:
+        dtype_info = {name: str(t.dtype) for name, t in tensors.items()}
+        raise ValueError(
+            f"Mixed dtypes in {context}: {dtype_info}. "
+            f"All tensors should have the same dtype for numerical stability."
+        )
+
+    first_tensor = next(iter(tensors.values()))
+    return first_tensor.device, first_tensor.dtype
+
+
 class AttentionFusion(nn.Module):
     """
     Multi-head attention mechanism for detector fusion.
@@ -455,9 +497,18 @@ class ResonanceWeightedFusion(nn.Module):
 
         # Compute resonance from divergences if provided
         if divergences is not None:
+            # Fix for P0: Validate divergences for NaN/Inf before computing resonance
+            # Invalid divergences corrupt fusion weights and final scores
+            if torch.any(~torch.isfinite(divergences)):
+                # Replace NaN/Inf with neutral values (0 divergence = max resonance)
+                divergences = torch.nan_to_num(divergences, nan=0.0, posinf=10.0, neginf=0.0)
             resonance = self.compute_resonance(divergences)
         else:
             resonance = torch.ones(batch_size, self.num_detectors, device=detector_scores.device)
+
+        # Validate detector_scores as well
+        if torch.any(~torch.isfinite(detector_scores)):
+            detector_scores = torch.nan_to_num(detector_scores, nan=0.5, posinf=1.0, neginf=0.0)
 
         # Apply resonance modulation: weight = base * (1 + resonance)
         modulated_weights = self.base_weights.unsqueeze(0) * (1 + resonance)
@@ -572,8 +623,25 @@ class HybridFusionLayer(nn.Module):
         Returns:
             fused_representation: [batch_size, hidden_dim] - Fused feature representation
             attention_weights: Dict of attention weights for interpretability
+
+        Raises:
+            ValueError: If tensors have mismatched devices (e.g., some CPU, some CUDA).
         """
-        batch_size = next(iter(detector_features.values())).shape[0]
+        # Validate all tensors share the same device and dtype
+        # This catches mixed-device errors early with a clear message
+        device, dtype = _validate_tensor_devices(detector_features, "detector_features")
+
+        # Also validate scores if provided
+        if detector_scores:
+            score_device, score_dtype = _validate_tensor_devices(detector_scores, "detector_scores")
+            if score_device != device:
+                raise ValueError(
+                    f"Device mismatch: detector_features on {device}, "
+                    f"detector_scores on {score_device}"
+                )
+
+        first_tensor = next(iter(detector_features.values()))
+        batch_size = first_tensor.shape[0]
 
         projected_features = []
         for name in self.detector_names:
@@ -581,7 +649,10 @@ class HybridFusionLayer(nn.Module):
                 proj = self.feature_projectors[name](detector_features[name])
                 projected_features.append(proj)
             else:
-                projected_features.append(torch.zeros(batch_size, self.hidden_dim))
+                # Fix for P0: Zero-fill with correct device to avoid device mismatch
+                projected_features.append(
+                    torch.zeros(batch_size, self.hidden_dim, device=device, dtype=dtype)
+                )
 
         early_features = torch.cat(projected_features, dim=1)
         early_output = self.early_fusion(early_features)
@@ -591,7 +662,8 @@ class HybridFusionLayer(nn.Module):
             if name in detector_scores:
                 score_list.append(detector_scores[name])
             else:
-                score_list.append(torch.zeros(batch_size, 1))
+                # Fix for P0: Zero-fill with correct device to avoid device mismatch
+                score_list.append(torch.zeros(batch_size, 1, device=device, dtype=dtype))
 
         scores_tensor = torch.cat(score_list, dim=1)
         weights = F.softmax(self.late_fusion_weights, dim=0)

@@ -78,7 +78,19 @@ class TemporalAnomalyDetector(BaseDetector):
         trend_anomalies = self._detect_trend_anomalies(data_np)
         change_anomalies = self._detect_sudden_changes(data_np)
 
+        # Fix for P0: Validate and sanitize NaN/Inf before combining scores
+        # Silent NaN propagation can corrupt downstream fusion
+        if np.any(~np.isfinite(trend_anomalies)):
+            trend_anomalies = np.nan_to_num(trend_anomalies, nan=0.0, posinf=1.0, neginf=0.0)
+        if np.any(~np.isfinite(change_anomalies)):
+            change_anomalies = np.nan_to_num(change_anomalies, nan=0.0, posinf=1.0, neginf=0.0)
+
         combined_scores = (trend_anomalies + change_anomalies) / 2.0
+
+        # Final validation to ensure output is clean
+        if np.any(~np.isfinite(combined_scores)):
+            combined_scores = np.nan_to_num(combined_scores, nan=0.5, posinf=1.0, neginf=0.0)
+
         is_anomaly = combined_scores > self.threshold
 
         return {

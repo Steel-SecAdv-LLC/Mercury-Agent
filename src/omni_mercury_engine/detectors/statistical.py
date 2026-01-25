@@ -74,12 +74,34 @@ class StatisticalAnomalyDetector(BaseDetector):
 
         Returns:
             Self for method chaining.
+
+        Raises:
+            DetectorException: If data is empty or contains only NaN/Inf values.
         """
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
+        # Fix for P0: Validate data is not empty before fitting
+        if data.size == 0:
+            raise DetectorException(
+                "Cannot fit StatisticalAnomalyDetector with empty data. "
+                "Provide at least one sample for statistical baseline computation."
+            )
+
         if data.ndim == 1:
             data = data.reshape(-1, 1)
+
+        # Validate data contains finite values
+        finite_mask = np.isfinite(data).all(axis=1)
+        if not np.any(finite_mask):
+            raise DetectorException(
+                "Cannot fit StatisticalAnomalyDetector: all data values are NaN or Inf. "
+                "Provide data with at least some finite values."
+            )
+
+        # Filter to only finite rows for fitting if some rows have NaN/Inf
+        if not np.all(finite_mask):
+            data = data[finite_mask]
 
         # Compute statistics
         self.mean = np.mean(data, axis=0)
