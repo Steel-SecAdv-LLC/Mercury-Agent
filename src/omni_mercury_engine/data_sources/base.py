@@ -40,6 +40,8 @@ from typing import TYPE_CHECKING, Any, TypeVar
 import httpx
 import numpy as np
 
+from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker, CircuitState
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
@@ -270,6 +272,32 @@ class CacheConfig:
 
 
 @dataclass
+class CircuitBreakerConfig:
+    """Circuit breaker configuration for fault tolerance.
+
+    Integrates with Mercury Agent's centralized circuit breaker pattern
+    to prevent cascading failures when external APIs become unavailable.
+
+    Attributes:
+        enabled: Whether circuit breaker is enabled
+        failure_threshold: Number of failures before opening circuit
+        recovery_timeout: Seconds before attempting reset from OPEN state
+        enable_exponential_backoff: Use exponential backoff on repeated failures
+        backoff_base: Multiplier for exponential backoff
+        max_backoff_timeout: Maximum backoff timeout in seconds
+        success_threshold: Successes needed in HALF_OPEN to close
+    """
+
+    enabled: bool = True
+    failure_threshold: int = 5
+    recovery_timeout: int = 60
+    enable_exponential_backoff: bool = True
+    backoff_base: float = 2.0
+    max_backoff_timeout: float = 3600.0
+    success_threshold: int = 2
+
+
+@dataclass
 class DataSourceConfig:
     """Configuration for a data source.
 
@@ -281,6 +309,7 @@ class DataSourceConfig:
         retry_backoff: Backoff multiplier for retries
         rate_limit: Rate limiting configuration
         cache: Caching configuration
+        circuit_breaker: Circuit breaker configuration for fault tolerance
         headers: Additional HTTP headers
         verify_ssl: Whether to verify SSL certificates
     """
@@ -292,6 +321,7 @@ class DataSourceConfig:
     retry_backoff: float = 2.0
     rate_limit: RateLimitConfig = field(default_factory=RateLimitConfig)
     cache: CacheConfig = field(default_factory=CacheConfig)
+    circuit_breaker: CircuitBreakerConfig = field(default_factory=CircuitBreakerConfig)
     headers: dict[str, str] = field(default_factory=dict)
     verify_ssl: bool = True
 
@@ -400,6 +430,20 @@ class DataSourceBase(ABC):
         self._last_health_check: float = 0.0
         self._is_healthy: bool = True
 
+        # Circuit breaker for fault tolerance
+        self._circuit_breaker: CircuitBreaker | None = None
+        if self.config.circuit_breaker.enabled:
+            cb_config = self.config.circuit_breaker
+            self._circuit_breaker = CircuitBreaker(
+                failure_threshold=cb_config.failure_threshold,
+                recovery_timeout=cb_config.recovery_timeout,
+                expected_exception=httpx.HTTPError,
+                enable_exponential_backoff=cb_config.enable_exponential_backoff,
+                backoff_base=cb_config.backoff_base,
+                max_backoff_timeout=cb_config.max_backoff_timeout,
+                success_threshold=cb_config.success_threshold,
+            )
+
     @property
     @abstractmethod
     def source_id(self) -> str:
@@ -453,6 +497,9 @@ class DataSourceBase(ABC):
     ) -> httpx.Response:
         """Make HTTP GET request with resilience patterns.
 
+        Includes circuit breaker integration to prevent cascading failures
+        when the external API becomes unavailable.
+
         Args:
             endpoint: API endpoint (relative to base_url)
             params: Query parameters
@@ -461,8 +508,23 @@ class DataSourceBase(ABC):
             HTTP response
 
         Raises:
-            DataSourceError: If request fails after retries
+            DataSourceError: If request fails after retries or circuit is open
         """
+        # Check circuit breaker state first
+        if self._circuit_breaker is not None:
+            if self._circuit_breaker.state == CircuitState.OPEN:
+                if self._circuit_breaker._should_attempt_reset():
+                    self._circuit_breaker.state = CircuitState.HALF_OPEN
+                    self._circuit_breaker.half_open_success_count = 0
+                    logger.info(f"{self.source_id}: Circuit breaker transitioning to HALF_OPEN")
+                else:
+                    raise DataSourceError(
+                        f"Circuit breaker is OPEN for {self.source_id}. "
+                        f"Will retry after {self._circuit_breaker._get_current_timeout():.0f}s",
+                        source_id=self.source_id,
+                        retryable=True,
+                    )
+
         await self._check_rate_limit()
 
         url = f"{self.base_url}{endpoint}"
@@ -488,12 +550,20 @@ class DataSourceBase(ABC):
                     self._last_request_time = time.time()
                     self._request_count_hour += 1
 
+                # Notify circuit breaker of success
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker._on_success()
+
                 return response
 
             except httpx.HTTPStatusError as e:
                 last_error = e
                 with self._metrics_lock:
                     self._failed_requests += 1
+
+                # Notify circuit breaker of failure (only for server errors)
+                if e.response.status_code >= 500 and self._circuit_breaker is not None:
+                    self._circuit_breaker._on_failure()
 
                 if e.response.status_code < 500:
                     # Client error - don't retry
@@ -517,6 +587,10 @@ class DataSourceBase(ABC):
                 with self._metrics_lock:
                     self._failed_requests += 1
 
+                # Notify circuit breaker of failure
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker._on_failure()
+
                 if attempt < self.config.retry_attempts:
                     logger.warning(
                         f"{self.source_id}: Request error: {e}, "
@@ -536,7 +610,22 @@ class DataSourceBase(ABC):
         endpoint: str,
         params: dict[str, Any] | None = None,
     ) -> httpx.Response:
-        """Synchronous version of _http_get."""
+        """Synchronous version of _http_get with circuit breaker support."""
+        # Check circuit breaker state first
+        if self._circuit_breaker is not None:
+            if self._circuit_breaker.state == CircuitState.OPEN:
+                if self._circuit_breaker._should_attempt_reset():
+                    self._circuit_breaker.state = CircuitState.HALF_OPEN
+                    self._circuit_breaker.half_open_success_count = 0
+                    logger.info(f"{self.source_id}: Circuit breaker transitioning to HALF_OPEN")
+                else:
+                    raise DataSourceError(
+                        f"Circuit breaker is OPEN for {self.source_id}. "
+                        f"Will retry after {self._circuit_breaker._get_current_timeout():.0f}s",
+                        source_id=self.source_id,
+                        retryable=True,
+                    )
+
         self._check_rate_limit_sync()
 
         url = f"{self.base_url}{endpoint}"
@@ -562,12 +651,20 @@ class DataSourceBase(ABC):
                     self._last_request_time = time.time()
                     self._request_count_hour += 1
 
+                # Notify circuit breaker of success
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker._on_success()
+
                 return response
 
             except httpx.HTTPStatusError as e:
                 last_error = e
                 with self._metrics_lock:
                     self._failed_requests += 1
+
+                # Notify circuit breaker of failure (only for server errors)
+                if e.response.status_code >= 500 and self._circuit_breaker is not None:
+                    self._circuit_breaker._on_failure()
 
                 if e.response.status_code < 500:
                     raise DataSourceError(
@@ -589,6 +686,10 @@ class DataSourceBase(ABC):
                 last_error = e
                 with self._metrics_lock:
                     self._failed_requests += 1
+
+                # Notify circuit breaker of failure
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker._on_failure()
 
                 if attempt < self.config.retry_attempts:
                     logger.warning(
@@ -809,7 +910,7 @@ class DataSourceBase(ABC):
             return asyncio.run(self.fetch(start_time, end_time, use_cache, **kwargs))
 
     def get_metrics(self) -> dict[str, Any]:
-        """Get source metrics (thread-safe)."""
+        """Get source metrics (thread-safe), including circuit breaker stats."""
         with self._metrics_lock:
             total_req = self._total_requests
             successful_req = self._successful_requests
@@ -822,7 +923,7 @@ class DataSourceBase(ABC):
         with self._rate_limit_lock:
             req_this_hour = self._request_count_hour
 
-        return {
+        metrics = {
             "source_id": self.source_id,
             "total_requests": total_req,
             "successful_requests": successful_req,
@@ -837,6 +938,12 @@ class DataSourceBase(ABC):
             "requests_this_hour": req_this_hour,
             "is_healthy": self._is_healthy,
         }
+
+        # Include circuit breaker stats if enabled
+        if self._circuit_breaker is not None:
+            metrics["circuit_breaker"] = self._circuit_breaker.get_stats()
+
+        return metrics
 
     def clear_cache(self) -> None:
         """Clear the data cache (thread-safe)."""

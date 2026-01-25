@@ -307,7 +307,12 @@ class TestBenchmarkDiagnostics:
         )
 
         np.random.seed(42)
-        scores = np.random.uniform(0, 0.4, 100)  # All below 0.5
+        # Create scores that have good ranking (ROC-AUC > 0.7) but F1=0 due to threshold
+        # Normal samples: low scores (0.1-0.3)
+        # Anomaly samples: high scores (0.35-0.45) - still below threshold 0.5
+        normal_scores = np.random.uniform(0.1, 0.3, 95)
+        anomaly_scores = np.random.uniform(0.35, 0.45, 5)  # Higher than normal but below 0.5
+        scores = np.concatenate([normal_scores, anomaly_scores])
         labels = np.concatenate([np.zeros(95), np.ones(5)]).astype(np.int32)
 
         result = BenchmarkDiagnostics.diagnose(
@@ -316,11 +321,14 @@ class TestBenchmarkDiagnostics:
             dataset_name="TestDataset",
         )
 
-        # Should detect F1=0 discrepancy
-        assert result.discrepancy.has_discrepancy
-        assert result.discrepancy.discrepancy_type == "f1_zero"
+        # Should detect F1=0 discrepancy when ROC-AUC is good but F1=0
         assert result.f1 == 0.0
         assert result.f1_at_best_threshold > 0  # Best threshold should give F1 > 0
+        # ROC-AUC should be good since anomalies have higher scores
+        assert result.roc_auc > 0.7
+        # With good ROC-AUC and F1=0, should detect discrepancy
+        assert result.discrepancy.has_discrepancy
+        assert result.discrepancy.discrepancy_type == "f1_zero"
 
     def test_run_diagnostic_benchmark(self):
         """Test run_diagnostic_benchmark convenience function."""

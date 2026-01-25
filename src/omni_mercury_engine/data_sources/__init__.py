@@ -27,6 +27,7 @@ Usage:
 from omni_mercury_engine.data_sources.base import (
     AlertLevel,
     CacheConfig,
+    CircuitBreakerConfig,
     DataPoint,
     DataSourceBase,
     DataSourceConfig,
@@ -67,6 +68,7 @@ __all__ = [
     # Base types
     "AlertLevel",
     "CacheConfig",
+    "CircuitBreakerConfig",
     "DataPoint",
     "DataSourceBase",
     "DataSourceConfig",
