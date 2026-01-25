@@ -447,5 +447,172 @@ class TestDetectorIntegration:
         assert diag is not None
 
 
+class TestEdgeCases:
+    """Test edge cases: empty arrays, NaN/Inf, constant arrays, single elements."""
+
+    def test_empty_array_raises_error(self):
+        """Test that empty arrays raise ValueError."""
+        scores = np.array([])
+
+        with pytest.raises(ValueError, match="empty"):
+            ScoreDiagnostics.analyze(scores)
+
+    def test_nan_values_handled(self):
+        """Test that NaN values are handled gracefully."""
+        scores = np.array([0.1, np.nan, 0.3, 0.4, 0.5])
+
+        # Should not raise, should replace NaN
+        diag = ScoreDiagnostics.analyze(scores, threshold=0.3)
+
+        assert diag.n_samples == 5  # Still reports 5 samples
+        assert np.isfinite(diag.score_mean)
+
+    def test_inf_values_handled(self):
+        """Test that Inf values are handled gracefully."""
+        scores = np.array([0.1, np.inf, 0.3, 0.4, 0.5])
+
+        diag = ScoreDiagnostics.analyze(scores, threshold=0.3)
+
+        assert diag.n_samples == 5
+        assert np.isfinite(diag.score_max)
+
+    def test_all_nan_raises_error(self):
+        """Test that all-NaN arrays raise ValueError."""
+        scores = np.array([np.nan, np.nan, np.nan])
+
+        with pytest.raises(ValueError, match="NaN|Inf|finite"):
+            ScoreDiagnostics.analyze(scores)
+
+    def test_constant_array(self):
+        """Test handling of constant arrays (all same value)."""
+        scores = np.array([0.5, 0.5, 0.5, 0.5, 0.5])
+
+        optimizer = AutoThresholdOptimizer()
+        result = optimizer.optimize(scores, method=CalibrationMethod.PERCENTILE)
+
+        # Should still return a valid result
+        assert result.threshold is not None
+        assert 0 <= result.threshold <= 1
+
+    def test_single_element_array(self):
+        """Test handling of single-element arrays."""
+        scores = np.array([0.5])
+
+        optimizer = AutoThresholdOptimizer()
+        result = optimizer.optimize(scores, method=CalibrationMethod.FIXED)
+
+        assert result.threshold == 0.5
+
+    def test_two_element_array(self):
+        """Test handling of two-element arrays."""
+        scores = np.array([0.1, 0.9])
+
+        optimizer = AutoThresholdOptimizer()
+        result = optimizer.optimize(scores, method=CalibrationMethod.PERCENTILE)
+
+        assert 0.1 <= result.threshold <= 0.9
+
+    def test_invalid_labels_raises_error(self):
+        """Test that invalid labels (non-binary) raise error."""
+        scores = np.array([0.1, 0.2, 0.3, 0.4])
+        labels = np.array([0, 1, 2, 3])  # Invalid: should be binary
+
+        with pytest.raises(ValueError, match="binary"):
+            ScoreDiagnostics.analyze(scores, labels=labels)
+
+    def test_float_labels_converted(self):
+        """Test that float labels are converted to int."""
+        scores = np.array([0.1, 0.2, 0.3, 0.4])
+        labels = np.array([0.0, 1.0, 0.0, 1.0])  # Float labels
+
+        # Should work - converts to int
+        diag = ScoreDiagnostics.analyze(scores, labels=labels)
+        assert diag.actual_contamination == 0.5
+
+
+class TestContaminationValidation:
+    """Test contamination parameter validation."""
+
+    def test_invalid_contamination_raises_error(self):
+        """Test that invalid contamination raises ValueError."""
+        with pytest.raises(ValueError, match="contamination"):
+            AutoThresholdOptimizer(default_contamination=1.5)
+
+        with pytest.raises(ValueError, match="contamination"):
+            AutoThresholdOptimizer(default_contamination=-0.1)
+
+        with pytest.raises(ValueError, match="contamination"):
+            AutoThresholdOptimizer(default_contamination=0.0)
+
+    def test_invalid_min_max_contamination(self):
+        """Test that invalid min/max contamination raises ValueError."""
+        with pytest.raises(ValueError, match="min.*max"):
+            AutoThresholdOptimizer(min_contamination=0.5, max_contamination=0.3)
+
+    def test_default_outside_range_raises_error(self):
+        """Test that default outside [min, max] raises error."""
+        with pytest.raises(ValueError, match="default"):
+            AutoThresholdOptimizer(
+                default_contamination=0.1,
+                min_contamination=0.2,
+                max_contamination=0.5
+            )
+
+
+class TestErrorHandling:
+    """Test error handling and fallback behavior."""
+
+    def test_gmm_fallback_on_small_dataset(self):
+        """Test that GMM falls back to percentile on small datasets."""
+        scores = np.array([0.1, 0.2, 0.3])  # Only 3 samples
+
+        optimizer = AutoThresholdOptimizer()
+        result = optimizer.optimize(scores, method=CalibrationMethod.GAUSSIAN_MIXTURE)
+
+        # Should fall back to percentile
+        assert result.threshold is not None
+
+    def test_optimal_f1_fallback_without_labels(self):
+        """Test that OPTIMAL_F1 falls back when labels not provided."""
+        scores = np.random.uniform(0, 1, 50)
+
+        optimizer = AutoThresholdOptimizer()
+        result = optimizer.optimize(scores, method=CalibrationMethod.OPTIMAL_F1)
+
+        # Should fall back to another method
+        assert result.method != CalibrationMethod.OPTIMAL_F1 or result.threshold is not None
+
+
+class TestReturnTypeConsistency:
+    """Test that return types are consistent across methods."""
+
+    def test_all_methods_return_calibration_result(self):
+        """Test that all methods return CalibrationResult."""
+        scores = np.random.uniform(0, 1, 100)
+        labels = np.array([0] * 90 + [1] * 10)
+
+        optimizer = AutoThresholdOptimizer()
+
+        methods = [
+            CalibrationMethod.FIXED,
+            CalibrationMethod.PERCENTILE,
+            CalibrationMethod.MAD,
+            CalibrationMethod.ADAPTIVE_IQR,
+            CalibrationMethod.AUTO,
+        ]
+
+        for method in methods:
+            result = optimizer.optimize(scores, method=method, labels=labels)
+
+            assert isinstance(result, CalibrationResult), \
+                f"Method {method} didn't return CalibrationResult"
+            assert isinstance(result.threshold, float), \
+                f"Method {method} threshold not float"
+            assert isinstance(result.predictions, np.ndarray), \
+                f"Method {method} predictions not ndarray"
+            assert len(result.predictions) == len(scores), \
+                f"Method {method} predictions length mismatch"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

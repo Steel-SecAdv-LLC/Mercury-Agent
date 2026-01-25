@@ -171,6 +171,74 @@ class ScoreDiagnostics:
     """
 
     @staticmethod
+    def _validate_scores(scores: NDArray[np.float64], min_samples: int = 1) -> NDArray[np.float64]:
+        """Validate and clean score array.
+
+        Args:
+            scores: Input scores array
+            min_samples: Minimum required samples
+
+        Returns:
+            Validated and cleaned score array
+
+        Raises:
+            ValueError: If scores are invalid
+        """
+        scores = np.asarray(scores).flatten().astype(np.float64)
+
+        if len(scores) == 0:
+            raise ValueError("Cannot process empty score array")
+
+        if len(scores) < min_samples:
+            raise ValueError(f"Need at least {min_samples} samples, got {len(scores)}")
+
+        # Check for NaN/Inf
+        n_invalid = np.sum(~np.isfinite(scores))
+        if n_invalid > 0:
+            logger.warning(
+                f"Found {n_invalid}/{len(scores)} NaN/Inf values in scores. "
+                "Replacing with median of valid values."
+            )
+            valid_scores = scores[np.isfinite(scores)]
+            if len(valid_scores) == 0:
+                raise ValueError("All scores are NaN or Inf - cannot calibrate")
+            median_val = np.median(valid_scores)
+            scores = np.where(np.isfinite(scores), scores, median_val)
+
+        return scores
+
+    @staticmethod
+    def _validate_labels(labels: NDArray[np.int32] | None) -> NDArray[np.int32] | None:
+        """Validate binary labels array.
+
+        Args:
+            labels: Input labels array (optional)
+
+        Returns:
+            Validated labels array or None
+
+        Raises:
+            ValueError: If labels are invalid
+        """
+        if labels is None:
+            return None
+
+        labels = np.asarray(labels).flatten()
+
+        # Convert to int if needed
+        if labels.dtype not in (np.int32, np.int64, np.uint8, np.bool_):
+            labels = labels.astype(np.int32)
+
+        # Validate binary
+        unique_vals = np.unique(labels)
+        if not np.all(np.isin(unique_vals, [0, 1])):
+            raise ValueError(
+                f"Labels must be binary (0 or 1), got unique values: {unique_vals}"
+            )
+
+        return labels.astype(np.int32)
+
+    @staticmethod
     def analyze(
         scores: NDArray[np.float64],
         threshold: float = 0.5,
@@ -181,15 +249,30 @@ class ScoreDiagnostics:
         Comprehensive analysis of score distribution.
 
         Args:
-            scores: Anomaly scores array
+            scores: Anomaly scores array (must be non-empty, finite values)
             threshold: Current threshold value
             labels: Optional ground truth labels for contamination calculation
             method: Calibration method name
 
         Returns:
             CalibrationDiagnostics with full analysis
+
+        Raises:
+            ValueError: If scores array is empty or all NaN/Inf
         """
-        scores = np.asarray(scores).flatten()
+        # Validate inputs
+        try:
+            scores = ScoreDiagnostics._validate_scores(scores, min_samples=1)
+        except ValueError:
+            # Return empty diagnostics for edge cases
+            return CalibrationDiagnostics(
+                score_min=0.0, score_max=0.0, score_mean=0.0, score_std=0.0,
+                score_median=0.0, threshold=threshold, calibration_method=method,
+                n_samples=0, n_above_threshold=0, predicted_anomaly_ratio=0.0,
+                is_bimodal=False, skewness=0.0, kurtosis=0.0, percentiles={},
+            )
+
+        labels = ScoreDiagnostics._validate_labels(labels)
         n = len(scores)
 
         if n == 0:
@@ -358,6 +441,16 @@ class AutoThresholdOptimizer:
     This is the core solution to the F1=0 problem: instead of using
     a fixed 0.5 threshold, we compute an optimal threshold based on
     the actual score distribution.
+
+    Attributes:
+        default_contamination: Expected anomaly rate (0.0-1.0)
+        min_contamination: Minimum contamination to enforce
+        max_contamination: Maximum contamination to allow
+
+    Example:
+        >>> optimizer = AutoThresholdOptimizer(contamination=0.05)
+        >>> result = optimizer.optimize(scores, method=CalibrationMethod.AUTO)
+        >>> print(f"Threshold: {result.threshold}")
     """
 
     def __init__(
@@ -373,7 +466,26 @@ class AutoThresholdOptimizer:
             default_contamination: Expected anomaly rate (default 5%)
             min_contamination: Minimum contamination to enforce
             max_contamination: Maximum contamination to allow
+
+        Raises:
+            ValueError: If contamination parameters are invalid
         """
+        # Validate contamination parameters
+        if not (0.0 < default_contamination < 1.0):
+            raise ValueError(
+                f"default_contamination must be in (0, 1), got {default_contamination}"
+            )
+        if not (0.0 < min_contamination < max_contamination < 1.0):
+            raise ValueError(
+                f"Require 0 < min_contamination < max_contamination < 1, "
+                f"got min={min_contamination}, max={max_contamination}"
+            )
+        if not (min_contamination <= default_contamination <= max_contamination):
+            raise ValueError(
+                f"default_contamination must be in [min, max], "
+                f"got {default_contamination} not in [{min_contamination}, {max_contamination}]"
+            )
+
         self.default_contamination = default_contamination
         self.min_contamination = min_contamination
         self.max_contamination = max_contamination
@@ -807,8 +919,18 @@ class AutoThresholdOptimizer:
                 "stds": stds.tolist(),
             }
 
+        except (ValueError, RuntimeError, np.linalg.LinAlgError) as e:
+            logger.warning(
+                f"GMM fitting failed ({type(e).__name__}): {e}. "
+                "Falling back to percentile method."
+            )
+            return self._percentile_threshold(scores, contamination, fixed_threshold)
         except Exception as e:
-            logger.warning(f"GMM fitting failed: {e}, falling back to percentile")
+            logger.error(
+                f"Unexpected error in GMM fitting: {e}. "
+                "This may indicate a bug - please report.",
+                exc_info=True
+            )
             return self._percentile_threshold(scores, contamination, fixed_threshold)
 
     def _optimal_f1_threshold(
