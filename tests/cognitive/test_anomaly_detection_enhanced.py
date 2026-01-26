@@ -11,9 +11,9 @@ import time
 
 from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
     BayesianPredictor,
-    DataSourceType,
     EnhancedAnomalyDetector,
     ExternalDataIntegrator,
+    ExternalSourceCategory,
     HiddenMarkovPredictor,
     MemoryKnowledgeGraph,
     PredictionType,
@@ -210,7 +210,7 @@ class TestExternalDataSources:
         data = source.fetch()
 
         assert len(data) == 1
-        assert data[0].source_type == DataSourceType.GEOLOGICAL
+        assert data[0].source_type == ExternalSourceCategory.GEOLOGICAL
         assert "magnitude" in data[0].data
 
     def test_simulated_environmental_source(self):
@@ -219,7 +219,7 @@ class TestExternalDataSources:
         data = source.fetch()
 
         assert len(data) == 1
-        assert data[0].source_type == DataSourceType.ENVIRONMENTAL
+        assert data[0].source_type == ExternalSourceCategory.ENVIRONMENTAL
         assert "severity" in data[0].data
 
 
@@ -436,19 +436,19 @@ class TestPredictionTypes:
         assert PredictionType.RISK.value == "risk"
 
 
-class TestDataSourceTypes:
-    """Tests for data source type enums."""
+class TestExternalSourceCategory:
+    """Tests for external source category enums."""
 
-    def test_data_source_types(self):
-        """Test all data source types exist."""
-        assert DataSourceType.GEOLOGICAL.value == "geological"
-        assert DataSourceType.ENVIRONMENTAL.value == "environmental"
-        assert DataSourceType.NEWS.value == "news"
-        assert DataSourceType.FINANCIAL.value == "financial"
-        assert DataSourceType.SOCIAL.value == "social"
-        assert DataSourceType.SECURITY.value == "security"
-        assert DataSourceType.HEALTH.value == "health"
-        assert DataSourceType.CUSTOM.value == "custom"
+    def test_external_source_categories(self):
+        """Test all external source categories exist."""
+        assert ExternalSourceCategory.GEOLOGICAL.value == "geological"
+        assert ExternalSourceCategory.ENVIRONMENTAL.value == "environmental"
+        assert ExternalSourceCategory.NEWS.value == "news"
+        assert ExternalSourceCategory.FINANCIAL.value == "financial"
+        assert ExternalSourceCategory.SOCIAL.value == "social"
+        assert ExternalSourceCategory.SECURITY.value == "security"
+        assert ExternalSourceCategory.HEALTH.value == "health"
+        assert ExternalSourceCategory.CUSTOM.value == "custom"
 
 
 class TestIntegration:

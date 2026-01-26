@@ -22,9 +22,10 @@ from __future__ import annotations
 
 import logging
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -1268,8 +1269,8 @@ def diagnose_scores(
         # Print actionable recommendations
         if diagnostics.predicted_anomaly_ratio == 0:
             print("\nDIAGNOSIS: All predictions are NEGATIVE (no anomalies detected)")
-            print("CAUSE: Threshold ({:.4f}) is higher than all scores".format(threshold))
-            print("       Score max: {:.4f}".format(diagnostics.score_max))
+            print(f"CAUSE: Threshold ({threshold:.4f}) is higher than all scores")
+            print(f"       Score max: {diagnostics.score_max:.4f}")
             print("\nRECOMMENDED ACTIONS:")
             print("1. Use percentile-based threshold: threshold = percentile(scores, 95)")
             print("2. Use adaptive calibration: calibrate_scores(scores, method='auto')")

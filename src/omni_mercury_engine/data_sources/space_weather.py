@@ -47,6 +47,7 @@ from omni_mercury_engine.data_sources.base import (
     RateLimitConfig,
 )
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -862,9 +863,7 @@ class NOAASWPCSource(DataSourceBase):
 
                 if speed and speed > 800:
                     alert_level = AlertLevel.STRONG
-                elif speed and speed > 600:
-                    alert_level = AlertLevel.MODERATE
-                elif bz and bz < -10:  # Southward Bz is geoeffective
+                elif (speed and speed > 600) or (bz and bz < -10):
                     alert_level = AlertLevel.MODERATE
 
                 data_points.append(DataPoint(

@@ -465,7 +465,7 @@ class BenchmarkDiagnostics:
             recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
             f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
 
-            print(f"\nWith ground truth:")
+            print("\nWith ground truth:")
             print(f"  TP={tp}, FP={fp}, FN={fn}, TN={tn}")
             print(f"  Precision={precision:.4f}, Recall={recall:.4f}, F1={f1:.4f}")
 

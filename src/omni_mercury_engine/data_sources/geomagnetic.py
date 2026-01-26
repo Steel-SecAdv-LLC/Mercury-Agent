@@ -32,7 +32,6 @@ Notes:
 from __future__ import annotations
 
 import logging
-import math
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
@@ -46,10 +45,10 @@ from omni_mercury_engine.data_sources.base import (
     DataPoint,
     DataSourceBase,
     DataSourceConfig,
-    DataSourceError,
     DataSourceType,
     RateLimitConfig,
 )
+
 
 logger = logging.getLogger(__name__)
 

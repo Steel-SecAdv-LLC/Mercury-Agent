@@ -1658,8 +1658,8 @@ class OmniMercuryEngine(LoggerMixin):
             >>> print(calibration["diagnostics"])
         """
         from omni_mercury_engine.core.score_calibration import (
-            ScoreCalibrationManager,
             CalibrationMethod,
+            ScoreCalibrationManager,
         )
 
         manager = ScoreCalibrationManager(
@@ -1711,8 +1711,8 @@ class OmniMercuryEngine(LoggerMixin):
             >>> print(diag["recommendations"])
         """
         from omni_mercury_engine.core.score_calibration import (
-            ScoreDiagnostics,
             CalibrationDiagnostics,
+            ScoreDiagnostics,
         )
 
         if isinstance(data, torch.Tensor):
@@ -1819,8 +1819,8 @@ class OmniMercuryEngine(LoggerMixin):
             >>> print(result["diagnostics"])
         """
         from omni_mercury_engine.core.score_calibration import (
-            ScoreCalibrationManager,
             CalibrationMethod,
+            ScoreCalibrationManager,
         )
 
         if isinstance(data, torch.Tensor):
@@ -2246,8 +2246,8 @@ class OmniMercuryEngine(LoggerMixin):
             >>> print(f"F1=0 problem solved: {result['is_anomaly'].sum()} anomalies detected")
         """
         from omni_mercury_engine.core.score_calibration import (
-            ScoreCalibrationManager,
             CalibrationMethod,
+            ScoreCalibrationManager,
         )
 
         # Run standard fusion detection

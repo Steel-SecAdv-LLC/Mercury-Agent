@@ -264,8 +264,7 @@ class DimensionalAnalyzer(BaseDetector):
         max_components = min(n_samples - 1, n_features)
         n_comp = min(self.n_components, max_components)
 
-        if n_comp < 1:
-            n_comp = 1
+        n_comp = max(n_comp, 1)
 
         self.pca = PCA(n_components=n_comp)
         self.pca.fit(data_np)

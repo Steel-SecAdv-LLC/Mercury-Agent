@@ -14,10 +14,8 @@ This test suite covers:
 
 from __future__ import annotations
 
-import asyncio
-from datetime import UTC, datetime, timedelta
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import MagicMock
 
 import httpx
 import numpy as np
@@ -27,7 +25,6 @@ from omni_mercury_engine.data_sources import (
     AlertLevel,
     CacheConfig,
     DataPoint,
-    DataSourceBase,
     DataSourceConfig,
     DataSourceError,
     DataSourceManager,
@@ -36,7 +33,6 @@ from omni_mercury_engine.data_sources import (
     RateLimitConfig,
 )
 from omni_mercury_engine.data_sources.consciousness import (
-    GCPAnalysisType,
     GCPDataSource,
     GCPDotSource,
     chi_square_deviation,
@@ -57,20 +53,17 @@ from omni_mercury_engine.data_sources.geomagnetic import (
     HeartMathGCMSSource,
     HeartMathSite,
     INTERMAGNETSource,
-    MagneticElement,
     SuperMAGSource,
     USGSGeomagnetismSource,
     USGSObservatory,
 )
 from omni_mercury_engine.data_sources.space_weather import (
     DONKIEventType,
-    EONETCategory,
     NASADONKISource,
     NASAEONETSource,
     NASANeoWsSource,
     NOAASWPCSource,
     SolarSystemOpenDataSource,
-    SWPCProduct,
 )
 
 
@@ -726,7 +719,6 @@ class TestGCPDotSource:
     def test_deviation_to_color(self) -> None:
         """Test deviation to color mapping."""
         source = GCPDotSource()
-        from omni_mercury_engine.data_sources.consciousness import GCPDotColor
 
         assert source._deviation_to_color(3.0).value == "blue"
         assert source._deviation_to_color(1.0).value == "green"

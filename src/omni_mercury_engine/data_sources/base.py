@@ -33,17 +33,15 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 
 import httpx
 import numpy as np
 
 from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker, CircuitState
 
-if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
 
 logger = logging.getLogger(__name__)
 
