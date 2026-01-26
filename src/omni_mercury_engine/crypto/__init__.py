@@ -273,6 +273,7 @@ def decrypt(
 # Key Derivation
 # =============================================================================
 
+
 def derive_key(
     password: bytes,
     salt: bytes,
@@ -299,23 +300,27 @@ def derive_key(
         raise ValueError("Salt must be at least 8 bytes")
 
     if _RUST_AVAILABLE:
-        return bytes(_rust_crypto.py_argon2_derive(
-            password, salt, key_length, memory_cost, time_cost, parallelism
-        ))
+        return bytes(
+            _rust_crypto.py_argon2_derive(
+                password, salt, key_length, memory_cost, time_cost, parallelism
+            )
+        )
 
     # Python fallback using argon2-cffi
     try:
         from argon2.low_level import Type, hash_secret_raw
 
-        return bytes(hash_secret_raw(
-            secret=password,
-            salt=salt,
-            time_cost=time_cost,
-            memory_cost=memory_cost,
-            parallelism=parallelism,
-            hash_len=key_length,
-            type=Type.ID,
-        ))
+        return bytes(
+            hash_secret_raw(
+                secret=password,
+                salt=salt,
+                time_cost=time_cost,
+                memory_cost=memory_cost,
+                parallelism=parallelism,
+                hash_len=key_length,
+                type=Type.ID,
+            )
+        )
     except ImportError:
         pass
 
@@ -369,6 +374,7 @@ def derive_key_pair(
 # Random Generation
 # =============================================================================
 
+
 def secure_random(length: int) -> bytes:
     """
     Generate cryptographically secure random bytes.
@@ -398,6 +404,7 @@ def generate_nonce() -> bytes:
 # =============================================================================
 # Utility Functions
 # =============================================================================
+
 
 def constant_time_compare(a: bytes, b: bytes) -> bool:
     """

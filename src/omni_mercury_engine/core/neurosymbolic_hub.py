@@ -45,6 +45,7 @@ try:
         BaseDomainFeatureExtractor,
         DomainFeatureExtractorFactory,
     )
+
     DOMAIN_EXTRACTORS_AVAILABLE = True
 except ImportError:
     DOMAIN_EXTRACTORS_AVAILABLE = False
@@ -57,6 +58,7 @@ try:
         AdaptiveDomainThresholdManager,
         create_domain_threshold_manager,
     )
+
     ADAPTIVE_THRESHOLDING_AVAILABLE = True
 except ImportError:
     ADAPTIVE_THRESHOLDING_AVAILABLE = False
@@ -69,6 +71,7 @@ try:
         GOSNN3RIntegration,
         SlidingWindowNormalizer,
     )
+
     GOSNN_3R_AVAILABLE = True
 except ImportError:
     GOSNN_3R_AVAILABLE = False
@@ -1092,29 +1095,35 @@ class NeuroSymbolicHub:
 
             # Add domain feature extraction step if used
             if domain_features:
-                reasoning_chain.append({
-                    "step": "domain_feature_extraction",
-                    "domain": domain_features.get("domain"),
-                    "features_extracted": domain_features.get("extracted_feature_count", 0),
-                })
+                reasoning_chain.append(
+                    {
+                        "step": "domain_feature_extraction",
+                        "domain": domain_features.get("domain"),
+                        "features_extracted": domain_features.get("extracted_feature_count", 0),
+                    }
+                )
 
-            reasoning_chain.extend([
-                {"step": "neural_encoding", "score": neural_score, "weight": neural_weight},
-                {
-                    "step": "symbolic_reasoning",
-                    "score": symbolic_score,
-                    "weight": symbolic_weight,
-                    "rules_fired": rules_fired,
-                },
-                {"step": "fusion", "fused_score": fused_score, "mode": self.fusion_mode.value},
-            ])
+            reasoning_chain.extend(
+                [
+                    {"step": "neural_encoding", "score": neural_score, "weight": neural_weight},
+                    {
+                        "step": "symbolic_reasoning",
+                        "score": symbolic_score,
+                        "weight": symbolic_weight,
+                        "rules_fired": rules_fired,
+                    },
+                    {"step": "fusion", "fused_score": fused_score, "mode": self.fusion_mode.value},
+                ]
+            )
 
             # Add GOSNN-3R integration step if used
             if gosnn_3r_info:
-                reasoning_chain.append({
-                    "step": "gosnn_3r_integration",
-                    **gosnn_3r_info,
-                })
+                reasoning_chain.append(
+                    {
+                        "step": "gosnn_3r_integration",
+                        **gosnn_3r_info,
+                    }
+                )
 
             if calibrated_score is not None:
                 reasoning_chain.append(

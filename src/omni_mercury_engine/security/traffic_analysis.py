@@ -537,7 +537,9 @@ class TrafficAnalysisEngine:
 
         if self.enable_tls_fingerprinting and "tls_handshakes" in traffic_data:
             if self.tls_fingerprinter is None:
-                raise RuntimeError("tls_fingerprinter not initialized but enable_tls_fingerprinting is True")
+                raise RuntimeError(
+                    "tls_fingerprinter not initialized but enable_tls_fingerprinting is True"
+                )
             for handshake in traffic_data["tls_handshakes"]:
                 fingerprint = self.tls_fingerprinter.fingerprint_tls(handshake)
                 result.encrypted_flows.append(fingerprint)
@@ -548,7 +550,9 @@ class TrafficAnalysisEngine:
 
         if self.enable_covert_detection and "raw_traffic" in traffic_data:
             if self.covert_detector is None:
-                raise RuntimeError("covert_detector not initialized but enable_covert_detection is True")
+                raise RuntimeError(
+                    "covert_detector not initialized but enable_covert_detection is True"
+                )
             covert_result = self.covert_detector.detect_covert_channels(traffic_data["raw_traffic"])
 
             if covert_result["covert_channels_detected"]:

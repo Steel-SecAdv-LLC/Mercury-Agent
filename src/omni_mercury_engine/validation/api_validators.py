@@ -236,9 +236,7 @@ class DataArrayValidator:
         """
         self.config = config or ValidationConfig()
 
-    def validate_univariate(
-        self, data: list[float] | NDArray[np.float64]
-    ) -> ValidationResult:
+    def validate_univariate(self, data: list[float] | NDArray[np.float64]) -> ValidationResult:
         """
         Validate univariate time series data.
 
@@ -527,9 +525,7 @@ class ParameterValidator:
             config: Validation configuration
         """
         self.config = config or ValidationConfig()
-        self._feature_name_pattern = re.compile(
-            self.config.allowed_feature_name_pattern
-        )
+        self._feature_name_pattern = re.compile(self.config.allowed_feature_name_pattern)
         self._forbidden_patterns = [
             re.compile(p, re.IGNORECASE) for p in self.config.forbidden_patterns
         ]
@@ -566,9 +562,7 @@ class ParameterValidator:
             sanitized_data=float(value) if isinstance(value, (int, float)) else 0.5,
         )
 
-    def validate_feature_names(
-        self, names: list[str] | None
-    ) -> ValidationResult:
+    def validate_feature_names(self, names: list[str] | None) -> ValidationResult:
         """Validate feature name list."""
         if names is None:
             return ValidationResult(is_valid=True, sanitized_data=None)
@@ -653,7 +647,14 @@ class ParameterValidator:
             return ValidationResult(is_valid=True, sanitized_data="general")
 
         errors = []
-        valid_domains = ["medical", "financial", "infrastructure", "security", "humanitarian", "general"]
+        valid_domains = [
+            "medical",
+            "financial",
+            "infrastructure",
+            "security",
+            "humanitarian",
+            "general",
+        ]
 
         # Sanitize
         safe_domain = InputSanitizer.sanitize_string(domain.lower().strip(), 50)

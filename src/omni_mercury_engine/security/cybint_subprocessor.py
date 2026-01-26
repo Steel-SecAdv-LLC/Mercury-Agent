@@ -491,7 +491,9 @@ class CYBINTSubProcessor:
 
         if self.enable_zero_day_analysis and "exploit_data" in threat_data:
             if self.zero_day_analyzer is None:
-                raise RuntimeError("zero_day_analyzer not initialized but enable_zero_day_analysis is True")
+                raise RuntimeError(
+                    "zero_day_analyzer not initialized but enable_zero_day_analysis is True"
+                )
             zero_day_result = self.zero_day_analyzer.analyze_zero_day_likelihood(
                 threat_data["exploit_data"]
             )

@@ -551,10 +551,11 @@ class ModelCompressor:
             # Try to get constructor signature and create new instance
             # For simple models, this is much faster than deepcopy
             import inspect
+
             sig = inspect.signature(model_class.__init__)
 
             # If model has simple init, we can use state_dict approach
-            if hasattr(model, '_init_args') and hasattr(model, '_init_kwargs'):
+            if hasattr(model, "_init_args") and hasattr(model, "_init_kwargs"):
                 # Model stores its construction args (best case)
                 new_model = model_class(*model._init_args, **model._init_kwargs)
                 new_model.load_state_dict(copy.deepcopy(model.state_dict()))

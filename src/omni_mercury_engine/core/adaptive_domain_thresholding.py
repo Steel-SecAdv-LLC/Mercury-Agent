@@ -169,9 +169,7 @@ class PlattScalingCalibrator:
         self.B: float = 0.0
         self._fitted = False
 
-    def fit(
-        self, scores: NDArray[np.float64], labels: NDArray[np.int32]
-    ) -> PlattScalingCalibrator:
+    def fit(self, scores: NDArray[np.float64], labels: NDArray[np.int32]) -> PlattScalingCalibrator:
         """
         Fit Platt scaling parameters.
 
@@ -278,9 +276,7 @@ class IsotonicCalibrator:
         self._calibration_map: NDArray[np.float64] | None = None
         self._score_bins: NDArray[np.float64] | None = None
 
-    def fit(
-        self, scores: NDArray[np.float64], labels: NDArray[np.int32]
-    ) -> IsotonicCalibrator:
+    def fit(self, scores: NDArray[np.float64], labels: NDArray[np.int32]) -> IsotonicCalibrator:
         """
         Fit isotonic regression calibration.
 
@@ -385,9 +381,7 @@ class CalibrationEnsemble:
         self._fitted = False
         self.best_method: str = "ensemble"
 
-    def fit(
-        self, scores: NDArray[np.float64], labels: NDArray[np.int32]
-    ) -> CalibrationEnsemble:
+    def fit(self, scores: NDArray[np.float64], labels: NDArray[np.int32]) -> CalibrationEnsemble:
         """
         Fit both calibrators.
 
@@ -421,9 +415,7 @@ class CalibrationEnsemble:
         self._fitted = True
         return self
 
-    def _select_best_method(
-        self, scores: NDArray[np.float64], labels: NDArray[np.int32]
-    ) -> None:
+    def _select_best_method(self, scores: NDArray[np.float64], labels: NDArray[np.int32]) -> None:
         """Select best calibration method via cross-validation."""
         from sklearn.model_selection import KFold
 
@@ -459,7 +451,9 @@ class CalibrationEnsemble:
 
             # Ensemble
             try:
-                ensemble_cal = self.platt_weight * platt_cal + (1 - self.platt_weight) * isotonic_cal
+                ensemble_cal = (
+                    self.platt_weight * platt_cal + (1 - self.platt_weight) * isotonic_cal
+                )
                 ensemble_loss = self._brier_score(ensemble_cal, val_labels)
                 ensemble_losses.append(ensemble_loss)
             except Exception:
@@ -475,9 +469,7 @@ class CalibrationEnsemble:
         self.best_method = min(avg_losses, key=avg_losses.get)
         logger.debug(f"Selected calibration method: {self.best_method} (losses: {avg_losses})")
 
-    def _brier_score(
-        self, probs: NDArray[np.float64], labels: NDArray[np.int32]
-    ) -> float:
+    def _brier_score(self, probs: NDArray[np.float64], labels: NDArray[np.int32]) -> float:
         """Compute Brier score (lower is better)."""
         return float(np.mean((probs - labels) ** 2))
 
@@ -583,9 +575,7 @@ class AdaptiveDomainThresholdManager:
             self.probability_calibrator.fit(scores, labels)
 
         # Apply precision/recall tradeoff adjustment
-        self._current_threshold = self._adjust_for_priority(
-            self._current_threshold, scores, labels
-        )
+        self._current_threshold = self._adjust_for_priority(self._current_threshold, scores, labels)
 
         # Enforce bounds
         self._current_threshold = np.clip(
@@ -695,9 +685,7 @@ class AdaptiveDomainThresholdManager:
             result = self.base_calibrator.calibrate(calibrated_scores, labels)
             threshold = result.threshold
             threshold = self._adjust_for_priority(threshold, calibrated_scores, labels)
-            threshold = np.clip(
-                threshold, self.config.min_threshold, self.config.max_threshold
-            )
+            threshold = np.clip(threshold, self.config.min_threshold, self.config.max_threshold)
         else:
             threshold = self._current_threshold if self._fitted else self.config.base_threshold
 
@@ -734,9 +722,7 @@ class AdaptiveDomainThresholdManager:
             },
         )
 
-    def _adaptive_adjustment(
-        self, threshold: float, current_scores: NDArray[np.float64]
-    ) -> float:
+    def _adaptive_adjustment(self, threshold: float, current_scores: NDArray[np.float64]) -> float:
         """
         Adaptively adjust threshold based on score distribution drift.
 
@@ -777,9 +763,7 @@ class AdaptiveDomainThresholdManager:
                 adjustment -= 0.05 * self.config.history_weight  # Decrease threshold
 
         new_threshold = threshold + adjustment
-        new_threshold = np.clip(
-            new_threshold, self.config.min_threshold, self.config.max_threshold
-        )
+        new_threshold = np.clip(new_threshold, self.config.min_threshold, self.config.max_threshold)
 
         if abs(adjustment) > 0.01:
             logger.debug(
@@ -789,9 +773,7 @@ class AdaptiveDomainThresholdManager:
 
         return float(new_threshold)
 
-    def _compute_confidence(
-        self, scores: NDArray[np.float64], threshold: float
-    ) -> float:
+    def _compute_confidence(self, scores: NDArray[np.float64], threshold: float) -> float:
         """Compute confidence in the calibration."""
         n = len(scores)
 
@@ -846,11 +828,13 @@ class AdaptiveDomainThresholdManager:
             adjusted_threshold = base_threshold
 
         # Enforce bounds
-        adjusted_threshold = float(np.clip(
-            adjusted_threshold,
-            self.config.min_threshold,
-            self.config.max_threshold,
-        ))
+        adjusted_threshold = float(
+            np.clip(
+                adjusted_threshold,
+                self.config.min_threshold,
+                self.config.max_threshold,
+            )
+        )
 
         # Calibrate score if probability calibrator is available
         calibrated_score = None
@@ -926,9 +910,11 @@ class AdaptiveDomainThresholdManager:
             "n_records": len(self._performance_history),
             "f1_mean": float(np.mean(f1_scores)),
             "f1_std": float(np.std(f1_scores)),
-            "f1_trend": float(np.mean(f1_scores[-5:]) - np.mean(f1_scores[:5]))
-            if len(f1_scores) >= 10
-            else 0.0,
+            "f1_trend": (
+                float(np.mean(f1_scores[-5:]) - np.mean(f1_scores[:5]))
+                if len(f1_scores) >= 10
+                else 0.0
+            ),
             "precision_mean": float(np.mean(precision_scores)),
             "recall_mean": float(np.mean(recall_scores)),
             "current_threshold": self._current_threshold,
@@ -1075,9 +1061,7 @@ class DomainEnsembleWeightOptimizer:
 
         return optimization_result
 
-    def _compute_f1(
-        self, scores: NDArray[np.float64], labels: NDArray[np.int32]
-    ) -> float:
+    def _compute_f1(self, scores: NDArray[np.float64], labels: NDArray[np.int32]) -> float:
         """Compute F1 score at optimal threshold."""
         threshold = np.percentile(scores, 95)  # Top 5% as anomalies
         predictions = scores > threshold

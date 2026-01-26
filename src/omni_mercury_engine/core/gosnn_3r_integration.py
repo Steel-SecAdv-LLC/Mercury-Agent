@@ -319,9 +319,7 @@ class GOSNN3RIntegration:
         self._sync_weights_from_gosnn()
 
         # Sliding window normalizer
-        self.sliding_normalizer = (
-            SlidingWindowNormalizer() if enable_sliding_window else None
-        )
+        self.sliding_normalizer = SlidingWindowNormalizer() if enable_sliding_window else None
 
         # Feedback learning rate
         self.learning_rate = 0.01
@@ -471,9 +469,7 @@ class GOSNN3RIntegration:
             self.state.lyapunov_bound = result.lyapunov_bound
 
             # Track weight history
-            self.state.weight_history.append(
-                (self.state.w_R, self.state.w_H, self.state.w_O)
-            )
+            self.state.weight_history.append((self.state.w_R, self.state.w_H, self.state.w_O))
             if len(self.state.weight_history) > 100:
                 self.state.weight_history = self.state.weight_history[-100:]
 
@@ -561,9 +557,7 @@ class GOSNN3RIntegration:
             )
 
         if "recall" in performance_metrics:
-            scalars[f"omni_{detector_name}_recall"] = (
-                1.0 + 0.5 * performance_metrics["recall"]
-            )
+            scalars[f"omni_{detector_name}_recall"] = 1.0 + 0.5 * performance_metrics["recall"]
 
         if "f1" in performance_metrics:
             scalars[f"omni_{detector_name}_f1"] = 1.0 + 0.5 * performance_metrics["f1"]
@@ -605,9 +599,7 @@ class GOSNN3RIntegration:
                 },
                 "history_length": len(self.state.fusion_score_history),
                 "sliding_window": (
-                    self.sliding_normalizer.get_statistics()
-                    if self.sliding_normalizer
-                    else None
+                    self.sliding_normalizer.get_statistics() if self.sliding_normalizer else None
                 ),
             }
 
@@ -776,9 +768,7 @@ class CrossDomainTransferManager:
         self._domain_integrations: dict[str, GOSNN3RIntegration] = {}
         self._transfer_weights: dict[str, dict[str, float]] = {}
 
-    def register_domain(
-        self, domain: str, integration: GOSNN3RIntegration
-    ) -> None:
+    def register_domain(self, domain: str, integration: GOSNN3RIntegration) -> None:
         """Register a domain's GOSNN-3R integration."""
         self._domain_integrations[domain] = integration
 
@@ -811,12 +801,8 @@ class CrossDomainTransferManager:
         target = self._domain_integrations[target_domain]
 
         # Transfer weights
-        source_weights = np.array([
-            source.state.w_R, source.state.w_H, source.state.w_O
-        ])
-        target_weights = np.array([
-            target.state.w_R, target.state.w_H, target.state.w_O
-        ])
+        source_weights = np.array([source.state.w_R, source.state.w_H, source.state.w_O])
+        target_weights = np.array([target.state.w_R, target.state.w_H, target.state.w_O])
 
         # Interpolate
         new_weights = (1 - transfer_ratio) * target_weights + transfer_ratio * source_weights
@@ -847,9 +833,7 @@ class CrossDomainTransferManager:
 
         return True
 
-    def auto_transfer(
-        self, low_data_domains: list[str] | None = None
-    ) -> dict[str, bool]:
+    def auto_transfer(self, low_data_domains: list[str] | None = None) -> dict[str, bool]:
         """
         Automatically transfer from high-data to low-data domains.
 

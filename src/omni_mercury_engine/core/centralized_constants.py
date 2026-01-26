@@ -28,6 +28,7 @@ from typing import Any
 # MATHEMATICAL CONSTANTS
 # ==============================================================================
 
+
 @dataclass(frozen=True)
 class MathConstants:
     """Mathematical constants used throughout the system."""
@@ -60,6 +61,7 @@ MATH = MathConstants()
 # LYAPUNOV STABILITY CONSTANTS
 # ==============================================================================
 
+
 @dataclass(frozen=True)
 class LyapunovConstants:
     """Lyapunov stability framework constants."""
@@ -88,6 +90,7 @@ LYAPUNOV = LyapunovConstants()
 # ==============================================================================
 # ETHICAL GOVERNANCE CONSTANTS
 # ==============================================================================
+
 
 @dataclass(frozen=True)
 class EthicalConstants:
@@ -138,6 +141,7 @@ ETHICAL = EthicalConstants()
 # ANOMALY DETECTION CONSTANTS
 # ==============================================================================
 
+
 @dataclass(frozen=True)
 class AnomalyDetectionConstants:
     """Anomaly detection thresholds and parameters."""
@@ -182,6 +186,7 @@ ANOMALY = AnomalyDetectionConstants()
 # FUSION WEIGHTS CONSTANTS
 # ==============================================================================
 
+
 @dataclass(frozen=True)
 class FusionConstants:
     """Fusion and weighting constants."""
@@ -217,6 +222,7 @@ FUSION = FusionConstants()
 # CONFIDENCE BANDS
 # ==============================================================================
 
+
 @dataclass(frozen=True)
 class ConfidenceConstants:
     """Confidence classification thresholds."""
@@ -241,6 +247,7 @@ CONFIDENCE = ConfidenceConstants()
 # ==============================================================================
 # DOMAIN-SPECIFIC CONSTANTS
 # ==============================================================================
+
 
 @dataclass(frozen=True)
 class MedicalDomainConstants:
@@ -336,6 +343,7 @@ INFRASTRUCTURE = InfrastructureConstants()
 # NEURAL NETWORK CONSTANTS
 # ==============================================================================
 
+
 @dataclass(frozen=True)
 class NeuralNetConstants:
     """Neural network architecture constants."""
@@ -373,6 +381,7 @@ NEURAL = NeuralNetConstants()
 # CALIBRATION CONSTANTS
 # ==============================================================================
 
+
 @dataclass(frozen=True)
 class CalibrationConstants:
     """Score calibration constants."""
@@ -403,6 +412,7 @@ CALIBRATION = CalibrationConstants()
 # ==============================================================================
 # API AND VALIDATION CONSTANTS
 # ==============================================================================
+
 
 @dataclass(frozen=True)
 class APIConstants:
@@ -436,6 +446,7 @@ API = APIConstants()
 # SLIDING WINDOW CONSTANTS
 # ==============================================================================
 
+
 @dataclass(frozen=True)
 class SlidingWindowConstants:
     """Sliding window normalization constants."""
@@ -461,6 +472,7 @@ SLIDING_WINDOW = SlidingWindowConstants()
 # ==============================================================================
 # UTILITY CLASSES
 # ==============================================================================
+
 
 class ConstantRegistry:
     """
@@ -560,9 +572,15 @@ def get_domain_constants(domain: str) -> dict[str, Any]:
         return {
             "sigma_immutable": ETHICAL.SIGMA_IMMUTABLE_DEFAULT,
             "benford_distribution": [
-                FINANCIAL.BENFORD_1, FINANCIAL.BENFORD_2, FINANCIAL.BENFORD_3,
-                FINANCIAL.BENFORD_4, FINANCIAL.BENFORD_5, FINANCIAL.BENFORD_6,
-                FINANCIAL.BENFORD_7, FINANCIAL.BENFORD_8, FINANCIAL.BENFORD_9,
+                FINANCIAL.BENFORD_1,
+                FINANCIAL.BENFORD_2,
+                FINANCIAL.BENFORD_3,
+                FINANCIAL.BENFORD_4,
+                FINANCIAL.BENFORD_5,
+                FINANCIAL.BENFORD_6,
+                FINANCIAL.BENFORD_7,
+                FINANCIAL.BENFORD_8,
+                FINANCIAL.BENFORD_9,
             ],
             "velocity_windows": [
                 FINANCIAL.VELOCITY_WINDOW_SHORT,

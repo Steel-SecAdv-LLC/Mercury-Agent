@@ -269,7 +269,9 @@ class BaseDomainExtractor(ABC):
             # Spectral entropy
             mag_norm = magnitudes / (np.sum(magnitudes) + 1e-10)
             mag_norm = mag_norm[mag_norm > 0]
-            spectral_entropy = -np.sum(mag_norm * np.log2(mag_norm + 1e-10)) if len(mag_norm) > 0 else 0.0
+            spectral_entropy = (
+                -np.sum(mag_norm * np.log2(mag_norm + 1e-10)) if len(mag_norm) > 0 else 0.0
+            )
             features.append(spectral_entropy)
         else:
             features.extend([0.0, 0.0, 0.0])
@@ -584,9 +586,7 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
 
     # Benford's Law expected first digit distribution
     BENFORD_DISTRIBUTION = np.array(
-        [
-            np.log10(1 + 1 / d) for d in range(1, 10)
-        ]  # P(d) = log10(1 + 1/d) for d in 1-9
+        [np.log10(1 + 1 / d) for d in range(1, 10)]  # P(d) = log10(1 + 1/d) for d in 1-9
     )
 
     def __init__(self, config: DomainFeatureConfig | None = None):
@@ -654,7 +654,9 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
 
         # 3. Financial-specific features
         if self.config.enable_domain_specific:
-            fin_features, fin_names = self._extract_financial_features(data, amounts, has_timestamps)
+            fin_features, fin_names = self._extract_financial_features(
+                data, amounts, has_timestamps
+            )
             all_features.append(fin_features)
             all_names.extend(fin_names)
 
@@ -961,7 +963,9 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
         if n >= 3:
             skewness = stats.skew(amounts)
             kurtosis = stats.kurtosis(amounts)
-            bimodality = (skewness**2 + 1) / (kurtosis + 3 * (n - 1) ** 2 / ((n - 2) * (n - 3)) + 1e-10)
+            bimodality = (skewness**2 + 1) / (
+                kurtosis + 3 * (n - 1) ** 2 / ((n - 2) * (n - 3)) + 1e-10
+            )
         else:
             bimodality = 0.0
         features.append(bimodality)
@@ -1337,9 +1341,7 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
 
         return features, names
 
-    def _compute_alarm_features(
-        self, data: NDArray[np.float64]
-    ) -> tuple[list[float], list[str]]:
+    def _compute_alarm_features(self, data: NDArray[np.float64]) -> tuple[list[float], list[str]]:
         """
         Compute alarm rate features based on threshold crossings.
 
@@ -1565,7 +1567,9 @@ class DomainFeatureExtractorFactory:
 
         extractor_cls = cls._extractors.get(domain)
         if extractor_cls is None:
-            raise ValueError(f"Unsupported domain: {domain}. Supported: {list(cls._extractors.keys())}")
+            raise ValueError(
+                f"Unsupported domain: {domain}. Supported: {list(cls._extractors.keys())}"
+            )
 
         if config is None:
             config = DomainFeatureConfig(domain=domain)

@@ -118,13 +118,15 @@ class TestMedicalFeatureExtractor:
         """Generate 2D vital sign data (multiple vitals)."""
         np.random.seed(42)
         n_samples = 100
-        return np.column_stack([
-            70 + 10 * np.random.randn(n_samples),
-            120 + 15 * np.random.randn(n_samples),
-            80 + 10 * np.random.randn(n_samples),
-            16 + 2 * np.random.randn(n_samples),
-            97 + 1 * np.random.randn(n_samples),
-        ])
+        return np.column_stack(
+            [
+                70 + 10 * np.random.randn(n_samples),
+                120 + 15 * np.random.randn(n_samples),
+                80 + 10 * np.random.randn(n_samples),
+                16 + 2 * np.random.randn(n_samples),
+                97 + 1 * np.random.randn(n_samples),
+            ]
+        )
 
     def test_extractor_initialization(self, extractor: MedicalFeatureExtractor) -> None:
         """Test extractor initialization."""
@@ -292,15 +294,12 @@ class TestInfrastructureFeatureExtractor:
         n_samples = 200
         n_sensors = 5
         base_signal = np.sin(np.linspace(0, 4 * np.pi, n_samples))
-        data = np.column_stack([
-            base_signal + 0.1 * np.random.randn(n_samples) + i * 10
-            for i in range(n_sensors)
-        ])
+        data = np.column_stack(
+            [base_signal + 0.1 * np.random.randn(n_samples) + i * 10 for i in range(n_sensors)]
+        )
         return data
 
-    def test_extractor_initialization(
-        self, extractor: InfrastructureFeatureExtractor
-    ) -> None:
+    def test_extractor_initialization(self, extractor: InfrastructureFeatureExtractor) -> None:
         """Test extractor initialization."""
         assert extractor.config.domain == Domain.INFRASTRUCTURE
         assert extractor.correlation_threshold is not None
@@ -326,14 +325,14 @@ class TestInfrastructureFeatureExtractor:
         assert "corr_matrix_std" in names
         assert len(features) == len(names)
 
-    def test_setpoint_deviation_features(
-        self, extractor: InfrastructureFeatureExtractor
-    ) -> None:
+    def test_setpoint_deviation_features(self, extractor: InfrastructureFeatureExtractor) -> None:
         """Test setpoint deviation feature computation."""
-        data = np.column_stack([
-            100 + 5 * np.random.randn(100),
-            50 + 2 * np.random.randn(100),
-        ])
+        data = np.column_stack(
+            [
+                100 + 5 * np.random.randn(100),
+                50 + 2 * np.random.randn(100),
+            ]
+        )
         features, names = extractor._compute_setpoint_deviation_features(data)
 
         assert "setpoint_mean_deviation" in names
