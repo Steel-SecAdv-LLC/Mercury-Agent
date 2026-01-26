@@ -69,6 +69,7 @@ except ImportError:
 try:
     from omni_mercury_engine.core.gosnn_3r_integration import (
         GOSNN3RIntegration,
+        SlidingWindowConfig,
         SlidingWindowNormalizer,
     )
 
@@ -76,6 +77,7 @@ try:
 except ImportError:
     GOSNN_3R_AVAILABLE = False
     GOSNN3RIntegration = None
+    SlidingWindowConfig = None
     SlidingWindowNormalizer = None
 
 
@@ -589,7 +591,9 @@ class NeuroSymbolicHub:
         if enable_gosnn_3r and GOSNN_3R_AVAILABLE:
             try:
                 self._gosnn_3r = GOSNN3RIntegration(domain=domain or "general")
-                self._sliding_normalizer = SlidingWindowNormalizer(window_size=100)
+                self._sliding_normalizer = SlidingWindowNormalizer(
+                    config=SlidingWindowConfig(window_size=100)
+                )
                 logger.info("GOSNN-3R bidirectional integration initialized")
             except Exception as e:
                 logger.warning(f"Failed to initialize GOSNN-3R integration: {e}")

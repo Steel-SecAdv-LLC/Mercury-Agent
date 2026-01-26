@@ -133,7 +133,7 @@ def generate_anomaly_detection_panel() -> Path:
     severity_counts = [45, 28, 15, 12]  # Simulated distribution
     colors_severity = ["#27ae60", "#f1c40f", "#e67e22", "#c0392b"]
 
-    wedges, texts, autotexts = ax6.pie(
+    ax6.pie(
         severity_counts,
         labels=severities,
         autopct="%1.1f%%",

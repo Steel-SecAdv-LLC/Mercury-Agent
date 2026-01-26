@@ -302,10 +302,9 @@ class IsotonicCalibrator:
 
         # Pool Adjacent Violators Algorithm (PAVA)
         n = len(sorted_scores)
-        calibrated = np.zeros(n)
         weights = np.ones(n)
 
-        # Initialize with labels
+        # Initialize calibrated values with labels
         calibrated = sorted_labels.astype(float).copy()
 
         # PAVA iterations
