@@ -461,7 +461,8 @@ class PropensityScoreEstimator:
         if not self._fitted:
             self.fit()
 
-        assert self.propensity_scores is not None
+        if self.propensity_scores is None:
+            raise ValueError("propensity_scores not initialized. Call fit() first.")
         ps = self.propensity_scores
         t = self.treatment
         y = outcome
@@ -499,7 +500,8 @@ class PropensityScoreEstimator:
         if not self._fitted:
             self.fit()
 
-        assert self.propensity_scores is not None
+        if self.propensity_scores is None:
+            raise ValueError("propensity_scores not initialized. Call fit() first.")
         ps = self.propensity_scores
         t = self.treatment
         y = outcome
@@ -557,7 +559,8 @@ class PropensityScoreEstimator:
         if not self._fitted:
             self.fit()
 
-        assert self.propensity_scores is not None
+        if self.propensity_scores is None:
+            raise ValueError("propensity_scores not initialized. Call fit() first.")
         ps = self.propensity_scores
         t = self.treatment
 
