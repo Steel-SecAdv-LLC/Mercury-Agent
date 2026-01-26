@@ -814,9 +814,63 @@ class AdaptiveDomainThresholdManager:
         confidence = 0.4 * sample_factor + 0.3 * spread_factor + 0.3 * history_factor
         return float(np.clip(confidence, 0.0, 1.0))
 
-    def get_threshold(self) -> float:
-        """Get current calibrated threshold."""
-        return self._current_threshold
+    def get_threshold(
+        self,
+        score: float | None = None,
+        confidence: float | None = None,
+    ) -> float | dict[str, Any]:
+        """
+        Get current calibrated threshold, optionally with adaptive adjustment.
+
+        When called with no arguments, returns just the threshold (backward compatible).
+        When called with score and/or confidence, returns a dict with adaptive info.
+
+        Args:
+            score: Optional anomaly score for adaptive threshold adjustment
+            confidence: Optional confidence level for threshold tuning
+
+        Returns:
+            float if no args provided, dict with threshold info otherwise
+        """
+        if score is None and confidence is None:
+            # Backward compatible: just return the threshold
+            return self._current_threshold
+
+        # Adaptive threshold adjustment based on score and confidence
+        base_threshold = self._current_threshold
+
+        # Adjust threshold based on confidence
+        # Low confidence → be more conservative (higher threshold)
+        if confidence is not None:
+            confidence_factor = 1.0 + (1.0 - confidence) * 0.1
+            adjusted_threshold = base_threshold * confidence_factor
+        else:
+            adjusted_threshold = base_threshold
+
+        # Enforce bounds
+        adjusted_threshold = float(np.clip(
+            adjusted_threshold,
+            self.config.min_threshold,
+            self.config.max_threshold,
+        ))
+
+        # Calibrate score if probability calibrator is available
+        calibrated_score = None
+        if self.probability_calibrator is not None and score is not None:
+            try:
+                calibrated_score = float(
+                    self.probability_calibrator.calibrate(np.array([score]))[0]
+                )
+            except Exception:
+                calibrated_score = score
+
+        return {
+            "threshold": adjusted_threshold,
+            "base_threshold": base_threshold,
+            "calibrated_score": calibrated_score,
+            "confidence_adjusted": confidence is not None,
+            "domain": self.domain.value,
+        }
 
     def update_performance(
         self,

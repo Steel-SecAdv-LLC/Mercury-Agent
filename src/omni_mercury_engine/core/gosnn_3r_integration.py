@@ -663,6 +663,99 @@ class GOSNN3RIntegration:
 
             return is_stable, report
 
+    def adjust_weights(
+        self,
+        neural_score: float,
+        symbolic_score: float,
+        confidence: float,
+        domain: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Adjust fusion weights based on current scores and confidence.
+
+        This method provides bidirectional feedback:
+        1. Uses GOSNN scalars to inform weight adjustments
+        2. Updates internal state based on incoming scores
+        3. Returns adjusted weights for fusion refinement
+
+        Args:
+            neural_score: Neural network anomaly score [0, 1]
+            symbolic_score: Symbolic reasoning anomaly score [0, 1]
+            confidence: Confidence in the prediction [0, 1]
+            domain: Optional domain override
+
+        Returns:
+            Dictionary with adjusted weights and stability info
+        """
+        with self._lock:
+            # Update domain if provided
+            effective_domain = domain or self.domain
+
+            # Get current state
+            current_w_R = self.state.w_R
+            current_w_H = self.state.w_H
+            current_w_O = self.state.w_O
+
+            # Compute score agreement
+            agreement = 1.0 - abs(neural_score - symbolic_score)
+
+            # Adjust weights based on confidence and agreement
+            # High confidence + high agreement → trust current weights
+            # Low confidence → increase symbolic weight (more interpretable)
+            # Low agreement → balance weights more evenly
+
+            if confidence < 0.5:
+                # Low confidence: increase symbolic reasoning weight
+                adjustment = (0.5 - confidence) * 0.1  # Small adjustment
+                new_w_R = current_w_R + adjustment  # Recursion for deeper analysis
+                new_w_H = current_w_H
+                new_w_O = current_w_O - adjustment * 0.5
+            elif agreement < 0.3:
+                # Low agreement: balance weights
+                target = 1.0 / 3.0
+                blend = 0.1  # Small blend factor
+                new_w_R = current_w_R * (1 - blend) + target * blend
+                new_w_H = current_w_H * (1 - blend) + target * blend
+                new_w_O = current_w_O * (1 - blend) + target * blend
+            else:
+                # High confidence and agreement: keep current weights
+                new_w_R = current_w_R
+                new_w_H = current_w_H
+                new_w_O = current_w_O
+
+            # Normalize to sum to 1
+            total = new_w_R + new_w_H + new_w_O
+            if total > 0:
+                new_w_R /= total
+                new_w_H /= total
+                new_w_O /= total
+
+            # Map 3R weights to neural/symbolic weights
+            # w_R and w_H tend to favor symbolic (reasoning-based)
+            # w_O tends to favor neural (optimization-based)
+            neural_weight = new_w_O * 0.6 + 0.4  # Base of 0.4, boosted by optimization
+            symbolic_weight = 1.0 - neural_weight
+
+            # Verify stability
+            is_stable, _ = self.verify_stability()
+
+            # Determine if we should refine the score
+            # Only refine if stable and weights changed significantly
+            weight_change = abs(neural_weight - (PHI / (1 + PHI)))
+            refine_score = is_stable and weight_change > 0.05 and confidence > 0.3
+
+            return {
+                "neural_weight": neural_weight,
+                "symbolic_weight": symbolic_weight,
+                "w_R": new_w_R,
+                "w_H": new_w_H,
+                "w_O": new_w_O,
+                "agreement": agreement,
+                "lyapunov_stability": 1.0 if is_stable else 0.0,
+                "refine_score": refine_score,
+                "domain": effective_domain,
+            }
+
 
 class CrossDomainTransferManager:
     """

@@ -508,20 +508,37 @@ class MedicalFeatureExtractor(BaseDomainExtractor):
             features.append(deterioration_index)
             names.append("deterioration_index")
 
-        # 5. SOFA-weighted composite score
-        if n_vitals >= len(self.SOFA_WEIGHTS):
-            sofa_score = 0.0
+        # 5. SOFA-inspired composite score
+        # NOTE: This is a PROXY score, not true SOFA. True SOFA scoring requires
+        # specific vital sign columns (respiratory, coagulation, liver, cardiovascular,
+        # CNS, renal) in known order. This proxy computes weighted deviation across
+        # available vitals as an indicator of multi-system dysfunction.
+        # For accurate SOFA scoring, use column_mapping parameter in config.
+        if n_vitals >= 2:
+            # Compute weighted deviation proxy for available vitals
+            sofa_proxy = 0.0
+            n_used = min(n_vitals, len(self.SOFA_WEIGHTS))
             weights_list = list(self.SOFA_WEIGHTS.values())
-            for i, weight in enumerate(weights_list[: min(n_vitals, len(weights_list))]):
+
+            for i in range(n_used):
                 vital_data = data[:, i]
-                # Normalize and weight
+                # Normalize relative to within-column statistics
                 normalized = (vital_data - np.mean(vital_data)) / (np.std(vital_data) + 1e-10)
-                sofa_score += weight * np.mean(np.abs(normalized))
-            features.append(sofa_score)
-            names.append("sofa_composite")
+                # Use absolute deviation as dysfunction indicator
+                deviation_score = np.mean(np.abs(normalized))
+                # Apply weight (equal weights if beyond defined SOFA columns)
+                weight = weights_list[i] if i < len(weights_list) else 1.0 / n_used
+                sofa_proxy += weight * deviation_score
+
+            # Normalize by total weight used
+            total_weight = sum(weights_list[:n_used]) if n_used <= len(weights_list) else 1.0
+            sofa_proxy /= max(total_weight, 1e-10)
+
+            features.append(sofa_proxy)
+            names.append("sofa_proxy_score")
         else:
             features.append(0.0)
-            names.append("sofa_composite")
+            names.append("sofa_proxy_score")
 
         # 6. Alert fatigue indicator
         # Count potential false alarms based on brief threshold crossings
