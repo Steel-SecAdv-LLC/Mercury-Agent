@@ -569,7 +569,9 @@ class ModelCompressor:
             buffer = io.BytesIO()
             pickle.dump(model, buffer, protocol=4)
             buffer.seek(0)
-            return pickle.load(buffer)
+            return pickle.load(
+                buffer
+            )  # nosec B301 - self-serialized model data, not untrusted input
 
         except (TypeError, RuntimeError, AttributeError):
             # Fallback to standard deepcopy for edge cases
