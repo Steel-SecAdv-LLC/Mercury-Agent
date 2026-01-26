@@ -1125,7 +1125,7 @@ class DataSourceManager:
         # Build result dictionary
         result_dict: dict[str, FetchResult] = {}
         for source, result in zip(sources_to_fetch, results, strict=False):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 result_dict[source.source_id] = FetchResult(success=False, error=str(result))
             else:
                 result_dict[source.source_id] = result
