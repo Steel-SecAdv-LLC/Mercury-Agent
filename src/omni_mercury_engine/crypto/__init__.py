@@ -445,26 +445,20 @@ def secure_zero(data: bytearray) -> None:
 # =============================================================================
 
 __all__ = [
-    # Version/info
     "__version__",
-    "get_crypto_backend",
-    "is_rust_available",
-    # Hashing
-    "hash_data",
     "blake3_hash",
-    "sha256_hash",
-    "sha3_256_hash",
-    # Encryption
-    "encrypt",
+    "constant_time_compare",
     "decrypt",
-    # Key derivation
     "derive_key",
     "derive_key_pair",
-    # Random
-    "secure_random",
+    "encrypt",
     "generate_key",
     "generate_nonce",
-    # Utilities
-    "constant_time_compare",
+    "get_crypto_backend",
+    "hash_data",
+    "is_rust_available",
+    "secure_random",
     "secure_zero",
+    "sha3_256_hash",
+    "sha256_hash",
 ]

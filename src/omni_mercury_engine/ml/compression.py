@@ -552,7 +552,7 @@ class ModelCompressor:
             # For simple models, this is much faster than deepcopy
             import inspect
 
-            sig = inspect.signature(model_class.__init__)
+            _ = inspect.signature(model_class.__init__)
 
             # If model has simple init, we can use state_dict approach
             if hasattr(model, "_init_args") and hasattr(model, "_init_kwargs"):
