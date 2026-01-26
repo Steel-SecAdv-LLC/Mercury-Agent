@@ -115,10 +115,7 @@ def chi_square_deviation(
     chi_sq = (n - 1) * sample_variance / expected_variance
 
     # Calculate p-value (two-tailed)
-    p_value = 2 * min(
-        stats.chi2.cdf(chi_sq, n - 1),
-        1 - stats.chi2.cdf(chi_sq, n - 1)
-    )
+    p_value = 2 * min(stats.chi2.cdf(chi_sq, n - 1), 1 - stats.chi2.cdf(chi_sq, n - 1))
 
     return chi_sq, p_value
 
@@ -409,10 +406,7 @@ class GCPDataSource(DataSourceBase):
             if n_samples > 0:
                 network_means = []
                 for i in range(n_samples):
-                    step_values = [
-                        data[i] for data in egg_data.values()
-                        if i < len(data)
-                    ]
+                    step_values = [data[i] for data in egg_data.values() if i < len(data)]
                     if step_values:
                         network_means.append(int(np.mean(step_values)))
 
@@ -463,29 +457,31 @@ class GCPDataSource(DataSourceBase):
         data_points: list[DataPoint] = []
 
         # Create main network analysis data point
-        data_points.append(DataPoint(
-            source_id=self.source_id,
-            source_type=DataSourceType.GLOBAL_COHERENCE,
-            event_id=f"gcp_analysis_{end_time.isoformat()}",
-            timestamp=end_time,
-            data={
-                "period_start": start_time.isoformat(),
-                "period_end": end_time.isoformat(),
-                "n_eggs": analysis["n_eggs"],
-                "n_samples": analysis["n_samples"],
-                "analyses": analysis["analyses"],
-                "expected_mean": 100,
-                "expected_variance": 50,
-                "trial_bits": 200,
-            },
-            alert_level=alert_level,
-            confidence=confidence,
-            metadata={
-                "network": "GCP Noosphere",
-                "analysis_types": [t.value for t in self._analysis_types],
-                "note": "20-minute delay on real-time data",
-            },
-        ))
+        data_points.append(
+            DataPoint(
+                source_id=self.source_id,
+                source_type=DataSourceType.GLOBAL_COHERENCE,
+                event_id=f"gcp_analysis_{end_time.isoformat()}",
+                timestamp=end_time,
+                data={
+                    "period_start": start_time.isoformat(),
+                    "period_end": end_time.isoformat(),
+                    "n_eggs": analysis["n_eggs"],
+                    "n_samples": analysis["n_samples"],
+                    "analyses": analysis["analyses"],
+                    "expected_mean": 100,
+                    "expected_variance": 50,
+                    "trial_bits": 200,
+                },
+                alert_level=alert_level,
+                confidence=confidence,
+                metadata={
+                    "network": "GCP Noosphere",
+                    "analysis_types": [t.value for t in self._analysis_types],
+                    "note": "20-minute delay on real-time data",
+                },
+            )
+        )
 
         # Create individual EGG status data points
         for egg in self.SAMPLE_EGGS:
@@ -494,28 +490,28 @@ class GCPDataSource(DataSourceBase):
                 egg_mean = np.mean(egg_trials) if egg_trials else 100
                 egg_z = (egg_mean - 100) / np.sqrt(50 / len(egg_trials)) if egg_trials else 0
 
-                data_points.append(DataPoint(
-                    source_id=self.source_id,
-                    source_type=DataSourceType.RANDOM_NUMBER_GENERATOR,
-                    event_id=f"gcp_egg_{egg.egg_id}_{end_time.isoformat()}",
-                    timestamp=end_time,
-                    data={
-                        "egg_id": egg.egg_id,
-                        "location": egg.location,
-                        "n_trials": len(egg_trials),
-                        "mean": float(egg_mean),
-                        "z_score": float(egg_z),
-                        "active": egg.active,
-                    },
-                    location=(egg.latitude, egg.longitude, 0.0),
-                    alert_level=self._z_score_to_alert_level(egg_z),
-                    confidence=confidence * 0.9,
-                    metadata={"network": "GCP"},
-                ))
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=DataSourceType.RANDOM_NUMBER_GENERATOR,
+                        event_id=f"gcp_egg_{egg.egg_id}_{end_time.isoformat()}",
+                        timestamp=end_time,
+                        data={
+                            "egg_id": egg.egg_id,
+                            "location": egg.location,
+                            "n_trials": len(egg_trials),
+                            "mean": float(egg_mean),
+                            "z_score": float(egg_z),
+                            "active": egg.active,
+                        },
+                        location=(egg.latitude, egg.longitude, 0.0),
+                        alert_level=self._z_score_to_alert_level(egg_z),
+                        confidence=confidence * 0.9,
+                        metadata={"network": "GCP"},
+                    )
+                )
 
-        logger.info(
-            f"GCP: Analyzed {analysis['n_samples']} samples from {analysis['n_eggs']} EGGs"
-        )
+        logger.info(f"GCP: Analyzed {analysis['n_samples']} samples from {analysis['n_eggs']} EGGs")
         return data_points
 
 
@@ -638,12 +634,12 @@ class GCPDotSource(DataSourceBase):
         """Generate human-readable interpretation of GCPDot state."""
         interpretations = {
             GCPDotColor.BLUE: f"High coherence detected (deviation: {deviation:.2f}σ). "
-                             "Network showing unusual synchronization.",
+            "Network showing unusual synchronization.",
             GCPDotColor.GREEN: f"Normal network state (deviation: {deviation:.2f}σ). "
-                              "EGGs showing expected random behavior.",
+            "EGGs showing expected random behavior.",
             GCPDotColor.YELLOW: f"Slight deviation detected (deviation: {deviation:.2f}σ). "
-                               "Minor departure from baseline.",
+            "Minor departure from baseline.",
             GCPDotColor.RED: f"Significant deviation (deviation: {deviation:.2f}σ). "
-                            "Network showing notable anti-correlation.",
+            "Network showing notable anti-correlation.",
         }
         return interpretations.get(color, "Unknown state")

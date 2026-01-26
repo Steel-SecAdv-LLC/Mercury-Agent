@@ -67,9 +67,7 @@ class DimensionalWeights:
         """Validate weights configuration."""
         base_sum = self.pca_weight + self.autoencoder_weight
         if abs(base_sum - 1.0) > 1e-6:
-            raise ValueError(
-                f"pca_weight + autoencoder_weight must equal 1.0, got {base_sum:.4f}"
-            )
+            raise ValueError(f"pca_weight + autoencoder_weight must equal 1.0, got {base_sum:.4f}")
         if not 0.0 <= self.db_blend <= 1.0:
             raise ValueError(f"db_blend must be in [0, 1], got {self.db_blend}")
 
@@ -231,9 +229,7 @@ class DimensionalAnalyzer(BaseDetector):
 
         # Validate data shape
         if data_np.size == 0:
-            raise DetectorException(
-                "Cannot fit DimensionalAnalyzer with empty data."
-            )
+            raise DetectorException("Cannot fit DimensionalAnalyzer with empty data.")
 
         if data_np.ndim == 1:
             data_np = data_np.reshape(-1, 1)
@@ -275,10 +271,7 @@ class DimensionalAnalyzer(BaseDetector):
         )
 
         data_tensor = torch.tensor(data_np, dtype=torch.float32)
-        optimizer = torch.optim.Adam(
-            self.autoencoder.parameters(),
-            lr=self.autoencoder_lr
-        )
+        optimizer = torch.optim.Adam(self.autoencoder.parameters(), lr=self.autoencoder_lr)
 
         for _ in range(self.autoencoder_epochs):
             _, reconstructed = self.autoencoder(data_tensor)
@@ -378,9 +371,7 @@ class DimensionalAnalyzer(BaseDetector):
 
         # Ensure scores are finite and in valid range
         if np.any(~np.isfinite(combined_scores)):
-            combined_scores = np.nan_to_num(
-                combined_scores, nan=0.5, posinf=1.0, neginf=0.0
-            )
+            combined_scores = np.nan_to_num(combined_scores, nan=0.5, posinf=1.0, neginf=0.0)
         combined_scores = np.clip(combined_scores, 0.0, 1.0)
 
         # Auto-calibration: compute optimal threshold from score distribution

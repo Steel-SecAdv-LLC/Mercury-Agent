@@ -110,12 +110,14 @@ class TestAllDetectorsAutoCalibration:
 
         X, y = sample_data
 
-        detector = SigmaDirectiveDetector({
-            "threshold": 0.5,
-            "use_quantum_enhanced": False,
-            "use_nano_detection": False,
-            "use_harmonic_detection": False,
-        })
+        detector = SigmaDirectiveDetector(
+            {
+                "threshold": 0.5,
+                "use_quantum_enhanced": False,
+                "use_nano_detection": False,
+                "use_harmonic_detection": False,
+            }
+        )
         detector.fit(X)
         detector.enable_auto_calibration(contamination=0.1)
         result = detector.detect(X)
@@ -216,9 +218,7 @@ class TestCalibratedThresholdMethods:
         result = detector.detect(X)
 
         # Should be able to diagnose scores
-        diagnostics = detector.diagnose_scores(
-            result["scores"], labels=y, print_output=False
-        )
+        diagnostics = detector.diagnose_scores(result["scores"], labels=y, print_output=False)
 
         assert diagnostics is not None
         assert diagnostics.n_samples == len(X)
@@ -255,9 +255,7 @@ class TestEngineCalibration:
         X, y = engine_data
 
         engine = OmniMercuryEngine()
-        result = engine.detect_with_calibration(
-            X, labels=y, calibration_method="auto"
-        )
+        result = engine.detect_with_calibration(X, labels=y, calibration_method="auto")
 
         assert "threshold" in result
         assert "diagnostics" in result
@@ -316,7 +314,9 @@ class TestBenchmarkDiagnostics:
         labels = np.concatenate([np.zeros(95), np.ones(5)]).astype(np.int32)
 
         result = BenchmarkDiagnostics.diagnose(
-            scores, labels, threshold=0.5,
+            scores,
+            labels,
+            threshold=0.5,
             detector_name="TestDetector",
             dataset_name="TestDataset",
         )
@@ -339,16 +339,21 @@ class TestBenchmarkDiagnostics:
 
         np.random.seed(42)
         X_train = np.random.randn(100, 5)
-        X_test = np.vstack([
-            np.random.randn(90, 5),
-            np.random.randn(10, 5) + 3,
-        ])
+        X_test = np.vstack(
+            [
+                np.random.randn(90, 5),
+                np.random.randn(10, 5) + 3,
+            ]
+        )
         y_test = np.concatenate([np.zeros(90), np.ones(10)]).astype(np.int32)
 
         detector = StatisticalAnomalyDetector()
 
         result = run_diagnostic_benchmark(
-            detector, X_train, X_test, y_test,
+            detector,
+            X_train,
+            X_test,
+            y_test,
             detector_name="Statistical",
             dataset_name="Synthetic",
             print_report=False,

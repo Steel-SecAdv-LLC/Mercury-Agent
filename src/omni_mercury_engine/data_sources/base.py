@@ -835,9 +835,7 @@ class DataSourceBase(ABC):
         fetch_start = time.time()
 
         # Check cache
-        cache_key = self._get_cache_key(
-            {"start": str(start_time), "end": str(end_time), **kwargs}
-        )
+        cache_key = self._get_cache_key({"start": str(start_time), "end": str(end_time), **kwargs})
 
         if use_cache:
             cached = self._get_cached(cache_key)
@@ -897,10 +895,10 @@ class DataSourceBase(ABC):
         if loop is not None:
             # Already in an async context - can't use run_until_complete
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
-                    asyncio.run,
-                    self.fetch(start_time, end_time, use_cache, **kwargs)
+                    asyncio.run, self.fetch(start_time, end_time, use_cache, **kwargs)
                 )
                 return future.result()
         else:
@@ -926,12 +924,8 @@ class DataSourceBase(ABC):
             "total_requests": total_req,
             "successful_requests": successful_req,
             "failed_requests": failed_req,
-            "success_rate": (
-                successful_req / total_req if total_req > 0 else 0.0
-            ),
-            "avg_latency_ms": (
-                total_latency / successful_req if successful_req > 0 else 0.0
-            ),
+            "success_rate": (successful_req / total_req if total_req > 0 else 0.0),
+            "avg_latency_ms": (total_latency / successful_req if successful_req > 0 else 0.0),
             "cache_entries": cache_entries,
             "requests_this_hour": req_this_hour,
             "is_healthy": self._is_healthy,
@@ -1132,9 +1126,7 @@ class DataSourceManager:
         result_dict: dict[str, FetchResult] = {}
         for source, result in zip(sources_to_fetch, results, strict=False):
             if isinstance(result, Exception):
-                result_dict[source.source_id] = FetchResult(
-                    success=False, error=str(result)
-                )
+                result_dict[source.source_id] = FetchResult(success=False, error=str(result))
             else:
                 result_dict[source.source_id] = result
 
@@ -1165,9 +1157,7 @@ class DataSourceManager:
                 return future.result()
         else:
             # No running loop - safe to create one
-            return asyncio.run(
-                self.fetch_all(start_time, end_time, source_types, **kwargs)
-            )
+            return asyncio.run(self.fetch_all(start_time, end_time, source_types, **kwargs))
 
     def get_all_data_points(
         self,

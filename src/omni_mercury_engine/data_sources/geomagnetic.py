@@ -273,21 +273,23 @@ class USGSGeomagnetismSource(DataSourceBase):
                 if not point_values:
                     continue
 
-                data_points.append(DataPoint(
-                    source_id=self.source_id,
-                    source_type=DataSourceType.MAGNETOMETER,
-                    event_id=f"usgs_{observatory.value}_{timestamp.isoformat()}",
-                    timestamp=timestamp,
-                    data={
-                        "observatory": observatory.value,
-                        "elements": point_values,
-                        "sampling": self._sampling,
-                    },
-                    location=location,
-                    alert_level=self._calculate_disturbance_level(point_values),
-                    confidence=0.95,
-                    metadata={"format": "IAGA2002", "type": "variation"},
-                ))
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=DataSourceType.MAGNETOMETER,
+                        event_id=f"usgs_{observatory.value}_{timestamp.isoformat()}",
+                        timestamp=timestamp,
+                        data={
+                            "observatory": observatory.value,
+                            "elements": point_values,
+                            "sampling": self._sampling,
+                        },
+                        location=location,
+                        alert_level=self._calculate_disturbance_level(point_values),
+                        confidence=0.95,
+                        metadata={"format": "IAGA2002", "type": "variation"},
+                    )
+                )
 
             except (ValueError, IndexError, KeyError) as e:
                 logger.debug(f"Failed to parse USGS data point: {e}")
@@ -408,23 +410,25 @@ class INTERMAGNETSource(DataSourceBase):
             name, lat, lon = obs_info
 
             # Create a status data point
-            data_points.append(DataPoint(
-                source_id=self.source_id,
-                source_type=DataSourceType.MAGNETOMETER,
-                event_id=f"intermagnet_{code}_{datetime.now(UTC).isoformat()}",
-                timestamp=datetime.now(UTC),
-                data={
-                    "observatory_code": code,
-                    "observatory_name": name,
-                    "network": "INTERMAGNET",
-                    "data_types": ["definitive", "quasi-definitive", "variation"],
-                    "elements": ["H", "D", "Z", "F"],
-                    "note": "Full data requires INTERMAGNET data access protocol",
-                },
-                location=(lat, lon, 0.0),
-                confidence=0.85,
-                metadata={"network": "INTERMAGNET", "format": "IAGA2002"},
-            ))
+            data_points.append(
+                DataPoint(
+                    source_id=self.source_id,
+                    source_type=DataSourceType.MAGNETOMETER,
+                    event_id=f"intermagnet_{code}_{datetime.now(UTC).isoformat()}",
+                    timestamp=datetime.now(UTC),
+                    data={
+                        "observatory_code": code,
+                        "observatory_name": name,
+                        "network": "INTERMAGNET",
+                        "data_types": ["definitive", "quasi-definitive", "variation"],
+                        "elements": ["H", "D", "Z", "F"],
+                        "note": "Full data requires INTERMAGNET data access protocol",
+                    },
+                    location=(lat, lon, 0.0),
+                    confidence=0.85,
+                    metadata={"network": "INTERMAGNET", "format": "IAGA2002"},
+                )
+            )
 
         logger.info(f"INTERMAGNET: Created {len(data_points)} observatory entries")
         return data_points
@@ -500,20 +504,22 @@ class SuperMAGSource(DataSourceBase):
         indices = ["SME", "SMU", "SML"]  # Auroral electrojet indices
 
         for index_name in indices:
-            data_points.append(DataPoint(
-                source_id=self.source_id,
-                source_type=DataSourceType.MAGNETOMETER,
-                event_id=f"supermag_{index_name}_{datetime.now(UTC).isoformat()}",
-                timestamp=datetime.now(UTC),
-                data={
-                    "index_name": index_name,
-                    "description": self._get_index_description(index_name),
-                    "station_count": 500,  # Approximate
-                    "note": "Full data requires SuperMAG account",
-                },
-                confidence=0.85,
-                metadata={"network": "SuperMAG"},
-            ))
+            data_points.append(
+                DataPoint(
+                    source_id=self.source_id,
+                    source_type=DataSourceType.MAGNETOMETER,
+                    event_id=f"supermag_{index_name}_{datetime.now(UTC).isoformat()}",
+                    timestamp=datetime.now(UTC),
+                    data={
+                        "index_name": index_name,
+                        "description": self._get_index_description(index_name),
+                        "station_count": 500,  # Approximate
+                        "note": "Full data requires SuperMAG account",
+                    },
+                    confidence=0.85,
+                    metadata={"network": "SuperMAG"},
+                )
+            )
 
         logger.info(f"SuperMAG: Created {len(data_points)} index entries")
         return data_points
@@ -662,20 +668,22 @@ class HeartMathGCMSSource(DataSourceBase):
 
             schumann_data["power_spectrum"] = power_data
 
-            data_points.append(DataPoint(
-                source_id=self.source_id,
-                source_type=DataSourceType.SCHUMANN_RESONANCE,
-                event_id=f"heartmath_{site.value}_{datetime.now(UTC).isoformat()}",
-                timestamp=datetime.now(UTC),
-                data=schumann_data,
-                location=(lat, lon, 0.0),
-                alert_level=self._calculate_coherence_level(power_data),
-                confidence=0.8,
-                metadata={
-                    "network": "HeartMath GCI",
-                    "measurement_type": "schumann_resonance",
-                },
-            ))
+            data_points.append(
+                DataPoint(
+                    source_id=self.source_id,
+                    source_type=DataSourceType.SCHUMANN_RESONANCE,
+                    event_id=f"heartmath_{site.value}_{datetime.now(UTC).isoformat()}",
+                    timestamp=datetime.now(UTC),
+                    data=schumann_data,
+                    location=(lat, lon, 0.0),
+                    alert_level=self._calculate_coherence_level(power_data),
+                    confidence=0.8,
+                    metadata={
+                        "network": "HeartMath GCI",
+                        "measurement_type": "schumann_resonance",
+                    },
+                )
+            )
 
         logger.info(f"HeartMath GCMS: Created {len(data_points)} site entries")
         return data_points
@@ -703,12 +711,12 @@ class BGSELFStationSource(DataSourceBase):
 
     # Schumann resonance frequencies
     SCHUMANN_RESONANCES = {
-        "SR1": 7.83,   # Fundamental
-        "SR2": 14.1,   # Second harmonic
-        "SR3": 20.3,   # Third harmonic
-        "SR4": 26.4,   # Fourth harmonic
-        "SR5": 32.4,   # Fifth harmonic
-        "SR6": 38.0,   # Sixth harmonic
+        "SR1": 7.83,  # Fundamental
+        "SR2": 14.1,  # Second harmonic
+        "SR3": 20.3,  # Third harmonic
+        "SR4": 26.4,  # Fourth harmonic
+        "SR5": 32.4,  # Fifth harmonic
+        "SR6": 38.0,  # Sixth harmonic
     }
 
     def __init__(

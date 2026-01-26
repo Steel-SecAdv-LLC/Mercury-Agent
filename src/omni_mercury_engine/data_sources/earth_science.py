@@ -182,36 +182,40 @@ class USGSEarthquakeSource(DataSourceBase):
                     float(coords[2]) if len(coords) > 2 else 0.0,  # depth in km
                 )
 
-                data_points.append(DataPoint(
-                    source_id=self.source_id,
-                    source_type=DataSourceType.EARTHQUAKE,
-                    event_id=event_id,
-                    timestamp=timestamp,
-                    data={
-                        "magnitude": magnitude,
-                        "magnitude_type": mag_type,
-                        "depth_km": location[2],
-                        "place": props.get("place", "Unknown"),
-                        "tsunami": props.get("tsunami", 0) == 1,
-                        "felt_reports": props.get("felt"),
-                        "cdi": props.get("cdi"),  # Community internet intensity
-                        "mmi": props.get("mmi"),  # Modified Mercalli Intensity
-                        "alert": props.get("alert"),
-                        "significance": props.get("sig"),
-                        "status": props.get("status"),
-                        "url": props.get("url"),
-                    },
-                    location=location,
-                    alert_level=self._magnitude_to_alert_level(magnitude),
-                    confidence=confidence,
-                    metadata={"api_version": "FDSN 1.0"},
-                ))
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=DataSourceType.EARTHQUAKE,
+                        event_id=event_id,
+                        timestamp=timestamp,
+                        data={
+                            "magnitude": magnitude,
+                            "magnitude_type": mag_type,
+                            "depth_km": location[2],
+                            "place": props.get("place", "Unknown"),
+                            "tsunami": props.get("tsunami", 0) == 1,
+                            "felt_reports": props.get("felt"),
+                            "cdi": props.get("cdi"),  # Community internet intensity
+                            "mmi": props.get("mmi"),  # Modified Mercalli Intensity
+                            "alert": props.get("alert"),
+                            "significance": props.get("sig"),
+                            "status": props.get("status"),
+                            "url": props.get("url"),
+                        },
+                        location=location,
+                        alert_level=self._magnitude_to_alert_level(magnitude),
+                        confidence=confidence,
+                        metadata={"api_version": "FDSN 1.0"},
+                    )
+                )
 
             except (ValueError, KeyError, TypeError) as e:
                 logger.debug(f"Failed to parse earthquake: {e}")
                 continue
 
-        logger.info(f"USGS Earthquake: Fetched {len(data_points)} earthquakes (M>={self._min_magnitude})")
+        logger.info(
+            f"USGS Earthquake: Fetched {len(data_points)} earthquakes (M>={self._min_magnitude})"
+        )
         return data_points
 
 
@@ -309,25 +313,27 @@ class USGSVolcanoSource(DataSourceBase):
             try:
                 # In production, fetch actual status from API
                 # For now, create structured data entries
-                data_points.append(DataPoint(
-                    source_id=self.source_id,
-                    source_type=DataSourceType.VOLCANO,
-                    event_id=f"usgs_volcano_{volcano_id}",
-                    timestamp=datetime.now(UTC),
-                    data={
-                        "volcano_id": volcano_id,
-                        "name": name,
-                        "alert_level": "normal",  # Would come from API
-                        "aviation_color_code": "green",  # Green, Yellow, Orange, Red
-                        "monitoring_status": "monitored",
-                        "hazards": [],
-                        "recent_activity": None,
-                    },
-                    location=(lat, lon, 0.0),
-                    alert_level=AlertLevel.NONE,
-                    confidence=0.95,
-                    metadata={"monitoring_network": "USGS"},
-                ))
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=DataSourceType.VOLCANO,
+                        event_id=f"usgs_volcano_{volcano_id}",
+                        timestamp=datetime.now(UTC),
+                        data={
+                            "volcano_id": volcano_id,
+                            "name": name,
+                            "alert_level": "normal",  # Would come from API
+                            "aviation_color_code": "green",  # Green, Yellow, Orange, Red
+                            "monitoring_status": "monitored",
+                            "hazards": [],
+                            "recent_activity": None,
+                        },
+                        location=(lat, lon, 0.0),
+                        alert_level=AlertLevel.NONE,
+                        confidence=0.95,
+                        metadata={"monitoring_network": "USGS"},
+                    )
+                )
 
             except Exception as e:
                 logger.debug(f"Failed to process volcano {volcano_id}: {e}")
@@ -430,25 +436,27 @@ class NOAANWPSSource(DataSourceBase):
 
                     flood_stage = observed.get("flood", {}).get("stage")
 
-                    data_points.append(DataPoint(
-                        source_id=self.source_id,
-                        source_type=DataSourceType.FLOOD,
-                        event_id=f"nwps_{gauge_id}",
-                        timestamp=datetime.now(UTC),
-                        data={
-                            "gauge_id": gauge_id,
-                            "name": name,
-                            "observed_value": observed.get("primary", {}).get("value"),
-                            "observed_unit": observed.get("primary", {}).get("unit"),
-                            "forecast_value": forecast.get("primary", {}).get("value"),
-                            "forecast_unit": forecast.get("primary", {}).get("unit"),
-                            "flood_stage": flood_stage,
-                        },
-                        location=(float(lat), float(lon), 0.0),
-                        alert_level=self._flood_stage_to_alert(flood_stage),
-                        confidence=0.9,
-                        metadata={"api_version": "NWPS v1"},
-                    ))
+                    data_points.append(
+                        DataPoint(
+                            source_id=self.source_id,
+                            source_type=DataSourceType.FLOOD,
+                            event_id=f"nwps_{gauge_id}",
+                            timestamp=datetime.now(UTC),
+                            data={
+                                "gauge_id": gauge_id,
+                                "name": name,
+                                "observed_value": observed.get("primary", {}).get("value"),
+                                "observed_unit": observed.get("primary", {}).get("unit"),
+                                "forecast_value": forecast.get("primary", {}).get("value"),
+                                "forecast_unit": forecast.get("primary", {}).get("unit"),
+                                "flood_stage": flood_stage,
+                            },
+                            location=(float(lat), float(lon), 0.0),
+                            alert_level=self._flood_stage_to_alert(flood_stage),
+                            confidence=0.9,
+                            metadata={"api_version": "NWPS v1"},
+                        )
+                    )
 
                 except (ValueError, KeyError, TypeError) as e:
                     logger.debug(f"Failed to parse gauge: {e}")
@@ -566,10 +574,7 @@ class NOAACOOPSSource(DataSourceBase):
             data = response.json()
 
             # Get station info
-            station_info = self.SAMPLE_STATIONS.get(
-                self._station_id,
-                ("Unknown Station", 0.0, 0.0)
-            )
+            station_info = self.SAMPLE_STATIONS.get(self._station_id, ("Unknown Station", 0.0, 0.0))
             station_name, lat, lon = station_info
 
             readings = data.get("data", [])
@@ -584,23 +589,25 @@ class NOAACOOPSSource(DataSourceBase):
 
                     timestamp = datetime.strptime(time_str, "%Y-%m-%d %H:%M").replace(tzinfo=UTC)
 
-                    data_points.append(DataPoint(
-                        source_id=self.source_id,
-                        source_type=DataSourceType.TIDE,
-                        event_id=f"coops_{self._station_id}_{product.value}_{timestamp.isoformat()}",
-                        timestamp=timestamp,
-                        data={
-                            "station_id": self._station_id,
-                            "station_name": station_name,
-                            "product": product.value,
-                            "value": float(value),
-                            "unit": "meters" if product == COOPSProduct.WATER_LEVEL else None,
-                            "quality": reading.get("q"),
-                        },
-                        location=(lat, lon, 0.0),
-                        confidence=0.95 if reading.get("q") == "v" else 0.8,
-                        metadata={"datum": "MLLW"},
-                    ))
+                    data_points.append(
+                        DataPoint(
+                            source_id=self.source_id,
+                            source_type=DataSourceType.TIDE,
+                            event_id=f"coops_{self._station_id}_{product.value}_{timestamp.isoformat()}",
+                            timestamp=timestamp,
+                            data={
+                                "station_id": self._station_id,
+                                "station_name": station_name,
+                                "product": product.value,
+                                "value": float(value),
+                                "unit": "meters" if product == COOPSProduct.WATER_LEVEL else None,
+                                "quality": reading.get("q"),
+                            },
+                            location=(lat, lon, 0.0),
+                            confidence=0.95 if reading.get("q") == "v" else 0.8,
+                            metadata={"datum": "MLLW"},
+                        )
+                    )
 
                 except (ValueError, KeyError, TypeError) as e:
                     logger.debug(f"Failed to parse CO-OPS reading: {e}")
@@ -627,7 +634,9 @@ class NOAACOOPSSource(DataSourceBase):
             data_points = await self._fetch_product(product, start_time, end_time)
             all_data_points.extend(data_points)
 
-        logger.info(f"NOAA CO-OPS: Fetched {len(all_data_points)} readings from station {self._station_id}")
+        logger.info(
+            f"NOAA CO-OPS: Fetched {len(all_data_points)} readings from station {self._station_id}"
+        )
         return all_data_points
 
 
@@ -770,31 +779,33 @@ class NWSWeatherAlertsSource(DataSourceBase):
                             0.0,
                         )
 
-                data_points.append(DataPoint(
-                    source_id=self.source_id,
-                    source_type=DataSourceType.WEATHER_ALERT,
-                    event_id=alert_id,
-                    timestamp=timestamp,
-                    data={
-                        "event": event,
-                        "severity": severity,
-                        "certainty": certainty,
-                        "urgency": urgency,
-                        "headline": props.get("headline", "")[:200],
-                        "description": props.get("description", "")[:500],
-                        "instruction": props.get("instruction", "")[:500],
-                        "area_desc": props.get("areaDesc", ""),
-                        "effective": effective,
-                        "expires": expires,
-                        "sender": props.get("senderName", "NWS"),
-                        "status": props.get("status"),
-                        "message_type": props.get("messageType"),
-                    },
-                    location=location,
-                    alert_level=self._severity_to_alert_level(severity),
-                    confidence=0.99,  # Official NWS alerts
-                    metadata={"format": "CAP 1.2", "api_version": "NWS API"},
-                ))
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=DataSourceType.WEATHER_ALERT,
+                        event_id=alert_id,
+                        timestamp=timestamp,
+                        data={
+                            "event": event,
+                            "severity": severity,
+                            "certainty": certainty,
+                            "urgency": urgency,
+                            "headline": props.get("headline", "")[:200],
+                            "description": props.get("description", "")[:500],
+                            "instruction": props.get("instruction", "")[:500],
+                            "area_desc": props.get("areaDesc", ""),
+                            "effective": effective,
+                            "expires": expires,
+                            "sender": props.get("senderName", "NWS"),
+                            "status": props.get("status"),
+                            "message_type": props.get("messageType"),
+                        },
+                        location=location,
+                        alert_level=self._severity_to_alert_level(severity),
+                        confidence=0.99,  # Official NWS alerts
+                        metadata={"format": "CAP 1.2", "api_version": "NWS API"},
+                    )
+                )
 
             except (ValueError, KeyError, TypeError) as e:
                 logger.debug(f"Failed to parse NWS alert: {e}")
@@ -945,8 +956,7 @@ class EPAAirNowSource(DataSourceBase):
 
                     if date_observed:
                         timestamp = datetime.strptime(
-                            f"{date_observed} {hour_observed}:00",
-                            "%Y-%m-%d %H:%M"
+                            f"{date_observed} {hour_observed}:00", "%Y-%m-%d %H:%M"
                         ).replace(tzinfo=UTC)
                     else:
                         timestamp = datetime.now(UTC)
@@ -955,26 +965,28 @@ class EPAAirNowSource(DataSourceBase):
                     lat = obs.get("Latitude", self._latitude or 0)
                     lon = obs.get("Longitude", self._longitude or 0)
 
-                    data_points.append(DataPoint(
-                        source_id=self.source_id,
-                        source_type=DataSourceType.AIR_QUALITY,
-                        event_id=f"airnow_{reporting_area}_{parameter}_{timestamp.isoformat()}",
-                        timestamp=timestamp,
-                        data={
-                            "aqi": aqi,
-                            "parameter": parameter,
-                            "category": self._get_aqi_category(aqi),
-                            "category_number": obs.get("Category", {}).get("Number"),
-                            "reporting_area": reporting_area,
-                            "state_code": obs.get("StateCode"),
-                            "date_observed": date_observed,
-                            "hour_observed": hour_observed,
-                        },
-                        location=(float(lat), float(lon), 0.0),
-                        alert_level=self._aqi_to_alert_level(aqi),
-                        confidence=0.9,
-                        metadata={"api_version": "AirNow API"},
-                    ))
+                    data_points.append(
+                        DataPoint(
+                            source_id=self.source_id,
+                            source_type=DataSourceType.AIR_QUALITY,
+                            event_id=f"airnow_{reporting_area}_{parameter}_{timestamp.isoformat()}",
+                            timestamp=timestamp,
+                            data={
+                                "aqi": aqi,
+                                "parameter": parameter,
+                                "category": self._get_aqi_category(aqi),
+                                "category_number": obs.get("Category", {}).get("Number"),
+                                "reporting_area": reporting_area,
+                                "state_code": obs.get("StateCode"),
+                                "date_observed": date_observed,
+                                "hour_observed": hour_observed,
+                            },
+                            location=(float(lat), float(lon), 0.0),
+                            alert_level=self._aqi_to_alert_level(aqi),
+                            confidence=0.9,
+                            metadata={"api_version": "AirNow API"},
+                        )
+                    )
 
                 except (ValueError, KeyError, TypeError) as e:
                     logger.debug(f"Failed to parse AirNow observation: {e}")

@@ -87,9 +87,9 @@ class MetricDiscrepancy:
                     has_discrepancy=True,
                     discrepancy_type="f1_zero",
                     root_cause=f"Threshold ({threshold:.4f}) is higher than all scores "
-                               f"(max={score_max:.4f}). All predictions are FALSE.",
+                    f"(max={score_max:.4f}). All predictions are FALSE.",
                     recommended_action="Use auto-calibration: detector.enable_auto_calibration() "
-                                      "or use percentile-based threshold.",
+                    "or use percentile-based threshold.",
                 )
             else:
                 return cls(
@@ -100,7 +100,7 @@ class MetricDiscrepancy:
                     has_discrepancy=True,
                     discrepancy_type="f1_zero",
                     root_cause=f"Threshold ({threshold:.4f}) is too high for the score "
-                               f"distribution (range: [{score_min:.4f}, {score_max:.4f}]).",
+                    f"distribution (range: [{score_min:.4f}, {score_max:.4f}]).",
                     recommended_action="Lower threshold or use contamination-based calibration.",
                 )
 
@@ -221,38 +221,44 @@ class DiagnosticResult:
         ]
 
         if self.discrepancy.has_discrepancy:
-            lines.extend([
-                "",
-                "!" * 70,
-                "METRIC DISCREPANCY DETECTED",
-                "!" * 70,
-                f"Type: {self.discrepancy.discrepancy_type}",
-                "",
-                "ROOT CAUSE:",
-                f"  {self.discrepancy.root_cause}",
-                "",
-                "RECOMMENDED ACTION:",
-                f"  {self.discrepancy.recommended_action}",
-                "!" * 70,
-            ])
+            lines.extend(
+                [
+                    "",
+                    "!" * 70,
+                    "METRIC DISCREPANCY DETECTED",
+                    "!" * 70,
+                    f"Type: {self.discrepancy.discrepancy_type}",
+                    "",
+                    "ROOT CAUSE:",
+                    f"  {self.discrepancy.root_cause}",
+                    "",
+                    "RECOMMENDED ACTION:",
+                    f"  {self.discrepancy.recommended_action}",
+                    "!" * 70,
+                ]
+            )
 
         if verbose:
-            lines.extend([
-                "",
-                "PERCENTILES:",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "PERCENTILES:",
+                ]
+            )
             for p, v in sorted(self.percentiles.items()):
                 marker = " <-- threshold" if abs(v - self.threshold_used) < 0.001 else ""
                 lines.append(f"  P{p:3d}: {v:.4f}{marker}")
 
-        lines.extend([
-            "",
-            "CALIBRATION RECOMMENDATION:",
-            f"  Method: {self.calibration_method_recommended}",
-            f"  Code:   detector.enable_auto_calibration(method='{self.calibration_method_recommended}')",
-            "",
-            "=" * 70,
-        ])
+        lines.extend(
+            [
+                "",
+                "CALIBRATION RECOMMENDATION:",
+                f"  Method: {self.calibration_method_recommended}",
+                f"  Code:   detector.enable_auto_calibration(method='{self.calibration_method_recommended}')",
+                "",
+                "=" * 70,
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -363,8 +369,7 @@ class BenchmarkDiagnostics:
 
         # Percentiles
         percentiles = {
-            p: float(np.percentile(scores, p))
-            for p in [1, 5, 10, 25, 50, 75, 90, 95, 99]
+            p: float(np.percentile(scores, p)) for p in [1, 5, 10, 25, 50, 75, 90, 95, 99]
         }
 
         # Bimodality check
@@ -470,7 +475,9 @@ class BenchmarkDiagnostics:
             print(f"  Precision={precision:.4f}, Recall={recall:.4f}, F1={f1:.4f}")
 
             if f1 == 0 and threshold > scores.max():
-                print(f"\n>>> DIAGNOSIS: F1=0 because threshold ({threshold:.4f}) > max score ({scores.max():.4f})")
+                print(
+                    f"\n>>> DIAGNOSIS: F1=0 because threshold ({threshold:.4f}) > max score ({scores.max():.4f})"
+                )
                 print(">>> SOLUTION: Use auto-calibration or lower threshold")
 
         print("-" * 40)
@@ -480,6 +487,7 @@ class BenchmarkDiagnostics:
         """Compute ROC-AUC score."""
         try:
             from sklearn.metrics import roc_auc_score
+
             return float(roc_auc_score(labels, scores))
         except (ImportError, ValueError):
             # Fallback or edge case (all same class)
@@ -523,11 +531,11 @@ class BenchmarkDiagnostics:
 
         hist, _ = np.histogram(scores, bins=50)
         kernel = np.array([1, 2, 3, 2, 1]) / 9.0
-        smoothed = np.convolve(hist, kernel, mode='same')
+        smoothed = np.convolve(hist, kernel, mode="same")
 
         local_maxima = 0
         for i in range(1, len(smoothed) - 1):
-            if smoothed[i] > smoothed[i-1] and smoothed[i] > smoothed[i+1]:
+            if smoothed[i] > smoothed[i - 1] and smoothed[i] > smoothed[i + 1]:
                 if smoothed[i] > 0.05 * np.max(smoothed):
                     local_maxima += 1
 

@@ -121,12 +121,27 @@ class TestDataSourceType:
     def test_all_types_defined(self) -> None:
         """Verify all expected data source types are defined."""
         expected_types = [
-            "SOLAR_FLARE", "CME", "GEOMAGNETIC_STORM", "SOLAR_WIND",
-            "SOLAR_ENERGETIC_PARTICLE", "NEAR_EARTH_OBJECT", "NATURAL_EVENT",
-            "CELESTIAL_BODY", "MAGNETOMETER", "SCHUMANN_RESONANCE",
-            "IONOSPHERIC", "ELF_VLF", "EARTHQUAKE", "VOLCANO", "WEATHER_ALERT",
-            "FLOOD", "TIDE", "AIR_QUALITY", "RANDOM_NUMBER_GENERATOR",
-            "GLOBAL_COHERENCE", "CUSTOM",
+            "SOLAR_FLARE",
+            "CME",
+            "GEOMAGNETIC_STORM",
+            "SOLAR_WIND",
+            "SOLAR_ENERGETIC_PARTICLE",
+            "NEAR_EARTH_OBJECT",
+            "NATURAL_EVENT",
+            "CELESTIAL_BODY",
+            "MAGNETOMETER",
+            "SCHUMANN_RESONANCE",
+            "IONOSPHERIC",
+            "ELF_VLF",
+            "EARTHQUAKE",
+            "VOLCANO",
+            "WEATHER_ALERT",
+            "FLOOD",
+            "TIDE",
+            "AIR_QUALITY",
+            "RANDOM_NUMBER_GENERATOR",
+            "GLOBAL_COHERENCE",
+            "CUSTOM",
         ]
         for type_name in expected_types:
             assert hasattr(DataSourceType, type_name)
@@ -298,7 +313,10 @@ class TestNASADONKISource:
     def test_event_type_mapping(self) -> None:
         """Test DONKI event type to DataSourceType mapping."""
         source = NASADONKISource()
-        assert source._event_type_to_source_type(DONKIEventType.SOLAR_FLARE) == DataSourceType.SOLAR_FLARE
+        assert (
+            source._event_type_to_source_type(DONKIEventType.SOLAR_FLARE)
+            == DataSourceType.SOLAR_FLARE
+        )
         assert source._event_type_to_source_type(DONKIEventType.CME) == DataSourceType.CME
 
     def test_flare_class_parsing(self) -> None:
@@ -341,9 +359,7 @@ class TestNASANeoWsSource:
         # Hazardous with close approach
         neo = {
             "is_potentially_hazardous_asteroid": True,
-            "close_approach_data": [
-                {"miss_distance": {"kilometers": "100000"}}  # Very close
-            ]
+            "close_approach_data": [{"miss_distance": {"kilometers": "100000"}}],  # Very close
         }
         assert source._calculate_hazard_level(neo) == AlertLevel.EXTREME
 
@@ -658,10 +674,7 @@ class TestStatisticalFunctions:
         """Test inter-EGG correlation calculation."""
         # Independent random
         np.random.seed(42)
-        egg_data = {
-            f"egg_{i}": list(np.random.binomial(200, 0.5, 100))
-            for i in range(5)
-        }
+        egg_data = {f"egg_{i}": list(np.random.binomial(200, 0.5, 100)) for i in range(5)}
         corr = inter_egg_correlation(egg_data)
         assert abs(corr) < 0.3  # Should be near zero
 
@@ -750,30 +763,20 @@ class TestDataSourceIntegration:
     def test_data_point_filtering(self, sample_data_point: DataPoint) -> None:
         """Test data point filtering by type."""
         manager = DataSourceManager()
-        results = {
-            "source": FetchResult(success=True, data_points=[sample_data_point])
-        }
+        results = {"source": FetchResult(success=True, data_points=[sample_data_point])}
 
         # Filter by matching type
-        points = manager.get_all_data_points(
-            results,
-            filter_types=[DataSourceType.EARTHQUAKE]
-        )
+        points = manager.get_all_data_points(results, filter_types=[DataSourceType.EARTHQUAKE])
         assert len(points) == 1
 
         # Filter by non-matching type
-        points = manager.get_all_data_points(
-            results,
-            filter_types=[DataSourceType.VOLCANO]
-        )
+        points = manager.get_all_data_points(results, filter_types=[DataSourceType.VOLCANO])
         assert len(points) == 0
 
     def test_confidence_filtering(self, sample_data_point: DataPoint) -> None:
         """Test data point filtering by confidence."""
         manager = DataSourceManager()
-        results = {
-            "source": FetchResult(success=True, data_points=[sample_data_point])
-        }
+        results = {"source": FetchResult(success=True, data_points=[sample_data_point])}
 
         # Below threshold
         points = manager.get_all_data_points(results, min_confidence=0.95)
@@ -1063,23 +1066,27 @@ class TestThreadSafety:
         """Test that cache lock is initialized."""
         source = USGSEarthquakeSource()
         import threading
+
         assert isinstance(source._cache_lock, type(threading.Lock()))
 
     def test_rate_limit_lock_exists(self) -> None:
         """Test that rate limit lock is initialized."""
         source = USGSEarthquakeSource()
         import threading
+
         assert isinstance(source._rate_limit_lock, type(threading.Lock()))
 
     def test_metrics_lock_exists(self) -> None:
         """Test that metrics lock is initialized."""
         source = USGSEarthquakeSource()
         import threading
+
         assert isinstance(source._metrics_lock, type(threading.Lock()))
 
     def test_concurrent_cache_access(self) -> None:
         """Test concurrent cache access doesn't raise exceptions."""
         import concurrent.futures
+
         source = USGSEarthquakeSource()
 
         def cache_operation(i: int) -> None:

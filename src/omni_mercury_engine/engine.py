@@ -1770,12 +1770,12 @@ class OmniMercuryEngine(LoggerMixin):
                 )
 
         if print_output and recommendations:
-            print("\n" + "="*60)
+            print("\n" + "=" * 60)
             print("RECOMMENDATIONS")
-            print("="*60)
+            print("=" * 60)
             for rec in recommendations:
                 print(f"  - {rec}")
-            print("="*60)
+            print("=" * 60)
 
         return {
             "detection_result": detection_result,
@@ -2267,9 +2267,7 @@ class OmniMercuryEngine(LoggerMixin):
             mod_features, mod_scores = self._extract_model_features(data)
             all_features = {**det_features, **mod_features}
 
-            fusion_output = self.fusion_inference.predict(
-                all_features, return_attention=True
-            )
+            fusion_output = self.fusion_inference.predict(all_features, return_attention=True)
             all_probs = fusion_output.get("anomaly_probs", np.array([anomaly_prob]))
             if isinstance(all_probs, torch.Tensor):
                 all_probs = all_probs.cpu().numpy()

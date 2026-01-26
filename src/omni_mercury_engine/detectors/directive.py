@@ -379,9 +379,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         # Ensure scores are finite and in valid range
         if np.any(~np.isfinite(combined_scores)):
-            combined_scores = np.nan_to_num(
-                combined_scores, nan=0.5, posinf=1.0, neginf=0.0
-            )
+            combined_scores = np.nan_to_num(combined_scores, nan=0.5, posinf=1.0, neginf=0.0)
         combined_scores = np.clip(combined_scores, 0.0, 1.0)
 
         # Auto-calibration: compute optimal threshold from score distribution

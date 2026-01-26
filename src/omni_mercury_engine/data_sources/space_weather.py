@@ -392,7 +392,9 @@ class NASADONKISource(DataSourceBase):
             data_points = await self._fetch_event_type(event_type, start_time, end_time)
             all_data_points.extend(data_points)
 
-        logger.info(f"DONKI: Fetched {len(all_data_points)} events from {len(types_to_fetch)} types")
+        logger.info(
+            f"DONKI: Fetched {len(all_data_points)} events from {len(types_to_fetch)} types"
+        )
         return all_data_points
 
 
@@ -539,8 +541,7 @@ class NASANeoWsSource(DataSourceBase):
             if close_approaches:
                 approach = close_approaches[0]
                 timestamp = datetime.strptime(
-                    approach.get("close_approach_date_full", date_str + " 00:00"),
-                    "%Y-%b-%d %H:%M"
+                    approach.get("close_approach_date_full", date_str + " 00:00"), "%Y-%b-%d %H:%M"
                 ).replace(tzinfo=UTC)
             else:
                 timestamp = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC)
@@ -748,21 +749,23 @@ class NOAASWPCSource(DataSourceBase):
 
                 timestamp = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
 
-                data_points.append(DataPoint(
-                    source_id=self.source_id,
-                    source_type=source_type,
-                    event_id=f"kp_{timestamp.isoformat()}",
-                    timestamp=timestamp,
-                    data={
-                        "kp_index": kp_value,
-                        "estimated_kp": row[2] if len(row) > 2 else None,
-                        "a_running": row[3] if len(row) > 3 else None,
-                        "station_count": row[4] if len(row) > 4 else None,
-                    },
-                    alert_level=self._parse_kp_alert_level(kp_value),
-                    confidence=0.95,
-                    metadata={"product": "kp_index"},
-                ))
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=source_type,
+                        event_id=f"kp_{timestamp.isoformat()}",
+                        timestamp=timestamp,
+                        data={
+                            "kp_index": kp_value,
+                            "estimated_kp": row[2] if len(row) > 2 else None,
+                            "a_running": row[3] if len(row) > 3 else None,
+                            "station_count": row[4] if len(row) > 4 else None,
+                        },
+                        alert_level=self._parse_kp_alert_level(kp_value),
+                        confidence=0.95,
+                        metadata={"product": "kp_index"},
+                    )
+                )
 
             except (ValueError, IndexError) as e:
                 logger.debug(f"Failed to parse Kp row: {e}")
@@ -799,20 +802,22 @@ class NOAASWPCSource(DataSourceBase):
                 elif "G1" in message:
                     alert_level = AlertLevel.MINOR
 
-                data_points.append(DataPoint(
-                    source_id=self.source_id,
-                    source_type=DataSourceType.WEATHER_ALERT,
-                    event_id=f"swpc_alert_{product_id}_{timestamp.isoformat()}",
-                    timestamp=timestamp,
-                    data={
-                        "product_id": product_id,
-                        "message": message[:1000],  # Truncate long messages
-                        "serial_number": alert.get("serial_number"),
-                    },
-                    alert_level=alert_level,
-                    confidence=0.99,
-                    metadata={"product": "alerts"},
-                ))
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=DataSourceType.WEATHER_ALERT,
+                        event_id=f"swpc_alert_{product_id}_{timestamp.isoformat()}",
+                        timestamp=timestamp,
+                        data={
+                            "product_id": product_id,
+                            "message": message[:1000],  # Truncate long messages
+                            "serial_number": alert.get("serial_number"),
+                        },
+                        alert_level=alert_level,
+                        confidence=0.99,
+                        metadata={"product": "alerts"},
+                    )
+                )
 
             except (ValueError, KeyError) as e:
                 logger.debug(f"Failed to parse SWPC alert: {e}")
@@ -866,16 +871,18 @@ class NOAASWPCSource(DataSourceBase):
                 elif (speed and speed > 600) or (bz and bz < -10):
                     alert_level = AlertLevel.MODERATE
 
-                data_points.append(DataPoint(
-                    source_id=self.source_id,
-                    source_type=source_type,
-                    event_id=f"sw_{product.value}_{timestamp.isoformat()}",
-                    timestamp=timestamp,
-                    data=point_data,
-                    alert_level=alert_level,
-                    confidence=0.9,
-                    metadata={"product": product.value},
-                ))
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=source_type,
+                        event_id=f"sw_{product.value}_{timestamp.isoformat()}",
+                        timestamp=timestamp,
+                        data=point_data,
+                        alert_level=alert_level,
+                        confidence=0.9,
+                        metadata={"product": product.value},
+                    )
+                )
 
             except (ValueError, IndexError) as e:
                 logger.debug(f"Failed to parse solar wind row: {e}")
@@ -916,19 +923,21 @@ class NOAASWPCSource(DataSourceBase):
                 elif long_flux > 1e-6:
                     alert_level = AlertLevel.MINOR  # C-class
 
-                data_points.append(DataPoint(
-                    source_id=self.source_id,
-                    source_type=source_type,
-                    event_id=f"xray_{timestamp.isoformat()}",
-                    timestamp=timestamp,
-                    data={
-                        "short_flux": short_flux,
-                        "long_flux": long_flux,
-                    },
-                    alert_level=alert_level,
-                    confidence=0.95,
-                    metadata={"product": "xray_flux"},
-                ))
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=source_type,
+                        event_id=f"xray_{timestamp.isoformat()}",
+                        timestamp=timestamp,
+                        data={
+                            "short_flux": short_flux,
+                            "long_flux": long_flux,
+                        },
+                        alert_level=alert_level,
+                        confidence=0.95,
+                        metadata={"product": "xray_flux"},
+                    )
+                )
 
             except (ValueError, IndexError) as e:
                 logger.debug(f"Failed to parse X-ray row: {e}")
@@ -951,7 +960,9 @@ class NOAASWPCSource(DataSourceBase):
             data_points = await self._fetch_product(product)
             all_data_points.extend(data_points)
 
-        logger.info(f"SWPC: Fetched {len(all_data_points)} data points from {len(products_to_fetch)} products")
+        logger.info(
+            f"SWPC: Fetched {len(all_data_points)} data points from {len(products_to_fetch)} products"
+        )
         return all_data_points
 
 
@@ -1100,7 +1111,9 @@ class NASAEONETSource(DataSourceBase):
 
                 timestamp = datetime.fromisoformat(geo_date.replace("Z", "+00:00"))
 
-                category_name = categories_list[0].get("id", "unknown") if categories_list else "unknown"
+                category_name = (
+                    categories_list[0].get("id", "unknown") if categories_list else "unknown"
+                )
 
                 location = (
                     float(coords[1]) if len(coords) > 1 else 0.0,  # lat
@@ -1108,23 +1121,25 @@ class NASAEONETSource(DataSourceBase):
                     0.0,
                 )
 
-                data_points.append(DataPoint(
-                    source_id=self.source_id,
-                    source_type=DataSourceType.NATURAL_EVENT,
-                    event_id=event_id,
-                    timestamp=timestamp,
-                    data={
-                        "title": title,
-                        "category": category_name,
-                        "geometry_count": len(geometry),
-                        "sources": [s.get("url") for s in sources],
-                        "closed": event.get("closed"),
-                    },
-                    location=location,
-                    alert_level=self._category_to_alert_level(category_name, geometry),
-                    confidence=0.85,
-                    metadata={"api_version": "EONET v3"},
-                ))
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=DataSourceType.NATURAL_EVENT,
+                        event_id=event_id,
+                        timestamp=timestamp,
+                        data={
+                            "title": title,
+                            "category": category_name,
+                            "geometry_count": len(geometry),
+                            "sources": [s.get("url") for s in sources],
+                            "closed": event.get("closed"),
+                        },
+                        location=location,
+                        alert_level=self._category_to_alert_level(category_name, geometry),
+                        confidence=0.85,
+                        metadata={"api_version": "EONET v3"},
+                    )
+                )
 
             except (ValueError, KeyError, IndexError) as e:
                 logger.debug(f"Failed to parse EONET event: {e}")
@@ -1221,42 +1236,44 @@ class SolarSystemOpenDataSource(DataSourceBase):
                 else:
                     timestamp = datetime.now(UTC)
 
-                data_points.append(DataPoint(
-                    source_id=self.source_id,
-                    source_type=DataSourceType.CELESTIAL_BODY,
-                    event_id=body_id_val,
-                    timestamp=timestamp,
-                    data={
-                        "name": body_name,
-                        "body_type": body.get("bodyType"),
-                        "is_planet": body.get("isPlanet", False),
-                        "mass": body.get("mass"),
-                        "vol": body.get("vol"),
-                        "density": body.get("density"),
-                        "gravity": body.get("gravity"),
-                        "escape": body.get("escape"),
-                        "mean_radius": body.get("meanRadius"),
-                        "equa_radius": body.get("equaRadius"),
-                        "polar_radius": body.get("polarRadius"),
-                        "flattening": body.get("flattening"),
-                        "dimension": body.get("dimension"),
-                        "sideral_orbit": body.get("sideralOrbit"),
-                        "sideral_rotation": body.get("sideralRotation"),
-                        "around_planet": body.get("aroundPlanet"),
-                        "moons": body.get("moons"),
-                        "discovered_by": body.get("discoveredBy"),
-                        "discovery_date": discovery,
-                        "axial_tilt": body.get("axialTilt"),
-                        "avg_temp": body.get("avgTemp"),
-                        "aphelion": body.get("aphelion"),
-                        "perihelion": body.get("perihelion"),
-                        "semi_major_axis": body.get("semimajorAxis"),
-                        "eccentricity": body.get("eccentricity"),
-                        "inclination": body.get("inclination"),
-                    },
-                    confidence=0.99,  # Well-established astronomical data
-                    metadata={"api_version": "Solar System OpenData"},
-                ))
+                data_points.append(
+                    DataPoint(
+                        source_id=self.source_id,
+                        source_type=DataSourceType.CELESTIAL_BODY,
+                        event_id=body_id_val,
+                        timestamp=timestamp,
+                        data={
+                            "name": body_name,
+                            "body_type": body.get("bodyType"),
+                            "is_planet": body.get("isPlanet", False),
+                            "mass": body.get("mass"),
+                            "vol": body.get("vol"),
+                            "density": body.get("density"),
+                            "gravity": body.get("gravity"),
+                            "escape": body.get("escape"),
+                            "mean_radius": body.get("meanRadius"),
+                            "equa_radius": body.get("equaRadius"),
+                            "polar_radius": body.get("polarRadius"),
+                            "flattening": body.get("flattening"),
+                            "dimension": body.get("dimension"),
+                            "sideral_orbit": body.get("sideralOrbit"),
+                            "sideral_rotation": body.get("sideralRotation"),
+                            "around_planet": body.get("aroundPlanet"),
+                            "moons": body.get("moons"),
+                            "discovered_by": body.get("discoveredBy"),
+                            "discovery_date": discovery,
+                            "axial_tilt": body.get("axialTilt"),
+                            "avg_temp": body.get("avgTemp"),
+                            "aphelion": body.get("aphelion"),
+                            "perihelion": body.get("perihelion"),
+                            "semi_major_axis": body.get("semimajorAxis"),
+                            "eccentricity": body.get("eccentricity"),
+                            "inclination": body.get("inclination"),
+                        },
+                        confidence=0.99,  # Well-established astronomical data
+                        metadata={"api_version": "Solar System OpenData"},
+                    )
+                )
 
             except (ValueError, KeyError) as e:
                 logger.debug(f"Failed to parse celestial body: {e}")

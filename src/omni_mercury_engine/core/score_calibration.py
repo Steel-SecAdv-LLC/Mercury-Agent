@@ -37,15 +37,15 @@ logger = logging.getLogger(__name__)
 class CalibrationMethod(Enum):
     """Available threshold calibration methods."""
 
-    FIXED = "fixed"              # Use fixed threshold (default 0.5)
-    PERCENTILE = "percentile"    # Use percentile based on contamination
-    OTSU = "otsu"                # Otsu's bimodal threshold selection
-    MAD = "mad"                  # Median Absolute Deviation based
-    KNEE = "knee"                # Knee/elbow detection in sorted scores
-    OPTIMAL_F1 = "optimal_f1"    # Find threshold maximizing F1 (requires labels)
+    FIXED = "fixed"  # Use fixed threshold (default 0.5)
+    PERCENTILE = "percentile"  # Use percentile based on contamination
+    OTSU = "otsu"  # Otsu's bimodal threshold selection
+    MAD = "mad"  # Median Absolute Deviation based
+    KNEE = "knee"  # Knee/elbow detection in sorted scores
+    OPTIMAL_F1 = "optimal_f1"  # Find threshold maximizing F1 (requires labels)
     ADAPTIVE_IQR = "adaptive_iqr"  # IQR-based adaptive threshold
-    GAUSSIAN_MIXTURE = "gmm"     # Gaussian Mixture Model separation
-    AUTO = "auto"                # Automatically select best method
+    GAUSSIAN_MIXTURE = "gmm"  # Gaussian Mixture Model separation
+    AUTO = "auto"  # Automatically select best method
 
 
 @dataclass
@@ -116,12 +116,18 @@ class CalibrationDiagnostics:
             lines.append(f"  P{p}: {v:.4f}")
 
         if self.actual_contamination is not None:
-            lines.extend([
-                "",
-                "Contamination:",
-                f"  Estimated: {self.estimated_contamination:.4f}" if self.estimated_contamination else "  Estimated: N/A",
-                f"  Actual: {self.actual_contamination:.4f}",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "Contamination:",
+                    (
+                        f"  Estimated: {self.estimated_contamination:.4f}"
+                        if self.estimated_contamination
+                        else "  Estimated: N/A"
+                    ),
+                    f"  Actual: {self.actual_contamination:.4f}",
+                ]
+            )
 
         lines.append("=" * 60)
         return "\n".join(lines)
@@ -233,9 +239,7 @@ class ScoreDiagnostics:
         # Validate binary
         unique_vals = np.unique(labels)
         if not np.all(np.isin(unique_vals, [0, 1])):
-            raise ValueError(
-                f"Labels must be binary (0 or 1), got unique values: {unique_vals}"
-            )
+            raise ValueError(f"Labels must be binary (0 or 1), got unique values: {unique_vals}")
 
         return labels.astype(np.int32)
 
@@ -267,10 +271,20 @@ class ScoreDiagnostics:
         except ValueError:
             # Return empty diagnostics for edge cases
             return CalibrationDiagnostics(
-                score_min=0.0, score_max=0.0, score_mean=0.0, score_std=0.0,
-                score_median=0.0, threshold=threshold, calibration_method=method,
-                n_samples=0, n_above_threshold=0, predicted_anomaly_ratio=0.0,
-                is_bimodal=False, skewness=0.0, kurtosis=0.0, percentiles={},
+                score_min=0.0,
+                score_max=0.0,
+                score_mean=0.0,
+                score_std=0.0,
+                score_median=0.0,
+                threshold=threshold,
+                calibration_method=method,
+                n_samples=0,
+                n_above_threshold=0,
+                predicted_anomaly_ratio=0.0,
+                is_bimodal=False,
+                skewness=0.0,
+                kurtosis=0.0,
+                percentiles={},
             )
 
         labels = ScoreDiagnostics._validate_labels(labels)
@@ -278,10 +292,20 @@ class ScoreDiagnostics:
 
         if n == 0:
             return CalibrationDiagnostics(
-                score_min=0.0, score_max=0.0, score_mean=0.0, score_std=0.0,
-                score_median=0.0, threshold=threshold, calibration_method=method,
-                n_samples=0, n_above_threshold=0, predicted_anomaly_ratio=0.0,
-                is_bimodal=False, skewness=0.0, kurtosis=0.0, percentiles={},
+                score_min=0.0,
+                score_max=0.0,
+                score_mean=0.0,
+                score_std=0.0,
+                score_median=0.0,
+                threshold=threshold,
+                calibration_method=method,
+                n_samples=0,
+                n_above_threshold=0,
+                predicted_anomaly_ratio=0.0,
+                is_bimodal=False,
+                skewness=0.0,
+                kurtosis=0.0,
+                percentiles={},
             )
 
         # Basic statistics
@@ -350,12 +374,12 @@ class ScoreDiagnostics:
 
         # Smooth histogram
         kernel = np.array([1, 2, 3, 2, 1]) / 9.0
-        smoothed = np.convolve(hist, kernel, mode='same')
+        smoothed = np.convolve(hist, kernel, mode="same")
 
         # Count local maxima
         local_maxima = 0
         for i in range(1, len(smoothed) - 1):
-            if smoothed[i] > smoothed[i-1] and smoothed[i] > smoothed[i+1]:
+            if smoothed[i] > smoothed[i - 1] and smoothed[i] > smoothed[i + 1]:
                 # Only count significant peaks (> 5% of max)
                 if smoothed[i] > 0.05 * np.max(smoothed):
                     local_maxima += 1
@@ -560,9 +584,7 @@ class AutoThresholdOptimizer:
         predictions = scores > threshold
 
         # Generate diagnostics
-        diagnostics = ScoreDiagnostics.analyze(
-            scores, threshold, labels, method.value
-        )
+        diagnostics = ScoreDiagnostics.analyze(scores, threshold, labels, method.value)
 
         return CalibrationResult(
             threshold=threshold,
@@ -771,7 +793,9 @@ class AutoThresholdOptimizer:
 
         # Create normalized curve
         x = np.arange(n) / (n - 1)
-        y = (sorted_scores - sorted_scores.min()) / (sorted_scores.max() - sorted_scores.min() + 1e-10)
+        y = (sorted_scores - sorted_scores.min()) / (
+            sorted_scores.max() - sorted_scores.min() + 1e-10
+        )
 
         # Find maximum curvature point
         # Use second derivative of smoothed curve
@@ -781,7 +805,7 @@ class AutoThresholdOptimizer:
 
         # Simple moving average smoothing
         kernel = np.ones(window) / window
-        y_smooth = np.convolve(y, kernel, mode='valid')
+        y_smooth = np.convolve(y, kernel, mode="valid")
 
         if len(y_smooth) < 3:
             return self._percentile_threshold(scores, contamination, fixed_threshold)
@@ -906,9 +930,9 @@ class AutoThresholdOptimizer:
             w_normal = weights[normal_idx]
             w_anomaly = weights[anomaly_idx]
 
-            threshold = (
-                w_anomaly * means[normal_idx] + w_normal * means[anomaly_idx]
-            ) / (w_normal + w_anomaly)
+            threshold = (w_anomaly * means[normal_idx] + w_normal * means[anomaly_idx]) / (
+                w_normal + w_anomaly
+            )
 
             # Validate threshold is between means
             threshold = float(np.clip(threshold, means.min(), means.max()))
@@ -930,7 +954,7 @@ class AutoThresholdOptimizer:
             logger.error(
                 f"Unexpected error in GMM fitting: {e}. "
                 "This may indicate a bug - please report.",
-                exc_info=True
+                exc_info=True,
             )
             return self._percentile_threshold(scores, contamination, fixed_threshold)
 
@@ -969,9 +993,7 @@ class AutoThresholdOptimizer:
                 best_threshold = threshold
 
         predictions = scores > best_threshold
-        diagnostics = ScoreDiagnostics.analyze(
-            scores, best_threshold, labels, "optimal_f1"
-        )
+        diagnostics = ScoreDiagnostics.analyze(scores, best_threshold, labels, "optimal_f1")
 
         return CalibrationResult(
             threshold=best_threshold,
@@ -1123,9 +1145,7 @@ class ScoreCalibrationManager:
                 result = self.calibrate(scores, labels)
                 threshold = result.threshold
 
-        return ScoreDiagnostics.analyze(
-            scores, threshold, labels, self.method.value
-        )
+        return ScoreDiagnostics.analyze(scores, threshold, labels, self.method.value)
 
     def print_diagnostics(
         self,

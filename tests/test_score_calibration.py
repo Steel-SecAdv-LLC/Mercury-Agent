@@ -141,10 +141,12 @@ class TestAutoThresholdOptimizer:
     def test_mad_threshold(self):
         """Test MAD-based calibration."""
         # Create scores with clear outliers
-        scores = np.concatenate([
-            np.random.normal(0.3, 0.05, 95),  # Normal
-            np.array([0.9, 0.92, 0.95, 0.97, 0.99]),  # Outliers
-        ])
+        scores = np.concatenate(
+            [
+                np.random.normal(0.3, 0.05, 95),  # Normal
+                np.array([0.9, 0.92, 0.95, 0.97, 0.99]),  # Outliers
+            ]
+        )
         scores = np.clip(scores, 0, 1)
 
         result = self.optimizer.optimize(
@@ -318,7 +320,11 @@ class TestF1ZeroProblem:
 
         prec_fixed = tp_fixed / (tp_fixed + fp_fixed) if (tp_fixed + fp_fixed) > 0 else 0
         rec_fixed = tp_fixed / (tp_fixed + fn_fixed) if (tp_fixed + fn_fixed) > 0 else 0
-        f1_fixed = 2 * prec_fixed * rec_fixed / (prec_fixed + rec_fixed) if (prec_fixed + rec_fixed) > 0 else 0
+        f1_fixed = (
+            2 * prec_fixed * rec_fixed / (prec_fixed + rec_fixed)
+            if (prec_fixed + rec_fixed) > 0
+            else 0
+        )
 
         # F1 with calibration
         manager = ScoreCalibrationManager(contamination=0.1)
@@ -344,9 +350,7 @@ class TestConvenienceFunctions:
         """Test calibrate_scores convenience function."""
         scores = np.random.uniform(0, 1, 100)
 
-        threshold, predictions, diagnostics = calibrate_scores(
-            scores, contamination=0.05
-        )
+        threshold, predictions, diagnostics = calibrate_scores(scores, contamination=0.05)
 
         assert isinstance(threshold, float)
         assert len(predictions) == 100
@@ -357,9 +361,7 @@ class TestConvenienceFunctions:
         scores = np.array([0.1, 0.2, 0.3, 0.4])  # All below threshold
         labels = np.array([0, 0, 1, 1])
 
-        diagnostics = diagnose_scores(
-            scores, threshold=0.5, labels=labels, print_output=True
-        )
+        diagnostics = diagnose_scores(scores, threshold=0.5, labels=labels, print_output=True)
 
         captured = capsys.readouterr()
 
@@ -411,10 +413,12 @@ class TestDetectorIntegration:
         n_anomaly = 10
 
         X_train = np.random.randn(100, 5)
-        X_test = np.vstack([
-            np.random.randn(n_normal, 5),
-            np.random.randn(n_anomaly, 5) + 3,  # Shifted anomalies
-        ])
+        X_test = np.vstack(
+            [
+                np.random.randn(n_normal, 5),
+                np.random.randn(n_anomaly, 5) + 3,  # Shifted anomalies
+            ]
+        )
 
         # Without auto-calibration
         detector_fixed = StatisticalAnomalyDetector({"threshold": 0.5})
@@ -560,9 +564,7 @@ class TestContaminationValidation:
         """Test that default outside [min, max] raises error."""
         with pytest.raises(ValueError, match="default"):
             AutoThresholdOptimizer(
-                default_contamination=0.1,
-                min_contamination=0.2,
-                max_contamination=0.5
+                default_contamination=0.1, min_contamination=0.2, max_contamination=0.5
             )
 
 
@@ -611,14 +613,16 @@ class TestReturnTypeConsistency:
         for method in methods:
             result = optimizer.optimize(scores, method=method, labels=labels)
 
-            assert isinstance(result, CalibrationResult), \
-                f"Method {method} didn't return CalibrationResult"
-            assert isinstance(result.threshold, float), \
-                f"Method {method} threshold not float"
-            assert isinstance(result.predictions, np.ndarray), \
-                f"Method {method} predictions not ndarray"
-            assert len(result.predictions) == len(scores), \
-                f"Method {method} predictions length mismatch"
+            assert isinstance(
+                result, CalibrationResult
+            ), f"Method {method} didn't return CalibrationResult"
+            assert isinstance(result.threshold, float), f"Method {method} threshold not float"
+            assert isinstance(
+                result.predictions, np.ndarray
+            ), f"Method {method} predictions not ndarray"
+            assert len(result.predictions) == len(
+                scores
+            ), f"Method {method} predictions length mismatch"
 
 
 if __name__ == "__main__":
