@@ -233,6 +233,16 @@ class BaseDetector(ABC):
         - "anomaly_score" or "anomaly_prob": float in [0, 1]
         - "is_anomaly": bool
 
+    Auto-Calibration (New):
+        When auto_calibrate=True, the detector automatically calibrates its
+        threshold based on the score distribution, solving the F1=0 problem
+        where good ROC-AUC is achieved but fixed threshold produces no positives.
+
+        Configure with:
+        - "auto_calibrate": Enable automatic threshold calibration (default: False)
+        - "calibration_method": Method to use ("auto", "percentile", "otsu", etc.)
+        - "contamination": Expected anomaly ratio (default: 0.05)
+
     Example:
         >>> class MyDetector(BaseDetector):
         ...     def fit(self, data):
@@ -268,6 +278,11 @@ class BaseDetector(ABC):
                 - "name": Detector name for logging
                 - "enable_uncertainty": Enable uncertainty estimation
 
+                Auto-calibration keys (new):
+                - "auto_calibrate": Enable automatic threshold calibration
+                - "calibration_method": Method ("auto", "percentile", "otsu", "mad", etc.)
+                - "contamination": Expected fraction of anomalies (0.0-1.0)
+
         Raises:
             ValueError: If threshold is not in valid [0, 1] range.
         """
@@ -288,6 +303,14 @@ class BaseDetector(ABC):
         self._is_fitted = False
         self._name = self.config.get("name", self.__class__.__name__)
         self._metrics = DetectorMetrics()
+
+        # Auto-calibration settings (solves F1=0 problem)
+        self._auto_calibrate = self.config.get("auto_calibrate", False)
+        self._calibration_method = self.config.get("calibration_method", "auto")
+        self._contamination = self.config.get("contamination", 0.05)
+        self._calibration_manager = None
+        self._calibrated_threshold: float | None = None
+        self._last_diagnostics: Any = None
 
     @property
     def name(self) -> str:
@@ -375,6 +398,147 @@ class BaseDetector(ABC):
     def reset_metrics(self) -> None:
         """Reset performance metrics."""
         self._metrics = DetectorMetrics()
+
+    # =========================================================================
+    # Auto-Calibration Methods (Solves F1=0 Problem)
+    # =========================================================================
+
+    def enable_auto_calibration(
+        self,
+        contamination: float = 0.05,
+        method: str = "auto",
+    ) -> BaseDetector:
+        """
+        Enable automatic threshold calibration.
+
+        This solves the F1=0 problem where good ROC-AUC is achieved but
+        a fixed 0.5 threshold produces no positive predictions because
+        scores are distributed below 0.5.
+
+        Args:
+            contamination: Expected fraction of anomalies (0.0-1.0)
+            method: Calibration method:
+                - "auto": Automatically select best method
+                - "percentile": Use percentile based on contamination
+                - "otsu": Otsu's bimodal threshold
+                - "mad": Median Absolute Deviation
+                - "knee": Knee/elbow detection
+
+        Returns:
+            Self for method chaining.
+
+        Example:
+            >>> detector = StatisticalAnomalyDetector()
+            >>> detector.fit(train_data).enable_auto_calibration(contamination=0.05)
+            >>> result = detector.detect(test_data)  # Threshold auto-calibrated
+        """
+        self._auto_calibrate = True
+        self._contamination = contamination
+        self._calibration_method = method
+        self._calibration_manager = None  # Reset to force re-init
+        return self
+
+    def disable_auto_calibration(self) -> BaseDetector:
+        """Disable automatic threshold calibration."""
+        self._auto_calibrate = False
+        self._calibrated_threshold = None
+        return self
+
+    def calibrate_threshold(
+        self,
+        scores: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any] | None = None,
+        method: str | None = None,
+    ) -> float:
+        """
+        Calibrate threshold based on score distribution.
+
+        Can be called manually or is called automatically when
+        auto_calibrate=True.
+
+        Args:
+            scores: Anomaly scores array
+            labels: Optional ground truth labels (enables optimal F1 method)
+            method: Override calibration method
+
+        Returns:
+            Calibrated threshold value
+        """
+        from omni_mercury_engine.core.score_calibration import (
+            CalibrationMethod,
+            ScoreCalibrationManager,
+        )
+
+        method = method or self._calibration_method
+
+        if self._calibration_manager is None:
+            self._calibration_manager = ScoreCalibrationManager(
+                contamination=self._contamination,
+                method=CalibrationMethod(method),
+            )
+
+        result = self._calibration_manager.calibrate(
+            scores=scores,
+            labels=labels,
+            method=CalibrationMethod(method) if method else None,
+        )
+
+        self._calibrated_threshold = result.threshold
+        self._last_diagnostics = result.diagnostics
+
+        return result.threshold
+
+    def get_effective_threshold(self) -> float:
+        """
+        Get the effective threshold (calibrated if available, else default).
+
+        Returns:
+            The threshold to use for anomaly classification.
+        """
+        if self._auto_calibrate and self._calibrated_threshold is not None:
+            return self._calibrated_threshold
+        return self.threshold
+
+    def get_calibration_diagnostics(self) -> Any:
+        """
+        Get diagnostics from last calibration.
+
+        Returns:
+            CalibrationDiagnostics object or None if not calibrated.
+        """
+        return self._last_diagnostics
+
+    def diagnose_scores(
+        self,
+        scores: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any] | None = None,
+        print_output: bool = True,
+    ) -> Any:
+        """
+        Diagnose score distribution and threshold issues.
+
+        This is the diagnostic tool requested to debug the F1=0 problem:
+        - Score range, mean, std
+        - Threshold value
+        - Predictions above threshold
+        - Distribution characteristics
+
+        Args:
+            scores: Anomaly scores
+            labels: Optional ground truth labels
+            print_output: Whether to print diagnostics
+
+        Returns:
+            CalibrationDiagnostics object
+        """
+        from omni_mercury_engine.core.score_calibration import diagnose_scores
+
+        return diagnose_scores(
+            scores=scores,
+            threshold=self.get_effective_threshold(),
+            labels=labels,
+            print_output=print_output,
+        )
 
 
 class BaseModel(ABC):

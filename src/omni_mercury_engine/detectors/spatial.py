@@ -111,7 +111,26 @@ class SpatialAnomalyDetector(BaseDetector):
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """Detect spatial anomalies"""
+        """Detect spatial anomalies with optional auto-calibration.
+
+        Uses distance-based outliers and Local Outlier Factor (LOF)
+        to compute anomaly scores for geographic/spatial data.
+
+        Auto-Calibration:
+            When auto_calibrate=True (via enable_auto_calibration()), the
+            threshold is automatically calibrated based on the score
+            distribution, solving the F1=0 problem.
+
+        Returns:
+            Dictionary containing:
+                - is_anomaly: Boolean array of anomaly predictions
+                - scores: Combined normalized scores [0, 1]
+                - distance_scores: Raw distance-based scores
+                - lof_scores: Local Outlier Factor scores
+                - detector_type: "spatial"
+                - threshold: Effective threshold (may be calibrated)
+                - calibration_diagnostics: Diagnostics if auto-calibrated
+        """
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
 
@@ -135,7 +154,16 @@ class SpatialAnomalyDetector(BaseDetector):
             lof_scores_norm = np.nan_to_num(lof_scores_norm, nan=0.5, posinf=1.0, neginf=0.0)
 
         combined_scores = (distance_scores_norm + lof_scores_norm) / 2.0
-        is_anomaly = combined_scores > self.threshold
+
+        # Auto-calibration: compute optimal threshold from score distribution
+        effective_threshold = self.threshold
+        calibration_diagnostics = None
+
+        if self._auto_calibrate:
+            effective_threshold = self.calibrate_threshold(combined_scores)
+            calibration_diagnostics = self._last_diagnostics
+
+        is_anomaly = combined_scores > effective_threshold
 
         return {
             "is_anomaly": is_anomaly,
@@ -143,6 +171,8 @@ class SpatialAnomalyDetector(BaseDetector):
             "distance_scores": distance_scores,
             "lof_scores": -lof_scores,
             "detector_type": "spatial",
+            "threshold": effective_threshold,
+            "calibration_diagnostics": calibration_diagnostics,
         }
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:

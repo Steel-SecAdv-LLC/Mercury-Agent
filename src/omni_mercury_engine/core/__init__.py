@@ -36,9 +36,25 @@ from omni_mercury_engine.core.global_omni_scalar_network import (
     get_global_scalar_network,
     reset_global_network,
 )
+from omni_mercury_engine.core.score_calibration import (
+    AutoThresholdOptimizer,
+    CalibrationDiagnostics,
+    CalibrationMethod,
+    CalibrationResult,
+    ScoreCalibrationManager,
+    ScoreDiagnostics,
+    calibrate_scores,
+    diagnose_scores,
+)
 
 
 __all__ = [
+    # Score calibration (solves F1=0 problem)
+    "AutoThresholdOptimizer",
+    "CalibrationDiagnostics",
+    "CalibrationMethod",
+    "CalibrationResult",
+    # Original exports
     "DomainType",
     "DoubleHelixEvolutionEngine",
     "EnhancementResult",
@@ -52,7 +68,11 @@ __all__ = [
     "MultiHeadAttentionFusion",
     "ScalarGroup",
     "ScalarRegistration",
+    "ScoreCalibrationManager",
+    "ScoreDiagnostics",
     "ThreeRConfig",
+    "calibrate_scores",
+    "diagnose_scores",
     "get_default_config",
     "get_global_scalar_network",
     "reset_global_network",

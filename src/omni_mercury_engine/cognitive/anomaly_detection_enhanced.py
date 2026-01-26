@@ -61,8 +61,13 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-class DataSourceType(Enum):
-    """Types of external data sources."""
+class ExternalSourceCategory(Enum):
+    """High-level categories of external data sources.
+
+    Note: This enum represents abstract source categories for the cognitive
+    anomaly detection module. For specific API data source types, see
+    omni_mercury_engine.data_sources.DataSourceType instead.
+    """
 
     GEOLOGICAL = "geological"
     ENVIRONMENTAL = "environmental"
@@ -88,7 +93,7 @@ class PredictionType(Enum):
 class ExternalDataPoint:
     """Data point from external source."""
 
-    source_type: DataSourceType
+    source_type: ExternalSourceCategory
     source_name: str
     data: dict[str, Any]
     timestamp: float = field(default_factory=time.time)
@@ -491,7 +496,7 @@ class ExternalDataSource(ABC):
         pass
 
     @abstractmethod
-    def get_source_type(self) -> DataSourceType:
+    def get_source_type(self) -> ExternalSourceCategory:
         """Get the type of this data source."""
         pass
 
@@ -510,7 +515,7 @@ class SimulatedGeologicalSource(ExternalDataSource):
         """Fetch simulated geological data for testing."""
         return [
             ExternalDataPoint(
-                source_type=DataSourceType.GEOLOGICAL,
+                source_type=ExternalSourceCategory.GEOLOGICAL,
                 source_name=self.source_name,
                 data={
                     "event_type": "earthquake",
@@ -523,8 +528,8 @@ class SimulatedGeologicalSource(ExternalDataSource):
             )
         ]
 
-    def get_source_type(self) -> DataSourceType:
-        return DataSourceType.GEOLOGICAL
+    def get_source_type(self) -> ExternalSourceCategory:
+        return ExternalSourceCategory.GEOLOGICAL
 
 
 class SimulatedEnvironmentalSource(ExternalDataSource):
@@ -541,7 +546,7 @@ class SimulatedEnvironmentalSource(ExternalDataSource):
         """Fetch simulated environmental data for testing."""
         return [
             ExternalDataPoint(
-                source_type=DataSourceType.ENVIRONMENTAL,
+                source_type=ExternalSourceCategory.ENVIRONMENTAL,
                 source_name=self.source_name,
                 data={
                     "event_type": "weather_alert",
@@ -554,8 +559,8 @@ class SimulatedEnvironmentalSource(ExternalDataSource):
             )
         ]
 
-    def get_source_type(self) -> DataSourceType:
-        return DataSourceType.ENVIRONMENTAL
+    def get_source_type(self) -> ExternalSourceCategory:
+        return ExternalSourceCategory.ENVIRONMENTAL
 
 
 class USGSEarthquakeSource(ExternalDataSource):
@@ -630,7 +635,7 @@ class USGSEarthquakeSource(ExternalDataSource):
 
                 results.append(
                     ExternalDataPoint(
-                        source_type=DataSourceType.GEOLOGICAL,
+                        source_type=ExternalSourceCategory.GEOLOGICAL,
                         source_name=self.source_name,
                         data={
                             "event_type": "earthquake",
@@ -665,8 +670,8 @@ class USGSEarthquakeSource(ExternalDataSource):
             logger.warning(f"USGS API parse error: {e}")
             return []
 
-    def get_source_type(self) -> DataSourceType:
-        return DataSourceType.GEOLOGICAL
+    def get_source_type(self) -> ExternalSourceCategory:
+        return ExternalSourceCategory.GEOLOGICAL
 
     def __del__(self) -> None:
         """Clean up HTTP client on deletion."""
@@ -745,7 +750,7 @@ class NOAAWeatherSource(ExternalDataSource):
 
                 results.append(
                     ExternalDataPoint(
-                        source_type=DataSourceType.ENVIRONMENTAL,
+                        source_type=ExternalSourceCategory.ENVIRONMENTAL,
                         source_name=self.source_name,
                         data={
                             "event_type": "weather_alert",
@@ -779,8 +784,8 @@ class NOAAWeatherSource(ExternalDataSource):
             logger.warning(f"NOAA API parse error: {e}")
             return []
 
-    def get_source_type(self) -> DataSourceType:
-        return DataSourceType.ENVIRONMENTAL
+    def get_source_type(self) -> ExternalSourceCategory:
+        return ExternalSourceCategory.ENVIRONMENTAL
 
     def __del__(self) -> None:
         """Clean up HTTP client on deletion."""

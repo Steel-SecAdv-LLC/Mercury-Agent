@@ -20,12 +20,26 @@ from __future__ import annotations
 
 
 """
-Sigma Directive detector implementing PCP, GSIS, RMD, and EOA protocols
-Enhanced with quantum pattern containment and nano-scale detection
+Sigma Directive detector implementing PCP, GSIS, RMD, and EOA protocols.
+
+Enhanced with quantum pattern containment and nano-scale detection for
+critical applications in medical diagnostics, geological monitoring,
+and search-and-rescue systems.
+
+Thread Safety:
+    This detector uses thread-local storage for mutable state (memory_buffer)
+    to ensure safe concurrent access in multi-threaded environments.
+
+Memory Management:
+    The memory buffer is bounded by memory_depth and can be explicitly
+    cleared via clear_memory() or reset_state() methods.
 """
 
 import hashlib
-from typing import Any
+import threading
+from collections import deque
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
@@ -35,76 +49,351 @@ from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 
 
-class SigmaDirectiveDetector(BaseDetector):
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+
+@dataclass(frozen=True)
+class DirectiveWeights:
+    """Configurable weights for Sigma Directive score combination.
+
+    All weights must sum to 1.0 within each category for proper normalization.
+    These weights control the relative importance of each detection protocol.
+
+    Attributes:
+        pcp_weight: Weight for Pattern Convergence Protocol scores.
+        gsis_weight: Weight for Gravitational Stability Integrity System scores.
+        rmd_weight: Weight for Recursive Memory Dynamics scores.
+        eoa_weight: Weight for Ethical Oversight Amplifier scores.
+        quantum_blend: Blend factor for quantum enhancement (0=disable, 1=full).
+        nano_blend: Blend factor for nano-scale detection (0=disable, 1=full).
+        harmonic_blend: Blend factor for harmonic analysis (0=disable, 1=full).
+
+    Example:
+        >>> weights = DirectiveWeights(pcp_weight=0.4, gsis_weight=0.3)
+        >>> detector = SigmaDirectiveDetector({"weights": weights})
     """
-    Sigma Directive protocols for anomaly detection:
-    - PCP (Pattern Convergence Protocol)
-    - GSIS (Gravitational Stability Integrity System)
-    - RMD (Recursive Memory Dynamics)
-    - EOA (Ethical Oversight Amplifier)
+
+    pcp_weight: float = 0.3
+    gsis_weight: float = 0.3
+    rmd_weight: float = 0.2
+    eoa_weight: float = 0.2
+    quantum_blend: float = 0.2
+    nano_blend: float = 0.15
+    harmonic_blend: float = 0.1
+
+    def __post_init__(self) -> None:
+        """Validate weights sum to 1.0 for base protocols."""
+        base_sum = self.pcp_weight + self.gsis_weight + self.rmd_weight + self.eoa_weight
+        if abs(base_sum - 1.0) > 1e-6:
+            raise ValueError(
+                f"Base protocol weights must sum to 1.0, got {base_sum:.4f}. "
+                f"Weights: PCP={self.pcp_weight}, GSIS={self.gsis_weight}, "
+                f"RMD={self.rmd_weight}, EOA={self.eoa_weight}"
+            )
+        for name, val in [
+            ("quantum_blend", self.quantum_blend),
+            ("nano_blend", self.nano_blend),
+            ("harmonic_blend", self.harmonic_blend),
+        ]:
+            if not 0.0 <= val <= 1.0:
+                raise ValueError(f"{name} must be in [0, 1], got {val}")
+
+
+@dataclass
+class _ThreadLocalState:
+    """Thread-local state for SigmaDirectiveDetector.
+
+    Ensures thread safety by isolating mutable state per thread.
+    Each thread gets its own memory buffer, preventing race conditions
+    during concurrent detect() calls.
+    """
+
+    memory_buffer: deque[NDArray[np.float64]] = field(default_factory=deque)
+
+
+class SigmaDirectiveDetector(BaseDetector):
+    """Sigma Directive protocols for anomaly detection.
+
+    Implements multiple complementary detection protocols for robust
+    anomaly identification in critical systems:
+
+    - **PCP** (Pattern Convergence Protocol): Detects deviation from baseline patterns
+    - **GSIS** (Gravitational Stability Integrity System): Analyzes local density stability
+    - **RMD** (Recursive Memory Dynamics): Tracks temporal memory-based anomalies
+    - **EOA** (Ethical Oversight Amplifier): Amplifies ethically significant anomalies
+
+    Optional enhancements:
+    - Quantum Pattern Containment: Phase coherence and entanglement analysis
+    - Nano-Scale Detection: Bit-level and micro-pattern anomalies
+    - Harmonic Analysis: FFT-based frequency domain anomalies
+
+    Thread Safety:
+        This detector is thread-safe. Each thread maintains isolated state
+        via thread-local storage, allowing safe concurrent detect() calls.
+
+    Memory Management:
+        Memory buffer is bounded by `memory_depth` configuration.
+        Use `clear_memory()` to explicitly reset state between independent
+        detection sessions.
+
+    Attributes:
+        convergence_threshold: Threshold for pattern convergence (default: 0.01).
+        stability_factor: Multiplier for stability scores (default: 1.0).
+        memory_depth: Maximum samples retained in memory buffer (default: 5).
+        weights: DirectiveWeights instance for configurable score combination.
+
+    Example:
+        >>> detector = SigmaDirectiveDetector({
+        ...     "convergence_threshold": 0.01,
+        ...     "memory_depth": 10,
+        ...     "weights": DirectiveWeights(pcp_weight=0.4, gsis_weight=0.3,
+        ...                                  rmd_weight=0.2, eoa_weight=0.1),
+        ... })
+        >>> detector.fit(training_data)
+        >>> result = detector.detect(test_data)
+        >>> anomalies = result["is_anomaly"]
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
+        """Initialize SigmaDirectiveDetector with configuration.
+
+        Args:
+            config: Configuration dictionary with optional keys:
+                - convergence_threshold: PCP sensitivity (default: 0.01)
+                - stability_factor: GSIS scaling factor (default: 1.0)
+                - memory_depth: RMD buffer size (default: 5)
+                - use_quantum_enhanced: Enable quantum protocols (default: True)
+                - use_nano_detection: Enable nano-scale detection (default: True)
+                - use_harmonic_detection: Enable harmonic analysis (default: True)
+                - weights: DirectiveWeights instance or dict for score combination
+        """
         super().__init__(config)
-        self.convergence_threshold = self.config.get("convergence_threshold", 0.01)
-        self.stability_factor = self.config.get("stability_factor", 1.0)
-        self.memory_depth = self.config.get("memory_depth", 5)
-        self.use_quantum_enhanced = self.config.get("use_quantum_enhanced", True)
-        self.use_nano_detection = self.config.get("use_nano_detection", True)
-        self.use_harmonic_detection = self.config.get("use_harmonic_detection", True)
+        self.convergence_threshold: float = self.config.get("convergence_threshold", 0.01)
+        self.stability_factor: float = self.config.get("stability_factor", 1.0)
+        self.memory_depth: int = self.config.get("memory_depth", 5)
+        self.use_quantum_enhanced: bool = self.config.get("use_quantum_enhanced", True)
+        self.use_nano_detection: bool = self.config.get("use_nano_detection", True)
+        self.use_harmonic_detection: bool = self.config.get("use_harmonic_detection", True)
 
-        self.baseline_pattern: np.ndarray[Any, Any] | None = None
-        self.memory_buffer: list[Any] = []
+        # Configurable weights (addresses hardcoded magic numbers issue)
+        weights_config = self.config.get("weights", None)
+        if weights_config is None:
+            self.weights = DirectiveWeights()
+        elif isinstance(weights_config, DirectiveWeights):
+            self.weights = weights_config
+        elif isinstance(weights_config, dict):
+            self.weights = DirectiveWeights(**weights_config)
+        else:
+            raise ValueError(
+                f"weights must be DirectiveWeights or dict, got {type(weights_config)}"
+            )
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> SigmaDirectiveDetector:
-        """Fit Sigma protocols to normal patterns"""
+        self.baseline_pattern: NDArray[np.float64] | None = None
+
+        # Thread-safe memory management using thread-local storage
+        # Fixes: Thread Safety issue with memory_buffer mutation
+        self._thread_local = threading.local()
+
+        # Memory buffer capacity validation
+        if self.memory_depth < 1:
+            raise ValueError(f"memory_depth must be >= 1, got {self.memory_depth}")
+
+    def _get_thread_state(self) -> _ThreadLocalState:
+        """Get or create thread-local state.
+
+        Returns:
+            Thread-local state instance with isolated memory buffer.
+        """
+        if not hasattr(self._thread_local, "state"):
+            self._thread_local.state = _ThreadLocalState(
+                memory_buffer=deque(maxlen=self.memory_depth)
+            )
+        return self._thread_local.state
+
+    def clear_memory(self) -> None:
+        """Clear the memory buffer for the current thread.
+
+        Call this method between independent detection sessions to prevent
+        memory from one session affecting another. This is automatically
+        handled per-thread, but explicit clearing may be desired for
+        deterministic behavior in single-threaded scenarios.
+        """
+        state = self._get_thread_state()
+        state.memory_buffer.clear()
+
+    def reset_state(self) -> None:
+        """Reset all mutable state including memory buffer.
+
+        This provides a full reset equivalent to creating a new detector
+        instance while preserving fitted parameters (baseline_pattern).
+        """
+        self.clear_memory()
+        # Reset calibration state from base class
+        self._calibrated_threshold = None
+        self._last_diagnostics = None
+
+    def fit(self, data: NDArray[np.float64] | torch.Tensor) -> SigmaDirectiveDetector:
+        """Fit Sigma protocols to normal/baseline patterns.
+
+        Computes the baseline pattern from training data that represents
+        "normal" behavior. All subsequent detection is relative to this baseline.
+
+        Args:
+            data: Training data array of shape (n_samples, n_features) or tensor.
+                Should contain representative normal/non-anomalous samples.
+
+        Returns:
+            Self for method chaining.
+
+        Raises:
+            DetectorException: If data is empty or contains only NaN/Inf values.
+
+        Example:
+            >>> detector = SigmaDirectiveDetector()
+            >>> detector.fit(normal_training_data)
+            >>> result = detector.detect(test_data)
+        """
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
-        self.baseline_pattern = np.mean(data, axis=0)
+        # Validate data
+        if data.size == 0:
+            raise DetectorException(
+                "Cannot fit SigmaDirectiveDetector with empty data. "
+                "Provide representative normal samples for baseline computation."
+            )
+
+        # Handle NaN/Inf values
+        if data.ndim == 1:
+            data = data.reshape(-1, 1)
+
+        finite_mask = np.isfinite(data).all(axis=1)
+        if not np.any(finite_mask):
+            raise DetectorException(
+                "Cannot fit SigmaDirectiveDetector: all data values are NaN or Inf."
+            )
+        if not np.all(finite_mask):
+            data = data[finite_mask]
+
+        self.baseline_pattern = np.mean(data, axis=0).astype(np.float64)
+
+        # Clear memory buffer on new fit (fresh start)
+        self.clear_memory()
 
         self._is_fitted = True
         return self
 
-    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """Detect anomalies using Sigma protocols with quantum enhancement"""
+    def detect(self, data: NDArray[np.float64] | torch.Tensor) -> dict[str, Any]:
+        """Detect anomalies using Sigma Directive protocols.
+
+        Executes multiple complementary detection protocols and combines their
+        scores using configurable weights. This multi-protocol approach provides
+        robust anomaly detection for critical applications.
+
+        Thread Safety:
+            This method is thread-safe. Each thread maintains isolated memory
+            state, allowing concurrent detection calls without data corruption.
+
+        Auto-Calibration:
+            When auto_calibrate=True (via enable_auto_calibration()), the
+            threshold is automatically calibrated based on the score
+            distribution, solving the F1=0 problem where good ROC-AUC
+            is achieved but fixed threshold produces no positive predictions.
+
+        Args:
+            data: Input data array of shape (n_samples, n_features) or tensor.
+
+        Returns:
+            Dictionary containing:
+                - is_anomaly: Boolean array of anomaly predictions
+                - scores: Combined anomaly scores in [0, 1] range
+                - pcp_scores: Pattern Convergence Protocol scores
+                - gsis_scores: Gravitational Stability scores
+                - rmd_scores: Recursive Memory Dynamics scores
+                - eoa_scores: Ethical Oversight Amplifier scores
+                - quantum_scores: Quantum enhancement scores (dict, if enabled)
+                - nano_scores: Nano-scale detection scores (dict, if enabled)
+                - harmonic_score: Harmonic analysis score (float, if enabled)
+                - detector_type: "directive"
+                - threshold: Effective threshold used (may be calibrated)
+                - calibration_diagnostics: CalibrationDiagnostics if auto-calibrated
+
+        Raises:
+            DetectorException: If detector has not been fitted.
+
+        Example:
+            >>> detector = SigmaDirectiveDetector()
+            >>> detector.fit(train_data).enable_auto_calibration(contamination=0.05)
+            >>> result = detector.detect(test_data)
+            >>> print(f"Found {result['is_anomaly'].sum()} anomalies")
+        """
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
 
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
+        if data.ndim == 1:
+            data = data.reshape(-1, 1)
+
+        # Execute core detection protocols
         pcp_scores = self._pattern_convergence_protocol(data)
         gsis_scores = self._gravitational_stability_check(data)
         rmd_scores = self._recursive_memory_dynamics(data)
         eoa_scores = self._ethical_oversight_amplifier(data)
 
-        quantum_scores = {}
+        # Execute optional enhancements
+        quantum_scores: dict[str, float] = {}
         if self.use_quantum_enhanced:
             quantum_scores = self._quantum_pattern_containment(data)
 
-        nano_scores = {}
+        nano_scores: dict[str, float] = {}
         if self.use_nano_detection:
             nano_scores = self._nano_scale_detection(data)
 
-        harmonic_score = 0.0
+        harmonic_score: float = 0.0
         if self.use_harmonic_detection:
             harmonic_score = self._harmonic_anomaly_detection(data)
 
-        combined_scores = pcp_scores * 0.3 + gsis_scores * 0.3 + rmd_scores * 0.2 + eoa_scores * 0.2
+        # Combine base protocol scores using configurable weights
+        # (Fixes hardcoded magic numbers issue)
+        combined_scores = (
+            pcp_scores * self.weights.pcp_weight
+            + gsis_scores * self.weights.gsis_weight
+            + rmd_scores * self.weights.rmd_weight
+            + eoa_scores * self.weights.eoa_weight
+        )
 
-        if quantum_scores:
+        # Blend in optional enhancement scores
+        if quantum_scores and self.weights.quantum_blend > 0:
             quantum_avg = np.mean(list(quantum_scores.values()))
-            combined_scores = combined_scores * 0.8 + quantum_avg * 0.2
+            blend = self.weights.quantum_blend
+            combined_scores = combined_scores * (1 - blend) + quantum_avg * blend
 
-        if nano_scores:
+        if nano_scores and self.weights.nano_blend > 0:
             nano_avg = np.mean(list(nano_scores.values()))
-            combined_scores = combined_scores * 0.85 + nano_avg * 0.15
+            blend = self.weights.nano_blend
+            combined_scores = combined_scores * (1 - blend) + nano_avg * blend
 
-        if harmonic_score > 0:
-            combined_scores = combined_scores * 0.9 + harmonic_score * 0.1
+        if harmonic_score > 0 and self.weights.harmonic_blend > 0:
+            blend = self.weights.harmonic_blend
+            combined_scores = combined_scores * (1 - blend) + harmonic_score * blend
 
-        is_anomaly = combined_scores > self.threshold
+        # Ensure scores are finite and in valid range
+        if np.any(~np.isfinite(combined_scores)):
+            combined_scores = np.nan_to_num(combined_scores, nan=0.5, posinf=1.0, neginf=0.0)
+        combined_scores = np.clip(combined_scores, 0.0, 1.0)
+
+        # Auto-calibration: compute optimal threshold from score distribution
+        effective_threshold = self.threshold
+        calibration_diagnostics = None
+
+        if self._auto_calibrate:
+            effective_threshold = self.calibrate_threshold(combined_scores)
+            calibration_diagnostics = self._last_diagnostics
+
+        is_anomaly = combined_scores > effective_threshold
 
         return {
             "is_anomaly": is_anomaly,
@@ -117,6 +406,8 @@ class SigmaDirectiveDetector(BaseDetector):
             "nano_scores": nano_scores,
             "harmonic_score": harmonic_score,
             "detector_type": "directive",
+            "threshold": effective_threshold,
+            "calibration_diagnostics": calibration_diagnostics,
         }
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
@@ -188,22 +479,41 @@ class SigmaDirectiveDetector(BaseDetector):
 
         return scores * self.stability_factor
 
-    def _recursive_memory_dynamics(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """RMD: Detect anomalies using recursive memory.
+    def _recursive_memory_dynamics(self, data: NDArray[np.float64]) -> NDArray[np.float64]:
+        """RMD: Detect anomalies using recursive memory dynamics.
 
-        Returns continuous scores without hard clipping.
+        Tracks a sliding window of recent samples and detects anomalies based
+        on deviation from the memory mean. This captures temporal patterns
+        that other protocols may miss.
 
-        Fix for Issue #7: Uses soft normalization instead of min(deviation, 1.0).
+        Thread Safety:
+            Uses thread-local storage for memory buffer, ensuring safe
+            concurrent execution across threads.
+
+        Args:
+            data: Input data array of shape (n_samples, n_features).
+
+        Returns:
+            Continuous anomaly scores in [0, 1) range, where higher values
+            indicate greater deviation from recent memory.
+
+        Note:
+            Scores use soft normalization (deviation / (1 + deviation)) to
+            preserve ranking information for downstream fusion models.
         """
-        scores = np.zeros(len(data))
+        scores = np.zeros(len(data), dtype=np.float64)
+
+        # Get thread-local memory buffer (fixes thread safety issue)
+        state = self._get_thread_state()
+        memory_buffer = state.memory_buffer
 
         for i, sample in enumerate(data):
-            self.memory_buffer.append(sample)
-            if len(self.memory_buffer) > self.memory_depth:
-                self.memory_buffer.pop(0)
+            # deque with maxlen automatically handles bounded size
+            memory_buffer.append(sample.astype(np.float64))
 
-            if len(self.memory_buffer) > 1:
-                memory_mean = np.mean(self.memory_buffer, axis=0)
+            if len(memory_buffer) > 1:
+                memory_array = np.array(memory_buffer)
+                memory_mean = np.mean(memory_array, axis=0)
                 deviation = np.linalg.norm(sample - memory_mean)
                 # Soft normalization: deviation / (1 + deviation) for [0, 1) range
                 scores[i] = deviation / (1.0 + deviation)

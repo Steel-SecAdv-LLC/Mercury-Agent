@@ -140,6 +140,11 @@ class StatisticalAnomalyDetector(BaseDetector):
         boolean flags, preserving ranking information for better ROC-AUC
         performance in downstream fusion models.
 
+        Auto-Calibration (New):
+            When auto_calibrate=True, the threshold is automatically calibrated
+            based on the score distribution. This solves the F1=0 problem where
+            good ROC-AUC is achieved but fixed threshold produces no positives.
+
         Args:
             data: Input data array or tensor.
 
@@ -152,6 +157,8 @@ class StatisticalAnomalyDetector(BaseDetector):
                 - iqr_scores: Continuous IQR-based scores [0, 1]
                 - isolation_forest_scores: Normalized IF scores [0, 1]
                 - detector_type: "statistical"
+                - threshold: Effective threshold used (may be calibrated)
+                - calibration_diagnostics: Diagnostics if auto-calibrated
 
         Note:
             Fix for Issue #3: Discrete Score Destruction. Previous implementation
@@ -188,7 +195,16 @@ class StatisticalAnomalyDetector(BaseDetector):
         # Combine continuous scores with learned weights
         combined_scores = z_score_continuous * 0.4 + iqr_scores * 0.3 + if_normalized * 0.3
 
-        is_anomaly = combined_scores > self.threshold
+        # Auto-calibration: compute optimal threshold from score distribution
+        # This solves the F1=0 problem where scores are below fixed threshold
+        effective_threshold = self.threshold
+        calibration_diagnostics = None
+
+        if self._auto_calibrate:
+            effective_threshold = self.calibrate_threshold(combined_scores)
+            calibration_diagnostics = self._last_diagnostics
+
+        is_anomaly = combined_scores > effective_threshold
 
         # Preserve backward compatibility with legacy flag keys
         iqr_anomalies = self._detect_iqr_anomalies(data)
@@ -205,6 +221,9 @@ class StatisticalAnomalyDetector(BaseDetector):
             "iqr_flags": iqr_anomalies,
             "isolation_forest_flags": if_anomalies == -1,
             "detector_type": "statistical",
+            # Calibration info (new)
+            "threshold": effective_threshold,
+            "calibration_diagnostics": calibration_diagnostics,
         }
 
     def _compute_iqr_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:

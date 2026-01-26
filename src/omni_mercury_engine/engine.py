@@ -1581,6 +1581,294 @@ class OmniMercuryEngine(LoggerMixin):
         # Default: use fixed threshold from config
         return self.config.anomaly_threshold
 
+    # =========================================================================
+    # Calibration Pipeline (Solves F1=0 Problem)
+    # =========================================================================
+
+    def enable_auto_calibration(
+        self,
+        contamination: float = 0.05,
+        method: str = "auto",
+    ) -> OmniMercuryEngine:
+        """
+        Enable automatic threshold calibration for all detectors.
+
+        This solves the F1=0 problem where good ROC-AUC is achieved but
+        a fixed 0.5 threshold produces no positive predictions.
+
+        Args:
+            contamination: Expected fraction of anomalies (0.0-1.0)
+            method: Calibration method ("auto", "percentile", "otsu", etc.)
+
+        Returns:
+            Self for method chaining.
+
+        Example:
+            >>> engine = OmniMercuryEngine()
+            >>> engine.enable_auto_calibration(contamination=0.05)
+            >>> result = engine.detect(data)  # Thresholds auto-calibrated
+        """
+        for detector in self.detectors.values():
+            detector.enable_auto_calibration(
+                contamination=contamination,
+                method=method,
+            )
+
+        self.config.adaptive_threshold = True
+        self.config.contamination = contamination
+        return self
+
+    def disable_auto_calibration(self) -> OmniMercuryEngine:
+        """Disable automatic threshold calibration for all detectors."""
+        for detector in self.detectors.values():
+            detector.disable_auto_calibration()
+
+        self.config.adaptive_threshold = False
+        self.config.contamination = None
+        return self
+
+    def calibrate_from_scores(
+        self,
+        scores: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any] | None = None,
+        method: str = "auto",
+    ) -> dict[str, Any]:
+        """
+        Calibrate threshold from a batch of scores.
+
+        Use this method when you have precomputed scores and want to
+        find the optimal threshold without re-running detection.
+
+        Args:
+            scores: Precomputed anomaly scores
+            labels: Optional ground truth labels (enables optimal F1)
+            method: Calibration method
+
+        Returns:
+            Dictionary with:
+                - threshold: Calibrated threshold
+                - predictions: Binary predictions
+                - diagnostics: CalibrationDiagnostics object
+
+        Example:
+            >>> result = engine.detect(data)
+            >>> calibration = engine.calibrate_from_scores(
+            ...     result["scores"], y_true, method="auto"
+            ... )
+            >>> print(calibration["diagnostics"])
+        """
+        from omni_mercury_engine.core.score_calibration import (
+            CalibrationMethod,
+            ScoreCalibrationManager,
+        )
+
+        manager = ScoreCalibrationManager(
+            contamination=self.config.contamination or 0.05,
+            method=CalibrationMethod(method),
+        )
+
+        result = manager.calibrate(
+            scores=np.asarray(scores),
+            labels=np.asarray(labels) if labels is not None else None,
+        )
+
+        return {
+            "threshold": result.threshold,
+            "predictions": result.predictions,
+            "diagnostics": result.diagnostics,
+            "method": result.method.value,
+            "confidence": result.confidence,
+        }
+
+    def diagnose_detection(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor,
+        labels: np.ndarray[Any, Any] | None = None,
+        print_output: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Run detection with full diagnostics for debugging F1=0 issues.
+
+        This method is specifically designed to help diagnose calibration
+        problems. It runs detection and provides comprehensive diagnostics
+        about the score distribution and threshold.
+
+        Args:
+            data: Input data for anomaly detection
+            labels: Optional ground truth labels
+            print_output: Whether to print diagnostics
+
+        Returns:
+            Dictionary with:
+                - detection_result: Standard detection result
+                - diagnostics: Per-detector diagnostics
+                - recommendations: Suggested fixes
+
+        Example:
+            >>> # Debug F1=0 problem
+            >>> diag = engine.diagnose_detection(test_data, y_true)
+            >>> # Prints detailed diagnostics
+            >>> print(diag["recommendations"])
+        """
+        from omni_mercury_engine.core.score_calibration import (
+            CalibrationDiagnostics,
+            ScoreDiagnostics,
+        )
+
+        if isinstance(data, torch.Tensor):
+            data = data.cpu().numpy()
+
+        # Run detection
+        detection_result = self.detect(data)
+
+        # Collect diagnostics from each detector
+        detector_diagnostics: dict[str, CalibrationDiagnostics] = {}
+        recommendations: list[str] = []
+
+        for detector_name, detector_result in detection_result.get("detectors", {}).items():
+            scores = detector_result.get("scores")
+            if scores is None:
+                scores = detector_result.get("anomaly_score")
+                if scores is not None:
+                    scores = np.array([scores])
+                else:
+                    continue
+
+            scores = np.asarray(scores).flatten()
+            threshold = detector_result.get("threshold", 0.5)
+
+            diag = ScoreDiagnostics.analyze(
+                scores=scores,
+                threshold=threshold,
+                labels=labels,
+                method=detector_name,
+            )
+            detector_diagnostics[detector_name] = diag
+
+            if print_output:
+                print(f"\n{'='*60}")
+                print(f"DETECTOR: {detector_name}")
+                print(diag)
+
+            # Generate recommendations
+            if diag.predicted_anomaly_ratio == 0:
+                recommendations.append(
+                    f"[{detector_name}] All predictions are NEGATIVE. "
+                    f"Threshold ({threshold:.4f}) > max score ({diag.score_max:.4f}). "
+                    f"SOLUTION: Use auto-calibration or lower threshold."
+                )
+            elif diag.predicted_anomaly_ratio > 0.5:
+                recommendations.append(
+                    f"[{detector_name}] Too many positives ({diag.predicted_anomaly_ratio:.1%}). "
+                    f"SOLUTION: Increase threshold or use contamination-based calibration."
+                )
+
+            if diag.is_bimodal:
+                recommendations.append(
+                    f"[{detector_name}] Bimodal score distribution detected. "
+                    f"SOLUTION: Use Otsu's method for threshold selection."
+                )
+
+        if print_output and recommendations:
+            print("\n" + "=" * 60)
+            print("RECOMMENDATIONS")
+            print("=" * 60)
+            for rec in recommendations:
+                print(f"  - {rec}")
+            print("=" * 60)
+
+        return {
+            "detection_result": detection_result,
+            "diagnostics": detector_diagnostics,
+            "recommendations": recommendations,
+        }
+
+    def detect_with_calibration(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor,
+        labels: np.ndarray[Any, Any] | None = None,
+        calibration_method: str = "auto",
+        contamination: float | None = None,
+    ) -> dict[str, Any]:
+        """
+        Detect anomalies with automatic threshold calibration.
+
+        This is the recommended method when you want optimal F1 performance.
+        It runs detection, calibrates the threshold based on the score
+        distribution (or ground truth if provided), and returns predictions.
+
+        Args:
+            data: Input data for anomaly detection
+            labels: Optional ground truth labels (enables optimal F1)
+            calibration_method: Method for threshold selection
+            contamination: Expected anomaly ratio (if known)
+
+        Returns:
+            Dictionary with:
+                - is_anomaly: Calibrated binary predictions
+                - scores: Raw anomaly scores
+                - threshold: Calibrated threshold
+                - diagnostics: Calibration diagnostics
+                - detector_results: Raw results from each detector
+
+        Example:
+            >>> # Get calibrated predictions
+            >>> result = engine.detect_with_calibration(data, method="auto")
+            >>> predictions = result["is_anomaly"]
+            >>> print(f"Threshold: {result['threshold']:.4f}")
+            >>> print(result["diagnostics"])
+        """
+        from omni_mercury_engine.core.score_calibration import (
+            CalibrationMethod,
+            ScoreCalibrationManager,
+        )
+
+        if isinstance(data, torch.Tensor):
+            data = data.cpu().numpy()
+
+        contamination = contamination or self.config.contamination or 0.05
+
+        # Run detection
+        detection_result = self.detect(data)
+
+        # Aggregate scores from all detectors
+        all_scores: list[np.ndarray] = []
+        for detector_result in detection_result.get("detectors", {}).values():
+            scores = detector_result.get("scores")
+            if scores is not None:
+                all_scores.append(np.asarray(scores).flatten())
+
+        if not all_scores:
+            # Fallback: use is_anomaly flags
+            return {
+                **detection_result,
+                "threshold": 0.5,
+                "diagnostics": None,
+            }
+
+        # Combine scores (simple average)
+        combined_scores = np.mean(all_scores, axis=0)
+
+        # Calibrate threshold
+        manager = ScoreCalibrationManager(
+            contamination=contamination,
+            method=CalibrationMethod(calibration_method),
+        )
+
+        calibration_result = manager.calibrate(
+            scores=combined_scores,
+            labels=np.asarray(labels) if labels is not None else None,
+        )
+
+        return {
+            "is_anomaly": calibration_result.predictions,
+            "scores": combined_scores,
+            "threshold": calibration_result.threshold,
+            "diagnostics": calibration_result.diagnostics,
+            "calibration_method": calibration_result.method.value,
+            "detector_results": detection_result.get("detectors", {}),
+        }
+
     def _extract_detector_features(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
     ) -> tuple[Any, ...]:
@@ -1903,6 +2191,125 @@ class OmniMercuryEngine(LoggerMixin):
         llm_enhancement = self._enhance_with_llm(data, result)
         if llm_enhancement is not None:
             result["llm_enhancement"] = llm_enhancement
+
+        return result
+
+    def detect_with_fusion_calibrated(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
+        labels: np.ndarray[Any, Any] | None = None,
+        calibration_method: str = "auto",
+        contamination: float | None = None,
+        domain: str | None = None,
+        enable_gosnn: bool = True,
+    ) -> dict[str, Any]:
+        """Detect anomalies using ML fusion with automatic threshold calibration.
+
+        This method combines detect_with_fusion with the score calibration system
+        to solve the F1=0 problem where good ROC-AUC is achieved but fixed
+        thresholds produce no positive predictions.
+
+        The calibration is applied to the fusion probability output, ensuring
+        the decision boundary is optimal for the actual score distribution.
+
+        Args:
+            data: Input data for detection
+            labels: Optional ground truth labels (enables optimal F1 calibration)
+            calibration_method: Method for threshold selection:
+                - "auto": Automatically select best method
+                - "percentile": Use percentile based on contamination
+                - "otsu": Otsu's bimodal threshold
+                - "optimal_f1": Find threshold maximizing F1 (requires labels)
+            contamination: Expected anomaly ratio (if known)
+            domain: Domain identifier for GOSNN threshold tuning
+            enable_gosnn: Enable GOSNN synaptic integration
+
+        Returns:
+            Dictionary containing:
+                - anomaly_prob: Fusion probability output
+                - is_anomaly: Calibrated binary predictions
+                - threshold: Calibrated threshold value
+                - threshold_method: Calibration method used
+                - calibration_diagnostics: Full calibration diagnostics
+                - class_prediction: Predicted anomaly class
+                - severity: Anomaly severity score
+                - detector_importance: Attention weights
+                - mode: "fusion_calibrated"
+                - gosnn_metadata: GOSNN integration data (if enabled)
+
+        Example:
+            >>> engine = OmniMercuryEngine(mode="fusion")
+            >>> result = engine.detect_with_fusion_calibrated(
+            ...     data, y_true, calibration_method="auto"
+            ... )
+            >>> print(f"Threshold: {result['threshold']:.4f}")
+            >>> print(f"F1=0 problem solved: {result['is_anomaly'].sum()} anomalies detected")
+        """
+        from omni_mercury_engine.core.score_calibration import (
+            CalibrationMethod,
+            ScoreCalibrationManager,
+        )
+
+        # Run standard fusion detection
+        fusion_result = self.detect_with_fusion(
+            data=data,
+            domain=domain,
+            enable_gosnn=enable_gosnn,
+        )
+
+        # Get fusion probability
+        anomaly_prob = fusion_result.get("anomaly_prob", 0.5)
+
+        # For batch data, we need the full probability array
+        # The fusion_inference returns probs for all samples
+        if self.mode == "fusion":
+            det_features, det_scores = self._extract_detector_features(data)
+            mod_features, mod_scores = self._extract_model_features(data)
+            all_features = {**det_features, **mod_features}
+
+            fusion_output = self.fusion_inference.predict(all_features, return_attention=True)
+            all_probs = fusion_output.get("anomaly_probs", np.array([anomaly_prob]))
+            if isinstance(all_probs, torch.Tensor):
+                all_probs = all_probs.cpu().numpy()
+            all_probs = np.asarray(all_probs).flatten()
+        else:
+            all_probs = np.array([anomaly_prob])
+
+        # Set contamination
+        contamination = contamination or self.config.contamination or 0.05
+
+        # Calibrate threshold on fusion probabilities
+        manager = ScoreCalibrationManager(
+            contamination=contamination,
+            method=CalibrationMethod(calibration_method),
+        )
+
+        calibration_result = manager.calibrate(
+            scores=all_probs,
+            labels=np.asarray(labels) if labels is not None else None,
+        )
+
+        # Build calibrated result
+        result = {
+            "anomaly_prob": float(anomaly_prob) if len(all_probs) == 1 else all_probs,
+            "is_anomaly": calibration_result.predictions,
+            "threshold": calibration_result.threshold,
+            "threshold_method": calibration_result.method.value,
+            "calibration_diagnostics": calibration_result.diagnostics,
+            "calibration_confidence": calibration_result.confidence,
+            "class_prediction": fusion_result.get("class_prediction", 0),
+            "severity": fusion_result.get("severity", 0.0),
+            "detector_importance": fusion_result.get("detector_importance", {}),
+            "mode": "fusion_calibrated",
+        }
+
+        # Carry over GOSNN metadata
+        if "gosnn_metadata" in fusion_result:
+            result["gosnn_metadata"] = fusion_result["gosnn_metadata"]
+
+        # Carry over drift detection
+        if "drift_detection" in fusion_result:
+            result["drift_detection"] = fusion_result["drift_detection"]
 
         return result
 

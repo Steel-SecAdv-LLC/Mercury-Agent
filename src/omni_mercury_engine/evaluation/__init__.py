@@ -33,6 +33,12 @@ from .baselines import (
     list_available_datasets,
     print_baseline_table,
 )
+from .benchmark_diagnostics import (
+    BenchmarkDiagnostics,
+    DiagnosticResult,
+    MetricDiscrepancy,
+    run_diagnostic_benchmark,
+)
 from .metrics import (
     AnomalyMetrics,
     compute_auc_pr,
@@ -48,9 +54,14 @@ from .metrics import (
 
 
 __all__ = [
+    # Original exports
     "BASELINE_RESULTS",
     "AnomalyMetrics",
     "BaselineComparison",
+    # Benchmark diagnostics (for F1=0 debugging)
+    "BenchmarkDiagnostics",
+    "DiagnosticResult",
+    "MetricDiscrepancy",
     "compare_to_baselines",
     "compute_auc_pr",
     "compute_auc_roc",
@@ -65,4 +76,5 @@ __all__ = [
     "list_available_datasets",
     "print_baseline_table",
     "print_metrics_report",
+    "run_diagnostic_benchmark",
 ]
