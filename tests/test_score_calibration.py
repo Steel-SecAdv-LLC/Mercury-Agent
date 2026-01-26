@@ -423,7 +423,7 @@ class TestDetectorIntegration:
         # Without auto-calibration
         detector_fixed = StatisticalAnomalyDetector({"threshold": 0.5})
         detector_fixed.fit(X_train)
-        result_fixed = detector_fixed.detect(X_test)
+        detector_fixed.detect(X_test)
 
         # With auto-calibration
         detector_cal = StatisticalAnomalyDetector({"threshold": 0.5})
@@ -557,7 +557,7 @@ class TestContaminationValidation:
 
     def test_invalid_min_max_contamination(self):
         """Test that invalid min/max contamination raises ValueError."""
-        with pytest.raises(ValueError, match="min.*max"):
+        with pytest.raises(ValueError, match=r"min.*max"):
             AutoThresholdOptimizer(min_contamination=0.5, max_contamination=0.3)
 
     def test_default_outside_range_raises_error(self):

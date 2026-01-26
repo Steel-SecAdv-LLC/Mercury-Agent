@@ -42,7 +42,7 @@ class TestAllDetectorsAutoCalibration:
         # Without calibration
         detector_fixed = StatisticalAnomalyDetector({"threshold": 0.5})
         detector_fixed.fit(X)
-        result_fixed = detector_fixed.detect(X)
+        detector_fixed.detect(X)
 
         # With calibration
         detector_cal = StatisticalAnomalyDetector({"threshold": 0.5})
@@ -160,7 +160,7 @@ class TestF1ZeroProblemAllDetectors:
         # Without calibration: F1 = 0
         detector_fixed = StatisticalAnomalyDetector({"threshold": 0.5})
         detector_fixed.fit(X)
-        result_fixed = detector_fixed.detect(X)
+        detector_fixed.detect(X)
 
         # With calibration: should have predictions
         detector_cal = StatisticalAnomalyDetector({"threshold": 0.5})

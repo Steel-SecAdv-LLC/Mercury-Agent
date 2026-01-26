@@ -31,17 +31,20 @@ spectral analysis in Fourier space.
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
-from numpy.typing import NDArray
 from scipy.fft import fft
 from sklearn.decomposition import PCA
 from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 
 @dataclass(frozen=True)

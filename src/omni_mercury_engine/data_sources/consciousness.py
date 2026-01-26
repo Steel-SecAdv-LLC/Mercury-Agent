@@ -350,7 +350,7 @@ class GCPDataSource(DataSourceBase):
             return results
 
         # Get sample count from first EGG
-        first_egg = list(egg_data.values())[0]
+        first_egg = next(iter(egg_data.values()))
         results["n_samples"] = len(first_egg)
 
         # Network variance analysis

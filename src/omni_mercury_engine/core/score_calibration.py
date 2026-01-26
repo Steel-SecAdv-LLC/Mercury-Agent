@@ -22,13 +22,17 @@ from __future__ import annotations
 
 import logging
 import warnings
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from numpy.typing import NDArray
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from numpy.typing import NDArray
 
 
 logger = logging.getLogger(__name__)
@@ -792,7 +796,7 @@ class AutoThresholdOptimizer:
             return self._percentile_threshold(scores, contamination, fixed_threshold)
 
         # Create normalized curve
-        x = np.arange(n) / (n - 1)
+        np.arange(n) / (n - 1)
         y = (sorted_scores - sorted_scores.min()) / (
             sorted_scores.max() - sorted_scores.min() + 1e-10
         )
