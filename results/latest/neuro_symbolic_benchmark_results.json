@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-01-14T05:34:04.396252+00:00",
+  "timestamp": "2026-01-26T02:59:04.902200+00:00",
   "epochs_completed": 200,
   "scenarios_per_epoch": 8,
   "total_executions": 1600,
@@ -28,7 +28,7 @@
       "memory_entries": 24,
       "patterns_detected": 0,
       "rules_fired": 0,
-      "execution_time_ms": 11.235437999857822
+      "execution_time_ms": 12.573314999826835
     },
     {
       "epoch": 2,
@@ -42,7 +42,7 @@
       "memory_entries": 48,
       "patterns_detected": 0,
       "rules_fired": 0,
-      "execution_time_ms": 14.9852770000507
+      "execution_time_ms": 15.40039099995738
     },
     {
       "epoch": 3,
@@ -56,7 +56,7 @@
       "memory_entries": 72,
       "patterns_detected": 0,
       "rules_fired": 0,
-      "execution_time_ms": 19.188485000086075
+      "execution_time_ms": 19.513006999886784
     },
     {
       "epoch": 4,
@@ -70,7 +70,7 @@
       "memory_entries": 96,
       "patterns_detected": 0,
       "rules_fired": 0,
-      "execution_time_ms": 21.068825999918772
+      "execution_time_ms": 21.296287000041048
     },
     {
       "epoch": 5,
@@ -84,7 +84,7 @@
       "memory_entries": 120,
       "patterns_detected": 35,
       "rules_fired": 7,
-      "execution_time_ms": 26.946325000153593
+      "execution_time_ms": 28.152981999937765
     },
     {
       "epoch": 6,
@@ -98,7 +98,7 @@
       "memory_entries": 144,
       "patterns_detected": 30,
       "rules_fired": 5,
-      "execution_time_ms": 26.363657000274543
+      "execution_time_ms": 29.620618000080867
     },
     {
       "epoch": 7,
@@ -112,7 +112,7 @@
       "memory_entries": 168,
       "patterns_detected": 49,
       "rules_fired": 7,
-      "execution_time_ms": 32.70023300001412
+      "execution_time_ms": 32.796720000078494
     },
     {
       "epoch": 8,
@@ -126,7 +126,7 @@
       "memory_entries": 192,
       "patterns_detected": 32,
       "rules_fired": 4,
-      "execution_time_ms": 36.954680000235385
+      "execution_time_ms": 33.06126300003598
     },
     {
       "epoch": 9,
@@ -140,7 +140,7 @@
       "memory_entries": 216,
       "patterns_detected": 45,
       "rules_fired": 5,
-      "execution_time_ms": 34.95765699972253
+      "execution_time_ms": 39.61395199985418
     },
     {
       "epoch": 10,
@@ -154,7 +154,7 @@
       "memory_entries": 240,
       "patterns_detected": 70,
       "rules_fired": 7,
-      "execution_time_ms": 38.53169399963008
+      "execution_time_ms": 43.83508699993399
     },
     {
       "epoch": 11,
@@ -168,7 +168,7 @@
       "memory_entries": 264,
       "patterns_detected": 77,
       "rules_fired": 7,
-      "execution_time_ms": 44.25219700033267
+      "execution_time_ms": 47.98050099998363
     },
     {
       "epoch": 12,
@@ -182,7 +182,7 @@
       "memory_entries": 288,
       "patterns_detected": 12,
       "rules_fired": 1,
-      "execution_time_ms": 46.63731899972845
+      "execution_time_ms": 45.12976199998775
     },
     {
       "epoch": 13,
@@ -196,7 +196,7 @@
       "memory_entries": 308,
       "patterns_detected": 65,
       "rules_fired": 5,
-      "execution_time_ms": 47.51800200028811
+      "execution_time_ms": 52.543630000172925
     },
     {
       "epoch": 14,
@@ -210,7 +210,7 @@
       "memory_entries": 324,
       "patterns_detected": 98,
       "rules_fired": 7,
-      "execution_time_ms": 51.56234600008247
+      "execution_time_ms": 54.30521900007079
     },
     {
       "epoch": 15,
@@ -224,7 +224,7 @@
       "memory_entries": 340,
       "patterns_detected": 90,
       "rules_fired": 6,
-      "execution_time_ms": 55.735000999902695
+      "execution_time_ms": 63.68904900000416
     },
     {
       "epoch": 16,
@@ -238,7 +238,7 @@
       "memory_entries": 356,
       "patterns_detected": 96,
       "rules_fired": 6,
-      "execution_time_ms": 58.35816699982388
+      "execution_time_ms": 69.8124689999986
     },
     {
       "epoch": 17,
@@ -252,7 +252,7 @@
       "memory_entries": 372,
       "patterns_detected": 68,
       "rules_fired": 4,
-      "execution_time_ms": 60.49515099994096
+      "execution_time_ms": 67.34395300009055
     },
     {
       "epoch": 18,
@@ -266,7 +266,7 @@
       "memory_entries": 388,
       "patterns_detected": 108,
       "rules_fired": 6,
-      "execution_time_ms": 62.86208199981047
+      "execution_time_ms": 66.47942500012505
     },
     {
       "epoch": 19,
@@ -280,7 +280,7 @@
       "memory_entries": 404,
       "patterns_detected": 133,
       "rules_fired": 7,
-      "execution_time_ms": 69.42122800001016
+      "execution_time_ms": 71.90930100000514
     },
     {
       "epoch": 20,
@@ -294,7 +294,7 @@
       "memory_entries": 420,
       "patterns_detected": 140,
       "rules_fired": 7,
-      "execution_time_ms": 73.10455700007878
+      "execution_time_ms": 73.46599799984688
     },
     {
       "epoch": 21,
@@ -308,7 +308,7 @@
       "memory_entries": 436,
       "patterns_detected": 147,
       "rules_fired": 7,
-      "execution_time_ms": 84.25349199978882
+      "execution_time_ms": 79.1340810001202
     },
     {
       "epoch": 22,
@@ -322,7 +322,7 @@
       "memory_entries": 452,
       "patterns_detected": 154,
       "rules_fired": 7,
-      "execution_time_ms": 78.69398999991972
+      "execution_time_ms": 87.81823999993321
     },
     {
       "epoch": 23,
@@ -336,7 +336,7 @@
       "memory_entries": 468,
       "patterns_detected": 161,
       "rules_fired": 7,
-      "execution_time_ms": 80.98005000010744
+      "execution_time_ms": 83.29905300001883
     },
     {
       "epoch": 24,
@@ -350,7 +350,7 @@
       "memory_entries": 484,
       "patterns_detected": 168,
       "rules_fired": 7,
-      "execution_time_ms": 84.26532999965275
+      "execution_time_ms": 90.28093100005208
     },
     {
       "epoch": 25,
@@ -364,7 +364,7 @@
       "memory_entries": 500,
       "patterns_detected": 125,
       "rules_fired": 5,
-      "execution_time_ms": 85.03100299958533
+      "execution_time_ms": 86.10590400007823
     },
     {
       "epoch": 26,
@@ -378,7 +378,7 @@
       "memory_entries": 516,
       "patterns_detected": 208,
       "rules_fired": 8,
-      "execution_time_ms": 88.79628200020306
+      "execution_time_ms": 100.97651699993548
     },
     {
       "epoch": 27,
@@ -392,7 +392,7 @@
       "memory_entries": 532,
       "patterns_detected": 189,
       "rules_fired": 7,
-      "execution_time_ms": 90.61719299961624
+      "execution_time_ms": 105.92855699997017
     },
     {
       "epoch": 28,
@@ -406,7 +406,7 @@
       "memory_entries": 548,
       "patterns_detected": 140,
       "rules_fired": 5,
-      "execution_time_ms": 103.90193800003544
+      "execution_time_ms": 94.51400100010687
     },
     {
       "epoch": 29,
@@ -420,7 +420,7 @@
       "memory_entries": 564,
       "patterns_detected": 145,
       "rules_fired": 5,
-      "execution_time_ms": 102.01043200004278
+      "execution_time_ms": 103.25922800006992
     },
     {
       "epoch": 30,
@@ -434,7 +434,7 @@
       "memory_entries": 580,
       "patterns_detected": 180,
       "rules_fired": 6,
-      "execution_time_ms": 114.81260399978055
+      "execution_time_ms": 101.575050999827
     },
     {
       "epoch": 31,
@@ -448,7 +448,7 @@
       "memory_entries": 596,
       "patterns_detected": 124,
       "rules_fired": 4,
-      "execution_time_ms": 106.01538100036123
+      "execution_time_ms": 113.58546099995692
     },
     {
       "epoch": 32,
@@ -462,7 +462,7 @@
       "memory_entries": 612,
       "patterns_detected": 192,
       "rules_fired": 6,
-      "execution_time_ms": 104.17602899997291
+      "execution_time_ms": 116.88211000000592
     },
     {
       "epoch": 33,
@@ -476,7 +476,7 @@
       "memory_entries": 628,
       "patterns_detected": 132,
       "rules_fired": 4,
-      "execution_time_ms": 106.3746549998541
+      "execution_time_ms": 120.64128499991966
     },
     {
       "epoch": 34,
@@ -490,7 +490,7 @@
       "memory_entries": 644,
       "patterns_detected": 204,
       "rules_fired": 6,
-      "execution_time_ms": 120.40770100020382
+      "execution_time_ms": 126.2575390001075
     },
     {
       "epoch": 35,
@@ -504,7 +504,7 @@
       "memory_entries": 660,
       "patterns_detected": 245,
       "rules_fired": 7,
-      "execution_time_ms": 121.59508000013375
+      "execution_time_ms": 131.8482369999856
     },
     {
       "epoch": 36,
@@ -518,7 +518,7 @@
       "memory_entries": 676,
       "patterns_detected": 252,
       "rules_fired": 7,
-      "execution_time_ms": 143.256602999827
+      "execution_time_ms": 129.8542179999913
     },
     {
       "epoch": 37,
@@ -532,7 +532,7 @@
       "memory_entries": 692,
       "patterns_detected": 296,
       "rules_fired": 8,
-      "execution_time_ms": 136.18211599987262
+      "execution_time_ms": 135.00794400010818
     },
     {
       "epoch": 38,
@@ -546,7 +546,7 @@
       "memory_entries": 708,
       "patterns_detected": 304,
       "rules_fired": 8,
-      "execution_time_ms": 130.80573100023685
+      "execution_time_ms": 145.8954919999087
     },
     {
       "epoch": 39,
@@ -560,7 +560,7 @@
       "memory_entries": 724,
       "patterns_detected": 234,
       "rules_fired": 6,
-      "execution_time_ms": 136.458513999969
+      "execution_time_ms": 135.07686200000535
     },
     {
       "epoch": 40,
@@ -574,7 +574,7 @@
       "memory_entries": 740,
       "patterns_detected": 200,
       "rules_fired": 5,
-      "execution_time_ms": 131.46550200008278
+      "execution_time_ms": 138.77044299988484
     },
     {
       "epoch": 41,
@@ -588,7 +588,7 @@
       "memory_entries": 756,
       "patterns_detected": 246,
       "rules_fired": 6,
-      "execution_time_ms": 160.68960299980972
+      "execution_time_ms": 142.07799900009377
     },
     {
       "epoch": 42,
@@ -602,7 +602,7 @@
       "memory_entries": 772,
       "patterns_detected": 336,
       "rules_fired": 8,
-      "execution_time_ms": 155.80507699996815
+      "execution_time_ms": 154.07696400006898
     },
     {
       "epoch": 43,
@@ -616,7 +616,7 @@
       "memory_entries": 788,
       "patterns_detected": 344,
       "rules_fired": 8,
-      "execution_time_ms": 157.73623300037798
+      "execution_time_ms": 162.73871699991105
     },
     {
       "epoch": 44,
@@ -630,7 +630,7 @@
       "memory_entries": 804,
       "patterns_detected": 264,
       "rules_fired": 6,
-      "execution_time_ms": 165.60968800013143
+      "execution_time_ms": 162.8775679998853
     },
     {
       "epoch": 45,
@@ -644,7 +644,7 @@
       "memory_entries": 820,
       "patterns_detected": 90,
       "rules_fired": 2,
-      "execution_time_ms": 167.57652600017536
+      "execution_time_ms": 151.3870560002033
     },
     {
       "epoch": 46,
@@ -658,7 +658,7 @@
       "memory_entries": 836,
       "patterns_detected": 368,
       "rules_fired": 8,
-      "execution_time_ms": 171.70537800029706
+      "execution_time_ms": 162.0360439999331
     },
     {
       "epoch": 47,
@@ -672,7 +672,7 @@
       "memory_entries": 852,
       "patterns_detected": 376,
       "rules_fired": 8,
-      "execution_time_ms": 206.52939699994022
+      "execution_time_ms": 173.12877899985324
     },
     {
       "epoch": 48,
@@ -686,7 +686,7 @@
       "memory_entries": 868,
       "patterns_detected": 336,
       "rules_fired": 7,
-      "execution_time_ms": 171.24008099972343
+      "execution_time_ms": 182.71393100008027
     },
     {
       "epoch": 49,
@@ -700,7 +700,7 @@
       "memory_entries": 884,
       "patterns_detected": 294,
       "rules_fired": 6,
-      "execution_time_ms": 184.04792800038194
+      "execution_time_ms": 185.15743299985843
     },
     {
       "epoch": 50,
@@ -714,7 +714,7 @@
       "memory_entries": 900,
       "patterns_detected": 400,
       "rules_fired": 8,
-      "execution_time_ms": 186.93742100003874
+      "execution_time_ms": 178.20925799992438
     },
     {
       "epoch": 51,
@@ -728,7 +728,7 @@
       "memory_entries": 916,
       "patterns_detected": 408,
       "rules_fired": 8,
-      "execution_time_ms": 182.33057000043118
+      "execution_time_ms": 193.70669299996734
     },
     {
       "epoch": 52,
@@ -742,7 +742,7 @@
       "memory_entries": 932,
       "patterns_detected": 260,
       "rules_fired": 5,
-      "execution_time_ms": 190.86231099981887
+      "execution_time_ms": 191.4178859999538
     },
     {
       "epoch": 53,
@@ -756,7 +756,7 @@
       "memory_entries": 948,
       "patterns_detected": 318,
       "rules_fired": 6,
-      "execution_time_ms": 195.68227699983254
+      "execution_time_ms": 188.4930420001183
     },
     {
       "epoch": 54,
@@ -770,7 +770,7 @@
       "memory_entries": 964,
       "patterns_detected": 270,
       "rules_fired": 5,
-      "execution_time_ms": 246.244938000018
+      "execution_time_ms": 196.72931000013705
     },
     {
       "epoch": 55,
@@ -784,7 +784,7 @@
       "memory_entries": 980,
       "patterns_detected": 440,
       "rules_fired": 8,
-      "execution_time_ms": 201.37566699986564
+      "execution_time_ms": 204.64390200004345
     },
     {
       "epoch": 56,
@@ -798,7 +798,7 @@
       "memory_entries": 996,
       "patterns_detected": 392,
       "rules_fired": 7,
-      "execution_time_ms": 194.13539100014532
+      "execution_time_ms": 201.99068900001294
     },
     {
       "epoch": 57,
@@ -812,7 +812,7 @@
       "memory_entries": 1012,
       "patterns_detected": 399,
       "rules_fired": 7,
-      "execution_time_ms": 284.8187970002982
+      "execution_time_ms": 201.8668069999876
     },
     {
       "epoch": 58,
@@ -826,7 +826,7 @@
       "memory_entries": 1028,
       "patterns_detected": 464,
       "rules_fired": 8,
-      "execution_time_ms": 205.32926100031546
+      "execution_time_ms": 202.78647499981162
     },
     {
       "epoch": 59,
@@ -840,7 +840,7 @@
       "memory_entries": 1044,
       "patterns_detected": 413,
       "rules_fired": 7,
-      "execution_time_ms": 204.19528400043419
+      "execution_time_ms": 211.4398789999541
     },
     {
       "epoch": 60,
@@ -854,7 +854,7 @@
       "memory_entries": 1060,
       "patterns_detected": 360,
       "rules_fired": 6,
-      "execution_time_ms": 213.84244899991245
+      "execution_time_ms": 221.3659930000631
     },
     {
       "epoch": 61,
@@ -868,7 +868,7 @@
       "memory_entries": 1076,
       "patterns_detected": 366,
       "rules_fired": 6,
-      "execution_time_ms": 230.97493100021893
+      "execution_time_ms": 227.23629200004325
     },
     {
       "epoch": 62,
@@ -882,7 +882,7 @@
       "memory_entries": 1092,
       "patterns_detected": 434,
       "rules_fired": 7,
-      "execution_time_ms": 228.47152899976209
+      "execution_time_ms": 228.76456499989217
     },
     {
       "epoch": 63,
@@ -896,7 +896,7 @@
       "memory_entries": 1108,
       "patterns_detected": 378,
       "rules_fired": 6,
-      "execution_time_ms": 237.2173720000319
+      "execution_time_ms": 228.68489899997257
     },
     {
       "epoch": 64,
@@ -910,7 +910,7 @@
       "memory_entries": 1124,
       "patterns_detected": 448,
       "rules_fired": 7,
-      "execution_time_ms": 219.3375219999325
+      "execution_time_ms": 229.76865599980556
     },
     {
       "epoch": 65,
@@ -924,7 +924,7 @@
       "memory_entries": 1140,
       "patterns_detected": 260,
       "rules_fired": 4,
-      "execution_time_ms": 213.29744300010134
+      "execution_time_ms": 232.3884300001282
     },
     {
       "epoch": 66,
@@ -938,7 +938,7 @@
       "memory_entries": 1156,
       "patterns_detected": 330,
       "rules_fired": 5,
-      "execution_time_ms": 221.76831200022207
+      "execution_time_ms": 234.01583600002596
     },
     {
       "epoch": 67,
@@ -952,7 +952,7 @@
       "memory_entries": 1172,
       "patterns_detected": 335,
       "rules_fired": 5,
-      "execution_time_ms": 229.36339599982603
+      "execution_time_ms": 242.59484699996392
     },
     {
       "epoch": 68,
@@ -966,7 +966,7 @@
       "memory_entries": 1188,
       "patterns_detected": 476,
       "rules_fired": 7,
-      "execution_time_ms": 254.688336000072
+      "execution_time_ms": 251.47982700013927
     },
     {
       "epoch": 69,
@@ -980,7 +980,7 @@
       "memory_entries": 1204,
       "patterns_detected": 207,
       "rules_fired": 3,
-      "execution_time_ms": 246.59963799967954
+      "execution_time_ms": 257.5528849999955
     },
     {
       "epoch": 70,
@@ -994,7 +994,7 @@
       "memory_entries": 1220,
       "patterns_detected": 490,
       "rules_fired": 7,
-      "execution_time_ms": 264.5801180001399
+      "execution_time_ms": 253.0109919998722
     },
     {
       "epoch": 71,
@@ -1008,7 +1008,7 @@
       "memory_entries": 1236,
       "patterns_detected": 355,
       "rules_fired": 5,
-      "execution_time_ms": 241.86367099991912
+      "execution_time_ms": 256.98242600014964
     },
     {
       "epoch": 72,
@@ -1022,7 +1022,7 @@
       "memory_entries": 1252,
       "patterns_detected": 504,
       "rules_fired": 7,
-      "execution_time_ms": 245.670512000288
+      "execution_time_ms": 269.5607739999559
     },
     {
       "epoch": 73,
@@ -1036,7 +1036,7 @@
       "memory_entries": 1268,
       "patterns_detected": 292,
       "rules_fired": 4,
-      "execution_time_ms": 250.082730000031
+      "execution_time_ms": 266.31818000009844
     },
     {
       "epoch": 74,
@@ -1050,7 +1050,7 @@
       "memory_entries": 1284,
       "patterns_detected": 370,
       "rules_fired": 5,
-      "execution_time_ms": 256.98774400007096
+      "execution_time_ms": 285.55701400000544
     },
     {
       "epoch": 75,
@@ -1064,7 +1064,7 @@
       "memory_entries": 1300,
       "patterns_detected": 525,
       "rules_fired": 7,
-      "execution_time_ms": 342.56424600016544
+      "execution_time_ms": 268.8970579999932
     },
     {
       "epoch": 76,
@@ -1078,7 +1078,7 @@
       "memory_entries": 1316,
       "patterns_detected": 608,
       "rules_fired": 8,
-      "execution_time_ms": 281.5691880000486
+      "execution_time_ms": 282.86091900008614
     },
     {
       "epoch": 77,
@@ -1092,7 +1092,7 @@
       "memory_entries": 1332,
       "patterns_detected": 462,
       "rules_fired": 6,
-      "execution_time_ms": 267.0725850002782
+      "execution_time_ms": 273.11917900010485
     },
     {
       "epoch": 78,
@@ -1106,7 +1106,7 @@
       "memory_entries": 1348,
       "patterns_detected": 390,
       "rules_fired": 5,
-      "execution_time_ms": 269.3639499998426
+      "execution_time_ms": 276.0688849998587
     },
     {
       "epoch": 79,
@@ -1120,7 +1120,7 @@
       "memory_entries": 1364,
       "patterns_detected": 553,
       "rules_fired": 7,
-      "execution_time_ms": 270.0401619999866
+      "execution_time_ms": 292.0418100000006
     },
     {
       "epoch": 80,
@@ -1134,7 +1134,7 @@
       "memory_entries": 1380,
       "patterns_detected": 560,
       "rules_fired": 7,
-      "execution_time_ms": 279.65917499977877
+      "execution_time_ms": 291.5444309999202
     },
     {
       "epoch": 81,
@@ -1148,7 +1148,7 @@
       "memory_entries": 1396,
       "patterns_detected": 162,
       "rules_fired": 2,
-      "execution_time_ms": 271.52933799970924
+      "execution_time_ms": 284.5973200001026
     },
     {
       "epoch": 82,
@@ -1162,7 +1162,7 @@
       "memory_entries": 1412,
       "patterns_detected": 410,
       "rules_fired": 5,
-      "execution_time_ms": 278.42041699977926
+      "execution_time_ms": 286.56293800008825
     },
     {
       "epoch": 83,
@@ -1176,7 +1176,7 @@
       "memory_entries": 1428,
       "patterns_detected": 581,
       "rules_fired": 7,
-      "execution_time_ms": 286.5252629999304
+      "execution_time_ms": 288.92880299986246
     },
     {
       "epoch": 84,
@@ -1190,7 +1190,7 @@
       "memory_entries": 1444,
       "patterns_detected": 504,
       "rules_fired": 6,
-      "execution_time_ms": 298.3176170000661
+      "execution_time_ms": 299.94164000004275
     },
     {
       "epoch": 85,
@@ -1204,7 +1204,7 @@
       "memory_entries": 1460,
       "patterns_detected": 425,
       "rules_fired": 5,
-      "execution_time_ms": 294.058891000077
+      "execution_time_ms": 293.30834200004574
     },
     {
       "epoch": 86,
@@ -1218,7 +1218,7 @@
       "memory_entries": 1476,
       "patterns_detected": 258,
       "rules_fired": 3,
-      "execution_time_ms": 316.06768500023463
+      "execution_time_ms": 310.22846100017887
     },
     {
       "epoch": 87,
@@ -1232,7 +1232,7 @@
       "memory_entries": 1492,
       "patterns_detected": 348,
       "rules_fired": 4,
-      "execution_time_ms": 290.67375599970546
+      "execution_time_ms": 306.30303900011313
     },
     {
       "epoch": 88,
@@ -1246,7 +1246,7 @@
       "memory_entries": 1508,
       "patterns_detected": 528,
       "rules_fired": 6,
-      "execution_time_ms": 311.50088999993386
+      "execution_time_ms": 331.48124900003495
     },
     {
       "epoch": 89,
@@ -1260,7 +1260,7 @@
       "memory_entries": 1524,
       "patterns_detected": 267,
       "rules_fired": 3,
-      "execution_time_ms": 319.18422099988675
+      "execution_time_ms": 317.8939049998917
     },
     {
       "epoch": 90,
@@ -1274,7 +1274,7 @@
       "memory_entries": 1540,
       "patterns_detected": 630,
       "rules_fired": 7,
-      "execution_time_ms": 314.6016900000177
+      "execution_time_ms": 313.28239599997687
     },
     {
       "epoch": 91,
@@ -1288,7 +1288,7 @@
       "memory_entries": 1556,
       "patterns_detected": 637,
       "rules_fired": 7,
-      "execution_time_ms": 332.67413199973817
+      "execution_time_ms": 346.2942070000281
     },
     {
       "epoch": 92,
@@ -1302,7 +1302,7 @@
       "memory_entries": 1572,
       "patterns_detected": 736,
       "rules_fired": 8,
-      "execution_time_ms": 308.2977059998484
+      "execution_time_ms": 351.29917299991575
     },
     {
       "epoch": 93,
@@ -1316,7 +1316,7 @@
       "memory_entries": 1588,
       "patterns_detected": 558,
       "rules_fired": 6,
-      "execution_time_ms": 323.0574929998511
+      "execution_time_ms": 320.82306999996035
     },
     {
       "epoch": 94,
@@ -1330,7 +1330,7 @@
       "memory_entries": 1604,
       "patterns_detected": 658,
       "rules_fired": 7,
-      "execution_time_ms": 325.5552170003284
+      "execution_time_ms": 350.52023200000804
     },
     {
       "epoch": 95,
@@ -1344,7 +1344,7 @@
       "memory_entries": 1620,
       "patterns_detected": 570,
       "rules_fired": 6,
-      "execution_time_ms": 322.14964000013424
+      "execution_time_ms": 326.72125999988566
     },
     {
       "epoch": 96,
@@ -1358,7 +1358,7 @@
       "memory_entries": 1636,
       "patterns_detected": 576,
       "rules_fired": 6,
-      "execution_time_ms": 336.92908900002294
+      "execution_time_ms": 414.0484560000459
     },
     {
       "epoch": 97,
@@ -1372,7 +1372,7 @@
       "memory_entries": 1652,
       "patterns_detected": 679,
       "rules_fired": 7,
-      "execution_time_ms": 337.17249799974525
+      "execution_time_ms": 352.8995209999266
     },
     {
       "epoch": 98,
@@ -1386,7 +1386,7 @@
       "memory_entries": 1668,
       "patterns_detected": 686,
       "rules_fired": 7,
-      "execution_time_ms": 355.5837439998868
+      "execution_time_ms": 360.99397499992847
     },
     {
       "epoch": 99,
@@ -1400,7 +1400,7 @@
       "memory_entries": 1684,
       "patterns_detected": 495,
       "rules_fired": 5,
-      "execution_time_ms": 345.83554700020613
+      "execution_time_ms": 351.78740100013783
     },
     {
       "epoch": 100,
@@ -1414,7 +1414,7 @@
       "memory_entries": 1700,
       "patterns_detected": 800,
       "rules_fired": 8,
-      "execution_time_ms": 344.07833300019774
+      "execution_time_ms": 362.36375300018153
     },
     {
       "epoch": 101,
@@ -1428,7 +1428,7 @@
       "memory_entries": 1716,
       "patterns_detected": 101,
       "rules_fired": 1,
-      "execution_time_ms": 342.23121400009404
+      "execution_time_ms": 371.79576900007305
     },
     {
       "epoch": 102,
@@ -1442,7 +1442,7 @@
       "memory_entries": 1732,
       "patterns_detected": 510,
       "rules_fired": 5,
-      "execution_time_ms": 353.76716200016745
+      "execution_time_ms": 358.26459600002636
     },
     {
       "epoch": 103,
@@ -1456,7 +1456,7 @@
       "memory_entries": 1748,
       "patterns_detected": 721,
       "rules_fired": 7,
-      "execution_time_ms": 346.2008290002814
+      "execution_time_ms": 377.89850300009675
     },
     {
       "epoch": 104,
@@ -1470,7 +1470,7 @@
       "memory_entries": 1764,
       "patterns_detected": 312,
       "rules_fired": 3,
-      "execution_time_ms": 354.73476600009235
+      "execution_time_ms": 367.18609100012145
     },
     {
       "epoch": 105,
@@ -1484,7 +1484,7 @@
       "memory_entries": 1780,
       "patterns_detected": 420,
       "rules_fired": 4,
-      "execution_time_ms": 344.3342210002811
+      "execution_time_ms": 369.64802200009217
     },
     {
       "epoch": 106,
@@ -1498,7 +1498,7 @@
       "memory_entries": 1796,
       "patterns_detected": 530,
       "rules_fired": 5,
-      "execution_time_ms": 350.39554400009365
+      "execution_time_ms": 377.43320499998845
     },
     {
       "epoch": 107,
@@ -1512,7 +1512,7 @@
       "memory_entries": 1812,
       "patterns_detected": 321,
       "rules_fired": 3,
-      "execution_time_ms": 371.99039600000106
+      "execution_time_ms": 360.2962369998295
     },
     {
       "epoch": 108,
@@ -1526,7 +1526,7 @@
       "memory_entries": 1828,
       "patterns_detected": 108,
       "rules_fired": 1,
-      "execution_time_ms": 351.84986900003423
+      "execution_time_ms": 358.0906310000955
     },
     {
       "epoch": 109,
@@ -1540,7 +1540,7 @@
       "memory_entries": 1844,
       "patterns_detected": 872,
       "rules_fired": 8,
-      "execution_time_ms": 387.2768259998338
+      "execution_time_ms": 399.15580100000625
     },
     {
       "epoch": 110,
@@ -1554,7 +1554,7 @@
       "memory_entries": 1860,
       "patterns_detected": 770,
       "rules_fired": 7,
-      "execution_time_ms": 391.8458319999445
+      "execution_time_ms": 397.27339999990363
     },
     {
       "epoch": 111,
@@ -1568,7 +1568,7 @@
       "memory_entries": 1876,
       "patterns_detected": 666,
       "rules_fired": 6,
-      "execution_time_ms": 428.85457200009114
+      "execution_time_ms": 396.4617690000978
     },
     {
       "epoch": 112,
@@ -1582,7 +1582,7 @@
       "memory_entries": 1892,
       "patterns_detected": 672,
       "rules_fired": 6,
-      "execution_time_ms": 389.2577550000169
+      "execution_time_ms": 394.4718870000088
     },
     {
       "epoch": 113,
@@ -1596,7 +1596,7 @@
       "memory_entries": 1908,
       "patterns_detected": 904,
       "rules_fired": 8,
-      "execution_time_ms": 396.3870779998615
+      "execution_time_ms": 404.8962910001137
     },
     {
       "epoch": 114,
@@ -1610,7 +1610,7 @@
       "memory_entries": 1924,
       "patterns_detected": 798,
       "rules_fired": 7,
-      "execution_time_ms": 419.2801149997649
+      "execution_time_ms": 429.2549719998533
     },
     {
       "epoch": 115,
@@ -1624,7 +1624,7 @@
       "memory_entries": 1940,
       "patterns_detected": 690,
       "rules_fired": 6,
-      "execution_time_ms": 394.2396820002614
+      "execution_time_ms": 404.74900200001684
     },
     {
       "epoch": 116,
@@ -1638,7 +1638,7 @@
       "memory_entries": 1956,
       "patterns_detected": 696,
       "rules_fired": 6,
-      "execution_time_ms": 406.9085239998458
+      "execution_time_ms": 449.349624999968
     },
     {
       "epoch": 117,
@@ -1652,7 +1652,7 @@
       "memory_entries": 1972,
       "patterns_detected": 585,
       "rules_fired": 5,
-      "execution_time_ms": 401.7254719997254
+      "execution_time_ms": 412.75322499996037
     },
     {
       "epoch": 118,
@@ -1666,7 +1666,7 @@
       "memory_entries": 1988,
       "patterns_detected": 472,
       "rules_fired": 4,
-      "execution_time_ms": 412.152234000132
+      "execution_time_ms": 436.0358459998679
     },
     {
       "epoch": 119,
@@ -1680,7 +1680,7 @@
       "memory_entries": 2004,
       "patterns_detected": 833,
       "rules_fired": 7,
-      "execution_time_ms": 411.68504600000233
+      "execution_time_ms": 436.3742729999558
     },
     {
       "epoch": 120,
@@ -1694,7 +1694,7 @@
       "memory_entries": 2020,
       "patterns_detected": 840,
       "rules_fired": 7,
-      "execution_time_ms": 411.80378899980496
+      "execution_time_ms": 440.7271860000037
     },
     {
       "epoch": 121,
@@ -1708,7 +1708,7 @@
       "memory_entries": 2036,
       "patterns_detected": 847,
       "rules_fired": 7,
-      "execution_time_ms": 422.0496620000631
+      "execution_time_ms": 448.15231499978836
     },
     {
       "epoch": 122,
@@ -1722,7 +1722,7 @@
       "memory_entries": 2052,
       "patterns_detected": 732,
       "rules_fired": 6,
-      "execution_time_ms": 424.94945599992207
+      "execution_time_ms": 438.8691750000362
     },
     {
       "epoch": 123,
@@ -1736,7 +1736,7 @@
       "memory_entries": 2068,
       "patterns_detected": 738,
       "rules_fired": 6,
-      "execution_time_ms": 422.2456930001499
+      "execution_time_ms": 423.34250399994744
     },
     {
       "epoch": 124,
@@ -1750,7 +1750,7 @@
       "memory_entries": 2084,
       "patterns_detected": 372,
       "rules_fired": 3,
-      "execution_time_ms": 412.7831119999428
+      "execution_time_ms": 427.5631670000166
     },
     {
       "epoch": 125,
@@ -1764,7 +1764,7 @@
       "memory_entries": 2100,
       "patterns_detected": 750,
       "rules_fired": 6,
-      "execution_time_ms": 437.27155599981415
+      "execution_time_ms": 461.71687899982317
     },
     {
       "epoch": 126,
@@ -1778,7 +1778,7 @@
       "memory_entries": 2116,
       "patterns_detected": 1008,
       "rules_fired": 8,
-      "execution_time_ms": 476.78342499966675
+      "execution_time_ms": 440.8339489998525
     },
     {
       "epoch": 127,
@@ -1792,7 +1792,7 @@
       "memory_entries": 2132,
       "patterns_detected": 1016,
       "rules_fired": 8,
-      "execution_time_ms": 450.6731760002367
+      "execution_time_ms": 471.7693439999948
     },
     {
       "epoch": 128,
@@ -1806,7 +1806,7 @@
       "memory_entries": 2148,
       "patterns_detected": 768,
       "rules_fired": 6,
-      "execution_time_ms": 424.04011899998295
+      "execution_time_ms": 471.5401800001473
     },
     {
       "epoch": 129,
@@ -1820,7 +1820,7 @@
       "memory_entries": 2164,
       "patterns_detected": 645,
       "rules_fired": 5,
-      "execution_time_ms": 423.2987390000744
+      "execution_time_ms": 469.56248299989056
     },
     {
       "epoch": 130,
@@ -1834,7 +1834,7 @@
       "memory_entries": 2180,
       "patterns_detected": 650,
       "rules_fired": 5,
-      "execution_time_ms": 424.4498630000635
+      "execution_time_ms": 474.3983629998638
     },
     {
       "epoch": 131,
@@ -1848,7 +1848,7 @@
       "memory_entries": 2196,
       "patterns_detected": 131,
       "rules_fired": 1,
-      "execution_time_ms": 421.882622999874
+      "execution_time_ms": 480.22666800011393
     },
     {
       "epoch": 132,
@@ -1862,7 +1862,7 @@
       "memory_entries": 2212,
       "patterns_detected": 264,
       "rules_fired": 2,
-      "execution_time_ms": 458.8662840001234
+      "execution_time_ms": 516.9445260000884
     },
     {
       "epoch": 133,
@@ -1876,7 +1876,7 @@
       "memory_entries": 2228,
       "patterns_detected": 399,
       "rules_fired": 3,
-      "execution_time_ms": 495.8722329997727
+      "execution_time_ms": 479.80762999986837
     },
     {
       "epoch": 134,
@@ -1890,7 +1890,7 @@
       "memory_entries": 2244,
       "patterns_detected": 938,
       "rules_fired": 7,
-      "execution_time_ms": 489.9288050000905
+      "execution_time_ms": 484.0361359999861
     },
     {
       "epoch": 135,
@@ -1904,7 +1904,7 @@
       "memory_entries": 2260,
       "patterns_detected": 1080,
       "rules_fired": 8,
-      "execution_time_ms": 473.8849690002098
+      "execution_time_ms": 486.41296200003126
     },
     {
       "epoch": 136,
@@ -1918,7 +1918,7 @@
       "memory_entries": 2276,
       "patterns_detected": 408,
       "rules_fired": 3,
-      "execution_time_ms": 466.777116999765
+      "execution_time_ms": 495.8432470000389
     },
     {
       "epoch": 137,
@@ -1932,7 +1932,7 @@
       "memory_entries": 2292,
       "patterns_detected": 411,
       "rules_fired": 3,
-      "execution_time_ms": 464.7488059999887
+      "execution_time_ms": 467.8246380001383
     },
     {
       "epoch": 138,
@@ -1946,7 +1946,7 @@
       "memory_entries": 2308,
       "patterns_detected": 138,
       "rules_fired": 1,
-      "execution_time_ms": 452.1173429998271
+      "execution_time_ms": 495.5091390002053
     },
     {
       "epoch": 139,
@@ -1960,7 +1960,7 @@
       "memory_entries": 2324,
       "patterns_detected": 556,
       "rules_fired": 4,
-      "execution_time_ms": 462.9915750001601
+      "execution_time_ms": 500.9346730000743
     },
     {
       "epoch": 140,
@@ -1974,7 +1974,7 @@
       "memory_entries": 2340,
       "patterns_detected": 1120,
       "rules_fired": 8,
-      "execution_time_ms": 472.6400500003365
+      "execution_time_ms": 500.8431539999947
     },
     {
       "epoch": 141,
@@ -1988,7 +1988,7 @@
       "memory_entries": 2356,
       "patterns_detected": 705,
       "rules_fired": 5,
-      "execution_time_ms": 470.3287239999554
+      "execution_time_ms": 501.17182999997567
     },
     {
       "epoch": 142,
@@ -2002,7 +2002,7 @@
       "memory_entries": 2372,
       "patterns_detected": 852,
       "rules_fired": 6,
-      "execution_time_ms": 470.74751099989953
+      "execution_time_ms": 495.919522000122
     },
     {
       "epoch": 143,
@@ -2016,7 +2016,7 @@
       "memory_entries": 2388,
       "patterns_detected": 429,
       "rules_fired": 3,
-      "execution_time_ms": 494.7921509997286
+      "execution_time_ms": 476.7797199999677
     },
     {
       "epoch": 144,
@@ -2030,7 +2030,7 @@
       "memory_entries": 2404,
       "patterns_detected": 576,
       "rules_fired": 4,
-      "execution_time_ms": 483.22310200001084
+      "execution_time_ms": 484.0242089999265
     },
     {
       "epoch": 145,
@@ -2044,7 +2044,7 @@
       "memory_entries": 2420,
       "patterns_detected": 1160,
       "rules_fired": 8,
-      "execution_time_ms": 502.79378699997324
+      "execution_time_ms": 512.9956959999618
     },
     {
       "epoch": 146,
@@ -2058,7 +2058,7 @@
       "memory_entries": 2436,
       "patterns_detected": 1022,
       "rules_fired": 7,
-      "execution_time_ms": 510.34393500003716
+      "execution_time_ms": 524.333211000112
     },
     {
       "epoch": 147,
@@ -2072,7 +2072,7 @@
       "memory_entries": 2452,
       "patterns_detected": 1029,
       "rules_fired": 7,
-      "execution_time_ms": 489.5912350002618
+      "execution_time_ms": 518.3932229999755
     },
     {
       "epoch": 148,
@@ -2086,7 +2086,7 @@
       "memory_entries": 2468,
       "patterns_detected": 1184,
       "rules_fired": 8,
-      "execution_time_ms": 503.1302490001508
+      "execution_time_ms": 537.0775540000068
     },
     {
       "epoch": 149,
@@ -2100,7 +2100,7 @@
       "memory_entries": 2484,
       "patterns_detected": 1192,
       "rules_fired": 8,
-      "execution_time_ms": 521.2436839997281
+      "execution_time_ms": 546.6065989999151
     },
     {
       "epoch": 150,
@@ -2114,7 +2114,7 @@
       "memory_entries": 2500,
       "patterns_detected": 900,
       "rules_fired": 6,
-      "execution_time_ms": 546.3752760001626
+      "execution_time_ms": 668.220410999993
     },
     {
       "epoch": 151,
@@ -2128,7 +2128,7 @@
       "memory_entries": 2516,
       "patterns_detected": 1208,
       "rules_fired": 8,
-      "execution_time_ms": 568.8853060000838
+      "execution_time_ms": 543.6590479998813
     },
     {
       "epoch": 152,
@@ -2142,7 +2142,7 @@
       "memory_entries": 2532,
       "patterns_detected": 1216,
       "rules_fired": 8,
-      "execution_time_ms": 533.8151470000412
+      "execution_time_ms": 519.9039359999915
     },
     {
       "epoch": 153,
@@ -2156,7 +2156,7 @@
       "memory_entries": 2548,
       "patterns_detected": 1071,
       "rules_fired": 7,
-      "execution_time_ms": 561.1814670000967
+      "execution_time_ms": 541.9663580000815
     },
     {
       "epoch": 154,
@@ -2170,7 +2170,7 @@
       "memory_entries": 2564,
       "patterns_detected": 770,
       "rules_fired": 5,
-      "execution_time_ms": 587.529865000306
+      "execution_time_ms": 552.7193739999348
     },
     {
       "epoch": 155,
@@ -2184,7 +2184,7 @@
       "memory_entries": 2580,
       "patterns_detected": 1085,
       "rules_fired": 7,
-      "execution_time_ms": 565.697070999704
+      "execution_time_ms": 568.0239090002033
     },
     {
       "epoch": 156,
@@ -2198,7 +2198,7 @@
       "memory_entries": 2596,
       "patterns_detected": 1248,
       "rules_fired": 8,
-      "execution_time_ms": 575.2000630000111
+      "execution_time_ms": 566.0083319999103
     },
     {
       "epoch": 157,
@@ -2212,7 +2212,7 @@
       "memory_entries": 2612,
       "patterns_detected": 1099,
       "rules_fired": 7,
-      "execution_time_ms": 572.7013610003269
+      "execution_time_ms": 588.8340189999326
     },
     {
       "epoch": 158,
@@ -2226,7 +2226,7 @@
       "memory_entries": 2628,
       "patterns_detected": 1106,
       "rules_fired": 7,
-      "execution_time_ms": 560.9734079998816
+      "execution_time_ms": 582.84591000006
     },
     {
       "epoch": 159,
@@ -2240,7 +2240,7 @@
       "memory_entries": 2644,
       "patterns_detected": 1113,
       "rules_fired": 7,
-      "execution_time_ms": 542.9990239999825
+      "execution_time_ms": 571.0847969999122
     },
     {
       "epoch": 160,
@@ -2254,7 +2254,7 @@
       "memory_entries": 2660,
       "patterns_detected": 800,
       "rules_fired": 5,
-      "execution_time_ms": 536.3368949997493
+      "execution_time_ms": 669.8150110000824
     },
     {
       "epoch": 161,
@@ -2268,7 +2268,7 @@
       "memory_entries": 2676,
       "patterns_detected": 966,
       "rules_fired": 6,
-      "execution_time_ms": 587.4740919998658
+      "execution_time_ms": 592.1491419999256
     },
     {
       "epoch": 162,
@@ -2282,7 +2282,7 @@
       "memory_entries": 2692,
       "patterns_detected": 1134,
       "rules_fired": 7,
-      "execution_time_ms": 561.6332180002246
+      "execution_time_ms": 587.2076109999398
     },
     {
       "epoch": 163,
@@ -2296,7 +2296,7 @@
       "memory_entries": 2708,
       "patterns_detected": 978,
       "rules_fired": 6,
-      "execution_time_ms": 568.2651989995975
+      "execution_time_ms": 594.6139310001399
     },
     {
       "epoch": 164,
@@ -2310,7 +2310,7 @@
       "memory_entries": 2724,
       "patterns_detected": 492,
       "rules_fired": 3,
-      "execution_time_ms": 554.2653240004256
+      "execution_time_ms": 588.6950299998261
     },
     {
       "epoch": 165,
@@ -2324,7 +2324,7 @@
       "memory_entries": 2740,
       "patterns_detected": 1155,
       "rules_fired": 7,
-      "execution_time_ms": 599.0996969999287
+      "execution_time_ms": 620.3398050001852
     },
     {
       "epoch": 166,
@@ -2338,7 +2338,7 @@
       "memory_entries": 2756,
       "patterns_detected": 1328,
       "rules_fired": 8,
-      "execution_time_ms": 595.3579960000752
+      "execution_time_ms": 596.8755740000233
     },
     {
       "epoch": 167,
@@ -2352,7 +2352,7 @@
       "memory_entries": 2772,
       "patterns_detected": 1169,
       "rules_fired": 7,
-      "execution_time_ms": 608.8937900003657
+      "execution_time_ms": 590.0332080000226
     },
     {
       "epoch": 168,
@@ -2366,7 +2366,7 @@
       "memory_entries": 2788,
       "patterns_detected": 1008,
       "rules_fired": 6,
-      "execution_time_ms": 622.095979000278
+      "execution_time_ms": 609.9131529999795
     },
     {
       "epoch": 169,
@@ -2380,7 +2380,7 @@
       "memory_entries": 2804,
       "patterns_detected": 1352,
       "rules_fired": 8,
-      "execution_time_ms": 610.6463289997919
+      "execution_time_ms": 625.081524000052
     },
     {
       "epoch": 170,
@@ -2394,7 +2394,7 @@
       "memory_entries": 2820,
       "patterns_detected": 1360,
       "rules_fired": 8,
-      "execution_time_ms": 635.1754359998267
+      "execution_time_ms": 623.5741319999306
     },
     {
       "epoch": 171,
@@ -2408,7 +2408,7 @@
       "memory_entries": 2836,
       "patterns_detected": 1197,
       "rules_fired": 7,
-      "execution_time_ms": 578.9034439999341
+      "execution_time_ms": 637.7213599998868
     },
     {
       "epoch": 172,
@@ -2422,7 +2422,7 @@
       "memory_entries": 2852,
       "patterns_detected": 172,
       "rules_fired": 1,
-      "execution_time_ms": 576.7281610001191
+      "execution_time_ms": 597.7530759998899
     },
     {
       "epoch": 173,
@@ -2436,7 +2436,7 @@
       "memory_entries": 2868,
       "patterns_detected": 1384,
       "rules_fired": 8,
-      "execution_time_ms": 603.2630229997267
+      "execution_time_ms": 621.084048000057
     },
     {
       "epoch": 174,
@@ -2450,7 +2450,7 @@
       "memory_entries": 2884,
       "patterns_detected": 696,
       "rules_fired": 4,
-      "execution_time_ms": 615.3726969996569
+      "execution_time_ms": 621.0138890000962
     },
     {
       "epoch": 175,
@@ -2464,7 +2464,7 @@
       "memory_entries": 2900,
       "patterns_detected": 525,
       "rules_fired": 3,
-      "execution_time_ms": 643.3994889998758
+      "execution_time_ms": 653.569877000109
     },
     {
       "epoch": 176,
@@ -2478,7 +2478,7 @@
       "memory_entries": 2916,
       "patterns_detected": 1056,
       "rules_fired": 6,
-      "execution_time_ms": 654.3586689999756
+      "execution_time_ms": 655.7630720001271
     },
     {
       "epoch": 177,
@@ -2492,7 +2492,7 @@
       "memory_entries": 2932,
       "patterns_detected": 708,
       "rules_fired": 4,
-      "execution_time_ms": 609.4076149997818
+      "execution_time_ms": 607.6606059998539
     },
     {
       "epoch": 178,
@@ -2506,7 +2506,7 @@
       "memory_entries": 2948,
       "patterns_detected": 1424,
       "rules_fired": 8,
-      "execution_time_ms": 624.9928950001049
+      "execution_time_ms": 635.273062999886
     },
     {
       "epoch": 179,
@@ -2520,7 +2520,7 @@
       "memory_entries": 2964,
       "patterns_detected": 1432,
       "rules_fired": 8,
-      "execution_time_ms": 628.4714520002126
+      "execution_time_ms": 666.2597660001666
     },
     {
       "epoch": 180,
@@ -2534,7 +2534,7 @@
       "memory_entries": 2980,
       "patterns_detected": 1440,
       "rules_fired": 8,
-      "execution_time_ms": 640.3140590000476
+      "execution_time_ms": 660.265569999865
     },
     {
       "epoch": 181,
@@ -2548,7 +2548,7 @@
       "memory_entries": 2996,
       "patterns_detected": 543,
       "rules_fired": 3,
-      "execution_time_ms": 695.6921899995905
+      "execution_time_ms": 653.4693809999226
     },
     {
       "epoch": 182,
@@ -2562,7 +2562,7 @@
       "memory_entries": 3012,
       "patterns_detected": 1456,
       "rules_fired": 8,
-      "execution_time_ms": 649.9638790000972
+      "execution_time_ms": 669.4088739998278
     },
     {
       "epoch": 183,
@@ -2576,7 +2576,7 @@
       "memory_entries": 3028,
       "patterns_detected": 1281,
       "rules_fired": 7,
-      "execution_time_ms": 684.5715149997886
+      "execution_time_ms": 656.386135000048
     },
     {
       "epoch": 184,
@@ -2590,7 +2590,7 @@
       "memory_entries": 3044,
       "patterns_detected": 0,
       "rules_fired": 0,
-      "execution_time_ms": 627.3634610001864
+      "execution_time_ms": 656.9295600002079
     },
     {
       "epoch": 185,
@@ -2604,7 +2604,7 @@
       "memory_entries": 3060,
       "patterns_detected": 740,
       "rules_fired": 4,
-      "execution_time_ms": 666.5791450000143
+      "execution_time_ms": 673.7997610000548
     },
     {
       "epoch": 186,
@@ -2618,7 +2618,7 @@
       "memory_entries": 3076,
       "patterns_detected": 1116,
       "rules_fired": 6,
-      "execution_time_ms": 646.034096999756
+      "execution_time_ms": 655.546761000096
     },
     {
       "epoch": 187,
@@ -2632,7 +2632,7 @@
       "memory_entries": 3092,
       "patterns_detected": 1496,
       "rules_fired": 8,
-      "execution_time_ms": 680.7689080001182
+      "execution_time_ms": 670.2223360000517
     },
     {
       "epoch": 188,
@@ -2646,7 +2646,7 @@
       "memory_entries": 3108,
       "patterns_detected": 940,
       "rules_fired": 5,
-      "execution_time_ms": 690.0175649998346
+      "execution_time_ms": 718.9729880001323
     },
     {
       "epoch": 189,
@@ -2660,7 +2660,7 @@
       "memory_entries": 3124,
       "patterns_detected": 1323,
       "rules_fired": 7,
-      "execution_time_ms": 678.977476
+      "execution_time_ms": 662.8852270000607
     },
     {
       "epoch": 190,
@@ -2674,7 +2674,7 @@
       "memory_entries": 3140,
       "patterns_detected": 1140,
       "rules_fired": 6,
-      "execution_time_ms": 691.6906499996003
+      "execution_time_ms": 652.5348600000598
     },
     {
       "epoch": 191,
@@ -2688,7 +2688,7 @@
       "memory_entries": 3156,
       "patterns_detected": 1528,
       "rules_fired": 8,
-      "execution_time_ms": 669.6888760002366
+      "execution_time_ms": 665.1774530000694
     },
     {
       "epoch": 192,
@@ -2702,7 +2702,7 @@
       "memory_entries": 3172,
       "patterns_detected": 1344,
       "rules_fired": 7,
-      "execution_time_ms": 747.106941000311
+      "execution_time_ms": 677.2761069998978
     },
     {
       "epoch": 193,
@@ -2716,7 +2716,7 @@
       "memory_entries": 3188,
       "patterns_detected": 1158,
       "rules_fired": 6,
-      "execution_time_ms": 704.1790850003053
+      "execution_time_ms": 701.3004409998302
     },
     {
       "epoch": 194,
@@ -2730,7 +2730,7 @@
       "memory_entries": 3204,
       "patterns_detected": 582,
       "rules_fired": 3,
-      "execution_time_ms": 681.0312949996842
+      "execution_time_ms": 664.3216499999198
     },
     {
       "epoch": 195,
@@ -2744,7 +2744,7 @@
       "memory_entries": 3220,
       "patterns_detected": 585,
       "rules_fired": 3,
-      "execution_time_ms": 673.2831909998822
+      "execution_time_ms": 688.9800270000705
     },
     {
       "epoch": 196,
@@ -2758,7 +2758,7 @@
       "memory_entries": 3236,
       "patterns_detected": 1176,
       "rules_fired": 6,
-      "execution_time_ms": 670.1726030000827
+      "execution_time_ms": 749.2315100000724
     },
     {
       "epoch": 197,
@@ -2772,7 +2772,7 @@
       "memory_entries": 3252,
       "patterns_detected": 1576,
       "rules_fired": 8,
-      "execution_time_ms": 691.9013599999744
+      "execution_time_ms": 720.4968200001076
     },
     {
       "epoch": 198,
@@ -2786,7 +2786,7 @@
       "memory_entries": 3268,
       "patterns_detected": 1584,
       "rules_fired": 8,
-      "execution_time_ms": 705.6565290004073
+      "execution_time_ms": 696.9583019999845
     },
     {
       "epoch": 199,
@@ -2800,7 +2800,7 @@
       "memory_entries": 3284,
       "patterns_detected": 1592,
       "rules_fired": 8,
-      "execution_time_ms": 724.7886960003598
+      "execution_time_ms": 690.574763000086
     },
     {
       "epoch": 200,
@@ -2814,7 +2814,7 @@
       "memory_entries": 3300,
       "patterns_detected": 1400,
       "rules_fired": 7,
-      "execution_time_ms": 694.3700910001098
+      "execution_time_ms": 706.7814829999861
     }
   ],
   "domain_performance": {
