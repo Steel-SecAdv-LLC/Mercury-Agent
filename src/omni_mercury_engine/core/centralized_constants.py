@@ -20,8 +20,7 @@ the Free Software Foundation, either version 3 of the License, or
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
-from enum import Enum
+from dataclasses import dataclass
 from typing import Any
 
 

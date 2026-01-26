@@ -40,8 +40,8 @@ except ImportError:
     HAS_TORCH = False
 
 __all__ = [
-    "HAS_TORCH",
     "HAS_PYTORCH_LIGHTNING",
+    "HAS_TORCH",
     "AffectiveEncoder",
     "AstrophysicalEncoder",
     "AuxiliaryMaxVariance",
@@ -117,7 +117,7 @@ if HAS_TORCH or TYPE_CHECKING:
         ThreeRAttentionBlock,
     )
     from omni_mercury_engine.ml.training import (
-        HAS_PYTORCH_LIGHTNING,  # noqa: F811 - intentional override
+        HAS_PYTORCH_LIGHTNING,
         FusionTrainer,
         LyapunovAnomalyLoss,
         ThreeRAnomalyTrainer,

@@ -30,17 +30,15 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.core.global_omni_scalar_network import (
+    PHI,
     GlobalOmniScalarNetwork,
     ScalarGroup,
     get_global_scalar_network,
-    PHI,
-    LAMBDA_LYAPUNOV,
 )
-from omni_mercury_engine.core.three_r.fusion import AnomalyFusionEquation, AAFEWeightOptimizer
+from omni_mercury_engine.core.three_r.fusion import AnomalyFusionEquation
 from omni_mercury_engine.core.three_r.types import (
-    AnomalyFusionResult,
     CONVERGENCE_RATE_PARAMETER,
-    GOLDEN_RATIO_CONSTANT,
+    AnomalyFusionResult,
 )
 
 

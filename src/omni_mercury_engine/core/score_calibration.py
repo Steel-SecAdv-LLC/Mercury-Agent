@@ -28,8 +28,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+
 # P2: Import from centralized constants
-from omni_mercury_engine.core.centralized_constants import ANOMALY, CALIBRATION
 
 
 if TYPE_CHECKING:

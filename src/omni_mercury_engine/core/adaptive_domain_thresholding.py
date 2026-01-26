@@ -29,10 +29,8 @@ import numpy as np
 from scipy import optimize
 
 from omni_mercury_engine.core.score_calibration import (
-    AutoThresholdOptimizer,
     CalibrationDiagnostics,
     CalibrationMethod,
-    CalibrationResult,
     ScoreCalibrationManager,
     ScoreDiagnostics,
 )
@@ -173,7 +171,7 @@ class PlattScalingCalibrator:
 
     def fit(
         self, scores: NDArray[np.float64], labels: NDArray[np.int32]
-    ) -> "PlattScalingCalibrator":
+    ) -> PlattScalingCalibrator:
         """
         Fit Platt scaling parameters.
 
@@ -282,7 +280,7 @@ class IsotonicCalibrator:
 
     def fit(
         self, scores: NDArray[np.float64], labels: NDArray[np.int32]
-    ) -> "IsotonicCalibrator":
+    ) -> IsotonicCalibrator:
         """
         Fit isotonic regression calibration.
 
@@ -389,7 +387,7 @@ class CalibrationEnsemble:
 
     def fit(
         self, scores: NDArray[np.float64], labels: NDArray[np.int32]
-    ) -> "CalibrationEnsemble":
+    ) -> CalibrationEnsemble:
         """
         Fit both calibrators.
 
@@ -561,7 +559,7 @@ class AdaptiveDomainThresholdManager:
         self,
         scores: NDArray[np.float64],
         labels: NDArray[np.int32] | None = None,
-    ) -> "AdaptiveDomainThresholdManager":
+    ) -> AdaptiveDomainThresholdManager:
         """
         Fit the threshold manager on training data.
 
@@ -1147,6 +1145,7 @@ def create_domain_threshold_manager(
 
 # Convenience exports
 __all__ = [
+    "DOMAIN_DEFAULTS",
     "AdaptiveDomainThresholdManager",
     "CalibrationEnsemble",
     "DomainCalibrationResult",
@@ -1156,5 +1155,4 @@ __all__ = [
     "IsotonicCalibrator",
     "PlattScalingCalibrator",
     "create_domain_threshold_manager",
-    "DOMAIN_DEFAULTS",
 ]

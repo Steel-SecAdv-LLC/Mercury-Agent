@@ -48,13 +48,14 @@ except ImportError:
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    import pytorch_lightning as pl  # noqa: F811
+
+    import pytorch_lightning as pl
 
 __all__ = [
+    "HAS_PYTORCH_LIGHTNING",
     "AnomalyDataset",
     "EarlyStopping",
     "FusionTrainer",
-    "HAS_PYTORCH_LIGHTNING",
     "LearningRateScheduler",
     "LyapunovAnomalyLoss",
     "MercuryExponentialDecayOptimizer",

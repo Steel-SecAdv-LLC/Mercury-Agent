@@ -66,6 +66,7 @@ from omni_mercury_engine.core.centralized_constants import (
     MATH,
 )
 
+
 # Golden ratio constant for triadic harmony and phi-weighting
 # P2: Now references centralized constant
 PHI: float = MATH.GOLDEN_RATIO

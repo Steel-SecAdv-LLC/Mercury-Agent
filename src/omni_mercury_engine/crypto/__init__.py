@@ -35,9 +35,8 @@ the Free Software Foundation, either version 3 of the License, or
 from __future__ import annotations
 
 import logging
-import os
 import secrets
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 
 logger = logging.getLogger(__name__)
@@ -45,11 +44,12 @@ logger = logging.getLogger(__name__)
 
 # Try to import Rust bindings, fall back to pure Python
 _RUST_AVAILABLE = False
-_rust_crypto = None
+_rust_crypto: Any = None
 
 try:
-    import mercury_crypto as _rust_crypto
+    import mercury_crypto as _rust_crypto_module
 
+    _rust_crypto = _rust_crypto_module
     _RUST_AVAILABLE = True
     logger.info("Rust crypto bindings loaded successfully")
 except ImportError:
@@ -131,7 +131,7 @@ def hash_data(data: bytes, algorithm: HashAlgorithm = "blake3") -> bytes:
             try:
                 import blake3 as blake3_lib
 
-                return blake3_lib.blake3(data).digest()
+                return bytes(blake3_lib.blake3(data).digest())
             except ImportError:
                 # Fall back to SHA-256 if blake3 not available
                 return hashlib.sha256(data).digest()
@@ -204,6 +204,7 @@ def encrypt(
 
     # Python fallback
     if _PYTHON_CRYPTO_AVAILABLE:
+        cipher: AESGCM | ChaCha20Poly1305
         if algorithm == "aes-gcm":
             cipher = AESGCM(key)
         else:
@@ -256,11 +257,12 @@ def decrypt(
     # Python fallback
     if _PYTHON_CRYPTO_AVAILABLE:
         try:
+            cipher_dec: AESGCM | ChaCha20Poly1305
             if algorithm == "aes-gcm":
-                cipher = AESGCM(key)
+                cipher_dec = AESGCM(key)
             else:
-                cipher = ChaCha20Poly1305(key)
-            return cipher.decrypt(nonce, ciphertext, aad)
+                cipher_dec = ChaCha20Poly1305(key)
+            return cipher_dec.decrypt(nonce, ciphertext, aad)
         except Exception as e:
             raise ValueError(f"Decryption failed: {e}") from e
 
@@ -305,7 +307,7 @@ def derive_key(
     try:
         from argon2.low_level import Type, hash_secret_raw
 
-        return hash_secret_raw(
+        return bytes(hash_secret_raw(
             secret=password,
             salt=salt,
             time_cost=time_cost,
@@ -313,7 +315,7 @@ def derive_key(
             parallelism=parallelism,
             hash_len=key_length,
             type=Type.ID,
-        )
+        ))
     except ImportError:
         pass
 
@@ -409,7 +411,7 @@ def constant_time_compare(a: bytes, b: bytes) -> bool:
         True if equal, False otherwise
     """
     if _RUST_AVAILABLE:
-        return _rust_crypto.py_constant_time_compare(a, b)
+        return bool(_rust_crypto.py_constant_time_compare(a, b))
 
     # Python fallback using hmac.compare_digest
     import hmac

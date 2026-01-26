@@ -30,20 +30,20 @@ from typing import Any
 import numpy as np
 from scipy.optimize import minimize
 
-from omni_mercury_engine.core.config import ThresholdConfig
-
 # P2-P3 Integration: Import centralized constants and domain modules
 from omni_mercury_engine.core.centralized_constants import (
     ETHICAL,
     LYAPUNOV,
     MATH,
 )
+from omni_mercury_engine.core.config import ThresholdConfig
+
 
 # Domain-specific feature extraction (P2 Integration)
 try:
     from omni_mercury_engine.core.domain_feature_extractors import (
-        DomainFeatureExtractorFactory,
         BaseDomainFeatureExtractor,
+        DomainFeatureExtractorFactory,
     )
     DOMAIN_EXTRACTORS_AVAILABLE = True
 except ImportError:

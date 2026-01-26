@@ -28,12 +28,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from scipy import signal, stats
 
-from omni_mercury_engine.core.feature_pipeline import (
-    FeatureExtractionResult,
-    FeatureStandardizer,
-    ScalingStrategy,
-)
-
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
