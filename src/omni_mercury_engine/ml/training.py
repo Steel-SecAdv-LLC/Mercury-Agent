@@ -28,7 +28,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import pytorch_lightning as pl
 import torch
 from torch import nn, optim
 from torch.optim import lr_scheduler
@@ -37,10 +36,23 @@ from torch.utils.data import Dataset
 from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 
 
+# pytorch_lightning is optional - gracefully degrade when not available
+try:
+    import pytorch_lightning as pl
+
+    HAS_PYTORCH_LIGHTNING = True
+except ImportError:
+    HAS_PYTORCH_LIGHTNING = False
+    pl = None  # type: ignore[assignment]
+
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    import pytorch_lightning as pl
+
 __all__ = [
+    "HAS_PYTORCH_LIGHTNING",
     "AnomalyDataset",
     "EarlyStopping",
     "FusionTrainer",
@@ -789,7 +801,21 @@ class AnomalyDataset(
         return features, label
 
 
-class FusionTrainer(pl.LightningModule):
+def _get_lightning_base() -> type:
+    """Get LightningModule base class or raise helpful error."""
+    if not HAS_PYTORCH_LIGHTNING:
+        raise ImportError(
+            "pytorch_lightning is required for FusionTrainer and ThreeRAnomalyTrainer. "
+            "Install with: pip install pytorch-lightning"
+        )
+    return pl.LightningModule
+
+
+# Conditional base class - evaluated at class definition time
+_LightningBase = _get_lightning_base() if HAS_PYTORCH_LIGHTNING else nn.Module
+
+
+class FusionTrainer(_LightningBase):  # type: ignore[misc]
     """
     PyTorch Lightning trainer for fusion model.
 
@@ -922,7 +948,7 @@ class FusionTrainer(pl.LightningModule):
         }
 
 
-class ThreeRAnomalyTrainer(pl.LightningModule):
+class ThreeRAnomalyTrainer(_LightningBase):  # type: ignore[misc]
     """
     PyTorch Lightning trainer for 3R Anomaly Transformer with Lyapunov stability.
 

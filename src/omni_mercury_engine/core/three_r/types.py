@@ -10,6 +10,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
+# P2: Import from centralized constants
+from omni_mercury_engine.core.centralized_constants import LYAPUNOV, MATH
+
 
 class AnomalyDetectionMethod(Enum):
     """Methods for detecting code anomalies."""
@@ -50,14 +53,16 @@ class EvolutionStrategy(Enum):
     ADAPTIVE = "adaptive"
 
 
-# Golden ratio constant for AVA Anomaly Fusion Equation (AAFE)
-GOLDEN_RATIO_CONSTANT: float = 1.618033988749895
+# P2: Golden ratio constant for AVA Anomaly Fusion Equation (AAFE)
+# Now references centralized constant
+GOLDEN_RATIO_CONSTANT: float = MATH.GOLDEN_RATIO
 
-# Convergence rate parameter (Lyapunov decay rate)
-CONVERGENCE_RATE_PARAMETER: float = 0.25
+# P2: Convergence rate parameter (Lyapunov decay rate)
+# Now references centralized constant
+CONVERGENCE_RATE_PARAMETER: float = LYAPUNOV.LAMBDA_CONVERGENCE
 
-# Mathematical constants (default values)
-_GOLDEN_RATIO_CONJUGATE: float = 0.6180339887498948482
+# Mathematical constants (derived from golden ratio)
+_GOLDEN_RATIO_CONJUGATE: float = 1.0 / MATH.GOLDEN_RATIO  # 0.618...
 _CATALAN: float = 0.9159655941772190151
 _EULER_MASCHERONI: float = 0.5772156649015328606
 _FEIGENBAUM_DELTA: float = 4.6692016091029906719

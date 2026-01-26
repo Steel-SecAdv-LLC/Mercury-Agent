@@ -54,9 +54,25 @@ from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from omni_mercury_engine.validation.api_validators import (
+    APIRequestValidator,
+    ValidationConfig,
+)
+
 
 # Configure PII-masking logger
 logger = logging.getLogger(__name__)
+
+# Initialize API request validator with production configuration
+_validation_config = ValidationConfig(
+    max_data_points=int(os.getenv("OMNI_MAX_DATA_POINTS", "100000")),
+    max_features=int(os.getenv("OMNI_MAX_FEATURES", "1000")),
+    max_string_length=int(os.getenv("OMNI_MAX_STRING_LENGTH", "256")),
+    max_nan_ratio=float(os.getenv("OMNI_MAX_NAN_RATIO", "0.1")),
+    max_inf_ratio=float(os.getenv("OMNI_MAX_INF_RATIO", "0.01")),
+    strict_mode=os.getenv("OMNI_STRICT_VALIDATION", "false").lower() == "true",
+)
+_api_validator = APIRequestValidator(_validation_config)
 
 
 class PIIMaskingFilter(logging.Filter):
@@ -764,8 +780,30 @@ async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
         ```
     """
     try:
-        data = np.array(request.data)
-        sensitivity = request.sensitivity if request.sensitivity is not None else 0.5
+        # P2: Comprehensive input validation
+        validation_result = _api_validator.validate_univariate_request(
+            data=request.data,
+            sensitivity=request.sensitivity,
+        )
+
+        if not validation_result.is_valid:
+            error_details = [e.to_dict() for e in validation_result.errors]
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "ValidationError",
+                    "message": "Input validation failed",
+                    "errors": error_details,
+                },
+            )
+
+        # Log warnings if any
+        for warning in validation_result.warnings:
+            logger.warning(f"Univariate request warning: {warning}")
+
+        # Use validated/sanitized data
+        data = validation_result.sanitized_data["data"]
+        sensitivity = validation_result.sanitized_data["sensitivity"]
 
         # Calculate threshold based on sensitivity
         threshold = 2.0 + (1.0 - sensitivity) * 3.0
@@ -904,15 +942,31 @@ async def detect_multivariate(request: MultivariateRequest) -> MultivariateRespo
         ```
     """
     try:
-        data = np.array(request.data)
-        sensitivity = request.sensitivity if request.sensitivity is not None else 0.5
+        # P2: Comprehensive input validation
+        validation_result = _api_validator.validate_multivariate_request(
+            data=request.data,
+            features=request.features,
+            sensitivity=request.sensitivity,
+        )
 
-        # Validate data shape
-        if len(data.shape) != 2:
+        if not validation_result.is_valid:
+            error_details = [e.to_dict() for e in validation_result.errors]
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Data must be 2D array with shape [n_samples, n_features]",
+                detail={
+                    "error": "ValidationError",
+                    "message": "Input validation failed",
+                    "errors": error_details,
+                },
             )
+
+        # Log warnings if any
+        for warning in validation_result.warnings:
+            logger.warning(f"Multivariate request warning: {warning}")
+
+        # Use validated/sanitized data
+        data = validation_result.sanitized_data["data"]
+        sensitivity = validation_result.sanitized_data["sensitivity"]
 
         n_samples, n_features = data.shape
 
@@ -927,8 +981,9 @@ async def detect_multivariate(request: MultivariateRequest) -> MultivariateRespo
         # Combined score using L2 norm
         z_scores = np.linalg.norm(normalized, axis=1)
 
-        # Per-feature contributions
-        feature_names = request.features or [f"feature_{i}" for i in range(n_features)]
+        # Per-feature contributions - use sanitized feature names
+        sanitized_features = validation_result.sanitized_data.get("features")
+        feature_names = sanitized_features or [f"feature_{i}" for i in range(n_features)]
         feature_contributions = {
             name: np.abs(normalized[:, i]).tolist() for i, name in enumerate(feature_names)
         }

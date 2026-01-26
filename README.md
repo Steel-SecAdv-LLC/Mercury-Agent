@@ -126,47 +126,21 @@ Mercury-Agent with AdaptiveAnomalyDetector on real-world datasets (regenerated 2
 
 *Benchmarks run with OmniMercuryDetector using AdaptiveAnomalyDetector. Real data from sklearn, OmniAnomaly GitHub, and BATADAL GitHub repositories.*
 
-### Confidence Evolution
+### Comprehensive Multi-Panel Visualizations
 
-The system demonstrates significant confidence growth from the legacy 0.76 baseline to 0.999 through Bayesian calibration:
+The following consolidated visualizations capture all benchmark metrics in professional multi-panel format:
 
-![Confidence Evolution](docs/images/confidence_evolution.png)
+#### Neuro-Symbolic Benchmark Report
 
-### Anomaly Detection Precision/Recall
-
-Precision, recall, and F1 scores over 200 epochs showing stable detection performance:
-
-![Anomaly Precision Recall](docs/images/anomaly_precision_recall.png)
-
-### Domain Competence Heatmap
-
-Performance across all 8 domains (medical, security, humanitarian, infrastructure, energy, scientific, financial, general):
-
-![Domain Heatmap](docs/images/domain_heatmap.png)
-
-### Memory System Growth
-
-Episodic, semantic, short-term, and long-term memory accumulation over training:
-
-![Memory Growth](docs/images/memory_growth.png)
-
-### Neural vs Symbolic Contribution
-
-The balance between neural pattern detection and symbolic reasoning over epochs:
-
-![Neural Symbolic Contribution](docs/images/neural_symbolic_contribution.png)
-
-### Ethical Benevolence Scores
-
-Benevolence scoring over epochs with the 0.99 threshold line:
-
-![Benevolence Scores](docs/images/benevolence_scores.png)
-
-### Comprehensive Benchmark Report
-
-Full multi-panel visualization of all metrics:
+Complete visualization of confidence evolution, domain competence, memory growth, neural/symbolic contributions, anomaly detection metrics, and benevolence scoring:
 
 ![Neuro-Symbolic Benchmark Report](docs/images/neuro_symbolic_benchmark_report.png)
+
+#### Anomaly Detection Analysis
+
+Comprehensive anomaly detection panel showing precision/recall evolution, cosmic ray detection performance, domain competence comparison, threshold sensitivity analysis, detector throughput, and severity distribution:
+
+![Anomaly Detection Panel](docs/images/anomaly_detection_panel.png)
 
 ### Real-World Data Benchmarks
 

@@ -479,7 +479,8 @@ class CYBINTSubProcessor:
                 result.threat_detected = True
 
         if self.enable_c2_detection and "network_data" in threat_data:
-            assert self.c2_detector is not None, "C2 detector must be initialized"
+            if self.c2_detector is None:
+                raise RuntimeError("c2_detector not initialized but enable_c2_detection is True")
             c2_result = self.c2_detector.detect_c2(threat_data["network_data"])
             result.c2_indicators = c2_result["c2_indicators"]
             result.recommended_actions.extend(c2_result["recommendations"])
@@ -489,7 +490,10 @@ class CYBINTSubProcessor:
                 result.threat_severity = "critical"
 
         if self.enable_zero_day_analysis and "exploit_data" in threat_data:
-            assert self.zero_day_analyzer is not None, "Zero day analyzer must be initialized"
+            if self.zero_day_analyzer is None:
+                raise RuntimeError(
+                    "zero_day_analyzer not initialized but enable_zero_day_analysis is True"
+                )
             zero_day_result = self.zero_day_analyzer.analyze_zero_day_likelihood(
                 threat_data["exploit_data"]
             )
@@ -522,7 +526,8 @@ class CYBINTSubProcessor:
         """Attribute threat to APT group"""
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
-        assert self.apt_recognizer is not None, "APT recognizer must be initialized"
+        if self.apt_recognizer is None:
+            raise RuntimeError("apt_recognizer not initialized")
         self.apt_recognizer.eval()
         with torch.no_grad():
             apt_logits, _confidence = self.apt_recognizer(features_tensor)
@@ -540,7 +545,8 @@ class CYBINTSubProcessor:
         """Classify malware family"""
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
-        assert self.malware_classifier is not None, "Malware classifier must be initialized"
+        if self.malware_classifier is None:
+            raise RuntimeError("malware_classifier not initialized")
         self.malware_classifier.eval()
         with torch.no_grad():
             classification = self.malware_classifier(features_tensor)

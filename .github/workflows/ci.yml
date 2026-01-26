@@ -258,7 +258,7 @@ jobs:
   ml-tests:
     name: ML Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     needs: [core-tests]
     # Re-enabled: ML test imports fixed with conditional torch loading
     # Runs on schedule (weekly), manual trigger, or PRs to main/develop
@@ -296,15 +296,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[all,dev]"
-          pip install pytest pytest-cov pytest-asyncio
+          pip install pytest pytest-cov pytest-asyncio pytest-xdist pytest-timeout
 
-      - name: Run full test suite
+      - name: Run full test suite with parallelization
         run: |
+          # Run tests in parallel with 4 workers, 300s timeout per test
+          # This prevents individual hanging tests from blocking the entire suite
           pytest tests/ \
             -v \
+            -n 4 \
+            --timeout=300 \
             --cov=omni_mercury_engine \
             --cov-report=xml \
-            --cov-report=term-missing
+            --cov-report=term-missing \
+            --dist=loadgroup
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4

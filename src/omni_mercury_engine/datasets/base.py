@@ -240,9 +240,9 @@ class DatasetLoader(ABC):
         if not self._is_loaded:
             self._load_and_cache()
 
-        # Assert data is loaded
-        assert self._data is not None
-        assert self._labels is not None
+        # Validate data is loaded
+        if self._data is None or self._labels is None:
+            raise RuntimeError("Dataset not loaded. Call _load_and_cache() first.")
 
         if split == DatasetSplit.ALL:
             # Concatenate all splits
@@ -390,7 +390,8 @@ class DatasetLoader(ABC):
         """Get total number of samples."""
         if not self._is_loaded:
             self._load_and_cache()
-        assert self._data is not None
+        if self._data is None:
+            raise RuntimeError("Dataset not loaded. Call _load_and_cache() first.")
         return sum(len(d) for d in self._data.values())
 
     def __iter__(self) -> Iterator[tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]]:

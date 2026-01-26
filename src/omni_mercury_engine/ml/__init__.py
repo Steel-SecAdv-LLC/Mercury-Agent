@@ -40,6 +40,7 @@ except ImportError:
     HAS_TORCH = False
 
 __all__ = [
+    "HAS_PYTORCH_LIGHTNING",
     "HAS_TORCH",
     "AffectiveEncoder",
     "AstrophysicalEncoder",
@@ -75,6 +76,9 @@ __all__ = [
     "compute_fairness_score",
     "create_drift_detector",
 ]
+
+# Default value for HAS_PYTORCH_LIGHTNING when torch is not available
+HAS_PYTORCH_LIGHTNING = False
 
 # Lazy imports - only load when torch is available OR during type checking
 if HAS_TORCH or TYPE_CHECKING:
@@ -113,6 +117,7 @@ if HAS_TORCH or TYPE_CHECKING:
         ThreeRAttentionBlock,
     )
     from omni_mercury_engine.ml.training import (
+        HAS_PYTORCH_LIGHTNING,
         FusionTrainer,
         LyapunovAnomalyLoss,
         ThreeRAnomalyTrainer,

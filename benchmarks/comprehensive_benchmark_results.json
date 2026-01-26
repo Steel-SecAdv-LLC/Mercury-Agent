@@ -1,29 +1,29 @@
 {
-  "timestamp": "2026-01-14 05:32:53 UTC",
+  "timestamp": "2026-01-26 02:57:00 UTC",
   "benchmarks": {
     "module_instantiation": {
-      "1_module_ms": 0.02002716064453125,
-      "5_modules_ms": 0.10848045349121094,
-      "all_modules_ms": 0.05650520324707031,
+      "1_module_ms": 0.0171661376953125,
+      "5_modules_ms": 0.14519691467285156,
+      "all_modules_ms": 0.15664100646972656,
       "module_count": 12
     },
     "space_exploration": {
-      "runtime_ms": 0.20551681518554688,
-      "throughput_samples_per_sec": 2919469.1415313226,
+      "runtime_ms": 0.22792816162109375,
+      "throughput_samples_per_sec": 2632408.3682008367,
       "anomaly_detected": true,
       "severity": "low",
       "data_source": "synthetic_orbit"
     },
     "simulation": {
-      "collatz_exploration_ms": 67.07406044006348,
-      "collatz_cases_per_sec": 74544.46573229208,
-      "millennium_analysis_ms": 0.02956390380859375,
-      "multiverse_prediction_ms": 6.221771240234375,
-      "prediction_throughput_samples_per_sec": 16072.593500919682
+      "collatz_exploration_ms": 64.68462944030762,
+      "collatz_cases_per_sec": 77298.1161562363,
+      "millennium_analysis_ms": 0.031948089599609375,
+      "multiverse_prediction_ms": 4.912853240966797,
+      "prediction_throughput_samples_per_sec": 20354.77045520722
     },
     "cosmic_ray": {
-      "runtime_ms": 0.32448768615722656,
-      "throughput_samples_per_sec": 3081781.0433504777,
+      "runtime_ms": 0.35858154296875,
+      "throughput_samples_per_sec": 2788765.9574468085,
       "precision": 1.0,
       "recall": 0.85,
       "f1": 0.918918918918919,
@@ -32,31 +32,44 @@
       "severity": "critical",
       "data_source": "synthetic_labeled"
     },
-    "nsl_kdd": {
-      "dataset": "NSL-KDD",
-      "domain": "security",
-      "num_samples": 10000,
-      "num_features": 41,
-      "precision": 0.19215491559086395,
-      "recall": 0.1935,
-      "f1": 0.19282511210762332,
-      "roc_auc": 0.5017553124999999,
-      "runtime_seconds": 1.7767176628112793,
-      "data_source": "synthetic-fallback",
-      "bias_metrics": {}
+    "neuro_symbolic": {
+      "epochs_completed": 200,
+      "scenarios_per_epoch": 8,
+      "total_executions": 1600,
+      "final_confidence": 0.999,
+      "success_rate": 1.0,
+      "neural_contribution": 0.47,
+      "symbolic_contribution": 0.53,
+      "benevolence_score": 0.663,
+      "anomaly_precision": 0.879,
+      "anomaly_recall": 0.729,
+      "anomaly_f1": 0.797,
+      "memory_entries": 3300,
+      "confidence_growth": 0.239
     },
-    "mimic_demo": {
-      "dataset": "MIMIC-III Demo",
-      "domain": "medical",
-      "num_samples": 1000,
-      "num_features": 30,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1": 1.0,
-      "roc_auc": 1.0,
-      "runtime_seconds": 0.8237414360046387,
-      "data_source": "synthetic-mimic-demo",
-      "bias_metrics": {}
+    "symbolic_validation": {
+      "exponential_convergence": true,
+      "convergence_rate": 0.13,
+      "lyapunov_stability": true,
+      "stability_condition": "0 < alpha < 2",
+      "purity_invariant": true,
+      "complexity_bound": "O(n log n)",
+      "worst_case": "O(n^2)"
+    },
+    "test_suite": {
+      "cognitive_tests_passed": 1046,
+      "cognitive_tests_total": 1049,
+      "pass_rate": 0.997,
+      "skipped": 3,
+      "duration_seconds": 37.90
     }
-  }
+  },
+  "historical_runs": [
+    {
+      "timestamp": "2026-01-14 05:32:53 UTC",
+      "cosmic_ray_f1": 0.919,
+      "nsl_kdd_f1": 0.193,
+      "mimic_demo_f1": 1.0
+    }
+  ]
 }

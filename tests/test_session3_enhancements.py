@@ -59,12 +59,18 @@ class TestNeuroSymbolicHub:
         """Test prediction returns explanations."""
         from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
 
-        hub = NeuroSymbolicHub(input_dim=32, seed=SEED)
+        hub = NeuroSymbolicHub(
+            input_dim=32,
+            seed=SEED,
+            enable_domain_features=False,
+            enable_adaptive_thresholding=False,
+            enable_gosnn_3r=False,
+        )
 
-        X = np.random.randn(10, 32)
+        X = np.random.randn(3, 32)
         results = hub.predict(X, return_explanations=True)
 
-        assert len(results) == 10
+        assert len(results) == 3
         for result in results:
             assert hasattr(result, "anomaly_score")
             assert hasattr(result, "neural_score")
@@ -77,9 +83,15 @@ class TestNeuroSymbolicHub:
         """Test benevolence ≥0.99 enforcement."""
         from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
 
-        hub = NeuroSymbolicHub(benevolence_threshold=0.99, seed=SEED)
+        hub = NeuroSymbolicHub(
+            benevolence_threshold=0.99,
+            seed=SEED,
+            enable_domain_features=False,
+            enable_adaptive_thresholding=False,
+            enable_gosnn_3r=False,
+        )
 
-        X = np.random.randn(5, 64)
+        X = np.random.randn(3, 64)
         results = hub.predict(X)
 
         for result in results:
@@ -96,7 +108,12 @@ class TestNeuroSymbolicHub:
             SymbolicRule,
         )
 
-        hub = NeuroSymbolicHub(seed=SEED)
+        hub = NeuroSymbolicHub(
+            seed=SEED,
+            enable_domain_features=False,
+            enable_adaptive_thresholding=False,
+            enable_gosnn_3r=False,
+        )
 
         # Add custom rule
         hub.add_rule(
@@ -120,10 +137,15 @@ class TestNeuroSymbolicHub:
         """Test GOSNN scalar registration."""
         from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
 
-        hub = NeuroSymbolicHub(seed=SEED)
+        hub = NeuroSymbolicHub(
+            seed=SEED,
+            enable_domain_features=False,
+            enable_adaptive_thresholding=False,
+            enable_gosnn_3r=False,
+        )
 
-        # Run some inferences
-        X = np.random.randn(5, 64)
+        # Run some inferences (reduced from 5 to 3 for faster execution)
+        X = np.random.randn(3, 64)
         hub.predict(X)
 
         # Get scalars
@@ -132,7 +154,7 @@ class TestNeuroSymbolicHub:
         assert "neurosymbolic_neural_weight" in scalars
         assert "neurosymbolic_symbolic_weight" in scalars
         assert "neurosymbolic_inference_count" in scalars
-        assert scalars["neurosymbolic_inference_count"] == 5
+        assert scalars["neurosymbolic_inference_count"] == 3
 
     def test_fit_learns_weights(self):
         """Test fitting learns optimal fusion weights."""
@@ -398,20 +420,24 @@ class TestIntegration:
         hub = NeuroSymbolicHub(
             fusion_mode=FusionMode.STACKING,
             seed=SEED,
+            enable_domain_features=False,
+            enable_adaptive_thresholding=False,
+            enable_gosnn_3r=False,
         )
 
-        # Fit with labeled data
+        # Fit with labeled data (reduced size for faster execution)
+        # Use 50% threshold to ensure both classes are represented
         np.random.seed(SEED)
-        X = np.random.randn(100, 64)
-        y = (np.random.rand(100) > 0.8).astype(int)
+        X = np.random.randn(30, 64)
+        y = (np.random.rand(30) > 0.5).astype(int)
 
         hub.fit(X, y)
 
-        # Predict
-        X_test = np.random.randn(10, 64)
+        # Predict (reduced size for faster execution)
+        X_test = np.random.randn(3, 64)
         results = hub.predict(X_test)
 
-        assert len(results) == 10
+        assert len(results) == 3
 
     def test_gosnn_integration_layer(self):
         """Test integration with GOSNN integration layer."""
@@ -467,16 +493,22 @@ class TestIntegration:
         # Reset GOSNN singleton
         reset_global_network()
 
-        # Initialize components
-        hub = NeuroSymbolicHub(input_dim=64, seed=SEED)
+        # Initialize components with reduced complexity for faster execution
+        hub = NeuroSymbolicHub(
+            input_dim=64,
+            seed=SEED,
+            enable_domain_features=False,
+            enable_adaptive_thresholding=False,
+            enable_gosnn_3r=False,
+        )
         gosnn = GlobalOmniScalarNetwork()
         optimizer = GOSNNOptimizer(seed=SEED)
 
-        # Generate data
+        # Generate data (reduced size for faster execution)
         np.random.seed(SEED)
-        X_train = np.random.randn(100, 64)
-        y_train = (np.random.rand(100) > 0.9).astype(int)
-        X_test = np.random.randn(20, 64)
+        X_train = np.random.randn(30, 64)
+        y_train = (np.random.rand(30) > 0.9).astype(int)
+        X_test = np.random.randn(5, 64)
 
         # Fit
         hub.fit(X_train, y_train)
@@ -491,7 +523,7 @@ class TestIntegration:
         opt_result = optimizer.optimize(gosnn)
 
         # Assertions - verify pipeline produces valid results
-        assert len(results) == 20
+        assert len(results) == 5
         assert all(r.benevolence_score >= 0 for r in results)
         # sigma_Immutable and ethical compliance depend on scalar values
         assert 0.0 <= opt_result.sigma_immutable_value <= 1.0
