@@ -59,16 +59,25 @@ from typing import Any
 
 import numpy as np
 
+# P2: Import from centralized constants
+from omni_mercury_engine.core.centralized_constants import (
+    ETHICAL,
+    LYAPUNOV,
+    MATH,
+)
 
 # Golden ratio constant for triadic harmony and phi-weighting
-PHI: float = 1.618033988749895
+# P2: Now references centralized constant
+PHI: float = MATH.GOLDEN_RATIO
 
 # Lyapunov stability constant (elevated from 0.18 for 25% faster convergence)
-LAMBDA_LYAPUNOV: float = 0.25
+# P2: Now references centralized constant
+LAMBDA_LYAPUNOV: float = LYAPUNOV.LAMBDA_CONVERGENCE
 
 # Sigma Immutable thresholds for ethical gating (Civilization-First principle)
-SIGMA_IMMUTABLE_DEFAULT: float = 0.96  # Default elevated threshold
-SIGMA_IMMUTABLE_MEDICAL: float = 0.93  # Medical domain fallback (avoid false negatives)
+# P2: Now references centralized constants
+SIGMA_IMMUTABLE_DEFAULT: float = ETHICAL.SIGMA_IMMUTABLE_DEFAULT
+SIGMA_IMMUTABLE_MEDICAL: float = ETHICAL.SIGMA_IMMUTABLE_MEDICAL
 
 try:
     import torch
