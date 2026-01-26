@@ -524,7 +524,8 @@ class TrafficAnalysisEngine:
         )
 
         if self.enable_flow_analysis and "flow_records" in traffic_data:
-            assert self.flow_analyzer is not None
+            if self.flow_analyzer is None:
+                raise RuntimeError("flow_analyzer not initialized but enable_flow_analysis is True")
             flow_result = self.flow_analyzer.analyze_flows(traffic_data["flow_records"])
             result.flow_statistics = flow_result["statistics"]
 
@@ -535,7 +536,8 @@ class TrafficAnalysisEngine:
                 result.recommended_actions.append("Investigate suspicious network flows")
 
         if self.enable_tls_fingerprinting and "tls_handshakes" in traffic_data:
-            assert self.tls_fingerprinter is not None
+            if self.tls_fingerprinter is None:
+                raise RuntimeError("tls_fingerprinter not initialized but enable_tls_fingerprinting is True")
             for handshake in traffic_data["tls_handshakes"]:
                 fingerprint = self.tls_fingerprinter.fingerprint_tls(handshake)
                 result.encrypted_flows.append(fingerprint)
@@ -545,7 +547,8 @@ class TrafficAnalysisEngine:
                     result.protocol_anomalies.extend(fingerprint["risk_indicators"])
 
         if self.enable_covert_detection and "raw_traffic" in traffic_data:
-            assert self.covert_detector is not None
+            if self.covert_detector is None:
+                raise RuntimeError("covert_detector not initialized but enable_covert_detection is True")
             covert_result = self.covert_detector.detect_covert_channels(traffic_data["raw_traffic"])
 
             if covert_result["covert_channels_detected"]:

@@ -1,0 +1,57 @@
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "mercury_crypto"
+version = "0.1.0"
+description = "High-performance cryptographic operations for Mercury Agent"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "GPL-3.0" }
+authors = [
+    { name = "Steel Security Advisory LLC", email = "support@steelsecurityadvisors.com" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+    "Topic :: Security :: Cryptography",
+]
+keywords = ["cryptography", "encryption", "hashing", "rust", "pyo3"]
+
+[project.urls]
+Homepage = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent"
+Repository = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent"
+Documentation = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent#readme"
+
+[tool.maturin]
+# Build for Python extension module
+features = ["pyo3/extension-module"]
+
+# Module name
+module-name = "mercury_crypto"
+
+# Python source directory (not used for pure Rust extensions)
+# python-source = "python"
+
+# Include additional files in the wheel
+include = [
+    "README.md",
+    "LICENSE",
+]
+
+# Strip symbols for smaller binaries
+strip = true
+
+# Compatibility settings
+compatibility = "manylinux2014"
+
+[tool.maturin.build]
+# Build in release mode by default
+release = true

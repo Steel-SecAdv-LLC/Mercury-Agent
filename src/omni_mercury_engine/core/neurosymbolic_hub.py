@@ -32,15 +32,58 @@ from scipy.optimize import minimize
 
 from omni_mercury_engine.core.config import ThresholdConfig
 
+# P2-P3 Integration: Import centralized constants and domain modules
+from omni_mercury_engine.core.centralized_constants import (
+    ETHICAL,
+    LYAPUNOV,
+    MATH,
+)
+
+# Domain-specific feature extraction (P2 Integration)
+try:
+    from omni_mercury_engine.core.domain_feature_extractors import (
+        DomainFeatureExtractorFactory,
+        BaseDomainFeatureExtractor,
+    )
+    DOMAIN_EXTRACTORS_AVAILABLE = True
+except ImportError:
+    DOMAIN_EXTRACTORS_AVAILABLE = False
+    DomainFeatureExtractorFactory = None
+    BaseDomainFeatureExtractor = None
+
+# Adaptive domain thresholding (P2 Integration)
+try:
+    from omni_mercury_engine.core.adaptive_domain_thresholding import (
+        AdaptiveDomainThresholdManager,
+        create_domain_threshold_manager,
+    )
+    ADAPTIVE_THRESHOLDING_AVAILABLE = True
+except ImportError:
+    ADAPTIVE_THRESHOLDING_AVAILABLE = False
+    AdaptiveDomainThresholdManager = None
+    create_domain_threshold_manager = None
+
+# GOSNN-3R bidirectional integration (P2 Integration)
+try:
+    from omni_mercury_engine.core.gosnn_3r_integration import (
+        GOSNN3RIntegration,
+        SlidingWindowNormalizer,
+    )
+    GOSNN_3R_AVAILABLE = True
+except ImportError:
+    GOSNN_3R_AVAILABLE = False
+    GOSNN3RIntegration = None
+    SlidingWindowNormalizer = None
+
 
 logger = logging.getLogger(__name__)
 
 
-# Constants
-PHI = 1.618033988749895  # Golden ratio
-BENEVOLENCE_THRESHOLD = 0.99
-SIGMA_IMMUTABLE_DEFAULT = 0.96
-LYAPUNOV_LAMBDA = 0.25
+# Constants - now referencing centralized constants
+PHI = MATH.GOLDEN_RATIO
+BENEVOLENCE_THRESHOLD = ETHICAL.BENEVOLENCE_IMMUTABLE
+SIGMA_IMMUTABLE_DEFAULT = ETHICAL.SIGMA_IMMUTABLE_DEFAULT
+LYAPUNOV_LAMBDA = LYAPUNOV.LAMBDA_CONVERGENCE
 
 try:
     import networkx as nx
@@ -469,6 +512,10 @@ class NeuroSymbolicHub:
         use_calibration: bool = True,
         seed: int = 42,
         thresholds: ThresholdConfig | None = None,
+        domain: str | None = None,
+        enable_domain_features: bool = True,
+        enable_adaptive_thresholding: bool = True,
+        enable_gosnn_3r: bool = True,
     ):
         """
         Initialize Neuro-Symbolic Hub.
@@ -481,6 +528,10 @@ class NeuroSymbolicHub:
             use_calibration: Apply probability calibration
             seed: Random seed for reproducibility
             thresholds: Threshold configuration (frozen at construction time)
+            domain: Domain for specialized processing ('medical', 'financial', 'infrastructure')
+            enable_domain_features: Enable domain-specific feature extraction
+            enable_adaptive_thresholding: Enable adaptive per-domain thresholding
+            enable_gosnn_3r: Enable GOSNN-3R bidirectional integration
         """
         self.input_dim = input_dim
         self.fusion_mode = fusion_mode
@@ -489,6 +540,7 @@ class NeuroSymbolicHub:
         self.use_calibration = use_calibration
         self.seed = seed
         self.rng = np.random.default_rng(seed)
+        self.domain = domain
         # Freeze thresholds at construction time to avoid global mutation risk
         self._thresholds = thresholds or ThresholdConfig()
 
@@ -508,6 +560,37 @@ class NeuroSymbolicHub:
         # Meta-learner for stacking
         self._meta_learner = None
 
+        # P2-P3 Integration: Domain-specific components
+        self._domain_extractor: BaseDomainFeatureExtractor | None = None
+        self._threshold_manager: AdaptiveDomainThresholdManager | None = None
+        self._gosnn_3r: GOSNN3RIntegration | None = None
+        self._sliding_normalizer: SlidingWindowNormalizer | None = None
+
+        # Initialize domain feature extractor
+        if enable_domain_features and DOMAIN_EXTRACTORS_AVAILABLE and domain:
+            try:
+                self._domain_extractor = DomainFeatureExtractorFactory.create(domain)
+                logger.info(f"Domain feature extractor initialized for: {domain}")
+            except Exception as e:
+                logger.warning(f"Failed to initialize domain extractor: {e}")
+
+        # Initialize adaptive domain thresholding
+        if enable_adaptive_thresholding and ADAPTIVE_THRESHOLDING_AVAILABLE and domain:
+            try:
+                self._threshold_manager = create_domain_threshold_manager(domain)
+                logger.info(f"Adaptive threshold manager initialized for: {domain}")
+            except Exception as e:
+                logger.warning(f"Failed to initialize threshold manager: {e}")
+
+        # Initialize GOSNN-3R integration
+        if enable_gosnn_3r and GOSNN_3R_AVAILABLE:
+            try:
+                self._gosnn_3r = GOSNN3RIntegration(domain=domain or "general")
+                self._sliding_normalizer = SlidingWindowNormalizer(window_size=100)
+                logger.info("GOSNN-3R bidirectional integration initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize GOSNN-3R integration: {e}")
+
         # Tracking
         self._fitted = False
         self._inference_count = 0
@@ -516,9 +599,14 @@ class NeuroSymbolicHub:
         # Initialize default rules
         self._initialize_default_rules()
 
+        # Add domain-specific rules if domain is specified
+        if domain:
+            self._initialize_domain_rules(domain)
+
         logger.info(
             f"NeuroSymbolicHub initialized: fusion={fusion_mode.value}, "
-            f"sigma_immutable={sigma_immutable}, benevolence≥{benevolence_threshold}"
+            f"sigma_immutable={sigma_immutable}, benevolence≥{benevolence_threshold}, "
+            f"domain={domain or 'general'}"
         )
 
     def _initialize_default_rules(self) -> None:
@@ -597,6 +685,104 @@ class NeuroSymbolicHub:
 
         for rule in default_rules:
             self.knowledge_graph.add_rule(rule)
+
+    def _initialize_domain_rules(self, domain: str) -> None:
+        """Initialize domain-specific symbolic rules.
+
+        Args:
+            domain: Domain name ('medical', 'financial', 'infrastructure')
+        """
+        domain_rules: list[SymbolicRule] = []
+
+        if domain == "medical":
+            domain_rules = [
+                SymbolicRule(
+                    rule_id="sepsis_alert",
+                    premise="sofa_score >= 2.0 AND lactate_elevated",
+                    conclusion="critical_deviation",
+                    confidence=0.95,
+                    category="medical",
+                    explanation_template="Sepsis criteria met (SOFA ≥2, elevated lactate)",
+                ),
+                SymbolicRule(
+                    rule_id="vital_instability",
+                    premise="vital_variability >= 0.3 AND trend_declining",
+                    conclusion="is_anomalous",
+                    confidence=0.88,
+                    category="medical",
+                    explanation_template="Vital sign instability detected",
+                ),
+                SymbolicRule(
+                    rule_id="deterioration_risk",
+                    premise="deterioration_score >= 0.7",
+                    conclusion="high_risk",
+                    confidence=0.92,
+                    category="medical",
+                    explanation_template="Patient deterioration risk ≥70%",
+                ),
+            ]
+
+        elif domain == "financial":
+            domain_rules = [
+                SymbolicRule(
+                    rule_id="benford_violation",
+                    premise="benford_deviation >= 0.15",
+                    conclusion="unusual_pattern",
+                    confidence=0.85,
+                    category="financial",
+                    explanation_template="Benford's Law violation (deviation ≥15%)",
+                ),
+                SymbolicRule(
+                    rule_id="velocity_spike",
+                    premise="transaction_velocity >= 3.0",
+                    conclusion="is_anomalous",
+                    confidence=0.90,
+                    category="financial",
+                    explanation_template="Transaction velocity spike (3σ above mean)",
+                ),
+                SymbolicRule(
+                    rule_id="round_number_fraud",
+                    premise="round_number_ratio >= 0.4 AND amount_large",
+                    conclusion="security_alert",
+                    confidence=0.82,
+                    category="financial",
+                    explanation_template="Suspicious round number pattern in large transactions",
+                ),
+            ]
+
+        elif domain == "infrastructure":
+            domain_rules = [
+                SymbolicRule(
+                    rule_id="scada_correlation_break",
+                    premise="correlation_deviation >= 0.4",
+                    conclusion="is_anomalous",
+                    confidence=0.92,
+                    category="infrastructure",
+                    explanation_template="SCADA sensor correlation anomaly",
+                ),
+                SymbolicRule(
+                    rule_id="setpoint_drift",
+                    premise="setpoint_deviation >= 2.0 AND not maintenance_mode",
+                    conclusion="critical_deviation",
+                    confidence=0.95,
+                    category="infrastructure",
+                    explanation_template="Process variable drifting from setpoint",
+                ),
+                SymbolicRule(
+                    rule_id="alarm_cascade",
+                    premise="alarm_frequency >= 5.0",
+                    conclusion="high_risk",
+                    confidence=0.88,
+                    category="infrastructure",
+                    explanation_template="Alarm cascade detected (≥5 alarms/minute)",
+                ),
+            ]
+
+        for rule in domain_rules:
+            self.knowledge_graph.add_rule(rule)
+
+        if domain_rules:
+            logger.info(f"Added {len(domain_rules)} domain-specific rules for {domain}")
 
     def add_fact(self, fact: str) -> None:
         """Add a fact to the knowledge base."""
@@ -735,8 +921,39 @@ class NeuroSymbolicHub:
         context = context or {}
         results = []
 
-        # Get neural scores
-        neural_scores = self.neural_encoder.encode(X)
+        # P2 Integration: Apply domain-specific feature extraction
+        domain_features: dict[str, Any] = {}
+        X_enhanced = X
+        if self._domain_extractor is not None:
+            try:
+                # Extract domain-specific features
+                extracted_features, feature_names = self._domain_extractor.extract_features(X)
+
+                # If we got enhanced features, use them
+                if extracted_features is not None and len(extracted_features) > 0:
+                    # Concatenate original features with domain features
+                    if extracted_features.shape[0] == X.shape[0]:
+                        X_enhanced = np.concatenate([X, extracted_features], axis=1)
+                        domain_features = {
+                            "domain": self.domain,
+                            "extracted_feature_count": len(feature_names),
+                            "feature_names": feature_names,
+                        }
+                        logger.debug(f"Domain features extracted: {len(feature_names)} features")
+            except Exception as e:
+                logger.warning(f"Domain feature extraction failed: {e}")
+                # Fall back to original features
+                X_enhanced = X
+
+        # P2 Integration: Apply sliding window normalization if available
+        if self._sliding_normalizer is not None:
+            try:
+                X_enhanced = self._sliding_normalizer.normalize(X_enhanced)
+            except Exception as e:
+                logger.warning(f"Sliding window normalization failed: {e}")
+
+        # Get neural scores (using enhanced features if available)
+        neural_scores = self.neural_encoder.encode(X_enhanced)
 
         for i in range(n_samples):
             sample_start = time.time()
@@ -809,8 +1026,56 @@ class NeuroSymbolicHub:
             )
             confidence = min(max(confidence, 0.0), 1.0)
 
-            # Determine if anomaly using centralized threshold
-            is_anomaly = fused_score > self._thresholds.anomaly_default
+            # P2 Integration: Use adaptive domain thresholding if available
+            if self._threshold_manager is not None:
+                try:
+                    # Get calibrated score and adaptive threshold
+                    threshold_result = self._threshold_manager.get_threshold(
+                        fused_score, confidence
+                    )
+                    adaptive_threshold = threshold_result.get(
+                        "threshold", self._thresholds.anomaly_default
+                    )
+                    is_anomaly = fused_score > adaptive_threshold
+
+                    # Update calibrated score if threshold manager provides one
+                    if "calibrated_score" in threshold_result:
+                        calibrated_score = threshold_result["calibrated_score"]
+                except Exception as e:
+                    logger.warning(f"Adaptive thresholding failed: {e}")
+                    is_anomaly = fused_score > self._thresholds.anomaly_default
+            else:
+                # Fallback to centralized threshold
+                is_anomaly = fused_score > self._thresholds.anomaly_default
+
+            # P2 Integration: GOSNN-3R feedback loop
+            gosnn_3r_info: dict[str, Any] = {}
+            if self._gosnn_3r is not None:
+                try:
+                    # Get 3R-adjusted fusion weights based on confidence
+                    adjusted_weights = self._gosnn_3r.adjust_weights(
+                        neural_score=neural_score,
+                        symbolic_score=symbolic_score,
+                        confidence=confidence,
+                        domain=self.domain,
+                    )
+
+                    # Apply adjusted weights for potential score refinement
+                    if adjusted_weights:
+                        gosnn_3r_info = {
+                            "gosnn_3r_active": True,
+                            "adjusted_neural_weight": adjusted_weights.get("neural_weight"),
+                            "adjusted_symbolic_weight": adjusted_weights.get("symbolic_weight"),
+                            "lyapunov_stability": adjusted_weights.get("lyapunov_stability", 0.0),
+                        }
+
+                        # Optionally refine fused score with GOSNN-3R adjusted weights
+                        if adjusted_weights.get("refine_score", False):
+                            w_n = adjusted_weights["neural_weight"]
+                            w_s = adjusted_weights["symbolic_weight"]
+                            fused_score = w_n * neural_score + w_s * symbolic_score
+                except Exception as e:
+                    logger.warning(f"GOSNN-3R integration failed: {e}")
 
             # Check ethical compliance
             benevolence_score = self._compute_benevolence(sample_context, fused_score)
@@ -822,8 +1087,18 @@ class NeuroSymbolicHub:
                     f"Benevolence {benevolence_score:.3f} < {self.benevolence_threshold}"
                 )
 
-            # Build reasoning chain
-            reasoning_chain = [
+            # Build reasoning chain with P2 integration info
+            reasoning_chain = []
+
+            # Add domain feature extraction step if used
+            if domain_features:
+                reasoning_chain.append({
+                    "step": "domain_feature_extraction",
+                    "domain": domain_features.get("domain"),
+                    "features_extracted": domain_features.get("extracted_feature_count", 0),
+                })
+
+            reasoning_chain.extend([
                 {"step": "neural_encoding", "score": neural_score, "weight": neural_weight},
                 {
                     "step": "symbolic_reasoning",
@@ -832,7 +1107,14 @@ class NeuroSymbolicHub:
                     "rules_fired": rules_fired,
                 },
                 {"step": "fusion", "fused_score": fused_score, "mode": self.fusion_mode.value},
-            ]
+            ])
+
+            # Add GOSNN-3R integration step if used
+            if gosnn_3r_info:
+                reasoning_chain.append({
+                    "step": "gosnn_3r_integration",
+                    **gosnn_3r_info,
+                })
 
             if calibrated_score is not None:
                 reasoning_chain.append(

@@ -55,7 +55,9 @@ from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
 from omni_mercury_engine.core.ai_ethics import EthicalAutonomyGovernor, EthicsResult
 from omni_mercury_engine.core.config import EngineConfig
 from omni_mercury_engine.core.novel_class_discovery import NovelClassDiscovery
-from omni_mercury_engine.core.self_healing import CRISPRInspiredSelfHealing
+from omni_mercury_engine.resilience.self_healing import (
+    AdaptiveDefenseSystem as CRISPRInspiredSelfHealing,
+)
 from omni_mercury_engine.core.three_r_mechanism import ThreeRMechanism
 from omni_mercury_engine.engine import OmniMercuryEngine
 from omni_mercury_engine.utils.logging import LoggerMixin

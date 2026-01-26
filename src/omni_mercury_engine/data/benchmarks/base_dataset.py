@@ -142,7 +142,11 @@ class BaseImageDataset(ABC):
 
         from PIL import Image
 
-        image = Image.open(image_path).convert("RGB")
+        # Use context manager to ensure file handle is released
+        with Image.open(image_path) as img:
+            image = img.convert("RGB")
+            # Force load to memory before context exits
+            image.load()
 
         if self.transform is not None:
             image = self.transform(image)
@@ -154,7 +158,9 @@ class BaseImageDataset(ABC):
         }
 
         if mask_path is not None and mask_path.exists():
-            mask = Image.open(mask_path).convert("L")
+            with Image.open(mask_path) as msk:
+                mask = msk.convert("L")
+                mask.load()
             if self.transform is not None:
                 from torchvision import transforms
 
@@ -261,23 +267,30 @@ class BaseVideoDataset(ABC):
             for i, frame_path in enumerate(frame_files):
                 if max_frames is not None and i >= max_frames:
                     break
-                frames.append(Image.open(frame_path).convert("RGB"))
+                # Use context manager to prevent file descriptor exhaustion
+                with Image.open(frame_path) as img:
+                    frame = img.convert("RGB")
+                    frame.load()
+                frames.append(frame)
         else:
             try:
                 import cv2
 
                 cap = cv2.VideoCapture(str(video_path))
-                frame_count = 0
-                while cap.isOpened():
-                    ret, frame = cap.read()
-                    if not ret:
-                        break
-                    if max_frames is not None and frame_count >= max_frames:
-                        break
-                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    frames.append(Image.fromarray(frame_rgb))
-                    frame_count += 1
-                cap.release()
+                try:
+                    frame_count = 0
+                    while cap.isOpened():
+                        ret, frame = cap.read()
+                        if not ret:
+                            break
+                        if max_frames is not None and frame_count >= max_frames:
+                            break
+                        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        frames.append(Image.fromarray(frame_rgb))
+                        frame_count += 1
+                finally:
+                    # Ensure release even if exception occurs
+                    cap.release()
             except ImportError:
                 raise ImportError("OpenCV required for video loading")
 
