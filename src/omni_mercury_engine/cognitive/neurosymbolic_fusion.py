@@ -186,8 +186,10 @@ class AttentionMechanism:
         neural_proj = np.tanh(neural_padded @ self.W_neural)
         symbolic_proj = np.tanh(symbolic_padded @ self.W_symbolic)
 
-        neural_score = float(neural_proj @ self.W_attention)
-        symbolic_score = float(symbolic_proj @ self.W_attention)
+        # Use .item() to extract scalar from 1D array result of matrix multiplication
+        # float() fails on 1D arrays: "only 0-dimensional arrays can be converted to Python scalars"
+        neural_score = (neural_proj @ self.W_attention).item()
+        symbolic_score = (symbolic_proj @ self.W_attention).item()
 
         exp_neural = np.exp(neural_score - max(neural_score, symbolic_score))
         exp_symbolic = np.exp(symbolic_score - max(neural_score, symbolic_score))
