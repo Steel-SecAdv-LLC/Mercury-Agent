@@ -1077,8 +1077,46 @@ app.openapi = custom_openapi
 
 
 # =============================================================================
-# Include Voice Interface Routes
+# Include Modular API Routes
 # =============================================================================
+
+# Include Batch Processing Routes
+try:
+    from omni_mercury_engine.api.routes.batch import router as batch_router
+
+    app.include_router(batch_router)
+    logger.info("Batch processing routes registered")
+except ImportError as e:
+    logger.warning(f"Batch processing routes not available: {e}")
+
+# Include Model Management Routes
+try:
+    from omni_mercury_engine.api.routes.models import router as models_router
+
+    app.include_router(models_router)
+    logger.info("Model management routes registered")
+except ImportError as e:
+    logger.warning(f"Model management routes not available: {e}")
+
+# Include Data Export Routes
+try:
+    from omni_mercury_engine.api.routes.export import router as export_router
+
+    app.include_router(export_router)
+    logger.info("Data export routes registered")
+except ImportError as e:
+    logger.warning(f"Data export routes not available: {e}")
+
+# Include Advanced Detection Routes
+try:
+    from omni_mercury_engine.api.routes.detection import router as detection_router
+
+    app.include_router(detection_router)
+    logger.info("Advanced detection routes registered")
+except ImportError as e:
+    logger.warning(f"Advanced detection routes not available: {e}")
+
+# Include Voice Interface Routes
 try:
     from omni_mercury_engine.api.voice import router as voice_router
 
@@ -1086,3 +1124,38 @@ try:
     logger.info("Voice interface routes registered")
 except ImportError as e:
     logger.warning(f"Voice interface routes not available: {e}")
+
+
+# =============================================================================
+# Server Startup Function
+# =============================================================================
+def run_server(
+    host: str = "0.0.0.0",
+    port: int = 8000,
+    workers: int = 1,
+    reload: bool = False,
+    log_level: str = "info",
+) -> None:
+    """Run the Mercury Agent API server.
+
+    Args:
+        host: Host address to bind to
+        port: Port number to listen on
+        workers: Number of worker processes
+        reload: Enable auto-reload for development
+        log_level: Logging level (debug, info, warning, error)
+    """
+    import uvicorn
+
+    uvicorn.run(
+        "omni_mercury_engine.api.server:app",
+        host=host,
+        port=port,
+        workers=workers,
+        reload=reload,
+        log_level=log_level,
+    )
+
+
+if __name__ == "__main__":
+    run_server()

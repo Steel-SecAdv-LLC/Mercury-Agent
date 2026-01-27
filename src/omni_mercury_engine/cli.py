@@ -171,6 +171,75 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
 # =============================================================================
 # Voice Conversation Command
 # =============================================================================
+# =============================================================================
+# API Server Command
+# =============================================================================
+@main.command()
+@click.option("--host", "-h", default="0.0.0.0", help="Host address to bind to")
+@click.option("--port", "-p", default=8000, type=int, help="Port number to listen on")
+@click.option("--workers", "-w", default=1, type=int, help="Number of worker processes")
+@click.option("--reload", "-r", is_flag=True, help="Enable auto-reload for development")
+@click.option(
+    "--log-level",
+    "-l",
+    default="info",
+    type=click.Choice(["debug", "info", "warning", "error"]),
+    help="Logging level",
+)
+def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> None:
+    """
+    Start the Mercury Agent API server.
+
+    The API provides REST endpoints for anomaly detection, batch processing,
+    model management, and data export.
+
+    Examples:
+        mercury serve
+        mercury serve --port 8080
+        mercury serve --workers 4 --log-level debug
+        mercury serve --reload  # Development mode with auto-reload
+    """
+    click.echo("\n" + "=" * 60)
+    click.echo("  Mercury Agent API Server")
+    click.echo("=" * 60)
+    click.echo()
+    click.echo(f"  Host: {host}")
+    click.echo(f"  Port: {port}")
+    click.echo(f"  Workers: {workers}")
+    click.echo(f"  Reload: {'enabled' if reload else 'disabled'}")
+    click.echo(f"  Log Level: {log_level}")
+    click.echo()
+    click.echo("  Endpoints:")
+    click.echo("    /docs       - Interactive API documentation (Swagger)")
+    click.echo("    /redoc      - ReDoc API documentation")
+    click.echo("    /health     - Health check endpoint")
+    click.echo("    /api/v1/... - API endpoints")
+    click.echo()
+    click.echo("-" * 60)
+    click.echo()
+
+    try:
+        import uvicorn
+
+        uvicorn.run(
+            "omni_mercury_engine.api.server:app",
+            host=host,
+            port=port,
+            workers=workers if not reload else 1,
+            reload=reload,
+            log_level=log_level,
+        )
+    except ImportError:
+        click.echo(
+            "Error: uvicorn is required for the API server. "
+            "Install with: pip install uvicorn"
+        )
+        raise SystemExit(1)
+    except Exception as e:
+        click.echo(f"Error starting server: {e}")
+        raise SystemExit(1)
+
+
 @main.command()
 @click.option("--domain", "-d", default=None, help="Domain context (medical, security, etc.)")
 @click.option("--model", "-m", default="llama3.2:3b", help="Ollama model to use")
