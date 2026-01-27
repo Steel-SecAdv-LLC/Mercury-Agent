@@ -12,9 +12,9 @@ from typing import Any
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
-from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
+from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
 from omni_mercury_engine.api.routes.export import record_detection
 
 logger = logging.getLogger(__name__)
@@ -476,7 +476,7 @@ async def detect_three_r(
                 "band_energies": band_energies,
                 "band_ratios": band_ratios,
                 "harmonic_deviation": harmonic_deviation,
-                "dominant_frequency_idx": int(np.argmax(magnitudes[:len(magnitudes)//2])),
+                "dominant_frequency_idx": int(np.argmax(magnitudes[:len(magnitudes) // 2])),
             },
         )
 

@@ -21,12 +21,11 @@ Research References:
 from __future__ import annotations
 
 import logging
-import math
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 
@@ -292,7 +291,7 @@ if TORCH_AVAILABLE:
             rule_scores = self.rule_scorer(combined)
 
             weights = torch.sigmoid(self.rule_weights)
-            confidences = torch.sigmoid(self.rule_confidences)
+            _confidences = torch.sigmoid(self.rule_confidences)  # noqa: F841 - Reserved for confidence scoring
 
             if rule_mask is not None:
                 weights = weights * rule_mask

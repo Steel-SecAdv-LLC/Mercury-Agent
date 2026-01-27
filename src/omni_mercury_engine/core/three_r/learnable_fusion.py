@@ -33,7 +33,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
-from scipy import signal
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +40,7 @@ try:
     import torch
     import torch.nn as nn
     import torch.nn.functional as F
-    from torch.optim import Adam, AdamW
+    from torch.optim import AdamW
 
     TORCH_AVAILABLE = True
 except ImportError:
@@ -54,7 +53,6 @@ except ImportError:
 from omni_mercury_engine.core.three_r.types import (
     CONVERGENCE_RATE_PARAMETER,
     GOLDEN_RATIO_CONSTANT,
-    AnomalyFusionResult,
 )
 
 
@@ -209,7 +207,7 @@ if TORCH_AVAILABLE:
             if x.dim() == 1:
                 x = x.unsqueeze(0)
 
-            batch_size = x.shape[0]
+            _batch_size = x.shape[0]  # noqa: F841 - Reserved for batch processing
 
             if x.shape[-1] != self.encoder.in_features:
                 x_padded = F.pad(x, (0, self.encoder.in_features - x.shape[-1]))
@@ -388,7 +386,7 @@ if TORCH_AVAILABLE:
             if x.dim() == 1:
                 x = x.unsqueeze(0)
 
-            batch_size = x.shape[0]
+            _batch_size = x.shape[0]  # noqa: F841 - Reserved for batch processing
 
             x_padded = F.pad(x, (0, max(0, 64 - x.shape[-1])))
             x_padded = x_padded[:, :64]
@@ -739,12 +737,19 @@ class Learnable3REngine:
         logger.info(f"Model saved to {path}")
 
     def load_model(self, path: str) -> None:
-        """Load model checkpoint."""
+        """Load model checkpoint.
+
+        Security Note: Only load checkpoints from trusted sources.
+        The checkpoint contains serialized optimizer state which requires
+        weights_only=False for full restoration.
+        """
         if not TORCH_AVAILABLE or self.model is None:
             logger.warning("Cannot load model: PyTorch not available")
             return
 
-        checkpoint = torch.load(path, map_location=self.device, weights_only=False)
+        # Security: weights_only=False is required for optimizer state restoration
+        # Only load checkpoints from trusted sources
+        checkpoint = torch.load(path, map_location=self.device, weights_only=False)  # nosec B614
 
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])

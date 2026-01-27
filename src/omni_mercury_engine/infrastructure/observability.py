@@ -23,11 +23,9 @@ References:
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 import os
-import sys
 import threading
 import time
 import uuid
@@ -47,7 +45,7 @@ try:
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
-    from opentelemetry.trace import SpanKind, Status, StatusCode
+    from opentelemetry.trace import SpanKind
     from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
     OTEL_AVAILABLE = True
@@ -583,7 +581,7 @@ class DistributedTracer:
             name,
             kind=kind_map.get(kind, SpanKind.INTERNAL),
             attributes=attributes,
-        ) as span:
+        ):
             ctx = trace.get_current_span().get_span_context()
             yield {
                 "trace_id": format(ctx.trace_id, "032x"),

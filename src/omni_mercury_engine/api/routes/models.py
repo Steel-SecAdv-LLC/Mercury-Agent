@@ -18,6 +18,7 @@ import hashlib
 import logging
 import os
 import shutil
+import tempfile
 import threading
 import time
 from dataclasses import dataclass, field
@@ -133,7 +134,8 @@ class ModelRegistry:
     def __init__(self, storage_path: str | None = None) -> None:
         self._models: dict[str, Model] = {}
         self._lock = threading.RLock()
-        self._storage_path = Path(storage_path or os.getenv("MODEL_STORAGE_PATH", "/tmp/mercury_models"))
+        default_storage = os.path.join(tempfile.gettempdir(), "mercury_models")
+        self._storage_path = Path(storage_path or os.getenv("MODEL_STORAGE_PATH", default_storage))
         self._storage_path.mkdir(parents=True, exist_ok=True)
         self._version_counter: dict[str, int] = {}
 

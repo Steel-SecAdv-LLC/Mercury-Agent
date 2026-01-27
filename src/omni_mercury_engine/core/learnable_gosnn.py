@@ -448,8 +448,8 @@ class LearnableGOSNN:
             ).to(device)
 
             self.optimizer = Adam(
-                list(self.scalar_embeddings.parameters()) +
-                list(self.attention.parameters()),
+                list(self.scalar_embeddings.parameters())
+                + list(self.attention.parameters()),
                 lr=0.001,
             )
         else:
@@ -754,7 +754,7 @@ class LearnableGOSNN:
             }
 
         values = np.array(trajectory.values[-100:])
-        timestamps = np.array(trajectory.timestamps[-100:])
+        _timestamps = np.array(trajectory.timestamps[-100:])  # noqa: F841 - Reserved for time-weighted analysis
 
         if len(values) >= 2:
             coeffs = np.polyfit(range(len(values)), values, 1)

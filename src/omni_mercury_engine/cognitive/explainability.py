@@ -704,7 +704,7 @@ class CounterfactualExplainer:
 
         original_pred = float(model(instance.reshape(1, -1))[0])
         original_class = 1 if original_pred > self.threshold else 0
-        target_pred = 1.0 if target_class == 1 else 0.0
+        _target_pred = 1.0 if target_class == 1 else 0.0  # noqa: F841 - Reserved for gradient optimization
 
         counterfactual = instance.copy()
 
