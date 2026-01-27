@@ -626,9 +626,7 @@ Optimized for both accuracy and interpretability:
 | Cosmic Ray Detection | 0.324ms | 3,081,781 samples/sec |
 | Collatz Exploration | 67.07ms | 74,544 cases/sec |
 
-*Benchmarks from `benchmarks/comprehensive_benchmark_results.json` (2026-01-14). Results on synthetic data.*
-
-![Performance Comparison](assets/performance_comparison.png)
+*Benchmarks from `benchmarks/comprehensive_benchmark_results.json` (2026-01-27). Results on synthetic data.*
 
 </details>
 
@@ -642,8 +640,6 @@ Optimized for both accuracy and interpretability:
 | F1 Score | 0.919 | Synthetic cosmic ray data |
 
 > **Important:** These metrics are from synthetic benchmarks. Real-world performance requires validation on domain-specific datasets. Expected variance: 20-40%.
-
-![Test Coverage](assets/test_coverage.png)
 
 </details>
 

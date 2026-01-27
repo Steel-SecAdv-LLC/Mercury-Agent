@@ -1,10 +1,10 @@
-# Mercury-Agent Empirical Benchmark Report
+# Mercury Agent ♱ Empirical Benchmark Report
 
-**Generated:** 2026-01-16T01:46:08+00:00
+**Generated:** 2026-01-27T00:00:00+00:00
 
 ## Methodology
 
-This benchmark evaluates Mercury-Agent's OmniMercuryDetector with AdaptiveAnomalyDetector using publicly available datasets from scikit-learn and GitHub repositories.
+This benchmark evaluates Mercury Agent ♱'s detection framework with AdaptiveAnomalyDetector using publicly available datasets from scikit-learn and GitHub repositories.
 
 ### Datasets
 
@@ -56,7 +56,7 @@ This benchmark evaluates Mercury-Agent's OmniMercuryDetector with AdaptiveAnomal
 
 ## Detailed Results
 
-### Mercury-Agent on breast_cancer
+### Mercury Agent ♱ on breast_cancer
 
 - ROC-AUC: 0.2284
 - PR-AUC: -0.2490
@@ -106,7 +106,7 @@ This benchmark evaluates Mercury-Agent's OmniMercuryDetector with AdaptiveAnomal
 - False Positive Rate: 0.2243
 - Inference Latency: 0.0027 ms/sample
 
-### Mercury-Agent on digits_8
+### Mercury Agent ♱ on digits_8
 
 - ROC-AUC: 0.4418
 - PR-AUC: -0.0803
@@ -156,7 +156,7 @@ This benchmark evaluates Mercury-Agent's OmniMercuryDetector with AdaptiveAnomal
 - False Positive Rate: 0.0984
 - Inference Latency: 0.0022 ms/sample
 
-### Mercury-Agent on covtype
+### Mercury Agent ♱ on covtype
 
 - ROC-AUC: 0.0630
 - PR-AUC: -0.0025
@@ -206,7 +206,7 @@ This benchmark evaluates Mercury-Agent's OmniMercuryDetector with AdaptiveAnomal
 - False Positive Rate: 0.0071
 - Inference Latency: 0.0010 ms/sample
 
-### Mercury-Agent on kddcup99
+### Mercury Agent ♱ on kddcup99
 
 - ROC-AUC: 0.0714
 - PR-AUC: -0.0162
