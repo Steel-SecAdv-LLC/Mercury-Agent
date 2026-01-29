@@ -1130,7 +1130,7 @@ except ImportError as e:
 # Server Startup Function
 # =============================================================================
 def run_server(
-    host: str = "0.0.0.0",  # nosec B104 # noqa: S104 - Intentional binding to all interfaces for server
+    host: str | None = None,
     port: int = 8000,
     workers: int = 1,
     reload: bool = False,
@@ -1139,12 +1139,17 @@ def run_server(
     """Run the Mercury Agent API server.
 
     Args:
-        host: Host address to bind to
+        host: Host address to bind to. Defaults to MERCURY_HOST env var or 127.0.0.1.
+              Set MERCURY_HOST=0.0.0.0 for production deployments requiring external access.
         port: Port number to listen on
         workers: Number of worker processes
         reload: Enable auto-reload for development
         log_level: Logging level (debug, info, warning, error)
     """
+    # Security: Default to localhost (127.0.0.1) for safety
+    # Use MERCURY_HOST environment variable for production deployments
+    if host is None:
+        host = os.environ.get("MERCURY_HOST", "127.0.0.1")
     import uvicorn
 
     uvicorn.run(

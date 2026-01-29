@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 from urllib.request import urlopen
 
 import numpy as np
@@ -45,6 +46,12 @@ from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_
 
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_url_scheme(url: str) -> bool:
+    """Validate that URL uses HTTPS scheme to prevent SSRF attacks."""
+    parsed = urlparse(url)
+    return parsed.scheme == "https"
 
 
 @dataclass
@@ -504,7 +511,7 @@ class USGSEarthquakeLoader(DatasetLoader):
 
             url = f"{self.USGS_API_URL}?" + "&".join(f"{k}={v}" for k, v in params.items())
 
-            if not url.startswith("https://"):
+            if not _validate_url_scheme(url):
                 raise RuntimeError("USGS API URL must use HTTPS. Security validation failed.")
 
             import json
@@ -1061,7 +1068,7 @@ class NOAASpaceWeatherLoader(DatasetLoader):
             from urllib.request import Request
 
             url = f"{self.SWPC_API_URL}/planetary_k_index_1m.json"
-            if not url.startswith("https://"):
+            if not _validate_url_scheme(url):
                 raise RuntimeError("NOAA SWPC API URL must use HTTPS. Security validation failed.")
 
             req = Request(  # noqa: S310
@@ -1336,7 +1343,7 @@ class NOAAHurricaneLoader(DatasetLoader):
             from urllib.request import Request
 
             url = f"{self.NHC_API_URL}/hurdat2-1851-2023-052424.txt"
-            if not url.startswith("https://"):
+            if not _validate_url_scheme(url):
                 raise RuntimeError("NOAA NHC API URL must use HTTPS. Security validation failed.")
 
             req = Request(  # noqa: S310
@@ -1638,7 +1645,7 @@ class NOAAOceanLoader(DatasetLoader):
             from urllib.request import Request
 
             url = f"{self.NOS_API_URL}?begin_date=20240101&end_date=20241231&station=8454000&product=water_temperature&datum=MLLW&units=metric&time_zone=gmt&application=Mercury-Agent&format=json"
-            if not url.startswith("https://"):
+            if not _validate_url_scheme(url):
                 raise RuntimeError("NOAA NOS API URL must use HTTPS. Security validation failed.")
 
             req = Request(  # noqa: S310

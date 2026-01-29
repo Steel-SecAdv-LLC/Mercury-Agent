@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 
@@ -176,7 +177,10 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
 # =============================================================================
 @main.command()
 @click.option(
-    "--host", "-h", default="0.0.0.0", help="Host address to bind to"  # noqa: S104 # nosec B104
+    "--host",
+    "-h",
+    default=os.environ.get("MERCURY_HOST", "127.0.0.1"),
+    help="Host address to bind to (default: 127.0.0.1, set MERCURY_HOST=0.0.0.0 for all interfaces)",
 )
 @click.option("--port", "-p", default=8000, type=int, help="Port number to listen on")
 @click.option("--workers", "-w", default=1, type=int, help="Number of worker processes")

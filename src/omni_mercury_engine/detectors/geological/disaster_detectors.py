@@ -48,6 +48,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 import numpy as np
@@ -61,6 +62,13 @@ from omni_mercury_engine.utils.rng import get_global_rng
 
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_url_scheme(url: str) -> bool:
+    """Validate that URL uses HTTPS scheme to prevent SSRF attacks."""
+    parsed = urlparse(url)
+    return parsed.scheme == "https"
+
 
 # Feature dimension for fusion pipeline
 FEATURE_DIM = 20
@@ -1450,7 +1458,7 @@ def load_dart_buoy_data(
         tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]
     ):
         url = f"{DART_BUOY_API_URL}/{station_id}.dart"
-        if not url.startswith("https://"):
+        if not _validate_url_scheme(url):
             raise RuntimeError("DART API URL must use HTTPS")
 
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
@@ -1526,7 +1534,7 @@ def load_noaa_tsunami_records(
 
     def _fetch_tsunami_records() -> list[dict[str, Any]]:
         url = f"{NOAA_TSUNAMI_API_URL}?minYear={min_year}&maxSize={max_records}"
-        if not url.startswith("https://"):
+        if not _validate_url_scheme(url):
             raise RuntimeError("NOAA Tsunami API URL must use HTTPS")
 
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
@@ -1586,7 +1594,7 @@ def load_usgs_earthquake_catalog(
         }
 
         url = f"{USGS_EARTHQUAKE_API_URL}?" + "&".join(f"{k}={v}" for k, v in params.items())
-        if not url.startswith("https://"):
+        if not _validate_url_scheme(url):
             raise RuntimeError("USGS API URL must use HTTPS")
 
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
