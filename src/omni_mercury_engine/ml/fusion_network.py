@@ -559,10 +559,20 @@ class OmniFusionModel(nn.Module):
 
                 output = self.forward(features_dict)
 
-                anomaly_loss = nn.functional.binary_cross_entropy(
+                # Calculate class weights for imbalanced anomaly detection
+                target = labels[:, 0].float() if labels.dim() > 1 else labels.float()
+                n_pos = target.sum().clamp(min=1)  # Avoid division by zero
+                n_neg = (1 - target).sum().clamp(min=1)
+                pos_weight = (n_neg / n_pos).clamp(max=10.0)  # Cap at 10x to avoid instability
+
+                # Apply per-sample weights: anomalies (positive class) get higher weight
+                sample_weights = torch.where(target == 1, pos_weight, torch.ones_like(target))
+
+                anomaly_loss = (nn.functional.binary_cross_entropy(
                     output["anomaly_probs"].squeeze(),
-                    labels[:, 0].float() if labels.dim() > 1 else labels.float(),
-                )
+                    target,
+                    reduction="none",
+                ) * sample_weights).mean()
 
                 class_loss = nn.functional.cross_entropy(
                     output["class_logits"],

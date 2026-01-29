@@ -272,7 +272,13 @@ class DatasetLoader(ABC):
         # Check cache
         if cache_file.exists():
             logger.info(f"Loading {self.DATASET_NAME} from cache")
-            cached = np.load(cache_file, allow_pickle=True)
+            # Security: Cache files are self-generated, should be pure numpy arrays
+            # Use allow_pickle=False for safety; fall back only if legacy cache exists
+            try:
+                cached = np.load(cache_file, allow_pickle=False)
+            except ValueError:
+                logger.warning(f"Legacy cache format detected, loading with pickle")
+                cached = np.load(cache_file, allow_pickle=True)  # nosec B301
             self._data = {
                 DatasetSplit.TRAIN: cached["train_features"],
                 DatasetSplit.VALIDATION: cached["val_features"],

@@ -50,6 +50,7 @@ class CalibrationMethod(Enum):
     MAD = "mad"  # Median Absolute Deviation based
     KNEE = "knee"  # Knee/elbow detection in sorted scores
     OPTIMAL_F1 = "optimal_f1"  # Find threshold maximizing F1 (requires labels)
+    YOUDEN_J = "youden_j"  # Find threshold maximizing Youden's J (requires labels)
     ADAPTIVE_IQR = "adaptive_iqr"  # IQR-based adaptive threshold
     GAUSSIAN_MIXTURE = "gmm"  # Gaussian Mixture Model separation
     AUTO = "auto"  # Automatically select best method
@@ -580,6 +581,14 @@ class AutoThresholdOptimizer:
             else:
                 return self._optimal_f1_threshold(scores, labels)
 
+        # Handle YOUDEN_J separately (requires labels)
+        if method == CalibrationMethod.YOUDEN_J:
+            if labels is None:
+                logger.warning("YOUDEN_J requires labels, falling back to PERCENTILE")
+                method = CalibrationMethod.PERCENTILE
+            else:
+                return self._youden_j_threshold(scores, labels)
+
         # Get threshold from selected method
         method_func = self._methods.get(method, self._percentile_threshold)
         threshold, method_info = method_func(scores, contamination, fixed_threshold)
@@ -1011,6 +1020,77 @@ class AutoThresholdOptimizer:
             method_specific_info={
                 "method": "optimal_f1",
                 "best_f1": best_f1,
+            },
+        )
+
+    def _youden_j_threshold(
+        self,
+        scores: NDArray[np.float64],
+        labels: NDArray[np.int32],
+    ) -> CalibrationResult:
+        """
+        Find threshold that maximizes Youden's J statistic.
+
+        Youden's J = Sensitivity + Specificity - 1 = TPR - FPR
+
+        This optimizes for the best trade-off between true positive rate
+        and false positive rate, independent of class imbalance.
+
+        Args:
+            scores: Anomaly scores array
+            labels: Binary ground truth labels
+
+        Returns:
+            CalibrationResult with optimal threshold
+        """
+        sorted_scores = np.sort(np.unique(scores))
+
+        # Try threshold candidates at midpoints between unique scores
+        thresholds = (sorted_scores[:-1] + sorted_scores[1:]) / 2
+        thresholds = np.concatenate([[sorted_scores[0] - 0.01], thresholds, [sorted_scores[-1] + 0.01]])
+
+        best_j = -1.0
+        best_threshold = float(np.median(scores))
+        best_tpr = 0.0
+        best_fpr = 0.0
+
+        n_pos = np.sum(labels == 1)
+        n_neg = np.sum(labels == 0)
+
+        for threshold in thresholds:
+            predictions = scores > threshold
+
+            tp = np.sum((labels == 1) & predictions)
+            fp = np.sum((labels == 0) & predictions)
+            tn = np.sum((labels == 0) & ~predictions)
+            fn = np.sum((labels == 1) & ~predictions)
+
+            tpr = tp / n_pos if n_pos > 0 else 0.0  # Sensitivity
+            fpr = fp / n_neg if n_neg > 0 else 0.0  # 1 - Specificity
+
+            # Youden's J = TPR - FPR = Sensitivity + Specificity - 1
+            j = tpr - fpr
+
+            if j > best_j:
+                best_j = j
+                best_threshold = threshold
+                best_tpr = tpr
+                best_fpr = fpr
+
+        predictions = scores > best_threshold
+        diagnostics = ScoreDiagnostics.analyze(scores, best_threshold, labels, "youden_j")
+
+        return CalibrationResult(
+            threshold=best_threshold,
+            method=CalibrationMethod.YOUDEN_J,
+            predictions=predictions,
+            diagnostics=diagnostics,
+            confidence=1.0,
+            method_specific_info={
+                "method": "youden_j",
+                "best_youden_j": best_j,
+                "tpr_at_threshold": best_tpr,
+                "fpr_at_threshold": best_fpr,
             },
         )
 
