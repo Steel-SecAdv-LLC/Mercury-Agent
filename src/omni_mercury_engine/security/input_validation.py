@@ -585,7 +585,9 @@ class TrustedEndpoints:
     NOAA_SWPC_BASE = "https://services.swpc.noaa.gov/json"
     NOAA_SWPC_KINDEX = "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json"
     NOAA_SWPC_XRAYS = "https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json"
-    NOAA_SWPC_PROTONS = "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json"
+    NOAA_SWPC_PROTONS = (
+        "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json"
+    )
     NOAA_SWPC_KP_PRODUCTS = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
 
     # NOAA National Hurricane Center
