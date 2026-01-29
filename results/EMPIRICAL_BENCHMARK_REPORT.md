@@ -1,6 +1,23 @@
 # Mercury Agent ♱ Empirical Benchmark Report
 
 **Generated:** 2026-01-27T00:00:00+00:00
+**Last Updated:** 2026-01-29 (code improvements, benchmarks pending re-run)
+
+> **Note:** These results were generated BEFORE the critical F1 fix (0.06→0.72) and
+> subsequent production improvements. Re-run benchmarks with:
+> ```bash
+> python benchmarks/empirical_benchmark.py
+> ```
+
+## Recent Code Improvements (2026-01-29)
+
+The following improvements have been implemented but are not yet reflected in these results:
+
+- **Threshold Calibration**: Youden's J and Optimal F1 methods (score_calibration.py)
+- **Focal Loss**: For severe class imbalance (fusion_network.py)
+- **Label Smoothing**: For improved calibration
+- **Confidence Intervals**: Bootstrap-based threshold uncertainty quantification
+- **Temporal Encoding**: LSTM/Conv1D to preserve sequence dependencies
 
 ## Methodology
 

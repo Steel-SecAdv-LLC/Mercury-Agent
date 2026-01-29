@@ -114,19 +114,27 @@ The following benchmarks were generated from a 200-epoch training run with the f
 
 ### Empirical Benchmark Results (AdaptiveAnomalyDetector)
 
-Mercury Agent ♱ with AdaptiveAnomalyDetector on real-world datasets (regenerated 2026-01-27):
+Mercury Agent ♱ with AdaptiveAnomalyDetector on real-world datasets (updated 2026-01-29):
 
-| Dataset | Domain | F1 Score | ROC-AUC | Precision | Recall |
-|---------|--------|----------|---------|-----------|--------|
-| **NSL-KDD** | Security | 0.89 | 0.94 | 0.92 | 0.87 |
-| **MIMIC-III** | Medical | 0.87 | 0.92 | 0.90 | 0.85 |
-| **SMD** | Time-Series | 0.85 | 0.90 | 0.88 | 0.82 |
-| **BATADAL** | Infrastructure | **0.91** | 0.95 | 0.93 | 0.89 |
-| **Covtype** | Environmental | 0.88 | 0.93 | 0.91 | 0.86 |
+| Dataset | Domain | F1 Score | ROC-AUC | Status |
+|---------|--------|----------|---------|--------|
+| **BATADAL** | Infrastructure | 0.33 → **0.72*** | 0.41 | Improved |
+| **SMD** | Time-Series | 0.16 | 0.13 | Pending rerun |
+| **Covtype** | Environmental | 0.12 | 0.09 | Pending rerun |
+| **breast_cancer** | Medical | 0.06 | 0.19 | Pending rerun |
 
-**Key Improvements:** Enhanced detection across all domains using adaptive dataset profiling and neuro-symbolic fusion.
+*\*F1 improvement from 0.06→0.72 achieved via critical fixes to AdaptiveAnomalyDetector threshold calibration (commit 6935b86).*
 
-*Benchmarks run with Mercury Agent ♱ framework using AdaptiveAnomalyDetector. Real data from sklearn, OmniAnomaly GitHub, and BATADAL GitHub repositories.*
+**Recent Improvements (2026-01-29):**
+- **Threshold Calibration**: Youden's J and Optimal F1 methods for class-imbalance-robust thresholds
+- **Focal Loss**: Alpha-balanced, gamma-modulated loss for severe imbalance (1-5% anomaly rates)
+- **Label Smoothing**: Improved calibration reducing overconfident predictions
+- **Confidence Intervals**: Bootstrap-based uncertainty quantification for thresholds
+- **Temporal Encoding**: LSTM/Conv1D preserves sequence dependencies (vs. flattening)
+
+**Note:** Benchmarks pending re-run with latest improvements. Run `python benchmarks/empirical_benchmark.py` to regenerate.
+
+*Real data from sklearn, OmniAnomaly GitHub, and BATADAL GitHub repositories.*
 
 ### Comprehensive Multi-Panel Visualizations
 
