@@ -16,6 +16,8 @@ This module provides:
 2. AutoThresholdOptimizer - Multiple threshold selection strategies
 3. ScoreDiagnostics - Debug tools for score distribution analysis
 4. CalibrationPipeline - End-to-end calibration workflow
+5. ThresholdConfidenceInterval - Bootstrap-based confidence intervals for thresholds
+6. LabelSmoothingCalibrator - Label smoothing for improved calibration
 """
 
 from __future__ import annotations
@@ -163,6 +165,58 @@ class CalibrationDiagnostics:
 
 
 @dataclass
+class ThresholdConfidenceInterval:
+    """Confidence interval for a calibrated threshold.
+
+    Provides statistical uncertainty quantification for threshold estimates
+    using bootstrap resampling.
+
+    Example:
+        >>> ci = ThresholdConfidenceInterval(
+        ...     threshold=0.42, lower=0.38, upper=0.46,
+        ...     confidence_level=0.95, method="bootstrap"
+        ... )
+        >>> print(f"Threshold: {ci.threshold:.3f} (95% CI: [{ci.lower:.3f}, {ci.upper:.3f}])")
+    """
+
+    threshold: float  # Point estimate
+    lower: float  # Lower bound of CI
+    upper: float  # Upper bound of CI
+    confidence_level: float  # e.g., 0.95 for 95% CI
+    method: str  # How CI was computed (bootstrap, analytical, etc.)
+    n_bootstrap: int = 0  # Number of bootstrap samples used
+    std_error: float = 0.0  # Standard error of threshold estimate
+
+    def __str__(self) -> str:
+        """Format confidence interval for display."""
+        pct = int(self.confidence_level * 100)
+        return (
+            f"Threshold: {self.threshold:.4f} "
+            f"({pct}% CI: [{self.lower:.4f}, {self.upper:.4f}])"
+        )
+
+    def contains(self, value: float) -> bool:
+        """Check if a value falls within the confidence interval."""
+        return self.lower <= value <= self.upper
+
+    def width(self) -> float:
+        """Return the width of the confidence interval."""
+        return self.upper - self.lower
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "threshold": self.threshold,
+            "lower": self.lower,
+            "upper": self.upper,
+            "confidence_level": self.confidence_level,
+            "method": self.method,
+            "n_bootstrap": self.n_bootstrap,
+            "std_error": self.std_error,
+        }
+
+
+@dataclass
 class CalibrationResult:
     """Result of threshold calibration."""
 
@@ -171,6 +225,9 @@ class CalibrationResult:
     predictions: NDArray[np.bool_]
     diagnostics: CalibrationDiagnostics
     confidence: float = 1.0  # Confidence in the calibration (0-1)
+
+    # Confidence interval for the threshold (optional)
+    confidence_interval: ThresholdConfidenceInterval | None = None
 
     # Metadata
     method_specific_info: dict[str, Any] = field(default_factory=dict)
@@ -1299,8 +1356,406 @@ class ScoreCalibrationManager:
 
 
 # ============================================================================
+# Confidence Interval Calculator
+# ============================================================================
+
+
+class ThresholdConfidenceIntervalCalculator:
+    """Bootstrap-based confidence interval calculator for thresholds.
+
+    Provides statistical uncertainty quantification for threshold estimates
+    using bootstrap resampling. This helps understand the reliability of
+    the calibrated threshold.
+
+    When to use confidence intervals:
+    - Production systems where threshold stability matters
+    - Comparing thresholds across different datasets
+    - Understanding sensitivity to sampling variation
+    - Regulatory/compliance requirements for uncertainty quantification
+
+    Example:
+        >>> calculator = ThresholdConfidenceIntervalCalculator(n_bootstrap=1000)
+        >>> ci = calculator.compute(scores, method=CalibrationMethod.PERCENTILE)
+        >>> print(ci)  # "Threshold: 0.42 (95% CI: [0.38, 0.46])"
+    """
+
+    def __init__(
+        self,
+        n_bootstrap: int = 1000,
+        confidence_level: float = 0.95,
+        random_state: int | None = 42,
+    ):
+        """Initialize confidence interval calculator.
+
+        Args:
+            n_bootstrap: Number of bootstrap samples (more = more precise, slower)
+            confidence_level: Confidence level for interval (e.g., 0.95 for 95% CI)
+            random_state: Random seed for reproducibility
+        """
+        if n_bootstrap < 100:
+            logger.warning(
+                f"n_bootstrap={n_bootstrap} is low. Consider using >= 1000 for stable CIs."
+            )
+        if not 0.0 < confidence_level < 1.0:
+            raise ValueError(f"confidence_level must be in (0, 1), got {confidence_level}")
+
+        self.n_bootstrap = n_bootstrap
+        self.confidence_level = confidence_level
+        self.random_state = random_state
+
+    def compute(
+        self,
+        scores: NDArray[np.float64],
+        method: CalibrationMethod = CalibrationMethod.PERCENTILE,
+        contamination: float = 0.05,
+        labels: NDArray[np.int32] | None = None,
+    ) -> ThresholdConfidenceInterval:
+        """Compute bootstrap confidence interval for threshold.
+
+        Args:
+            scores: Anomaly scores array
+            method: Calibration method to use for each bootstrap sample
+            contamination: Expected contamination rate
+            labels: Optional labels (used for optimal_f1 method)
+
+        Returns:
+            ThresholdConfidenceInterval with point estimate and CI bounds
+        """
+        scores = np.asarray(scores).flatten().astype(np.float64)
+        n = len(scores)
+
+        if n < 20:
+            logger.warning(
+                f"Only {n} samples - CI may be unreliable. Consider >= 100 samples."
+            )
+
+        # Initialize RNG
+        rng = np.random.default_rng(self.random_state)
+
+        # Compute point estimate
+        optimizer = AutoThresholdOptimizer(default_contamination=contamination)
+        point_result = optimizer.optimize(scores, method=method, labels=labels)
+        point_threshold = point_result.threshold
+
+        # Bootstrap resampling
+        bootstrap_thresholds = np.zeros(self.n_bootstrap)
+
+        for i in range(self.n_bootstrap):
+            # Resample with replacement
+            indices = rng.choice(n, size=n, replace=True)
+            boot_scores = scores[indices]
+            boot_labels = labels[indices] if labels is not None else None
+
+            # Compute threshold for bootstrap sample
+            boot_result = optimizer.optimize(
+                boot_scores, method=method, labels=boot_labels
+            )
+            bootstrap_thresholds[i] = boot_result.threshold
+
+        # Compute percentile-based CI
+        alpha = 1 - self.confidence_level
+        lower_pct = alpha / 2 * 100
+        upper_pct = (1 - alpha / 2) * 100
+
+        ci_lower = float(np.percentile(bootstrap_thresholds, lower_pct))
+        ci_upper = float(np.percentile(bootstrap_thresholds, upper_pct))
+        std_error = float(np.std(bootstrap_thresholds))
+
+        return ThresholdConfidenceInterval(
+            threshold=point_threshold,
+            lower=ci_lower,
+            upper=ci_upper,
+            confidence_level=self.confidence_level,
+            method="bootstrap_percentile",
+            n_bootstrap=self.n_bootstrap,
+            std_error=std_error,
+        )
+
+    def compute_bca(
+        self,
+        scores: NDArray[np.float64],
+        method: CalibrationMethod = CalibrationMethod.PERCENTILE,
+        contamination: float = 0.05,
+        labels: NDArray[np.int32] | None = None,
+    ) -> ThresholdConfidenceInterval:
+        """Compute bias-corrected and accelerated (BCa) bootstrap CI.
+
+        BCa intervals are more accurate than percentile intervals,
+        especially for skewed distributions or small samples.
+
+        Args:
+            scores: Anomaly scores array
+            method: Calibration method to use
+            contamination: Expected contamination rate
+            labels: Optional labels
+
+        Returns:
+            ThresholdConfidenceInterval with BCa bounds
+        """
+        scores = np.asarray(scores).flatten().astype(np.float64)
+        n = len(scores)
+
+        rng = np.random.default_rng(self.random_state)
+
+        # Compute point estimate
+        optimizer = AutoThresholdOptimizer(default_contamination=contamination)
+        point_result = optimizer.optimize(scores, method=method, labels=labels)
+        point_threshold = point_result.threshold
+
+        # Bootstrap resampling
+        bootstrap_thresholds = np.zeros(self.n_bootstrap)
+        for i in range(self.n_bootstrap):
+            indices = rng.choice(n, size=n, replace=True)
+            boot_scores = scores[indices]
+            boot_labels = labels[indices] if labels is not None else None
+            boot_result = optimizer.optimize(boot_scores, method=method, labels=boot_labels)
+            bootstrap_thresholds[i] = boot_result.threshold
+
+        # Bias correction factor (z0)
+        prop_less = np.mean(bootstrap_thresholds < point_threshold)
+        # Handle edge cases
+        prop_less = np.clip(prop_less, 0.001, 0.999)
+        z0 = float(np.sqrt(2) * np.erfinv(2 * prop_less - 1))  # Inverse normal CDF
+
+        # Acceleration factor (a) using jackknife
+        jackknife_thresholds = np.zeros(n)
+        for i in range(n):
+            jack_indices = np.concatenate([np.arange(i), np.arange(i + 1, n)])
+            jack_scores = scores[jack_indices]
+            jack_labels = labels[jack_indices] if labels is not None else None
+            jack_result = optimizer.optimize(jack_scores, method=method, labels=jack_labels)
+            jackknife_thresholds[i] = jack_result.threshold
+
+        theta_bar = np.mean(jackknife_thresholds)
+        numerator = np.sum((theta_bar - jackknife_thresholds) ** 3)
+        denominator = 6 * (np.sum((theta_bar - jackknife_thresholds) ** 2) ** 1.5)
+        a = numerator / (denominator + 1e-10) if denominator != 0 else 0.0
+
+        # Compute BCa percentiles
+        alpha = 1 - self.confidence_level
+        z_alpha_low = float(np.sqrt(2) * np.erfinv(2 * (alpha / 2) - 1))
+        z_alpha_high = float(np.sqrt(2) * np.erfinv(2 * (1 - alpha / 2) - 1))
+
+        # BCa adjusted percentiles
+        def bca_percentile(z_alpha: float) -> float:
+            numerator = z0 + z_alpha
+            adjusted = z0 + numerator / (1 - a * numerator)
+            # Convert back to percentile using normal CDF
+            return float((1 + np.tanh(adjusted / np.sqrt(2))) / 2 * 100)
+
+        pct_low = bca_percentile(z_alpha_low)
+        pct_high = bca_percentile(z_alpha_high)
+
+        # Clip to valid range
+        pct_low = np.clip(pct_low, 0.5, 99.5)
+        pct_high = np.clip(pct_high, 0.5, 99.5)
+
+        ci_lower = float(np.percentile(bootstrap_thresholds, pct_low))
+        ci_upper = float(np.percentile(bootstrap_thresholds, pct_high))
+        std_error = float(np.std(bootstrap_thresholds))
+
+        return ThresholdConfidenceInterval(
+            threshold=point_threshold,
+            lower=ci_lower,
+            upper=ci_upper,
+            confidence_level=self.confidence_level,
+            method="bootstrap_bca",
+            n_bootstrap=self.n_bootstrap,
+            std_error=std_error,
+        )
+
+
+# ============================================================================
+# Label Smoothing Calibrator
+# ============================================================================
+
+
+class LabelSmoothingCalibrator:
+    """Label smoothing for improved calibration in anomaly detection.
+
+    Label smoothing softens the target distribution, preventing the model
+    from becoming overconfident. Instead of hard targets [0, 1], it uses
+    soft targets like [epsilon/2, 1 - epsilon/2].
+
+    Benefits:
+    - Reduces overconfidence in predictions
+    - Improves expected calibration error (ECE)
+    - More robust to label noise
+    - Better generalization
+
+    Example:
+        >>> calibrator = LabelSmoothingCalibrator(smoothing=0.1)
+        >>> smoothed_labels = calibrator.smooth(labels)
+        >>> # Use smoothed_labels for training
+    """
+
+    def __init__(
+        self,
+        smoothing: float = 0.1,
+        adaptive: bool = False,
+        min_smoothing: float = 0.01,
+        max_smoothing: float = 0.3,
+    ):
+        """Initialize label smoothing calibrator.
+
+        Args:
+            smoothing: Base smoothing factor (0-1). 0.1 recommended.
+            adaptive: Whether to adapt smoothing based on class imbalance
+            min_smoothing: Minimum smoothing when adaptive=True
+            max_smoothing: Maximum smoothing when adaptive=True
+        """
+        if not 0.0 <= smoothing < 1.0:
+            raise ValueError(f"smoothing must be in [0, 1), got {smoothing}")
+
+        self.smoothing = smoothing
+        self.adaptive = adaptive
+        self.min_smoothing = min_smoothing
+        self.max_smoothing = max_smoothing
+
+    def smooth(
+        self,
+        labels: NDArray[np.int32],
+        class_weights: NDArray[np.float64] | None = None,
+    ) -> NDArray[np.float64]:
+        """Apply label smoothing to binary labels.
+
+        Args:
+            labels: Binary labels array (0 or 1)
+            class_weights: Optional per-class smoothing weights
+
+        Returns:
+            Smoothed labels as float array
+        """
+        labels = np.asarray(labels).flatten().astype(np.float64)
+
+        # Determine effective smoothing
+        if self.adaptive:
+            # Adapt smoothing based on class imbalance
+            pos_ratio = np.mean(labels)
+            # More smoothing for minority class
+            imbalance = abs(0.5 - pos_ratio) * 2  # 0 to 1
+            effective_smoothing = self.min_smoothing + imbalance * (
+                self.max_smoothing - self.min_smoothing
+            )
+        else:
+            effective_smoothing = self.smoothing
+
+        # Apply smoothing: y_smooth = y * (1 - eps) + eps/2
+        smoothed = labels * (1 - effective_smoothing) + effective_smoothing / 2
+
+        return smoothed
+
+    def smooth_with_confidence(
+        self,
+        labels: NDArray[np.int32],
+        confidences: NDArray[np.float64],
+    ) -> NDArray[np.float64]:
+        """Apply confidence-weighted label smoothing.
+
+        Higher confidence samples get less smoothing, lower confidence
+        samples get more smoothing. This is useful when label quality varies.
+
+        Args:
+            labels: Binary labels array
+            confidences: Per-sample confidence scores (0-1)
+
+        Returns:
+            Smoothed labels with confidence-adjusted smoothing
+        """
+        labels = np.asarray(labels).flatten().astype(np.float64)
+        confidences = np.asarray(confidences).flatten()
+        confidences = np.clip(confidences, 0.0, 1.0)
+
+        # Less confident samples get more smoothing
+        sample_smoothing = self.smoothing * (1 - confidences)
+
+        # Apply per-sample smoothing
+        smoothed = labels * (1 - sample_smoothing) + sample_smoothing / 2
+
+        return smoothed
+
+    def get_calibration_targets(
+        self,
+        labels: NDArray[np.int32],
+        predictions: NDArray[np.float64],
+        temperature: float = 1.0,
+    ) -> NDArray[np.float64]:
+        """Get calibration targets using temperature scaling and smoothing.
+
+        Combines label smoothing with temperature scaling for optimal calibration.
+
+        Args:
+            labels: Ground truth binary labels
+            predictions: Model predictions (probabilities)
+            temperature: Temperature for scaling (>1 softens, <1 sharpens)
+
+        Returns:
+            Calibration targets combining smoothing and temperature scaling
+        """
+        labels = np.asarray(labels).flatten().astype(np.float64)
+        predictions = np.asarray(predictions).flatten()
+
+        # Apply label smoothing
+        smoothed = self.smooth(labels)
+
+        # Temperature-scaled predictions
+        # For binary case: p_scaled = 1 / (1 + exp(-logit/T))
+        # where logit = log(p / (1-p))
+        eps = 1e-7
+        predictions = np.clip(predictions, eps, 1 - eps)
+        logits = np.log(predictions / (1 - predictions))
+        scaled_preds = 1 / (1 + np.exp(-logits / temperature))
+
+        # Blend smoothed labels with scaled predictions
+        # Use a soft target that's between hard label and prediction
+        blend_weight = 0.8  # Mostly trust the smoothed label
+        targets = blend_weight * smoothed + (1 - blend_weight) * scaled_preds
+
+        return targets
+
+
+# ============================================================================
 # Convenience Functions
 # ============================================================================
+
+
+def compute_threshold_confidence_interval(
+    scores: NDArray[np.float64],
+    method: CalibrationMethod | str = "percentile",
+    contamination: float = 0.05,
+    confidence_level: float = 0.95,
+    n_bootstrap: int = 1000,
+    labels: NDArray[np.int32] | None = None,
+) -> ThresholdConfidenceInterval:
+    """Compute confidence interval for a calibrated threshold.
+
+    Args:
+        scores: Anomaly scores array
+        method: Calibration method
+        contamination: Expected contamination rate
+        confidence_level: Confidence level (e.g., 0.95)
+        n_bootstrap: Number of bootstrap samples
+        labels: Optional ground truth labels
+
+    Returns:
+        ThresholdConfidenceInterval with bounds
+
+    Example:
+        >>> ci = compute_threshold_confidence_interval(
+        ...     scores, method="percentile", confidence_level=0.95
+        ... )
+        >>> print(f"Threshold: {ci.threshold:.3f} ({ci.confidence_level*100:.0f}% CI: "
+        ...       f"[{ci.lower:.3f}, {ci.upper:.3f}])")
+    """
+    if isinstance(method, str):
+        method = CalibrationMethod(method.lower())
+
+    calculator = ThresholdConfidenceIntervalCalculator(
+        n_bootstrap=n_bootstrap,
+        confidence_level=confidence_level,
+    )
+
+    return calculator.compute(scores, method=method, contamination=contamination, labels=labels)
 
 
 def calibrate_scores(
@@ -1395,8 +1850,12 @@ __all__ = [
     "CalibrationDiagnostics",
     "CalibrationMethod",
     "CalibrationResult",
+    "LabelSmoothingCalibrator",
     "ScoreCalibrationManager",
     "ScoreDiagnostics",
+    "ThresholdConfidenceInterval",
+    "ThresholdConfidenceIntervalCalculator",
     "calibrate_scores",
+    "compute_threshold_confidence_interval",
     "diagnose_scores",
 ]

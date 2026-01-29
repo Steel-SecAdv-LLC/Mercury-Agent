@@ -24,11 +24,17 @@ Main neural fusion model integrating all engines
 
 This is the core ML component that orchestrates feature extraction,
 encoding, and fusion for unified anomaly detection.
+
+Includes:
+- Temporal sequence preservation (LSTM/1D-Conv) to avoid flattening
+- Focal loss for severe class imbalance (alpha-balanced, gamma-modulated)
+- Label smoothing for better calibration
 """
 
 from typing import Any
 
 import torch
+import torch.nn.functional as F
 from torch import nn
 
 from omni_mercury_engine.core.fusion import AttentionFusion, HybridFusionLayer
@@ -44,11 +50,14 @@ from omni_mercury_engine.ml.encoders import (
 
 __all__ = [
     "AttentionFusion",
+    "FocalLoss",
     "FusionNetwork",
     "GatedFusion",
+    "LabelSmoothingLoss",
     "MultimodalFusion",
     "OmniFusionModel",
     "STEMDisciplineRouter",
+    "TemporalSequenceEncoder",
 ]
 
 
@@ -217,6 +226,369 @@ class MultimodalFusion(nn.Module):
         weighted_sum = sum(w * e for w, e in zip(weights, encoded_list, strict=False))
 
         return self.fusion_layer(weighted_sum)
+
+
+class TemporalSequenceEncoder(nn.Module):
+    """Temporal sequence encoder that preserves sequence dependencies.
+
+    Addresses the issue where ensemble methods flatten sequences, losing
+    important temporal patterns. Uses LSTM or 1D-Conv to maintain sequence
+    structure before fusion.
+
+    This solves the "ensemble flattens sequences" problem by:
+    1. Processing sequences with recurrent (LSTM) or convolutional (1D-Conv) layers
+    2. Extracting temporal features while preserving ordering
+    3. Providing both sequence-level and step-level representations
+
+    Example:
+        >>> encoder = TemporalSequenceEncoder(
+        ...     input_dim=32, hidden_dim=64, output_dim=128, mode="lstm"
+        ... )
+        >>> x = torch.randn(16, 100, 32)  # [batch, seq_len, features]
+        >>> seq_repr, step_repr = encoder(x, return_sequence=True)
+        >>> # seq_repr: [16, 128] - sequence-level representation
+        >>> # step_repr: [16, 100, 64] - step-level hidden states
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int,
+        output_dim: int,
+        mode: str = "lstm",
+        num_layers: int = 2,
+        dropout: float = 0.1,
+        bidirectional: bool = True,
+        kernel_sizes: list[int] | None = None,
+    ) -> None:
+        """Initialize temporal sequence encoder.
+
+        Args:
+            input_dim: Input feature dimension at each timestep
+            hidden_dim: Hidden dimension for LSTM/Conv layers
+            output_dim: Final output dimension
+            mode: Encoding mode - "lstm", "gru", "conv1d", or "hybrid"
+            num_layers: Number of recurrent/conv layers
+            dropout: Dropout rate
+            bidirectional: Use bidirectional LSTM/GRU (only for recurrent modes)
+            kernel_sizes: Kernel sizes for conv1d mode (default: [3, 5, 7])
+        """
+        super().__init__()
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.output_dim = output_dim
+        self.mode = mode
+        self.bidirectional = bidirectional
+
+        if mode == "lstm":
+            self.rnn = nn.LSTM(
+                input_dim,
+                hidden_dim,
+                num_layers=num_layers,
+                batch_first=True,
+                dropout=dropout if num_layers > 1 else 0,
+                bidirectional=bidirectional,
+            )
+            rnn_output_dim = hidden_dim * (2 if bidirectional else 1)
+        elif mode == "gru":
+            self.rnn = nn.GRU(
+                input_dim,
+                hidden_dim,
+                num_layers=num_layers,
+                batch_first=True,
+                dropout=dropout if num_layers > 1 else 0,
+                bidirectional=bidirectional,
+            )
+            rnn_output_dim = hidden_dim * (2 if bidirectional else 1)
+        elif mode == "conv1d":
+            kernel_sizes = kernel_sizes or [3, 5, 7]
+            self.convs = nn.ModuleList([
+                nn.Sequential(
+                    nn.Conv1d(input_dim, hidden_dim, k, padding=k // 2),
+                    nn.BatchNorm1d(hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(dropout),
+                )
+                for k in kernel_sizes
+            ])
+            rnn_output_dim = hidden_dim * len(kernel_sizes)
+        elif mode == "hybrid":
+            # Combine LSTM and Conv1d for best of both worlds
+            self.rnn = nn.LSTM(
+                input_dim,
+                hidden_dim // 2,
+                num_layers=num_layers,
+                batch_first=True,
+                dropout=dropout if num_layers > 1 else 0,
+                bidirectional=bidirectional,
+            )
+            self.conv = nn.Conv1d(input_dim, hidden_dim, kernel_size=3, padding=1)
+            rnn_output_dim = hidden_dim * (2 if bidirectional else 1) // 2 + hidden_dim
+        else:
+            raise ValueError(f"Unknown mode: {mode}. Use 'lstm', 'gru', 'conv1d', or 'hybrid'")
+
+        # Attention pooling for sequence aggregation
+        self.attention = nn.Sequential(
+            nn.Linear(rnn_output_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, 1),
+        )
+
+        # Final projection
+        self.output_proj = nn.Sequential(
+            nn.Linear(rnn_output_dim, output_dim),
+            nn.LayerNorm(output_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+        )
+
+        self._rnn_output_dim = rnn_output_dim
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        mask: torch.Tensor | None = None,
+        return_sequence: bool = False,
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+        """Forward pass preserving temporal dependencies.
+
+        Args:
+            x: Input tensor [batch_size, seq_len, input_dim]
+            mask: Optional attention mask [batch_size, seq_len]
+            return_sequence: If True, return both aggregated and sequence representations
+
+        Returns:
+            If return_sequence=False: Aggregated representation [batch_size, output_dim]
+            If return_sequence=True: Tuple of (aggregated, sequence) where
+                sequence has shape [batch_size, seq_len, rnn_output_dim]
+        """
+        batch_size, seq_len, _ = x.shape
+
+        if self.mode in ("lstm", "gru"):
+            # Process with RNN
+            rnn_out, _ = self.rnn(x)  # [batch, seq, hidden*2]
+        elif self.mode == "conv1d":
+            # Process with parallel convolutions
+            x_t = x.transpose(1, 2)  # [batch, input_dim, seq]
+            conv_outs = [conv(x_t) for conv in self.convs]
+            rnn_out = torch.cat(conv_outs, dim=1).transpose(1, 2)  # [batch, seq, hidden*k]
+        elif self.mode == "hybrid":
+            # Combine LSTM and Conv1d
+            lstm_out, _ = self.rnn(x)
+            conv_out = self.conv(x.transpose(1, 2)).transpose(1, 2)
+            rnn_out = torch.cat([lstm_out, conv_out], dim=-1)
+
+        # Attention-weighted aggregation
+        attn_weights = self.attention(rnn_out)  # [batch, seq, 1]
+        if mask is not None:
+            attn_weights = attn_weights.masked_fill(~mask.unsqueeze(-1), float("-inf"))
+        attn_weights = F.softmax(attn_weights, dim=1)
+
+        # Weighted sum
+        aggregated = torch.sum(attn_weights * rnn_out, dim=1)  # [batch, hidden]
+
+        # Project to output dimension
+        output = self.output_proj(aggregated)  # [batch, output_dim]
+
+        if return_sequence:
+            return output, rnn_out
+        return output
+
+    def get_temporal_features(
+        self, x: torch.Tensor, pool: str = "last"
+    ) -> torch.Tensor:
+        """Get temporal features with specified pooling strategy.
+
+        Args:
+            x: Input tensor [batch_size, seq_len, input_dim]
+            pool: Pooling strategy - "last", "mean", "max", or "attention"
+
+        Returns:
+            Pooled features [batch_size, output_dim]
+        """
+        _, rnn_out = self.forward(x, return_sequence=True)
+
+        if pool == "last":
+            pooled = rnn_out[:, -1, :]
+        elif pool == "mean":
+            pooled = rnn_out.mean(dim=1)
+        elif pool == "max":
+            pooled = rnn_out.max(dim=1)[0]
+        elif pool == "attention":
+            return self.forward(x, return_sequence=False)
+        else:
+            raise ValueError(f"Unknown pool: {pool}")
+
+        return self.output_proj(pooled)
+
+
+class FocalLoss(nn.Module):
+    """Focal Loss for severe class imbalance in anomaly detection.
+
+    Focal loss addresses the issue where easy negative examples dominate
+    the loss during training, preventing the model from learning hard
+    positive examples (rare anomalies).
+
+    FL(p_t) = -alpha_t * (1 - p_t)^gamma * log(p_t)
+
+    Where:
+    - p_t = p if y=1, else 1-p
+    - alpha_t balances positive/negative examples
+    - gamma reduces loss for well-classified examples (focuses on hard ones)
+
+    For anomaly detection with severe imbalance (e.g., 1% anomalies):
+    - Use alpha=0.75-0.99 (higher weight for anomalies)
+    - Use gamma=2.0-5.0 (higher for more severe imbalance)
+
+    Example:
+        >>> criterion = FocalLoss(alpha=0.9, gamma=2.0)
+        >>> loss = criterion(predictions, targets)
+    """
+
+    def __init__(
+        self,
+        alpha: float = 0.75,
+        gamma: float = 2.0,
+        reduction: str = "mean",
+        label_smoothing: float = 0.0,
+    ) -> None:
+        """Initialize focal loss.
+
+        Args:
+            alpha: Weighting factor for positive class (0-1).
+                   Higher values give more weight to anomalies.
+            gamma: Focusing parameter (>= 0).
+                   Higher values focus more on hard examples.
+            reduction: Loss reduction - "none", "mean", or "sum"
+            label_smoothing: Label smoothing factor (0-1) for calibration
+        """
+        super().__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+        self.label_smoothing = label_smoothing
+
+    def forward(
+        self,
+        inputs: torch.Tensor,
+        targets: torch.Tensor,
+        sample_weights: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        """Compute focal loss.
+
+        Args:
+            inputs: Predicted probabilities [batch_size] or [batch_size, 1]
+            targets: Binary targets [batch_size] (0 or 1)
+            sample_weights: Optional per-sample weights [batch_size]
+
+        Returns:
+            Focal loss value
+        """
+        inputs = inputs.view(-1)
+        targets = targets.view(-1).float()
+
+        # Apply label smoothing if specified
+        if self.label_smoothing > 0:
+            targets = targets * (1 - self.label_smoothing) + 0.5 * self.label_smoothing
+
+        # Clamp predictions for numerical stability
+        p = torch.clamp(inputs, min=1e-7, max=1 - 1e-7)
+
+        # Compute focal weights
+        # p_t = p where target=1, (1-p) where target=0
+        p_t = p * targets + (1 - p) * (1 - targets)
+
+        # Alpha weighting
+        alpha_t = self.alpha * targets + (1 - self.alpha) * (1 - targets)
+
+        # Focal modulation: (1 - p_t)^gamma
+        focal_weight = (1 - p_t) ** self.gamma
+
+        # Cross-entropy: -log(p_t)
+        ce_loss = -torch.log(p_t)
+
+        # Focal loss
+        focal_loss = alpha_t * focal_weight * ce_loss
+
+        # Apply sample weights if provided
+        if sample_weights is not None:
+            focal_loss = focal_loss * sample_weights.view(-1)
+
+        if self.reduction == "mean":
+            return focal_loss.mean()
+        elif self.reduction == "sum":
+            return focal_loss.sum()
+        return focal_loss
+
+
+class LabelSmoothingLoss(nn.Module):
+    """Label smoothing loss for improved calibration.
+
+    Label smoothing prevents overconfident predictions by softening
+    the target distribution. Instead of [0, 1] targets, it uses
+    [smoothing/2, 1 - smoothing/2].
+
+    This improves model calibration (predicted probabilities match
+    actual frequencies) and reduces overfitting to noisy labels.
+
+    For anomaly detection:
+    - Use smoothing=0.1-0.2 for better calibration
+    - Combine with temperature scaling for post-hoc calibration
+
+    Example:
+        >>> criterion = LabelSmoothingLoss(smoothing=0.1)
+        >>> loss = criterion(predictions, targets)
+    """
+
+    def __init__(
+        self,
+        smoothing: float = 0.1,
+        reduction: str = "mean",
+    ) -> None:
+        """Initialize label smoothing loss.
+
+        Args:
+            smoothing: Smoothing factor (0-1). 0.1 recommended.
+            reduction: Loss reduction - "none", "mean", or "sum"
+        """
+        super().__init__()
+        if not 0.0 <= smoothing < 1.0:
+            raise ValueError(f"smoothing must be in [0, 1), got {smoothing}")
+        self.smoothing = smoothing
+        self.reduction = reduction
+
+    def forward(
+        self,
+        inputs: torch.Tensor,
+        targets: torch.Tensor,
+    ) -> torch.Tensor:
+        """Compute label smoothing loss.
+
+        Args:
+            inputs: Predicted probabilities [batch_size] or [batch_size, 1]
+            targets: Binary targets [batch_size] (0 or 1)
+
+        Returns:
+            Smoothed BCE loss value
+        """
+        inputs = inputs.view(-1)
+        targets = targets.view(-1).float()
+
+        # Apply label smoothing
+        targets_smooth = targets * (1 - self.smoothing) + 0.5 * self.smoothing
+
+        # Compute BCE with smoothed targets
+        loss = F.binary_cross_entropy(
+            torch.clamp(inputs, min=1e-7, max=1 - 1e-7),
+            targets_smooth,
+            reduction="none",
+        )
+
+        if self.reduction == "mean":
+            return loss.mean()
+        elif self.reduction == "sum":
+            return loss.sum()
+        return loss
 
 
 class OmniFusionModel(nn.Module):
@@ -491,6 +863,10 @@ class OmniFusionModel(nn.Module):
         use_synthetic_gradients: bool = True,
         use_dtp: bool = True,
         use_amav: bool = True,
+        use_focal_loss: bool = False,
+        focal_alpha: float = 0.75,
+        focal_gamma: float = 2.0,
+        label_smoothing: float = 0.0,
         log_interval: int = 10,
         device: str = "cpu",
     ) -> dict[str, Any]:
@@ -498,6 +874,10 @@ class OmniFusionModel(nn.Module):
 
         Integrates SyntheticGradient, DifferenceTargetPropagation, and AuxiliaryMaxVariance
         optimizers for 2-3x training speedup with Lyapunov stability guarantees.
+
+        Now includes:
+        - Focal loss option for severe class imbalance (use_focal_loss=True)
+        - Label smoothing for improved calibration (label_smoothing > 0)
 
         Synapse: Links to GOSNN for scalar-optimized gradients and ethical gating.
 
@@ -509,6 +889,10 @@ class OmniFusionModel(nn.Module):
             use_synthetic_gradients: Enable synthetic gradient prediction
             use_dtp: Enable difference target propagation
             use_amav: Enable auxiliary max-variance for multi-task
+            use_focal_loss: Enable focal loss for severe class imbalance
+            focal_alpha: Alpha parameter for focal loss (weight for positive class)
+            focal_gamma: Gamma parameter for focal loss (focus on hard examples)
+            label_smoothing: Label smoothing factor (0-1, 0.1 recommended)
             log_interval: Epochs between logging (default: 10)
             device: PyTorch device (default: "cpu")
 
@@ -519,6 +903,7 @@ class OmniFusionModel(nn.Module):
                 - convergence_rate: Estimated convergence rate
                 - speedup_factor: Training speedup vs baseline
                 - lyapunov_stable: Whether Lyapunov stability maintained
+                - loss_type: Type of loss used (focal or weighted_bce)
         """
         from omni_mercury_engine.ml.advanced_optimizers import (
             AuxiliaryMaxVariance,
@@ -543,6 +928,22 @@ class OmniFusionModel(nn.Module):
         if use_amav:
             amav = AuxiliaryMaxVariance(num_tasks=3, alpha=0.5)
 
+        # Initialize focal loss if requested
+        focal_loss_fn = None
+        label_smoothing_fn = None
+        loss_type = "weighted_bce"
+
+        if use_focal_loss:
+            focal_loss_fn = FocalLoss(
+                alpha=focal_alpha,
+                gamma=focal_gamma,
+                label_smoothing=label_smoothing,
+            )
+            loss_type = "focal"
+        elif label_smoothing > 0:
+            label_smoothing_fn = LabelSmoothingLoss(smoothing=label_smoothing)
+            loss_type = "label_smoothed_bce"
+
         loss_history: list[float] = []
         lyapunov_values: list[float] = []
         phi = 1.618033988749895
@@ -561,18 +962,44 @@ class OmniFusionModel(nn.Module):
 
                 # Calculate class weights for imbalanced anomaly detection
                 target = labels[:, 0].float() if labels.dim() > 1 else labels.float()
-                n_pos = target.sum().clamp(min=1)  # Avoid division by zero
-                n_neg = (1 - target).sum().clamp(min=1)
-                pos_weight = (n_neg / n_pos).clamp(max=10.0)  # Cap at 10x to avoid instability
 
-                # Apply per-sample weights: anomalies (positive class) get higher weight
-                sample_weights = torch.where(target == 1, pos_weight, torch.ones_like(target))
+                # Compute anomaly loss based on selected loss type
+                if focal_loss_fn is not None:
+                    # Focal loss handles class imbalance internally
+                    anomaly_loss = focal_loss_fn(
+                        output["anomaly_probs"].squeeze(),
+                        target,
+                    )
+                elif label_smoothing_fn is not None:
+                    # Label smoothing for calibration with class weights
+                    n_pos = target.sum().clamp(min=1)
+                    n_neg = (1 - target).sum().clamp(min=1)
+                    pos_weight = (n_neg / n_pos).clamp(max=10.0)
+                    sample_weights = torch.where(target == 1, pos_weight, torch.ones_like(target))
 
-                anomaly_loss = (nn.functional.binary_cross_entropy(
-                    output["anomaly_probs"].squeeze(),
-                    target,
-                    reduction="none",
-                ) * sample_weights).mean()
+                    base_loss = label_smoothing_fn(
+                        output["anomaly_probs"].squeeze(),
+                        target,
+                    )
+                    # Note: LabelSmoothingLoss already applies reduction, so we recompute
+                    # with sample weights for per-sample weighting
+                    anomaly_loss = (F.binary_cross_entropy(
+                        torch.clamp(output["anomaly_probs"].squeeze(), min=1e-7, max=1 - 1e-7),
+                        target * (1 - label_smoothing) + label_smoothing / 2,
+                        reduction="none",
+                    ) * sample_weights).mean()
+                else:
+                    # Default: weighted BCE
+                    n_pos = target.sum().clamp(min=1)
+                    n_neg = (1 - target).sum().clamp(min=1)
+                    pos_weight = (n_neg / n_pos).clamp(max=10.0)
+                    sample_weights = torch.where(target == 1, pos_weight, torch.ones_like(target))
+
+                    anomaly_loss = (F.binary_cross_entropy(
+                        output["anomaly_probs"].squeeze(),
+                        target,
+                        reduction="none",
+                    ) * sample_weights).mean()
 
                 class_loss = nn.functional.cross_entropy(
                     output["class_logits"],
@@ -669,6 +1096,12 @@ class OmniFusionModel(nn.Module):
             "lyapunov_stable": lyapunov_stable,
             "lambda_lyapunov": lambda_lyapunov,
             "epochs_trained": epochs,
+            "loss_type": loss_type,
+            "focal_params": {
+                "alpha": focal_alpha,
+                "gamma": focal_gamma,
+            } if use_focal_loss else None,
+            "label_smoothing": label_smoothing,
         }
 
 
