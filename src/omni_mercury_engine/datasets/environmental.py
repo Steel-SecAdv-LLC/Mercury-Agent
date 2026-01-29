@@ -35,10 +35,22 @@ from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 logger = logging.getLogger(__name__)
 
 
-def _validate_url_scheme(url: str) -> bool:
-    """Validate that URL uses HTTPS scheme to prevent SSRF attacks."""
+def _sanitize_url(url: str) -> str:
+    """Validate and sanitize URL to prevent SSRF attacks.
+
+    Args:
+        url: URL to validate
+
+    Returns:
+        The validated URL if scheme is HTTPS
+
+    Raises:
+        ValueError: If URL scheme is not HTTPS
+    """
     parsed = urlparse(url)
-    return parsed.scheme == "https"
+    if parsed.scheme != "https":
+        raise ValueError(f"URL must use HTTPS scheme, got: {parsed.scheme}")
+    return url
 
 
 class USGSEarthquakeLoader(DatasetLoader):
@@ -132,15 +144,14 @@ class USGSEarthquakeLoader(DatasetLoader):
             query_string = "&".join(f"{k}={v}" for k, v in params.items())
             url = f"{self.USGS_API_URL}?{query_string}"
 
-            # Validate URL scheme to prevent SSRF attacks
-            if not _validate_url_scheme(url):
-                raise RuntimeError("USGS API URL must use HTTPS. Security validation failed.")
+            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
+            sanitized_url = _sanitize_url(url)
 
             logger.info(
                 f"Downloading earthquake data from USGS API (last {self.days_back} days)..."
             )
             req = urllib.request.Request(  # noqa: S310
-                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
+                sanitized_url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
             with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310  # nosec B310
                 data = json.loads(response.read().decode("utf-8"))
@@ -424,14 +435,16 @@ class NOAAWeatherLoader(DatasetLoader):
                 query_string = "&".join(f"{k}={v}" for k, v in params.items())
                 url = f"{self.OPEN_METEO_URL}?{query_string}"
 
-                # Validate URL scheme to prevent SSRF attacks
-                if not _validate_url_scheme(url):
-                    logger.warning(f"Skipping {loc['name']}: URL must use HTTPS")
+                try:
+                    # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
+                    sanitized_url = _sanitize_url(url)
+                except ValueError as e:
+                    logger.warning(f"Skipping {loc['name']}: {e}")
                     continue
 
                 logger.info(f"Downloading weather data for {loc['name']}...")
                 req = urllib.request.Request(  # noqa: S310
-                    url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
+                    sanitized_url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
                 )
                 with urllib.request.urlopen(  # noqa: S310  # nosec B310
                     req, timeout=60
@@ -641,14 +654,13 @@ class WildfireDataLoader(DatasetLoader):
         try:
             url = self.FIRMS_URLS.get(self.source, self.FIRMS_URLS["modis_7d"])
 
-            # Validate URL scheme to prevent SSRF attacks
-            if not _validate_url_scheme(url):
-                raise RuntimeError("NASA FIRMS URL must use HTTPS. Security validation failed.")
+            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
+            sanitized_url = _sanitize_url(url)
 
             logger.info(f"Downloading fire data from NASA FIRMS ({self.source})...")
 
             req = urllib.request.Request(  # noqa: S310
-                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
+                sanitized_url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
             with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310  # nosec B310
                 content = response.read().decode("utf-8")

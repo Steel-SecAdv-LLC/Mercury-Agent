@@ -35,10 +35,22 @@ from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 logger = logging.getLogger(__name__)
 
 
-def _validate_url_scheme(url: str) -> bool:
-    """Validate that URL uses HTTPS scheme to prevent SSRF attacks."""
+def _sanitize_url(url: str) -> str:
+    """Validate and sanitize URL to prevent SSRF attacks.
+
+    Args:
+        url: URL to validate
+
+    Returns:
+        The validated URL if scheme is HTTPS
+
+    Raises:
+        ValueError: If URL scheme is not HTTPS
+    """
     parsed = urlparse(url)
-    return parsed.scheme == "https"
+    if parsed.scheme != "https":
+        raise ValueError(f"URL must use HTTPS scheme, got: {parsed.scheme}")
+    return url
 
 
 class SETILoader(DatasetLoader):
@@ -277,14 +289,13 @@ class NASAExoplanetLoader(DatasetLoader):
 
             url = f"{self.NASA_TAP_URL}?{urllib.parse.urlencode(params)}"
 
-            # Validate URL scheme to prevent SSRF attacks
-            if not _validate_url_scheme(url):
-                raise RuntimeError("NASA TAP URL must use HTTPS. Security validation failed.")
+            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
+            sanitized_url = _sanitize_url(url)
 
             logger.info("Downloading exoplanet data from NASA Exoplanet Archive...")
 
             req = urllib.request.Request(  # noqa: S310
-                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
+                sanitized_url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
             with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310  # nosec B310
                 data = json.loads(response.read().decode("utf-8"))
@@ -497,14 +508,13 @@ class SolarDynamicsLoader(DatasetLoader):
             # Download X-ray data (primary solar activity indicator)
             url = self.SWPC_URLS["xrays"]
 
-            # Validate URL scheme to prevent SSRF attacks
-            if not _validate_url_scheme(url):
-                raise RuntimeError("NOAA SWPC URL must use HTTPS. Security validation failed.")
+            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
+            sanitized_url = _sanitize_url(url)
 
             logger.info("Downloading solar X-ray data from NOAA SWPC...")
 
             req = urllib.request.Request(  # noqa: S310
-                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
+                sanitized_url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
             with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310  # nosec B310
                 data = json.loads(response.read().decode("utf-8"))

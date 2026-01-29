@@ -42,10 +42,22 @@ from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 logger = logging.getLogger(__name__)
 
 
-def _validate_url_scheme(url: str) -> bool:
-    """Validate that URL uses HTTPS scheme to prevent SSRF attacks."""
+def _sanitize_url(url: str) -> str:
+    """Validate and sanitize URL to prevent SSRF attacks.
+
+    Args:
+        url: URL to validate
+
+    Returns:
+        The validated URL if scheme is HTTPS
+
+    Raises:
+        ValueError: If URL scheme is not HTTPS
+    """
     parsed = urlparse(url)
-    return parsed.scheme == "https"
+    if parsed.scheme != "https":
+        raise ValueError(f"URL must use HTTPS scheme, got: {parsed.scheme}")
+    return url
 
 
 class NOAABuoyLoader(DatasetLoader):
@@ -139,17 +151,15 @@ class NOAABuoyLoader(DatasetLoader):
 
             for station in self.stations:
                 url = self.BASE_URL.format(station=station)
-                # Validate URL scheme to prevent SSRF attacks
-                if not _validate_url_scheme(url):
-                    logger.warning(f"Skipping station {station}: URL must use HTTPS")
-                    continue
                 try:
+                    # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
+                    sanitized_url = _sanitize_url(url)
                     logger.info(
                         f"Downloading buoy {station} ({self.BUOY_STATIONS.get(station, 'Unknown')})..."
                     )
 
                     req = urllib.request.Request(  # noqa: S310
-                        url,
+                        sanitized_url,
                         headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},
                     )
                     with urllib.request.urlopen(  # noqa: S310  # nosec B310

@@ -48,10 +48,22 @@ from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_
 logger = logging.getLogger(__name__)
 
 
-def _validate_url_scheme(url: str) -> bool:
-    """Validate that URL uses HTTPS scheme to prevent SSRF attacks."""
+def _sanitize_url(url: str) -> str:
+    """Validate and sanitize URL to prevent SSRF attacks.
+
+    Args:
+        url: URL to validate
+
+    Returns:
+        The validated URL if scheme is HTTPS
+
+    Raises:
+        ValueError: If URL scheme is not HTTPS
+    """
     parsed = urlparse(url)
-    return parsed.scheme == "https"
+    if parsed.scheme != "https":
+        raise ValueError(f"URL must use HTTPS scheme, got: {parsed.scheme}")
+    return url
 
 
 @dataclass
@@ -511,14 +523,14 @@ class USGSEarthquakeLoader(DatasetLoader):
 
             url = f"{self.USGS_API_URL}?" + "&".join(f"{k}={v}" for k, v in params.items())
 
-            if not _validate_url_scheme(url):
-                raise RuntimeError("USGS API URL must use HTTPS. Security validation failed.")
+            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
+            sanitized_url = _sanitize_url(url)
 
             import json
             from urllib.request import Request
 
             req = Request(  # noqa: S310
-                url, headers={"User-Agent": "Mercury-Agent/1.0"}
+                sanitized_url, headers={"User-Agent": "Mercury-Agent/1.0"}
             )  # nosec B310
             with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
                 data = json.loads(response.read().decode())
@@ -1068,11 +1080,11 @@ class NOAASpaceWeatherLoader(DatasetLoader):
             from urllib.request import Request
 
             url = f"{self.SWPC_API_URL}/planetary_k_index_1m.json"
-            if not _validate_url_scheme(url):
-                raise RuntimeError("NOAA SWPC API URL must use HTTPS. Security validation failed.")
+            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
+            sanitized_url = _sanitize_url(url)
 
             req = Request(  # noqa: S310
-                url, headers={"User-Agent": "Mercury-Agent/1.0"}
+                sanitized_url, headers={"User-Agent": "Mercury-Agent/1.0"}
             )  # nosec B310
             with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
                 kp_data = json.loads(response.read().decode())
@@ -1343,11 +1355,11 @@ class NOAAHurricaneLoader(DatasetLoader):
             from urllib.request import Request
 
             url = f"{self.NHC_API_URL}/hurdat2-1851-2023-052424.txt"
-            if not _validate_url_scheme(url):
-                raise RuntimeError("NOAA NHC API URL must use HTTPS. Security validation failed.")
+            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
+            sanitized_url = _sanitize_url(url)
 
             req = Request(  # noqa: S310
-                url, headers={"User-Agent": "Mercury-Agent/1.0"}
+                sanitized_url, headers={"User-Agent": "Mercury-Agent/1.0"}
             )  # nosec B310
             with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
                 raw_data = response.read().decode()
@@ -1645,11 +1657,11 @@ class NOAAOceanLoader(DatasetLoader):
             from urllib.request import Request
 
             url = f"{self.NOS_API_URL}?begin_date=20240101&end_date=20241231&station=8454000&product=water_temperature&datum=MLLW&units=metric&time_zone=gmt&application=Mercury-Agent&format=json"
-            if not _validate_url_scheme(url):
-                raise RuntimeError("NOAA NOS API URL must use HTTPS. Security validation failed.")
+            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
+            sanitized_url = _sanitize_url(url)
 
             req = Request(  # noqa: S310
-                url, headers={"User-Agent": "Mercury-Agent/1.0"}
+                sanitized_url, headers={"User-Agent": "Mercury-Agent/1.0"}
             )  # nosec B310
             with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
                 raw_data = json.loads(response.read().decode())

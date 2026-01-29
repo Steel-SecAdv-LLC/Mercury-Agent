@@ -64,10 +64,22 @@ from omni_mercury_engine.utils.rng import get_global_rng
 logger = logging.getLogger(__name__)
 
 
-def _validate_url_scheme(url: str) -> bool:
-    """Validate that URL uses HTTPS scheme to prevent SSRF attacks."""
+def _sanitize_url(url: str) -> str:
+    """Validate and sanitize URL to prevent SSRF attacks.
+
+    Args:
+        url: URL to validate
+
+    Returns:
+        The validated URL if scheme is HTTPS
+
+    Raises:
+        ValueError: If URL scheme is not HTTPS
+    """
     parsed = urlparse(url)
-    return parsed.scheme == "https"
+    if parsed.scheme != "https":
+        raise ValueError(f"URL must use HTTPS scheme, got: {parsed.scheme}")
+    return url
 
 
 # Feature dimension for fusion pipeline
@@ -1458,10 +1470,10 @@ def load_dart_buoy_data(
         tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]
     ):
         url = f"{DART_BUOY_API_URL}/{station_id}.dart"
-        if not _validate_url_scheme(url):
-            raise RuntimeError("DART API URL must use HTTPS")
+        # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
+        sanitized_url = _sanitize_url(url)
 
-        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
+        req = Request(sanitized_url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
         with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
             raw_data = response.read().decode()
 
@@ -1534,10 +1546,10 @@ def load_noaa_tsunami_records(
 
     def _fetch_tsunami_records() -> list[dict[str, Any]]:
         url = f"{NOAA_TSUNAMI_API_URL}?minYear={min_year}&maxSize={max_records}"
-        if not _validate_url_scheme(url):
-            raise RuntimeError("NOAA Tsunami API URL must use HTTPS")
+        # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
+        sanitized_url = _sanitize_url(url)
 
-        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
+        req = Request(sanitized_url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
         with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
             data = json.loads(response.read().decode())
 
@@ -1594,10 +1606,10 @@ def load_usgs_earthquake_catalog(
         }
 
         url = f"{USGS_EARTHQUAKE_API_URL}?" + "&".join(f"{k}={v}" for k, v in params.items())
-        if not _validate_url_scheme(url):
-            raise RuntimeError("USGS API URL must use HTTPS")
+        # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
+        sanitized_url = _sanitize_url(url)
 
-        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
+        req = Request(sanitized_url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
         with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
             data = json.loads(response.read().decode())
 

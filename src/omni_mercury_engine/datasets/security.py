@@ -36,10 +36,22 @@ from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 logger = logging.getLogger(__name__)
 
 
-def _validate_url_scheme(url: str) -> bool:
-    """Validate that URL uses HTTPS scheme to prevent SSRF attacks."""
+def _sanitize_url(url: str) -> str:
+    """Validate and sanitize URL to prevent SSRF attacks.
+
+    Args:
+        url: URL to validate
+
+    Returns:
+        The validated URL if scheme is HTTPS
+
+    Raises:
+        ValueError: If URL scheme is not HTTPS
+    """
     parsed = urlparse(url)
-    return parsed.scheme == "https"
+    if parsed.scheme != "https":
+        raise ValueError(f"URL must use HTTPS scheme, got: {parsed.scheme}")
+    return url
 
 
 class NSLKDDLoader(DatasetLoader):
@@ -228,15 +240,17 @@ class NSLKDDLoader(DatasetLoader):
                 if split == "test" and not self.include_test:
                     continue
 
-                # Validate URL scheme to prevent SSRF attacks
-                if not _validate_url_scheme(url):
-                    logger.warning(f"Skipping {split}: URL must use HTTPS")
+                try:
+                    # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
+                    sanitized_url = _sanitize_url(url)
+                except ValueError as e:
+                    logger.warning(f"Skipping {split}: {e}")
                     continue
 
                 logger.info(f"Downloading NSL-KDD {split} from GitHub...")
 
                 with urllib.request.urlopen(  # noqa: S310  # nosec B310
-                    url, timeout=120
+                    sanitized_url, timeout=120
                 ) as response:
                     content = response.read().decode("utf-8")
 
@@ -1282,13 +1296,12 @@ class ThreatIntelLoader(DatasetLoader):
             return True
 
         try:
-            # Validate URL scheme to prevent SSRF attacks
-            if not _validate_url_scheme(self.MITRE_STIX_URL):
-                raise RuntimeError("MITRE ATT&CK URL must use HTTPS. Security validation failed.")
+            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
+            sanitized_url = _sanitize_url(self.MITRE_STIX_URL)
 
             logger.info("Downloading MITRE ATT&CK Enterprise data...")
             req = urllib.request.Request(  # noqa: S310
-                self.MITRE_STIX_URL,
+                sanitized_url,
                 headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},
             )
             with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310  # nosec B310
