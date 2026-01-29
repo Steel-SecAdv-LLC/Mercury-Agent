@@ -47,7 +47,7 @@ env:
   PIP_CACHE_DIR: ~/.cache/pip
   # Performance thresholds - fail CI if below these values
   MIN_ROC_AUC: 0.60
-  MIN_F1: 0.30
+  MIN_F1: 0.40
   # CI-optimized benchmark settings to stay under 120 min timeout
   # Reduce sample sizes for faster CI runs without sacrificing statistical validity
   MERCURY_CI_MODE: "true"
