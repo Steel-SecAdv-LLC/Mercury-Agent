@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any
+from urllib.parse import urlparse
 
 import numpy as np
 
@@ -32,6 +33,12 @@ from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_url_scheme(url: str) -> bool:
+    """Validate that URL uses HTTPS scheme to prevent SSRF attacks."""
+    parsed = urlparse(url)
+    return parsed.scheme == "https"
 
 
 class SETILoader(DatasetLoader):
@@ -271,7 +278,7 @@ class NASAExoplanetLoader(DatasetLoader):
             url = f"{self.NASA_TAP_URL}?{urllib.parse.urlencode(params)}"
 
             # Validate URL scheme to prevent SSRF attacks
-            if not url.lower().startswith("https://"):
+            if not _validate_url_scheme(url):
                 raise RuntimeError("NASA TAP URL must use HTTPS. Security validation failed.")
 
             logger.info("Downloading exoplanet data from NASA Exoplanet Archive...")
@@ -491,7 +498,7 @@ class SolarDynamicsLoader(DatasetLoader):
             url = self.SWPC_URLS["xrays"]
 
             # Validate URL scheme to prevent SSRF attacks
-            if not url.lower().startswith("https://"):
+            if not _validate_url_scheme(url):
                 raise RuntimeError("NOAA SWPC URL must use HTTPS. Security validation failed.")
 
             logger.info("Downloading solar X-ray data from NOAA SWPC...")

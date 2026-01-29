@@ -23,6 +23,7 @@ from __future__ import annotations
 import io
 import logging
 from typing import Any
+from urllib.parse import urlparse
 
 import numpy as np
 
@@ -39,6 +40,12 @@ from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_url_scheme(url: str) -> bool:
+    """Validate that URL uses HTTPS scheme to prevent SSRF attacks."""
+    parsed = urlparse(url)
+    return parsed.scheme == "https"
 
 
 class NOAABuoyLoader(DatasetLoader):
@@ -133,7 +140,7 @@ class NOAABuoyLoader(DatasetLoader):
             for station in self.stations:
                 url = self.BASE_URL.format(station=station)
                 # Validate URL scheme to prevent SSRF attacks
-                if not url.lower().startswith("https://"):
+                if not _validate_url_scheme(url):
                     logger.warning(f"Skipping station {station}: URL must use HTTPS")
                     continue
                 try:

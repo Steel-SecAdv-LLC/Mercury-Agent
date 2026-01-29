@@ -16,6 +16,7 @@ import io
 import json
 import logging
 from typing import Any
+from urllib.parse import urlparse
 
 import numpy as np
 
@@ -32,6 +33,12 @@ from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_url_scheme(url: str) -> bool:
+    """Validate that URL uses HTTPS scheme to prevent SSRF attacks."""
+    parsed = urlparse(url)
+    return parsed.scheme == "https"
 
 
 class USGSEarthquakeLoader(DatasetLoader):
@@ -126,7 +133,7 @@ class USGSEarthquakeLoader(DatasetLoader):
             url = f"{self.USGS_API_URL}?{query_string}"
 
             # Validate URL scheme to prevent SSRF attacks
-            if not url.lower().startswith("https://"):
+            if not _validate_url_scheme(url):
                 raise RuntimeError("USGS API URL must use HTTPS. Security validation failed.")
 
             logger.info(
@@ -418,7 +425,7 @@ class NOAAWeatherLoader(DatasetLoader):
                 url = f"{self.OPEN_METEO_URL}?{query_string}"
 
                 # Validate URL scheme to prevent SSRF attacks
-                if not url.lower().startswith("https://"):
+                if not _validate_url_scheme(url):
                     logger.warning(f"Skipping {loc['name']}: URL must use HTTPS")
                     continue
 
@@ -635,7 +642,7 @@ class WildfireDataLoader(DatasetLoader):
             url = self.FIRMS_URLS.get(self.source, self.FIRMS_URLS["modis_7d"])
 
             # Validate URL scheme to prevent SSRF attacks
-            if not url.lower().startswith("https://"):
+            if not _validate_url_scheme(url):
                 raise RuntimeError("NASA FIRMS URL must use HTTPS. Security validation failed.")
 
             logger.info(f"Downloading fire data from NASA FIRMS ({self.source})...")

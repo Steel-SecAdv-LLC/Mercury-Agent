@@ -17,6 +17,7 @@ import logging
 import zipfile
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import numpy as np
 
@@ -33,6 +34,12 @@ from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_url_scheme(url: str) -> bool:
+    """Validate that URL uses HTTPS scheme to prevent SSRF attacks."""
+    parsed = urlparse(url)
+    return parsed.scheme == "https"
 
 
 class NSLKDDLoader(DatasetLoader):
@@ -222,7 +229,7 @@ class NSLKDDLoader(DatasetLoader):
                     continue
 
                 # Validate URL scheme to prevent SSRF attacks
-                if not url.lower().startswith("https://"):
+                if not _validate_url_scheme(url):
                     logger.warning(f"Skipping {split}: URL must use HTTPS")
                     continue
 
@@ -1276,7 +1283,7 @@ class ThreatIntelLoader(DatasetLoader):
 
         try:
             # Validate URL scheme to prevent SSRF attacks
-            if not self.MITRE_STIX_URL.lower().startswith("https://"):
+            if not _validate_url_scheme(self.MITRE_STIX_URL):
                 raise RuntimeError("MITRE ATT&CK URL must use HTTPS. Security validation failed.")
 
             logger.info("Downloading MITRE ATT&CK Enterprise data...")
