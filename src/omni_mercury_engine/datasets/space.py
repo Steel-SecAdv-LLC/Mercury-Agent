@@ -269,6 +269,11 @@ class NASAExoplanetLoader(DatasetLoader):
             }
 
             url = f"{self.NASA_TAP_URL}?{urllib.parse.urlencode(params)}"
+
+            # Validate URL scheme to prevent SSRF attacks
+            if not url.lower().startswith("https://"):
+                raise RuntimeError("NASA TAP URL must use HTTPS. Security validation failed.")
+
             logger.info("Downloading exoplanet data from NASA Exoplanet Archive...")
 
             req = urllib.request.Request(  # noqa: S310
@@ -484,6 +489,11 @@ class SolarDynamicsLoader(DatasetLoader):
         try:
             # Download X-ray data (primary solar activity indicator)
             url = self.SWPC_URLS["xrays"]
+
+            # Validate URL scheme to prevent SSRF attacks
+            if not url.lower().startswith("https://"):
+                raise RuntimeError("NOAA SWPC URL must use HTTPS. Security validation failed.")
+
             logger.info("Downloading solar X-ray data from NOAA SWPC...")
 
             req = urllib.request.Request(  # noqa: S310

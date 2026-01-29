@@ -221,6 +221,11 @@ class NSLKDDLoader(DatasetLoader):
                 if split == "test" and not self.include_test:
                     continue
 
+                # Validate URL scheme to prevent SSRF attacks
+                if not url.lower().startswith("https://"):
+                    logger.warning(f"Skipping {split}: URL must use HTTPS")
+                    continue
+
                 logger.info(f"Downloading NSL-KDD {split} from GitHub...")
 
                 with urllib.request.urlopen(  # noqa: S310  # nosec B310
@@ -1270,6 +1275,10 @@ class ThreatIntelLoader(DatasetLoader):
             return True
 
         try:
+            # Validate URL scheme to prevent SSRF attacks
+            if not self.MITRE_STIX_URL.lower().startswith("https://"):
+                raise RuntimeError("MITRE ATT&CK URL must use HTTPS. Security validation failed.")
+
             logger.info("Downloading MITRE ATT&CK Enterprise data...")
             req = urllib.request.Request(  # noqa: S310
                 self.MITRE_STIX_URL,

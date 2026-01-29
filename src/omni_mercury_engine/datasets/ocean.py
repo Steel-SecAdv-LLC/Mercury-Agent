@@ -132,6 +132,10 @@ class NOAABuoyLoader(DatasetLoader):
 
             for station in self.stations:
                 url = self.BASE_URL.format(station=station)
+                # Validate URL scheme to prevent SSRF attacks
+                if not url.lower().startswith("https://"):
+                    logger.warning(f"Skipping station {station}: URL must use HTTPS")
+                    continue
                 try:
                     logger.info(
                         f"Downloading buoy {station} ({self.BUOY_STATIONS.get(station, 'Unknown')})..."

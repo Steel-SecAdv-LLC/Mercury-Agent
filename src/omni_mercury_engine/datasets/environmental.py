@@ -125,6 +125,10 @@ class USGSEarthquakeLoader(DatasetLoader):
             query_string = "&".join(f"{k}={v}" for k, v in params.items())
             url = f"{self.USGS_API_URL}?{query_string}"
 
+            # Validate URL scheme to prevent SSRF attacks
+            if not url.lower().startswith("https://"):
+                raise RuntimeError("USGS API URL must use HTTPS. Security validation failed.")
+
             logger.info(
                 f"Downloading earthquake data from USGS API (last {self.days_back} days)..."
             )
@@ -413,6 +417,11 @@ class NOAAWeatherLoader(DatasetLoader):
                 query_string = "&".join(f"{k}={v}" for k, v in params.items())
                 url = f"{self.OPEN_METEO_URL}?{query_string}"
 
+                # Validate URL scheme to prevent SSRF attacks
+                if not url.lower().startswith("https://"):
+                    logger.warning(f"Skipping {loc['name']}: URL must use HTTPS")
+                    continue
+
                 logger.info(f"Downloading weather data for {loc['name']}...")
                 req = urllib.request.Request(  # noqa: S310
                     url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
@@ -624,6 +633,11 @@ class WildfireDataLoader(DatasetLoader):
 
         try:
             url = self.FIRMS_URLS.get(self.source, self.FIRMS_URLS["modis_7d"])
+
+            # Validate URL scheme to prevent SSRF attacks
+            if not url.lower().startswith("https://"):
+                raise RuntimeError("NASA FIRMS URL must use HTTPS. Security validation failed.")
+
             logger.info(f"Downloading fire data from NASA FIRMS ({self.source})...")
 
             req = urllib.request.Request(  # noqa: S310
