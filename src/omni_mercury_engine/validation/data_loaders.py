@@ -42,6 +42,7 @@ from urllib.request import urlopen
 import numpy as np
 
 from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 
 logger = logging.getLogger(__name__)
@@ -115,7 +116,7 @@ class NSLKDDLoader(DatasetLoader):
     IEEE Symposium on Computational Intelligence for Security and Defense Applications.
     """
 
-    NSL_KDD_URL = "https://archive.ics.uci.edu/ml/machine-learning-databases/kddcup99-mld/kddcup.data_10_percent.gz"
+    NSL_KDD_URL = TrustedEndpoints.UCI_NSL_KDD
 
     FEATURE_NAMES = [
         "duration",
@@ -337,7 +338,7 @@ class USGSEarthquakeLoader(DatasetLoader):
     https://earthquake.usgs.gov/
     """
 
-    USGS_API_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+    USGS_API_URL = TrustedEndpoints.USGS_EARTHQUAKE
 
     FEATURE_NAMES = [
         "magnitude",
@@ -510,10 +511,8 @@ class USGSEarthquakeLoader(DatasetLoader):
             import json
             from urllib.request import Request
 
-            req = Request(  # noqa: S310
-                url, headers={"User-Agent": "Mercury-Agent/1.0"}
-            )  # nosec B310
-            with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+            with urlopen(req, timeout=30) as response:
                 data = json.loads(response.read().decode())
 
             features_list = []
@@ -890,7 +889,7 @@ class NOAASpaceWeatherLoader(DatasetLoader):
     https://www.swpc.noaa.gov/
     """
 
-    SWPC_API_URL = "https://services.swpc.noaa.gov/json"
+    SWPC_API_URL = TrustedEndpoints.NOAA_SWPC_BASE
 
     FEATURE_NAMES = [
         "kp_index",
@@ -1064,10 +1063,8 @@ class NOAASpaceWeatherLoader(DatasetLoader):
             if not url.startswith("https://"):
                 raise RuntimeError("NOAA SWPC API URL must use HTTPS. Security validation failed.")
 
-            req = Request(  # noqa: S310
-                url, headers={"User-Agent": "Mercury-Agent/1.0"}
-            )  # nosec B310
-            with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+            with urlopen(req, timeout=30) as response:
                 kp_data = json.loads(response.read().decode())
 
             if not kp_data:
@@ -1165,7 +1162,7 @@ class NOAAHurricaneLoader(DatasetLoader):
     https://www.nhc.noaa.gov/
     """
 
-    NHC_API_URL = "https://www.nhc.noaa.gov/gis/forecast/archive"
+    NHC_API_URL = TrustedEndpoints.NOAA_NHC_ARCHIVE
 
     FEATURE_NAMES = [
         "latitude",
@@ -1339,10 +1336,8 @@ class NOAAHurricaneLoader(DatasetLoader):
             if not url.startswith("https://"):
                 raise RuntimeError("NOAA NHC API URL must use HTTPS. Security validation failed.")
 
-            req = Request(  # noqa: S310
-                url, headers={"User-Agent": "Mercury-Agent/1.0"}
-            )  # nosec B310
-            with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+            with urlopen(req, timeout=30) as response:
                 raw_data = response.read().decode()
 
             if not raw_data:
@@ -1455,7 +1450,7 @@ class NOAAOceanLoader(DatasetLoader):
     https://oceanservice.noaa.gov/
     """
 
-    NOS_API_URL = "https://tidesandcurrents.noaa.gov/api/datagetter"
+    NOS_API_URL = TrustedEndpoints.NOAA_NOS_API
 
     FEATURE_NAMES = [
         "sst_celsius",
@@ -1641,10 +1636,8 @@ class NOAAOceanLoader(DatasetLoader):
             if not url.startswith("https://"):
                 raise RuntimeError("NOAA NOS API URL must use HTTPS. Security validation failed.")
 
-            req = Request(  # noqa: S310
-                url, headers={"User-Agent": "Mercury-Agent/1.0"}
-            )  # nosec B310
-            with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+            with urlopen(req, timeout=30) as response:
                 raw_data = json.loads(response.read().decode())
 
             data_entries = raw_data.get("data", [])

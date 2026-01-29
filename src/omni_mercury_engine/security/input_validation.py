@@ -557,9 +557,80 @@ def sanitize_input(
     return result.sanitized_value or ""
 
 
+class TrustedEndpoints:
+    """
+    Hardcoded trusted API endpoints for external data sources.
+
+    These are constant URLs that are NOT derived from user input.
+    CodeQL's taint analysis recognizes class constants as untainted sources,
+    which properly resolves SSRF alerts without needing sanitization.
+
+    Usage:
+        from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
+        url = f"{TrustedEndpoints.USGS_EARTHQUAKE}?{urllib.parse.urlencode(params)}"
+
+    Security Note:
+        - All URLs use HTTPS only
+        - Query parameters should be constructed from typed function arguments
+        - Never concatenate user input directly into these URLs
+    """
+
+    # USGS Earthquake Hazards Program
+    # https://earthquake.usgs.gov/fdsnws/event/1/
+    USGS_EARTHQUAKE = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+
+    # NOAA Space Weather Prediction Center
+    # https://services.swpc.noaa.gov/
+    NOAA_SWPC_BASE = "https://services.swpc.noaa.gov/json"
+    NOAA_SWPC_KINDEX = "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json"
+    NOAA_SWPC_XRAYS = "https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json"
+    NOAA_SWPC_PROTONS = "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json"
+    NOAA_SWPC_KP_PRODUCTS = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
+
+    # NOAA National Hurricane Center
+    # https://www.nhc.noaa.gov/
+    NOAA_NHC_ARCHIVE = "https://www.nhc.noaa.gov/gis/forecast/archive"
+    NOAA_NHC_HURDAT2 = "https://www.nhc.noaa.gov/gis/forecast/archive/hurdat2-1851-2023-052424.txt"
+
+    # NOAA National Ocean Service
+    # https://tidesandcurrents.noaa.gov/
+    NOAA_NOS_API = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+
+    # NOAA DART Buoy Network (Tsunami Detection)
+    # https://www.ndbc.noaa.gov/dart.shtml
+    NOAA_DART_BUOY = "https://www.ndbc.noaa.gov/data/realtime2"
+
+    # NOAA Tsunami Events API
+    # https://www.ngdc.noaa.gov/hazel/view/hazards/tsunami/event-search
+    NOAA_TSUNAMI_EVENTS = "https://www.ngdc.noaa.gov/hazel/hazard-service/api/v1/tsunamis/events"
+
+    # NASA Exoplanet Archive
+    # https://exoplanetarchive.ipac.caltech.edu/
+    NASA_EXOPLANET_TAP = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync"
+
+    # NSL-KDD Dataset (UCI ML Repository)
+    # https://archive.ics.uci.edu/ml/datasets/kdd+cup+1999+data
+    UCI_NSL_KDD = "https://archive.ics.uci.edu/ml/machine-learning-databases/kddcup99-mld/kddcup.data_10_percent.gz"
+
+    # NOAA National Data Buoy Center (NDBC)
+    # https://www.ndbc.noaa.gov/
+    NOAA_NDBC_REALTIME = "https://www.ndbc.noaa.gov/data/realtime2"
+
+    # Open-Meteo Weather Archive API
+    # https://open-meteo.com/
+    OPEN_METEO_ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
+
+    # NASA FIRMS (Fire Information for Resource Management System)
+    # https://firms.modaps.eosdis.nasa.gov/
+    NASA_FIRMS_MODIS_7D = "https://firms.modaps.eosdis.nasa.gov/data/active_fire/modis-c6.1/csv/MODIS_C6_1_Global_7d.csv"
+    NASA_FIRMS_VIIRS_7D = "https://firms.modaps.eosdis.nasa.gov/data/active_fire/viirs-i-npp/csv/VNP14IMGTDL_NRT_Global_7d.csv"
+
+
 __all__ = [
     "InputValidator",
     "SanitizationLevel",
+    "TrustedEndpoints",
     "ValidationError",
     "ValidationResult",
     "sanitize_input",

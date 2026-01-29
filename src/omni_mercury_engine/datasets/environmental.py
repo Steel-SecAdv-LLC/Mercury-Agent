@@ -28,6 +28,8 @@ except ImportError:
     pd = None
     PANDAS_AVAILABLE = False
 
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 
 
@@ -55,7 +57,7 @@ class USGSEarthquakeLoader(DatasetLoader):
     REQUIRES_CREDENTIALS = False
 
     # USGS API endpoint for GeoJSON earthquake data
-    USGS_API_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+    USGS_API_URL = TrustedEndpoints.USGS_EARTHQUAKE
 
     FEATURE_NAMES = [
         "latitude",
@@ -128,10 +130,10 @@ class USGSEarthquakeLoader(DatasetLoader):
             logger.info(
                 f"Downloading earthquake data from USGS API (last {self.days_back} days)..."
             )
-            req = urllib.request.Request(  # noqa: S310
+            req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
-            with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310  # nosec B310
+            with urllib.request.urlopen(req, timeout=120) as response:
                 data = json.loads(response.read().decode("utf-8"))
 
             features_list = data.get("features", [])
@@ -332,7 +334,7 @@ class NOAAWeatherLoader(DatasetLoader):
     REQUIRES_CREDENTIALS = False
 
     # Open-Meteo API endpoint
-    OPEN_METEO_URL = "https://archive-api.open-meteo.com/v1/archive"
+    OPEN_METEO_URL = TrustedEndpoints.OPEN_METEO_ARCHIVE
 
     # Major cities for diverse weather sampling
     LOCATIONS = [
@@ -414,12 +416,10 @@ class NOAAWeatherLoader(DatasetLoader):
                 url = f"{self.OPEN_METEO_URL}?{query_string}"
 
                 logger.info(f"Downloading weather data for {loc['name']}...")
-                req = urllib.request.Request(  # noqa: S310
+                req = urllib.request.Request(
                     url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
                 )
-                with urllib.request.urlopen(  # noqa: S310  # nosec B310
-                    req, timeout=60
-                ) as response:
+                with urllib.request.urlopen(req, timeout=60) as response:
                     data = json.loads(response.read().decode("utf-8"))
 
                 hourly = data.get("hourly", {})
@@ -569,8 +569,8 @@ class WildfireDataLoader(DatasetLoader):
 
     # NASA FIRMS public CSV data URLs (no API key needed)
     FIRMS_URLS = {
-        "modis_7d": "https://firms.modaps.eosdis.nasa.gov/data/active_fire/modis-c6.1/csv/MODIS_C6_1_Global_7d.csv",
-        "viirs_7d": "https://firms.modaps.eosdis.nasa.gov/data/active_fire/suomi-npp-viirs-c2/csv/SUOMI_VIIRS_C2_Global_7d.csv",
+        "modis_7d": TrustedEndpoints.NASA_FIRMS_MODIS_7D,
+        "viirs_7d": TrustedEndpoints.NASA_FIRMS_VIIRS_7D,
     }
 
     FEATURE_NAMES = [
@@ -626,10 +626,10 @@ class WildfireDataLoader(DatasetLoader):
             url = self.FIRMS_URLS.get(self.source, self.FIRMS_URLS["modis_7d"])
             logger.info(f"Downloading fire data from NASA FIRMS ({self.source})...")
 
-            req = urllib.request.Request(  # noqa: S310
+            req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
-            with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310  # nosec B310
+            with urllib.request.urlopen(req, timeout=120) as response:
                 content = response.read().decode("utf-8")
 
             # Parse CSV

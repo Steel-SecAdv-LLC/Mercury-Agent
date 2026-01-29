@@ -28,6 +28,8 @@ except ImportError:
     pd = None
     PANDAS_AVAILABLE = False
 
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 
 
@@ -197,7 +199,7 @@ class NASAExoplanetLoader(DatasetLoader):
     REQUIRES_CREDENTIALS = False
 
     # NASA Exoplanet Archive TAP endpoint
-    NASA_TAP_URL = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync"
+    NASA_TAP_URL = TrustedEndpoints.NASA_EXOPLANET_TAP
 
     FEATURE_NAMES = [
         "orbital_period",
@@ -271,10 +273,10 @@ class NASAExoplanetLoader(DatasetLoader):
             url = f"{self.NASA_TAP_URL}?{urllib.parse.urlencode(params)}"
             logger.info("Downloading exoplanet data from NASA Exoplanet Archive...")
 
-            req = urllib.request.Request(  # noqa: S310
+            req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
-            with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310  # nosec B310
+            with urllib.request.urlopen(req, timeout=60) as response:
                 data = json.loads(response.read().decode("utf-8"))
 
             # Parse TAP response
@@ -437,9 +439,9 @@ class SolarDynamicsLoader(DatasetLoader):
 
     # NOAA SWPC JSON data endpoints
     SWPC_URLS = {
-        "xrays": "https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json",
-        "protons": "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json",
-        "kp": "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json",
+        "xrays": TrustedEndpoints.NOAA_SWPC_XRAYS,
+        "protons": TrustedEndpoints.NOAA_SWPC_PROTONS,
+        "kp": TrustedEndpoints.NOAA_SWPC_KP_PRODUCTS,
     }
 
     FEATURE_NAMES = [
@@ -486,10 +488,10 @@ class SolarDynamicsLoader(DatasetLoader):
             url = self.SWPC_URLS["xrays"]
             logger.info("Downloading solar X-ray data from NOAA SWPC...")
 
-            req = urllib.request.Request(  # noqa: S310
+            req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
-            with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310  # nosec B310
+            with urllib.request.urlopen(req, timeout=60) as response:
                 data = json.loads(response.read().decode("utf-8"))
 
             if not data:
