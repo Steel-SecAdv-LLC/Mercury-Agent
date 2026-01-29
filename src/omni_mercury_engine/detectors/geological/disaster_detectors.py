@@ -64,21 +64,39 @@ from omni_mercury_engine.utils.rng import get_global_rng
 logger = logging.getLogger(__name__)
 
 
+# Allowlist of trusted domains for SSRF protection
+_ALLOWED_DOMAINS: frozenset[str] = frozenset(
+    [
+        "www.ndbc.noaa.gov",
+        "ndbc.noaa.gov",
+        "www.ngdc.noaa.gov",
+        "ngdc.noaa.gov",
+        "earthquake.usgs.gov",
+    ]
+)
+
+
 def _sanitize_url(url: str) -> str:
     """Validate and sanitize URL to prevent SSRF attacks.
+
+    Validates that:
+    1. URL uses HTTPS scheme
+    2. Domain is in the allowlist of trusted data sources
 
     Args:
         url: URL to validate
 
     Returns:
-        The validated URL if scheme is HTTPS
+        The validated URL if it passes all security checks
 
     Raises:
-        ValueError: If URL scheme is not HTTPS
+        ValueError: If URL fails security validation
     """
     parsed = urlparse(url)
     if parsed.scheme != "https":
         raise ValueError(f"URL must use HTTPS scheme, got: {parsed.scheme}")
+    if parsed.netloc not in _ALLOWED_DOMAINS:
+        raise ValueError(f"Domain not in allowlist: {parsed.netloc}")
     return url
 
 
