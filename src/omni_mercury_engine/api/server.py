@@ -1130,7 +1130,7 @@ except ImportError as e:
 # Server Startup Function
 # =============================================================================
 def run_server(
-    host: str = "0.0.0.0",  # noqa: S104 - Intentional binding to all interfaces for server
+    host: str = "0.0.0.0",  # nosec B104 # noqa: S104 - Intentional binding to all interfaces for server
     port: int = 8000,
     workers: int = 1,
     reload: bool = False,
