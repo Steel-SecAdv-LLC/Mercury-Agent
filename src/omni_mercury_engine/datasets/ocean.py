@@ -23,7 +23,6 @@ from __future__ import annotations
 import io
 import logging
 from typing import Any
-from urllib.parse import urlparse
 
 import numpy as np
 
@@ -36,48 +35,12 @@ except ImportError:
     pd = None
     PANDAS_AVAILABLE = False
 
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 
 
 logger = logging.getLogger(__name__)
-
-
-# Allowlist of trusted domains for SSRF protection
-_ALLOWED_DOMAINS: frozenset[str] = frozenset(
-    [
-        "www.ndbc.noaa.gov",
-        "ndbc.noaa.gov",
-    ]
-)
-
-
-def _sanitize_url(url: str) -> str:
-    """Validate and sanitize URL to prevent SSRF attacks.
-
-    Validates that:
-    1. URL uses HTTPS scheme
-    2. Domain is in the allowlist of trusted data sources
-
-    Reconstructs URL from validated components to ensure CodeQL
-    recognizes this as a proper sanitizer.
-
-    Args:
-        url: URL to validate
-
-    Returns:
-        A reconstructed URL from validated components
-
-    Raises:
-        ValueError: If URL fails security validation
-    """
-    parsed = urlparse(url)
-    if parsed.scheme != "https":
-        raise ValueError(f"URL must use HTTPS scheme, got: {parsed.scheme}")
-    if parsed.netloc not in _ALLOWED_DOMAINS:
-        raise ValueError(f"Domain not in allowlist: {parsed.netloc}")
-    # Reconstruct URL from validated components - this creates a new
-    # sanitized URL that CodeQL recognizes as safe
-    return f"https://{parsed.netloc}{parsed.path}"
 
 
 class NOAABuoyLoader(DatasetLoader):
@@ -116,8 +79,8 @@ class NOAABuoyLoader(DatasetLoader):
         "46042": "Monterey Bay, CA",
     }
 
-    # Base URL for real-time buoy data
-    BASE_URL = "https://www.ndbc.noaa.gov/data/realtime2/{station}.txt"
+    # Base URL for real-time buoy data (uses TrustedEndpoints constant)
+    BASE_URL = TrustedEndpoints.NOAA_NDBC_REALTIME + "/{station}.txt"
 
     # Feature columns to extract
     FEATURE_COLS = ["WVHT", "DPD", "APD", "MWD", "WTMP", "ATMP", "PRES", "WSPD", "GST"]
@@ -172,19 +135,15 @@ class NOAABuoyLoader(DatasetLoader):
             for station in self.stations:
                 url = self.BASE_URL.format(station=station)
                 try:
-                    # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
-                    sanitized_url = _sanitize_url(url)
                     logger.info(
                         f"Downloading buoy {station} ({self.BUOY_STATIONS.get(station, 'Unknown')})..."
                     )
 
-                    req = urllib.request.Request(  # noqa: S310
-                        sanitized_url,
+                    req = urllib.request.Request(
+                        url,
                         headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},
                     )
-                    with urllib.request.urlopen(  # noqa: S310  # nosec B310
-                        req, timeout=60
-                    ) as response:
+                    with urllib.request.urlopen(req, timeout=60) as response:
                         content = response.read().decode("utf-8")
 
                     # Parse the data (space-delimited, first row is header, second is units)

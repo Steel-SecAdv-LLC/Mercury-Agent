@@ -48,7 +48,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
-from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 import numpy as np
@@ -58,52 +57,11 @@ from scipy.fft import fft, fftfreq
 from torch import nn
 
 from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
 from omni_mercury_engine.utils.rng import get_global_rng
 
 
 logger = logging.getLogger(__name__)
-
-
-# Allowlist of trusted domains for SSRF protection
-_ALLOWED_DOMAINS: frozenset[str] = frozenset(
-    [
-        "www.ndbc.noaa.gov",
-        "ndbc.noaa.gov",
-        "www.ngdc.noaa.gov",
-        "ngdc.noaa.gov",
-        "earthquake.usgs.gov",
-    ]
-)
-
-
-def _sanitize_url(url: str) -> str:
-    """Validate and sanitize URL to prevent SSRF attacks.
-
-    Validates that:
-    1. URL uses HTTPS scheme
-    2. Domain is in the allowlist of trusted data sources
-
-    Reconstructs URL from validated components to ensure CodeQL
-    recognizes this as a proper sanitizer.
-
-    Args:
-        url: URL to validate
-
-    Returns:
-        A reconstructed URL from validated components
-
-    Raises:
-        ValueError: If URL fails security validation
-    """
-    parsed = urlparse(url)
-    if parsed.scheme != "https":
-        raise ValueError(f"URL must use HTTPS scheme, got: {parsed.scheme}")
-    if parsed.netloc not in _ALLOWED_DOMAINS:
-        raise ValueError(f"Domain not in allowlist: {parsed.netloc}")
-    # Reconstruct URL from validated components - this creates a new
-    # sanitized URL that CodeQL recognizes as safe
-    query = f"?{parsed.query}" if parsed.query else ""
-    return f"https://{parsed.netloc}{parsed.path}{query}"
 
 
 # Feature dimension for fusion pipeline
@@ -1458,13 +1416,13 @@ def generate_synthetic_earthquake_data(
 # =============================================================================
 
 # NOAA DART Buoy API for tsunami detection
-DART_BUOY_API_URL = "https://www.ndbc.noaa.gov/data/realtime2"
+DART_BUOY_API_URL = TrustedEndpoints.NOAA_DART_BUOY
 
 # NOAA Tsunami Events API
-NOAA_TSUNAMI_API_URL = "https://www.ngdc.noaa.gov/hazel/hazard-service/api/v1/tsunamis/events"
+NOAA_TSUNAMI_API_URL = TrustedEndpoints.NOAA_TSUNAMI_EVENTS
 
 # USGS Earthquake Catalog API
-USGS_EARTHQUAKE_API_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+USGS_EARTHQUAKE_API_URL = TrustedEndpoints.USGS_EARTHQUAKE
 
 
 def load_dart_buoy_data(
@@ -1494,11 +1452,9 @@ def load_dart_buoy_data(
         tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]
     ):
         url = f"{DART_BUOY_API_URL}/{station_id}.dart"
-        # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
-        sanitized_url = _sanitize_url(url)
 
-        req = Request(sanitized_url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
-        with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+        with urlopen(req, timeout=30) as response:
             raw_data = response.read().decode()
 
         lines = raw_data.strip().split("\n")
@@ -1570,11 +1526,9 @@ def load_noaa_tsunami_records(
 
     def _fetch_tsunami_records() -> list[dict[str, Any]]:
         url = f"{NOAA_TSUNAMI_API_URL}?minYear={min_year}&maxSize={max_records}"
-        # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
-        sanitized_url = _sanitize_url(url)
 
-        req = Request(sanitized_url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
-        with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+        with urlopen(req, timeout=30) as response:
             data = json.loads(response.read().decode())
 
         events = data.get("items", [])
@@ -1630,11 +1584,9 @@ def load_usgs_earthquake_catalog(
         }
 
         url = f"{USGS_EARTHQUAKE_API_URL}?" + "&".join(f"{k}={v}" for k, v in params.items())
-        # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
-        sanitized_url = _sanitize_url(url)
 
-        req = Request(sanitized_url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
-        with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+        with urlopen(req, timeout=30) as response:
             data = json.loads(response.read().decode())
 
         features = data.get("features", [])

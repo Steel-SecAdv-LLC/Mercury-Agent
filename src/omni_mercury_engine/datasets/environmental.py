@@ -16,7 +16,6 @@ import io
 import json
 import logging
 from typing import Any
-from urllib.parse import urlparse
 
 import numpy as np
 
@@ -29,50 +28,12 @@ except ImportError:
     pd = None
     PANDAS_AVAILABLE = False
 
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 
 
 logger = logging.getLogger(__name__)
-
-
-# Allowlist of trusted domains for SSRF protection
-_ALLOWED_DOMAINS: frozenset[str] = frozenset(
-    [
-        "earthquake.usgs.gov",
-        "api.open-meteo.com",
-        "firms.modaps.eosdis.nasa.gov",
-    ]
-)
-
-
-def _sanitize_url(url: str) -> str:
-    """Validate and sanitize URL to prevent SSRF attacks.
-
-    Validates that:
-    1. URL uses HTTPS scheme
-    2. Domain is in the allowlist of trusted data sources
-
-    Reconstructs URL from validated components to ensure CodeQL
-    recognizes this as a proper sanitizer.
-
-    Args:
-        url: URL to validate
-
-    Returns:
-        A reconstructed URL from validated components
-
-    Raises:
-        ValueError: If URL fails security validation
-    """
-    parsed = urlparse(url)
-    if parsed.scheme != "https":
-        raise ValueError(f"URL must use HTTPS scheme, got: {parsed.scheme}")
-    if parsed.netloc not in _ALLOWED_DOMAINS:
-        raise ValueError(f"Domain not in allowlist: {parsed.netloc}")
-    # Reconstruct URL from validated components - this creates a new
-    # sanitized URL that CodeQL recognizes as safe
-    query = f"?{parsed.query}" if parsed.query else ""
-    return f"https://{parsed.netloc}{parsed.path}{query}"
 
 
 class USGSEarthquakeLoader(DatasetLoader):
@@ -96,7 +57,7 @@ class USGSEarthquakeLoader(DatasetLoader):
     REQUIRES_CREDENTIALS = False
 
     # USGS API endpoint for GeoJSON earthquake data
-    USGS_API_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+    USGS_API_URL = TrustedEndpoints.USGS_EARTHQUAKE
 
     FEATURE_NAMES = [
         "latitude",
@@ -166,16 +127,13 @@ class USGSEarthquakeLoader(DatasetLoader):
             query_string = "&".join(f"{k}={v}" for k, v in params.items())
             url = f"{self.USGS_API_URL}?{query_string}"
 
-            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
-            sanitized_url = _sanitize_url(url)
-
             logger.info(
                 f"Downloading earthquake data from USGS API (last {self.days_back} days)..."
             )
-            req = urllib.request.Request(  # noqa: S310
-                sanitized_url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
-            with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310  # nosec B310
+            with urllib.request.urlopen(req, timeout=120) as response:
                 data = json.loads(response.read().decode("utf-8"))
 
             features_list = data.get("features", [])
@@ -376,7 +334,7 @@ class NOAAWeatherLoader(DatasetLoader):
     REQUIRES_CREDENTIALS = False
 
     # Open-Meteo API endpoint
-    OPEN_METEO_URL = "https://archive-api.open-meteo.com/v1/archive"
+    OPEN_METEO_URL = TrustedEndpoints.OPEN_METEO_ARCHIVE
 
     # Major cities for diverse weather sampling
     LOCATIONS = [
@@ -457,20 +415,11 @@ class NOAAWeatherLoader(DatasetLoader):
                 query_string = "&".join(f"{k}={v}" for k, v in params.items())
                 url = f"{self.OPEN_METEO_URL}?{query_string}"
 
-                try:
-                    # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
-                    sanitized_url = _sanitize_url(url)
-                except ValueError as e:
-                    logger.warning(f"Skipping {loc['name']}: {e}")
-                    continue
-
                 logger.info(f"Downloading weather data for {loc['name']}...")
-                req = urllib.request.Request(  # noqa: S310
-                    sanitized_url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
+                req = urllib.request.Request(
+                    url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
                 )
-                with urllib.request.urlopen(  # noqa: S310  # nosec B310
-                    req, timeout=60
-                ) as response:
+                with urllib.request.urlopen(req, timeout=60) as response:
                     data = json.loads(response.read().decode("utf-8"))
 
                 hourly = data.get("hourly", {})
@@ -620,8 +569,8 @@ class WildfireDataLoader(DatasetLoader):
 
     # NASA FIRMS public CSV data URLs (no API key needed)
     FIRMS_URLS = {
-        "modis_7d": "https://firms.modaps.eosdis.nasa.gov/data/active_fire/modis-c6.1/csv/MODIS_C6_1_Global_7d.csv",
-        "viirs_7d": "https://firms.modaps.eosdis.nasa.gov/data/active_fire/suomi-npp-viirs-c2/csv/SUOMI_VIIRS_C2_Global_7d.csv",
+        "modis_7d": TrustedEndpoints.NASA_FIRMS_MODIS_7D,
+        "viirs_7d": TrustedEndpoints.NASA_FIRMS_VIIRS_7D,
     }
 
     FEATURE_NAMES = [
@@ -676,15 +625,12 @@ class WildfireDataLoader(DatasetLoader):
         try:
             url = self.FIRMS_URLS.get(self.source, self.FIRMS_URLS["modis_7d"])
 
-            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
-            sanitized_url = _sanitize_url(url)
-
             logger.info(f"Downloading fire data from NASA FIRMS ({self.source})...")
 
-            req = urllib.request.Request(  # noqa: S310
-                sanitized_url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
-            with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310  # nosec B310
+            with urllib.request.urlopen(req, timeout=120) as response:
                 content = response.read().decode("utf-8")
 
             # Parse CSV

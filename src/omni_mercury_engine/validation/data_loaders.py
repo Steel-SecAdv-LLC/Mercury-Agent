@@ -37,56 +37,15 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 from urllib.request import urlopen
 
 import numpy as np
 
 from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 
 logger = logging.getLogger(__name__)
-
-
-# Allowlist of trusted domains for SSRF protection
-_ALLOWED_DOMAINS: frozenset[str] = frozenset(
-    [
-        "earthquake.usgs.gov",
-        "services.swpc.noaa.gov",
-        "www.nhc.noaa.gov",
-        "tidesandcurrents.noaa.gov",
-    ]
-)
-
-
-def _sanitize_url(url: str) -> str:
-    """Validate and sanitize URL to prevent SSRF attacks.
-
-    Validates that:
-    1. URL uses HTTPS scheme
-    2. Domain is in the allowlist of trusted data sources
-
-    Reconstructs URL from validated components to ensure CodeQL
-    recognizes this as a proper sanitizer.
-
-    Args:
-        url: URL to validate
-
-    Returns:
-        A reconstructed URL from validated components
-
-    Raises:
-        ValueError: If URL fails security validation
-    """
-    parsed = urlparse(url)
-    if parsed.scheme != "https":
-        raise ValueError(f"URL must use HTTPS scheme, got: {parsed.scheme}")
-    if parsed.netloc not in _ALLOWED_DOMAINS:
-        raise ValueError(f"Domain not in allowlist: {parsed.netloc}")
-    # Reconstruct URL from validated components - this creates a new
-    # sanitized URL that CodeQL recognizes as safe
-    query = f"?{parsed.query}" if parsed.query else ""
-    return f"https://{parsed.netloc}{parsed.path}{query}"
 
 
 @dataclass
@@ -379,7 +338,7 @@ class USGSEarthquakeLoader(DatasetLoader):
     https://earthquake.usgs.gov/
     """
 
-    USGS_API_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+    USGS_API_URL = TrustedEndpoints.USGS_EARTHQUAKE
 
     FEATURE_NAMES = [
         "magnitude",
@@ -546,16 +505,11 @@ class USGSEarthquakeLoader(DatasetLoader):
 
             url = f"{self.USGS_API_URL}?" + "&".join(f"{k}={v}" for k, v in params.items())
 
-            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
-            sanitized_url = _sanitize_url(url)
-
             import json
             from urllib.request import Request
 
-            req = Request(  # noqa: S310
-                sanitized_url, headers={"User-Agent": "Mercury-Agent/1.0"}
-            )  # nosec B310
-            with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+            with urlopen(req, timeout=30) as response:
                 data = json.loads(response.read().decode())
 
             features_list = []
@@ -932,7 +886,7 @@ class NOAASpaceWeatherLoader(DatasetLoader):
     https://www.swpc.noaa.gov/
     """
 
-    SWPC_API_URL = "https://services.swpc.noaa.gov/json"
+    SWPC_API_URL = TrustedEndpoints.NOAA_SWPC_BASE
 
     FEATURE_NAMES = [
         "kp_index",
@@ -1103,13 +1057,9 @@ class NOAASpaceWeatherLoader(DatasetLoader):
             from urllib.request import Request
 
             url = f"{self.SWPC_API_URL}/planetary_k_index_1m.json"
-            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
-            sanitized_url = _sanitize_url(url)
 
-            req = Request(  # noqa: S310
-                sanitized_url, headers={"User-Agent": "Mercury-Agent/1.0"}
-            )  # nosec B310
-            with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+            with urlopen(req, timeout=30) as response:
                 kp_data = json.loads(response.read().decode())
 
             if not kp_data:
@@ -1207,7 +1157,7 @@ class NOAAHurricaneLoader(DatasetLoader):
     https://www.nhc.noaa.gov/
     """
 
-    NHC_API_URL = "https://www.nhc.noaa.gov/gis/forecast/archive"
+    NHC_API_URL = TrustedEndpoints.NOAA_NHC_ARCHIVE
 
     FEATURE_NAMES = [
         "latitude",
@@ -1378,13 +1328,9 @@ class NOAAHurricaneLoader(DatasetLoader):
             from urllib.request import Request
 
             url = f"{self.NHC_API_URL}/hurdat2-1851-2023-052424.txt"
-            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
-            sanitized_url = _sanitize_url(url)
 
-            req = Request(  # noqa: S310
-                sanitized_url, headers={"User-Agent": "Mercury-Agent/1.0"}
-            )  # nosec B310
-            with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+            with urlopen(req, timeout=30) as response:
                 raw_data = response.read().decode()
 
             if not raw_data:
@@ -1497,7 +1443,7 @@ class NOAAOceanLoader(DatasetLoader):
     https://oceanservice.noaa.gov/
     """
 
-    NOS_API_URL = "https://tidesandcurrents.noaa.gov/api/datagetter"
+    NOS_API_URL = TrustedEndpoints.NOAA_NOS_API
 
     FEATURE_NAMES = [
         "sst_celsius",
@@ -1680,13 +1626,9 @@ class NOAAOceanLoader(DatasetLoader):
             from urllib.request import Request
 
             url = f"{self.NOS_API_URL}?begin_date=20240101&end_date=20241231&station=8454000&product=water_temperature&datum=MLLW&units=metric&time_zone=gmt&application=Mercury-Agent&format=json"
-            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
-            sanitized_url = _sanitize_url(url)
 
-            req = Request(  # noqa: S310
-                sanitized_url, headers={"User-Agent": "Mercury-Agent/1.0"}
-            )  # nosec B310
-            with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+            with urlopen(req, timeout=30) as response:
                 raw_data = json.loads(response.read().decode())
 
             data_entries = raw_data.get("data", [])

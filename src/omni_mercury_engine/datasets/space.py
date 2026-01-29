@@ -16,7 +16,6 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any
-from urllib.parse import urlparse
 
 import numpy as np
 
@@ -29,49 +28,12 @@ except ImportError:
     pd = None
     PANDAS_AVAILABLE = False
 
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 
 
 logger = logging.getLogger(__name__)
-
-
-# Allowlist of trusted domains for SSRF protection
-_ALLOWED_DOMAINS: frozenset[str] = frozenset(
-    [
-        "exoplanetarchive.ipac.caltech.edu",
-        "services.swpc.noaa.gov",
-    ]
-)
-
-
-def _sanitize_url(url: str) -> str:
-    """Validate and sanitize URL to prevent SSRF attacks.
-
-    Validates that:
-    1. URL uses HTTPS scheme
-    2. Domain is in the allowlist of trusted data sources
-
-    Reconstructs URL from validated components to ensure CodeQL
-    recognizes this as a proper sanitizer.
-
-    Args:
-        url: URL to validate
-
-    Returns:
-        A reconstructed URL from validated components
-
-    Raises:
-        ValueError: If URL fails security validation
-    """
-    parsed = urlparse(url)
-    if parsed.scheme != "https":
-        raise ValueError(f"URL must use HTTPS scheme, got: {parsed.scheme}")
-    if parsed.netloc not in _ALLOWED_DOMAINS:
-        raise ValueError(f"Domain not in allowlist: {parsed.netloc}")
-    # Reconstruct URL from validated components - this creates a new
-    # sanitized URL that CodeQL recognizes as safe
-    query = f"?{parsed.query}" if parsed.query else ""
-    return f"https://{parsed.netloc}{parsed.path}{query}"
 
 
 class SETILoader(DatasetLoader):
@@ -237,7 +199,7 @@ class NASAExoplanetLoader(DatasetLoader):
     REQUIRES_CREDENTIALS = False
 
     # NASA Exoplanet Archive TAP endpoint
-    NASA_TAP_URL = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync"
+    NASA_TAP_URL = TrustedEndpoints.NASA_EXOPLANET_TAP
 
     FEATURE_NAMES = [
         "orbital_period",
@@ -310,15 +272,12 @@ class NASAExoplanetLoader(DatasetLoader):
 
             url = f"{self.NASA_TAP_URL}?{urllib.parse.urlencode(params)}"
 
-            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
-            sanitized_url = _sanitize_url(url)
-
             logger.info("Downloading exoplanet data from NASA Exoplanet Archive...")
 
-            req = urllib.request.Request(  # noqa: S310
-                sanitized_url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
-            with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310  # nosec B310
+            with urllib.request.urlopen(req, timeout=60) as response:
                 data = json.loads(response.read().decode("utf-8"))
 
             # Parse TAP response
@@ -481,9 +440,9 @@ class SolarDynamicsLoader(DatasetLoader):
 
     # NOAA SWPC JSON data endpoints
     SWPC_URLS = {
-        "xrays": "https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json",
-        "protons": "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json",
-        "kp": "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json",
+        "xrays": TrustedEndpoints.NOAA_SWPC_XRAYS,
+        "protons": TrustedEndpoints.NOAA_SWPC_PROTONS,
+        "kp": TrustedEndpoints.NOAA_SWPC_KP_PRODUCTS,
     }
 
     FEATURE_NAMES = [
@@ -529,15 +488,12 @@ class SolarDynamicsLoader(DatasetLoader):
             # Download X-ray data (primary solar activity indicator)
             url = self.SWPC_URLS["xrays"]
 
-            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
-            sanitized_url = _sanitize_url(url)
-
             logger.info("Downloading solar X-ray data from NOAA SWPC...")
 
-            req = urllib.request.Request(  # noqa: S310
-                sanitized_url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
-            with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310  # nosec B310
+            with urllib.request.urlopen(req, timeout=60) as response:
                 data = json.loads(response.read().decode("utf-8"))
 
             if not data:
