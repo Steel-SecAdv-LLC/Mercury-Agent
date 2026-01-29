@@ -29,12 +29,13 @@ from typing import Any
 
 import numpy as np
 
+
 logger = logging.getLogger(__name__)
 
 try:
     import torch
-    import torch.nn as nn
     import torch.nn.functional as F
+    from torch import nn
     from torch.optim import Adam
 
     TORCH_AVAILABLE = True
@@ -748,9 +749,7 @@ class LearnableGOSNN:
             }
 
         values = np.array(trajectory.values[-100:])
-        _timestamps = np.array(
-            trajectory.timestamps[-100:]
-        )  # noqa: F841 - Reserved for time-weighted analysis
+        _timestamps = np.array(trajectory.timestamps[-100:])
 
         if len(values) >= 2:
             coeffs = np.polyfit(range(len(values)), values, 1)

@@ -25,13 +25,18 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, AsyncIterator
+from typing import TYPE_CHECKING, Any
+
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
+
 
 logger = logging.getLogger(__name__)
 
@@ -531,8 +536,8 @@ async def get_export_summary(
         limit=100000,
     )
 
-    methods = list(set(d.method for d in detections))
-    actions = list(set(a.action for a in audit_logs))
+    methods = list({d.method for d in detections})
+    actions = list({a.action for a in audit_logs})
 
     return ExportSummaryResponse(
         total_detections=total_detections,

@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
 from omni_mercury_engine.api.routes.export import record_detection
 
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/detect", tags=["Detection"])
@@ -254,7 +255,7 @@ async def detect_neurosymbolic(
         logger.error(f"Neuro-symbolic detection failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Detection failed: {str(e)}",
+            detail=f"Detection failed: {e!s}",
         )
 
 
@@ -361,7 +362,7 @@ async def detect_fusion(
         logger.error(f"Fusion detection failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Detection failed: {str(e)}",
+            detail=f"Detection failed: {e!s}",
         )
 
 
@@ -495,5 +496,5 @@ async def detect_three_r(
         logger.error(f"3R detection failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Detection failed: {str(e)}",
+            detail=f"Detection failed: {e!s}",
         )

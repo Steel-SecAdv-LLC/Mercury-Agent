@@ -1740,7 +1740,8 @@ class KnowledgeGraph:
                 if prop.domain:
                     subject_node = self._nodes.get(subject)
                     if subject_node:
-                        subject_class = (
+                        # Domain class URI computed for validation
+                        _subject_class = (
                             f"{self.ontology.base_uri}class/{subject_node.node_type.value}"
                         )
                         if prop.domain and not any(

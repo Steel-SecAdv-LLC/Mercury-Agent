@@ -977,11 +977,13 @@ class OmniFusionModel(nn.Module):
                     pos_weight = (n_neg / n_pos).clamp(max=10.0)
                     sample_weights = torch.where(target == 1, pos_weight, torch.ones_like(target))
 
-                    base_loss = label_smoothing_fn(
+                    # LabelSmoothingLoss already applies reduction, so we recompute
+                    # with sample weights for per-sample weighting
+                    _ = label_smoothing_fn(
                         output["anomaly_probs"].squeeze(),
                         target,
                     )
-                    # Note: LabelSmoothingLoss already applies reduction, so we recompute
+                    # Note: Using custom BCE with label smoothing for sample weighting
                     # with sample weights for per-sample weighting
                     anomaly_loss = (
                         F.binary_cross_entropy(

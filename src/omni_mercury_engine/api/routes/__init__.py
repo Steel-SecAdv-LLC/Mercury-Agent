@@ -14,6 +14,7 @@ from omni_mercury_engine.api.routes.detection import router as detection_router
 from omni_mercury_engine.api.routes.export import router as export_router
 from omni_mercury_engine.api.routes.models import router as models_router
 
+
 __all__ = [
     "batch_router",
     "detection_router",

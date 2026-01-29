@@ -32,10 +32,15 @@ import uuid
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -263,8 +268,9 @@ class FileAuditHandler(AuditLogHandler):
         """Query audit events from files."""
         results: list[AuditEvent] = []
 
+        log_dir_path = Path(self._log_dir)
         log_files = sorted(
-            [f for f in os.listdir(self._log_dir) if f.startswith("audit_")],
+            [f.name for f in log_dir_path.iterdir() if f.name.startswith("audit_")],
             reverse=True,
         )
 
@@ -272,9 +278,9 @@ class FileAuditHandler(AuditLogHandler):
             if len(results) >= limit:
                 break
 
-            file_path = os.path.join(self._log_dir, log_file)
+            file_path = log_dir_path / log_file
             try:
-                with open(file_path, "r") as f:
+                with open(file_path) as f:
                     for line in f:
                         if len(results) >= limit:
                             break
@@ -297,7 +303,7 @@ class FileAuditHandler(AuditLogHandler):
                             results.append(event)
                         except (json.JSONDecodeError, KeyError):
                             continue
-            except IOError:
+            except OSError:
                 continue
 
         return results
@@ -320,15 +326,16 @@ class FileAuditHandler(AuditLogHandler):
 
     def _cleanup_old_files(self) -> None:
         """Remove old log files."""
+        log_dir_path = Path(self._log_dir)
         log_files = sorted(
-            [f for f in os.listdir(self._log_dir) if f.startswith("audit_")],
+            [f.name for f in log_dir_path.iterdir() if f.name.startswith("audit_")],
             reverse=True,
         )
 
         for old_file in log_files[self._max_files :]:
             try:
-                os.remove(os.path.join(self._log_dir, old_file))
-            except IOError:
+                (log_dir_path / old_file).unlink()
+            except OSError:
                 pass
 
     def _dict_to_event(self, data: dict[str, Any]) -> AuditEvent:
@@ -441,7 +448,7 @@ class AuditLogger:
         """Log an audit event."""
         event = AuditEvent(
             event_id=str(uuid.uuid4()),
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             action=action,
             severity=severity,
             resource_type=resource_type,

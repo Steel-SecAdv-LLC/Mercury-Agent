@@ -175,7 +175,7 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
 # API Server Command
 # =============================================================================
 @main.command()
-@click.option("--host", "-h", default="0.0.0.0", help="Host address to bind to")
+@click.option("--host", "-h", default="0.0.0.0", help="Host address to bind to")  # noqa: S104
 @click.option("--port", "-p", default=8000, type=int, help="Port number to listen on")
 @click.option("--workers", "-w", default=1, type=int, help="Number of worker processes")
 @click.option("--reload", "-r", is_flag=True, help="Enable auto-reload for development")

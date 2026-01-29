@@ -658,8 +658,9 @@ class AdaptiveAnomalyDetector:
         """
         try:
             # Use sklearn's EllipticEnvelope - proven F1 > 0.70 on standard benchmarks
-            from sklearn.covariance import EllipticEnvelope
             import warnings
+
+            from sklearn.covariance import EllipticEnvelope
 
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")

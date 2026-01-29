@@ -1120,8 +1120,8 @@ class AutoThresholdOptimizer:
 
             tp = np.sum((labels == 1) & predictions)
             fp = np.sum((labels == 0) & predictions)
-            tn = np.sum((labels == 0) & ~predictions)
-            fn = np.sum((labels == 1) & ~predictions)
+            _tn = np.sum((labels == 0) & ~predictions)  # For completeness
+            _fn = np.sum((labels == 1) & ~predictions)  # For completeness
 
             tpr = tp / n_pos if n_pos > 0 else 0.0  # Sensitivity
             fpr = fp / n_neg if n_neg > 0 else 0.0  # 1 - Specificity

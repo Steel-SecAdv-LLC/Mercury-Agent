@@ -34,12 +34,13 @@ from typing import Any
 
 import numpy as np
 
+
 logger = logging.getLogger(__name__)
 
 try:
     import torch
-    import torch.nn as nn
     import torch.nn.functional as F
+    from torch import nn
     from torch.optim import AdamW
 
     TORCH_AVAILABLE = True
@@ -207,7 +208,7 @@ if TORCH_AVAILABLE:
             if x.dim() == 1:
                 x = x.unsqueeze(0)
 
-            _batch_size = x.shape[0]  # noqa: F841 - Reserved for batch processing
+            _batch_size = x.shape[0]
 
             if x.shape[-1] != self.encoder.in_features:
                 x_padded = F.pad(x, (0, self.encoder.in_features - x.shape[-1]))
@@ -386,7 +387,7 @@ if TORCH_AVAILABLE:
             if x.dim() == 1:
                 x = x.unsqueeze(0)
 
-            _batch_size = x.shape[0]  # noqa: F841 - Reserved for batch processing
+            _batch_size = x.shape[0]
 
             x_padded = F.pad(x, (0, max(0, 64 - x.shape[-1])))
             x_padded = x_padded[:, :64]

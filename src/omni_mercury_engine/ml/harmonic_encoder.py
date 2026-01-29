@@ -32,6 +32,7 @@ import torch
 from scipy.fft import fft, ifft
 from torch import nn
 
+
 # Handle scipy.special spherical harmonics API deprecation (scipy 1.14+)
 try:
     from scipy.special import sph_harm_y

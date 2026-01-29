@@ -29,12 +29,13 @@ from typing import Any
 
 import numpy as np
 
+
 logger = logging.getLogger(__name__)
 
 try:
     import torch
-    import torch.nn as nn
     import torch.nn.functional as F
+    from torch import nn
 
     TORCH_AVAILABLE = True
 except ImportError:
@@ -291,9 +292,7 @@ if TORCH_AVAILABLE:
             rule_scores = self.rule_scorer(combined)
 
             weights = torch.sigmoid(self.rule_weights)
-            _confidences = torch.sigmoid(
-                self.rule_confidences
-            )  # noqa: F841 - Reserved for confidence scoring
+            _confidences = torch.sigmoid(self.rule_confidences)
 
             if rule_mask is not None:
                 weights = weights * rule_mask

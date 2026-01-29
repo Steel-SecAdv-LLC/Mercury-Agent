@@ -29,6 +29,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
 
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/batch", tags=["Batch Processing"])

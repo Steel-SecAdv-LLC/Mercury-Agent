@@ -277,7 +277,7 @@ class DatasetLoader(ABC):
             try:
                 cached = np.load(cache_file, allow_pickle=False)
             except ValueError:
-                logger.warning(f"Legacy cache format detected, loading with pickle")
+                logger.warning("Legacy cache format detected, loading with pickle")
                 cached = np.load(cache_file, allow_pickle=True)  # nosec B301
             self._data = {
                 DatasetSplit.TRAIN: cached["train_features"],

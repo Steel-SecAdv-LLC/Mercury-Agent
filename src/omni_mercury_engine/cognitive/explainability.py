@@ -25,15 +25,20 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 import numpy as np
+
 
 logger = logging.getLogger(__name__)
 
 try:
     import torch
-    import torch.nn as nn
+    from torch import nn
 
     TORCH_AVAILABLE = True
 except ImportError:
@@ -705,9 +710,7 @@ class CounterfactualExplainer:
 
         original_pred = float(model(instance.reshape(1, -1))[0])
         original_class = 1 if original_pred > self.threshold else 0
-        _target_pred = (
-            1.0 if target_class == 1 else 0.0
-        )  # noqa: F841 - Reserved for gradient optimization
+        _target_pred = 1.0 if target_class == 1 else 0.0
 
         counterfactual = instance.copy()
 
