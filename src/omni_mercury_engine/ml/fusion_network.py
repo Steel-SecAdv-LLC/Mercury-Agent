@@ -302,15 +302,17 @@ class TemporalSequenceEncoder(nn.Module):
             rnn_output_dim = hidden_dim * (2 if bidirectional else 1)
         elif mode == "conv1d":
             kernel_sizes = kernel_sizes or [3, 5, 7]
-            self.convs = nn.ModuleList([
-                nn.Sequential(
-                    nn.Conv1d(input_dim, hidden_dim, k, padding=k // 2),
-                    nn.BatchNorm1d(hidden_dim),
-                    nn.ReLU(),
-                    nn.Dropout(dropout),
-                )
-                for k in kernel_sizes
-            ])
+            self.convs = nn.ModuleList(
+                [
+                    nn.Sequential(
+                        nn.Conv1d(input_dim, hidden_dim, k, padding=k // 2),
+                        nn.BatchNorm1d(hidden_dim),
+                        nn.ReLU(),
+                        nn.Dropout(dropout),
+                    )
+                    for k in kernel_sizes
+                ]
+            )
             rnn_output_dim = hidden_dim * len(kernel_sizes)
         elif mode == "hybrid":
             # Combine LSTM and Conv1d for best of both worlds
@@ -394,9 +396,7 @@ class TemporalSequenceEncoder(nn.Module):
             return output, rnn_out
         return output
 
-    def get_temporal_features(
-        self, x: torch.Tensor, pool: str = "last"
-    ) -> torch.Tensor:
+    def get_temporal_features(self, x: torch.Tensor, pool: str = "last") -> torch.Tensor:
         """Get temporal features with specified pooling strategy.
 
         Args:
@@ -983,11 +983,14 @@ class OmniFusionModel(nn.Module):
                     )
                     # Note: LabelSmoothingLoss already applies reduction, so we recompute
                     # with sample weights for per-sample weighting
-                    anomaly_loss = (F.binary_cross_entropy(
-                        torch.clamp(output["anomaly_probs"].squeeze(), min=1e-7, max=1 - 1e-7),
-                        target * (1 - label_smoothing) + label_smoothing / 2,
-                        reduction="none",
-                    ) * sample_weights).mean()
+                    anomaly_loss = (
+                        F.binary_cross_entropy(
+                            torch.clamp(output["anomaly_probs"].squeeze(), min=1e-7, max=1 - 1e-7),
+                            target * (1 - label_smoothing) + label_smoothing / 2,
+                            reduction="none",
+                        )
+                        * sample_weights
+                    ).mean()
                 else:
                     # Default: weighted BCE
                     n_pos = target.sum().clamp(min=1)
@@ -995,11 +998,14 @@ class OmniFusionModel(nn.Module):
                     pos_weight = (n_neg / n_pos).clamp(max=10.0)
                     sample_weights = torch.where(target == 1, pos_weight, torch.ones_like(target))
 
-                    anomaly_loss = (F.binary_cross_entropy(
-                        output["anomaly_probs"].squeeze(),
-                        target,
-                        reduction="none",
-                    ) * sample_weights).mean()
+                    anomaly_loss = (
+                        F.binary_cross_entropy(
+                            output["anomaly_probs"].squeeze(),
+                            target,
+                            reduction="none",
+                        )
+                        * sample_weights
+                    ).mean()
 
                 class_loss = nn.functional.cross_entropy(
                     output["class_logits"],
@@ -1097,10 +1103,14 @@ class OmniFusionModel(nn.Module):
             "lambda_lyapunov": lambda_lyapunov,
             "epochs_trained": epochs,
             "loss_type": loss_type,
-            "focal_params": {
-                "alpha": focal_alpha,
-                "gamma": focal_gamma,
-            } if use_focal_loss else None,
+            "focal_params": (
+                {
+                    "alpha": focal_alpha,
+                    "gamma": focal_gamma,
+                }
+                if use_focal_loss
+                else None
+            ),
             "label_smoothing": label_smoothing,
         }
 

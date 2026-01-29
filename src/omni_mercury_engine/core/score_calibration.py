@@ -191,8 +191,7 @@ class ThresholdConfidenceInterval:
         """Format confidence interval for display."""
         pct = int(self.confidence_level * 100)
         return (
-            f"Threshold: {self.threshold:.4f} "
-            f"({pct}% CI: [{self.lower:.4f}, {self.upper:.4f}])"
+            f"Threshold: {self.threshold:.4f} " f"({pct}% CI: [{self.lower:.4f}, {self.upper:.4f}])"
         )
 
     def contains(self, value: float) -> bool:
@@ -1104,7 +1103,9 @@ class AutoThresholdOptimizer:
 
         # Try threshold candidates at midpoints between unique scores
         thresholds = (sorted_scores[:-1] + sorted_scores[1:]) / 2
-        thresholds = np.concatenate([[sorted_scores[0] - 0.01], thresholds, [sorted_scores[-1] + 0.01]])
+        thresholds = np.concatenate(
+            [[sorted_scores[0] - 0.01], thresholds, [sorted_scores[-1] + 0.01]]
+        )
 
         best_j = -1.0
         best_threshold = float(np.median(scores))
@@ -1425,9 +1426,7 @@ class ThresholdConfidenceIntervalCalculator:
         n = len(scores)
 
         if n < 20:
-            logger.warning(
-                f"Only {n} samples - CI may be unreliable. Consider >= 100 samples."
-            )
+            logger.warning(f"Only {n} samples - CI may be unreliable. Consider >= 100 samples.")
 
         # Initialize RNG
         rng = np.random.default_rng(self.random_state)
@@ -1447,9 +1446,7 @@ class ThresholdConfidenceIntervalCalculator:
             boot_labels = labels[indices] if labels is not None else None
 
             # Compute threshold for bootstrap sample
-            boot_result = optimizer.optimize(
-                boot_scores, method=method, labels=boot_labels
-            )
+            boot_result = optimizer.optimize(boot_scores, method=method, labels=boot_labels)
             bootstrap_thresholds[i] = boot_result.threshold
 
         # Compute percentile-based CI

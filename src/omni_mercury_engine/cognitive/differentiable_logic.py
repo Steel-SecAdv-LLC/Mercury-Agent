@@ -291,13 +291,17 @@ if TORCH_AVAILABLE:
             rule_scores = self.rule_scorer(combined)
 
             weights = torch.sigmoid(self.rule_weights)
-            _confidences = torch.sigmoid(self.rule_confidences)  # noqa: F841 - Reserved for confidence scoring
+            _confidences = torch.sigmoid(
+                self.rule_confidences
+            )  # noqa: F841 - Reserved for confidence scoring
 
             if rule_mask is not None:
                 weights = weights * rule_mask
 
             weighted_scores = rule_scores * weights[:batch_size].unsqueeze(-1)
-            aggregated = torch.sum(weighted_scores, dim=0) / (torch.sum(weights[:batch_size]) + 1e-8)
+            aggregated = torch.sum(weighted_scores, dim=0) / (
+                torch.sum(weights[:batch_size]) + 1e-8
+            )
 
             return aggregated, attn_weights
 
@@ -389,17 +393,22 @@ if TORCH_AVAILABLE:
                 unification_scores = torch.cat(unification_scores, dim=-1)
                 max_score, best_fact_idx = torch.max(unification_scores, dim=-1)
 
-                proof_trace.append({
-                    "step": step,
-                    "unification_scores": unification_scores.detach(),
-                    "selected_fact": best_fact_idx.detach(),
-                    "match_score": max_score.detach(),
-                })
+                proof_trace.append(
+                    {
+                        "step": step,
+                        "unification_scores": unification_scores.detach(),
+                        "selected_fact": best_fact_idx.detach(),
+                        "match_score": max_score.detach(),
+                    }
+                )
 
-                controller_input = torch.cat([
-                    goal[:, 0, :],
-                    controller_state,
-                ], dim=-1)
+                controller_input = torch.cat(
+                    [
+                        goal[:, 0, :],
+                        controller_state,
+                    ],
+                    dim=-1,
+                )
                 controller_state = self.proof_controller(controller_input, controller_state)
 
             proof_probability = self.success_predictor(controller_state)
@@ -658,7 +667,9 @@ class DifferentiableLogicEngine:
         if pred_name not in self.predicates:
             return InferenceResult(
                 query=LogicalAtom(
-                    predicate=Predicate(name=pred_name, arity=len(args), predicate_type=PredicateType.N_ARY),
+                    predicate=Predicate(
+                        name=pred_name, arity=len(args), predicate_type=PredicateType.N_ARY
+                    ),
                     arguments=args,
                 ),
                 probability=0.0,
@@ -674,8 +685,7 @@ class DifferentiableLogicEngine:
         )
 
         matching_facts = [
-            f for f in self.facts
-            if f.predicate.name == pred_name and f.arguments == args
+            f for f in self.facts if f.predicate.name == pred_name and f.arguments == args
         ]
 
         if matching_facts:
@@ -689,10 +699,7 @@ class DifferentiableLogicEngine:
                 uncertainty=0.0,
             )
 
-        applicable_rules = [
-            r for r in self.rules.values()
-            if r.head.predicate.name == pred_name
-        ]
+        applicable_rules = [r for r in self.rules.values() if r.head.predicate.name == pred_name]
 
         if not applicable_rules:
             return InferenceResult(
@@ -751,21 +758,25 @@ class DifferentiableLogicEngine:
                 bound_atom = self._apply_bindings(body_atom, bindings)
 
                 matching_facts = [
-                    f for f in self.facts
+                    f
+                    for f in self.facts
                     if f.predicate.name == bound_atom.predicate.name
                     and self._matches_pattern(f.arguments, bound_atom.arguments)
                 ]
 
                 if matching_facts:
                     body_probs.append(max(f.truth_value for f in matching_facts))
-                    body_trace.append({
-                        "atom": str(bound_atom),
-                        "matched": True,
-                        "probability": body_probs[-1],
-                    })
+                    body_trace.append(
+                        {
+                            "atom": str(bound_atom),
+                            "matched": True,
+                            "probability": body_probs[-1],
+                        }
+                    )
                 else:
                     sub_rules = [
-                        r for r in self.rules.values()
+                        r
+                        for r in self.rules.values()
                         if r.head.predicate.name == bound_atom.predicate.name
                     ]
                     if sub_rules and depth > 1:
@@ -773,19 +784,23 @@ class DifferentiableLogicEngine:
                             bound_atom, sub_rules, depth - 1, bindings
                         )
                         body_probs.append(sub_prob)
-                        body_trace.append({
-                            "atom": str(bound_atom),
-                            "matched": False,
-                            "sub_inference": sub_trace,
-                            "probability": sub_prob,
-                        })
+                        body_trace.append(
+                            {
+                                "atom": str(bound_atom),
+                                "matched": False,
+                                "sub_inference": sub_trace,
+                                "probability": sub_prob,
+                            }
+                        )
                     else:
                         body_probs.append(0.0)
-                        body_trace.append({
-                            "atom": str(bound_atom),
-                            "matched": False,
-                            "probability": 0.0,
-                        })
+                        body_trace.append(
+                            {
+                                "atom": str(bound_atom),
+                                "matched": False,
+                                "probability": 0.0,
+                            }
+                        )
 
             if body_probs:
                 if rule.connective == LogicalConnective.AND:
@@ -804,13 +819,15 @@ class DifferentiableLogicEngine:
                 total_conf = max(total_conf, rule.confidence)
                 supporting.append(rule.rule_id)
 
-                trace.append({
-                    "rule": rule.rule_id,
-                    "rule_text": str(rule),
-                    "body_trace": body_trace,
-                    "body_combined": body_combined,
-                    "head_probability": head_prob,
-                })
+                trace.append(
+                    {
+                        "rule": rule.rule_id,
+                        "rule_text": str(rule),
+                        "body_trace": body_trace,
+                        "body_combined": body_combined,
+                        "head_probability": head_prob,
+                    }
+                )
 
         return total_prob, total_conf, supporting, trace
 
@@ -891,13 +908,15 @@ class DifferentiableLogicEngine:
 
             for body_step in step["body_trace"]:
                 if body_step.get("matched") and body_step.get("probability", 0) > 0.5:
-                    counterfactuals.append({
-                        "type": "remove_fact",
-                        "fact": body_step["atom"],
-                        "original_probability": body_step["probability"],
-                        "counterfactual_effect": f"If {body_step['atom']} were false, "
-                                                 f"conclusion would be less certain",
-                    })
+                    counterfactuals.append(
+                        {
+                            "type": "remove_fact",
+                            "fact": body_step["atom"],
+                            "original_probability": body_step["probability"],
+                            "counterfactual_effect": f"If {body_step['atom']} were false, "
+                            f"conclusion would be less certain",
+                        }
+                    )
 
         return counterfactuals[:5]
 
@@ -930,10 +949,7 @@ class DifferentiableLogicEngine:
                     rule.weight = np.clip(rule.weight + learning_rate * error, 0.01, 1.0)
                     weight_updates[rule_id] = rule.weight - old_weight
 
-        logger.info(
-            f"Learning update: error={error:.3f}, "
-            f"updated {len(weight_updates)} rules"
-        )
+        logger.info(f"Learning update: error={error:.3f}, " f"updated {len(weight_updates)} rules")
 
         return weight_updates
 

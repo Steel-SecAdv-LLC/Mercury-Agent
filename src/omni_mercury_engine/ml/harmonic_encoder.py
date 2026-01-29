@@ -35,9 +35,11 @@ from torch import nn
 # Handle scipy.special spherical harmonics API deprecation (scipy 1.14+)
 try:
     from scipy.special import sph_harm_y
+
     def _sph_harm(m: int, n: int, theta: np.ndarray, phi: np.ndarray) -> np.ndarray:
         """Wrapper for spherical harmonics using new scipy API."""
         return sph_harm_y(n, m, theta, phi)
+
 except ImportError:
     from scipy.special import sph_harm as _sph_harm
 

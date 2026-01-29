@@ -25,21 +25,23 @@ from matplotlib.gridspec import GridSpec
 
 # Use non-interactive backend
 plt.style.use("seaborn-v0_8-whitegrid")
-plt.rcParams.update({
-    "font.family": "sans-serif",
-    "font.size": 10,
-    "axes.labelsize": 11,
-    "axes.titlesize": 12,
-    "xtick.labelsize": 9,
-    "ytick.labelsize": 9,
-    "legend.fontsize": 9,
-    "figure.titlesize": 14,
-    "figure.dpi": 150,
-    "savefig.dpi": 300,
-    "savefig.bbox": "tight",
-    "axes.grid": True,
-    "grid.alpha": 0.3,
-})
+plt.rcParams.update(
+    {
+        "font.family": "sans-serif",
+        "font.size": 10,
+        "axes.labelsize": 11,
+        "axes.titlesize": 12,
+        "xtick.labelsize": 9,
+        "ytick.labelsize": 9,
+        "legend.fontsize": 9,
+        "figure.titlesize": 14,
+        "figure.dpi": 150,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+        "axes.grid": True,
+        "grid.alpha": 0.3,
+    }
+)
 
 # Color schemes - colorblind friendly
 VIRIDIS = plt.cm.viridis
@@ -76,17 +78,19 @@ def generate_synthetic_results() -> dict:
     epoch_summaries = []
     for i in range(epochs):
         progress = (i + 1) / epochs
-        epoch_summaries.append({
-            "epoch": i + 1,
-            "avg_confidence": 0.76 + 0.239 * (1 - np.exp(-i / 40)),
-            "avg_success_rate": 0.85 + 0.14 * progress,
-            "neural_contribution": 0.44 + 0.06 * np.sin(i / 30),
-            "symbolic_contribution": 0.56 - 0.06 * np.sin(i / 30),
-            "benevolence_score": 0.95 + 0.04 * (1 - np.exp(-i / 50)),
-            "anomaly_precision": 0.85 + 0.10 * progress,
-            "anomaly_recall": 0.70 + 0.15 * progress,
-            "memory_entries": int(100 + 3200 * progress),
-        })
+        epoch_summaries.append(
+            {
+                "epoch": i + 1,
+                "avg_confidence": 0.76 + 0.239 * (1 - np.exp(-i / 40)),
+                "avg_success_rate": 0.85 + 0.14 * progress,
+                "neural_contribution": 0.44 + 0.06 * np.sin(i / 30),
+                "symbolic_contribution": 0.56 - 0.06 * np.sin(i / 30),
+                "benevolence_score": 0.95 + 0.04 * (1 - np.exp(-i / 50)),
+                "anomaly_precision": 0.85 + 0.10 * progress,
+                "anomaly_recall": 0.70 + 0.15 * progress,
+                "memory_entries": int(100 + 3200 * progress),
+            }
+        )
 
     return {
         "epochs_completed": epochs,
@@ -105,13 +109,33 @@ def generate_synthetic_results() -> dict:
         "domain_performance": {
             "medical": {"avg_confidence": 0.93, "avg_success_rate": 0.92, "avg_benevolence": 0.99},
             "security": {"avg_confidence": 0.90, "avg_success_rate": 0.97, "avg_benevolence": 0.96},
-            "humanitarian": {"avg_confidence": 0.89, "avg_success_rate": 0.96, "avg_benevolence": 0.96},
-            "infrastructure": {"avg_confidence": 0.86, "avg_success_rate": 0.98, "avg_benevolence": 0.98},
+            "humanitarian": {
+                "avg_confidence": 0.89,
+                "avg_success_rate": 0.96,
+                "avg_benevolence": 0.96,
+            },
+            "infrastructure": {
+                "avg_confidence": 0.86,
+                "avg_success_rate": 0.98,
+                "avg_benevolence": 0.98,
+            },
             "energy": {"avg_confidence": 0.85, "avg_success_rate": 0.93, "avg_benevolence": 0.97},
-            "scientific": {"avg_confidence": 0.92, "avg_success_rate": 0.92, "avg_benevolence": 0.96},
-            "financial": {"avg_confidence": 0.86, "avg_success_rate": 0.93, "avg_benevolence": 0.98},
-            "environmental": {"avg_confidence": 0.91, "avg_success_rate": 0.94, "avg_benevolence": 0.97},
-        }
+            "scientific": {
+                "avg_confidence": 0.92,
+                "avg_success_rate": 0.92,
+                "avg_benevolence": 0.96,
+            },
+            "financial": {
+                "avg_confidence": 0.86,
+                "avg_success_rate": 0.93,
+                "avg_benevolence": 0.98,
+            },
+            "environmental": {
+                "avg_confidence": 0.91,
+                "avg_success_rate": 0.94,
+                "avg_benevolence": 0.97,
+            },
+        },
     }
 
 
@@ -151,10 +175,15 @@ def generate_anomaly_detection_panel(results: dict, output_path: Path | None = N
     bars = ax2.bar(detection_types, detection_values, color=colors)
     ax2.set_ylabel("Count")
     ax2.set_title("Cosmic Ray Detection Confusion")
-    ax2.tick_params(axis='x', rotation=45)
+    ax2.tick_params(axis="x", rotation=45)
     for bar, val in zip(bars, detection_values):
-        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 10,
-                str(val), ha='center', fontsize=9)
+        ax2.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 10,
+            str(val),
+            ha="center",
+            fontsize=9,
+        )
 
     # Panel 3: Domain Competence Comparison
     ax3 = fig.add_subplot(gs[0, 2])
@@ -162,25 +191,35 @@ def generate_anomaly_detection_panel(results: dict, output_path: Path | None = N
     if not domains:
         domains = ["Medical", "Security", "Humanitarian", "Infrastructure", "Energy", "Scientific"]
     domain_f1 = [0.92, 0.94, 0.91, 0.93, 0.90, 0.92]
-    colors = [VIRIDIS(i/6) for i in range(6)]
+    colors = [VIRIDIS(i / 6) for i in range(6)]
     bars = ax3.barh(domains, domain_f1, color=colors)
     ax3.set_xlabel("F1 Score")
     ax3.set_title("Domain Competence")
     ax3.set_xlim(0.8, 1.0)
     for bar, score in zip(bars, domain_f1):
-        ax3.text(score + 0.005, bar.get_y() + bar.get_height()/2,
-                f"{score:.2f}", va='center', fontsize=8)
+        ax3.text(
+            score + 0.005,
+            bar.get_y() + bar.get_height() / 2,
+            f"{score:.2f}",
+            va="center",
+            fontsize=8,
+        )
 
     # Panel 4: Threshold Sensitivity Analysis
     ax4 = fig.add_subplot(gs[1, 0])
     thresholds = np.linspace(0.1, 0.9, 9)
     sensitivity_precision = 0.95 - 0.3 * (thresholds - 0.5) ** 2
     sensitivity_recall = 0.85 + 0.2 * (1 - thresholds)
-    sensitivity_f1 = 2 * sensitivity_precision * sensitivity_recall / (sensitivity_precision + sensitivity_recall)
-    ax4.plot(thresholds, sensitivity_precision, 'o-', color=VIRIDIS(0.2), label="Precision")
-    ax4.plot(thresholds, sensitivity_recall, 's-', color=VIRIDIS(0.5), label="Recall")
-    ax4.plot(thresholds, sensitivity_f1, '^-', color=VIRIDIS(0.8), label="F1")
-    ax4.axvline(x=0.5, color='red', linestyle='--', alpha=0.5, label="Default")
+    sensitivity_f1 = (
+        2
+        * sensitivity_precision
+        * sensitivity_recall
+        / (sensitivity_precision + sensitivity_recall)
+    )
+    ax4.plot(thresholds, sensitivity_precision, "o-", color=VIRIDIS(0.2), label="Precision")
+    ax4.plot(thresholds, sensitivity_recall, "s-", color=VIRIDIS(0.5), label="Recall")
+    ax4.plot(thresholds, sensitivity_f1, "^-", color=VIRIDIS(0.8), label="F1")
+    ax4.axvline(x=0.5, color="red", linestyle="--", alpha=0.5, label="Default")
     ax4.set_xlabel("Threshold")
     ax4.set_ylabel("Score")
     ax4.set_title("Threshold Sensitivity Analysis")
@@ -190,28 +229,39 @@ def generate_anomaly_detection_panel(results: dict, output_path: Path | None = N
     ax5 = fig.add_subplot(gs[1, 1])
     detectors = ["Statistical", "ML-Based", "Hybrid Fusion", "3R Mechanism", "Full Pipeline"]
     throughputs = [50000, 15000, 8000, 12000, 5000]  # samples/sec
-    colors = [VIRIDIS(i/5) for i in range(5)]
+    colors = [VIRIDIS(i / 5) for i in range(5)]
     bars = ax5.bar(detectors, throughputs, color=colors)
     ax5.set_ylabel("Samples/sec")
     ax5.set_title("Detector Throughput")
-    ax5.tick_params(axis='x', rotation=45)
-    ax5.set_yscale('log')
+    ax5.tick_params(axis="x", rotation=45)
+    ax5.set_yscale("log")
     for bar, val in zip(bars, throughputs):
-        ax5.text(bar.get_x() + bar.get_width()/2, bar.get_height() * 1.1,
-                f"{val:,}", ha='center', fontsize=8)
+        ax5.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() * 1.1,
+            f"{val:,}",
+            ha="center",
+            fontsize=8,
+        )
 
     # Panel 6: Severity Distribution
     ax6 = fig.add_subplot(gs[1, 2])
     severities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
     severity_counts = [450, 280, 150, 120]
     colors = ["#22c55e", "#eab308", "#f97316", "#ef4444"]
-    wedges, texts, autotexts = ax6.pie(severity_counts, labels=severities, colors=colors,
-                                        autopct='%1.1f%%', startangle=90)
+    wedges, texts, autotexts = ax6.pie(
+        severity_counts, labels=severities, colors=colors, autopct="%1.1f%%", startangle=90
+    )
     ax6.set_title("Anomaly Severity Distribution")
 
-    fig.suptitle("Mercury Agent - Anomaly Detection Analysis Dashboard", fontsize=16, fontweight='bold', y=0.98)
+    fig.suptitle(
+        "Mercury Agent - Anomaly Detection Analysis Dashboard",
+        fontsize=16,
+        fontweight="bold",
+        y=0.98,
+    )
 
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"Generated: {output_path}")
 
@@ -231,12 +281,12 @@ def generate_benchmark_summary_live_data(results: dict, output_path: Path | None
     roc_aucs = [0.94, 0.92, 0.90, 0.95, 0.93]
     x = np.arange(len(datasets))
     width = 0.35
-    bars1 = ax1.bar(x - width/2, f1_scores, width, label='F1 Score', color=VIRIDIS(0.3))
-    bars2 = ax1.bar(x + width/2, roc_aucs, width, label='ROC-AUC', color=VIRIDIS(0.7))
-    ax1.set_ylabel('Score')
-    ax1.set_title('Real-World Dataset Performance')
+    bars1 = ax1.bar(x - width / 2, f1_scores, width, label="F1 Score", color=VIRIDIS(0.3))
+    bars2 = ax1.bar(x + width / 2, roc_aucs, width, label="ROC-AUC", color=VIRIDIS(0.7))
+    ax1.set_ylabel("Score")
+    ax1.set_title("Real-World Dataset Performance")
     ax1.set_xticks(x)
-    ax1.set_xticklabels(datasets, rotation=45, ha='right')
+    ax1.set_xticklabels(datasets, rotation=45, ha="right")
     ax1.legend()
     ax1.set_ylim(0.7, 1.0)
 
@@ -246,57 +296,64 @@ def generate_benchmark_summary_live_data(results: dict, output_path: Path | None
     latency = 50 + 20 * np.sin(time_points / 10) + np.random.normal(0, 5, 60)
     throughput = 1000 + 200 * np.cos(time_points / 15) + np.random.normal(0, 50, 60)
     ax2_twin = ax2.twinx()
-    line1, = ax2.plot(time_points, latency, color=VIRIDIS(0.3), linewidth=2, label='Latency (ms)')
-    line2, = ax2_twin.plot(time_points, throughput, color=VIRIDIS(0.7), linewidth=2, label='Throughput')
-    ax2.set_xlabel('Time (seconds)')
-    ax2.set_ylabel('Latency (ms)', color=VIRIDIS(0.3))
-    ax2_twin.set_ylabel('Throughput (samples/s)', color=VIRIDIS(0.7))
-    ax2.set_title('Live Streaming Performance')
-    ax2.legend([line1, line2], ['Latency (ms)', 'Throughput'], loc='upper right')
+    (line1,) = ax2.plot(time_points, latency, color=VIRIDIS(0.3), linewidth=2, label="Latency (ms)")
+    (line2,) = ax2_twin.plot(
+        time_points, throughput, color=VIRIDIS(0.7), linewidth=2, label="Throughput"
+    )
+    ax2.set_xlabel("Time (seconds)")
+    ax2.set_ylabel("Latency (ms)", color=VIRIDIS(0.3))
+    ax2_twin.set_ylabel("Throughput (samples/s)", color=VIRIDIS(0.7))
+    ax2.set_title("Live Streaming Performance")
+    ax2.legend([line1, line2], ["Latency (ms)", "Throughput"], loc="upper right")
 
     # Panel 3: Benchmark Comparison Table
     ax3 = fig.add_subplot(gs[1, 0])
-    ax3.axis('off')
+    ax3.axis("off")
     table_data = [
-        ['Metric', 'Mercury Agent', 'Baseline', 'Improvement'],
-        ['F1 Score', '0.92+', '0.80', '+15%'],
-        ['ROC-AUC', '0.96+', '0.85', '+13%'],
-        ['Latency', '50ms', '120ms', '-58%'],
-        ['Memory', '500MB', '800MB', '-37%'],
-        ['Coverage', '83%+', '65%', '+18%'],
+        ["Metric", "Mercury Agent", "Baseline", "Improvement"],
+        ["F1 Score", "0.92+", "0.80", "+15%"],
+        ["ROC-AUC", "0.96+", "0.85", "+13%"],
+        ["Latency", "50ms", "120ms", "-58%"],
+        ["Memory", "500MB", "800MB", "-37%"],
+        ["Coverage", "83%+", "65%", "+18%"],
     ]
-    table = ax3.table(cellText=table_data, loc='center', cellLoc='center',
-                      colWidths=[0.3, 0.25, 0.2, 0.25])
+    table = ax3.table(
+        cellText=table_data, loc="center", cellLoc="center", colWidths=[0.3, 0.25, 0.2, 0.25]
+    )
     table.auto_set_font_size(False)
     table.set_fontsize(10)
     table.scale(1.2, 1.8)
     for i in range(len(table_data[0])):
         table[(0, i)].set_facecolor(VIRIDIS(0.3))
-        table[(0, i)].set_text_props(color='white', fontweight='bold')
-    ax3.set_title('Performance Comparison Summary', pad=20)
+        table[(0, i)].set_text_props(color="white", fontweight="bold")
+    ax3.set_title("Performance Comparison Summary", pad=20)
 
     # Panel 4: Test Coverage by Module
     ax4 = fig.add_subplot(gs[1, 1])
-    modules = ['Core', 'Detectors', 'API', 'ML', 'Security', 'Ethics']
+    modules = ["Core", "Detectors", "API", "ML", "Security", "Ethics"]
     coverage = [92, 85, 88, 78, 90, 95]
-    colors = [VIRIDIS(c/100) for c in coverage]
+    colors = [VIRIDIS(c / 100) for c in coverage]
     bars = ax4.barh(modules, coverage, color=colors)
-    ax4.axvline(x=85, color='red', linestyle='--', label='Target (85%)')
-    ax4.set_xlabel('Coverage %')
-    ax4.set_title('Test Coverage by Module')
+    ax4.axvline(x=85, color="red", linestyle="--", label="Target (85%)")
+    ax4.set_xlabel("Coverage %")
+    ax4.set_title("Test Coverage by Module")
     ax4.set_xlim(0, 100)
     ax4.legend()
     for bar, cov in zip(bars, coverage):
-        ax4.text(cov + 1, bar.get_y() + bar.get_height()/2, f'{cov}%', va='center', fontsize=9)
+        ax4.text(cov + 1, bar.get_y() + bar.get_height() / 2, f"{cov}%", va="center", fontsize=9)
 
-    fig.suptitle("Mercury Agent - Live Data Benchmark Summary", fontsize=16, fontweight='bold', y=0.98)
+    fig.suptitle(
+        "Mercury Agent - Live Data Benchmark Summary", fontsize=16, fontweight="bold", y=0.98
+    )
 
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"Generated: {output_path}")
 
 
-def generate_neuro_symbolic_benchmark_report(results: dict, output_path: Path | None = None) -> None:
+def generate_neuro_symbolic_benchmark_report(
+    results: dict, output_path: Path | None = None
+) -> None:
     """Generate comprehensive neuro-symbolic benchmark report."""
     if output_path is None:
         output_path = OUTPUT_DIR / "neuro_symbolic_benchmark_report.png"
@@ -349,13 +406,18 @@ def generate_neuro_symbolic_benchmark_report(results: dict, output_path: Path | 
     else:
         domains = ["Med", "Sec", "Hum", "Inf", "Env"]
         scores = [0.93, 0.90, 0.89, 0.86, 0.91]
-    bars = ax3.bar(domains, scores, color=[VIRIDIS(i/5) for i in range(5)])
+    bars = ax3.bar(domains, scores, color=[VIRIDIS(i / 5) for i in range(5)])
     ax3.set_title("Domain Performance")
     ax3.set_ylabel("Confidence")
     ax3.set_ylim(0.75, 1.0)
     for bar, score in zip(bars, scores):
-        ax3.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.01,
-                f"{score:.2f}", ha='center', fontsize=8)
+        ax3.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.01,
+            f"{score:.2f}",
+            ha="center",
+            fontsize=8,
+        )
 
     # Row 2: System metrics
 
@@ -363,21 +425,27 @@ def generate_neuro_symbolic_benchmark_report(results: dict, output_path: Path | 
     ax4 = fig.add_subplot(gs[1, 0])
     memory_types = ["Episodic", "Semantic", "Short-term", "Long-term"]
     memory_values = [2000, 1100, 400, 800]
-    colors = [VIRIDIS(i/4) for i in range(4)]
-    ax4.pie(memory_values, labels=memory_types, colors=colors, autopct='%1.0f%%', startangle=90)
+    colors = [VIRIDIS(i / 4) for i in range(4)]
+    ax4.pie(memory_values, labels=memory_types, colors=colors, autopct="%1.0f%%", startangle=90)
     ax4.set_title("Memory Distribution")
 
     # Panel 5: Neural-Symbolic Balance
     ax5 = fig.add_subplot(gs[1, 1])
     neural = [e.get("neural_contribution", 0.44) for e in epochs_data]
     symbolic = [e.get("symbolic_contribution", 0.56) for e in epochs_data]
-    ax5.stackplot(epochs, neural, symbolic, labels=["Neural", "Symbolic"],
-                  colors=[VIRIDIS(0.7), VIRIDIS(0.3)], alpha=0.8)
-    ax5.axhline(y=0.5, color='white', linestyle='--', alpha=0.8)
+    ax5.stackplot(
+        epochs,
+        neural,
+        symbolic,
+        labels=["Neural", "Symbolic"],
+        colors=[VIRIDIS(0.7), VIRIDIS(0.3)],
+        alpha=0.8,
+    )
+    ax5.axhline(y=0.5, color="white", linestyle="--", alpha=0.8)
     ax5.set_title("Neural-Symbolic Balance")
     ax5.set_xlabel("Epoch")
     ax5.set_ylabel("Contribution")
-    ax5.legend(fontsize=8, loc='upper right')
+    ax5.legend(fontsize=8, loc="upper right")
     ax5.set_ylim(0, 1)
 
     # Panel 6: Benevolence Score
@@ -398,27 +466,34 @@ def generate_neuro_symbolic_benchmark_report(results: dict, output_path: Path | 
     ax7 = fig.add_subplot(gs[2, 0])
     methods = ["Baseline", "3R Only", "AAFE", "Full Stack"]
     f1_scores = [0.80, 0.85, 0.89, 0.92]
-    bars = ax7.barh(methods, f1_scores, color=[VIRIDIS(i/4) for i in range(4)])
+    bars = ax7.barh(methods, f1_scores, color=[VIRIDIS(i / 4) for i in range(4)])
     ax7.set_title("Method Comparison")
     ax7.set_xlabel("F1 Score")
     ax7.set_xlim(0.7, 1.0)
     for bar, score in zip(bars, f1_scores):
-        ax7.text(score + 0.01, bar.get_y() + bar.get_height()/2, f"{score:.2f}", va='center', fontsize=8)
+        ax7.text(
+            score + 0.01,
+            bar.get_y() + bar.get_height() / 2,
+            f"{score:.2f}",
+            va="center",
+            fontsize=8,
+        )
 
     # Panel 8: Lyapunov Convergence
     ax8 = fig.add_subplot(gs[2, 1])
     lambda_values = [0.18, 0.20, 0.22, 0.25]
     convergence_times = [100, 85, 75, 62]
-    ax8.plot(lambda_values, convergence_times, 'o-', color=VIRIDIS(0.6), linewidth=2, markersize=10)
+    ax8.plot(lambda_values, convergence_times, "o-", color=VIRIDIS(0.6), linewidth=2, markersize=10)
     ax8.set_title("Lyapunov Convergence")
     ax8.set_xlabel("Lambda (λ)")
     ax8.set_ylabel("Convergence (epochs)")
-    ax8.annotate("Optimal", xy=(0.25, 62), xytext=(0.22, 78),
-                arrowprops=dict(arrowstyle="->"), fontsize=9)
+    ax8.annotate(
+        "Optimal", xy=(0.25, 62), xytext=(0.22, 78), arrowprops=dict(arrowstyle="->"), fontsize=9
+    )
 
     # Panel 9: Key Metrics Summary
     ax9 = fig.add_subplot(gs[2, 2])
-    ax9.axis('off')
+    ax9.axis("off")
 
     confidence = final_metrics.get("avg_confidence", 0.999)
     f1 = final_metrics.get("anomaly_f1", 0.92)
@@ -439,15 +514,26 @@ def generate_neuro_symbolic_benchmark_report(results: dict, output_path: Path | 
     σ_Sacred = 0.96
     Φ = 1.618
     """
-    ax9.text(0.1, 0.5, metrics_text, transform=ax9.transAxes, fontsize=11,
-            verticalalignment='center', fontfamily='monospace',
-            bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.3))
+    ax9.text(
+        0.1,
+        0.5,
+        metrics_text,
+        transform=ax9.transAxes,
+        fontsize=11,
+        verticalalignment="center",
+        fontfamily="monospace",
+        bbox=dict(boxstyle="round", facecolor="lightgray", alpha=0.3),
+    )
     ax9.set_title("Key Metrics")
 
-    fig.suptitle("Mercury Agent - Comprehensive Neuro-Symbolic Benchmark Report",
-                fontsize=16, fontweight='bold', y=0.98)
+    fig.suptitle(
+        "Mercury Agent - Comprehensive Neuro-Symbolic Benchmark Report",
+        fontsize=16,
+        fontweight="bold",
+        y=0.98,
+    )
 
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"Generated: {output_path}")
 
@@ -468,7 +554,9 @@ def generate_performance_dashboard(results: dict, output_path: Path | None = Non
     precision = 0.85 + 0.10 * (1 - np.exp(-epochs / 50)) + np.random.normal(0, 0.01, 200)
     recall = 0.70 + 0.15 * (1 - np.exp(-epochs / 60)) + np.random.normal(0, 0.01, 200)
     f1 = 2 * precision * recall / (precision + recall)
-    ax1.plot(epochs, np.clip(precision, 0, 1), color=COLORS["primary"], linewidth=2, label="Precision")
+    ax1.plot(
+        epochs, np.clip(precision, 0, 1), color=COLORS["primary"], linewidth=2, label="Precision"
+    )
     ax1.plot(epochs, np.clip(recall, 0, 1), color=COLORS["secondary"], linewidth=2, label="Recall")
     ax1.plot(epochs, np.clip(f1, 0, 1), color=COLORS["success"], linewidth=2, label="F1 Score")
     ax1.set_xlabel("Epoch")
@@ -486,20 +574,30 @@ def generate_performance_dashboard(results: dict, output_path: Path | None = Non
     ax2.set_ylabel("Latency (ms)")
     ax2.set_title("Configuration Latency Comparison")
     for bar, lat in zip(bars, latencies):
-        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 10,
-                f"{lat}ms", ha='center', fontsize=9)
+        ax2.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 10,
+            f"{lat}ms",
+            ha="center",
+            fontsize=9,
+        )
 
     # Panel 3: Memory Footprint
     ax3 = fig.add_subplot(gs[0, 2])
     components = ["Harmonic\nEncoder", "Fusion\nNetwork", "DeepFace", "Full\nRuntime"]
     memory_mb = [10, 50, 200, 500]
-    colors = [VIRIDIS(m/500) for m in memory_mb]
+    colors = [VIRIDIS(m / 500) for m in memory_mb]
     bars = ax3.bar(components, memory_mb, color=colors)
     ax3.set_ylabel("Memory (MB)")
     ax3.set_title("Memory Footprint by Component")
     for bar, mem in zip(bars, memory_mb):
-        ax3.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 10,
-                f"{mem}MB", ha='center', fontsize=9)
+        ax3.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 10,
+            f"{mem}MB",
+            ha="center",
+            fontsize=9,
+        )
 
     # Row 2: Ethical Governance
 
@@ -509,11 +607,27 @@ def generate_performance_dashboard(results: dict, output_path: Path | None = Non
     benevolence = 0.95 + 0.04 * (1 - np.exp(-epochs / 50)) + np.random.normal(0, 0.003, 200)
     benevolence = np.clip(benevolence, 0.94, 0.999)
     ax4.plot(epochs, benevolence, color=COLORS["ethical"], linewidth=2)
-    ax4.axhline(y=0.99, color=COLORS["danger"], linestyle="--", linewidth=2, label="Threshold (0.99)")
-    ax4.fill_between(epochs, 0.94, benevolence,
-                     where=(benevolence >= 0.99), color='green', alpha=0.2, label="Compliant")
-    ax4.fill_between(epochs, benevolence, 0.99,
-                     where=(benevolence < 0.99), color='red', alpha=0.2, label="Below Threshold")
+    ax4.axhline(
+        y=0.99, color=COLORS["danger"], linestyle="--", linewidth=2, label="Threshold (0.99)"
+    )
+    ax4.fill_between(
+        epochs,
+        0.94,
+        benevolence,
+        where=(benevolence >= 0.99),
+        color="green",
+        alpha=0.2,
+        label="Compliant",
+    )
+    ax4.fill_between(
+        epochs,
+        benevolence,
+        0.99,
+        where=(benevolence < 0.99),
+        color="red",
+        alpha=0.2,
+        label="Below Threshold",
+    )
     ax4.set_xlabel("Epoch")
     ax4.set_ylabel("Benevolence Score")
     ax4.set_title("Ethical Benevolence Gating")
@@ -527,22 +641,25 @@ def generate_performance_dashboard(results: dict, output_path: Path | None = Non
     thresholds = [0.1, 0.1, 0.8]
     x = np.arange(len(metrics))
     width = 0.35
-    bars1 = ax5.bar(x - width/2, current, width, label='Current', color=COLORS["success"])
-    bars2 = ax5.bar(x + width/2, thresholds, width, label='Threshold', color=COLORS["warning"], alpha=0.5)
-    ax5.set_ylabel('Value')
-    ax5.set_title('Fairlearn Bias Metrics')
+    bars1 = ax5.bar(x - width / 2, current, width, label="Current", color=COLORS["success"])
+    bars2 = ax5.bar(
+        x + width / 2, thresholds, width, label="Threshold", color=COLORS["warning"], alpha=0.5
+    )
+    ax5.set_ylabel("Value")
+    ax5.set_title("Fairlearn Bias Metrics")
     ax5.set_xticks(x)
     ax5.set_xticklabels(metrics)
     ax5.legend()
-    ax5.axhline(y=0.1, color='gray', linestyle=':', alpha=0.5)
+    ax5.axhline(y=0.1, color="gray", linestyle=":", alpha=0.5)
 
     # Panel 6: Ethical Scalars by Category
     ax6 = fig.add_subplot(gs[1, 2])
     categories = ["Ethical", "Humanitarian", "Security", "Medical", "Scientific"]
     scalar_counts = [27, 9, 6, 10, 15]
-    colors = [VIRIDIS(i/5) for i in range(5)]
-    wedges, texts, autotexts = ax6.pie(scalar_counts, labels=categories, colors=colors,
-                                        autopct='%1.0f%%', startangle=90)
+    colors = [VIRIDIS(i / 5) for i in range(5)]
+    wedges, texts, autotexts = ax6.pie(
+        scalar_counts, labels=categories, colors=colors, autopct="%1.0f%%", startangle=90
+    )
     ax6.set_title(f"Ethical Scalars by Category ({sum(scalar_counts)}+ total)")
 
     # Row 3: Test Coverage & Quality
@@ -553,34 +670,42 @@ def generate_performance_dashboard(results: dict, output_path: Path | None = Non
     coverage = [65, 72, 78, 83]
     tests = [800, 1200, 1680, 1880]
     ax7_twin = ax7.twinx()
-    line1, = ax7.plot(versions, coverage, 'o-', color=COLORS["primary"], linewidth=2, markersize=10, label='Coverage %')
-    bars = ax7_twin.bar(versions, tests, alpha=0.3, color=COLORS["secondary"], label='Test Count')
-    ax7.axhline(y=85, color=COLORS["danger"], linestyle='--', label='Target (85%)')
-    ax7.set_ylabel('Coverage %', color=COLORS["primary"])
-    ax7_twin.set_ylabel('Test Count', color=COLORS["secondary"])
-    ax7.set_title('Test Coverage & Count Evolution')
+    (line1,) = ax7.plot(
+        versions,
+        coverage,
+        "o-",
+        color=COLORS["primary"],
+        linewidth=2,
+        markersize=10,
+        label="Coverage %",
+    )
+    bars = ax7_twin.bar(versions, tests, alpha=0.3, color=COLORS["secondary"], label="Test Count")
+    ax7.axhline(y=85, color=COLORS["danger"], linestyle="--", label="Target (85%)")
+    ax7.set_ylabel("Coverage %", color=COLORS["primary"])
+    ax7_twin.set_ylabel("Test Count", color=COLORS["secondary"])
+    ax7.set_title("Test Coverage & Count Evolution")
     ax7.set_ylim(50, 100)
     lines = [line1]
-    labels = ['Coverage %', 'Test Count', 'Target (85%)']
-    ax7.legend(lines, labels[:1], loc='upper left')
+    labels = ["Coverage %", "Test Count", "Target (85%)"]
+    ax7.legend(lines, labels[:1], loc="upper left")
 
     # Panel 8: Coverage by Module
     ax8 = fig.add_subplot(gs[2, 1])
-    modules = ['Core', 'Detectors', 'API', 'ML/AI', 'Security', 'Ethics']
+    modules = ["Core", "Detectors", "API", "ML/AI", "Security", "Ethics"]
     coverage = [92, 85, 88, 78, 90, 95]
-    colors = ['green' if c >= 85 else 'orange' if c >= 70 else 'red' for c in coverage]
+    colors = ["green" if c >= 85 else "orange" if c >= 70 else "red" for c in coverage]
     bars = ax8.barh(modules, coverage, color=colors)
-    ax8.axvline(x=85, color='red', linestyle='--', label='Target (85%)')
-    ax8.set_xlabel('Coverage %')
-    ax8.set_title('Test Coverage by Module')
+    ax8.axvline(x=85, color="red", linestyle="--", label="Target (85%)")
+    ax8.set_xlabel("Coverage %")
+    ax8.set_title("Test Coverage by Module")
     ax8.set_xlim(0, 100)
     ax8.legend()
     for bar, cov in zip(bars, coverage):
-        ax8.text(cov + 1, bar.get_y() + bar.get_height()/2, f'{cov}%', va='center', fontsize=9)
+        ax8.text(cov + 1, bar.get_y() + bar.get_height() / 2, f"{cov}%", va="center", fontsize=9)
 
     # Panel 9: Quality Summary
     ax9 = fig.add_subplot(gs[2, 2])
-    ax9.axis('off')
+    ax9.axis("off")
     summary_text = """
     QUALITY ASSURANCE SUMMARY
     ═══════════════════════════════
@@ -600,15 +725,26 @@ def generate_performance_dashboard(results: dict, output_path: Path | None = Non
     ═══════════════════════════════
     Last Updated: 2026-01-27
     """
-    ax9.text(0.05, 0.5, summary_text, transform=ax9.transAxes, fontsize=10,
-            verticalalignment='center', fontfamily='monospace',
-            bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.2))
+    ax9.text(
+        0.05,
+        0.5,
+        summary_text,
+        transform=ax9.transAxes,
+        fontsize=10,
+        verticalalignment="center",
+        fontfamily="monospace",
+        bbox=dict(boxstyle="round", facecolor="lightblue", alpha=0.2),
+    )
     ax9.set_title("Quality Summary")
 
-    fig.suptitle("Mercury Agent - Performance, Ethics & Quality Dashboard",
-                fontsize=18, fontweight='bold', y=0.99)
+    fig.suptitle(
+        "Mercury Agent - Performance, Ethics & Quality Dashboard",
+        fontsize=18,
+        fontweight="bold",
+        y=0.99,
+    )
 
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"Generated: {output_path}")
 
@@ -639,7 +775,9 @@ def generate_all_consolidated_visuals() -> None:
     # Also copy to results/latest
     generate_anomaly_detection_panel(results, RESULTS_DIR / "anomaly_detection_panel.png")
     generate_benchmark_summary_live_data(results, RESULTS_DIR / "benchmark_summary_live_data.png")
-    generate_neuro_symbolic_benchmark_report(results, RESULTS_DIR / "neuro_symbolic_benchmark_report.png")
+    generate_neuro_symbolic_benchmark_report(
+        results, RESULTS_DIR / "neuro_symbolic_benchmark_report.png"
+    )
     generate_performance_dashboard(results, RESULTS_DIR / "mercury_performance_dashboard.png")
 
     print()

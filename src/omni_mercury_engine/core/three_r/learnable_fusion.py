@@ -251,9 +251,9 @@ if TORCH_AVAILABLE:
             super().__init__()
             self.n_scales = n_scales
 
-            self.scale_encoders = nn.ModuleList([
-                nn.Linear(64, hidden_dim) for _ in range(n_scales)
-            ])
+            self.scale_encoders = nn.ModuleList(
+                [nn.Linear(64, hidden_dim) for _ in range(n_scales)]
+            )
 
             self.attention = nn.MultiheadAttention(
                 embed_dim=hidden_dim,
@@ -303,7 +303,7 @@ if TORCH_AVAILABLE:
 
             wavelet_features = []
             for i, encoder in enumerate(self.scale_encoders):
-                scale = 2 ** i
+                scale = 2**i
                 if scale < seq_len:
                     downsampled = F.avg_pool1d(
                         x.unsqueeze(1),
@@ -426,7 +426,7 @@ if TORCH_AVAILABLE:
             self.config = config
 
             self.log_w_R = nn.Parameter(torch.tensor(math.log(1.0 / PHI)))
-            self.log_w_H = nn.Parameter(torch.tensor(math.log(1.0 / (PHI ** 2))))
+            self.log_w_H = nn.Parameter(torch.tensor(math.log(1.0 / (PHI**2))))
             self.log_w_O = nn.Parameter(torch.tensor(math.log(0.236)))
 
             if config.phi_learnable:
@@ -439,11 +439,15 @@ if TORCH_AVAILABLE:
                 max_depth=config.max_recursion_depth,
             )
 
-            self.resonance_module = SpectralAttention(
-                n_scales=config.n_wavelet_scales,
-                hidden_dim=config.hidden_dim,
-                n_heads=config.n_attention_heads,
-            ) if config.use_spectral_attention else None
+            self.resonance_module = (
+                SpectralAttention(
+                    n_scales=config.n_wavelet_scales,
+                    hidden_dim=config.hidden_dim,
+                    n_heads=config.n_attention_heads,
+                )
+                if config.use_spectral_attention
+                else None
+            )
 
             self.optimization_module = OptimizationScorer(
                 hidden_dim=config.hidden_dim,
@@ -501,7 +505,7 @@ if TORCH_AVAILABLE:
             eta = self.ethical_gate(scores_stack, context)
 
             phi = self.phi if isinstance(self.phi, torch.Tensor) else torch.tensor(self.phi)
-            ethical_scaling = eta ** phi
+            ethical_scaling = eta**phi
 
             fusion_score = weighted_sum * ethical_scaling.squeeze(-1)
 
@@ -522,14 +526,16 @@ if TORCH_AVAILABLE:
             }
 
             if return_components:
-                result.update({
-                    "recursion_score": R_score,
-                    "resonance_score": H_score,
-                    "optimization_score": O_score,
-                    "recursion_meta": R_meta,
-                    "resonance_meta": H_meta,
-                    "optimization_meta": O_meta,
-                })
+                result.update(
+                    {
+                        "recursion_score": R_score,
+                        "resonance_score": H_score,
+                        "optimization_score": O_score,
+                        "recursion_meta": R_meta,
+                        "resonance_meta": H_meta,
+                        "optimization_meta": O_meta,
+                    }
+                )
 
             return result
 
@@ -682,7 +688,7 @@ class Learnable3REngine:
 
         eta = 0.96
         weighted_sum = w_R * r_score + w_H * resonance + w_O * optimization
-        fusion = weighted_sum * (eta ** PHI)
+        fusion = weighted_sum * (eta**PHI)
 
         return Learnable3RResult(
             fusion_score=fusion,
@@ -727,12 +733,15 @@ class Learnable3REngine:
             logger.warning("Cannot save model: PyTorch not available")
             return
 
-        torch.save({
-            "model_state_dict": self.model.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict(),
-            "training_history": self.training_history,
-            "config": self.config,
-        }, path)
+        torch.save(
+            {
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "training_history": self.training_history,
+                "config": self.config,
+            },
+            path,
+        )
 
         logger.info(f"Model saved to {path}")
 
@@ -766,7 +775,6 @@ class Learnable3REngine:
             "weights": self.get_weights(),
             "phi": self.get_phi(),
             "avg_recent_loss": (
-                float(np.mean(self.training_history[-100:]))
-                if self.training_history else 0.0
+                float(np.mean(self.training_history[-100:])) if self.training_history else 0.0
             ),
         }

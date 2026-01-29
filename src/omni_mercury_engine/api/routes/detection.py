@@ -223,19 +223,23 @@ async def detect_neurosymbolic(
             symbolic_contribution=result.symbolic_contribution,
             patterns_detected=result.patterns_detected,
             rules_fired=result.rules_fired,
-            anomaly_scores=[
-                {
-                    "score_id": s.score_id,
-                    "anomaly_score": s.anomaly_score,
-                    "neural_score": s.neural_score,
-                    "symbolic_score": s.symbolic_score,
-                    "confidence": s.confidence,
-                    "category": s.category.value,
-                    "is_anomaly": s.is_anomaly,
-                    "explanation": s.explanation,
-                }
-                for s in result.anomaly_scores
-            ] if request.include_explanations else [],
+            anomaly_scores=(
+                [
+                    {
+                        "score_id": s.score_id,
+                        "anomaly_score": s.anomaly_score,
+                        "neural_score": s.neural_score,
+                        "symbolic_score": s.symbolic_score,
+                        "confidence": s.confidence,
+                        "category": s.category.value,
+                        "is_anomaly": s.is_anomaly,
+                        "explanation": s.explanation,
+                    }
+                    for s in result.anomaly_scores
+                ]
+                if request.include_explanations
+                else []
+            ),
             decision=result.decision.decision_type.value,
             explanation=result.explanation,
             audit_trail=result.audit_trail if request.include_explanations else [],
@@ -344,7 +348,9 @@ async def detect_fusion(
         return FusionResponse(
             is_anomaly=is_anomaly,
             fused_score=fused_score,
-            confidence=min(fused_score / threshold, 1.0) if is_anomaly else 1.0 - (fused_score / threshold),
+            confidence=(
+                min(fused_score / threshold, 1.0) if is_anomaly else 1.0 - (fused_score / threshold)
+            ),
             detector_scores=detector_scores,
             detector_contributions=detector_contributions if request.return_contributions else {},
             threshold=threshold,
@@ -421,7 +427,7 @@ async def detect_three_r(
         band_ratios = [e / total_energy for e in band_energies]
 
         phi = 1.618033988749895
-        expected_ratios = [1.0 / (phi ** i) for i in range(n_bands)]
+        expected_ratios = [1.0 / (phi**i) for i in range(n_bands)]
         expected_sum = sum(expected_ratios)
         expected_ratios = [r / expected_sum for r in expected_ratios]
 
@@ -467,7 +473,7 @@ async def detect_three_r(
             recursion_score=result.recursion_score,
             resonance_score=result.resonance_score,
             optimization_score=result.optimization_score,
-            ethical_scaling=request.ethical_threshold ** phi,
+            ethical_scaling=request.ethical_threshold**phi,
             lyapunov_bound=result.lyapunov_bound,
             is_stable=is_stable,
             weights=result.fusion_weights,
@@ -476,7 +482,7 @@ async def detect_three_r(
                 "band_energies": band_energies,
                 "band_ratios": band_ratios,
                 "harmonic_deviation": harmonic_deviation,
-                "dominant_frequency_idx": int(np.argmax(magnitudes[:len(magnitudes) // 2])),
+                "dominant_frequency_idx": int(np.argmax(magnitudes[: len(magnitudes) // 2])),
             },
         )
 

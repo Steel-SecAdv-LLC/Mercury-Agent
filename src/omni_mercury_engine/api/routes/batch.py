@@ -370,9 +370,7 @@ async def process_batch_job(
         if callback_url:
             await _send_callback(callback_url, job_id, final_status)
 
-        logger.info(
-            f"Batch job {job_id} completed: {processed} processed, {failed} failed"
-        )
+        logger.info(f"Batch job {job_id} completed: {processed} processed, {failed} failed")
 
     except Exception as e:
         logger.error(f"Batch job {job_id} failed: {e}")

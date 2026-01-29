@@ -142,14 +142,14 @@ class DataStore:
         async with self._lock:
             self._detections.append(record)
             if len(self._detections) > self._max_records:
-                self._detections = self._detections[-self._max_records:]
+                self._detections = self._detections[-self._max_records :]
 
     async def add_audit_log(self, record: AuditLogRecord) -> None:
         """Add an audit log record."""
         async with self._lock:
             self._audit_logs.append(record)
             if len(self._audit_logs) > self._max_records:
-                self._audit_logs = self._audit_logs[-self._max_records:]
+                self._audit_logs = self._audit_logs[-self._max_records :]
 
     async def query_detections(
         self,
@@ -182,7 +182,7 @@ class DataStore:
         records.sort(key=lambda r: r.timestamp, reverse=True)
         total = len(records)
 
-        return records[offset:offset + limit], total
+        return records[offset : offset + limit], total
 
     async def query_audit_logs(
         self,
@@ -215,7 +215,7 @@ class DataStore:
         records.sort(key=lambda r: r.timestamp, reverse=True)
         total = len(records)
 
-        return records[offset:offset + limit], total
+        return records[offset : offset + limit], total
 
     async def create_export_job(
         self,

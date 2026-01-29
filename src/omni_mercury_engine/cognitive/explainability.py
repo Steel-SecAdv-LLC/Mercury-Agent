@@ -260,7 +260,7 @@ class SHAPExplainer(BaseExplainer):
         shap_values = np.zeros(n_features)
 
         baseline = np.zeros_like(instance)
-        n_samples = min(self.n_samples, 2 ** n_features)
+        n_samples = min(self.n_samples, 2**n_features)
 
         for _ in range(n_samples):
             coalition = np.random.randint(0, 2, n_features)
@@ -381,9 +381,7 @@ class LIMEExplainer(BaseExplainer):
             local_accuracy = exp.score
 
         else:
-            lime_weights, local_accuracy = self._approximate_lime(
-                model, instance, feature_names
-            )
+            lime_weights, local_accuracy = self._approximate_lime(model, instance, feature_names)
 
         prediction = float(model(instance.reshape(1, -1))[0])
 
@@ -404,13 +402,10 @@ class LIMEExplainer(BaseExplainer):
 
         feature_importances.sort(key=lambda x: x.importance, reverse=True)
 
-        human_readable = self._generate_human_readable(
-            feature_importances[:5], prediction
-        )
+        human_readable = self._generate_human_readable(feature_importances[:5], prediction)
 
         base_value = prediction - sum(
-            fi.importance * (1 if fi.direction == "positive" else -1)
-            for fi in feature_importances
+            fi.importance * (1 if fi.direction == "positive" else -1) for fi in feature_importances
         )
 
         return Explanation(
@@ -438,7 +433,7 @@ class LIMEExplainer(BaseExplainer):
 
         distances = np.sqrt(np.sum((samples - instance) ** 2, axis=1))
         kernel_width = self.kernel_width or np.sqrt(n_features) * 0.75
-        weights = np.exp(-(distances ** 2) / (kernel_width ** 2))
+        weights = np.exp(-(distances**2) / (kernel_width**2))
 
         samples_weighted = samples * np.sqrt(weights)[:, np.newaxis]
         predictions_weighted = predictions * np.sqrt(weights)
@@ -453,7 +448,11 @@ class LIMEExplainer(BaseExplainer):
 
         lime_weights = {name: float(coeffs[i]) for i, name in enumerate(feature_names)}
 
-        ss_res = residuals[0] if len(residuals) > 0 else np.sum((predictions_weighted - samples_weighted @ coeffs) ** 2)
+        ss_res = (
+            residuals[0]
+            if len(residuals) > 0
+            else np.sum((predictions_weighted - samples_weighted @ coeffs) ** 2)
+        )
         ss_tot = np.sum((predictions_weighted - np.mean(predictions_weighted)) ** 2) + 1e-8
         r2 = 1 - ss_res / ss_tot
 
@@ -624,7 +623,9 @@ class IntegratedGradientsExplainer(BaseExplainer):
             x_plus[i] += epsilon
             x_minus[i] -= epsilon
 
-            grad[i] = (model(x_plus.reshape(1, -1))[0] - model(x_minus.reshape(1, -1))[0]) / (2 * epsilon)
+            grad[i] = (model(x_plus.reshape(1, -1))[0] - model(x_minus.reshape(1, -1))[0]) / (
+                2 * epsilon
+            )
 
         return grad.reshape(1, -1)
 
@@ -704,15 +705,18 @@ class CounterfactualExplainer:
 
         original_pred = float(model(instance.reshape(1, -1))[0])
         original_class = 1 if original_pred > self.threshold else 0
-        _target_pred = 1.0 if target_class == 1 else 0.0  # noqa: F841 - Reserved for gradient optimization
+        _target_pred = (
+            1.0 if target_class == 1 else 0.0
+        )  # noqa: F841 - Reserved for gradient optimization
 
         counterfactual = instance.copy()
 
         for iteration in range(self.max_iterations):
             current_pred = float(model(counterfactual.reshape(1, -1))[0])
 
-            if (target_class == 1 and current_pred > self.threshold) or \
-               (target_class == 0 and current_pred <= self.threshold):
+            if (target_class == 1 and current_pred > self.threshold) or (
+                target_class == 0 and current_pred <= self.threshold
+            ):
                 break
 
             gradient = self._estimate_gradient(model, counterfactual)
@@ -730,12 +734,14 @@ class CounterfactualExplainer:
         changes = []
         for i, (orig, cf) in enumerate(zip(instance, counterfactual)):
             if abs(orig - cf) > 1e-6:
-                changes.append({
-                    "feature": feature_names[i],
-                    "original_value": float(orig),
-                    "counterfactual_value": float(cf),
-                    "change": float(cf - orig),
-                })
+                changes.append(
+                    {
+                        "feature": feature_names[i],
+                        "original_value": float(orig),
+                        "counterfactual_value": float(cf),
+                        "change": float(cf - orig),
+                    }
+                )
 
         return {
             "original": instance.tolist(),
@@ -766,7 +772,9 @@ class CounterfactualExplainer:
             x_plus[i] += epsilon
             x_minus[i] -= epsilon
 
-            grad[i] = (model(x_plus.reshape(1, -1))[0] - model(x_minus.reshape(1, -1))[0]) / (2 * epsilon)
+            grad[i] = (model(x_plus.reshape(1, -1))[0] - model(x_minus.reshape(1, -1))[0]) / (
+                2 * epsilon
+            )
 
         return grad
 
@@ -823,13 +831,9 @@ class FaithfulnessEvaluator:
             model, instance, ranked_features, original_pred
         )
 
-        sufficiency = self._compute_sufficiency(
-            model, instance, ranked_features, original_pred
-        )
+        sufficiency = self._compute_sufficiency(model, instance, ranked_features, original_pred)
 
-        monotonicity = self._compute_monotonicity(
-            model, instance, ranked_features, original_pred
-        )
+        monotonicity = self._compute_monotonicity(model, instance, ranked_features, original_pred)
 
         return {
             "comprehensiveness": comprehensiveness,
@@ -938,8 +942,7 @@ class ExplainabilityEngine:
         self.faithfulness_evaluator = FaithfulnessEvaluator()
 
         logger.info(
-            f"ExplainabilityEngine initialized "
-            f"(SHAP={SHAP_AVAILABLE}, LIME={LIME_AVAILABLE})"
+            f"ExplainabilityEngine initialized " f"(SHAP={SHAP_AVAILABLE}, LIME={LIME_AVAILABLE})"
         )
 
     def explain(
@@ -966,21 +969,13 @@ class ExplainabilityEngine:
         method = method or self.default_method
 
         if method == ExplanationType.SHAP:
-            explanation = self.shap_explainer.explain(
-                model, instance, self.feature_names
-            )
+            explanation = self.shap_explainer.explain(model, instance, self.feature_names)
         elif method == ExplanationType.LIME:
-            explanation = self.lime_explainer.explain(
-                model, instance, self.feature_names
-            )
+            explanation = self.lime_explainer.explain(model, instance, self.feature_names)
         elif method == ExplanationType.INTEGRATED_GRADIENTS:
-            explanation = self.ig_explainer.explain(
-                model, instance, self.feature_names
-            )
+            explanation = self.ig_explainer.explain(model, instance, self.feature_names)
         else:
-            explanation = self.shap_explainer.explain(
-                model, instance, self.feature_names
-            )
+            explanation = self.shap_explainer.explain(model, instance, self.feature_names)
 
         if include_counterfactual:
             cf_result = self.cf_explainer.generate_counterfactual(
@@ -989,9 +984,7 @@ class ExplainabilityEngine:
             explanation.counterfactuals = [cf_result]
 
         if include_faithfulness:
-            faithfulness = self.faithfulness_evaluator.evaluate(
-                model, instance, explanation
-            )
+            faithfulness = self.faithfulness_evaluator.evaluate(model, instance, explanation)
             explanation.faithfulness_scores = faithfulness
 
         return explanation
@@ -1013,7 +1006,11 @@ class ExplainabilityEngine:
         """
         results = {}
 
-        for method in [ExplanationType.SHAP, ExplanationType.LIME, ExplanationType.INTEGRATED_GRADIENTS]:
+        for method in [
+            ExplanationType.SHAP,
+            ExplanationType.LIME,
+            ExplanationType.INTEGRATED_GRADIENTS,
+        ]:
             try:
                 results[method.value] = self.explain(
                     model, instance, method=method, include_faithfulness=True

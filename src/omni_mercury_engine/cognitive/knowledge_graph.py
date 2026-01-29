@@ -277,49 +277,118 @@ class Ontology:
         self.add_class("Thing", OntologyClassType.ENTITY, description="Root class")
 
         # Anomaly classes
-        self.add_class("AnomalyPattern", OntologyClassType.ANOMALY,
-                       parent_classes=["Thing"], description="Base anomaly pattern")
-        self.add_class("BehavioralAnomaly", OntologyClassType.ANOMALY,
-                       parent_classes=["AnomalyPattern"], description="Behavioral deviation")
-        self.add_class("TemporalAnomaly", OntologyClassType.ANOMALY,
-                       parent_classes=["AnomalyPattern"], description="Time-based anomaly")
-        self.add_class("StructuralAnomaly", OntologyClassType.ANOMALY,
-                       parent_classes=["AnomalyPattern"], description="Structural deviation")
-        self.add_class("CollectiveAnomaly", OntologyClassType.ANOMALY,
-                       parent_classes=["AnomalyPattern"], description="Collective behavior anomaly")
-        self.add_class("ContextualAnomaly", OntologyClassType.ANOMALY,
-                       parent_classes=["AnomalyPattern"], description="Context-dependent anomaly")
+        self.add_class(
+            "AnomalyPattern",
+            OntologyClassType.ANOMALY,
+            parent_classes=["Thing"],
+            description="Base anomaly pattern",
+        )
+        self.add_class(
+            "BehavioralAnomaly",
+            OntologyClassType.ANOMALY,
+            parent_classes=["AnomalyPattern"],
+            description="Behavioral deviation",
+        )
+        self.add_class(
+            "TemporalAnomaly",
+            OntologyClassType.ANOMALY,
+            parent_classes=["AnomalyPattern"],
+            description="Time-based anomaly",
+        )
+        self.add_class(
+            "StructuralAnomaly",
+            OntologyClassType.ANOMALY,
+            parent_classes=["AnomalyPattern"],
+            description="Structural deviation",
+        )
+        self.add_class(
+            "CollectiveAnomaly",
+            OntologyClassType.ANOMALY,
+            parent_classes=["AnomalyPattern"],
+            description="Collective behavior anomaly",
+        )
+        self.add_class(
+            "ContextualAnomaly",
+            OntologyClassType.ANOMALY,
+            parent_classes=["AnomalyPattern"],
+            description="Context-dependent anomaly",
+        )
 
         # Context classes
-        self.add_class("Context", OntologyClassType.CONTEXT,
-                       parent_classes=["Thing"], description="Contextual information")
-        self.add_class("Domain", OntologyClassType.CONTEXT,
-                       parent_classes=["Context"], description="Application domain")
-        self.add_class("DataSource", OntologyClassType.ENTITY,
-                       parent_classes=["Thing"], description="Data source")
+        self.add_class(
+            "Context",
+            OntologyClassType.CONTEXT,
+            parent_classes=["Thing"],
+            description="Contextual information",
+        )
+        self.add_class(
+            "Domain",
+            OntologyClassType.CONTEXT,
+            parent_classes=["Context"],
+            description="Application domain",
+        )
+        self.add_class(
+            "DataSource",
+            OntologyClassType.ENTITY,
+            parent_classes=["Thing"],
+            description="Data source",
+        )
 
         # Core properties
-        self.add_property("hasAnomaly", PropertyType.OBJECT_PROPERTY,
-                         domain=["DataSource"], range=["AnomalyPattern"],
-                         description="Links data source to detected anomaly")
-        self.add_property("hasContext", PropertyType.OBJECT_PROPERTY,
-                         domain=["AnomalyPattern"], range=["Context"],
-                         description="Links anomaly to its context")
-        self.add_property("isRelatedTo", PropertyType.OBJECT_PROPERTY,
-                         domain=["AnomalyPattern"], range=["AnomalyPattern"],
-                         is_symmetric=True, description="Symmetric relation between anomalies")
-        self.add_property("causes", PropertyType.OBJECT_PROPERTY,
-                         domain=["AnomalyPattern"], range=["AnomalyPattern"],
-                         is_transitive=True, description="Causal relation")
-        self.add_property("hasScore", PropertyType.DATA_PROPERTY,
-                         domain=["AnomalyPattern"], range=["float"],
-                         is_functional=True, description="Anomaly score")
-        self.add_property("hasConfidence", PropertyType.DATA_PROPERTY,
-                         domain=["AnomalyPattern"], range=["float"],
-                         is_functional=True, description="Detection confidence")
-        self.add_property("hasSeverity", PropertyType.DATA_PROPERTY,
-                         domain=["AnomalyPattern"], range=["string"],
-                         is_functional=True, description="Severity level")
+        self.add_property(
+            "hasAnomaly",
+            PropertyType.OBJECT_PROPERTY,
+            domain=["DataSource"],
+            range=["AnomalyPattern"],
+            description="Links data source to detected anomaly",
+        )
+        self.add_property(
+            "hasContext",
+            PropertyType.OBJECT_PROPERTY,
+            domain=["AnomalyPattern"],
+            range=["Context"],
+            description="Links anomaly to its context",
+        )
+        self.add_property(
+            "isRelatedTo",
+            PropertyType.OBJECT_PROPERTY,
+            domain=["AnomalyPattern"],
+            range=["AnomalyPattern"],
+            is_symmetric=True,
+            description="Symmetric relation between anomalies",
+        )
+        self.add_property(
+            "causes",
+            PropertyType.OBJECT_PROPERTY,
+            domain=["AnomalyPattern"],
+            range=["AnomalyPattern"],
+            is_transitive=True,
+            description="Causal relation",
+        )
+        self.add_property(
+            "hasScore",
+            PropertyType.DATA_PROPERTY,
+            domain=["AnomalyPattern"],
+            range=["float"],
+            is_functional=True,
+            description="Anomaly score",
+        )
+        self.add_property(
+            "hasConfidence",
+            PropertyType.DATA_PROPERTY,
+            domain=["AnomalyPattern"],
+            range=["float"],
+            is_functional=True,
+            description="Detection confidence",
+        )
+        self.add_property(
+            "hasSeverity",
+            PropertyType.DATA_PROPERTY,
+            domain=["AnomalyPattern"],
+            range=["string"],
+            is_functional=True,
+            description="Severity level",
+        )
 
     def add_class(
         self,
@@ -374,8 +443,14 @@ class Ontology:
         uri = f"{self.base_uri}property/{name}"
 
         domain_uris = [f"{self.base_uri}class/{d}" for d in (domain or [])]
-        range_uris = [f"{self.base_uri}class/{r}" if r not in ("string", "integer", "float", "boolean", "datetime")
-                      else r for r in (range or [])]
+        range_uris = [
+            (
+                f"{self.base_uri}class/{r}"
+                if r not in ("string", "integer", "float", "boolean", "datetime")
+                else r
+            )
+            for r in (range or [])
+        ]
 
         ontology_property = OntologyProperty(
             uri=uri,
@@ -469,10 +544,7 @@ class Ontology:
         """Infer transitive closure for transitive properties."""
         inferred = []
 
-        transitive_props = [
-            p.name for p in self.properties.values()
-            if p.is_transitive
-        ]
+        transitive_props = [p.name for p in self.properties.values() if p.is_transitive]
 
         for prop_name in transitive_props:
             prop_relations = [(s, o) for s, p, o in relations if p == prop_name]
@@ -1668,12 +1740,15 @@ class KnowledgeGraph:
                 if prop.domain:
                     subject_node = self._nodes.get(subject)
                     if subject_node:
-                        subject_class = f"{self.ontology.base_uri}class/{subject_node.node_type.value}"
+                        subject_class = (
+                            f"{self.ontology.base_uri}class/{subject_node.node_type.value}"
+                        )
                         if prop.domain and not any(
                             self.ontology.is_subclass_of(
                                 subject_node.node_type.value,
-                                d.replace(self.ontology.base_uri + "class/", "")
-                            ) for d in prop.domain
+                                d.replace(self.ontology.base_uri + "class/", ""),
+                            )
+                            for d in prop.domain
                         ):
                             logger.warning(
                                 f"Domain constraint violation: {subject} not in {prop.domain}"
@@ -1772,7 +1847,7 @@ class KnowledgeGraph:
 
             inferred = []
             for s, o in closure - existing:
-                triple = (s, predicate, o, 0.9 ** depth)
+                triple = (s, predicate, o, 0.9**depth)
                 self._triples.append(triple)
                 inferred.append(triple)
                 self._stats["inferences_made"] += 1
@@ -1799,7 +1874,8 @@ class KnowledgeGraph:
         with self._lock:
             # Check if triple exists directly
             direct_matches = [
-                (s, p, o, conf) for s, p, o, conf in self._triples
+                (s, p, o, conf)
+                for s, p, o, conf in self._triples
                 if s == subject and p == predicate and o == obj
             ]
 
@@ -1824,14 +1900,16 @@ class KnowledgeGraph:
                     if p1 == predicate and s1 == subject and o1 != obj:
                         for s2, p2, o2, c2 in self._triples:
                             if p2 == predicate and s2 == o1 and o2 == obj:
-                                supporting.append({
-                                    "type": "transitive_chain",
-                                    "chain": [
-                                        (subject, predicate, o1),
-                                        (o1, predicate, obj),
-                                    ],
-                                    "confidence": c1 * c2,
-                                })
+                                supporting.append(
+                                    {
+                                        "type": "transitive_chain",
+                                        "chain": [
+                                            (subject, predicate, o1),
+                                            (o1, predicate, obj),
+                                        ],
+                                        "confidence": c1 * c2,
+                                    }
+                                )
 
             return {
                 "found": True,
@@ -1887,12 +1965,10 @@ class KnowledgeGraph:
                 "node": node.to_dict(),
                 "ontology_class": class_info,
                 "outgoing_relations": [
-                    {"predicate": p, "object": o, "confidence": c}
-                    for _, p, o, c in outgoing
+                    {"predicate": p, "object": o, "confidence": c} for _, p, o, c in outgoing
                 ],
                 "incoming_relations": [
-                    {"subject": s, "predicate": p, "confidence": c}
-                    for s, p, _, c in incoming
+                    {"subject": s, "predicate": p, "confidence": c} for s, p, _, c in incoming
                 ],
                 "neighbor_count": len(neighbors),
                 "pagerank": node.pagerank,

@@ -185,7 +185,7 @@ class InMemoryAuditHandler(AuditLogHandler):
         with self._lock:
             self._events.append(event)
             if len(self._events) > self._max_events:
-                self._events = self._events[-self._max_events:]
+                self._events = self._events[-self._max_events :]
 
     def query(
         self,
@@ -325,7 +325,7 @@ class FileAuditHandler(AuditLogHandler):
             reverse=True,
         )
 
-        for old_file in log_files[self._max_files:]:
+        for old_file in log_files[self._max_files :]:
             try:
                 os.remove(os.path.join(self._log_dir, old_file))
             except IOError:
@@ -398,6 +398,7 @@ class AuditLogger:
 
     def _start_background_emitter(self) -> None:
         """Start background thread for async emit."""
+
         def emitter_loop() -> None:
             while True:
                 time.sleep(0.1)
@@ -535,16 +536,17 @@ class DistributedTracer:
         self._initialized = True
 
         logger.info(
-            f"DistributedTracer initialized "
-            f"(service={service_name}, otel={OTEL_AVAILABLE})"
+            f"DistributedTracer initialized " f"(service={service_name}, otel={OTEL_AVAILABLE})"
         )
 
     def _setup_opentelemetry(self) -> None:
         """Setup OpenTelemetry tracing."""
-        resource = Resource.create({
-            "service.name": self._service_name,
-            "service.version": "1.1.0",
-        })
+        resource = Resource.create(
+            {
+                "service.name": self._service_name,
+                "service.version": "1.1.0",
+            }
+        )
 
         provider = TracerProvider(resource=resource)
 
@@ -817,6 +819,7 @@ def traced(
     kind: str = "internal",
 ):
     """Decorator for adding tracing to functions."""
+
     def decorator(func: Callable) -> Callable:
         span_name = name or func.__name__
 
@@ -844,6 +847,7 @@ def audited(
     resource_type: ResourceType,
 ):
     """Decorator for adding audit logging to functions."""
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:

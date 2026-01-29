@@ -116,9 +116,7 @@ if TORCH_AVAILABLE:
             self.n_scalars = n_scalars
             self.embedding_dim = embedding_dim
 
-            self.scalar_embeddings = nn.Parameter(
-                torch.randn(n_scalars, embedding_dim) * 0.1
-            )
+            self.scalar_embeddings = nn.Parameter(torch.randn(n_scalars, embedding_dim) * 0.1)
 
             self.category_embeddings = nn.Embedding(n_categories, embedding_dim)
 
@@ -448,8 +446,7 @@ class LearnableGOSNN:
             ).to(device)
 
             self.optimizer = Adam(
-                list(self.scalar_embeddings.parameters())
-                + list(self.attention.parameters()),
+                list(self.scalar_embeddings.parameters()) + list(self.attention.parameters()),
                 lr=0.001,
             )
         else:
@@ -461,8 +458,7 @@ class LearnableGOSNN:
         self._initialize_default_scalars()
 
         logger.info(
-            f"LearnableGOSNN initialized "
-            f"(n_scalars={n_scalars}, attention={attention_type})"
+            f"LearnableGOSNN initialized " f"(n_scalars={n_scalars}, attention={attention_type})"
         )
 
     def _initialize_default_scalars(self) -> None:
@@ -572,9 +568,7 @@ class LearnableGOSNN:
                             idx1 = self._scalar_name_to_idx.get(name)
                             idx2 = self._scalar_name_to_idx.get(other_name)
                             if idx1 is not None and idx2 is not None:
-                                self.correlation_tracker.update_correlation(
-                                    idx1, idx2, True
-                                )
+                                self.correlation_tracker.update_correlation(idx1, idx2, True)
 
                 activated[name] = state.effective_value
 
@@ -634,7 +628,7 @@ class LearnableGOSNN:
             phi = scalar_output["phi"].item()
             sigma = scalar_output["sigma_immutable"].item()
 
-            fused_score = fused_score * (sigma ** phi)
+            fused_score = fused_score * (sigma**phi)
 
             fft_result = torch.fft.fft(attn_output.flatten())
             magnitudes = torch.abs(fft_result)
@@ -651,7 +645,7 @@ class LearnableGOSNN:
         attention_dict = {}
         if attn_weights is not None:
             attn_numpy = attn_weights.cpu().numpy()
-            for i, name in enumerate(names[:len(indices)]):
+            for i, name in enumerate(names[: len(indices)]):
                 attention_dict[name] = float(attn_numpy[0, 0, i, :].mean())
 
         return {
@@ -673,7 +667,7 @@ class LearnableGOSNN:
             }
 
         arr = np.array(values)
-        fused_score = float(np.mean(arr) * (SIGMA_IMMUTABLE_DEFAULT ** PHI))
+        fused_score = float(np.mean(arr) * (SIGMA_IMMUTABLE_DEFAULT**PHI))
 
         fft_result = np.fft.fft(arr)
         magnitudes = np.abs(fft_result)
@@ -754,7 +748,9 @@ class LearnableGOSNN:
             }
 
         values = np.array(trajectory.values[-100:])
-        _timestamps = np.array(trajectory.timestamps[-100:])  # noqa: F841 - Reserved for time-weighted analysis
+        _timestamps = np.array(
+            trajectory.timestamps[-100:]
+        )  # noqa: F841 - Reserved for time-weighted analysis
 
         if len(values) >= 2:
             coeffs = np.polyfit(range(len(values)), values, 1)
@@ -817,14 +813,9 @@ class LearnableGOSNN:
             return results
 
         idx = self._scalar_name_to_idx[scalar_name]
-        correlated = self.correlation_tracker.get_correlated_scalars(
-            idx, threshold=min_correlation
-        )
+        correlated = self.correlation_tracker.get_correlated_scalars(idx, threshold=min_correlation)
 
-        return [
-            (self._idx_to_scalar_name.get(i, f"scalar_{i}"), corr)
-            for i, corr in correlated
-        ]
+        return [(self._idx_to_scalar_name.get(i, f"scalar_{i}"), corr) for i, corr in correlated]
 
     def get_statistics(self) -> dict[str, Any]:
         """Get network statistics."""

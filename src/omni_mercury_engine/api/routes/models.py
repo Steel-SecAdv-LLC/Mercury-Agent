@@ -150,9 +150,7 @@ class ModelRegistry:
     ) -> Model:
         """Register a new model."""
         with self._lock:
-            model_id = hashlib.sha256(
-                f"{name}:{owner_id}:{time.time()}".encode()
-            ).hexdigest()[:16]
+            model_id = hashlib.sha256(f"{name}:{owner_id}:{time.time()}".encode()).hexdigest()[:16]
 
             if any(m.name == name and m.owner_id == owner_id for m in self._models.values()):
                 raise HTTPException(
@@ -567,7 +565,9 @@ async def register_model(
 )
 async def list_models(
     model_type: ModelType | None = Query(default=None, description="Filter by type"),
-    status_filter: ModelStatus | None = Query(default=None, alias="status", description="Filter by status"),
+    status_filter: ModelStatus | None = Query(
+        default=None, alias="status", description="Filter by status"
+    ),
     tags: list[str] | None = Query(default=None, description="Filter by tags"),
     limit: int = Query(default=50, ge=1, le=200, description="Maximum results"),
     user: User = Depends(_get_current_user),
@@ -900,7 +900,11 @@ async def update_metrics(
             "latency_p50_ms": version.metrics.latency_p50_ms,
             "latency_p99_ms": version.metrics.latency_p99_ms,
             "throughput_rps": version.metrics.throughput_rps,
-            "last_evaluated": version.metrics.last_evaluated.isoformat() if version.metrics.last_evaluated else None,
+            "last_evaluated": (
+                version.metrics.last_evaluated.isoformat()
+                if version.metrics.last_evaluated
+                else None
+            ),
         },
     )
 
