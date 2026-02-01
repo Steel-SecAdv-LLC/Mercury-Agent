@@ -93,9 +93,9 @@ class AuditEvent:
         return {
             "event_id": self.event_id,
             "timestamp": self.timestamp,
-            "timestamp_iso": time.strftime(
-                "%Y-%m-%dT%H:%M:%S.%f%z", time.gmtime(self.timestamp)
-            )[:26]
+            "timestamp_iso": time.strftime("%Y-%m-%dT%H:%M:%S.%f%z", time.gmtime(self.timestamp))[
+                :26
+            ]
             + "Z",
             "category": self.category.value,
             "severity": self.severity.value,
@@ -327,8 +327,7 @@ class SecureHashChain:
             # Verify link to previous event using constant-time comparison
             # SECURITY: Using hmac.compare_digest prevents timing attacks
             if not hmac.compare_digest(
-                event.previous_hash.encode('utf-8'),
-                events[i - 1].event_hash.encode('utf-8')
+                event.previous_hash.encode("utf-8"), events[i - 1].event_hash.encode("utf-8")
             ):
                 invalid_indices.append(i)
 
@@ -513,11 +512,7 @@ class SecureAuditLogger:
         **kwargs: Any,
     ) -> str:
         """Log authentication event."""
-        severity = (
-            AuditEventSeverity.INFO
-            if outcome == "success"
-            else AuditEventSeverity.WARNING
-        )
+        severity = AuditEventSeverity.INFO if outcome == "success" else AuditEventSeverity.WARNING
         return self.log(
             category=AuditEventCategory.AUTHENTICATION,
             action=action,
@@ -644,9 +639,7 @@ class SecureAuditLogger:
                     f"Check disk space and file permissions."
                 )
                 # Re-raise to alert callers
-                raise RuntimeError(
-                    f"Failed to write audit log (potential data loss): {e}"
-                ) from e
+                raise RuntimeError(f"Failed to write audit log (potential data loss): {e}") from e
 
     def _rotate_log(self) -> None:
         """Rotate current log file."""
@@ -676,9 +669,7 @@ class SecureAuditLogger:
 
     def _cleanup_old_logs(self) -> None:
         """Remove oldest rotated logs beyond limit."""
-        rotated_logs = sorted(
-            self.log_dir.glob("audit_*.jsonl"), key=lambda p: p.stat().st_mtime
-        )
+        rotated_logs = sorted(self.log_dir.glob("audit_*.jsonl"), key=lambda p: p.stat().st_mtime)
 
         while len(rotated_logs) > self.max_rotated_files:
             oldest = rotated_logs.pop(0)
@@ -772,9 +763,7 @@ class SecureAuditLogger:
                         try:
                             disk_events.append(json.loads(line))
                         except json.JSONDecodeError as e:
-                            logger.warning(
-                                f"Skipping malformed JSON at line {line_num}: {e}"
-                            )
+                            logger.warning(f"Skipping malformed JSON at line {line_num}: {e}")
                             continue
                     events = disk_events + events
             except OSError as e:

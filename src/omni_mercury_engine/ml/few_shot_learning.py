@@ -179,14 +179,10 @@ class EpisodeGenerator:
         unique_classes = np.unique(y)
 
         if class_subset is not None:
-            unique_classes = np.array(
-                [c for c in unique_classes if c in class_subset]
-            )
+            unique_classes = np.array([c for c in unique_classes if c in class_subset])
 
         if len(unique_classes) < self.n_way:
-            raise ValueError(
-                f"Not enough classes: need {self.n_way}, have {len(unique_classes)}"
-            )
+            raise ValueError(f"Not enough classes: need {self.n_way}, have {len(unique_classes)}")
 
         # Group samples by class
         class_indices: dict[int, NDArray[np.int64]] = {}
@@ -196,9 +192,7 @@ class EpisodeGenerator:
         # Check minimum samples per class
         min_samples_needed = self.k_shot + self.n_query
         valid_classes = [
-            cls
-            for cls, indices in class_indices.items()
-            if len(indices) >= min_samples_needed
+            cls for cls, indices in class_indices.items() if len(indices) >= min_samples_needed
         ]
 
         if len(valid_classes) < self.n_way:
@@ -300,9 +294,7 @@ class EpisodeGenerator:
                     if n_support < 1 or n_query < 1:
                         continue
 
-                    sampled = self.rng.choice(
-                        indices, size=n_support + n_query, replace=False
-                    )
+                    sampled = self.rng.choice(indices, size=n_support + n_query, replace=False)
                     support_indices.extend(sampled[:n_support])
                     query_indices.extend(sampled[n_support:])
 
@@ -383,9 +375,9 @@ class PrototypicalNetworkNumpy(BaseFewShotLearner):
     def _initialize_projection(self, input_dim: int) -> None:
         """Initialize projection matrix using Xavier initialization."""
         scale = np.sqrt(2.0 / (input_dim + self.embedding_dim))
-        self.projection_matrix = self.rng.standard_normal(
-            (input_dim, self.embedding_dim)
-        ).astype(np.float64) * scale
+        self.projection_matrix = (
+            self.rng.standard_normal((input_dim, self.embedding_dim)).astype(np.float64) * scale
+        )
         self.projection_bias = np.zeros(self.embedding_dim, dtype=np.float64)
 
     def _embed(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -488,9 +480,9 @@ class MatchingNetworkNumpy(BaseFewShotLearner):
     def _initialize_projection(self, input_dim: int) -> None:
         """Initialize projection matrix."""
         scale = np.sqrt(2.0 / (input_dim + self.embedding_dim))
-        self.projection_matrix = self.rng.standard_normal(
-            (input_dim, self.embedding_dim)
-        ).astype(np.float64) * scale
+        self.projection_matrix = (
+            self.rng.standard_normal((input_dim, self.embedding_dim)).astype(np.float64) * scale
+        )
         self.projection_bias = np.zeros(self.embedding_dim, dtype=np.float64)
 
     def _embed(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -513,9 +505,7 @@ class MatchingNetworkNumpy(BaseFewShotLearner):
         self.support_embeddings = self._embed(episode.support_X)
         self.support_labels = episode.support_y
 
-    def _attention_weights(
-        self, query_embeddings: NDArray[np.float64]
-    ) -> NDArray[np.float64]:
+    def _attention_weights(self, query_embeddings: NDArray[np.float64]) -> NDArray[np.float64]:
         """Compute attention weights between query and support."""
         if self.use_cosine_attention:
             # Cosine similarity (already L2 normalized)
@@ -596,9 +586,9 @@ class SiameseNetworkNumpy(BaseFewShotLearner):
     def _initialize_projection(self, input_dim: int) -> None:
         """Initialize projection matrix."""
         scale = np.sqrt(2.0 / (input_dim + self.embedding_dim))
-        self.projection_matrix = self.rng.standard_normal(
-            (input_dim, self.embedding_dim)
-        ).astype(np.float64) * scale
+        self.projection_matrix = (
+            self.rng.standard_normal((input_dim, self.embedding_dim)).astype(np.float64) * scale
+        )
         self.projection_bias = np.zeros(self.embedding_dim, dtype=np.float64)
 
     def _embed(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -651,9 +641,7 @@ class SiameseNetworkNumpy(BaseFewShotLearner):
             raise ValueError("Model not fitted. Call fit_episode first.")
 
         query_embeddings = self._embed(X)
-        similarities = self._compute_similarity(
-            query_embeddings, self.support_embeddings
-        )
+        similarities = self._compute_similarity(query_embeddings, self.support_embeddings)
 
         # Average similarity per class
         n_queries = len(X)
@@ -709,12 +697,11 @@ if TORCH_AVAILABLE:
             if x.shape[-1] != self.input_dim:
                 if x.shape[-1] < self.input_dim:
                     padding = torch.zeros(
-                        *x.shape[:-1], self.input_dim - x.shape[-1],
-                        device=x.device, dtype=x.dtype
+                        *x.shape[:-1], self.input_dim - x.shape[-1], device=x.device, dtype=x.dtype
                     )
                     x = torch.cat([x, padding], dim=-1)
                 else:
-                    x = x[..., :self.input_dim]
+                    x = x[..., : self.input_dim]
 
             embeddings = self.encoder(x)
             # L2 normalize
@@ -822,9 +809,7 @@ class FewShotLearner:
         """Create the few-shot model based on method."""
         if self.method == FewShotMethod.PROTOTYPICAL:
             if self.use_pytorch and TORCH_AVAILABLE:
-                return PrototypicalNetworkTorch(
-                    embedding_dim=self.embedding_dim
-                )
+                return PrototypicalNetworkTorch(embedding_dim=self.embedding_dim)
             return PrototypicalNetworkNumpy(embedding_dim=self.embedding_dim)
 
         elif self.method == FewShotMethod.MATCHING:
@@ -891,7 +876,9 @@ class FewShotLearner:
         try:
             from sklearn.metrics import precision_score, recall_score, f1_score
 
-            avg_precision = precision_score(all_true, all_preds, average="weighted", zero_division=0)
+            avg_precision = precision_score(
+                all_true, all_preds, average="weighted", zero_division=0
+            )
             avg_recall = recall_score(all_true, all_preds, average="weighted", zero_division=0)
             avg_f1 = f1_score(all_true, all_preds, average="weighted", zero_division=0)
         except ImportError:
@@ -991,9 +978,7 @@ class FewShotLearner:
                 avg_recall = recall_score(
                     all_true_arr, all_preds_arr, average="weighted", zero_division=0
                 )
-                avg_f1 = f1_score(
-                    all_true_arr, all_preds_arr, average="weighted", zero_division=0
-                )
+                avg_f1 = f1_score(all_true_arr, all_preds_arr, average="weighted", zero_division=0)
             except ImportError:
                 pass
 

@@ -348,10 +348,7 @@ class LVLMBackendCache:
         try:
             # Try to get actual memory from model parameters
             if hasattr(backend.model, "parameters"):
-                param_bytes = sum(
-                    p.numel() * p.element_size()
-                    for p in backend.model.parameters()
-                )
+                param_bytes = sum(p.numel() * p.element_size() for p in backend.model.parameters())
                 # Estimate optimizer states and activations
                 return int(param_bytes * 2.5)
 
@@ -373,17 +370,11 @@ class LVLMBackendCache:
         """Ensure sufficient memory is available, evicting if necessary."""
         with self._cache_lock:
             # Check model count
-            loaded_models = [
-                c for c in self._cache.values()
-                if c.state == ModelState.READY
-            ]
+            loaded_models = [c for c in self._cache.values() if c.state == ModelState.READY]
 
             while len(loaded_models) >= self.max_models:
                 self._evict_lru()
-                loaded_models = [
-                    c for c in self._cache.values()
-                    if c.state == ModelState.READY
-                ]
+                loaded_models = [c for c in self._cache.values() if c.state == ModelState.READY]
 
             # Check memory
             while self._stats.memory_used_bytes > self.max_memory_bytes:

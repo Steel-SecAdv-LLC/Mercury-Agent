@@ -161,14 +161,16 @@ class SemanticContextProvider(BaseContextProvider):
         return ContextInfo(
             context_type="semantic",
             description=description,
-            features=np.array([
-                features.complexity_score,
-                features.edge_density,
-                features.texture_uniformity,
-                features.object_count_estimate,
-                features.symmetry_score,
-                features.clutter_score,
-            ]),
+            features=np.array(
+                [
+                    features.complexity_score,
+                    features.edge_density,
+                    features.texture_uniformity,
+                    features.object_count_estimate,
+                    features.symmetry_score,
+                    features.clutter_score,
+                ]
+            ),
             metadata={
                 "scene_type": features.scene_type,
                 "complexity_score": features.complexity_score,
@@ -227,9 +229,7 @@ class SemanticContextProvider(BaseContextProvider):
             clutter_score=float(clutter),
         )
 
-    def _compute_edge_density(
-        self, gray: np.ndarray
-    ) -> tuple[float, np.ndarray, np.ndarray]:
+    def _compute_edge_density(self, gray: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
         """Compute edge density using gradient magnitude."""
         # Sobel-like kernels
         k = self.edge_kernel_size
@@ -245,12 +245,8 @@ class SemanticContextProvider(BaseContextProvider):
         for i in range(gray.shape[0]):
             for j in range(gray.shape[1]):
                 # Central difference
-                grad_x[i, j] = (
-                    padded[i + pad, j + pad + 1] - padded[i + pad, j + pad - 1]
-                ) / 2
-                grad_y[i, j] = (
-                    padded[i + pad + 1, j + pad] - padded[i + pad - 1, j + pad]
-                ) / 2
+                grad_x[i, j] = (padded[i + pad, j + pad + 1] - padded[i + pad, j + pad - 1]) / 2
+                grad_y[i, j] = (padded[i + pad + 1, j + pad] - padded[i + pad - 1, j + pad]) / 2
 
         # Gradient magnitude
         mag = np.sqrt(grad_x**2 + grad_y**2)
@@ -281,9 +277,7 @@ class SemanticContextProvider(BaseContextProvider):
 
         return float(uniformity)
 
-    def _estimate_object_count(
-        self, gray: np.ndarray, edge_density: float
-    ) -> int:
+    def _estimate_object_count(self, gray: np.ndarray, edge_density: float) -> int:
         """Estimate object count using connected components on edges."""
         # Simple thresholding based on edge density
         threshold = 0.1 + edge_density * 0.2
@@ -407,11 +401,15 @@ class SemanticContextProvider(BaseContextProvider):
 
         # Object count
         if features.object_count_estimate <= 3:
-            parts.append(f"Approximately {features.object_count_estimate} distinct objects are visible.")
+            parts.append(
+                f"Approximately {features.object_count_estimate} distinct objects are visible."
+            )
         elif features.object_count_estimate <= 10:
             parts.append(f"Several objects ({features.object_count_estimate}) are present.")
         else:
-            parts.append(f"Many objects (approximately {features.object_count_estimate}) populate the scene.")
+            parts.append(
+                f"Many objects (approximately {features.object_count_estimate}) populate the scene."
+            )
 
         # Symmetry
         if features.symmetry_score > 0.7:
@@ -498,14 +496,16 @@ class FrequencyContextProvider(BaseContextProvider):
         description = self._build_frequency_description(features)
 
         # Prepare feature vector
-        feature_vector = np.array([
-            features.periodic_score,
-            features.noise_level,
-            features.spectral_centroid,
-            features.spectral_spread,
-            features.temporal_periodicity or 0.0,
-            float(features.flicker_detected),
-        ])
+        feature_vector = np.array(
+            [
+                features.periodic_score,
+                features.noise_level,
+                features.spectral_centroid,
+                features.spectral_spread,
+                features.temporal_periodicity or 0.0,
+                float(features.flicker_detected),
+            ]
+        )
 
         return ContextInfo(
             context_type="frequency",
@@ -537,9 +537,7 @@ class FrequencyContextProvider(BaseContextProvider):
         temporal_periodicity = None
         flicker_detected = False
         if t > 1:
-            temporal_periodicity, flicker_detected = self._analyze_temporal_frequency(
-                gray_frames
-            )
+            temporal_periodicity, flicker_detected = self._analyze_temporal_frequency(gray_frames)
 
         return FrequencyFeatures(
             dominant_frequencies=spatial_features["dominant_frequencies"],
@@ -609,15 +607,11 @@ class FrequencyContextProvider(BaseContextProvider):
 
         # Noise level (high frequency content ratio)
         high_freq_idx = int(self.frequency_bins * 0.7)
-        noise_level = float(
-            power_spectrum[high_freq_idx:].sum() / (total_power + 1e-8)
-        )
+        noise_level = float(power_spectrum[high_freq_idx:].sum() / (total_power + 1e-8))
 
         # Spectral centroid
         freq_centers = (freq_bins[:-1] + freq_bins[1:]) / 2
-        spectral_centroid = float(
-            np.sum(freq_centers * power_spectrum) / (total_power + 1e-8)
-        )
+        spectral_centroid = float(np.sum(freq_centers * power_spectrum) / (total_power + 1e-8))
 
         # Spectral spread
         spectral_spread = float(
@@ -635,9 +629,7 @@ class FrequencyContextProvider(BaseContextProvider):
             "spectral_spread": spectral_spread,
         }
 
-    def _analyze_temporal_frequency(
-        self, gray_frames: np.ndarray
-    ) -> tuple[float | None, bool]:
+    def _analyze_temporal_frequency(self, gray_frames: np.ndarray) -> tuple[float | None, bool]:
         """Analyze temporal frequency content."""
         t = len(gray_frames)
 
@@ -768,12 +760,14 @@ class AppearanceContextProvider(BaseContextProvider):
         description = self._build_appearance_description(features)
 
         # Feature vector
-        feature_vector = np.concatenate([
-            [features.brightness_mean, features.brightness_std],
-            [features.contrast, features.saturation_mean],
-            [features.texture_energy, features.texture_entropy],
-            [features.gradient_magnitude_mean, features.color_variance],
-        ])
+        feature_vector = np.concatenate(
+            [
+                [features.brightness_mean, features.brightness_std],
+                [features.contrast, features.saturation_mean],
+                [features.texture_energy, features.texture_entropy],
+                [features.gradient_magnitude_mean, features.color_variance],
+            ]
+        )
 
         return ContextInfo(
             context_type="appearance",
@@ -876,9 +870,7 @@ class AppearanceContextProvider(BaseContextProvider):
             hist, _ = np.histogram(frame.flatten(), bins=self.color_bins, range=(0, 256))
             return hist / hist.sum()
 
-    def _find_dominant_colors(
-        self, frame: np.ndarray
-    ) -> list[tuple[tuple[int, int, int], float]]:
+    def _find_dominant_colors(self, frame: np.ndarray) -> list[tuple[tuple[int, int, int], float]]:
         """Find dominant colors using simple binning."""
         c, h, w = frame.shape
 
@@ -928,15 +920,11 @@ class AppearanceContextProvider(BaseContextProvider):
         c_min = frame.min(axis=0)
 
         # Avoid division by zero
-        saturation = np.where(
-            c_max > 0, (c_max - c_min) / (c_max + 1e-8), 0
-        )
+        saturation = np.where(c_max > 0, (c_max - c_min) / (c_max + 1e-8), 0)
 
         return float(saturation.mean())
 
-    def _compute_texture_features(
-        self, gray: np.ndarray
-    ) -> tuple[float, float]:
+    def _compute_texture_features(self, gray: np.ndarray) -> tuple[float, float]:
         """Compute texture energy and entropy using GLCM-like features."""
         # Quantize to fewer levels
         levels = 8
@@ -1134,9 +1122,7 @@ class EnhancedCombinedContextProvider:
 
         for ctx_type in priority_order:
             if ctx_type in contexts and ctx_type in self.providers:
-                parts.append(
-                    self.providers[ctx_type].format_context_prompt(contexts[ctx_type])
-                )
+                parts.append(self.providers[ctx_type].format_context_prompt(contexts[ctx_type]))
 
         return "\n".join(parts)
 

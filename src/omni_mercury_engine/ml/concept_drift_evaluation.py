@@ -186,9 +186,7 @@ class ConceptDriftEvaluationResult:
             },
             "drift": {
                 "total_detected": self.total_drifts_detected,
-                "timeline": [
-                    {"split": s, "severity": sev.value} for s, sev in self.drift_timeline
-                ],
+                "timeline": [{"split": s, "severity": sev.value} for s, sev in self.drift_timeline],
             },
             "total_time_seconds": self.total_evaluation_time,
             "metadata": self.metadata,
@@ -501,9 +499,7 @@ class DegradationAnalyzer:
         cv = float(np.std(perf_array) / mean) if mean > 0 else 0.0
 
         # Linear trend analysis
-        slope, intercept, r_value, p_value, std_err = stats.linregress(
-            time_index, perf_array
-        )
+        slope, intercept, r_value, p_value, std_err = stats.linregress(time_index, perf_array)
 
         # Detect trend type
         trend = self._detect_trend_type(perf_array, slope, p_value, variance)
@@ -700,9 +696,7 @@ class DegradationAnalyzer:
         trend_score = np.exp(-10 * abs(slope))
 
         # Weighted combination
-        stability = (
-            0.25 * variance_score + 0.25 * cv_score + 0.25 * min_score + 0.25 * trend_score
-        )
+        stability = 0.25 * variance_score + 0.25 * cv_score + 0.25 * min_score + 0.25 * trend_score
 
         return float(np.clip(stability, 0, 1))
 
@@ -732,9 +726,7 @@ class DegradationAnalyzer:
             elif trend == DegradationTrend.EXPONENTIAL_DECAY:
                 # Exponential extrapolation
                 log_perf = np.log(performances + 1e-10)
-                log_slope, log_intercept, _, _, _ = stats.linregress(
-                    np.arange(n), log_perf
-                )
+                log_slope, log_intercept, _, _, _ = stats.linregress(np.arange(n), log_perf)
                 pred = np.exp(log_intercept + log_slope * future_time)
                 pred = max(0, min(1, pred))
 
@@ -795,9 +787,7 @@ class DegradationAnalyzer:
 
         return False, "none"
 
-    def _insufficient_data_result(
-        self, performances: list[float]
-    ) -> DegradationAnalysis:
+    def _insufficient_data_result(self, performances: list[float]) -> DegradationAnalysis:
         """Return result when insufficient data for analysis."""
         mean_perf = np.mean(performances) if performances else 0.0
 
@@ -919,13 +909,11 @@ class ConceptDriftEvaluator:
         splits = self.splitter.split(X, y, timestamps)
 
         if self.verbose:
-            logger.info(
-                f"Evaluating {len(splits)} temporal splits using {self.strategy.value}"
-            )
+            logger.info(f"Evaluating {len(splits)} temporal splits using {self.strategy.value}")
 
         # Initialize drift detector
         if self.detect_drift:
-            self._initialize_drift_detector(X[:self.min_train_size])
+            self._initialize_drift_detector(X[: self.min_train_size])
 
         # Evaluate each split
         split_performances = []
@@ -1089,9 +1077,7 @@ class ConceptDriftEvaluator:
         detector = self._drift_detectors["main"]
         return detector.detect(X_test, feature_names)
 
-    def _extract_metric_values(
-        self, performances: list[SplitPerformance]
-    ) -> list[float]:
+    def _extract_metric_values(self, performances: list[SplitPerformance]) -> list[float]:
         """Extract primary metric values for degradation analysis."""
         if self.metric == "f1":
             return [p.f1 for p in performances]

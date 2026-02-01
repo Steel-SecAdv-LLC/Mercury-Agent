@@ -169,9 +169,7 @@ class UncertaintySampler(BaseSampler):
         margin = sorted_probs[:, -1] - sorted_probs[:, -2]
         return 1 - margin  # Uncertainty = 1 - margin
 
-    def _compute_least_confident(
-        self, probs: NDArray[np.float64]
-    ) -> NDArray[np.float64]:
+    def _compute_least_confident(self, probs: NDArray[np.float64]) -> NDArray[np.float64]:
         """Compute least confidence (1 - max probability)."""
         if probs.ndim == 1 or probs.shape[1] == 1:
             p = probs.flatten()
@@ -179,9 +177,7 @@ class UncertaintySampler(BaseSampler):
 
         return 1 - np.max(probs, axis=1)
 
-    def compute_uncertainty(
-        self, probs: NDArray[np.float64]
-    ) -> NDArray[np.float64]:
+    def compute_uncertainty(self, probs: NDArray[np.float64]) -> NDArray[np.float64]:
         """Compute uncertainty scores."""
         if self.strategy == SamplingStrategy.UNCERTAINTY_ENTROPY:
             return self._compute_entropy(probs)
@@ -341,15 +337,17 @@ class DiversitySampler(BaseSampler):
             selected_features.append(X_unlabeled[original_idx])
 
             # Update reference and remaining
-            reference = np.vstack([reference, X_unlabeled[original_idx:original_idx + 1]])
+            reference = np.vstack([reference, X_unlabeled[original_idx : original_idx + 1]])
             remaining_indices.pop(best_idx)
 
         selected_features_array = np.array(selected_features)
 
         # Compute final diversity scores
-        diversity_scores = self.compute_diversity(
-            selected_features_array, X_labeled
-        ).tolist() if X_labeled is not None else [1.0] * len(selected_indices)
+        diversity_scores = (
+            self.compute_diversity(selected_features_array, X_labeled).tolist()
+            if X_labeled is not None
+            else [1.0] * len(selected_indices)
+        )
 
         return QueryBatch(
             indices=selected_indices,
@@ -411,13 +409,9 @@ class HybridSampler(BaseSampler):
             QueryBatch with selected samples
         """
         # Prefilter by uncertainty
-        prefilter_n = min(
-            int(n_samples * self.prefilter_ratio), len(X_unlabeled)
-        )
+        prefilter_n = min(int(n_samples * self.prefilter_ratio), len(X_unlabeled))
 
-        uncertainty_batch = self.uncertainty_sampler.select(
-            model, X_unlabeled, prefilter_n
-        )
+        uncertainty_batch = self.uncertainty_sampler.select(model, X_unlabeled, prefilter_n)
 
         # Select from prefiltered using diversity
         X_prefiltered = uncertainty_batch.features
@@ -427,9 +421,7 @@ class HybridSampler(BaseSampler):
             return uncertainty_batch
 
         # Compute diversity within prefiltered set
-        diversity_scores = self.diversity_sampler.compute_diversity(
-            X_prefiltered, X_labeled
-        )
+        diversity_scores = self.diversity_sampler.compute_diversity(X_prefiltered, X_labeled)
 
         # Normalize scores
         uncertainties = np.array(uncertainty_batch.uncertainties)
@@ -442,8 +434,7 @@ class HybridSampler(BaseSampler):
 
         # Combined score
         combined_scores = (
-            self.uncertainty_weight * uncertainties_norm
-            + self.diversity_weight * diversity_norm
+            self.uncertainty_weight * uncertainties_norm + self.diversity_weight * diversity_norm
         )
 
         # Select top combined scores
@@ -770,10 +761,7 @@ class ActiveLearner:
         mask = np.ones(len(X_pool), dtype=bool)
         # Validate and filter exclude_indices to be within bounds
         if exclude_indices:
-            valid_indices = [
-                i for i in exclude_indices
-                if 0 <= i < len(X_pool)
-            ]
+            valid_indices = [i for i in exclude_indices if 0 <= i < len(X_pool)]
             if len(valid_indices) < len(exclude_indices):
                 logger.warning(
                     f"Filtered {len(exclude_indices) - len(valid_indices)} "
@@ -804,13 +792,9 @@ class ActiveLearner:
         n_to_select = min(self.batch_size, self.budget - self._queries_made)
 
         if isinstance(self.sampler, QueryByCommitteeSampler):
-            batch = self.sampler.select(
-                self.model, X_unlabeled, n_to_select, X_labeled, y_labeled
-            )
+            batch = self.sampler.select(self.model, X_unlabeled, n_to_select, X_labeled, y_labeled)
         else:
-            batch = self.sampler.select(
-                self.model, X_unlabeled, n_to_select, X_labeled
-            )
+            batch = self.sampler.select(self.model, X_unlabeled, n_to_select, X_labeled)
 
         # Map back to original indices
         original_indices = [unlabeled_indices[i] for i in batch.indices]
@@ -911,9 +895,7 @@ class ActiveLearner:
         iteration = 0
         max_iter = max_iterations or (self.budget // self.batch_size + 1)
 
-        while (
-            iteration < max_iter and self._queries_made < self.budget
-        ):
+        while iteration < max_iter and self._queries_made < self.budget:
             # Select samples
             batch = self.query(X_pool)
 

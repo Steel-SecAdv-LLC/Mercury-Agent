@@ -24,6 +24,7 @@ from numpy.typing import NDArray
 # Test Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def synthetic_data() -> tuple[NDArray[np.float64], NDArray[np.int64]]:
     """Generate synthetic anomaly detection data."""
@@ -99,10 +100,9 @@ def few_shot_data() -> tuple[NDArray[np.float64], NDArray[np.int64]]:
 
 
 @pytest.fixture
-def transfer_data() -> tuple[
-    NDArray[np.float64], NDArray[np.int64],
-    NDArray[np.float64], NDArray[np.int64]
-]:
+def transfer_data() -> (
+    tuple[NDArray[np.float64], NDArray[np.int64], NDArray[np.float64], NDArray[np.int64]]
+):
     """Generate source and target domain data."""
     np.random.seed(42)
 
@@ -123,6 +123,7 @@ def transfer_data() -> tuple[
 # =============================================================================
 # Concept Drift Evaluation Tests
 # =============================================================================
+
 
 class TestConceptDriftEvaluation:
     """Tests for concept drift evaluation framework."""
@@ -228,6 +229,7 @@ class TestConceptDriftEvaluation:
 # Few-Shot Learning Tests
 # =============================================================================
 
+
 class TestFewShotLearning:
     """Tests for few-shot learning framework."""
 
@@ -330,7 +332,8 @@ class TestFewShotLearning:
         )
 
         results = learner.run_k_shot_experiment(
-            X, y,
+            X,
+            y,
             k_values=[10, 50],
             n_trials=3,
         )
@@ -344,6 +347,7 @@ class TestFewShotLearning:
 # =============================================================================
 # Cross-Domain Transfer Tests
 # =============================================================================
+
 
 class TestCrossDomainTransfer:
     """Tests for cross-domain transfer learning."""
@@ -423,6 +427,7 @@ class TestCrossDomainTransfer:
 # SHAP Explainability Tests
 # =============================================================================
 
+
 class TestExplainability:
     """Tests for SHAP explainability integration."""
 
@@ -438,9 +443,7 @@ class TestExplainability:
         model.fit(X, y)
 
         explainer = SHAPExplainer(top_k_features=5)
-        explanations = explainer.explain_local(
-            model, X[:10], sample_indices=[0, 1, 2]
-        )
+        explanations = explainer.explain_local(model, X[:10], sample_indices=[0, 1, 2])
 
         assert len(explanations) == 3
         for exp in explanations:
@@ -494,6 +497,7 @@ class TestExplainability:
 # =============================================================================
 # Active Learning Tests
 # =============================================================================
+
 
 class TestActiveLearning:
     """Tests for active learning framework."""
@@ -599,6 +603,7 @@ class TestActiveLearning:
 # Online Learning Tests
 # =============================================================================
 
+
 class TestOnlineLearning:
     """Tests for online learning pipeline."""
 
@@ -637,7 +642,7 @@ class TestOnlineLearning:
 
         # Incremental updates
         for i in range(0, 100, 10):
-            learner.partial_fit(X[i:i+10], y[i:i+10])
+            learner.partial_fit(X[i : i + 10], y[i : i + 10])
 
         predictions = learner.predict(X[100:110])
         probas = learner.predict_proba(X[100:110])
@@ -681,6 +686,7 @@ class TestOnlineLearning:
 # Secure Audit Logging Tests
 # =============================================================================
 
+
 class TestSecureAuditLogging:
     """Tests for secure audit logging."""
 
@@ -718,15 +724,17 @@ class TestSecureAuditLogging:
         for i in range(5):
             event_data = {"action": f"action_{i}", "timestamp": i}
             event_hash, prev_hash, seq = chain.compute_event_hash(event_data)
-            events.append({
-                "event_hash": event_hash,
-                "previous_hash": prev_hash,
-                "sequence_number": seq,
-            })
+            events.append(
+                {
+                    "event_hash": event_hash,
+                    "previous_hash": prev_hash,
+                    "sequence_number": seq,
+                }
+            )
 
         # Verify chain links
         for i in range(1, len(events)):
-            assert events[i]["previous_hash"] == events[i-1]["event_hash"]
+            assert events[i]["previous_hash"] == events[i - 1]["event_hash"]
 
     def test_audit_logger_event_logging(self, tmp_path):
         """Test audit event logging."""
@@ -769,6 +777,7 @@ class TestSecureAuditLogging:
 # =============================================================================
 # Integration Tests
 # =============================================================================
+
 
 class TestIntegration:
     """Integration tests combining multiple components."""

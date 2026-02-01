@@ -167,10 +167,11 @@ class FeatureConcatFusion(BaseFusionModule):
 
             # Project if specified
             if self.output_dim is not None:
-                if self._projection is None or self._projection.in_features != fused_features.shape[-1]:
-                    self._projection = nn.Linear(
-                        fused_features.shape[-1], self.output_dim
-                    )
+                if (
+                    self._projection is None
+                    or self._projection.in_features != fused_features.shape[-1]
+                ):
+                    self._projection = nn.Linear(fused_features.shape[-1], self.output_dim)
                 fused_features = self._projection(fused_features)
 
             # Normalize
@@ -280,7 +281,9 @@ class AttentionFusion(BaseFusionModule, nn.Module):
 
         # Self-attention across modalities
         attended, attn_weights = self.attention(
-            stacked, stacked, stacked,
+            stacked,
+            stacked,
+            stacked,
             need_weights=True,
         )
 
@@ -477,17 +480,12 @@ class DecisionConfidenceFusion(BaseFusionModule):
             # Require majority
             vote_fraction = predictions.sum(axis=0) / len(predictions)
             consensus_mask = vote_fraction >= self.consensus_threshold
-            fused_predictions = (
-                (fused_scores >= threshold) & consensus_mask
-            ).astype(np.int32)
+            fused_predictions = ((fused_scores >= threshold) & consensus_mask).astype(np.int32)
         else:
             fused_predictions = (fused_scores >= threshold).astype(np.int32)
 
         # Modality weights based on average confidence
-        weight_dict = {
-            name: float(conf.mean())
-            for name, conf in zip(names, confidences)
-        }
+        weight_dict = {name: float(conf.mean()) for name, conf in zip(names, confidences)}
 
         return FusionResult(
             fused_scores=fused_scores,
@@ -604,9 +602,7 @@ class AdaptiveFusion(BaseFusionModule):
 
         return result
 
-    def _compute_agreement(
-        self, inputs: list[ModalityInput], threshold: float
-    ) -> float:
+    def _compute_agreement(self, inputs: list[ModalityInput], threshold: float) -> float:
         """Compute agreement between modalities."""
         predictions = []
 
@@ -633,7 +629,11 @@ class AdaptiveFusion(BaseFusionModule):
         for inp in visual_inputs:
             if inp.anomaly_maps is not None:
                 # Check if anomaly map has strong localization
-                amap = inp.anomaly_maps.numpy() if isinstance(inp.anomaly_maps, torch.Tensor) else inp.anomaly_maps
+                amap = (
+                    inp.anomaly_maps.numpy()
+                    if isinstance(inp.anomaly_maps, torch.Tensor)
+                    else inp.anomaly_maps
+                )
                 if amap.max() > 0:
                     # Compute localization score (ratio of high values to total)
                     high_ratio = (amap > amap.max() * 0.5).mean()
@@ -647,8 +647,14 @@ class AdaptiveFusion(BaseFusionModule):
             if inp.explanations:
                 # Check for semantic keywords in explanations
                 semantic_keywords = [
-                    "unusual", "unexpected", "anomal", "strange",
-                    "wrong", "incorrect", "missing", "extra",
+                    "unusual",
+                    "unexpected",
+                    "anomal",
+                    "strange",
+                    "wrong",
+                    "incorrect",
+                    "missing",
+                    "extra",
                 ]
                 for exp in inp.explanations:
                     exp_lower = exp.lower()
@@ -656,9 +662,7 @@ class AdaptiveFusion(BaseFusionModule):
                         return True
         return False
 
-    def _generate_explanation(
-        self, result: FusionResult, inputs: list[ModalityInput]
-    ) -> str:
+    def _generate_explanation(self, result: FusionResult, inputs: list[ModalityInput]) -> str:
         """Generate human-readable explanation of fusion decision."""
         parts = []
 
@@ -788,8 +792,9 @@ class MultiModalFusionOptimizer:
         # Keep only recent scores
         max_history = 100
         if len(self._strategy_performance[strategy]) > max_history:
-            self._strategy_performance[strategy] = \
-                self._strategy_performance[strategy][-max_history:]
+            self._strategy_performance[strategy] = self._strategy_performance[strategy][
+                -max_history:
+            ]
 
     def get_best_strategy(self) -> FusionStrategy:
         """

@@ -145,9 +145,7 @@ class TestSemanticContextProvider:
         context = provider.extract_context(sample_video)
 
         assert context.context_type == "semantic"
-        assert context.metadata["scene_type"] in [
-            "sparse", "moderate", "dense", "cluttered"
-        ]
+        assert context.metadata["scene_type"] in ["sparse", "moderate", "dense", "cluttered"]
 
     def test_extract_context_torch_tensor(self, sample_frame: np.ndarray) -> None:
         """Test context extraction from torch tensor."""
@@ -316,7 +314,10 @@ class TestAppearanceContextProvider:
         random_tex = np.random.rand(3, 64, 64).astype(np.float32)
         random_context = provider.extract_context(random_tex)
 
-        assert random_context.metadata["texture_entropy"] >= uniform_context.metadata["texture_entropy"]
+        assert (
+            random_context.metadata["texture_entropy"]
+            >= uniform_context.metadata["texture_entropy"]
+        )
 
 
 # =============================================================================
@@ -534,9 +535,7 @@ class TestFeatureConcatFusion:
         assert result.fused_features.shape[-1] == 128
         # Check normalization
         norms = torch.norm(result.fused_features, dim=-1)
-        np.testing.assert_array_almost_equal(
-            norms.numpy(), np.ones(4), decimal=5
-        )
+        np.testing.assert_array_almost_equal(norms.numpy(), np.ones(4), decimal=5)
 
 
 class TestScoreWeightedFusion:
@@ -567,9 +566,7 @@ class TestScoreWeightedFusion:
         )
         result = fusion.fuse([sample_vlm_input, sample_visual_input])
 
-        expected = (
-            0.7 * sample_vlm_input.scores + 0.3 * sample_visual_input.scores
-        )
+        expected = 0.7 * sample_vlm_input.scores + 0.3 * sample_visual_input.scores
         np.testing.assert_array_almost_equal(result.fused_scores, expected)
 
     def test_uncertainty_weighting(
@@ -712,9 +709,7 @@ class TestMultiModalFusionOptimizer:
     ) -> None:
         """Test applying all fusion strategies."""
         optimizer = MultiModalFusionOptimizer()
-        results = optimizer.fuse_all_strategies(
-            [sample_vlm_input, sample_visual_input]
-        )
+        results = optimizer.fuse_all_strategies([sample_vlm_input, sample_visual_input])
 
         assert len(results) > 0
         assert FusionStrategy.ADAPTIVE in results
@@ -800,10 +795,7 @@ class TestIntegration:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=access_cache, args=(i,))
-            for i in range(10)
-        ]
+        threads = [threading.Thread(target=access_cache, args=(i,)) for i in range(10)]
 
         for t in threads:
             t.start()

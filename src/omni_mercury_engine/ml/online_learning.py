@@ -203,9 +203,7 @@ class SampleBuffer:
                 batch = samples.copy()
             else:
                 # Random sampling from buffer
-                indices = self.rng.choice(
-                    len(samples), batch_size, replace=False
-                )
+                indices = self.rng.choice(len(samples), batch_size, replace=False)
                 batch = [samples[i] for i in indices]
 
             if remove:
@@ -449,9 +447,7 @@ class OnlineLearningPipeline:
         self.rng = np.random.default_rng(random_state)
 
         # Buffer for samples
-        self.buffer = SampleBuffer(
-            max_size=buffer_size, strategy="fifo", random_state=random_state
-        )
+        self.buffer = SampleBuffer(max_size=buffer_size, strategy="fifo", random_state=random_state)
 
         # Reference data for drift detection
         self._reference_data: NDArray[np.float64] | None = None
@@ -570,9 +566,7 @@ class OnlineLearningPipeline:
                 X, y = self.buffer.get_all()
                 if len(y) >= self.mini_batch_size:
                     # Sample mini-batch
-                    indices = self.rng.choice(
-                        len(y), self.mini_batch_size, replace=False
-                    )
+                    indices = self.rng.choice(len(y), self.mini_batch_size, replace=False)
                     X_batch = X[indices]
                     y_batch = y[indices]
 
@@ -589,7 +583,7 @@ class OnlineLearningPipeline:
             if len(self.buffer) >= self._reference_size:
                 X, _ = self.buffer.get_all()
                 if len(X) >= self._reference_size:
-                    self._reference_data = X[:self._reference_size]
+                    self._reference_data = X[: self._reference_size]
                     self._drift_detector.fit(self._reference_data)
             return None
 
@@ -620,9 +614,7 @@ class OnlineLearningPipeline:
 
         # Trigger retraining based on severity
         if drift_result.severity in [DriftSeverity.HIGH, DriftSeverity.CRITICAL]:
-            self._trigger_retraining(
-                RetrainingTrigger.DRIFT_DETECTED, drift_result.severity
-            )
+            self._trigger_retraining(RetrainingTrigger.DRIFT_DETECTED, drift_result.severity)
 
     def _check_performance_and_retrain(self) -> None:
         """Check performance and trigger retraining if needed."""
@@ -682,7 +674,7 @@ class OnlineLearningPipeline:
                     self.model.partial_fit(X[indices], y[indices])
 
         # Update reference data
-        self._reference_data = X[:self._reference_size] if len(X) >= self._reference_size else X
+        self._reference_data = X[: self._reference_size] if len(X) >= self._reference_size else X
         if self._drift_detector:
             self._drift_detector.fit(self._reference_data)
 
@@ -747,11 +739,7 @@ class OnlineLearningPipeline:
         elapsed = time.time() - self._start_time
         throughput = self._samples_processed / max(elapsed, 1)
 
-        avg_latency = (
-            np.mean(list(self._update_latencies))
-            if self._update_latencies
-            else 0.0
-        )
+        avg_latency = np.mean(list(self._update_latencies)) if self._update_latencies else 0.0
 
         return OnlineLearningMetrics(
             samples_processed=self._samples_processed,
@@ -766,15 +754,11 @@ class OnlineLearningPipeline:
             throughput_samples_per_sec=throughput,
         )
 
-    def add_drift_callback(
-        self, callback: Callable[[DriftResult], None]
-    ) -> None:
+    def add_drift_callback(self, callback: Callable[[DriftResult], None]) -> None:
         """Add callback for drift events."""
         self._on_drift_callbacks.append(callback)
 
-    def add_retrain_callback(
-        self, callback: Callable[[RetrainingEvent], None]
-    ) -> None:
+    def add_retrain_callback(self, callback: Callable[[RetrainingEvent], None]) -> None:
         """Add callback for retraining events."""
         self._on_retrain_callbacks.append(callback)
 

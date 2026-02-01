@@ -192,12 +192,8 @@ class FeatureAligner:
             target_set = set(self.target_features)
             self.common_features = list(source_set & target_set)
 
-            self.source_indices = [
-                self.source_features.index(f) for f in self.common_features
-            ]
-            self.target_indices = [
-                self.target_features.index(f) for f in self.common_features
-            ]
+            self.source_indices = [self.source_features.index(f) for f in self.common_features]
+            self.target_indices = [self.target_features.index(f) for f in self.common_features]
 
         elif self.alignment_method == "mapping":
             # Try to map similar feature names
@@ -238,12 +234,8 @@ class FeatureAligner:
                         target_lower = target_feat.lower()
                         if any(m in target_lower for m in mappings):
                             self.common_features.append(source_feat)
-                            self.source_indices.append(
-                                self.source_features.index(source_feat)
-                            )
-                            self.target_indices.append(
-                                self.target_features.index(target_feat)
-                            )
+                            self.source_indices.append(self.source_features.index(source_feat))
+                            self.target_indices.append(self.target_features.index(target_feat))
                             break
                     break
 
@@ -427,9 +419,7 @@ class MMDAdapter(BaseDomainAdapter):
 
         self._classifier.fit(source_X_proj, source_y)
 
-    def transform(
-        self, X: NDArray[np.float64], domain: str = "target"
-    ) -> NDArray[np.float64]:
+    def transform(self, X: NDArray[np.float64], domain: str = "target") -> NDArray[np.float64]:
         """Transform features to aligned space."""
         if self.source_mean is None or self.projection_matrix is None:
             raise ValueError("Adapter not fitted")
@@ -488,9 +478,7 @@ class CORALAdapter(BaseDomainAdapter):
         # Classifier
         self._classifier: Any = None
 
-    def _compute_cov_sqrt_inv(
-        self, cov: NDArray[np.float64]
-    ) -> NDArray[np.float64]:
+    def _compute_cov_sqrt_inv(self, cov: NDArray[np.float64]) -> NDArray[np.float64]:
         """Compute inverse square root of covariance matrix."""
         # Add regularization
         cov_reg = cov + self.regularization * np.eye(cov.shape[0])
@@ -507,9 +495,7 @@ class CORALAdapter(BaseDomainAdapter):
 
         return sqrt_inv
 
-    def _compute_cov_sqrt(
-        self, cov: NDArray[np.float64]
-    ) -> NDArray[np.float64]:
+    def _compute_cov_sqrt(self, cov: NDArray[np.float64]) -> NDArray[np.float64]:
         """Compute square root of covariance matrix."""
         cov_reg = cov + self.regularization * np.eye(cov.shape[0])
 
@@ -546,12 +532,8 @@ class CORALAdapter(BaseDomainAdapter):
         target_centered = target_X - self.target_mean
 
         # Compute covariances
-        source_cov = np.cov(source_centered.T) + self.regularization * np.eye(
-            source_X.shape[1]
-        )
-        target_cov = np.cov(target_centered.T) + self.regularization * np.eye(
-            target_X.shape[1]
-        )
+        source_cov = np.cov(source_centered.T) + self.regularization * np.eye(source_X.shape[1])
+        target_cov = np.cov(target_centered.T) + self.regularization * np.eye(target_X.shape[1])
 
         # Compute whitening matrix (target) and coloring matrix (source)
         self.whitening_matrix = self._compute_cov_sqrt_inv(target_cov)
@@ -571,9 +553,7 @@ class CORALAdapter(BaseDomainAdapter):
 
         self._classifier.fit(source_X, source_y)
 
-    def transform(
-        self, X: NDArray[np.float64], domain: str = "target"
-    ) -> NDArray[np.float64]:
+    def transform(self, X: NDArray[np.float64], domain: str = "target") -> NDArray[np.float64]:
         """Transform target features to source-aligned space."""
         if domain == "source":
             return X
@@ -643,9 +623,7 @@ class SubspaceAlignmentAdapter(BaseDomainAdapter):
         # Classifier
         self._classifier: Any = None
 
-    def _compute_principal_subspace(
-        self, X: NDArray[np.float64]
-    ) -> NDArray[np.float64]:
+    def _compute_principal_subspace(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
         """Compute principal subspace basis."""
         # Center data
         X_centered = X - np.mean(X, axis=0)
@@ -691,9 +669,7 @@ class SubspaceAlignmentAdapter(BaseDomainAdapter):
 
         self._classifier.fit(source_proj, source_y)
 
-    def transform(
-        self, X: NDArray[np.float64], domain: str = "target"
-    ) -> NDArray[np.float64]:
+    def transform(self, X: NDArray[np.float64], domain: str = "target") -> NDArray[np.float64]:
         """Transform to aligned subspace."""
         if domain == "source":
             return (X - self.source_mean) @ self.source_basis
@@ -811,9 +787,7 @@ class CrossDomainTransferLearner:
             target_X = self.feature_aligner.align_target(target_data.X)
 
             if self.verbose:
-                logger.info(
-                    f"Aligned {len(self.feature_aligner.common_features)} common features"
-                )
+                logger.info(f"Aligned {len(self.feature_aligner.common_features)} common features")
         else:
             # Assume same feature space
             min_features = min(source_data.n_features, target_data.n_features)
@@ -849,9 +823,7 @@ class CrossDomainTransferLearner:
         # Compute MMD after adaptation
         source_transformed = self.adapter.transform(source_X, "source")
         target_transformed = self.adapter.transform(target_X, "target")
-        self._mmd_after = mmd_adapter.compute_mmd(
-            source_transformed, target_transformed
-        )
+        self._mmd_after = mmd_adapter.compute_mmd(source_transformed, target_transformed)
 
         if self.verbose:
             logger.info(
@@ -925,9 +897,7 @@ class CrossDomainTransferLearner:
         precision = precision_score(
             target_data.y, target_preds, average="weighted", zero_division=0
         )
-        recall = recall_score(
-            target_data.y, target_preds, average="weighted", zero_division=0
-        )
+        recall = recall_score(target_data.y, target_preds, average="weighted", zero_division=0)
         f1 = f1_score(target_data.y, target_preds, average="weighted", zero_division=0)
 
         # AUC-ROC if binary
@@ -937,9 +907,7 @@ class CrossDomainTransferLearner:
                 if hasattr(self.adapter, "predict_proba"):
                     target_X_aligned = target_data.X
                     if self.feature_aligner:
-                        target_X_aligned = self.feature_aligner.align_target(
-                            target_X_aligned
-                        )
+                        target_X_aligned = self.feature_aligner.align_target(target_X_aligned)
                     if self.scaler is not None:
                         target_X_aligned = self.scaler.transform(target_X_aligned)
                     proba = self.adapter.predict_proba(target_X_aligned)
@@ -954,9 +922,7 @@ class CrossDomainTransferLearner:
             cls_mask = target_data.y == cls
             cls_preds = target_preds[cls_mask]
             cls_true = target_data.y[cls_mask]
-            cls_f1 = f1_score(
-                cls_true, cls_preds, average="binary", pos_label=cls, zero_division=0
-            )
+            cls_f1 = f1_score(cls_true, cls_preds, average="binary", pos_label=cls, zero_division=0)
             class_f1_scores[str(cls)] = float(cls_f1)
 
         # Transfer ratio
@@ -964,9 +930,7 @@ class CrossDomainTransferLearner:
         negative_transfer = transfer_ratio < 0.9  # Less than 90% of source performance
 
         # Alignment improvement
-        alignment_improvement = (self._mmd_before - self._mmd_after) / (
-            self._mmd_before + 1e-10
-        )
+        alignment_improvement = (self._mmd_before - self._mmd_after) / (self._mmd_before + 1e-10)
 
         return TransferResult(
             accuracy=float(accuracy),

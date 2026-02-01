@@ -443,9 +443,7 @@ class SHAPExplainer(BaseExplainer):
                 contributions[name] = float(sample_shap[j])
 
             # Sort by absolute importance
-            sorted_features = sorted(
-                contributions.items(), key=lambda x: abs(x[1]), reverse=True
-            )
+            sorted_features = sorted(contributions.items(), key=lambda x: abs(x[1]), reverse=True)
 
             # Create top features
             top_features = []
@@ -755,9 +753,7 @@ class AnomalyExplainer:
             include_counterfactual: Include counterfactual explanations
             top_k_features: Number of top features to highlight
         """
-        self.shap_explainer = SHAPExplainer(
-            method=shap_method, top_k_features=top_k_features
-        )
+        self.shap_explainer = SHAPExplainer(method=shap_method, top_k_features=top_k_features)
         self.counterfactual_explainer = (
             CounterfactualExplainer() if include_counterfactual else None
         )
@@ -794,18 +790,14 @@ class AnomalyExplainer:
 
         # Global explanation
         if include_global:
-            global_explanation = self.shap_explainer.explain_global(
-                model, X, feature_names
-            )
+            global_explanation = self.shap_explainer.explain_global(model, X, feature_names)
             result["global_explanation"] = global_explanation.to_dict()
 
         # Counterfactual explanations
         if self.counterfactual_explainer and sample_indices:
             counterfactuals = []
             for idx in sample_indices[:10]:  # Limit to 10 counterfactuals
-                cf = self.counterfactual_explainer.explain(
-                    model, X[idx], feature_names
-                )
+                cf = self.counterfactual_explainer.explain(model, X[idx], feature_names)
                 counterfactuals.append(
                     {
                         "sample_index": idx,
