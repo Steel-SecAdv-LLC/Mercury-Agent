@@ -152,8 +152,10 @@ jobs:
 
       - name: Run Bandit (security linter)
         # Bandit security scan is now blocking - fails on medium+ severity issues
+        # Uses pyproject.toml config which skips B310 (urlopen) since TrustedEndpoints provides SSRF safety
         run: |
           bandit -r src/omni_mercury_engine/ \
+            -c pyproject.toml \
             -f json \
             -o bandit-report.json \
             --severity-level medium

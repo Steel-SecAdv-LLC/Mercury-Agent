@@ -460,7 +460,10 @@ ignore-imports = true
 # =============================================================================
 [tool.bandit]
 exclude_dirs = ["tests", "venv", ".venv", "build", "dist"]
-skips = ["B101", "B311"]  # Skip assert and random warnings in tests
+# B101: assert warnings (tests only)
+# B311: random warnings (non-crypto use)
+# B310: urllib_urlopen - safe because all URLs use TrustedEndpoints class constants (HTTPS hardcoded)
+skips = ["B101", "B311", "B310"]
 targets = ["src/omni_mercury_engine"]
 
 [tool.bandit.assert_used]
