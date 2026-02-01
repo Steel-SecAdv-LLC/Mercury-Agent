@@ -79,7 +79,8 @@ class NOAABuoyLoader(DatasetLoader):
         "46042": "Monterey Bay, CA",
     }
 
-    # Base URL for real-time buoy data (uses TrustedEndpoints constant)
+    # Base URL for real-time buoy data (via TrustedEndpoints for SSRF prevention)
+    # Uses NOAA_NDBC_REALTIME + /{station}.txt pattern
     BASE_URL = TrustedEndpoints.NOAA_NDBC_REALTIME + "/{station}.txt"
 
     # Feature columns to extract
@@ -139,6 +140,7 @@ class NOAABuoyLoader(DatasetLoader):
                         f"Downloading buoy {station} ({self.BUOY_STATIONS.get(station, 'Unknown')})..."
                     )
 
+                    # URL constructed from TrustedEndpoints - safe from SSRF
                     req = urllib.request.Request(
                         url,
                         headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},

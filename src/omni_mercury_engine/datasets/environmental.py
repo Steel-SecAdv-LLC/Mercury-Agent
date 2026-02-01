@@ -56,7 +56,7 @@ class USGSEarthquakeLoader(DatasetLoader):
     National Earthquake Information Center (NEIC)."""
     REQUIRES_CREDENTIALS = False
 
-    # USGS API endpoint for GeoJSON earthquake data
+    # USGS API endpoint for GeoJSON earthquake data (via TrustedEndpoints for SSRF prevention)
     USGS_API_URL = TrustedEndpoints.USGS_EARTHQUAKE
 
     FEATURE_NAMES = [
@@ -130,6 +130,7 @@ class USGSEarthquakeLoader(DatasetLoader):
             logger.info(
                 f"Downloading earthquake data from USGS API (last {self.days_back} days)..."
             )
+            # URL from TrustedEndpoints - safe from SSRF
             req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
@@ -333,7 +334,7 @@ class NOAAWeatherLoader(DatasetLoader):
     CITATION = """Open-Meteo Free Weather API. https://open-meteo.com/"""
     REQUIRES_CREDENTIALS = False
 
-    # Open-Meteo API endpoint
+    # Open-Meteo API endpoint (via TrustedEndpoints for SSRF prevention)
     OPEN_METEO_URL = TrustedEndpoints.OPEN_METEO_ARCHIVE
 
     # Major cities for diverse weather sampling
@@ -416,6 +417,7 @@ class NOAAWeatherLoader(DatasetLoader):
                 url = f"{self.OPEN_METEO_URL}?{query_string}"
 
                 logger.info(f"Downloading weather data for {loc['name']}...")
+                # URL from TrustedEndpoints - safe from SSRF
                 req = urllib.request.Request(
                     url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
                 )
@@ -567,10 +569,10 @@ class WildfireDataLoader(DatasetLoader):
     MODIS Collection 6.1 and VIIRS Active Fire Products."""
     REQUIRES_CREDENTIALS = False
 
-    # NASA FIRMS public CSV data URLs (no API key needed)
+    # NASA FIRMS public CSV data URLs (via TrustedEndpoints for SSRF prevention)
     FIRMS_URLS = {
         "modis_7d": TrustedEndpoints.NASA_FIRMS_MODIS_7D,
-        "viirs_7d": TrustedEndpoints.NASA_FIRMS_VIIRS_7D,
+        "viirs_7d": TrustedEndpoints.NASA_FIRMS_VIIRS_SUOMI_7D,
     }
 
     FEATURE_NAMES = [
@@ -624,9 +626,9 @@ class WildfireDataLoader(DatasetLoader):
 
         try:
             url = self.FIRMS_URLS.get(self.source, self.FIRMS_URLS["modis_7d"])
-
             logger.info(f"Downloading fire data from NASA FIRMS ({self.source})...")
 
+            # URL from TrustedEndpoints - safe from SSRF
             req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )

@@ -576,12 +576,14 @@ class TrustedEndpoints:
         - Never concatenate user input directly into these URLs
     """
 
-    # USGS Earthquake Hazards Program
-    # https://earthquake.usgs.gov/fdsnws/event/1/
+    # ==========================================================================
+    # USGS - Earthquake Hazards Program
+    # ==========================================================================
     USGS_EARTHQUAKE = "https://earthquake.usgs.gov/fdsnws/event/1/query"
 
-    # NOAA Space Weather Prediction Center
-    # https://services.swpc.noaa.gov/
+    # ==========================================================================
+    # NOAA - Space Weather Prediction Center
+    # ==========================================================================
     NOAA_SWPC_BASE = "https://services.swpc.noaa.gov/json"
     NOAA_SWPC_KINDEX = "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json"
     NOAA_SWPC_XRAYS = "https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json"
@@ -590,44 +592,40 @@ class TrustedEndpoints:
     )
     NOAA_SWPC_KP_PRODUCTS = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
 
-    # NOAA National Hurricane Center
-    # https://www.nhc.noaa.gov/
+    # ==========================================================================
+    # NOAA - National Hurricane Center
+    # ==========================================================================
     NOAA_NHC_ARCHIVE = "https://www.nhc.noaa.gov/gis/forecast/archive"
     NOAA_NHC_HURDAT2 = "https://www.nhc.noaa.gov/gis/forecast/archive/hurdat2-1851-2023-052424.txt"
 
-    # NOAA National Ocean Service
-    # https://tidesandcurrents.noaa.gov/
+    # ==========================================================================
+    # NOAA - National Ocean Service / Tides
+    # ==========================================================================
     NOAA_NOS_API = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
 
-    # NOAA DART Buoy Network (Tsunami Detection)
-    # https://www.ndbc.noaa.gov/dart.shtml
+    # ==========================================================================
+    # NOAA - DART Buoy Network (Tsunami Detection)
+    # ==========================================================================
     NOAA_DART_BUOY = "https://www.ndbc.noaa.gov/data/realtime2"
 
-    # NOAA Tsunami Events API
-    # https://www.ngdc.noaa.gov/hazel/view/hazards/tsunami/event-search
+    # ==========================================================================
+    # NOAA - Tsunami Events API
+    # ==========================================================================
     NOAA_TSUNAMI_EVENTS = "https://www.ngdc.noaa.gov/hazel/hazard-service/api/v1/tsunamis/events"
 
-    # NASA Exoplanet Archive
-    # https://exoplanetarchive.ipac.caltech.edu/
-    NASA_EXOPLANET_TAP = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync"
-
-    # NSL-KDD Dataset (UCI ML Repository)
-    # https://archive.ics.uci.edu/ml/datasets/kdd+cup+1999+data
-    UCI_NSL_KDD = (
-        "https://archive.ics.uci.edu/ml/machine-learning-databases/"
-        "kddcup99-mld/kddcup.data_10_percent.gz"
-    )
-
-    # NOAA National Data Buoy Center (NDBC)
-    # https://www.ndbc.noaa.gov/
+    # ==========================================================================
+    # NOAA - National Data Buoy Center (NDBC)
+    # ==========================================================================
     NOAA_NDBC_REALTIME = "https://www.ndbc.noaa.gov/data/realtime2"
 
-    # Open-Meteo Weather Archive API
-    # https://open-meteo.com/
-    OPEN_METEO_ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
+    # ==========================================================================
+    # NASA - Exoplanet Archive
+    # ==========================================================================
+    NASA_EXOPLANET_TAP = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync"
 
-    # NASA FIRMS (Fire Information for Resource Management System)
-    # https://firms.modaps.eosdis.nasa.gov/
+    # ==========================================================================
+    # NASA - FIRMS (Fire Information for Resource Management System)
+    # ==========================================================================
     NASA_FIRMS_MODIS_7D = (
         "https://firms.modaps.eosdis.nasa.gov/data/active_fire/"
         "modis-c6.1/csv/MODIS_C6_1_Global_7d.csv"
@@ -635,6 +633,40 @@ class TrustedEndpoints:
     NASA_FIRMS_VIIRS_7D = (
         "https://firms.modaps.eosdis.nasa.gov/data/active_fire/"
         "viirs-i-npp/csv/VNP14IMGTDL_NRT_Global_7d.csv"
+    )
+    # SUOMI NPP VIIRS Collection 2 (alternative VIIRS source)
+    NASA_FIRMS_VIIRS_SUOMI_7D = (
+        "https://firms.modaps.eosdis.nasa.gov/data/active_fire/"
+        "suomi-npp-viirs-c2/csv/SUOMI_VIIRS_C2_Global_7d.csv"
+    )
+
+    # ==========================================================================
+    # Open-Meteo Weather Archive API
+    # ==========================================================================
+    OPEN_METEO_ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
+
+    # ==========================================================================
+    # UCI ML Repository - NSL-KDD Dataset
+    # ==========================================================================
+    UCI_NSL_KDD = (
+        "https://archive.ics.uci.edu/ml/machine-learning-databases/"
+        "kddcup99-mld/kddcup.data_10_percent.gz"
+    )
+
+    # ==========================================================================
+    # GitHub - NSL-KDD Dataset Mirror (defcom17)
+    # ==========================================================================
+    GITHUB_NSL_KDD_TRAIN = "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTrain+.txt"
+    GITHUB_NSL_KDD_TEST = "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTest+.txt"
+
+    # ==========================================================================
+    # MITRE ATT&CK - Threat Intelligence
+    # ==========================================================================
+    MITRE_STIX = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
+    # Alternative MITRE STIX data source (attack-stix-data repo)
+    MITRE_STIX_DATA = (
+        "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/"
+        "master/enterprise-attack/enterprise-attack.json"
     )
 
 

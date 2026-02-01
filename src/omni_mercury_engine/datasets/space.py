@@ -198,7 +198,7 @@ class NASAExoplanetLoader(DatasetLoader):
     of Technology, under contract with NASA under the Exoplanet Exploration Program."""
     REQUIRES_CREDENTIALS = False
 
-    # NASA Exoplanet Archive TAP endpoint
+    # NASA Exoplanet Archive TAP endpoint (via TrustedEndpoints for SSRF prevention)
     NASA_TAP_URL = TrustedEndpoints.NASA_EXOPLANET_TAP
 
     FEATURE_NAMES = [
@@ -271,9 +271,9 @@ class NASAExoplanetLoader(DatasetLoader):
             }
 
             url = f"{self.NASA_TAP_URL}?{urllib.parse.urlencode(params)}"
-
             logger.info("Downloading exoplanet data from NASA Exoplanet Archive...")
 
+            # URL from TrustedEndpoints - safe from SSRF
             req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
@@ -438,7 +438,7 @@ class SolarDynamicsLoader(DatasetLoader):
     CITATION = """NOAA Space Weather Prediction Center. https://www.swpc.noaa.gov/"""
     REQUIRES_CREDENTIALS = False
 
-    # NOAA SWPC JSON data endpoints
+    # NOAA SWPC JSON data endpoints (via TrustedEndpoints for SSRF prevention)
     SWPC_URLS = {
         "xrays": TrustedEndpoints.NOAA_SWPC_XRAYS,
         "protons": TrustedEndpoints.NOAA_SWPC_PROTONS,
@@ -487,9 +487,9 @@ class SolarDynamicsLoader(DatasetLoader):
         try:
             # Download X-ray data (primary solar activity indicator)
             url = self.SWPC_URLS["xrays"]
-
             logger.info("Downloading solar X-ray data from NOAA SWPC...")
 
+            # URL from TrustedEndpoints - safe from SSRF
             req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )

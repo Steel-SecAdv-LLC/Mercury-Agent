@@ -17,7 +17,6 @@ import logging
 import zipfile
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 import numpy as np
 
@@ -30,50 +29,12 @@ except ImportError:
     pd = None
     PANDAS_AVAILABLE = False
 
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 
 
 logger = logging.getLogger(__name__)
-
-
-# Allowlist of trusted domains for SSRF protection
-_ALLOWED_DOMAINS: frozenset[str] = frozenset(
-    [
-        "raw.githubusercontent.com",
-        "raw.github.com",
-        "attack.mitre.org",
-    ]
-)
-
-
-def _sanitize_url(url: str) -> str:
-    """Validate and sanitize URL to prevent SSRF attacks.
-
-    Validates that:
-    1. URL uses HTTPS scheme
-    2. Domain is in the allowlist of trusted data sources
-
-    Reconstructs URL from validated components to ensure CodeQL
-    recognizes this as a proper sanitizer.
-
-    Args:
-        url: URL to validate
-
-    Returns:
-        A reconstructed URL from validated components
-
-    Raises:
-        ValueError: If URL fails security validation
-    """
-    parsed = urlparse(url)
-    if parsed.scheme != "https":
-        raise ValueError(f"URL must use HTTPS scheme, got: {parsed.scheme}")
-    if parsed.netloc not in _ALLOWED_DOMAINS:
-        raise ValueError(f"Domain not in allowlist: {parsed.netloc}")
-    # Reconstruct URL from validated components - this creates a new
-    # sanitized URL that CodeQL recognizes as safe
-    query = f"?{parsed.query}" if parsed.query else ""
-    return f"https://{parsed.netloc}{parsed.path}{query}"
 
 
 class NSLKDDLoader(DatasetLoader):
@@ -97,10 +58,10 @@ class NSLKDDLoader(DatasetLoader):
     KDD CUP 99 data set. IEEE Symposium on Computational Intelligence. 2009."""
     REQUIRES_CREDENTIALS = False
 
-    # GitHub raw URLs for NSL-KDD data
+    # GitHub raw URLs for NSL-KDD data (via TrustedEndpoints for SSRF prevention)
     NSLKDD_URLS = {
-        "train": "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTrain+.txt",
-        "test": "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTest+.txt",
+        "train": TrustedEndpoints.GITHUB_NSL_KDD_TRAIN,
+        "test": TrustedEndpoints.GITHUB_NSL_KDD_TEST,
     }
 
     # Column names for NSL-KDD (41 features + 2 labels)
@@ -262,18 +223,10 @@ class NSLKDDLoader(DatasetLoader):
                 if split == "test" and not self.include_test:
                     continue
 
-                try:
-                    # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
-                    sanitized_url = _sanitize_url(url)
-                except ValueError as e:
-                    logger.warning(f"Skipping {split}: {e}")
-                    continue
-
                 logger.info(f"Downloading NSL-KDD {split} from GitHub...")
 
-                with urllib.request.urlopen(  # noqa: S310  # nosec B310
-                    sanitized_url, timeout=120
-                ) as response:
+                # URL from TrustedEndpoints - safe from SSRF
+                with urllib.request.urlopen(url, timeout=120) as response:
                     content = response.read().decode("utf-8")
 
                 # Parse CSV (no header in file)
@@ -1239,11 +1192,8 @@ class ThreatIntelLoader(DatasetLoader):
     CITATION = "MITRE ATT&CK. MITRE Corporation. https://attack.mitre.org/"
     REQUIRES_CREDENTIALS = False
 
-    # MITRE ATT&CK STIX data URL
-    MITRE_STIX_URL = (
-        "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/"
-        "master/enterprise-attack/enterprise-attack.json"
-    )
+    # MITRE ATT&CK STIX data URL (via TrustedEndpoints for SSRF prevention)
+    MITRE_STIX_URL = TrustedEndpoints.MITRE_STIX_DATA
 
     # MITRE ATT&CK tactics
     TACTICS = [
@@ -1318,15 +1268,13 @@ class ThreatIntelLoader(DatasetLoader):
             return True
 
         try:
-            # Sanitize URL to prevent SSRF attacks - raises ValueError if invalid
-            sanitized_url = _sanitize_url(self.MITRE_STIX_URL)
-
             logger.info("Downloading MITRE ATT&CK Enterprise data...")
-            req = urllib.request.Request(  # noqa: S310
-                sanitized_url,
+            # URL from TrustedEndpoints - safe from SSRF
+            req = urllib.request.Request(
+                self.MITRE_STIX_URL,
                 headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},
             )
-            with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310  # nosec B310
+            with urllib.request.urlopen(req, timeout=120) as response:
                 data = json.loads(response.read().decode("utf-8"))
 
             objects = data.get("objects", [])

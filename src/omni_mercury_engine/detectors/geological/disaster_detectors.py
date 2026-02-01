@@ -63,7 +63,6 @@ from omni_mercury_engine.utils.rng import get_global_rng
 
 logger = logging.getLogger(__name__)
 
-
 # Feature dimension for fusion pipeline
 FEATURE_DIM = 20
 
@@ -1415,13 +1414,13 @@ def generate_synthetic_earthquake_data(
 # Real-World Dataset Loaders for Disaster Detection Training
 # =============================================================================
 
-# NOAA DART Buoy API for tsunami detection
-DART_BUOY_API_URL = TrustedEndpoints.NOAA_DART_BUOY
+# NOAA DART Buoy API for tsunami detection (via TrustedEndpoints for SSRF prevention)
+DART_BUOY_API_URL = TrustedEndpoints.NOAA_NDBC_REALTIME
 
-# NOAA Tsunami Events API
+# NOAA Tsunami Events API (via TrustedEndpoints for SSRF prevention)
 NOAA_TSUNAMI_API_URL = TrustedEndpoints.NOAA_TSUNAMI_EVENTS
 
-# USGS Earthquake Catalog API
+# USGS Earthquake Catalog API (via TrustedEndpoints for SSRF prevention)
 USGS_EARTHQUAKE_API_URL = TrustedEndpoints.USGS_EARTHQUAKE
 
 
@@ -1452,7 +1451,10 @@ def load_dart_buoy_data(
         tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]
     ):
         url = f"{DART_BUOY_API_URL}/{station_id}.dart"
+        if not url.startswith("https://"):
+            raise RuntimeError("DART API URL must use HTTPS")
 
+        # URL from TrustedEndpoints - safe from SSRF
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
         with urlopen(req, timeout=30) as response:
             raw_data = response.read().decode()
@@ -1526,7 +1528,10 @@ def load_noaa_tsunami_records(
 
     def _fetch_tsunami_records() -> list[dict[str, Any]]:
         url = f"{NOAA_TSUNAMI_API_URL}?minYear={min_year}&maxSize={max_records}"
+        if not url.startswith("https://"):
+            raise RuntimeError("NOAA Tsunami API URL must use HTTPS")
 
+        # URL from TrustedEndpoints - safe from SSRF
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
         with urlopen(req, timeout=30) as response:
             data = json.loads(response.read().decode())
@@ -1584,7 +1589,10 @@ def load_usgs_earthquake_catalog(
         }
 
         url = f"{USGS_EARTHQUAKE_API_URL}?" + "&".join(f"{k}={v}" for k, v in params.items())
+        if not url.startswith("https://"):
+            raise RuntimeError("USGS API URL must use HTTPS")
 
+        # URL from TrustedEndpoints - safe from SSRF
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
         with urlopen(req, timeout=30) as response:
             data = json.loads(response.read().decode())

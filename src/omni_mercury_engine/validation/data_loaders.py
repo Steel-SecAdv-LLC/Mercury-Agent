@@ -116,7 +116,8 @@ class NSLKDDLoader(DatasetLoader):
     IEEE Symposium on Computational Intelligence for Security and Defense Applications.
     """
 
-    NSL_KDD_URL = "https://archive.ics.uci.edu/ml/machine-learning-databases/kddcup99-mld/kddcup.data_10_percent.gz"
+    # Via TrustedEndpoints for SSRF prevention
+    NSL_KDD_URL = TrustedEndpoints.UCI_NSL_KDD
 
     FEATURE_NAMES = [
         "duration",
@@ -338,6 +339,7 @@ class USGSEarthquakeLoader(DatasetLoader):
     https://earthquake.usgs.gov/
     """
 
+    # Via TrustedEndpoints for SSRF prevention
     USGS_API_URL = TrustedEndpoints.USGS_EARTHQUAKE
 
     FEATURE_NAMES = [
@@ -505,9 +507,13 @@ class USGSEarthquakeLoader(DatasetLoader):
 
             url = f"{self.USGS_API_URL}?" + "&".join(f"{k}={v}" for k, v in params.items())
 
+            if not url.startswith("https://"):
+                raise RuntimeError("USGS API URL must use HTTPS. Security validation failed.")
+
             import json
             from urllib.request import Request
 
+            # URL from TrustedEndpoints - safe from SSRF
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
             with urlopen(req, timeout=30) as response:
                 data = json.loads(response.read().decode())
@@ -886,6 +892,7 @@ class NOAASpaceWeatherLoader(DatasetLoader):
     https://www.swpc.noaa.gov/
     """
 
+    # Via TrustedEndpoints for SSRF prevention
     SWPC_API_URL = TrustedEndpoints.NOAA_SWPC_BASE
 
     FEATURE_NAMES = [
@@ -1057,7 +1064,10 @@ class NOAASpaceWeatherLoader(DatasetLoader):
             from urllib.request import Request
 
             url = f"{self.SWPC_API_URL}/planetary_k_index_1m.json"
+            if not url.startswith("https://"):
+                raise RuntimeError("NOAA SWPC API URL must use HTTPS. Security validation failed.")
 
+            # URL from TrustedEndpoints - safe from SSRF
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
             with urlopen(req, timeout=30) as response:
                 kp_data = json.loads(response.read().decode())
@@ -1157,6 +1167,7 @@ class NOAAHurricaneLoader(DatasetLoader):
     https://www.nhc.noaa.gov/
     """
 
+    # Via TrustedEndpoints for SSRF prevention
     NHC_API_URL = TrustedEndpoints.NOAA_NHC_ARCHIVE
 
     FEATURE_NAMES = [
@@ -1328,7 +1339,10 @@ class NOAAHurricaneLoader(DatasetLoader):
             from urllib.request import Request
 
             url = f"{self.NHC_API_URL}/hurdat2-1851-2023-052424.txt"
+            if not url.startswith("https://"):
+                raise RuntimeError("NOAA NHC API URL must use HTTPS. Security validation failed.")
 
+            # URL from TrustedEndpoints - safe from SSRF
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
             with urlopen(req, timeout=30) as response:
                 raw_data = response.read().decode()
@@ -1443,6 +1457,7 @@ class NOAAOceanLoader(DatasetLoader):
     https://oceanservice.noaa.gov/
     """
 
+    # Via TrustedEndpoints for SSRF prevention
     NOS_API_URL = TrustedEndpoints.NOAA_NOS_API
 
     FEATURE_NAMES = [
@@ -1626,7 +1641,10 @@ class NOAAOceanLoader(DatasetLoader):
             from urllib.request import Request
 
             url = f"{self.NOS_API_URL}?begin_date=20240101&end_date=20241231&station=8454000&product=water_temperature&datum=MLLW&units=metric&time_zone=gmt&application=Mercury-Agent&format=json"
+            if not url.startswith("https://"):
+                raise RuntimeError("NOAA NOS API URL must use HTTPS. Security validation failed.")
 
+            # URL from TrustedEndpoints - safe from SSRF
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
             with urlopen(req, timeout=30) as response:
                 raw_data = json.loads(response.read().decode())
