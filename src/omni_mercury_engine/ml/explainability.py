@@ -276,8 +276,10 @@ class SHAPExplainer(BaseExplainer):
 
         # Get prediction function
         if hasattr(model, "predict_proba"):
+
             def predict_fn(x):
                 return model.predict_proba(x)[:, 1]
+
         elif hasattr(model, "predict"):
             predict_fn = model.predict
         elif callable(model):
