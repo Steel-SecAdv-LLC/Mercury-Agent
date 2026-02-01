@@ -590,7 +590,9 @@ class TestActiveLearning:
 
         state = learner.get_state()
         assert state.total_labeled == 30
-        assert state.budget_remaining == 20
+        # budget_remaining = budget - queries_made (not including initial samples)
+        # After one query of 10 samples: budget_remaining = 50 - 10 = 40
+        assert state.budget_remaining == 40
 
 
 # =============================================================================

@@ -67,6 +67,16 @@ from omni_mercury_engine.security.pqc_backends import (
     sphincs_verify,
 )
 from omni_mercury_engine.security.rate_limiting import RateLimiter
+from omni_mercury_engine.security.secure_audit_logging import (
+    AuditEvent,
+    AuditEventCategory,
+    AuditEventSeverity,
+    PIIMasker,
+    SecureAuditLogger,
+    SecureHashChain,
+    configure_audit_logger,
+    get_audit_logger,
+)
 from omni_mercury_engine.security.threat_detection import ThreatDetector
 
 
@@ -98,6 +108,16 @@ __all__ = [
     "SphincsKeyPair",
     "SphincsProvider",
     "ThreatDetector",
+    # Secure Audit Logging
+    "AuditEvent",
+    "AuditEventCategory",
+    "AuditEventSeverity",
+    "PIIMasker",
+    "SecureAuditLogger",
+    "SecureHashChain",
+    "configure_audit_logger",
+    "get_audit_logger",
+    # PQC functions
     "dilithium_sign",
     "dilithium_verify",
     "generate_dilithium_keypair",
