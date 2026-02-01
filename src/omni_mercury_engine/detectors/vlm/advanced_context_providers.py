@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Advanced Context Providers for VLM-based Anomaly Detection.
 
@@ -31,7 +32,7 @@ to improve anomaly detection precision.
 """
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -422,7 +423,7 @@ class SemanticContextProvider(BaseContextProvider):
         if features.dominant_orientations:
             if len(features.dominant_orientations) == 1:
                 angle = features.dominant_orientations[0]
-                if -10 < angle < 10 or 170 < abs(angle):
+                if -10 < angle < 10 or abs(angle) > 170:
                     parts.append("Horizontal structures dominate.")
                 elif 80 < abs(angle) < 100:
                     parts.append("Vertical structures dominate.")
@@ -561,11 +562,7 @@ class FrequencyContextProvider(BaseContextProvider):
         fft_shifted = np.fft.fftshift(fft)
         magnitude = np.abs(fft_shifted)
 
-        # Log magnitude for better visualization
-        log_mag = np.log1p(magnitude)
-
         h, w = frame.shape
-        cy, cx = h // 2, w // 2
 
         # Create frequency coordinate grid
         y_freq = np.fft.fftshift(np.fft.fftfreq(h))
@@ -586,12 +583,15 @@ class FrequencyContextProvider(BaseContextProvider):
         power_spectrum = np.array(power_spectrum)
 
         # Find dominant frequencies (peaks)
+        # Exclude DC component (bin 0) from mean calculation for peak detection
+        # as it typically dominates and masks periodic patterns
+        ac_mean = power_spectrum[1:].mean() if len(power_spectrum) > 1 else power_spectrum.mean()
         dominant_frequencies = []
         for i in range(1, len(power_spectrum) - 1):
             if (
                 power_spectrum[i] > power_spectrum[i - 1]
                 and power_spectrum[i] > power_spectrum[i + 1]
-                and power_spectrum[i] > power_spectrum.mean() * 2
+                and power_spectrum[i] > ac_mean * 1.5
             ):
                 freq = (freq_bins[i] + freq_bins[i + 1]) / 2
                 dominant_frequencies.append((float(freq), float(power_spectrum[i])))
@@ -600,10 +600,12 @@ class FrequencyContextProvider(BaseContextProvider):
         dominant_frequencies.sort(key=lambda x: x[1], reverse=True)
         dominant_frequencies = dominant_frequencies[:5]
 
-        # Periodic score (ratio of dominant peaks to total power)
+        # Periodic score (ratio of dominant peaks to AC power, excluding DC)
+        # This provides a more meaningful measure of periodicity
         total_power = power_spectrum.sum()
+        ac_power = power_spectrum[1:].sum() if len(power_spectrum) > 1 else total_power
         peak_power = sum(p[1] for p in dominant_frequencies[:3])
-        periodic_score = float(peak_power / (total_power + 1e-8))
+        periodic_score = float(peak_power / (ac_power + 1e-8))
 
         # Noise level (high frequency content ratio)
         high_freq_idx = int(self.frequency_bins * 0.7)
@@ -655,7 +657,6 @@ class FrequencyContextProvider(BaseContextProvider):
 
         # Find dominant temporal frequency
         peak_idx = np.argmax(temporal_mag[1:]) + 1  # Skip DC
-        peak_freq = peak_idx / t
 
         # Periodicity score
         total_power = temporal_mag.sum()

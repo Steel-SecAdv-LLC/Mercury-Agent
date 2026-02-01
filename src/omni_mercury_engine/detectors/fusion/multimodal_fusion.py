@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Multi-Modal Fusion Optimizer for VLM + Visual Detector Ensemble.
 
@@ -42,12 +43,12 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Protocol
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 
 logger = logging.getLogger(__name__)
@@ -175,6 +176,9 @@ class FeatureConcatFusion(BaseFusionModule):
             # Normalize
             if self.normalize:
                 fused_features = F.normalize(fused_features, p=2, dim=-1)
+
+            # Detach from computation graph for inference
+            fused_features = fused_features.detach()
         else:
             fused_features = None
 
@@ -273,7 +277,6 @@ class AttentionFusion(BaseFusionModule, nn.Module):
 
         # Stack features [B, num_modalities, D]
         stacked = torch.stack(feature_list, dim=1)
-        batch_size = stacked.shape[0]
 
         # Self-attention across modalities
         attended, attn_weights = self.attention(
@@ -291,9 +294,12 @@ class AttentionFusion(BaseFusionModule, nn.Module):
         scores = self.score_head(fused_features).squeeze(-1)
         fused_scores = scores.detach().cpu().numpy()
 
+        # Detach features from computation graph for inference
+        fused_features = fused_features.detach()
+
         # Compute modality weights from attention
         weights = {}
-        mean_attn = attn_weights.mean(dim=(0, 1)).cpu().numpy()
+        mean_attn = attn_weights.mean(dim=(0, 1)).detach().cpu().numpy()
         for i, name in enumerate(names):
             weights[name] = float(mean_attn[i])
 
