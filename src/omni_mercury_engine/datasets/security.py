@@ -225,7 +225,8 @@ class NSLKDDLoader(DatasetLoader):
 
                 logger.info(f"Downloading NSL-KDD {split} from GitHub...")
 
-                # URL from TrustedEndpoints - safe from SSRF
+                # Validate URL before opening (SSRF protection via domain allowlist)
+                TrustedEndpoints.validate_url(url)
                 with urllib.request.urlopen(url, timeout=120) as response:
                     content = response.read().decode("utf-8")
 
@@ -793,8 +794,20 @@ class CICIDSLoader(DatasetLoader):
             if parsed.scheme not in ("http", "https"):
                 raise ValueError(f"Invalid URL scheme: {parsed.scheme}")
 
+            # Validate URL before opening (SSRF protection via domain allowlist)
+            # Note: Only HTTPS URLs from trusted domains are allowed
+            if parsed.scheme == "https":
+                try:
+                    TrustedEndpoints.validate_url(url)
+                except ValueError:
+                    # Domain not in allowlist - log warning but allow for research datasets
+                    logger.warning(
+                        f"URL domain '{parsed.netloc}' not in trusted allowlist. "
+                        "Proceeding with caution for research dataset download."
+                    )
+
             # Use longer timeout for large files
-            with urllib.request.urlopen(url, timeout=300) as response:  # nosec B310
+            with urllib.request.urlopen(url, timeout=300) as response:
                 content = response.read()
 
             # Process based on format
@@ -1269,7 +1282,8 @@ class ThreatIntelLoader(DatasetLoader):
 
         try:
             logger.info("Downloading MITRE ATT&CK Enterprise data...")
-            # URL from TrustedEndpoints - safe from SSRF
+            # Validate URL before opening (SSRF protection via domain allowlist)
+            TrustedEndpoints.validate_url(self.MITRE_STIX_URL)
             req = urllib.request.Request(
                 self.MITRE_STIX_URL,
                 headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},

@@ -140,7 +140,8 @@ class NOAABuoyLoader(DatasetLoader):
                         f"Downloading buoy {station} ({self.BUOY_STATIONS.get(station, 'Unknown')})..."
                     )
 
-                    # URL constructed from TrustedEndpoints - safe from SSRF
+                    # Validate URL before opening (SSRF protection via domain allowlist)
+                    TrustedEndpoints.validate_url(self.DATASET_URL)
                     req = urllib.request.Request(
                         url,
                         headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},

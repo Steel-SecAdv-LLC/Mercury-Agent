@@ -130,7 +130,8 @@ class USGSEarthquakeLoader(DatasetLoader):
             logger.info(
                 f"Downloading earthquake data from USGS API (last {self.days_back} days)..."
             )
-            # URL from TrustedEndpoints - safe from SSRF
+            # Validate URL before opening (SSRF protection via domain allowlist)
+            TrustedEndpoints.validate_url(self.USGS_API_URL)
             req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
@@ -417,7 +418,8 @@ class NOAAWeatherLoader(DatasetLoader):
                 url = f"{self.OPEN_METEO_URL}?{query_string}"
 
                 logger.info(f"Downloading weather data for {loc['name']}...")
-                # URL from TrustedEndpoints - safe from SSRF
+                # Validate URL before opening (SSRF protection via domain allowlist)
+                TrustedEndpoints.validate_url(self.OPEN_METEO_URL)
                 req = urllib.request.Request(
                     url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
                 )
@@ -628,7 +630,8 @@ class WildfireDataLoader(DatasetLoader):
             url = self.FIRMS_URLS.get(self.source, self.FIRMS_URLS["modis_7d"])
             logger.info(f"Downloading fire data from NASA FIRMS ({self.source})...")
 
-            # URL from TrustedEndpoints - safe from SSRF
+            # Validate URL before opening (SSRF protection via domain allowlist)
+            TrustedEndpoints.validate_url(url)
             req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )

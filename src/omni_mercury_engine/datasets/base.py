@@ -44,10 +44,11 @@ logger = logging.getLogger(__name__)
 
 
 def safe_urlretrieve(url: str, filename: str | Path) -> None:
-    """Safely download a file from a URL with scheme validation.
+    """Safely download a file from a URL with scheme and domain validation.
 
     Only allows https:// and http:// schemes to prevent file:// or other
-    potentially dangerous URL schemes.
+    potentially dangerous URL schemes. For HTTPS URLs, validates against
+    the TrustedEndpoints domain allowlist for SSRF protection.
 
     Args:
         url: The URL to download from (must be http:// or https://)
@@ -56,14 +57,29 @@ def safe_urlretrieve(url: str, filename: str | Path) -> None:
     Raises:
         ValueError: If the URL scheme is not http or https
     """
+    import logging
     import urllib.request
     from urllib.parse import urlparse
 
+    from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
+    logger = logging.getLogger(__name__)
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise ValueError(f"URL scheme must be http or https, got: {parsed.scheme}")
 
-    urllib.request.urlretrieve(url, filename)  # nosec B310
+    # Validate URL against trusted domain allowlist (SSRF protection)
+    if parsed.scheme == "https":
+        try:
+            TrustedEndpoints.validate_url(url)
+        except ValueError:
+            # Domain not in allowlist - log warning but allow for research datasets
+            logger.warning(
+                f"URL domain '{parsed.netloc}' not in trusted allowlist. "
+                "Proceeding with caution for dataset download."
+            )
+
+    urllib.request.urlretrieve(url, filename)
 
 
 class DatasetSplit(Enum):

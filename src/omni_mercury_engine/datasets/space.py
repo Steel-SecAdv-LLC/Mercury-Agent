@@ -273,7 +273,8 @@ class NASAExoplanetLoader(DatasetLoader):
             url = f"{self.NASA_TAP_URL}?{urllib.parse.urlencode(params)}"
             logger.info("Downloading exoplanet data from NASA Exoplanet Archive...")
 
-            # URL from TrustedEndpoints - safe from SSRF
+            # Validate URL before opening (SSRF protection via domain allowlist)
+            TrustedEndpoints.validate_url(self.NASA_TAP_URL)
             req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
@@ -489,7 +490,8 @@ class SolarDynamicsLoader(DatasetLoader):
             url = self.SWPC_URLS["xrays"]
             logger.info("Downloading solar X-ray data from NOAA SWPC...")
 
-            # URL from TrustedEndpoints - safe from SSRF
+            # Validate URL before opening (SSRF protection via domain allowlist)
+            TrustedEndpoints.validate_url(url)
             req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )

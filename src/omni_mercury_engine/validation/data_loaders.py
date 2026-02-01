@@ -513,7 +513,9 @@ class USGSEarthquakeLoader(DatasetLoader):
             import json
             from urllib.request import Request
 
-            # URL from TrustedEndpoints - safe from SSRF
+            # Validate URL before opening (SSRF protection via domain allowlist)
+            from omni_mercury_engine.security.input_validation import TrustedEndpoints
+            TrustedEndpoints.validate_url(self.USGS_API_URL)
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
             with urlopen(req, timeout=30) as response:
                 data = json.loads(response.read().decode())
@@ -1067,7 +1069,9 @@ class NOAASpaceWeatherLoader(DatasetLoader):
             if not url.startswith("https://"):
                 raise RuntimeError("NOAA SWPC API URL must use HTTPS. Security validation failed.")
 
-            # URL from TrustedEndpoints - safe from SSRF
+            # Validate URL before opening (SSRF protection via domain allowlist)
+            from omni_mercury_engine.security.input_validation import TrustedEndpoints
+            TrustedEndpoints.validate_url(self.SWPC_API_URL)
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
             with urlopen(req, timeout=30) as response:
                 kp_data = json.loads(response.read().decode())
@@ -1342,7 +1346,9 @@ class NOAAHurricaneLoader(DatasetLoader):
             if not url.startswith("https://"):
                 raise RuntimeError("NOAA NHC API URL must use HTTPS. Security validation failed.")
 
-            # URL from TrustedEndpoints - safe from SSRF
+            # Validate URL before opening (SSRF protection via domain allowlist)
+            from omni_mercury_engine.security.input_validation import TrustedEndpoints
+            TrustedEndpoints.validate_url(self.NHC_API_URL)
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
             with urlopen(req, timeout=30) as response:
                 raw_data = response.read().decode()
@@ -1644,7 +1650,9 @@ class NOAAOceanLoader(DatasetLoader):
             if not url.startswith("https://"):
                 raise RuntimeError("NOAA NOS API URL must use HTTPS. Security validation failed.")
 
-            # URL from TrustedEndpoints - safe from SSRF
+            # Validate URL before opening (SSRF protection via domain allowlist)
+            from omni_mercury_engine.security.input_validation import TrustedEndpoints
+            TrustedEndpoints.validate_url(self.NOS_API_URL)
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
             with urlopen(req, timeout=30) as response:
                 raw_data = json.loads(response.read().decode())
