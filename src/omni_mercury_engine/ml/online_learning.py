@@ -134,6 +134,7 @@ class SampleBuffer:
         max_size: int = 10000,
         strategy: str = "fifo",
         reservoir_size: int | None = None,
+        random_state: int | None = None,
     ):
         """
         Initialize sample buffer.
@@ -142,10 +143,12 @@ class SampleBuffer:
             max_size: Maximum buffer size
             strategy: 'fifo', 'reservoir', or 'stratified'
             reservoir_size: Size for reservoir sampling (if used)
+            random_state: Seed for reproducible random sampling
         """
         self.max_size = max_size
         self.strategy = strategy
         self.reservoir_size = reservoir_size or max_size
+        self.rng = np.random.default_rng(random_state)
 
         self._buffer: deque[StreamingSample] = deque(maxlen=max_size)
         self._reservoir: list[StreamingSample] = []
@@ -166,7 +169,7 @@ class SampleBuffer:
                     self._reservoir.append(sample)
                 else:
                     # Replace with probability reservoir_size/sample_count
-                    j = np.random.randint(0, self._sample_count)
+                    j = self.rng.integers(0, self._sample_count)
                     if j < self.reservoir_size:
                         self._reservoir[j] = sample
 
@@ -192,7 +195,7 @@ class SampleBuffer:
         with self._lock:
             if self.strategy == "reservoir":
                 samples = self._reservoir.copy()
-                np.random.shuffle(samples)
+                self.rng.shuffle(samples)
                 return samples[:batch_size]
 
             samples = list(self._buffer)
@@ -200,7 +203,7 @@ class SampleBuffer:
                 batch = samples.copy()
             else:
                 # Random sampling from buffer
-                indices = np.random.choice(
+                indices = self.rng.choice(
                     len(samples), batch_size, replace=False
                 )
                 batch = [samples[i] for i in indices]
@@ -392,8 +395,10 @@ class PassiveAggressiveOnlineLearner(OnlineLearner):
         if not self._fitted:
             return np.full((len(X), 2), 0.5)
 
-        # Convert decision function to probabilities
+        # Convert decision function to probabilities with numerical stability
         decision = self.model.decision_function(X)
+        # Clip to prevent overflow in exp (exp(-710) underflows, exp(710) overflows)
+        decision = np.clip(decision, -500, 500)
         proba = 1 / (1 + np.exp(-decision))
         return np.column_stack([1 - proba, proba])
 
@@ -416,6 +421,7 @@ class OnlineLearningPipeline:
         performance_threshold: float = 0.1,
         retrain_interval: int = 1000,
         ema_decay: float = 0.99,
+        random_state: int | None = None,
     ):
         """
         Initialize online learning pipeline.
@@ -430,6 +436,7 @@ class OnlineLearningPipeline:
             performance_threshold: Accuracy drop to trigger retraining
             retrain_interval: Samples between automatic retraining checks
             ema_decay: Decay rate for EMA strategy
+            random_state: Seed for reproducible random sampling
         """
         self.model = model
         self.update_strategy = update_strategy
@@ -439,9 +446,12 @@ class OnlineLearningPipeline:
         self.performance_threshold = performance_threshold
         self.retrain_interval = retrain_interval
         self.ema_decay = ema_decay
+        self.rng = np.random.default_rng(random_state)
 
         # Buffer for samples
-        self.buffer = SampleBuffer(max_size=buffer_size, strategy="fifo")
+        self.buffer = SampleBuffer(
+            max_size=buffer_size, strategy="fifo", random_state=random_state
+        )
 
         # Reference data for drift detection
         self._reference_data: NDArray[np.float64] | None = None
@@ -560,7 +570,7 @@ class OnlineLearningPipeline:
                 X, y = self.buffer.get_all()
                 if len(y) >= self.mini_batch_size:
                     # Sample mini-batch
-                    indices = np.random.choice(
+                    indices = self.rng.choice(
                         len(y), self.mini_batch_size, replace=False
                     )
                     X_batch = X[indices]

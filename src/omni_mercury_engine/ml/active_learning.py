@@ -143,6 +143,7 @@ class UncertaintySampler(BaseSampler):
             raise ValueError(f"Invalid uncertainty strategy: {strategy}")
 
         self.strategy = strategy
+        self.rng = np.random.default_rng(None)  # Default RNG for fallback
 
     def _compute_entropy(self, probs: NDArray[np.float64]) -> NDArray[np.float64]:
         """Compute prediction entropy."""
@@ -220,7 +221,7 @@ class UncertaintySampler(BaseSampler):
         else:
             # Fallback to random sampling
             logger.warning("Model has no predict_proba, using random sampling")
-            indices = np.random.choice(
+            indices = self.rng.choice(
                 len(X_unlabeled), min(n_samples, len(X_unlabeled)), replace=False
             )
             return QueryBatch(
@@ -477,6 +478,7 @@ class QueryByCommitteeSampler(BaseSampler):
         self,
         n_committee: int = 5,
         disagreement_measure: str = "vote_entropy",
+        random_state: int | None = None,
     ):
         """
         Initialize QBC sampler.
@@ -484,9 +486,11 @@ class QueryByCommitteeSampler(BaseSampler):
         Args:
             n_committee: Number of committee members
             disagreement_measure: 'vote_entropy' or 'kl_divergence'
+            random_state: Seed for reproducible random sampling
         """
         self.n_committee = n_committee
         self.disagreement_measure = disagreement_measure
+        self.rng = np.random.default_rng(random_state)
 
     def _train_committee(
         self,
@@ -500,7 +504,7 @@ class QueryByCommitteeSampler(BaseSampler):
 
         for _ in range(self.n_committee):
             # Bootstrap sample
-            indices = np.random.choice(n_samples, n_samples, replace=True)
+            indices = self.rng.choice(n_samples, n_samples, replace=True)
             X_boot = X_labeled[indices]
             y_boot = y_labeled[indices]
 
@@ -587,7 +591,7 @@ class QueryByCommitteeSampler(BaseSampler):
         """
         if X_labeled is None or y_labeled is None:
             logger.warning("QBC requires labeled data, falling back to random")
-            indices = np.random.choice(
+            indices = self.rng.choice(
                 len(X_unlabeled), min(n_samples, len(X_unlabeled)), replace=False
             )
             return QueryBatch(
@@ -634,6 +638,7 @@ class ActiveLearner:
         budget: int = 100,
         initial_samples: int = 10,
         retrain_interval: int = 1,
+        random_state: int | None = None,
     ):
         """
         Initialize active learner.
@@ -645,6 +650,7 @@ class ActiveLearner:
             budget: Total labeling budget
             initial_samples: Initial random samples to label
             retrain_interval: Batches between retraining
+            random_state: Seed for reproducible random sampling
         """
         self.model = model
         self.strategy = strategy
@@ -652,6 +658,7 @@ class ActiveLearner:
         self.budget = budget
         self.initial_samples = initial_samples
         self.retrain_interval = retrain_interval
+        self.rng = np.random.default_rng(random_state)
 
         # Create sampler
         self.sampler = self._create_sampler()
@@ -703,7 +710,7 @@ class ActiveLearner:
         else:
             # Random initial selection
             n_initial = min(self.initial_samples, len(X))
-            indices = np.random.choice(len(X), n_initial, replace=False).tolist()
+            indices = self.rng.choice(len(X), n_initial, replace=False).tolist()
 
         # If labels provided, add to labeled set
         if y is not None:
@@ -761,7 +768,19 @@ class ActiveLearner:
 
         # Create mask for unlabeled samples
         mask = np.ones(len(X_pool), dtype=bool)
-        mask[exclude_indices] = False
+        # Validate and filter exclude_indices to be within bounds
+        if exclude_indices:
+            valid_indices = [
+                i for i in exclude_indices
+                if 0 <= i < len(X_pool)
+            ]
+            if len(valid_indices) < len(exclude_indices):
+                logger.warning(
+                    f"Filtered {len(exclude_indices) - len(valid_indices)} "
+                    f"out-of-bounds indices from exclude_indices"
+                )
+            if valid_indices:
+                mask[valid_indices] = False
         unlabeled_indices = np.where(mask)[0]
 
         if len(unlabeled_indices) == 0:

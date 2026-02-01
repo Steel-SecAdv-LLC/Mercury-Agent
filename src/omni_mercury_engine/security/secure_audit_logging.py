@@ -124,6 +124,7 @@ class PIIMasker:
     """
 
     # Common PII patterns
+    # Note: Patterns are ordered from most specific to least specific
     DEFAULT_PATTERNS = {
         "email": (
             r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
@@ -141,17 +142,30 @@ class PIIMasker:
             r"\b(?:\d{4}[-\s]?){3}\d{4}\b",
             "****-****-****-****",
         ),
+        # More restrictive IP pattern: only valid octets 0-255
         "ip_address": (
-            r"\b(?:\d{1,3}\.){3}\d{1,3}\b",
+            r"\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b",
             "***.***.***.***",
         ),
-        "api_key": (
-            r"\b[A-Za-z0-9]{32,64}\b",
+        # More specific API key patterns - only match known formats
+        # AWS access key pattern (starts with AKIA)
+        "aws_access_key": (
+            r"\bAKIA[0-9A-Z]{16}\b",
+            "[REDACTED_AWS_KEY]",
+        ),
+        # Generic API key with prefix markers (api_key=, apikey:, etc.)
+        "api_key_prefixed": (
+            r"(?:api[_-]?key|apikey|secret[_-]?key|auth[_-]?token)[=:]\s*['\"]?([A-Za-z0-9_-]{20,64})['\"]?",
             "[REDACTED_API_KEY]",
         ),
         "jwt_token": (
             r"\beyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*\b",
             "[REDACTED_JWT]",
+        ),
+        # Bearer tokens
+        "bearer_token": (
+            r"[Bb]earer\s+[A-Za-z0-9_-]{20,}",
+            "Bearer [REDACTED]",
         ),
     }
 
@@ -169,18 +183,44 @@ class PIIMasker:
         """
         self.enabled = enabled
         self.patterns = self.DEFAULT_PATTERNS.copy()
+
+        # Validate and add custom patterns
         if custom_patterns:
+            self._validate_patterns(custom_patterns)
             self.patterns.update(custom_patterns)
 
         # Compile patterns
         import re
 
         self._compiled: dict[str, tuple[Any, str]] = {}
+        failed_patterns: list[str] = []
+
         for name, (pattern, replacement) in self.patterns.items():
             try:
                 self._compiled[name] = (re.compile(pattern), replacement)
             except re.error as e:
-                logger.warning(f"Invalid PII pattern {name}: {e}")
+                failed_patterns.append(f"{name}: {e}")
+                logger.error(f"CRITICAL: Invalid PII pattern '{name}': {e}")
+
+        # Fail fast if any patterns are invalid - PII leakage risk
+        if failed_patterns:
+            raise ValueError(
+                f"Invalid PII masking patterns detected - refusing to start "
+                f"(PII leakage risk). Fix these patterns: {failed_patterns}"
+            )
+
+    def _validate_patterns(self, patterns: dict[str, tuple[str, str]]) -> None:
+        """Validate custom patterns before adding."""
+        import re
+
+        for name, (pattern, _replacement) in patterns.items():
+            try:
+                re.compile(pattern)
+            except re.error as e:
+                raise ValueError(
+                    f"Custom PII pattern '{name}' is invalid: {e}. "
+                    f"All custom patterns must be valid regular expressions."
+                )
 
     def mask(self, data: Any) -> Any:
         """Mask PII in data recursively."""
@@ -268,6 +308,9 @@ class SecureHashChain:
         """
         Verify integrity of event chain.
 
+        Uses constant-time comparison to prevent timing attacks
+        that could reveal information about the hash chain.
+
         Args:
             events: List of events to verify
 
@@ -281,8 +324,12 @@ class SecureHashChain:
             if i == 0:
                 continue
 
-            # Verify link to previous event
-            if event.previous_hash != events[i - 1].event_hash:
+            # Verify link to previous event using constant-time comparison
+            # SECURITY: Using hmac.compare_digest prevents timing attacks
+            if not hmac.compare_digest(
+                event.previous_hash.encode('utf-8'),
+                events[i - 1].event_hash.encode('utf-8')
+            ):
                 invalid_indices.append(i)
 
         return len(invalid_indices) == 0, invalid_indices
@@ -568,18 +615,38 @@ class SecureAuditLogger:
         self._write_events(events_to_write)
 
     def _write_events(self, events: list[AuditEvent]) -> None:
-        """Write events to log file."""
-        with self._file_lock:
-            # Check for rotation
-            if self._current_log_path.exists():
-                size_mb = self._current_log_path.stat().st_size / (1024 * 1024)
-                if size_mb >= self.rotate_size_mb:
-                    self._rotate_log()
+        """Write events to log file with robust error handling.
 
-            # Write events
-            with open(self._current_log_path, "a") as f:
-                for event in events:
-                    f.write(event.to_json() + "\n")
+        SECURITY: Audit log write failures are critical - they indicate
+        potential data loss in the audit trail. This method will raise
+        exceptions on failure to alert operators.
+        """
+        with self._file_lock:
+            try:
+                # Check for rotation
+                if self._current_log_path.exists():
+                    size_mb = self._current_log_path.stat().st_size / (1024 * 1024)
+                    if size_mb >= self.rotate_size_mb:
+                        self._rotate_log()
+
+                # Write events with fsync for durability
+                with open(self._current_log_path, "a") as f:
+                    for event in events:
+                        f.write(event.to_json() + "\n")
+                    f.flush()
+                    os.fsync(f.fileno())  # Ensure data reaches disk
+
+            except OSError as e:
+                # Critical error - audit events could be lost
+                logger.critical(
+                    f"AUDIT LOG WRITE FAILURE: {e}. "
+                    f"{len(events)} audit events may be lost. "
+                    f"Check disk space and file permissions."
+                )
+                # Re-raise to alert callers
+                raise RuntimeError(
+                    f"Failed to write audit log (potential data loss): {e}"
+                ) from e
 
     def _rotate_log(self) -> None:
         """Rotate current log file."""
@@ -698,9 +765,20 @@ class SecureAuditLogger:
 
         # Get from disk if needed
         if len(events) < count and self._current_log_path.exists():
-            with open(self._current_log_path) as f:
-                disk_events = [json.loads(line) for line in f]
-                events = disk_events + events
+            try:
+                with open(self._current_log_path) as f:
+                    disk_events = []
+                    for line_num, line in enumerate(f, 1):
+                        try:
+                            disk_events.append(json.loads(line))
+                        except json.JSONDecodeError as e:
+                            logger.warning(
+                                f"Skipping malformed JSON at line {line_num}: {e}"
+                            )
+                            continue
+                    events = disk_events + events
+            except OSError as e:
+                logger.error(f"Failed to read audit log from disk: {e}")
 
         # Apply filters
         if category:

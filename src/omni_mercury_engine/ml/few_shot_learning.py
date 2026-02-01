@@ -356,6 +356,7 @@ class PrototypicalNetworkNumpy(BaseFewShotLearner):
         embedding_dim: int = 64,
         distance_metric: str = "euclidean",
         temperature: float = 1.0,
+        random_state: int | None = None,
     ):
         """
         Initialize Prototypical Network.
@@ -364,10 +365,12 @@ class PrototypicalNetworkNumpy(BaseFewShotLearner):
             embedding_dim: Dimension of embedding space
             distance_metric: Distance metric ('euclidean', 'cosine', 'manhattan')
             temperature: Temperature for softmax scaling
+            random_state: Seed for reproducible random initialization
         """
         self.embedding_dim = embedding_dim
         self.distance_metric = distance_metric
         self.temperature = temperature
+        self.rng = np.random.default_rng(random_state)
 
         # Learned components (simple linear projection)
         self.projection_matrix: NDArray[np.float64] | None = None
@@ -380,8 +383,8 @@ class PrototypicalNetworkNumpy(BaseFewShotLearner):
     def _initialize_projection(self, input_dim: int) -> None:
         """Initialize projection matrix using Xavier initialization."""
         scale = np.sqrt(2.0 / (input_dim + self.embedding_dim))
-        self.projection_matrix = np.random.randn(
-            input_dim, self.embedding_dim
+        self.projection_matrix = self.rng.standard_normal(
+            (input_dim, self.embedding_dim)
         ).astype(np.float64) * scale
         self.projection_bias = np.zeros(self.embedding_dim, dtype=np.float64)
 
@@ -459,6 +462,7 @@ class MatchingNetworkNumpy(BaseFewShotLearner):
         self,
         embedding_dim: int = 64,
         use_cosine_attention: bool = True,
+        random_state: int | None = None,
     ):
         """
         Initialize Matching Network.
@@ -466,9 +470,11 @@ class MatchingNetworkNumpy(BaseFewShotLearner):
         Args:
             embedding_dim: Dimension of embedding space
             use_cosine_attention: Use cosine similarity for attention
+            random_state: Seed for reproducible random initialization
         """
         self.embedding_dim = embedding_dim
         self.use_cosine_attention = use_cosine_attention
+        self.rng = np.random.default_rng(random_state)
 
         # Projection
         self.projection_matrix: NDArray[np.float64] | None = None
@@ -482,8 +488,8 @@ class MatchingNetworkNumpy(BaseFewShotLearner):
     def _initialize_projection(self, input_dim: int) -> None:
         """Initialize projection matrix."""
         scale = np.sqrt(2.0 / (input_dim + self.embedding_dim))
-        self.projection_matrix = np.random.randn(
-            input_dim, self.embedding_dim
+        self.projection_matrix = self.rng.standard_normal(
+            (input_dim, self.embedding_dim)
         ).astype(np.float64) * scale
         self.projection_bias = np.zeros(self.embedding_dim, dtype=np.float64)
 
@@ -564,6 +570,7 @@ class SiameseNetworkNumpy(BaseFewShotLearner):
         self,
         embedding_dim: int = 64,
         similarity_threshold: float = 0.5,
+        random_state: int | None = None,
     ):
         """
         Initialize Siamese Network.
@@ -571,9 +578,11 @@ class SiameseNetworkNumpy(BaseFewShotLearner):
         Args:
             embedding_dim: Dimension of embedding space
             similarity_threshold: Threshold for binary similarity
+            random_state: Seed for reproducible random initialization
         """
         self.embedding_dim = embedding_dim
         self.similarity_threshold = similarity_threshold
+        self.rng = np.random.default_rng(random_state)
 
         # Projection
         self.projection_matrix: NDArray[np.float64] | None = None
@@ -587,8 +596,8 @@ class SiameseNetworkNumpy(BaseFewShotLearner):
     def _initialize_projection(self, input_dim: int) -> None:
         """Initialize projection matrix."""
         scale = np.sqrt(2.0 / (input_dim + self.embedding_dim))
-        self.projection_matrix = np.random.randn(
-            input_dim, self.embedding_dim
+        self.projection_matrix = self.rng.standard_normal(
+            (input_dim, self.embedding_dim)
         ).astype(np.float64) * scale
         self.projection_bias = np.zeros(self.embedding_dim, dtype=np.float64)
 

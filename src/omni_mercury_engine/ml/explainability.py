@@ -239,6 +239,7 @@ class SHAPExplainer(BaseExplainer):
         aggregation: AggregationMethod = AggregationMethod.MEAN_ABS,
         background_samples: int = 100,
         top_k_features: int = 10,
+        random_state: int | None = None,
     ):
         """
         Initialize SHAP explainer.
@@ -248,6 +249,7 @@ class SHAPExplainer(BaseExplainer):
             aggregation: How to aggregate SHAP values
             background_samples: Number of background samples for KernelSHAP
             top_k_features: Number of top features to highlight
+            random_state: Seed for reproducible random sampling
         """
         if not SHAP_AVAILABLE:
             logger.warning("SHAP not available, using fallback permutation importance")
@@ -256,6 +258,7 @@ class SHAPExplainer(BaseExplainer):
         self.aggregation = aggregation
         self.background_samples = background_samples
         self.top_k_features = top_k_features
+        self.rng = np.random.default_rng(random_state)
 
         self._explainer: Any = None
         self._background_data: NDArray[np.float64] | None = None
@@ -283,7 +286,7 @@ class SHAPExplainer(BaseExplainer):
         if self.method == ExplainabilityMethod.SHAP_KERNEL:
             # Sample background data
             n_samples = min(self.background_samples, len(X_background))
-            indices = np.random.choice(len(X_background), n_samples, replace=False)
+            indices = self.rng.choice(len(X_background), n_samples, replace=False)
             background = X_background[indices]
 
             return shap.KernelExplainer(predict_fn, background)
@@ -297,7 +300,7 @@ class SHAPExplainer(BaseExplainer):
 
             # Sample background
             n_samples = min(self.background_samples, len(X_background))
-            indices = np.random.choice(len(X_background), n_samples, replace=False)
+            indices = self.rng.choice(len(X_background), n_samples, replace=False)
             background = torch.tensor(X_background[indices], dtype=torch.float32)
 
             return shap.DeepExplainer(model, background)
@@ -307,7 +310,7 @@ class SHAPExplainer(BaseExplainer):
                 raise RuntimeError("PyTorch required for GradientExplainer")
 
             n_samples = min(self.background_samples, len(X_background))
-            indices = np.random.choice(len(X_background), n_samples, replace=False)
+            indices = self.rng.choice(len(X_background), n_samples, replace=False)
             background = torch.tensor(X_background[indices], dtype=torch.float32)
 
             return shap.GradientExplainer(model, background)
@@ -315,7 +318,7 @@ class SHAPExplainer(BaseExplainer):
         else:
             # Default to Kernel
             n_samples = min(self.background_samples, len(X_background))
-            indices = np.random.choice(len(X_background), n_samples, replace=False)
+            indices = self.rng.choice(len(X_background), n_samples, replace=False)
             background = X_background[indices]
 
             return shap.KernelExplainer(predict_fn, background)
