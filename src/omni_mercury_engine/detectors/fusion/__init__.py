@@ -21,22 +21,23 @@ from .multimodal_fusion import (
     create_fusion_optimizer,
 )
 
+
 __all__ = [
-    # Data classes
-    "ModalityInput",
+    "AdaptiveFusion",
+    "AttentionFusion",
+    # Base class
+    "BaseFusionModule",
+    "DecisionConfidenceFusion",
+    # Fusion modules
+    "FeatureConcatFusion",
     "FusionResult",
     # Enums
     "FusionStrategy",
-    # Base class
-    "BaseFusionModule",
-    # Fusion modules
-    "FeatureConcatFusion",
-    "AttentionFusion",
-    "ScoreWeightedFusion",
-    "DecisionConfidenceFusion",
-    "AdaptiveFusion",
+    # Data classes
+    "ModalityInput",
     # Optimizer
     "MultiModalFusionOptimizer",
+    "ScoreWeightedFusion",
     # Factory
     "create_fusion_optimizer",
 ]

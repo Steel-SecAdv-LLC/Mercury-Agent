@@ -55,6 +55,12 @@ Example:
         print(f"Anomaly detected at frames: {results['anomaly_frames']}")
 """
 
+from omni_mercury_engine.detectors.vlm.advanced_context_providers import (
+    AppearanceContextProvider,
+    EnhancedCombinedContextProvider,
+    FrequencyContextProvider,
+    SemanticContextProvider,
+)
 from omni_mercury_engine.detectors.vlm.anyanomaly import AnyAnomalyDetector
 from omni_mercury_engine.detectors.vlm.base_vlm import BaseVLMDetector, VLMConfig
 from omni_mercury_engine.detectors.vlm.blip_vlm import (
@@ -65,12 +71,6 @@ from omni_mercury_engine.detectors.vlm.blip_vlm import (
 from omni_mercury_engine.detectors.vlm.context_providers import (
     PositionContextProvider,
     TemporalContextProvider,
-)
-from omni_mercury_engine.detectors.vlm.advanced_context_providers import (
-    AppearanceContextProvider,
-    EnhancedCombinedContextProvider,
-    FrequencyContextProvider,
-    SemanticContextProvider,
 )
 from omni_mercury_engine.detectors.vlm.lavad import LAVADDetector
 from omni_mercury_engine.detectors.vlm.lvlm_backends import LVLMBackend, get_lvlm_backend
@@ -84,25 +84,25 @@ from omni_mercury_engine.detectors.vlm.lvlm_cache import (
 __all__ = [
     # Detectors
     "AnyAnomalyDetector",
+    # Context Providers (Advanced)
+    "AppearanceContextProvider",
     "BLIPConfig",
     "BLIPVLMDetector",
     "BaseVLMDetector",
-    "LAVADDetector",
-    "VLMConfig",
-    "create_blip_detector",
-    # Backends
-    "LVLMBackend",
-    "get_lvlm_backend",
-    # Backend Cache
-    "LVLMBackendCache",
-    "get_cached_backend",
-    "prewarm_backend",
-    # Context Providers (Basic)
-    "PositionContextProvider",
-    "TemporalContextProvider",
-    # Context Providers (Advanced)
-    "AppearanceContextProvider",
     "EnhancedCombinedContextProvider",
     "FrequencyContextProvider",
+    "LAVADDetector",
+    # Backends
+    "LVLMBackend",
+    # Backend Cache
+    "LVLMBackendCache",
+    # Context Providers (Basic)
+    "PositionContextProvider",
     "SemanticContextProvider",
+    "TemporalContextProvider",
+    "VLMConfig",
+    "create_blip_detector",
+    "get_cached_backend",
+    "get_lvlm_backend",
+    "prewarm_backend",
 ]

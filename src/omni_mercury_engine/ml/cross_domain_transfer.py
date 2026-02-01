@@ -32,6 +32,7 @@ import numpy as np
 from scipy.linalg import sqrtm
 from scipy.spatial.distance import cdist
 
+
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
@@ -40,9 +41,7 @@ logger = logging.getLogger(__name__)
 # Optional imports
 try:
     import torch
-    import torch.nn as nn
-    import torch.nn.functional as F
-    from torch.utils.data import DataLoader, TensorDataset
+    from torch import nn
 
     TORCH_AVAILABLE = True
 except ImportError:
@@ -51,7 +50,6 @@ except ImportError:
     nn = None
 
 try:
-    from sklearn.preprocessing import StandardScaler, LabelEncoder
     from sklearn.metrics import (
         accuracy_score,
         f1_score,
@@ -59,6 +57,7 @@ try:
         recall_score,
         roc_auc_score,
     )
+    from sklearn.preprocessing import LabelEncoder, StandardScaler
 
     SKLEARN_AVAILABLE = True
 except ImportError:

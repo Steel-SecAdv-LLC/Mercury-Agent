@@ -27,12 +27,15 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy.spatial.distance import cdist
 
+
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from numpy.typing import NDArray
 
 logger = logging.getLogger(__name__)
@@ -40,9 +43,8 @@ logger = logging.getLogger(__name__)
 # Optional PyTorch imports
 try:
     import torch
-    import torch.nn as nn
     import torch.nn.functional as F
-    from torch.utils.data import DataLoader, Dataset
+    from torch import nn
 
     TORCH_AVAILABLE = True
 except ImportError:
@@ -252,7 +254,7 @@ class EpisodeGenerator:
         self,
         X: NDArray[np.float64],
         y: NDArray[np.int64],
-        k_values: list[int] = [10, 50, 100],
+        k_values: list[int] | None = None,
         n_trials: int = 10,
     ) -> Iterator[tuple[int, int, Episode]]:
         """
@@ -267,6 +269,8 @@ class EpisodeGenerator:
         Yields:
             Tuple of (k_value, trial_id, episode)
         """
+        if k_values is None:
+            k_values = [10, 50, 100]
         unique_classes = np.unique(y)
         n_classes = len(unique_classes)
 
@@ -874,7 +878,7 @@ class FewShotLearner:
         avg_f1 = 0.0
 
         try:
-            from sklearn.metrics import precision_score, recall_score, f1_score
+            from sklearn.metrics import f1_score, precision_score, recall_score
 
             avg_precision = precision_score(
                 all_true, all_preds, average="weighted", zero_division=0
@@ -912,7 +916,7 @@ class FewShotLearner:
         self,
         X: NDArray[np.float64],
         y: NDArray[np.int64],
-        k_values: list[int] = [10, 50, 100],
+        k_values: list[int] | None = None,
         n_trials: int = 10,
     ) -> dict[int, FewShotResult]:
         """
@@ -930,6 +934,8 @@ class FewShotLearner:
         Returns:
             Dictionary mapping k to FewShotResult
         """
+        if k_values is None:
+            k_values = [10, 50, 100]
         results: dict[int, FewShotResult] = {}
 
         for k in k_values:
@@ -970,7 +976,7 @@ class FewShotLearner:
             avg_f1 = 0.0
 
             try:
-                from sklearn.metrics import precision_score, recall_score, f1_score
+                from sklearn.metrics import f1_score, precision_score, recall_score
 
                 avg_precision = precision_score(
                     all_true_arr, all_preds_arr, average="weighted", zero_division=0

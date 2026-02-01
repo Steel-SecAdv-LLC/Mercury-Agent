@@ -15,9 +15,14 @@ These tests validate Mercury's architectural advantages over pure supervised met
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pytest
-from numpy.typing import NDArray
+
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 
 # =============================================================================
@@ -131,8 +136,8 @@ class TestConceptDriftEvaluation:
     def test_temporal_splitter_expanding_window(self, drift_data):
         """Test expanding window temporal splits."""
         from omni_mercury_engine.ml.concept_drift_evaluation import (
-            TemporalSplitter,
             TemporalSplitStrategy,
+            TemporalSplitter,
         )
 
         X, y, _ = drift_data
@@ -155,8 +160,8 @@ class TestConceptDriftEvaluation:
     def test_temporal_splitter_sliding_window(self, drift_data):
         """Test sliding window temporal splits."""
         from omni_mercury_engine.ml.concept_drift_evaluation import (
-            TemporalSplitter,
             TemporalSplitStrategy,
+            TemporalSplitter,
         )
 
         X, y, _ = drift_data
@@ -784,10 +789,6 @@ class TestIntegration:
 
     def test_drift_evaluation_with_few_shot(self, drift_data):
         """Test concept drift evaluation with few-shot learning."""
-        from omni_mercury_engine.ml.concept_drift_evaluation import (
-            ConceptDriftEvaluator,
-            TemporalSplitStrategy,
-        )
         from omni_mercury_engine.ml.few_shot_learning import (
             FewShotLearner,
             FewShotMethod,

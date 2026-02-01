@@ -30,19 +30,22 @@ from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Iterator
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
     from numpy.typing import NDArray
 
 from omni_mercury_engine.ml.drift import (
     DriftResult,
     DriftSeverity,
-    DriftType,
     EnsembleDriftDetector,
 )
+
 
 logger = logging.getLogger(__name__)
 
@@ -666,12 +669,11 @@ class OnlineLearningPipeline:
         if self.update_strategy == UpdateStrategy.FULL_RETRAIN:
             if hasattr(self.model, "fit"):
                 self.model.fit(X, y)
-        else:
-            if hasattr(self.model, "partial_fit"):
-                # Multiple passes over data
-                for _ in range(3):
-                    indices = np.random.permutation(len(y))
-                    self.model.partial_fit(X[indices], y[indices])
+        elif hasattr(self.model, "partial_fit"):
+            # Multiple passes over data
+            for _ in range(3):
+                indices = np.random.permutation(len(y))
+                self.model.partial_fit(X[indices], y[indices])
 
         # Update reference data
         self._reference_data = X[: self._reference_size] if len(X) >= self._reference_size else X

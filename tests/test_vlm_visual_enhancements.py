@@ -11,33 +11,11 @@ Tests for VLM/Visual detector enhancements including:
 from __future__ import annotations
 
 import threading
-import time
-from concurrent.futures import Future
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 import torch
-
-# Context Providers
-from omni_mercury_engine.detectors.vlm.advanced_context_providers import (
-    AppearanceContextProvider,
-    EnhancedCombinedContextProvider,
-    FrequencyContextProvider,
-    SemanticContextProvider,
-)
-from omni_mercury_engine.detectors.vlm.context_providers import ContextInfo
-
-# LVLM Cache
-from omni_mercury_engine.detectors.vlm.lvlm_cache import (
-    CachedModel,
-    CacheStatistics,
-    LVLMBackendCache,
-    ModelState,
-    get_cached_backend,
-    prewarm_backend,
-)
 
 # Multi-modal Fusion
 from omni_mercury_engine.detectors.fusion.multimodal_fusion import (
@@ -51,6 +29,21 @@ from omni_mercury_engine.detectors.fusion.multimodal_fusion import (
     MultiModalFusionOptimizer,
     ScoreWeightedFusion,
     create_fusion_optimizer,
+)
+
+# Context Providers
+from omni_mercury_engine.detectors.vlm.advanced_context_providers import (
+    AppearanceContextProvider,
+    EnhancedCombinedContextProvider,
+    FrequencyContextProvider,
+    SemanticContextProvider,
+)
+from omni_mercury_engine.detectors.vlm.context_providers import ContextInfo
+
+# LVLM Cache
+from omni_mercury_engine.detectors.vlm.lvlm_cache import (
+    CacheStatistics,
+    LVLMBackendCache,
 )
 
 

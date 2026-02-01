@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 LVLM Backend Cache with Pre-warming and Resource Management.
 
@@ -38,15 +39,18 @@ import atexit
 import logging
 import threading
 import time
-import weakref
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import torch
 
 from .lvlm_backends import LVLMBackend, get_lvlm_backend
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 logger = logging.getLogger(__name__)
@@ -355,16 +359,16 @@ class LVLMBackendCache:
             # Fallback estimates based on model type
             model_name = backend.model_name.lower()
             if "7b" in model_name:
-                return int(14 * 1024**3)  # ~14GB for 7B model
+                return 14 * 1024**3  # ~14GB for 7B model
             elif "13b" in model_name:
-                return int(26 * 1024**3)
+                return 26 * 1024**3
             elif "70b" in model_name:
-                return int(140 * 1024**3)
+                return 140 * 1024**3
             else:
-                return int(8 * 1024**3)  # Default 8GB
+                return 8 * 1024**3  # Default 8GB
 
         except Exception:
-            return int(8 * 1024**3)
+            return 8 * 1024**3
 
     def _ensure_memory_available(self) -> None:
         """Ensure sufficient memory is available, evicting if necessary."""
@@ -504,7 +508,6 @@ class LVLMBackendCache:
             if warmup_input is not None:
                 try:
                     from PIL import Image
-                    import numpy as np
 
                     # Create dummy input if needed
                     if warmup_input == "auto":

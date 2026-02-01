@@ -23,11 +23,12 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -275,7 +276,8 @@ class SHAPExplainer(BaseExplainer):
 
         # Get prediction function
         if hasattr(model, "predict_proba"):
-            predict_fn = lambda x: model.predict_proba(x)[:, 1]
+            def predict_fn(x):
+                return model.predict_proba(x)[:, 1]
         elif hasattr(model, "predict"):
             predict_fn = model.predict
         elif callable(model):
@@ -665,7 +667,6 @@ class CounterfactualExplainer:
 
         # Determine target direction
         is_anomaly = original_pred > self.threshold
-        target = 0.0 if is_anomaly else 1.0
 
         # Initialize counterfactual
         counterfactual = sample.copy()
@@ -911,8 +912,8 @@ __all__ = [
     "AggregationMethod",
     "AnomalyExplainer",
     "BaseExplainer",
-    "CounterfactualExplanation",
     "CounterfactualExplainer",
+    "CounterfactualExplanation",
     "ExplainabilityMethod",
     "FeatureImportance",
     "GlobalExplanation",

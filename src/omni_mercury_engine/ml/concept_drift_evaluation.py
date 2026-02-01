@@ -26,7 +26,7 @@ import time
 import warnings
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
 from scipy import stats
@@ -44,7 +44,6 @@ from omni_mercury_engine.ml.drift import (
     DriftType,
     EnsembleDriftDetector,
     KolmogorovSmirnovDriftDetector,
-    OnlineDriftDetector,
     PopulationStabilityIndexDetector,
 )
 
@@ -545,7 +544,7 @@ class DegradationAnalyzer:
         variance: float,
     ) -> DegradationTrend:
         """Detect the type of performance trend."""
-        n = len(performances)
+        len(performances)
 
         # Check for significant trend
         if p_value > self.significance_level:

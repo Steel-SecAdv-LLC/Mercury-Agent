@@ -25,12 +25,15 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Iterator
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy.spatial.distance import cdist
 
+
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
     from numpy.typing import NDArray
 
 logger = logging.getLogger(__name__)
