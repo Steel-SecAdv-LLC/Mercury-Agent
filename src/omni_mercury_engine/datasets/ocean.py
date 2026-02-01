@@ -35,6 +35,8 @@ except ImportError:
     pd = None
     PANDAS_AVAILABLE = False
 
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 
 
@@ -77,8 +79,9 @@ class NOAABuoyLoader(DatasetLoader):
         "46042": "Monterey Bay, CA",
     }
 
-    # Base URL for real-time buoy data
-    BASE_URL = "https://www.ndbc.noaa.gov/data/realtime2/{station}.txt"
+    # Base URL for real-time buoy data (via TrustedEndpoints for SSRF prevention)
+    # Uses NOAA_NDBC_REALTIME + /{station}.txt pattern
+    BASE_URL = TrustedEndpoints.NOAA_NDBC_REALTIME + "/{station}.txt"
 
     # Feature columns to extract
     FEATURE_COLS = ["WVHT", "DPD", "APD", "MWD", "WTMP", "ATMP", "PRES", "WSPD", "GST"]
@@ -137,13 +140,12 @@ class NOAABuoyLoader(DatasetLoader):
                         f"Downloading buoy {station} ({self.BUOY_STATIONS.get(station, 'Unknown')})..."
                     )
 
-                    req = urllib.request.Request(  # noqa: S310
+                    # URL constructed from TrustedEndpoints - safe from SSRF
+                    req = urllib.request.Request(
                         url,
                         headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},
                     )
-                    with urllib.request.urlopen(  # noqa: S310  # nosec B310
-                        req, timeout=60
-                    ) as response:
+                    with urllib.request.urlopen(req, timeout=60) as response:
                         content = response.read().decode("utf-8")
 
                     # Parse the data (space-delimited, first row is header, second is units)

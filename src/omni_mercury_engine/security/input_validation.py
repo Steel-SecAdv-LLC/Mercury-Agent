@@ -634,6 +634,11 @@ class TrustedEndpoints:
         "https://firms.modaps.eosdis.nasa.gov/data/active_fire/"
         "viirs-i-npp/csv/VNP14IMGTDL_NRT_Global_7d.csv"
     )
+    # SUOMI NPP VIIRS Collection 2 (alternative VIIRS source)
+    NASA_FIRMS_VIIRS_SUOMI_7D = (
+        "https://firms.modaps.eosdis.nasa.gov/data/active_fire/"
+        "suomi-npp-viirs-c2/csv/SUOMI_VIIRS_C2_Global_7d.csv"
+    )
 
     # ==========================================================================
     # Open-Meteo Weather Archive API
@@ -658,6 +663,11 @@ class TrustedEndpoints:
     # MITRE ATT&CK - Threat Intelligence
     # ==========================================================================
     MITRE_STIX = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
+    # Alternative MITRE STIX data source (attack-stix-data repo)
+    MITRE_STIX_DATA = (
+        "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/"
+        "master/enterprise-attack/enterprise-attack.json"
+    )
 
 
 __all__ = [

@@ -29,6 +29,8 @@ except ImportError:
     pd = None
     PANDAS_AVAILABLE = False
 
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 
 
@@ -56,10 +58,10 @@ class NSLKDDLoader(DatasetLoader):
     KDD CUP 99 data set. IEEE Symposium on Computational Intelligence. 2009."""
     REQUIRES_CREDENTIALS = False
 
-    # GitHub raw URLs for NSL-KDD data
+    # GitHub raw URLs for NSL-KDD data (via TrustedEndpoints for SSRF prevention)
     NSLKDD_URLS = {
-        "train": "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTrain+.txt",
-        "test": "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTest+.txt",
+        "train": TrustedEndpoints.GITHUB_NSL_KDD_TRAIN,
+        "test": TrustedEndpoints.GITHUB_NSL_KDD_TEST,
     }
 
     # Column names for NSL-KDD (41 features + 2 labels)
@@ -223,9 +225,8 @@ class NSLKDDLoader(DatasetLoader):
 
                 logger.info(f"Downloading NSL-KDD {split} from GitHub...")
 
-                with urllib.request.urlopen(  # noqa: S310  # nosec B310
-                    url, timeout=120
-                ) as response:
+                # URL from TrustedEndpoints - safe from SSRF
+                with urllib.request.urlopen(url, timeout=120) as response:
                     content = response.read().decode("utf-8")
 
                 # Parse CSV (no header in file)
@@ -1191,11 +1192,8 @@ class ThreatIntelLoader(DatasetLoader):
     CITATION = "MITRE ATT&CK. MITRE Corporation. https://attack.mitre.org/"
     REQUIRES_CREDENTIALS = False
 
-    # MITRE ATT&CK STIX data URL
-    MITRE_STIX_URL = (
-        "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/"
-        "master/enterprise-attack/enterprise-attack.json"
-    )
+    # MITRE ATT&CK STIX data URL (via TrustedEndpoints for SSRF prevention)
+    MITRE_STIX_URL = TrustedEndpoints.MITRE_STIX_DATA
 
     # MITRE ATT&CK tactics
     TACTICS = [
@@ -1271,11 +1269,12 @@ class ThreatIntelLoader(DatasetLoader):
 
         try:
             logger.info("Downloading MITRE ATT&CK Enterprise data...")
-            req = urllib.request.Request(  # noqa: S310
+            # URL from TrustedEndpoints - safe from SSRF
+            req = urllib.request.Request(
                 self.MITRE_STIX_URL,
                 headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},
             )
-            with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310  # nosec B310
+            with urllib.request.urlopen(req, timeout=120) as response:
                 data = json.loads(response.read().decode("utf-8"))
 
             objects = data.get("objects", [])
