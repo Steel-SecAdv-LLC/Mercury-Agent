@@ -42,6 +42,7 @@ except ImportError:
 __all__ = [
     "HAS_PYTORCH_LIGHTNING",
     "HAS_TORCH",
+    # Core ML Components
     "AffectiveEncoder",
     "AstrophysicalEncoder",
     "AuxiliaryMaxVariance",
@@ -75,6 +76,19 @@ __all__ = [
     "apply_all_optimizations",
     "compute_fairness_score",
     "create_drift_detector",
+    # Advanced ML Capabilities (v1.2)
+    "create_concept_drift_evaluator",
+    "create_few_shot_learner",
+    "create_cross_domain_learner",
+    "create_explainer",
+    "create_active_learner",
+    "create_online_pipeline",
+    "ConceptDriftEvaluator",
+    "FewShotLearner",
+    "CrossDomainTransferLearner",
+    "AnomalyExplainer",
+    "ActiveLearner",
+    "OnlineLearningPipeline",
 ]
 
 # Default value for HAS_PYTORCH_LIGHTNING when torch is not available
@@ -181,3 +195,114 @@ class ParallelExecutor:
         from omni_mercury_engine.ml.optimization import ParallelExecutor as _Executor
 
         return _Executor(*args, **kwargs)
+
+
+# =============================================================================
+# Advanced ML Capabilities (v1.2) - Lazy Imports
+# =============================================================================
+
+
+def create_concept_drift_evaluator(*args, **kwargs):  # type: ignore[no-untyped-def]
+    """Create concept drift evaluator. Lazy import."""
+    from omni_mercury_engine.ml.concept_drift_evaluation import (
+        create_concept_drift_evaluator as _create,
+    )
+
+    return _create(*args, **kwargs)
+
+
+def create_few_shot_learner(*args, **kwargs):  # type: ignore[no-untyped-def]
+    """Create few-shot learner. Lazy import."""
+    from omni_mercury_engine.ml.few_shot_learning import create_few_shot_learner as _create
+
+    return _create(*args, **kwargs)
+
+
+def create_cross_domain_learner(*args, **kwargs):  # type: ignore[no-untyped-def]
+    """Create cross-domain transfer learner. Lazy import."""
+    from omni_mercury_engine.ml.cross_domain_transfer import (
+        create_cross_domain_learner as _create,
+    )
+
+    return _create(*args, **kwargs)
+
+
+def create_explainer(*args, **kwargs):  # type: ignore[no-untyped-def]
+    """Create SHAP explainer. Lazy import."""
+    from omni_mercury_engine.ml.explainability import create_explainer as _create
+
+    return _create(*args, **kwargs)
+
+
+def create_active_learner(*args, **kwargs):  # type: ignore[no-untyped-def]
+    """Create active learner. Lazy import."""
+    from omni_mercury_engine.ml.active_learning import create_active_learner as _create
+
+    return _create(*args, **kwargs)
+
+
+def create_online_pipeline(*args, **kwargs):  # type: ignore[no-untyped-def]
+    """Create online learning pipeline. Lazy import."""
+    from omni_mercury_engine.ml.online_learning import create_online_pipeline as _create
+
+    return _create(*args, **kwargs)
+
+
+class ConceptDriftEvaluator:
+    """Lazy-loaded ConceptDriftEvaluator wrapper."""
+
+    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from omni_mercury_engine.ml.concept_drift_evaluation import (
+            ConceptDriftEvaluator as _Evaluator,
+        )
+
+        return _Evaluator(*args, **kwargs)
+
+
+class FewShotLearner:
+    """Lazy-loaded FewShotLearner wrapper."""
+
+    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from omni_mercury_engine.ml.few_shot_learning import FewShotLearner as _Learner
+
+        return _Learner(*args, **kwargs)
+
+
+class CrossDomainTransferLearner:
+    """Lazy-loaded CrossDomainTransferLearner wrapper."""
+
+    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from omni_mercury_engine.ml.cross_domain_transfer import (
+            CrossDomainTransferLearner as _Learner,
+        )
+
+        return _Learner(*args, **kwargs)
+
+
+class AnomalyExplainer:
+    """Lazy-loaded AnomalyExplainer wrapper."""
+
+    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from omni_mercury_engine.ml.explainability import AnomalyExplainer as _Explainer
+
+        return _Explainer(*args, **kwargs)
+
+
+class ActiveLearner:
+    """Lazy-loaded ActiveLearner wrapper."""
+
+    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from omni_mercury_engine.ml.active_learning import ActiveLearner as _Learner
+
+        return _Learner(*args, **kwargs)
+
+
+class OnlineLearningPipeline:
+    """Lazy-loaded OnlineLearningPipeline wrapper."""
+
+    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+        from omni_mercury_engine.ml.online_learning import (
+            OnlineLearningPipeline as _Pipeline,
+        )
+
+        return _Pipeline(*args, **kwargs)
