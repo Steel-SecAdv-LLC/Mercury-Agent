@@ -63,7 +63,7 @@ def safe_urlretrieve(url: str, filename: str | Path) -> None:
     if parsed.scheme not in ("http", "https"):
         raise ValueError(f"URL scheme must be http or https, got: {parsed.scheme}")
 
-    urllib.request.urlretrieve(url, filename)  # noqa: S310  # nosec B310
+    urllib.request.urlretrieve(url, filename)  # nosec B310
 
 
 class DatasetSplit(Enum):

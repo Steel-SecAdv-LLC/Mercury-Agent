@@ -794,7 +794,7 @@ class CICIDSLoader(DatasetLoader):
                 raise ValueError(f"Invalid URL scheme: {parsed.scheme}")
 
             # Use longer timeout for large files
-            with urllib.request.urlopen(url, timeout=300) as response:  # noqa: S310  # nosec B310
+            with urllib.request.urlopen(url, timeout=300) as response:  # nosec B310
                 content = response.read()
 
             # Process based on format
