@@ -515,6 +515,7 @@ class USGSEarthquakeLoader(DatasetLoader):
 
             # Validate URL before opening (SSRF protection via domain allowlist)
             from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
             TrustedEndpoints.validate_url(self.USGS_API_URL)
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
             with urlopen(req, timeout=30) as response:
@@ -1071,6 +1072,7 @@ class NOAASpaceWeatherLoader(DatasetLoader):
 
             # Validate URL before opening (SSRF protection via domain allowlist)
             from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
             TrustedEndpoints.validate_url(self.SWPC_API_URL)
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
             with urlopen(req, timeout=30) as response:
@@ -1348,6 +1350,7 @@ class NOAAHurricaneLoader(DatasetLoader):
 
             # Validate URL before opening (SSRF protection via domain allowlist)
             from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
             TrustedEndpoints.validate_url(self.NHC_API_URL)
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
             with urlopen(req, timeout=30) as response:
@@ -1652,6 +1655,7 @@ class NOAAOceanLoader(DatasetLoader):
 
             # Validate URL before opening (SSRF protection via domain allowlist)
             from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
             TrustedEndpoints.validate_url(self.NOS_API_URL)
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
             with urlopen(req, timeout=30) as response:
