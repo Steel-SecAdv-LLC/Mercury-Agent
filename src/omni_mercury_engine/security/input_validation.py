@@ -587,24 +587,26 @@ class TrustedEndpoints:
     # ==========================================================================
     # Trusted Domains Allowlist (for SSRF protection)
     # ==========================================================================
-    TRUSTED_DOMAINS: frozenset[str] = frozenset({
-        # Government/Research APIs
-        "earthquake.usgs.gov",
-        "services.swpc.noaa.gov",
-        "www.nhc.noaa.gov",
-        "api.tidesandcurrents.noaa.gov",
-        "www.ndbc.noaa.gov",
-        "www.ngdc.noaa.gov",
-        "exoplanetarchive.ipac.caltech.edu",
-        "firms.modaps.eosdis.nasa.gov",
-        # Academic/Research Datasets
-        "archive.ics.uci.edu",
-        "intrusion-detection.distrinet-research.be",  # CICIDS 2017 improved dataset
-        # Weather APIs
-        "archive-api.open-meteo.com",
-        # Code/Data Repositories
-        "raw.githubusercontent.com",
-    })
+    TRUSTED_DOMAINS: frozenset[str] = frozenset(
+        {
+            # Government/Research APIs
+            "earthquake.usgs.gov",
+            "services.swpc.noaa.gov",
+            "www.nhc.noaa.gov",
+            "api.tidesandcurrents.noaa.gov",
+            "www.ndbc.noaa.gov",
+            "www.ngdc.noaa.gov",
+            "exoplanetarchive.ipac.caltech.edu",
+            "firms.modaps.eosdis.nasa.gov",
+            # Academic/Research Datasets
+            "archive.ics.uci.edu",
+            "intrusion-detection.distrinet-research.be",  # CICIDS 2017 improved dataset
+            # Weather APIs
+            "archive-api.open-meteo.com",
+            # Code/Data Repositories
+            "raw.githubusercontent.com",
+        }
+    )
 
     @classmethod
     def validate_url(cls, url: str) -> bool:
@@ -626,9 +628,7 @@ class TrustedEndpoints:
 
         # Enforce HTTPS only
         if parsed.scheme != "https":
-            raise ValueError(
-                f"SSRF Protection: URL must use HTTPS scheme, got '{parsed.scheme}'"
-            )
+            raise ValueError(f"SSRF Protection: URL must use HTTPS scheme, got '{parsed.scheme}'")
 
         # Validate domain is in allowlist
         domain = parsed.netloc.lower()

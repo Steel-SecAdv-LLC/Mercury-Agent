@@ -1456,6 +1456,7 @@ def load_dart_buoy_data(
 
         # Validate URL before opening (SSRF protection via domain allowlist)
         from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
         TrustedEndpoints.validate_url(DART_BUOY_API_URL)
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
         with urlopen(req, timeout=30) as response:
@@ -1535,6 +1536,7 @@ def load_noaa_tsunami_records(
 
         # Validate URL before opening (SSRF protection via domain allowlist)
         from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
         TrustedEndpoints.validate_url(NOAA_TSUNAMI_API_URL)
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
         with urlopen(req, timeout=30) as response:
@@ -1598,6 +1600,7 @@ def load_usgs_earthquake_catalog(
 
         # Validate URL before opening (SSRF protection via domain allowlist)
         from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
         TrustedEndpoints.validate_url(USGS_EARTHQUAKE_API_URL)
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
         with urlopen(req, timeout=30) as response:
