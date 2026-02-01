@@ -865,7 +865,7 @@ class AdaptiveAnomalyDetector:
                 threshold=threshold,
                 confidence=0.85,
                 profile_used=DatasetProfile.GENERIC,
-                calibration_method="sklearn_isolation",
+                calibration_method="percentile",
                 metadata={"backend": "sklearn.IsolationForest"},
             )
         except Exception as e:
