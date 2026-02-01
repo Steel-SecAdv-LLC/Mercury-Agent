@@ -501,25 +501,18 @@ class AdaptiveAnomalyDetector:
         # Check for covariance structure
         covariance_score = self._compute_covariance_score(X)
 
-        # Check dimensionality
-        is_high_dim = n_features > 50
-        is_very_high_dim = n_features > 100
-
-        # Check if covariance matrix would be well-conditioned
-        # Rule: need at least 3x more samples than features for stable covariance
-        covariance_stable = n_samples > 3 * n_features
+        # Check dimensionality - threshold at 20 features for high-dimensional
+        is_high_dim = n_features > 20
 
         # Heuristic profiling
         if temporal_score > 0.3:
             return DatasetProfile.TEMPORAL
-        elif covariance_score > 0.4 and covariance_stable and not is_very_high_dim:
-            # Use covariance-aware detection when covariance is stable
+        elif covariance_score > 0.5 and not is_high_dim:
             return DatasetProfile.COVARIANCE_STRUCTURED
-        elif is_high_dim or not covariance_stable:
-            # Use IsolationForest for high-dim or unstable covariance
-            return DatasetProfile.GENERIC
+        elif is_high_dim:
+            return DatasetProfile.HIGH_DIMENSIONAL
         else:
-            return DatasetProfile.COVARIANCE_STRUCTURED
+            return DatasetProfile.GENERIC
 
     def _compute_temporal_score(self, X: NDArray[np.float64]) -> float:
         """Compute score indicating temporal structure (0-1)."""
@@ -857,7 +850,14 @@ class AdaptiveAnomalyDetector:
             # Get decision scores (negative = anomaly in sklearn convention)
             scores = -iso.decision_function(X)  # Flip so higher = more anomalous
             predictions = (iso.predict(X) == -1).astype(np.int32)
-            threshold = 0.0
+
+            # Compute threshold from scores at the decision boundary
+            # IsolationForest uses 0 as decision boundary, so threshold is the min score of anomalies
+            anomaly_mask = predictions == 1
+            if anomaly_mask.any():
+                threshold = float(scores[anomaly_mask].min())
+            else:
+                threshold = float(np.percentile(scores, 100 * (1 - self.contamination)))
 
             return DetectionResult(
                 scores=scores,
