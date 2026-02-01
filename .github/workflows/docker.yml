@@ -2,7 +2,7 @@ name: Docker & Security
 
 on:
   push:
-    branches: [ main, neuro-symbolic-v1 ]
+    branches: [ main, develop ]
   pull_request:
     branches: [ main ]
 

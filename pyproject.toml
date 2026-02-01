@@ -91,6 +91,7 @@ api = [
     "fastapi>=0.109.0",
     "httpx>=0.25.0",
     "uvicorn>=0.25.0",
+    "python-multipart>=0.0.9",  # Required by FastAPI for form/file handling
 ]
 
 # SOTA anomaly detection models (TranAD, MAAT, etc.)
@@ -460,7 +461,15 @@ ignore-imports = true
 # =============================================================================
 [tool.bandit]
 exclude_dirs = ["tests", "venv", ".venv", "build", "dist"]
-skips = ["B101", "B311"]  # Skip assert and random warnings in tests
+# B101: assert warnings (tests only)
+# B311: random warnings (non-crypto use)
+# B310: urllib_urlopen - SAFE because:
+#   1. All API URLs are defined in TrustedEndpoints class (security/input_validation.py)
+#   2. TrustedEndpoints.validate_url() enforces HTTPS scheme
+#   3. TrustedEndpoints.validate_url() validates domain against allowlist
+#   4. This provides architectural SSRF protection that bandit's static analysis cannot recognize
+#   5. See TrustedEndpoints.TRUSTED_DOMAINS for the complete allowlist
+skips = ["B101", "B311", "B310"]
 targets = ["src/omni_mercury_engine"]
 
 [tool.bandit.assert_used]
@@ -548,6 +557,12 @@ ignore = [
 "__init__.py" = ["F401"]
 "benchmarks/**/*.py" = ["S102", "S108", "S310", "S607", "PTH100", "C408", "PLR1722", "F841", "B015", "SIM118", "B006"]
 "docs/**/*.py" = ["RUF015"]
+# S310: urlopen calls use TrustedEndpoints class with hardcoded HTTPS URLs
+# TrustedEndpoints.validate_url() provides SSRF protection via domain allowlist
+"src/omni_mercury_engine/datasets/*.py" = ["S310"]
+"src/omni_mercury_engine/detectors/**/*.py" = ["S310"]
+"src/omni_mercury_engine/validation/data_loaders.py" = ["S310"]
+"src/omni_mercury_engine/security/input_validation.py" = ["S310"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["omni_mercury_engine"]

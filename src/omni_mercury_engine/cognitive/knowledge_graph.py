@@ -62,6 +62,42 @@ class NodeType(Enum):
     INDICATOR = "indicator"
     ANOMALY = "anomaly"
     PATTERN = "pattern"
+    CONTEXT = "context"
+    DOMAIN = "domain"
+
+
+class OntologyClassType(Enum):
+    """Types of ontology classes."""
+
+    ENTITY = "entity"
+    EVENT = "event"
+    RELATION = "relation"
+    ATTRIBUTE = "attribute"
+    ANOMALY = "anomaly"
+    CONTEXT = "context"
+
+
+class PropertyType(Enum):
+    """Types of ontology properties."""
+
+    OBJECT_PROPERTY = "object_property"
+    DATA_PROPERTY = "data_property"
+    ANNOTATION_PROPERTY = "annotation_property"
+    TRANSITIVE = "transitive"
+    SYMMETRIC = "symmetric"
+    FUNCTIONAL = "functional"
+    INVERSE_FUNCTIONAL = "inverse_functional"
+
+
+class DataType(Enum):
+    """Supported data types for literals."""
+
+    STRING = "string"
+    INTEGER = "integer"
+    FLOAT = "float"
+    BOOLEAN = "boolean"
+    DATETIME = "datetime"
+    URI = "uri"
 
 
 class EdgeType(Enum):
@@ -156,6 +192,391 @@ class TraversalResult:
             "edges": [e.to_dict() for e in self.edges],
             "weight": self.total_weight,
             "confidence": self.total_confidence,
+        }
+
+
+@dataclass
+class OntologyClass:
+    """Ontology class definition with typed predicates."""
+
+    uri: str
+    name: str
+    class_type: OntologyClassType
+    parent_classes: list[str] = field(default_factory=list)
+    description: str = ""
+    properties: list[str] = field(default_factory=list)
+    constraints: list[dict[str, Any]] = field(default_factory=list)
+    embedding: np.ndarray[Any, Any] | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "uri": self.uri,
+            "name": self.name,
+            "class_type": self.class_type.value,
+            "parent_classes": self.parent_classes,
+            "description": self.description,
+            "properties": self.properties,
+        }
+
+
+@dataclass
+class OntologyProperty:
+    """Ontology property definition with domain/range constraints."""
+
+    uri: str
+    name: str
+    property_type: PropertyType
+    domain: list[str] = field(default_factory=list)
+    range: list[str] = field(default_factory=list)
+    inverse_of: str | None = None
+    is_transitive: bool = False
+    is_symmetric: bool = False
+    is_functional: bool = False
+    cardinality_min: int | None = None
+    cardinality_max: int | None = None
+    description: str = ""
+    embedding: np.ndarray[Any, Any] | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "uri": self.uri,
+            "name": self.name,
+            "property_type": self.property_type.value,
+            "domain": self.domain,
+            "range": self.range,
+            "is_transitive": self.is_transitive,
+            "is_symmetric": self.is_symmetric,
+            "is_functional": self.is_functional,
+            "description": self.description,
+        }
+
+
+class Ontology:
+    """
+    Ontology management for anomaly detection knowledge graph.
+
+    Provides:
+    - Class hierarchies with inheritance
+    - Typed properties with domain/range constraints
+    - Transitive and symmetric property inference
+    - Core anomaly detection ontology
+    """
+
+    def __init__(self, base_uri: str = "mercury://ontology/") -> None:
+        self.base_uri = base_uri
+        self.classes: dict[str, OntologyClass] = {}
+        self.properties: dict[str, OntologyProperty] = {}
+        self._class_hierarchy: dict[str, set[str]] = defaultdict(set)
+        self._property_hierarchy: dict[str, set[str]] = defaultdict(set)
+
+        self._initialize_core_ontology()
+
+    def _initialize_core_ontology(self) -> None:
+        """Initialize core anomaly detection ontology."""
+        # Root class
+        self.add_class("Thing", OntologyClassType.ENTITY, description="Root class")
+
+        # Anomaly classes
+        self.add_class(
+            "AnomalyPattern",
+            OntologyClassType.ANOMALY,
+            parent_classes=["Thing"],
+            description="Base anomaly pattern",
+        )
+        self.add_class(
+            "BehavioralAnomaly",
+            OntologyClassType.ANOMALY,
+            parent_classes=["AnomalyPattern"],
+            description="Behavioral deviation",
+        )
+        self.add_class(
+            "TemporalAnomaly",
+            OntologyClassType.ANOMALY,
+            parent_classes=["AnomalyPattern"],
+            description="Time-based anomaly",
+        )
+        self.add_class(
+            "StructuralAnomaly",
+            OntologyClassType.ANOMALY,
+            parent_classes=["AnomalyPattern"],
+            description="Structural deviation",
+        )
+        self.add_class(
+            "CollectiveAnomaly",
+            OntologyClassType.ANOMALY,
+            parent_classes=["AnomalyPattern"],
+            description="Collective behavior anomaly",
+        )
+        self.add_class(
+            "ContextualAnomaly",
+            OntologyClassType.ANOMALY,
+            parent_classes=["AnomalyPattern"],
+            description="Context-dependent anomaly",
+        )
+
+        # Context classes
+        self.add_class(
+            "Context",
+            OntologyClassType.CONTEXT,
+            parent_classes=["Thing"],
+            description="Contextual information",
+        )
+        self.add_class(
+            "Domain",
+            OntologyClassType.CONTEXT,
+            parent_classes=["Context"],
+            description="Application domain",
+        )
+        self.add_class(
+            "DataSource",
+            OntologyClassType.ENTITY,
+            parent_classes=["Thing"],
+            description="Data source",
+        )
+
+        # Core properties
+        self.add_property(
+            "hasAnomaly",
+            PropertyType.OBJECT_PROPERTY,
+            domain=["DataSource"],
+            range=["AnomalyPattern"],
+            description="Links data source to detected anomaly",
+        )
+        self.add_property(
+            "hasContext",
+            PropertyType.OBJECT_PROPERTY,
+            domain=["AnomalyPattern"],
+            range=["Context"],
+            description="Links anomaly to its context",
+        )
+        self.add_property(
+            "isRelatedTo",
+            PropertyType.OBJECT_PROPERTY,
+            domain=["AnomalyPattern"],
+            range=["AnomalyPattern"],
+            is_symmetric=True,
+            description="Symmetric relation between anomalies",
+        )
+        self.add_property(
+            "causes",
+            PropertyType.OBJECT_PROPERTY,
+            domain=["AnomalyPattern"],
+            range=["AnomalyPattern"],
+            is_transitive=True,
+            description="Causal relation",
+        )
+        self.add_property(
+            "hasScore",
+            PropertyType.DATA_PROPERTY,
+            domain=["AnomalyPattern"],
+            range=["float"],
+            is_functional=True,
+            description="Anomaly score",
+        )
+        self.add_property(
+            "hasConfidence",
+            PropertyType.DATA_PROPERTY,
+            domain=["AnomalyPattern"],
+            range=["float"],
+            is_functional=True,
+            description="Detection confidence",
+        )
+        self.add_property(
+            "hasSeverity",
+            PropertyType.DATA_PROPERTY,
+            domain=["AnomalyPattern"],
+            range=["string"],
+            is_functional=True,
+            description="Severity level",
+        )
+
+    def add_class(
+        self,
+        name: str,
+        class_type: OntologyClassType,
+        parent_classes: list[str] | None = None,
+        description: str = "",
+        properties: list[str] | None = None,
+        constraints: list[dict[str, Any]] | None = None,
+    ) -> OntologyClass:
+        """Add a class to the ontology."""
+        uri = f"{self.base_uri}class/{name}"
+
+        parent_uris = []
+        if parent_classes:
+            for parent in parent_classes:
+                parent_uri = f"{self.base_uri}class/{parent}"
+                parent_uris.append(parent_uri)
+
+        ontology_class = OntologyClass(
+            uri=uri,
+            name=name,
+            class_type=class_type,
+            parent_classes=parent_uris,
+            description=description,
+            properties=properties or [],
+            constraints=constraints or [],
+        )
+
+        self.classes[uri] = ontology_class
+
+        for parent_uri in parent_uris:
+            self._class_hierarchy[uri].add(parent_uri)
+
+        return ontology_class
+
+    def add_property(
+        self,
+        name: str,
+        property_type: PropertyType,
+        domain: list[str] | None = None,
+        range: list[str] | None = None,
+        inverse_of: str | None = None,
+        is_transitive: bool = False,
+        is_symmetric: bool = False,
+        is_functional: bool = False,
+        cardinality_min: int | None = None,
+        cardinality_max: int | None = None,
+        description: str = "",
+    ) -> OntologyProperty:
+        """Add a property to the ontology."""
+        uri = f"{self.base_uri}property/{name}"
+
+        domain_uris = [f"{self.base_uri}class/{d}" for d in (domain or [])]
+        range_uris = [
+            (
+                f"{self.base_uri}class/{r}"
+                if r not in ("string", "integer", "float", "boolean", "datetime")
+                else r
+            )
+            for r in (range or [])
+        ]
+
+        ontology_property = OntologyProperty(
+            uri=uri,
+            name=name,
+            property_type=property_type,
+            domain=domain_uris,
+            range=range_uris,
+            inverse_of=f"{self.base_uri}property/{inverse_of}" if inverse_of else None,
+            is_transitive=is_transitive,
+            is_symmetric=is_symmetric,
+            is_functional=is_functional,
+            cardinality_min=cardinality_min,
+            cardinality_max=cardinality_max,
+            description=description,
+        )
+
+        self.properties[uri] = ontology_property
+        return ontology_property
+
+    def get_class(self, name: str) -> OntologyClass | None:
+        """Get a class by name."""
+        uri = f"{self.base_uri}class/{name}"
+        return self.classes.get(uri)
+
+    def get_property(self, name: str) -> OntologyProperty | None:
+        """Get a property by name."""
+        uri = f"{self.base_uri}property/{name}"
+        return self.properties.get(uri)
+
+    def is_subclass_of(self, child: str, parent: str) -> bool:
+        """Check if child is a subclass of parent."""
+        child_uri = f"{self.base_uri}class/{child}"
+        parent_uri = f"{self.base_uri}class/{parent}"
+
+        if child_uri == parent_uri:
+            return True
+
+        visited: set[str] = set()
+        queue = [child_uri]
+
+        while queue:
+            current = queue.pop(0)
+            if current in visited:
+                continue
+            visited.add(current)
+
+            if current == parent_uri:
+                return True
+
+            if current in self.classes:
+                queue.extend(self.classes[current].parent_classes)
+
+        return False
+
+    def get_all_superclasses(self, class_name: str) -> set[str]:
+        """Get all superclasses of a class."""
+        superclasses: set[str] = set()
+        class_uri = f"{self.base_uri}class/{class_name}"
+
+        if class_uri not in self.classes:
+            return superclasses
+
+        queue = list(self.classes[class_uri].parent_classes)
+        while queue:
+            parent_uri = queue.pop(0)
+            if parent_uri in superclasses:
+                continue
+            superclasses.add(parent_uri)
+            if parent_uri in self.classes:
+                queue.extend(self.classes[parent_uri].parent_classes)
+
+        return superclasses
+
+    def infer_symmetric_relations(
+        self,
+        relations: list[tuple[str, str, str]],
+    ) -> list[tuple[str, str, str]]:
+        """Infer symmetric relations based on property definitions."""
+        inferred = []
+        for subject, predicate, obj in relations:
+            prop = self.get_property(predicate)
+            if prop and prop.is_symmetric:
+                inferred.append((obj, predicate, subject))
+        return inferred
+
+    def infer_transitive_relations(
+        self,
+        relations: list[tuple[str, str, str]],
+        max_depth: int = 3,
+    ) -> list[tuple[str, str, str]]:
+        """Infer transitive closure for transitive properties."""
+        inferred = []
+
+        transitive_props = [p.name for p in self.properties.values() if p.is_transitive]
+
+        for prop_name in transitive_props:
+            prop_relations = [(s, o) for s, p, o in relations if p == prop_name]
+
+            closure = set(prop_relations)
+            changed = True
+            depth = 0
+
+            while changed and depth < max_depth:
+                changed = False
+                depth += 1
+                new_relations = set()
+
+                for s1, o1 in closure:
+                    for s2, o2 in closure:
+                        if o1 == s2 and (s1, o2) not in closure:
+                            new_relations.add((s1, o2))
+                            changed = True
+
+                closure.update(new_relations)
+
+            for s, o in closure - set(prop_relations):
+                inferred.append((s, prop_name, o))
+
+        return inferred
+
+    def export(self) -> dict[str, Any]:
+        """Export ontology for serialization."""
+        return {
+            "base_uri": self.base_uri,
+            "classes": [c.to_dict() for c in self.classes.values()],
+            "properties": [p.to_dict() for p in self.properties.values()],
         }
 
 
@@ -579,6 +1000,7 @@ class KnowledgeGraph:
         embedding_dim: int = 64,
         activation_decay: float = 0.1,
         gnn_layers: int = 2,
+        ontology: Ontology | None = None,
     ):
         """
         Initialize Knowledge Graph.
@@ -588,10 +1010,14 @@ class KnowledgeGraph:
             embedding_dim: Dimension of node embeddings
             activation_decay: Decay rate for spreading activation
             gnn_layers: Number of GNN layers for message passing
+            ontology: Optional ontology for typed predicates and inference
         """
         self.enable_embeddings = enable_embeddings
         self.embedding_dim = embedding_dim
         self.activation_decay = activation_decay
+
+        # Ontology support
+        self.ontology = ontology or Ontology()
 
         # Core storage
         self._nodes: dict[str, KnowledgeNode] = {}
@@ -601,6 +1027,9 @@ class KnowledgeGraph:
         self._edge_type_index: dict[EdgeType, list[KnowledgeEdge]] = defaultdict[str, list[Any]](
             list
         )
+
+        # Triple storage for ontology-based queries
+        self._triples: list[tuple[str, str, str, float]] = []
 
         # Embedding components
         self._random_walk = RandomWalkEmbedding(embedding_dim=embedding_dim)
@@ -621,10 +1050,13 @@ class KnowledgeGraph:
             "queries": 0,
             "traversals": 0,
             "embeddings_computed": 0,
+            "triples_added": 0,
+            "inferences_made": 0,
         }
 
         logger.info(
-            f"KnowledgeGraph initialized (embeddings={enable_embeddings}, dim={embedding_dim})"
+            f"KnowledgeGraph initialized (embeddings={enable_embeddings}, dim={embedding_dim}, "
+            f"ontology_classes={len(self.ontology.classes)})"
         )
 
     def add_node(
@@ -1281,11 +1713,276 @@ class KnowledgeGraph:
                 "pagerank_computed": self._pagerank_computed,
             }
 
+    def add_triple(
+        self,
+        subject: str,
+        predicate: str,
+        obj: str,
+        confidence: float = 1.0,
+    ) -> tuple[str, str, str, float]:
+        """
+        Add an RDF-style triple with ontology validation.
+
+        Args:
+            subject: Subject entity
+            predicate: Property name
+            obj: Object entity or literal
+            confidence: Triple confidence
+
+        Returns:
+            The added triple (subject, predicate, object, confidence)
+        """
+        with self._lock:
+            # Validate against ontology if property exists
+            prop = self.ontology.get_property(predicate)
+            if prop:
+                # Check domain constraints
+                if prop.domain:
+                    subject_node = self._nodes.get(subject)
+                    if subject_node:
+                        # Domain class URI computed for validation
+                        _subject_class = (
+                            f"{self.ontology.base_uri}class/{subject_node.node_type.value}"
+                        )
+                        if prop.domain and not any(
+                            self.ontology.is_subclass_of(
+                                subject_node.node_type.value,
+                                d.replace(self.ontology.base_uri + "class/", ""),
+                            )
+                            for d in prop.domain
+                        ):
+                            logger.warning(
+                                f"Domain constraint violation: {subject} not in {prop.domain}"
+                            )
+
+            triple = (subject, predicate, obj, confidence)
+            self._triples.append(triple)
+            self._stats["triples_added"] += 1
+
+            # Add symmetric inference
+            if prop and prop.is_symmetric:
+                inverse_triple = (obj, predicate, subject, confidence * 0.99)
+                if inverse_triple not in self._triples:
+                    self._triples.append(inverse_triple)
+                    self._stats["inferences_made"] += 1
+
+            return triple
+
+    def query_triples(
+        self,
+        subject: str | None = None,
+        predicate: str | None = None,
+        obj: str | None = None,
+        min_confidence: float = 0.0,
+    ) -> list[tuple[str, str, str, float]]:
+        """
+        Query triples with pattern matching.
+
+        Args:
+            subject: Subject filter (None for wildcard)
+            predicate: Predicate filter (None for wildcard)
+            obj: Object filter (None for wildcard)
+            min_confidence: Minimum confidence threshold
+
+        Returns:
+            List of matching triples
+        """
+        with self._lock:
+            self._stats["queries"] += 1
+            results = []
+
+            for s, p, o, conf in self._triples:
+                if conf < min_confidence:
+                    continue
+                if subject is not None and s != subject:
+                    continue
+                if predicate is not None and p != predicate:
+                    continue
+                if obj is not None and o != obj:
+                    continue
+                results.append((s, p, o, conf))
+
+            return results
+
+    def infer_transitive_closure(
+        self,
+        predicate: str,
+        max_depth: int = 5,
+    ) -> list[tuple[str, str, str, float]]:
+        """
+        Compute transitive closure for a property.
+
+        Args:
+            predicate: Property name
+            max_depth: Maximum inference depth
+
+        Returns:
+            List of inferred triples
+        """
+        with self._lock:
+            prop = self.ontology.get_property(predicate)
+            if not prop or not prop.is_transitive:
+                return []
+
+            existing = set()
+            for s, p, o, _ in self._triples:
+                if p == predicate:
+                    existing.add((s, o))
+
+            closure = set(existing)
+            changed = True
+            depth = 0
+
+            while changed and depth < max_depth:
+                changed = False
+                depth += 1
+                new_relations = set()
+
+                for s1, o1 in closure:
+                    for s2, o2 in closure:
+                        if o1 == s2 and (s1, o2) not in closure:
+                            new_relations.add((s1, o2))
+                            changed = True
+
+                closure.update(new_relations)
+
+            inferred = []
+            for s, o in closure - existing:
+                triple = (s, predicate, o, 0.9**depth)
+                self._triples.append(triple)
+                inferred.append(triple)
+                self._stats["inferences_made"] += 1
+
+            return inferred
+
+    def explain_triple(
+        self,
+        subject: str,
+        predicate: str,
+        obj: str,
+    ) -> dict[str, Any]:
+        """
+        Explain how a triple was derived.
+
+        Args:
+            subject: Subject entity
+            predicate: Property name
+            obj: Object entity
+
+        Returns:
+            Explanation with provenance information
+        """
+        with self._lock:
+            # Check if triple exists directly
+            direct_matches = [
+                (s, p, o, conf)
+                for s, p, o, conf in self._triples
+                if s == subject and p == predicate and o == obj
+            ]
+
+            if not direct_matches:
+                return {
+                    "found": False,
+                    "explanation": f"Triple ({subject}, {predicate}, {obj}) not found",
+                }
+
+            triple = direct_matches[0]
+
+            # Check property characteristics
+            prop = self.ontology.get_property(predicate)
+            prop_info = prop.to_dict() if prop else {}
+
+            # Find supporting evidence
+            supporting = []
+
+            # For transitive properties, find intermediate nodes
+            if prop and prop.is_transitive:
+                for s1, p1, o1, c1 in self._triples:
+                    if p1 == predicate and s1 == subject and o1 != obj:
+                        for s2, p2, o2, c2 in self._triples:
+                            if p2 == predicate and s2 == o1 and o2 == obj:
+                                supporting.append(
+                                    {
+                                        "type": "transitive_chain",
+                                        "chain": [
+                                            (subject, predicate, o1),
+                                            (o1, predicate, obj),
+                                        ],
+                                        "confidence": c1 * c2,
+                                    }
+                                )
+
+            return {
+                "found": True,
+                "triple": triple,
+                "confidence": triple[3],
+                "property": prop_info,
+                "supporting_evidence": supporting,
+                "explanation": (
+                    f"Triple ({subject}, {predicate}, {obj}) exists with "
+                    f"confidence {triple[3]:.3f}"
+                ),
+            }
+
+    def get_entity_context(
+        self,
+        entity: str,
+        max_depth: int = 2,
+    ) -> dict[str, Any]:
+        """
+        Get full context for an entity including ontology information.
+
+        Args:
+            entity: Entity identifier
+            max_depth: Maximum traversal depth
+
+        Returns:
+            Dictionary with entity context
+        """
+        with self._lock:
+            node = self._nodes.get(entity)
+            if not node:
+                return {"found": False, "entity": entity}
+
+            # Get ontology class information
+            class_info = None
+            ont_class = self.ontology.get_class(node.node_type.value)
+            if ont_class:
+                class_info = ont_class.to_dict()
+                class_info["superclasses"] = list(
+                    self.ontology.get_all_superclasses(node.node_type.value)
+                )
+
+            # Get all triples involving this entity
+            outgoing = self.query_triples(subject=entity)
+            incoming = self.query_triples(obj=entity)
+
+            # Get neighbors
+            neighbors = self.get_neighbors(entity, direction="both")
+
+            return {
+                "found": True,
+                "entity": entity,
+                "node": node.to_dict(),
+                "ontology_class": class_info,
+                "outgoing_relations": [
+                    {"predicate": p, "object": o, "confidence": c} for _, p, o, c in outgoing
+                ],
+                "incoming_relations": [
+                    {"subject": s, "predicate": p, "confidence": c} for s, p, _, c in incoming
+                ],
+                "neighbor_count": len(neighbors),
+                "pagerank": node.pagerank,
+                "cluster": node.cluster_id,
+            }
+
     def export(self) -> dict[str, Any]:
         """Export entire graph for serialization."""
         with self._lock:
             return {
                 "nodes": [n.to_dict() for n in self._nodes.values()],
                 "edges": [e.to_dict() for edges in self._edges.values() for e in edges],
+                "triples": self._triples,
+                "ontology": self.ontology.export(),
                 "statistics": self.get_statistics(),
             }

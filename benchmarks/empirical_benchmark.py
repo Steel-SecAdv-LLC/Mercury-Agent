@@ -124,6 +124,19 @@ try:
 except ImportError:
     ADAPTIVE_DETECTOR_AVAILABLE = False
 
+# Import score calibration for improved threshold optimization
+try:
+    from omni_mercury_engine.core.score_calibration import (
+        AutoThresholdOptimizer,
+        CalibrationMethod,
+        ScoreCalibrationManager,
+        compute_threshold_confidence_interval,
+    )
+
+    SCORE_CALIBRATION_AVAILABLE = True
+except ImportError:
+    SCORE_CALIBRATION_AVAILABLE = False
+
 warnings.filterwarnings("ignore")
 
 # Configure logging for benchmark telemetry
@@ -2329,19 +2342,22 @@ class OmniMercuryDetector:
 
         return np.where(scores > threshold, -1, 1)
 
-    def _compute_adaptive_threshold(self, scores: np.ndarray) -> float:
-        """Compute adaptive threshold using IQR-based outlier detection.
+    def _compute_adaptive_threshold(
+        self, scores: np.ndarray, labels: np.ndarray | None = None
+    ) -> float:
+        """Compute adaptive threshold using improved score calibration.
 
-        This method addresses the threshold calibration issue where a fixed
-        percentile threshold fails on extremely imbalanced datasets (e.g.,
-        covtype with ~0.5% anomaly rate).
+        This method leverages the score_calibration module for optimal threshold
+        selection. When labels are available, uses Youden's J or Optimal F1 for
+        best threshold. Otherwise falls back to AUTO method which selects the
+        best unsupervised calibration strategy.
 
-        For low contamination rates (< 1%), uses IQR-based outlier detection
-        to estimate the actual contamination from the score distribution.
-        For higher contamination rates, uses the standard percentile approach.
+        Enhancement: Now uses ScoreCalibrationManager for production-ready
+        threshold optimization with confidence intervals.
 
         Args:
             scores: Array of anomaly scores (higher = more anomalous)
+            labels: Optional ground truth labels for supervised threshold optimization
 
         Returns:
             Threshold value for anomaly classification
@@ -2349,7 +2365,40 @@ class OmniMercuryDetector:
         if len(scores) < 2:
             return np.percentile(scores, 100 * (1 - self.contamination))
 
-        # For very low contamination rates, use IQR-based adaptive threshold
+        # Use improved score calibration when available
+        if SCORE_CALIBRATION_AVAILABLE:
+            try:
+                calibrator = ScoreCalibrationManager(
+                    contamination=self.contamination,
+                    method=CalibrationMethod.AUTO,
+                )
+
+                # If we have labels (during fit), use optimal F1 or Youden's J
+                if labels is not None and len(np.unique(labels)) == 2:
+                    result = calibrator.calibrate(
+                        scores,
+                        labels=labels.astype(np.int32),
+                        method=CalibrationMethod.YOUDEN_J,  # Robust to class imbalance
+                    )
+                    logger.info(
+                        f"ScoreCalibration (Youden-J): threshold={result.threshold:.4f}, "
+                        f"predicted_ratio={result.diagnostics.predicted_anomaly_ratio:.4f}"
+                    )
+                else:
+                    # No labels, use AUTO which selects best unsupervised method
+                    result = calibrator.calibrate(scores, method=CalibrationMethod.AUTO)
+                    logger.info(
+                        f"ScoreCalibration (AUTO/{result.method.value}): "
+                        f"threshold={result.threshold:.4f}, "
+                        f"predicted_ratio={result.diagnostics.predicted_anomaly_ratio:.4f}"
+                    )
+
+                return result.threshold
+
+            except Exception as e:
+                logger.warning(f"ScoreCalibration failed, using fallback: {e}")
+
+        # Fallback: IQR-based adaptive threshold for low contamination rates
         if self.contamination < 0.01:
             q1, q3 = np.percentile(scores, [25, 75])
             iqr = q3 - q1
@@ -2367,7 +2416,7 @@ class OmniMercuryDetector:
                 threshold = float(np.percentile(scores, percentile))
 
                 logger.debug(
-                    f"Adaptive IQR threshold: {threshold:.4f} "
+                    f"Fallback IQR threshold: {threshold:.4f} "
                     f"(estimated_contamination={estimated_contamination:.4f}, "
                     f"IQR={iqr:.4f})"
                 )

@@ -557,9 +557,245 @@ def sanitize_input(
     return result.sanitized_value or ""
 
 
+class TrustedEndpoints:
+    """
+    Hardcoded trusted API endpoints for external data sources with secure URL opening.
+
+    These are constant URLs that are NOT derived from user input.
+    CodeQL's taint analysis recognizes class constants as untainted sources,
+    which properly resolves SSRF alerts without needing sanitization.
+
+    Usage:
+        from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
+        # Option 1: Use secure_urlopen for validated URL opening
+        response = TrustedEndpoints.secure_urlopen(
+            TrustedEndpoints.USGS_EARTHQUAKE,
+            params={"format": "geojson", "limit": "100"}
+        )
+
+        # Option 2: Build URL manually (for custom headers)
+        url = f"{TrustedEndpoints.USGS_EARTHQUAKE}?{urllib.parse.urlencode(params)}"
+
+    Security Note:
+        - All URLs use HTTPS only
+        - Query parameters should be constructed from typed function arguments
+        - Never concatenate user input directly into these URLs
+        - secure_urlopen validates scheme and domain before opening
+    """
+
+    # ==========================================================================
+    # Trusted Domains Allowlist (for SSRF protection)
+    # ==========================================================================
+    TRUSTED_DOMAINS: frozenset[str] = frozenset(
+        {
+            # Government/Research APIs
+            "earthquake.usgs.gov",
+            "services.swpc.noaa.gov",
+            "www.nhc.noaa.gov",
+            "api.tidesandcurrents.noaa.gov",
+            "www.ndbc.noaa.gov",
+            "www.ngdc.noaa.gov",
+            "exoplanetarchive.ipac.caltech.edu",
+            "firms.modaps.eosdis.nasa.gov",
+            # Academic/Research Datasets
+            "archive.ics.uci.edu",
+            "intrusion-detection.distrinet-research.be",  # CICIDS 2017 improved dataset
+            # Weather APIs
+            "archive-api.open-meteo.com",
+            # Code/Data Repositories
+            "raw.githubusercontent.com",
+        }
+    )
+
+    @classmethod
+    def validate_url(cls, url: str) -> bool:
+        """
+        Validate that a URL is safe to open (HTTPS + trusted domain).
+
+        Args:
+            url: The URL to validate
+
+        Returns:
+            True if URL is safe, False otherwise
+
+        Raises:
+            ValueError: If URL is malformed or uses untrusted scheme/domain
+        """
+        import urllib.parse
+
+        parsed = urllib.parse.urlparse(url)
+
+        # Enforce HTTPS only
+        if parsed.scheme != "https":
+            raise ValueError(f"SSRF Protection: URL must use HTTPS scheme, got '{parsed.scheme}'")
+
+        # Validate domain is in allowlist
+        domain = parsed.netloc.lower()
+        if domain not in cls.TRUSTED_DOMAINS:
+            raise ValueError(
+                f"SSRF Protection: Domain '{domain}' not in trusted allowlist. "
+                f"Trusted domains: {sorted(cls.TRUSTED_DOMAINS)}"
+            )
+
+        return True
+
+    @classmethod
+    def secure_urlopen(
+        cls,
+        base_url: str,
+        params: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
+        timeout: int = 60,
+    ):
+        """
+        Securely open a URL after validating scheme and domain.
+
+        This method provides SSRF protection by:
+        1. Validating the URL scheme is HTTPS
+        2. Validating the domain is in the trusted allowlist
+        3. Constructing the final URL from validated components
+
+        Args:
+            base_url: Base URL (must be from TrustedEndpoints constants)
+            params: Optional query parameters to append
+            headers: Optional HTTP headers (User-Agent added by default)
+            timeout: Request timeout in seconds (default: 60)
+
+        Returns:
+            HTTP response object (context manager)
+
+        Raises:
+            ValueError: If URL validation fails
+            urllib.error.URLError: If request fails
+        """
+        import urllib.parse
+        import urllib.request
+
+        # Validate base URL
+        cls.validate_url(base_url)
+
+        # Build final URL with query parameters
+        if params:
+            query_string = urllib.parse.urlencode(params)
+            url = f"{base_url}?{query_string}"
+        else:
+            url = base_url
+
+        # Validate final URL (in case params somehow modified it)
+        cls.validate_url(url.split("?")[0])
+
+        # Build request with headers
+        default_headers = {"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
+        if headers:
+            default_headers.update(headers)
+
+        request = urllib.request.Request(url, headers=default_headers)
+        return urllib.request.urlopen(request, timeout=timeout)
+
+    # ==========================================================================
+    # USGS - Earthquake Hazards Program
+    # ==========================================================================
+    USGS_EARTHQUAKE = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+
+    # ==========================================================================
+    # NOAA - Space Weather Prediction Center
+    # ==========================================================================
+    NOAA_SWPC_BASE = "https://services.swpc.noaa.gov/json"
+    NOAA_SWPC_KINDEX = "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json"
+    NOAA_SWPC_XRAYS = "https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json"
+    NOAA_SWPC_PROTONS = (
+        "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json"
+    )
+    NOAA_SWPC_KP_PRODUCTS = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
+
+    # ==========================================================================
+    # NOAA - National Hurricane Center
+    # ==========================================================================
+    NOAA_NHC_ARCHIVE = "https://www.nhc.noaa.gov/gis/forecast/archive"
+    NOAA_NHC_HURDAT2 = "https://www.nhc.noaa.gov/gis/forecast/archive/hurdat2-1851-2023-052424.txt"
+
+    # ==========================================================================
+    # NOAA - National Ocean Service / Tides
+    # ==========================================================================
+    NOAA_NOS_API = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+
+    # ==========================================================================
+    # NOAA - DART Buoy Network (Tsunami Detection)
+    # ==========================================================================
+    NOAA_DART_BUOY = "https://www.ndbc.noaa.gov/data/realtime2"
+
+    # ==========================================================================
+    # NOAA - Tsunami Events API
+    # ==========================================================================
+    NOAA_TSUNAMI_EVENTS = "https://www.ngdc.noaa.gov/hazel/hazard-service/api/v1/tsunamis/events"
+
+    # ==========================================================================
+    # NOAA - National Data Buoy Center (NDBC)
+    # ==========================================================================
+    NOAA_NDBC_REALTIME = "https://www.ndbc.noaa.gov/data/realtime2"
+
+    # ==========================================================================
+    # NASA - Exoplanet Archive
+    # ==========================================================================
+    NASA_EXOPLANET_TAP = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync"
+
+    # ==========================================================================
+    # NASA - FIRMS (Fire Information for Resource Management System)
+    # ==========================================================================
+    NASA_FIRMS_MODIS_7D = (
+        "https://firms.modaps.eosdis.nasa.gov/data/active_fire/"
+        "modis-c6.1/csv/MODIS_C6_1_Global_7d.csv"
+    )
+    NASA_FIRMS_VIIRS_7D = (
+        "https://firms.modaps.eosdis.nasa.gov/data/active_fire/"
+        "viirs-i-npp/csv/VNP14IMGTDL_NRT_Global_7d.csv"
+    )
+    # SUOMI NPP VIIRS Collection 2 (alternative VIIRS source)
+    NASA_FIRMS_VIIRS_SUOMI_7D = (
+        "https://firms.modaps.eosdis.nasa.gov/data/active_fire/"
+        "suomi-npp-viirs-c2/csv/SUOMI_VIIRS_C2_Global_7d.csv"
+    )
+
+    # ==========================================================================
+    # Open-Meteo Weather Archive API
+    # ==========================================================================
+    OPEN_METEO_ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
+
+    # ==========================================================================
+    # UCI ML Repository - NSL-KDD Dataset
+    # ==========================================================================
+    UCI_NSL_KDD = (
+        "https://archive.ics.uci.edu/ml/machine-learning-databases/"
+        "kddcup99-mld/kddcup.data_10_percent.gz"
+    )
+
+    # ==========================================================================
+    # GitHub - NSL-KDD Dataset Mirror (defcom17)
+    # ==========================================================================
+    GITHUB_NSL_KDD_TRAIN = "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTrain+.txt"
+    GITHUB_NSL_KDD_TEST = "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTest+.txt"
+
+    # ==========================================================================
+    # MITRE ATT&CK - Threat Intelligence
+    # ==========================================================================
+    MITRE_STIX = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
+    # Alternative MITRE STIX data source (attack-stix-data repo)
+    MITRE_STIX_DATA = (
+        "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/"
+        "master/enterprise-attack/enterprise-attack.json"
+    )
+
+    # ==========================================================================
+    # CICIDS 2017 - Network Intrusion Detection Dataset
+    # ==========================================================================
+    CICIDS_DISTRINET = "https://intrusion-detection.distrinet-research.be/Dataset/dataset.zip"
+
+
 __all__ = [
     "InputValidator",
     "SanitizationLevel",
+    "TrustedEndpoints",
     "ValidationError",
     "ValidationResult",
     "sanitize_input",

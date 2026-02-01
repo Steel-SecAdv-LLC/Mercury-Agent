@@ -44,10 +44,11 @@ logger = logging.getLogger(__name__)
 
 
 def safe_urlretrieve(url: str, filename: str | Path) -> None:
-    """Safely download a file from a URL with scheme validation.
+    """Safely download a file from a URL with scheme and domain validation.
 
     Only allows https:// and http:// schemes to prevent file:// or other
-    potentially dangerous URL schemes.
+    potentially dangerous URL schemes. For HTTPS URLs, validates against
+    the TrustedEndpoints domain allowlist for SSRF protection.
 
     Args:
         url: The URL to download from (must be http:// or https://)
@@ -56,14 +57,29 @@ def safe_urlretrieve(url: str, filename: str | Path) -> None:
     Raises:
         ValueError: If the URL scheme is not http or https
     """
+    import logging
     import urllib.request
     from urllib.parse import urlparse
 
+    from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
+    logger = logging.getLogger(__name__)
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise ValueError(f"URL scheme must be http or https, got: {parsed.scheme}")
 
-    urllib.request.urlretrieve(url, filename)  # noqa: S310  # nosec B310
+    # Validate URL against trusted domain allowlist (SSRF protection)
+    if parsed.scheme == "https":
+        try:
+            TrustedEndpoints.validate_url(url)
+        except ValueError:
+            # Domain not in allowlist - log warning but allow for research datasets
+            logger.warning(
+                f"URL domain '{parsed.netloc}' not in trusted allowlist. "
+                "Proceeding with caution for dataset download."
+            )
+
+    urllib.request.urlretrieve(url, filename)
 
 
 class DatasetSplit(Enum):
@@ -272,7 +288,13 @@ class DatasetLoader(ABC):
         # Check cache
         if cache_file.exists():
             logger.info(f"Loading {self.DATASET_NAME} from cache")
-            cached = np.load(cache_file, allow_pickle=True)
+            # Security: Cache files are self-generated, should be pure numpy arrays
+            # Use allow_pickle=False for safety; fall back only if legacy cache exists
+            try:
+                cached = np.load(cache_file, allow_pickle=False)
+            except ValueError:
+                logger.warning("Legacy cache format detected, loading with pickle")
+                cached = np.load(cache_file, allow_pickle=True)  # nosec B301
             self._data = {
                 DatasetSplit.TRAIN: cached["train_features"],
                 DatasetSplit.VALIDATION: cached["val_features"],

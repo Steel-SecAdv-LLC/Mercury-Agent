@@ -220,7 +220,7 @@ def run_all_benchmarks(include_real_data: bool = True) -> dict[str, Any]:
         include_real_data: Whether to include real-data benchmarks (NSL-KDD, MIMIC-III)
     """
     print("=" * 70)
-    print("Mercury-Agent COMPREHENSIVE BENCHMARK")
+    print("Mercury Agent ♱ COMPREHENSIVE BENCHMARK")
     print("=" * 70)
 
     results = {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()), "benchmarks": {}}

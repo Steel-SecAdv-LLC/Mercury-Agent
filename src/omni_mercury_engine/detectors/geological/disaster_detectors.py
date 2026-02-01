@@ -57,6 +57,7 @@ from scipy.fft import fft, fftfreq
 from torch import nn
 
 from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
 from omni_mercury_engine.utils.rng import get_global_rng
 
 
@@ -1413,14 +1414,14 @@ def generate_synthetic_earthquake_data(
 # Real-World Dataset Loaders for Disaster Detection Training
 # =============================================================================
 
-# NOAA DART Buoy API for tsunami detection
-DART_BUOY_API_URL = "https://www.ndbc.noaa.gov/data/realtime2"
+# NOAA DART Buoy API for tsunami detection (via TrustedEndpoints for SSRF prevention)
+DART_BUOY_API_URL = TrustedEndpoints.NOAA_NDBC_REALTIME
 
-# NOAA Tsunami Events API
-NOAA_TSUNAMI_API_URL = "https://www.ngdc.noaa.gov/hazel/hazard-service/api/v1/tsunamis/events"
+# NOAA Tsunami Events API (via TrustedEndpoints for SSRF prevention)
+NOAA_TSUNAMI_API_URL = TrustedEndpoints.NOAA_TSUNAMI_EVENTS
 
-# USGS Earthquake Catalog API
-USGS_EARTHQUAKE_API_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+# USGS Earthquake Catalog API (via TrustedEndpoints for SSRF prevention)
+USGS_EARTHQUAKE_API_URL = TrustedEndpoints.USGS_EARTHQUAKE
 
 
 def load_dart_buoy_data(
@@ -1453,8 +1454,12 @@ def load_dart_buoy_data(
         if not url.startswith("https://"):
             raise RuntimeError("DART API URL must use HTTPS")
 
-        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
-        with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+        # Validate URL before opening (SSRF protection via domain allowlist)
+        from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
+        TrustedEndpoints.validate_url(DART_BUOY_API_URL)
+        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+        with urlopen(req, timeout=30) as response:
             raw_data = response.read().decode()
 
         lines = raw_data.strip().split("\n")
@@ -1529,8 +1534,12 @@ def load_noaa_tsunami_records(
         if not url.startswith("https://"):
             raise RuntimeError("NOAA Tsunami API URL must use HTTPS")
 
-        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
-        with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+        # Validate URL before opening (SSRF protection via domain allowlist)
+        from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
+        TrustedEndpoints.validate_url(NOAA_TSUNAMI_API_URL)
+        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+        with urlopen(req, timeout=30) as response:
             data = json.loads(response.read().decode())
 
         events = data.get("items", [])
@@ -1589,8 +1598,12 @@ def load_usgs_earthquake_catalog(
         if not url.startswith("https://"):
             raise RuntimeError("USGS API URL must use HTTPS")
 
-        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})  # noqa: S310
-        with urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
+        # Validate URL before opening (SSRF protection via domain allowlist)
+        from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
+        TrustedEndpoints.validate_url(USGS_EARTHQUAKE_API_URL)
+        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+        with urlopen(req, timeout=30) as response:
             data = json.loads(response.read().decode())
 
         features = data.get("features", [])

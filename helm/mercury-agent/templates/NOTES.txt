@@ -1,4 +1,4 @@
-Mercury-Agent has been deployed successfully!
+Mercury Agent ♱ has been deployed successfully!
 
 {{- if .Values.api.enabled }}
 ===========================================
@@ -69,4 +69,4 @@ Documentation
 - API Docs: /docs endpoint
 - Issues: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/issues
 
-Thank you for using Mercury-Agent!
+Thank you for using Mercury Agent ♱!

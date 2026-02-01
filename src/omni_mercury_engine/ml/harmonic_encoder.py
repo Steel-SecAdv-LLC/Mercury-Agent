@@ -30,8 +30,19 @@ Provides frequency-domain feature extraction for anomaly detection.
 import numpy as np
 import torch
 from scipy.fft import fft, ifft
-from scipy.special import sph_harm
 from torch import nn
+
+
+# Handle scipy.special spherical harmonics API deprecation (scipy 1.14+)
+try:
+    from scipy.special import sph_harm_y
+
+    def _sph_harm(m: int, n: int, theta: np.ndarray, phi: np.ndarray) -> np.ndarray:
+        """Wrapper for spherical harmonics using new scipy API."""
+        return sph_harm_y(n, m, theta, phi)
+
+except ImportError:
+    from scipy.special import sph_harm as _sph_harm
 
 
 class SphericalHarmonicDecomposer:
@@ -64,12 +75,7 @@ class SphericalHarmonicDecomposer:
         idx = 0
         for degree in range(self.l_max + 1):
             for order in range(-degree, degree + 1):
-                try:
-                    from scipy.special import sph_harm_y
-
-                    Y_lm = sph_harm_y(order, degree, theta, phi)
-                except ImportError:
-                    Y_lm = sph_harm(order, degree, phi, theta)
+                Y_lm = _sph_harm(order, degree, theta, phi)
                 coefficients[idx] = np.sum(values * Y_lm.conj()) / len(values)
                 idx += 1
 
@@ -97,12 +103,7 @@ class SphericalHarmonicDecomposer:
         idx = 0
         for degree in range(self.l_max + 1):
             for order in range(-degree, degree + 1):
-                try:
-                    from scipy.special import sph_harm_y
-
-                    Y_lm = sph_harm_y(order, degree, theta, phi)
-                except ImportError:
-                    Y_lm = sph_harm(order, degree, phi, theta)
+                Y_lm = _sph_harm(order, degree, theta, phi)
                 reconstruction += coefficients[idx] * Y_lm
                 idx += 1
 

@@ -2495,7 +2495,18 @@ class OmniMercuryEngine(LoggerMixin):
 
         try:
             if training_data.endswith(".npz"):
-                data = np.load(training_data, allow_pickle=True)
+                # Security: Try loading without pickle first (safe for pure numpy arrays)
+                # Only fall back to pickle for legacy files with Python objects
+                try:
+                    data = np.load(training_data, allow_pickle=False)
+                except ValueError as e:
+                    if "allow_pickle" in str(e).lower():
+                        logger.warning(
+                            f"Loading {training_data} with pickle - ensure file is from trusted source"
+                        )
+                        data = np.load(training_data, allow_pickle=True)  # nosec B301
+                    else:
+                        raise
                 features_dict = {
                     k: torch.tensor(v, dtype=torch.float32)
                     for k, v in data.items()

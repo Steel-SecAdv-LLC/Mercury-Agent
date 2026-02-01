@@ -462,7 +462,12 @@ class ADRepositoryLoader(DatasetLoader):
                 self._load_mat_file(path)
 
             elif suffix == ".npz":
-                data = np.load(path, allow_pickle=True)
+                # Security: External dataset files - try safe load first
+                try:
+                    data = np.load(path, allow_pickle=False)
+                except ValueError:
+                    logger.warning(f"Dataset {path} requires pickle - verify source is trusted")
+                    data = np.load(path, allow_pickle=True)  # nosec B301
                 self._features = data["X"].astype(np.float32)
                 self._labels = data["y"].astype(np.int64)
                 self._is_real_data = True
@@ -485,7 +490,12 @@ class ADRepositoryLoader(DatasetLoader):
 
                 # Find npz or csv files
                 for f in extract_dir.rglob("*.npz"):
-                    data = np.load(f, allow_pickle=True)
+                    # Security: External dataset files - try safe load first
+                    try:
+                        data = np.load(f, allow_pickle=False)
+                    except ValueError:
+                        logger.warning(f"Dataset {f} requires pickle - verify source")
+                        data = np.load(f, allow_pickle=True)  # nosec B301
                     if "X" in data and "y" in data:
                         self._features = data["X"].astype(np.float32)
                         self._labels = data["y"].astype(np.int64)
