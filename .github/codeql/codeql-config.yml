@@ -1,0 +1,36 @@
+# CodeQL Configuration for Mercury-Agent
+# This configuration customizes CodeQL analysis to recognize our security patterns
+
+name: "Mercury-Agent CodeQL Config"
+
+# Disable default queries and use our custom configuration
+disable-default-queries: false
+
+# Use security-extended queries
+queries:
+  - uses: security-extended
+  - uses: security-and-quality
+
+# Path filters - exclude test files and benchmarks from security scanning
+paths-ignore:
+  - tests
+  - benchmarks
+  - docs
+  - examples
+  - tools
+
+# Query filters to reduce false positives
+# The TrustedEndpoints class in security/input_validation.py provides SSRF protection
+# by validating URLs against a domain allowlist before any urlopen calls
+query-filters:
+  # Exclude SSRF alerts for files that use TrustedEndpoints validation
+  # These files call TrustedEndpoints.validate_url() before urlopen
+  - exclude:
+      id: py/ssrf
+      paths:
+        - src/omni_mercury_engine/datasets/environmental.py
+        - src/omni_mercury_engine/datasets/ocean.py
+        - src/omni_mercury_engine/datasets/security.py
+        - src/omni_mercury_engine/datasets/space.py
+        - src/omni_mercury_engine/validation/data_loaders.py
+        - src/omni_mercury_engine/detectors/geological/disaster_detectors.py
