@@ -66,20 +66,43 @@ from omni_mercury_engine.detectors.vlm.context_providers import (
     PositionContextProvider,
     TemporalContextProvider,
 )
+from omni_mercury_engine.detectors.vlm.advanced_context_providers import (
+    AppearanceContextProvider,
+    EnhancedCombinedContextProvider,
+    FrequencyContextProvider,
+    SemanticContextProvider,
+)
 from omni_mercury_engine.detectors.vlm.lavad import LAVADDetector
 from omni_mercury_engine.detectors.vlm.lvlm_backends import LVLMBackend, get_lvlm_backend
+from omni_mercury_engine.detectors.vlm.lvlm_cache import (
+    LVLMBackendCache,
+    get_cached_backend,
+    prewarm_backend,
+)
 
 
 __all__ = [
+    # Detectors
     "AnyAnomalyDetector",
     "BLIPConfig",
     "BLIPVLMDetector",
     "BaseVLMDetector",
     "LAVADDetector",
-    "LVLMBackend",
-    "PositionContextProvider",
-    "TemporalContextProvider",
     "VLMConfig",
     "create_blip_detector",
+    # Backends
+    "LVLMBackend",
     "get_lvlm_backend",
+    # Backend Cache
+    "LVLMBackendCache",
+    "get_cached_backend",
+    "prewarm_backend",
+    # Context Providers (Basic)
+    "PositionContextProvider",
+    "TemporalContextProvider",
+    # Context Providers (Advanced)
+    "AppearanceContextProvider",
+    "EnhancedCombinedContextProvider",
+    "FrequencyContextProvider",
+    "SemanticContextProvider",
 ]
