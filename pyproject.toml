@@ -91,6 +91,7 @@ api = [
     "fastapi>=0.109.0",
     "httpx>=0.25.0",
     "uvicorn>=0.25.0",
+    "python-multipart>=0.0.9",  # Required by FastAPI for form/file handling
 ]
 
 # SOTA anomaly detection models (TranAD, MAAT, etc.)
