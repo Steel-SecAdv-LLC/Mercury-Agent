@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-02-02
+
+### Added - SaaS Infrastructure and Production Hardening
+
+- **Streaming Infrastructure** (`infrastructure/streaming.py`): Production-grade streaming
+  - `StreamProducer`/`StreamConsumer` abstract interfaces
+  - `KafkaStreamProducer`/`KafkaStreamConsumer`: Apache Kafka integration with aiokafka
+  - `RedisStreamProducer`/`RedisStreamConsumer`: Redis Streams for low-latency processing
+  - `InMemoryStreamProducer`/`InMemoryStreamConsumer`: For testing
+  - `CircuitBreaker`: Failure handling with configurable thresholds
+  - `StreamingAnomalyPipeline`: End-to-end streaming anomaly detection
+  - Factory classes for easy backend switching
+
+- **Request Correlation IDs** (`api/server.py`): Distributed tracing support
+  - `CorrelationIDMiddleware`: UUID-based request tracking
+  - Accepts `X-Correlation-ID` or `X-Request-ID` headers
+  - Context variable for access throughout request lifecycle
+  - `X-Request-Duration-Ms` header for latency tracking
+
+- **Load Testing Infrastructure** (`tests/load/`): SLO validation
+  - `locustfile.py`: Locust-based load testing with multiple user classes
+  - `k6_load_test.js`: k6 performance testing with scenarios
+  - SLO thresholds: P50<100ms, P95<500ms, P99<1000ms
+  - Smoke, load, stress, and spike test scenarios
+
+- **Distributed K8s Deployment** (`k8s/overlays/distributed/`): Multi-node production
+  - Strimzi Kafka cluster (3 brokers, 3 ZooKeeper)
+  - Redis cluster with Sentinel failover (3 nodes)
+  - Streaming worker deployment with HPA (2-20 replicas)
+  - Network policies for secure communication
+
+- **Live Dataset Benchmark Suite** (`benchmarks/live_dataset_benchmark.py`): 30+ datasets
+  - 7 categories: Security, Industrial, Time-Series, Climate, Disaster, Environmental, ADRepository
+  - Provenance tracking (live vs synthetic data)
+  - Aggregate metrics and per-dataset results
+  - JSON export for CI/CD integration
+
+- **Benchmark Documentation** (`docs/BENCHMARKS.md`): Comprehensive guide
+  - Dataset catalog with sources and access requirements
+  - Metric definitions and expected performance
+  - Reproducibility instructions
+
+- **API Launcher Script** (`scripts/run_api.py`): Convenient server startup
+  - Development mode with auto-reload
+  - Production mode with multiple workers
+
+- **New Dependencies** (`pyproject.toml`): Streaming and load testing
+  - `[streaming]`: aiokafka, redis for streaming infrastructure
+  - `[loadtest]`: locust for load testing
+
+### Fixed - Exception Handling Improvements
+
+- Replaced 20+ bare `except Exception` with specific exception types
+- Added proper logging with exception type names
+- Files improved: `empirical_benchmark.py`, `benchmarks.py`, `comm.py`, `input_validation.py`, `adaptive_domain_thresholding.py`, `gosnn_integration.py`
+
+### Fixed - PR-AUC Calibration
+
+- Fixed negative PR-AUC values in `datasets/benchmarks.py`
+- Replaced incorrect `np.trapz()` with proper step-function integration
+- Added curve sorting before area calculation
+- Clamped values to [0, 1] range
+
 ## [1.2.0] - 2026-02-02
 
 ### Added - Live Oceanographic and Disaster Dataset Integration
