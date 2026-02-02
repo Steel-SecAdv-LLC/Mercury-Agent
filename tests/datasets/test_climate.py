@@ -11,6 +11,7 @@ import pytest
 
 from omni_mercury_engine.datasets.base import DatasetConfig
 from omni_mercury_engine.datasets.climate import (
+    CopernicusERA5Loader,
     CopernicusSeaLevelLoader,
     SimonsCMAPLoader,
     WorldOceanDatabaseLoader,
@@ -334,3 +335,146 @@ class TestOceanographicDataQuality:
             # Most low-oxygen samples should be labeled as anomalies
             low_oxygen_labels = labels[low_oxygen_mask]
             assert low_oxygen_labels.mean() > 0.5
+
+
+class TestCopernicusERA5Loader:
+    """Tests for Copernicus ERA5 climate reanalysis loader."""
+
+    @pytest.fixture
+    def config(self, tmp_path) -> DatasetConfig:
+        """Create test configuration."""
+        return DatasetConfig(
+            name="copernicus_era5",
+            data_dir=str(tmp_path / "data"),
+            cache_dir=str(tmp_path / "cache"),
+            max_samples=100,
+            random_seed=42,
+            preprocessing={
+                "variable_set": "surface",
+                "year_range": (2020, 2023),
+                "region": {
+                    "lat_min": 30,
+                    "lat_max": 50,
+                    "lon_min": -130,
+                    "lon_max": -70,
+                },
+                "hours": [0, 12],
+            },
+        )
+
+    @pytest.fixture
+    def loader(self, config) -> CopernicusERA5Loader:
+        """Create loader instance."""
+        return CopernicusERA5Loader(config)
+
+    def test_init(self, loader):
+        """Test loader initialization."""
+        assert loader.DATASET_NAME == "copernicus_era5"
+        assert loader.REQUIRES_CREDENTIALS is True
+        assert loader.LICENSE == "CC BY 4.0"
+        assert loader.variable_set == "surface"
+
+    def test_feature_names(self, loader):
+        """Test ERA5 feature names."""
+        expected_features = [
+            "latitude",
+            "longitude",
+            "temperature_2m",
+            "dewpoint_2m",
+            "u_wind_10m",
+            "v_wind_10m",
+            "pressure",
+            "precipitation",
+        ]
+        for feat in expected_features:
+            assert feat in loader.FEATURE_NAMES
+
+    def test_variable_sets(self, loader):
+        """Test variable set options."""
+        assert "surface" in loader.VARIABLE_SETS
+        assert "radiation" in loader.VARIABLE_SETS
+        assert "soil" in loader.VARIABLE_SETS
+
+    def test_synthetic_fallback(self, loader):
+        """Test synthetic data generation."""
+        result = loader.download()
+        assert result is True
+        assert loader.is_real_data is False
+
+    def test_load_data(self, loader):
+        """Test loading ERA5 data."""
+        loader.download()
+        features, labels = loader._load_raw()
+
+        assert isinstance(features, np.ndarray)
+        assert isinstance(labels, np.ndarray)
+        assert len(features) == len(labels)
+        assert features.shape[1] == 12  # lat, lon, temp, dew, u, v, pres, precip, year, month, day, hour
+
+    def test_temperature_range(self, loader):
+        """Test temperature values are in realistic range."""
+        loader.download()
+        features, _ = loader._load_raw()
+
+        # 2m temperature in Celsius should be roughly -40 to 50
+        temp = features[:, 2]
+        assert temp.min() >= -50
+        assert temp.max() <= 60
+
+    def test_pressure_range(self, loader):
+        """Test pressure values are in realistic range."""
+        loader.download()
+        features, _ = loader._load_raw()
+
+        # Surface pressure in hPa should be roughly 850-1050
+        pressure = features[:, 6]
+        assert pressure.min() >= 850
+        assert pressure.max() <= 1100
+
+    def test_wind_components(self, loader):
+        """Test wind components are reasonable."""
+        loader.download()
+        features, _ = loader._load_raw()
+
+        u_wind = features[:, 4]
+        v_wind = features[:, 5]
+
+        # Wind speed should not exceed hurricane force (~70 m/s)
+        wind_speed = np.sqrt(u_wind**2 + v_wind**2)
+        assert wind_speed.max() < 100
+
+    def test_anomaly_detection(self, loader):
+        """Test anomaly labeling for climate extremes."""
+        loader.download()
+        features, labels = loader._load_raw()
+
+        # Should detect some anomalies
+        assert labels.sum() > 0
+        # But not all should be anomalies
+        assert labels.mean() < 0.5
+
+    def test_preprocess(self, loader):
+        """Test preprocessing normalizes data."""
+        loader.download()
+        features, _ = loader._load_raw()
+
+        processed = loader.preprocess(features)
+
+        assert processed.dtype == np.float32
+        # Check normalization
+        assert np.abs(processed.mean()) < 0.5
+
+
+class TestERA5DatasetRegistry:
+    """Test dataset registry for ERA5 loader."""
+
+    def test_era5_registered(self):
+        """Test ERA5 is registered."""
+        from omni_mercury_engine.datasets import DatasetRegistry
+
+        loader_class = DatasetRegistry.get("copernicus_era5")
+        assert loader_class is CopernicusERA5Loader
+
+        # Test alias
+        alias_class = DatasetRegistry.get("era5")
+        assert alias_class is CopernicusERA5Loader

@@ -990,8 +990,8 @@ class ConceptDriftEvaluator:
                 if y_proba is not None and len(np.unique(y_test)) > 1:
                     try:
                         auc = roc_auc_score(y_test, y_proba)
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logger.debug(f"ROC-AUC computation failed: {e}")
 
             # Create performance record
             perf = SplitPerformance(

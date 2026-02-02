@@ -367,7 +367,8 @@ class LVLMBackendCache:
             else:
                 return 8 * 1024**3  # Default 8GB
 
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to estimate model memory, using default 8GB: {e}")
             return 8 * 1024**3
 
     def _ensure_memory_available(self) -> None:

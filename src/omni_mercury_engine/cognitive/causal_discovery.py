@@ -383,7 +383,8 @@ class GrangerCausalityTest:
                     best_f = f_stat
                     best_p = p_value
 
-            except (linalg.LinAlgError, ValueError):
+            except (linalg.LinAlgError, ValueError) as e:
+                logger.debug(f"Granger causality F-test failed for lag {lag}: {e}")
                 continue
 
         is_causal = best_p < significance_level

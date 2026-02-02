@@ -932,12 +932,12 @@ async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Detection failed: {e!s}",
-        )
+        ) from e
 
 
 @app.post(
@@ -1100,12 +1100,12 @@ async def detect_multivariate(request: MultivariateRequest) -> MultivariateRespo
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Detection failed: {e!s}",
-        )
+        ) from e
 
 
 # Custom OpenAPI schema
