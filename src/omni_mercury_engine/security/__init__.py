@@ -67,6 +67,16 @@ from omni_mercury_engine.security.pqc_backends import (
     sphincs_verify,
 )
 from omni_mercury_engine.security.rate_limiting import RateLimiter
+from omni_mercury_engine.security.secure_audit_logging import (
+    AuditEvent,
+    AuditEventCategory,
+    AuditEventSeverity,
+    PIIMasker,
+    SecureAuditLogger,
+    SecureHashChain,
+    configure_audit_logger,
+    get_audit_logger,
+)
 from omni_mercury_engine.security.threat_detection import ThreatDetector
 
 
@@ -76,6 +86,10 @@ __all__ = [
     "LIBOQS_AVAILABLE",
     "SPHINCS_AVAILABLE",
     "AlgorithmType",
+    # Secure Audit Logging
+    "AuditEvent",
+    "AuditEventCategory",
+    "AuditEventSeverity",
     "CryptoBackend",
     "CryptoPackageConfig",
     "CryptoPackageResult",
@@ -90,20 +104,26 @@ __all__ = [
     "KyberProvider",
     "MLDSAProvider",
     "MercuryCrypto",
+    "PIIMasker",
     "PQCBackend",
     "RateLimiter",
+    "SecureAuditLogger",
     "SecureDataHandler",
+    "SecureHashChain",
     "SecurityLevel",
     "Signature",
     "SphincsKeyPair",
     "SphincsProvider",
     "ThreatDetector",
+    "configure_audit_logger",
+    # PQC functions
     "dilithium_sign",
     "dilithium_verify",
     "generate_dilithium_keypair",
     "generate_kyber_keypair",
     "generate_sphincs_keypair",
     "get_active_backend",
+    "get_audit_logger",
     "get_pqc_capabilities",
     "kyber_decapsulate",
     "kyber_encapsulate",
