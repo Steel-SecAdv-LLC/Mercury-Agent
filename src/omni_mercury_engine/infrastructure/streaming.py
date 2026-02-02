@@ -95,9 +95,7 @@ class StreamConfig:
     )
 
     # Redis settings
-    redis_url: str = field(
-        default_factory=lambda: os.getenv("REDIS_URL", "redis://localhost:6379")
-    )
+    redis_url: str = field(default_factory=lambda: os.getenv("REDIS_URL", "redis://localhost:6379"))
     redis_max_connections: int = 10
 
     # General settings
@@ -143,7 +141,9 @@ class StreamMessage:
             topic=topic,
             key=parsed.get("key"),
             value=parsed.get("value", {}),
-            timestamp=datetime.fromisoformat(parsed.get("timestamp", datetime.now(UTC).isoformat())),
+            timestamp=datetime.fromisoformat(
+                parsed.get("timestamp", datetime.now(UTC).isoformat())
+            ),
             headers=parsed.get("headers", {}),
         )
 
@@ -464,8 +464,7 @@ class KafkaStreamProducer(StreamProducer):
             from aiokafka import AIOKafkaProducer
         except ImportError:
             raise ImportError(
-                "aiokafka is required for Kafka streaming. "
-                "Install with: pip install aiokafka"
+                "aiokafka is required for Kafka streaming. " "Install with: pip install aiokafka"
             )
 
         kafka_config = {
@@ -488,9 +487,7 @@ class KafkaStreamProducer(StreamProducer):
 
         self._producer = AIOKafkaProducer(**kafka_config)
         await self._producer.start()
-        logger.info(
-            f"Kafka producer connected to {self.config.kafka_bootstrap_servers}"
-        )
+        logger.info(f"Kafka producer connected to {self.config.kafka_bootstrap_servers}")
 
     async def disconnect(self) -> None:
         """Disconnect from Kafka cluster."""
@@ -604,8 +601,7 @@ class KafkaStreamConsumer(StreamConsumer):
             from aiokafka import AIOKafkaConsumer
         except ImportError:
             raise ImportError(
-                "aiokafka is required for Kafka streaming. "
-                "Install with: pip install aiokafka"
+                "aiokafka is required for Kafka streaming. " "Install with: pip install aiokafka"
             )
 
         kafka_config = {
@@ -629,9 +625,7 @@ class KafkaStreamConsumer(StreamConsumer):
 
         self._consumer = AIOKafkaConsumer(**kafka_config)
         await self._consumer.start()
-        logger.info(
-            f"Kafka consumer connected to {self.config.kafka_bootstrap_servers}"
-        )
+        logger.info(f"Kafka consumer connected to {self.config.kafka_bootstrap_servers}")
 
     async def disconnect(self) -> None:
         """Disconnect from Kafka cluster."""
@@ -666,10 +660,7 @@ class KafkaStreamConsumer(StreamConsumer):
             for tp, messages in data.items():
                 for msg in messages:
                     # Convert Kafka headers
-                    headers = {
-                        k: v.decode("utf-8") if v else ""
-                        for k, v in (msg.headers or [])
-                    }
+                    headers = {k: v.decode("utf-8") if v else "" for k, v in (msg.headers or [])}
 
                     yield StreamMessage(
                         topic=msg.topic,
@@ -729,8 +720,7 @@ class RedisStreamProducer(StreamProducer):
             import redis.asyncio as redis
         except ImportError:
             raise ImportError(
-                "redis is required for Redis streaming. "
-                "Install with: pip install redis"
+                "redis is required for Redis streaming. " "Install with: pip install redis"
             )
 
         self._redis = redis.from_url(
@@ -850,8 +840,7 @@ class RedisStreamConsumer(StreamConsumer):
             import redis.asyncio as redis
         except ImportError:
             raise ImportError(
-                "redis is required for Redis streaming. "
-                "Install with: pip install redis"
+                "redis is required for Redis streaming. " "Install with: pip install redis"
             )
 
         self._redis = redis.from_url(
@@ -1071,8 +1060,11 @@ class StreamingAnomalyPipeline:
         self.group_id = group_id
 
         self.config = config or StreamConfig(
-            backend=backend if isinstance(backend, StreamingBackend)
-            else StreamingBackend(backend.lower())
+            backend=(
+                backend
+                if isinstance(backend, StreamingBackend)
+                else StreamingBackend(backend.lower())
+            )
         )
 
         self._producer = StreamProducerFactory.create(
@@ -1110,9 +1102,7 @@ class StreamingAnomalyPipeline:
 
         self._running = True
         self._task = asyncio.create_task(self._run())
-        logger.info(
-            f"StreamingAnomalyPipeline started: {self.input_topic} -> {self.output_topic}"
-        )
+        logger.info(f"StreamingAnomalyPipeline started: {self.input_topic} -> {self.output_topic}")
 
     async def stop(self) -> None:
         """Stop the streaming pipeline."""
