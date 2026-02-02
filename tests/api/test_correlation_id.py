@@ -89,20 +89,14 @@ class TestCorrelationIDIntegration:
     def test_custom_correlation_id_preserved(self, client):
         """Test that custom correlation ID is preserved."""
         custom_id = str(uuid.uuid4())
-        response = client.get(
-            "/health",
-            headers={"X-Correlation-ID": custom_id}
-        )
+        response = client.get("/health", headers={"X-Correlation-ID": custom_id})
 
         assert response.headers["X-Correlation-ID"] == custom_id
 
     def test_request_id_alias(self, client):
         """Test that X-Request-ID alias works."""
         custom_id = str(uuid.uuid4())
-        response = client.get(
-            "/health",
-            headers={"X-Request-ID": custom_id}
-        )
+        response = client.get("/health", headers={"X-Request-ID": custom_id})
 
         assert response.headers["X-Correlation-ID"] == custom_id
 
@@ -116,7 +110,7 @@ class TestCorrelationIDIntegration:
             headers={
                 "X-Correlation-ID": correlation_id,
                 "X-Request-ID": request_id,
-            }
+            },
         )
 
         # X-Correlation-ID should take priority
@@ -161,10 +155,7 @@ class TestCorrelationIDFormat:
             ]
 
             for test_id in test_ids:
-                response = client.get(
-                    "/health",
-                    headers={"X-Correlation-ID": test_id}
-                )
+                response = client.get("/health", headers={"X-Correlation-ID": test_id})
                 assert response.headers["X-Correlation-ID"] == test_id
         except ImportError:
             pytest.skip("FastAPI test client not available")

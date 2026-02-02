@@ -297,10 +297,7 @@ class HighThroughputUser(HttpUser):
             self.headers["Authorization"] = f"Bearer {API_KEY}"
 
         # Pre-generate data to minimize CPU during test
-        self.cached_data = [
-            generate_univariate_data(length=100)
-            for _ in range(10)
-        ]
+        self.cached_data = [generate_univariate_data(length=100) for _ in range(10)]
 
     @tag("stress", "univariate")
     @task(100)
