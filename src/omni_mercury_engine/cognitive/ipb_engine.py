@@ -250,9 +250,7 @@ class IPBEngine:
         self._effects: dict[str, EnvironmentEffect] = {}
         self._threats: dict[str, ThreatCapability] = {}
         self._coas: dict[str, ThreatCOA] = {}
-        self._running_estimates: defaultdict[EnvironmentDomain, dict[str, Any]] = defaultdict(
-            dict
-        )
+        self._running_estimates: defaultdict[EnvironmentDomain, dict[str, Any]] = defaultdict(dict)
         self._observation_history: list[dict] = []
 
         # Priority intelligence requirements

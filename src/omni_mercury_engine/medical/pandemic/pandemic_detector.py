@@ -304,13 +304,17 @@ class PandemicDetector:
 
         if self.enable_mutations and "genomic_data" in pandemic_data:
             if self.mutation_tracker is not None:
-                mutation_result = self.mutation_tracker.track_mutations(pandemic_data["genomic_data"])
+                mutation_result = self.mutation_tracker.track_mutations(
+                    pandemic_data["genomic_data"]
+                )
                 result.mutation_detected = mutation_result["mutation_detected"]
                 result.variant_type = mutation_result["variant_type"]
                 result.concern_level = mutation_result["concern_level"]
                 result.antigenic_distance = mutation_result["antigenic_distance"]
                 result.vaccine_escape_probability = mutation_result["vaccine_escape_prob"]
-                result.treatment_resistance_probability = mutation_result["treatment_resistance_prob"]
+                result.treatment_resistance_probability = mutation_result[
+                    "treatment_resistance_prob"
+                ]
 
                 if mutation_result["mutation_detected"]:
                     result.confidence = max(result.confidence, 0.8)

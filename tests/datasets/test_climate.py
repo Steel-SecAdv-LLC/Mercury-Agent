@@ -409,7 +409,9 @@ class TestCopernicusERA5Loader:
         assert isinstance(features, np.ndarray)
         assert isinstance(labels, np.ndarray)
         assert len(features) == len(labels)
-        assert features.shape[1] == 12  # lat, lon, temp, dew, u, v, pres, precip, year, month, day, hour
+        assert (
+            features.shape[1] == 12
+        )  # lat, lon, temp, dew, u, v, pres, precip, year, month, day, hour
 
     def test_temperature_range(self, loader):
         """Test temperature values are in realistic range."""

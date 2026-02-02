@@ -971,7 +971,9 @@ class ConceptDriftEvaluator:
                         proba = current_model.predict_proba(X_test)
                         y_proba = proba[:, 1] if proba.ndim > 1 else proba
                     except Exception as e:
-                        logger.debug(f"Failed to get prediction probabilities for split {split.split_index}: {e}")
+                        logger.debug(
+                            f"Failed to get prediction probabilities for split {split.split_index}: {e}"
+                        )
             except Exception as e:
                 logger.warning(f"Prediction failed for split {split.split_index}: {e}")
                 continue
@@ -1045,7 +1047,9 @@ class ConceptDriftEvaluator:
     def _initialize_drift_detector(self, reference_data: NDArray[np.float64]) -> None:
         """Initialize drift detector with reference data."""
         detector: (
-            KolmogorovSmirnovDriftDetector | PopulationStabilityIndexDetector | EnsembleDriftDetector
+            KolmogorovSmirnovDriftDetector
+            | PopulationStabilityIndexDetector
+            | EnsembleDriftDetector
         )
         if self.drift_detector_type == "ks":
             detector = KolmogorovSmirnovDriftDetector()

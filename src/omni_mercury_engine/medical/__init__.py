@@ -42,6 +42,7 @@ class _ModuleInfo(TypedDict):
     priority: str
     description: str
 
+
 # Core medical modules
 from omni_mercury_engine.medical.abms_disciplines import (
     ABMSBoard,

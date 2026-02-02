@@ -40,6 +40,7 @@ class _ModuleInfo(TypedDict):
     priority: str
     description: str
 
+
 from ..space.space_exploration_analyzer import SpaceExplorationAnalyzer
 from .chemical_nuclear import ChemicalNuclearDetector, CISASector
 from .communications_it import CommunicationsITDetector

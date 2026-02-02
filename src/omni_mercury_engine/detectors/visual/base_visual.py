@@ -36,6 +36,7 @@ from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
 
+
 if TYPE_CHECKING:
     from omni_mercury_engine.core.base import DetectorMetrics
 
@@ -119,7 +120,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         self.threshold = self.visual_config.threshold
         self._is_fitted = False
         self._name = self.__class__.__name__
-        self._metrics: "DetectorMetrics | None" = None  # type: ignore[assignment]
+        self._metrics: DetectorMetrics | None = None  # type: ignore[assignment]
 
         self.device = torch.device(self.visual_config.device)
         self._backbone: nn.Module | None = None

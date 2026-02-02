@@ -300,12 +300,8 @@ class BLIPVLMDetector(BaseVLMDetector):
         # Count anomaly and normal keyword matches
         anomaly_keywords = self.blip_config.anomaly_keywords or []
         normal_keywords = self.blip_config.normal_keywords or []
-        anomaly_matches = sum(
-            1 for kw in anomaly_keywords if kw.lower() in response_lower
-        )
-        normal_matches = sum(
-            1 for kw in normal_keywords if kw.lower() in response_lower
-        )
+        anomaly_matches = sum(1 for kw in anomaly_keywords if kw.lower() in response_lower)
+        normal_matches = sum(1 for kw in normal_keywords if kw.lower() in response_lower)
 
         # Also check for user-specified anomaly description
         anomaly_desc_lower = self.blip_config.anomaly_description.lower()

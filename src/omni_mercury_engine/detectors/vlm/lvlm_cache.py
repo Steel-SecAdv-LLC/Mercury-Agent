@@ -418,7 +418,9 @@ class LVLMBackendCache:
                         del cached.backend.model
                         del cached.backend.processor
                     except Exception as e:
-                        logger.debug(f"Failed to delete model/processor during eviction for {lru_key}: {e}")
+                        logger.debug(
+                            f"Failed to delete model/processor during eviction for {lru_key}: {e}"
+                        )
                     cached.backend = None
 
                 # Force garbage collection
@@ -622,7 +624,9 @@ class LVLMBackendCache:
                     del cached.backend.model
                     del cached.backend.processor
                 except Exception as e:
-                    logger.debug(f"Failed to delete model/processor during manual eviction for {key}: {e}")
+                    logger.debug(
+                        f"Failed to delete model/processor during manual eviction for {key}: {e}"
+                    )
                 cached.backend = None
 
             if torch.cuda.is_available():

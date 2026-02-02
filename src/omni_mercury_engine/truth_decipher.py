@@ -412,7 +412,12 @@ class TruthDecipherFramework(LoggerMixin):
         Returns:
             Resolution results with actions applied
         """
-        result: dict[str, Any] = {"applied": False, "type": None, "actions": [], "signature_id": None}
+        result: dict[str, Any] = {
+            "applied": False,
+            "type": None,
+            "actions": [],
+            "signature_id": None,
+        }
 
         if isinstance(original_data, torch.Tensor):
             data_array = original_data.cpu().numpy()

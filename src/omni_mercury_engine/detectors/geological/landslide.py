@@ -561,7 +561,11 @@ class LandslideDetector:
 
         triggers_detected: float = 0
 
-        if self.enable_rainfall and "rainfall_data" in landslide_data and self.rainfall_model is not None:
+        if (
+            self.enable_rainfall
+            and "rainfall_data" in landslide_data
+            and self.rainfall_model is not None
+        ):
             rainfall_result = self.rainfall_model.assess_rainfall_trigger(
                 landslide_data["rainfall_data"]
             )
@@ -570,7 +574,11 @@ class LandslideDetector:
                 triggers_detected += 1
                 result.confidence = max(result.confidence, rainfall_result["trigger_probability"])
 
-        if self.enable_seismic and "seismic_data" in landslide_data and self.seismic_model is not None:
+        if (
+            self.enable_seismic
+            and "seismic_data" in landslide_data
+            and self.seismic_model is not None
+        ):
             seismic_result = self.seismic_model.assess_seismic_trigger(
                 landslide_data["seismic_data"]
             )

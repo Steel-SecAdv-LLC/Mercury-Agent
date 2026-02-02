@@ -12,7 +12,6 @@ import pytest
 from omni_mercury_engine.ml.lightweight_primitives import (
     Activation,
     IsolationScorer,
-    LayerParams,
     LightweightAutoencoder,
     LightweightMLP,
     MLPConfig,
@@ -80,9 +79,9 @@ class TestActivationFunctions:
         x = np.array([-10, 0, 10], dtype=np.float32)
         result = tanh(x)
 
-        # Tanh should be in (-1, 1)
-        assert np.all(result > -1)
-        assert np.all(result < 1)
+        # Tanh should be in [-1, 1] (inclusive due to floating point precision)
+        assert np.all(result >= -1)
+        assert np.all(result <= 1)
 
         # Tanh(0) = 0
         assert np.abs(result[1]) < 1e-6

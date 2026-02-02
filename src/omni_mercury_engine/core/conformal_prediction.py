@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Protocol, Union
+from typing import Any, Protocol
 
 import numpy as np
 from sklearn.model_selection import KFold
@@ -379,9 +379,7 @@ class ConformalAnomalyDetector:
         self.seed = seed
 
         # Type annotation for conformal predictor
-        self.conformal: Union[
-            SplitConformalPredictor, CrossConformalPredictor, AdaptiveConformalInference
-        ]
+        self.conformal: SplitConformalPredictor | CrossConformalPredictor | AdaptiveConformalInference
         if method == "split":
             self.conformal = SplitConformalPredictor(coverage=coverage, seed=seed)
         elif method == "cross":

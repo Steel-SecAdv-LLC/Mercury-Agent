@@ -43,7 +43,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -220,7 +220,7 @@ class LogicGraph:
     where nodes are propositions and edges are implications.
     """
 
-    graph: Union["nx.DiGraph[str]", FallbackGraph]
+    graph: nx.DiGraph[str] | FallbackGraph
 
     def __init__(self) -> None:
         """Initialize the logic graph."""

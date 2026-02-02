@@ -844,7 +844,11 @@ class VolcanicEruptionDetector:
                 indicators_detected += 1
                 result.confidence = max(result.confidence, seismic_result["confidence"])
 
-        if self.enable_thermal and "thermal_data" in volcano_data and self.thermal_detector is not None:
+        if (
+            self.enable_thermal
+            and "thermal_data" in volcano_data
+            and self.thermal_detector is not None
+        ):
             thermal_result = self.thermal_detector.detect_thermal_anomaly(
                 volcano_data["thermal_data"]
             )

@@ -43,14 +43,7 @@ __all__ = [
     "HAS_PYTORCH_LIGHTNING",
     "HAS_TORCH",
     "ActiveLearner",
-    # Core ML Components
     "AffectiveEncoder",
-    # Lightweight Primitives (no torch required)
-    "IsolationScorer",
-    "LightweightAutoencoder",
-    "LightweightMLP",
-    "MLPConfig",
-    "quick_anomaly_score",
     "AnomalyExplainer",
     "AstrophysicalEncoder",
     "AuxiliaryMaxVariance",
@@ -65,7 +58,11 @@ __all__ = [
     "FewShotLearner",
     "FusionInference",
     "FusionTrainer",
+    "IsolationScorer",
+    "LightweightAutoencoder",
+    "LightweightMLP",
     "LyapunovAnomalyLoss",
+    "MLPConfig",
     "MemoryEfficientCache",
     "MultiEnvPPOTrainer",
     "MultiHeadDetectorAttention",
@@ -88,13 +85,13 @@ __all__ = [
     "apply_all_optimizations",
     "compute_fairness_score",
     "create_active_learner",
-    # Advanced ML Capabilities (v1.2)
     "create_concept_drift_evaluator",
     "create_cross_domain_learner",
     "create_drift_detector",
     "create_explainer",
     "create_few_shot_learner",
     "create_online_pipeline",
+    "quick_anomaly_score",
 ]
 
 # Default value for HAS_PYTORCH_LIGHTNING when torch is not available
@@ -110,6 +107,7 @@ from omni_mercury_engine.ml.lightweight_primitives import (
     MLPConfig,
     quick_anomaly_score,
 )
+
 
 # Lazy imports - only load when torch is available OR during type checking
 if HAS_TORCH or TYPE_CHECKING:

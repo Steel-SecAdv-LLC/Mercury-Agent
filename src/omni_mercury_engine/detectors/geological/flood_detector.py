@@ -531,7 +531,11 @@ class FloodDetector:
 
         indicators_detected: float = 0.0
 
-        if self.enable_precipitation and "precip_data" in flood_data and self.precip_analyzer is not None:
+        if (
+            self.enable_precipitation
+            and "precip_data" in flood_data
+            and self.precip_analyzer is not None
+        ):
             precip_result = self.precip_analyzer.analyze_precipitation(flood_data["precip_data"])
             result.precipitation_24h_inches = precip_result["precipitation_24h_inches"]
             result.precipitation_forecast_inches = precip_result["forecast_24h_inches"]
@@ -542,7 +546,11 @@ class FloodDetector:
             elif precip_result["flood_risk"]:
                 indicators_detected += 1.0
 
-        if self.enable_river_gauge and "gauge_data" in flood_data and self.gauge_monitor is not None:
+        if (
+            self.enable_river_gauge
+            and "gauge_data" in flood_data
+            and self.gauge_monitor is not None
+        ):
             gauge_result = self.gauge_monitor.analyze_river_stage(flood_data["gauge_data"])
             result.river_stage_ft = gauge_result["current_stage_ft"]
             result.flood_stage_ft = gauge_result["flood_stage_ft"]
@@ -564,7 +572,11 @@ class FloodDetector:
             if soil_result["high_runoff_potential"]:
                 indicators_detected += 0.5
 
-        if self.enable_refactoring and "observed_data" in flood_data and self.prediction_optimizer is not None:
+        if (
+            self.enable_refactoring
+            and "observed_data" in flood_data
+            and self.prediction_optimizer is not None
+        ):
             initial_prediction = {
                 "stage_ft": result.river_stage_ft,
                 "discharge_cfs": result.peak_discharge_cfs,
@@ -592,7 +604,11 @@ class FloodDetector:
             if resonance_anomalies["is_anomalous"]:
                 indicators_detected += 0.4
 
-        if self.enable_refactoring and "observed_data" in flood_data and self.prediction_optimizer is not None:
+        if (
+            self.enable_refactoring
+            and "observed_data" in flood_data
+            and self.prediction_optimizer is not None
+        ):
             refactor_input: dict[str, Any] = {
                 "confidence": result.confidence,
                 "indicators": indicators_detected,

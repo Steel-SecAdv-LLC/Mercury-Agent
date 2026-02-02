@@ -45,10 +45,13 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from numpy.typing import NDArray
+
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 
 logger = logging.getLogger(__name__)
@@ -81,9 +84,7 @@ def relu(x: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
     return np.maximum(0, x)
 
 
-def leaky_relu(
-    x: NDArray[np.floating[Any]], alpha: float = 0.01
-) -> NDArray[np.floating[Any]]:
+def leaky_relu(x: NDArray[np.floating[Any]], alpha: float = 0.01) -> NDArray[np.floating[Any]]:
     """
     Leaky ReLU: f(x) = x if x > 0, else alpha * x
 
@@ -367,21 +368,13 @@ class LightweightMLP:
             # Batch norm
             if self.config.use_batch_norm:
                 if f"layer_{i}_bn_gamma" in weights_dict:
-                    layer.bn_gamma = np.array(
-                        weights_dict[f"layer_{i}_bn_gamma"], dtype=np.float32
-                    )
+                    layer.bn_gamma = np.array(weights_dict[f"layer_{i}_bn_gamma"], dtype=np.float32)
                 if f"layer_{i}_bn_beta" in weights_dict:
-                    layer.bn_beta = np.array(
-                        weights_dict[f"layer_{i}_bn_beta"], dtype=np.float32
-                    )
+                    layer.bn_beta = np.array(weights_dict[f"layer_{i}_bn_beta"], dtype=np.float32)
                 if f"layer_{i}_bn_mean" in weights_dict:
-                    layer.bn_mean = np.array(
-                        weights_dict[f"layer_{i}_bn_mean"], dtype=np.float32
-                    )
+                    layer.bn_mean = np.array(weights_dict[f"layer_{i}_bn_mean"], dtype=np.float32)
                 if f"layer_{i}_bn_var" in weights_dict:
-                    layer.bn_var = np.array(
-                        weights_dict[f"layer_{i}_bn_var"], dtype=np.float32
-                    )
+                    layer.bn_var = np.array(weights_dict[f"layer_{i}_bn_var"], dtype=np.float32)
 
         logger.info(f"Loaded weights for {len(self.layers)} layers")
 
@@ -550,9 +543,9 @@ class IsolationScorer:
         n_features = X.shape[1]
 
         # Generate random projections
-        self._projections = self.rng.standard_normal(
-            (self.n_projections, n_features)
-        ).astype(np.float32)
+        self._projections = self.rng.standard_normal((self.n_projections, n_features)).astype(
+            np.float32
+        )
 
         # Normalize projections
         norms = np.linalg.norm(self._projections, axis=1, keepdims=True)
@@ -562,9 +555,7 @@ class IsolationScorer:
         projected = X @ self._projections.T
 
         # Thresholds based on percentiles
-        self._thresholds = np.percentile(
-            projected, [5, 95], axis=0
-        ).astype(np.float32)
+        self._thresholds = np.percentile(projected, [5, 95], axis=0).astype(np.float32)
 
         self._fitted = True
         return self

@@ -328,7 +328,11 @@ class SolarStormDetector:
                 result.confidence = max(result.confidence, 0.8)
                 result.solar_storm_imminent = True
 
-        if self.enable_geomag and "magnetosphere_data" in storm_data and self.geomag_predictor is not None:
+        if (
+            self.enable_geomag
+            and "magnetosphere_data" in storm_data
+            and self.geomag_predictor is not None
+        ):
             geomag_result = self._predict_geomagnetic_storm(storm_data["magnetosphere_data"])
             result.kp_index = geomag_result["kp_index"]
             result.geomagnetic_storm_level = geomag_result["storm_level"]

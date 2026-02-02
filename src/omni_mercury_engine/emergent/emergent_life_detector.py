@@ -520,7 +520,9 @@ class EmergentLifeDetector:
                 {"confidence": result.confidence, "technosignatures": result.seti_technosignatures}
             )
             if protocols is not None:
-                result.contact_protocols = [p["protocol_id"] for p in protocols.get("optimal_protocols", [])]
+                result.contact_protocols = [
+                    p["protocol_id"] for p in protocols.get("optimal_protocols", [])
+                ]
                 result.recommendations.extend(protocols.get("recommendations", []))
 
         result.anomaly_score = result.confidence

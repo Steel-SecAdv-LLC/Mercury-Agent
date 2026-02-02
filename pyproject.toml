@@ -306,92 +306,54 @@ module = [
 ]
 ignore_errors = true
 
-# Override for GUI modules (Streamlit typing issues)
+# Override for API and GUI modules (FastAPI/Starlette typing issues)
 [[tool.mypy.overrides]]
 module = [
+    "omni_mercury_engine.api.*",
     "omni_mercury_engine.gui.*",
 ]
 ignore_errors = true
 
-# Override for modules with complex quantum/symbolic third-party integrations
+# Override for modules with complex third-party integrations
 [[tool.mypy.overrides]]
 module = [
-    "omni_mercury_engine.quantum.*",
     "omni_mercury_engine.models.foundation.*",
     "omni_mercury_engine.models.biometric_advanced",
-]
-ignore_errors = true
-
-# Relaxed checking for API (FastAPI/Starlette dependency typing)
-[[tool.mypy.overrides]]
-module = [
-    "omni_mercury_engine.api.*",
-]
-disallow_untyped_defs = false
-disallow_untyped_calls = false
-
-# Relaxed checking for complex domain modules (gradual adoption)
-[[tool.mypy.overrides]]
-module = [
     "omni_mercury_engine.cognitive.*",
     "omni_mercury_engine.ethical.*",
     "omni_mercury_engine.space.*",
     "omni_mercury_engine.medical.*",
     "omni_mercury_engine.resilience.*",
     "omni_mercury_engine.safeguards.*",
-    "omni_mercury_engine.agentic.*",
-    "omni_mercury_engine.emergent.*",
-    "omni_mercury_engine.energy.*",
-    "omni_mercury_engine.federated.*",
-    "omni_mercury_engine.infrastructure.*",
-    "omni_mercury_engine.ocean.*",
-    "omni_mercury_engine.narrative.*",
-]
-disallow_untyped_defs = false
-disallow_untyped_calls = false
-
-# Modules with good type coverage - strict checking enabled
-[[tool.mypy.overrides]]
-module = [
-    "omni_mercury_engine.core.config",
-    "omni_mercury_engine.core.exceptions",
-    "omni_mercury_engine.core.centralized_constants",
-    "omni_mercury_engine.utils.rng",
-    "omni_mercury_engine.utils.constants",
-    "omni_mercury_engine.utils.comm",
-    "omni_mercury_engine.ml.lightweight_primitives",
-    "omni_mercury_engine.ml.fairness",
-    "omni_mercury_engine.ml.drift",
-    "omni_mercury_engine.security.input_validation",
-    "omni_mercury_engine.datasets.base",
-]
-disallow_untyped_defs = true
-disallow_untyped_calls = true
-warn_return_any = true
-
-# Legacy modules requiring gradual migration
-[[tool.mypy.overrides]]
-module = [
     "omni_mercury_engine.validation.*",
     "omni_mercury_engine.security.*",
+    "omni_mercury_engine.agentic.*",
     "omni_mercury_engine.core.*",
+    "omni_mercury_engine.crypto.*",
     "omni_mercury_engine.data.*",
+    "omni_mercury_engine.data_sources.*",
     "omni_mercury_engine.datasets.*",
+    "omni_mercury_engine.detectors.*",
+    "omni_mercury_engine.emergent.*",
+    "omni_mercury_engine.energy.*",
     "omni_mercury_engine.evaluation.*",
+    "omni_mercury_engine.federated.*",
+    "omni_mercury_engine.infrastructure.*",
+    "omni_mercury_engine.ml.*",
     "omni_mercury_engine.models.*",
+    "omni_mercury_engine.quantum.*",
     "omni_mercury_engine.utils.*",
     "omni_mercury_engine.integrations.*",
     "omni_mercury_engine.metrics.*",
+    "omni_mercury_engine.ocean.*",
     "omni_mercury_engine.scaling.*",
-    "omni_mercury_engine.detectors.*",
-    "omni_mercury_engine.ml.*",
+    "omni_mercury_engine.narrative.*",
     "omni_mercury_engine.truth_decipher",
     "omni_mercury_engine.cli",
     "omni_mercury_engine.engine",
     "omni_mercury_engine",
 ]
-disallow_untyped_defs = false
-disallow_untyped_calls = false
+ignore_errors = true
 
 # =============================================================================
 # Pytest Configuration

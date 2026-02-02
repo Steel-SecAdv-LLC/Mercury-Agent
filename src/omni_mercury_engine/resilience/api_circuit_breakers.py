@@ -50,6 +50,7 @@ class _CircuitBreakerWrapper:
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -220,7 +221,7 @@ def with_circuit_breaker(
 
         # Add circuit_breaker attribute for introspection
         wrapper.circuit_breaker = breaker  # type: ignore[attr-defined]
-        return cast(_CircuitBreakerWrapper, wrapper)
+        return cast("_CircuitBreakerWrapper", wrapper)
 
     return decorator
 

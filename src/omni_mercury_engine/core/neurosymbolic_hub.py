@@ -881,9 +881,7 @@ class NeuroSymbolicHub:
 
             from sklearn.linear_model import LogisticRegression
 
-            meta_learner = LogisticRegression(
-                solver="lbfgs", max_iter=1000, random_state=self.seed
-            )
+            meta_learner = LogisticRegression(solver="lbfgs", max_iter=1000, random_state=self.seed)
             meta_learner.fit(meta_features, y)
             self._meta_learner = meta_learner
 
@@ -1048,9 +1046,9 @@ class NeuroSymbolicHub:
                     )
                     # Handle both float and dict return types
                     if isinstance(threshold_result, dict):
-                        adaptive_threshold = float(threshold_result.get(
-                            "threshold", self._thresholds.anomaly_default
-                        ))
+                        adaptive_threshold = float(
+                            threshold_result.get("threshold", self._thresholds.anomaly_default)
+                        )
                         # Update calibrated score if threshold manager provides one
                         if "calibrated_score" in threshold_result:
                             calibrated_score = float(threshold_result["calibrated_score"])
