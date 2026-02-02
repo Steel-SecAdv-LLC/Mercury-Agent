@@ -847,6 +847,350 @@ class CopernicusSeaLevelLoader(DatasetLoader):
         return data.astype(np.float32)
 
 
+class CopernicusERA5Loader(DatasetLoader):
+    """
+    Copernicus Climate Data Store ERA5 Reanalysis Loader.
+
+    Downloads REAL atmospheric reanalysis data from ERA5:
+    - Hourly data from 1940-present at 0.25° resolution
+    - Temperature, pressure, wind, humidity, precipitation
+    - Most comprehensive climate reanalysis dataset available
+
+    ERA5 is the gold standard for climate analysis and anomaly detection,
+    providing consistent atmospheric state estimates spanning 80+ years.
+
+    Data source: https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels
+    License: CC BY 4.0
+    Requires: CDS API registration (free)
+    Citation: Hersbach et al. (2020). ERA5 hourly data. Copernicus CDS.
+    """
+
+    DATASET_NAME = "copernicus_era5"
+    DATASET_URL = "https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels"
+    LICENSE = "CC BY 4.0"
+    CITATION = """Hersbach, H. et al. (2020). The ERA5 global reanalysis.
+    Quarterly Journal of the Royal Meteorological Society, 146(730), 1999-2049.
+    https://doi.org/10.1002/qj.3803"""
+    REQUIRES_CREDENTIALS = True  # CDS API key required
+
+    # ERA5 single-level variables for surface weather
+    VARIABLE_SETS = {
+        "surface": [
+            "2m_temperature",
+            "2m_dewpoint_temperature",
+            "10m_u_component_of_wind",
+            "10m_v_component_of_wind",
+            "surface_pressure",
+            "total_precipitation",
+        ],
+        "radiation": [
+            "surface_solar_radiation_downwards",
+            "surface_thermal_radiation_downwards",
+            "top_net_solar_radiation",
+        ],
+        "soil": [
+            "soil_temperature_level_1",
+            "volumetric_soil_water_layer_1",
+            "snow_depth",
+        ],
+    }
+
+    FEATURE_NAMES = [
+        "latitude",
+        "longitude",
+        "temperature_2m",  # K -> C
+        "dewpoint_2m",  # K -> C
+        "u_wind_10m",  # m/s
+        "v_wind_10m",  # m/s
+        "pressure",  # Pa -> hPa
+        "precipitation",  # m -> mm
+        "year",
+        "month",
+        "day",
+        "hour",
+    ]
+
+    def __init__(self, config: DatasetConfig) -> None:
+        """Initialize ERA5 loader.
+
+        Args:
+            config: Dataset configuration. Preprocessing options:
+                - cds_api_key (str): CDS API key
+                - cds_api_url (str): CDS API URL (optional)
+                - variable_set (str): 'surface', 'radiation', or 'soil'
+                - year_range (tuple): (start_year, end_year)
+                - region (dict): Geographic bounds {lat_min, lat_max, lon_min, lon_max}
+                - hours (list): Hours to retrieve [0, 6, 12, 18] for 6-hourly
+        """
+        super().__init__(config)
+        self.cds_api_key = config.preprocessing.get("cds_api_key")
+        self.cds_api_url = config.preprocessing.get(
+            "cds_api_url", "https://cds.climate.copernicus.eu/api"
+        )
+        self.variable_set = config.preprocessing.get("variable_set", "surface")
+        self.year_range = config.preprocessing.get("year_range", (2020, 2024))
+        self.region = config.preprocessing.get(
+            "region",
+            {
+                "lat_min": 30,
+                "lat_max": 50,
+                "lon_min": -130,
+                "lon_max": -70,
+            },
+        )
+        self.hours = config.preprocessing.get("hours", [0, 6, 12, 18])
+        self._is_real_data = False
+
+    @property
+    def is_real_data(self) -> bool:
+        """Return True if real data was loaded."""
+        return self._is_real_data
+
+    def download(self) -> bool:
+        """Download ERA5 reanalysis data from Copernicus CDS.
+
+        Returns:
+            True if download successful, False otherwise.
+        """
+        # Try to use cdsapi if available
+        try:
+            import cdsapi  # noqa: F401
+
+            if self.cds_api_key:
+                return self._download_via_cdsapi()
+        except ImportError:
+            logger.info("cdsapi not installed. Using synthetic fallback.")
+
+        logger.warning(
+            "Copernicus ERA5 requires cdsapi package and API key.\n"
+            "Install: pip install cdsapi\n"
+            "Register: https://cds.climate.copernicus.eu/user/register\n"
+            "Falling back to SYNTHETIC ERA5 data."
+        )
+        return self._create_synthetic_era5()
+
+    def _download_via_cdsapi(self) -> bool:
+        """Download data using cdsapi Python client."""
+        try:
+            import cdsapi
+
+            dataset_dir = self.data_path
+            dataset_dir.mkdir(parents=True, exist_ok=True)
+            cache_file = dataset_dir / "copernicus_era5_real.npz"
+
+            if cache_file.exists():
+                logger.info(f"ERA5 data cached at {cache_file}")
+                self._is_real_data = True
+                return True
+
+            # Initialize CDS client
+            c = cdsapi.Client(url=self.cds_api_url, key=self.cds_api_key)
+
+            logger.info("Downloading ERA5 reanalysis data from Copernicus CDS...")
+
+            download_file = dataset_dir / "era5_temp.nc"
+            variables = self.VARIABLE_SETS.get(self.variable_set, self.VARIABLE_SETS["surface"])
+
+            # Request ERA5 data
+            c.retrieve(
+                "reanalysis-era5-single-levels",
+                {
+                    "product_type": "reanalysis",
+                    "variable": variables,
+                    "year": [str(y) for y in range(self.year_range[0], self.year_range[1] + 1)],
+                    "month": ["01", "04", "07", "10"],  # Quarterly sampling
+                    "day": ["15"],
+                    "time": [f"{h:02d}:00" for h in self.hours],
+                    "area": [
+                        self.region["lat_max"],
+                        self.region["lon_min"],
+                        self.region["lat_min"],
+                        self.region["lon_max"],
+                    ],
+                    "format": "netcdf",
+                },
+                str(download_file),
+            )
+
+            # Parse NetCDF
+            import netCDF4 as nc
+
+            with nc.Dataset(download_file) as ds:
+                features, labels = self._process_era5_netcdf(ds)
+
+            np.savez_compressed(cache_file, features=features, labels=labels)
+            self._is_real_data = True
+            download_file.unlink()
+
+            logger.info(
+                f"ERA5 data loaded: {len(features)} samples, "
+                f"{labels.sum()} anomalies (is_real_data=True)"
+            )
+            return True
+
+        except Exception as e:
+            logger.warning(f"ERA5 CDS download failed: {e}")
+            return self._create_synthetic_era5()
+
+    def _process_era5_netcdf(self, ds: Any) -> tuple[np.ndarray, np.ndarray]:
+        """Process NetCDF ERA5 data."""
+        lats = ds.variables.get("latitude", ds.variables.get("lat"))[:]
+        lons = ds.variables.get("longitude", ds.variables.get("lon"))[:]
+        time_var = ds.variables.get("time", ds.variables.get("valid_time"))[:]
+
+        # Get available variables
+        t2m = ds.variables.get("t2m", ds.variables.get("2m_temperature"))
+        d2m = ds.variables.get("d2m", ds.variables.get("2m_dewpoint_temperature"))
+        u10 = ds.variables.get("u10", ds.variables.get("10m_u_component_of_wind"))
+        v10 = ds.variables.get("v10", ds.variables.get("10m_v_component_of_wind"))
+        sp = ds.variables.get("sp", ds.variables.get("surface_pressure"))
+        tp = ds.variables.get("tp", ds.variables.get("total_precipitation"))
+
+        rows = []
+        max_samples = self.config.max_samples or 10000
+
+        for t_idx in range(min(len(time_var), 100)):
+            for lat_idx in range(0, len(lats), 5):
+                for lon_idx in range(0, len(lons), 5):
+                    if len(rows) >= max_samples:
+                        break
+
+                    try:
+                        row = [
+                            float(lats[lat_idx]),
+                            float(lons[lon_idx]),
+                            float(t2m[t_idx, lat_idx, lon_idx]) - 273.15 if t2m else 0,
+                            float(d2m[t_idx, lat_idx, lon_idx]) - 273.15 if d2m else 0,
+                            float(u10[t_idx, lat_idx, lon_idx]) if u10 else 0,
+                            float(v10[t_idx, lat_idx, lon_idx]) if v10 else 0,
+                            float(sp[t_idx, lat_idx, lon_idx]) / 100 if sp else 0,
+                            float(tp[t_idx, lat_idx, lon_idx]) * 1000 if tp else 0,
+                            self.year_range[0] + t_idx // 4,
+                            (t_idx % 4) * 3 + 1,
+                            15,
+                            0,
+                        ]
+                        rows.append(row)
+                    except (IndexError, TypeError):
+                        continue
+
+        features = np.array(rows, dtype=np.float32)
+
+        # Label climate anomalies
+        temp_col = 2
+        precip_col = 7
+        temp_mean = features[:, temp_col].mean()
+        temp_std = features[:, temp_col].std() + 1e-8
+        precip_95 = np.percentile(features[:, precip_col], 95)
+
+        labels = (
+            (np.abs(features[:, temp_col] - temp_mean) > 2 * temp_std)
+            | (features[:, precip_col] > precip_95)
+        ).astype(np.int64)
+
+        return features, labels
+
+    def _create_synthetic_era5(self) -> bool:
+        """Create synthetic ERA5-like atmospheric reanalysis data."""
+        np.random.seed(self.config.random_seed)
+        n_samples = self.config.max_samples or 10000
+
+        features = []
+        labels = []
+
+        lat_range = (self.region["lat_min"], self.region["lat_max"])
+        lon_range = (self.region["lon_min"], self.region["lon_max"])
+
+        for _ in range(n_samples):
+            lat = np.random.uniform(*lat_range)
+            lon = np.random.uniform(*lon_range)
+
+            # Temperature varies with latitude and season
+            base_temp = 25 - 0.5 * abs(lat - 35)
+            month = np.random.randint(1, 13)
+            seasonal = 10 * np.sin(2 * np.pi * (month - 1) / 12)
+            temp_2m = base_temp + seasonal + np.random.normal(0, 3)
+
+            # Dewpoint slightly lower than temperature
+            dewpoint_2m = temp_2m - np.random.exponential(5)
+
+            # Wind components
+            u_wind = np.random.normal(0, 5)
+            v_wind = np.random.normal(0, 5)
+
+            # Surface pressure (varies with altitude and weather)
+            pressure = np.random.normal(1013, 10)
+
+            # Precipitation (exponential with seasonal variation)
+            precip_rate = 0.5 + 0.3 * np.sin(2 * np.pi * (month - 3) / 12)
+            precipitation = np.random.exponential(precip_rate) if np.random.random() > 0.7 else 0
+
+            year = np.random.randint(self.year_range[0], self.year_range[1] + 1)
+            day = np.random.randint(1, 29)
+            hour = np.random.choice(self.hours)
+
+            feature_vec = [
+                lat,
+                lon,
+                temp_2m,
+                dewpoint_2m,
+                u_wind,
+                v_wind,
+                pressure,
+                precipitation,
+                year,
+                month,
+                day,
+                hour,
+            ]
+            features.append(feature_vec)
+
+            # Climate anomalies
+            is_anomaly = (
+                abs(temp_2m - base_temp - seasonal) > 6
+                or precipitation > 20
+                or abs(pressure - 1013) > 25
+                or np.sqrt(u_wind**2 + v_wind**2) > 15
+            )
+            labels.append(1 if is_anomaly else 0)
+
+        features = np.array(features, dtype=np.float32)
+        labels = np.array(labels, dtype=np.int64)
+
+        save_path = self.data_path / "synthetic_era5.npz"
+        np.savez_compressed(save_path, features=features, labels=labels)
+
+        logger.info(
+            f"Generated {n_samples} synthetic ERA5 samples, "
+            f"{labels.sum()} anomalies (is_real_data=False)"
+        )
+        return True
+
+    def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Load ERA5 data from cache."""
+        real_cache = self.data_path / "copernicus_era5_real.npz"
+        if real_cache.exists():
+            data = np.load(real_cache)
+            self._is_real_data = True
+            logger.info(f"Loaded REAL ERA5 data from {real_cache}")
+            return data["features"], data["labels"]
+
+        synthetic_path = self.data_path / "synthetic_era5.npz"
+        if synthetic_path.exists():
+            data = np.load(synthetic_path)
+            self._is_real_data = False
+            logger.info("Loaded SYNTHETIC ERA5 data (is_real_data=False)")
+            return data["features"], data["labels"]
+
+        raise FileNotFoundError("ERA5 data not found. Run download() first.")
+
+    def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Preprocess ERA5 atmospheric data."""
+        data = np.nan_to_num(data, nan=0.0)
+        data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)
+        return data.astype(np.float32)
+
+
 # Register climate/ocean loaders
 DatasetRegistry.register("simons_cmap", SimonsCMAPLoader)
 DatasetRegistry.register("cmap", SimonsCMAPLoader)  # Alias
@@ -854,3 +1198,5 @@ DatasetRegistry.register("world_ocean_database", WorldOceanDatabaseLoader)
 DatasetRegistry.register("wod", WorldOceanDatabaseLoader)  # Alias
 DatasetRegistry.register("copernicus_sea_level", CopernicusSeaLevelLoader)
 DatasetRegistry.register("sea_level", CopernicusSeaLevelLoader)  # Alias
+DatasetRegistry.register("copernicus_era5", CopernicusERA5Loader)
+DatasetRegistry.register("era5", CopernicusERA5Loader)  # Alias
