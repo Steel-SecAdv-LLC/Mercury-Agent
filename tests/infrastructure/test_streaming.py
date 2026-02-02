@@ -13,10 +13,10 @@ Licensed under GPL-3.0-or-later
 
 from __future__ import annotations
 
-import asyncio
-import pytest
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
+
+import pytest
 
 from omni_mercury_engine.infrastructure.streaming import (
     CircuitBreaker,
@@ -317,11 +317,24 @@ class TestKafkaProducerMocked:
     @pytest.mark.asyncio
     async def test_kafka_producer_import_error(self):
         """Test graceful handling when aiokafka not installed."""
+        import builtins
+
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "aiokafka" or name.startswith("aiokafka."):
+                raise ImportError("No module named 'aiokafka'")
+            return real_import(name, *args, **kwargs)
+
+        # Create a fresh producer instance and patch the import during connect()
         from omni_mercury_engine.infrastructure.streaming import KafkaStreamProducer
 
         producer = KafkaStreamProducer()
 
-        with pytest.raises(ImportError, match="aiokafka"):
+        with (
+            patch.object(builtins, "__import__", side_effect=mock_import),
+            pytest.raises(ImportError, match="aiokafka"),
+        ):
             await producer.connect()
 
     @pytest.mark.asyncio
@@ -346,11 +359,24 @@ class TestRedisProducerMocked:
     @pytest.mark.asyncio
     async def test_redis_producer_import_error(self):
         """Test graceful handling when redis not installed."""
+        import builtins
+
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "redis" or name.startswith("redis."):
+                raise ImportError("No module named 'redis'")
+            return real_import(name, *args, **kwargs)
+
+        # Create a fresh producer instance and patch the import during connect()
         from omni_mercury_engine.infrastructure.streaming import RedisStreamProducer
 
         producer = RedisStreamProducer()
 
-        with pytest.raises(ImportError, match="redis"):
+        with (
+            patch.object(builtins, "__import__", side_effect=mock_import),
+            pytest.raises(ImportError, match="redis"),
+        ):
             await producer.connect()
 
 
