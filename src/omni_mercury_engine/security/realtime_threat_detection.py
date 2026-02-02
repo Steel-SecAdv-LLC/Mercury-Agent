@@ -226,7 +226,7 @@ class RealTimeThreatDetector(LoggerMixin):
         if not self.threat_history:
             return {"total_threats": 0, "threat_types": {}, "avg_severity": 0.0}
 
-        threat_types = {}
+        threat_types: dict[str, int] = {}
         for threat in self.threat_history:
             threat_types[threat.threat_type] = threat_types.get(threat.threat_type, 0) + 1
 

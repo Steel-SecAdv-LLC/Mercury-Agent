@@ -656,8 +656,9 @@ class DatabaseRetriever(BaseExternalRetriever):
         try:
             cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = [row[0] for row in cursor.fetchall()]
-        except Exception:
+        except Exception as e:
             # Database query failed; cannot generate SQL without table info
+            logger.warning(f"Failed to query database for table names: {e}")
             return None
 
         if not tables:

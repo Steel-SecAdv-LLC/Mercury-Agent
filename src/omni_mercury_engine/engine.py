@@ -1118,9 +1118,8 @@ class OmniMercuryEngine(LoggerMixin):
             ... )
         """
         audit_config = BiasAuditConfig(
-            sensitive_features=sensitive_features or [],
+            protected_features=sensitive_features or [],
             fairness_threshold=fairness_threshold,
-            enable_mitigation=True,
         )
         self.fairness_auditor = FairnessAuditor(config=audit_config)
         logger.info(f"Fairness auditing enabled with threshold={fairness_threshold}")
@@ -1163,7 +1162,6 @@ class OmniMercuryEngine(LoggerMixin):
             model_name=model_name or "mock-model",
             api_key=api_key,
             timeout=timeout_seconds,
-            max_retries=2,
         )
         self.llm_detector = ZeroShotAnomalyDetector(config=llm_config)
         logger.info(f"LLM enhancement enabled with provider={provider}")
@@ -1259,20 +1257,24 @@ class OmniMercuryEngine(LoggerMixin):
             else:
                 data_str = f"Numerical data shape: {data.shape}"
 
-            llm_result = self.llm_detector.detect(
-                text=f"Anomaly detected in: {data_str}",
-                candidate_labels=[
+            context = {
+                "anomaly_detected": True,
+                "candidate_labels": [
                     "security_threat",
                     "system_failure",
                     "data_corruption",
                     "unusual_pattern",
                     "normal_variation",
                 ],
+            }
+            llm_result = self.llm_detector.detect(
+                data=f"Anomaly detected in: {data_str}",
+                context=context,
             )
             return {
-                "llm_explanation": llm_result.explanation,
-                "llm_category": llm_result.category,
-                "llm_confidence": llm_result.confidence,
+                "llm_explanation": llm_result.get("explanation", ""),
+                "llm_category": llm_result.get("category", "unknown"),
+                "llm_confidence": llm_result.get("confidence", 0.0),
             }
         except Exception as e:
             logger.error(f"LLM enhancement error: {e}")

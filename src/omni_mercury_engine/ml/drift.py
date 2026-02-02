@@ -117,7 +117,7 @@ class KolmogorovSmirnovDriftDetector:
         """
         self.p_value_threshold = p_value_threshold
         self.correction = correction
-        self.reference_data: np.ndarray | None = None
+        self.reference_data: np.ndarray | None = None  # type: ignore[assignment]
 
     def fit(self, reference_data: np.ndarray) -> KolmogorovSmirnovDriftDetector:
         """
@@ -733,7 +733,7 @@ class EnsembleDriftDetector:
         max_severity = max(severities, key=lambda s: severity_order.index(s))
 
         # Combine feature drifts
-        combined_feature_drifts = {}
+        combined_feature_drifts: dict[str, list[float]] = {}
         for result in results:
             for feature, value in result.feature_drifts.items():
                 if feature not in combined_feature_drifts:

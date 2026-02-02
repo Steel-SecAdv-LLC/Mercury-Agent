@@ -293,7 +293,7 @@ class MultiverseOmniEngine:
         if not self.universes:
             return {"status": "empty", "message": "No universes in multiverse"}
 
-        state_counts = {}
+        state_counts: dict[str, int] = {}
         for universe in self.universes.values():
             state = universe.state.value
             state_counts[state] = state_counts.get(state, 0) + 1
@@ -354,7 +354,7 @@ class MultiverseOmniEngine:
         Returns:
             List of unit fractions that sum to approximately the input value
         """
-        fractions = []
+        fractions: list[float] = []
         remaining = abs(value)
 
         while remaining > 1e-10 and len(fractions) < 10:

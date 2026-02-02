@@ -106,11 +106,9 @@ class LAVADDetector(BaseVLMDetector):
 
         super().__init__(config)
         self.lavad_config: LAVADConfig = config
-        # Override _config to use the specific LAVAD config
-        self._config = config
 
-        self._caption_model = None
-        self._reasoning_model = None
+        self._caption_model: Any = None
+        self._reasoning_model: Any = None
 
         # Scene context for test compatibility
         self._scene_context: dict[str, Any] | None = None

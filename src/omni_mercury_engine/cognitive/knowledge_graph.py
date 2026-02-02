@@ -1021,10 +1021,10 @@ class KnowledgeGraph:
 
         # Core storage
         self._nodes: dict[str, KnowledgeNode] = {}
-        self._edges: dict[str, list[KnowledgeEdge]] = defaultdict[str, list[Any]](list)
-        self._reverse_edges: dict[str, list[KnowledgeEdge]] = defaultdict[str, list[Any]](list)
-        self._type_index: dict[NodeType, set[str]] = defaultdict[str, set[Any]](set)
-        self._edge_type_index: dict[EdgeType, list[KnowledgeEdge]] = defaultdict[str, list[Any]](
+        self._edges: defaultdict[str, list[KnowledgeEdge]] = defaultdict(list)
+        self._reverse_edges: defaultdict[str, list[KnowledgeEdge]] = defaultdict(list)
+        self._type_index: defaultdict[NodeType, set[str]] = defaultdict(set)
+        self._edge_type_index: defaultdict[EdgeType, list[KnowledgeEdge]] = defaultdict(
             list
         )
 
@@ -1455,7 +1455,7 @@ class KnowledgeGraph:
             self._stats["traversals"] += 1
             results = []
             visited = {start_id}
-            queue = [(start_id, [start_id], [], 0, 1.0, 1.0)]
+            queue: list[tuple[str, list[str], list[KnowledgeEdge], int, float, float]] = [(start_id, [start_id], [], 0, 1.0, 1.0)]
 
             while queue:
                 current_id, path, edges, depth, total_weight, total_conf = queue.pop(0)
@@ -1509,7 +1509,7 @@ class KnowledgeGraph:
                 return None
 
             visited = {start_id}
-            queue = [(start_id, [start_id], [], 1.0, 1.0)]
+            queue: list[tuple[str, list[str], list[KnowledgeEdge], float, float]] = [(start_id, [start_id], [], 1.0, 1.0)]
 
             while queue:
                 current_id, path, edges, total_weight, total_conf = queue.pop(0)

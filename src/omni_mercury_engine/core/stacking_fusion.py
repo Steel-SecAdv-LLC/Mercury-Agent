@@ -400,7 +400,7 @@ class BayesianModelAveraging:
                         [
                             np.prod(p.shape)
                             for p in detector.get_params().values()
-                            if isinstance(p, (int, float))
+                            if hasattr(p, "shape")
                         ]
                     )
                 except (AttributeError, ValueError, TypeError):
@@ -473,7 +473,7 @@ class BayesianModelAveraging:
         Returns:
             Weighted average of detector predictions
         """
-        if not self._fitted:
+        if not self._fitted or self.weights is None:
             raise RuntimeError("Must call fit() before predict_proba()")
 
         weighted_sum = np.zeros(len(X))
@@ -499,7 +499,7 @@ class BayesianModelAveraging:
         Returns:
             Dictionary mapping detector name to (weight, std_dev)
         """
-        if not self._fitted:
+        if not self._fitted or self.weights is None:
             return {}
 
         return {
@@ -655,7 +655,7 @@ class EthicallyConstrainedFusion:
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         """Predict with ethically-weighted fusion."""
-        if not self._fitted:
+        if not self._fitted or self.weights is None:
             raise RuntimeError("Must call fit() before predict_proba()")
 
         weighted_sum = np.zeros(len(X))
@@ -682,7 +682,7 @@ class EthicallyConstrainedFusion:
 
     def get_ethical_compliance(self) -> dict[str, Any]:
         """Get ethical compliance metrics."""
-        if not self._fitted:
+        if not self._fitted or self.weights is None:
             return {}
 
         ethical_vec = np.array([self.ethical_scores[name] for name in self.detectors])
@@ -715,6 +715,7 @@ def create_fusion_ensemble(
     Returns:
         Configured fusion ensemble
     """
+    ensemble: StackingFusion | BayesianModelAveraging | EthicallyConstrainedFusion
     if method == "stacking":
         ensemble = StackingFusion(**kwargs)
     elif method == "bma":

@@ -80,21 +80,21 @@ except ImportError:
     )
 
     @dataclass
-    class DilithiumKeyPair:
+    class DilithiumKeyPair:  # type: ignore[no-redef]
         """Stub for DilithiumKeyPair when Ava-Guardian not available."""
 
         private_key: bytes = field(default=b"", repr=False)
         public_key: bytes = b""
 
     @dataclass
-    class KyberKeyPair:
+    class KyberKeyPair:  # type: ignore[no-redef]
         """Stub for KyberKeyPair when Ava-Guardian not available."""
 
         secret_key: bytes = field(default=b"", repr=False)
         public_key: bytes = b""
 
     @dataclass
-    class KyberEncapsulation:
+    class KyberEncapsulation:  # type: ignore[no-redef]
         """Stub for KyberEncapsulation when Ava-Guardian not available."""
 
         ciphertext: bytes = b""

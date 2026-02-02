@@ -351,7 +351,7 @@ class TemporalContextProvider(BaseContextProvider):
         threshold_factor: float = 2.0,
     ) -> list[dict[str, Any]]:
         """Detect significant motion events."""
-        events = []
+        events: list[dict[str, Any]] = []
 
         if len(motion) < 2:
             return events

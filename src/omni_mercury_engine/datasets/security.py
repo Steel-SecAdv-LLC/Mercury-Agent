@@ -452,6 +452,10 @@ class NSLKDDLoader(DatasetLoader):
         if self._features is None:
             self.load_data()
 
+        # Type guards for mypy - load_data() ensures these are not None
+        if self._features is None or self._labels is None:
+            raise RuntimeError("Failed to load data")
+
         return {
             "n_samples": len(self._features),
             "n_features": self._features.shape[1],
@@ -503,7 +507,7 @@ class CICIDSLoader(DatasetLoader):
     }
 
     # Data source URLs (in priority order)
-    DATA_SOURCES = {
+    DATA_SOURCES: dict[str, dict[str, Any]] = {
         "huggingface": {
             "name": "Hugging Face",
             "dataset_id": "bvk/CICIDS-2017",
@@ -1167,6 +1171,10 @@ class CICIDSLoader(DatasetLoader):
         """Get statistics about loaded data."""
         if self._features is None:
             self.load_data()
+
+        # Type guards for mypy - load_data() ensures these are not None
+        if self._features is None or self._labels is None:
+            raise RuntimeError("Failed to load data")
 
         labels = self._labels
         features = self._features

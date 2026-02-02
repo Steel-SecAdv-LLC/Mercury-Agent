@@ -348,8 +348,8 @@ class EquityCalculator:
         if total == 0:
             return 0.0
 
-        cumulative = 0
-        gini_sum = 0
+        cumulative: float = 0
+        gini_sum: float = 0
         for i, v in enumerate(values):
             cumulative += v
             gini_sum += (2 * (i + 1) - n - 1) * v

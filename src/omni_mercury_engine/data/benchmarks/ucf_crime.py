@@ -188,17 +188,18 @@ class UCFCrimeDataset(BaseVideoDataset):
         Returns:
             Dict with anomaly type counts
         """
-        stats = {
+        by_type: dict[str, int] = {}
+        stats: dict[str, Any] = {
             "total_videos": len(self._videos),
             "normal_videos": sum(1 for _, label, _ in self._videos if label == 0),
             "anomaly_videos": sum(1 for _, label, _ in self._videos if label == 1),
-            "by_type": {},
+            "by_type": by_type,
         }
 
         for video_path, label, _ in self._videos:
             if label == 1:
                 anomaly_type = video_path.parent.name
-                stats["by_type"][anomaly_type] = stats["by_type"].get(anomaly_type, 0) + 1
+                by_type[anomaly_type] = by_type.get(anomaly_type, 0) + 1
 
         return stats
 

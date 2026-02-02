@@ -529,34 +529,34 @@ class FloodDetector:
             flood_type="no_flood",
         )
 
-        indicators_detected = 0
+        indicators_detected: float = 0.0
 
-        if self.enable_precipitation and "precip_data" in flood_data:
+        if self.enable_precipitation and "precip_data" in flood_data and self.precip_analyzer is not None:
             precip_result = self.precip_analyzer.analyze_precipitation(flood_data["precip_data"])
             result.precipitation_24h_inches = precip_result["precipitation_24h_inches"]
             result.precipitation_forecast_inches = precip_result["forecast_24h_inches"]
 
             if precip_result["flash_flood_risk"]:
-                indicators_detected += 2
+                indicators_detected += 2.0
                 result.flood_type = "flash"
             elif precip_result["flood_risk"]:
-                indicators_detected += 1
+                indicators_detected += 1.0
 
-        if self.enable_river_gauge and "gauge_data" in flood_data:
+        if self.enable_river_gauge and "gauge_data" in flood_data and self.gauge_monitor is not None:
             gauge_result = self.gauge_monitor.analyze_river_stage(flood_data["gauge_data"])
             result.river_stage_ft = gauge_result["current_stage_ft"]
             result.flood_stage_ft = gauge_result["flood_stage_ft"]
             result.stage_trend = gauge_result["stage_trend"]
 
             if gauge_result["at_or_above_flood"]:
-                indicators_detected += 2
+                indicators_detected += 2.0
                 if result.flood_type == "no_flood":
                     result.flood_type = "river"
 
             if gauge_result["stage_trend"] == "rising_rapidly":
-                indicators_detected += 1
+                indicators_detected += 1.0
 
-        if self.enable_soil and "soil_data" in flood_data:
+        if self.enable_soil and "soil_data" in flood_data and self.soil_model is not None:
             soil_result = self.soil_model.analyze_soil_conditions(flood_data["soil_data"])
             result.soil_saturation_pct = soil_result["soil_moisture_pct"]
             result.runoff_coefficient = soil_result["runoff_coefficient"]
@@ -564,7 +564,7 @@ class FloodDetector:
             if soil_result["high_runoff_potential"]:
                 indicators_detected += 0.5
 
-        if self.enable_refactoring and "observed_data" in flood_data:
+        if self.enable_refactoring and "observed_data" in flood_data and self.prediction_optimizer is not None:
             initial_prediction = {
                 "stage_ft": result.river_stage_ft,
                 "discharge_cfs": result.peak_discharge_cfs,
@@ -592,16 +592,16 @@ class FloodDetector:
             if resonance_anomalies["is_anomalous"]:
                 indicators_detected += 0.4
 
-        if self.enable_refactoring and "observed_data" in flood_data:
-            initial_prediction = {
+        if self.enable_refactoring and "observed_data" in flood_data and self.prediction_optimizer is not None:
+            refactor_input: dict[str, Any] = {
                 "confidence": result.confidence,
                 "indicators": indicators_detected,
                 "severity": result.severity,
             }
             core_refactor_result = self.core_refactoring_engine.detect_code_anomalies(
-                str(initial_prediction)
+                str(refactor_input)  # type: ignore[arg-type]
             )
-            if core_refactor_result.get("anomaly_score", 0) > 0.5:
+            if float(core_refactor_result.get("anomaly_score", 0)) > 0.5:
                 indicators_detected += 0.2
 
         result.flood_likely = indicators_detected >= 2

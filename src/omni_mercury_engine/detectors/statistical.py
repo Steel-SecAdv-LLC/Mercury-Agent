@@ -185,6 +185,8 @@ class StatisticalAnomalyDetector(BaseDetector):
 
         # Use IsolationForest decision_function for continuous scores
         # decision_function returns negative for anomalies, so negate and normalize
+        if self.isolation_forest is None:
+            raise DetectorException("IsolationForest not initialized")
         if_raw_scores = -self.isolation_forest.decision_function(data)
         if_range = if_raw_scores.max() - if_raw_scores.min()
         if if_range > 1e-8:
@@ -208,6 +210,8 @@ class StatisticalAnomalyDetector(BaseDetector):
 
         # Preserve backward compatibility with legacy flag keys
         iqr_anomalies = self._detect_iqr_anomalies(data)
+        if self.isolation_forest is None:
+            raise DetectorException("IsolationForest not initialized")
         if_anomalies = self.isolation_forest.predict(data)
 
         return {
@@ -238,6 +242,8 @@ class StatisticalAnomalyDetector(BaseDetector):
         Returns:
             Continuous anomaly scores in [0, 1] range.
         """
+        if self.q1 is None or self.q3 is None:
+            return np.zeros(data.shape[0])
         iqr = self.q3 - self.q1 + 1e-8
         lower_bound = self.q1 - self.iqr_multiplier * iqr
         upper_bound = self.q3 + self.iqr_multiplier * iqr
@@ -284,12 +290,14 @@ class StatisticalAnomalyDetector(BaseDetector):
 
     def _compute_z_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute z-scores"""
-        if self.std is None or np.any(self.std == 0):
+        if self.std is None or self.mean is None or np.any(self.std == 0):
             return np.zeros_like(data)
         return (data - self.mean) / self.std
 
     def _detect_iqr_anomalies(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Detect anomalies using IQR method"""
+        if self.q1 is None or self.q3 is None:
+            return np.zeros(data.shape[0], dtype=bool)
         iqr = self.q3 - self.q1
         lower_bound = self.q1 - self.iqr_multiplier * iqr
         upper_bound = self.q3 + self.iqr_multiplier * iqr

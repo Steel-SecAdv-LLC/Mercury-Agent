@@ -42,15 +42,15 @@ from omni_mercury_engine.core.config import ThresholdConfig
 # Domain-specific feature extraction (P2 Integration)
 try:
     from omni_mercury_engine.core.domain_feature_extractors import (
-        BaseDomainFeatureExtractor,
+        BaseDomainExtractor,
         DomainFeatureExtractorFactory,
     )
 
     DOMAIN_EXTRACTORS_AVAILABLE = True
 except ImportError:
     DOMAIN_EXTRACTORS_AVAILABLE = False
-    DomainFeatureExtractorFactory = None
-    BaseDomainFeatureExtractor = None
+    DomainFeatureExtractorFactory = None  # type: ignore[misc, assignment]
+    BaseDomainExtractor = None  # type: ignore[misc, assignment]
 
 # Adaptive domain thresholding (P2 Integration)
 try:
@@ -62,8 +62,8 @@ try:
     ADAPTIVE_THRESHOLDING_AVAILABLE = True
 except ImportError:
     ADAPTIVE_THRESHOLDING_AVAILABLE = False
-    AdaptiveDomainThresholdManager = None
-    create_domain_threshold_manager = None
+    AdaptiveDomainThresholdManager = None  # type: ignore[misc, assignment]
+    create_domain_threshold_manager = None  # type: ignore[misc, assignment]
 
 # GOSNN-3R bidirectional integration (P2 Integration)
 try:
@@ -76,9 +76,9 @@ try:
     GOSNN_3R_AVAILABLE = True
 except ImportError:
     GOSNN_3R_AVAILABLE = False
-    GOSNN3RIntegration = None
-    SlidingWindowConfig = None
-    SlidingWindowNormalizer = None
+    GOSNN3RIntegration = None  # type: ignore[misc, assignment]
+    SlidingWindowConfig = None  # type: ignore[misc, assignment]
+    SlidingWindowNormalizer = None  # type: ignore[misc, assignment]
 
 
 logger = logging.getLogger(__name__)
@@ -263,8 +263,8 @@ class KnowledgeGraph:
     - Graph-based anomaly detection
     """
 
-    def __init__(self):
-        if not NETWORKX_AVAILABLE:
+    def __init__(self) -> None:
+        if not NETWORKX_AVAILABLE or nx is None:
             self.graph = None
             logger.warning("NetworkX not available, knowledge graph disabled")
         else:
@@ -414,7 +414,7 @@ class NeuralEncoder:
         self.hidden_dim = hidden_dim
         self._fitted = False
 
-        if TORCH_AVAILABLE:
+        if TORCH_AVAILABLE and nn is not None:
             self.encoder = nn.Sequential(
                 nn.Linear(input_dim, hidden_dim),
                 nn.ReLU(),
@@ -453,7 +453,7 @@ class NeuralEncoder:
         elif X.shape[1] > self.input_dim:
             X = X[:, : self.input_dim]
 
-        if TORCH_AVAILABLE:
+        if TORCH_AVAILABLE and torch is not None:
             with torch.no_grad():
                 X_tensor = torch.tensor(X, dtype=torch.float32)
                 scores = self.encoder(X_tensor).numpy()
@@ -560,13 +560,13 @@ class NeuroSymbolicHub:
         self._symbolic_weight = 1 / (1 + PHI)  # ~0.382 for phi-weighted
 
         # Calibrator
-        self._calibrator = None
+        self._calibrator: Any = None
 
         # Meta-learner for stacking
-        self._meta_learner = None
+        self._meta_learner: Any = None
 
         # P2-P3 Integration: Domain-specific components
-        self._domain_extractor: BaseDomainFeatureExtractor | None = None
+        self._domain_extractor: BaseDomainExtractor | None = None
         self._threshold_manager: AdaptiveDomainThresholdManager | None = None
         self._gosnn_3r: GOSNN3RIntegration | None = None
         self._sliding_normalizer: SlidingWindowNormalizer | None = None
@@ -574,26 +574,30 @@ class NeuroSymbolicHub:
         # Initialize domain feature extractor
         if enable_domain_features and DOMAIN_EXTRACTORS_AVAILABLE and domain:
             try:
-                self._domain_extractor = DomainFeatureExtractorFactory.create(domain)
-                logger.info(f"Domain feature extractor initialized for: {domain}")
+                if DomainFeatureExtractorFactory is not None:
+                    self._domain_extractor = DomainFeatureExtractorFactory.create(domain)
+                    logger.info(f"Domain feature extractor initialized for: {domain}")
             except Exception as e:
                 logger.warning(f"Failed to initialize domain extractor: {e}")
 
         # Initialize adaptive domain thresholding
         if enable_adaptive_thresholding and ADAPTIVE_THRESHOLDING_AVAILABLE and domain:
             try:
-                self._threshold_manager = create_domain_threshold_manager(domain)
-                logger.info(f"Adaptive threshold manager initialized for: {domain}")
+                if create_domain_threshold_manager is not None:
+                    self._threshold_manager = create_domain_threshold_manager(domain)
+                    logger.info(f"Adaptive threshold manager initialized for: {domain}")
             except Exception as e:
                 logger.warning(f"Failed to initialize threshold manager: {e}")
 
         # Initialize GOSNN-3R integration
         if enable_gosnn_3r and GOSNN_3R_AVAILABLE:
             try:
-                self._gosnn_3r = GOSNN3RIntegration(domain=domain or "general")
-                self._sliding_normalizer = SlidingWindowNormalizer(
-                    config=SlidingWindowConfig(window_size=100)
-                )
+                if GOSNN3RIntegration is not None:
+                    self._gosnn_3r = GOSNN3RIntegration(domain=domain or "general")
+                if SlidingWindowNormalizer is not None and SlidingWindowConfig is not None:
+                    self._sliding_normalizer = SlidingWindowNormalizer(
+                        config=SlidingWindowConfig(window_size=100)
+                    )
                 logger.info("GOSNN-3R bidirectional integration initialized")
             except Exception as e:
                 logger.warning(f"Failed to initialize GOSNN-3R integration: {e}")
@@ -851,11 +855,12 @@ class NeuroSymbolicHub:
         try:
             from omni_mercury_engine.core.calibration import PlattScaling
 
-            self._calibrator = PlattScaling()
-            self._calibrator.fit(scores, labels)
+            calibrator = PlattScaling()
+            calibrator.fit(scores, labels)
+            self._calibrator = calibrator
         except ImportError:
             # Simple sigmoid calibration fallback
-            self._calibrator = None
+            self._calibrator = None  # type: ignore[assignment]
 
     def _learn_fusion_weights(self, X: np.ndarray, y: np.ndarray) -> None:
         """Learn optimal fusion weights."""
@@ -876,21 +881,22 @@ class NeuroSymbolicHub:
 
             from sklearn.linear_model import LogisticRegression
 
-            self._meta_learner = LogisticRegression(
+            meta_learner = LogisticRegression(
                 solver="lbfgs", max_iter=1000, random_state=self.seed
             )
-            self._meta_learner.fit(meta_features, y)
+            meta_learner.fit(meta_features, y)
+            self._meta_learner = meta_learner
 
         elif self.fusion_mode in [FusionMode.BMA, FusionMode.ADAPTIVE]:
             # Optimize weights using cross-entropy loss
-            def objective(w):
+            def objective(w: np.ndarray) -> float:
                 w = np.abs(w)
                 w = w / (np.sum(w) + 1e-10)
 
                 fused = w[0] * neural_scores + w[1] * symbolic_scores
                 fused = np.clip(fused, 1e-10, 1 - 1e-10)
 
-                bce = -np.mean(y * np.log(fused) + (1 - y) * np.log(1 - fused))
+                bce: float = -np.mean(y * np.log(fused) + (1 - y) * np.log(1 - fused))
                 return bce
 
             result = minimize(
@@ -934,7 +940,7 @@ class NeuroSymbolicHub:
         if self._domain_extractor is not None:
             try:
                 # Extract domain-specific features
-                extracted_features, feature_names = self._domain_extractor.extract_features(X)
+                extracted_features, feature_names = self._domain_extractor.extract_features(X)  # type: ignore[attr-defined]
 
                 # If we got enhanced features, use them
                 if extracted_features is not None and len(extracted_features) > 0:
@@ -1040,14 +1046,17 @@ class NeuroSymbolicHub:
                     threshold_result = self._threshold_manager.get_threshold(
                         fused_score, confidence
                     )
-                    adaptive_threshold = threshold_result.get(
-                        "threshold", self._thresholds.anomaly_default
-                    )
+                    # Handle both float and dict return types
+                    if isinstance(threshold_result, dict):
+                        adaptive_threshold = float(threshold_result.get(
+                            "threshold", self._thresholds.anomaly_default
+                        ))
+                        # Update calibrated score if threshold manager provides one
+                        if "calibrated_score" in threshold_result:
+                            calibrated_score = float(threshold_result["calibrated_score"])
+                    else:
+                        adaptive_threshold = float(threshold_result)
                     is_anomaly = fused_score > adaptive_threshold
-
-                    # Update calibrated score if threshold manager provides one
-                    if "calibrated_score" in threshold_result:
-                        calibrated_score = threshold_result["calibrated_score"]
                 except Exception as e:
                     logger.warning(f"Adaptive thresholding failed: {e}")
                     is_anomaly = fused_score > self._thresholds.anomaly_default
@@ -1252,7 +1261,7 @@ class NeuroSymbolicHub:
 def create_neurosymbolic_hub(
     input_dim: int = 64,
     fusion_mode: str = "phi_weighted",
-    **kwargs,
+    **kwargs: Any,
 ) -> NeuroSymbolicHub:
     """
     Factory function to create neuro-symbolic hub.

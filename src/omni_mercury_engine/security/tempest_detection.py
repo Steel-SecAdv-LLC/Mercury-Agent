@@ -417,7 +417,7 @@ class TEMPESTDetector:
             risk_score=0.0,
         )
 
-        if self.enable_rf_analysis and "spectrum_data" in tempest_data:
+        if self.enable_rf_analysis and "spectrum_data" in tempest_data and self.rf_analyzer is not None:
             rf_result = self.rf_analyzer.analyze_spectrum(tempest_data["spectrum_data"])
 
             if rf_result["emanation_detected"]:
@@ -433,7 +433,7 @@ class TEMPESTDetector:
                 if compromising_potentials:
                     result.compromising_potential = max(compromising_potentials)
 
-        if self.enable_video_detection and "video_emanation_features" in tempest_data:
+        if self.enable_video_detection and "video_emanation_features" in tempest_data and self.video_detector is not None:
             video_result = self._analyze_video_emanation(tempest_data["video_emanation_features"])
             result.reconstruction_feasibility = video_result["reconstruction_feasibility"]
 
@@ -442,7 +442,7 @@ class TEMPESTDetector:
                 if "video_display_emanation" not in result.emanation_types:
                     result.emanation_types.append("video_display_emanation")
 
-        if self.enable_vulnerability_assessment and "equipment_data" in tempest_data:
+        if self.enable_vulnerability_assessment and "equipment_data" in tempest_data and self.vulnerability_assessor is not None:
             vuln_result = self.vulnerability_assessor.assess_vulnerabilities(
                 tempest_data["equipment_data"]
             )
@@ -476,6 +476,9 @@ class TEMPESTDetector:
 
     def _analyze_video_emanation(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Analyze video emanation for reconstruction feasibility"""
+        if self.video_detector is None:
+            return {"reconstruction_feasibility": 0.0, "estimated_resolution": "low"}
+
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
         self.video_detector.eval()

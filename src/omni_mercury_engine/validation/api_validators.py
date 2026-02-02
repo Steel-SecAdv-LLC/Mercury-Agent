@@ -178,7 +178,7 @@ class InputSanitizer:
         if max_depth <= 0:
             return {}
 
-        sanitized = {}
+        sanitized: dict[str, Any] = {}
         for key, value in data.items():
             # Sanitize key
             safe_key = cls.sanitize_string(key)
@@ -210,7 +210,7 @@ class InputSanitizer:
         if max_depth <= 0:
             return []
 
-        sanitized = []
+        sanitized: list[Any] = []
         for item in data:
             if isinstance(item, str):
                 sanitized.append(cls.sanitize_string(item))

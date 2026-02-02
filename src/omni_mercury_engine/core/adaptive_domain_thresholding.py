@@ -471,7 +471,7 @@ class CalibrationEnsemble:
             "ensemble": np.mean(ensemble_losses),
         }
 
-        self.best_method = min(avg_losses, key=avg_losses.get)
+        self.best_method = min(avg_losses, key=lambda k: avg_losses.get(k, float("inf")))
         logger.debug(f"Selected calibration method: {self.best_method} (losses: {avg_losses})")
 
     def _brier_score(self, probs: NDArray[np.float64], labels: NDArray[np.int32]) -> float:

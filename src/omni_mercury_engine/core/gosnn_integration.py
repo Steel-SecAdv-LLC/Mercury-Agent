@@ -200,7 +200,7 @@ class GOSNNPerformanceMonitor:
                             "metadata": metric.metadata,
                         }
                     )
-            return sorted(bottlenecks, key=lambda x: x["duration_ms"], reverse=True)[:10]
+            return sorted(bottlenecks, key=lambda x: float(x["duration_ms"]), reverse=True)[:10]  # type: ignore[arg-type]
 
     def reset(self) -> None:
         """Reset all metrics."""
@@ -347,7 +347,7 @@ class GOSNNIntegration:
         detector_class: type | None = None,
         weight: float = 1.0,
         ethical_score: float = 1.0,
-        **config_kwargs,
+        **config_kwargs: Any,
     ) -> GOSNNIntegration:
         """
         Add a detection domain to the integration.
@@ -385,10 +385,10 @@ class GOSNNIntegration:
                 EnhancedBaseDetector,
             )
             from omni_mercury_engine.detectors.dimensional import (
-                DimensionalAnomalyDetector,
+                DimensionalAnalyzer,
             )
             from omni_mercury_engine.detectors.graph_based import (
-                GraphBasedAnomalyDetector,
+                GraphAnomalyDetector,
             )
             from omni_mercury_engine.detectors.spatial import (
                 SpatialAnomalyDetector,
@@ -407,8 +407,8 @@ class GOSNNIntegration:
                 ("statistical", StatisticalAnomalyDetector, PHI, 0.98),
                 ("temporal", TemporalAnomalyDetector, 1.0, 0.97),
                 ("spatial", SpatialAnomalyDetector, 1.0 / PHI, 0.96),
-                ("dimensional", DimensionalAnomalyDetector, 1.0, 0.95),
-                ("graph", GraphBasedAnomalyDetector, 1.0 / (PHI**2), 0.94),
+                ("dimensional", DimensionalAnalyzer, 1.0, 0.95),
+                ("graph", GraphAnomalyDetector, 1.0 / (PHI**2), 0.94),
             ]
 
             for name, detector_class, weight, ethical_score in domain_configs:
@@ -590,7 +590,7 @@ class GOSNNIntegration:
 
         if use_cache:
             cached_result = cache.get(X)
-            if cached_result is not None:
+            if cached_result is not None and isinstance(cached_result, IntegrationResult):
                 monitor.record("detect_cached", (time.time() - start_time) * 1000)
                 return cached_result
 
@@ -699,11 +699,11 @@ class GOSNNIntegration:
             )
 
             if self.fusion_method == "stacking":
-                self._fusion = StackingFusion(seed=self.seed)
+                self._fusion = StackingFusion(seed=self.seed)  # type: ignore[assignment]
             elif self.fusion_method == "bma":
-                self._fusion = BayesianModelAveraging()
+                self._fusion = BayesianModelAveraging()  # type: ignore[assignment]
             else:  # ethical
-                self._fusion = EthicallyConstrainedFusion(
+                self._fusion = EthicallyConstrainedFusion(  # type: ignore[assignment]
                     sigma_immutable=self.sigma_immutable,
                 )
 
@@ -740,8 +740,9 @@ class GOSNNIntegration:
             # Fuse for calibration
             fused = self._fuse_predictions(domain_predictions)
 
-            self._calibrator = CalibrationEnsemble()
-            self._calibrator.fit(fused, y_val)
+            calibrator = CalibrationEnsemble()
+            calibrator.fit(fused, y_val)
+            self._calibrator = calibrator  # type: ignore[assignment]
 
         except ImportError:
             logger.debug("Calibration module not available")
@@ -759,8 +760,9 @@ class GOSNNIntegration:
 
             fused = self._fuse_predictions(domain_predictions)
 
-            self._conformal = SplitConformalPredictor(alpha=self.conformal_alpha)
-            self._conformal.fit(fused, y_val)
+            conformal = SplitConformalPredictor(coverage=self.conformal_alpha)
+            conformal.fit(fused, y_val)  # type: ignore[call-arg]
+            self._conformal = conformal  # type: ignore[assignment]
 
         except ImportError:
             logger.debug("Conformal prediction module not available")
@@ -824,7 +826,7 @@ class GOSNNIntegration:
                 best_threshold = center
 
         # Convert back to original scale
-        return best_threshold * (scores.max() - scores.min()) + scores.min()
+        return float(best_threshold * (scores.max() - scores.min()) + scores.min())
 
     def _apply_benevolence_adjustment(
         self,
@@ -897,7 +899,7 @@ def create_integrated_detector(
     domains: list[str] | None = None,
     sigma_immutable: float = SIGMA_IMMUTABLE_DEFAULT,
     fusion_method: str = "ethical",
-    **kwargs,
+    **kwargs: Any,
 ) -> GOSNNIntegration:
     """
     Factory function to create integrated detector.

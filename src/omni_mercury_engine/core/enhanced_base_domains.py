@@ -681,7 +681,7 @@ class EnhancedBaseDetector:
 
         # Compute adaptive threshold
         threshold_result = self.threshold_optimizer.compute_threshold(scores, y)
-        self._threshold = threshold_result.threshold
+        self._threshold = threshold_result.threshold  # type: ignore[assignment]
 
         # Set up calibration if enabled
         if self.use_calibration and y is not None:
@@ -769,8 +769,9 @@ class EnhancedBaseDetector:
         try:
             from omni_mercury_engine.core.calibration import PlattScaling
 
-            self._calibrator = PlattScaling()
-            self._calibrator.fit(scores, labels)
+            calibrator = PlattScaling()
+            calibrator.fit(scores, labels)
+            self._calibrator = calibrator  # type: ignore[assignment]
         except ImportError:
             logger.debug("Calibration module not available")
 

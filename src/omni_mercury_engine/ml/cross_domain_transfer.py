@@ -420,7 +420,7 @@ class MMDAdapter(BaseDomainAdapter):
 
     def transform(self, X: NDArray[np.float64], domain: str = "target") -> NDArray[np.float64]:
         """Transform features to aligned space."""
-        if self.source_mean is None or self.projection_matrix is None:
+        if self.source_mean is None or self.source_std is None or self.projection_matrix is None:
             raise ValueError("Adapter not fitted")
 
         X_norm = (X - self.source_mean) / self.source_std
@@ -557,7 +557,12 @@ class CORALAdapter(BaseDomainAdapter):
         if domain == "source":
             return X
 
-        if self.whitening_matrix is None or self.coloring_matrix is None:
+        if (
+            self.whitening_matrix is None
+            or self.coloring_matrix is None
+            or self.target_mean is None
+            or self.source_mean is None
+        ):
             raise ValueError("Adapter not fitted")
 
         # Center with target mean
@@ -670,10 +675,13 @@ class SubspaceAlignmentAdapter(BaseDomainAdapter):
 
     def transform(self, X: NDArray[np.float64], domain: str = "target") -> NDArray[np.float64]:
         """Transform to aligned subspace."""
+        if self.source_mean is None or self.source_basis is None:
+            raise ValueError("Adapter not fitted")
+
         if domain == "source":
             return (X - self.source_mean) @ self.source_basis
 
-        if self.target_basis is None or self.alignment_matrix is None:
+        if self.target_basis is None or self.alignment_matrix is None or self.target_mean is None:
             raise ValueError("Adapter not fitted")
 
         # Project to target subspace then align to source subspace
@@ -880,6 +888,9 @@ class CrossDomainTransferLearner:
         if self.scaler is not None:
             source_X = self.scaler.transform(source_X)
 
+        if self.adapter is None:
+            raise ValueError("Model not fitted")
+
         source_preds = self.adapter.predict(source_X)
         if self.label_encoder is not None:
             source_y_encoded = self.label_encoder.transform(source_data.y)
@@ -903,7 +914,7 @@ class CrossDomainTransferLearner:
         auc = None
         if len(np.unique(target_data.y)) == 2:
             try:
-                if hasattr(self.adapter, "predict_proba"):
+                if self.adapter is not None and hasattr(self.adapter, "predict_proba"):
                     target_X_aligned = target_data.X
                     if self.feature_aligner:
                         target_X_aligned = self.feature_aligner.align_target(target_X_aligned)
@@ -911,8 +922,8 @@ class CrossDomainTransferLearner:
                         target_X_aligned = self.scaler.transform(target_X_aligned)
                     proba = self.adapter.predict_proba(target_X_aligned)
                     auc = roc_auc_score(target_data.y, proba[:, 1])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to compute AUC for target domain evaluation: {e}")
 
         # Per-class F1
         unique_classes = np.unique(target_data.y)

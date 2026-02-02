@@ -613,44 +613,48 @@ class AdaptiveAnomalyDetector:
             if self._profile == DatasetProfile.MEDICAL:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
-                    self._elliptic_envelope = EllipticEnvelope(
+                    elliptic = EllipticEnvelope(
                         contamination=self.contamination,
                         support_fraction=0.9,
                         random_state=42,
                     )
-                    self._elliptic_envelope.fit(X)
+                    elliptic.fit(X)
+                    self._elliptic_envelope = elliptic
                 logger.debug("Fitted EllipticEnvelope for MEDICAL profile")
 
             # Network profile: IsolationForest
             elif self._profile == DatasetProfile.NETWORK:
-                self._isolation_forest = IsolationForest(
+                iso_forest = IsolationForest(
                     contamination=min(self.contamination, 0.1),
                     n_estimators=100,
                     max_samples="auto",
                     random_state=42,
                     n_jobs=-1,
                 )
-                self._isolation_forest.fit(X)
+                iso_forest.fit(X)
+                self._isolation_forest = iso_forest
                 logger.debug("Fitted IsolationForest for NETWORK profile")
 
             # Pattern recognition: LOF + IsolationForest
             elif self._profile == DatasetProfile.PATTERN_RECOGNITION:
                 n_neighbors = min(20, n_samples // 5)
-                self._lof_detector = LocalOutlierFactor(
+                lof = LocalOutlierFactor(
                     n_neighbors=max(n_neighbors, 5),
                     contamination=self.contamination,
                     novelty=True,  # Enable predict on new data
                     n_jobs=-1,
                 )
-                self._lof_detector.fit(X)
+                lof.fit(X)
+                self._lof_detector = lof
 
-                self._isolation_forest = IsolationForest(
+                iso_forest = IsolationForest(
                     contamination=self.contamination,
                     n_estimators=100,
                     random_state=42,
                     n_jobs=-1,
                 )
-                self._isolation_forest.fit(X)
+                iso_forest.fit(X)
+                self._isolation_forest = iso_forest
                 logger.debug("Fitted LOF+IsolationForest for PATTERN_RECOGNITION profile")
 
         except ImportError:

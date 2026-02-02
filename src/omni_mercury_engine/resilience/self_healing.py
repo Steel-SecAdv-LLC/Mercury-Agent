@@ -324,7 +324,7 @@ class AdaptiveDefenseSystem:
 
         features = self._extract_signature_features(data)
 
-        if self._running_mean is None:
+        if self._running_mean is None or self._running_var is None:
             self._running_mean = features.copy()
             self._running_var = np.zeros_like(features)
             self._sample_count = 1

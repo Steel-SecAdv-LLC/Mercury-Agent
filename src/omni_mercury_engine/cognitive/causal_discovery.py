@@ -1308,7 +1308,8 @@ class CausalDiscoveryEngine:
                     ate, _, _ = ps_est.ipw_ate(outcome)
 
                 ates.append(ate)
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Skipping bootstrap iteration due to estimation error: {e}")
                 continue
 
         if len(ates) < 10:

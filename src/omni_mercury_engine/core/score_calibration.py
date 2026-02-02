@@ -1323,11 +1323,13 @@ class ScoreCalibrationManager:
             from omni_mercury_engine.core.calibration import CalibrationEnsemble
 
             if self._probability_calibrator is None:
-                self._probability_calibrator = CalibrationEnsemble()
+                self._probability_calibrator = CalibrationEnsemble()  # type: ignore[assignment]
 
-            # Fit and transform
-            self._probability_calibrator.fit(scores, labels)
-            calibrated_scores = self._probability_calibrator.calibrate(scores)
+            # Fit and transform - calibrator is guaranteed non-None after above check
+            calibrator = self._probability_calibrator
+            assert calibrator is not None  # Type guard after assignment
+            calibrator.fit(scores, labels)
+            calibrated_scores = calibrator.calibrate(scores)
 
             # Re-calibrate threshold on calibrated scores
             # After Platt/Isotonic, 0.5 threshold is usually appropriate
@@ -1347,7 +1349,7 @@ class ScoreCalibrationManager:
                 method_specific_info={
                     **result.method_specific_info,
                     "probability_calibration": True,
-                    "calibrator": self._probability_calibrator.best_method,
+                    "calibrator": calibrator.best_method,  # type: ignore[union-attr]
                 },
             )
 

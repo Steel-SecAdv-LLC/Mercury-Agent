@@ -38,12 +38,15 @@ References:
 - Wolfram MathWorld
 """
 
+import logging
 import math
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 # Try to import high-precision libraries
@@ -683,7 +686,8 @@ def _evaluate_sympy_constant(sympy_expr: str) -> float | None:
             num = int(sympy_expr[4:-1])
             return float(sympy.log(num).evalf(50))
         return None
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Failed to evaluate sympy expression '{sympy_expr}': {e}")
         return None
 
 

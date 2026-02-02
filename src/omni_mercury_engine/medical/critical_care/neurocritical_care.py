@@ -486,14 +486,15 @@ class NeurocriticalCarePredictor:
                 )
 
         if self.enable_icp and "icp_data" in patient_data:
-            icp_result = self.icp_monitor.assess_icp(patient_data["icp_data"])
-            result.icp_elevated = icp_result["icp_elevated"]
-            result.icp_mmhg = icp_result["icp_mmhg"]
-            result.clinical_recommendations.extend(icp_result["recommendations"])
+            if self.icp_monitor is not None:
+                icp_result = self.icp_monitor.assess_icp(patient_data["icp_data"])
+                result.icp_elevated = icp_result["icp_elevated"]
+                result.icp_mmhg = icp_result["icp_mmhg"]
+                result.clinical_recommendations.extend(icp_result["recommendations"])
 
-            if icp_result["icp_critical"]:
-                result.neurological_emergency_detected = True
-                result.emergency_type = "elevated_icp"
+                if icp_result["icp_critical"]:
+                    result.neurological_emergency_detected = True
+                    result.emergency_type = "elevated_icp"
 
         if "tbi_features" in patient_data:
             tbi_result = self._assess_tbi(patient_data["tbi_features"])
@@ -515,6 +516,14 @@ class NeurocriticalCarePredictor:
 
     def _detect_stroke(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Detect and classify stroke"""
+        if self.stroke_detector is None:
+            return {
+                "stroke_detected": False,
+                "stroke_type": "no_stroke",
+                "confidence": 0.0,
+                "recommendations": [],
+            }
+
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
         self.stroke_detector.eval()
@@ -547,6 +556,14 @@ class NeurocriticalCarePredictor:
 
     def _predict_seizure(self, sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Predict seizure occurrence and type"""
+        if self.seizure_predictor is None:
+            return {
+                "seizure_detected": False,
+                "seizure_type": "no_seizure",
+                "risk_score": 0.0,
+                "recommendations": [],
+            }
+
         seq_tensor = torch.tensor(sequence, dtype=torch.float32).unsqueeze(0)
 
         self.seizure_predictor.eval()

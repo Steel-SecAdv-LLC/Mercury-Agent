@@ -183,6 +183,9 @@ class SpatialAnomalyDetector(BaseDetector):
         if not self._is_fitted:
             self.fit(data)
 
+        if self.center is None:
+            raise DetectorException("Detector center not initialized")
+
         distances = np.linalg.norm(data - self.center, axis=1, keepdims=True)
 
         angles = np.arctan2(
@@ -243,6 +246,9 @@ class SpatialAnomalyDetector(BaseDetector):
         Uses Numba JIT compilation when available for ~10x speedup on
         large datasets, targeting <1s/sample inference requirement.
         """
+        if self.center is None or self.radius_threshold is None:
+            raise DetectorException("Detector center or radius_threshold not initialized")
+
         if NUMBA_AVAILABLE:
             # Use JIT-compiled version for performance
             distances = _compute_distances_jit(

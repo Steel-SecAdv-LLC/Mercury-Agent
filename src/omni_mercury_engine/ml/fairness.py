@@ -124,7 +124,7 @@ class FairnessAuditor:
         self,
         predictions: np.ndarray,
         sensitive_features: np.ndarray,
-    ) -> dict[str, float]:
+    ) -> dict[str, Any]:
         """
         Compute demographic parity difference.
 
@@ -164,7 +164,7 @@ class FairnessAuditor:
         predictions: np.ndarray,
         labels: np.ndarray,
         sensitive_features: np.ndarray,
-    ) -> dict[str, float]:
+    ) -> dict[str, Any]:
         """
         Compute equalized odds difference.
 
@@ -221,7 +221,7 @@ class FairnessAuditor:
         predictions: np.ndarray,
         sensitive_features: np.ndarray,
         reference_group: str | None = None,
-    ) -> dict[str, float]:
+    ) -> dict[str, Any]:
         """
         Compute disparate impact ratio.
 
@@ -247,7 +247,7 @@ class FairnessAuditor:
         # Determine reference group
         if reference_group is None:
             # Use group with highest rate as reference
-            reference_group = max(group_rates, key=group_rates.get)
+            reference_group = max(group_rates, key=lambda k: group_rates[k])
 
         reference_rate = group_rates.get(str(reference_group), 1.0)
 

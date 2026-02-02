@@ -224,7 +224,7 @@ class ServiceContainer:
         # Inspect constructor for dependencies
         import inspect
 
-        sig = inspect.signature(impl_type.__init__)
+        sig = inspect.signature(impl_type.__init__)  # type: ignore[misc]
         kwargs: dict[str, Any] = {}
 
         for param_name, param in sig.parameters.items():

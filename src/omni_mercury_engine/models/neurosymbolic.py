@@ -334,6 +334,7 @@ class NeurosymbolicEngine:
         self.golden_ratio = 0.618
         self.quantum_factor = 1.2
 
+        self.ltn: LogicTensorNetwork | None
         if TORCH_AVAILABLE:
             self.ltn = LogicTensorNetwork(input_dim)
         else:

@@ -309,7 +309,7 @@ class SolarStormDetector:
             storm_severity="G0",
         )
 
-        if self.enable_flare and "xray_data" in storm_data:
+        if self.enable_flare and "xray_data" in storm_data and self.flare_detector is not None:
             flare_result = self.flare_detector.detect_solar_flare(storm_data["xray_data"])
             result.flare_detected = flare_result["flare_detected"]
             result.flare_class = flare_result["flare_class"]
@@ -318,7 +318,7 @@ class SolarStormDetector:
             if flare_result["flare_detected"]:
                 result.confidence = max(result.confidence, 0.6)
 
-        if self.enable_cme and "cme_data" in storm_data:
+        if self.enable_cme and "cme_data" in storm_data and self.cme_tracker is not None:
             cme_result = self.cme_tracker.track_cme(storm_data["cme_data"])
             result.cme_detected = cme_result["cme_detected"]
             result.cme_speed_km_s = cme_result["speed_km_s"]
@@ -328,7 +328,7 @@ class SolarStormDetector:
                 result.confidence = max(result.confidence, 0.8)
                 result.solar_storm_imminent = True
 
-        if self.enable_geomag and "magnetosphere_data" in storm_data:
+        if self.enable_geomag and "magnetosphere_data" in storm_data and self.geomag_predictor is not None:
             geomag_result = self._predict_geomagnetic_storm(storm_data["magnetosphere_data"])
             result.kp_index = geomag_result["kp_index"]
             result.geomagnetic_storm_level = geomag_result["storm_level"]
@@ -356,6 +356,8 @@ class SolarStormDetector:
 
     def _predict_geomagnetic_storm(self, magnetosphere_data: dict[str, Any]) -> dict[str, Any]:
         """Predict geomagnetic storm using ML model"""
+        if self.geomag_predictor is None:
+            return {"kp_index": 0.0, "storm_level": GeostormScale.G0.value, "confidence": 0.0}
 
         if "features" in magnetosphere_data:
             features = magnetosphere_data["features"]

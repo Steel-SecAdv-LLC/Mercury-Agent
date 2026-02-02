@@ -693,11 +693,11 @@ class MetricsCollector:
     """
 
     _instance: MetricsCollector | None = None
-    _lock = threading.Lock()
+    _class_lock = threading.Lock()
 
     def __new__(cls, *args: Any, **kwargs: Any) -> MetricsCollector:
         if cls._instance is None:
-            with cls._lock:
+            with cls._class_lock:
                 if cls._instance is None:
                     cls._instance = super().__new__(cls)
                     cls._instance._initialized = False
@@ -710,7 +710,7 @@ class MetricsCollector:
         self._counters: dict[str, float] = {}
         self._gauges: dict[str, float] = {}
         self._histograms: dict[str, list[float]] = {}
-        self._lock = threading.RLock()
+        self._lock: threading.RLock = threading.RLock()
 
         self._init_default_metrics()
         self._initialized = True

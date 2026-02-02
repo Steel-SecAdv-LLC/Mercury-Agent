@@ -101,7 +101,7 @@ __all__ = [
 
 
 # Backward-compatible alias for AvaDominanceEquation
-AvaDominanceEquation = AnomalyFusionEquation
+AvaDominanceEquation = AnomalyFusionEquation  # type: ignore[misc]
 
 
 class _LegacyAnomalyFusionEquation:
@@ -340,7 +340,7 @@ class _LegacyAnomalyFusionEquation:
 
 
 # Backward-compatible alias for AvaDominanceEquation
-AvaDominanceEquation = AnomalyFusionEquation
+AvaDominanceEquation = AnomalyFusionEquation  # type: ignore[misc]
 
 
 class _LegacyAAFEWeightOptimizer:
@@ -1464,7 +1464,7 @@ class RefactoringEngine:
         try:
             tree = ast.parse(dedented_source)
         except SyntaxError as e:
-            raise RuntimeError(f"Invalid Python syntax: {e}")
+            raise RuntimeError(f"Invalid Python syntax: {e}") from e
 
         transformer = RefactoringTransformer(suggestions)
         new_tree = transformer.visit(tree)
@@ -1474,7 +1474,7 @@ class RefactoringEngine:
         try:
             compile(new_tree, filename="<ast>", mode="exec")
         except Exception as e:
-            raise RuntimeError(f"Refactored code is invalid: {e}")
+            raise RuntimeError(f"Refactored code is invalid: {e}") from e
 
         refactored = ast.unparse(new_tree)
         return refactored
@@ -2586,7 +2586,7 @@ class ThreeRMechanism:
         Returns:
             Dictionary containing proof elements for MATH_DERIVATIONS.md
         """
-        return self.fusion.get_dominance_proof()
+        return self.fusion.get_dominance_proof()  # type: ignore[union-attr, attr-defined]
 
     def verify_stability(self) -> tuple[bool, float]:
         """Verify Lyapunov stability of the 3R mechanism.

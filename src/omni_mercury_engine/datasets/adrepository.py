@@ -27,13 +27,34 @@ from __future__ import annotations
 
 import logging
 import zipfile
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import numpy as np
 
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+class DatasetMetadata(TypedDict):
+    """Type definition for dataset metadata."""
+
+    samples: int
+    features: int
+    anomaly_ratio: float
+    domain: str
+    description: str
+    url: str
+    file: str
+
+
+class ODDSDatasetInfo(TypedDict, total=False):
+    """Type definition for ODDS dataset info."""
+
+    url: str
+    format: str
+    requires_auth: bool
+    instructions: str
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, safe_urlretrieve
 
@@ -45,7 +66,7 @@ logger = logging.getLogger(__name__)
 # ADRepository Dataset Metadata
 # =============================================================================
 
-ADREPOSITORY_DATASETS = {
+ADREPOSITORY_DATASETS: dict[str, DatasetMetadata] = {
     # Tabular datasets (DevNet collection)
     "fraud": {
         "samples": 284807,
@@ -182,7 +203,7 @@ class ADRepositoryLoader(DatasetLoader):
     # ODDS (Outlier Detection DataSets) - Stony Brook University
     # These are VERIFIED working URLs for real anomaly detection datasets
     # Reference: https://odds.cs.stonybrook.edu/
-    ODDS_URLS = {
+    ODDS_URLS: dict[str, ODDSDatasetInfo] = {
         "thyroid": {
             "url": "https://odds.cs.stonybrook.edu/wp-content/uploads/2016/04/thyroid.mat",
             "format": "mat",
@@ -273,7 +294,7 @@ class ADRepositoryLoader(DatasetLoader):
             odds_path = dataset_dir / f"{self.dataset_name}.{odds_info['format']}"
             if odds_path.exists():
                 self._load_from_file(odds_path)
-                if self._features is not None:
+                if self._features is not None and self._labels is not None:
                     return self._features, self._labels
 
         if not local_path.exists():
@@ -285,7 +306,7 @@ class ADRepositoryLoader(DatasetLoader):
             odds_path = dataset_dir / f"{self.dataset_name}.{odds_info['format']}"
             if odds_path.exists():
                 self._load_from_file(odds_path)
-                if self._features is not None:
+                if self._features is not None and self._labels is not None:
                     return self._features, self._labels
 
         if local_path.exists():
@@ -294,6 +315,10 @@ class ADRepositoryLoader(DatasetLoader):
         if self._features is None:
             # Use synthetic fallback
             self._create_synthetic_fallback()
+
+        # Type guard for mypy - at this point both should be set
+        if self._features is None or self._labels is None:
+            raise RuntimeError("Failed to load dataset features and labels")
 
         return self._features, self._labels
 
@@ -503,15 +528,16 @@ class ADRepositoryLoader(DatasetLoader):
                         break
 
             # Apply max_samples limit
-            if self._features is not None and self.config.max_samples:
+            if self._features is not None and self._labels is not None and self.config.max_samples:
                 n = min(len(self._features), self.config.max_samples)
                 self._features = self._features[:n]
                 self._labels = self._labels[:n]
 
-            logger.info(
-                f"Loaded {len(self._features)} samples from {path.name} "
-                f"(real_data={self._is_real_data})"
-            )
+            if self._features is not None:
+                logger.info(
+                    f"Loaded {len(self._features)} samples from {path.name} "
+                    f"(real_data={self._is_real_data})"
+                )
 
         except Exception as e:
             logger.error(f"Failed to load {path}: {e}")
@@ -538,6 +564,10 @@ class ADRepositoryLoader(DatasetLoader):
         if self._features is None:
             self.load_data()
 
+        # Type guards for mypy - load_data() ensures these are not None
+        if self._features is None or self._labels is None:
+            raise RuntimeError("Failed to load data")
+
         return {
             "n_samples": len(self._features),
             "n_features": self._features.shape[1],
@@ -554,7 +584,7 @@ class ADRepositoryLoader(DatasetLoader):
 # =============================================================================
 
 
-def list_available_datasets() -> dict[str, dict]:
+def list_available_datasets() -> dict[str, DatasetMetadata]:
     """List all available ADRepository datasets with metadata."""
     return ADREPOSITORY_DATASETS.copy()
 
@@ -594,7 +624,11 @@ def load_dataset(
 
 # Register datasets
 for dataset_name in ADREPOSITORY_DATASETS:
-    DatasetRegistry.register(
-        f"adrepository-{dataset_name}",
-        lambda cfg, dn=dataset_name: ADRepositoryLoader(cfg, dataset_name=dn),
-    )
+
+    def _make_loader(dn: str) -> DatasetLoader:
+        def _factory(cfg: DatasetConfig) -> DatasetLoader:
+            return ADRepositoryLoader(cfg, dataset_name=dn)
+
+        return _factory  # type: ignore[return-value]
+
+    DatasetRegistry.register(f"adrepository-{dataset_name}", _make_loader(dataset_name))  # type: ignore[arg-type]

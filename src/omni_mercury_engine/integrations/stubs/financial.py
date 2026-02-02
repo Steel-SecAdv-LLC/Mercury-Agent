@@ -413,7 +413,7 @@ class FinancialServiceStub:
         ]
 
         r = self._rng.random()
-        cumulative = 0
+        cumulative: float = 0.0
         for signal, weight in signals:
             cumulative += weight
             if r < cumulative:

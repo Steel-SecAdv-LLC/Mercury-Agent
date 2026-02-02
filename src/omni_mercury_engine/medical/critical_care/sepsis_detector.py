@@ -470,6 +470,14 @@ class SepsisDetector:
 
     def _predict_progression(self, temporal_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Predict sepsis progression using ML model"""
+        if self.progression_predictor is None:
+            return {
+                "predicted_stage": "no_sepsis",
+                "shock_risk": 0.0,
+                "mortality_risk": 0.0,
+                "confidence": 0.0,
+            }
+
         seq_tensor = torch.tensor(temporal_sequence, dtype=torch.float32).unsqueeze(0)
 
         self.progression_predictor.eval()

@@ -551,7 +551,7 @@ class RuleMutator:
             population.sort(key=lambda r: r.fitness, reverse=True)
             survivors = population[: population_size // 2]
 
-            offspring = []
+            offspring: list[Rule] = []
             while len(offspring) < population_size // 2:
                 if random.random() < self.crossover_rate and len(survivors) >= 2:
                     p1, p2 = random.sample(survivors, 2)

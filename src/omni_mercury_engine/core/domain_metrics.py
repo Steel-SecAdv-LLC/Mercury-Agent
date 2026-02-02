@@ -616,8 +616,8 @@ class DomainSpecificMetrics:
         )
 
         return {
-            "morans_i": metrics.morans_i,
-            "gearys_c": metrics.gearys_c,
+            "morans_i": metrics.morans_i if metrics.morans_i is not None else 0.0,
+            "gearys_c": metrics.gearys_c if metrics.gearys_c is not None else 0.0,
         }
 
     @staticmethod

@@ -112,7 +112,8 @@ class AsyncMessageQueue:
             await self.queue.put(message)
             self.stats["messages_sent"] += 1
             return True
-        except asyncio.QueueFull:
+        except asyncio.QueueFull as e:
+            logger.warning(f"Failed to send message: {e}")
             self.stats["errors"] += 1
             return False
 
@@ -136,7 +137,8 @@ class AsyncMessageQueue:
             return message
         except TimeoutError:
             return None
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as e:
+            logger.warning(f"Failed to receive message: {e}")
             self.stats["errors"] += 1
             return None
 
