@@ -267,7 +267,7 @@ class FileAuditHandler(AuditLogHandler):
                 finally:
                     self._current_file = None
 
-    def __enter__(self) -> "FileAuditHandler":
+    def __enter__(self) -> FileAuditHandler:
         """Enter context manager."""
         return self
 

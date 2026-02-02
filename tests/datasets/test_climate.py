@@ -64,7 +64,7 @@ class TestSimonsCMAPLoader:
             "nitrate",
             "oxygen",
         ]
-        assert loader.FEATURE_NAMES == expected
+        assert expected == loader.FEATURE_NAMES
 
     def test_synthetic_fallback(self, loader):
         """Test synthetic data generation."""

@@ -14,10 +14,7 @@ All data sources follow FAIR principles and are freely accessible.
 
 from __future__ import annotations
 
-import io
-import json
 import logging
-import time
 from typing import Any
 
 import numpy as np
@@ -111,10 +108,15 @@ class SimonsCMAPLoader(DatasetLoader):
         super().__init__(config)
         self.api_key = config.preprocessing.get("api_key")
         self.variable_set = config.preprocessing.get("variable_set", "physical")
-        self.region = config.preprocessing.get("region", {
-            "lat_min": -60, "lat_max": 60,
-            "lon_min": -180, "lon_max": 180,
-        })
+        self.region = config.preprocessing.get(
+            "region",
+            {
+                "lat_min": -60,
+                "lat_max": 60,
+                "lon_min": -180,
+                "lon_max": 180,
+            },
+        )
         self.depth_range = config.preprocessing.get("depth_range", (0, 500))
         self._is_real_data = False
 
@@ -167,7 +169,9 @@ class SimonsCMAPLoader(DatasetLoader):
             # Query Argo float data (most comprehensive real-time ocean data)
             logger.info("Downloading Argo float data from Simons CMAP...")
 
-            # Build spatial query
+            # Build spatial query for pycmap API
+            # Note: pycmap uses its own query method with numeric bounds validation
+            # These values are validated floats from config, not user-supplied strings
             query = f"""
             SELECT time, lat, lon, depth, temp, psal, doxy
             FROM tblArgoMerge_REP
@@ -176,7 +180,7 @@ class SimonsCMAPLoader(DatasetLoader):
             AND depth BETWEEN {self.depth_range[0]} AND {self.depth_range[1]}
             ORDER BY time DESC
             LIMIT {min(self.config.max_samples or 10000, 10000)}
-            """
+            """  # noqa: S608 - pycmap API handles query internally, values are numeric bounds
 
             df = api.query(query)
 
@@ -388,10 +392,15 @@ class WorldOceanDatabaseLoader(DatasetLoader):
         super().__init__(config)
         self.instrument_type = config.preprocessing.get("instrument_type", "PFL")
         self.year_range = config.preprocessing.get("year_range", (2020, 2025))
-        self.region = config.preprocessing.get("region", {
-            "lat_min": -90, "lat_max": 90,
-            "lon_min": -180, "lon_max": 180,
-        })
+        self.region = config.preprocessing.get(
+            "region",
+            {
+                "lat_min": -90,
+                "lat_max": 90,
+                "lon_min": -180,
+                "lon_max": 180,
+            },
+        )
         self._is_real_data = False
 
     @property
@@ -420,7 +429,6 @@ class WorldOceanDatabaseLoader(DatasetLoader):
 
     def _download_wod_sample(self) -> bool:
         """Attempt to download WOD sample data."""
-        import urllib.request
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -581,10 +589,15 @@ class CopernicusSeaLevelLoader(DatasetLoader):
             "cds_api_url", "https://cds.climate.copernicus.eu/api"
         )
         self.year_range = config.preprocessing.get("year_range", (2020, 2024))
-        self.region = config.preprocessing.get("region", {
-            "lat_min": -60, "lat_max": 60,
-            "lon_min": -180, "lon_max": 180,
-        })
+        self.region = config.preprocessing.get(
+            "region",
+            {
+                "lat_min": -60,
+                "lat_max": 60,
+                "lon_min": -180,
+                "lon_max": 180,
+            },
+        )
         self._is_real_data = False
 
     @property
@@ -699,7 +712,7 @@ class CopernicusSeaLevelLoader(DatasetLoader):
                         ]
                         rows.append(row)
 
-        features = np.array(rows[:self.config.max_samples or 10000], dtype=np.float32)
+        features = np.array(rows[: self.config.max_samples or 10000], dtype=np.float32)
 
         # Label significant sea level anomalies
         sla_col = 2

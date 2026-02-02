@@ -74,7 +74,7 @@ class TestFEMADisasterLoader:
             "pa_program",
             "hm_program",
         ]
-        assert loader.FEATURE_NAMES == expected
+        assert expected == loader.FEATURE_NAMES
 
     def test_synthetic_fallback(self, loader):
         """Test synthetic data generation."""
@@ -111,13 +111,14 @@ class TestFEMADisasterLoader:
         assert years.max() <= 2024
 
     def test_state_fips_valid(self, loader):
-        """Test state FIPS codes are valid."""
+        """Test state FIPS codes are valid US states and territories."""
         loader.download()
         features, _ = loader._load_raw()
 
         state_fips = features[:, 1]
         assert state_fips.min() >= 1
-        assert state_fips.max() <= 56  # Max state FIPS code
+        # Max FIPS includes US territories: PR=72, VI=78, GU=66, AS=60, MP=69
+        assert state_fips.max() <= 78
 
     def test_program_flags_binary(self, loader):
         """Test program flags are binary."""
@@ -183,7 +184,7 @@ class TestFEMAHazardMitigationLoader:
             "status_code",
             "program_type_code",
         ]
-        assert loader.FEATURE_NAMES == expected
+        assert expected == loader.FEATURE_NAMES
 
     def test_synthetic_fallback(self, loader):
         """Test synthetic data generation."""

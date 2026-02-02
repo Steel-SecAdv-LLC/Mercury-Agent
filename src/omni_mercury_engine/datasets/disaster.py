@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 import numpy as np
@@ -230,9 +230,7 @@ class FEMADisasterLoader(DatasetLoader):
             logger.warning(f"OpenFEMA API download failed: {e}")
             return False
 
-    def _process_fema_data(
-        self, records: list[dict[str, Any]]
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def _process_fema_data(self, records: list[dict[str, Any]]) -> tuple[np.ndarray, np.ndarray]:
         """Process OpenFEMA disaster declaration records.
 
         Args:
@@ -537,7 +535,9 @@ class FEMAHazardMitigationLoader(DatasetLoader):
             year = np.random.randint(self.year_range[0], self.year_range[1] + 1)
 
             project_type_code = np.random.randint(0, len(project_types))
-            status_code = np.random.choice([0, 1, 2], p=[0.2, 0.3, 0.5])  # pending, active, complete
+            status_code = np.random.choice(
+                [0, 1, 2], p=[0.2, 0.3, 0.5]
+            )  # pending, active, complete
             program_type_code = np.random.randint(0, 3)  # HMGP, PDM, FMA
 
             feature_vec = [
