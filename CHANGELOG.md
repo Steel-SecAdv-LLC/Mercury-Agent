@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.1] - 2026-02-02
+## [1.2.0] - 2026-02-02
 
 ### Added - SaaS Infrastructure and Production Hardening
 
@@ -55,21 +55,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `[streaming]`: aiokafka, redis for streaming infrastructure
   - `[loadtest]`: locust for load testing
 
-### Fixed - Exception Handling Improvements
-
-- Replaced 20+ bare `except Exception` with specific exception types
-- Added proper logging with exception type names
-- Files improved: `empirical_benchmark.py`, `benchmarks.py`, `comm.py`, `input_validation.py`, `adaptive_domain_thresholding.py`, `gosnn_integration.py`
-
-### Fixed - PR-AUC Calibration
-
-- Fixed negative PR-AUC values in `datasets/benchmarks.py`
-- Replaced incorrect `np.trapz()` with proper step-function integration
-- Added curve sorting before area calculation
-- Clamped values to [0, 1] range
-
-## [1.2.0] - 2026-02-02
-
 ### Added - Live Oceanographic and Disaster Dataset Integration
 
 - **Climate Dataset Loaders** (`datasets/climate.py`): Advanced marine data integration
@@ -95,6 +80,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Comprehensive Tests**: 54+ new tests for climate and disaster loaders
   - `tests/datasets/test_climate.py`: 26+ tests for oceanographic data quality
   - `tests/datasets/test_disaster.py`: 28+ tests for FEMA API integration
+
+### Fixed - Exception Handling Improvements
+
+- Replaced 20+ bare `except Exception` with specific exception types
+- Added proper logging with exception type names
+- Files improved: `empirical_benchmark.py`, `benchmarks.py`, `comm.py`, `input_validation.py`, `adaptive_domain_thresholding.py`, `gosnn_integration.py`
+
+### Fixed - PR-AUC Calibration
+
+- Fixed negative PR-AUC values in `datasets/benchmarks.py`
+- Replaced incorrect `np.trapz()` with proper step-function integration
+- Added curve sorting before area calculation
+- Clamped values to [0, 1] range
 
 ### Fixed - Engineering Polish
 
