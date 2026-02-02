@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
 
 """Core modules for Mercury Agent ♱."""
 
@@ -80,7 +81,7 @@ __all__ = [
 
 
 # Lazy imports for engine configuration (requires pydantic)
-def get_default_config():  # type: ignore[no-untyped-def]
+def get_default_config() -> "MercuryEngineConfig":
     """Get the global default configuration. Lazy import to avoid pydantic at module load."""
     from omni_mercury_engine.core.engine_config import get_default_config as _get
 
@@ -90,7 +91,7 @@ def get_default_config():  # type: ignore[no-untyped-def]
 class MercuryEngineConfig:
     """Lazy-loaded MercuryEngineConfig wrapper."""
 
-    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+    def __new__(cls, *args: Any, **kwargs: Any) -> Any:
         from omni_mercury_engine.core.engine_config import MercuryEngineConfig as _Config
 
         return _Config(*args, **kwargs)
@@ -99,7 +100,7 @@ class MercuryEngineConfig:
 class EthicalConfig:
     """Lazy-loaded EthicalConfig wrapper."""
 
-    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+    def __new__(cls, *args: Any, **kwargs: Any) -> Any:
         from omni_mercury_engine.core.engine_config import EthicalConfig as _Config
 
         return _Config(*args, **kwargs)
@@ -108,7 +109,7 @@ class EthicalConfig:
 class FusionWeightConfig:
     """Lazy-loaded FusionWeightConfig wrapper."""
 
-    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+    def __new__(cls, *args: Any, **kwargs: Any) -> Any:
         from omni_mercury_engine.core.engine_config import FusionWeightConfig as _Config
 
         return _Config(*args, **kwargs)
@@ -117,7 +118,7 @@ class FusionWeightConfig:
 class ThreeRConfig:
     """Lazy-loaded ThreeRConfig wrapper."""
 
-    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+    def __new__(cls, *args: Any, **kwargs: Any) -> Any:
         from omni_mercury_engine.core.engine_config import ThreeRConfig as _Config
 
         return _Config(*args, **kwargs)
@@ -126,7 +127,7 @@ class ThreeRConfig:
 class DomainType:
     """Lazy-loaded DomainType wrapper."""
 
-    def __new__(cls, value):  # type: ignore[no-untyped-def]
+    def __new__(cls, value: str) -> Any:
         from omni_mercury_engine.core.engine_config import DomainType as _DomainType
 
         return _DomainType(value)

@@ -59,7 +59,7 @@ try:
 
     SYMPY_AVAILABLE = True
 except ImportError:
-    sympy = None  # type: ignore
+    sympy = None
     SYMPY_AVAILABLE = False
 
 

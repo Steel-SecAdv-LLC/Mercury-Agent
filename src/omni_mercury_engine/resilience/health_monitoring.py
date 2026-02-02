@@ -36,7 +36,7 @@ class HealthMetrics:
     memory_usage: float = 0.0
     response_time: float = 0.0
     error_rate: float = 0.0
-    timestamp: datetime = None
+    timestamp: datetime | None = None
 
     def __post_init__(self) -> None:
         if self.timestamp is None:

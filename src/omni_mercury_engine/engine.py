@@ -2566,7 +2566,7 @@ class OmniMercuryEngine(LoggerMixin):
             model=self.fusion_model,
             learning_rate=learning_rate,
         )
-        trainer_module.optimizer_type = optimizer_type  # type: ignore[assignment]
+        trainer_module.optimizer_type = optimizer_type
 
         # Training state
         best_val_loss = float("inf")
@@ -2598,7 +2598,7 @@ class OmniMercuryEngine(LoggerMixin):
                 if use_mixed_precision and scaler is not None:
                     with torch.cuda.amp.autocast():
                         loss = trainer_module.training_step(batch, batch_idx)
-                    scaler.scale(loss / gradient_accumulation_steps).backward()  # type: ignore[no-untyped-call]
+                    scaler.scale(loss / gradient_accumulation_steps).backward()
 
                     if (batch_idx + 1) % gradient_accumulation_steps == 0:
                         scaler.step(optimizer)
@@ -2606,7 +2606,7 @@ class OmniMercuryEngine(LoggerMixin):
                         optimizer.zero_grad()
                 else:
                     loss = trainer_module.training_step(batch, batch_idx)
-                    (loss / gradient_accumulation_steps).backward()  # type: ignore[no-untyped-call]
+                    (loss / gradient_accumulation_steps).backward()
 
                     if (batch_idx + 1) % gradient_accumulation_steps == 0:
                         optimizer.step()

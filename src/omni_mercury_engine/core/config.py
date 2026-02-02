@@ -288,7 +288,7 @@ class ConfigurationManager:
         self._config: dict[str, Any] = {}
         self._config_files: list[Path] = []
         self._feature_flags: dict[str, FeatureFlag] = {}
-        self._watchers: list[callable] = []
+        self._watchers: list[Callable[..., Any]] = []
         self._loaded = False
 
     def load_from_file(self, path: str | Path) -> ConfigurationManager:

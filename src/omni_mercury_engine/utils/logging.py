@@ -448,6 +448,7 @@ def configure_logging(
     root_logger.handlers.clear()
 
     # Create formatter
+    formatter: logging.Formatter
     if json_format:
         formatter = StructuredFormatter(
             include_hostname=include_hostname,
