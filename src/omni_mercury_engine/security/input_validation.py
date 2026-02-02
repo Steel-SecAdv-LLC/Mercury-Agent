@@ -802,12 +802,8 @@ class TrustedEndpoints:
     # ==========================================================================
     # OpenFEMA - Disaster Declarations API (v2)
     # ==========================================================================
-    FEMA_DISASTER_DECLARATIONS = (
-        "https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries"
-    )
-    FEMA_INDIVIDUAL_ASSISTANCE = (
-        "https://www.fema.gov/api/open/v2/HousingAssistanceOwners"
-    )
+    FEMA_DISASTER_DECLARATIONS = "https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries"
+    FEMA_INDIVIDUAL_ASSISTANCE = "https://www.fema.gov/api/open/v2/HousingAssistanceOwners"
     FEMA_PUBLIC_ASSISTANCE = (
         "https://www.fema.gov/api/open/v2/PublicAssistanceFundedProjectsDetails"
     )

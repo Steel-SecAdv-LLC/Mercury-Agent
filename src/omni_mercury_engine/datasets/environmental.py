@@ -881,10 +881,15 @@ class USGSGeochemistryLoader(DatasetLoader):
                 - contaminant_focus (list): List of metals to focus on
         """
         super().__init__(config)
-        self.region = config.preprocessing.get("region", {
-            "lat_min": 24, "lat_max": 50,
-            "lon_min": -125, "lon_max": -66,
-        })
+        self.region = config.preprocessing.get(
+            "region",
+            {
+                "lat_min": 24,
+                "lat_max": 50,
+                "lon_min": -125,
+                "lon_max": -66,
+            },
+        )
         self.contaminant_focus = config.preprocessing.get(
             "contaminant_focus", ["arsenic", "lead", "mercury"]
         )
@@ -959,7 +964,19 @@ class USGSGeochemistryLoader(DatasetLoader):
             # pH (soil typically 4-9)
             ph = np.clip(np.random.normal(6.5, 1.0), 4.0, 9.0)
 
-            feature_vec = [lat, lon, arsenic, lead, mercury, cadmium, copper, zinc, iron, calcium, ph]
+            feature_vec = [
+                lat,
+                lon,
+                arsenic,
+                lead,
+                mercury,
+                cadmium,
+                copper,
+                zinc,
+                iron,
+                calcium,
+                ph,
+            ]
             features.append(feature_vec)
 
             # Anomaly: exceeds EPA screening levels
@@ -1008,7 +1025,9 @@ class USGSGeochemistryLoader(DatasetLoader):
         data_processed[:, 2:10] = np.log1p(data_processed[:, 2:10])
 
         # Z-score normalization
-        data_processed = (data_processed - data_processed.mean(axis=0)) / (data_processed.std(axis=0) + 1e-8)
+        data_processed = (data_processed - data_processed.mean(axis=0)) / (
+            data_processed.std(axis=0) + 1e-8
+        )
         return data_processed.astype(np.float32)
 
 
