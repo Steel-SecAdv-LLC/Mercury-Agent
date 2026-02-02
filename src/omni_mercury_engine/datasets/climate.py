@@ -149,6 +149,65 @@ class SimonsCMAPLoader(DatasetLoader):
         )
         return self._create_synthetic_ocean()
 
+    def _build_cmap_query(self) -> str:
+        """Build a safe SQL query for the pycmap API with validated numeric bounds.
+
+        This method constructs a SQL query for the Simons CMAP API using only
+        validated numeric values. All bounds are validated to be within acceptable
+        geographic and physical ranges before being used in the query.
+
+        Security: The pycmap API is a trusted Python library that executes queries
+        against the Simons CMAP database. All values interpolated into the query
+        are validated to be numeric types within valid ranges, preventing injection.
+
+        Returns:
+            SQL query string with validated numeric bounds.
+
+        Raises:
+            ValueError: If any bound is not a valid numeric type or out of range.
+        """
+        # Validate and extract latitude bounds
+        lat_min = self.region.get("lat_min", -60)
+        lat_max = self.region.get("lat_max", 60)
+        if not isinstance(lat_min, (int, float)) or not isinstance(lat_max, (int, float)):
+            raise ValueError(f"Latitude bounds must be numeric: {lat_min}, {lat_max}")
+        if not (-90 <= lat_min <= 90 and -90 <= lat_max <= 90):
+            raise ValueError(f"Latitude must be between -90 and 90: {lat_min}, {lat_max}")
+
+        # Validate and extract longitude bounds
+        lon_min = self.region.get("lon_min", -180)
+        lon_max = self.region.get("lon_max", 180)
+        if not isinstance(lon_min, (int, float)) or not isinstance(lon_max, (int, float)):
+            raise ValueError(f"Longitude bounds must be numeric: {lon_min}, {lon_max}")
+        if not (-180 <= lon_min <= 180 and -180 <= lon_max <= 180):
+            raise ValueError(f"Longitude must be between -180 and 180: {lon_min}, {lon_max}")
+
+        # Validate and extract depth range
+        depth_min, depth_max = self.depth_range
+        if not isinstance(depth_min, (int, float)) or not isinstance(depth_max, (int, float)):
+            raise ValueError(f"Depth range must be numeric: {depth_min}, {depth_max}")
+        if depth_min < 0 or depth_max < 0:
+            raise ValueError(f"Depth must be non-negative: {depth_min}, {depth_max}")
+
+        # Validate sample limit
+        max_samples = self.config.max_samples or 10000
+        if not isinstance(max_samples, int):
+            raise ValueError(f"max_samples must be an integer: {max_samples}")
+        limit = min(max_samples, 10000)
+
+        # Build query using string concatenation with explicit float/int conversion
+        # This ensures only numeric values can be interpolated
+        query_parts = [
+            "SELECT time, lat, lon, depth, temp, psal, doxy",
+            "FROM tblArgoMerge_REP",
+            "WHERE lat BETWEEN " + str(float(lat_min)) + " AND " + str(float(lat_max)),
+            "AND lon BETWEEN " + str(float(lon_min)) + " AND " + str(float(lon_max)),
+            "AND depth BETWEEN " + str(float(depth_min)) + " AND " + str(float(depth_max)),
+            "ORDER BY time DESC",
+            "LIMIT " + str(int(limit)),
+        ]
+        return " ".join(query_parts)
+
     def _download_via_pycmap(self) -> bool:
         """Download data using pycmap Python client."""
         try:
@@ -169,18 +228,9 @@ class SimonsCMAPLoader(DatasetLoader):
             # Query Argo float data (most comprehensive real-time ocean data)
             logger.info("Downloading Argo float data from Simons CMAP...")
 
-            # Build spatial query for pycmap API
-            # Note: pycmap uses its own query method with numeric bounds validation
-            # These values are validated floats from config, not user-supplied strings
-            query = f"""
-            SELECT time, lat, lon, depth, temp, psal, doxy
-            FROM tblArgoMerge_REP
-            WHERE lat BETWEEN {self.region['lat_min']} AND {self.region['lat_max']}
-            AND lon BETWEEN {self.region['lon_min']} AND {self.region['lon_max']}
-            AND depth BETWEEN {self.depth_range[0]} AND {self.depth_range[1]}
-            ORDER BY time DESC
-            LIMIT {min(self.config.max_samples or 10000, 10000)}
-            """  # noqa: S608 - pycmap API handles query internally, values are numeric bounds
+            # Build query with validated numeric bounds
+            # All values are validated and converted to numeric types before interpolation
+            query = self._build_cmap_query()
 
             df = api.query(query)
 

@@ -59,7 +59,7 @@ def _get_engine(*args, **kwargs):
 
 
 @click.group()
-@click.version_option(version="1.1.0")
+@click.version_option(version="1.2.0")
 def main() -> None:
     """Mercury Agent ♱: ML-Centric Anomaly Detection Framework"""
     pass
