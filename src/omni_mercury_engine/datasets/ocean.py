@@ -152,7 +152,7 @@ class NOAABuoyLoader(DatasetLoader):
                     # Parse the data (space-delimited, first row is header, second is units)
                     df = pd.read_csv(
                         io.StringIO(content),
-                        delim_whitespace=True,
+                        sep=r"\s+",  # Regex whitespace separator (replaces deprecated delim_whitespace)
                         skiprows=[1],  # Skip units row
                     )
                     df["station"] = station

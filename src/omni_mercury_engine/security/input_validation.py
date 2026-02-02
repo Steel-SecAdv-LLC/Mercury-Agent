@@ -596,8 +596,15 @@ class TrustedEndpoints:
             "api.tidesandcurrents.noaa.gov",
             "www.ndbc.noaa.gov",
             "www.ngdc.noaa.gov",
+            "www.ncei.noaa.gov",  # NCEI World Ocean Database
             "exoplanetarchive.ipac.caltech.edu",
             "firms.modaps.eosdis.nasa.gov",
+            # FEMA Disaster Data
+            "www.fema.gov",
+            # Simons CMAP Ocean Data
+            "simonscmap.com",
+            # Copernicus Climate Data Store
+            "cds.climate.copernicus.eu",
             # Academic/Research Datasets
             "archive.ics.uci.edu",
             "intrusion-detection.distrinet-research.be",  # CICIDS 2017 improved dataset
@@ -790,6 +797,35 @@ class TrustedEndpoints:
     # CICIDS 2017 - Network Intrusion Detection Dataset
     # ==========================================================================
     CICIDS_DISTRINET = "https://intrusion-detection.distrinet-research.be/Dataset/dataset.zip"
+
+    # ==========================================================================
+    # OpenFEMA - Disaster Declarations API (v2)
+    # ==========================================================================
+    FEMA_DISASTER_DECLARATIONS = (
+        "https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries"
+    )
+    FEMA_INDIVIDUAL_ASSISTANCE = (
+        "https://www.fema.gov/api/open/v2/HousingAssistanceOwners"
+    )
+    FEMA_PUBLIC_ASSISTANCE = (
+        "https://www.fema.gov/api/open/v2/PublicAssistanceFundedProjectsDetails"
+    )
+
+    # ==========================================================================
+    # Simons CMAP - Ocean Biogeochemistry Data
+    # ==========================================================================
+    SIMONS_CMAP_API = "https://simonscmap.com/api"
+
+    # ==========================================================================
+    # NCEI World Ocean Database
+    # ==========================================================================
+    NCEI_WOD_SELECT = "https://www.ncei.noaa.gov/access/world-ocean-database-select"
+    NCEI_WOD_DATA = "https://www.ncei.noaa.gov/data/oceans/wod/DATA"
+
+    # ==========================================================================
+    # Copernicus Climate Data Store - Sea Level
+    # ==========================================================================
+    COPERNICUS_CDS_API = "https://cds.climate.copernicus.eu/api/retrieve/v1"
 
 
 __all__ = [
