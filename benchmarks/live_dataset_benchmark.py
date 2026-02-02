@@ -255,9 +255,7 @@ class LiveDatasetBenchmarkRunner:
             logger.warning(f"Failed to load {dataset_name}: {e}")
             return None, None, metadata
 
-    def _run_detection(
-        self, X: np.ndarray, y: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray, float]:
+    def _run_detection(self, X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:
         """Run anomaly detection and return predictions, scores, and time."""
         start = time.perf_counter()
 
@@ -536,9 +534,7 @@ class LiveDatasetBenchmarkRunner:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Mercury Agent Live Dataset Benchmark Suite"
-    )
+    parser = argparse.ArgumentParser(description="Mercury Agent Live Dataset Benchmark Suite")
     parser.add_argument(
         "--category",
         "-c",

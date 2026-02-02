@@ -2784,6 +2784,7 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_scores: np.ndarray
         # This properly handles the precision-recall curve ordering and avoids
         # negative values from np.trapz on unsorted recall values
         from sklearn.metrics import average_precision_score
+
         pr_auc = average_precision_score(y_true, y_scores)
     except ValueError as e:
         # Single class present or invalid input
