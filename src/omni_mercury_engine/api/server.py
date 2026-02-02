@@ -41,9 +41,12 @@ Example:
             -d '{"data": [1.0, 2.0, 1.5, 10.0, 1.8], "sensitivity": 0.5}'
 """
 
+import contextvars
 import logging
 import os
 import re
+import time
+import uuid
 from enum import Enum
 from typing import Any
 
@@ -53,6 +56,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
+
+
+# Context variable for request correlation ID - accessible throughout request lifecycle
+correlation_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "correlation_id", default=""
+)
 
 from omni_mercury_engine.validation.api_validators import (
     APIRequestValidator,
@@ -275,6 +284,76 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 # Register rate limiting middleware
 app.add_middleware(RateLimitMiddleware)
+
+
+# =============================================================================
+# Correlation ID Middleware (Observability & Distributed Tracing)
+# =============================================================================
+class CorrelationIDMiddleware(BaseHTTPMiddleware):
+    """Middleware for request correlation ID tracking.
+
+    Provides distributed tracing support by:
+    - Accepting existing correlation IDs from upstream services (X-Correlation-ID header)
+    - Generating new UUIDs for requests without correlation IDs
+    - Propagating correlation IDs in responses for downstream tracing
+    - Setting context variable for access throughout request lifecycle
+
+    Headers:
+        X-Correlation-ID: UUID for request tracing (in/out)
+        X-Request-ID: Alias for X-Correlation-ID (in only)
+
+    Usage in downstream code:
+        from omni_mercury_engine.api.server import correlation_id_ctx
+        correlation_id = correlation_id_ctx.get()
+    """
+
+    HEADER_NAME = "X-Correlation-ID"
+    HEADER_ALIAS = "X-Request-ID"
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        """Process request with correlation ID tracking."""
+        # Extract or generate correlation ID
+        correlation_id = (
+            request.headers.get(self.HEADER_NAME)
+            or request.headers.get(self.HEADER_ALIAS)
+            or str(uuid.uuid4())
+        )
+
+        # Set context variable for access in handlers
+        token = correlation_id_ctx.set(correlation_id)
+
+        # Add correlation ID to request state for easy access
+        request.state.correlation_id = correlation_id
+
+        # Track request timing
+        start_time = time.perf_counter()
+
+        try:
+            response = await call_next(request)
+
+            # Calculate request duration
+            duration_ms = (time.perf_counter() - start_time) * 1000
+
+            # Add tracing headers to response
+            response.headers[self.HEADER_NAME] = correlation_id
+            response.headers["X-Request-Duration-Ms"] = f"{duration_ms:.2f}"
+
+            # Log request completion with correlation ID
+            logger.info(
+                f"Request completed: {request.method} {request.url.path} "
+                f"status={response.status_code} duration={duration_ms:.2f}ms "
+                f"correlation_id={correlation_id}"
+            )
+
+            return response
+        finally:
+            # Reset context variable
+            correlation_id_ctx.reset(token)
+
+
+# Register correlation ID middleware (runs before rate limiting)
+app.add_middleware(CorrelationIDMiddleware)
+
 
 # =============================================================================
 # CORS Middleware Configuration (Security Hardening)

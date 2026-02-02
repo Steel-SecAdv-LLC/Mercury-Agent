@@ -1,0 +1,295 @@
+# Mercury Agent Redis Cluster for Caching and Real-time Streaming
+# High-availability Redis deployment with Sentinel for failover
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mercury-redis
+  namespace: mercury-agent
+  labels:
+    app.kubernetes.io/name: mercury-agent
+    app.kubernetes.io/component: redis
+spec:
+  serviceName: mercury-redis
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mercury-agent
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mercury-agent
+        app.kubernetes.io/component: redis
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9121"
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: redis
+              topologyKey: kubernetes.io/hostname
+
+      initContainers:
+        - name: init-redis
+          image: redis:7-alpine
+          command:
+            - sh
+            - -c
+            - |
+              # Determine if this is the master or replica
+              HOSTNAME=$(hostname)
+              INDEX=${HOSTNAME##*-}
+
+              if [ "$INDEX" = "0" ]; then
+                echo "Configuring as master"
+                cp /config/redis-master.conf /data/redis.conf
+              else
+                echo "Configuring as replica"
+                cp /config/redis-replica.conf /data/redis.conf
+              fi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /config
+
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+              name: redis
+          command:
+            - redis-server
+            - /data/redis.conf
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: "250m"
+            limits:
+              memory: 2Gi
+              cpu: "1"
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /data
+
+        - name: redis-exporter
+          image: oliver006/redis_exporter:latest
+          ports:
+            - containerPort: 9121
+              name: metrics
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: "50m"
+            limits:
+              memory: 128Mi
+              cpu: "200m"
+
+      volumes:
+        - name: config
+          configMap:
+            name: mercury-redis-config
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+---
+# Redis Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mercury-redis-config
+  namespace: mercury-agent
+data:
+  redis-master.conf: |
+    # Master configuration
+    bind 0.0.0.0
+    port 6379
+
+    # Persistence
+    appendonly yes
+    appendfsync everysec
+
+    # Memory management
+    maxmemory 1gb
+    maxmemory-policy allkeys-lru
+
+    # Performance tuning
+    tcp-keepalive 300
+    timeout 0
+
+    # Streams configuration
+    stream-node-max-bytes 4096
+    stream-node-max-entries 100
+
+    # Logging
+    loglevel notice
+
+  redis-replica.conf: |
+    # Replica configuration
+    bind 0.0.0.0
+    port 6379
+
+    # Replication
+    replicaof mercury-redis-0.mercury-redis 6379
+    replica-read-only yes
+
+    # Persistence
+    appendonly yes
+    appendfsync everysec
+
+    # Memory management
+    maxmemory 1gb
+    maxmemory-policy allkeys-lru
+
+    # Performance tuning
+    tcp-keepalive 300
+    timeout 0
+
+    # Logging
+    loglevel notice
+---
+# Redis Sentinel for High Availability
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mercury-redis-sentinel
+  namespace: mercury-agent
+  labels:
+    app.kubernetes.io/name: mercury-agent
+    app.kubernetes.io/component: redis-sentinel
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mercury-agent
+      app.kubernetes.io/component: redis-sentinel
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mercury-agent
+        app.kubernetes.io/component: redis-sentinel
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/component: redis-sentinel
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: sentinel
+          image: redis:7-alpine
+          ports:
+            - containerPort: 26379
+              name: sentinel
+          command:
+            - redis-sentinel
+            - /config/sentinel.conf
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: "100m"
+            limits:
+              memory: 256Mi
+              cpu: "200m"
+          volumeMounts:
+            - name: sentinel-config
+              mountPath: /config
+      volumes:
+        - name: sentinel-config
+          configMap:
+            name: mercury-redis-sentinel-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mercury-redis-sentinel-config
+  namespace: mercury-agent
+data:
+  sentinel.conf: |
+    port 26379
+    sentinel monitor mercury-master mercury-redis-0.mercury-redis 6379 2
+    sentinel down-after-milliseconds mercury-master 5000
+    sentinel failover-timeout mercury-master 60000
+    sentinel parallel-syncs mercury-master 1
+---
+# Redis Service (points to master)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mercury-redis
+  namespace: mercury-agent
+  labels:
+    app.kubernetes.io/name: mercury-agent
+    app.kubernetes.io/component: redis
+spec:
+  selector:
+    app.kubernetes.io/name: mercury-agent
+    app.kubernetes.io/component: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+  type: ClusterIP
+---
+# Redis Headless Service for StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: mercury-redis-headless
+  namespace: mercury-agent
+  labels:
+    app.kubernetes.io/name: mercury-agent
+    app.kubernetes.io/component: redis
+spec:
+  selector:
+    app.kubernetes.io/name: mercury-agent
+    app.kubernetes.io/component: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+  clusterIP: None
+---
+# Redis Sentinel Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mercury-redis-sentinel
+  namespace: mercury-agent
+spec:
+  selector:
+    app.kubernetes.io/name: mercury-agent
+    app.kubernetes.io/component: redis-sentinel
+  ports:
+    - name: sentinel
+      port: 26379
+      targetPort: 26379
+  type: ClusterIP

@@ -25,11 +25,14 @@ Extracted from Communication Engine for future scalability
 """
 
 import asyncio
-import contextlib
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
+
+
+logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
@@ -109,7 +112,7 @@ class AsyncMessageQueue:
             await self.queue.put(message)
             self.stats["messages_sent"] += 1
             return True
-        except Exception:
+        except asyncio.QueueFull:
             self.stats["errors"] += 1
             return False
 
@@ -133,7 +136,7 @@ class AsyncMessageQueue:
             return message
         except TimeoutError:
             return None
-        except Exception:
+        except asyncio.CancelledError:
             self.stats["errors"] += 1
             return None
 
@@ -169,7 +172,9 @@ class AsyncMessageQueue:
                             await handler(message)
                         else:
                             handler(message)
-                    except Exception:
+                    except (TypeError, ValueError, RuntimeError) as e:
+                        # Handler execution errors - log for debugging
+                        logger.debug(f"Message handler error: {e}")
                         self.stats["errors"] += 1
 
     def get_stats(self) -> dict[str, int]:
@@ -219,8 +224,11 @@ class SimplePubSub:
         """
         if topic in self.subscribers:
             for callback in self.subscribers[topic]:
-                with contextlib.suppress(Exception):
+                try:
                     callback(message)
+                except (TypeError, ValueError, RuntimeError) as e:
+                    # Callback errors logged but don't break pub/sub flow
+                    logger.debug(f"Publish callback error for topic '{topic}': {e}")
 
     async def publish_async(self, topic: str, message: Any):
         """
@@ -238,8 +246,9 @@ class SimplePubSub:
                         tasks.append(callback(message))
                     else:
                         callback(message)
-                except Exception:
-                    pass  # Callback errors should not break pub/sub
+                except (TypeError, ValueError, RuntimeError):
+                    # Callback errors logged but don't break pub/sub flow
+                    continue
 
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)

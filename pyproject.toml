@@ -129,6 +129,12 @@ pqc-fallback = [
     "liboqs-python>=0.9.0",  # Secondary: liboqs bindings (constant-time)
 ]
 
+# Streaming infrastructure (Kafka, Redis)
+streaming = [
+    "aiokafka>=0.10.0",  # Async Kafka client
+    "redis>=5.0.0",  # Redis with async support
+]
+
 # Efficiency optimizations
 optimization = [
     "joblib>=1.3.0",
@@ -157,9 +163,14 @@ dev = [
     "pre-commit>=3.5.0",
 ]
 
+# Load testing
+loadtest = [
+    "locust>=2.20.0",  # Load testing framework
+]
+
 # Full installation with all features
 all = [
-    "mercury-agent[visual,vlm,foundation,face,api,sota,llm,drift,fairness,optimization,benchmark]",
+    "mercury-agent[visual,vlm,foundation,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark]",
 ]
 
 [project.urls]

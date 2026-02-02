@@ -44,6 +44,16 @@ from .humanitarian.essential_workers import EssentialWorkersMonitor
 from .humanitarian.government_facilities import GovernmentFacilitiesMonitor
 from .resilience.ncf_monitor import NCFMonitor
 from .scientific.emerging_tech_monitor import EmergingTechMonitor
+from .streaming import (
+    CircuitBreaker,
+    CircuitState,
+    StreamConfig,
+    StreamConsumerFactory,
+    StreamingAnomalyPipeline,
+    StreamingBackend,
+    StreamMessage,
+    StreamProducerFactory,
+)
 
 
 class InfrastructureCoordinator:
@@ -268,6 +278,8 @@ class InfrastructureCoordinator:
 __all__ = [
     "CISASector",
     "ChemicalNuclearDetector",
+    "CircuitBreaker",
+    "CircuitState",
     "CommunicationsITDetector",
     "CrisisAlert",
     "CrisisMonitor",
@@ -285,5 +297,11 @@ __all__ = [
     "PatientStatus",
     "SpaceExplorationAnalyzer",
     "SpaceInfrastructureMonitor",
+    "StreamConfig",
+    "StreamConsumerFactory",
+    "StreamMessage",
+    "StreamProducerFactory",
+    "StreamingAnomalyPipeline",
+    "StreamingBackend",
     "WorldBankSectorsMonitor",
 ]

@@ -448,15 +448,29 @@ class RealWorldBenchmarkSuite:
                     precision_list.append(prec_i)
                     recall_list.append(rec_i)
 
-                # AUC-ROC (trapezoidal)
-                auc_roc = np.trapezoid(tpr_list, fpr_list)
-                metrics["auc_roc"] = float(abs(auc_roc))
+                # AUC-ROC: Sort by FPR for correct trapezoidal integration
+                # FPR should be monotonically increasing for valid AUC
+                fpr_arr = np.array(fpr_list)
+                tpr_arr = np.array(tpr_list)
+                sort_idx = np.argsort(fpr_arr)
+                auc_roc = np.trapezoid(tpr_arr[sort_idx], fpr_arr[sort_idx])
+                # Clamp to [0, 1] - values outside indicate calculation issues
+                metrics["auc_roc"] = float(np.clip(auc_roc, 0.0, 1.0))
 
-                # AUC-PR
-                auc_pr = np.trapezoid(precision_list, recall_list)
-                metrics["auc_pr"] = float(abs(auc_pr))
+                # AUC-PR: Use step-function integration for proper PR-AUC
+                # Recall should be sorted ascending for correct area calculation
+                recall_arr = np.array(recall_list)
+                precision_arr = np.array(precision_list)
+                sort_idx = np.argsort(recall_arr)
+                recall_sorted = recall_arr[sort_idx]
+                precision_sorted = precision_arr[sort_idx]
+                # Step-function integration: sum(precision[i] * (recall[i] - recall[i-1]))
+                recall_diff = np.diff(recall_sorted, prepend=0.0)
+                auc_pr = float(np.sum(precision_sorted * recall_diff))
+                # Clamp to [0, 1] - PR-AUC must be non-negative
+                metrics["auc_pr"] = float(np.clip(auc_pr, 0.0, 1.0))
 
-            except Exception as e:
+            except (ValueError, IndexError) as e:
                 logger.debug(f"AUC calculation failed: {e}")
 
         # Per-sample metrics

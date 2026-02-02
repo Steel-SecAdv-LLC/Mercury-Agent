@@ -191,8 +191,8 @@ class InputValidator:
             try:
                 value = str(value)
                 warnings.append(f"{field_name}: Converted to string")
-            except Exception:
-                errors.append(f"{field_name}: Cannot convert to string")
+            except (TypeError, ValueError) as e:
+                errors.append(f"{field_name}: Cannot convert to string: {type(e).__name__}")
                 return ValidationResult(False, None, errors, warnings)
 
         # Unicode normalization (prevent homograph attacks)
@@ -406,7 +406,7 @@ class InputValidator:
         # Parse URL
         try:
             parsed = urlparse(value)
-        except Exception:
+        except ValueError:
             errors.append(f"{field_name}: Invalid URL format")
             return ValidationResult(False, None, errors, warnings)
 
@@ -473,8 +473,8 @@ class InputValidator:
                     errors.append(f"{field_name}: Path outside allowed directory")
                     # Return early - path is outside allowed directory
                     return ValidationResult(False, value, errors, [])
-            except Exception:
-                errors.append(f"{field_name}: Invalid path")
+            except (ValueError, OSError) as e:
+                errors.append(f"{field_name}: Invalid path: {type(e).__name__}")
 
         # Check for path traversal patterns
         for pattern in self.PATH_TRAVERSAL_PATTERNS:
