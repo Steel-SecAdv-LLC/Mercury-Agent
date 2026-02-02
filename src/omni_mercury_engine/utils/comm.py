@@ -25,7 +25,6 @@ Extracted from Communication Engine for future scalability
 """
 
 import asyncio
-import contextlib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -225,8 +224,11 @@ class SimplePubSub:
         """
         if topic in self.subscribers:
             for callback in self.subscribers[topic]:
-                with contextlib.suppress(Exception):
+                try:
                     callback(message)
+                except (TypeError, ValueError, RuntimeError) as e:
+                    # Callback errors logged but don't break pub/sub flow
+                    logger.debug(f"Publish callback error for topic '{topic}': {e}")
 
     async def publish_async(self, topic: str, message: Any):
         """

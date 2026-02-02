@@ -666,7 +666,7 @@ class KafkaStreamConsumer(StreamConsumer):
                         topic=msg.topic,
                         key=msg.key,
                         value=msg.value,
-                        timestamp=datetime.fromtimestamp(msg.timestamp / 1000),
+                        timestamp=datetime.fromtimestamp(msg.timestamp / 1000, tz=UTC),
                         headers=headers,
                         partition=msg.partition,
                         offset=msg.offset,
@@ -758,7 +758,7 @@ class RedisStreamProducer(StreamProducer):
             # Prepare message with metadata
             message_data = {
                 "value": json.dumps(value),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
             if key:
                 message_data["key"] = key
@@ -790,7 +790,7 @@ class RedisStreamProducer(StreamProducer):
         for msg in messages:
             message_data = {
                 "value": json.dumps(msg),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
             pipe.xadd(topic, message_data, maxlen=100000)
             count += 1
@@ -919,7 +919,7 @@ class RedisStreamConsumer(StreamConsumer):
                             key=msg_data.get("key"),
                             value=json.loads(value_str),
                             timestamp=datetime.fromisoformat(
-                                msg_data.get("timestamp", datetime.utcnow().isoformat())
+                                msg_data.get("timestamp", datetime.now(UTC).isoformat())
                             ),
                             headers=json.loads(headers_str),
                             offset=msg_id,
