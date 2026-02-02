@@ -60,7 +60,12 @@ from .disaster import (
     FEMADisasterLoader,
     FEMAHazardMitigationLoader,
 )
-from .environmental import NOAAWeatherLoader, USGSEarthquakeLoader, WildfireDataLoader
+from .environmental import (
+    NOAAWeatherLoader,
+    USGSEarthquakeLoader,
+    USGSGeochemistryLoader,
+    WildfireDataLoader,
+)
 from .industrial import BATADALLoader, SWaTLoader, WADILoader
 from .medical import CardiologyDataset, MIMICLoader, PhysioNetLoader, SepsisDataset
 from .ocean import NOAABuoyLoader
@@ -105,6 +110,7 @@ __all__ = [
     "ThreatIntelLoader",
     "UCRLoader",
     "USGSEarthquakeLoader",
+    "USGSGeochemistryLoader",
     "WADILoader",
     "WildfireDataLoader",
     "WorldOceanDatabaseLoader",

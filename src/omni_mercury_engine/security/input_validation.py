@@ -591,6 +591,7 @@ class TrustedEndpoints:
         {
             # Government/Research APIs
             "earthquake.usgs.gov",
+            "mrdata.usgs.gov",  # USGS Mineral Resources Data System
             "services.swpc.noaa.gov",
             "www.nhc.noaa.gov",
             "api.tidesandcurrents.noaa.gov",
@@ -826,6 +827,12 @@ class TrustedEndpoints:
     # Copernicus Climate Data Store - Sea Level
     # ==========================================================================
     COPERNICUS_CDS_API = "https://cds.climate.copernicus.eu/api/retrieve/v1"
+
+    # ==========================================================================
+    # USGS Mineral Resources Data System (MRData)
+    # ==========================================================================
+    USGS_MRDATA_GEOCHEM = "https://mrdata.usgs.gov/geochem"
+    USGS_MRDATA_GEOPHYS = "https://mrdata.usgs.gov/geophysics"
 
 
 __all__ = [

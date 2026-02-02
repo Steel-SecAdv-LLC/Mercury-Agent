@@ -105,9 +105,14 @@ class TemperatureScaledAttention(nn.Module):
         super().__init__()
         self.embed_dim = embed_dim
         self.num_heads = num_heads
-        self.head_dim = embed_dim // num_heads
 
-        assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
+        # Explicit validation instead of assert (remains active in optimized code)
+        if embed_dim % num_heads != 0:
+            raise ValueError(
+                f"embed_dim ({embed_dim}) must be divisible by num_heads ({num_heads})"
+            )
+
+        self.head_dim = embed_dim // num_heads
 
         self.q_proj = nn.Linear(embed_dim, embed_dim)
         self.k_proj = nn.Linear(embed_dim, embed_dim)
@@ -335,8 +340,11 @@ class AdaptiveHeadAttention(nn.Module):
         self.min_heads = min_heads
         self.max_heads = max_heads
 
-        # Ensure embed_dim is divisible by max_heads
-        assert embed_dim % max_heads == 0, "embed_dim must be divisible by max_heads"
+        # Explicit validation instead of assert (remains active in optimized code)
+        if embed_dim % max_heads != 0:
+            raise ValueError(
+                f"embed_dim ({embed_dim}) must be divisible by max_heads ({max_heads})"
+            )
 
         self.head_dim = embed_dim // max_heads
 
