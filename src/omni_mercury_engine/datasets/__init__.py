@@ -20,9 +20,9 @@ from __future__ import annotations
 
 
 """
-Real-World Dataset Loaders for Mercury Agent ♱
+Real-World Dataset Loaders for Mercury Agent
 
-All loaders fetch REAL DATA from official sources - NO synthetic fallbacks.
+All loaders fetch REAL DATA from official sources with synthetic fallbacks.
 
 Provides unified access to real-world datasets for benchmarking:
 - ADRepository: 21+ real-world anomaly detection datasets (fraud, backdoor, thyroid, etc.)
@@ -31,7 +31,9 @@ Provides unified access to real-world datasets for benchmarking:
 - Space: SETI signal archives, NASA exoplanet data
 - Environmental: USGS earthquake API, NOAA storm events, NASA FIRMS
 - Security: NSL-KDD, CICIDS-2017 network intrusion
-- Ocean: NOAA buoy real-time data (wave height, temperature, pressure)
+- Ocean: NOAA buoy, Simons CMAP, World Ocean Database, Copernicus sea level
+- Climate: Satellite altimetry, ocean biogeochemistry
+- Disaster: FEMA disaster declarations, hazard mitigation programs
 
 Quick Start:
     >>> from omni_mercury_engine.datasets import load_dataset, list_available_datasets
@@ -49,7 +51,21 @@ from .adrepository import (
 )
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, DatasetSplit
 from .benchmarks import BenchmarkResult, RealWorldBenchmarkSuite
-from .environmental import NOAAWeatherLoader, USGSEarthquakeLoader, WildfireDataLoader
+from .climate import (
+    CopernicusSeaLevelLoader,
+    SimonsCMAPLoader,
+    WorldOceanDatabaseLoader,
+)
+from .disaster import (
+    FEMADisasterLoader,
+    FEMAHazardMitigationLoader,
+)
+from .environmental import (
+    NOAAWeatherLoader,
+    USGSEarthquakeLoader,
+    USGSGeochemistryLoader,
+    WildfireDataLoader,
+)
 from .industrial import BATADALLoader, SWaTLoader, WADILoader
 from .medical import CardiologyDataset, MIMICLoader, PhysioNetLoader, SepsisDataset
 from .ocean import NOAABuoyLoader
@@ -67,10 +83,13 @@ __all__ = [
     "CICIDSLoader",
     "CWRUBearingLoader",
     "CardiologyDataset",
+    "CopernicusSeaLevelLoader",
     "DatasetConfig",
     "DatasetLoader",
     "DatasetRegistry",
     "DatasetSplit",
+    "FEMADisasterLoader",
+    "FEMAHazardMitigationLoader",
     "MBALoader",
     "MIMICLoader",
     "MSDSLoader",
@@ -86,12 +105,15 @@ __all__ = [
     "SMDLoader",
     "SWaTLoader",
     "SepsisDataset",
+    "SimonsCMAPLoader",
     "SolarDynamicsLoader",
     "ThreatIntelLoader",
     "UCRLoader",
     "USGSEarthquakeLoader",
+    "USGSGeochemistryLoader",
     "WADILoader",
     "WildfireDataLoader",
+    "WorldOceanDatabaseLoader",
     "list_available_datasets",
     "load_dataset",
 ]

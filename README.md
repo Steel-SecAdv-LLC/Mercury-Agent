@@ -43,7 +43,7 @@
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
-**Version:** v1.1.0
+**Version:** v1.2.0
 **Date:** 2026-01-27
 **AI Co-Architects:** X ⚛ | Caduceus ⚚ | Dev ⚕
 

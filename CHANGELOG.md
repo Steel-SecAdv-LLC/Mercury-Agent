@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-02-02
+
+### Added - Live Oceanographic and Disaster Dataset Integration
+
+- **Climate Dataset Loaders** (`datasets/climate.py`): Advanced marine data integration
+  - `SimonsCMAPLoader`: Ocean biogeochemistry from Simons CMAP (satellite observations, in-situ measurements, model outputs)
+  - `WorldOceanDatabaseLoader`: NCEI World Ocean Database temperature/salinity profiles (20M+ profiles, 1770-present)
+  - `CopernicusSeaLevelLoader`: EU satellite altimetry data (0.25 degree resolution, 1993-present)
+  - All loaders include synthetic fallbacks with realistic oceanographic patterns
+
+- **Disaster Dataset Loaders** (`datasets/disaster.py`): FEMA emergency management data
+  - `FEMADisasterLoader`: US disaster declarations from OpenFEMA API (hurricanes, floods, fires, earthquakes)
+  - `FEMAHazardMitigationLoader`: Hazard mitigation grant program data
+  - Rate limiting (500ms between requests) and SSRF protection via TrustedEndpoints
+  - No API key required - free public access
+
+- **Environmental Loader** (`datasets/environmental.py`): Contamination detection
+  - `USGSGeochemistryLoader`: Heavy metal concentrations (As, Pb, Hg, Cu, Zn) from USGS MRData
+  - EPA Regional Screening Levels for anomaly labeling
+
+- **Trusted Endpoints** (`security/input_validation.py`): SSRF protection for new data sources
+  - New domains: fema.gov, simonscmap.com, cds.climate.copernicus.eu, ncei.noaa.gov, mrdata.usgs.gov
+  - New API endpoints: FEMA_DISASTER_DECLARATIONS, SIMONS_CMAP_API, NCEI_WOD_SELECT, COPERNICUS_CDS_API, USGS_MRDATA_GEOCHEM
+
+- **Comprehensive Tests**: 54+ new tests for climate and disaster loaders
+  - `tests/datasets/test_climate.py`: 26+ tests for oceanographic data quality
+  - `tests/datasets/test_disaster.py`: 28+ tests for FEMA API integration
+
+### Fixed - Engineering Polish
+
+- **JWT Exception Handling** (`api/auth.py`): Specific exception types for better debugging
+  - `ExpiredSignatureError`, `InvalidTokenError` for JWT-specific errors
+  - `KeyError`, `TypeError`, `ValueError` for malformed payload detection
+  - Improved logging with exception type names
+
+- **Input Validation** (`core/adaptive_fusion.py`): Production-safe assertions
+  - Replaced `assert` statements with explicit `if/raise ValueError`
+  - Validation remains active even with Python `-O` optimization
+  - Error messages include actual values for debugging
+
+- **Resource Management** (`infrastructure/observability.py`): FileAuditHandler lifecycle
+  - Added `close()` method for explicit resource cleanup
+  - Context manager protocol (`__enter__`, `__exit__`) for safe usage
+  - `__del__` for GC cleanup with thread-safe `_closed` flag
+  - `RuntimeError` if `emit()` called after close
+
+- **Deprecated API** (`datasets/ocean.py`): Fixed pandas deprecation warning
+  - Changed `delim_whitespace=True` to `sep=r"\s+"` (regex whitespace separator)
+
 ## [1.1.2] - 2026-01-17
 
 ### Fixed

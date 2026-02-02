@@ -225,7 +225,12 @@ class InMemoryAuditHandler(AuditLogHandler):
 
 
 class FileAuditHandler(AuditLogHandler):
-    """File-based audit log handler with rotation."""
+    """File-based audit log handler with rotation and proper resource management.
+
+    Supports context manager protocol for safe resource cleanup:
+        with FileAuditHandler('/var/log/mercury') as handler:
+            handler.emit(event)
+    """
 
     def __init__(
         self,
@@ -239,13 +244,54 @@ class FileAuditHandler(AuditLogHandler):
         self._lock = threading.RLock()
         self._current_file: Any = None
         self._current_file_size = 0
+        self._closed = False
 
         os.makedirs(log_dir, exist_ok=True)
         self._rotate_if_needed()
 
-    def emit(self, event: AuditEvent) -> None:
-        """Emit an audit event to file."""
+    def close(self) -> None:
+        """Close the current log file and release resources.
+
+        Thread-safe method that can be called multiple times without error.
+        """
         with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            if self._current_file:
+                try:
+                    self._current_file.flush()
+                    self._current_file.close()
+                except OSError:
+                    pass
+                finally:
+                    self._current_file = None
+
+    def __enter__(self) -> FileAuditHandler:
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Exit context manager and close resources."""
+        self.close()
+
+    def __del__(self) -> None:
+        """Ensure file handle is closed during garbage collection."""
+        try:
+            self.close()
+        except Exception:
+            pass  # Suppress errors during GC
+
+    def emit(self, event: AuditEvent) -> None:
+        """Emit an audit event to file.
+
+        Raises:
+            RuntimeError: If handler has been closed.
+        """
+        with self._lock:
+            if self._closed:
+                raise RuntimeError("Cannot emit to closed FileAuditHandler")
+
             self._rotate_if_needed()
 
             line = event.to_json() + "\n"
@@ -551,7 +597,7 @@ class DistributedTracer:
         resource = Resource.create(
             {
                 "service.name": self._service_name,
-                "service.version": "1.1.0",
+                "service.version": "1.2.0",
             }
         )
 

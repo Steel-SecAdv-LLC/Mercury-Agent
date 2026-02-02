@@ -579,8 +579,13 @@ class JWTAuth:
         except jwt.InvalidTokenError as e:
             logger.warning(f"Invalid JWT token: {e}")
             return None
+        except (KeyError, TypeError, ValueError) as e:
+            # Malformed payload - missing required fields or wrong types
+            logger.warning(f"JWT payload malformed: {type(e).__name__}: {e}")
+            return None
         except Exception as e:
-            logger.error(f"JWT validation error: {e}")
+            # Unexpected errors - log at error level for investigation
+            logger.error(f"Unexpected JWT validation error: {type(e).__name__}: {e}")
             return None
 
     @staticmethod
