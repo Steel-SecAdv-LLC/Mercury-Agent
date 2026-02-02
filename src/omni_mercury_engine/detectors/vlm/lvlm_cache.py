@@ -367,7 +367,8 @@ class LVLMBackendCache:
             else:
                 return 8 * 1024**3  # Default 8GB
 
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to estimate model memory, using default 8GB: {e}")
             return 8 * 1024**3
 
     def _ensure_memory_available(self) -> None:
@@ -416,8 +417,8 @@ class LVLMBackendCache:
                     try:
                         del cached.backend.model
                         del cached.backend.processor
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"Failed to cleanup cached backend resources: {e}")
                     cached.backend = None
 
                 # Force garbage collection
@@ -620,8 +621,8 @@ class LVLMBackendCache:
                 try:
                     del cached.backend.model
                     del cached.backend.processor
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Failed to cleanup cached backend resources: {e}")
                 cached.backend = None
 
             if torch.cuda.is_available():

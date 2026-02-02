@@ -323,7 +323,7 @@ class ConfigurationManager:
             logger.info(f"Loaded configuration from: {path}")
         except Exception as e:
             logger.error(f"Failed to load configuration from {path}: {e}")
-            raise ConfigurationError(f"Configuration loading failed: {e}")
+            raise ConfigurationError(f"Configuration loading failed: {e}") from e
 
         self._loaded = True
         return self

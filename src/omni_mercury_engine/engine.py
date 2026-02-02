@@ -2526,7 +2526,7 @@ class OmniMercuryEngine(LoggerMixin):
             else:
                 raise ValueError(f"Unsupported data format. Use .npz or .pkl: {training_data}")
         except Exception as e:
-            raise RuntimeError(f"Failed to load training data: {e}")
+            raise RuntimeError(f"Failed to load training data: {e}") from e
 
         # Create dataset and split
         dataset = AnomalyDataset(features_dict, labels)

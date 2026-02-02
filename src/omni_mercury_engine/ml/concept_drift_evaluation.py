@@ -970,8 +970,8 @@ class ConceptDriftEvaluator:
                     try:
                         proba = current_model.predict_proba(X_test)
                         y_proba = proba[:, 1] if proba.ndim > 1 else proba
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"Failed to obtain prediction probabilities: {e}")
             except Exception as e:
                 logger.warning(f"Prediction failed for split {split.split_index}: {e}")
                 continue
@@ -990,8 +990,8 @@ class ConceptDriftEvaluator:
                 if y_proba is not None and len(np.unique(y_test)) > 1:
                     try:
                         auc = roc_auc_score(y_test, y_proba)
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logger.debug(f"ROC-AUC computation failed: {e}")
 
             # Create performance record
             perf = SplitPerformance(
