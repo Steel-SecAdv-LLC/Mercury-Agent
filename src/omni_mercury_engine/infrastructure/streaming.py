@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 SaaS Streaming Infrastructure for Mercury Agent
 
@@ -49,10 +50,12 @@ import logging
 import os
 import time
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator, Callable  # noqa: TC003 - used in runtime annotations
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, AsyncIterator, Callable
+from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +118,7 @@ class StreamMessage:
     topic: str
     key: str | None
     value: dict[str, Any]
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     headers: dict[str, str] = field(default_factory=dict)
     partition: int | None = None
     offset: int | None = None
@@ -133,14 +136,14 @@ class StreamMessage:
         )
 
     @classmethod
-    def from_json(cls, topic: str, data: str) -> "StreamMessage":
+    def from_json(cls, topic: str, data: str) -> StreamMessage:
         """Deserialize message from JSON."""
         parsed = json.loads(data)
         return cls(
             topic=topic,
             key=parsed.get("key"),
             value=parsed.get("value", {}),
-            timestamp=datetime.fromisoformat(parsed.get("timestamp", datetime.utcnow().isoformat())),
+            timestamp=datetime.fromisoformat(parsed.get("timestamp", datetime.now(UTC).isoformat())),
             headers=parsed.get("headers", {}),
         )
 
@@ -505,7 +508,7 @@ class KafkaStreamProducer(StreamProducer):
     ) -> bool:
         """Send message to Kafka topic."""
         if not self._circuit_breaker.is_allowed():
-            logger.warning(f"Kafka producer circuit breaker open, rejecting message")
+            logger.warning("Kafka producer circuit breaker open, rejecting message")
             return False
 
         if not self._producer:
@@ -906,7 +909,7 @@ class RedisStreamConsumer(StreamConsumer):
 
         try:
             # Build streams dict for XREADGROUP
-            streams = {topic: ">" for topic in self._subscribed_topics}
+            streams = dict.fromkeys(self._subscribed_topics, ">")
 
             result = await self._redis.xreadgroup(
                 self.group_id,
@@ -1179,9 +1182,9 @@ __all__ = [
     "StreamConfig",
     "StreamConsumer",
     "StreamConsumerFactory",
-    "StreamingAnomalyPipeline",
-    "StreamingBackend",
     "StreamMessage",
     "StreamProducer",
     "StreamProducerFactory",
+    "StreamingAnomalyPipeline",
+    "StreamingBackend",
 ]

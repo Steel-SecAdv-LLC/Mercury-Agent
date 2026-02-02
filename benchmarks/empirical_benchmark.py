@@ -105,7 +105,6 @@ from sklearn.ensemble import IsolationForest
 from sklearn.metrics import (
     confusion_matrix,
     f1_score,
-    precision_recall_curve,
     precision_score,
     recall_score,
     roc_auc_score,
@@ -127,10 +126,8 @@ except ImportError:
 # Import score calibration for improved threshold optimization
 try:
     from omni_mercury_engine.core.score_calibration import (
-        AutoThresholdOptimizer,
         CalibrationMethod,
         ScoreCalibrationManager,
-        compute_threshold_confidence_interval,
     )
 
     SCORE_CALIBRATION_AVAILABLE = True

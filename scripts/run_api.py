@@ -34,6 +34,7 @@ import os
 import sys
 from pathlib import Path
 
+
 # Add src to path
 src_path = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(src_path))
@@ -110,7 +111,7 @@ Examples:
         print("Make sure all dependencies are installed: pip install -e .[api]")
         sys.exit(1)
 
-    print(f"\nStarting Mercury Agent API Server")
+    print("\nStarting Mercury Agent API Server")
     print(f"  Host: {args.host}")
     print(f"  Port: {args.port}")
     print(f"  Mode: {'production' if args.production else 'development'}")

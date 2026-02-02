@@ -57,6 +57,7 @@ from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
 
+
 # Context variable for request correlation ID - accessible throughout request lifecycle
 correlation_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
     "correlation_id", default=""
