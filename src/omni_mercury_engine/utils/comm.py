@@ -26,6 +26,7 @@ Extracted from Communication Engine for future scalability
 
 import asyncio
 import contextlib
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -34,6 +35,8 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+logger = logging.getLogger(__name__)
 
 
 class MessagePriority(Enum):
@@ -109,7 +112,8 @@ class AsyncMessageQueue:
             await self.queue.put(message)
             self.stats["messages_sent"] += 1
             return True
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to send message: {e}")
             self.stats["errors"] += 1
             return False
 
@@ -133,7 +137,8 @@ class AsyncMessageQueue:
             return message
         except TimeoutError:
             return None
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to receive message: {e}")
             self.stats["errors"] += 1
             return None
 

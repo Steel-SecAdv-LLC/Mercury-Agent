@@ -391,13 +391,14 @@ class CognitiveOrchestrator(LoggerMixin):
 
         # === STEP 8: IPB CONTEXT ===
         if self.ipb and context.get("domain"):
-            domain_map = {
+            domain_map: dict[str, EnvironmentDomain] = {
                 "cyber": EnvironmentDomain.CYBER,
                 "medical": EnvironmentDomain.MEDICAL,
                 "financial": EnvironmentDomain.FINANCIAL,
                 "infrastructure": EnvironmentDomain.INFRASTRUCTURE,
             }
-            env_domain = domain_map.get(context.get("domain"))
+            domain_key = context.get("domain")
+            env_domain = domain_map.get(domain_key) if isinstance(domain_key, str) else None
 
             if env_domain and anomaly_score > 0.7:
                 result.threat_assessment = {

@@ -82,8 +82,8 @@ def get_backbone(
     """
     try:
         from torchvision import models
-    except ImportError:
-        raise ImportError("torchvision is required for backbone models")
+    except ImportError as e:
+        raise ImportError("torchvision is required for backbone models") from e
 
     weights = "IMAGENET1K_V1" if pretrained else None
 

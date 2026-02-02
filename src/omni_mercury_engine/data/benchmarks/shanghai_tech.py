@@ -181,21 +181,22 @@ class ShanghaiTechDataset(BaseVideoDataset):
         Returns:
             Dict with scene-level statistics
         """
-        stats = {
+        by_scene: dict[str, dict[str, int]] = {}
+        stats: dict[str, Any] = {
             "total_videos": len(self._videos),
             "normal_videos": sum(1 for _, label, _ in self._videos if label == 0),
             "anomaly_videos": sum(1 for _, label, _ in self._videos if label == 1),
-            "by_scene": {},
+            "by_scene": by_scene,
         }
 
         for video_path, label, _ in self._videos:
             scene_id = video_path.parent.name
-            if scene_id not in stats["by_scene"]:
-                stats["by_scene"][scene_id] = {"normal": 0, "anomaly": 0}
+            if scene_id not in by_scene:
+                by_scene[scene_id] = {"normal": 0, "anomaly": 0}
             if label == 0:
-                stats["by_scene"][scene_id]["normal"] += 1
+                by_scene[scene_id]["normal"] += 1
             else:
-                stats["by_scene"][scene_id]["anomaly"] += 1
+                by_scene[scene_id]["anomaly"] += 1
 
         return stats
 

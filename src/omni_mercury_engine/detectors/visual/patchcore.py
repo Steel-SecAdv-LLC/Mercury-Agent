@@ -107,8 +107,6 @@ class PatchCoreDetector(BaseVisualDetector):
 
         super().__init__(config)
         self.patchcore_config: PatchCoreConfig = config
-        # Override _config to use the specific PatchCore config
-        self._config = config
 
         # Initialize backbone
         self._init_backbone()

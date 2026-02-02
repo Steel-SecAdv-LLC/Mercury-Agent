@@ -55,7 +55,7 @@ class PQCSimulationWarning(UserWarning):
     pass
 
 
-def check_pqc_production_readiness() -> dict[str, bool]:
+def check_pqc_production_readiness() -> dict[str, bool | str]:
     """
     Check if real PQC libraries are available.
 

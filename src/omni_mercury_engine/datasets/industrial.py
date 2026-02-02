@@ -174,7 +174,7 @@ class SWaTLoader(DatasetLoader):
 
     def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
-        self.attack_labels_map = {}
+        self.attack_labels_map: dict[int, str] = {}
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw SWaT data - redirects to load()."""
@@ -239,8 +239,8 @@ class SWaTLoader(DatasetLoader):
         """
         try:
             import pandas as pd
-        except ImportError:
-            raise ImportError("pandas required for SWaT loading: pip install pandas")
+        except ImportError as e:
+            raise ImportError("pandas required for SWaT loading: pip install pandas") from e
 
         # Check for data files
         possible_files = [
@@ -291,14 +291,15 @@ class SWaTLoader(DatasetLoader):
 
     def get_metadata(self) -> DatasetMetadata:
         """Get dataset metadata."""
+        num_samples = 946722  # Approximate
         return DatasetMetadata(
             name="SWaT",
             version="v1",
-            num_samples=946722,  # Approximate
+            num_samples=num_samples,
             num_features=self.NUM_FEATURES,
             feature_names=self.FEATURE_NAMES,
             target_names=["Normal", "Attack"],
-            class_distribution={"normal": 0.88, "anomaly": 0.12},
+            class_distribution={"normal": int(0.88 * num_samples), "anomaly": int(0.12 * num_samples)},
             source_url=self.DATASET_URL,
             license=self.LICENSE,
             citation=self.CITATION,
@@ -395,8 +396,8 @@ class WADILoader(DatasetLoader):
         """Load WADI dataset."""
         try:
             import pandas as pd
-        except ImportError:
-            raise ImportError("pandas required for WADI loading: pip install pandas")
+        except ImportError as e:
+            raise ImportError("pandas required for WADI loading: pip install pandas") from e
 
         possible_files = [
             self.data_path / "WADI_14days_new.csv",
@@ -443,14 +444,15 @@ class WADILoader(DatasetLoader):
 
     def get_metadata(self) -> DatasetMetadata:
         """Get dataset metadata."""
+        num_samples = 1209601  # Approximate
         return DatasetMetadata(
             name="WADI",
             version="A1",
-            num_samples=1209601,  # Approximate
+            num_samples=num_samples,
             num_features=self.NUM_FEATURES,
             feature_names=[f"feature_{i}" for i in range(self.NUM_FEATURES)],
             target_names=["Normal", "Attack"],
-            class_distribution={"normal": 0.94, "anomaly": 0.06},
+            class_distribution={"normal": int(0.94 * num_samples), "anomaly": int(0.06 * num_samples)},
             source_url=self.DATASET_URL,
             license=self.LICENSE,
             citation=self.CITATION,
@@ -524,8 +526,8 @@ class BATADALLoader(DatasetLoader):
         """Load BATADAL dataset."""
         try:
             import pandas as pd
-        except ImportError:
-            raise ImportError("pandas required for BATADAL loading")
+        except ImportError as e:
+            raise ImportError("pandas required for BATADAL loading") from e
 
         train_file = self.data_path / "BATADAL_train.csv"
         if not train_file.exists():
@@ -552,14 +554,15 @@ class BATADALLoader(DatasetLoader):
 
     def get_metadata(self) -> DatasetMetadata:
         """Get dataset metadata."""
+        num_samples = 8761
         return DatasetMetadata(
             name="BATADAL",
             version="2018",
-            num_samples=8761,
+            num_samples=num_samples,
             num_features=self.NUM_FEATURES,
             feature_names=[f"feature_{i}" for i in range(self.NUM_FEATURES)],
             target_names=["Normal", "Attack"],
-            class_distribution={"normal": 0.93, "anomaly": 0.07},
+            class_distribution={"normal": int(0.93 * num_samples), "anomaly": int(0.07 * num_samples)},
             source_url=self.DATASET_URL,
             license=self.LICENSE,
             citation=self.CITATION,

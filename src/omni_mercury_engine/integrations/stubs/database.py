@@ -315,7 +315,7 @@ class DatabaseStub:
                 columns = [c.strip().lower() for c in match.group(2).split(",")]
                 values_str = match.group(3)
                 # Parse values (handle strings and numbers)
-                values = []
+                values: list[str | int | float | None] = []
                 for v in values_str.split(","):
                     v = v.strip()
                     if v.upper() == "NULL":

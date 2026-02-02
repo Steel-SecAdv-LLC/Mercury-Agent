@@ -396,6 +396,8 @@ class DisasterPrecursorDetector:
             result.confidence = schumann_result.confidence
 
         if self.enable_geomagnetic and "geomagnetic_data" in precursor_data:
+            if self.geomagnetic_correlator is None:
+                raise RuntimeError("Geomagnetic correlator not initialized")
             geo_correlation = self.geomagnetic_correlator.correlate_geomagnetic(
                 result.schumann_anomaly, precursor_data["geomagnetic_data"]
             )
@@ -452,6 +454,8 @@ class DisasterPrecursorDetector:
 
         features_tensor = torch.tensor(em_features, dtype=torch.float32).unsqueeze(0)
 
+        if self.earthquake_analyzer is None:
+            raise RuntimeError("Earthquake analyzer not initialized")
         self.earthquake_analyzer.eval()
         with torch.no_grad():
             magnitude, time_to_event, confidence = self.earthquake_analyzer(features_tensor)

@@ -566,17 +566,18 @@ class CardiologyPredictor:
                 result.cardiac_risk_detected = True
 
         if self.enable_biomarkers and "biomarkers" in patient_data:
-            biomarker_result = self.biomarker_analyzer.analyze_biomarkers(
-                patient_data["biomarkers"]
-            )
-            result.biomarker_alerts = biomarker_result["critical_alerts"]
-            result.mi_risk = biomarker_result["mi_risk"]
-            result.heart_failure_risk = biomarker_result["heart_failure_risk"]
-            result.clinical_recommendations.extend(biomarker_result["recommendations"])
-            result.acute_intervention_needed = biomarker_result["acute_mi_suspected"]
+            if self.biomarker_analyzer is not None:
+                biomarker_result = self.biomarker_analyzer.analyze_biomarkers(
+                    patient_data["biomarkers"]
+                )
+                result.biomarker_alerts = biomarker_result["critical_alerts"]
+                result.mi_risk = biomarker_result["mi_risk"]
+                result.heart_failure_risk = biomarker_result["heart_failure_risk"]
+                result.clinical_recommendations.extend(biomarker_result["recommendations"])
+                result.acute_intervention_needed = biomarker_result["acute_mi_suspected"]
 
-            if biomarker_result["mi_risk"] > 0.5:
-                result.cardiac_risk_detected = True
+                if biomarker_result["mi_risk"] > 0.5:
+                    result.cardiac_risk_detected = True
 
         if "demographics" in patient_data:
             framingham = self.risk_calculator.calculate_risk(patient_data["demographics"])
@@ -598,6 +599,13 @@ class CardiologyPredictor:
 
     def _analyze_ecg(self, ecg_signal: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Analyze ECG signal for arrhythmias"""
+        if self.ecg_analyzer is None:
+            return {
+                "arrhythmia_type": "normal_sinus_rhythm",
+                "confidence": 0.0,
+                "anomalies": [],
+            }
+
         ecg_tensor = torch.tensor(ecg_signal, dtype=torch.float32).unsqueeze(0)
 
         self.ecg_analyzer.eval()

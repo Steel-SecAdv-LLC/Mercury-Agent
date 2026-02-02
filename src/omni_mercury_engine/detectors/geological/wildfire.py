@@ -607,7 +607,7 @@ class WildfireDetector:
             result.confidence = ignition_result["confidence"]
             result.thermal_hotspots = ignition_result["hotspot_count"]
 
-        if self.enable_spread and "weather_data" in wildfire_data:
+        if self.enable_spread and "weather_data" in wildfire_data and self.spread_model is not None:
             spread_result = self.spread_model.predict_spread(
                 wildfire_data.get("fire_data", {}), wildfire_data["weather_data"]
             )
@@ -621,6 +621,12 @@ class WildfireDetector:
 
     def _detect_ignition(self, thermal_image: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Detect fire ignition"""
+        if self.ignition_detector is None:
+            return {
+                "fire_detected": False,
+                "confidence": 0.0,
+                "hotspot_count": 0,
+            }
 
         if len(thermal_image.shape) == 2:
             thermal_image = thermal_image.reshape(1, 1, *thermal_image.shape)

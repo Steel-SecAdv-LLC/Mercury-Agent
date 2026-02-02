@@ -114,8 +114,8 @@ class SplitPerformance:
     drift_score: float = 0.0
 
     # Additional metrics
-    predictions: NDArray[np.float64] | None = None
-    true_labels: NDArray[np.int64] | None = None
+    predictions: np.ndarray | None = None
+    true_labels: np.ndarray | None = None
     feature_importance: dict[str, float] | None = None
 
 
@@ -544,7 +544,7 @@ class DegradationAnalyzer:
         variance: float,
     ) -> DegradationTrend:
         """Detect the type of performance trend."""
-        len(performances)
+        _ = len(performances)  # Keep for potential future use
 
         # Check for significant trend
         if p_value > self.significance_level:
@@ -970,8 +970,8 @@ class ConceptDriftEvaluator:
                     try:
                         proba = current_model.predict_proba(X_test)
                         y_proba = proba[:, 1] if proba.ndim > 1 else proba
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"Failed to get prediction probabilities for split {split.split_index}: {e}")
             except Exception as e:
                 logger.warning(f"Prediction failed for split {split.split_index}: {e}")
                 continue
@@ -1044,6 +1044,9 @@ class ConceptDriftEvaluator:
 
     def _initialize_drift_detector(self, reference_data: NDArray[np.float64]) -> None:
         """Initialize drift detector with reference data."""
+        detector: (
+            KolmogorovSmirnovDriftDetector | PopulationStabilityIndexDetector | EnsembleDriftDetector
+        )
         if self.drift_detector_type == "ks":
             detector = KolmogorovSmirnovDriftDetector()
         elif self.drift_detector_type == "psi":

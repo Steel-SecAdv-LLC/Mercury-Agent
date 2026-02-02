@@ -256,7 +256,10 @@ class TruthDecipherFramework(LoggerMixin):
         # Learn from this resolution for future CBR
         if self.enable_cognitive and self.cognitive and result.resolution_applied:
             self.cognitive.add_case_from_resolution(
-                problem={"score": result.anomaly_score, "severity": result.severity},
+                problem={
+                    "score": result.anomaly_score,
+                    "severity": result.severity if result.severity is not None else 0.0,
+                },
                 solution={"type": result.resolution_type, "actions": result.autonomous_actions},
                 outcome=CaseOutcome.SUCCESS if result.resolution_applied else CaseOutcome.UNKNOWN,
                 outcome_score=1.0 if result.resolution_applied else 0.5,
@@ -409,7 +412,7 @@ class TruthDecipherFramework(LoggerMixin):
         Returns:
             Resolution results with actions applied
         """
-        result = {"applied": False, "type": None, "actions": [], "signature_id": None}
+        result: dict[str, Any] = {"applied": False, "type": None, "actions": [], "signature_id": None}
 
         if isinstance(original_data, torch.Tensor):
             data_array = original_data.cpu().numpy()

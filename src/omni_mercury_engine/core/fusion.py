@@ -589,6 +589,7 @@ class HybridFusionLayer(nn.Module):
         self.late_fusion_weights = nn.Parameter(torch.ones(self.num_detectors) / self.num_detectors)
 
         # Sparse attention for efficiency
+        self.sparse_attention: SparseTopKAttention | None
         if enable_sparse_attention and self.num_detectors >= 3:
             self.sparse_attention = SparseTopKAttention(
                 embed_dim=hidden_dim,

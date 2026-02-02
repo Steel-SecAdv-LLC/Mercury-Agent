@@ -590,7 +590,7 @@ class IndicatorDevelopmentSystem:
         if not pattern:
             return 0.0
 
-        matches = 0
+        matches: float = 0
         total = len(pattern)
 
         for key, expected in pattern.items():

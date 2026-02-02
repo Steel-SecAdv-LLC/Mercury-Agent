@@ -308,7 +308,7 @@ class SpaceExplorationAnalyzer:
             recommendations.append("Consider redshift corrections or rare elements")
 
         if identified_lines:
-            elements = {line["element"] for line in identified_lines}
+            elements = {str(line["element"]) for line in identified_lines}
             recommendations.append(f'Identified elements: {", ".join(elements)}')
 
         return {

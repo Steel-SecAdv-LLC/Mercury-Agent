@@ -43,10 +43,13 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any, Union
 
 import numpy as np
 
+
+if TYPE_CHECKING:
+    import networkx as nx
 
 try:
     import networkx as nx
@@ -54,6 +57,7 @@ try:
     NETWORKX_AVAILABLE = True
 except ImportError:
     NETWORKX_AVAILABLE = False
+    nx = None  # type: ignore[assignment]
     logging.warning("NetworkX not available, using fallback graph implementation")
 
 logger = logging.getLogger(__name__)
@@ -216,9 +220,11 @@ class LogicGraph:
     where nodes are propositions and edges are implications.
     """
 
+    graph: Union["nx.DiGraph[str]", FallbackGraph]
+
     def __init__(self) -> None:
         """Initialize the logic graph."""
-        if NETWORKX_AVAILABLE:
+        if NETWORKX_AVAILABLE and nx is not None:
             self.graph = nx.DiGraph()
         else:
             self.graph = FallbackGraph()
@@ -436,6 +442,7 @@ class LogicGraph:
         explanations = []
 
         for rule_id in rules_fired:
+            rule: SymbolicRule | ThresholdRule
             if rule_id in self.rules:
                 rule = self.rules[rule_id]
                 if rule.conclusion == conclusion or rule.premise in [
@@ -754,6 +761,7 @@ class SymbolicReasoner:
         if rules_fired:
             rule_explanations = []
             for rule_id in rules_fired[:5]:
+                rule: SymbolicRule | ThresholdRule
                 if rule_id in self.logic_graph.rules:
                     rule = self.logic_graph.rules[rule_id]
                     rule_explanations.append(f"  - {rule.explanation_template}")

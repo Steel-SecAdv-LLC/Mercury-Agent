@@ -453,7 +453,7 @@ class OnlineLearningPipeline:
         self.buffer = SampleBuffer(max_size=buffer_size, strategy="fifo", random_state=random_state)
 
         # Reference data for drift detection
-        self._reference_data: NDArray[np.float64] | None = None
+        self._reference_data: np.ndarray | None = None
         self._reference_size = 500
 
         # Drift detector
@@ -783,6 +783,7 @@ def create_online_pipeline(
     Returns:
         Configured OnlineLearningPipeline
     """
+    model: SGDOnlineLearner | PassiveAggressiveOnlineLearner
     if model_type == "sgd":
         model = SGDOnlineLearner()
     elif model_type == "passive_aggressive":

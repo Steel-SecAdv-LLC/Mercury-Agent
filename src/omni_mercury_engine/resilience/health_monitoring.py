@@ -36,7 +36,7 @@ class HealthMetrics:
     memory_usage: float = 0.0
     response_time: float = 0.0
     error_rate: float = 0.0
-    timestamp: datetime = None
+    timestamp: datetime | None = None
 
     def __post_init__(self) -> None:
         if self.timestamp is None:
@@ -78,7 +78,7 @@ class HealthMonitor:
                 "response_time": latest.response_time,
                 "error_rate": latest.error_rate,
             },
-            "timestamp": latest.timestamp.isoformat(),
+            "timestamp": latest.timestamp.isoformat() if latest.timestamp is not None else None,
         }
 
     def get_ecosystem_health(self) -> dict[str, Any]:

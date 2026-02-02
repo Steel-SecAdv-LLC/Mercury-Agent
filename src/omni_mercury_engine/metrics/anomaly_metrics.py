@@ -437,7 +437,7 @@ class AnomalyMetrics:
         y_true: np.ndarray[Any, Any],
         y_score: np.ndarray[Any, Any],
         categories: list[str],
-    ) -> dict[str, dict[str, float]]:
+    ) -> dict[str, dict[str, Any]]:
         """Compute metrics per category.
 
         Args:
@@ -464,9 +464,9 @@ class AnomalyMetrics:
 
             # Skip if all same class
             if len(np.unique(cat_true)) < 2:
-                results[cat] = {"auroc": 0.5, "note": "single_class"}
+                results[cat] = {"auroc": 0.5, "note": "single_class"}  # type: ignore[assignment]
                 continue
 
-            results[cat] = AnomalyMetrics.compute_all(cat_true, cat_score)
+            results[cat] = AnomalyMetrics.compute_all(cat_true, cat_score)  # type: ignore[assignment]
 
         return results

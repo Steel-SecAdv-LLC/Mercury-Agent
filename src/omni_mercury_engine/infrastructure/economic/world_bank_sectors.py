@@ -187,8 +187,8 @@ class WorldBankSectorsMonitor:
 
         for sector_code, sustainability_score in regional_data.items():
             if sector_code in self.isic_sectors:
-                sdg_priority = self.isic_sectors[sector_code]["sdg_priority"]
-                weighted_scores.append(sustainability_score * sdg_priority)
+                sdg_priority = float(self.isic_sectors[sector_code]["sdg_priority"])  # type: ignore[arg-type]
+                weighted_scores.append(float(sustainability_score) * sdg_priority)
 
         overall_score = 0.5 if not weighted_scores else np.mean(weighted_scores)
 

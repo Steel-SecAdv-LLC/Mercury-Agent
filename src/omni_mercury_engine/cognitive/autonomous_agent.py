@@ -394,8 +394,8 @@ class SelfMaintenance:
             self._diagnostic_counter += 1
             diagnostic_id = f"diag_{self._diagnostic_counter:06d}"
 
-            issues = []
-            recommendations = []
+            issues: list[str] = []
+            recommendations: list[str] = []
             status = "healthy"
 
             if hasattr(component, "get_statistics"):

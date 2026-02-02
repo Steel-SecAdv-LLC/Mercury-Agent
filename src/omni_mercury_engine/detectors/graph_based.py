@@ -57,7 +57,7 @@ class GraphAnomalyDetector(BaseDetector):
         # Override with z-score threshold (not subject to [0,1] validation)
         self.threshold = z_threshold
         self.fitted = False
-        self.baseline_metrics = {}
+        self.baseline_metrics: dict[str, float] = {}
 
     def fit(self, data: np.ndarray[Any, Any] | nx.Graph) -> GraphAnomalyDetector:
         """Fit detector on normal graph data."""

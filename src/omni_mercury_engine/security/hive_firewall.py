@@ -161,7 +161,7 @@ class HiveFirewall:
         signature = self._compute_signature_hash(data)
 
         existing = self.is_blocked(data)
-        if existing[0]:
+        if existing[0] and existing[1] is not None:
             return existing[1]
 
         worker_votes = self._worker_consensus(anomaly_score)

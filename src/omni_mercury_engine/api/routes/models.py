@@ -136,7 +136,8 @@ class ModelRegistry:
         self._models: dict[str, Model] = {}
         self._lock = threading.RLock()
         default_storage = os.path.join(tempfile.gettempdir(), "mercury_models")
-        self._storage_path = Path(storage_path or os.getenv("MODEL_STORAGE_PATH", default_storage))
+        resolved_path = storage_path or os.getenv("MODEL_STORAGE_PATH") or default_storage
+        self._storage_path = Path(resolved_path)
         self._storage_path.mkdir(parents=True, exist_ok=True)
         self._version_counter: dict[str, int] = {}
 
@@ -301,20 +302,20 @@ class ModelRegistry:
 
             return version
 
-    def update_status(self, model_id: str, status: ModelStatus) -> Model:
+    def update_status(self, model_id: str, new_status: ModelStatus) -> Model:
         """Update model deployment status."""
         with self._lock:
             model = self._models.get(model_id)
             if not model:
                 raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
+                    status_code=404,
                     detail=f"Model {model_id} not found",
                 )
 
-            model.status = status
+            model.status = new_status
             model.updated_at = datetime.now()
 
-            logger.info(f"Model {model_id} status updated to {status.value}")
+            logger.info(f"Model {model_id} status updated to {new_status.value}")
             return model
 
     def update_metrics(

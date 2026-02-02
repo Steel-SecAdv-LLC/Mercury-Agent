@@ -189,13 +189,15 @@ class EnergyDamsDetector:
             "recommended_actions": self._generate_dam_recommendations(anomalies),
         }
 
-    def _detect_frequency_deviation(self, frequency: np.ndarray[Any, Any] | None) -> dict | None:
+    def _detect_frequency_deviation(self, frequency: np.ndarray[Any, Any] | None) -> dict[str, Any] | None:
         """Detect grid frequency deviations."""
         if frequency is None or len(frequency) == 0:
             return None
 
-        nominal = self.grid_parameters["frequency_hz"]["nominal"]
-        tolerance = self.grid_parameters["frequency_hz"]["tolerance"]
+        freq_params = self.grid_parameters["frequency_hz"]
+        assert isinstance(freq_params, dict)  # Type guard
+        nominal = float(freq_params["nominal"])
+        tolerance = float(freq_params["tolerance"])
 
         deviations = np.abs(frequency - nominal)
         max_deviation = np.max(deviations)

@@ -815,7 +815,7 @@ def _get_lightning_base() -> type:
 _LightningBase = _get_lightning_base() if HAS_PYTORCH_LIGHTNING else nn.Module
 
 
-class FusionTrainer(_LightningBase):  # type: ignore[misc]
+class FusionTrainer(_LightningBase):  # type: ignore[misc, valid-type]
     """
     PyTorch Lightning trainer for fusion model.
 
@@ -948,7 +948,7 @@ class FusionTrainer(_LightningBase):  # type: ignore[misc]
         }
 
 
-class ThreeRAnomalyTrainer(_LightningBase):  # type: ignore[misc]
+class ThreeRAnomalyTrainer(_LightningBase):  # type: ignore[misc, valid-type]
     """
     PyTorch Lightning trainer for 3R Anomaly Transformer with Lyapunov stability.
 

@@ -221,13 +221,14 @@ class EmergingTechMonitor:
             },
         }
 
+        disruptive_prob = scenarios["disruptive"]["probability"]
         return {
             "technology": technology,
             "timeframe_years": timeframe_years,
             "scenarios": scenarios,
             "recommended_posture": (
                 "monitor_and_adapt"
-                if scenarios["disruptive"]["probability"] < 0.10
+                if float(disruptive_prob) < 0.10  # type: ignore[arg-type]
                 else "proactive_intervention"
             ),
         }

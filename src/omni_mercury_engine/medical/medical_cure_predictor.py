@@ -237,7 +237,7 @@ class TemporalVitalSignsDetector:
             recs.append("HIGH RISK: Significant temporal anomaly detected in vital signs")
             recs.append("Recommend immediate clinical evaluation")
 
-        max_risk_type = max(disease_risk, key=disease_risk.get)
+        max_risk_type = max(disease_risk, key=lambda k: disease_risk[k])
         max_risk = disease_risk[max_risk_type]
 
         if max_risk > 0.6:
@@ -500,48 +500,51 @@ class MedicalCurePredictor(LoggerMixin):
         )
 
         if self.enable_temporal and "vital_signs_sequence" in patient_data:
-            temporal = self.temporal_detector.detect_temporal_anomaly(
-                patient_data["vital_signs_sequence"], patient_data.get("patient_history")
-            )
-            result.vital_signs_anomaly = temporal["temporal_anomaly_detected"]
-            result.confidence = max(result.confidence, temporal["anomaly_score"])
-            result.early_warning_indicators.extend(
-                [
-                    f"Early warning score: {temporal['early_warning_score']}",
-                    f"Current status: {temporal['current_status']}",
-                ]
-            )
-            result.recommendations.extend(temporal["recommendations"])
+            if self.temporal_detector is not None:
+                temporal = self.temporal_detector.detect_temporal_anomaly(
+                    patient_data["vital_signs_sequence"], patient_data.get("patient_history")
+                )
+                result.vital_signs_anomaly = temporal["temporal_anomaly_detected"]
+                result.confidence = max(result.confidence, temporal["anomaly_score"])
+                result.early_warning_indicators.extend(
+                    [
+                        f"Early warning score: {temporal['early_warning_score']}",
+                        f"Current status: {temporal['current_status']}",
+                    ]
+                )
+                result.recommendations.extend(temporal["recommendations"])
 
-            disease_risks = temporal["disease_risk"]
-            max_risk_type = max(disease_risks, key=disease_risks.get)
-            result.risk_score = disease_risks[max_risk_type]
-            if result.risk_score > 0.5:
-                result.disease_risk_detected = True
-                result.disease_type = max_risk_type
+                disease_risks = temporal["disease_risk"]
+                max_risk_type = max(disease_risks, key=disease_risks.get)
+                result.risk_score = disease_risks[max_risk_type]
+                if result.risk_score > 0.5:
+                    result.disease_risk_detected = True
+                    result.disease_type = max_risk_type
 
         if self.enable_imaging and "medical_image" in patient_data:
-            imaging = self.imaging_detector.detect_imaging_anomaly(
-                patient_data["medical_image"], patient_data.get("imaging_type", "xray")
-            )
-            result.imaging_anomaly = imaging["imaging_anomaly_detected"]
-            result.confidence = max(result.confidence, imaging["anomaly_score"])
-            result.early_warning_indicators.extend(imaging["findings"])
-            result.recommendations.extend(imaging["recommendations"])
+            if self.imaging_detector is not None:
+                imaging = self.imaging_detector.detect_imaging_anomaly(
+                    patient_data["medical_image"], patient_data.get("imaging_type", "xray")
+                )
+                result.imaging_anomaly = imaging["imaging_anomaly_detected"]
+                result.confidence = max(result.confidence, imaging["anomaly_score"])
+                result.early_warning_indicators.extend(imaging["findings"])
+                result.recommendations.extend(imaging["recommendations"])
 
-            if imaging["imaging_anomaly_detected"]:
-                result.disease_risk_detected = True
+                if imaging["imaging_anomaly_detected"]:
+                    result.disease_risk_detected = True
 
         if (
             self.enable_treatment_opt
             and result.disease_risk_detected
             and result.disease_type != "unknown"
         ):
-            treatment = self.treatment_optimizer.optimize_treatment(
-                patient_data, result.disease_type
-            )
-            result.optimal_treatment = treatment["optimal_treatment"]
-            result.treatment_pathways = treatment["treatment_pathways"]
-            result.recommendations.extend(treatment["recommendations"])
+            if self.treatment_optimizer is not None:
+                treatment = self.treatment_optimizer.optimize_treatment(
+                    patient_data, result.disease_type
+                )
+                result.optimal_treatment = treatment["optimal_treatment"]
+                result.treatment_pathways = treatment["treatment_pathways"]
+                result.recommendations.extend(treatment["recommendations"])
 
         return result

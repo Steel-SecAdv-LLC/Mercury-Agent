@@ -29,7 +29,16 @@ Includes filtering/selection system to run subsets of modules (1-29+) for
 flexible STEM applications.
 """
 
-from typing import Any
+from typing import Any, TypedDict
+
+
+class _ModuleInfo(TypedDict):
+    """Type definition for module registry entries."""
+
+    class_: type[Any]
+    category: str
+    priority: str
+    description: str
 
 from ..space.space_exploration_analyzer import SpaceExplorationAnalyzer
 from .chemical_nuclear import ChemicalNuclearDetector, CISASector
@@ -68,82 +77,82 @@ class InfrastructureCoordinator:
 
     def __init__(self) -> None:
         """Initialize module registry with all available modules."""
-        self.modules = {
+        self.modules: dict[str, _ModuleInfo] = {
             "energy_dams": {
-                "class": EnergyDamsDetector,
+                "class_": EnergyDamsDetector,
                 "category": "cisa_sector",
                 "priority": "high",
                 "description": "Energy and dams infrastructure (CISA Sector 3)",
             },
             "healthcare_emergency": {
-                "class": HealthcareEmergencyDetector,
+                "class_": HealthcareEmergencyDetector,
                 "category": "cisa_sector",
                 "priority": "high",
                 "description": "Healthcare and emergency services (CISA Sector 6)",
             },
             "communications_it": {
-                "class": CommunicationsITDetector,
+                "class_": CommunicationsITDetector,
                 "category": "cisa_sector",
                 "priority": "high",
                 "description": "Communications and IT infrastructure (CISA Sector 5)",
             },
             "chemical_nuclear": {
-                "class": ChemicalNuclearDetector,
+                "class_": ChemicalNuclearDetector,
                 "category": "cisa_sector",
                 "priority": "high",
                 "description": "Chemical and nuclear facilities (CISA Sector 4)",
             },
             "ncf_monitor": {
-                "class": NCFMonitor,
+                "class_": NCFMonitor,
                 "category": "resilience",
                 "priority": "high",
                 "description": "55 CISA National Critical Functions with cascading analysis",
             },
             "space_infrastructure": {
-                "class": SpaceInfrastructureMonitor,
+                "class_": SpaceInfrastructureMonitor,
                 "category": "cyber",
                 "priority": "high",
                 "description": "EU Space sector (satellites, ground stations) - EU unique",
             },
             "cross_border_intel": {
-                "class": CrossBorderIntelligence,
+                "class_": CrossBorderIntelligence,
                 "category": "cyber",
                 "priority": "medium",
                 "description": "EU-US cross-border threat intelligence correlation",
             },
             "essential_workers": {
-                "class": EssentialWorkersMonitor,
+                "class_": EssentialWorkersMonitor,
                 "category": "humanitarian",
                 "priority": "high",
                 "description": "8 essential worker categories with survivor-first ethics",
             },
             "government_facilities": {
-                "class": GovernmentFacilitiesMonitor,
+                "class_": GovernmentFacilitiesMonitor,
                 "category": "humanitarian",
                 "priority": "medium",
                 "description": "Government facilities (16th CISA sector) with governance",
             },
             "world_bank_sectors": {
-                "class": WorldBankSectorsMonitor,
+                "class_": WorldBankSectorsMonitor,
                 "category": "economic",
                 "priority": "medium",
                 "description": "21 ISIC economic sectors with sustainability focus",
             },
             "emerging_tech_monitor": {
-                "class": EmergingTechMonitor,
+                "class_": EmergingTechMonitor,
                 "category": "scientific",
                 "priority": "medium",
                 "description": "9+ emerging technology categories for future-proofing",
             },
             "space_exploration_analyzer": {
-                "class": SpaceExplorationAnalyzer,
+                "class_": SpaceExplorationAnalyzer,
                 "category": "scientific",
                 "priority": "high",
                 "description": "Hubble-inspired cosmic anomaly detection and threat analysis",
             },
         }
 
-    def get_module(self, module_name: str, **kwargs) -> Any:
+    def get_module(self, module_name: str, **kwargs: Any) -> Any:
         """Instantiate a specific module by name.
 
         Args:
@@ -158,7 +167,7 @@ class InfrastructureCoordinator:
                 f"Unknown module: {module_name}. Available: {list(self.modules.keys())}"
             )
 
-        module_class = self.modules[module_name]["class"]
+        module_class = self.modules[module_name]["class_"]
         return module_class(**kwargs)
 
     def get_modules_by_category(self, category: str) -> list[str]:
@@ -223,7 +232,7 @@ class InfrastructureCoordinator:
         categories: list[str] | None = None,
         priorities: list[str] | None = None,
         module_names: list[str] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Instantiate all modules matching filters.
 

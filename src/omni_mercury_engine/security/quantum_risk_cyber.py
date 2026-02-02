@@ -495,11 +495,13 @@ class QuantumRiskCyber:
             "bain_insight": (
                 "Only 10% of tech leaders have quantum threat plans despite 95% awareness"
             ),
-            "recommendations": [],
+            "recommendations": list[str](),
         }
+        recommendations = analysis["recommendations"]
+        assert isinstance(recommendations, list)  # Type guard
 
         if self.preparedness_score < 0.3:
-            analysis["recommendations"].extend(
+            recommendations.extend(
                 [
                     "Immediate: Conduct quantum vulnerability assessment",
                     "Immediate: Begin post-quantum cryptography evaluation",
@@ -507,7 +509,7 @@ class QuantumRiskCyber:
                 ]
             )
         elif self.preparedness_score < 0.6:
-            analysis["recommendations"].extend(
+            recommendations.extend(
                 [
                     "Short-term: Pilot post-quantum cryptography implementations",
                     "Medium-term: Train security team on quantum threats",
@@ -515,7 +517,7 @@ class QuantumRiskCyber:
                 ]
             )
         else:
-            analysis["recommendations"].extend(
+            recommendations.extend(
                 [
                     "Maintain: Continue monitoring quantum computing advances",
                     "Enhance: Expand post-quantum cryptography coverage",

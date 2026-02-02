@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Protocol, Union
 
 import numpy as np
 from sklearn.model_selection import KFold
@@ -135,7 +135,7 @@ class SplitConformalPredictor:
         Returns:
             ConformalPredictionSet with bounds and set sizes
         """
-        if not self._fitted:
+        if not self._fitted or self.quantile_threshold is None:
             raise RuntimeError("Must call fit() before predict()")
 
         if point_predictions is None:
@@ -167,7 +167,7 @@ class SplitConformalPredictor:
         Returns:
             Anomaly threshold score
         """
-        if not self._fitted:
+        if not self._fitted or self.quantile_threshold is None:
             raise RuntimeError("Must call fit() before get_anomaly_threshold()")
         return self.quantile_threshold
 
@@ -251,7 +251,7 @@ class CrossConformalPredictor:
         """Get the aggregated anomaly threshold."""
         if not self._fitted:
             raise RuntimeError("Must call fit() before get_anomaly_threshold()")
-        return self.aggregated_threshold
+        return float(self.aggregated_threshold)
 
 
 class AdaptiveConformalInference:
@@ -378,6 +378,10 @@ class ConformalAnomalyDetector:
         self.method = method
         self.seed = seed
 
+        # Type annotation for conformal predictor
+        self.conformal: Union[
+            SplitConformalPredictor, CrossConformalPredictor, AdaptiveConformalInference
+        ]
         if method == "split":
             self.conformal = SplitConformalPredictor(coverage=coverage, seed=seed)
         elif method == "cross":
@@ -426,14 +430,14 @@ class ConformalAnomalyDetector:
         cal_scores = self._get_anomaly_scores(X_cal)
 
         # Fit conformal predictor
-        if self.method in ["split"]:
+        if isinstance(self.conformal, SplitConformalPredictor):
             self.conformal.fit(cal_scores)
-        elif self.method == "cross":
+        elif isinstance(self.conformal, CrossConformalPredictor):
             # For cross-conformal, need scoring function
-            def score_fn(X):
-                return self._get_anomaly_scores(X)
+            def score_fn(X_input: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
+                return self._get_anomaly_scores(X_input)
 
-            self.conformal.fit(X_cal, score_fn)
+            self.conformal.fit(X_cal, score_fn)  # type: ignore[arg-type]
 
         self._fitted = True
         return self
@@ -470,7 +474,10 @@ class ConformalAnomalyDetector:
             raise RuntimeError("Must call fit() before predict()")
 
         scores = self._get_anomaly_scores(X)
-        threshold = self.conformal.get_anomaly_threshold()
+        if isinstance(self.conformal, AdaptiveConformalInference):
+            threshold = self.conformal.get_current_threshold()
+        else:
+            threshold = self.conformal.get_anomaly_threshold()
 
         return (scores > threshold).astype(int)
 
@@ -491,15 +498,18 @@ class ConformalAnomalyDetector:
             raise RuntimeError("Must call fit() before predict()")
 
         scores = self._get_anomaly_scores(X)
-        predictions = (scores > self.conformal.get_anomaly_threshold()).astype(int)
+        if isinstance(self.conformal, AdaptiveConformalInference):
+            threshold = self.conformal.get_current_threshold()
+        else:
+            threshold = self.conformal.get_anomaly_threshold()
+        predictions = (scores > threshold).astype(int)
 
         # Prediction intervals for scores
         if isinstance(self.conformal, SplitConformalPredictor):
             pred_set = self.conformal.predict(scores)
             return predictions, pred_set.lower_bound, pred_set.upper_bound
 
-        # For other methods, return score-based bounds
-        threshold = self.conformal.get_anomaly_threshold()
+        # For other methods, return score-based bounds (threshold already computed above)
         lower = scores - threshold
         upper = scores + threshold
 
@@ -521,7 +531,11 @@ class ConformalAnomalyDetector:
             CoverageResult with coverage statistics
         """
         scores = self._get_anomaly_scores(X_test)
-        predictions = (scores > self.conformal.get_anomaly_threshold()).astype(int)
+        if isinstance(self.conformal, AdaptiveConformalInference):
+            threshold = self.conformal.get_current_threshold()
+        else:
+            threshold = self.conformal.get_anomaly_threshold()
+        predictions = (scores > threshold).astype(int)
 
         # Empirical coverage: fraction of true labels in prediction sets
         # For anomaly detection: correct predictions
@@ -577,19 +591,21 @@ def add_conformal_to_detector(
             scores = -detector.score_samples(X_cal)
 
     # Fit conformal predictor
+    conformal: SplitConformalPredictor | CrossConformalPredictor
     if method == "split":
         conformal = SplitConformalPredictor(coverage=coverage)
         conformal.fit(scores)
     else:
-        conformal = CrossConformalPredictor(coverage=coverage)
+        cross_conformal = CrossConformalPredictor(coverage=coverage)
 
-        def score_fn(X):
+        def score_fn(X_input: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
             try:
-                s = detector.predict_proba(X)
+                s = detector.predict_proba(X_input)
                 return s[:, 1] if s.ndim == 2 else s
             except (AttributeError, ValueError, TypeError):
-                return -detector.decision_function(X)
+                return -detector.decision_function(X_input)
 
-        conformal.fit(X_cal, score_fn)
+        cross_conformal.fit(X_cal, score_fn)  # type: ignore[arg-type]
+        conformal = cross_conformal
 
     return conformal, conformal.get_anomaly_threshold()

@@ -138,11 +138,11 @@ class Qwen2VLBackend(LVLMBackend):
 
             logger.info("Qwen2-VL loaded successfully")
 
-        except ImportError:
+        except ImportError as e:
             raise ImportError(
                 "transformers and qwen-vl-utils required for Qwen2-VL. "
                 "Install with: pip install transformers qwen-vl-utils"
-            )
+            ) from e
 
     def generate(
         self,
@@ -217,10 +217,10 @@ class MiniCPMVBackend(LVLMBackend):
 
             logger.info("MiniCPM-V loaded successfully")
 
-        except ImportError:
+        except ImportError as e:
             raise ImportError(
                 "transformers required for MiniCPM-V. " "Install with: pip install transformers"
-            )
+            ) from e
 
     def generate(
         self,
@@ -267,10 +267,10 @@ class LLaVABackend(LVLMBackend):
 
             logger.info("LLaVA loaded successfully")
 
-        except ImportError:
+        except ImportError as e:
             raise ImportError(
                 "transformers required for LLaVA. " "Install with: pip install transformers"
-            )
+            ) from e
 
     def generate(
         self,
@@ -370,7 +370,7 @@ def get_lvlm_backend(
     Returns:
         Configured LVLM backend
     """
-    backends = {
+    backends: dict[str, type[LVLMBackend]] = {
         "qwen2_vl": Qwen2VLBackend,
         "minicpm_v": MiniCPMVBackend,
         "llava": LLaVABackend,
@@ -385,4 +385,5 @@ def get_lvlm_backend(
         logger.warning(f"Unknown model type {model_type}, using mock backend")
         model_type = "mock"
 
-    return backends[model_type](model_name, device, **kwargs)
+    backend_class = backends[model_type]
+    return backend_class(model_name, device, **kwargs)

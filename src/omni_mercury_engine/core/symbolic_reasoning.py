@@ -27,11 +27,14 @@ Based on: PyReason - Temporal First-Order Logic Explainable AI
 Provides symbolic reasoning layer for explainable anomaly detection outputs.
 """
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 
 if TYPE_CHECKING:
     import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 class SymbolicRule:
@@ -222,7 +225,8 @@ class SymbolicReasoningEngine:
                             detected_anomalies.append(
                                 {"observation": obs, "confidence": confidence, "rule": rule.name}
                             )
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"Skipping constraint evaluation for rule '{rule.name}': {e}")
                     continue
 
         return {

@@ -116,8 +116,6 @@ class AnyAnomalyDetector(BaseVLMDetector):
 
         super().__init__(config)
         self.any_config: AnyAnomalyConfig = config
-        # Override _config to use the specific AnyAnomaly config
-        self._config = config
 
         # Context providers
         self.context_provider = CombinedContextProvider(
@@ -126,7 +124,7 @@ class AnyAnomalyDetector(BaseVLMDetector):
         )
 
         # LVLM backend
-        self._backend = None
+        self._backend: Any = None
 
         # Anomaly definition and reference frames for test compatibility
         self._anomaly_definition: str | None = None

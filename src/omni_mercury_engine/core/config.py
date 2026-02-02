@@ -38,7 +38,7 @@ import os
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, Callable, TypeVar
 
 
 logger = logging.getLogger(__name__)
@@ -288,7 +288,7 @@ class ConfigurationManager:
         self._config: dict[str, Any] = {}
         self._config_files: list[Path] = []
         self._feature_flags: dict[str, FeatureFlag] = {}
-        self._watchers: list[callable] = []
+        self._watchers: list[Callable[[str, Any], None]] = []
         self._loaded = False
 
     def load_from_file(self, path: str | Path) -> ConfigurationManager:
@@ -331,7 +331,7 @@ class ConfigurationManager:
     def _load_yaml(self, path: Path) -> None:
         """Load YAML configuration file."""
         try:
-            import yaml
+            import yaml  # type: ignore[import-untyped]
 
             with open(path) as f:
                 data = yaml.safe_load(f) or {}
@@ -345,7 +345,7 @@ class ConfigurationManager:
             try:
                 import tomllib  # Python 3.11+
             except ImportError:
-                import tomli as tomllib
+                import tomli as tomllib  # type: ignore[import-not-found, no-redef]
 
             with open(path, "rb") as f:
                 data = tomllib.load(f)
@@ -430,7 +430,7 @@ class ConfigurationManager:
         # String
         return value
 
-    def get(self, key: str, default: T = None) -> T:
+    def get(self, key: str, default: T | None = None) -> T | None:
         """
         Get a configuration value.
 
@@ -444,7 +444,7 @@ class ConfigurationManager:
             Configuration value or default
         """
         parts = key.split(".")
-        current = self._config
+        current: Any = self._config
 
         for part in parts:
             if isinstance(current, dict) and part in current:
@@ -452,7 +452,7 @@ class ConfigurationManager:
             else:
                 return default
 
-        return current
+        return current  # type: ignore[return-value]
 
     def set(self, key: str, value: Any) -> None:
         """
@@ -481,7 +481,7 @@ class ConfigurationManager:
             except Exception as e:
                 logger.error(f"Configuration watcher error: {e}")
 
-    def watch(self, callback: callable) -> None:
+    def watch(self, callback: Callable[[str, Any], None]) -> None:
         """Register a configuration change watcher."""
         self._watchers.append(callback)
 
@@ -490,11 +490,11 @@ class ConfigurationManager:
         return EngineConfig(
             device=DeviceType(self.get("device", "cpu")),
             fusion_mode=FusionMode(self.get("fusion_mode", "hybrid")),
-            batch_size=self.get("batch_size", 32),
-            num_workers=self.get("num_workers", 4),
-            model_path=self.get("model_path"),
-            cache_dir=self.get("cache_dir", "./cache"),
-            log_level=self.get("log_level", "INFO"),
+            batch_size=int(self.get("batch_size", 32) or 32),
+            num_workers=int(self.get("num_workers", 4) or 4),
+            model_path=self.get("model_path"),  # type: ignore[arg-type]
+            cache_dir=str(self.get("cache_dir", "./cache")),
+            log_level=str(self.get("log_level", "INFO")),
         )
 
     # Feature Flags

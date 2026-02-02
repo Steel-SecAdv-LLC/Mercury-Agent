@@ -42,7 +42,7 @@ try:
         return sph_harm_y(n, m, theta, phi)
 
 except ImportError:
-    from scipy.special import sph_harm as _sph_harm
+    from scipy.special import sph_harm as _sph_harm  # type: ignore[no-redef]
 
 
 class SphericalHarmonicDecomposer:

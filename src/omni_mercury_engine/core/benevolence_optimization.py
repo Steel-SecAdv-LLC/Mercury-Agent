@@ -412,7 +412,7 @@ class ParetoOptimizer:
             fronts = self._fast_non_dominated_sort(population)
 
             # Select parents from best fronts
-            parents = []
+            parents: list[ParetoSolution] = []
             for front in fronts:
                 if len(parents) + len(front) <= self.population_size:
                     parents.extend(front)
@@ -425,7 +425,7 @@ class ParetoOptimizer:
                     break
 
             # Generate offspring
-            offspring = []
+            offspring: list[ParetoSolution] = []
             while len(offspring) < self.population_size:
                 # Tournament selection
                 p1, p2 = np.random.choice(len(parents), 2, replace=False)
