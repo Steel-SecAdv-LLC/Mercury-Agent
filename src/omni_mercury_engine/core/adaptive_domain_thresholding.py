@@ -437,7 +437,9 @@ class CalibrationEnsemble:
                 platt_cal = platt_temp.calibrate(val_scores)
                 platt_loss = self._brier_score(platt_cal, val_labels)
                 platt_losses.append(platt_loss)
-            except Exception:
+            except (ValueError, RuntimeError) as e:
+                # Platt scaling may fail with degenerate data
+                logger.debug(f"Platt calibration fold failed: {e}")
                 platt_losses.append(1.0)
 
             try:
@@ -445,7 +447,9 @@ class CalibrationEnsemble:
                 isotonic_cal = isotonic_temp.calibrate(val_scores)
                 isotonic_loss = self._brier_score(isotonic_cal, val_labels)
                 isotonic_losses.append(isotonic_loss)
-            except Exception:
+            except (ValueError, RuntimeError) as e:
+                # Isotonic regression may fail with insufficient unique values
+                logger.debug(f"Isotonic calibration fold failed: {e}")
                 isotonic_losses.append(1.0)
 
             # Ensemble
@@ -455,7 +459,9 @@ class CalibrationEnsemble:
                 )
                 ensemble_loss = self._brier_score(ensemble_cal, val_labels)
                 ensemble_losses.append(ensemble_loss)
-            except Exception:
+            except (NameError, ValueError) as e:
+                # Ensemble fails if constituent calibrators failed
+                logger.debug(f"Ensemble calibration fold failed: {e}")
                 ensemble_losses.append(1.0)
 
         # Select method with lowest average Brier score

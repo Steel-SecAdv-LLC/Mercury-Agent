@@ -2777,20 +2777,28 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_scores: np.ndarray
 
     try:
         roc_auc = roc_auc_score(y_true, y_scores)
-    except Exception:
+    except ValueError as e:
+        # Single class present or invalid input
+        logger.debug(f"ROC-AUC calculation failed (single class or invalid input): {e}")
         roc_auc = 0.5
 
     try:
-        precision_curve, recall_curve, _ = precision_recall_curve(y_true, y_scores)
-        pr_auc = np.trapz(precision_curve, recall_curve)
-    except Exception:
+        # Use average_precision_score for correct PR-AUC calculation
+        # This properly handles the precision-recall curve ordering and avoids
+        # negative values from np.trapz on unsorted recall values
+        from sklearn.metrics import average_precision_score
+        pr_auc = average_precision_score(y_true, y_scores)
+    except ValueError as e:
+        # Single class present or invalid input
+        logger.debug(f"PR-AUC calculation failed (single class or invalid input): {e}")
         pr_auc = 0.0
 
     try:
         f1 = f1_score(y_true, y_pred_binary, zero_division=0)
         precision = precision_score(y_true, y_pred_binary, zero_division=0)
         recall = recall_score(y_true, y_pred_binary, zero_division=0)
-    except Exception:
+    except ValueError as e:
+        logger.debug(f"Classification metrics calculation failed: {e}")
         f1, precision, recall = 0.0, 0.0, 0.0
 
     # Compute confusion matrix
@@ -2799,8 +2807,10 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_scores: np.ndarray
         if cm.shape == (2, 2):
             tn, fp, fn, tp = cm.ravel()
         else:
+            # Single class case - matrix is 1x1
             tn, fp, fn, tp = 0, 0, 0, 0
-    except Exception:
+    except ValueError as e:
+        logger.debug(f"Confusion matrix calculation failed: {e}")
         tn, fp, fn, tp = 0, 0, 0, 0
 
     fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0

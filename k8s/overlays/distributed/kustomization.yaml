@@ -1,0 +1,96 @@
+# Mercury Agent Distributed Deployment
+# Multi-node deployment with Kafka and Redis for streaming at scale
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: mercury-agent
+
+resources:
+  - ../../base
+  - kafka-cluster.yaml
+  - redis-cluster.yaml
+  - streaming-workers.yaml
+
+# Increase replicas for distributed deployment
+replicas:
+  - name: mercury-agent-api
+    count: 5
+  - name: mercury-agent-engine
+    count: 4
+
+# Patch deployments for distributed mode
+patches:
+  # Enable streaming in API deployment
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: STREAMING_BACKEND
+          value: "kafka"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: KAFKA_BOOTSTRAP_SERVERS
+          value: "mercury-kafka:9092"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: REDIS_URL
+          value: "redis://mercury-redis:6379"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: DISTRIBUTED_MODE
+          value: "true"
+    target:
+      kind: Deployment
+      name: mercury-agent-api
+
+  # Enable streaming in Engine deployment
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: STREAMING_BACKEND
+          value: "kafka"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: KAFKA_BOOTSTRAP_SERVERS
+          value: "mercury-kafka:9092"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: REDIS_URL
+          value: "redis://mercury-redis:6379"
+    target:
+      kind: Deployment
+      name: mercury-agent-engine
+
+  # Increase HPA limits for distributed deployment
+  - patch: |-
+      - op: replace
+        path: /spec/maxReplicas
+        value: 20
+      - op: replace
+        path: /spec/minReplicas
+        value: 5
+    target:
+      kind: HorizontalPodAutoscaler
+      name: mercury-agent-api-hpa
+
+configMapGenerator:
+  - name: mercury-agent-distributed-config
+    literals:
+      - DISTRIBUTED_MODE=true
+      - STREAMING_ENABLED=true
+      - KAFKA_TOPIC_ANOMALIES=mercury-anomalies
+      - KAFKA_TOPIC_DETECTIONS=mercury-detections
+      - KAFKA_CONSUMER_GROUP=mercury-workers
+      - REDIS_CACHE_TTL=300
+      - WORKER_CONCURRENCY=4
+
+labels:
+  - pairs:
+      app.kubernetes.io/deployment-type: distributed
+    includeSelectors: false

@@ -32,6 +32,16 @@ flexible STEM applications.
 from typing import Any
 
 from ..space.space_exploration_analyzer import SpaceExplorationAnalyzer
+from .streaming import (
+    CircuitBreaker,
+    CircuitState,
+    StreamConfig,
+    StreamConsumerFactory,
+    StreamingAnomalyPipeline,
+    StreamingBackend,
+    StreamMessage,
+    StreamProducerFactory,
+)
 from .chemical_nuclear import ChemicalNuclearDetector, CISASector
 from .communications_it import CommunicationsITDetector
 from .cyber.cross_border_intel import CrossBorderIntelligence
@@ -266,6 +276,7 @@ class InfrastructureCoordinator:
 
 
 __all__ = [
+    # Infrastructure monitoring
     "CISASector",
     "ChemicalNuclearDetector",
     "CommunicationsITDetector",
@@ -286,4 +297,13 @@ __all__ = [
     "SpaceExplorationAnalyzer",
     "SpaceInfrastructureMonitor",
     "WorldBankSectorsMonitor",
+    # Streaming infrastructure
+    "CircuitBreaker",
+    "CircuitState",
+    "StreamConfig",
+    "StreamConsumerFactory",
+    "StreamingAnomalyPipeline",
+    "StreamingBackend",
+    "StreamMessage",
+    "StreamProducerFactory",
 ]

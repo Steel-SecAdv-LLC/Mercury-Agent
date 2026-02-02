@@ -1,0 +1,281 @@
+# Mercury Agent Kafka Cluster for Distributed Streaming
+# Production-grade Kafka deployment using Strimzi operator
+# Prerequisites: Install Strimzi CRDs (kubectl create -f https://strimzi.io/install/latest)
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: mercury-kafka
+  namespace: mercury-agent
+  labels:
+    app.kubernetes.io/name: mercury-agent
+    app.kubernetes.io/component: kafka
+spec:
+  kafka:
+    version: 3.6.0
+    replicas: 3
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+    config:
+      # Durability settings
+      offsets.topic.replication.factor: 3
+      transaction.state.log.replication.factor: 3
+      transaction.state.log.min.isr: 2
+      default.replication.factor: 3
+      min.insync.replicas: 2
+      # Performance tuning
+      num.partitions: 12
+      num.recovery.threads.per.data.dir: 2
+      log.retention.hours: 168  # 7 days
+      log.segment.bytes: 1073741824  # 1GB
+      log.retention.check.interval.ms: 300000
+      # Socket settings
+      socket.send.buffer.bytes: 102400
+      socket.receive.buffer.bytes: 102400
+      socket.request.max.bytes: 104857600
+    storage:
+      type: jbod
+      volumes:
+        - id: 0
+          type: persistent-claim
+          size: 100Gi
+          deleteClaim: false
+          class: standard
+    resources:
+      requests:
+        memory: 2Gi
+        cpu: "500m"
+      limits:
+        memory: 4Gi
+        cpu: "2"
+    metricsConfig:
+      type: jmxPrometheusExporter
+      valueFrom:
+        configMapKeyRef:
+          name: kafka-metrics-config
+          key: kafka-metrics-config.yml
+    template:
+      pod:
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    strimzi.io/name: mercury-kafka-kafka
+                topologyKey: kubernetes.io/hostname
+
+  zookeeper:
+    replicas: 3
+    storage:
+      type: persistent-claim
+      size: 20Gi
+      deleteClaim: false
+      class: standard
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: "250m"
+      limits:
+        memory: 1Gi
+        cpu: "500m"
+    template:
+      pod:
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    strimzi.io/name: mercury-kafka-zookeeper
+                topologyKey: kubernetes.io/hostname
+
+  entityOperator:
+    topicOperator:
+      resources:
+        requests:
+          memory: 256Mi
+          cpu: "100m"
+        limits:
+          memory: 512Mi
+          cpu: "500m"
+    userOperator:
+      resources:
+        requests:
+          memory: 256Mi
+          cpu: "100m"
+        limits:
+          memory: 512Mi
+          cpu: "500m"
+---
+# Kafka Topics for Mercury Agent
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: mercury-anomalies
+  namespace: mercury-agent
+  labels:
+    strimzi.io/cluster: mercury-kafka
+spec:
+  partitions: 12
+  replicas: 3
+  config:
+    retention.ms: 604800000  # 7 days
+    segment.bytes: 1073741824
+    cleanup.policy: delete
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: mercury-detections
+  namespace: mercury-agent
+  labels:
+    strimzi.io/cluster: mercury-kafka
+spec:
+  partitions: 12
+  replicas: 3
+  config:
+    retention.ms: 604800000
+    segment.bytes: 1073741824
+    cleanup.policy: delete
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: mercury-events
+  namespace: mercury-agent
+  labels:
+    strimzi.io/cluster: mercury-kafka
+spec:
+  partitions: 6
+  replicas: 3
+  config:
+    retention.ms: 259200000  # 3 days
+    cleanup.policy: delete
+---
+# Kafka Metrics ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-metrics-config
+  namespace: mercury-agent
+data:
+  kafka-metrics-config.yml: |
+    lowercaseOutputName: true
+    lowercaseOutputLabelNames: true
+    rules:
+      - pattern: kafka.server<type=(.+), name=(.+), clientId=(.+), topic=(.+), partition=(.*)><>Value
+        name: kafka_server_$1_$2
+        type: GAUGE
+        labels:
+          clientId: "$3"
+          topic: "$4"
+          partition: "$5"
+      - pattern: kafka.server<type=(.+), name=(.+), clientId=(.+), brokerHost=(.+), brokerPort=(.+)><>Value
+        name: kafka_server_$1_$2
+        type: GAUGE
+        labels:
+          clientId: "$3"
+          broker: "$4:$5"
+      - pattern: kafka.server<type=(.+), name=(.+)><>Value
+        name: kafka_server_$1_$2
+        type: GAUGE
+      - pattern: kafka.controller<type=(.+), name=(.+)><>Value
+        name: kafka_controller_$1_$2
+        type: GAUGE
+      - pattern: kafka.network<type=(.+), name=(.+)><>Value
+        name: kafka_network_$1_$2
+        type: GAUGE
+---
+# Alternative: Simple Kafka deployment without Strimzi
+# Use this if Strimzi is not available
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mercury-kafka-simple
+  namespace: mercury-agent
+  labels:
+    app.kubernetes.io/name: mercury-agent
+    app.kubernetes.io/component: kafka-simple
+spec:
+  serviceName: mercury-kafka-simple
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mercury-agent
+      app.kubernetes.io/component: kafka-simple
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mercury-agent
+        app.kubernetes.io/component: kafka-simple
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: kafka-simple
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: kafka
+          image: bitnami/kafka:3.6
+          ports:
+            - containerPort: 9092
+              name: kafka
+          env:
+            - name: KAFKA_CFG_NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: KAFKA_CFG_PROCESS_ROLES
+              value: "broker,controller"
+            - name: KAFKA_CFG_CONTROLLER_QUORUM_VOTERS
+              value: "0@mercury-kafka-simple-0.mercury-kafka-simple:9093,1@mercury-kafka-simple-1.mercury-kafka-simple:9093,2@mercury-kafka-simple-2.mercury-kafka-simple:9093"
+            - name: KAFKA_CFG_LISTENERS
+              value: "PLAINTEXT://:9092,CONTROLLER://:9093"
+            - name: KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+            - name: KAFKA_CFG_CONTROLLER_LISTENER_NAMES
+              value: "CONTROLLER"
+            - name: KAFKA_CFG_INTER_BROKER_LISTENER_NAME
+              value: "PLAINTEXT"
+            - name: ALLOW_PLAINTEXT_LISTENER
+              value: "yes"
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: "250m"
+            limits:
+              memory: 2Gi
+              cpu: "1"
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/kafka
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 50Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mercury-kafka
+  namespace: mercury-agent
+spec:
+  selector:
+    strimzi.io/name: mercury-kafka-kafka
+  ports:
+    - name: plain
+      port: 9092
+      targetPort: 9092
+  type: ClusterIP
