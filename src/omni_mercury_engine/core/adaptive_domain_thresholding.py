@@ -848,7 +848,9 @@ class AdaptiveDomainThresholdManager:
                 calibrated_score = float(
                     self.probability_calibrator.calibrate(np.array([score]))[0]
                 )
-            except Exception:
+            except (ValueError, IndexError, TypeError) as e:
+                # Calibration failed - fall back to raw score
+                logger.debug(f"Score calibration fallback: {type(e).__name__}")
                 calibrated_score = score
 
         return {
