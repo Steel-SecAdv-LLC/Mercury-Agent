@@ -37,7 +37,7 @@ from omni_mercury_engine.core.exceptions import DetectorException
 
 # Numba optimization for distance computation (hot path)
 try:
-    from numba import jit  # type: ignore[import-not-found]
+    from numba import jit
 
     @jit(nopython=True, cache=True)
     def _compute_distances_jit(data: np.ndarray, center: np.ndarray) -> np.ndarray:

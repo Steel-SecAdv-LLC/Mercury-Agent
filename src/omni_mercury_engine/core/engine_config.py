@@ -413,12 +413,12 @@ class MercuryEngineConfig(BaseModel):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
-        return self.model_dump()  # type: ignore[no-any-return]
+        return self.model_dump()
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> MercuryEngineConfig:
         """Create from dictionary."""
-        return cls.model_validate(data)  # type: ignore[no-any-return]
+        return cls.model_validate(data)
 
     @classmethod
     def for_domain(cls, domain: DomainType | str, **kwargs: Any) -> MercuryEngineConfig:

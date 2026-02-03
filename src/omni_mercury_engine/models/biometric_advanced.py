@@ -71,7 +71,7 @@ except ImportError:
 
 FACE_RECOGNITION_AVAILABLE = False
 try:
-    import face_recognition  # type: ignore[import-not-found]
+    import face_recognition
 
     FACE_RECOGNITION_AVAILABLE = True
 except ImportError:
@@ -87,7 +87,7 @@ except ImportError:
 
 FACENET_AVAILABLE = False
 try:
-    from facenet_pytorch import MTCNN, InceptionResnetV1  # type: ignore[import-not-found]
+    from facenet_pytorch import MTCNN, InceptionResnetV1
 
     FACENET_AVAILABLE = True
 except ImportError:

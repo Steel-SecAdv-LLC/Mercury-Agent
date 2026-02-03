@@ -592,7 +592,7 @@ class DegradationAnalyzer:
         _, _, lin_r, _, _ = stats.linregress(time_index, performances)
 
         # Exponential fits better if log-linear has higher R^2
-        return abs(log_r) > abs(lin_r) + 0.1 and log_slope < 0  # type: ignore[no-any-return]
+        return bool(abs(log_r) > abs(lin_r) + 0.1 and log_slope < 0)
 
     def _has_sudden_shift(self, performances: NDArray[np.float64]) -> bool:
         """Check for sudden performance shift."""

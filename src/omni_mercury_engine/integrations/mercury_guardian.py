@@ -55,7 +55,7 @@ DILITHIUM_AVAILABLE = False
 KYBER_AVAILABLE = False
 
 try:
-    from ava_guardian.pqc_backends import (  # type: ignore[import-not-found]
+    from ava_guardian.pqc_backends import (
         DILITHIUM_AVAILABLE as _DILITHIUM_AVAILABLE,
         KYBER_AVAILABLE as _KYBER_AVAILABLE,
         DilithiumKeyPair,

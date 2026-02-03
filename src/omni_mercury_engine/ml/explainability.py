@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 # Optional imports
 try:
-    import shap  # type: ignore[import-not-found]
+    import shap
 
     SHAP_AVAILABLE = True
 except ImportError:

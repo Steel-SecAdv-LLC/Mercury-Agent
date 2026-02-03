@@ -349,7 +349,7 @@ class ConfigurationManager:
             try:
                 import tomllib  # Python 3.11+
             except ImportError:
-                import tomli as tomllib  # type: ignore[import-not-found, no-redef]
+                import tomli as tomllib  # type: ignore[no-redef]
 
             with open(path, "rb") as f:
                 data = tomllib.load(f)
