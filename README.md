@@ -147,29 +147,29 @@ Mercury Agent ♱ with AdaptiveAnomalyDetector achieves **F1 = 0.80** on neuro-s
 
 ### Comprehensive Multi-Panel Visualizations
 
-The following consolidated visualizations capture all benchmark metrics in professional multi-panel format:
+The following consolidated visualizations capture all benchmark metrics in professional multi-panel format (v1.2.0):
 
 #### Neuro-Symbolic Benchmark Report
 
-Complete visualization of confidence evolution, domain competence, memory growth, neural/symbolic contributions, anomaly detection metrics, and benevolence scoring:
+Complete visualization showing confidence evolution over 200 epochs, final metrics radar chart, neural-symbolic fusion balance, precision/recall evolution, memory growth to 3,300 entries, and 8-domain performance heatmap:
 
 ![Neuro-Symbolic Benchmark Report](docs/images/neuro_symbolic_benchmark_report.png)
 
 #### Anomaly Detection Analysis
 
-Comprehensive anomaly detection panel showing precision/recall evolution, cosmic ray detection performance, domain competence comparison, threshold sensitivity analysis, detector throughput, and severity distribution:
+Comprehensive 9-panel analysis: F1 score evolution, detector comparison (Mercury vs peers), 8 enhanced statistical methods, threshold sensitivity, score distributions, throughput benchmarks, cross-platform integration (10+ platforms), 7 ensemble strategies, and statistical significance metrics:
 
 ![Anomaly Detection Panel](docs/images/anomaly_detection_panel.png)
 
 #### Performance, Ethics & Quality Dashboard
 
-Consolidated dashboard combining performance metrics, ethical governance tracking, and test coverage analysis:
+Consolidated dashboard showing benevolence score evolution, 180 ethical scalars distribution, latency comparison (CPU/GPU), memory footprint, Fairlearn bias metrics, Lyapunov stability (λ=0.25), 3-layer security architecture, and key performance indicators:
 
 ![Mercury Performance Dashboard](docs/images/mercury_performance_dashboard.png)
 
 #### Live Data Benchmark Summary
 
-Real-world dataset performance, streaming metrics, and module-level test coverage:
+Module coverage and codebase statistics: 30+ dataset categories, test coverage by module (85%+), codebase stats (360 modules, 153,953 LOC), 5 new v1.2.0 modules (4,921 LOC), dataset benchmark results, distributed processing scalability, version evolution, code quality metrics, and CI/CD pipeline status:
 
 ![Benchmark Summary Live Data](docs/images/benchmark_summary_live_data.png)
 
