@@ -36,7 +36,7 @@ try:
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None
+    torch = None  # type: ignore[assignment]
     TORCH_AVAILABLE = False
 
 from omni_mercury_engine.utils.comm import AsyncMessageQueue, Message, MessagePriority, SimplePubSub
@@ -129,9 +129,9 @@ def normalize_data(
         raise ValueError(f"Unknown normalization method: {method}")
 
     if is_torch:
-        return torch.tensor(normalized, dtype=data.dtype, device=data.device)
+        return torch.tensor(normalized, dtype=data.dtype, device=data.device)  # type: ignore[union-attr]
 
-    return normalized
+    return np.asarray(normalized)
 
 
 def compute_complexity(func_code: str) -> int:

@@ -90,7 +90,7 @@ class CacheEntry:
 
     key: str
     data: np.ndarray[Any, Any] | torch.Tensor
-    original_dtype: np.dtype | torch.dtype
+    original_dtype: np.dtype[Any] | torch.dtype
     original_shape: tuple[int, ...]
     is_sparse: bool = False
     sparse_indices: np.ndarray[Any, Any] | None = None
@@ -284,18 +284,20 @@ class MemoryEfficientFeatureCache:
         data = entry.data
 
         if self.config.quantization in (QuantizationType.INT8, QuantizationType.DYNAMIC):
-            if data.dtype == np.uint8:
+            if isinstance(data, np.ndarray) and data.dtype == np.uint8:
                 data = data.astype(np.float32) / 255.0
 
         if self.config.quantization == QuantizationType.FP16:
-            data = data.astype(np.float32)
+            if isinstance(data, np.ndarray):
+                data = data.astype(np.float32)
 
         if entry.is_sparse and entry.sparse_indices is not None:
             full_data = np.zeros(entry.original_shape, dtype=np.float32)
-            full_data[entry.sparse_indices] = data
+            if isinstance(data, np.ndarray):
+                full_data[entry.sparse_indices] = data
             data = full_data
 
-        return data
+        return np.asarray(data) if isinstance(data, np.ndarray) else data
 
     def _estimate_memory(self, data: np.ndarray[Any, Any]) -> int:
         """Estimate memory usage of data.
