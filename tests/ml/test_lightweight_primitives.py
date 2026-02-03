@@ -79,7 +79,7 @@ class TestActivationFunctions:
         x = np.array([-10, 0, 10], dtype=np.float32)
         result = tanh(x)
 
-        # Tanh should be in [-1, 1] (inclusive due to floating point precision)
+        # Tanh should be in [-1, 1] (saturates at boundaries for extreme values)
         assert np.all(result >= -1)
         assert np.all(result <= 1)
 

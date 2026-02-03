@@ -41,7 +41,7 @@ class RetryPolicy:
         base_delay: float = 1.0,
         max_delay: float = 60.0,
         exponential_base: float = 2.0,
-        exceptions: tuple = (Exception,),
+        exceptions: tuple[type[BaseException], ...] = (Exception,),
     ):
         self.max_retries = max_retries
         self.base_delay = base_delay

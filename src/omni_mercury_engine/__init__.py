@@ -46,7 +46,7 @@ if TYPE_CHECKING:
 # CLI help commands and other lightweight operations to work without it.
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> type:
     """Lazy import for OmniMercuryEngine to defer torch dependency."""
     if name == "OmniMercuryEngine":
         from omni_mercury_engine.engine import OmniMercuryEngine

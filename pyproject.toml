@@ -293,6 +293,9 @@ module = [
     "pqcrypto.*",
     "pqcrypto.kem.*",
     "pqcrypto.sign.*",
+    # Monitoring and climate data
+    "prometheus_client.*",
+    "cdsapi.*",
 ]
 ignore_missing_imports = true
 
@@ -313,6 +316,17 @@ module = [
     "omni_mercury_engine.ml.three_r_attention",
     "omni_mercury_engine.ml.ppo_trainer",
     "omni_mercury_engine.ml.advanced_optimizers",
+    "omni_mercury_engine.ml.vae_pattern_learner",
+    "omni_mercury_engine.ml.multimodal_fusion",
+    "omni_mercury_engine.ml.hatcn_ad",
+    "omni_mercury_engine.ml.concept_drift_evaluation",
+    "omni_mercury_engine.ml.compression",
+    "omni_mercury_engine.ml.distillation.*",
+    "omni_mercury_engine.ml.few_shot_learning",
+    "omni_mercury_engine.ml.cross_domain_transfer",
+    "omni_mercury_engine.ml.active_learning",
+    "omni_mercury_engine.ml.online_learning",
+    "omni_mercury_engine.ml.explainability",
     "omni_mercury_engine.models.sota.*",
     "omni_mercury_engine.models.lstm_ae",
     "omni_mercury_engine.models.neurosymbolic",

@@ -63,7 +63,7 @@ class BainAIScaling:
         self.current_allocation: dict[str, ComputeResource] = {}
 
     def optimize_compute_allocation(
-        self, workloads: list[dict], available_resources: ComputeResource
+        self, workloads: list[dict[str, Any]], available_resources: ComputeResource
     ) -> dict[str, ComputeResource]:
         """
         Optimize compute resource allocation across workloads.
