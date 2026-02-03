@@ -54,6 +54,7 @@ try:
     NETWORKX_AVAILABLE = True
 except ImportError:
     NETWORKX_AVAILABLE = False
+    nx = None  # type: ignore[assignment]
     logging.warning("NetworkX not available, using fallback graph implementation")
 
 logger = logging.getLogger(__name__)
@@ -216,9 +217,11 @@ class LogicGraph:
     where nodes are propositions and edges are implications.
     """
 
+    graph: nx.DiGraph[str] | FallbackGraph
+
     def __init__(self) -> None:
         """Initialize the logic graph."""
-        if NETWORKX_AVAILABLE:
+        if NETWORKX_AVAILABLE and nx is not None:
             self.graph = nx.DiGraph()
         else:
             self.graph = FallbackGraph()
@@ -436,6 +439,7 @@ class LogicGraph:
         explanations = []
 
         for rule_id in rules_fired:
+            rule: SymbolicRule | ThresholdRule
             if rule_id in self.rules:
                 rule = self.rules[rule_id]
                 if rule.conclusion == conclusion or rule.premise in [
@@ -754,6 +758,7 @@ class SymbolicReasoner:
         if rules_fired:
             rule_explanations = []
             for rule_id in rules_fired[:5]:
+                rule: SymbolicRule | ThresholdRule
                 if rule_id in self.logic_graph.rules:
                     rule = self.logic_graph.rules[rule_id]
                     rule_explanations.append(f"  - {rule.explanation_template}")

@@ -37,6 +37,7 @@ import logging
 import os
 import sys
 from collections import OrderedDict
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import wraps
 from typing import Any, TypeVar
@@ -46,7 +47,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-F = TypeVar("F")
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 @dataclass

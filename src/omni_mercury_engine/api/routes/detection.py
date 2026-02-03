@@ -250,13 +250,13 @@ async def detect_neurosymbolic(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Neuro-symbolic module not available: {e}",
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Neuro-symbolic detection failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Detection failed: {e!s}",
-        )
+        ) from e
 
 
 @router.post(
@@ -363,7 +363,7 @@ async def detect_fusion(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Detection failed: {e!s}",
-        )
+        ) from e
 
 
 @router.post(

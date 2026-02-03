@@ -99,7 +99,7 @@ class QuantumRiskCyber:
         self.preparedness_threshold = preparedness_threshold
         self.threat_catalog: list[QuantumThreat] = []
         self.preparedness_score = 0.1
-        self.vulnerability_scan_history: list[dict] = []
+        self.vulnerability_scan_history: list[dict[str, Any]] = []
 
     def assess_quantum_vulnerability(
         self, system_components: list[str], encryption_methods: list[str]
@@ -311,7 +311,7 @@ class QuantumRiskCyber:
             ),
         }
 
-    def prioritize_crypto_upgrades(self, systems: list[dict]) -> list[dict]:
+    def prioritize_crypto_upgrades(self, systems: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         Prioritize cryptographic systems for upgrade.
 
@@ -485,7 +485,8 @@ class QuantumRiskCyber:
 
         gap = awareness_level - planning_level
 
-        analysis = {
+        recommendations: list[str] = []
+        analysis: dict[str, Any] = {
             "awareness_level": awareness_level,
             "planning_level": planning_level,
             "preparedness_gap": gap,
@@ -495,11 +496,11 @@ class QuantumRiskCyber:
             "bain_insight": (
                 "Only 10% of tech leaders have quantum threat plans despite 95% awareness"
             ),
-            "recommendations": [],
+            "recommendations": recommendations,
         }
 
         if self.preparedness_score < 0.3:
-            analysis["recommendations"].extend(
+            recommendations.extend(
                 [
                     "Immediate: Conduct quantum vulnerability assessment",
                     "Immediate: Begin post-quantum cryptography evaluation",
@@ -507,7 +508,7 @@ class QuantumRiskCyber:
                 ]
             )
         elif self.preparedness_score < 0.6:
-            analysis["recommendations"].extend(
+            recommendations.extend(
                 [
                     "Short-term: Pilot post-quantum cryptography implementations",
                     "Medium-term: Train security team on quantum threats",
@@ -515,7 +516,7 @@ class QuantumRiskCyber:
                 ]
             )
         else:
-            analysis["recommendations"].extend(
+            recommendations.extend(
                 [
                     "Maintain: Continue monitoring quantum computing advances",
                     "Enhance: Expand post-quantum cryptography coverage",

@@ -831,7 +831,7 @@ class VolcanicEruptionDetector:
             eruption_type="no_eruption",
         )
 
-        indicators_detected = 0
+        indicators_detected: float = 0
 
         # Binary observations for HMM: [seismic, thermal, gas, deformation]
         hmm_observations = np.array([False, False, False, False])
@@ -844,7 +844,11 @@ class VolcanicEruptionDetector:
                 indicators_detected += 1
                 result.confidence = max(result.confidence, seismic_result["confidence"])
 
-        if self.enable_thermal and "thermal_data" in volcano_data:
+        if (
+            self.enable_thermal
+            and "thermal_data" in volcano_data
+            and self.thermal_detector is not None
+        ):
             thermal_result = self.thermal_detector.detect_thermal_anomaly(
                 volcano_data["thermal_data"]
             )
@@ -853,14 +857,14 @@ class VolcanicEruptionDetector:
             if thermal_result["anomaly_detected"]:
                 indicators_detected += 1
 
-        if self.enable_gas and "gas_data" in volcano_data:
+        if self.enable_gas and "gas_data" in volcano_data and self.gas_analyzer is not None:
             gas_result = self.gas_analyzer.analyze_gas_emissions(volcano_data["gas_data"])
             result.gas_flux_anomaly = gas_result["so2_anomaly"] or gas_result["co2_anomaly"]
             hmm_observations[2] = result.gas_flux_anomaly
             if result.gas_flux_anomaly:
                 indicators_detected += 1
 
-        if self.enable_insar and "insar_data" in volcano_data:
+        if self.enable_insar and "insar_data" in volcano_data and self.insar_detector is not None:
             insar_result = self.insar_detector.detect_deformation(volcano_data["insar_data"])
             result.deformation_detected = insar_result["deformation_detected"]
             hmm_observations[3] = insar_result["deformation_detected"]
@@ -903,7 +907,7 @@ class VolcanicEruptionDetector:
             result.eruption_type = eruption_forecast["eruption_type"]
 
         # Apply 3R Refactoring adaptive optimization
-        if self.enable_refactoring and self.refactoring_optimizer is not None:
+        if self.enable_refactoring and self.refactoring_optimizer:
             # Adapt confidence using calibration
             result.confidence = self.refactoring_optimizer.get_adapted_confidence(result.confidence)
 
@@ -934,6 +938,8 @@ class VolcanicEruptionDetector:
 
     def _analyze_seismic(self, seismic_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Analyze seismic swarm activity"""
+        if self.seismic_detector is None:
+            return {"swarm_detected": False, "confidence": 0.0, "attention_weights": []}
 
         seq_tensor = torch.tensor(seismic_sequence, dtype=torch.float32).unsqueeze(0)
 

@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypedDict
 
 
 """
@@ -38,6 +38,22 @@ from datetime import datetime, timedelta
 from enum import Enum
 
 import numpy as np
+
+
+class _VitalSignRange(TypedDict):
+    """Type definition for vital sign range thresholds."""
+
+    min: float
+    max: float
+    critical_min: float
+    critical_max: float
+
+
+class _CallBaseline(TypedDict):
+    """Type definition for call baseline stats."""
+
+    avg_per_hour: int
+    std_per_hour: int
 
 
 class PatientStatus(Enum):
@@ -68,7 +84,7 @@ class HealthcareEmergencyDetector:
     """
 
     def __init__(self) -> None:
-        self.vital_sign_ranges = {
+        self.vital_sign_ranges: dict[str, _VitalSignRange] = {
             "heart_rate_bpm": {"min": 60, "max": 100, "critical_min": 40, "critical_max": 130},
             "blood_pressure_systolic": {
                 "min": 90,
@@ -90,7 +106,7 @@ class HealthcareEmergencyDetector:
             },
             "respiratory_rate_bpm": {"min": 12, "max": 20, "critical_min": 8, "critical_max": 30},
         }
-        self.call_baseline = {"avg_per_hour": 100, "std_per_hour": 20}
+        self.call_baseline: _CallBaseline = {"avg_per_hour": 100, "std_per_hour": 20}
 
     def detect(
         self,

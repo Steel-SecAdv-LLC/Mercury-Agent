@@ -73,8 +73,8 @@ def get_default_transforms(
             )
 
         return transforms.Compose(transform_list)
-    except ImportError:
-        raise ImportError("torchvision required for default transforms")
+    except ImportError as e:
+        raise ImportError("torchvision required for default transforms") from e
 
 
 @dataclass
@@ -291,7 +291,7 @@ class BaseVideoDataset(ABC):
                 finally:
                     # Ensure release even if exception occurs
                     cap.release()
-            except ImportError:
-                raise ImportError("OpenCV required for video loading")
+            except ImportError as e:
+                raise ImportError("OpenCV required for video loading") from e
 
         return frames

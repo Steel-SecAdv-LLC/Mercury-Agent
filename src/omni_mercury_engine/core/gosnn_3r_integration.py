@@ -183,7 +183,7 @@ class SlidingWindowNormalizer:
         current_mean = np.mean(window_array, axis=0)
         current_var = np.var(window_array, axis=0)
 
-        if self._ema_mean is None:
+        if self._ema_mean is None or self._ema_var is None:
             self._ema_mean = current_mean
             self._ema_var = current_var
         else:
@@ -351,7 +351,7 @@ class GOSNN3RIntegration:
                 group_scores[group] = float(np.mean(values))
 
         # Map to 3R weights
-        weight_contributions = {"w_R": [], "w_H": [], "w_O": []}
+        weight_contributions: dict[str, list[float]] = {"w_R": [], "w_H": [], "w_O": []}
 
         for group, weight_key in self.SCALAR_WEIGHT_MAPPING.items():
             if group in group_scores:

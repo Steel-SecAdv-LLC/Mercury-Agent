@@ -684,9 +684,9 @@ class WildfireDataLoader(DatasetLoader):
 
         rows = []
         for _, row in df.iterrows():
-            data_row = []
+            data_row: list[float] = []
             for feature in self.FEATURE_NAMES:
-                value = 0
+                value: float = 0.0
                 for col_name in col_map.get(feature, [feature]):
                     if col_name in df.columns:
                         val = row.get(col_name)

@@ -291,7 +291,7 @@ class EMPDetector:
 
         components_detected = 0
 
-        if self.enable_e1 and "sensor_data" in emp_data:
+        if self.enable_e1 and "sensor_data" in emp_data and self.e1_detector is not None:
             e1_result = self.e1_detector.detect_e1_pulse(emp_data["sensor_data"])
             result.e1_component_detected = e1_result["e1_detected"]
             result.field_strength_vm = e1_result["field_strength_vm"]
@@ -301,7 +301,7 @@ class EMPDetector:
                 result.confidence = max(result.confidence, 0.9)
                 result.emp_detected = True
 
-        if self.enable_e3 and "magnetometer_data" in emp_data:
+        if self.enable_e3 and "magnetometer_data" in emp_data and self.e3_detector is not None:
             e3_result = self.e3_detector.detect_e3_pulse(emp_data["magnetometer_data"])
             result.e3_component_detected = e3_result["e3_detected"]
             result.grid_impact_assessment = e3_result["grid_impact"]
@@ -339,6 +339,8 @@ class EMPDetector:
 
     def _classify_intentional_attack(self, signature_data: dict[str, Any]) -> dict[str, Any]:
         """Classify intentional electromagnetic attack"""
+        if self.emi_detector is None:
+            return {"attack_detected": False, "attack_probability": 0.0}
 
         if "signature_features" in signature_data:
             features = signature_data["signature_features"]

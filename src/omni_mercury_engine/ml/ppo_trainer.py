@@ -335,7 +335,7 @@ class PPOTrainer:
             verbose=1,
         )
 
-        callbacks = [self.convergence_monitor]
+        callbacks: list[BaseCallback] = [self.convergence_monitor]
 
         if save_checkpoints:
             self.checkpoint_callback = CheckpointCallback(

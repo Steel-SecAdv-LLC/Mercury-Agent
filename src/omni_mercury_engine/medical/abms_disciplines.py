@@ -711,7 +711,11 @@ class ABMSDisciplineDetector:
         self, patient_data: dict[str, Any], primary_board: str, indicators: list[str]
     ) -> dict[str, Any]:
         """Apply neurosymbolic medical reasoning"""
-        reasoning = {"rules_applied": [], "deductions": [], "confidence_adjustments": []}
+        reasoning: dict[str, list[str]] = {
+            "rules_applied": [],
+            "deductions": [],
+            "confidence_adjustments": [],
+        }
 
         symptoms = patient_data.get("symptoms", [])
 

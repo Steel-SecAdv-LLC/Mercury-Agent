@@ -306,8 +306,8 @@ class MBALoader(DatasetLoader):
         """Load MBA/CWRU bearing data."""
         try:
             from scipy.io import loadmat
-        except ImportError:
-            raise ImportError("scipy required for MBA loading: pip install scipy")
+        except ImportError as e:
+            raise ImportError("scipy required for MBA loading: pip install scipy") from e
 
         # Check for data files
         normal_file = self.data_path / "normal.mat"

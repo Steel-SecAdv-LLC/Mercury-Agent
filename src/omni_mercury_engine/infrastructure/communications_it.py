@@ -54,7 +54,7 @@ class CommunicationsITDetector:
     def __init__(self, baseline_window: int = 3600) -> None:
         self.baseline_window = baseline_window
         self.traffic_history = deque[Any](maxlen=baseline_window)
-        self.baseline_stats = {}
+        self.baseline_stats: dict[str, Any] = {}
         self.alert_thresholds = {
             "ddos_multiplier": 10.0,
             "latency_multiplier": 3.0,

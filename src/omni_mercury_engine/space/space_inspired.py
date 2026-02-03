@@ -183,7 +183,7 @@ class SpaceInspiredResilience:
         pathway = [start_state]
         current = start_state.copy()
 
-        for _step in range(max_steps):
+        for _step in range(int(max_steps)):
             direction = goal_state - current
             distance = np.linalg.norm(direction)
 

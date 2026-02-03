@@ -722,6 +722,16 @@ class AdaptiveFusionLayer(nn.Module):
         # Use temperature-scaled attention for visualization
         attn = attention_weights.get("temperature_scaled", attention_weights.get("adaptive"))
 
+        if attn is None:
+            # Return empty visualization if no attention weights available
+            return AttentionVisualization(
+                attention_weights=torch.zeros(1),
+                detector_names=detector_names,
+                head_contributions=torch.zeros(1),
+                temperature=self.temp_attention.get_temperature(),
+                sparsity_ratio=0.0,
+            )
+
         # Compute head contributions
         head_contributions = attn.mean(dim=(0, 2, 3))  # Average over batch and positions
 

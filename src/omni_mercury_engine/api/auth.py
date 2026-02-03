@@ -616,8 +616,8 @@ class JWTAuth:
         """
         try:
             import jwt
-        except ImportError:
-            raise ImportError("PyJWT required. Install with: pip install PyJWT")
+        except ImportError as e:
+            raise ImportError("PyJWT required. Install with: pip install PyJWT") from e
 
         payload = {
             "sub": user_id,

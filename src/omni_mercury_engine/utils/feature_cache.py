@@ -90,7 +90,7 @@ class CacheEntry:
 
     key: str
     data: np.ndarray[Any, Any] | torch.Tensor
-    original_dtype: np.dtype | torch.dtype
+    original_dtype: np.dtype[Any] | torch.dtype
     original_shape: tuple[int, ...]
     is_sparse: bool = False
     sparse_indices: np.ndarray[Any, Any] | None = None
@@ -222,7 +222,7 @@ class MemoryEfficientFeatureCache:
 
     def _process_data(
         self, data: np.ndarray[Any, Any] | torch.Tensor
-    ) -> tuple[np.ndarray[Any, Any], bool, np.ndarray[Any, Any] | None]:
+    ) -> tuple[np.ndarray[Any, Any], bool, Any]:
         """Process data for storage with quantization and sparsification.
 
         Args:
@@ -270,7 +270,7 @@ class MemoryEfficientFeatureCache:
 
         quantized = ((data - min_val) / scale).astype(np.uint8)
 
-        return quantized
+        return np.asarray(quantized)
 
     def _reconstruct_data(self, entry: CacheEntry) -> np.ndarray[Any, Any]:
         """Reconstruct original data from cache entry.
@@ -284,18 +284,22 @@ class MemoryEfficientFeatureCache:
         data = entry.data
 
         if self.config.quantization in (QuantizationType.INT8, QuantizationType.DYNAMIC):
-            if data.dtype == np.uint8:
+            if isinstance(data, np.ndarray) and data.dtype == np.uint8:
                 data = data.astype(np.float32) / 255.0
 
         if self.config.quantization == QuantizationType.FP16:
-            data = data.astype(np.float32)
+            if isinstance(data, np.ndarray):
+                data = data.astype(np.float32)
 
         if entry.is_sparse and entry.sparse_indices is not None:
             full_data = np.zeros(entry.original_shape, dtype=np.float32)
-            full_data[entry.sparse_indices] = data
+            if isinstance(data, np.ndarray):
+                full_data[entry.sparse_indices] = data
             data = full_data
 
-        return data
+        if isinstance(data, np.ndarray):
+            return data
+        return data  # type: ignore[return-value]
 
     def _estimate_memory(self, data: np.ndarray[Any, Any]) -> int:
         """Estimate memory usage of data.
@@ -306,7 +310,7 @@ class MemoryEfficientFeatureCache:
         Returns:
             Estimated memory in bytes
         """
-        return data.nbytes
+        return int(data.nbytes)
 
     def _evict_oldest(self) -> None:
         """Evict oldest entry from cache."""
@@ -456,7 +460,7 @@ def compute_feature_importance(
         Importance scores for each feature
     """
     if method == "variance":
-        return np.var(features, axis=0)
+        return np.asarray(np.var(features, axis=0))
 
     elif method == "correlation" and labels is not None:
         correlations = np.zeros(features.shape[1])
@@ -480,7 +484,7 @@ def compute_feature_importance(
 
         return mi_scores
 
-    return np.var(features, axis=0)
+    return np.asarray(np.var(features, axis=0))
 
 
 def select_top_features(

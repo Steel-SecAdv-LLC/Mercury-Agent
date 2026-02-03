@@ -9,9 +9,9 @@ Licensed under GPL-3.0-or-later
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock
 import uuid
+
+import pytest
 
 
 class TestCorrelationIDMiddleware:
@@ -62,6 +62,7 @@ class TestCorrelationIDIntegration:
         """Create test client."""
         try:
             from fastapi.testclient import TestClient
+
             from omni_mercury_engine.api.server import app
 
             return TestClient(app)
@@ -124,6 +125,7 @@ class TestCorrelationIDFormat:
         """Test that generated IDs are valid UUIDs."""
         try:
             from fastapi.testclient import TestClient
+
             from omni_mercury_engine.api.server import app
 
             client = TestClient(app)
@@ -142,6 +144,7 @@ class TestCorrelationIDFormat:
         """Test that various ID formats are accepted."""
         try:
             from fastapi.testclient import TestClient
+
             from omni_mercury_engine.api.server import app
 
             client = TestClient(app)

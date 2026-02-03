@@ -174,15 +174,23 @@ class FeatureStandardizer:
         X = np.asarray(X)
 
         if self.strategy == ScalingStrategy.STANDARD:
+            if self._mean is None or self._std is None:
+                raise ValueError("FeatureStandardizer: _mean/_std not set for STANDARD strategy")
             return (X - self._mean) / self._std
 
         elif self.strategy == ScalingStrategy.MINMAX:
+            if self._min is None or self._max is None:
+                raise ValueError("FeatureStandardizer: _min/_max not set for MINMAX strategy")
             return (X - self._min) / (self._max - self._min)
 
         elif self.strategy == ScalingStrategy.ROBUST:
+            if self._median is None or self._iqr is None:
+                raise ValueError("FeatureStandardizer: _median/_iqr not set for ROBUST strategy")
             return (X - self._median) / self._iqr
 
         elif self.strategy == ScalingStrategy.MAXABS:
+            if self._max_abs is None:
+                raise ValueError("FeatureStandardizer: _max_abs not set for MAXABS strategy")
             return X / self._max_abs
 
         return X  # NONE strategy
@@ -207,15 +215,23 @@ class FeatureStandardizer:
         X = np.asarray(X)
 
         if self.strategy == ScalingStrategy.STANDARD:
+            if self._mean is None or self._std is None:
+                raise ValueError("FeatureStandardizer: _mean/_std not set for STANDARD strategy")
             return X * self._std + self._mean
 
         elif self.strategy == ScalingStrategy.MINMAX:
+            if self._min is None or self._max is None:
+                raise ValueError("FeatureStandardizer: _min/_max not set for MINMAX strategy")
             return X * (self._max - self._min) + self._min
 
         elif self.strategy == ScalingStrategy.ROBUST:
+            if self._median is None or self._iqr is None:
+                raise ValueError("FeatureStandardizer: _median/_iqr not set for ROBUST strategy")
             return X * self._iqr + self._median
 
         elif self.strategy == ScalingStrategy.MAXABS:
+            if self._max_abs is None:
+                raise ValueError("FeatureStandardizer: _max_abs not set for MAXABS strategy")
             return X * self._max_abs
 
         return X

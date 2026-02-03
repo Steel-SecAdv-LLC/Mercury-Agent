@@ -424,7 +424,7 @@ class PatternDetector:
         embeddings: list[MemoryEmbedding],
     ) -> list[DetectedPattern]:
         """Detect temporal trends in memory importance."""
-        patterns = []
+        patterns: list[DetectedPattern] = []
 
         if len(embeddings) < self.trend_window:
             return patterns
@@ -463,7 +463,7 @@ class PatternDetector:
         embeddings: list[MemoryEmbedding],
     ) -> list[DetectedPattern]:
         """Detect escalation patterns (rapid importance increase)."""
-        patterns = []
+        patterns: list[DetectedPattern] = []
 
         if len(embeddings) < 3:
             return patterns
@@ -501,7 +501,7 @@ class PatternDetector:
         clusterer: KMeansClusterer,
     ) -> list[DetectedPattern]:
         """Detect novel patterns not fitting existing clusters well."""
-        patterns = []
+        patterns: list[DetectedPattern] = []
 
         if clusterer.centroids is None or len(embeddings) < self.min_pattern_support:
             return patterns

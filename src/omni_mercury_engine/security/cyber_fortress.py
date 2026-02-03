@@ -421,7 +421,11 @@ class CyberFortress(LoggerMixin):
             encrypted_traffic_anomaly=False,
         )
 
-        if self.enable_hash_integrity and "hash_chain" in system_data:
+        if (
+            self.enable_hash_integrity
+            and self.hash_checker is not None
+            and "hash_chain" in system_data
+        ):
             integrity = self.hash_checker.check_integrity(
                 system_data["hash_chain"], system_data.get("reference_chain")
             )
@@ -432,7 +436,11 @@ class CyberFortress(LoggerMixin):
                 result.threat_detected = True
                 result.threat_score += 0.3
 
-        if self.enable_zero_day_sim and "system_state" in system_data:
+        if (
+            self.enable_zero_day_sim
+            and self.zero_day_sim is not None
+            and "system_state" in system_data
+        ):
             zero_day = self.zero_day_sim.simulate_zero_day(system_data["system_state"])
             result.zero_day_risk = zero_day["zero_day_risk"]
             result.recommendations.extend(zero_day["recommendations"])
@@ -441,7 +449,11 @@ class CyberFortress(LoggerMixin):
                 result.threat_detected = True
                 result.threat_score += zero_day["zero_day_risk"] * 0.4
 
-        if self.enable_traffic_detection and "network_traffic" in system_data:
+        if (
+            self.enable_traffic_detection
+            and self.traffic_detector is not None
+            and "network_traffic" in system_data
+        ):
             traffic = self.traffic_detector.detect_anomaly(system_data["network_traffic"])
             result.encrypted_traffic_anomaly = traffic["encrypted_traffic_anomaly"]
             result.recommendations.extend(traffic["recommendations"])

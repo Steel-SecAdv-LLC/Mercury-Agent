@@ -31,7 +31,17 @@ Comprehensive medical detection for humanitarian healthcare:
 Includes MedicalCoordinator for flexible module selection and filtering.
 """
 
-from typing import Any
+from typing import Any, TypedDict
+
+
+class _ModuleInfo(TypedDict):
+    """Type definition for module registry entries."""
+
+    class_: type[Any]
+    category: str
+    priority: str
+    description: str
+
 
 # Core medical modules
 from omni_mercury_engine.medical.abms_disciplines import (
@@ -117,62 +127,62 @@ class MedicalCoordinator:
 
     def __init__(self) -> None:
         """Initialize module registry with all available modules."""
-        self.modules = {
+        self.modules: dict[str, _ModuleInfo] = {
             # Pandemic Detection
             "pandemic_detector": {
-                "class": PandemicDetector,
+                "class_": PandemicDetector,
                 "category": "pandemic",
                 "priority": "high",
                 "description": "Pandemic detection with case surveillance and mutation tracking",
             },
             "epidemic_forecaster": {
-                "class": EpidemicForecaster,
+                "class_": EpidemicForecaster,
                 "category": "pandemic",
                 "priority": "high",
                 "description": "SEIR epidemiological forecasting with chaos detection",
             },
             "pathogen_detector": {
-                "class": PathogenDetector,
+                "class_": PathogenDetector,
                 "category": "pandemic",
                 "priority": "high",
                 "description": "QBM-based pathogen detection with MASINT fusion",
             },
             # Critical Care
             "sepsis_detector": {
-                "class": SepsisDetector,
+                "class_": SepsisDetector,
                 "category": "critical_care",
                 "priority": "high",
                 "description": "Sepsis detection with SOFA/qSOFA scoring",
             },
             "neurocritical_care": {
-                "class": NeurocriticalCarePredictor,
+                "class_": NeurocriticalCarePredictor,
                 "category": "critical_care",
                 "priority": "high",
                 "description": "Stroke, seizure, TBI, and ICP monitoring",
             },
             # Cardiology
             "cardiology_predictor": {
-                "class": CardiologyPredictor,
+                "class_": CardiologyPredictor,
                 "category": "cardiology",
                 "priority": "high",
                 "description": "ECG analysis, arrhythmia detection, cardiac risk prediction",
             },
             # General Medical
             "medical_cure_predictor": {
-                "class": MedicalCurePredictor,
+                "class_": MedicalCurePredictor,
                 "category": "general",
                 "priority": "medium",
                 "description": "Temporal vital signs and medical imaging anomaly detection",
             },
             "abms_discipline_detector": {
-                "class": ABMSDisciplineDetector,
+                "class_": ABMSDisciplineDetector,
                 "category": "general",
                 "priority": "medium",
                 "description": "Multi-specialty medical anomaly detection across ABMS disciplines",
             },
         }
 
-    def get_module(self, module_name: str, **kwargs) -> Any:
+    def get_module(self, module_name: str, **kwargs: Any) -> Any:
         """Instantiate a specific module by name.
 
         Args:
@@ -187,7 +197,7 @@ class MedicalCoordinator:
                 f"Unknown module: {module_name}. Available: {list(self.modules.keys())}"
             )
 
-        module_class = self.modules[module_name]["class"]
+        module_class = self.modules[module_name]["class_"]
         return module_class(**kwargs)
 
     def get_modules_by_category(self, category: str) -> list[str]:
@@ -252,7 +262,7 @@ class MedicalCoordinator:
         categories: list[str] | None = None,
         priorities: list[str] | None = None,
         module_names: list[str] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Instantiate all modules matching filters.
 

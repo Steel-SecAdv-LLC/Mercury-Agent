@@ -286,8 +286,10 @@ class BaseDetector(ABC):
         Raises:
             ValueError: If threshold is not in valid [0, 1] range.
         """
-        self.config = config or {}
-        raw_threshold = self.config.get("threshold", 0.5)
+        # Store config in private attribute; subclasses may override config property
+        # with typed config objects (covariant return types are valid OOP)
+        self._config: dict[str, Any] = config or {}
+        raw_threshold = self._config.get("threshold", 0.5)
 
         # Fix for P0: Validate threshold is in [0, 1] range
         # Invalid thresholds cause incorrect anomaly classification
@@ -301,16 +303,36 @@ class BaseDetector(ABC):
 
         self.threshold = float(raw_threshold)
         self._is_fitted = False
-        self._name = self.config.get("name", self.__class__.__name__)
+        self._name = self._config.get("name", self.__class__.__name__)
         self._metrics = DetectorMetrics()
 
         # Auto-calibration settings (solves F1=0 problem)
-        self._auto_calibrate = self.config.get("auto_calibrate", False)
-        self._calibration_method = self.config.get("calibration_method", "auto")
-        self._contamination = self.config.get("contamination", 0.05)
-        self._calibration_manager = None
+        self._auto_calibrate = self._config.get("auto_calibrate", False)
+        self._calibration_method = self._config.get("calibration_method", "auto")
+        self._contamination = self._config.get("contamination", 0.05)
+        self._calibration_manager: Any = None  # ScoreCalibrationManager when initialized
         self._calibrated_threshold: float | None = None
         self._last_diagnostics: Any = None
+
+    @property
+    def config(self) -> Any:
+        """Get detector configuration.
+
+        Returns:
+            Configuration dict or typed config object.
+            Subclasses may override to return specific config types
+            (covariant return types are valid for property overrides).
+        """
+        return self._config
+
+    @config.setter
+    def config(self, value: Any) -> None:
+        """Set detector configuration."""
+        if isinstance(value, dict):
+            self._config = value
+        else:
+            # Allow subclasses to set typed config objects
+            self._config = value if hasattr(value, "__dict__") else {}
 
     @property
     def name(self) -> str:
@@ -563,11 +585,30 @@ class BaseModel(ABC):
         Args:
             config: Configuration dictionary with model parameters.
         """
-        self._config_dict = config or {}
-        # Use _config_dict for internal access to avoid property override issues
-        # Child classes may override self.config with a property that returns a typed config
-        self.config = self._config_dict
-        self._name = self._config_dict.get("name", self.__class__.__name__)
+        # Store config in private attribute; subclasses may override config property
+        # with typed config objects (covariant return types are valid OOP)
+        self._config: dict[str, Any] = config or {}
+        self._name = self._config.get("name", self.__class__.__name__)
+
+    @property
+    def config(self) -> Any:
+        """Get model configuration.
+
+        Returns:
+            Configuration dict or typed config object.
+            Subclasses may override to return specific config types
+            (covariant return types are valid for property overrides).
+        """
+        return self._config
+
+    @config.setter
+    def config(self, value: Any) -> None:
+        """Set model configuration."""
+        if isinstance(value, dict):
+            self._config = value
+        else:
+            # Allow subclasses to set typed config objects
+            self._config = value if hasattr(value, "__dict__") else {}
 
     @property
     def name(self) -> str:

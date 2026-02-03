@@ -385,6 +385,18 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
 
         self._load_model()
 
+        # Check if model/tokenizer are available after loading attempt
+        if self._model is None or self._tokenizer is None or not self._is_available:
+            return json.dumps(
+                {
+                    "is_anomaly": False,
+                    "anomaly_score": 0.0,
+                    "confidence": 0.0,
+                    "category": "unavailable",
+                    "explanation": "HuggingFace model could not be loaded",
+                }
+            )
+
         full_prompt = ""
         if system_prompt:
             full_prompt = f"System: {system_prompt}\n\nUser: {prompt}\n\nAssistant:"
@@ -472,7 +484,7 @@ class ZeroShotAnomalyDetector:
     def detect_batch(
         self,
         data_batch: list[Any],
-        contexts: list[dict[str, Any]] | None = None,
+        contexts: list[dict[str, Any] | None] | None = None,
     ) -> list[dict[str, Any]]:
         """
         Detect anomalies in batch.

@@ -326,9 +326,13 @@ class FinancialCrisisDetector:
             severity_level="stable",
         )
 
-        crisis_indicators = 0
+        crisis_indicators: float = 0
 
-        if self.enable_market and "market_data" in financial_data:
+        if (
+            self.enable_market
+            and "market_data" in financial_data
+            and self.market_detector is not None
+        ):
             market_result = self.market_detector.detect_market_crash(financial_data["market_data"])
             result.market_crash_detected = market_result["crash_detected"]
             result.vix_level = market_result["vix"]
@@ -339,7 +343,11 @@ class FinancialCrisisDetector:
                 result.confidence = max(result.confidence, 0.7)
                 result.crisis_type = CrisisType.MARKET_CRASH.value
 
-        if self.enable_banking and "banking_data" in financial_data:
+        if (
+            self.enable_banking
+            and "banking_data" in financial_data
+            and self.banking_detector is not None
+        ):
             banking_result = self.banking_detector.detect_banking_stress(
                 financial_data["banking_data"]
             )
@@ -361,7 +369,11 @@ class FinancialCrisisDetector:
                 result.fraud_indicators.append("Algorithmic manipulation detected")
                 crisis_indicators += 0.5
 
-        if self.enable_systemic and "network_data" in financial_data:
+        if (
+            self.enable_systemic
+            and "network_data" in financial_data
+            and self.systemic_analyzer is not None
+        ):
             systemic_result = self.systemic_analyzer.assess_systemic_risk(
                 financial_data["network_data"]
             )
@@ -390,6 +402,8 @@ class FinancialCrisisDetector:
 
     def _detect_fraud(self, trading_data: dict[str, Any]) -> dict[str, Any]:
         """Detect fraudulent trading patterns"""
+        if self.fraud_detector is None:
+            return {"fraud_detected": False, "fraud_probability": 0.0}
 
         if "trading_features" in trading_data:
             features = trading_data["trading_features"]

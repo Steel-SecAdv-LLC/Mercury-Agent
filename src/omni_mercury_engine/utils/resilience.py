@@ -86,7 +86,7 @@ class CircuitBreakerConfig:
     failure_threshold: int = 5
     success_threshold: int = 2
     reset_timeout: float = 60.0
-    excluded_exceptions: tuple = ()
+    excluded_exceptions: tuple[type[BaseException], ...] = ()
 
 
 class CircuitBreaker:
@@ -107,7 +107,7 @@ class CircuitBreaker:
         failure_threshold: int = 5,
         success_threshold: int = 2,
         reset_timeout: float = 60.0,
-        excluded_exceptions: tuple = (),
+        excluded_exceptions: tuple[type[BaseException], ...] = (),
         name: str = "default",
     ) -> None:
         """Initialize circuit breaker.
@@ -200,7 +200,7 @@ class CircuitBreaker:
                 self._record_failure()
                 raise
 
-        return wrapper  # type: ignore
+        return wrapper  # type: ignore[return-value]
 
     def reset(self) -> None:
         """Manually reset the circuit breaker."""
@@ -222,7 +222,7 @@ def retry(
     backoff_factor: float = 2.0,
     initial_delay: float = 1.0,
     max_delay: float = 60.0,
-    exceptions: tuple = (Exception,),
+    exceptions: tuple[type[Exception], ...] = (Exception,),
     on_retry: Callable[[Exception, int], None] | None = None,
 ) -> Callable[[F], F]:
     """Decorator for retry with exponential backoff.
@@ -275,7 +275,7 @@ def retry(
 
             raise RuntimeError(f"Retry logic error in {func.__name__}: {last_exception}")
 
-        return wrapper  # type: ignore
+        return wrapper  # type: ignore[return-value]
 
     return decorator
 
@@ -598,6 +598,6 @@ def timeout(seconds: float) -> Callable[[F], F]:
                 except TimeoutError:
                     raise TimeoutError(f"Function {func.__name__} timed out after {seconds}s")
 
-        return wrapper  # type: ignore
+        return wrapper  # type: ignore[return-value]
 
     return decorator

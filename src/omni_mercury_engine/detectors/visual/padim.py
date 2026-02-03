@@ -98,8 +98,6 @@ class PaDiMDetector(BaseVisualDetector):
 
         super().__init__(config)
         self.padim_config: PaDiMConfig = config
-        # Override _config to use the specific PaDiM config
-        self._config = config
 
         # Initialize backbone
         self._init_backbone()
@@ -344,6 +342,8 @@ class PaDiMDetector(BaseVisualDetector):
         Returns:
             Distance scores [B, H*W]
         """
+        if self.mean is None or self.cov_inv is None:
+            raise RuntimeError("Detector must be fitted before computing Mahalanobis distance")
         # Center features: [B, H*W, d]
         centered = patches - self.mean.unsqueeze(0)
 

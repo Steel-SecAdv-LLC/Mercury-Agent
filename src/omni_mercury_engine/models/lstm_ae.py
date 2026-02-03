@@ -200,10 +200,10 @@ class AnomalyDetector(LoggerMixin):
         )
         criterion = nn.MSELoss()
 
-        history = {"train_loss": [], "val_loss": []}
+        history: dict[str, list[float]] = {"train_loss": [], "val_loss": []}
         best_val_loss = float("inf")
         patience_counter = 0
-        best_state = None
+        best_state: dict[str, torch.Tensor] | None = None
 
         for epoch in range(epochs):
             # Training

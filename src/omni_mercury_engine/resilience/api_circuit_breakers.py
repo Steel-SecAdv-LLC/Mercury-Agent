@@ -34,13 +34,22 @@ exponential backoff settings for its use case.
 
 import logging
 from functools import wraps
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker, CircuitState
 
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+
+class _CircuitBreakerWrapper:
+    """Type stub for wrapped functions with circuit_breaker attribute."""
+
+    circuit_breaker: CircuitBreaker
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
+
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +185,7 @@ def get_integration_breaker(name: str) -> ExternalIntegrationCircuitBreaker:
 def with_circuit_breaker(
     breaker_type: str = "data_loader",
     name: str | None = None,
-) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+) -> Callable[[Callable[..., Any]], _CircuitBreakerWrapper]:
     """
     Decorator to wrap a function with circuit breaker protection.
 
@@ -193,9 +202,10 @@ def with_circuit_breaker(
             ...
     """
 
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+    def decorator(func: Callable[..., Any]) -> _CircuitBreakerWrapper:
         breaker_name = name or func.__name__
 
+        breaker: CircuitBreaker
         if breaker_type == "data_loader":
             breaker = get_data_loader_breaker(breaker_name)
         elif breaker_type == "detector":
@@ -209,8 +219,9 @@ def with_circuit_breaker(
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             return breaker.call(func, *args, **kwargs)
 
-        wrapper.circuit_breaker = breaker
-        return wrapper
+        # Add circuit_breaker attribute for introspection
+        wrapper.circuit_breaker = breaker  # type: ignore[attr-defined]
+        return cast("_CircuitBreakerWrapper", wrapper)
 
     return decorator
 
@@ -227,23 +238,23 @@ def get_all_breaker_stats() -> dict[str, dict[str, Any]]:
     for name, breaker in _data_loader_breakers.items():
         stats[f"data_loader:{name}"] = breaker.get_stats()
 
-    for name, breaker in _detector_breakers.items():
-        stats[f"detector:{name}"] = breaker.get_stats()
+    for name, det_breaker in _detector_breakers.items():
+        stats[f"detector:{name}"] = det_breaker.get_stats()
 
-    for name, breaker in _integration_breakers.items():
-        stats[f"integration:{name}"] = breaker.get_stats()
+    for name, int_breaker in _integration_breakers.items():
+        stats[f"integration:{name}"] = int_breaker.get_stats()
 
     return stats
 
 
 def reset_all_breakers() -> None:
     """Reset all circuit breakers to closed state."""
-    for breaker in _data_loader_breakers.values():
-        breaker.reset()
-    for breaker in _detector_breakers.values():
-        breaker.reset()
-    for breaker in _integration_breakers.values():
-        breaker.reset()
+    for dl_breaker in _data_loader_breakers.values():
+        dl_breaker.reset()
+    for det_breaker in _detector_breakers.values():
+        det_breaker.reset()
+    for int_breaker in _integration_breakers.values():
+        int_breaker.reset()
     logger.info("All circuit breakers reset")
 
 
@@ -256,16 +267,16 @@ def get_open_breakers() -> list[str]:
     """
     open_breakers: list[str] = []
 
-    for name, breaker in _data_loader_breakers.items():
-        if breaker.state == CircuitState.OPEN:
+    for name, dl_breaker in _data_loader_breakers.items():
+        if dl_breaker.state == CircuitState.OPEN:
             open_breakers.append(f"data_loader:{name}")
 
-    for name, breaker in _detector_breakers.items():
-        if breaker.state == CircuitState.OPEN:
+    for name, det_breaker in _detector_breakers.items():
+        if det_breaker.state == CircuitState.OPEN:
             open_breakers.append(f"detector:{name}")
 
-    for name, breaker in _integration_breakers.items():
-        if breaker.state == CircuitState.OPEN:
+    for name, int_breaker in _integration_breakers.items():
+        if int_breaker.state == CircuitState.OPEN:
             open_breakers.append(f"integration:{name}")
 
     return open_breakers

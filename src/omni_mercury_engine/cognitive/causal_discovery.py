@@ -383,7 +383,8 @@ class GrangerCausalityTest:
                     best_f = f_stat
                     best_p = p_value
 
-            except (linalg.LinAlgError, ValueError):
+            except (linalg.LinAlgError, ValueError) as e:
+                logger.debug(f"Granger causality F-test failed for lag {lag}: {e}")
                 continue
 
         is_causal = best_p < significance_level
@@ -1308,7 +1309,8 @@ class CausalDiscoveryEngine:
                     ate, _, _ = ps_est.ipw_ate(outcome)
 
                 ates.append(ate)
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Skipping bootstrap iteration due to estimation error: {e}")
                 continue
 
         if len(ates) < 10:

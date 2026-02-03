@@ -498,7 +498,7 @@ class PSYOPAnalyzer:
         if data.get("sensationalist_headline", False):
             credibility -= 0.15
 
-        return max(0.0, min(1.0, credibility))
+        return float(max(0.0, min(1.0, credibility)))
 
     def _detect_amplification_indicators(
         self, metrics: dict[str, Any], data: dict[str, Any]
@@ -585,7 +585,7 @@ class PSYOPAnalyzer:
         )
 
     def _assess_cognitive_vulnerabilities(
-        self, demographics: dict[str, Any], behavioral: dict
+        self, demographics: dict[str, Any], behavioral: dict[str, Any]
     ) -> list[CognitiveBias]:
         """Assess cognitive vulnerabilities of an audience."""
         vulnerabilities = []
@@ -617,7 +617,7 @@ class PSYOPAnalyzer:
         return list(set(vulnerabilities))  # Remove duplicates
 
     def _determine_influence_vectors(
-        self, media: dict[str, Any], demographics: dict
+        self, media: dict[str, Any], demographics: dict[str, Any]
     ) -> list[InfluenceVector]:
         """Determine effective influence vectors for audience."""
         vectors = []
@@ -668,7 +668,7 @@ class PSYOPAnalyzer:
         info_literacy = behavioral.get("information_literacy", 0.5)
         receptivity -= info_literacy * 0.15
 
-        return max(0.0, min(1.0, receptivity))
+        return float(max(0.0, min(1.0, receptivity)))
 
     def detect_influence_campaign(
         self, campaign_data: dict[str, Any]
@@ -758,7 +758,7 @@ class PSYOPAnalyzer:
         network_centrality = network.get("centrality_concentration", 0.3)
         confidence += network_centrality * 0.25
 
-        return min(1.0, confidence)
+        return float(min(1.0, confidence))
 
     def _classify_campaign_category(self, data: dict[str, Any]) -> PSYOPCategory:
         """Classify the PSYOP category of a campaign."""
@@ -947,7 +947,7 @@ class PSYOPAnalyzer:
             1 for n in narratives if n.get("stance") in ["strongly_oppose", "strongly_support"]
         ) / max(len(narratives), 1)
 
-        return (sentiment_polarization + opposing_narratives) / 2
+        return float((sentiment_polarization + opposing_narratives) / 2)
 
     def _assess_information_integrity(self, narratives: list[Any], operations: list[Any]) -> float:
         """Assess overall information integrity."""

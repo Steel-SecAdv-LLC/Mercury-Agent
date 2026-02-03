@@ -527,6 +527,7 @@ def calibrate_detector(
         return None, None
 
     # Select calibrator
+    calibrator: CalibrationEnsemble | PlattScaling | IsotonicCalibration | TemperatureScaling
     if method == "auto":
         calibrator = CalibrationEnsemble()
     elif method == "platt":

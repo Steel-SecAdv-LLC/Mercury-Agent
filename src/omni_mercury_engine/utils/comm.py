@@ -90,8 +90,8 @@ class AsyncMessageQueue:
     """
 
     def __init__(self, max_size: int = 1000) -> None:
-        self.queue: asyncio.Queue = asyncio.Queue(maxsize=max_size)
-        self.handlers: dict[str, list[Callable]] = {}
+        self.queue: asyncio.Queue[Message] = asyncio.Queue(maxsize=max_size)
+        self.handlers: dict[str, list[Callable[..., Any]]] = {}
         self.stats = {
             "messages_sent": 0,
             "messages_received": 0,
@@ -112,7 +112,8 @@ class AsyncMessageQueue:
             await self.queue.put(message)
             self.stats["messages_sent"] += 1
             return True
-        except asyncio.QueueFull:
+        except asyncio.QueueFull as e:
+            logger.warning(f"Failed to send message: {e}")
             self.stats["errors"] += 1
             return False
 
@@ -136,7 +137,8 @@ class AsyncMessageQueue:
             return message
         except TimeoutError:
             return None
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as e:
+            logger.warning(f"Failed to receive message: {e}")
             self.stats["errors"] += 1
             return None
 
@@ -189,7 +191,7 @@ class SimplePubSub:
     """
 
     def __init__(self) -> None:
-        self.subscribers: dict[str, list[Callable]] = {}
+        self.subscribers: dict[str, list[Callable[..., Any]]] = {}
 
     def subscribe(self, topic: str, callback: Callable[..., Any]) -> None:
         """
@@ -230,7 +232,7 @@ class SimplePubSub:
                     # Callback errors logged but don't break pub/sub flow
                     logger.debug(f"Publish callback error for topic '{topic}': {e}")
 
-    async def publish_async(self, topic: str, message: Any):
+    async def publish_async(self, topic: str, message: Any) -> None:
         """
         Asynchronously publish message to topic
 

@@ -292,29 +292,35 @@ class PandemicDetector:
         )
 
         if self.enable_surveillance and "case_data" in pandemic_data:
-            surge_result = self.surge_detector.detect_case_surge(pandemic_data["case_data"])
-            result.case_surge_detected = surge_result["surge_detected"]
-            result.doubling_time_days = surge_result["doubling_time_days"]
-            result.r0_estimate = surge_result["r0_estimate"]
+            if self.surge_detector is not None:
+                surge_result = self.surge_detector.detect_case_surge(pandemic_data["case_data"])
+                result.case_surge_detected = surge_result["surge_detected"]
+                result.doubling_time_days = surge_result["doubling_time_days"]
+                result.r0_estimate = surge_result["r0_estimate"]
 
-            if surge_result["surge_detected"]:
-                result.confidence = 0.7
-                result.outbreak_detected = True
+                if surge_result["surge_detected"]:
+                    result.confidence = 0.7
+                    result.outbreak_detected = True
 
         if self.enable_mutations and "genomic_data" in pandemic_data:
-            mutation_result = self.mutation_tracker.track_mutations(pandemic_data["genomic_data"])
-            result.mutation_detected = mutation_result["mutation_detected"]
-            result.variant_type = mutation_result["variant_type"]
-            result.concern_level = mutation_result["concern_level"]
-            result.antigenic_distance = mutation_result["antigenic_distance"]
-            result.vaccine_escape_probability = mutation_result["vaccine_escape_prob"]
-            result.treatment_resistance_probability = mutation_result["treatment_resistance_prob"]
-
-            if mutation_result["mutation_detected"]:
-                result.confidence = max(result.confidence, 0.8)
-                result.genomic_surveillance_alerts.append(
-                    f"Variant of {mutation_result['concern_level']} detected"
+            if self.mutation_tracker is not None:
+                mutation_result = self.mutation_tracker.track_mutations(
+                    pandemic_data["genomic_data"]
                 )
+                result.mutation_detected = mutation_result["mutation_detected"]
+                result.variant_type = mutation_result["variant_type"]
+                result.concern_level = mutation_result["concern_level"]
+                result.antigenic_distance = mutation_result["antigenic_distance"]
+                result.vaccine_escape_probability = mutation_result["vaccine_escape_prob"]
+                result.treatment_resistance_probability = mutation_result[
+                    "treatment_resistance_prob"
+                ]
+
+                if mutation_result["mutation_detected"]:
+                    result.confidence = max(result.confidence, 0.8)
+                    result.genomic_surveillance_alerts.append(
+                        f"Variant of {mutation_result['concern_level']} detected"
+                    )
 
         if self.enable_network and "network_data" in pandemic_data:
             hotspots = self._analyze_transmission_network(pandemic_data["network_data"])
@@ -341,6 +347,9 @@ class PandemicDetector:
             features = np.pad(features, (0, 63), mode="constant")
 
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
+
+        if self.network_analyzer is None:
+            return []
 
         self.network_analyzer.eval()
         with torch.no_grad():

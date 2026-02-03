@@ -180,8 +180,6 @@ class ReverseDistillationDetector(BaseVisualDetector):
 
         super().__init__(config)
         self.rd_config: ReverseDistillationConfig = config
-        # Override _config to use the specific ReverseDistillation config
-        self._config = config
 
         # Initialize teacher (pretrained, frozen)
         self._init_backbone()

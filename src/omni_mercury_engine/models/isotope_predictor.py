@@ -413,7 +413,7 @@ class IsotopePredictor:
             if result.isotope_type != "natural_isotope":
                 result.anomaly_detected = True
 
-        if self.enable_forensics and ratios:
+        if self.enable_forensics and ratios and self.forensics_analyzer is not None:
             forensics = self.forensics_analyzer.analyze_uranium_signature(ratios)
             result.nuclear_forensics = forensics
             result.enrichment_level = forensics["enrichment_percent"] / 100.0
@@ -422,7 +422,7 @@ class IsotopePredictor:
             if forensics["enrichment_category"] != "natural":
                 result.anomaly_detected = True
 
-        if self.enable_threat_assessment:
+        if self.enable_threat_assessment and self.threat_assessor is not None:
             threat_result = self.threat_assessor.assess_threat(
                 result.nuclear_forensics, result.enrichment_level or 0.0
             )
@@ -443,6 +443,13 @@ class IsotopePredictor:
 
     def _analyze_with_ml(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Analyze isotopes with ML model"""
+        if self.ratio_analyzer is None:
+            return {
+                "isotope_type": "natural_isotope",
+                "enrichment": 0.0,
+                "threat_level": "safe",
+                "confidence": 0.0,
+            }
 
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 

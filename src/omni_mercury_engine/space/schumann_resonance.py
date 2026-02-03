@@ -537,7 +537,7 @@ class SchumannResonanceDetector:
         self, fundamental_freq: float, temporal_pattern: dict | None, metadata: dict | None
     ) -> dict[str, Any]:
         """Correlate with ancient astronomical/geophysical cycles"""
-        correlations = {
+        correlations: dict[str, list[str]] = {
             "detected_cycles": [],
             "symbolic_significance": [],
             "harmonic_relationships": [],

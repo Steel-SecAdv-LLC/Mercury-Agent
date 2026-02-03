@@ -187,7 +187,7 @@ class RateLimiter:
         """
         # Handle legacy parameters
         is_legacy_mode = max_requests is not None
-        if is_legacy_mode:
+        if is_legacy_mode and max_requests is not None:
             requests_per_minute = max_requests
         _ = window_seconds  # Ignored, kept for backward compatibility
 

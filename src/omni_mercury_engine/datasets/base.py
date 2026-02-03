@@ -372,8 +372,13 @@ class DatasetLoader(ABC):
         # Default implementation - override for specific datasets
         return self.data_path.exists() and any(self.data_path.iterdir())
 
-    def get_metadata(self) -> DatasetMetadata:
-        """Get dataset metadata."""
+    def get_metadata(self) -> DatasetMetadata | dict[str, Any]:
+        """Get dataset metadata.
+
+        Returns:
+            DatasetMetadata object or dict with metadata.
+            Subclasses may return dict[str, Any] with additional domain-specific fields.
+        """
         if not self._is_loaded:
             self._load_and_cache()
 
@@ -436,7 +441,7 @@ class DatasetLoader(ABC):
 
         features, labels = self.load(split)
 
-        class TorchDataset(Dataset):  # type: ignore[type-arg]
+        class TorchDataset(Dataset):
             def __init__(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> None:
                 self.X = torch.FloatTensor(X)
                 self.y = torch.LongTensor(y)

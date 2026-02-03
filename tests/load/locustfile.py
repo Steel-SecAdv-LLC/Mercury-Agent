@@ -25,14 +25,12 @@ Environment Variables:
 
 from __future__ import annotations
 
-import json
 import os
 import random
 import time
-from typing import Any
 
 from locust import HttpUser, between, events, tag, task
-from locust.runners import MasterRunner
+
 
 # Configuration
 API_KEY = os.getenv("MERCURY_API_KEY", "")

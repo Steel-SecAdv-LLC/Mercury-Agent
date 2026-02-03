@@ -28,13 +28,17 @@ ensuring consistent API across PatchCore, PaDiM, STFPM, and other methods.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
 from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
+
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.core.base import DetectorMetrics
 
 
 class BackboneType(Enum):
@@ -116,7 +120,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         self.threshold = self.visual_config.threshold
         self._is_fitted = False
         self._name = self.__class__.__name__
-        self._metrics = None  # Will be initialized on first access if needed
+        self._metrics: DetectorMetrics | None = None  # type: ignore[assignment]
 
         self.device = torch.device(self.visual_config.device)
         self._backbone: nn.Module | None = None

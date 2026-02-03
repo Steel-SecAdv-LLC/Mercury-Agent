@@ -492,35 +492,38 @@ class EmergentLifeDetector:
         context = context or {}
 
         if self.enable_seti and analysis_type in ["seti", "comprehensive"]:
-            seti = self.seti_analyzer.detect_seti_anomaly(data, context)
-            if seti["seti_anomaly_detected"]:
+            seti = self.seti_analyzer.detect_seti_anomaly(data, context)  # type: ignore[union-attr]
+            if seti is not None and seti.get("seti_anomaly_detected"):
                 result.life_signal_detected = True
                 result.signal_type = "technosignature"
-                result.confidence = max(result.confidence, seti["seti_confidence"])
-                result.seti_technosignatures = seti["technosignatures"]
-                result.recommendations.extend(seti["recommendations"])
+                result.confidence = max(result.confidence, seti.get("seti_confidence", 0.0))
+                result.seti_technosignatures = seti.get("technosignatures", [])
+                result.recommendations.extend(seti.get("recommendations", []))
 
         if self.enable_biosignatures and analysis_type in ["biosignatures", "comprehensive"]:
-            biosig = self.biosig_recognizer.detect_biosignatures(
+            biosig = self.biosig_recognizer.detect_biosignatures(  # type: ignore[union-attr]
                 data, context.get("data_type", "atmospheric")
             )
-            if biosig["biosignatures_detected"]:
+            if biosig is not None and biosig.get("biosignatures_detected"):
                 result.life_signal_detected = True
                 result.signal_type = "biosignature"
-                result.confidence = max(result.confidence, biosig["confidence"])
-                result.bio_signature_patterns = biosig["biosignature_types"]
-                result.recommendations.extend(biosig["recommendations"])
+                result.confidence = max(result.confidence, biosig.get("confidence", 0.0))
+                result.bio_signature_patterns = biosig.get("biosignature_types", [])
+                result.recommendations.extend(biosig.get("recommendations", []))
 
         if (
             self.enable_contact_protocols
             and result.life_signal_detected
             and result.signal_type == "technosignature"
         ):
-            protocols = self.protocol_explorer.explore_contact_protocols(
+            protocols = self.protocol_explorer.explore_contact_protocols(  # type: ignore[union-attr]
                 {"confidence": result.confidence, "technosignatures": result.seti_technosignatures}
             )
-            result.contact_protocols = [p["protocol_id"] for p in protocols["optimal_protocols"]]
-            result.recommendations.extend(protocols["recommendations"])
+            if protocols is not None:
+                result.contact_protocols = [
+                    p["protocol_id"] for p in protocols.get("optimal_protocols", [])
+                ]
+                result.recommendations.extend(protocols.get("recommendations", []))
 
         result.anomaly_score = result.confidence
 

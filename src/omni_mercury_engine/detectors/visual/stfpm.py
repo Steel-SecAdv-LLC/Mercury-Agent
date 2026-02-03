@@ -108,8 +108,8 @@ class StudentNetwork(nn.Module):
             else:
                 raise ValueError(f"Unsupported backbone: {backbone_name}")
 
-        except ImportError:
-            raise ImportError("torchvision required for STFPM")
+        except ImportError as e:
+            raise ImportError("torchvision required for STFPM") from e
 
         # Feature extraction hooks
         self._features: dict[str, torch.Tensor] = {}
@@ -167,8 +167,6 @@ class STFPMDetector(BaseVisualDetector):
 
         super().__init__(config)
         self.stfpm_config: STFPMConfig = config
-        # Override _config to use the specific STFPM config
-        self._config = config
 
         # Initialize teacher (pretrained, frozen)
         self._init_backbone()

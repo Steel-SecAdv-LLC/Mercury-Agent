@@ -1118,9 +1118,8 @@ class OmniMercuryEngine(LoggerMixin):
             ... )
         """
         audit_config = BiasAuditConfig(
-            sensitive_features=sensitive_features or [],
+            protected_features=sensitive_features or [],
             fairness_threshold=fairness_threshold,
-            enable_mitigation=True,
         )
         self.fairness_auditor = FairnessAuditor(config=audit_config)
         logger.info(f"Fairness auditing enabled with threshold={fairness_threshold}")
@@ -1163,7 +1162,6 @@ class OmniMercuryEngine(LoggerMixin):
             model_name=model_name or "mock-model",
             api_key=api_key,
             timeout=timeout_seconds,
-            max_retries=2,
         )
         self.llm_detector = ZeroShotAnomalyDetector(config=llm_config)
         logger.info(f"LLM enhancement enabled with provider={provider}")
@@ -1259,20 +1257,24 @@ class OmniMercuryEngine(LoggerMixin):
             else:
                 data_str = f"Numerical data shape: {data.shape}"
 
-            llm_result = self.llm_detector.detect(
-                text=f"Anomaly detected in: {data_str}",
-                candidate_labels=[
+            context = {
+                "anomaly_detected": True,
+                "candidate_labels": [
                     "security_threat",
                     "system_failure",
                     "data_corruption",
                     "unusual_pattern",
                     "normal_variation",
                 ],
+            }
+            llm_result = self.llm_detector.detect(
+                data=f"Anomaly detected in: {data_str}",
+                context=context,
             )
             return {
-                "llm_explanation": llm_result.explanation,
-                "llm_category": llm_result.category,
-                "llm_confidence": llm_result.confidence,
+                "llm_explanation": llm_result.get("explanation", ""),
+                "llm_category": llm_result.get("category", "unknown"),
+                "llm_confidence": llm_result.get("confidence", 0.0),
             }
         except Exception as e:
             logger.error(f"LLM enhancement error: {e}")
@@ -2526,7 +2528,7 @@ class OmniMercuryEngine(LoggerMixin):
             else:
                 raise ValueError(f"Unsupported data format. Use .npz or .pkl: {training_data}")
         except Exception as e:
-            raise RuntimeError(f"Failed to load training data: {e}")
+            raise RuntimeError(f"Failed to load training data: {e}") from e
 
         # Create dataset and split
         dataset = AnomalyDataset(features_dict, labels)
@@ -2566,7 +2568,7 @@ class OmniMercuryEngine(LoggerMixin):
             model=self.fusion_model,
             learning_rate=learning_rate,
         )
-        trainer_module.optimizer_type = optimizer_type  # type: ignore[assignment]
+        trainer_module.optimizer_type = optimizer_type
 
         # Training state
         best_val_loss = float("inf")
@@ -2598,7 +2600,7 @@ class OmniMercuryEngine(LoggerMixin):
                 if use_mixed_precision and scaler is not None:
                     with torch.cuda.amp.autocast():
                         loss = trainer_module.training_step(batch, batch_idx)
-                    scaler.scale(loss / gradient_accumulation_steps).backward()  # type: ignore[no-untyped-call]
+                    scaler.scale(loss / gradient_accumulation_steps).backward()
 
                     if (batch_idx + 1) % gradient_accumulation_steps == 0:
                         scaler.step(optimizer)
@@ -2606,7 +2608,7 @@ class OmniMercuryEngine(LoggerMixin):
                         optimizer.zero_grad()
                 else:
                     loss = trainer_module.training_step(batch, batch_idx)
-                    (loss / gradient_accumulation_steps).backward()  # type: ignore[no-untyped-call]
+                    (loss / gradient_accumulation_steps).backward()
 
                     if (batch_idx + 1) % gradient_accumulation_steps == 0:
                         optimizer.step()

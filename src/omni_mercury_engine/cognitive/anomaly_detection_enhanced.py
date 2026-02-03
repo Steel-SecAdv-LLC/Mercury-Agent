@@ -245,7 +245,7 @@ class MemoryKnowledgeGraph:
         Returns:
             List of (node_id, relevance_score) tuples
         """
-        related = []
+        related: list[tuple[str, float]] = []
 
         if NETWORKX_AVAILABLE:
             if not self.graph.has_node(node_id):
@@ -653,7 +653,7 @@ class USGSEarthquakeSource(ExternalDataSource):
                             "significance": props.get("sig", 0),
                         },
                         confidence=confidence,
-                        timestamp=datetime.fromtimestamp(props.get("time", 0) / 1000, tz=UTC),
+                        timestamp=float(int(props.get("time", 0) or 0) / 1000),  # type: ignore[arg-type]
                     )
                 )
 

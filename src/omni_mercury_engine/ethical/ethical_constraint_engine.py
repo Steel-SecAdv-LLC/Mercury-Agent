@@ -478,7 +478,7 @@ class AthenaWisdomEngine:
                 }
             )
 
-        scored_options.sort(key=lambda x: x["score"], reverse=True)
+        scored_options.sort(key=lambda x: float(x["score"]), reverse=True)  # type: ignore[arg-type]
 
         return {
             "recommended_option": scored_options[0],
@@ -536,7 +536,7 @@ class AthenaWisdomEngine:
 
         return float(base_score * risk_factor * alignment)
 
-    def _compute_clarity(self, scored_options: list[dict]) -> float:
+    def _compute_clarity(self, scored_options: list[dict[str, Any]]) -> float:
         """Compute decision clarity from option scores."""
         if len(scored_options) < 2:
             return 1.0
@@ -858,16 +858,16 @@ class TwelveFoldVerificationSystem:
         context: dict[str, Any],
     ) -> dict[str, Any]:
         """Generate detailed analysis for each dimension."""
-        analysis = {
+        analysis: dict[str, Any] = {
             "summary": {
                 "passed_count": len(passed),
                 "failed_count": len(failed),
                 "total_dimensions": len(self.DIMENSIONS),
                 "pass_rate": len(passed) / len(self.DIMENSIONS),
             },
-            "recommendations": [],
-            "strengths": [],
-            "weaknesses": [],
+            "recommendations": list[str](),
+            "strengths": list[str](),
+            "weaknesses": list[str](),
         }
 
         for dim_name in passed:

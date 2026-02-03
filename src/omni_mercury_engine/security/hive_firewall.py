@@ -161,7 +161,7 @@ class HiveFirewall:
         signature = self._compute_signature_hash(data)
 
         existing = self.is_blocked(data)
-        if existing[0]:
+        if existing[0] and existing[1] is not None:
             return existing[1]
 
         worker_votes = self._worker_consensus(anomaly_score)
@@ -270,7 +270,7 @@ class HiveFirewall:
 
         return block
 
-    def allow_pattern(self, data: np.ndarray[Any, Any]):
+    def allow_pattern(self, data: np.ndarray[Any, Any]) -> None:
         """
         Whitelist a pattern (add to allowed patterns).
 
@@ -283,7 +283,7 @@ class HiveFirewall:
         if signature in self.blocked_threats:
             del self.blocked_threats[signature]
 
-    def report_false_positive(self, data: np.ndarray[Any, Any]):
+    def report_false_positive(self, data: np.ndarray[Any, Any]) -> None:
         """
         Report false positive and update trust scores.
 
@@ -304,7 +304,7 @@ class HiveFirewall:
         for supervisor in self.supervisor_nodes:
             supervisor.trust_score *= self.trust_decay
 
-    def update_node_trust(self, node_id: str, success: bool):
+    def update_node_trust(self, node_id: str, success: bool) -> None:
         """
         Update trust score for specific node.
 

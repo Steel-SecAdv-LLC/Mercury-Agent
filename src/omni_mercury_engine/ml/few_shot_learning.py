@@ -390,9 +390,12 @@ class PrototypicalNetworkNumpy(BaseFewShotLearner):
             self._initialize_projection(X.shape[1])
 
         # Handle dimension mismatch
+        assert self.projection_matrix is not None  # For type narrowing
         if X.shape[1] != self.projection_matrix.shape[0]:
             self._initialize_projection(X.shape[1])
 
+        assert self.projection_matrix is not None  # For type narrowing after re-init
+        assert self.projection_bias is not None
         embeddings = X @ self.projection_matrix + self.projection_bias
 
         # L2 normalize
@@ -494,9 +497,12 @@ class MatchingNetworkNumpy(BaseFewShotLearner):
         if self.projection_matrix is None:
             self._initialize_projection(X.shape[1])
 
+        assert self.projection_matrix is not None  # For type narrowing
         if X.shape[1] != self.projection_matrix.shape[0]:
             self._initialize_projection(X.shape[1])
 
+        assert self.projection_matrix is not None  # For type narrowing after re-init
+        assert self.projection_bias is not None
         embeddings = X @ self.projection_matrix + self.projection_bias
 
         # L2 normalize
@@ -511,6 +517,7 @@ class MatchingNetworkNumpy(BaseFewShotLearner):
 
     def _attention_weights(self, query_embeddings: NDArray[np.float64]) -> NDArray[np.float64]:
         """Compute attention weights between query and support."""
+        assert self.support_embeddings is not None  # For type narrowing
         if self.use_cosine_attention:
             # Cosine similarity (already L2 normalized)
             similarities = query_embeddings @ self.support_embeddings.T
@@ -600,9 +607,12 @@ class SiameseNetworkNumpy(BaseFewShotLearner):
         if self.projection_matrix is None:
             self._initialize_projection(X.shape[1])
 
+        assert self.projection_matrix is not None  # For type narrowing
         if X.shape[1] != self.projection_matrix.shape[0]:
             self._initialize_projection(X.shape[1])
 
+        assert self.projection_matrix is not None  # For type narrowing after re-init
+        assert self.projection_bias is not None
         embeddings = X @ self.projection_matrix + self.projection_bias
 
         # Apply ReLU

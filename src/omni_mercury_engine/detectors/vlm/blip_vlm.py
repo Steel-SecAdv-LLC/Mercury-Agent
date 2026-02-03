@@ -208,7 +208,6 @@ class BLIPVLMDetector(BaseVLMDetector):
 
         super().__init__(config)
         self.blip_config: BLIPConfig = config
-        self._config = config
 
         # Feature projection for 128D normalization
         self._feature_projection: FeatureProjection | None = None
@@ -299,12 +298,10 @@ class BLIPVLMDetector(BaseVLMDetector):
         response_lower = response.lower()
 
         # Count anomaly and normal keyword matches
-        anomaly_matches = sum(
-            1 for kw in self.blip_config.anomaly_keywords if kw.lower() in response_lower
-        )
-        normal_matches = sum(
-            1 for kw in self.blip_config.normal_keywords if kw.lower() in response_lower
-        )
+        anomaly_keywords = self.blip_config.anomaly_keywords or []
+        normal_keywords = self.blip_config.normal_keywords or []
+        anomaly_matches = sum(1 for kw in anomaly_keywords if kw.lower() in response_lower)
+        normal_matches = sum(1 for kw in normal_keywords if kw.lower() in response_lower)
 
         # Also check for user-specified anomaly description
         anomaly_desc_lower = self.blip_config.anomaly_description.lower()

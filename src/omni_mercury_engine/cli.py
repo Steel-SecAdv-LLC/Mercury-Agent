@@ -275,6 +275,10 @@ def _start_voice_conversation(
     click.echo("=" * 60)
     click.echo()
 
+    # Declare voice_instance with Any type to handle both MercuryVoice and _FallbackVoice
+    voice_instance: Any
+    llm_chain: Any = None
+
     # Try to import voice module
     try:
         from omni_mercury_engine.models.foundation.ollama_adapter import (
