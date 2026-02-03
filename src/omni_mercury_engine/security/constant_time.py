@@ -303,7 +303,7 @@ class SecureAnomalyChecker:
         """
         if self.enable_constant_time:
             return constant_time_array_compare(features, known_pattern, tolerance)
-        return np.allclose(features, known_pattern, atol=tolerance)
+        return bool(np.allclose(features, known_pattern, atol=tolerance))
 
     def get_stats(self) -> dict[str, Any]:
         """Get checker statistics.

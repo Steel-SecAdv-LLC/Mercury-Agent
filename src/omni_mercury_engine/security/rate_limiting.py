@@ -186,9 +186,9 @@ class RateLimiter:
             window_seconds: Ignored (always uses per-minute rate)
         """
         # Handle legacy parameters
-        if max_requests is not None:
-            requests_per_minute = max_requests
         is_legacy_mode = max_requests is not None
+        if is_legacy_mode and max_requests is not None:
+            requests_per_minute = max_requests
         _ = window_seconds  # Ignored, kept for backward compatibility
 
         self.requests_per_minute = requests_per_minute

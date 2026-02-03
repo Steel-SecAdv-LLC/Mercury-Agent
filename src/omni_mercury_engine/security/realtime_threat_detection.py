@@ -249,7 +249,7 @@ class AdaptiveThreatDetector(RealTimeThreatDetector):
     Implements online learning for continuous adaptation to evolving threats.
     """
 
-    def __init__(self, *args, update_frequency: int = 100, **kwargs) -> None:
+    def __init__(self, *args: Any, update_frequency: int = 100, **kwargs: Any) -> None:
         """
         Initialize adaptive threat detector.
 

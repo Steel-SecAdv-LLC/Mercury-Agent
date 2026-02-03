@@ -63,7 +63,7 @@ try:
 
     SYMPY_AVAILABLE = True
 except ImportError:
-    sympy = None  # type: ignore
+    sympy = None
     SYMPY_AVAILABLE = False
 
 
@@ -605,7 +605,7 @@ def compute_ethical_autonomy(
     return min(0.95, autonomy)
 
 
-def get_constant(name: str, precision: Precision = Precision.FLOAT64) -> float:
+def get_constant(name: str, precision: Precision = Precision.FLOAT64) -> float | Any:
     """
     Get a mathematical constant by name with specified precision.
 

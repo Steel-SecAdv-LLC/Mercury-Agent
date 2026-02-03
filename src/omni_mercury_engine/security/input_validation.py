@@ -655,7 +655,7 @@ class TrustedEndpoints:
         params: dict[str, str] | None = None,
         headers: dict[str, str] | None = None,
         timeout: int = 60,
-    ):
+    ) -> Any:
         """
         Securely open a URL after validating scheme and domain.
 

@@ -36,7 +36,7 @@ try:
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None  # type: ignore[assignment]
+    torch = None
     TORCH_AVAILABLE = False
 
 from omni_mercury_engine.utils.comm import AsyncMessageQueue, Message, MessagePriority, SimplePubSub
@@ -105,7 +105,10 @@ def normalize_data(
     """
     is_torch = TORCH_AVAILABLE and torch is not None and isinstance(data, torch.Tensor)
 
-    data_np = data.cpu().numpy() if is_torch else data
+    if is_torch:
+        data_np = data.cpu().numpy()  # type: ignore[union-attr]
+    else:
+        data_np = data
 
     if method == "standard":
         mean = np.mean(data_np, axis=0)
@@ -274,7 +277,7 @@ def compute_time_dilation(
 
     time_dilation = np.clip(time_dilation, 1.0, 10.0)
 
-    return time_dilation
+    return np.asarray(time_dilation)
 
 
 def convert_numpy_for_json(obj: Any) -> Any:
