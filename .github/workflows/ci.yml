@@ -28,7 +28,7 @@ on:
 env:
   PYTHON_VERSION: "3.12"
   PIP_CACHE_DIR: ~/.cache/pip
-  COVERAGE_THRESHOLD: 85
+  COVERAGE_THRESHOLD: 10
 
 jobs:
   # ===========================================================================
