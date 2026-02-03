@@ -19,6 +19,15 @@ import numpy as np
 import pytest
 
 
+def _plotly_available() -> bool:
+    """Check if plotly is available."""
+    try:
+        import plotly  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
 # ============================================================================
 # Test Enhanced Statistical Detectors
 # ============================================================================
@@ -751,15 +760,6 @@ class TestVisualizationDashboard:
         figures = dashboard.build()
 
         assert len(figures) > 0
-
-
-def _plotly_available() -> bool:
-    """Check if plotly is available."""
-    try:
-        import plotly  # noqa: F401
-        return True
-    except ImportError:
-        return False
 
 
 # ============================================================================
