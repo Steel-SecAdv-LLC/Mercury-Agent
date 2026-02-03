@@ -50,9 +50,9 @@ logger = logging.getLogger(__name__)
 # NumPy 2.0+ compatibility: trapz was renamed to trapezoid
 _trapz: Callable[..., float]
 if hasattr(np, "trapezoid"):
-    _trapz = np.trapezoid
+    _trapz = getattr(np, "trapezoid")
 else:
-    _trapz = np.trapz
+    _trapz = getattr(np, "trapz")
 
 
 @dataclass
@@ -95,7 +95,7 @@ class ValidationResult:
     f1_score: float
     auc_roc: float
     auc_pr: float
-    confusion_matrix: np.ndarray
+    confusion_matrix: np.ndarray[Any, Any]
     quality_checks: list[QualityCheckResult]
     validation_time_seconds: float
     num_samples: int
