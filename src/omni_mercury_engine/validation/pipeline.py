@@ -50,9 +50,9 @@ logger = logging.getLogger(__name__)
 # NumPy 2.0+ compatibility: trapz was renamed to trapezoid
 _trapz: Callable[..., float]
 if hasattr(np, "trapezoid"):
-    _trapz = getattr(np, "trapezoid")
+    _trapz = np.trapezoid
 else:
-    _trapz = getattr(np, "trapz")
+    _trapz = np.trapz
 
 
 @dataclass

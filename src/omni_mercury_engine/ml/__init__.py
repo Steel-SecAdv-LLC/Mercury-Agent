@@ -137,6 +137,20 @@ if HAS_TORCH or TYPE_CHECKING:
         SpatialAttention,
         TemporalAttention,
     )
+    from omni_mercury_engine.ml.cortical_network import (
+        CorticalColumn,
+        CorticalConfig,
+        CorticalLaminatedNetwork,
+        CorticalLoss,
+        GolgiAnalyzer,
+        HebbianLearningRule,
+        LateralInhibition,
+        NisslAnalyzer,
+        SparseCoding,
+        SpikeTimingDependentPlasticity,
+        ThalamocorticalGate,
+        WeigertAnalyzer,
+    )
     from omni_mercury_engine.ml.encoders import (
         AffectiveEncoder,
         AstrophysicalEncoder,
@@ -164,20 +178,6 @@ if HAS_TORCH or TYPE_CHECKING:
         FusionTrainer,
         LyapunovAnomalyLoss,
         ThreeRAnomalyTrainer,
-    )
-    from omni_mercury_engine.ml.cortical_network import (
-        CorticalColumn,
-        CorticalConfig,
-        CorticalLaminatedNetwork,
-        CorticalLoss,
-        GolgiAnalyzer,
-        HebbianLearningRule,
-        LateralInhibition,
-        NisslAnalyzer,
-        SparseCoding,
-        SpikeTimingDependentPlasticity,
-        ThalamocorticalGate,
-        WeigertAnalyzer,
     )
 
 

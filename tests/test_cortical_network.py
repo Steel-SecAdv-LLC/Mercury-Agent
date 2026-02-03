@@ -159,9 +159,6 @@ class TestHebbianLearning:
         x = torch.tensor([[1.0, 0.0, 0.0, 0.0]])  # Only first input active
         y = torch.tensor([[1.0, 0.0]])  # Only first output active
 
-        # Get current weight
-        initial_weight_00 = hebbian.weight[0, 0].item()
-
         # Apply Hebbian update
         delta = hebbian.hebbian_update(x, y)
 
