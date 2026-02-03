@@ -49,6 +49,7 @@ from scipy.fft import fft
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 
+
 logger = logging.getLogger(__name__)
 
 

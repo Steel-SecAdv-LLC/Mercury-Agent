@@ -53,7 +53,10 @@ if not HAS_STABLE_BASELINES:
     logger.debug("stable-baselines3 not available, using mock trainer")
 else:
     from stable_baselines3 import PPO  # type: ignore[import-not-found]
-    from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize  # type: ignore[import-not-found]
+    from stable_baselines3.common.vec_env import (  # type: ignore[import-not-found]
+        DummyVecEnv,
+        VecNormalize,
+    )
 
 
 @dataclass

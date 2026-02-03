@@ -15,7 +15,7 @@ silently suppressing errors.
 from __future__ import annotations
 
 import logging
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -263,9 +263,9 @@ class TestObservabilityErrorHandling:
 
     def test_file_audit_handler_destructor_safe(self):
         """Test that FileAuditHandler destructor handles errors safely."""
-        from omni_mercury_engine.infrastructure.observability import FileAuditHandler
         import tempfile
-        import os
+
+        from omni_mercury_engine.infrastructure.observability import FileAuditHandler
 
         # Create a temporary directory
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -340,11 +340,11 @@ class TestFewShotLearningHardNegativeMining:
 
     def test_hard_negative_mining_selects_challenging_samples(self):
         """Test that hard negatives are actually closer to other class prototypes."""
+
         from omni_mercury_engine.ml.few_shot_learning import (
             EpisodeGenerator,
             EpisodeSamplingStrategy,
         )
-        from scipy.spatial.distance import cdist
 
         np.random.seed(42)
         n_samples = 100

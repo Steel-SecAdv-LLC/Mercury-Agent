@@ -47,8 +47,9 @@ import os
 import re
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from enum import Enum
-from typing import Any, Callable, Awaitable
+from typing import Any
 
 import numpy as np
 from fastapi import FastAPI, HTTPException, Request, Response, status
@@ -56,6 +57,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
+
 
 # Type alias for ASGI middleware call_next parameter
 RequestResponseEndpoint = Callable[[Request], Awaitable[Response]]

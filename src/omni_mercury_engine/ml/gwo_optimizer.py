@@ -37,6 +37,7 @@ Reference: Mirjalili et al. (2014) - Grey Wolf Optimizer
 
 import numpy as np
 
+
 logger = logging.getLogger(__name__)
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
