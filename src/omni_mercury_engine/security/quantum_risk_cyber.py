@@ -311,9 +311,7 @@ class QuantumRiskCyber:
             ),
         }
 
-    def prioritize_crypto_upgrades(
-        self, systems: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def prioritize_crypto_upgrades(self, systems: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         Prioritize cryptographic systems for upgrade.
 

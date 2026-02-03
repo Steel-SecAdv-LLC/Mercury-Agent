@@ -379,7 +379,9 @@ class ConformalAnomalyDetector:
         self.seed = seed
 
         # Type annotation for conformal predictor
-        self.conformal: SplitConformalPredictor | CrossConformalPredictor | AdaptiveConformalInference
+        self.conformal: (
+            SplitConformalPredictor | CrossConformalPredictor | AdaptiveConformalInference
+        )
         if method == "split":
             self.conformal = SplitConformalPredictor(coverage=coverage, seed=seed)
         elif method == "cross":
