@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Real Substantive Tests for Resilience Infrastructure
 
@@ -36,7 +37,6 @@ Tests cover:
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -62,7 +62,7 @@ class TestCircuitBreakerStateMachine:
             raise ValueError("Test failure")
 
         # Trigger exactly threshold failures
-        for i in range(3):
+        for _i in range(3):
             try:
                 breaker.call(failing_func)
             except ValueError:
@@ -366,7 +366,7 @@ class TestThreadSafety:
                     def success_func():
                         return "ok"
 
-                    result = breaker.call(success_func)
+                    breaker.call(success_func)
                     with lock:
                         success_count["value"] += 1
             except (ValueError, Exception):

@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Tests for Cortical-Laminated Neural Network Architecture
 
@@ -31,8 +32,6 @@ Tests cover:
 7. CorticalLoss function components
 """
 
-import numpy as np
-import pytest
 import torch
 from numpy.testing import assert_allclose
 
@@ -398,7 +397,7 @@ class TestNisslAnalyzer:
 
         results = analyzer.analyze_activations()
 
-        for name, metrics in results.items():
+        for _name, metrics in results.items():
             assert "sparsity" in metrics
             assert "mean" in metrics
             assert "std" in metrics
@@ -422,7 +421,7 @@ class TestWeigertAnalyzer:
         assert "bottleneck_layers" in results
 
         # Should have metrics for linear layers
-        for name, metrics in results["layer_metrics"].items():
+        for _name, metrics in results["layer_metrics"].items():
             assert "strong_connection_ratio" in metrics
             assert "weak_connection_ratio" in metrics
             assert "weight_entropy" in metrics

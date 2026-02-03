@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Cortical-Laminated Neural Network Architecture
 
@@ -1011,9 +1012,17 @@ class CorticalLoss(nn.Module):
         """
         # Task loss
         if task_type == "classification":
-            if targets.dim() > 1 and targets.shape[1] > 1:
-                task_loss = F.cross_entropy(predictions, targets.argmax(dim=1))
+            # Check if multi-class classification (predictions have multiple classes)
+            if predictions.dim() > 1 and predictions.shape[1] > 1:
+                # Multi-class: use cross_entropy with class indices
+                if targets.dim() > 1 and targets.shape[1] > 1:
+                    # One-hot encoded targets
+                    task_loss = F.cross_entropy(predictions, targets.argmax(dim=1))
+                else:
+                    # Class index targets
+                    task_loss = F.cross_entropy(predictions, targets.long())
             else:
+                # Binary classification
                 task_loss = F.binary_cross_entropy_with_logits(
                     predictions.squeeze(), targets.float()
                 )
@@ -1109,11 +1118,14 @@ class SpikeTimingDependentPlasticity(nn.Module):
         # Time differences: post - pre (positive = causal, potentiation)
         dt = post_times.unsqueeze(1) - pre_times.unsqueeze(2)  # [batch, pre, post]
 
-        # STDP kernel
-        # Potentiation for dt > 0 (pre before post)
-        potentiation = self.a_plus * torch.exp(-dt.clamp(min=0) / self.tau_plus)
-        # Depression for dt < 0 (post before pre)
-        depression = -self.a_minus * torch.exp(dt.clamp(max=0) / self.tau_minus)
+        # STDP kernel with proper masking
+        # Potentiation for dt > 0 (pre before post) - causal timing
+        potentiation_mask = (dt > 0).float()
+        potentiation = self.a_plus * torch.exp(-dt.abs() / self.tau_plus) * potentiation_mask
+
+        # Depression for dt < 0 (post before pre) - anti-causal timing
+        depression_mask = (dt < 0).float()
+        depression = -self.a_minus * torch.exp(-dt.abs() / self.tau_minus) * depression_mask
 
         # Combine and average over batch
         delta_w = (potentiation + depression).mean(dim=0)
