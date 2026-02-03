@@ -78,7 +78,8 @@ class TestTimeGPTAdapter:
         forecast = adapter.forecast(univariate_data, horizon=10)
 
         assert forecast is not None
-        assert len(forecast) == 10
+        assert "forecast" in forecast
+        assert len(forecast["forecast"]) == 10
 
 
 class TestChronosAdapter:
