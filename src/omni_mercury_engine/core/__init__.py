@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
+
 """Core modules for Mercury Agent ♱."""
 
 from omni_mercury_engine.core.double_helix_engine import (
@@ -81,7 +82,7 @@ __all__ = [
 
 
 # Lazy imports for engine configuration (requires pydantic)
-def get_default_config() -> "MercuryEngineConfig":
+def get_default_config() -> MercuryEngineConfig:
     """Get the global default configuration. Lazy import to avoid pydantic at module load."""
     from omni_mercury_engine.core.engine_config import get_default_config as _get
 
