@@ -1376,7 +1376,8 @@ class KnowledgeGraph:
                 from scipy.cluster.vq import kmeans2
 
                 centroids, labels = kmeans2(eigenvectors.real, n_clusters, minit="points")
-            except Exception:
+            except Exception as e:
+                logger.debug("Spectral clustering failed, assigning all nodes to cluster 0: %s", e)
                 labels = np.zeros(n_nodes, dtype=int)
 
             # Store in nodes

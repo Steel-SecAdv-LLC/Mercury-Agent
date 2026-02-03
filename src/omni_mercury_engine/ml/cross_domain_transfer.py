@@ -504,8 +504,9 @@ class CORALAdapter(BaseDomainAdapter):
             if np.iscomplexobj(sqrt_cov):
                 sqrt_cov = np.real(sqrt_cov)
             return sqrt_cov
-        except Exception:
-            # Fallback to eigendecomposition
+        except Exception as e:
+            # Fallback to eigendecomposition when scipy.sqrtm fails (e.g., near-singular matrix)
+            logger.debug("Matrix sqrt via sqrtm failed, using eigendecomposition fallback: %s", e)
             eigenvalues, eigenvectors = np.linalg.eigh(cov_reg)
             eigenvalues = np.maximum(eigenvalues, 1e-10)
             sqrt_eigenvalues = np.sqrt(eigenvalues)

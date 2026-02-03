@@ -632,8 +632,8 @@ class RealWorldBenchmarkRunner:
             if hasattr(detector, "get_gosnn_scalars"):
                 scalars = detector.get_gosnn_scalars()
                 metrics.benevolence_score = scalars.get("benevolence", 1.0)
-        except Exception:
-            pass  # Benevolence scoring optional, continue without it
+        except Exception as e:
+            logger.debug("Benevolence scoring unavailable: %s", e)
 
         result = BenchmarkResult(
             dataset=info,
