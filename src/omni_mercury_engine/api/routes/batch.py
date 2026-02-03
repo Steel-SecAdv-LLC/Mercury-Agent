@@ -20,7 +20,7 @@ import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 import numpy as np
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/batch", tags=["Batch Processing"])
 
 
-class JobStatus(str, Enum):
+class JobStatus(StrEnum):
     """Batch job status states."""
 
     PENDING = "pending"
@@ -46,7 +46,7 @@ class JobStatus(str, Enum):
     PARTIAL = "partial"
 
 
-class BatchDetectionMethod(str, Enum):
+class BatchDetectionMethod(StrEnum):
     """Detection methods available for batch processing."""
 
     UNIVARIATE = "univariate"

@@ -31,7 +31,7 @@ import platform
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Response, status
@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 _start_time = time.time()
 
 
-class HealthStatus(str, Enum):
+class HealthStatus(StrEnum):
     """Health status levels."""
 
     HEALTHY = "healthy"
@@ -55,7 +55,7 @@ class HealthStatus(str, Enum):
     UNHEALTHY = "unhealthy"
 
 
-class ComponentStatus(str, Enum):
+class ComponentStatus(StrEnum):
     """Individual component status."""
 
     UP = "up"

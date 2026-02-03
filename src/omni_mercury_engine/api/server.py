@@ -48,7 +48,7 @@ import re
 import time
 import uuid
 from collections.abc import Awaitable, Callable
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 import numpy as np
@@ -403,7 +403,7 @@ if _allowed_origins:
 
 
 # Enums for API parameters
-class DetectionMethod(str, Enum):
+class DetectionMethod(StrEnum):
     """Available anomaly detection methods."""
 
     ZSCORE = "zscore"
@@ -411,7 +411,7 @@ class DetectionMethod(str, Enum):
     ISOLATION_FOREST = "isolation_forest"
 
 
-class SeverityLevel(str, Enum):
+class SeverityLevel(StrEnum):
     """Severity levels for detected anomalies."""
 
     LOW = "low"

@@ -24,7 +24,7 @@ import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 
@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/export", tags=["Data Export"])
 
 
-class ExportFormat(str, Enum):
+class ExportFormat(StrEnum):
     """Supported export formats."""
 
     JSON = "json"
@@ -52,7 +52,7 @@ class ExportFormat(str, Enum):
     PARQUET = "parquet"
 
 
-class ExportType(str, Enum):
+class ExportType(StrEnum):
     """Types of data to export."""
 
     DETECTIONS = "detections"
@@ -62,7 +62,7 @@ class ExportType(str, Enum):
     JOBS = "jobs"
 
 
-class ExportStatus(str, Enum):
+class ExportStatus(StrEnum):
     """Export job status."""
 
     PENDING = "pending"

@@ -23,7 +23,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/models", tags=["Model Management"])
 
 
-class ModelType(str, Enum):
+class ModelType(StrEnum):
     """Supported model types."""
 
     FUSION = "fusion"
@@ -50,7 +50,7 @@ class ModelType(str, Enum):
     CUSTOM = "custom"
 
 
-class ModelStatus(str, Enum):
+class ModelStatus(StrEnum):
     """Model deployment status."""
 
     DRAFT = "draft"
@@ -60,7 +60,7 @@ class ModelStatus(str, Enum):
     ARCHIVED = "archived"
 
 
-class ModelFramework(str, Enum):
+class ModelFramework(StrEnum):
     """Model framework/runtime."""
 
     PYTORCH = "pytorch"
