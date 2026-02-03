@@ -11,15 +11,14 @@ Generates consolidated publication-quality benchmark visualizations for v1.2.0:
 """
 
 import json
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from matplotlib.gridspec import GridSpec
-from matplotlib.patches import FancyBboxPatch
-import matplotlib.patches as mpatches
+
 
 # Use professional style
 plt.style.use("seaborn-v0_8-whitegrid")

@@ -414,7 +414,7 @@ class MetaLearner:
             return
 
         n_detectors = len(detector_names)
-        n_batches = len(data_batches)
+        # n_batches used implicitly in array operations
 
         # Extract meta-features for all batches
         X = np.array([self.extract_meta_features(d) for d in data_batches])
@@ -700,7 +700,7 @@ class EnsembleCoordinator:
         # Select strategy
         if self.strategy == EnsembleStrategy.CASCADING and self._cascade:
             scores, used_detectors = self._cascade.detect(data)
-            detector_scores = {d: scores for d in used_detectors}
+            detector_scores = dict.fromkeys(used_detectors, scores)
         else:
             # Run all active detectors
             detector_scores = self._run_detectors(data)
@@ -1011,14 +1011,8 @@ class EnsembleCoordinator:
         if not self._feedback_buffer:
             return
 
-        # Collect all feedback
-        all_predictions = np.concatenate([p for p, _ in self._feedback_buffer])
-        all_labels = np.concatenate([l for _, l in self._feedback_buffer])
-
-        # Optimize weights
-        current_weights = {name: entry.weight for name, entry in self._detectors.items()}
-
-        # Note: In production, we would use actual detector scores here
+        # Feedback buffer contains (predictions, labels) tuples
+        # These are used for weight optimization in production scenarios
         # For now, use a simple performance-based update
         for name, entry in self._detectors.items():
             if entry.metrics.f1_score > 0:

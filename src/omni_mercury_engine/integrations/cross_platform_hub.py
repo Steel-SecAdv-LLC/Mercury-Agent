@@ -20,12 +20,11 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
@@ -33,7 +32,7 @@ import numpy as np
 
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable
+    from collections.abc import AsyncIterator
 
 
 logger = logging.getLogger(__name__)
@@ -162,7 +161,7 @@ class AnomalyEvent:
 
         return cls(
             event_id=event_id,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             source=source,
             severity=severity,
             score=score,
@@ -190,14 +189,14 @@ class DataTransformer:
         )
 
         lines = [
-            f"# HELP mercury_anomaly_score Anomaly score from Mercury Agent",
-            f"# TYPE mercury_anomaly_score gauge",
+            "# HELP mercury_anomaly_score Anomaly score from Mercury Agent",
+            "# TYPE mercury_anomaly_score gauge",
             f"mercury_anomaly_score{{{labels}}} {event.score}",
-            f"# HELP mercury_anomaly_detected Whether anomaly was detected",
-            f"# TYPE mercury_anomaly_detected gauge",
+            "# HELP mercury_anomaly_detected Whether anomaly was detected",
+            "# TYPE mercury_anomaly_detected gauge",
             f"mercury_anomaly_detected{{{labels}}} {1 if event.is_anomaly else 0}",
-            f"# HELP mercury_anomaly_confidence Detection confidence",
-            f"# TYPE mercury_anomaly_confidence gauge",
+            "# HELP mercury_anomaly_confidence Detection confidence",
+            "# TYPE mercury_anomaly_confidence gauge",
             f"mercury_anomaly_confidence{{{labels}}} {event.confidence}",
         ]
 
@@ -569,16 +568,15 @@ class PrometheusAdapter(PlatformAdapter):
 
             payload = "\n".join(self._metrics_buffer) + "\n"
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{self.config.endpoint}/metrics/job/mercury_agent",
-                    data=payload.encode(),
-                    headers={"Content-Type": "text/plain"},
-                ) as resp:
-                    success = resp.status in (200, 202)
-                    if success:
-                        self._metrics_buffer.clear()
-                    return success
+            async with aiohttp.ClientSession() as session, session.post(
+                f"{self.config.endpoint}/metrics/job/mercury_agent",
+                data=payload.encode(),
+                headers={"Content-Type": "text/plain"},
+            ) as resp:
+                success = resp.status in (200, 202)
+                if success:
+                    self._metrics_buffer.clear()
+                return success
 
         except ImportError:
             logger.warning("aiohttp not installed")
@@ -599,19 +597,18 @@ class PrometheusAdapter(PlatformAdapter):
 
             promql = query.get("query", "mercury_anomaly_score")
 
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    f"{self.config.endpoint}/api/v1/query",
-                    params={"query": promql},
-                ) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        for result in data.get("data", {}).get("result", []):
-                            yield {
-                                "metric": result.get("metric", {}),
-                                "value": result.get("value", [0, 0])[1],
-                                "timestamp": result.get("value", [0, 0])[0],
-                            }
+            async with aiohttp.ClientSession() as session, session.get(
+                f"{self.config.endpoint}/api/v1/query",
+                params={"query": promql},
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    for result in data.get("data", {}).get("result", []):
+                        yield {
+                            "metric": result.get("metric", {}),
+                            "value": result.get("value", [0, 0])[1],
+                            "timestamp": result.get("value", [0, 0])[0],
+                        }
 
         except ImportError:
             logger.warning("aiohttp not installed")
@@ -663,13 +660,12 @@ class OpenTelemetryAdapter(PlatformAdapter):
 
             data = DataTransformer.to_opentelemetry(event)
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{self.config.endpoint}/v1/metrics",
-                    json=data,
-                    headers={"Content-Type": "application/json"},
-                ) as resp:
-                    return resp.status in (200, 202)
+            async with aiohttp.ClientSession() as session, session.post(
+                f"{self.config.endpoint}/v1/metrics",
+                json=data,
+                headers={"Content-Type": "application/json"},
+            ) as resp:
+                return resp.status in (200, 202)
 
         except ImportError:
             logger.warning("aiohttp not installed")
@@ -1000,6 +996,7 @@ class CrossPlatformHub:
             "registered_platforms": len(self._adapters),
             "active_routes": len(self._routes),
             "buffered_events": len(self._event_buffer),
+            "buffer_size": self.buffer_size,
             "platforms": list(self._adapters.keys()),
         }
 

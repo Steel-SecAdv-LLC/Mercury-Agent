@@ -582,6 +582,7 @@ class StreamProcessor:
         self._running = False
         self._workers: list[threading.Thread] = []
         self._stats = ProcessingStats()
+        self._stats_lock = threading.Lock()
 
     def start(self) -> None:
         """Start stream processing workers."""
@@ -669,7 +670,7 @@ class StreamProcessor:
 
                 self._output_queue.put((scores, is_anomaly, result_metadata))
 
-                with threading.Lock():
+                with self._stats_lock:
                     self._stats.processed_samples += len(data)
 
             except queue.Empty:

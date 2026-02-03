@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
@@ -454,8 +454,7 @@ class AnomalyVisualizer:
         if anomaly_mask is None:
             anomaly_mask = scores > 0.5
 
-        # Color based on anomaly score
-        colors = np.where(anomaly_mask, "red", "green")
+        # Size based on anomaly status (larger for anomalies)
         sizes = np.where(anomaly_mask, 10, 5)
 
         fig = go.Figure(data=[go.Scatter3d(
@@ -794,7 +793,7 @@ class DashboardBuilder:
             "</head>",
             "<body>",
             f"<h1>{self.config.title}</h1>",
-            f"<p>Generated: {datetime.now(timezone.utc).isoformat()}</p>",
+            f"<p>Generated: {datetime.now(UTC).isoformat()}</p>",
         ]
 
         for name, fig in self._figures.items():
@@ -829,7 +828,7 @@ class DashboardBuilder:
         """
         dashboard_data = {
             "title": self.config.title,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "config": {
                 "threshold": self.config.anomaly_threshold,
                 "theme": self.config.theme,

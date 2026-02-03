@@ -537,7 +537,7 @@ class GrubbsTest:
                 t_crit = stats.t.ppf(1 - self.alpha / (2 * n), n - 2)
                 G_crit = ((n - 1) / np.sqrt(n)) * np.sqrt(t_crit**2 / (n - 2 + t_crit**2))
 
-                if G > G_crit:
+                if G_crit < G:
                     # Find original index
                     original_idx = np.where(mask)[0][max_idx]
                     is_anomaly[original_idx] = True
@@ -604,7 +604,11 @@ class CUSUMDetector:
 
     def fit(self, X: NDArray[np.float64]) -> CUSUMDetector:
         """Fit CUSUM parameters from reference data."""
-        X = np.asarray(X).flatten()
+        X = np.asarray(X)
+        # For multivariate data, compute mean across features per sample
+        if X.ndim > 1:
+            X = np.mean(X, axis=1)
+        X = X.flatten()
 
         self._fitted_mean = self.target_mean if self.target_mean is not None else np.mean(X)
         self._fitted_std = self.target_std if self.target_std is not None else np.std(X)
@@ -620,7 +624,11 @@ class CUSUMDetector:
         if not self._fitted:
             raise DetectorException("CUSUMDetector must be fitted before detection")
 
-        X = np.asarray(X).flatten()
+        X = np.asarray(X)
+        # For multivariate data, compute mean across features per sample
+        if X.ndim > 1:
+            X = np.mean(X, axis=1)
+        X = X.flatten()
         n = len(X)
 
         # Normalize data
@@ -994,7 +1002,7 @@ class EnhancedStatisticalDetector(BaseDetector):
                 if hasattr(detector, "fit"):
                     detector.fit(data)
             except Exception as e:
-                warnings.warn(f"Failed to fit {method}: {e}")
+                warnings.warn(f"Failed to fit {method}: {e}", stacklevel=2)
 
         self._is_fitted = True
         return self
@@ -1024,7 +1032,7 @@ class EnhancedStatisticalDetector(BaseDetector):
                     all_weights.append(self._weights.get(method, 0.1))
                     all_predictions.append(result.is_anomaly.astype(float))
             except Exception as e:
-                warnings.warn(f"Detection failed for {method}: {e}")
+                warnings.warn(f"Detection failed for {method}: {e}", stacklevel=2)
 
         if not all_scores:
             return {

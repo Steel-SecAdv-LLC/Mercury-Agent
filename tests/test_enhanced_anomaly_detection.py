@@ -12,8 +12,7 @@ Tests for:
 
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 import pytest
@@ -258,7 +257,7 @@ class TestCrossPlatformHub:
 
         event = AnomalyEvent(
             event_id="test123",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             source="mercury-agent",
             severity="high",
             score=0.85,
@@ -280,7 +279,7 @@ class TestCrossPlatformHub:
 
         event = AnomalyEvent(
             event_id="test123",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             source="mercury-agent",
             severity="critical",
             score=0.95,
@@ -302,7 +301,7 @@ class TestCrossPlatformHub:
 
         event = AnomalyEvent(
             event_id="test123",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             source="mercury-agent",
             severity="medium",
             score=0.65,
@@ -366,7 +365,7 @@ class TestEnsembleCoordinator:
             self.bias = bias
             self._fitted = False
 
-        def fit(self, data: np.ndarray) -> "TestEnsembleCoordinator.MockDetector":
+        def fit(self, data: np.ndarray) -> TestEnsembleCoordinator.MockDetector:
             self._fitted = True
             return self
 
@@ -661,7 +660,7 @@ class TestVisualizationDashboard:
 
         visualizer = AnomalyVisualizer()
 
-        timestamps = [datetime.now(timezone.utc) for _ in range(len(sample_scores))]
+        timestamps = [datetime.now(UTC) for _ in range(len(sample_scores))]
 
         fig = visualizer.time_series_plot(timestamps, sample_scores, threshold=0.5)
 
@@ -811,7 +810,9 @@ class TestIntegration:
             CrossPlatformHub,
         )
 
+        # Verify hub can be instantiated
         hub = CrossPlatformHub()
+        assert hub is not None
 
         # Create mock detection result
         result = {
