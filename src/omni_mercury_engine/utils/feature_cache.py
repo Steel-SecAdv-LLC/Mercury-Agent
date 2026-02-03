@@ -297,7 +297,9 @@ class MemoryEfficientFeatureCache:
                 full_data[entry.sparse_indices] = data
             data = full_data
 
-        return np.asarray(data) if isinstance(data, np.ndarray) else data
+        if isinstance(data, np.ndarray):
+            return data  # type: ignore[return-value]
+        return data  # type: ignore[return-value]
 
     def _estimate_memory(self, data: np.ndarray[Any, Any]) -> int:
         """Estimate memory usage of data.

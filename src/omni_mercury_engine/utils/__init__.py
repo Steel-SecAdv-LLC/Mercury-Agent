@@ -129,7 +129,7 @@ def normalize_data(
         raise ValueError(f"Unknown normalization method: {method}")
 
     if is_torch:
-        return torch.tensor(normalized, dtype=data.dtype, device=data.device)  # type: ignore[union-attr]
+        return torch.tensor(normalized, dtype=data.dtype, device=data.device)
 
     return np.asarray(normalized)
 
