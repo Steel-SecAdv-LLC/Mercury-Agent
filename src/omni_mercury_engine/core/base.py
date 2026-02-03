@@ -337,7 +337,7 @@ class BaseDetector(ABC):
     @property
     def name(self) -> str:
         """Get detector name."""
-        return self._name
+        return self._name  # type: ignore[no-any-return]
 
     @property
     def metrics(self) -> DetectorMetrics:
@@ -508,7 +508,7 @@ class BaseDetector(ABC):
         self._calibrated_threshold = result.threshold
         self._last_diagnostics = result.diagnostics
 
-        return result.threshold
+        return result.threshold  # type: ignore[no-any-return]
 
     def get_effective_threshold(self) -> float:
         """
@@ -613,7 +613,7 @@ class BaseModel(ABC):
     @property
     def name(self) -> str:
         """Get model name."""
-        return self._name
+        return self._name  # type: ignore[no-any-return]
 
     @abstractmethod
     def predict(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:

@@ -43,7 +43,7 @@ try:
     HAS_PYTORCH_LIGHTNING = True
 except ImportError:
     HAS_PYTORCH_LIGHTNING = False
-    pl = None  # type: ignore[assignment]
+    pl = None
 
 
 if TYPE_CHECKING:
@@ -394,7 +394,7 @@ class MercuryOptimizer(optim.Optimizer):
         defaults = {"lr": lr, "alpha": alpha, "beta": beta, "quantum_noise": quantum_noise}
         super().__init__(params, defaults)
 
-    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override]
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:
         loss = None
         if closure is not None:
             loss = closure()
@@ -442,7 +442,7 @@ class MercuryMomentumOptimizer(optim.Optimizer):
         defaults = {"lr": lr, "alpha": alpha, "momentum": momentum}
         super().__init__(params, defaults)
 
-    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override]
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:
         loss = None
         if closure is not None:
             loss = closure()
@@ -483,7 +483,7 @@ class MercuryExponentialDecayOptimizer(optim.Optimizer):
         defaults = {"lr": lr, "alpha": alpha, "decay_rate": decay_rate}
         super().__init__(params, defaults)
 
-    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override]
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:
         loss = None
         if closure is not None:
             loss = closure()
@@ -526,7 +526,7 @@ class MercuryHarmonicOptimizer(optim.Optimizer):
         defaults = {"lr": lr, "alpha": alpha, "omega": omega}
         super().__init__(params, defaults)
 
-    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override]
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:
         loss = None
         if closure is not None:
             loss = closure()
@@ -915,7 +915,7 @@ class FusionTrainer(_LightningBase):  # type: ignore[misc, valid-type]
         accuracy = (preds == anomaly_labels).float().mean()
         self.log("val_accuracy", accuracy)
 
-    def configure_optimizers(self) -> dict[str, Any]:  # type: ignore[override]
+    def configure_optimizers(self) -> dict[str, Any]:
         optimizer_type = getattr(self, "optimizer_type", "adamw")
 
         if optimizer_type.startswith("ava_"):

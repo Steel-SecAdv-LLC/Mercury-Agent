@@ -580,7 +580,7 @@ class AutoThresholdOptimizer:
         self.max_contamination = max_contamination
 
         # Method registry
-        self._methods: dict[CalibrationMethod, Callable] = {
+        self._methods: dict[CalibrationMethod, Callable[..., tuple[float, dict[str, Any]]]] = {
             CalibrationMethod.FIXED: self._fixed_threshold,
             CalibrationMethod.PERCENTILE: self._percentile_threshold,
             CalibrationMethod.OTSU: self._otsu_threshold,
@@ -708,7 +708,7 @@ class AutoThresholdOptimizer:
         scores: NDArray[np.float64],
         contamination: float,
         fixed_threshold: float,
-    ) -> tuple[float, dict]:
+    ) -> tuple[float, dict[str, Any]]:
         """Use fixed threshold."""
         return fixed_threshold, {"method": "fixed"}
 
@@ -717,7 +717,7 @@ class AutoThresholdOptimizer:
         scores: NDArray[np.float64],
         contamination: float,
         fixed_threshold: float,
-    ) -> tuple[float, dict]:
+    ) -> tuple[float, dict[str, Any]]:
         """
         Percentile-based threshold.
 
@@ -744,7 +744,7 @@ class AutoThresholdOptimizer:
         scores: NDArray[np.float64],
         contamination: float,
         fixed_threshold: float,
-    ) -> tuple[float, dict]:
+    ) -> tuple[float, dict[str, Any]]:
         """
         Otsu's method for bimodal threshold selection.
 
@@ -808,7 +808,7 @@ class AutoThresholdOptimizer:
         scores: NDArray[np.float64],
         contamination: float,
         fixed_threshold: float,
-    ) -> tuple[float, dict]:
+    ) -> tuple[float, dict[str, Any]]:
         """
         Median Absolute Deviation based threshold.
 
@@ -850,7 +850,7 @@ class AutoThresholdOptimizer:
         scores: NDArray[np.float64],
         contamination: float,
         fixed_threshold: float,
-    ) -> tuple[float, dict]:
+    ) -> tuple[float, dict[str, Any]]:
         """
         Knee/elbow detection in sorted scores.
 
@@ -908,7 +908,7 @@ class AutoThresholdOptimizer:
         scores: NDArray[np.float64],
         contamination: float,
         fixed_threshold: float,
-    ) -> tuple[float, dict]:
+    ) -> tuple[float, dict[str, Any]]:
         """
         Adaptive IQR-based threshold.
 
@@ -959,7 +959,7 @@ class AutoThresholdOptimizer:
         scores: NDArray[np.float64],
         contamination: float,
         fixed_threshold: float,
-    ) -> tuple[float, dict]:
+    ) -> tuple[float, dict[str, Any]]:
         """
         Gaussian Mixture Model based threshold.
 
@@ -1349,7 +1349,7 @@ class ScoreCalibrationManager:
                 method_specific_info={
                     **result.method_specific_info,
                     "probability_calibration": True,
-                    "calibrator": calibrator.best_method,  # type: ignore[union-attr]
+                    "calibrator": calibrator.best_method,
                 },
             )
 

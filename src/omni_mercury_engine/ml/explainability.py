@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 # Optional imports
 try:
-    import shap
+    import shap  # type: ignore[import-not-found]
 
     SHAP_AVAILABLE = True
 except ImportError:
@@ -277,7 +277,7 @@ class SHAPExplainer(BaseExplainer):
         # Get prediction function
         if hasattr(model, "predict_proba"):
 
-            def predict_fn(x):
+            def predict_fn(x: Any) -> Any:
                 return model.predict_proba(x)[:, 1]
 
         elif hasattr(model, "predict"):

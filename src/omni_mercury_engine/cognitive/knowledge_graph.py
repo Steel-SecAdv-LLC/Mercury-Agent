@@ -722,7 +722,7 @@ class RandomWalkEmbedding:
         input_emb: np.ndarray[Any, Any],
         output_emb: np.ndarray[Any, Any],
         n_nodes: int,
-    ):
+    ) -> None:
         """Train skip-gram on a single walk."""
         for i, center in enumerate(walk):
             # Context window
@@ -751,7 +751,7 @@ class RandomWalkEmbedding:
         label: int,
         input_emb: np.ndarray[Any, Any],
         output_emb: np.ndarray[Any, Any],
-    ):
+    ) -> None:
         """Single SGD update for skip-gram."""
         # Sigmoid
         z = np.dot(input_emb[center], output_emb[context])

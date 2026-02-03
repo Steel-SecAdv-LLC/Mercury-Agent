@@ -594,7 +594,7 @@ def load_dataset(
     name: str,
     data_dir: str = "./data/adrepository",
     max_samples: int | None = None,
-) -> tuple[np.ndarray, np.ndarray, dict]:
+) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
     """
     Convenience function to load an ADRepository dataset.
 

@@ -660,8 +660,8 @@ class RealWorldBenchmarkRunner:
         """Compute event-based F1 and time-to-detection."""
 
         # Extract events
-        def get_events(arr):
-            events = []
+        def get_events(arr: np.ndarray) -> list[tuple[int, int]]:
+            events: list[tuple[int, int]] = []
             in_event = False
             start = 0
             for i, v in enumerate(arr):

@@ -31,6 +31,10 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    import lime  # type: ignore[import-not-found]
+    import lime.lime_tabular  # type: ignore[import-not-found]
+    import shap  # type: ignore[import-not-found]
+
 import numpy as np
 
 

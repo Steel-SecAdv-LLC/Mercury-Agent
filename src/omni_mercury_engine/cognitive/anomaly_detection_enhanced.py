@@ -289,7 +289,8 @@ class MemoryKnowledgeGraph:
         """Compute node centrality scores."""
         if NETWORKX_AVAILABLE and self.graph.number_of_nodes() > 0:
             try:
-                return nx.pagerank(self.graph, alpha=0.85)
+                result: dict[str, float] = nx.pagerank(self.graph, alpha=0.85)
+                return result
             except Exception:
                 # PageRank computation failed; return uniform centrality
                 return {n: 1.0 / self.graph.number_of_nodes() for n in self.graph.nodes()}
@@ -653,7 +654,7 @@ class USGSEarthquakeSource(ExternalDataSource):
                             "significance": props.get("sig", 0),
                         },
                         confidence=confidence,
-                        timestamp=float(int(props.get("time", 0) or 0) / 1000),  # type: ignore[arg-type]
+                        timestamp=float(int(props.get("time", 0) or 0) / 1000),
                     )
                 )
 
@@ -890,7 +891,7 @@ class ExternalDataIntegrator:
         if time_diff < 3600:
             score += 0.4 * (1 - time_diff / 3600)
 
-        return score
+        return float(score)
 
     def get_statistics(self) -> dict[str, Any]:
         """Get integrator statistics."""
@@ -985,7 +986,7 @@ class ValueExtractor:
         }
 
         multiplier = type_multipliers.get(value_type, 1.0)
-        return min(1.0, base_benefit * multiplier)
+        return float(min(1.0, base_benefit * multiplier))
 
     def _recommend_action(self, anomaly: dict[str, Any], value_type: str) -> str:
         """Recommend action based on anomaly and value type."""

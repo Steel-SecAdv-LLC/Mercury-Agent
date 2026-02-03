@@ -98,7 +98,7 @@ class DomainData:
     n_samples: int = 0
     n_features: int = 0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.n_samples = self.X.shape[0]
         self.n_features = self.X.shape[1]
 

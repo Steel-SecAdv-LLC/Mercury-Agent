@@ -464,9 +464,9 @@ class AnomalyMetrics:
 
             # Skip if all same class
             if len(np.unique(cat_true)) < 2:
-                results[cat] = {"auroc": 0.5, "note": "single_class"}  # type: ignore[assignment]
+                results[cat] = {"auroc": 0.5, "note": "single_class"}
                 continue
 
-            results[cat] = AnomalyMetrics.compute_all(cat_true, cat_score)  # type: ignore[assignment]
+            results[cat] = AnomalyMetrics.compute_all(cat_true, cat_score)
 
         return results

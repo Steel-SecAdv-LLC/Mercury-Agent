@@ -63,7 +63,7 @@ class MedicalPredictionResult:
     vital_signs_anomaly: bool
     imaging_anomaly: bool
     optimal_treatment: str | None = None
-    treatment_pathways: list[dict] = field(default_factory=list)
+    treatment_pathways: list[dict[str, Any]] = field(default_factory=list)
     early_warning_indicators: list[str] = field(default_factory=list)
     recommendations: list[str] = field(default_factory=list)
 
@@ -137,7 +137,7 @@ class TemporalVitalSignsDetector:
         self.logger = logging.getLogger(__name__)
 
     def detect_temporal_anomaly(
-        self, vital_signs_sequence: np.ndarray[Any, Any], patient_history: dict | None = None
+        self, vital_signs_sequence: np.ndarray[Any, Any], patient_history: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """
         Detect anomalies in temporal vital signs sequence.
@@ -228,7 +228,7 @@ class TemporalVitalSignsDetector:
         return risks
 
     def _generate_temporal_recommendations(
-        self, anomaly_score: float, disease_risk: dict[str, Any], assessment: dict
+        self, anomaly_score: float, disease_risk: dict[str, Any], assessment: dict[str, Any]
     ) -> list[str]:
         """Generate recommendations based on temporal analysis."""
         recs = []
@@ -436,7 +436,7 @@ class TreatmentPathwayOptimizer:
         }
 
     def _generate_treatment_recommendations(
-        self, pathways: list[dict], disease_type: str
+        self, pathways: list[dict[str, Any]], disease_type: str
     ) -> list[str]:
         """Generate treatment recommendations."""
         recs = []

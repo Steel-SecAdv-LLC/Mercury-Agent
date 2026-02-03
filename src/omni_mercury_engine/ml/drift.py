@@ -117,7 +117,7 @@ class KolmogorovSmirnovDriftDetector:
         """
         self.p_value_threshold = p_value_threshold
         self.correction = correction
-        self.reference_data: np.ndarray | None = None  # type: ignore[assignment]
+        self.reference_data: np.ndarray | None = None
 
     def fit(self, reference_data: np.ndarray) -> KolmogorovSmirnovDriftDetector:
         """
@@ -764,15 +764,18 @@ class EnsembleDriftDetector:
         )
 
 
-def create_drift_detector(
-    detector_type: str = "ks",
-    **kwargs: Any,
-) -> (
+DriftDetectorType = (
     KolmogorovSmirnovDriftDetector
     | PopulationStabilityIndexDetector
     | ChiSquaredDriftDetector
     | EnsembleDriftDetector
-):
+)
+
+
+def create_drift_detector(
+    detector_type: str = "ks",
+    **kwargs: Any,
+) -> DriftDetectorType:
     """
     Factory function to create drift detectors.
 
@@ -783,7 +786,7 @@ def create_drift_detector(
     Returns:
         Configured drift detector
     """
-    detectors = {
+    detectors: dict[str, type[DriftDetectorType]] = {
         "ks": KolmogorovSmirnovDriftDetector,
         "psi": PopulationStabilityIndexDetector,
         "chi2": ChiSquaredDriftDetector,
@@ -795,4 +798,5 @@ def create_drift_detector(
             f"Unknown detector type: {detector_type}. Choose from {list(detectors.keys())}"
         )
 
-    return detectors[detector_type](**kwargs)
+    detector_class = detectors[detector_type]
+    return detector_class(**kwargs)

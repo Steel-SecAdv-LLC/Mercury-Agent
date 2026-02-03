@@ -270,7 +270,7 @@ class CaseBasedReasoner:
         self,
         source_case: Case,
         target_problem: dict[str, Any],
-        adaptation_rules: list[Callable] | None = None,
+        adaptation_rules: list[Callable[..., Any]] | None = None,
     ) -> AdaptationResult:
         """
         Adapt a retrieved case's solution to a new problem (REVISE).
@@ -460,7 +460,7 @@ class CaseBasedReasoner:
 
         euclidean_dist = np.sqrt(np.sum(distances))
         # Convert distance to similarity
-        return 1.0 / (1.0 + euclidean_dist)
+        return float(1.0 / (1.0 + euclidean_dist))
 
     def _cosine_similarity(
         self,
@@ -525,7 +525,7 @@ class CaseBasedReasoner:
             return 0.0
 
         manhattan_dist = np.sum(distances)
-        return 1.0 / (1.0 + manhattan_dist)
+        return float(1.0 / (1.0 + manhattan_dist))
 
     def _weighted_similarity(
         self,

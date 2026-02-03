@@ -266,10 +266,10 @@ class SyntheticGradientPredictor:
         loss = nn.functional.mse_loss(predicted_tensor, true_tensor.detach())
 
         if loss.requires_grad:
-            loss.backward()  # type: ignore[no-untyped-call]
+            loss.backward()
             self.optimizer.step()
 
-        return loss.item()
+        return float(loss.item())
 
     def _update_numpy(
         self, predicted_grad: np.ndarray[Any, Any], true_grad: np.ndarray[Any, Any]
@@ -454,13 +454,13 @@ class DifferenceTargetPropagation:
         reconstruction_loss = nn.functional.mse_loss(
             self.forward_layer(target_prev), h_tensor.detach()
         )
-        reconstruction_loss.backward(retain_graph=True)  # type: ignore[no-untyped-call]
+        reconstruction_loss.backward(retain_graph=True)
         self.optimizer_inverse.step()
 
         forward_loss = nn.functional.mse_loss(
             self.forward_layer(target_prev.detach()), target_tensor.detach()
         )
-        forward_loss.backward()  # type: ignore[no-untyped-call]
+        forward_loss.backward()
         self.optimizer_forward.step()
 
         return np.asarray(target_prev.detach().numpy())

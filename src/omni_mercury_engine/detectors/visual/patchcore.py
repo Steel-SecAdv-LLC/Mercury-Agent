@@ -517,10 +517,10 @@ class PatchCoreDetector(BaseVisualDetector):
         """Get current memory bank size."""
         if self.memory_bank is None:
             return 0
-        return self.memory_bank.shape[0]
+        return int(self.memory_bank.shape[0])
 
     def get_memory_usage_mb(self) -> float:
         """Get memory bank memory usage in MB."""
         if self.memory_bank is None:
             return 0.0
-        return self.memory_bank.numel() * 4 / (1024 * 1024)  # float32 = 4 bytes
+        return float(self.memory_bank.numel() * 4 / (1024 * 1024))  # float32 = 4 bytes

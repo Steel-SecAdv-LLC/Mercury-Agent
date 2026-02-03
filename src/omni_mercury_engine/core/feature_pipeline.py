@@ -459,7 +459,7 @@ class FeatureVersionManager:
     against expected schemas.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the version manager."""
         self._schemas: dict[str, FeatureSchema] = {}
         self._version_history: dict[str, list[str]] = {}
@@ -609,7 +609,7 @@ class CacheBackend(Protocol):
 class InMemoryCache:
     """Simple in-memory cache implementation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._cache: dict[str, tuple[bytes, float | None]] = {}
 
     def get(self, key: str) -> bytes | None:
@@ -675,7 +675,7 @@ class RedisCache:
         if self._client is None:
             return None
         try:
-            return self._client.get(key)
+            return self._client.get(key)  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(f"Redis get error: {e}")
             return None
@@ -686,8 +686,8 @@ class RedisCache:
             return False
         try:
             if ttl:
-                return self._client.setex(key, ttl, value)
-            return self._client.set(key, value)
+                return self._client.setex(key, ttl, value)  # type: ignore[no-any-return]
+            return self._client.set(key, value)  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(f"Redis set error: {e}")
             return False
@@ -697,7 +697,7 @@ class RedisCache:
         if self._client is None:
             return False
         try:
-            return self._client.delete(key) > 0
+            return self._client.delete(key) > 0  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(f"Redis delete error: {e}")
             return False
@@ -707,7 +707,7 @@ class RedisCache:
         if self._client is None:
             return False
         try:
-            return self._client.exists(key) > 0
+            return self._client.exists(key) > 0  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(f"Redis exists error: {e}")
             return False

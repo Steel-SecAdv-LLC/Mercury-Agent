@@ -54,7 +54,7 @@ try:
     NETWORKX_AVAILABLE = True
 except ImportError:
     NETWORKX_AVAILABLE = False
-    nx = None  # type: ignore[assignment]
+    nx = None
     logging.warning("NetworkX not available, using fallback graph implementation")
 
 logger = logging.getLogger(__name__)

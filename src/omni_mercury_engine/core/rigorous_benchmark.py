@@ -207,7 +207,7 @@ def stratified_split(
         X_train, X_test, y_train, y_test
     """
     set_all_seeds(seed)
-    return train_test_split(X, y, test_size=test_size, random_state=seed, stratify=y)
+    return train_test_split(X, y, test_size=test_size, random_state=seed, stratify=y)  # type: ignore[no-any-return]
 
 
 def compute_event_metrics(
@@ -333,7 +333,7 @@ def point_adjusted_f1(
         if y_pred[i] == 1 and y_true[i] == 0:
             adjusted_pred[i] = 1
 
-    return f1_score(y_true, adjusted_pred, zero_division=1.0)
+    return f1_score(y_true, adjusted_pred, zero_division=1.0)  # type: ignore[no-any-return]
 
 
 class RigorousBenchmarkHarness:
@@ -601,21 +601,21 @@ def run_baseline_benchmarks(
 
     # Isolation Forest
     class IFWrapper:
-        def __init__(self):
+        def __init__(self) -> None:
             self.model = IsolationForest(
                 n_estimators=100,
                 contamination=contamination,
                 random_state=seed,
             )
 
-        def fit(self, X, y=None):
+        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
             self.model.fit(X)
 
-        def predict(self, X):
+        def predict(self, X: np.ndarray) -> np.ndarray:
             preds = self.model.predict(X)
             return (preds == -1).astype(int)
 
-        def predict_proba(self, X):
+        def predict_proba(self, X: np.ndarray) -> np.ndarray:
             scores = -self.model.score_samples(X)
             # Normalize to [0, 1]
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
@@ -627,17 +627,17 @@ def run_baseline_benchmarks(
 
     # One-Class SVM
     class OCSVMWrapper:
-        def __init__(self):
+        def __init__(self) -> None:
             self.model = OneClassSVM(kernel="rbf", nu=contamination)
 
-        def fit(self, X, y=None):
+        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
             self.model.fit(X)
 
-        def predict(self, X):
+        def predict(self, X: np.ndarray) -> np.ndarray:
             preds = self.model.predict(X)
             return (preds == -1).astype(int)
 
-        def predict_proba(self, X):
+        def predict_proba(self, X: np.ndarray) -> np.ndarray:
             scores = -self.model.decision_function(X)
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
             return scores
@@ -648,21 +648,21 @@ def run_baseline_benchmarks(
 
     # Local Outlier Factor
     class LOFWrapper:
-        def __init__(self):
+        def __init__(self) -> None:
             self.model = LocalOutlierFactor(
                 n_neighbors=20,
                 contamination=contamination,
                 novelty=True,
             )
 
-        def fit(self, X, y=None):
+        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
             self.model.fit(X)
 
-        def predict(self, X):
+        def predict(self, X: np.ndarray) -> np.ndarray:
             preds = self.model.predict(X)
             return (preds == -1).astype(int)
 
-        def predict_proba(self, X):
+        def predict_proba(self, X: np.ndarray) -> np.ndarray:
             scores = -self.model.decision_function(X)
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
             return scores
@@ -671,13 +671,13 @@ def run_baseline_benchmarks(
 
     # Elliptic Envelope
     class EEWrapper:
-        def __init__(self):
+        def __init__(self) -> None:
             self.model = EllipticEnvelope(
                 contamination=contamination,
                 random_state=seed,
             )
 
-        def fit(self, X, y=None):
+        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
             try:
                 self.model.fit(X)
             except ValueError:
@@ -689,11 +689,11 @@ def run_baseline_benchmarks(
                 )
                 self.model.fit(X)
 
-        def predict(self, X):
+        def predict(self, X: np.ndarray) -> np.ndarray:
             preds = self.model.predict(X)
             return (preds == -1).astype(int)
 
-        def predict_proba(self, X):
+        def predict_proba(self, X: np.ndarray) -> np.ndarray:
             scores = -self.model.decision_function(X)
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
             return scores

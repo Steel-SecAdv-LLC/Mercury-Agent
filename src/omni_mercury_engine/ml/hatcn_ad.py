@@ -100,7 +100,7 @@ class HierarchicalAttention(nn.Module):
 
         self.scale_weights = nn.Parameter(torch.ones(num_scales) / num_scales)
 
-    def forward(self, scale_features: list[Any]) -> tuple[torch.Tensor, list]:
+    def forward(self, scale_features: list[Any]) -> tuple[torch.Tensor, list[Any]]:
         """
         Apply hierarchical attention across scales.
 

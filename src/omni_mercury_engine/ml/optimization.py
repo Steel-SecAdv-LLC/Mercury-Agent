@@ -111,10 +111,10 @@ class MemoryEfficientCache:
     def _estimate_size(self, obj: Any) -> int:
         """Estimate memory size of an object."""
         if hasattr(obj, "nbytes"):
-            return obj.nbytes
+            return int(obj.nbytes)
         elif hasattr(obj, "element_size") and hasattr(obj, "numel"):
             # PyTorch tensor
-            return obj.element_size() * obj.numel()
+            return int(obj.element_size() * obj.numel())
         elif isinstance(obj, (list, tuple)):
             return sum(self._estimate_size(x) for x in obj)
         elif isinstance(obj, dict):
@@ -198,10 +198,10 @@ def memory_efficient_lru_cache(
             cache.put(key, result)
             return result
 
-        wrapper.cache = cache  # type: ignore
-        wrapper.cache_clear = cache.clear  # type: ignore
-        wrapper.cache_stats = lambda: cache.stats  # type: ignore
-        return wrapper  # type: ignore
+        wrapper.cache = cache  # type: ignore[attr-defined]
+        wrapper.cache_clear = cache.clear  # type: ignore[attr-defined]
+        wrapper.cache_stats = lambda: cache.stats  # type: ignore[attr-defined]
+        return wrapper  # type: ignore[return-value]
 
     return decorator
 
@@ -384,9 +384,9 @@ class ParallelExecutor:
 
         from joblib import Parallel, delayed
 
-        return Parallel(n_jobs=self.n_jobs, backend=self.backend, prefer=self.prefer)(
+        return list(Parallel(n_jobs=self.n_jobs, backend=self.backend, prefer=self.prefer)(
             delayed(func)(item, **kwargs) for item in items
-        )
+        ))
 
     def starmap(
         self,
@@ -408,9 +408,9 @@ class ParallelExecutor:
 
         from joblib import Parallel, delayed
 
-        return Parallel(n_jobs=self.n_jobs, backend=self.backend, prefer=self.prefer)(
+        return list(Parallel(n_jobs=self.n_jobs, backend=self.backend, prefer=self.prefer)(
             delayed(func)(*args) for args in args_list
-        )
+        ))
 
 
 class DDPScaler:
@@ -635,7 +635,7 @@ def get_optimal_batch_size(
         # Estimate batch size
         batch_size = max(1, batch_memory // (input_memory * 3))  # 3x for activations
 
-        return min(batch_size, 256)  # Cap at 256
+        return int(min(batch_size, 256))  # Cap at 256
 
     except Exception:
         return 32  # Default fallback

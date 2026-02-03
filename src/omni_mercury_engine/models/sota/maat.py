@@ -394,7 +394,7 @@ class MambaSSM(nn.Module):
 
         # Try to use native Mamba implementation
         try:
-            from mamba_ssm import Mamba
+            from mamba_ssm import Mamba  # type: ignore[import-not-found]
 
             self.mamba = Mamba(
                 d_model=d_model,

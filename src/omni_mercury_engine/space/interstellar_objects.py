@@ -243,7 +243,7 @@ class InterstellarObjectDetector:
             f"(artificial_origin_test={enable_artificial_origin_test})"
         )
 
-    def _initialize_iso_database(self) -> dict[str, dict]:
+    def _initialize_iso_database(self) -> dict[str, dict[str, Any]]:
         """Initialize known interstellar object database"""
         return {
             "1I/Oumuamua": {
@@ -285,7 +285,7 @@ class InterstellarObjectDetector:
         }
 
     def detect_interstellar_anomaly(
-        self, iso_data: dict[str, Any], comparison_objects: list[dict] | None = None
+        self, iso_data: dict[str, Any], comparison_objects: list[dict[str, Any]] | None = None
     ) -> InterstellarObjectResult:
         """
         Detect anomalies in interstellar object data.
@@ -604,7 +604,7 @@ class InterstellarObjectDetector:
         return recommendations[:6]
 
     def _comparative_analysis(
-        self, iso_data: dict[str, Any], comparison_objects: list[dict]
+        self, iso_data: dict[str, Any], comparison_objects: list[dict[str, Any]]
     ) -> dict[str, Any]:
         """Compare ISO with solar system objects"""
         orbital = iso_data.get("orbital_parameters", {})

@@ -86,10 +86,10 @@ class SchumannAnomalyResult:
     power_spectrum_shift: bool = False
 
     correlated_events: list[str] = field(default_factory=list)
-    temporal_pattern: dict | None = None
+    temporal_pattern: dict[str, Any] | None = None
 
     recommendations: list[str] = field(default_factory=list)
-    ancient_correlation: dict | None = None
+    ancient_correlation: dict[str, Any] | None = None
 
 
 class SchumannHarmonicAnalyzer(nn.Module):
@@ -257,7 +257,7 @@ class SchumannResonanceDetector:
         self,
         elf_signal: np.ndarray[Any, Any],
         temporal_history: list[np.ndarray[Any, Any]] | None = None,
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> SchumannAnomalyResult:
         """
         Detect anomalies in Schumann resonance patterns.
@@ -425,7 +425,7 @@ class SchumannResonanceDetector:
 
         max_power = np.max(schumann_power)
 
-        return max_power > (mean_power + threshold)
+        return bool(max_power > (mean_power + threshold))
 
     def _detect_spectrum_shift(
         self, power_spectrum: np.ndarray[Any, Any], frequencies: np.ndarray[Any, Any]
@@ -444,7 +444,7 @@ class SchumannResonanceDetector:
 
         expected_ratio = 0.3
 
-        return abs(ratio - expected_ratio) > (0.2 * self.golden_ratio)
+        return bool(abs(ratio - expected_ratio) > (0.2 * self.golden_ratio))
 
     def _process_temporal_history(
         self, temporal_history: list[np.ndarray[Any, Any]]
@@ -534,7 +534,7 @@ class SchumannResonanceDetector:
         return recommendations[:6]
 
     def _correlate_ancient_patterns(
-        self, fundamental_freq: float, temporal_pattern: dict | None, metadata: dict | None
+        self, fundamental_freq: float, temporal_pattern: dict[str, Any] | None, metadata: dict[str, Any] | None
     ) -> dict[str, Any]:
         """Correlate with ancient astronomical/geophysical cycles"""
         correlations: dict[str, list[str]] = {

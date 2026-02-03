@@ -186,7 +186,7 @@ def cardiology_interface() -> None:
             display_cardiology_results(result)
 
 
-def display_cardiology_results(result):
+def display_cardiology_results(result: Any) -> None:
     """Display cardiology prediction results"""
 
     st.success("Analysis Complete!")
@@ -269,7 +269,7 @@ def sepsis_interface() -> None:
             display_sepsis_results(result)
 
 
-def display_sepsis_results(result):
+def display_sepsis_results(result: Any) -> None:
     """Display sepsis detection results"""
 
     col1, col2, col3 = st.columns(3)
@@ -378,7 +378,7 @@ def cybint_interface() -> None:
             display_cybint_results(result)
 
 
-def display_cybint_results(result):
+def display_cybint_results(result: Any) -> None:
     """Display CYBINT results"""
 
     col1, col2, col3 = st.columns(3)
@@ -528,7 +528,7 @@ def general_analysis_page() -> None:
                         st.metric("Confidence", f"{result.get('anomaly_prob', 0):.1%}")
 
 
-def load_file_data(uploaded_file) -> np.ndarray[Any, Any] | None:
+def load_file_data(uploaded_file: Any) -> np.ndarray[Any, Any] | None:
     """Load data from uploaded file"""
 
     try:

@@ -197,7 +197,7 @@ class UserSyncInterface:
         self._approval_counter = 0
         self._lock = threading.Lock()
 
-        self._callbacks: dict[str, list[Callable]] = {
+        self._callbacks: dict[str, list[Callable[..., Any]]] = {
             "on_approval_request": [],
             "on_user_input": [],
             "on_preference_change": [],

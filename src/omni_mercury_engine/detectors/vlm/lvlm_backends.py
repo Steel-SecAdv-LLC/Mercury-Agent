@@ -190,7 +190,7 @@ class Qwen2VLBackend(LVLMBackend):
             skip_special_tokens=True,
         )[0]
 
-        return response
+        return str(response)
 
 
 class MiniCPMVBackend(LVLMBackend):
@@ -244,7 +244,7 @@ class MiniCPMVBackend(LVLMBackend):
                 temperature=self.temperature,
             )
 
-        return response
+        return str(response)
 
 
 class LLaVABackend(LVLMBackend):
@@ -311,7 +311,7 @@ class LLaVABackend(LVLMBackend):
             skip_special_tokens=True,
         )
 
-        return response
+        return str(response)
 
 
 class MockLVLMBackend(LVLMBackend):

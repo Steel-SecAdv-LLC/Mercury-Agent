@@ -374,7 +374,7 @@ class ABTester:
         if pooled_std == 0:
             return 0.0
 
-        return (np.mean(group2) - np.mean(group1)) / pooled_std
+        return float((np.mean(group2) - np.mean(group1)) / pooled_std)
 
     def _bootstrap_ci(self, differences: np.ndarray[Any, Any]) -> tuple[float, float]:
         """Calculate bootstrap confidence interval for differences."""

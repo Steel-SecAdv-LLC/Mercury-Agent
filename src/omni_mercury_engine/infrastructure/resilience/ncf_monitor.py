@@ -139,7 +139,7 @@ class NCFMonitor:
         }
 
     def detect(
-        self, data: np.ndarray[Any, Any], ncf_id: str, context: dict | None = None
+        self, data: np.ndarray[Any, Any], ncf_id: str, context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Detect anomalies for specific NCF.
 
@@ -223,7 +223,7 @@ class NCFMonitor:
         std = np.std(data) + 1e-8
         return np.abs((data - mean) / std)
 
-    def _calculate_ethical_impact(self, ncf_id: str, context: dict | None) -> float:
+    def _calculate_ethical_impact(self, ncf_id: str, context: dict[str, Any] | None) -> float:
         """Calculate ethical impact score based on survivor-first principles."""
         vulnerable_ncfs = {
             "conduct_public_health": 0.95,

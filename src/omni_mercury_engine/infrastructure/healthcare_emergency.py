@@ -112,7 +112,7 @@ class HealthcareEmergencyDetector:
         self,
         data: np.ndarray[Any, Any],
         detection_type: str = "patient",
-        patient_history: dict | None = None,
+        patient_history: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Generic detection interface for healthcare/emergency services.
 
@@ -143,7 +143,7 @@ class HealthcareEmergencyDetector:
     def detect_patient_deterioration(
         self,
         vital_signs: dict[str, float],
-        patient_history: dict | None = None,
+        patient_history: dict[str, Any] | None = None,
         time_series: dict[str, np.ndarray[Any, Any]] | None = None,
     ) -> dict[str, Any]:
         """

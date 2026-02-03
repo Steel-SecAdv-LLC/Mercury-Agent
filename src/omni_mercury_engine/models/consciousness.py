@@ -29,7 +29,7 @@ import numpy as np
 class ConsciousnessPreservationModel:
     """Model for consciousness state preservation and anomaly detection."""
 
-    def __init__(self, config: dict[str, Any] | None = None, **kwargs) -> None:
+    def __init__(self, config: dict[str, Any] | None = None, **kwargs: Any) -> None:
         self.config = config or {}
         self.coherence_threshold = self.config.get("coherence_threshold", 0.5)
 

@@ -251,7 +251,7 @@ class IPBEngine:
         self._threats: dict[str, ThreatCapability] = {}
         self._coas: dict[str, ThreatCOA] = {}
         self._running_estimates: defaultdict[EnvironmentDomain, dict[str, Any]] = defaultdict(dict)
-        self._observation_history: list[dict] = []
+        self._observation_history: list[dict[str, Any]] = []
 
         # Priority intelligence requirements
         self._pirs: list[str] = []
@@ -668,7 +668,7 @@ class IPBEngine:
         opportunity = report.get("opportunity_score", 0.5)
 
         # Threat = Capability * Intent * Opportunity
-        return min(1.0, capability * intent * opportunity * self.PHI)
+        return float(min(1.0, capability * intent * opportunity * self.PHI))
 
     def _generate_coa(
         self,

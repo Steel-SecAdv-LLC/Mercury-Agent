@@ -593,7 +593,7 @@ class AdversarialTrainer:
                 )
 
                 d_loss = (d_real_loss + d_fake_loss) / 2
-                d_loss.backward()  # type: ignore[no-untyped-call]
+                d_loss.backward()
                 self.optimizer_d.step()
 
                 losses["discriminator"] = d_loss.item()
@@ -612,7 +612,7 @@ class AdversarialTrainer:
 
         # Update generator
         self.optimizer_g.zero_grad()
-        g_loss.backward()  # type: ignore[no-untyped-call]
+        g_loss.backward()
         self.optimizer_g.step()
 
         losses["total"] = g_loss.item()
@@ -759,7 +759,7 @@ class MAMLOptimizer:
         meta_loss = meta_loss / len(tasks)
 
         self.meta_optimizer.zero_grad()
-        meta_loss.backward()  # type: ignore[no-untyped-call]
+        meta_loss.backward()
         self.meta_optimizer.step()
 
         return {"meta_loss": meta_loss.item()}

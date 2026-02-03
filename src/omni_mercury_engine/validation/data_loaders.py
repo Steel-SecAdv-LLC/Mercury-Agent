@@ -559,7 +559,8 @@ class USGSEarthquakeLoader(DatasetLoader):
             return data_array, labels
 
         try:
-            return circuit_breaker.call(_fetch_data)
+            result: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] = circuit_breaker.call(_fetch_data)
+            return result
         except RuntimeError:
             raise
         except Exception as e:
@@ -1118,7 +1119,8 @@ class NOAASpaceWeatherLoader(DatasetLoader):
             return data_array, labels
 
         try:
-            return circuit_breaker.call(_fetch_data)
+            result: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] = circuit_breaker.call(_fetch_data)
+            return result
         except RuntimeError:
             raise
         except Exception as e:
@@ -1411,7 +1413,8 @@ class NOAAHurricaneLoader(DatasetLoader):
             return data_array, labels
 
         try:
-            return circuit_breaker.call(_fetch_data)
+            result: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] = circuit_breaker.call(_fetch_data)
+            return result
         except RuntimeError:
             raise
         except Exception as e:
@@ -1711,7 +1714,8 @@ class NOAAOceanLoader(DatasetLoader):
             return data_array, labels
 
         try:
-            return circuit_breaker.call(_fetch_data)
+            result: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] = circuit_breaker.call(_fetch_data)
+            return result
         except RuntimeError:
             raise
         except Exception as e:

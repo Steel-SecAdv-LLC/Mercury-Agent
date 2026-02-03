@@ -187,7 +187,9 @@ class NABLoader(DatasetLoader):
 
         return features, labels
 
-    def _parse_nab_file(self, filepath: Path, anomaly_windows: dict[str, Any]) -> tuple[list, list]:
+    def _parse_nab_file(
+        self, filepath: Path, anomaly_windows: dict[str, Any]
+    ) -> tuple[list[list[float]], list[int]]:
         """Parse a single NAB CSV file."""
         import csv
         from datetime import datetime

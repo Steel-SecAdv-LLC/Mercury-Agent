@@ -377,7 +377,7 @@ class MultiHopReasoner:
     def induce(
         self,
         instances: list[dict[str, Any]],
-        feature_extractor: Callable[[dict], np.ndarray[Any, Any]] | None = None,
+        feature_extractor: Callable[[dict[str, Any]], np.ndarray[Any, Any]] | None = None,
     ) -> ReasoningChain | None:
         """
         Perform inductive reasoning (pattern generalization).

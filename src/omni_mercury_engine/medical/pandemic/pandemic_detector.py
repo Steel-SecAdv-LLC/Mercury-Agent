@@ -356,7 +356,7 @@ class PandemicDetector:
             hotspot_prob = self.network_analyzer(features_tensor)
 
         if float(hotspot_prob[0].item()) > 0.7:
-            hotspots = network_data.get("location_names", ["unspecified_location"])
+            hotspots: list[str] = network_data.get("location_names", ["unspecified_location"])
         else:
             hotspots = []
 

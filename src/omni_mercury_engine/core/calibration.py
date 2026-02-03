@@ -351,7 +351,7 @@ class CalibrationEnsemble:
     based on validation performance (Brier score).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize calibration ensemble."""
         self.calibrators = {
             "platt": PlattScaling(),
@@ -393,8 +393,8 @@ class CalibrationEnsemble:
         best_brier = float("inf")
 
         for name, calibrator in self.calibrators.items():
-            calibrator.fit(y_prob_train, y_true_train)
-            calibrated = calibrator.calibrate(y_prob_val)
+            calibrator.fit(y_prob_train, y_true_train)  # type: ignore[attr-defined]
+            calibrated = calibrator.calibrate(y_prob_val)  # type: ignore[attr-defined]
 
             try:
                 brier = brier_score_loss(y_true_val, calibrated)
@@ -407,7 +407,7 @@ class CalibrationEnsemble:
 
         # Refit best on all data
         if self.best_method:
-            self.calibrators[self.best_method].fit(y_prob, y_true)
+            self.calibrators[self.best_method].fit(y_prob, y_true)  # type: ignore[attr-defined]
 
         self._fitted = True
         logger.info(f"CalibrationEnsemble selected: {self.best_method} (Brier={best_brier:.4f})")
@@ -426,7 +426,7 @@ class CalibrationEnsemble:
         if not self._fitted or not self.best_method:
             return y_prob
 
-        return self.calibrators[self.best_method].calibrate(y_prob)
+        return self.calibrators[self.best_method].calibrate(y_prob)  # type: ignore[attr-defined]
 
 
 def evaluate_calibration(

@@ -52,8 +52,8 @@ HAS_STABLE_BASELINES = find_spec("stable_baselines3") is not None
 if not HAS_STABLE_BASELINES:
     logger.debug("stable-baselines3 not available, using mock trainer")
 else:
-    from stable_baselines3 import PPO
-    from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+    from stable_baselines3 import PPO  # type: ignore[import-not-found]
+    from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize  # type: ignore[import-not-found]
 
 
 @dataclass
@@ -170,7 +170,7 @@ class ConvergenceMonitor(BaseCallback):
         if len(self.reward_history) < 100:
             return 0.0
 
-        mean_reward = np.mean(self.reward_history[-100:])
+        mean_reward = float(np.mean(self.reward_history[-100:]))
         return mean_reward / (self.best_mean_reward + 1e-8)
 
 

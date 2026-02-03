@@ -73,7 +73,7 @@ class FourierAnalyzer:
 class BiometricAnomalyModel:
     """Biometric anomaly detection for facial recognition and analysis."""
 
-    def __init__(self, config: dict[str, Any] | None = None, **kwargs) -> None:
+    def __init__(self, config: dict[str, Any] | None = None, **kwargs: Any) -> None:
         self.config = config or {}
         self.model_name = self.config.get("model_name", "Facenet")
         self.use_harmonic_features = self.config.get("use_harmonic_features", True)

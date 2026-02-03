@@ -204,8 +204,8 @@ class IndicatorDevelopmentSystem:
         self._indicators: dict[str, Indicator] = {}
         self._warnings: list[Warning] = []
         self._pirs: dict[str, IntelligenceRequirement] = {}
-        self._pattern_history: dict[str, list[dict]] = defaultdict[str, list[Any]](list)
-        self._domain_index: dict[str, list[str]] = defaultdict[str, list[Any]](list)
+        self._pattern_history: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        self._domain_index: dict[str, list[str]] = defaultdict(list)
 
         # Statistics
         self._stats = {
@@ -505,10 +505,10 @@ class IndicatorDevelopmentSystem:
         self,
         anomalies: list[dict[str, Any]],
         min_support: float,
-    ) -> list[tuple[dict, float, list]]:
+    ) -> list[tuple[dict[str, Any], float, list[dict[str, Any]]]]:
         """Find frequent patterns in anomalies."""
         # Simple frequency-based pattern finding
-        pattern_counts: dict[str, list[dict]] = defaultdict[str, list[Any]](list)
+        pattern_counts: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
         for anomaly in anomalies:
             key = self._extract_pattern_key(anomaly)

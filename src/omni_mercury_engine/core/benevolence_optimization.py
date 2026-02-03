@@ -85,7 +85,7 @@ class ParetoFront:
         scores = normalized.sum(axis=1)
         best_idx = np.argmin(scores)
 
-        return self.solutions[best_idx]
+        return self.solutions[best_idx]  # type: ignore[no-any-return]
 
     def get_best_benevolent(self) -> ParetoSolution | None:
         """Get solution with highest benevolence."""
@@ -96,7 +96,7 @@ class ParetoFront:
         benevolence_idx = 1  # Index in objectives array
         best_idx = np.argmin([s.objectives[benevolence_idx] for s in self.solutions])
 
-        return self.solutions[best_idx]
+        return self.solutions[best_idx]  # type: ignore[no-any-return]
 
 
 class BenevolenceLoss:
@@ -210,7 +210,7 @@ class BenevolenceLoss:
         if ratio >= 0.8:
             return 1.0
         else:
-            return ratio / 0.8  # Linear penalty below 80%
+            return float(ratio / 0.8)  # Linear penalty below 80%
 
 
 class MultiObjectiveLoss:
@@ -642,7 +642,7 @@ def optimize_benevolent_detector(
     """
     mo_loss = MultiObjectiveLoss(benevolence_threshold=benevolence_threshold)
 
-    def objective(params):
+    def objective(params: dict[str, Any]) -> np.ndarray:
         """Multi-objective function returning [detection, 1-benevolence, 1-fairness]."""
         try:
             model = model_fn(params)

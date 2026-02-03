@@ -37,7 +37,7 @@ _ETHICAL_ANCHOR = OmniCodes.OMNI_INDIVISIBLE.code
 class AstrophysicalAnomalyModel:
     """Astrophysical anomaly detection using black hole physics and cosmic event modeling."""
 
-    def __init__(self, config: dict[str, Any] | None = None, **kwargs) -> None:
+    def __init__(self, config: dict[str, Any] | None = None, **kwargs: Any) -> None:
         self.config = config or {}
         self.mass_equivalent = self.config.get("mass_equivalent", 1.0)
         self.speed_of_light = self.config.get("speed_of_light", 1.0)
@@ -51,17 +51,17 @@ class AstrophysicalAnomalyModel:
         """Compute gravitational field strength."""
         if distance < 1e-6:
             return 1e6
-        return self.gravitational_constant * self.mass_equivalent / (distance**2)
+        return float(self.gravitational_constant * self.mass_equivalent / (distance**2))
 
     def _compute_time_dilation(self, distance: float) -> float:
         """Compute gravitational time dilation factor."""
         if distance <= self.schwarzschild_radius:
             return 0.0
-        return np.sqrt(1 - self.schwarzschild_radius / distance)
+        return float(np.sqrt(1 - self.schwarzschild_radius / distance))
 
     def _compute_hawking_temperature(self) -> float:
         """Compute Hawking temperature."""
-        return 1.0 / (8 * np.pi * self.mass_equivalent)
+        return float(1.0 / (8 * np.pi * self.mass_equivalent))
 
     def _compute_event_horizon_distance(self, data_point: np.ndarray[Any, Any]) -> float:
         """Compute distance from event horizon (singularity)."""

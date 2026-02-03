@@ -65,7 +65,7 @@ class SpaceInfrastructureMonitor:
         data: np.ndarray[Any, Any],
         asset_type: str,
         asset_id: str,
-        context: dict | None = None,
+        context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Detect anomalies in space infrastructure using z-score analysis.
 

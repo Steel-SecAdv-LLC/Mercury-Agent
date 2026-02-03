@@ -239,7 +239,7 @@ class NuclearForensicsAnalyzer:
             decay_constant = 2.116e-5
             age_years = -np.log(1 - pa231_u235) / decay_constant
 
-            return min(age_years, 100.0)
+            return float(min(age_years, 100.0))
 
         return 0.0
 

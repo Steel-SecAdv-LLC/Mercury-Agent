@@ -71,7 +71,7 @@ except ImportError:
 
 FACE_RECOGNITION_AVAILABLE = False
 try:
-    import face_recognition
+    import face_recognition  # type: ignore[import-not-found]
 
     FACE_RECOGNITION_AVAILABLE = True
 except ImportError:
@@ -87,7 +87,7 @@ except ImportError:
 
 FACENET_AVAILABLE = False
 try:
-    from facenet_pytorch import MTCNN, InceptionResnetV1
+    from facenet_pytorch import MTCNN, InceptionResnetV1  # type: ignore[import-not-found]
 
     FACENET_AVAILABLE = True
 except ImportError:
@@ -297,7 +297,8 @@ class AdvancedBiometricEngine:
                     enforce_detection=False,
                 )
                 if isinstance(analysis, list) and len(analysis) > 0:
-                    return analysis[0]
+                    result: dict[str, Any] = analysis[0]
+                    return result
 
             logger.warning("Using simulated attributes (DeepFace not available)")
             return {

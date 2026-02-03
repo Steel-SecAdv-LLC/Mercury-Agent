@@ -215,7 +215,7 @@ class PlattScalingCalibrator:
             # Cross-entropy loss with clipping for numerical stability
             p = np.clip(p, 1e-10, 1 - 1e-10)
             loss = -np.mean(targets * np.log(p) + (1 - targets) * np.log(1 - p))
-            return loss
+            return loss  # type: ignore[no-any-return]
 
         # Initialize with reasonable values
         x0 = np.array([-1.0, 0.0])

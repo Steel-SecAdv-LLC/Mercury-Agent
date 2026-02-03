@@ -335,7 +335,7 @@ class ConfigurationManager:
     def _load_yaml(self, path: Path) -> None:
         """Load YAML configuration file."""
         try:
-            import yaml  # type: ignore[import-untyped]
+            import yaml
 
             with open(path) as f:
                 data = yaml.safe_load(f) or {}
@@ -456,7 +456,7 @@ class ConfigurationManager:
             else:
                 return default
 
-        return current  # type: ignore[return-value]
+        return current  # type: ignore[no-any-return]
 
     def set(self, key: str, value: Any) -> None:
         """
@@ -496,7 +496,7 @@ class ConfigurationManager:
             fusion_mode=FusionMode(self.get("fusion_mode", "hybrid")),
             batch_size=int(self.get("batch_size", 32) or 32),
             num_workers=int(self.get("num_workers", 4) or 4),
-            model_path=self.get("model_path"),  # type: ignore[arg-type]
+            model_path=self.get("model_path"),
             cache_dir=str(self.get("cache_dir", "./cache")),
             log_level=str(self.get("log_level", "INFO")),
         )

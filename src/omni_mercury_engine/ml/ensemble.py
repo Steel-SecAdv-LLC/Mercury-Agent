@@ -223,7 +223,7 @@ class EnsembleOmniFusionModel(nn.Module):
         )
 
         if not use_ensemble:
-            return base_output
+            return dict(base_output)
 
         if self.config.method == EnsembleMethod.STACKING:
             return self._stacking_forward(base_output, detector_features, detector_scores)
@@ -232,7 +232,7 @@ class EnsembleOmniFusionModel(nn.Module):
         elif self.config.method == EnsembleMethod.BOOSTING:
             return self._boosting_forward(base_output, detector_features, detector_scores)
         else:
-            return base_output
+            return dict(base_output)
 
     def _stacking_forward(
         self,

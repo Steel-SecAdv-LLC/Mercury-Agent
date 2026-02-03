@@ -39,7 +39,7 @@ class WorldBankSectorsMonitor:
     on sustainable development and regenerative economic patterns.
     """
 
-    def __init__(self, regenerative_config: dict | None = None) -> None:
+    def __init__(self, regenerative_config: dict[str, Any] | None = None) -> None:
         """Initialize World Bank Sectors Monitor.
 
         Args:

@@ -601,7 +601,7 @@ def optimize_gosnn(
     gosnn: Any,
     X: np.ndarray | None = None,
     sigma_immutable: float = SIGMA_IMMUTABLE_TARGET,
-    **kwargs,
+    **kwargs: Any,
 ) -> OptimizationResult:
     """
     Convenience function to optimize GOSNN.

@@ -94,8 +94,8 @@ class EnergyOptimization:
         self.energy_profiles: list[EnergyProfile] = []
 
     def efficiency_first_optimization(
-        self, operations: list[dict], available_power: float
-    ) -> list[dict]:
+        self, operations: list[dict[str, Any]], available_power: float
+    ) -> list[dict[str, Any]]:
         """
         Optimize operations with efficiency-first approach.
 

@@ -192,7 +192,7 @@ class TemperatureScaledAttention(nn.Module):
 
     def get_temperature(self) -> float:
         """Get current temperature value."""
-        return self.temperature.item()
+        return self.temperature.item()  # type: ignore[no-any-return]
 
 
 class SparseAttention(nn.Module):
