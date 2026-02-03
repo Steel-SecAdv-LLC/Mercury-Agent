@@ -600,7 +600,7 @@ class EthicallyConstrainedFusion:
         ethical_vec = np.array([self.ethical_scores[name] for name in self.detectors])
 
         # Optimize weights with ethical constraints
-        def objective(w):
+        def objective(w: np.ndarray) -> float:
             # Normalize weights
             w = np.abs(w)
             w = w / (np.sum(w) + 1e-10)
@@ -619,7 +619,7 @@ class EthicallyConstrainedFusion:
             avg_ethical = np.sum(w * ethical_vec)
             constraint_penalty = 10.0 * max(0, self.sigma_immutable - avg_ethical)
 
-            return bce + ethical_penalty + constraint_penalty
+            return float(bce + ethical_penalty + constraint_penalty)
 
         # Initial weights (optionally phi-weighted)
         if self.use_golden_ratio and n_detectors >= 3:
@@ -701,7 +701,7 @@ def create_fusion_ensemble(
     detectors: dict[str, Any],
     method: str = "stacking",
     ethical_scores: dict[str, float] | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> StackingFusion | BayesianModelAveraging | EthicallyConstrainedFusion:
     """
     Factory function to create fusion ensemble.

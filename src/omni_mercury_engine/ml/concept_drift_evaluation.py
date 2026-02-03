@@ -592,7 +592,7 @@ class DegradationAnalyzer:
         _, _, lin_r, _, _ = stats.linregress(time_index, performances)
 
         # Exponential fits better if log-linear has higher R^2
-        return abs(log_r) > abs(lin_r) + 0.1 and log_slope < 0
+        return bool(abs(log_r) > abs(lin_r) + 0.1 and log_slope < 0)
 
     def _has_sudden_shift(self, performances: NDArray[np.float64]) -> bool:
         """Check for sudden performance shift."""
@@ -607,7 +607,7 @@ class DegradationAnalyzer:
 
         # Check for outlier differences (sudden shifts)
         threshold = abs(mean_diff) + 3 * std_diff
-        return np.any(np.abs(diffs) > threshold)
+        return np.any(np.abs(diffs) > threshold)  # type: ignore[no-any-return]
 
     def _is_oscillating(self, performances: NDArray[np.float64]) -> bool:
         """Check for oscillating pattern."""
@@ -620,7 +620,7 @@ class DegradationAnalyzer:
         sign_changes = np.sum(np.abs(np.diff(np.sign(diffs))) == 2)
 
         # Oscillating if many sign changes relative to length
-        return sign_changes > n * 0.4
+        return sign_changes > n * 0.4  # type: ignore[no-any-return]
 
     def _find_inflection_points(self, performances: NDArray[np.float64]) -> list[int]:
         """Find points where trend changes direction."""
@@ -1081,7 +1081,7 @@ class ConceptDriftEvaluator:
             )
 
         detector = self._drift_detectors["main"]
-        return detector.detect(X_test, feature_names)
+        return detector.detect(X_test, feature_names)  # type: ignore[no-any-return]
 
     def _extract_metric_values(self, performances: list[SplitPerformance]) -> list[float]:
         """Extract primary metric values for degradation analysis."""

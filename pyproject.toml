@@ -204,7 +204,19 @@ extend-exclude = '''
 '''
 
 # =============================================================================
-# MyPy Configuration - Strict Type Checking
+# MyPy Configuration - Progressive Type Checking
+# =============================================================================
+#
+# TYPE COVERAGE STATUS:
+#   Fully typed:     omni_mercury_engine.utils.* (except report_generator)
+#   Partially typed: (none yet)
+#   Not typed:       All other modules (~98% of codebase)
+#
+# ROADMAP: Modules are excluded via ignore_errors=true due to heavy reliance
+# on untyped third-party libraries (torch, transformers, deepface, etc.).
+# As these libraries gain type stubs, modules will be progressively typed.
+#
+# The strict settings below apply to NEW code and the utils module.
 # =============================================================================
 [tool.mypy]
 python_version = "3.12"
@@ -212,7 +224,9 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_any_generics = true
-disallow_subclassing_any = true
+# Allow subclassing Any - required for torch.nn.Module, pydantic.BaseModel, etc.
+# These libraries lack complete type stubs, returning Any for their base classes
+disallow_subclassing_any = false
 disallow_untyped_calls = true
 disallow_incomplete_defs = true
 check_untyped_defs = true
@@ -221,7 +235,7 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 strict_equality = true
-strict_concatenate = true
+extra_checks = true  # Replaces deprecated strict_concatenate
 show_error_codes = true
 show_column_numbers = true
 pretty = true
@@ -296,14 +310,41 @@ module = [
     # Monitoring and climate data
     "prometheus_client.*",
     "cdsapi.*",
+    # Streaming and caching
+    "redis",
+    "redis.*",
+    "aiokafka",
+    "aiokafka.*",
+    # Math extensions
+    "quaternion",
+    "quaternion.*",
+    # Machine learning utilities
+    "joblib",
+    "joblib.*",
+    "einops",
+    "einops.*",
+    # API utilities
+    "python_multipart",
+    "python_multipart.*",
+    "starlette.*",
+    # Datasets and data science
+    "datasets",
+    "datasets.*",
+    "pycmap",
+    "pycmap.*",
+    "netCDF4",
+    "netCDF4.*",
+    # Observability
+    "opentelemetry",
+    "opentelemetry.*",
 ]
 ignore_missing_imports = true
 
 # =============================================================================
-# Type Checking Strategy:
-# 1. Strict mode enabled globally (disallow_untyped_defs, etc.)
-# 2. Modules with heavy nn.Module subclasses get relaxed checking
-# 3. New/clean modules are fully type-checked
+# Type Checking Exclusions
+# NOTE: These exclusions exist because the modules heavily depend on third-party
+# libraries that lack type stubs. This is NOT a permanent state - as libraries
+# gain type support, these modules should be progressively typed.
 # =============================================================================
 
 # Override for PyTorch nn.Module subclasses (torch types are inherently complex)
@@ -387,7 +428,6 @@ module = [
     "omni_mercury_engine.safeguards.*",
     "omni_mercury_engine.scaling.*",
     "omni_mercury_engine.narrative.*",
-    "omni_mercury_engine.validation.*",
     "omni_mercury_engine.truth_decipher",
     "omni_mercury_engine.cli",
     "omni_mercury_engine.engine",
@@ -395,10 +435,29 @@ module = [
 ]
 ignore_errors = true
 
+# =============================================================================
+# Progressive Typing - Modules with Full Type Checking
+# =============================================================================
+
 # Utils module - properly typed
 [[tool.mypy.overrides]]
 module = [
     "omni_mercury_engine.utils.*",
+]
+ignore_errors = false
+
+# Validation module - production-critical, fully typed
+[[tool.mypy.overrides]]
+module = [
+    "omni_mercury_engine.validation.*",
+]
+ignore_errors = false
+
+# Security input validation - OWASP compliance, fully typed
+[[tool.mypy.overrides]]
+module = [
+    "omni_mercury_engine.security.input_validation",
+    "omni_mercury_engine.security.authentication",
 ]
 ignore_errors = false
 

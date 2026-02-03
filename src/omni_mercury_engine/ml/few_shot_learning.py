@@ -160,6 +160,102 @@ class EpisodeGenerator:
         self.n_episodes = n_episodes
         self.strategy = strategy
         self.rng = np.random.default_rng(seed)
+        self._class_prototypes: dict[int, NDArray[np.float64]] = {}
+
+    def _compute_class_prototypes(
+        self, X: NDArray[np.float64], y: NDArray[np.int64]
+    ) -> dict[int, NDArray[np.float64]]:
+        """Compute class prototypes (mean feature vectors) for hard negative mining."""
+        prototypes = {}
+        for cls in np.unique(y):
+            mask = y == cls
+            prototypes[cls] = np.mean(X[mask], axis=0)
+        return prototypes
+
+    def _select_hard_negatives(
+        self,
+        X: NDArray[np.float64],
+        indices: NDArray[np.int64],
+        current_class: int,
+        other_classes: list[int],
+        n_support: int,
+        n_query: int,
+    ) -> NDArray[np.int64]:
+        """
+        Select samples using hard negative mining strategy.
+
+        Hard negatives are samples that are close to prototypes of OTHER classes,
+        making them more challenging examples that improve model robustness.
+
+        Args:
+            X: Full feature matrix
+            indices: Indices of samples belonging to current_class
+            current_class: The class we're sampling from
+            other_classes: Other classes in the episode
+            n_support: Number of support samples needed
+            n_query: Number of query samples needed
+
+        Returns:
+            Selected indices (support first, then hard negative queries)
+        """
+        n_total = n_support + n_query
+
+        # If not enough samples or no other classes, fall back to random
+        if len(indices) < n_total or not other_classes or not self._class_prototypes:
+            return self.rng.choice(indices, size=n_total, replace=False)
+
+        # Get features for samples of this class
+        class_features = X[indices]
+
+        # Compute distances to OTHER class prototypes (not the current class)
+        other_prototypes = np.array(
+            [self._class_prototypes[cls] for cls in other_classes if cls != current_class]
+        )
+
+        if len(other_prototypes) == 0:
+            return self.rng.choice(indices, size=n_total, replace=False)
+
+        # Compute minimum distance to any other class prototype
+        # Samples with SMALLER distances are harder (closer to decision boundary)
+        distances = cdist(class_features, other_prototypes, metric="euclidean")
+        min_distances = np.min(distances, axis=1)
+
+        # Select support set randomly from the class
+        support_local_indices = self.rng.choice(len(indices), size=n_support, replace=False)
+
+        # For query set, prefer samples with small distances (hard negatives)
+        remaining_mask = np.ones(len(indices), dtype=bool)
+        remaining_mask[support_local_indices] = False
+        remaining_local_indices = np.where(remaining_mask)[0]
+
+        if len(remaining_local_indices) < n_query:
+            # Not enough remaining samples, include some from support
+            query_local_indices = remaining_local_indices
+        else:
+            # Sort remaining by hardness (smaller distance = harder)
+            hardness = min_distances[remaining_local_indices]
+            hardest_order = np.argsort(hardness)
+
+            # Mix: 70% hard negatives, 30% random for diversity
+            n_hard = int(n_query * 0.7)
+            n_random = n_query - n_hard
+
+            hard_indices = remaining_local_indices[hardest_order[:n_hard]]
+            random_pool = remaining_local_indices[hardest_order[n_hard:]]
+
+            if len(random_pool) >= n_random:
+                random_indices = self.rng.choice(random_pool, size=n_random, replace=False)
+            else:
+                random_indices = random_pool
+
+            query_local_indices = np.concatenate([hard_indices, random_indices])
+
+        # Convert back to global indices
+        selected = np.concatenate(
+            [indices[support_local_indices], indices[query_local_indices[:n_query]]]
+        )
+
+        return selected
 
     def generate(
         self,
@@ -209,6 +305,13 @@ class EpisodeGenerator:
                 if len(indices) >= self.k_shot + self.n_query
             ]
 
+        # Precompute class prototypes for hard negative mining
+        if self.strategy == EpisodeSamplingStrategy.HARD_NEGATIVE:
+            self._class_prototypes = self._compute_class_prototypes(X, y)
+            logger.debug(
+                "Computed %d class prototypes for hard negative mining", len(self._class_prototypes)
+            )
+
         for episode_id in range(self.n_episodes):
             # Sample classes for this episode
             episode_classes = self.rng.choice(
@@ -223,9 +326,14 @@ class EpisodeGenerator:
 
                 # Sample support and query indices
                 if self.strategy == EpisodeSamplingStrategy.HARD_NEGATIVE:
-                    # TODO: Implement hard negative mining
-                    sampled = self.rng.choice(
-                        indices, size=self.k_shot + self.n_query, replace=False
+                    # Use hard negative mining to select challenging query samples
+                    sampled = self._select_hard_negatives(
+                        X=X,
+                        indices=indices,
+                        current_class=cls,
+                        other_classes=episode_classes,
+                        n_support=self.k_shot,
+                        n_query=self.n_query,
                     )
                 else:
                     sampled = self.rng.choice(

@@ -244,82 +244,82 @@ def _lazy_import(name: str) -> Any:
 
 def get_abms_detector() -> type[ABMSDisciplineDetector]:
     """Get ABMSDisciplineDetector class (lazy loaded)."""
-    return _lazy_import("ABMSDisciplineDetector")
+    return _lazy_import("ABMSDisciplineDetector")  # type: ignore[no-any-return]
 
 
 def get_affective_model() -> type[AffectiveAnomalyModel]:
     """Get AffectiveAnomalyModel class (lazy loaded)."""
-    return _lazy_import("AffectiveAnomalyModel")
+    return _lazy_import("AffectiveAnomalyModel")  # type: ignore[no-any-return]
 
 
 def get_astrophysical_model() -> type[AstrophysicalAnomalyModel]:
     """Get AstrophysicalAnomalyModel class (lazy loaded)."""
-    return _lazy_import("AstrophysicalAnomalyModel")
+    return _lazy_import("AstrophysicalAnomalyModel")  # type: ignore[no-any-return]
 
 
 def get_biometric_model() -> type[BiometricAnomalyModel]:
     """Get BiometricAnomalyModel class (lazy loaded)."""
-    return _lazy_import("BiometricAnomalyModel")
+    return _lazy_import("BiometricAnomalyModel")  # type: ignore[no-any-return]
 
 
 def get_chemistry_detector() -> type[ChemistryAnomalyDetector]:
     """Get ChemistryAnomalyDetector class (lazy loaded)."""
-    return _lazy_import("ChemistryAnomalyDetector")
+    return _lazy_import("ChemistryAnomalyDetector")  # type: ignore[no-any-return]
 
 
 def get_consciousness_model() -> type[ConsciousnessPreservationModel]:
     """Get ConsciousnessPreservationModel class (lazy loaded)."""
-    return _lazy_import("ConsciousnessPreservationModel")
+    return _lazy_import("ConsciousnessPreservationModel")  # type: ignore[no-any-return]
 
 
 def get_neural_model() -> type[NeuralCognitiveModel]:
     """Get NeuralCognitiveModel class (lazy loaded)."""
-    return _lazy_import("NeuralCognitiveModel")
+    return _lazy_import("NeuralCognitiveModel")  # type: ignore[no-any-return]
 
 
 def get_parapsychology_detector() -> type[ParapsychologyDetector]:
     """Get ParapsychologyDetector class (lazy loaded)."""
-    return _lazy_import("ParapsychologyDetector")
+    return _lazy_import("ParapsychologyDetector")  # type: ignore[no-any-return]
 
 
 def get_quantum_model() -> type[QuantumAnomalyModel]:
     """Get QuantumAnomalyModel class (lazy loaded)."""
-    return _lazy_import("QuantumAnomalyModel")
+    return _lazy_import("QuantumAnomalyModel")  # type: ignore[no-any-return]
 
 
 def get_intelligence_fusion() -> type[IntelligenceFusionEngine]:
     """Get IntelligenceFusionEngine class (lazy loaded)."""
-    return _lazy_import("IntelligenceFusionEngine")
+    return _lazy_import("IntelligenceFusionEngine")  # type: ignore[no-any-return]
 
 
 def get_threat_detector() -> type[ThreatDetector]:
     """Get ThreatDetector class (lazy loaded)."""
-    return _lazy_import("ThreatDetector")
+    return _lazy_import("ThreatDetector")  # type: ignore[no-any-return]
 
 
 def get_schumann_detector() -> type[SchumannResonanceDetector]:
     """Get SchumannResonanceDetector class (lazy loaded)."""
-    return _lazy_import("SchumannResonanceDetector")
+    return _lazy_import("SchumannResonanceDetector")  # type: ignore[no-any-return]
 
 
 def get_self_healing() -> type[SelfHealingEngine]:
     """Get SelfHealingEngine class (lazy loaded)."""
-    return _lazy_import("SelfHealingEngine")
+    return _lazy_import("SelfHealingEngine")  # type: ignore[no-any-return]
 
 
 def get_llm_config() -> type[LLMConfig]:
     """Get LLMConfig class (lazy loaded)."""
-    return _lazy_import("LLMConfig")
+    return _lazy_import("LLMConfig")  # type: ignore[no-any-return]
 
 
 def get_llm_provider() -> type[LLMProvider]:
     """Get LLMProvider class (lazy loaded)."""
-    return _lazy_import("LLMProvider")
+    return _lazy_import("LLMProvider")  # type: ignore[no-any-return]
 
 
 def get_zero_shot_detector() -> type[ZeroShotAnomalyDetector]:
     """Get ZeroShotAnomalyDetector class (lazy loaded)."""
-    return _lazy_import("ZeroShotAnomalyDetector")
+    return _lazy_import("ZeroShotAnomalyDetector")  # type: ignore[no-any-return]
 
 
 # Backward-compatible aliases for direct access (triggers lazy load on access)
@@ -2585,7 +2585,7 @@ class OmniMercuryEngine(LoggerMixin):
         )
 
         # Configure optimizer
-        optimizer_config = cast("dict[str, Any]", trainer_module.configure_optimizers())
+        optimizer_config = trainer_module.configure_optimizers()
         optimizer = optimizer_config["optimizer"]
         scheduler = optimizer_config["lr_scheduler"]["scheduler"]
 

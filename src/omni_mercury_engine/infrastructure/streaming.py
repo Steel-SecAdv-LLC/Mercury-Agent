@@ -413,7 +413,7 @@ class InMemoryStreamConsumer(StreamConsumer):
             if topic not in self._offsets:
                 self._offsets[topic] = 0
 
-    async def consume(
+    async def consume(  # type: ignore[override, misc]
         self,
         timeout_ms: int = 1000,
     ) -> AsyncIterator[StreamMessage]:
@@ -486,7 +486,7 @@ class KafkaStreamProducer(StreamProducer):
             kafka_config["sasl_plain_password"] = self.config.kafka_sasl_password
 
         self._producer = AIOKafkaProducer(**kafka_config)
-        await self._producer.start()
+        await self._producer.start()  # type: ignore[attr-defined]
         logger.info(f"Kafka producer connected to {self.config.kafka_bootstrap_servers}")
 
     async def disconnect(self) -> None:
@@ -624,7 +624,7 @@ class KafkaStreamConsumer(StreamConsumer):
             kafka_config["sasl_plain_password"] = self.config.kafka_sasl_password
 
         self._consumer = AIOKafkaConsumer(**kafka_config)
-        await self._consumer.start()
+        await self._consumer.start()  # type: ignore[attr-defined]
         logger.info(f"Kafka consumer connected to {self.config.kafka_bootstrap_servers}")
 
     async def disconnect(self) -> None:
@@ -642,7 +642,7 @@ class KafkaStreamConsumer(StreamConsumer):
         self._consumer.subscribe(topics)
         logger.info(f"Kafka consumer subscribed to topics: {topics}")
 
-    async def consume(
+    async def consume(  # type: ignore[override, misc]
         self,
         timeout_ms: int = 1000,
     ) -> AsyncIterator[StreamMessage]:
@@ -729,7 +729,7 @@ class RedisStreamProducer(StreamProducer):
             decode_responses=True,
         )
         # Test connection
-        await self._redis.ping()
+        await self._redis.ping()  # type: ignore[attr-defined]
         logger.info(f"Redis producer connected to {self.config.redis_url}")
 
     async def disconnect(self) -> None:
@@ -848,7 +848,7 @@ class RedisStreamConsumer(StreamConsumer):
             max_connections=self.config.redis_max_connections,
             decode_responses=True,
         )
-        await self._redis.ping()
+        await self._redis.ping()  # type: ignore[attr-defined]
         logger.info(f"Redis consumer connected to {self.config.redis_url}")
 
     async def disconnect(self) -> None:
@@ -881,7 +881,7 @@ class RedisStreamConsumer(StreamConsumer):
 
         logger.info(f"Redis consumer subscribed to streams: {topics}")
 
-    async def consume(
+    async def consume(  # type: ignore[override, misc]
         self,
         timeout_ms: int = 1000,
     ) -> AsyncIterator[StreamMessage]:
@@ -1078,7 +1078,7 @@ class StreamingAnomalyPipeline:
         )
 
         self._running = False
-        self._task: asyncio.Task | None = None
+        self._task: asyncio.Task[None] | None = None
         self._stats = {
             "messages_processed": 0,
             "anomalies_detected": 0,

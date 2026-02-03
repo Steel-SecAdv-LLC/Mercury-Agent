@@ -101,7 +101,7 @@ __all__ = [
 
 
 # Backward-compatible alias for AvaDominanceEquation
-AvaDominanceEquation = AnomalyFusionEquation  # type: ignore[misc]
+AvaDominanceEquation = AnomalyFusionEquation
 
 
 class _LegacyAnomalyFusionEquation:
@@ -587,7 +587,7 @@ class _LegacyRecursionEngine:
 
         diff = np.linalg.norm(transformed - data)
         if diff < threshold:
-            return transformed  # type: ignore[no-any-return]
+            return transformed
 
         return self.recursive_transform(transformed, transform_fn, depth + 1, threshold)
 
@@ -611,7 +611,7 @@ class _LegacyRecursionEngine:
             window_size = max(3, len(data) // (2**level))
             return self._sliding_window_stats(data, window_size)
         else:
-            return np.mean(data, axis=1, keepdims=True)  # type: ignore[no-any-return]
+            return np.mean(data, axis=1, keepdims=True)
 
     def _sliding_window_stats(self, data: NDArray[Any], window_size: int) -> NDArray[Any]:
         if len(data) < window_size:
@@ -2586,7 +2586,7 @@ class ThreeRMechanism:
         Returns:
             Dictionary containing proof elements for MATH_DERIVATIONS.md
         """
-        return self.fusion.get_dominance_proof()  # type: ignore[union-attr, attr-defined]
+        return self.fusion.get_dominance_proof()  # type: ignore[attr-defined, no-any-return]
 
     def verify_stability(self) -> tuple[bool, float]:
         """Verify Lyapunov stability of the 3R mechanism.

@@ -299,7 +299,8 @@ class MemoryEfficientFeatureCache:
 
         if isinstance(data, np.ndarray):
             return data
-        return data  # type: ignore[return-value]
+        # Convert torch.Tensor to numpy array if needed
+        return np.asarray(data)
 
     def _estimate_memory(self, data: np.ndarray[Any, Any]) -> int:
         """Estimate memory usage of data.

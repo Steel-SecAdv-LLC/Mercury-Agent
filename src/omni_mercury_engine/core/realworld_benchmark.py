@@ -632,8 +632,8 @@ class RealWorldBenchmarkRunner:
             if hasattr(detector, "get_gosnn_scalars"):
                 scalars = detector.get_gosnn_scalars()
                 metrics.benevolence_score = scalars.get("benevolence", 1.0)
-        except Exception:
-            pass  # Benevolence scoring optional, continue without it
+        except Exception as e:
+            logger.debug("Benevolence scoring unavailable: %s", e)
 
         result = BenchmarkResult(
             dataset=info,
@@ -660,8 +660,8 @@ class RealWorldBenchmarkRunner:
         """Compute event-based F1 and time-to-detection."""
 
         # Extract events
-        def get_events(arr):
-            events = []
+        def get_events(arr: np.ndarray) -> list[tuple[int, int]]:
+            events: list[tuple[int, int]] = []
             in_event = False
             start = 0
             for i, v in enumerate(arr):

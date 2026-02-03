@@ -36,6 +36,7 @@ Memory Management:
 """
 
 import hashlib
+import logging
 import threading
 from collections import deque
 from dataclasses import dataclass, field
@@ -47,6 +48,9 @@ from scipy.fft import fft
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+
+
+logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
@@ -209,7 +213,8 @@ class SigmaDirectiveDetector(BaseDetector):
             self._thread_local.state = _ThreadLocalState(
                 memory_buffer=deque(maxlen=self.memory_depth)
             )
-        return self._thread_local.state
+        state: _ThreadLocalState = self._thread_local.state
+        return state
 
     def clear_memory(self) -> None:
         """Clear the memory buffer for the current thread.
@@ -631,7 +636,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         normalized_entropy = entropy / 8.0
 
-        return normalized_entropy
+        return float(normalized_entropy)
 
     @staticmethod
     def _quantum_dot_checksum(data: bytes) -> float:
@@ -666,7 +671,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         anomaly_rate = anomalous_transitions / len(transitions)
 
-        return anomaly_rate
+        return float(anomaly_rate)
 
     def _detect_micro_anomalies(self, data: np.ndarray[Any, Any]) -> float:
         """
@@ -693,7 +698,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         micro_score = np.mean(variance_changes) / (np.std(variance_array) + 1e-10)
 
-        return min(micro_score, 1.0)
+        return float(min(micro_score, 1.0))
 
     def _dimensional_downsampling_detection(self, data: np.ndarray[Any, Any]) -> float:
         """
@@ -734,7 +739,8 @@ class SigmaDirectiveDetector(BaseDetector):
 
             final_score = micro_anomaly_rate * 0.6 + min(concentration_score / 10.0, 1.0) * 0.4
 
-            return min(final_score, 1.0)
+            return float(min(final_score, 1.0))
 
-        except Exception:
+        except Exception as e:
+            logger.debug("Nano-scale pattern detection failed: %s", e)
             return 0.0

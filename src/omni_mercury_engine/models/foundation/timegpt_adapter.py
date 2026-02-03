@@ -254,7 +254,7 @@ class TimeGPTAdapter(BaseFoundationModel):
         # For single series input (1D), return just the forecast array for API simplicity
         # For batch input (2D), return the full dict with all bounds
         if batch_size == 1:
-            return forecasts[0]
+            return {"forecast": forecasts[0], "lower": lowers[0], "upper": uppers[0]}
 
         return {
             "forecast": np.stack(forecasts),

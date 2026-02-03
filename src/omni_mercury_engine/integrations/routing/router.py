@@ -76,11 +76,11 @@ class Route:
     handler: Callable[..., Awaitable[Any]]
     methods: list[str] = field(default_factory=lambda: ["GET"])
     name: str | None = None
-    middleware: list[Callable] = field(default_factory=list)
+    middleware: list[Callable[..., Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     # Compiled regex pattern (set by router)
-    _regex: re.Pattern | None = field(default=None, repr=False)
+    _regex: re.Pattern[str] | None = field(default=None, repr=False)
     _param_names: list[str] = field(default_factory=list, repr=False)
 
     def compile(self) -> None:
@@ -114,7 +114,7 @@ class Route:
         if self._regex is None:
             self.compile()
 
-        match = self._regex.match(path)  # type: ignore
+        match = self._regex.match(path)  # type: ignore[union-attr]
         if match:
             return match.groupdict()
         return None
@@ -134,7 +134,7 @@ class RouteMatch:
     route: Route
     handler: Callable[..., Awaitable[Any]]
     params: dict[str, str]
-    middleware: list[Callable]
+    middleware: list[Callable[..., Any]]
 
 
 class RouteNotFoundError(Exception):
@@ -181,7 +181,7 @@ class RequestRouter:
     def __init__(
         self,
         prefix: str = "",
-        middleware: list[Callable] | None = None,
+        middleware: list[Callable[..., Any]] | None = None,
     ):
         """Initialize router.
 
@@ -202,7 +202,7 @@ class RequestRouter:
         handler: Callable[..., Awaitable[Any]],
         methods: list[str] | None = None,
         name: str | None = None,
-        middleware: list[Callable] | None = None,
+        middleware: list[Callable[..., Any]] | None = None,
         **metadata: Any,
     ) -> Route:
         """Add a route.
@@ -421,7 +421,7 @@ class RouterGroup:
         self,
         prefix: str,
         router: RequestRouter | None = None,
-        middleware: list[Callable] | None = None,
+        middleware: list[Callable[..., Any]] | None = None,
     ):
         """Initialize router group.
 

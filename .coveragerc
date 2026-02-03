@@ -1,7 +1,22 @@
+# Coverage.py configuration
+# Note: Main configuration is in pyproject.toml [tool.coverage.*]
+# This file exists for tools that don't read pyproject.toml coverage settings
+
 [run]
-source = omni_mercury_engine
+source = src/omni_mercury_engine
+branch = true
+parallel = true
+omit =
+    */tests/*
+    */test_*.py
+    */__pycache__/*
+    */site-packages/*
 
 [report]
+precision = 2
+show_missing = true
+skip_covered = false
+fail_under = 10
 exclude_lines =
     pragma: no cover
     def __repr__
@@ -9,4 +24,12 @@ exclude_lines =
     raise NotImplementedError
     if __name__ == .__main__.:
     if TYPE_CHECKING:
+    if typing.TYPE_CHECKING:
     @abstractmethod
+    @abc.abstractmethod
+
+[html]
+directory = htmlcov
+
+[xml]
+output = coverage.xml

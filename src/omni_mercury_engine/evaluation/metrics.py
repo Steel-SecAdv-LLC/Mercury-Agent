@@ -359,7 +359,13 @@ def compute_range_based_f1(
     return float(2 * precision * recall / (precision + recall))
 
 
-def _range_precision(gt_segs, pred_segs, alpha, cardinality, bias) -> float:
+def _range_precision(
+    gt_segs: list[tuple[int, int]],
+    pred_segs: list[tuple[int, int]],
+    alpha: float,
+    cardinality: str,
+    bias: str,
+) -> float:
     """Compute range-based precision."""
     scores = []
     for pred_start, pred_end in pred_segs:
@@ -375,7 +381,13 @@ def _range_precision(gt_segs, pred_segs, alpha, cardinality, bias) -> float:
     return sum(scores) / len(scores) if scores else 0.0
 
 
-def _range_recall(gt_segs, pred_segs, alpha, cardinality, bias) -> float:
+def _range_recall(
+    gt_segs: list[tuple[int, int]],
+    pred_segs: list[tuple[int, int]],
+    alpha: float,
+    cardinality: str,
+    bias: str,
+) -> float:
     """Compute range-based recall."""
     scores = []
     for gt_start, gt_end in gt_segs:

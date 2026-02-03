@@ -1046,7 +1046,7 @@ class CopernicusERA5Loader(DatasetLoader):
         sp = ds.variables.get("sp", ds.variables.get("surface_pressure"))
         tp = ds.variables.get("tp", ds.variables.get("total_precipitation"))
 
-        rows = []
+        rows: list[list[float]] = []
         max_samples = self.config.max_samples or 10000
 
         for t_idx in range(min(len(time_var), 100)):

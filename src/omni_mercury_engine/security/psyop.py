@@ -971,7 +971,9 @@ class PSYOPAnalyzer:
         )
         return [n.get("title", f"narrative_{i}") for i, n in enumerate(sorted_narratives[:5])]
 
-    def extract_features(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> np.ndarray[Any, Any]:
+    def extract_features(
+        self, data: np.ndarray[Any, Any] | dict[str, Any]
+    ) -> np.ndarray[tuple[int, ...], np.dtype[np.floating[Any]]]:
         """
         Extract PSYOP-relevant features for fusion with other detectors.
 
@@ -1020,17 +1022,17 @@ class PSYOPAnalyzer:
                 data = data.reshape(1, -1)
 
             batch_size = data.shape[0]
-            features = np.zeros((batch_size, 32), dtype=np.float32)
+            batch_features = np.zeros((batch_size, 32), dtype=np.float32)
 
             for i in range(batch_size):
                 sample = data[i]
-                features[i, 0] = np.mean(sample)
-                features[i, 1] = np.std(sample)
-                features[i, 2] = np.min(sample)
-                features[i, 3] = np.max(sample)
-                features[i, 4] = np.median(sample)
+                batch_features[i, 0] = np.mean(sample)
+                batch_features[i, 1] = np.std(sample)
+                batch_features[i, 2] = np.min(sample)
+                batch_features[i, 3] = np.max(sample)
+                batch_features[i, 4] = np.median(sample)
 
-            return features
+            return batch_features
 
     def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
         """

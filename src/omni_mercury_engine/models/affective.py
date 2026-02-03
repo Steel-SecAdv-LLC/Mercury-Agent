@@ -35,8 +35,8 @@ class AffectiveAnomalyModel:
         self,
         config: dict[str, Any] | None = None,
         rng: DeterministicRNG | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         self.config = config or {}
         self._rng = rng or get_global_rng()
 

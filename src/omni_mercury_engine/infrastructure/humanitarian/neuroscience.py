@@ -65,7 +65,7 @@ class NeuroscienceDetector:
         self,
         data: np.ndarray[Any, Any],
         detection_type: str = "neural_activity",
-        subject_context: dict | None = None,
+        subject_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Detect neuroscience anomalies.
@@ -86,7 +86,7 @@ class NeuroscienceDetector:
             return self.detect_neural_activity_anomaly(data, subject_context)
 
     def detect_neural_activity_anomaly(
-        self, neural_data: np.ndarray[Any, Any], subject_context: dict | None = None
+        self, neural_data: np.ndarray[Any, Any], subject_context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Detect abnormal neural activity patterns."""
         if len(neural_data) == 0:
@@ -127,7 +127,7 @@ class NeuroscienceDetector:
         }
 
     def detect_cognitive_anomaly(
-        self, cognitive_data: np.ndarray[Any, Any], subject_context: dict | None = None
+        self, cognitive_data: np.ndarray[Any, Any], subject_context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Detect cognitive decline or attention deficits."""
         if len(cognitive_data) == 0:
@@ -163,7 +163,7 @@ class NeuroscienceDetector:
         spikes = np.sum(np.abs(np.diff(neural_data)) > 3 * np.std(neural_data))
         spike_rate = spikes / len(neural_data)
 
-        return min(spike_rate * 10, 1.0)
+        return float(min(spike_rate * 10, 1.0))
 
     def _assess_neurological_risk(self, z_score: float, seizure_risk: float) -> str:
         """Assess neurological risk level."""

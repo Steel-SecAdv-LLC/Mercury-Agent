@@ -64,7 +64,7 @@ class RecursionEngine:
 
         diff = np.linalg.norm(transformed - data)
         if diff < threshold:
-            return transformed  # type: ignore[no-any-return]
+            return transformed
 
         return self.recursive_transform(transformed, transform_fn, depth + 1, threshold)
 
@@ -130,7 +130,7 @@ class RecursionEngine:
             window_size = max(3, len(data) // (2**level))
             return self._sliding_window_stats(data, window_size)
         else:
-            return np.mean(data, axis=1, keepdims=True)  # type: ignore[no-any-return]
+            return np.mean(data, axis=1, keepdims=True)
 
     def _sliding_window_stats(self, data: NDArray[Any], window_size: int) -> NDArray[Any]:
         """Compute sliding window statistics."""

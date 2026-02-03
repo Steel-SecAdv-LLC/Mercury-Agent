@@ -35,13 +35,24 @@ Implements the validation framework described in VALIDATION_FRAMEWORK.md.
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy import stats
 
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+
 logger = logging.getLogger(__name__)
+
+# NumPy 2.0+ compatibility: trapz was renamed to trapezoid
+_trapz: Callable[..., float]
+if hasattr(np, "trapezoid"):
+    _trapz = getattr(np, "trapezoid")
+else:
+    _trapz = getattr(np, "trapz")
 
 
 @dataclass
@@ -84,7 +95,7 @@ class ValidationResult:
     f1_score: float
     auc_roc: float
     auc_pr: float
-    confusion_matrix: np.ndarray
+    confusion_matrix: np.ndarray[Any, Any]
     quality_checks: list[QualityCheckResult]
     validation_time_seconds: float
     num_samples: int
@@ -218,7 +229,7 @@ class DataQualityChecker:
             )
 
         min_ratio = np.min(counts) / np.sum(counts)
-        passed = min_ratio >= self.imbalance_threshold
+        passed = bool(min_ratio >= self.imbalance_threshold)
         score = min(min_ratio / 0.5, 1.0)
 
         return QualityCheckResult(
@@ -374,7 +385,7 @@ class ABTester:
         if pooled_std == 0:
             return 0.0
 
-        return (np.mean(group2) - np.mean(group1)) / pooled_std
+        return float((np.mean(group2) - np.mean(group1)) / pooled_std)
 
     def _bootstrap_ci(self, differences: np.ndarray[Any, Any]) -> tuple[float, float]:
         """Calculate bootstrap confidence interval for differences."""
@@ -603,7 +614,7 @@ class ValidationPipeline:
             tpr_list.append(tp / total_pos)
             fpr_list.append(fp / total_neg)
 
-        auc = np.trapz(tpr_list, fpr_list)
+        auc = _trapz(tpr_list, fpr_list)
         return float(auc)
 
     def _compute_auc_pr(
@@ -635,7 +646,7 @@ class ValidationPipeline:
             precision_list.append(precision)
             recall_list.append(recall)
 
-        auc = np.trapz(precision_list, recall_list)
+        auc = _trapz(precision_list, recall_list)
         return float(abs(auc))
 
     def _store_benchmark(self, result: ValidationResult) -> None:

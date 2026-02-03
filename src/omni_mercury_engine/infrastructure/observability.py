@@ -276,11 +276,16 @@ class FileAuditHandler(AuditLogHandler):
         self.close()
 
     def __del__(self) -> None:
-        """Ensure file handle is closed during garbage collection."""
+        """Ensure file handle is closed during garbage collection.
+
+        Note: Exceptions in __del__ cannot be safely raised and logging may fail
+        if the logging module has already been torn down during interpreter shutdown.
+        """
         try:
             self.close()
         except Exception:
-            pass  # Suppress errors during GC
+            # Cannot reliably log during GC/interpreter shutdown
+            pass
 
     def emit(self, event: AuditEvent) -> None:
         """Emit an audit event to file.

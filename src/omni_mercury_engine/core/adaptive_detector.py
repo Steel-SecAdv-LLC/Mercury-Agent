@@ -245,7 +245,7 @@ class AdaptiveThresholdCalibrator:
         # Contamination is the fraction above the knee
         estimated = 1.0 - (knee_idx / n)
 
-        return np.clip(estimated, self.min_contamination, self.max_contamination)
+        return float(np.clip(estimated, self.min_contamination, self.max_contamination))
 
 
 class CovarianceAwareDetector:
@@ -539,7 +539,7 @@ class AdaptiveAnomalyDetector:
         if not autocorrs:
             return 0.0
 
-        return np.mean(autocorrs)
+        return float(np.mean(autocorrs))
 
     def _compute_covariance_score(self, X: NDArray[np.float64]) -> float:
         """Compute score indicating strong covariance structure (0-1)."""
@@ -558,7 +558,7 @@ class AdaptiveAnomalyDetector:
         # Strong covariance if many high correlations
         high_corr_fraction = np.mean(off_diag > 0.5)
 
-        return high_corr_fraction
+        return float(high_corr_fraction)
 
     def fit(
         self,

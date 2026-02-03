@@ -56,7 +56,7 @@ class AgentAction:
     """Represents an action taken by the agent."""
 
     action_type: str
-    parameters: dict
+    parameters: dict[str, Any]
     confidence: float
     rationale: str
     outcome: float | None = None  # Reward/outcome after action execution
@@ -148,7 +148,7 @@ class AgenticAutonomy:
         self._workflow_execution_counts: dict[str, int] = {}
 
     def autonomous_detect(
-        self, data: np.ndarray[Any, Any], context: dict | None = None
+        self, data: np.ndarray[Any, Any], context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """
         Autonomously detect anomalies with minimal human oversight.
@@ -195,7 +195,7 @@ class AgenticAutonomy:
     def _analyze_anomalies(self, observations: dict[str, Any]) -> float:
         """Analyze observations for anomalies."""
         score = abs(observations["mean"]) / (observations["std"] + 1e-8)
-        return min(score / 10.0, 1.0)
+        return float(min(score / 10.0, 1.0))
 
     def _decide_action(self, anomaly_score: float, observations: dict[str, Any]) -> AgentAction:
         """Decide what action to take."""
@@ -444,7 +444,7 @@ class AgenticAutonomy:
 
         # Epsilon-greedy exploration
         if np.random.random() < self.exploration_rate:
-            return np.random.choice(available_actions)
+            return str(np.random.choice(available_actions))
 
         # Greedy selection based on Q-values
         q_values = [
@@ -600,11 +600,11 @@ class AgenticAutonomy:
             value = 0.0
 
         if operator == ">":
-            return value > threshold
+            return bool(value > threshold)
         elif operator == "<":
-            return value < threshold
+            return bool(value < threshold)
         elif operator == "==":
-            return abs(value - threshold) < 1e-6
+            return bool(abs(value - threshold) < 1e-6)
         else:
             return False
 

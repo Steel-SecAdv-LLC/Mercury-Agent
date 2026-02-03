@@ -35,10 +35,10 @@ import numpy as np
 
 # Lazy import to support CLI help without torch dependency
 # OmniMercuryEngine is only imported when actually needed (not for --help)
-OmniMercuryEngine = None
+OmniMercuryEngine: Any = None
 
 
-def _get_engine(*args, **kwargs):
+def _get_engine(*args: Any, **kwargs: Any) -> Any:
     """Lazy load OmniMercuryEngine to defer torch import."""
     global OmniMercuryEngine
     if OmniMercuryEngine is None:

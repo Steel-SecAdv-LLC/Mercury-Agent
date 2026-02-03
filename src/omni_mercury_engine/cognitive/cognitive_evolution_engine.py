@@ -738,7 +738,7 @@ class ChainOfThoughtReasoner:
             return 0.5
 
         confidences = [s.get("confidence", 0.5) for s in steps]
-        return sum(confidences) / len(confidences)
+        return float(sum(confidences) / len(confidences))
 
     def get_statistics(self) -> dict[str, Any]:
         """Get reasoner statistics."""

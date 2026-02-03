@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 
@@ -35,6 +36,9 @@ Reference: Mirjalili et al. (2014) - Grey Wolf Optimizer
 
 
 import numpy as np
+
+
+logger = logging.getLogger(__name__)
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -179,7 +183,8 @@ class GreyWolfOptimizer:
             try:
                 scores = cross_val_score(clf, X_selected, y, cv=3)
                 return 1.0 - float(np.mean(scores))
-            except Exception:
+            except Exception as e:
+                logger.debug("Cross-validation failed for feature selection: %s", e)
                 return 1.0
 
         lb = np.zeros(n_total_features)

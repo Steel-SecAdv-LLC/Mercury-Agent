@@ -446,7 +446,7 @@ class SolarStormDetector:
         deviation = abs(schumann_mean - baseline_freq)
         correlation = min(deviation / 2.0, 1.0)
 
-        return correlation
+        return float(correlation)
 
     def _generate_protective_actions(self, result: SolarStormPredictionResult) -> list[str]:
         """Generate protective actions"""

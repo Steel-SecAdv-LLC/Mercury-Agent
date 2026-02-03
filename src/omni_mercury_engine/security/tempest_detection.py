@@ -82,7 +82,7 @@ class TEMPESTAnalysisResult:
     risk_score: float
 
     emanation_types: list[str] = field(default_factory=list)
-    frequency_bands: list[dict] = field(default_factory=list)
+    frequency_bands: list[dict[str, Any]] = field(default_factory=list)
     signal_strength_dbm: float | None = None
 
     compromising_potential: float = 0.0

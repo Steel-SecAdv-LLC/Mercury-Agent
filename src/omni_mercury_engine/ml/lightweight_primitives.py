@@ -391,7 +391,12 @@ class LightweightMLP:
             weights_dict[f"layer_{i}_weights"] = layer.weights.tolist()
             weights_dict[f"layer_{i}_bias"] = layer.bias.tolist()
 
-            if layer.bn_gamma is not None:
+            if (
+                layer.bn_gamma is not None
+                and layer.bn_beta is not None
+                and layer.bn_mean is not None
+                and layer.bn_var is not None
+            ):
                 weights_dict[f"layer_{i}_bn_gamma"] = layer.bn_gamma.tolist()
                 weights_dict[f"layer_{i}_bn_beta"] = layer.bn_beta.tolist()
                 weights_dict[f"layer_{i}_bn_mean"] = layer.bn_mean.tolist()
@@ -570,7 +575,7 @@ class IsolationScorer:
         Returns:
             Anomaly scores (higher = more anomalous)
         """
-        if not self._fitted or self._projections is None:
+        if not self._fitted or self._projections is None or self._thresholds is None:
             raise ValueError("Scorer not fitted. Call fit() first.")
 
         if X.ndim == 1:

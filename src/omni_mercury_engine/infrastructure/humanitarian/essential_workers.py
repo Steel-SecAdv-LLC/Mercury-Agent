@@ -201,10 +201,14 @@ class EssentialWorkersMonitor:
         critical_categories = []
 
         for category, config in self.worker_categories.items():
-            baseline = float(config["baseline_capacity"])  # type: ignore[arg-type]
-            multiplier = float(multipliers.get(category, 0.85))  # type: ignore[arg-type]
+            baseline_val = config["baseline_capacity"]
+            baseline = float(baseline_val) if isinstance(baseline_val, (int, float)) else 1.0
+            multiplier_val = multipliers.get(category, 0.85)
+            multiplier = float(multiplier_val) if isinstance(multiplier_val, (int, float)) else 0.85
             predicted_capacity = baseline * multiplier
-            critical = predicted_capacity < float(config["critical_threshold"])  # type: ignore[arg-type]
+            threshold_val = config["critical_threshold"]
+            threshold = float(threshold_val) if isinstance(threshold_val, (int, float)) else 0.75
+            critical = predicted_capacity < threshold
 
             if critical:
                 critical_categories.append(category)

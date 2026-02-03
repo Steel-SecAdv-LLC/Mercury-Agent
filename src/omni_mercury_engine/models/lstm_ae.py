@@ -311,7 +311,7 @@ class AnomalyDetector(LoggerMixin):
         thresh = threshold if threshold is not None else self.threshold
         return (scores > thresh).astype(int)
 
-    def save(self, path: str):
+    def save(self, path: str) -> None:
         """Save model to file."""
         os.makedirs(os.path.dirname(path) if os.path.dirname(path) else ".", exist_ok=True)
         torch.save(

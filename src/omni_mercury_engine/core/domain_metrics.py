@@ -266,7 +266,7 @@ class MetricsCalculator:
         # Event matching with tolerance
         tolerance = 3  # Allow 3-point tolerance
 
-        def events_overlap(e1: tuple, e2: tuple) -> bool:
+        def events_overlap(e1: tuple[int, int], e2: tuple[int, int]) -> bool:
             return not (e1[1] + tolerance < e2[0] or e2[1] + tolerance < e1[0])
 
         # Event recall
@@ -635,7 +635,7 @@ def compute_benchmark_metrics(
     y_pred: np.ndarray,
     y_prob: np.ndarray | None = None,
     domain: str = "general",
-    **kwargs,
+    **kwargs: Any,
 ) -> ComprehensiveMetrics:
     """
     Convenience function to compute metrics for benchmarking.

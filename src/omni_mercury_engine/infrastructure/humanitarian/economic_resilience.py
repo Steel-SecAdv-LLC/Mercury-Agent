@@ -64,7 +64,7 @@ class EconomicResilienceDetector:
         self,
         data: np.ndarray[Any, Any],
         detection_type: str = "market",
-        economic_context: dict | None = None,
+        economic_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Detect economic anomalies.
@@ -85,7 +85,7 @@ class EconomicResilienceDetector:
             return self.detect_market_anomaly(data, economic_context)
 
     def detect_market_anomaly(
-        self, market_data: np.ndarray[Any, Any], economic_context: dict | None = None
+        self, market_data: np.ndarray[Any, Any], economic_context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Detect market crashes and volatility spikes."""
         if len(market_data) == 0:
@@ -129,7 +129,7 @@ class EconomicResilienceDetector:
         }
 
     def detect_employment_anomaly(
-        self, employment_data: np.ndarray[Any, Any], economic_context: dict | None = None
+        self, employment_data: np.ndarray[Any, Any], economic_context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Detect unemployment spikes and labor market stress."""
         if len(employment_data) == 0:

@@ -339,7 +339,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 req, timeout=self.ollama_config.timeout
             ) as response:
                 result = json.loads(response.read().decode())
-                return result.get("response", "")
+                return str(result.get("response", ""))
 
         except Exception as e:
             logger.error(f"Ollama generation failed: {e}")
@@ -395,7 +395,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 req, timeout=self.ollama_config.timeout
             ) as response:
                 result = json.loads(response.read().decode())
-                return result.get("message", {}).get("content", "")
+                return str(result.get("message", {}).get("content", ""))
 
         except Exception as e:
             logger.error(f"Ollama chat generation failed: {e}")

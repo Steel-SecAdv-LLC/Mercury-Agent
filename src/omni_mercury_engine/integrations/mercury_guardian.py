@@ -401,7 +401,7 @@ class MercuryGuardianAdapter:
                 if anomaly:
                     self._record_anomaly(anomaly)
 
-            return signature
+            return bytes(signature)
 
         except Exception as e:
             duration_ms = (time.perf_counter() - start_time) * 1000
@@ -467,7 +467,7 @@ class MercuryGuardianAdapter:
                 )
                 self._record_anomaly(anomaly)
 
-            return result
+            return bool(result)
 
         except Exception as e:
             duration_ms = (time.perf_counter() - start_time) * 1000
@@ -604,7 +604,7 @@ class MercuryGuardianAdapter:
                 if anomaly:
                     self._record_anomaly(anomaly)
 
-            return shared_secret
+            return bytes(shared_secret)
 
         except Exception as e:
             duration_ms = (time.perf_counter() - start_time) * 1000

@@ -168,7 +168,7 @@ class LogicTensorNetwork:
             )
             self.logic_head = nn.Linear(hidden_dim // 2, 1)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through LTN"""
         if not TORCH_AVAILABLE:
             raise RuntimeError("PyTorch required for neural forward pass")
@@ -429,7 +429,7 @@ class NeurosymbolicEngine:
         for rule in anomaly_rules:
             self.symbolic_layer.add_rule(rule)
 
-    def add_fact(self, fact: str):
+    def add_fact(self, fact: str) -> None:
         """Add a fact to the knowledge base"""
         self.facts.add(fact)
         logging.info(f"Added fact: {fact}")

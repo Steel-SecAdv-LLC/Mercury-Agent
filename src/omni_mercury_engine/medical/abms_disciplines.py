@@ -98,7 +98,7 @@ class MedicalAnomalyResult:
     recommended_consultations: list[str] = field(default_factory=list)
     treatment_considerations: list[str] = field(default_factory=list)
     urgency_level: str = "routine"
-    neurosymbolic_reasoning: dict | None = None
+    neurosymbolic_reasoning: dict[str, Any] | None = None
 
 
 class MultiSpecialtyNeuralNet(nn.Module):
@@ -443,7 +443,7 @@ class ABMSDisciplineDetector:
             ],
         }
 
-    def _initialize_medical_kb(self) -> dict[str, dict]:
+    def _initialize_medical_kb(self) -> dict[str, dict[str, Any]]:
         """Initialize medical knowledge base for neurosymbolic reasoning"""
         return {
             "cardiac_indicators": {

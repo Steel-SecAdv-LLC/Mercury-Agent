@@ -47,6 +47,7 @@ import os
 import re
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from enum import Enum
 from typing import Any
 
@@ -56,6 +57,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
+
+
+# Type alias for ASGI middleware call_next parameter
+RequestResponseEndpoint = Callable[[Request], Awaitable[Response]]
 
 
 # Context variable for request correlation ID - accessible throughout request lifecycle
@@ -233,12 +238,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     def _get_client_id(self, request: Request) -> str:
         """Extract client identifier from request."""
         # Prefer X-Forwarded-For for clients behind proxies
-        forwarded = request.headers.get("X-Forwarded-For")
+        forwarded: str | None = request.headers.get("X-Forwarded-For")
         if forwarded:
             return forwarded.split(",")[0].strip()
         # Fall back to direct client IP
         if request.client:
-            return request.client.host
+            return str(request.client.host)
         return "unknown"
 
     def _check_rate_limit(self, client_id: str) -> tuple[bool, dict[str, int]]:
@@ -250,7 +255,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             "reset": info.reset_at,
         }
 
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         """Process request with rate limiting."""
         # Skip rate limiting if disabled or for health checks
         if not self.enabled or request.url.path in ["/health", "/docs", "/redoc", "/openapi.json"]:
@@ -310,7 +315,7 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
     HEADER_NAME = "X-Correlation-ID"
     HEADER_ALIAS = "X-Request-ID"
 
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         """Process request with correlation ID tracking."""
         # Extract or generate correlation ID
         correlation_id = (
@@ -1118,7 +1123,7 @@ def custom_openapi() -> dict[str, Any]:
     if app.openapi_schema:
         return app.openapi_schema
 
-    openapi_schema = get_openapi(
+    openapi_schema: dict[str, Any] = get_openapi(
         title=API_TITLE,
         version=API_VERSION,
         description=API_DESCRIPTION,
@@ -1149,7 +1154,7 @@ def custom_openapi() -> dict[str, Any]:
     }
 
     app.openapi_schema = openapi_schema
-    return app.openapi_schema
+    return openapi_schema
 
 
 app.openapi = custom_openapi

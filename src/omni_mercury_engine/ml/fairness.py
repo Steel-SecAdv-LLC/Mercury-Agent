@@ -587,12 +587,12 @@ def compute_fairness_score(
 
     if metric == FairnessMetric.DEMOGRAPHIC_PARITY:
         result = auditor.compute_demographic_parity(predictions, sensitive_features)
-        return result["parity_score"]
+        return float(result["parity_score"])
     elif metric == FairnessMetric.DISPARATE_IMPACT:
         result = auditor.compute_disparate_impact(predictions, sensitive_features)
-        return result["min_ratio"]
+        return float(result["min_ratio"])
     elif labels is not None and metric == FairnessMetric.EQUALIZED_ODDS:
         result = auditor.compute_equalized_odds(predictions, labels, sensitive_features)
-        return result["equalized_odds_score"]
+        return float(result["equalized_odds_score"])
     else:
         return 1.0

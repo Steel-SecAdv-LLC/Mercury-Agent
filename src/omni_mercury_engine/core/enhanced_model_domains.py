@@ -435,14 +435,14 @@ class EnhancedBiometricModel:
         positives = labels == 1
         if np.sum(positives) == 0:
             return 0.5
-        return np.mean(predictions[positives])
+        return float(np.mean(predictions[positives]))
 
     def _compute_fpr(self, predictions: np.ndarray, labels: np.ndarray) -> float:
         """Compute False Positive Rate."""
         negatives = labels == 0
         if np.sum(negatives) == 0:
             return 0.5
-        return np.mean(predictions[negatives])
+        return float(np.mean(predictions[negatives]))
 
     def _compute_individual_fairness(
         self,
@@ -881,7 +881,7 @@ class EnhancedAffectiveModel:
 def create_enhanced_model(
     model_type: str,
     config: dict[str, Any] | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> EnhancedQuantumModel | EnhancedBiometricModel | EnhancedAffectiveModel:
     """
     Factory function to create enhanced model instances.

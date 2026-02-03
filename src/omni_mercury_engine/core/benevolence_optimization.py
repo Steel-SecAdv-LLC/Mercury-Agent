@@ -210,7 +210,7 @@ class BenevolenceLoss:
         if ratio >= 0.8:
             return 1.0
         else:
-            return ratio / 0.8  # Linear penalty below 80%
+            return float(ratio / 0.8)  # Linear penalty below 80%
 
 
 class MultiObjectiveLoss:
@@ -642,7 +642,7 @@ def optimize_benevolent_detector(
     """
     mo_loss = MultiObjectiveLoss(benevolence_threshold=benevolence_threshold)
 
-    def objective(params):
+    def objective(params: dict[str, Any]) -> np.ndarray:
         """Multi-objective function returning [detection, 1-benevolence, 1-fairness]."""
         try:
             model = model_fn(params)

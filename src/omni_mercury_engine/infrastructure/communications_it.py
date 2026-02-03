@@ -151,7 +151,7 @@ class CommunicationsITDetector:
 
         if current > baseline["mean"] + 3 * baseline["std"]:
             excess_ratio = current / (baseline["mean"] + baseline["std"])
-            ddos_score = min(1.0, excess_ratio / 10.0)
+            ddos_score = float(min(1.0, excess_ratio / 10.0))
             return ddos_score
 
         return 0.0

@@ -105,7 +105,7 @@ class VolcanicPredictionResult:
     schumann_elf_correlation: float | None = None
 
     hazard_zones: list[str] = field(default_factory=list)
-    ashfall_forecast: dict | None = None
+    ashfall_forecast: dict[str, Any] | None = None
     lahar_risk: str | None = None
 
     early_warning_actions: list[str] = field(default_factory=list)
@@ -970,7 +970,7 @@ class VolcanicEruptionDetector:
 
         correlation = min(freq_deviation / 2.0 + elf_std / 1.0, 1.0)
 
-        return correlation
+        return float(correlation)
 
     def _forecast_eruption(self, volcano_data: dict[str, Any], indicators: float) -> dict[str, Any]:
         """Forecast eruption using ML model"""

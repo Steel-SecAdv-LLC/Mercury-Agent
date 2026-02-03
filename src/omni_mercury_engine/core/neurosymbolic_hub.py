@@ -63,7 +63,7 @@ try:
 except ImportError:
     ADAPTIVE_THRESHOLDING_AVAILABLE = False
     AdaptiveDomainThresholdManager = None  # type: ignore[misc, assignment]
-    create_domain_threshold_manager = None  # type: ignore[misc, assignment]
+    create_domain_threshold_manager = None  # type: ignore[assignment]
 
 # GOSNN-3R bidirectional integration (P2 Integration)
 try:
@@ -860,7 +860,7 @@ class NeuroSymbolicHub:
             self._calibrator = calibrator
         except ImportError:
             # Simple sigmoid calibration fallback
-            self._calibrator = None  # type: ignore[assignment]
+            self._calibrator = None
 
     def _learn_fusion_weights(self, X: np.ndarray, y: np.ndarray) -> None:
         """Learn optimal fusion weights."""

@@ -297,7 +297,8 @@ class AdvancedBiometricEngine:
                     enforce_detection=False,
                 )
                 if isinstance(analysis, list) and len(analysis) > 0:
-                    return analysis[0]
+                    result: dict[str, Any] = analysis[0]
+                    return result
 
             logger.warning("Using simulated attributes (DeepFace not available)")
             return {

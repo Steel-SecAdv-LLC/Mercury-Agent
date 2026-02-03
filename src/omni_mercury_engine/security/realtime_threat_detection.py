@@ -52,7 +52,7 @@ class ThreatSignature:
     """Threat signature with metadata."""
 
     threat_id: str
-    feature_vector: np.ndarray
+    feature_vector: np.ndarray[Any, Any]
     threat_type: str
     severity: float
     timestamp: datetime = field(default_factory=datetime.now)

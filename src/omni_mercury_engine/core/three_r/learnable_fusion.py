@@ -668,7 +668,7 @@ class Learnable3REngine:
             mid = len(x) // 2
             left = recursion_score(x[:mid], depth - 1)
             right = recursion_score(x[mid:], depth - 1)
-            return 0.5 * (left + right) + 0.5 * np.std(x) / (np.mean(np.abs(x)) + 1e-8)
+            return 0.5 * (left + right) + 0.5 * np.std(x) / (np.mean(np.abs(x)) + 1e-8)  # type: ignore[no-any-return]
 
         fft = np.fft.fft(arr)
         magnitudes = np.abs(fft)

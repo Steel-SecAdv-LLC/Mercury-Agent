@@ -65,7 +65,7 @@ class EducationEquityDetector:
         self,
         data: np.ndarray[Any, Any],
         detection_type: str = "achievement",
-        demographic_data: dict | None = None,
+        demographic_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Detect educational equity anomalies.
@@ -86,7 +86,7 @@ class EducationEquityDetector:
             return self.detect_achievement_gap(data, demographic_data)
 
     def detect_achievement_gap(
-        self, achievement_data: np.ndarray[Any, Any], demographic_data: dict | None = None
+        self, achievement_data: np.ndarray[Any, Any], demographic_data: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Detect achievement gaps across student populations."""
         if len(achievement_data) == 0:
@@ -127,7 +127,7 @@ class EducationEquityDetector:
         }
 
     def detect_dropout_risk(
-        self, student_data: np.ndarray[Any, Any], demographic_data: dict | None = None
+        self, student_data: np.ndarray[Any, Any], demographic_data: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Detect students at risk of dropping out."""
         if len(student_data) == 0:

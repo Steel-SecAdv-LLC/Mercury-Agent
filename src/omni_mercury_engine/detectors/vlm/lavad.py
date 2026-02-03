@@ -297,7 +297,7 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
         prompt = self._create_prompt(self.vlm_config.anomaly_description)
         caption = self.caption_model.generate([pil_image], prompt)
 
-        return caption
+        return str(caption)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using caption + reasoning pipeline.

@@ -722,7 +722,7 @@ class RandomWalkEmbedding:
         input_emb: np.ndarray[Any, Any],
         output_emb: np.ndarray[Any, Any],
         n_nodes: int,
-    ):
+    ) -> None:
         """Train skip-gram on a single walk."""
         for i, center in enumerate(walk):
             # Context window
@@ -751,7 +751,7 @@ class RandomWalkEmbedding:
         label: int,
         input_emb: np.ndarray[Any, Any],
         output_emb: np.ndarray[Any, Any],
-    ):
+    ) -> None:
         """Single SGD update for skip-gram."""
         # Sigmoid
         z = np.dot(input_emb[center], output_emb[context])
@@ -1376,7 +1376,8 @@ class KnowledgeGraph:
                 from scipy.cluster.vq import kmeans2
 
                 centroids, labels = kmeans2(eigenvectors.real, n_clusters, minit="points")
-            except Exception:
+            except Exception as e:
+                logger.debug("Spectral clustering failed, assigning all nodes to cluster 0: %s", e)
                 labels = np.zeros(n_nodes, dtype=int)
 
             # Store in nodes
