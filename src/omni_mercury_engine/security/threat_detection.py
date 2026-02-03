@@ -175,7 +175,7 @@ class ThreatDetector:
         if BCRYPT_AVAILABLE:
             salt = bcrypt.gensalt()
             hashed = bcrypt.hashpw(password.encode(), salt)
-            return hashed.decode()
+            return str(hashed.decode())
         else:
             # Fallback to PBKDF2-SHA256 with random salt
             salt = os.urandom(16)
@@ -200,7 +200,7 @@ class ThreatDetector:
             # Use constant-time comparison to prevent timing attacks
             return hmac.compare_digest(computed_key.hex(), stored_key)
         elif BCRYPT_AVAILABLE:
-            return bcrypt.checkpw(password.encode(), hashed.encode())
+            return bool(bcrypt.checkpw(password.encode(), hashed.encode()))
         else:
             # bcrypt hash but bcrypt not available
             return False
@@ -278,7 +278,7 @@ class ThreatDetector:
 
         relevance = max(0.0, 1.0 - (time_diff / max_age))
 
-        return relevance
+        return float(relevance)
 
     @staticmethod
     def _evaluate_ethical_alignment(

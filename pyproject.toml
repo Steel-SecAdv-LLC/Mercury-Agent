@@ -277,6 +277,22 @@ module = [
     "yaml.*",
     "toml.*",
     "dotenv.*",
+    # Crypto module optional dependencies
+    "mercury_crypto",
+    "blake3",
+    "argon2.*",
+    # Math/science optional dependencies
+    "mpmath",
+    "mpmath.*",
+    "sympy",
+    "sympy.*",
+    # Reporting library
+    "reportlab.*",
+    # Post-quantum cryptography
+    "pqcrypto",
+    "pqcrypto.*",
+    "pqcrypto.kem.*",
+    "pqcrypto.sign.*",
 ]
 ignore_missing_imports = true
 
@@ -286,6 +302,13 @@ module = [
     "omni_mercury_engine.ml.*",
     "omni_mercury_engine.models.sota.*",
     "omni_mercury_engine.detectors.*",
+    # Security modules with nn.Module subclasses
+    "omni_mercury_engine.security.traffic_analysis",
+    "omni_mercury_engine.security.tempest_detection",
+    "omni_mercury_engine.security.intelligence_fusion",
+    "omni_mercury_engine.security.cybint_subprocessor",
+    # PQC backends depend on optional cryptography libraries
+    "omni_mercury_engine.security.pqc_backends",
 ]
 ignore_errors = true
 
@@ -298,40 +321,57 @@ module = [
 ignore_errors = true
 
 # Override for modules with complex third-party integrations
+# NOTE: These modules have heavy dependencies on untyped third-party libraries
+# (torch, transformers, etc.) making full type coverage impractical
 [[tool.mypy.overrides]]
 module = [
+    # Models with heavy torch/transformers dependencies
     "omni_mercury_engine.models.foundation.*",
     "omni_mercury_engine.models.biometric_advanced",
+    "omni_mercury_engine.models.*",
+    # Domain-specific modules with complex ML integrations
     "omni_mercury_engine.cognitive.*",
     "omni_mercury_engine.ethical.*",
     "omni_mercury_engine.space.*",
     "omni_mercury_engine.medical.*",
-    "omni_mercury_engine.resilience.*",
-    "omni_mercury_engine.safeguards.*",
-    "omni_mercury_engine.validation.*",
-    "omni_mercury_engine.security.*",
+    "omni_mercury_engine.emergent.*",
+    "omni_mercury_engine.energy.*",
+    "omni_mercury_engine.quantum.*",
+    "omni_mercury_engine.ocean.*",
+    # Modules being progressively typed (temporary)
     "omni_mercury_engine.agentic.*",
     "omni_mercury_engine.core.*",
     "omni_mercury_engine.data.*",
     "omni_mercury_engine.datasets.*",
-    "omni_mercury_engine.emergent.*",
-    "omni_mercury_engine.energy.*",
     "omni_mercury_engine.evaluation.*",
     "omni_mercury_engine.federated.*",
     "omni_mercury_engine.infrastructure.*",
-    "omni_mercury_engine.models.*",
-    "omni_mercury_engine.quantum.*",
-    "omni_mercury_engine.utils.*",
     "omni_mercury_engine.integrations.*",
     "omni_mercury_engine.metrics.*",
-    "omni_mercury_engine.ocean.*",
+    "omni_mercury_engine.resilience.*",
+    "omni_mercury_engine.safeguards.*",
     "omni_mercury_engine.scaling.*",
+    "omni_mercury_engine.validation.*",
     "omni_mercury_engine.truth_decipher",
     "omni_mercury_engine.cli",
     "omni_mercury_engine.engine",
     "omni_mercury_engine",
 ]
 ignore_errors = true
+
+# Utils module - properly typed
+[[tool.mypy.overrides]]
+module = [
+    "omni_mercury_engine.utils.*",
+]
+ignore_errors = false
+
+# Report generator uses untyped reportlab library
+[[tool.mypy.overrides]]
+module = [
+    "omni_mercury_engine.utils.report_generator",
+]
+disallow_untyped_calls = false
 
 # =============================================================================
 # Pytest Configuration

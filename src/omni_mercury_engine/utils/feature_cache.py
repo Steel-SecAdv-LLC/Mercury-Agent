@@ -222,7 +222,7 @@ class MemoryEfficientFeatureCache:
 
     def _process_data(
         self, data: np.ndarray[Any, Any] | torch.Tensor
-    ) -> tuple[np.ndarray[Any, Any], bool, np.ndarray[Any, Any] | None]:
+    ) -> tuple[np.ndarray[Any, Any], bool, Any]:
         """Process data for storage with quantization and sparsification.
 
         Args:
@@ -270,7 +270,7 @@ class MemoryEfficientFeatureCache:
 
         quantized = ((data - min_val) / scale).astype(np.uint8)
 
-        return quantized
+        return np.asarray(quantized)
 
     def _reconstruct_data(self, entry: CacheEntry) -> np.ndarray[Any, Any]:
         """Reconstruct original data from cache entry.
@@ -306,7 +306,7 @@ class MemoryEfficientFeatureCache:
         Returns:
             Estimated memory in bytes
         """
-        return data.nbytes
+        return int(data.nbytes)
 
     def _evict_oldest(self) -> None:
         """Evict oldest entry from cache."""
@@ -456,7 +456,7 @@ def compute_feature_importance(
         Importance scores for each feature
     """
     if method == "variance":
-        return np.var(features, axis=0)
+        return np.asarray(np.var(features, axis=0))
 
     elif method == "correlation" and labels is not None:
         correlations = np.zeros(features.shape[1])
@@ -480,7 +480,7 @@ def compute_feature_importance(
 
         return mi_scores
 
-    return np.var(features, axis=0)
+    return np.asarray(np.var(features, axis=0))
 
 
 def select_top_features(
