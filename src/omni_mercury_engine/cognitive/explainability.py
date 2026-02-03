@@ -31,9 +31,9 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    import lime  # type: ignore[import-not-found]
-    import lime.lime_tabular  # type: ignore[import-not-found]
-    import shap  # type: ignore[import-not-found]
+    import lime as lime_module  # type: ignore[import-not-found]  # noqa: F401
+    import lime.lime_tabular as lime_tabular_module  # type: ignore[import-not-found]  # noqa: F401
+    import shap as shap_module  # type: ignore[import-not-found]  # noqa: F401
 
 import numpy as np
 
