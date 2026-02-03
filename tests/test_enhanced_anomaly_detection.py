@@ -22,6 +22,7 @@ def _plotly_available() -> bool:
     """Check if plotly is available."""
     try:
         import plotly  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -429,7 +430,15 @@ class TestEnsembleCoordinator:
         assert len(result.scores) == 100
         assert len(result.is_anomaly) == 100
         assert len(result.active_detectors) > 0
-        assert result.strategy_used in ["voting", "averaging", "stacking", "cascading", "boosting", "dynamic", "mixture_of_experts"]
+        assert result.strategy_used in [
+            "voting",
+            "averaging",
+            "stacking",
+            "cascading",
+            "boosting",
+            "dynamic",
+            "mixture_of_experts",
+        ]
 
     def test_bayesian_weight_optimizer(self) -> None:
         """Test Bayesian weight optimization."""
@@ -619,6 +628,7 @@ class TestDistributedProcessor:
 
         # Get result
         import time
+
         time.sleep(0.5)  # Wait for processing
 
         result = processor.get_result(timeout=2.0)

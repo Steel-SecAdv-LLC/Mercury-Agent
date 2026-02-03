@@ -143,7 +143,9 @@ class AnomalyEvent:
         is_anomaly_arr = result.get("is_anomaly", [False])
 
         score = float(scores[index] if hasattr(scores, "__getitem__") else scores)
-        is_anomaly = bool(is_anomaly_arr[index] if hasattr(is_anomaly_arr, "__getitem__") else is_anomaly_arr)
+        is_anomaly = bool(
+            is_anomaly_arr[index] if hasattr(is_anomaly_arr, "__getitem__") else is_anomaly_arr
+        )
 
         # Determine severity from score
         if score >= 0.9:
@@ -155,9 +157,7 @@ class AnomalyEvent:
         else:
             severity = "low"
 
-        event_id = hashlib.sha256(
-            f"{source}:{time.time_ns()}:{index}".encode()
-        ).hexdigest()[:16]
+        event_id = hashlib.sha256(f"{source}:{time.time_ns()}:{index}".encode()).hexdigest()[:16]
 
         return cls(
             event_id=event_id,
@@ -180,7 +180,8 @@ class DataTransformer:
     def to_prometheus(event: AnomalyEvent) -> str:
         """Convert anomaly event to Prometheus metrics format."""
         labels = ",".join(
-            f'{k}="{v}"' for k, v in {
+            f'{k}="{v}"'
+            for k, v in {
                 "source": event.source,
                 "severity": event.severity,
                 "detector": event.detector_type,
@@ -211,43 +212,55 @@ class DataTransformer:
     def to_opentelemetry(event: AnomalyEvent) -> dict[str, Any]:
         """Convert anomaly event to OpenTelemetry format."""
         return {
-            "resourceMetrics": [{
-                "resource": {
-                    "attributes": [
-                        {"key": "service.name", "value": {"stringValue": event.source}},
-                        {"key": "service.version", "value": {"stringValue": "1.0.0"}},
-                    ]
-                },
-                "scopeMetrics": [{
-                    "scope": {"name": "mercury-agent"},
-                    "metrics": [
+            "resourceMetrics": [
+                {
+                    "resource": {
+                        "attributes": [
+                            {"key": "service.name", "value": {"stringValue": event.source}},
+                            {"key": "service.version", "value": {"stringValue": "1.0.0"}},
+                        ]
+                    },
+                    "scopeMetrics": [
                         {
-                            "name": "mercury.anomaly.score",
-                            "description": "Anomaly detection score",
-                            "gauge": {
-                                "dataPoints": [{
-                                    "asDouble": event.score,
-                                    "timeUnixNano": int(event.timestamp.timestamp() * 1e9),
-                                    "attributes": [
-                                        {"key": k, "value": {"stringValue": str(v)}}
-                                        for k, v in event.labels.items()
-                                    ],
-                                }]
-                            }
-                        },
-                        {
-                            "name": "mercury.anomaly.detected",
-                            "description": "Anomaly detection flag",
-                            "gauge": {
-                                "dataPoints": [{
-                                    "asInt": 1 if event.is_anomaly else 0,
-                                    "timeUnixNano": int(event.timestamp.timestamp() * 1e9),
-                                }]
-                            }
-                        },
-                    ]
-                }]
-            }]
+                            "scope": {"name": "mercury-agent"},
+                            "metrics": [
+                                {
+                                    "name": "mercury.anomaly.score",
+                                    "description": "Anomaly detection score",
+                                    "gauge": {
+                                        "dataPoints": [
+                                            {
+                                                "asDouble": event.score,
+                                                "timeUnixNano": int(
+                                                    event.timestamp.timestamp() * 1e9
+                                                ),
+                                                "attributes": [
+                                                    {"key": k, "value": {"stringValue": str(v)}}
+                                                    for k, v in event.labels.items()
+                                                ],
+                                            }
+                                        ]
+                                    },
+                                },
+                                {
+                                    "name": "mercury.anomaly.detected",
+                                    "description": "Anomaly detection flag",
+                                    "gauge": {
+                                        "dataPoints": [
+                                            {
+                                                "asInt": 1 if event.is_anomaly else 0,
+                                                "timeUnixNano": int(
+                                                    event.timestamp.timestamp() * 1e9
+                                                ),
+                                            }
+                                        ]
+                                    },
+                                },
+                            ],
+                        }
+                    ],
+                }
+            ]
         }
 
     @staticmethod
@@ -301,11 +314,13 @@ class DataTransformer:
     def to_datadog(event: AnomalyEvent) -> dict[str, Any]:
         """Convert anomaly event to Datadog format."""
         tags = [f"{k}:{v}" for k, v in event.labels.items()]
-        tags.extend([
-            f"source:{event.source}",
-            f"severity:{event.severity}",
-            f"detector:{event.detector_type}",
-        ])
+        tags.extend(
+            [
+                f"source:{event.source}",
+                f"severity:{event.severity}",
+                f"detector:{event.detector_type}",
+            ]
+        )
 
         return {
             "series": [
@@ -414,6 +429,7 @@ class HTTPPlatformAdapter(PlatformAdapter):
                 headers["Authorization"] = f"Bearer {api_key}"
             elif self.config.auth_type == "basic":
                 import base64
+
                 username = self.config.credentials.get("username", "")
                 password = self.config.credentials.get("password", "")
                 encoded = base64.b64encode(f"{username}:{password}".encode()).decode()
@@ -568,11 +584,14 @@ class PrometheusAdapter(PlatformAdapter):
 
             payload = "\n".join(self._metrics_buffer) + "\n"
 
-            async with aiohttp.ClientSession() as session, session.post(
-                f"{self.config.endpoint}/metrics/job/mercury_agent",
-                data=payload.encode(),
-                headers={"Content-Type": "text/plain"},
-            ) as resp:
+            async with (
+                aiohttp.ClientSession() as session,
+                session.post(
+                    f"{self.config.endpoint}/metrics/job/mercury_agent",
+                    data=payload.encode(),
+                    headers={"Content-Type": "text/plain"},
+                ) as resp,
+            ):
                 success = resp.status in (200, 202)
                 if success:
                     self._metrics_buffer.clear()
@@ -597,10 +616,13 @@ class PrometheusAdapter(PlatformAdapter):
 
             promql = query.get("query", "mercury_anomaly_score")
 
-            async with aiohttp.ClientSession() as session, session.get(
-                f"{self.config.endpoint}/api/v1/query",
-                params={"query": promql},
-            ) as resp:
+            async with (
+                aiohttp.ClientSession() as session,
+                session.get(
+                    f"{self.config.endpoint}/api/v1/query",
+                    params={"query": promql},
+                ) as resp,
+            ):
                 if resp.status == 200:
                     data = await resp.json()
                     for result in data.get("data", {}).get("result", []):
@@ -660,11 +682,14 @@ class OpenTelemetryAdapter(PlatformAdapter):
 
             data = DataTransformer.to_opentelemetry(event)
 
-            async with aiohttp.ClientSession() as session, session.post(
-                f"{self.config.endpoint}/v1/metrics",
-                json=data,
-                headers={"Content-Type": "application/json"},
-            ) as resp:
+            async with (
+                aiohttp.ClientSession() as session,
+                session.post(
+                    f"{self.config.endpoint}/v1/metrics",
+                    json=data,
+                    headers={"Content-Type": "application/json"},
+                ) as resp,
+            ):
                 return resp.status in (200, 202)
 
         except ImportError:
@@ -962,9 +987,7 @@ class CrossPlatformHub:
             if not current_group:
                 current_group.append(event)
             else:
-                time_diff = (
-                    event.timestamp - current_group[-1].timestamp
-                ).total_seconds()
+                time_diff = (event.timestamp - current_group[-1].timestamp).total_seconds()
 
                 if time_diff <= time_window_seconds:
                     current_group.append(event)

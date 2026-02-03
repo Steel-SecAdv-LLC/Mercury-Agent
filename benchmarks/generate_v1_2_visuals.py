@@ -22,21 +22,23 @@ from matplotlib.gridspec import GridSpec
 
 # Use professional style
 plt.style.use("seaborn-v0_8-whitegrid")
-plt.rcParams.update({
-    "font.family": "sans-serif",
-    "font.size": 10,
-    "axes.labelsize": 11,
-    "axes.titlesize": 12,
-    "xtick.labelsize": 9,
-    "ytick.labelsize": 9,
-    "legend.fontsize": 9,
-    "figure.titlesize": 14,
-    "figure.dpi": 150,
-    "savefig.dpi": 300,
-    "savefig.bbox": "tight",
-    "axes.grid": True,
-    "grid.alpha": 0.3,
-})
+plt.rcParams.update(
+    {
+        "font.family": "sans-serif",
+        "font.size": 10,
+        "axes.labelsize": 11,
+        "axes.titlesize": 12,
+        "xtick.labelsize": 9,
+        "ytick.labelsize": 9,
+        "legend.fontsize": 9,
+        "figure.titlesize": 14,
+        "figure.dpi": 150,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+        "axes.grid": True,
+        "grid.alpha": 0.3,
+    }
+)
 
 # Mercury Agent color scheme
 COLORS = {
@@ -67,8 +69,12 @@ def load_benchmark_results() -> dict:
 def generate_neuro_symbolic_report(results: dict) -> None:
     """Generate comprehensive neuro-symbolic benchmark report (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
-    fig.suptitle("Mercury Agent ♱ v1.2.0 - Neuro-Symbolic Benchmark Report",
-                 fontsize=16, fontweight="bold", color=COLORS["gold"])
+    fig.suptitle(
+        "Mercury Agent ♱ v1.2.0 - Neuro-Symbolic Benchmark Report",
+        fontsize=16,
+        fontweight="bold",
+        color=COLORS["gold"],
+    )
 
     gs = GridSpec(3, 3, figure=fig, hspace=0.35, wspace=0.3)
 
@@ -113,9 +119,14 @@ def generate_neuro_symbolic_report(results: dict) -> None:
     ax3 = fig.add_subplot(gs[1, 0])
     neural = [e.get("neural_contribution", 0.47) for e in epochs_data]
     symbolic = [e.get("symbolic_contribution", 0.53) for e in epochs_data]
-    ax3.stackplot(epochs, neural, symbolic,
-                  labels=["Neural (47%)", "Symbolic (53%)"],
-                  colors=[COLORS["neural"], COLORS["symbolic"]], alpha=0.8)
+    ax3.stackplot(
+        epochs,
+        neural,
+        symbolic,
+        labels=["Neural (47%)", "Symbolic (53%)"],
+        colors=[COLORS["neural"], COLORS["symbolic"]],
+        alpha=0.8,
+    )
     ax3.set_xlabel("Epoch")
     ax3.set_ylabel("Contribution")
     ax3.set_title("Neural-Symbolic Fusion Balance")
@@ -152,16 +163,32 @@ def generate_neuro_symbolic_report(results: dict) -> None:
     if domain_perf:
         domains = list(domain_perf.keys())
         metrics_list = ["avg_confidence", "avg_success_rate", "avg_benevolence"]
-        heatmap_data = np.array([[domain_perf[d].get(m, 0.9) for m in metrics_list] for d in domains])
-        sns.heatmap(heatmap_data, annot=True, fmt=".2f", cmap="RdYlGn",
-                    xticklabels=["Confidence", "Success Rate", "Benevolence"],
-                    yticklabels=[d.title() for d in domains], ax=ax6,
-                    vmin=0.8, vmax=1.0, cbar_kws={"label": "Score"})
+        heatmap_data = np.array(
+            [[domain_perf[d].get(m, 0.9) for m in metrics_list] for d in domains]
+        )
+        sns.heatmap(
+            heatmap_data,
+            annot=True,
+            fmt=".2f",
+            cmap="RdYlGn",
+            xticklabels=["Confidence", "Success Rate", "Benevolence"],
+            yticklabels=[d.title() for d in domains],
+            ax=ax6,
+            vmin=0.8,
+            vmax=1.0,
+            cbar_kws={"label": "Score"},
+        )
         ax6.set_title("Domain Performance Matrix (8 Domains)")
 
     # Add timestamp
-    fig.text(0.99, 0.01, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} | v1.2.0",
-             ha="right", fontsize=8, alpha=0.6)
+    fig.text(
+        0.99,
+        0.01,
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} | v1.2.0",
+        ha="right",
+        fontsize=8,
+        alpha=0.6,
+    )
 
     output_path = OUTPUT_DIR / "neuro_symbolic_benchmark_report.png"
     plt.savefig(output_path, dpi=300, bbox_inches="tight", facecolor="white")
@@ -172,8 +199,12 @@ def generate_neuro_symbolic_report(results: dict) -> None:
 def generate_anomaly_detection_panel(results: dict) -> None:
     """Generate anomaly detection analysis panel (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
-    fig.suptitle("Mercury Agent ♱ v1.2.0 - Anomaly Detection Analysis",
-                 fontsize=16, fontweight="bold", color=COLORS["gold"])
+    fig.suptitle(
+        "Mercury Agent ♱ v1.2.0 - Anomaly Detection Analysis",
+        fontsize=16,
+        fontweight="bold",
+        color=COLORS["gold"],
+    )
 
     gs = GridSpec(3, 3, figure=fig, hspace=0.35, wspace=0.3)
     epochs_data = results.get("epoch_summaries", [])
@@ -183,7 +214,7 @@ def generate_anomaly_detection_panel(results: dict) -> None:
     epochs = [e["epoch"] for e in epochs_data]
     precision = [e.get("anomaly_precision", 0) for e in epochs_data]
     recall = [e.get("anomaly_recall", 0) for e in epochs_data]
-    f1 = [2*p*r/(p+r) if (p+r) > 0 else 0 for p, r in zip(precision, recall)]
+    f1 = [2 * p * r / (p + r) if (p + r) > 0 else 0 for p, r in zip(precision, recall)]
     ax1.plot(epochs, f1, color=COLORS["primary"], linewidth=2)
     ax1.fill_between(epochs, f1, alpha=0.3, color=COLORS["primary"])
     ax1.axhline(y=0.797, color=COLORS["success"], linestyle="--", label="Final F1: 0.797")
@@ -195,9 +226,15 @@ def generate_anomaly_detection_panel(results: dict) -> None:
 
     # Panel 2: Detection Method Comparison
     ax2 = fig.add_subplot(gs[0, 1])
-    methods = ["Mercury\n(Fusion)", "Isolation\nForest", "LOF", "One-Class\nSVM", "Elliptic\nEnvelope"]
+    methods = [
+        "Mercury\n(Fusion)",
+        "Isolation\nForest",
+        "LOF",
+        "One-Class\nSVM",
+        "Elliptic\nEnvelope",
+    ]
     f1_scores = [0.797, 0.75, 0.70, 0.68, 0.65]
-    bars = ax2.bar(methods, f1_scores, color=[COLORS["primary"]] + [COLORS["secondary"]]*4)
+    bars = ax2.bar(methods, f1_scores, color=[COLORS["primary"]] + [COLORS["secondary"]] * 4)
     bars[0].set_color(COLORS["success"])
     ax2.set_ylabel("F1 Score")
     ax2.set_title("Detector Comparison (Peer Benchmark)")
@@ -248,7 +285,9 @@ def generate_anomaly_detection_panel(results: dict) -> None:
     latency = [10, 25, 50]  # ms
     ax6_twin = ax6.twinx()
     bars = ax6.bar(configs, throughput, color=COLORS["primary"], alpha=0.7, label="Throughput")
-    line = ax6_twin.plot(configs, latency, color=COLORS["danger"], marker="o", linewidth=2, label="Latency")
+    line = ax6_twin.plot(
+        configs, latency, color=COLORS["danger"], marker="o", linewidth=2, label="Latency"
+    )
     ax6.set_ylabel("Throughput (samples/sec)", color=COLORS["primary"])
     ax6_twin.set_ylabel("Latency (ms)", color=COLORS["danger"])
     ax6.set_title("Performance vs Complexity Trade-off")
@@ -257,7 +296,9 @@ def generate_anomaly_detection_panel(results: dict) -> None:
     ax7 = fig.add_subplot(gs[2, 0])
     platforms = ["Prometheus", "Elastic", "Splunk", "Datadog", "Grafana", "InfluxDB"]
     integration_scores = [0.98, 0.95, 0.93, 0.94, 0.96, 0.92]
-    ax7.barh(platforms, integration_scores, color=plt.cm.Blues(np.linspace(0.4, 0.9, len(platforms))))
+    ax7.barh(
+        platforms, integration_scores, color=plt.cm.Blues(np.linspace(0.4, 0.9, len(platforms)))
+    )
     ax7.set_xlabel("Integration Readiness")
     ax7.set_title("Cross-Platform Hub (10+ Platforms)")
     ax7.set_xlim(0.8, 1.0)
@@ -274,20 +315,64 @@ def generate_anomaly_detection_panel(results: dict) -> None:
 
     # Panel 9: Statistical Significance (bottom-right)
     ax9 = fig.add_subplot(gs[2, 2])
-    ax9.text(0.5, 0.85, "Statistical Validation", ha="center", va="center",
-             fontsize=14, fontweight="bold", transform=ax9.transAxes)
-    ax9.text(0.5, 0.65, "Improvement: 18.63%", ha="center", va="center",
-             fontsize=12, color=COLORS["success"], transform=ax9.transAxes)
-    ax9.text(0.5, 0.50, "p-value: < 0.0001", ha="center", va="center",
-             fontsize=12, transform=ax9.transAxes)
-    ax9.text(0.5, 0.35, "Cohen's d: 0.952", ha="center", va="center",
-             fontsize=12, transform=ax9.transAxes)
-    ax9.text(0.5, 0.20, "(Large Effect Size)", ha="center", va="center",
-             fontsize=10, color=COLORS["secondary"], transform=ax9.transAxes)
+    ax9.text(
+        0.5,
+        0.85,
+        "Statistical Validation",
+        ha="center",
+        va="center",
+        fontsize=14,
+        fontweight="bold",
+        transform=ax9.transAxes,
+    )
+    ax9.text(
+        0.5,
+        0.65,
+        "Improvement: 18.63%",
+        ha="center",
+        va="center",
+        fontsize=12,
+        color=COLORS["success"],
+        transform=ax9.transAxes,
+    )
+    ax9.text(
+        0.5,
+        0.50,
+        "p-value: < 0.0001",
+        ha="center",
+        va="center",
+        fontsize=12,
+        transform=ax9.transAxes,
+    )
+    ax9.text(
+        0.5,
+        0.35,
+        "Cohen's d: 0.952",
+        ha="center",
+        va="center",
+        fontsize=12,
+        transform=ax9.transAxes,
+    )
+    ax9.text(
+        0.5,
+        0.20,
+        "(Large Effect Size)",
+        ha="center",
+        va="center",
+        fontsize=10,
+        color=COLORS["secondary"],
+        transform=ax9.transAxes,
+    )
     ax9.axis("off")
 
-    fig.text(0.99, 0.01, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} | v1.2.0",
-             ha="right", fontsize=8, alpha=0.6)
+    fig.text(
+        0.99,
+        0.01,
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} | v1.2.0",
+        ha="right",
+        fontsize=8,
+        alpha=0.6,
+    )
 
     output_path = OUTPUT_DIR / "anomaly_detection_panel.png"
     plt.savefig(output_path, dpi=300, bbox_inches="tight", facecolor="white")
@@ -298,18 +383,31 @@ def generate_anomaly_detection_panel(results: dict) -> None:
 def generate_benchmark_summary(results: dict) -> None:
     """Generate benchmark summary with live data and module coverage (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
-    fig.suptitle("Mercury Agent ♱ v1.2.0 - Benchmark Summary & Module Coverage",
-                 fontsize=16, fontweight="bold", color=COLORS["gold"])
+    fig.suptitle(
+        "Mercury Agent ♱ v1.2.0 - Benchmark Summary & Module Coverage",
+        fontsize=16,
+        fontweight="bold",
+        color=COLORS["gold"],
+    )
 
     gs = GridSpec(3, 3, figure=fig, hspace=0.35, wspace=0.3)
 
     # Panel 1: Live Dataset Categories
     ax1 = fig.add_subplot(gs[0, 0])
-    categories = ["Security", "Industrial", "Time-Series", "Climate", "Disaster", "Medical", "Space"]
+    categories = [
+        "Security",
+        "Industrial",
+        "Time-Series",
+        "Climate",
+        "Disaster",
+        "Medical",
+        "Space",
+    ]
     datasets = [2, 3, 3, 3, 2, 1, 2]  # Number of datasets per category
     colors = plt.cm.Set2(np.linspace(0, 1, len(categories)))
-    wedges, texts, autotexts = ax1.pie(datasets, labels=categories, autopct="%1.0f%%",
-                                        colors=colors, startangle=90)
+    wedges, texts, autotexts = ax1.pie(
+        datasets, labels=categories, autopct="%1.0f%%", colors=colors, startangle=90
+    )
     ax1.set_title("30+ Live Dataset Categories")
 
     # Panel 2: Test Coverage by Module
@@ -334,19 +432,48 @@ def generate_benchmark_summary(results: dict) -> None:
     }
     ax3.axis("off")
     y_pos = 0.9
-    ax3.text(0.5, 0.95, "Codebase Statistics", ha="center", va="center",
-             fontsize=14, fontweight="bold", transform=ax3.transAxes)
+    ax3.text(
+        0.5,
+        0.95,
+        "Codebase Statistics",
+        ha="center",
+        va="center",
+        fontsize=14,
+        fontweight="bold",
+        transform=ax3.transAxes,
+    )
     for key, value in stats.items():
-        ax3.text(0.1, y_pos - 0.15, f"{key}:", ha="left", va="center",
-                 fontsize=11, transform=ax3.transAxes)
-        ax3.text(0.9, y_pos - 0.15, f"{value:,}", ha="right", va="center",
-                 fontsize=11, fontweight="bold", color=COLORS["primary"], transform=ax3.transAxes)
+        ax3.text(
+            0.1,
+            y_pos - 0.15,
+            f"{key}:",
+            ha="left",
+            va="center",
+            fontsize=11,
+            transform=ax3.transAxes,
+        )
+        ax3.text(
+            0.9,
+            y_pos - 0.15,
+            f"{value:,}",
+            ha="right",
+            va="center",
+            fontsize=11,
+            fontweight="bold",
+            color=COLORS["primary"],
+            transform=ax3.transAxes,
+        )
         y_pos -= 0.15
 
     # Panel 4: New Module Sizes (v1.2.0)
     ax4 = fig.add_subplot(gs[1, 0])
-    new_modules = ["enhanced_\nstatistical", "cross_platform\n_hub", "ensemble_\ncoordinator",
-                   "distributed_\nprocessor", "visualization_\ndashboard"]
+    new_modules = [
+        "enhanced_\nstatistical",
+        "cross_platform\n_hub",
+        "ensemble_\ncoordinator",
+        "distributed_\nprocessor",
+        "visualization_\ndashboard",
+    ]
     lines = [1132, 1036, 1105, 734, 914]
     ax4.bar(new_modules, lines, color=COLORS["secondary"])
     ax4.set_ylabel("Lines of Code")
@@ -361,8 +488,8 @@ def generate_benchmark_summary(results: dict) -> None:
     f1_scores = [0.80, 0.78, 0.83, 0.79, 0.76, 0.82]
     x = np.arange(len(dataset_names))
     width = 0.35
-    ax5.bar(x - width/2, roc_auc, width, label="ROC-AUC", color=COLORS["primary"])
-    ax5.bar(x + width/2, f1_scores, width, label="F1", color=COLORS["success"])
+    ax5.bar(x - width / 2, roc_auc, width, label="ROC-AUC", color=COLORS["primary"])
+    ax5.bar(x + width / 2, f1_scores, width, label="F1", color=COLORS["success"])
     ax5.set_xticks(x)
     ax5.set_xticklabels(dataset_names)
     ax5.set_ylabel("Score")
@@ -388,7 +515,9 @@ def generate_benchmark_summary(results: dict) -> None:
     engine_counts = [12, 18, 22]
     ax7_twin = ax7.twinx()
     ax7.bar(versions, test_counts, color=COLORS["primary"], alpha=0.7, label="Tests")
-    ax7_twin.plot(versions, engine_counts, color=COLORS["danger"], marker="s", linewidth=2, label="Engines")
+    ax7_twin.plot(
+        versions, engine_counts, color=COLORS["danger"], marker="s", linewidth=2, label="Engines"
+    )
     ax7.set_ylabel("Test Count", color=COLORS["primary"])
     ax7_twin.set_ylabel("Detection Engines", color=COLORS["danger"])
     ax7.set_title("Version Evolution")
@@ -407,8 +536,15 @@ def generate_benchmark_summary(results: dict) -> None:
     # Panel 9: CI/CD Pipeline
     ax9 = fig.add_subplot(gs[2, 2])
     ax9.axis("off")
-    ax9.text(0.5, 0.9, "CI/CD Pipeline", ha="center", fontsize=14, fontweight="bold",
-             transform=ax9.transAxes)
+    ax9.text(
+        0.5,
+        0.9,
+        "CI/CD Pipeline",
+        ha="center",
+        fontsize=14,
+        fontweight="bold",
+        transform=ax9.transAxes,
+    )
     pipeline = [
         ("✓ pytest", "4,863 tests"),
         ("✓ mypy", "Full type coverage"),
@@ -418,13 +554,27 @@ def generate_benchmark_summary(results: dict) -> None:
     ]
     y_pos = 0.75
     for step, desc in pipeline:
-        ax9.text(0.1, y_pos, step, ha="left", fontsize=11, color=COLORS["success"],
-                 fontweight="bold", transform=ax9.transAxes)
+        ax9.text(
+            0.1,
+            y_pos,
+            step,
+            ha="left",
+            fontsize=11,
+            color=COLORS["success"],
+            fontweight="bold",
+            transform=ax9.transAxes,
+        )
         ax9.text(0.35, y_pos, desc, ha="left", fontsize=10, transform=ax9.transAxes)
         y_pos -= 0.12
 
-    fig.text(0.99, 0.01, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} | v1.2.0",
-             ha="right", fontsize=8, alpha=0.6)
+    fig.text(
+        0.99,
+        0.01,
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} | v1.2.0",
+        ha="right",
+        fontsize=8,
+        alpha=0.6,
+    )
 
     output_path = OUTPUT_DIR / "benchmark_summary_live_data.png"
     plt.savefig(output_path, dpi=300, bbox_inches="tight", facecolor="white")
@@ -435,8 +585,12 @@ def generate_benchmark_summary(results: dict) -> None:
 def generate_performance_dashboard(results: dict) -> None:
     """Generate performance, ethics, and quality dashboard (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
-    fig.suptitle("Mercury Agent ♱ v1.2.0 - Performance & Ethics Dashboard",
-                 fontsize=16, fontweight="bold", color=COLORS["gold"])
+    fig.suptitle(
+        "Mercury Agent ♱ v1.2.0 - Performance & Ethics Dashboard",
+        fontsize=16,
+        fontweight="bold",
+        color=COLORS["gold"],
+    )
 
     gs = GridSpec(3, 3, figure=fig, hspace=0.35, wspace=0.3)
     metrics = results.get("final_metrics", {})
@@ -457,13 +611,26 @@ def generate_performance_dashboard(results: dict) -> None:
 
     # Panel 2: Ethical Scalars Distribution
     ax2 = fig.add_subplot(gs[0, 2])
-    scalar_categories = ["Ethical\n(27)", "Cosmic\n(7)", "Humanitarian\n(9)",
-                         "Security\n(6)", "Medical\n(10)", "Other\n(121)"]
+    scalar_categories = [
+        "Ethical\n(27)",
+        "Cosmic\n(7)",
+        "Humanitarian\n(9)",
+        "Security\n(6)",
+        "Medical\n(10)",
+        "Other\n(121)",
+    ]
     scalar_counts = [27, 7, 9, 6, 10, 121]
-    colors = [COLORS["ethical"], COLORS["secondary"], COLORS["warning"],
-              COLORS["danger"], COLORS["success"], COLORS["primary"]]
-    ax2.pie(scalar_counts, labels=scalar_categories, autopct="%1.0f%%",
-            colors=colors, startangle=90)
+    colors = [
+        COLORS["ethical"],
+        COLORS["secondary"],
+        COLORS["warning"],
+        COLORS["danger"],
+        COLORS["success"],
+        COLORS["primary"],
+    ]
+    ax2.pie(
+        scalar_counts, labels=scalar_categories, autopct="%1.0f%%", colors=colors, startangle=90
+    )
     ax2.set_title("180 Ethical Scalars by Category")
 
     # Panel 3: Latency Comparison
@@ -473,8 +640,8 @@ def generate_performance_dashboard(results: dict) -> None:
     gpu_latency = [10, 25, 50]
     x = np.arange(len(configs))
     width = 0.35
-    ax3.bar(x - width/2, cpu_latency, width, label="CPU", color=COLORS["primary"])
-    ax3.bar(x + width/2, gpu_latency, width, label="GPU", color=COLORS["success"])
+    ax3.bar(x - width / 2, cpu_latency, width, label="CPU", color=COLORS["primary"])
+    ax3.bar(x + width / 2, gpu_latency, width, label="GPU", color=COLORS["success"])
     ax3.set_xticks(x)
     ax3.set_xticklabels(configs)
     ax3.set_ylabel("Latency (ms)")
@@ -498,8 +665,8 @@ def generate_performance_dashboard(results: dict) -> None:
     achieved = [0.92, 0.94, 0.95]
     x = np.arange(len(bias_metrics))
     width = 0.35
-    ax5.bar(x - width/2, thresholds, width, label="Threshold", color=COLORS["warning"], alpha=0.7)
-    ax5.bar(x + width/2, achieved, width, label="Achieved", color=COLORS["success"])
+    ax5.bar(x - width / 2, thresholds, width, label="Threshold", color=COLORS["warning"], alpha=0.7)
+    ax5.bar(x + width / 2, achieved, width, label="Achieved", color=COLORS["success"])
     ax5.set_xticks(x)
     ax5.set_xticklabels(bias_metrics)
     ax5.set_ylabel("Score")
@@ -523,7 +690,7 @@ def generate_performance_dashboard(results: dict) -> None:
     ax7 = fig.add_subplot(gs[2, 1])
     layers = ["Input\nValidation", "JWT\nAuth", "Rate\nLimiting", "PQC\nCrypto"]
     protection = [100, 100, 100, 100]
-    ax7.bar(layers, protection, color=[COLORS["success"]]*4)
+    ax7.bar(layers, protection, color=[COLORS["success"]] * 4)
     ax7.set_ylabel("Protection %")
     ax7.set_title("3-Layer Security Architecture")
     ax7.set_ylim(0, 110)
@@ -533,8 +700,15 @@ def generate_performance_dashboard(results: dict) -> None:
     # Panel 8: Key Metrics Summary
     ax8 = fig.add_subplot(gs[2, 2])
     ax8.axis("off")
-    ax8.text(0.5, 0.95, "Key Performance Indicators", ha="center", fontsize=14,
-             fontweight="bold", transform=ax8.transAxes)
+    ax8.text(
+        0.5,
+        0.95,
+        "Key Performance Indicators",
+        ha="center",
+        fontsize=14,
+        fontweight="bold",
+        transform=ax8.transAxes,
+    )
     kpis = [
         ("F1 Score", "0.797", COLORS["success"]),
         ("Confidence", "0.999", COLORS["success"]),
@@ -545,12 +719,26 @@ def generate_performance_dashboard(results: dict) -> None:
     y_pos = 0.8
     for name, value, color in kpis:
         ax8.text(0.1, y_pos, f"{name}:", ha="left", fontsize=11, transform=ax8.transAxes)
-        ax8.text(0.9, y_pos, value, ha="right", fontsize=11, fontweight="bold",
-                 color=color, transform=ax8.transAxes)
+        ax8.text(
+            0.9,
+            y_pos,
+            value,
+            ha="right",
+            fontsize=11,
+            fontweight="bold",
+            color=color,
+            transform=ax8.transAxes,
+        )
         y_pos -= 0.14
 
-    fig.text(0.99, 0.01, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} | v1.2.0",
-             ha="right", fontsize=8, alpha=0.6)
+    fig.text(
+        0.99,
+        0.01,
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} | v1.2.0",
+        ha="right",
+        fontsize=8,
+        alpha=0.6,
+    )
 
     output_path = OUTPUT_DIR / "mercury_performance_dashboard.png"
     plt.savefig(output_path, dpi=300, bbox_inches="tight", facecolor="white")

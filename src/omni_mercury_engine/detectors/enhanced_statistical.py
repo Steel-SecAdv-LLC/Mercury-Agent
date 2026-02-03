@@ -639,8 +639,16 @@ class CUSUMDetector:
         c_minus = np.zeros(n)  # Lower CUSUM
 
         for i in range(n):
-            c_plus[i] = max(0, c_plus[i - 1] + z[i] - self.slack_k) if i > 0 else max(0, z[i] - self.slack_k)
-            c_minus[i] = max(0, c_minus[i - 1] - z[i] - self.slack_k) if i > 0 else max(0, -z[i] - self.slack_k)
+            c_plus[i] = (
+                max(0, c_plus[i - 1] + z[i] - self.slack_k)
+                if i > 0
+                else max(0, z[i] - self.slack_k)
+            )
+            c_minus[i] = (
+                max(0, c_minus[i - 1] - z[i] - self.slack_k)
+                if i > 0
+                else max(0, -z[i] - self.slack_k)
+            )
 
         # Anomaly detection
         if self.two_sided:
@@ -836,9 +844,7 @@ class DynamicThresholdAdapter:
             Updated threshold
         """
         # Update EMA statistics
-        self.state.ema_score = (
-            self.ema_alpha * score + (1 - self.ema_alpha) * self.state.ema_score
-        )
+        self.state.ema_score = self.ema_alpha * score + (1 - self.ema_alpha) * self.state.ema_score
 
         score_variance = (score - self.state.ema_score) ** 2
         self.state.ema_variance = (
@@ -1084,9 +1090,7 @@ class EnhancedStatisticalDetector(BaseDetector):
             "ensemble_strategy": self.ensemble_strategy,
             "methods_used": list(self._detectors.keys()),
             "dynamic_threshold_stats": (
-                self._dynamic_threshold.get_statistics()
-                if self._dynamic_threshold
-                else None
+                self._dynamic_threshold.get_statistics() if self._dynamic_threshold else None
             ),
         }
 

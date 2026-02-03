@@ -126,7 +126,9 @@ class AnomalyVisualizer:
             config: Chart configuration
         """
         if not PLOTLY_AVAILABLE:
-            raise ImportError("Plotly is required for visualization. Install with: pip install plotly")
+            raise ImportError(
+                "Plotly is required for visualization. Install with: pip install plotly"
+            )
 
         self.config = config or ChartConfig()
         self._data_buffer: list[AnomalyDataPoint] = []
@@ -159,31 +161,37 @@ class AnomalyVisualizer:
 
         # Normal points
         normal_mask = ~anomaly_mask
-        fig.add_trace(go.Scatter(
-            x=np.array(timestamps)[normal_mask],
-            y=scores[normal_mask],
-            mode="markers",
-            name="Normal",
-            marker=dict(color="green", size=6, opacity=0.6),
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=np.array(timestamps)[normal_mask],
+                y=scores[normal_mask],
+                mode="markers",
+                name="Normal",
+                marker=dict(color="green", size=6, opacity=0.6),
+            )
+        )
 
         # Anomaly points
-        fig.add_trace(go.Scatter(
-            x=np.array(timestamps)[anomaly_mask],
-            y=scores[anomaly_mask],
-            mode="markers",
-            name="Anomaly",
-            marker=dict(color="red", size=10, symbol="x"),
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=np.array(timestamps)[anomaly_mask],
+                y=scores[anomaly_mask],
+                mode="markers",
+                name="Anomaly",
+                marker=dict(color="red", size=10, symbol="x"),
+            )
+        )
 
         # Score line
-        fig.add_trace(go.Scatter(
-            x=timestamps,
-            y=scores,
-            mode="lines",
-            name="Score",
-            line=dict(color="rgba(100, 150, 255, 0.5)", width=1),
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=timestamps,
+                y=scores,
+                mode="lines",
+                name="Score",
+                line=dict(color="rgba(100, 150, 255, 0.5)", width=1),
+            )
+        )
 
         # Threshold line
         fig.add_hline(
@@ -233,14 +241,16 @@ class AnomalyVisualizer:
         # Color based on value
         colors = ["red" if v > np.mean(importances) else "blue" for v in sorted_values]
 
-        fig = go.Figure(go.Bar(
-            x=sorted_values[::-1],
-            y=sorted_names[::-1],
-            orientation="h",
-            marker_color=colors[::-1],
-            text=[f"{v:.3f}" for v in sorted_values[::-1]],
-            textposition="outside",
-        ))
+        fig = go.Figure(
+            go.Bar(
+                x=sorted_values[::-1],
+                y=sorted_names[::-1],
+                orientation="h",
+                marker_color=colors[::-1],
+                text=[f"{v:.3f}" for v in sorted_values[::-1]],
+                textposition="outside",
+            )
+        )
 
         fig.update_layout(
             title=title,
@@ -275,17 +285,19 @@ class AnomalyVisualizer:
         if feature_names is None:
             feature_names = [f"F{i}" for i in range(data.shape[1])]
 
-        fig = go.Figure(data=go.Heatmap(
-            z=corr_matrix,
-            x=feature_names,
-            y=feature_names,
-            colorscale="RdBu",
-            zmid=0,
-            text=np.round(corr_matrix, 2),
-            texttemplate="%{text}",
-            textfont={"size": 10},
-            hoverongaps=False,
-        ))
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=corr_matrix,
+                x=feature_names,
+                y=feature_names,
+                colorscale="RdBu",
+                zmid=0,
+                text=np.round(corr_matrix, 2),
+                texttemplate="%{text}",
+                textfont={"size": 10},
+                hoverongaps=False,
+            )
+        )
 
         fig.update_layout(
             title=title,
@@ -314,8 +326,14 @@ class AnomalyVisualizer:
             Plotly figure
         """
         fig = make_subplots(
-            rows=2, cols=2,
-            subplot_titles=["Score Distribution", "ROC Curves", "Score Correlation", "Performance Metrics"],
+            rows=2,
+            cols=2,
+            subplot_titles=[
+                "Score Distribution",
+                "ROC Curves",
+                "Score Correlation",
+                "Performance Metrics",
+            ],
             specs=[
                 [{"type": "box"}, {"type": "scatter"}],
                 [{"type": "heatmap"}, {"type": "bar"}],
@@ -326,7 +344,8 @@ class AnomalyVisualizer:
         for name, scores in detector_scores.items():
             fig.add_trace(
                 go.Box(y=scores, name=name, boxmean=True),
-                row=1, col=1,
+                row=1,
+                col=1,
             )
 
         # ROC curves (if labels available)
@@ -336,19 +355,23 @@ class AnomalyVisualizer:
                 auc = np.trapz(tpr, fpr)
                 fig.add_trace(
                     go.Scatter(x=fpr, y=tpr, name=f"{name} (AUC={auc:.3f})", mode="lines"),
-                    row=1, col=2,
+                    row=1,
+                    col=2,
                 )
             fig.add_trace(
                 go.Scatter(x=[0, 1], y=[0, 1], name="Random", line=dict(dash="dash")),
-                row=1, col=2,
+                row=1,
+                col=2,
             )
         else:
             # Placeholder if no labels
             fig.add_annotation(
-                x=0.5, y=0.5,
+                x=0.5,
+                y=0.5,
                 text="Labels required for ROC curves",
                 showarrow=False,
-                row=1, col=2,
+                row=1,
+                col=2,
             )
 
         # Score correlation heatmap
@@ -360,7 +383,8 @@ class AnomalyVisualizer:
             corr_matrix = np.corrcoef(score_matrix)
             fig.add_trace(
                 go.Heatmap(z=corr_matrix, x=detector_names, y=detector_names, colorscale="RdBu"),
-                row=2, col=1,
+                row=2,
+                col=1,
             )
 
         # Performance metrics
@@ -373,14 +397,17 @@ class AnomalyVisualizer:
                 fn = np.sum((preds == 0) & (labels == 1))
                 precision = tp / (tp + fp) if (tp + fp) > 0 else 0
                 recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-                f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+                f1 = (
+                    2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+                )
                 metrics.append({"name": name, "F1": f1, "Precision": precision, "Recall": recall})
 
             for metric_name in ["F1", "Precision", "Recall"]:
                 values = [m[metric_name] for m in metrics]
                 fig.add_trace(
                     go.Bar(x=[m["name"] for m in metrics], y=values, name=metric_name),
-                    row=2, col=2,
+                    row=2,
+                    col=2,
                 )
 
         fig.update_layout(
@@ -441,6 +468,7 @@ class AnomalyVisualizer:
         if data.shape[1] > 3:
             try:
                 from sklearn.decomposition import PCA
+
                 pca = PCA(n_components=3)
                 data_3d = pca.fit_transform(data)
                 axis_labels = ["PC1", "PC2", "PC3"]
@@ -448,7 +476,11 @@ class AnomalyVisualizer:
                 data_3d = data[:, :3]
                 axis_labels = ["Feature 1", "Feature 2", "Feature 3"]
         else:
-            data_3d = data[:, :3] if data.shape[1] >= 3 else np.pad(data, ((0, 0), (0, 3 - data.shape[1])))
+            data_3d = (
+                data[:, :3]
+                if data.shape[1] >= 3
+                else np.pad(data, ((0, 0), (0, 3 - data.shape[1])))
+            )
             axis_labels = ["Feature 1", "Feature 2", "Feature 3"]
 
         if anomaly_mask is None:
@@ -457,21 +489,25 @@ class AnomalyVisualizer:
         # Size based on anomaly status (larger for anomalies)
         sizes = np.where(anomaly_mask, 10, 5)
 
-        fig = go.Figure(data=[go.Scatter3d(
-            x=data_3d[:, 0],
-            y=data_3d[:, 1],
-            z=data_3d[:, 2],
-            mode="markers",
-            marker=dict(
-                size=sizes,
-                color=scores,
-                colorscale="RdYlGn_r",
-                colorbar=dict(title="Anomaly Score"),
-                opacity=0.8,
-            ),
-            text=[f"Score: {s:.3f}" for s in scores],
-            hoverinfo="text",
-        )])
+        fig = go.Figure(
+            data=[
+                go.Scatter3d(
+                    x=data_3d[:, 0],
+                    y=data_3d[:, 1],
+                    z=data_3d[:, 2],
+                    mode="markers",
+                    marker=dict(
+                        size=sizes,
+                        color=scores,
+                        colorscale="RdYlGn_r",
+                        colorbar=dict(title="Anomaly Score"),
+                        opacity=0.8,
+                    ),
+                    text=[f"Score: {s:.3f}" for s in scores],
+                    hoverinfo="text",
+                )
+            ]
+        )
 
         fig.update_layout(
             title=title,
@@ -507,12 +543,14 @@ class AnomalyVisualizer:
         fig = go.Figure()
 
         for name, vals in values.items():
-            fig.add_trace(go.Scatterpolar(
-                r=vals,
-                theta=categories,
-                fill="toself",
-                name=name,
-            ))
+            fig.add_trace(
+                go.Scatterpolar(
+                    r=vals,
+                    theta=categories,
+                    fill="toself",
+                    name=name,
+                )
+            )
 
         fig.update_layout(
             title=title,
@@ -560,22 +598,26 @@ class AnomalyVisualizer:
         color_map = {d: i for i, d in enumerate(unique_detectors)}
         colors = [color_map[d] for d in detectors]
 
-        fig = go.Figure(data=[go.Scatter(
-            x=timestamps,
-            y=scores,
-            mode="markers+text",
-            marker=dict(
-                size=15,
-                color=colors,
-                colorscale="Viridis",
-                showscale=True,
-                colorbar=dict(title="Detector"),
-            ),
-            text=[f"{s:.2f}" for s in scores],
-            textposition="top center",
-            hovertext=hover_text,
-            hoverinfo="text",
-        )])
+        fig = go.Figure(
+            data=[
+                go.Scatter(
+                    x=timestamps,
+                    y=scores,
+                    mode="markers+text",
+                    marker=dict(
+                        size=15,
+                        color=colors,
+                        colorscale="Viridis",
+                        showscale=True,
+                        colorbar=dict(title="Detector"),
+                    ),
+                    text=[f"{s:.2f}" for s in scores],
+                    textposition="top center",
+                    hovertext=hover_text,
+                    hoverinfo="text",
+                )
+            ]
+        )
 
         fig.update_layout(
             title=title,
@@ -606,7 +648,8 @@ class AnomalyVisualizer:
             Plotly figure
         """
         fig = make_subplots(
-            rows=1, cols=2,
+            rows=1,
+            cols=2,
             subplot_titles=["Histogram", "Box Plot"],
         )
 
@@ -618,7 +661,8 @@ class AnomalyVisualizer:
                 name="Scores",
                 marker_color="rgba(100, 150, 255, 0.7)",
             ),
-            row=1, col=1,
+            row=1,
+            col=1,
         )
 
         # Add threshold line
@@ -627,7 +671,8 @@ class AnomalyVisualizer:
             line_dash="dash",
             line_color="red",
             annotation_text=f"Threshold: {threshold}",
-            row=1, col=1,
+            row=1,
+            col=1,
         )
 
         # Box plot
@@ -638,7 +683,8 @@ class AnomalyVisualizer:
                 boxmean="sd",
                 marker_color="rgba(100, 150, 255, 0.7)",
             ),
-            row=1, col=2,
+            row=1,
+            col=2,
         )
 
         # Add threshold line to box plot
@@ -646,7 +692,8 @@ class AnomalyVisualizer:
             y=threshold,
             line_dash="dash",
             line_color="red",
-            row=1, col=2,
+            row=1,
+            col=2,
         )
 
         fig.update_layout(
@@ -691,7 +738,8 @@ class DashboardBuilder:
     ) -> DashboardBuilder:
         """Add time series chart to dashboard."""
         fig = self.visualizer.time_series_plot(
-            timestamps, scores,
+            timestamps,
+            scores,
             threshold=self.config.anomaly_threshold,
             **kwargs,
         )
@@ -707,7 +755,9 @@ class DashboardBuilder:
     ) -> DashboardBuilder:
         """Add feature importance chart to dashboard."""
         fig = self.visualizer.feature_importance_plot(
-            feature_names, importances, **kwargs,
+            feature_names,
+            importances,
+            **kwargs,
         )
         self._figures[name] = fig
         return self
@@ -721,7 +771,9 @@ class DashboardBuilder:
     ) -> DashboardBuilder:
         """Add correlation heatmap to dashboard."""
         fig = self.visualizer.correlation_heatmap(
-            data, feature_names, **kwargs,
+            data,
+            feature_names,
+            **kwargs,
         )
         self._figures[name] = fig
         return self
@@ -735,7 +787,9 @@ class DashboardBuilder:
     ) -> DashboardBuilder:
         """Add detector comparison to dashboard."""
         fig = self.visualizer.detector_comparison_plot(
-            detector_scores, labels, **kwargs,
+            detector_scores,
+            labels,
+            **kwargs,
         )
         self._figures[name] = fig
         return self
@@ -749,7 +803,9 @@ class DashboardBuilder:
     ) -> DashboardBuilder:
         """Add 3D anomaly visualization to dashboard."""
         fig = self.visualizer.anomaly_scatter_3d(
-            data, scores, **kwargs,
+            data,
+            scores,
+            **kwargs,
         )
         self._figures[name] = fig
         return self
@@ -762,7 +818,9 @@ class DashboardBuilder:
     ) -> DashboardBuilder:
         """Add score distribution to dashboard."""
         fig = self.visualizer.distribution_plot(
-            scores, threshold=self.config.anomaly_threshold, **kwargs,
+            scores,
+            threshold=self.config.anomaly_threshold,
+            **kwargs,
         )
         self._figures[name] = fig
         return self
@@ -798,21 +856,25 @@ class DashboardBuilder:
 
         for name, fig in self._figures.items():
             div_id = name.replace(" ", "_").lower()
-            html_parts.extend([
-                '<div class="chart-container">',
-                f"<h2>{name}</h2>",
-                f'<div id="{div_id}"></div>',
-                "<script>",
-                f"var data_{div_id} = {fig.to_json()};",
-                f"Plotly.newPlot('{div_id}', data_{div_id}.data, data_{div_id}.layout);",
-                "</script>",
-                "</div>",
-            ])
+            html_parts.extend(
+                [
+                    '<div class="chart-container">',
+                    f"<h2>{name}</h2>",
+                    f'<div id="{div_id}"></div>',
+                    "<script>",
+                    f"var data_{div_id} = {fig.to_json()};",
+                    f"Plotly.newPlot('{div_id}', data_{div_id}.data, data_{div_id}.layout);",
+                    "</script>",
+                    "</div>",
+                ]
+            )
 
-        html_parts.extend([
-            "</body>",
-            "</html>",
-        ])
+        html_parts.extend(
+            [
+                "</body>",
+                "</html>",
+            ]
+        )
 
         with open(filepath, "w") as f:
             f.write("\n".join(html_parts))
@@ -833,10 +895,7 @@ class DashboardBuilder:
                 "threshold": self.config.anomaly_threshold,
                 "theme": self.config.theme,
             },
-            "figures": {
-                name: json.loads(fig.to_json())
-                for name, fig in self._figures.items()
-            },
+            "figures": {name: json.loads(fig.to_json()) for name, fig in self._figures.items()},
         }
 
         with open(filepath, "w") as f:
@@ -887,10 +946,9 @@ def create_quick_dashboard(
 
         # Compute simple feature importance from anomaly correlation
         if labels is not None:
-            correlations = np.array([
-                np.corrcoef(data[:, j], labels)[0, 1]
-                for j in range(data.shape[1])
-            ])
+            correlations = np.array(
+                [np.corrcoef(data[:, j], labels)[0, 1] for j in range(data.shape[1])]
+            )
             correlations = np.nan_to_num(np.abs(correlations))
 
             if feature_names is None:

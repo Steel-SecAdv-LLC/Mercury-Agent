@@ -222,8 +222,12 @@ class BayesianWeightOptimizer(WeightOptimizer):
             sampled = np.random.beta(self._alphas[name], self._betas[name])
             # Add exploration bonus for less-used detectors
             uncertainty = np.sqrt(
-                self._alphas[name] * self._betas[name] /
-                ((self._alphas[name] + self._betas[name])**2 * (self._alphas[name] + self._betas[name] + 1))
+                self._alphas[name]
+                * self._betas[name]
+                / (
+                    (self._alphas[name] + self._betas[name]) ** 2
+                    * (self._alphas[name] + self._betas[name] + 1)
+                )
             )
             weights[name] = sampled + self.exploration_bonus * uncertainty
 
@@ -376,7 +380,7 @@ class MetaLearner:
             features.append(1)
             features.append(0.0)
 
-        return np.array(features[:self.n_features])
+        return np.array(features[: self.n_features])
 
     def predict_weights(
         self,
@@ -418,10 +422,9 @@ class MetaLearner:
 
         # Extract meta-features for all batches
         X = np.array([self.extract_meta_features(d) for d in data_batches])
-        Y = np.array([
-            [w.get(name, 1.0 / n_detectors) for name in detector_names]
-            for w in optimal_weights
-        ])
+        Y = np.array(
+            [[w.get(name, 1.0 / n_detectors) for name in detector_names] for w in optimal_weights]
+        )
 
         # Simple linear regression for each detector
         self._feature_weights = np.zeros((n_detectors, self.n_features))
@@ -520,8 +523,9 @@ class CascadingPipeline:
                 stage_scores /= total_weight
 
             # Update final scores for confident predictions
-            confident_mask = (stage_scores < 0.5 - self.uncertainty_threshold) | \
-                           (stage_scores > 0.5 + self.uncertainty_threshold)
+            confident_mask = (stage_scores < 0.5 - self.uncertainty_threshold) | (
+                stage_scores > 0.5 + self.uncertainty_threshold
+            )
 
             # Map back to original indices
             confident_original = uncertain_indices[confident_mask]
@@ -755,8 +759,7 @@ class EnsembleCoordinator:
     ) -> dict[str, float]:
         """Get detector weights based on meta-learning and domain."""
         detector_names = [
-            name for name, entry in self._detectors.items()
-            if entry.state == DetectorState.ACTIVE
+            name for name, entry in self._detectors.items() if entry.state == DetectorState.ACTIVE
         ]
 
         if not detector_names:
@@ -810,9 +813,7 @@ class EnsembleCoordinator:
 
                 # Update latency
                 latency = (time.time() - start_time) * 1000
-                entry.metrics.latency_ms = (
-                    0.1 * latency + 0.9 * entry.metrics.latency_ms
-                )
+                entry.metrics.latency_ms = 0.1 * latency + 0.9 * entry.metrics.latency_ms
 
             except Exception as e:
                 logger.error(f"Detector {name} failed: {e}")
@@ -915,12 +916,14 @@ class EnsembleCoordinator:
 
         # Compute gating weights based on data characteristics
         # Simple approach: use data statistics for gating
-        gate_input = np.column_stack([
-            np.mean(data, axis=1),
-            np.std(data, axis=1),
-            np.max(data, axis=1),
-            np.min(data, axis=1),
-        ])
+        gate_input = np.column_stack(
+            [
+                np.mean(data, axis=1),
+                np.std(data, axis=1),
+                np.max(data, axis=1),
+                np.min(data, axis=1),
+            ]
+        )
 
         # Softmax gating (simplified - in production use learned gates)
         gate_logits = np.zeros((n_samples, n_detectors))
@@ -1050,10 +1053,17 @@ class EnsembleCoordinator:
             "feedback_buffer_size": len(self._feedback_buffer),
             "meta_learning_enabled": self.enable_meta_learning,
             "cascading_enabled": self.enable_cascading,
-            "average_f1": np.mean([
-                e.metrics.f1_score for e in self._detectors.values()
-                if e.state == DetectorState.ACTIVE
-            ]) if active > 0 else 0.0,
+            "average_f1": (
+                np.mean(
+                    [
+                        e.metrics.f1_score
+                        for e in self._detectors.values()
+                        if e.state == DetectorState.ACTIVE
+                    ]
+                )
+                if active > 0
+                else 0.0
+            ),
         }
 
 

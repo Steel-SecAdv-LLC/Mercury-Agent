@@ -344,8 +344,8 @@ class DistributedProcessor:
 
         for result in results:
             if result.error is None:
-                scores[result.start_idx:result.end_idx] = result.scores
-                is_anomaly[result.start_idx:result.end_idx] = result.is_anomaly
+                scores[result.start_idx : result.end_idx] = result.scores
+                is_anomaly[result.start_idx : result.end_idx] = result.is_anomaly
                 self._stats.processed_samples += len(result.scores)
                 self._stats.completed_chunks += 1
             else:
@@ -395,7 +395,10 @@ class DistributedProcessor:
             worker_id = chunk_id % self.config.num_workers
             future = self._pool.submit(
                 self._process_chunk_wrapper,
-                chunk_id, start_idx, chunk_data.tolist(), worker_id,
+                chunk_id,
+                start_idx,
+                chunk_data.tolist(),
+                worker_id,
             )
             futures.append((chunk_id, future))
 
@@ -478,9 +481,7 @@ class AsyncProcessor:
         # Process chunks concurrently
         tasks = []
         for chunk_id, start_idx, chunk_data in chunk_gen:
-            task = asyncio.create_task(
-                self._process_chunk_async(chunk_id, start_idx, chunk_data)
-            )
+            task = asyncio.create_task(self._process_chunk_async(chunk_id, start_idx, chunk_data))
             tasks.append(task)
 
         # Wait for all tasks
@@ -492,8 +493,8 @@ class AsyncProcessor:
 
         for result in results:
             if isinstance(result, ChunkResult) and result.error is None:
-                scores[result.start_idx:result.end_idx] = result.scores
-                is_anomaly[result.start_idx:result.end_idx] = result.is_anomaly
+                scores[result.start_idx : result.end_idx] = result.scores
+                is_anomaly[result.start_idx : result.end_idx] = result.is_anomaly
                 self._stats.processed_samples += len(result.scores)
                 self._stats.completed_chunks += 1
             else:
@@ -520,9 +521,7 @@ class AsyncProcessor:
         try:
             # Run in thread pool to avoid blocking
             loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(
-                None, self.detector.detect, chunk_data
-            )
+            result = await loop.run_in_executor(None, self.detector.detect, chunk_data)
 
             scores = np.asarray(result.get("scores", np.zeros(len(chunk_data))))
             is_anomaly = np.asarray(result.get("is_anomaly", scores > 0.5))
