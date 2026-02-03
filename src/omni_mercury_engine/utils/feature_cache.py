@@ -298,7 +298,7 @@ class MemoryEfficientFeatureCache:
             data = full_data
 
         if isinstance(data, np.ndarray):
-            return data  # type: ignore[return-value]
+            return data
         return data  # type: ignore[return-value]
 
     def _estimate_memory(self, data: np.ndarray[Any, Any]) -> int:
