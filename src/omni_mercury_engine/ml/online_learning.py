@@ -29,7 +29,7 @@ import time
 from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -50,7 +50,7 @@ from omni_mercury_engine.ml.drift import (
 logger = logging.getLogger(__name__)
 
 
-class UpdateStrategy(str, Enum):
+class UpdateStrategy(StrEnum):
     """Strategies for online model updates."""
 
     FULL_RETRAIN = "full_retrain"  # Retrain from scratch
@@ -60,7 +60,7 @@ class UpdateStrategy(str, Enum):
     ENSEMBLE_UPDATE = "ensemble_update"  # Update ensemble members
 
 
-class RetrainingTrigger(str, Enum):
+class RetrainingTrigger(StrEnum):
     """Conditions that trigger model retraining."""
 
     DRIFT_DETECTED = "drift_detected"

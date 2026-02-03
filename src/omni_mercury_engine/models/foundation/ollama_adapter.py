@@ -38,7 +38,7 @@ import os
 import socket
 import urllib.parse
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 
@@ -64,7 +64,7 @@ def _validate_url_scheme(url: str) -> bool:
     return parsed.scheme in _ALLOWED_SCHEMES
 
 
-class OllamaModel(str, Enum):
+class OllamaModel(StrEnum):
     """Supported Ollama models with recommended use cases."""
 
     # Llama family - Best for general reasoning

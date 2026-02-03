@@ -31,7 +31,7 @@ import secrets
 import threading
 import time
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class AuditEventSeverity(str, Enum):
+class AuditEventSeverity(StrEnum):
     """Severity levels for audit events."""
 
     DEBUG = "debug"
@@ -54,7 +54,7 @@ class AuditEventSeverity(str, Enum):
     SECURITY = "security"  # Security-specific events
 
 
-class AuditEventCategory(str, Enum):
+class AuditEventCategory(StrEnum):
     """Categories of audit events."""
 
     AUTHENTICATION = "authentication"

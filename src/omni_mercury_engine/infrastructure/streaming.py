@@ -53,7 +53,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Callable  # noqa: TC003 - used in runtime annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any
 
 
@@ -63,7 +63,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Configuration
 # =============================================================================
-class StreamingBackend(str, Enum):
+class StreamingBackend(StrEnum):
     """Available streaming backends."""
 
     KAFKA = "kafka"

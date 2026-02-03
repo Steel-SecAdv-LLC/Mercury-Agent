@@ -26,7 +26,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -53,7 +53,7 @@ except ImportError:
     nn = None
 
 
-class FewShotMethod(str, Enum):
+class FewShotMethod(StrEnum):
     """Available few-shot learning methods."""
 
     PROTOTYPICAL = "prototypical"
@@ -64,7 +64,7 @@ class FewShotMethod(str, Enum):
     NEAREST_CENTROID = "nearest_centroid"  # NumPy fallback
 
 
-class EpisodeSamplingStrategy(str, Enum):
+class EpisodeSamplingStrategy(StrEnum):
     """Strategies for sampling few-shot episodes."""
 
     RANDOM = "random"
