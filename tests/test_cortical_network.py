@@ -255,9 +255,7 @@ class TestCorticalColumn:
 
     def test_column_feedback_modulation(self):
         """Feedback should modulate processing."""
-        config = CorticalConfig(
-            input_dim=32, hidden_dim=64, output_dim=32, feedback_strength=0.5
-        )
+        config = CorticalConfig(input_dim=32, hidden_dim=64, output_dim=32, feedback_strength=0.5)
         column = CorticalColumn(config)
 
         x = torch.randn(4, 32)

@@ -132,9 +132,7 @@ class TestCircuitBreakerStateMachine:
 
     def test_half_open_failure_returns_to_open(self):
         """Failure in HALF_OPEN should return to OPEN."""
-        breaker = CircuitBreaker(
-            failure_threshold=2, recovery_timeout=0.1, success_threshold=1
-        )
+        breaker = CircuitBreaker(failure_threshold=2, recovery_timeout=0.1, success_threshold=1)
 
         def failing_func():
             raise ValueError("Fail")
@@ -162,9 +160,7 @@ class TestCircuitBreakerStateMachine:
 
     def test_success_threshold_in_half_open(self):
         """Multiple successes needed to close circuit when success_threshold > 1."""
-        breaker = CircuitBreaker(
-            failure_threshold=2, recovery_timeout=0.1, success_threshold=3
-        )
+        breaker = CircuitBreaker(failure_threshold=2, recovery_timeout=0.1, success_threshold=3)
 
         def failing_func():
             raise ValueError("Fail")
@@ -318,9 +314,7 @@ class TestRetryPolicy:
         timing_function()
 
         # Calculate delays
-        delays = [
-            call_times[i + 1] - call_times[i] for i in range(len(call_times) - 1)
-        ]
+        delays = [call_times[i + 1] - call_times[i] for i in range(len(call_times) - 1)]
 
         # Delays should increase (approximately exponential)
         # First delay ~ 0.05, second ~ 0.1, third ~ 0.2
@@ -403,8 +397,7 @@ class TestThreadSafety:
 
         # Concurrent recording from multiple threads
         threads = [
-            threading.Thread(target=record_metrics, args=(f"component_{i}",))
-            for i in range(5)
+            threading.Thread(target=record_metrics, args=(f"component_{i}",)) for i in range(5)
         ]
 
         for t in threads:

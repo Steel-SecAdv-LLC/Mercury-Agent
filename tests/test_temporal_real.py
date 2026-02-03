@@ -92,10 +92,12 @@ class TestTrendDetection:
         detector = TemporalAnomalyDetector({"window_size": 10})
 
         # Create data with shift in mean at position 50
-        data = np.concatenate([
-            np.ones(50) * 0,  # First half: mean 0
-            np.ones(50) * 10,  # Second half: mean 10
-        ])
+        data = np.concatenate(
+            [
+                np.ones(50) * 0,  # First half: mean 0
+                np.ones(50) * 10,  # Second half: mean 10
+            ]
+        )
         detector.fit(data)
 
         result = detector.detect(data)
@@ -134,10 +136,12 @@ class TestSuddenChangeDetection:
         # Gradual changes
         gradual = np.linspace(0, 10, 50)
         # Sudden step change
-        step = np.concatenate([
-            np.zeros(25),
-            np.ones(25) * 10,  # Jump from 0 to 10
-        ])
+        step = np.concatenate(
+            [
+                np.zeros(25),
+                np.ones(25) * 10,  # Jump from 0 to 10
+            ]
+        )
 
         detector.fit(gradual)
 
@@ -425,11 +429,13 @@ class TestAutoCalibration:
         # Create data with some anomalies
         normal = np.random.randn(80)
         # Add anomalies as sudden jumps
-        anomaly_points = np.concatenate([
-            np.random.randn(10) * 0.1,
-            np.ones(1) * 10,  # Spike
-            np.random.randn(9) * 0.1,
-        ])
+        anomaly_points = np.concatenate(
+            [
+                np.random.randn(10) * 0.1,
+                np.ones(1) * 10,  # Spike
+                np.random.randn(9) * 0.1,
+            ]
+        )
         data = np.concatenate([normal, anomaly_points])
 
         detector.fit(normal)  # Fit on normal only

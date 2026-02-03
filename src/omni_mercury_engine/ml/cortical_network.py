@@ -252,9 +252,7 @@ class HebbianLearningRule(nn.Module):
         self.weight_decay = weight_decay
 
         # Hebbian weight matrix (separate from main network weights)
-        self.weight = nn.Parameter(
-            torch.randn(output_dim, input_dim) * 0.01, requires_grad=False
-        )
+        self.weight = nn.Parameter(torch.randn(output_dim, input_dim) * 0.01, requires_grad=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Compute Hebbian transformation.
@@ -376,9 +374,7 @@ class ThalamocorticalGate(nn.Module):
         else:
             # Use zeros for feedback if not provided
             batch_size = sensory_input.shape[0]
-            zeros = torch.zeros(
-                batch_size, self.feedback_dim, device=sensory_input.device
-            )
+            zeros = torch.zeros(batch_size, self.feedback_dim, device=sensory_input.device)
             gate_input = torch.cat([sensory_input, zeros], dim=-1)
 
         gate = self.reticular(gate_input)
@@ -433,9 +429,11 @@ class CorticalColumn(nn.Module):
         # This is the primary input layer in sensory cortex
         self.layer_iv = nn.Sequential(
             nn.Linear(config.input_dim, layer_dims[CorticalLayer.INTERNAL_GRANULAR]),
-            nn.LayerNorm(layer_dims[CorticalLayer.INTERNAL_GRANULAR])
-            if config.use_layer_norm
-            else nn.Identity(),
+            (
+                nn.LayerNorm(layer_dims[CorticalLayer.INTERNAL_GRANULAR])
+                if config.use_layer_norm
+                else nn.Identity()
+            ),
             nn.GELU(),  # Smoother than ReLU, more biologically plausible
             nn.Dropout(config.dropout),
         )
@@ -447,9 +445,11 @@ class CorticalColumn(nn.Module):
                 layer_dims[CorticalLayer.INTERNAL_GRANULAR],
                 layer_dims[CorticalLayer.EXTERNAL_PYRAMIDAL],
             ),
-            nn.LayerNorm(layer_dims[CorticalLayer.EXTERNAL_PYRAMIDAL])
-            if config.use_layer_norm
-            else nn.Identity(),
+            (
+                nn.LayerNorm(layer_dims[CorticalLayer.EXTERNAL_PYRAMIDAL])
+                if config.use_layer_norm
+                else nn.Identity()
+            ),
             nn.GELU(),
             nn.Dropout(config.dropout),
             SparseCoding(sparsity=config.sparsity),
@@ -462,9 +462,11 @@ class CorticalColumn(nn.Module):
                 layer_dims[CorticalLayer.EXTERNAL_PYRAMIDAL],
                 layer_dims[CorticalLayer.INTERNAL_PYRAMIDAL],
             ),
-            nn.LayerNorm(layer_dims[CorticalLayer.INTERNAL_PYRAMIDAL])
-            if config.use_layer_norm
-            else nn.Identity(),
+            (
+                nn.LayerNorm(layer_dims[CorticalLayer.INTERNAL_PYRAMIDAL])
+                if config.use_layer_norm
+                else nn.Identity()
+            ),
             nn.GELU(),
             nn.Dropout(config.dropout),
         )
@@ -476,9 +478,11 @@ class CorticalColumn(nn.Module):
                 layer_dims[CorticalLayer.INTERNAL_PYRAMIDAL],
                 layer_dims[CorticalLayer.MULTIFORM],
             ),
-            nn.LayerNorm(layer_dims[CorticalLayer.MULTIFORM])
-            if config.use_layer_norm
-            else nn.Identity(),
+            (
+                nn.LayerNorm(layer_dims[CorticalLayer.MULTIFORM])
+                if config.use_layer_norm
+                else nn.Identity()
+            ),
             nn.GELU(),
         )
 
@@ -677,9 +681,7 @@ class CorticalLaminatedNetwork(nn.Module):
         for i, column in enumerate(self.columns):
             # Get feedback from next column (top-down)
             col_feedback = None
-            if i < len(self.columns) - 1 and hasattr(
-                self.columns[i + 1], "activations"
-            ):
+            if i < len(self.columns) - 1 and hasattr(self.columns[i + 1], "activations"):
                 col_feedback = self.columns[i + 1].activations.get("layer_vi")
 
             h, activations = column(h, feedback=col_feedback, return_layer_activations=True)
@@ -852,9 +854,7 @@ class NisslAnalyzer:
             std_act = all_acts.std().item()
 
             # Activation distribution (histogram)
-            hist, bin_edges = np.histogram(
-                all_acts.numpy().flatten(), bins=50, density=True
-            )
+            hist, bin_edges = np.histogram(all_acts.numpy().flatten(), bins=50, density=True)
 
             results[name] = {
                 "sparsity": sparsity,
@@ -923,9 +923,7 @@ class WeigertAnalyzer:
                 # Information capacity (approximate)
                 # Higher entropy = more diverse weights = higher capacity
                 weight_flat = weight.flatten()
-                hist, _ = np.histogram(
-                    weight_flat.cpu().numpy(), bins=100, density=True
-                )
+                hist, _ = np.histogram(weight_flat.cpu().numpy(), bins=100, density=True)
                 hist = hist + 1e-10  # Avoid log(0)
                 entropy = -np.sum(hist * np.log(hist)) * (hist[1] - hist[0])
 
@@ -943,9 +941,7 @@ class WeigertAnalyzer:
         if layer_capacities:
             min_capacity = min(layer_capacities.values())
             bottlenecks = [
-                name
-                for name, cap in layer_capacities.items()
-                if cap < min_capacity * 1.5
+                name for name, cap in layer_capacities.items() if cap < min_capacity * 1.5
             ]
         else:
             bottlenecks = []
@@ -1036,9 +1032,7 @@ class CorticalLoss(nn.Module):
                 if "layer" in name:
                     # L1 sparsity penalty
                     actual_sparsity = (act.abs() < 0.01).float().mean()
-                    sparsity_loss = sparsity_loss + (
-                        actual_sparsity - self.target_sparsity
-                    ).abs()
+                    sparsity_loss = sparsity_loss + (actual_sparsity - self.target_sparsity).abs()
             sparsity_loss = sparsity_loss / max(len(activations), 1)
 
         # Hebbian correlation loss (encourage decorrelated representations)
@@ -1103,9 +1097,7 @@ class SpikeTimingDependentPlasticity(nn.Module):
         self.a_plus = a_plus
         self.a_minus = a_minus
 
-    def forward(
-        self, pre_times: torch.Tensor, post_times: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, pre_times: torch.Tensor, post_times: torch.Tensor) -> torch.Tensor:
         """Compute STDP weight update.
 
         Args:

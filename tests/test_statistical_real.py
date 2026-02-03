@@ -82,13 +82,15 @@ class TestZScoreComputation:
         """Z-scores computed correctly for multivariate data."""
         detector = StatisticalAnomalyDetector()
         # Two features with different distributions
-        data = np.array([
-            [10, 100],
-            [20, 200],
-            [30, 300],
-            [40, 400],
-            [50, 500],
-        ])
+        data = np.array(
+            [
+                [10, 100],
+                [20, 200],
+                [30, 300],
+                [40, 400],
+                [50, 500],
+            ]
+        )
         detector.fit(data)
 
         # Test point: 1 std above mean for feature 0, 2 std above for feature 1
@@ -169,10 +171,12 @@ class TestAdaptiveContamination:
         clean_contamination = detector_clean.contamination
 
         # Noisy data (many outliers) - should have higher contamination
-        noisy_data = np.concatenate([
-            np.random.randn(700, 1),  # Normal
-            np.random.randn(300, 1) * 5 + 10,  # Outliers
-        ])
+        noisy_data = np.concatenate(
+            [
+                np.random.randn(700, 1),  # Normal
+                np.random.randn(300, 1) * 5 + 10,  # Outliers
+            ]
+        )
         detector_noisy = StatisticalAnomalyDetector()
         detector_noisy.fit(noisy_data)
         noisy_contamination = detector_noisy.contamination
