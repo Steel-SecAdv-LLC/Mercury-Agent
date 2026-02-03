@@ -208,9 +208,9 @@ class EpisodeGenerator:
         class_features = X[indices]
 
         # Compute distances to OTHER class prototypes (not the current class)
-        other_prototypes = np.array([
-            self._class_prototypes[cls] for cls in other_classes if cls != current_class
-        ])
+        other_prototypes = np.array(
+            [self._class_prototypes[cls] for cls in other_classes if cls != current_class]
+        )
 
         if len(other_prototypes) == 0:
             return self.rng.choice(indices, size=n_total, replace=False)
@@ -221,9 +221,7 @@ class EpisodeGenerator:
         min_distances = np.min(distances, axis=1)
 
         # Select support set randomly from the class
-        support_local_indices = self.rng.choice(
-            len(indices), size=n_support, replace=False
-        )
+        support_local_indices = self.rng.choice(len(indices), size=n_support, replace=False)
 
         # For query set, prefer samples with small distances (hard negatives)
         remaining_mask = np.ones(len(indices), dtype=bool)
@@ -253,10 +251,9 @@ class EpisodeGenerator:
             query_local_indices = np.concatenate([hard_indices, random_indices])
 
         # Convert back to global indices
-        selected = np.concatenate([
-            indices[support_local_indices],
-            indices[query_local_indices[:n_query]]
-        ])
+        selected = np.concatenate(
+            [indices[support_local_indices], indices[query_local_indices[:n_query]]]
+        )
 
         return selected
 
@@ -312,8 +309,7 @@ class EpisodeGenerator:
         if self.strategy == EpisodeSamplingStrategy.HARD_NEGATIVE:
             self._class_prototypes = self._compute_class_prototypes(X, y)
             logger.debug(
-                "Computed %d class prototypes for hard negative mining",
-                len(self._class_prototypes)
+                "Computed %d class prototypes for hard negative mining", len(self._class_prototypes)
             )
 
         for episode_id in range(self.n_episodes):

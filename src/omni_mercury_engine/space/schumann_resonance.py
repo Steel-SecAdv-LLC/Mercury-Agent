@@ -534,7 +534,10 @@ class SchumannResonanceDetector:
         return recommendations[:6]
 
     def _correlate_ancient_patterns(
-        self, fundamental_freq: float, temporal_pattern: dict[str, Any] | None, metadata: dict[str, Any] | None
+        self,
+        fundamental_freq: float,
+        temporal_pattern: dict[str, Any] | None,
+        metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
         """Correlate with ancient astronomical/geophysical cycles"""
         correlations: dict[str, list[str]] = {

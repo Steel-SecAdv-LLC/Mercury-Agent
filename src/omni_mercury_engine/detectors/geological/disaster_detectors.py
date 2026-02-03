@@ -1505,7 +1505,9 @@ def load_dart_buoy_data(
         return waveforms, labels, wave_heights
 
     try:
-        result: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]] = circuit_breaker.call(_fetch_dart_data)
+        result: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]] = (
+            circuit_breaker.call(_fetch_dart_data)
+        )
         return result
     except Exception as e:
         logger.warning(f"Failed to load DART buoy data: {e}. Using synthetic fallback.")
@@ -1654,7 +1656,9 @@ def load_usgs_earthquake_catalog(
         return spectrograms, labels, magnitudes
 
     try:
-        result: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]] = circuit_breaker.call(_fetch_earthquake_data)
+        result: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]] = (
+            circuit_breaker.call(_fetch_earthquake_data)
+        )
         return result
     except Exception as e:
         logger.warning(f"Failed to load USGS earthquake catalog: {e}. Using synthetic fallback.")

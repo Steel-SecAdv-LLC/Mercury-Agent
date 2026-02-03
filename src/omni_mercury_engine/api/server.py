@@ -255,9 +255,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             "reset": info.reset_at,
         }
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         """Process request with rate limiting."""
         # Skip rate limiting if disabled or for health checks
         if not self.enabled or request.url.path in ["/health", "/docs", "/redoc", "/openapi.json"]:
@@ -317,9 +315,7 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
     HEADER_NAME = "X-Correlation-ID"
     HEADER_ALIAS = "X-Request-ID"
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         """Process request with correlation ID tracking."""
         # Extract or generate correlation ID
         correlation_id = (

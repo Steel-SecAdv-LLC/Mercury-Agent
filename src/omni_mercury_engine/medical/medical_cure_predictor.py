@@ -137,7 +137,9 @@ class TemporalVitalSignsDetector:
         self.logger = logging.getLogger(__name__)
 
     def detect_temporal_anomaly(
-        self, vital_signs_sequence: np.ndarray[Any, Any], patient_history: dict[str, Any] | None = None
+        self,
+        vital_signs_sequence: np.ndarray[Any, Any],
+        patient_history: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Detect anomalies in temporal vital signs sequence.

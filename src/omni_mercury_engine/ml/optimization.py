@@ -384,9 +384,11 @@ class ParallelExecutor:
 
         from joblib import Parallel, delayed
 
-        return list(Parallel(n_jobs=self.n_jobs, backend=self.backend, prefer=self.prefer)(
-            delayed(func)(item, **kwargs) for item in items
-        ))
+        return list(
+            Parallel(n_jobs=self.n_jobs, backend=self.backend, prefer=self.prefer)(
+                delayed(func)(item, **kwargs) for item in items
+            )
+        )
 
     def starmap(
         self,
@@ -408,9 +410,11 @@ class ParallelExecutor:
 
         from joblib import Parallel, delayed
 
-        return list(Parallel(n_jobs=self.n_jobs, backend=self.backend, prefer=self.prefer)(
-            delayed(func)(*args) for args in args_list
-        ))
+        return list(
+            Parallel(n_jobs=self.n_jobs, backend=self.backend, prefer=self.prefer)(
+                delayed(func)(*args) for args in args_list
+            )
+        )
 
 
 class DDPScaler:

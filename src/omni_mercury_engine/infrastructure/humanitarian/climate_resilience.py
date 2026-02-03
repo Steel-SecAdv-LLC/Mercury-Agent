@@ -86,7 +86,9 @@ class ClimateResilienceDetector:
             return self.detect_temperature_anomaly(data, historical_context)
 
     def detect_temperature_anomaly(
-        self, temperature_series: np.ndarray[Any, Any], historical_context: dict[str, Any] | None = None
+        self,
+        temperature_series: np.ndarray[Any, Any],
+        historical_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Detect heatwaves, cold snaps, and abnormal warming trends."""
         if len(temperature_series) == 0:
@@ -129,7 +131,9 @@ class ClimateResilienceDetector:
         }
 
     def detect_precipitation_anomaly(
-        self, precipitation_mm: np.ndarray[Any, Any], historical_context: dict[str, Any] | None = None
+        self,
+        precipitation_mm: np.ndarray[Any, Any],
+        historical_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Detect droughts and floods from precipitation patterns."""
         if len(precipitation_mm) == 0:

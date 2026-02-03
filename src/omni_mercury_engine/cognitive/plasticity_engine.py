@@ -96,11 +96,15 @@ class STDPParameters:
         if delta_t > 0:
             # Pre before post: LTP (potentiation)
             # Weight-dependent scaling (soft bounds)
-            result: float = float(self.a_plus * (self.w_max - w_current) * np.exp(-delta_t / self.tau_plus))
+            result: float = float(
+                self.a_plus * (self.w_max - w_current) * np.exp(-delta_t / self.tau_plus)
+            )
             return result
         else:
             # Post before pre: LTD (depression)
-            result = float(-self.a_minus * (w_current - self.w_min) * np.exp(delta_t / self.tau_minus))
+            result = float(
+                -self.a_minus * (w_current - self.w_min) * np.exp(delta_t / self.tau_minus)
+            )
             return result
 
 

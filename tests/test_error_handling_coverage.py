@@ -315,10 +315,12 @@ class TestFewShotLearningHardNegativeMining:
         n_features = 10
 
         # Create 4 classes with different centroids
-        X = np.vstack([
-            np.random.randn(n_samples_per_class, n_features) + np.array([i * 3, 0] + [0] * 8)
-            for i in range(4)
-        ])
+        X = np.vstack(
+            [
+                np.random.randn(n_samples_per_class, n_features) + np.array([i * 3, 0] + [0] * 8)
+                for i in range(4)
+            ]
+        )
         y = np.repeat([0, 1, 2, 3], n_samples_per_class)
 
         generator = EpisodeGenerator(
@@ -406,14 +408,16 @@ class TestFewShotLearningHardNegativeMining:
 
         generator = EpisodeGenerator()
 
-        X = np.array([
-            [1.0, 0.0],
-            [1.0, 1.0],
-            [1.0, 2.0],  # Class 0: mean = [1.0, 1.0]
-            [5.0, 0.0],
-            [5.0, 1.0],
-            [5.0, 2.0],  # Class 1: mean = [5.0, 1.0]
-        ])
+        X = np.array(
+            [
+                [1.0, 0.0],
+                [1.0, 1.0],
+                [1.0, 2.0],  # Class 0: mean = [1.0, 1.0]
+                [5.0, 0.0],
+                [5.0, 1.0],
+                [5.0, 2.0],  # Class 1: mean = [5.0, 1.0]
+            ]
+        )
         y = np.array([0, 0, 0, 1, 1, 1])
 
         prototypes = generator._compute_class_prototypes(X, y)
