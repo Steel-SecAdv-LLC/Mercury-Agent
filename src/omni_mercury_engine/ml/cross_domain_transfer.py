@@ -25,7 +25,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -64,7 +64,7 @@ except ImportError:
     SKLEARN_AVAILABLE = False
 
 
-class DomainAdaptationMethod(str, Enum):
+class DomainAdaptationMethod(StrEnum):
     """Available domain adaptation methods."""
 
     MMD = "mmd"  # Maximum Mean Discrepancy
@@ -76,7 +76,7 @@ class DomainAdaptationMethod(str, Enum):
     OPTIMAL_TRANSPORT = "optimal_transport"
 
 
-class SecurityDataset(str, Enum):
+class SecurityDataset(StrEnum):
     """Known security benchmark datasets."""
 
     NSL_KDD = "nsl_kdd"

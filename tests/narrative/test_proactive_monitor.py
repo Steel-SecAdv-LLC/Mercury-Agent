@@ -115,7 +115,7 @@ class TestProactiveMonitor:
         """Test passive vigilance doesn't generate initiatives."""
         events_received = []
 
-        started_monitor.on_initiative(lambda e: events_received.append(e))
+        started_monitor.on_initiative(events_received.append)
         started_monitor.set_vigilance(VigilanceLevel.PASSIVE, domain="test")
 
         detection = {
@@ -134,7 +134,7 @@ class TestProactiveMonitor:
     def test_cooldown_prevents_duplicate_alerts(self, started_monitor: ProactiveMonitor) -> None:
         """Test cooldown mechanism prevents alert spam."""
         events_received = []
-        started_monitor.on_initiative(lambda e: events_received.append(e))
+        started_monitor.on_initiative(events_received.append)
 
         # Set short cooldown for test
         started_monitor._thresholds["test"] = InitiativeThreshold(cooldown_sec=2.0)
@@ -158,7 +158,7 @@ class TestProactiveMonitor:
     def test_escalation_on_pattern_accumulation(self, started_monitor: ProactiveMonitor) -> None:
         """Test escalation triggers on pattern accumulation."""
         events_received = []
-        started_monitor.on_initiative(lambda e: events_received.append(e))
+        started_monitor.on_initiative(events_received.append)
 
         # Configure for quick escalation
         threshold = InitiativeThreshold(
@@ -191,7 +191,7 @@ class TestProactiveMonitor:
     def test_initiative_event_structure(self, started_monitor: ProactiveMonitor) -> None:
         """Test initiative event has correct structure."""
         events_received = []
-        started_monitor.on_initiative(lambda e: events_received.append(e))
+        started_monitor.on_initiative(events_received.append)
 
         detection = {
             "anomaly_detected": True,

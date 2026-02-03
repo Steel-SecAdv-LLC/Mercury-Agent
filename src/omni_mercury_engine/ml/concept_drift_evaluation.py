@@ -25,7 +25,7 @@ import logging
 import time
 import warnings
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class TemporalSplitStrategy(str, Enum):
+class TemporalSplitStrategy(StrEnum):
     """Strategies for temporal train/test splitting."""
 
     EXPANDING_WINDOW = "expanding_window"  # Train on all past data
@@ -64,7 +64,7 @@ class TemporalSplitStrategy(str, Enum):
     BLOCKED = "blocked"  # Non-overlapping blocks
 
 
-class DegradationTrend(str, Enum):
+class DegradationTrend(StrEnum):
     """Types of performance degradation trends."""
 
     STABLE = "stable"  # No significant degradation

@@ -36,12 +36,12 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from html import escape
 from typing import Any
 
 
-class ReportFormat(str, Enum):
+class ReportFormat(StrEnum):
     """Report output format enumeration."""
 
     JSON = "json"

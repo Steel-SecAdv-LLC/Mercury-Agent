@@ -30,13 +30,13 @@ Provides:
 - Unified configuration propagation to all submodules
 """
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
-class DomainType(str, Enum):
+class DomainType(StrEnum):
     """Domain types for context-aware configuration."""
 
     GENERAL = "general"
@@ -49,7 +49,7 @@ class DomainType(str, Enum):
     SECURITY = "security"
 
 
-class DeviceType(str, Enum):
+class DeviceType(StrEnum):
     """Compute device types."""
 
     CPU = "cpu"
@@ -57,7 +57,7 @@ class DeviceType(str, Enum):
     MPS = "mps"
 
 
-class FusionMode(str, Enum):
+class FusionMode(StrEnum):
     """Fusion strategies for detector combination."""
 
     EARLY = "early"

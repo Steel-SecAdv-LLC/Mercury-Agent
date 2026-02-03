@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -53,7 +53,7 @@ except ImportError:
     torch = None
 
 
-class ExplainabilityMethod(str, Enum):
+class ExplainabilityMethod(StrEnum):
     """Available explainability methods."""
 
     SHAP_KERNEL = "shap_kernel"  # Model-agnostic
@@ -67,7 +67,7 @@ class ExplainabilityMethod(str, Enum):
     COUNTERFACTUAL = "counterfactual"  # Counterfactual explanations
 
 
-class AggregationMethod(str, Enum):
+class AggregationMethod(StrEnum):
     """Methods for aggregating feature importance."""
 
     MEAN_ABS = "mean_abs"  # Mean absolute SHAP value

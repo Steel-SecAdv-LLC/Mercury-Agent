@@ -33,7 +33,7 @@ Aligned with ethical governance requirements (benevolence >= 0.99).
 
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 import numpy as np
@@ -42,7 +42,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-class FairnessMetric(str, Enum):
+class FairnessMetric(StrEnum):
     """Supported fairness metrics."""
 
     DEMOGRAPHIC_PARITY = "demographic_parity"
@@ -53,7 +53,7 @@ class FairnessMetric(str, Enum):
     DISPARATE_IMPACT = "disparate_impact"
 
 
-class MitigationStrategy(str, Enum):
+class MitigationStrategy(StrEnum):
     """Bias mitigation strategies."""
 
     REWEIGHTING = "reweighting"

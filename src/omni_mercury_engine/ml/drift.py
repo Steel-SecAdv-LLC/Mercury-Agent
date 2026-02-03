@@ -33,7 +33,7 @@ Inspired by Alibi-Detect and Evidently frameworks.
 
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 import numpy as np
@@ -43,7 +43,7 @@ from scipy import stats
 logger = logging.getLogger(__name__)
 
 
-class DriftType(str, Enum):
+class DriftType(StrEnum):
     """Types of drift that can be detected."""
 
     DATA_DRIFT = "data_drift"
@@ -53,7 +53,7 @@ class DriftType(str, Enum):
     LABEL_DRIFT = "label_drift"
 
 
-class DriftSeverity(str, Enum):
+class DriftSeverity(StrEnum):
     """Severity levels for detected drift."""
 
     NONE = "none"
@@ -730,7 +730,7 @@ class EnsembleDriftDetector:
             DriftSeverity.HIGH,
             DriftSeverity.CRITICAL,
         ]
-        max_severity = max(severities, key=lambda s: severity_order.index(s))
+        max_severity = max(severities, key=severity_order.index)
 
         # Combine feature drifts
         combined_feature_drifts: dict[str, list[float]] = {}

@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class SamplingStrategy(str, Enum):
+class SamplingStrategy(StrEnum):
     """Active learning sampling strategies."""
 
     UNCERTAINTY_ENTROPY = "uncertainty_entropy"
@@ -53,7 +53,7 @@ class SamplingStrategy(str, Enum):
     HYBRID = "hybrid"  # Combines uncertainty and diversity
 
 
-class LabelType(str, Enum):
+class LabelType(StrEnum):
     """Types of labels in active learning."""
 
     NORMAL = "normal"

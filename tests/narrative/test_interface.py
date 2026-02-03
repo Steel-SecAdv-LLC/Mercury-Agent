@@ -218,7 +218,7 @@ class TestMercuryConversationInterfaceProactive:
     def test_proactive_callback_registration(self, interface: MercuryConversationInterface) -> None:
         """Test proactive alert callback registration."""
         events = []
-        interface.on_proactive_alert(lambda e: events.append(e))
+        interface.on_proactive_alert(events.append)
 
         # Callback should be registered
         assert len(interface._proactive_callbacks) > 0
