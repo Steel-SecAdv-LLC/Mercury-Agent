@@ -399,7 +399,6 @@ module = [
     "omni_mercury_engine.safeguards.*",
     "omni_mercury_engine.scaling.*",
     "omni_mercury_engine.narrative.*",
-    "omni_mercury_engine.validation.*",
     "omni_mercury_engine.truth_decipher",
     "omni_mercury_engine.cli",
     "omni_mercury_engine.engine",
@@ -407,10 +406,29 @@ module = [
 ]
 ignore_errors = true
 
+# =============================================================================
+# Progressive Typing - Modules with Full Type Checking
+# =============================================================================
+
 # Utils module - properly typed
 [[tool.mypy.overrides]]
 module = [
     "omni_mercury_engine.utils.*",
+]
+ignore_errors = false
+
+# Validation module - production-critical, fully typed
+[[tool.mypy.overrides]]
+module = [
+    "omni_mercury_engine.validation.*",
+]
+ignore_errors = false
+
+# Security input validation - OWASP compliance, fully typed
+[[tool.mypy.overrides]]
+module = [
+    "omni_mercury_engine.security.input_validation",
+    "omni_mercury_engine.security.authentication",
 ]
 ignore_errors = false
 
