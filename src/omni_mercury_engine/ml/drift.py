@@ -730,7 +730,7 @@ class EnsembleDriftDetector:
             DriftSeverity.HIGH,
             DriftSeverity.CRITICAL,
         ]
-        max_severity = max(severities, key=lambda s: severity_order.index(s))
+        max_severity = max(severities, key=severity_order.index)
 
         # Combine feature drifts
         combined_feature_drifts: dict[str, list[float]] = {}

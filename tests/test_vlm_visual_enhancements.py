@@ -483,9 +483,9 @@ class TestLVLMBackendCache:
         evict_called = []
         error_called = []
 
-        cache.on_load(lambda key, time: load_called.append(key))
-        cache.on_evict(lambda key: evict_called.append(key))
-        cache.on_error(lambda key, err: error_called.append(key))
+        cache.on_load(lambda key, _time: load_called.append(key))
+        cache.on_evict(evict_called.append)
+        cache.on_error(lambda key, _err: error_called.append(key))
 
         assert len(cache._on_load_callbacks) > 0
         assert len(cache._on_evict_callbacks) > 0
