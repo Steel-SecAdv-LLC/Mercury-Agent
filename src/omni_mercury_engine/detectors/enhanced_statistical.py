@@ -27,7 +27,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy import stats
-from scipy.spatial.distance import mahalanobis
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
@@ -1085,8 +1084,6 @@ class EnhancedStatisticalDetector(BaseDetector):
 
     def extract_features(self, data: np.ndarray | Any) -> Any:
         """Extract features from all statistical methods."""
-        import torch
-
         data = np.asarray(data)
         if data.ndim == 1:
             data = data.reshape(-1, 1)
@@ -1109,7 +1106,13 @@ class EnhancedStatisticalDetector(BaseDetector):
             padding = np.zeros((features.shape[0], 10 - features.shape[1]))
             features = np.hstack([features, padding])
 
-        return torch.tensor(features, dtype=torch.float32)
+        # Return as torch tensor if available, otherwise numpy array
+        try:
+            import torch
+
+            return torch.tensor(features, dtype=torch.float32)
+        except ImportError:
+            return features.astype(np.float32)
 
 
 # Exports

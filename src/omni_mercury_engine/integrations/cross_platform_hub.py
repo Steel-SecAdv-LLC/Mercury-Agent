@@ -633,8 +633,6 @@ class OpenTelemetryAdapter(PlatformAdapter):
             from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
                 OTLPMetricExporter,
             )
-            from opentelemetry.sdk.metrics import MeterProvider
-            from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 
             self._exporter = OTLPMetricExporter(
                 endpoint=self.config.endpoint,

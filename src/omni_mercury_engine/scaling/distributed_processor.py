@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import multiprocessing as mp
 import queue
 import threading
 import time
