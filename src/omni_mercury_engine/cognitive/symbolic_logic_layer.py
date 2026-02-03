@@ -43,13 +43,10 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 
-
-if TYPE_CHECKING:
-    import networkx as nx
 
 try:
     import networkx as nx
