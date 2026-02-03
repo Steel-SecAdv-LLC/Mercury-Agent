@@ -21,9 +21,12 @@ from __future__ import annotations
 
 """Biometric anomaly detection model."""
 
+import logging
 from typing import Any
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 try:
@@ -201,7 +204,8 @@ class BiometricAnomalyModel:
                     features = np.array(embeddings, dtype=np.float32)
                 else:
                     features = self._extract_harmonic_features(data)
-            except Exception:
+            except Exception as e:
+                logger.debug("DeepFace feature extraction failed, using harmonic fallback: %s", e)
                 features = self._extract_harmonic_features(data)
         else:
             features = self._extract_harmonic_features(data)
@@ -262,11 +266,12 @@ class BiometricAnomalyModel:
                     "gender_confidence": float(gender_confidence),
                     "emotion_confidence": float(emotion_confidence),
                 }
-            except Exception:
+            except Exception as e:
+                logger.warning("DeepFace biometric analysis failed: %s", e)
                 return {
                     "model_type": "biometric",
                     "anomaly_scores": np.array([0.5], dtype=np.float32),
-                    "error": "Analysis failed",
+                    "error": f"Analysis failed: {e}",
                 }
         else:
             features = self.extract_features(data)

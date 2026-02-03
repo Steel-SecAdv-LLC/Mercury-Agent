@@ -204,7 +204,19 @@ extend-exclude = '''
 '''
 
 # =============================================================================
-# MyPy Configuration - Strict Type Checking
+# MyPy Configuration - Progressive Type Checking
+# =============================================================================
+#
+# TYPE COVERAGE STATUS:
+#   Fully typed:     omni_mercury_engine.utils.* (except report_generator)
+#   Partially typed: (none yet)
+#   Not typed:       All other modules (~98% of codebase)
+#
+# ROADMAP: Modules are excluded via ignore_errors=true due to heavy reliance
+# on untyped third-party libraries (torch, transformers, deepface, etc.).
+# As these libraries gain type stubs, modules will be progressively typed.
+#
+# The strict settings below apply to NEW code and the utils module.
 # =============================================================================
 [tool.mypy]
 python_version = "3.12"
@@ -300,10 +312,10 @@ module = [
 ignore_missing_imports = true
 
 # =============================================================================
-# Type Checking Strategy:
-# 1. Strict mode enabled globally (disallow_untyped_defs, etc.)
-# 2. Modules with heavy nn.Module subclasses get relaxed checking
-# 3. New/clean modules are fully type-checked
+# Type Checking Exclusions
+# NOTE: These exclusions exist because the modules heavily depend on third-party
+# libraries that lack type stubs. This is NOT a permanent state - as libraries
+# gain type support, these modules should be progressively typed.
 # =============================================================================
 
 # Override for PyTorch nn.Module subclasses (torch types are inherently complex)

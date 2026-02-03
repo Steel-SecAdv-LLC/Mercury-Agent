@@ -36,6 +36,7 @@ Memory Management:
 """
 
 import hashlib
+import logging
 import threading
 from collections import deque
 from dataclasses import dataclass, field
@@ -47,6 +48,8 @@ from scipy.fft import fft
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+
+logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
@@ -736,5 +739,6 @@ class SigmaDirectiveDetector(BaseDetector):
 
             return min(final_score, 1.0)
 
-        except Exception:
+        except Exception as e:
+            logger.debug("Nano-scale pattern detection failed: %s", e)
             return 0.0

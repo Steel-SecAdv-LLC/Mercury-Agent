@@ -500,8 +500,9 @@ class DDPScaler:
 
                 dist.destroy_process_group()
                 self.is_initialized = False
-            except Exception:
-                pass  # DDP cleanup failed, process group may not exist
+            except Exception as e:
+                logger.debug("DDP cleanup: process group may not exist or already destroyed: %s", e)
+                self.is_initialized = False
 
 
 @dataclass
@@ -637,5 +638,6 @@ def get_optimal_batch_size(
 
         return min(batch_size, 256)  # Cap at 256
 
-    except Exception:
+    except Exception as e:
+        logger.debug("Batch size estimation failed, using default: %s", e)
         return 32  # Default fallback
