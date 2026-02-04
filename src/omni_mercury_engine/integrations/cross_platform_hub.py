@@ -157,7 +157,7 @@ class AnomalyEvent:
         else:
             severity = "low"
 
-        event_id = hashlib.sha256(f"{source}:{time.time_ns()}:{index}".encode()).hexdigest()[:16]
+        event_id = hashlib.sha3_256(f"{source}:{time.time_ns()}:{index}".encode()).hexdigest()[:16]
 
         return cls(
             event_id=event_id,

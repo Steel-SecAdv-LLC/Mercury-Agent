@@ -62,8 +62,8 @@ class TTLCache:
     def _compute_key(self, data: np.ndarray) -> str:
         """Compute cache key from numpy array using fast hashing."""
         # Use tobytes() for efficient array hashing
-        # Using SHA256 instead of MD5 to satisfy security scanners (S324)
-        return hashlib.sha256(data.tobytes()).hexdigest()
+        # Using SHA3-256 for Ava-Guardian alignment
+        return hashlib.sha3_256(data.tobytes()).hexdigest()
 
     def get(self, data: np.ndarray) -> Any | None:
         """Get cached result if valid."""

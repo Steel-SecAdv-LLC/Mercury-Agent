@@ -84,8 +84,8 @@ class GradientCache:
         """Compute cache key using quantized activations."""
         # Quantize to reduce cache misses from minor variations
         quantized = np.round(activations * 100).astype(np.int32)
-        # Using SHA256 instead of MD5 to satisfy security scanners (S324)
-        return hashlib.sha256(quantized.tobytes()).hexdigest()
+        # Using SHA3-256 for Ava-Guardian alignment
+        return hashlib.sha3_256(quantized.tobytes()).hexdigest()
 
     def get(self, activations: np.ndarray[Any, Any]) -> np.ndarray[Any, Any] | None:
         """Get cached gradient if available."""

@@ -761,7 +761,7 @@ class DataSourceBase(ABC):
     def _get_cache_key(self, params: dict[str, Any] | None = None) -> str:
         """Generate cache key for request parameters."""
         key_data = f"{self.source_id}:{params or {}}"
-        return hashlib.sha256(key_data.encode()).hexdigest()[:16]
+        return hashlib.sha3_256(key_data.encode()).hexdigest()[:16]
 
     def _get_cached(self, cache_key: str) -> list[DataPoint] | None:
         """Get cached data if valid (thread-safe)."""

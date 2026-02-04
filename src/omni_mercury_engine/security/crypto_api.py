@@ -509,12 +509,11 @@ class MercuryCrypto:
 
         data_bytes = json.dumps(data, sort_keys=True, default=str).encode()
 
-        if config.hash_algorithm == "sha3-256":
-            data_hash = hashlib.sha3_256(data_bytes).hexdigest()
-        elif config.hash_algorithm == "sha3-512":
+        if config.hash_algorithm == "sha3-512":
             data_hash = hashlib.sha3_512(data_bytes).hexdigest()
         else:
-            data_hash = hashlib.sha256(data_bytes).hexdigest()
+            # Default to SHA3-256 for Ava-Guardian alignment
+            data_hash = hashlib.sha3_256(data_bytes).hexdigest()
 
         result = CryptoPackageResult(
             data_hash=data_hash,

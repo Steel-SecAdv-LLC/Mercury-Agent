@@ -1170,7 +1170,7 @@ class ReflexionEngine:
         seen = set()
         unique_improvements = []
         for imp in improvements:
-            imp_hash = hashlib.sha256(imp["improvement"].encode()).hexdigest()
+            imp_hash = hashlib.sha3_256(imp["improvement"].encode()).hexdigest()
             if imp_hash not in seen:
                 seen.add(imp_hash)
                 unique_improvements.append(imp)
