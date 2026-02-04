@@ -507,11 +507,12 @@ class BayesianOptimizer:
             return None
 
         schedulers = {
-            "hyperband": lambda: HyperbandScheduler(),
-            "asha": lambda: ASHAScheduler(),
-            "median": lambda: MedianStoppingScheduler(),
+            "hyperband": HyperbandScheduler,
+            "asha": ASHAScheduler,
+            "median": MedianStoppingScheduler,
         }
-        return schedulers.get(scheduler, lambda: None)()
+        scheduler_cls = schedulers.get(scheduler)
+        return scheduler_cls() if scheduler_cls else None
 
     def optimize(self) -> OptimizationResult:
         """Run the optimization."""
