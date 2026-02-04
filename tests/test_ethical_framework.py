@@ -230,23 +230,68 @@ class TestGDPRCompliance:
     """Test GDPR compliance."""
 
     def test_gdpr_checks(self):
-        """Test GDPR compliance checks."""
+        """Test GDPR compliance checks.
+
+        The enhanced GDPRCompliance implementation validates against GDPR Articles 5-35,
+        requiring detailed evidence for legal basis, data minimization, purpose limitation,
+        and security measures. This test provides comprehensive context matching the
+        implementation's requirements.
+        """
         gdpr = GDPRCompliance()
 
+        # Comprehensive compliant context with all required GDPR evidence
+        # per Articles 5, 6, 22, 32 requirements
         compliant_context = {
             "processes_personal_data": True,
-            "consent_obtained": True,
-            "data_minimization": True,
-            "purpose_limitation": True,
             "automated_decision": False,
+            # Article 6: Valid legal basis with complete documentation
+            "legal_basis_type": "consent",
+            "legal_basis_documentation": {
+                "freely_given": True,
+                "specific_purpose": True,
+                "informed": True,
+                "unambiguous_indication": True,
+                "withdrawable": True,
+            },
+            # Article 5(1)(c): Data minimization evidence
+            "data_minimization_evidence": {
+                "adequacy_justified": True,
+                "retention_policy_defined": True,
+            },
+            # Article 5(1)(b): Purpose limitation evidence
+            "purpose_limitation_evidence": {
+                "purposes_documented": True,
+                "further_processing": False,
+            },
+            # Article 32: Security measures
+            "security_measures": {
+                "pseudonymization": True,
+                "confidentiality": True,
+                "integrity": True,
+                "availability": True,
+                "resilience": True,
+                "restoration_capability": True,
+                "testing_process": True,
+            },
         }
 
+        # Violation context missing required GDPR compliance elements
         violation_context = {
             "processes_personal_data": True,
-            "consent_obtained": False,
-            "data_minimization": False,
             "automated_decision": True,
-            "human_review": False,
+            # Missing valid legal basis
+            "legal_basis_type": "consent",
+            "legal_basis_documentation": {
+                "freely_given": False,  # Invalid consent
+            },
+            # Missing data minimization evidence
+            "data_minimization_evidence": {},
+            # Missing purpose limitation evidence
+            "purpose_limitation_evidence": {},
+            # Article 22: Automated decision without human review
+            "human_review_mechanism": {
+                "exists": False,
+            },
         }
 
         compliant, _ = gdpr.check_gdpr_compliance(compliant_context)
