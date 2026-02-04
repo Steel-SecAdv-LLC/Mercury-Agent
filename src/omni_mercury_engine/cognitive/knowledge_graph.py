@@ -888,15 +888,77 @@ class GNNMessagePassing:
 
 class LinkPredictor:
     """
-    Predict missing or future links using embeddings.
+    Predict missing or future links using learned node embeddings.
 
-    Methods:
-    - Dot product similarity
-    - Hadamard product + classifier
-    - Distance-based scoring
+    Link prediction is a fundamental task in knowledge graphs that enables:
+    - Knowledge graph completion (inferring missing facts)
+    - Relationship recommendation (suggesting new connections)
+    - Temporal prediction (forecasting future relationships)
+    - Anomaly detection (identifying unusual link patterns)
+
+    Supported Methods:
+    -----------------
+    1. **Dot Product** (method="dot"):
+       - Score = σ(e_s · e_t) where σ is sigmoid
+       - Fast computation, captures linear similarity
+       - Best for: Dense graphs with uniform edge semantics
+       - Complexity: O(d) per pair where d = embedding dimension
+
+    2. **Cosine Similarity** (method="cosine"):
+       - Score = (e_s · e_t) / (||e_s|| × ||e_t||)
+       - Normalized scoring, invariant to embedding magnitude
+       - Best for: Graphs with varied node importance
+       - Complexity: O(d) per pair
+
+    3. **Distance-Based** (method="distance"):
+       - Score = 1 / (1 + ||e_s - e_t||₂)
+       - TransE-inspired, treats relations as translations
+       - Best for: Hierarchical or spatial relationships
+       - Complexity: O(d) per pair
+
+    Research References:
+    -------------------
+    - Bordes et al. (2013): Translating Embeddings for Modeling Multi-relational Data
+    - Yang et al. (2015): Embedding Entities and Relations for Learning and Inference
+    - Trouillon et al. (2016): Complex Embeddings for Simple Link Prediction
+    - Sun et al. (2019): RotatE: Knowledge Graph Embedding by Relational Rotation
+
+    Example Usage:
+    -------------
+    >>> predictor = LinkPredictor(method="dot")
+    >>> score = predictor.score(source_embedding, target_embedding)
+    >>> # Score in [0, 1] representing link probability
+
+    >>> predictions = predictor.predict_links(
+    ...     embeddings=node_embeddings,
+    ...     candidate_pairs=[("node_a", "node_b"), ("node_c", "node_d")],
+    ...     threshold=0.7
+    ... )
+    >>> # Returns: [("node_a", "node_b", 0.85), ...]
+
+    Performance Considerations:
+    -------------------------
+    - For large candidate sets, consider batching predictions
+    - Pre-normalize embeddings when using cosine method frequently
+    - Use approximate nearest neighbor search for top-k queries on large graphs
     """
 
     def __init__(self, method: str = "dot") -> None:
+        """
+        Initialize LinkPredictor with specified scoring method.
+
+        Args:
+            method: Scoring method - one of:
+                - "dot": Dot product with sigmoid activation (default)
+                - "cosine": Cosine similarity (normalized)
+                - "distance": Inverse Euclidean distance
+
+        Raises:
+            ValueError: If method is not one of the supported methods
+        """
+        valid_methods = {"dot", "cosine", "distance"}
+        if method not in valid_methods:
+            raise ValueError(f"Invalid method '{method}'. Must be one of: {valid_methods}")
         self.method = method
 
     def score(
@@ -1396,14 +1458,61 @@ class KnowledgeGraph:
         threshold: float = 0.5,
     ) -> list[tuple[str, str, float]]:
         """
-        Predict missing links.
+        Predict missing links in the knowledge graph using embedding-based similarity.
+
+        This method performs knowledge graph completion by identifying potential
+        relationships that are not yet present in the graph. It leverages the
+        learned node embeddings (via random walk or GNN) to score candidate pairs.
+
+        Algorithm:
+        ---------
+        1. Compute node embeddings if not already cached (auto-triggers compute_embeddings())
+        2. Generate candidate pairs from all non-adjacent node combinations
+        3. Apply sampling if candidate count exceeds 10,000 (performance optimization)
+        4. Score each pair using the configured LinkPredictor method
+        5. Filter by threshold and return top-k predictions sorted by score
+
+        Use Cases:
+        ---------
+        - **Knowledge Graph Completion**: Discover missing facts and relationships
+        - **Recommendation Systems**: Suggest connections between entities
+        - **Anomaly Detection**: High-scoring absent links may indicate hidden patterns
+        - **Data Quality**: Identify potential data entry omissions
 
         Args:
-            top_k: Number of top predictions to return
-            threshold: Minimum score for prediction
+            top_k: Maximum number of predictions to return. Higher values provide
+                more candidates but increase result size. Default: 10.
+            threshold: Minimum score (0.0 to 1.0) for a prediction to be included.
+                Higher values increase precision but may miss valid predictions.
+                Recommended ranges:
+                - 0.3-0.5: Exploratory (high recall, lower precision)
+                - 0.5-0.7: Balanced (default)
+                - 0.7-0.9: Conservative (high precision, lower recall)
+                Default: 0.5.
 
         Returns:
-            List of (source, target, score) predictions
+            List of (source_id, target_id, score) tuples, sorted by score descending.
+            Empty list if:
+            - Graph has no nodes with computed embeddings
+            - No candidate pairs exceed the threshold
+            - All node pairs already have edges
+
+        Example:
+            >>> kg = KnowledgeGraph()
+            >>> kg.add_node("alice", NodeType.ENTITY, "Alice")
+            >>> kg.add_node("bob", NodeType.ENTITY, "Bob")
+            >>> kg.add_node("project_x", NodeType.CONCEPT, "Project X")
+            >>> kg.add_edge("alice", "project_x", EdgeType.PART_OF)
+            >>> kg.add_edge("bob", "project_x", EdgeType.PART_OF)
+            >>> # Predict potential link between Alice and Bob
+            >>> predictions = kg.predict_links(top_k=5, threshold=0.4)
+            >>> # May return: [("alice", "bob", 0.78)]
+
+        Note:
+            - For graphs with >10,000 potential candidate pairs, random sampling
+              is applied. Set a random seed for reproducibility if needed.
+            - Embeddings are computed lazily on first call and cached thereafter.
+            - Thread-safe: uses internal locking for concurrent access.
         """
         with self._lock:
             # Ensure embeddings are computed

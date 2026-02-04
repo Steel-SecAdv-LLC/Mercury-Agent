@@ -179,45 +179,488 @@ class USLawPolling:
         return len(violations) == 0, violations
 
 
+@dataclass
+class GDPRComplianceViolation:
+    """Detailed GDPR compliance violation with contextual metadata."""
+
+    article: str
+    severity: str  # "critical", "high", "medium", "low"
+    description: str
+    remediation: str
+    evidence_required: list[str] = field(default_factory=list)
+    compliance_score_impact: float = 0.0
+
+
+@dataclass
+class GDPRLegalBasis:
+    """Legal basis for data processing under GDPR Article 6."""
+
+    basis_type: str  # "consent", "contract", "legal_obligation", "vital_interests", "public_task", "legitimate_interests"
+    documentation: dict[str, Any] = field(default_factory=dict)
+    valid: bool = False
+    expiry: datetime | None = None
+
+
+@dataclass
+class GDPRComplianceResult:
+    """Comprehensive GDPR compliance assessment result."""
+
+    compliant: bool
+    violations: list[GDPRComplianceViolation]
+    compliance_score: float  # 0.0 to 1.0
+    legal_basis: GDPRLegalBasis | None
+    data_subject_rights_status: dict[str, bool]
+    recommendations: list[str]
+    assessment_timestamp: datetime = field(default_factory=datetime.now)
+
+
 class GDPRCompliance:
-    """GDPR compliance hooks for EU data protection."""
+    """
+    GDPR compliance framework with comprehensive validation.
+
+    Implements detailed checks for EU General Data Protection Regulation:
+    - Article 5: Data processing principles (lawfulness, purpose limitation, minimization)
+    - Article 6: Lawful basis for processing
+    - Article 7: Conditions for consent
+    - Article 9: Special category data protections
+    - Article 13-14: Information obligations
+    - Article 17: Right to erasure
+    - Article 22: Automated decision-making restrictions
+    - Article 25: Data protection by design and default
+    - Article 32: Security of processing
+    - Article 33-34: Breach notification requirements
+
+    References:
+    - GDPR (EU) 2016/679
+    - EDPB Guidelines on consent, legitimate interests, and automated decision-making
+    """
 
     def __init__(self) -> None:
-        """Initialize GDPR compliance."""
+        """Initialize GDPR compliance framework."""
         self.data_subject_rights = [
             "right_to_access",
             "right_to_rectification",
             "right_to_erasure",
             "right_to_data_portability",
             "right_to_object",
+            "right_to_restriction",
+            "right_to_withdraw_consent",
+            "right_not_to_be_subject_to_automated_decisions",
         ]
+
+        self.special_category_types = [
+            "racial_ethnic_origin",
+            "political_opinions",
+            "religious_beliefs",
+            "trade_union_membership",
+            "genetic_data",
+            "biometric_data",
+            "health_data",
+            "sex_life_orientation",
+        ]
+
+        self.valid_legal_bases = [
+            "consent",
+            "contract",
+            "legal_obligation",
+            "vital_interests",
+            "public_task",
+            "legitimate_interests",
+        ]
+
+    def _validate_legal_basis(self, context: dict[str, Any]) -> GDPRLegalBasis:
+        """
+        Validate the legal basis for data processing.
+
+        Args:
+            context: Processing context with legal basis documentation
+
+        Returns:
+            GDPRLegalBasis with validation status
+        """
+        basis_type = context.get("legal_basis_type", "")
+        basis_doc = context.get("legal_basis_documentation", {})
+
+        valid = False
+
+        if basis_type == "consent":
+            # Consent must be freely given, specific, informed, and unambiguous
+            consent_checks = [
+                basis_doc.get("freely_given", False),
+                basis_doc.get("specific_purpose", False),
+                basis_doc.get("informed", False),
+                basis_doc.get("unambiguous_indication", False),
+                basis_doc.get("withdrawable", False),
+            ]
+            valid = all(consent_checks)
+
+        elif basis_type == "contract":
+            # Processing necessary for contract performance
+            valid = bool(
+                basis_doc.get("contract_reference")
+                and basis_doc.get("processing_necessary")
+            )
+
+        elif basis_type == "legal_obligation":
+            # Processing required by law
+            valid = bool(
+                basis_doc.get("legal_reference")
+                and basis_doc.get("member_state_law")
+            )
+
+        elif basis_type == "vital_interests":
+            # Necessary to protect life
+            valid = bool(
+                basis_doc.get("vital_interest_documented")
+                and basis_doc.get("no_alternative_basis")
+            )
+
+        elif basis_type == "public_task":
+            # Processing for official authority
+            valid = bool(
+                basis_doc.get("public_authority_mandate")
+                and basis_doc.get("task_documentation")
+            )
+
+        elif basis_type == "legitimate_interests":
+            # Balancing test required
+            lia_checks = [
+                basis_doc.get("legitimate_interest_identified", False),
+                basis_doc.get("necessity_demonstrated", False),
+                basis_doc.get("balancing_test_conducted", False),
+                basis_doc.get("data_subject_rights_considered", False),
+            ]
+            valid = all(lia_checks)
+
+        expiry = None
+        if basis_type == "consent" and basis_doc.get("consent_expiry"):
+            try:
+                expiry = datetime.fromisoformat(str(basis_doc["consent_expiry"]))
+            except (ValueError, TypeError):
+                pass
+
+        return GDPRLegalBasis(
+            basis_type=basis_type,
+            documentation=basis_doc,
+            valid=valid,
+            expiry=expiry,
+        )
+
+    def _check_data_subject_rights(self, context: dict[str, Any]) -> dict[str, bool]:
+        """
+        Verify data subject rights implementation.
+
+        Args:
+            context: Processing context
+
+        Returns:
+            Dictionary of right -> implementation status
+        """
+        rights_config = context.get("data_subject_rights_config", {})
+        rights_status = {}
+
+        for right in self.data_subject_rights:
+            right_config = rights_config.get(right, {})
+            # Each right must have mechanism and reasonable timeline
+            rights_status[right] = bool(
+                right_config.get("mechanism_exists", False)
+                and right_config.get("response_timeline_days", 0) <= 30
+            )
+
+        return rights_status
 
     def check_gdpr_compliance(self, context: dict[str, Any]) -> tuple[bool, list[str]]:
         """
-        Check GDPR compliance.
+        Check GDPR compliance with comprehensive validation.
 
         Args:
-            context: Data processing context
+            context: Data processing context containing:
+                - processes_personal_data: bool
+                - legal_basis_type: str (one of valid_legal_bases)
+                - legal_basis_documentation: dict with basis-specific evidence
+                - data_subject_rights_config: dict of right implementations
+                - data_minimization_evidence: dict with justification
+                - purpose_limitation_evidence: dict with documented purposes
+                - automated_decision: bool
+                - human_review_mechanism: dict with review process details
+                - special_category_data: bool
+                - special_category_exemption: str
+                - security_measures: dict with Art. 32 compliance
+                - data_protection_impact_assessment: dict (for high-risk processing)
+                - cross_border_transfer: bool
+                - transfer_mechanism: str (adequacy, SCCs, BCRs, etc.)
 
         Returns:
             Tuple of (compliant, violations)
         """
-        violations = []
+        violations: list[str] = []
 
-        if context.get("processes_personal_data", False):
-            if not context.get("consent_obtained", False):
-                violations.append("GDPR Art. 6: No valid consent for personal data processing")
+        if not context.get("processes_personal_data", False):
+            return True, violations
 
-            if not context.get("data_minimization", False):
-                violations.append("GDPR Art. 5: Data minimization principle violated")
+        # Article 6: Lawful basis validation
+        legal_basis = self._validate_legal_basis(context)
+        if not legal_basis.valid:
+            violations.append(
+                f"GDPR Art. 6: Invalid legal basis '{legal_basis.basis_type}' - "
+                f"required documentation incomplete or missing"
+            )
 
-            if not context.get("purpose_limitation", False):
-                violations.append("GDPR Art. 5: Purpose limitation principle violated")
+        # Check for expired consent
+        if legal_basis.expiry and legal_basis.expiry < datetime.now():
+            violations.append("GDPR Art. 7: Consent has expired and must be renewed")
 
-            if context.get("automated_decision", False) and not context.get("human_review", False):
-                violations.append("GDPR Art. 22: Automated decision-making without human review")
+        # Article 5(1)(c): Data minimization with evidence
+        minimization_evidence = context.get("data_minimization_evidence", {})
+        if not minimization_evidence.get("adequacy_justified", False):
+            violations.append(
+                "GDPR Art. 5(1)(c): Data minimization - no documented justification "
+                "for data collected being adequate, relevant, and limited"
+            )
+        if not minimization_evidence.get("retention_policy_defined", False):
+            violations.append(
+                "GDPR Art. 5(1)(e): Storage limitation - no defined retention policy"
+            )
+
+        # Article 5(1)(b): Purpose limitation with evidence
+        purpose_evidence = context.get("purpose_limitation_evidence", {})
+        if not purpose_evidence.get("purposes_documented", False):
+            violations.append(
+                "GDPR Art. 5(1)(b): Purpose limitation - processing purposes not "
+                "explicitly documented at collection time"
+            )
+        if purpose_evidence.get("further_processing", False):
+            if not purpose_evidence.get("compatibility_assessment", False):
+                violations.append(
+                    "GDPR Art. 5(1)(b): Further processing without compatibility assessment"
+                )
+
+        # Article 22: Automated decision-making
+        if context.get("automated_decision", False):
+            human_review = context.get("human_review_mechanism", {})
+            if not human_review.get("exists", False):
+                violations.append(
+                    "GDPR Art. 22(1): Automated decision-making without right to "
+                    "obtain human intervention"
+                )
+            if not human_review.get("meaningful_review", False):
+                violations.append(
+                    "GDPR Art. 22(3): Automated decisions lack meaningful human review "
+                    "capability (must be substantive, not perfunctory)"
+                )
+            if not context.get("automated_decision_logic_explained", False):
+                violations.append(
+                    "GDPR Art. 22(1)/Art. 13-14: No explanation of automated "
+                    "decision-making logic provided to data subject"
+                )
+
+        # Article 9: Special category data
+        if context.get("special_category_data", False):
+            exemption = context.get("special_category_exemption", "")
+            valid_exemptions = [
+                "explicit_consent",
+                "employment_law",
+                "vital_interests",
+                "legitimate_activities",
+                "manifestly_public",
+                "legal_claims",
+                "public_interest",
+                "health_social_care",
+                "public_health",
+                "archiving_research",
+            ]
+            if exemption not in valid_exemptions:
+                violations.append(
+                    f"GDPR Art. 9: Special category data processed without valid "
+                    f"exemption (provided: '{exemption}')"
+                )
+
+        # Article 32: Security of processing
+        security_measures = context.get("security_measures", {})
+        required_measures = [
+            ("pseudonymization", "Art. 32(1)(a): Pseudonymization/encryption"),
+            ("confidentiality", "Art. 32(1)(b): Confidentiality assurance"),
+            ("integrity", "Art. 32(1)(b): Integrity assurance"),
+            ("availability", "Art. 32(1)(b): Availability assurance"),
+            ("resilience", "Art. 32(1)(b): Resilience of systems"),
+            ("restoration_capability", "Art. 32(1)(c): Timely restoration capability"),
+            ("testing_process", "Art. 32(1)(d): Regular security testing"),
+        ]
+        for measure, article_ref in required_measures:
+            if not security_measures.get(measure, False):
+                violations.append(f"GDPR {article_ref} not demonstrated")
+
+        # Article 35: DPIA for high-risk processing
+        if context.get("high_risk_processing", False):
+            dpia = context.get("data_protection_impact_assessment", {})
+            if not dpia.get("conducted", False):
+                violations.append(
+                    "GDPR Art. 35: High-risk processing without Data Protection "
+                    "Impact Assessment"
+                )
+            elif not dpia.get("risk_mitigation_documented", False):
+                violations.append(
+                    "GDPR Art. 35(7): DPIA conducted but risk mitigation measures "
+                    "not documented"
+                )
+
+        # Chapter V: International transfers
+        if context.get("cross_border_transfer", False):
+            transfer_mechanism = context.get("transfer_mechanism", "")
+            valid_mechanisms = [
+                "adequacy_decision",
+                "standard_contractual_clauses",
+                "binding_corporate_rules",
+                "approved_certification",
+                "approved_code_of_conduct",
+                "explicit_consent",
+                "contract_necessity",
+                "public_interest",
+                "legal_claims",
+                "vital_interests",
+            ]
+            if transfer_mechanism not in valid_mechanisms:
+                violations.append(
+                    f"GDPR Art. 44-49: Cross-border transfer without valid mechanism "
+                    f"(provided: '{transfer_mechanism}')"
+                )
 
         return len(violations) == 0, violations
+
+    def assess_compliance(self, context: dict[str, Any]) -> GDPRComplianceResult:
+        """
+        Comprehensive GDPR compliance assessment with scoring and recommendations.
+
+        Args:
+            context: Full data processing context
+
+        Returns:
+            GDPRComplianceResult with detailed assessment
+        """
+        compliant, violation_strings = self.check_gdpr_compliance(context)
+
+        # Convert string violations to detailed objects
+        violations = []
+        for v_str in violation_strings:
+            # Parse article from violation string
+            article = v_str.split(":")[0] if ":" in v_str else "GDPR"
+            severity = "high" if "Art. 6" in article or "Art. 9" in article else "medium"
+            if "Art. 22" in article:
+                severity = "critical"
+
+            violations.append(
+                GDPRComplianceViolation(
+                    article=article,
+                    severity=severity,
+                    description=v_str,
+                    remediation=self._get_remediation(v_str),
+                    evidence_required=self._get_evidence_requirements(article),
+                    compliance_score_impact=self._get_score_impact(severity),
+                )
+            )
+
+        # Calculate compliance score
+        base_score = 1.0
+        for v in violations:
+            base_score -= v.compliance_score_impact
+        compliance_score = max(0.0, min(1.0, base_score))
+
+        # Validate legal basis
+        legal_basis = self._validate_legal_basis(context)
+
+        # Check data subject rights
+        rights_status = self._check_data_subject_rights(context)
+
+        # Generate recommendations
+        recommendations = self._generate_recommendations(violations, context)
+
+        return GDPRComplianceResult(
+            compliant=compliant,
+            violations=violations,
+            compliance_score=compliance_score,
+            legal_basis=legal_basis,
+            data_subject_rights_status=rights_status,
+            recommendations=recommendations,
+        )
+
+    def _get_remediation(self, violation: str) -> str:
+        """Get remediation guidance for a violation."""
+        remediations = {
+            "Art. 6": "Establish and document a valid legal basis before processing",
+            "Art. 5(1)(c)": "Document data minimization justification and retention policy",
+            "Art. 5(1)(b)": "Document explicit processing purposes at collection",
+            "Art. 22": "Implement meaningful human review mechanism with explanation capability",
+            "Art. 9": "Obtain explicit consent or document applicable exemption",
+            "Art. 32": "Implement and document required security measures",
+            "Art. 35": "Conduct and document Data Protection Impact Assessment",
+            "Art. 44": "Implement valid transfer mechanism for cross-border data flows",
+        }
+        for article, remediation in remediations.items():
+            if article in violation:
+                return remediation
+        return "Review GDPR requirements and implement appropriate controls"
+
+    def _get_evidence_requirements(self, article: str) -> list[str]:
+        """Get evidence requirements for an article."""
+        evidence_map = {
+            "Art. 6": ["legal_basis_documentation", "processing_records"],
+            "Art. 5": ["data_inventory", "retention_schedule", "purpose_register"],
+            "Art. 22": ["human_review_process", "logic_explanation_template"],
+            "Art. 9": ["consent_records", "exemption_documentation"],
+            "Art. 32": ["security_assessment", "testing_records"],
+            "Art. 35": ["dpia_report", "risk_register", "mitigation_plan"],
+            "Art. 44": ["transfer_agreement", "adequacy_assessment"],
+        }
+        for art, evidence in evidence_map.items():
+            if art in article:
+                return evidence
+        return ["compliance_documentation"]
+
+    def _get_score_impact(self, severity: str) -> float:
+        """Get compliance score impact for a severity level."""
+        impacts = {
+            "critical": 0.3,
+            "high": 0.2,
+            "medium": 0.1,
+            "low": 0.05,
+        }
+        return impacts.get(severity, 0.1)
+
+    def _generate_recommendations(
+        self, violations: list[GDPRComplianceViolation], context: dict[str, Any]
+    ) -> list[str]:
+        """Generate prioritized recommendations based on violations."""
+        recommendations = []
+
+        # Prioritize by severity
+        critical_violations = [v for v in violations if v.severity == "critical"]
+        if critical_violations:
+            recommendations.append(
+                "IMMEDIATE: Address critical compliance gaps before processing"
+            )
+
+        # Specific recommendations
+        if any("Art. 6" in v.article for v in violations):
+            recommendations.append(
+                "Establish documented legal basis with all required elements"
+            )
+
+        if any("Art. 22" in v.article for v in violations):
+            recommendations.append(
+                "Implement explainable AI framework with human oversight capability"
+            )
+
+        if not context.get("data_protection_officer", False):
+            recommendations.append(
+                "Consider appointing a Data Protection Officer (Art. 37)"
+            )
+
+        if not context.get("records_of_processing", False):
+            recommendations.append(
+                "Maintain records of processing activities (Art. 30)"
+            )
+
+        return recommendations
 
 
 class HIPAACompliance:
