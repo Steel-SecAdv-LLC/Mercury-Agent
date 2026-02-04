@@ -59,7 +59,7 @@ def _get_engine(*args: Any, **kwargs: Any) -> Any:
 
 
 @click.group()
-@click.version_option(version="1.2.0")
+@click.version_option(version="1.4.0")
 def main() -> None:
     """Mercury Agent ♱: ML-Centric Anomaly Detection Framework"""
     pass
@@ -167,6 +167,561 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
 
     else:
         raise ValueError(f"Unsupported file format: {path.suffix}")
+
+
+# =============================================================================
+# Physics-Inspired Anomaly Detection Commands (v1.4.0)
+# =============================================================================
+
+
+@main.group()
+def physics() -> None:
+    """Physics-inspired anomaly detection commands (v1.4.0)"""
+    pass
+
+
+@physics.command("spectral")
+@click.option("--input", "-i", required=True, help="Input signal data file (CSV/JSON)")
+@click.option("--output", "-o", help="Output file for results")
+@click.option("--threshold", "-t", default=0.5, type=float, help="Anomaly threshold")
+@click.option(
+    "--mode",
+    "-m",
+    default="comprehensive",
+    type=click.Choice(["comprehensive", "fft_only", "wavelet_only", "phonon", "predictive"]),
+    help="Analysis mode",
+)
+@click.option("--sample-rate", "-s", default=1000.0, type=float, help="Signal sample rate (Hz)")
+def physics_spectral(
+    input: str, output: str, threshold: float, mode: str, sample_rate: float
+) -> None:
+    """
+    Spectral vibration analysis using GNN and CNN.
+
+    Analyzes signals for frequency-domain anomalies using advanced
+    physics-inspired techniques including phonon interaction modeling,
+    harmonic analysis, and predictive maintenance signatures.
+
+    Examples:
+        mercury physics spectral -i vibration_data.csv
+        mercury physics spectral -i sensor.json -m phonon -t 0.6
+        mercury physics spectral -i machine.csv -m predictive -o results.json
+    """
+    try:
+        from omni_mercury_engine.detectors.spectral_vibration import (
+            SpectralAnalysisMode,
+            SpectralVibrationDetector,
+        )
+
+        # Map mode string to enum
+        mode_map = {
+            "comprehensive": SpectralAnalysisMode.COMPREHENSIVE,
+            "fft_only": SpectralAnalysisMode.FFT_ONLY,
+            "wavelet_only": SpectralAnalysisMode.WAVELET_ONLY,
+            "phonon": SpectralAnalysisMode.PHONON,
+            "predictive": SpectralAnalysisMode.PREDICTIVE,
+        }
+
+        config = {
+            "threshold": threshold,
+            "sample_rate": sample_rate,
+            "analysis_mode": mode_map[mode],
+        }
+
+        detector = SpectralVibrationDetector(config)
+        data = _load_data(input)
+
+        # Fit on the data (self-supervised for single-sample analysis)
+        detector.fit(data.flatten() if data.ndim > 1 else data)
+
+        # Detect anomalies
+        result = detector.detect(data.flatten() if data.ndim > 1 else data)
+
+        # Format output
+        output_data = {
+            "detector": "SpectralVibrationDetector",
+            "mode": mode,
+            "is_anomaly": result.get("is_anomaly", False),
+            "anomaly_score": float(result.get("anomaly_score", 0.0)),
+            "dominant_frequencies": result.get("dominant_frequencies", []),
+            "spectral_entropy": result.get("spectral_entropy", 0.0),
+            "harmonic_distortion": result.get("harmonic_distortion", 0.0),
+            "vibration_signature": result.get("vibration_signature", "unknown"),
+        }
+
+        if output:
+            with open(output, "w") as f:
+                json.dump(output_data, f, indent=2, default=str)
+            click.echo(f"Results saved to {output}")
+        else:
+            click.echo(json.dumps(output_data, indent=2, default=str))
+
+    except ImportError as e:
+        click.echo(f"Error: Required dependencies not available - {e}")
+        raise SystemExit(1)
+    except Exception as e:
+        click.echo(f"Error during spectral analysis: {e}")
+        raise SystemExit(1)
+
+
+@physics.command("dynamics")
+@click.option("--input", "-i", required=True, help="Input motion/position data file")
+@click.option("--output", "-o", help="Output file for results")
+@click.option("--threshold", "-t", default=0.5, type=float, help="Anomaly threshold")
+@click.option("--time-step", default=0.01, type=float, help="Time step between samples (seconds)")
+@click.option("--jerk-sensitivity", default=2.0, type=float, help="Jerk anomaly sensitivity")
+@click.option("--chaos-threshold", default=0.1, type=float, help="Chaos detection threshold")
+def physics_dynamics(
+    input: str,
+    output: str,
+    threshold: float,
+    time_step: float,
+    jerk_sensitivity: float,
+    chaos_threshold: float,
+) -> None:
+    """
+    Acceleration dynamics analysis with phase space reconstruction.
+
+    Analyzes motion data for kinematic anomalies using velocity, acceleration,
+    and jerk analysis. Includes Lyapunov exponent estimation for chaos detection
+    and energy conservation monitoring.
+
+    Examples:
+        mercury physics dynamics -i motion_data.csv
+        mercury physics dynamics -i trajectory.json --time-step 0.001
+        mercury physics dynamics -i sensor.csv --chaos-threshold 0.05 -o results.json
+    """
+    try:
+        from omni_mercury_engine.detectors.acceleration_dynamics import (
+            AccelerationDynamicsDetector,
+        )
+
+        config = {
+            "threshold": threshold,
+            "time_step": time_step,
+            "jerk_sensitivity": jerk_sensitivity,
+            "chaos_threshold": chaos_threshold,
+        }
+
+        detector = AccelerationDynamicsDetector(config)
+        data = _load_data(input)
+
+        # Fit on the data
+        signal = data.flatten() if data.ndim > 1 else data
+        detector.fit(signal)
+
+        # Detect anomalies
+        result = detector.detect(signal)
+
+        # Format output
+        output_data = {
+            "detector": "AccelerationDynamicsDetector",
+            "is_anomaly": result.get("is_anomaly", False),
+            "anomaly_score": float(result.get("anomaly_score", 0.0)),
+            "motion_state": result.get("motion_state", "unknown"),
+            "energy_state": result.get("energy_state", "unknown"),
+            "lyapunov_exponent": float(result.get("lyapunov_exponent", 0.0)),
+            "is_chaotic": result.get("is_chaotic", False),
+            "jerk_anomaly": result.get("jerk_anomaly", False),
+            "energy_anomaly": float(result.get("energy_anomaly", 0.0)),
+            "kinematic_summary": {
+                "mean_velocity": float(result.get("mean_velocity", 0.0)),
+                "mean_acceleration": float(result.get("mean_acceleration", 0.0)),
+                "max_jerk": float(result.get("max_jerk", 0.0)),
+            },
+        }
+
+        if output:
+            with open(output, "w") as f:
+                json.dump(output_data, f, indent=2, default=str)
+            click.echo(f"Results saved to {output}")
+        else:
+            click.echo(json.dumps(output_data, indent=2, default=str))
+
+    except ImportError as e:
+        click.echo(f"Error: Required dependencies not available - {e}")
+        raise SystemExit(1)
+    except Exception as e:
+        click.echo(f"Error during dynamics analysis: {e}")
+        raise SystemExit(1)
+
+
+@physics.command("uiux")
+@click.option("--input", "-i", required=True, help="Input user interaction data file (JSON)")
+@click.option("--output", "-o", help="Output file for results")
+@click.option("--threshold", "-t", default=0.5, type=float, help="Anomaly threshold")
+@click.option(
+    "--rage-threshold", default=0.3, type=float, help="Rage click time threshold (seconds)"
+)
+@click.option("--bot-threshold", default=0.7, type=float, help="Bot detection threshold")
+def physics_uiux(
+    input: str, output: str, threshold: float, rage_threshold: float, bot_threshold: float
+) -> None:
+    """
+    UI/UX behavioral anomaly detection.
+
+    Analyzes user interaction patterns for anomalies including rage clicks,
+    dead clicks, erratic scrolling, navigation loops, and bot-like behavior.
+
+    Input format (JSON array of interactions):
+        [{"timestamp": 0.0, "type": "click", "x": 100, "y": 200, ...}, ...]
+
+    Examples:
+        mercury physics uiux -i interactions.json
+        mercury physics uiux -i session.json --rage-threshold 0.2 --bot-threshold 0.8
+        mercury physics uiux -i user_data.json -o analysis.json
+    """
+    try:
+        from omni_mercury_engine.detectors.uiux_anomaly import (
+            InteractionType,
+            UIUXAnomalyDetector,
+            UserInteraction,
+        )
+
+        config = {
+            "threshold": threshold,
+            "rage_click_threshold": rage_threshold,
+            "bot_detection_threshold": bot_threshold,
+        }
+
+        detector = UIUXAnomalyDetector(config)
+
+        # Load interaction data
+        with open(input) as f:
+            raw_data = json.load(f)
+
+        # Convert to UserInteraction objects
+        type_map = {
+            "click": InteractionType.CLICK,
+            "scroll": InteractionType.SCROLL,
+            "mousemove": InteractionType.MOUSE_MOVE,
+            "keypress": InteractionType.KEY_PRESS,
+            "page_view": InteractionType.PAGE_VIEW,
+            "form_submit": InteractionType.FORM_SUBMIT,
+            "hover": InteractionType.HOVER,
+        }
+
+        interactions = []
+        for item in raw_data:
+            int_type = type_map.get(item.get("type", "click").lower(), InteractionType.CLICK)
+            interaction = UserInteraction(
+                timestamp=float(item.get("timestamp", 0)),
+                interaction_type=int_type,
+                x=item.get("x", 0),
+                y=item.get("y", 0),
+                element_id=item.get("element_id"),
+                element_type=item.get("element_type"),
+                page_url=item.get("page_url"),
+                scroll_delta=item.get("scroll_delta", 0),
+                viewport_width=item.get("viewport_width", 1920),
+                viewport_height=item.get("viewport_height", 1080),
+            )
+            interactions.append(interaction)
+
+        if len(interactions) < 5:
+            click.echo("Error: Need at least 5 interactions for analysis")
+            raise SystemExit(1)
+
+        # Fit and detect
+        detector.fit(interactions)
+        result = detector.detect(interactions)
+
+        # Format output
+        click_analysis = result.get("click_analysis")
+        scroll_analysis = result.get("scroll_analysis")
+        nav_analysis = result.get("navigation_analysis")
+        session_analysis = result.get("session_analysis")
+
+        output_data = {
+            "detector": "UIUXAnomalyDetector",
+            "is_anomaly": result.get("is_anomaly", False),
+            "anomaly_score": float(result.get("anomaly_score", 0.0)),
+            "behavior_class": result.get("behavior_class", "unknown"),
+            "bot_probability": float(result.get("bot_probability", 0.0)),
+            "anomaly_categories": result.get("anomaly_categories", []),
+            "click_analysis": {
+                "total_clicks": click_analysis.total_clicks if click_analysis else 0,
+                "rage_clicks": click_analysis.rage_clicks if click_analysis else 0,
+                "dead_clicks": click_analysis.dead_clicks if click_analysis else 0,
+                "click_accuracy": float(click_analysis.click_accuracy) if click_analysis else 0.0,
+            },
+            "scroll_analysis": {
+                "total_scrolls": scroll_analysis.total_scrolls if scroll_analysis else 0,
+                "rapid_scrolls": scroll_analysis.rapid_scrolls if scroll_analysis else 0,
+                "scroll_reversals": scroll_analysis.scroll_reversals if scroll_analysis else 0,
+            },
+            "navigation_analysis": {
+                "unique_pages": nav_analysis.unique_pages if nav_analysis else 0,
+                "navigation_loops": nav_analysis.navigation_loops if nav_analysis else 0,
+                "back_button_usage": nav_analysis.back_button_usage if nav_analysis else 0,
+            },
+            "session_analysis": {
+                "session_duration": (
+                    float(session_analysis.session_duration) if session_analysis else 0.0
+                ),
+                "total_interactions": (
+                    session_analysis.total_interactions if session_analysis else 0
+                ),
+                "engagement_score": (
+                    float(session_analysis.engagement_score) if session_analysis else 0.0
+                ),
+            },
+        }
+
+        if output:
+            with open(output, "w") as f:
+                json.dump(output_data, f, indent=2, default=str)
+            click.echo(f"Results saved to {output}")
+        else:
+            click.echo(json.dumps(output_data, indent=2, default=str))
+
+    except ImportError as e:
+        click.echo(f"Error: Required dependencies not available - {e}")
+        raise SystemExit(1)
+    except json.JSONDecodeError as e:
+        click.echo(f"Error: Invalid JSON in input file - {e}")
+        raise SystemExit(1)
+    except Exception as e:
+        click.echo(f"Error during UI/UX analysis: {e}")
+        raise SystemExit(1)
+
+
+@physics.command("integrated")
+@click.option("--spectral-input", "-s", help="Spectral/vibration data file")
+@click.option("--dynamics-input", "-d", help="Dynamics/motion data file")
+@click.option("--uiux-input", "-u", help="UI/UX interaction data file (JSON)")
+@click.option("--output", "-o", help="Output file for results")
+@click.option("--threshold", "-t", default=0.5, type=float, help="Anomaly threshold")
+@click.option(
+    "--fusion-weights", "-w", default="0.4,0.3,0.3", help="Fusion weights (spectral,dynamics,uiux)"
+)
+def physics_integrated(
+    spectral_input: str,
+    dynamics_input: str,
+    uiux_input: str,
+    output: str,
+    threshold: float,
+    fusion_weights: str,
+) -> None:
+    """
+    Integrated physics-inspired anomaly detection using all modules.
+
+    Combines spectral vibration, acceleration dynamics, and UI/UX analysis
+    with golden-ratio weighted fusion aligned with GOSNN ethical governance.
+
+    Examples:
+        mercury physics integrated -s vibration.csv -d motion.csv
+        mercury physics integrated -s sensor.csv -u interactions.json -o report.json
+        mercury physics integrated -s data.csv -d data.csv -u session.json -w 0.5,0.3,0.2
+    """
+    if not any([spectral_input, dynamics_input, uiux_input]):
+        click.echo("Error: At least one input file required (-s, -d, or -u)")
+        raise SystemExit(1)
+
+    try:
+        from omni_mercury_engine.detectors.advanced_physics_integration import (
+            AdvancedPhysicsIntegratedDetector,
+            PhysicsDetectorType,
+        )
+        from omni_mercury_engine.detectors.uiux_anomaly import (
+            InteractionType,
+            UserInteraction,
+        )
+
+        # Parse fusion weights
+        weights = [float(w) for w in fusion_weights.split(",")]
+        if len(weights) != 3:
+            weights = [0.4, 0.3, 0.3]
+
+        # Determine which detectors to enable
+        enabled_detectors = []
+        if spectral_input:
+            enabled_detectors.append(PhysicsDetectorType.SPECTRAL)
+        if dynamics_input:
+            enabled_detectors.append(PhysicsDetectorType.DYNAMICS)
+        if uiux_input:
+            enabled_detectors.append(PhysicsDetectorType.UIUX)
+
+        config = {
+            "threshold": threshold,
+            "enabled_detectors": enabled_detectors,
+            "fusion_weights": {
+                "spectral": weights[0],
+                "dynamics": weights[1],
+                "uiux": weights[2],
+            },
+        }
+
+        detector = AdvancedPhysicsIntegratedDetector(config)
+
+        # Load data for each input type
+        spectral_data = None
+        dynamics_data = None
+        uiux_data = None
+
+        if spectral_input:
+            data = _load_data(spectral_input)
+            spectral_data = data.flatten() if data.ndim > 1 else data
+
+        if dynamics_input:
+            data = _load_data(dynamics_input)
+            dynamics_data = data.flatten() if data.ndim > 1 else data
+
+        if uiux_input:
+            with open(uiux_input) as f:
+                raw_data = json.load(f)
+
+            type_map = {
+                "click": InteractionType.CLICK,
+                "scroll": InteractionType.SCROLL,
+                "mousemove": InteractionType.MOUSE_MOVE,
+                "keypress": InteractionType.KEY_PRESS,
+                "page_view": InteractionType.PAGE_VIEW,
+            }
+
+            uiux_data = []
+            for item in raw_data:
+                int_type = type_map.get(item.get("type", "click").lower(), InteractionType.CLICK)
+                interaction = UserInteraction(
+                    timestamp=float(item.get("timestamp", 0)),
+                    interaction_type=int_type,
+                    x=item.get("x", 0),
+                    y=item.get("y", 0),
+                    element_id=item.get("element_id"),
+                    page_url=item.get("page_url"),
+                    scroll_delta=item.get("scroll_delta", 0),
+                )
+                uiux_data.append(interaction)
+
+        # Fit the detector
+        fit_data = {
+            "spectral": spectral_data,
+            "dynamics": dynamics_data,
+            "uiux": uiux_data,
+        }
+        detector.fit(fit_data)
+
+        # Detect anomalies
+        detect_data = {
+            "spectral": spectral_data,
+            "dynamics": dynamics_data,
+            "uiux": uiux_data,
+        }
+        result = detector.detect(detect_data)
+
+        # Format output
+        output_data = {
+            "detector": "AdvancedPhysicsIntegratedDetector",
+            "is_anomaly": result.get("is_anomaly", False),
+            "fused_anomaly_score": float(result.get("fused_anomaly_score", 0.0)),
+            "enabled_detectors": [d.value for d in enabled_detectors],
+            "fusion_weights": config["fusion_weights"],
+            "detector_results": {},
+            "gosnn_governance": result.get("gosnn_governance", {}),
+            "three_r_alignment": result.get("three_r_alignment", {}),
+        }
+
+        # Add individual detector results
+        if "spectral_result" in result:
+            output_data["detector_results"]["spectral"] = {
+                "anomaly_score": float(result["spectral_result"].get("anomaly_score", 0.0)),
+                "is_anomaly": result["spectral_result"].get("is_anomaly", False),
+            }
+        if "dynamics_result" in result:
+            output_data["detector_results"]["dynamics"] = {
+                "anomaly_score": float(result["dynamics_result"].get("anomaly_score", 0.0)),
+                "is_anomaly": result["dynamics_result"].get("is_anomaly", False),
+                "motion_state": result["dynamics_result"].get("motion_state", "unknown"),
+            }
+        if "uiux_result" in result:
+            output_data["detector_results"]["uiux"] = {
+                "anomaly_score": float(result["uiux_result"].get("anomaly_score", 0.0)),
+                "is_anomaly": result["uiux_result"].get("is_anomaly", False),
+                "behavior_class": result["uiux_result"].get("behavior_class", "unknown"),
+            }
+
+        if output:
+            with open(output, "w") as f:
+                json.dump(output_data, f, indent=2, default=str)
+            click.echo(f"Results saved to {output}")
+        else:
+            click.echo(json.dumps(output_data, indent=2, default=str))
+
+    except ImportError as e:
+        click.echo(f"Error: Required dependencies not available - {e}")
+        raise SystemExit(1)
+    except Exception as e:
+        click.echo(f"Error during integrated analysis: {e}")
+        raise SystemExit(1)
+
+
+@physics.command("list")
+def physics_list() -> None:
+    """List available physics-inspired detectors and their capabilities."""
+    click.echo("\n" + "=" * 65)
+    click.echo("  Mercury Agent ♱ - Physics-Inspired Anomaly Detectors (v1.4.0)")
+    click.echo("=" * 65)
+
+    click.echo("\n  1. SpectralVibrationDetector")
+    click.echo("     ─────────────────────────────────────────────────────")
+    click.echo("     Frequency-domain anomaly detection using advanced")
+    click.echo("     physics-inspired techniques.")
+    click.echo()
+    click.echo("     Features:")
+    click.echo("       • GNN-based spectral graph analysis")
+    click.echo("       • CNN spectral pattern recognition")
+    click.echo("       • Phonon interaction modeling (quantum-inspired)")
+    click.echo("       • MLIP energy potential encoding")
+    click.echo("       • Wavelet multi-scale decomposition")
+    click.echo("       • Predictive maintenance signatures")
+    click.echo()
+    click.echo("     Command: mercury physics spectral -i <file>")
+
+    click.echo("\n  2. AccelerationDynamicsDetector")
+    click.echo("     ─────────────────────────────────────────────────────")
+    click.echo("     Kinematic analysis with phase space reconstruction")
+    click.echo("     for motion and trajectory anomalies.")
+    click.echo()
+    click.echo("     Features:")
+    click.echo("       • Velocity, acceleration, jerk analysis")
+    click.echo("       • Phase space trajectory reconstruction")
+    click.echo("       • Lyapunov exponent for chaos detection")
+    click.echo("       • Energy conservation monitoring")
+    click.echo("       • Motion state classification")
+    click.echo("       • Impulse and momentum tracking")
+    click.echo()
+    click.echo("     Command: mercury physics dynamics -i <file>")
+
+    click.echo("\n  3. UIUXAnomalyDetector")
+    click.echo("     ─────────────────────────────────────────────────────")
+    click.echo("     User interaction pattern analysis for behavioral")
+    click.echo("     anomaly detection and bot identification.")
+    click.echo()
+    click.echo("     Features:")
+    click.echo("       • Rage click detection (Fitts's Law)")
+    click.echo("       • Dead click identification")
+    click.echo("       • Erratic scrolling patterns")
+    click.echo("       • Navigation loop detection")
+    click.echo("       • Bot behavior classification")
+    click.echo("       • Session engagement scoring")
+    click.echo()
+    click.echo("     Command: mercury physics uiux -i <file.json>")
+
+    click.echo("\n  4. AdvancedPhysicsIntegratedDetector")
+    click.echo("     ─────────────────────────────────────────────────────")
+    click.echo("     Unified detector combining all physics modules with")
+    click.echo("     3R mechanism and GOSNN ethical governance.")
+    click.echo()
+    click.echo("     Features:")
+    click.echo("       • Golden-ratio weighted fusion (φ = 1.618...)")
+    click.echo("       • 3R alignment (Recursion-Resonance-Refactoring)")
+    click.echo("       • GOSNN ethical scalar governance")
+    click.echo("       • Cross-domain correlation analysis")
+    click.echo("       • Adaptive threshold calibration")
+    click.echo()
+    click.echo("     Command: mercury physics integrated -s <spectral> -d <dynamics> -u <uiux>")
+
+    click.echo("\n" + "=" * 65 + "\n")
 
 
 # =============================================================================

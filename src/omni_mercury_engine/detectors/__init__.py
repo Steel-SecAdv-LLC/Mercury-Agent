@@ -32,6 +32,11 @@ Includes:
 """
 
 # Advanced SOTA Detectors (v1.3.0)
+from omni_mercury_engine.detectors.acceleration_dynamics import (
+    AccelerationDynamicsDetector,
+    EnergyState,
+    MotionState,
+)
 from omni_mercury_engine.detectors.advanced import (
     AdversarialAutoencoderDetector,
     ContrastiveLearningDetector,
@@ -41,11 +46,34 @@ from omni_mercury_engine.detectors.advanced import (
     PointAdjustmentEvaluator,
     create_detector,
 )
+from omni_mercury_engine.detectors.advanced_physics_integration import (
+    AdvancedPhysicsIntegratedDetector,
+    PhysicsDetectorType,
+    PhysicsGOSNNScalars,
+    create_dynamics_detector,
+    create_integrated_detector,
+    create_spectral_detector,
+    create_uiux_detector,
+)
 from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
 from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
+
+# Advanced Physics-Inspired Detectors (v1.4.0)
+from omni_mercury_engine.detectors.spectral_vibration import (
+    SpectralAnalysisMode,
+    SpectralVibrationDetector,
+    VibrationSignatureType,
+)
 from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
 from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
+from omni_mercury_engine.detectors.uiux_anomaly import (
+    AnomalyCategory,
+    InteractionType,
+    UIUXAnomalyDetector,
+    UserBehaviorClass,
+    UserInteraction,
+)
 
 # SOTA Visual Anomaly Detection
 from omni_mercury_engine.detectors.visual import (
@@ -62,8 +90,11 @@ from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector, BaseVLMDetecto
 
 
 __all__ = [
+    "AccelerationDynamicsDetector",
+    "AdvancedPhysicsIntegratedDetector",
     # Advanced SOTA detectors (v1.3.0)
     "AdversarialAutoencoderDetector",
+    "AnomalyCategory",
     # VLM detectors
     "AnyAnomalyDetector",
     "BaseVLMDetector",
@@ -73,18 +104,34 @@ __all__ = [
     "ContrastiveLearningDetector",
     # Base detectors
     "DimensionalAnalyzer",
+    "EnergyState",
     "GWOEnsembleDetector",
+    "InteractionType",
     "LAVADDetector",
+    "MotionState",
     "MultiScaleTransformerDetector",
     "PaDiMDetector",
     # Visual detectors
     "PatchCoreDetector",
+    "PhysicsDetectorType",
+    "PhysicsGOSNNScalars",
     "PointAdjustmentEvaluator",
     "ReverseDistillationDetector",
     "STFPMDetector",
     "SigmaDirectiveDetector",
     "SpatialAnomalyDetector",
+    "SpectralAnalysisMode",
+    # Advanced Physics-Inspired Detectors (v1.4.0)
+    "SpectralVibrationDetector",
     "StatisticalAnomalyDetector",
     "TemporalAnomalyDetector",
+    "UIUXAnomalyDetector",
+    "UserBehaviorClass",
+    "UserInteraction",
+    "VibrationSignatureType",
     "create_detector",
+    "create_dynamics_detector",
+    "create_integrated_detector",
+    "create_spectral_detector",
+    "create_uiux_detector",
 ]

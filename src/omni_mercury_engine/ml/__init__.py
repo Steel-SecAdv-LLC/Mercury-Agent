@@ -42,9 +42,12 @@ except ImportError:
 __all__ = [
     "HAS_PYTORCH_LIGHTNING",
     "HAS_TORCH",
+    "MAML",
     "ActiveLearner",
     "AffectiveEncoder",
     "AnomalyExplainer",
+    # Meta-Learning (from arxiv 2508.11957v1)
+    "AnomalyMetaLearner",
     "AstrophysicalEncoder",
     "AuxiliaryMaxVariance",
     "BiometricEncoder",
@@ -73,6 +76,8 @@ __all__ = [
     "LyapunovAnomalyLoss",
     "MLPConfig",
     "MemoryEfficientCache",
+    "MetaLearningAdapter",
+    "MetaLearningAlgorithm",
     "MultiEnvPPOTrainer",
     "MultiHeadDetectorAttention",
     "NisslAnalyzer",
@@ -81,7 +86,9 @@ __all__ = [
     "PPOConfig",
     "PPOTrainer",
     "ParallelExecutor",
+    "PrototypicalNetworks",
     "QuantumEncoder",
+    "Reptile",
     "SparseCoding",
     "SpatialAttention",
     "SpikeTimingDependentPlasticity",
@@ -104,6 +111,7 @@ __all__ = [
     "create_drift_detector",
     "create_explainer",
     "create_few_shot_learner",
+    "create_meta_learner",
     "create_online_pipeline",
     "quick_anomaly_score",
 ]
@@ -349,3 +357,69 @@ class OnlineLearningPipeline:
         )
 
         return _Pipeline(*args, **kwargs)
+
+
+# =============================================================================
+# Meta-Learning Capabilities (arxiv 2508.11957v1 - AI Agents Survey)
+# =============================================================================
+
+
+def create_meta_learner(*args: Any, **kwargs: Any) -> Any:
+    """Create meta-learner for few-shot adaptation. Lazy import."""
+    from omni_mercury_engine.ml.meta_learning import AnomalyMetaLearner as _Learner
+
+    return _Learner(*args, **kwargs)
+
+
+class MetaLearningAdapter:
+    """Lazy-loaded MetaLearningAdapter wrapper."""
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> Any:
+        from omni_mercury_engine.ml.meta_learning import MetaLearningAdapter as _Adapter
+
+        return _Adapter(*args, **kwargs)
+
+
+class MetaLearningAlgorithm:
+    """Lazy-loaded MetaLearningAlgorithm enum wrapper."""
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> Any:
+        from omni_mercury_engine.ml.meta_learning import MetaLearningAlgorithm as _Algo
+
+        return _Algo(*args, **kwargs)
+
+
+class MAML:
+    """Lazy-loaded MAML wrapper."""
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> Any:
+        from omni_mercury_engine.ml.meta_learning import MAML as _MAML
+
+        return _MAML(*args, **kwargs)
+
+
+class PrototypicalNetworks:
+    """Lazy-loaded PrototypicalNetworks wrapper."""
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> Any:
+        from omni_mercury_engine.ml.meta_learning import PrototypicalNetworks as _Proto
+
+        return _Proto(*args, **kwargs)
+
+
+class Reptile:
+    """Lazy-loaded Reptile wrapper."""
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> Any:
+        from omni_mercury_engine.ml.meta_learning import Reptile as _Reptile
+
+        return _Reptile(*args, **kwargs)
+
+
+class AnomalyMetaLearner:
+    """Lazy-loaded AnomalyMetaLearner wrapper."""
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> Any:
+        from omni_mercury_engine.ml.meta_learning import AnomalyMetaLearner as _Learner
+
+        return _Learner(*args, **kwargs)

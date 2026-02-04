@@ -62,6 +62,12 @@ Architecture:
         - ChemistryAnomalyDetector
         - ParapsychologyDetector
 
+    Advanced Physics-Inspired Detectors (v1.4.0):
+        - SpectralVibrationDetector (GNN/CNN spectral, phonon interactions)
+        - AccelerationDynamicsDetector (kinematics, Lyapunov, phase space)
+        - UIUXAnomalyDetector (user behavior, engagement, bot detection)
+        - AdvancedPhysicsIntegratedDetector (unified with 3R and GOSNN)
+
 Example:
     >>> from omni_mercury_engine.core.detector_registry import DetectorRegistry
     >>> registry = DetectorRegistry()
@@ -107,6 +113,9 @@ class DetectorCategory(Enum):
     VLM = "vlm"  # Vision-Language Models (AnyAnomaly, LAVAD)
     FOUNDATION = "foundation"  # Foundation model adapters (TimeGPT, Chronos)
     DISTILLATION = "distillation"  # Knowledge distillation methods
+    # Advanced Physics-Inspired categories (v1.4.0)
+    PHYSICS = "physics"  # Physics-inspired detectors (spectral, dynamics, kinematics)
+    UIUX = "uiux"  # UI/UX behavioral anomaly detection
 
 
 class DetectorProtocol(Protocol):
@@ -1286,6 +1295,69 @@ class DetectorRegistry:
             registered_count += 1
         except ImportError as e:
             logger.debug("Optional detector 'dual_student' not available: %s", e)
+
+        # =====================================================================
+        # Advanced Physics-Inspired Detectors (v1.4.0)
+        # =====================================================================
+        try:
+            from omni_mercury_engine.detectors.spectral_vibration import SpectralVibrationDetector
+
+            self.register(
+                "spectral_vibration",
+                SpectralVibrationDetector(),
+                DetectorCategory.PHYSICS,
+                description="GNN/CNN spectral analysis with phonon interactions",
+                tags=["physics", "spectral", "vibration", "maintenance"],
+            )
+            registered_count += 1
+        except ImportError as e:
+            logger.debug("Optional detector 'spectral_vibration' not available: %s", e)
+
+        try:
+            from omni_mercury_engine.detectors.acceleration_dynamics import (
+                AccelerationDynamicsDetector,
+            )
+
+            self.register(
+                "acceleration_dynamics",
+                AccelerationDynamicsDetector(),
+                DetectorCategory.PHYSICS,
+                description="Kinematic analysis with Lyapunov stability and phase space",
+                tags=["physics", "kinematics", "chaos", "energy"],
+            )
+            registered_count += 1
+        except ImportError as e:
+            logger.debug("Optional detector 'acceleration_dynamics' not available: %s", e)
+
+        try:
+            from omni_mercury_engine.detectors.uiux_anomaly import UIUXAnomalyDetector
+
+            self.register(
+                "uiux_anomaly",
+                UIUXAnomalyDetector(),
+                DetectorCategory.UIUX,
+                description="User interaction and behavior anomaly detection",
+                tags=["uiux", "behavior", "engagement", "bot-detection"],
+            )
+            registered_count += 1
+        except ImportError as e:
+            logger.debug("Optional detector 'uiux_anomaly' not available: %s", e)
+
+        try:
+            from omni_mercury_engine.detectors.advanced_physics_integration import (
+                AdvancedPhysicsIntegratedDetector,
+            )
+
+            self.register(
+                "physics_integrated",
+                AdvancedPhysicsIntegratedDetector(),
+                DetectorCategory.PHYSICS,
+                description="Unified physics detector with 3R and GOSNN integration",
+                tags=["physics", "integrated", "3r", "gosnn", "fusion"],
+            )
+            registered_count += 1
+        except ImportError as e:
+            logger.debug("Optional detector 'physics_integrated' not available: %s", e)
 
         logger.info(f"Auto-discovered and registered {registered_count} detectors")
         return registered_count
