@@ -47,7 +47,10 @@ from typing import Any
 
 import numpy as np
 import torch
-from scipy import signal as scipy_signal
+from scipy import (
+    signal as scipy_signal,
+    stats as scipy_stats,
+)
 from scipy.fft import fft, fftfreq
 from scipy.sparse import csr_matrix, diags
 from scipy.sparse.linalg import eigsh
@@ -66,7 +69,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 # Golden ratio for harmonic weighting (from 3R mechanism)
-PHI = MathematicalConstants.GOLDEN_RATIO  # 1.618033988749895
+PHI = MathematicalConstants.GOLDEN_RATIO.value  # 1.618033988749895
 
 # Schumann resonance fundamental frequency (Hz)
 SCHUMANN_FUNDAMENTAL = 7.83
@@ -1171,7 +1174,7 @@ class SpectralVibrationDetector(BaseDetector):
         crest_factor = np.max(np.abs(signal)) / (np.sqrt(np.mean(signal**2)) + 1e-10)
 
         # Kurtosis
-        kurtosis = scipy_signal.kurtosis(signal) if len(signal) > 4 else 0.0
+        kurtosis = scipy_stats.kurtosis(signal) if len(signal) > 4 else 0.0
 
         # Phonon coupling (using interaction network)
         phonon_coupling = self._compute_phonon_coupling(power_spectrum)

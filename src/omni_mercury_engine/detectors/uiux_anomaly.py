@@ -90,7 +90,7 @@ logger = logging.getLogger(__name__)
 # Constants and Enumerations
 # =============================================================================
 
-PHI = MathematicalConstants.GOLDEN_RATIO
+PHI = MathematicalConstants.GOLDEN_RATIO.value
 
 
 class InteractionType(Enum):

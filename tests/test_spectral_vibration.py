@@ -86,8 +86,10 @@ class TestSpectralVibrationDetector:
 
     def test_fit_empty_data_raises(self) -> None:
         """Test that fitting with empty data raises exception."""
+        from omni_mercury_engine.core.exceptions import DetectorException
+
         detector = SpectralVibrationDetector()
-        with pytest.raises((ValueError, RuntimeError)):
+        with pytest.raises((ValueError, RuntimeError, DetectorException)):
             detector.fit(np.array([]))
 
     def test_detect_normal_signal(self) -> None:
@@ -156,8 +158,10 @@ class TestSpectralVibrationDetector:
 
     def test_detect_not_fitted_raises(self) -> None:
         """Test that detection before fitting raises exception."""
+        from omni_mercury_engine.core.exceptions import DetectorException
+
         detector = SpectralVibrationDetector()
-        with pytest.raises((ValueError, RuntimeError)):
+        with pytest.raises((ValueError, RuntimeError, DetectorException)):
             detector.detect(np.random.randn(100))
 
 

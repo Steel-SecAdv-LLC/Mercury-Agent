@@ -79,7 +79,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # =============================================================================
 
-PHI = MathematicalConstants.GOLDEN_RATIO
+PHI = MathematicalConstants.GOLDEN_RATIO.value
 CONVERGENCE_RATE = 0.25
 
 
@@ -369,12 +369,10 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
         self._recursion_engine = RecursionEngine(
             max_depth=cfg.recursion_depth,
-            decay_factor=1.0 / PHI,  # Golden ratio decay
         )
 
         self._resonance_engine = ResonanceEngine(
-            num_harmonics=cfg.resonance_harmonics,
-            fundamental_weight=PHI,
+            sampling_rate=1.0,
         )
 
         self._fusion_equation = AnomalyFusionEquation(
@@ -629,16 +627,16 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
         # Apply recursion engine
         if self._recursion_engine is not None:
-            recursion_score = self._recursion_engine.process(scores_array)
+            recursion_score = self._recursion_engine.compute_recursion_score(scores_array)
 
         # Apply resonance engine (if we have spectral data)
         if self._resonance_engine is not None and spectral_result is not None:
             spectral_features = spectral_result.get("spectral_features")
             if spectral_features is not None and hasattr(spectral_features, "power_spectrum"):
                 power_spectrum = spectral_features.power_spectrum
-                resonance_score = self._resonance_engine.analyze(power_spectrum)
+                resonance_score = self._resonance_engine.compute_resonance_score(power_spectrum)
             else:
-                resonance_score = self._resonance_engine.analyze(scores_array)
+                resonance_score = self._resonance_engine.compute_resonance_score(scores_array)
 
         # Apply AAFE fusion
         if self._fusion_equation is not None:
@@ -682,7 +680,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
         # If we have AAFE fusion result, use it
         if fusion_result is not None:
-            base_score = fusion_result.final_score
+            base_score = fusion_result.fusion_score
         else:
             # Simple weighted average using golden ratio
             weights = self._physics_config.fusion_weights

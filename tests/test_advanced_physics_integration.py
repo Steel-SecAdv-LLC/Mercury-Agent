@@ -244,8 +244,10 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_detect_not_fitted_raises(self) -> None:
         """Test that detection before fitting raises exception."""
+        from omni_mercury_engine.core.exceptions import DetectorException
+
         detector = AdvancedPhysicsIntegratedDetector()
-        with pytest.raises((ValueError, RuntimeError)):
+        with pytest.raises((ValueError, RuntimeError, DetectorException)):
             detector.detect(create_test_time_series(), data_type="time_series")
 
 

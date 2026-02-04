@@ -74,7 +74,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 # Golden ratio for harmonic weighting (from 3R mechanism)
-PHI = MathematicalConstants.GOLDEN_RATIO
+PHI = MathematicalConstants.GOLDEN_RATIO.value
 
 # Lyapunov stability convergence rate (from fusion.py)
 LYAPUNOV_CONVERGENCE_RATE = 0.25

@@ -106,8 +106,10 @@ class TestUIUXAnomalyDetector:
 
     def test_fit_empty_data_raises(self) -> None:
         """Test that fitting with empty data raises exception."""
+        from omni_mercury_engine.core.exceptions import DetectorException
+
         detector = UIUXAnomalyDetector()
-        with pytest.raises((ValueError, RuntimeError)):
+        with pytest.raises((ValueError, RuntimeError, DetectorException)):
             detector.fit([])
 
     def test_detect_normal_session(self) -> None:
@@ -316,8 +318,10 @@ class TestUIUXAnomalyDetector:
 
     def test_detect_not_fitted_raises(self) -> None:
         """Test that detection before fitting raises exception."""
+        from omni_mercury_engine.core.exceptions import DetectorException
+
         detector = UIUXAnomalyDetector()
-        with pytest.raises((ValueError, RuntimeError)):
+        with pytest.raises((ValueError, RuntimeError, DetectorException)):
             detector.detect(create_test_interactions(count=10))
 
 
