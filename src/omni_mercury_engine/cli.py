@@ -59,7 +59,7 @@ def _get_engine(*args: Any, **kwargs: Any) -> Any:
 
 
 @click.group()
-@click.version_option(version="1.4.0")
+@click.version_option(version="1.2.0")
 def main() -> None:
     """Mercury Agent ♱: ML-Centric Anomaly Detection Framework"""
     pass
@@ -170,13 +170,13 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
 
 
 # =============================================================================
-# Physics-Inspired Anomaly Detection Commands (v1.4.0)
+# Physics-Inspired Anomaly Detection Commands
 # =============================================================================
 
 
 @main.group()
 def physics() -> None:
-    """Physics-inspired anomaly detection commands (v1.4.0)"""
+    """Physics-inspired anomaly detection commands"""
     pass
 
 
@@ -659,7 +659,7 @@ def physics_integrated(
 def physics_list() -> None:
     """List available physics-inspired detectors and their capabilities."""
     click.echo("\n" + "=" * 65)
-    click.echo("  Mercury Agent ♱ - Physics-Inspired Anomaly Detectors (v1.4.0)")
+    click.echo("  Mercury Agent ♱ - Physics-Inspired Anomaly Detectors")
     click.echo("=" * 65)
 
     click.echo("\n  1. SpectralVibrationDetector")
