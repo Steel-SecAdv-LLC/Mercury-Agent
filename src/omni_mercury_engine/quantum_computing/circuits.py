@@ -28,14 +28,14 @@ logger = logging.getLogger(__name__)
 
 QISKIT_AVAILABLE = False
 try:
-    from qiskit import (
-        ClassicalRegister as _ClassicalRegister,  # noqa: F401
+    from qiskit import (  # noqa: F401
+        ClassicalRegister as _ClassicalRegister,
         QuantumCircuit,
-        QuantumRegister as _QuantumRegister,  # noqa: F401
+        QuantumRegister as _QuantumRegister,
     )
-    from qiskit.circuit import (
-        Parameter as _Parameter,  # noqa: F401
-        ParameterVector as _ParameterVector,  # noqa: F401
+    from qiskit.circuit import (  # noqa: F401
+        Parameter as _Parameter,
+        ParameterVector as _ParameterVector,
     )
 
     QISKIT_AVAILABLE = True
