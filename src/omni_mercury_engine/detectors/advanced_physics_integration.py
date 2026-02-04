@@ -50,7 +50,8 @@ import torch
 
 from omni_mercury_engine.core.base import BaseDetector, DetectorMetrics
 from omni_mercury_engine.core.exceptions import DetectorException
-from omni_mercury_engine.core.three_r.fusion import AnomalyFusionEquation, AnomalyFusionResult
+from omni_mercury_engine.core.three_r.fusion import AnomalyFusionEquation
+from omni_mercury_engine.core.three_r.types import AnomalyFusionResult
 from omni_mercury_engine.core.three_r.engines import RecursionEngine, ResonanceEngine
 from omni_mercury_engine.utils.constants import MathematicalConstants
 

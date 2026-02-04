@@ -59,7 +59,7 @@ from typing import Any
 import numpy as np
 import torch
 import torch.nn as nn
-from scipy import integrate, signal as scipy_signal
+from scipy import signal as scipy_signal
 from scipy.ndimage import uniform_filter1d
 
 from omni_mercury_engine.core.base import BaseDetector

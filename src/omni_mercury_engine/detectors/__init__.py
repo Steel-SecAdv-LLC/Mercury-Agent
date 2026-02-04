@@ -60,6 +60,34 @@ from omni_mercury_engine.detectors.visual import (
 # Vision-Language Model Detectors
 from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector, BaseVLMDetector, LAVADDetector
 
+# Advanced Physics-Inspired Detectors (v1.4.0)
+from omni_mercury_engine.detectors.spectral_vibration import (
+    SpectralVibrationDetector,
+    SpectralAnalysisMode,
+    VibrationSignatureType,
+)
+from omni_mercury_engine.detectors.acceleration_dynamics import (
+    AccelerationDynamicsDetector,
+    MotionState,
+    EnergyState,
+)
+from omni_mercury_engine.detectors.uiux_anomaly import (
+    UIUXAnomalyDetector,
+    UserInteraction,
+    InteractionType,
+    AnomalyCategory,
+    UserBehaviorClass,
+)
+from omni_mercury_engine.detectors.advanced_physics_integration import (
+    AdvancedPhysicsIntegratedDetector,
+    PhysicsDetectorType,
+    PhysicsGOSNNScalars,
+    create_spectral_detector,
+    create_dynamics_detector,
+    create_uiux_detector,
+    create_integrated_detector,
+)
+
 
 __all__ = [
     # Advanced SOTA detectors (v1.3.0)
@@ -87,4 +115,23 @@ __all__ = [
     "StatisticalAnomalyDetector",
     "TemporalAnomalyDetector",
     "create_detector",
+    # Advanced Physics-Inspired Detectors (v1.4.0)
+    "SpectralVibrationDetector",
+    "SpectralAnalysisMode",
+    "VibrationSignatureType",
+    "AccelerationDynamicsDetector",
+    "MotionState",
+    "EnergyState",
+    "UIUXAnomalyDetector",
+    "UserInteraction",
+    "InteractionType",
+    "AnomalyCategory",
+    "UserBehaviorClass",
+    "AdvancedPhysicsIntegratedDetector",
+    "PhysicsDetectorType",
+    "PhysicsGOSNNScalars",
+    "create_spectral_detector",
+    "create_dynamics_detector",
+    "create_uiux_detector",
+    "create_integrated_detector",
 ]

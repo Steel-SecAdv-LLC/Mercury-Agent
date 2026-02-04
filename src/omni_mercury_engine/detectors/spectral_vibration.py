@@ -827,6 +827,8 @@ class SpectralVibrationDetector(BaseDetector):
         self._reference_features: SpectralFeatures | None = None
         self._reference_mean: np.ndarray | None = None
         self._reference_std: np.ndarray | None = None
+        self._reference_features_mean: np.ndarray | None = None
+        self._reference_features_std: np.ndarray | None = None
 
         # Vibration signature database
         self._signature_database: dict[VibrationSignatureType, list[np.ndarray]] = {
@@ -1041,9 +1043,11 @@ class SpectralVibrationDetector(BaseDetector):
                 spectrum_tensor = torch.tensor(spectrum, dtype=torch.float32, device=self.device)
                 edge_index, edge_type = self._build_spectral_graph(len(spectrum))
 
+                # Compute numerical gradient using forward differences with padding
+                spectrum_diff = torch.diff(spectrum_tensor, prepend=spectrum_tensor[:1])
                 node_features = torch.stack([
                     spectrum_tensor,
-                    torch.gradient(spectrum_tensor)[0],
+                    spectrum_diff,
                 ], dim=-1)
 
                 gnn_features = self._gnn(node_features, edge_index, edge_type)
