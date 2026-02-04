@@ -86,8 +86,25 @@ class NOAABuoyLoader(DatasetLoader):
     # Feature columns to extract
     FEATURE_COLS = ["WVHT", "DPD", "APD", "MWD", "WTMP", "ATMP", "PRES", "WSPD", "GST"]
 
-    # Missing value codes used by NOAA
-    MISSING_VALUES = [99.0, 999.0, 9999.0, 99.00, 999.00]
+    # Missing value codes used by NOAA NDBC
+    # Comprehensive list based on NOAA documentation:
+    # https://www.ndbc.noaa.gov/measdes.shtml
+    MISSING_VALUES = [
+        # Standard NDBC missing codes
+        99.0, 99.00,      # General missing indicator
+        999.0, 999.00,    # Extended missing indicator
+        9999.0, 9999.00,  # Long format missing
+        99999.0,          # Very long format
+        # Specific sensor missing codes
+        -99.9, -999.9,    # Negative indicator variants
+        -9999.0,          # Negative long format
+        # Column-specific codes (WDIR, MWD use 999 for calm/missing)
+        0.0,              # Some sensors use 0 for missing wind direction
+        # Temperature missing codes (some stations use different scales)
+        -99.0,            # Temperature missing
+        # String-based (handled separately in processing)
+        # "MM", "NA", "N/A" - converted to NaN via pd.to_numeric errors='coerce'
+    ]
 
     def __init__(self, config: DatasetConfig) -> None:
         """Initialize NOAA Buoy loader.

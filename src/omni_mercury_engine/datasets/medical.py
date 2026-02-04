@@ -328,6 +328,10 @@ class MIMICLoader(DatasetLoader):
         # Determine label type from config
         label_type = self.config.preprocessing.get("label_type", "mortality")
 
+        # Pre-index data for faster lookups
+        icustays_indexed = icustays_with_outcomes.set_index("icustay_id")
+        chartevents_grouped = chartevents.groupby("icustay_id")
+
         # Aggregate by ICU stay
         features_list = []
         labels_list = []
@@ -336,17 +340,19 @@ class MIMICLoader(DatasetLoader):
         max_samples = self.config.max_samples or 5000
 
         for icustay_id in unique_stays[:max_samples]:
-            stay_data = chartevents[chartevents["icustay_id"] == icustay_id]
-            stay_info = icustays_with_outcomes[
-                icustays_with_outcomes["icustay_id"] == icustay_id
-            ].iloc[0] if len(icustays_with_outcomes[
-                icustays_with_outcomes["icustay_id"] == icustay_id
-            ]) > 0 else None
-
-            if stay_info is None:
+            # Fast lookup using pre-indexed DataFrame
+            try:
+                stay_info = icustays_indexed.loc[icustay_id]
+            except KeyError:
                 continue
 
-            # Extract features
+            # Get chartevents for this stay using grouped data
+            try:
+                stay_data = chartevents_grouped.get_group(icustay_id)
+            except KeyError:
+                stay_data = pd.DataFrame()
+
+            # Extract features using vectorized operations where possible
             feature_vec = []
             for itemid in itemid_map:
                 vals = stay_data[stay_data["itemid"] == itemid]["valuenum"]

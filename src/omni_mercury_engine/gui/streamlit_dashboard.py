@@ -503,6 +503,29 @@ def icp_monitoring_panel() -> None:
     # Upload ICP trend data
     icp_file = st.file_uploader("Upload ICP Trend Data (CSV)", type=["csv"])
 
+    # Process uploaded ICP file if available
+    icp_trend_data = None
+    if icp_file is not None:
+        try:
+            import pandas as pd
+            icp_trend_data = pd.read_csv(icp_file)
+            st.success(f"Loaded {len(icp_trend_data)} ICP readings from file")
+
+            # Display trend if data available
+            if "icp" in icp_trend_data.columns.str.lower():
+                icp_col = [c for c in icp_trend_data.columns if "icp" in c.lower()][0]
+                st.line_chart(icp_trend_data[icp_col])
+
+                # Calculate trend statistics
+                icp_values = icp_trend_data[icp_col].dropna()
+                if len(icp_values) > 0:
+                    st.markdown("**Trend Statistics:**")
+                    st.write(f"- Mean ICP: {icp_values.mean():.1f} mmHg")
+                    st.write(f"- Max ICP: {icp_values.max():.1f} mmHg")
+                    st.write(f"- % Time > 20 mmHg: {(icp_values > 20).mean():.1%}")
+        except Exception as e:
+            st.error(f"Error reading ICP file: {e}")
+
     if st.button("Analyze ICP Status", type="primary"):
         st.markdown("### ICP Analysis Results")
 
@@ -596,6 +619,60 @@ def seizure_detection_panel() -> None:
 
     # Upload EEG data
     eeg_file = st.file_uploader("Upload EEG Data (EDF/CSV)", type=["edf", "csv"])
+
+    # Process uploaded EEG file if available
+    eeg_features = None
+    if eeg_file is not None:
+        try:
+            file_type = eeg_file.name.split(".")[-1].lower()
+
+            if file_type == "csv":
+                import pandas as pd
+                eeg_data = pd.read_csv(eeg_file)
+                st.success(f"Loaded EEG data: {eeg_data.shape[0]} samples, {eeg_data.shape[1]} channels")
+
+                # Display EEG waveform preview (first channel)
+                if len(eeg_data.columns) > 0:
+                    st.markdown("**EEG Signal Preview (first channel):**")
+                    preview_data = eeg_data.iloc[:min(1000, len(eeg_data)), 0]
+                    st.line_chart(preview_data)
+
+                    # Basic spectral analysis
+                    import numpy as np
+                    signal = eeg_data.iloc[:, 0].values
+                    if len(signal) > 256:
+                        # Simple power spectral density estimate
+                        fft_vals = np.abs(np.fft.rfft(signal[:1024]))
+                        delta_power = np.mean(fft_vals[1:4])    # 0.5-4 Hz
+                        theta_power = np.mean(fft_vals[4:8])    # 4-8 Hz
+                        alpha_power = np.mean(fft_vals[8:13])   # 8-13 Hz
+                        beta_power = np.mean(fft_vals[13:30])   # 13-30 Hz
+
+                        st.markdown("**Spectral Power (relative):**")
+                        col_a, col_b, col_c, col_d = st.columns(4)
+                        with col_a:
+                            st.metric("Delta", f"{delta_power:.1f}")
+                        with col_b:
+                            st.metric("Theta", f"{theta_power:.1f}")
+                        with col_c:
+                            st.metric("Alpha", f"{alpha_power:.1f}")
+                        with col_d:
+                            st.metric("Beta", f"{beta_power:.1f}")
+
+                        eeg_features = {
+                            "delta": delta_power,
+                            "theta": theta_power,
+                            "alpha": alpha_power,
+                            "beta": beta_power,
+                        }
+
+            elif file_type == "edf":
+                st.info("EDF files require pyedflib library. Using header information only.")
+                # Read basic info from EDF header
+                st.write(f"File: {eeg_file.name}")
+
+        except Exception as e:
+            st.error(f"Error reading EEG file: {e}")
 
     if st.button("Analyze Seizure Risk", type="primary"):
         st.markdown("### Seizure Analysis Results")

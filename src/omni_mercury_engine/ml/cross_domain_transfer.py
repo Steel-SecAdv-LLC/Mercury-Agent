@@ -1073,7 +1073,7 @@ class JDAAdapter(BaseDomainAdapter):
 
     def transform(self, X: NDArray[np.float64], domain: str = "target") -> NDArray[np.float64]:
         """Transform to aligned subspace."""
-        if self.source_mean is None or self.projection_matrix is None:
+        if self.source_mean is None or self.source_std is None or self.projection_matrix is None:
             raise ValueError("Adapter not fitted")
         X_norm = (X - self.source_mean) / self.source_std
         return X_norm @ self.projection_matrix
@@ -1337,11 +1337,18 @@ class OptimalTransportAdapter(BaseDomainAdapter):
         # Compute transport plan
         self.transport_plan = self._sinkhorn(a, b, C)
 
+        # Store target data for out-of-sample extension
+        self.target_X = target_X_norm.copy()
+
         # Barycentric mapping: transport source to target domain
         # Each target sample is a weighted combination of source samples
-        source_transported = n_s * self.transport_plan.T @ source_X_norm
+        self.source_transported = n_s * self.transport_plan.T @ source_X_norm
 
-        # Train classifier on transported source data
+        # Compute transported labels for target samples
+        # Using label propagation via transport plan
+        self.target_y_propagated = self._propagate_labels(source_y, self.transport_plan)
+
+        # Train classifier on transported source data for out-of-sample prediction
         try:
             from sklearn.ensemble import GradientBoostingClassifier
             self._classifier = GradientBoostingClassifier(n_estimators=100, max_depth=5, random_state=42)
@@ -1349,25 +1356,92 @@ class OptimalTransportAdapter(BaseDomainAdapter):
             from sklearn.linear_model import LogisticRegression
             self._classifier = LogisticRegression(max_iter=1000, random_state=42)
 
-        # Train on source (we'll use barycentric projection for prediction)
-        self._classifier.fit(source_X_norm, source_y)
+        # Train on source transported to target domain
+        self._classifier.fit(self.source_transported, source_y)
+
+    def _propagate_labels(
+        self,
+        source_y: NDArray[np.int64],
+        transport_plan: NDArray[np.float64],
+    ) -> NDArray[np.int64]:
+        """Propagate labels from source to target via transport plan.
+
+        For each target sample, compute weighted vote from source labels
+        based on transport plan coupling.
+
+        Args:
+            source_y: Source labels
+            transport_plan: OT coupling matrix [n_source, n_target]
+
+        Returns:
+            Propagated labels for target samples
+        """
+        n_target = transport_plan.shape[1]
+        classes = np.unique(source_y)
+
+        # Weighted label voting
+        target_labels = np.zeros(n_target, dtype=np.int64)
+
+        for t in range(n_target):
+            # Get transport weights for this target sample
+            weights = transport_plan[:, t]
+
+            # Weighted vote for each class
+            class_scores = {}
+            for cls in classes:
+                cls_mask = source_y == cls
+                class_scores[cls] = np.sum(weights[cls_mask])
+
+            # Assign most likely class
+            target_labels[t] = max(class_scores, key=class_scores.get)
+
+        return target_labels
 
     def transform(self, X: NDArray[np.float64], domain: str = "target") -> NDArray[np.float64]:
-        """Transform using OT barycentric projection."""
+        """Transform using OT barycentric projection.
+
+        For new samples, computes barycentric projection via nearest neighbors
+        in the transport space.
+        """
         if self.source_mean is None or self.source_std is None:
             raise ValueError("Adapter not fitted")
         return (X - self.source_mean) / self.source_std
 
     def predict(self, X: NDArray[np.float64]) -> NDArray[np.int64]:
-        """Predict using label propagation via transport plan."""
-        if self._classifier is None or self.source_X is None or self.source_y is None:
+        """Predict using OT-based label propagation.
+
+        For samples in the fitted target set, returns propagated labels.
+        For new samples, uses nearest neighbor in transported source space.
+        """
+        if self.source_X is None or self.source_y is None or self.source_transported is None:
             raise ValueError("Adapter not fitted")
 
         X_norm = self.transform(X, "target")
 
-        # For new samples, use 1-NN in transported space
-        # or directly use classifier
-        return self._classifier.predict(X_norm)
+        # Check if samples are from fitted target set (by distance)
+        if hasattr(self, 'target_X') and self.target_X is not None:
+            # For samples close to fitted target, use propagated labels
+            dists_to_target = cdist(X_norm, self.target_X, metric="euclidean")
+            min_dists = np.min(dists_to_target, axis=1)
+            nearest_target = np.argmin(dists_to_target, axis=1)
+
+            predictions = np.zeros(len(X_norm), dtype=np.int64)
+
+            for i, (dist, nearest_idx) in enumerate(zip(min_dists, nearest_target)):
+                if dist < 1e-6:  # Exact match - use propagated label
+                    predictions[i] = self.target_y_propagated[nearest_idx]
+                else:
+                    # Out-of-sample: use nearest neighbor in transported source
+                    dists_to_transported = cdist(X_norm[i:i+1], self.source_transported)
+                    nn_idx = np.argmin(dists_to_transported)
+                    predictions[i] = self.source_y[nn_idx]
+
+            return predictions
+
+        # Fallback: nearest neighbor in transported source space
+        dists = cdist(X_norm, self.source_transported, metric="euclidean")
+        nn_indices = np.argmin(dists, axis=1)
+        return self.source_y[nn_indices]
 
     def predict_proba(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
         """Predict probabilities using transported labels."""

@@ -615,16 +615,18 @@ class OpenAICloudAdapter(BaseLLMAdapter):
         import http.client
         import ssl
 
+        # Validate URL before connecting
+        if not _validate_url_scheme(self.base_url):
+            return "Invalid API URL scheme"
+
+        parsed_url = urllib.parse.urlparse(self.base_url)
+        host = parsed_url.netloc or "api.openai.com"
+
+        # Create secure connection
+        context = ssl.create_default_context()
+        conn: http.client.HTTPSConnection | None = None
+
         try:
-            # Validate URL before connecting
-            if not _validate_url_scheme(self.base_url):
-                return "Invalid API URL scheme"
-
-            parsed_url = urllib.parse.urlparse(self.base_url)
-            host = parsed_url.netloc or "api.openai.com"
-
-            # Create secure connection
-            context = ssl.create_default_context()
             conn = http.client.HTTPSConnection(host, timeout=self.config.timeout, context=context)
 
             # Build messages
@@ -660,6 +662,9 @@ class OpenAICloudAdapter(BaseLLMAdapter):
         except Exception as e:
             logger.error(f"OpenAI request failed: {e}")
             return f"Request failed: {e}"
+        finally:
+            if conn is not None:
+                conn.close()
 
     def is_available(self) -> bool:
         """Check if OpenAI adapter is available."""
@@ -709,16 +714,18 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
         import http.client
         import ssl
 
+        # Validate URL before connecting
+        if not _validate_url_scheme(self.base_url):
+            return "Invalid API URL scheme"
+
+        parsed_url = urllib.parse.urlparse(self.base_url)
+        host = parsed_url.netloc or "api.anthropic.com"
+
+        # Create secure connection
+        context = ssl.create_default_context()
+        conn: http.client.HTTPSConnection | None = None
+
         try:
-            # Validate URL before connecting
-            if not _validate_url_scheme(self.base_url):
-                return "Invalid API URL scheme"
-
-            parsed_url = urllib.parse.urlparse(self.base_url)
-            host = parsed_url.netloc or "api.anthropic.com"
-
-            # Create secure connection
-            context = ssl.create_default_context()
             conn = http.client.HTTPSConnection(host, timeout=self.config.timeout, context=context)
 
             # Build request body
@@ -756,6 +763,9 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
         except Exception as e:
             logger.error(f"Anthropic request failed: {e}")
             return f"Request failed: {e}"
+        finally:
+            if conn is not None:
+                conn.close()
 
     def is_available(self) -> bool:
         """Check if Anthropic adapter is available."""
@@ -805,16 +815,18 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
         import http.client
         import ssl
 
+        # Validate URL before connecting
+        if not _validate_url_scheme(self.base_url):
+            return "Invalid API URL scheme"
+
+        parsed_url = urllib.parse.urlparse(self.base_url)
+        host = parsed_url.netloc or "api-inference.huggingface.co"
+
+        # Create secure connection
+        context = ssl.create_default_context()
+        conn: http.client.HTTPSConnection | None = None
+
         try:
-            # Validate URL before connecting
-            if not _validate_url_scheme(self.base_url):
-                return "Invalid API URL scheme"
-
-            parsed_url = urllib.parse.urlparse(self.base_url)
-            host = parsed_url.netloc or "api-inference.huggingface.co"
-
-            # Create secure connection
-            context = ssl.create_default_context()
             conn = http.client.HTTPSConnection(host, timeout=self.config.timeout, context=context)
 
             # Combine prompts for text generation
@@ -855,6 +867,9 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
         except Exception as e:
             logger.error(f"HuggingFace request failed: {e}")
             return f"Request failed: {e}"
+        finally:
+            if conn is not None:
+                conn.close()
 
     def is_available(self) -> bool:
         """Check if HuggingFace adapter is available."""

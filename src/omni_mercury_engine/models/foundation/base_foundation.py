@@ -558,9 +558,11 @@ class BaseFoundationAdapter(BaseFoundationModel):
             forecast_h = np.zeros(h)
             for t in range(h):
                 forecast_h[t] = level + (t + 1) * trend
-                if seasonal is not None and period is not None:
+                if seasonal is not None and period is not None and period > 0:
+                    # Ensure seasonal_idx is within bounds
                     seasonal_idx = (seq_len + t) % period
-                    forecast_h[t] += seasonal[seasonal_idx]
+                    if 0 <= seasonal_idx < len(seasonal):
+                        forecast_h[t] += seasonal[seasonal_idx]
 
             # Estimate confidence intervals
             lower_h, upper_h = self._bootstrap_confidence_interval(s, forecast_h)
@@ -578,26 +580,49 @@ class BaseFoundationAdapter(BaseFoundationModel):
     def detect_anomalies(
         self,
         series: np.ndarray[Any, Any] | torch.Tensor,
+        threshold: float | None = None,
     ) -> dict[str, Any]:
-        """Detect anomalies using simple statistical method."""
+        """Detect anomalies using statistical z-score method.
+
+        Args:
+            series: Input time series (1D or 2D with batch dimension)
+            threshold: Z-score threshold for anomaly detection.
+                       Defaults to config value or 2.0 if not specified.
+
+        Returns:
+            Dictionary with scores, is_anomaly boolean mask, and threshold used.
+        """
         if isinstance(series, torch.Tensor):
             series = series.cpu().numpy()
 
         if series.ndim == 1:
             series = series.reshape(1, -1)
 
-        mean = np.mean(series, axis=1, keepdims=True)
-        std = np.std(series, axis=1, keepdims=True) + 1e-8
-        z_scores = np.abs((series - mean) / std)
+        # Handle NaN values - use nanmean/nanstd
+        series_clean = np.nan_to_num(series, nan=0.0, posinf=0.0, neginf=0.0)
 
-        threshold = 2.0
+        mean = np.nanmean(series_clean, axis=1, keepdims=True)
+        std = np.nanstd(series_clean, axis=1, keepdims=True) + 1e-8
+        z_scores = np.abs((series_clean - mean) / std)
+
+        # Use configurable threshold
+        if threshold is None:
+            threshold = getattr(self.foundation_config, 'anomaly_threshold', 2.0)
+
         is_anomaly = z_scores > threshold
-        scores = z_scores / (z_scores.max() + 1e-8)
+
+        # Normalize scores to [0, 1]
+        max_z = z_scores.max()
+        if max_z > 0:
+            scores = z_scores / (max_z + 1e-8)
+        else:
+            scores = np.zeros_like(z_scores)
 
         return {
             "scores": scores.squeeze(),
             "is_anomaly": is_anomaly.squeeze(),
             "threshold": threshold,
+            "z_scores": z_scores.squeeze(),
         }
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
