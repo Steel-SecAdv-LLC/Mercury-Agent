@@ -18,11 +18,18 @@ Example:
 from __future__ import annotations
 
 import asyncio
+import fnmatch
+import json
+import logging
+import os
 import random
 import time
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -526,3 +533,632 @@ class CacheStub:
                 "healthy": False,
                 "error": str(e),
             }
+
+
+class CacheBackend(Enum):
+    """Supported cache backends."""
+
+    REDIS = "redis"
+    MEMORY = "memory"
+    STUB = "stub"
+
+
+class RedisCache:
+    """Production-ready Redis cache client.
+
+    Supports both redis-py (sync) and aioredis/redis.asyncio (async).
+    Falls back to in-memory stub when Redis is unavailable.
+
+    Example:
+        >>> # Using Redis
+        >>> cache = RedisCache(
+        ...     host="localhost",
+        ...     port=6379,
+        ...     password=os.getenv("REDIS_PASSWORD")
+        ... )
+        >>> await cache.set("key", {"data": "value"}, ttl=300)
+        >>> data = await cache.get("key")
+
+        >>> # Using environment variables
+        >>> cache = RedisCache.from_env()
+
+        >>> # With automatic fallback to stub
+        >>> cache = RedisCache(fallback_to_stub=True)
+    """
+
+    def __init__(
+        self,
+        host: str | None = None,
+        port: int = 6379,
+        password: str | None = None,
+        db: int = 0,
+        ssl: bool = False,
+        timeout: int = 5,
+        max_connections: int = 10,
+        prefix: str = "mercury:",
+        fallback_to_stub: bool = True,
+        serializer: str = "json",
+    ):
+        """Initialize Redis cache.
+
+        Args:
+            host: Redis host (default: REDIS_HOST env or localhost).
+            port: Redis port (default: 6379).
+            password: Redis password (default: REDIS_PASSWORD env).
+            db: Redis database number.
+            ssl: Use SSL connection.
+            timeout: Connection timeout in seconds.
+            max_connections: Maximum pool connections.
+            prefix: Key prefix for namespacing.
+            fallback_to_stub: Fall back to in-memory stub on connection failure.
+            serializer: Serialization format ("json" or "pickle").
+        """
+        self.host = host or os.getenv("REDIS_HOST", "localhost")
+        self.port = port
+        self.password = password or os.getenv("REDIS_PASSWORD")
+        self.db = db
+        self.ssl = ssl
+        self.timeout = timeout
+        self.max_connections = max_connections
+        self.prefix = prefix
+        self.fallback_to_stub = fallback_to_stub
+        self.serializer = serializer
+
+        self._client: Any = None
+        self._stub = CacheStub()
+        self._connected = False
+        self._connection_error: str | None = None
+
+        # Metrics
+        self._call_count = 0
+        self._errors = 0
+        self._fallback_count = 0
+
+    @classmethod
+    def from_env(cls) -> RedisCache:
+        """Create Redis cache from environment variables.
+
+        Environment variables:
+            REDIS_HOST: Redis host (default: localhost)
+            REDIS_PORT: Redis port (default: 6379)
+            REDIS_PASSWORD: Redis password
+            REDIS_DB: Redis database number (default: 0)
+            REDIS_SSL: Use SSL (default: false)
+            REDIS_PREFIX: Key prefix (default: mercury:)
+        """
+        return cls(
+            host=os.getenv("REDIS_HOST", "localhost"),
+            port=int(os.getenv("REDIS_PORT", "6379")),
+            password=os.getenv("REDIS_PASSWORD"),
+            db=int(os.getenv("REDIS_DB", "0")),
+            ssl=os.getenv("REDIS_SSL", "").lower() in ("true", "1", "yes"),
+            prefix=os.getenv("REDIS_PREFIX", "mercury:"),
+        )
+
+    async def _ensure_connected(self) -> bool:
+        """Ensure Redis connection is established."""
+        if self._connected and self._client:
+            return True
+
+        try:
+            import redis.asyncio as aioredis
+
+            self._client = aioredis.Redis(
+                host=self.host,
+                port=self.port,
+                password=self.password,
+                db=self.db,
+                ssl=self.ssl,
+                socket_timeout=self.timeout,
+                socket_connect_timeout=self.timeout,
+                decode_responses=True,
+            )
+
+            # Test connection
+            await self._client.ping()
+            self._connected = True
+            logger.info(f"Connected to Redis at {self.host}:{self.port}")
+            return True
+
+        except ImportError:
+            self._connection_error = "redis package not installed (pip install redis)"
+            logger.warning(self._connection_error)
+            return False
+
+        except Exception as e:
+            self._connection_error = str(e)
+            logger.warning(f"Redis connection failed: {e}")
+            return False
+
+    def _make_key(self, key: str) -> str:
+        """Add prefix to key."""
+        return f"{self.prefix}{key}"
+
+    def _serialize(self, value: Any) -> str:
+        """Serialize value for storage."""
+        if self.serializer == "json":
+            return json.dumps(value)
+        else:
+            import pickle
+            import base64
+            return base64.b64encode(pickle.dumps(value)).decode()
+
+    def _deserialize(self, data: str | None) -> Any:
+        """Deserialize value from storage."""
+        if data is None:
+            return None
+        if self.serializer == "json":
+            return json.loads(data)
+        else:
+            import pickle
+            import base64
+            return pickle.loads(base64.b64decode(data.encode()))
+
+    async def get(self, key: str) -> Any | None:
+        """Get value from cache.
+
+        Args:
+            key: Cache key.
+
+        Returns:
+            Cached value or None if not found.
+        """
+        self._call_count += 1
+
+        if not await self._ensure_connected():
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.get(key)
+            return None
+
+        try:
+            data = await self._client.get(self._make_key(key))
+            return self._deserialize(data)
+        except Exception as e:
+            self._errors += 1
+            logger.warning(f"Redis get error: {e}")
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.get(key)
+            return None
+
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        ttl: int | None = None,
+        nx: bool = False,
+        xx: bool = False,
+    ) -> bool:
+        """Set value in cache.
+
+        Args:
+            key: Cache key.
+            value: Value to cache.
+            ttl: Time-to-live in seconds.
+            nx: Only set if not exists.
+            xx: Only set if exists.
+
+        Returns:
+            True if set successfully.
+        """
+        self._call_count += 1
+
+        if not await self._ensure_connected():
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.set(key, value, ttl, nx, xx)
+            return False
+
+        try:
+            serialized = self._serialize(value)
+            full_key = self._make_key(key)
+
+            # Build set options
+            set_kwargs: dict[str, Any] = {}
+            if ttl:
+                set_kwargs["ex"] = ttl
+            if nx:
+                set_kwargs["nx"] = True
+            if xx:
+                set_kwargs["xx"] = True
+
+            result = await self._client.set(full_key, serialized, **set_kwargs)
+            return result is not None and result is not False
+        except Exception as e:
+            self._errors += 1
+            logger.warning(f"Redis set error: {e}")
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.set(key, value, ttl, nx, xx)
+            return False
+
+    async def delete(self, key: str) -> bool:
+        """Delete key from cache.
+
+        Args:
+            key: Cache key.
+
+        Returns:
+            True if key existed and was deleted.
+        """
+        self._call_count += 1
+
+        if not await self._ensure_connected():
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.delete(key)
+            return False
+
+        try:
+            result = await self._client.delete(self._make_key(key))
+            return result > 0
+        except Exception as e:
+            self._errors += 1
+            logger.warning(f"Redis delete error: {e}")
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.delete(key)
+            return False
+
+    async def exists(self, key: str) -> bool:
+        """Check if key exists in cache.
+
+        Args:
+            key: Cache key.
+
+        Returns:
+            True if key exists.
+        """
+        self._call_count += 1
+
+        if not await self._ensure_connected():
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.exists(key)
+            return False
+
+        try:
+            result = await self._client.exists(self._make_key(key))
+            return result > 0
+        except Exception as e:
+            self._errors += 1
+            logger.warning(f"Redis exists error: {e}")
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.exists(key)
+            return False
+
+    async def mget(self, keys: list[str]) -> dict[str, Any | None]:
+        """Get multiple values.
+
+        Args:
+            keys: List of cache keys.
+
+        Returns:
+            Dictionary mapping keys to values.
+        """
+        self._call_count += 1
+
+        if not await self._ensure_connected():
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.mget(keys)
+            return {k: None for k in keys}
+
+        try:
+            full_keys = [self._make_key(k) for k in keys]
+            values = await self._client.mget(full_keys)
+            return {
+                keys[i]: self._deserialize(v)
+                for i, v in enumerate(values)
+            }
+        except Exception as e:
+            self._errors += 1
+            logger.warning(f"Redis mget error: {e}")
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.mget(keys)
+            return {k: None for k in keys}
+
+    async def mset(self, mapping: dict[str, Any], ttl: int | None = None) -> bool:
+        """Set multiple values.
+
+        Args:
+            mapping: Dictionary of key-value pairs.
+            ttl: Time-to-live for all entries.
+
+        Returns:
+            True if successful.
+        """
+        self._call_count += 1
+
+        if not await self._ensure_connected():
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.mset(mapping, ttl)
+            return False
+
+        try:
+            # Serialize all values
+            serialized_mapping = {
+                self._make_key(k): self._serialize(v)
+                for k, v in mapping.items()
+            }
+
+            # Use pipeline for efficiency
+            async with self._client.pipeline(transaction=True) as pipe:
+                await pipe.mset(serialized_mapping)
+                if ttl:
+                    for key in serialized_mapping:
+                        await pipe.expire(key, ttl)
+                await pipe.execute()
+            return True
+        except Exception as e:
+            self._errors += 1
+            logger.warning(f"Redis mset error: {e}")
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.mset(mapping, ttl)
+            return False
+
+    async def incr(self, key: str, amount: int = 1) -> int:
+        """Increment integer value.
+
+        Args:
+            key: Cache key.
+            amount: Amount to increment.
+
+        Returns:
+            New value.
+        """
+        self._call_count += 1
+
+        if not await self._ensure_connected():
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.incr(key, amount)
+            return 0
+
+        try:
+            return await self._client.incrby(self._make_key(key), amount)
+        except Exception as e:
+            self._errors += 1
+            logger.warning(f"Redis incr error: {e}")
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.incr(key, amount)
+            return 0
+
+    async def decr(self, key: str, amount: int = 1) -> int:
+        """Decrement integer value.
+
+        Args:
+            key: Cache key.
+            amount: Amount to decrement.
+
+        Returns:
+            New value.
+        """
+        return await self.incr(key, -amount)
+
+    async def expire(self, key: str, ttl: int) -> bool:
+        """Set expiration time on key.
+
+        Args:
+            key: Cache key.
+            ttl: Time-to-live in seconds.
+
+        Returns:
+            True if key exists and expiration was set.
+        """
+        self._call_count += 1
+
+        if not await self._ensure_connected():
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.expire(key, ttl)
+            return False
+
+        try:
+            return await self._client.expire(self._make_key(key), ttl)
+        except Exception as e:
+            self._errors += 1
+            logger.warning(f"Redis expire error: {e}")
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.expire(key, ttl)
+            return False
+
+    async def ttl(self, key: str) -> int | None:
+        """Get remaining TTL for key.
+
+        Args:
+            key: Cache key.
+
+        Returns:
+            Remaining TTL in seconds, None if no TTL or key doesn't exist.
+        """
+        self._call_count += 1
+
+        if not await self._ensure_connected():
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.ttl(key)
+            return None
+
+        try:
+            result = await self._client.ttl(self._make_key(key))
+            return result if result > 0 else None
+        except Exception as e:
+            self._errors += 1
+            logger.warning(f"Redis ttl error: {e}")
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.ttl(key)
+            return None
+
+    async def keys(self, pattern: str = "*") -> list[str]:
+        """Get keys matching pattern.
+
+        Args:
+            pattern: Glob-style pattern.
+
+        Returns:
+            List of matching keys (without prefix).
+        """
+        self._call_count += 1
+
+        if not await self._ensure_connected():
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.keys(pattern)
+            return []
+
+        try:
+            full_pattern = self._make_key(pattern)
+            matched_keys = await self._client.keys(full_pattern)
+            # Remove prefix from keys
+            prefix_len = len(self.prefix)
+            return [k[prefix_len:] if k.startswith(self.prefix) else k for k in matched_keys]
+        except Exception as e:
+            self._errors += 1
+            logger.warning(f"Redis keys error: {e}")
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.keys(pattern)
+            return []
+
+    async def flush(self) -> int:
+        """Clear all entries with our prefix.
+
+        Returns:
+            Number of entries cleared.
+        """
+        self._call_count += 1
+
+        if not await self._ensure_connected():
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.flush()
+            return 0
+
+        try:
+            keys = await self._client.keys(f"{self.prefix}*")
+            if keys:
+                return await self._client.delete(*keys)
+            return 0
+        except Exception as e:
+            self._errors += 1
+            logger.warning(f"Redis flush error: {e}")
+            if self.fallback_to_stub:
+                self._fallback_count += 1
+                return await self._stub.flush()
+            return 0
+
+    async def clear(self) -> None:
+        """Clear all entries (alias for flush)."""
+        await self.flush()
+
+    async def health_check(self) -> dict[str, Any]:
+        """Check cache health.
+
+        Returns:
+            Health status.
+        """
+        if not await self._ensure_connected():
+            return {
+                "healthy": False,
+                "backend": "stub" if self.fallback_to_stub else "none",
+                "error": self._connection_error,
+            }
+
+        try:
+            await self._client.ping()
+            info = await self._client.info("memory")
+            return {
+                "healthy": True,
+                "backend": "redis",
+                "host": self.host,
+                "port": self.port,
+                "used_memory": info.get("used_memory_human", "unknown"),
+                "connected_clients": info.get("connected_clients", "unknown"),
+            }
+        except Exception as e:
+            return {
+                "healthy": False,
+                "backend": "redis",
+                "error": str(e),
+            }
+
+    async def close(self) -> None:
+        """Close Redis connection."""
+        if self._client:
+            try:
+                await self._client.close()
+                self._connected = False
+                logger.info("Redis connection closed")
+            except Exception as e:
+                logger.warning(f"Error closing Redis connection: {e}")
+
+    def get_metrics(self) -> dict[str, Any]:
+        """Get cache metrics."""
+        return {
+            "backend": "redis" if self._connected else "stub",
+            "host": self.host,
+            "port": self.port,
+            "connected": self._connected,
+            "call_count": self._call_count,
+            "errors": self._errors,
+            "fallback_count": self._fallback_count,
+            "error_rate": self._errors / self._call_count if self._call_count > 0 else 0,
+        }
+
+
+# Factory function for cache creation
+def create_cache(
+    backend: str = "stub",
+    host: str | None = None,
+    port: int = 6379,
+    password: str | None = None,
+    **kwargs: Any,
+) -> RedisCache | CacheStub:
+    """Create cache with appropriate backend.
+
+    Args:
+        backend: Cache backend ("redis", "memory", "stub").
+        host: Redis host.
+        port: Redis port.
+        password: Redis password.
+        **kwargs: Additional backend-specific options.
+
+    Returns:
+        Configured cache instance.
+
+    Example:
+        >>> # For testing
+        >>> cache = create_cache(backend="stub")
+
+        >>> # For production with Redis
+        >>> cache = create_cache(
+        ...     backend="redis",
+        ...     host="localhost",
+        ...     port=6379
+        ... )
+
+        >>> # Auto-detect from environment
+        >>> cache = create_cache(backend="redis")  # Uses REDIS_* env vars
+    """
+    if backend.lower() in ("memory", "stub"):
+        return CacheStub(**kwargs)
+
+    if backend.lower() == "redis":
+        return RedisCache(
+            host=host,
+            port=port,
+            password=password,
+            **kwargs,
+        )
+
+    logger.warning(f"Unknown cache backend: {backend}, using stub")
+    return CacheStub()
