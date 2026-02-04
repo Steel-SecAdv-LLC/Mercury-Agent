@@ -19,7 +19,7 @@ import random
 import time
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 
 if TYPE_CHECKING:
@@ -243,7 +243,7 @@ class RaftLog:
         return entry.term if entry else 0
 
 
-class StateMachine[T]:
+class StateMachine(Generic[T]):
     """
     State machine that applies committed log entries.
 
