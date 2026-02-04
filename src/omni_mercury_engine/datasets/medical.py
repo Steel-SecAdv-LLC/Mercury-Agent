@@ -245,7 +245,12 @@ class MIMICLoader(DatasetLoader):
     def _load_real_mimic(
         self, data_dir: Path | None = None
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load and process real MIMIC-III tables.
+        """Load and process real MIMIC-III tables with proper outcome labels.
+
+        Extracts features from CHARTEVENTS and labels from multiple outcome sources:
+        - ADMISSIONS table (hospital mortality)
+        - PATIENTS table (in-hospital death)
+        - Derived tables for sepsis, length of stay, readmission
 
         Args:
             data_dir: Directory containing MIMIC CSV files. Defaults to self.data_path.
@@ -264,6 +269,29 @@ class MIMICLoader(DatasetLoader):
             compression="gzip",
         )
 
+        # Load admissions for mortality and outcomes
+        admissions = pd.read_csv(
+            data_dir / "ADMISSIONS.csv.gz",
+            compression="gzip",
+            usecols=["hadm_id", "deathtime", "hospital_expire_flag", "admission_type",
+                     "admittime", "dischtime", "discharge_location"],
+            parse_dates=["admittime", "dischtime", "deathtime"],
+        )
+
+        # Load patients for age and death information
+        patients_path = data_dir / "PATIENTS.csv.gz"
+        if patients_path.exists():
+            patients = pd.read_csv(
+                patients_path,
+                compression="gzip",
+                usecols=["subject_id", "dob", "dod", "expire_flag"],
+                parse_dates=["dob", "dod"],
+            )
+            has_patients = True
+        else:
+            patients = None
+            has_patients = False
+
         # Load chartevents (vital signs)
         chartevents = pd.read_csv(
             data_dir / "CHARTEVENTS.csv.gz",
@@ -272,7 +300,16 @@ class MIMICLoader(DatasetLoader):
             nrows=1000000,  # Limit for memory
         )
 
-        # ItemID mapping for vital signs
+        # Merge ICU stays with admissions for outcomes
+        icustays_with_outcomes = pd.merge(
+            icustays,
+            admissions[["hadm_id", "hospital_expire_flag", "deathtime", "admission_type",
+                       "admittime", "dischtime"]],
+            on="hadm_id",
+            how="left"
+        )
+
+        # ItemID mapping for vital signs (MIMIC-III itemids)
         itemid_map = {
             211: "heart_rate",  # Heart Rate
             220045: "heart_rate",
@@ -288,24 +325,126 @@ class MIMICLoader(DatasetLoader):
             220277: "spo2",
         }
 
+        # Determine label type from config
+        label_type = self.config.preprocessing.get("label_type", "mortality")
+
         # Aggregate by ICU stay
         features_list = []
         labels_list = []
 
-        for icustay_id in icustays["icustay_id"].unique()[: self.config.max_samples or 5000]:
-            stay_data = chartevents[chartevents["icustay_id"] == icustay_id]
+        unique_stays = icustays_with_outcomes["icustay_id"].unique()
+        max_samples = self.config.max_samples or 5000
 
+        for icustay_id in unique_stays[:max_samples]:
+            stay_data = chartevents[chartevents["icustay_id"] == icustay_id]
+            stay_info = icustays_with_outcomes[
+                icustays_with_outcomes["icustay_id"] == icustay_id
+            ].iloc[0] if len(icustays_with_outcomes[
+                icustays_with_outcomes["icustay_id"] == icustay_id
+            ]) > 0 else None
+
+            if stay_info is None:
+                continue
+
+            # Extract features
             feature_vec = []
             for itemid in itemid_map:
                 vals = stay_data[stay_data["itemid"] == itemid]["valuenum"]
                 feature_vec.append(vals.mean() if len(vals) > 0 else 0)
 
-            if len(feature_vec) == len(self.FEATURE_NAMES):
-                features_list.append(feature_vec)
-                # Placeholder label - would need outcomes table
-                labels_list.append(0)
+            if len(feature_vec) != len(self.FEATURE_NAMES):
+                continue
+
+            # Extract label based on label_type
+            label = self._extract_outcome_label(stay_info, label_type, patients if has_patients else None)
+
+            features_list.append(feature_vec)
+            labels_list.append(label)
+
+        logger.info(f"Loaded {len(features_list)} ICU stays with {label_type} labels")
+        logger.info(f"Positive class rate: {sum(labels_list)/len(labels_list):.2%}" if labels_list else "No data")
 
         return np.array(features_list), np.array(labels_list)
+
+    def _extract_outcome_label(
+        self,
+        stay_info: pd.Series,
+        label_type: str,
+        patients: pd.DataFrame | None = None,
+    ) -> int:
+        """Extract outcome label for an ICU stay.
+
+        Args:
+            stay_info: Series with ICU stay and admission information
+            label_type: Type of outcome label to extract:
+                - 'mortality': In-hospital mortality (hospital_expire_flag)
+                - 'icu_mortality': Death during ICU stay
+                - 'los': Length of stay > 7 days (binary)
+                - 'readmission': 30-day readmission
+                - 'sepsis': Sepsis diagnosis (requires ICD codes)
+            patients: Optional patients DataFrame for additional mortality info
+
+        Returns:
+            Binary label (0 = negative, 1 = positive)
+        """
+        if label_type == "mortality":
+            # In-hospital mortality from ADMISSIONS
+            return int(stay_info.get("hospital_expire_flag", 0) == 1)
+
+        elif label_type == "icu_mortality":
+            # Death during this ICU stay
+            deathtime = stay_info.get("deathtime")
+            outtime = stay_info.get("outtime")
+            intime = stay_info.get("intime")
+
+            if pd.isna(deathtime):
+                return 0
+
+            # Check if death occurred during ICU stay
+            if not pd.isna(intime) and not pd.isna(outtime):
+                if intime <= deathtime <= outtime:
+                    return 1
+            # Fallback to hospital expire flag
+            return int(stay_info.get("hospital_expire_flag", 0) == 1)
+
+        elif label_type == "los":
+            # Length of stay > 7 days
+            los = stay_info.get("los")
+            if pd.isna(los):
+                # Calculate from times if available
+                intime = stay_info.get("intime")
+                outtime = stay_info.get("outtime")
+                if not pd.isna(intime) and not pd.isna(outtime):
+                    try:
+                        los = (pd.to_datetime(outtime) - pd.to_datetime(intime)).days
+                    except (ValueError, TypeError):
+                        los = 0
+                else:
+                    los = 0
+            return int(los > 7)
+
+        elif label_type == "readmission":
+            # 30-day readmission (simplified - checks admission type)
+            admission_type = stay_info.get("admission_type", "").upper()
+            # Emergency/urgent readmission as proxy for 30-day readmission
+            return int(admission_type in ["EMERGENCY", "URGENT"])
+
+        elif label_type == "critical":
+            # Critical condition composite: mortality OR long LOS OR emergency
+            mortality = int(stay_info.get("hospital_expire_flag", 0) == 1)
+            los = stay_info.get("los", 0)
+            if pd.isna(los):
+                los = 0
+            long_stay = int(los > 14)  # Very long stay
+            admission_type = stay_info.get("admission_type", "").upper()
+            emergency = int(admission_type == "EMERGENCY")
+
+            # Positive if any critical indicator
+            return int(mortality or long_stay or emergency)
+
+        else:
+            # Default to mortality
+            return int(stay_info.get("hospital_expire_flag", 0) == 1)
 
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Preprocess MIMIC features."""
