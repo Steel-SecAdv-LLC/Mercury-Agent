@@ -14,19 +14,19 @@
 [![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
-[![Tests](https://img.shields.io/badge/tests-1880%2B-brightgreen.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-83%25%2B-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-4863%2B-brightgreen.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-85%25%2B-brightgreen.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-orange.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
 [![Ava-Guardian](https://img.shields.io/badge/Ava--Guardian-PQC%20Adapter-green.svg)](#ava-guardian-integration)
 
 ```
               +===============================================================================+
-              |                                   Mercury Agent ♱ v1.1                        |
+              |                                   Mercury Agent ♱ v1.2                        |
               |Neuro-Symbolic AI for Autonomous Anomaly Detection Paradigm with PQC-Protected |
               |                                                                               |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security    |
-              |   Neural + Symbolic      |   18+ Detection Engines |   Post-Quantum Crypto    |
+              |   Neural + Symbolic      |   22+ Detection Engines |   Post-Quantum Crypto    |
               |   Ethical Governance     |   Multi-Head Attention  |   OWASP Validation       |
               |                                                                               |
               |   LAYER 3: Ethics        |   LAYER 2: ML/AI        |   LAYER 1: Security      |
@@ -44,8 +44,8 @@
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
 **Version:** v1.2.0
-**Date:** 2026-01-27
-**AI Co-Architects:** X ⚛ | Caduceus ⚚ | Dev ⚕
+**Date:** 2026-02-03
+**AI Co-Architects:** X ⚛ | Caduceus ⚚ | Dev ⚕ | Claude ⊛
 
 ---
 
@@ -70,7 +70,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-01-16
+> **Last Updated:** 2026-02-03
 
 ---
 
@@ -101,16 +101,17 @@ The following benchmarks were generated from a 200-epoch training run with the f
 
 | Metric | Value | Description |
 |--------|-------|-------------|
-| **Final Confidence** | 0.995 | Bayesian calibrated confidence score |
-| **Confidence Growth** | +0.235 | Improvement from baseline 0.76 |
-| **Anomaly Detection F1** | 0.780 | Precision/Recall harmonic mean |
-| **Anomaly Precision** | 0.873 | True positive rate |
-| **Anomaly Recall** | 0.706 | Detection coverage |
+| **Final Confidence** | 0.999 | Bayesian calibrated confidence score |
+| **Confidence Growth** | +0.239 | Improvement from baseline 0.76 |
+| **Anomaly Detection F1** | 0.797 | Precision/Recall harmonic mean |
+| **Anomaly Precision** | 0.879 | True positive rate |
+| **Anomaly Recall** | 0.729 | Detection coverage |
 | **Memory Entries** | 3,300 | Accumulated episodic/semantic memories |
 | **Benevolence Score** | 0.99+ | Ethical alignment metric (target threshold) |
-| **Neural Contribution** | 44.4% | Neural network pattern detection |
-| **Symbolic Contribution** | 55.6% | Symbolic reasoning inference |
-| **Test Coverage** | 83%+ | Comprehensive test suite (1,880+ tests) |
+| **Neural Contribution** | 47.0% | Neural network pattern detection |
+| **Symbolic Contribution** | 53.0% | Symbolic reasoning inference |
+| **Test Coverage** | 85%+ | Comprehensive test suite (4,863+ tests) |
+| **Statistical Significance** | p < 0.0001 | Cohen's d = 0.952 (large effect size) |
 
 ### Empirical Benchmark Results (AdaptiveAnomalyDetector)
 
@@ -146,29 +147,29 @@ Mercury Agent ♱ with AdaptiveAnomalyDetector achieves **F1 = 0.80** on neuro-s
 
 ### Comprehensive Multi-Panel Visualizations
 
-The following consolidated visualizations capture all benchmark metrics in professional multi-panel format:
+The following consolidated visualizations capture all benchmark metrics in professional multi-panel format (v1.2.0):
 
 #### Neuro-Symbolic Benchmark Report
 
-Complete visualization of confidence evolution, domain competence, memory growth, neural/symbolic contributions, anomaly detection metrics, and benevolence scoring:
+Complete visualization showing confidence evolution over 200 epochs, final metrics radar chart, neural-symbolic fusion balance, precision/recall evolution, memory growth to 3,300 entries, and 8-domain performance heatmap:
 
 ![Neuro-Symbolic Benchmark Report](docs/images/neuro_symbolic_benchmark_report.png)
 
 #### Anomaly Detection Analysis
 
-Comprehensive anomaly detection panel showing precision/recall evolution, cosmic ray detection performance, domain competence comparison, threshold sensitivity analysis, detector throughput, and severity distribution:
+Comprehensive 9-panel analysis: F1 score evolution, detector comparison (Mercury vs peers), 8 enhanced statistical methods, threshold sensitivity, score distributions, throughput benchmarks, cross-platform integration (10+ platforms), 7 ensemble strategies, and statistical significance metrics:
 
 ![Anomaly Detection Panel](docs/images/anomaly_detection_panel.png)
 
 #### Performance, Ethics & Quality Dashboard
 
-Consolidated dashboard combining performance metrics, ethical governance tracking, and test coverage analysis:
+Consolidated dashboard showing benevolence score evolution, 180 ethical scalars distribution, latency comparison (CPU/GPU), memory footprint, Fairlearn bias metrics, Lyapunov stability (λ=0.25), 3-layer security architecture, and key performance indicators:
 
 ![Mercury Performance Dashboard](docs/images/mercury_performance_dashboard.png)
 
 #### Live Data Benchmark Summary
 
-Real-world dataset performance, streaming metrics, and module-level test coverage:
+Module coverage and codebase statistics: 30+ dataset categories, test coverage by module (85%+), codebase stats (360 modules, 153,953 LOC), 5 new v1.2.0 modules (4,921 LOC), dataset benchmark results, distributed processing scalability, version evolution, code quality metrics, and CI/CD pipeline status:
 
 ![Benchmark Summary Live Data](docs/images/benchmark_summary_live_data.png)
 
@@ -516,12 +517,13 @@ Optimized for both accuracy and interpretability:
 
 | Achievement | Description |
 |-------------|-------------|
-| Multi-Domain Coverage | 18+ detection engines across 5 domains |
-| Ethical Governance | Fairlearn bias detection, 150+ ethical scalars |
+| Multi-Domain Coverage | 22+ detection engines across 5 domains (8 new statistical methods) |
+| Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | 1,880+ tests, property-based testing, security scanning |
-| Cross-Platform | Linux, macOS, Windows, Docker, Kubernetes |
+| Comprehensive Testing | 4,863+ tests in 205 files, property-based testing, security scanning |
+| Cross-Platform | Linux, macOS, Windows, Docker, Kubernetes, 10+ external platforms |
 | Mathematical Rigor | Lyapunov stability, sigma_quadratic constraints |
+| Codebase Scale | 360 Python modules, 153,953+ lines of code |
 
 </details>
 
@@ -931,16 +933,20 @@ bandit -r src/ -f txt
 ### Test Coverage
 
 The test suite includes:
-- **1,880+ tests** across all modules (+200 new tests)
+- **4,863+ tests** across 205 test files
 - **Property-based testing** with Hypothesis for edge case discovery
 - **Security scanning** with Bandit integrated in CI/CD
-- **Coverage tracking**: 83%+ across core modules (target: 85%)
+- **Coverage tracking**: 85%+ across core modules
 
-**New Test Suites:**
+**New Test Suites (v1.2.0):**
+- `test_enhanced_anomaly_detection.py`: 38+ tests for enhanced statistical methods, cross-platform hub, ensemble coordination
+- `test_cortical_network.py`: 40+ tests for 6-layer cortical architecture
+- `test_statistical_real.py`: 30+ tests for Z-score, IQR, adaptive detection
+- `test_temporal_real.py`: 26+ tests for time-series pattern detection
+- `test_resilience_real.py`: 27+ tests for circuit breaker state machine
 - `test_enhanced_geological_detectors.py`: 60+ tests for Landslide/Wildfire/Volcanic with 3R synapses
 - `test_advanced_optimizers.py`: 50+ tests for SyntheticGradient/DTP/AMAV integration
 - `test_ava_guardian.py`: 60+ tests for Ava-Guardian PQC adapter and EWMA timing monitor
-- `test_gosnn_fallback.py`: 40+ tests for GOSNN error handling and 128D normalization
 
 **Ethics Scoring Notes:**
 Ethics tests (e.g., in `test_ai_ethics.py`) use keyword-based scoring with boosts. For example, compassion scoring uses a base of 0.55 with a +0.1 boost when 'backup' is present in parameters. For robustness, consider switching to boolean flags in future iterations—current implementation awards points for keyword presence in stringified params.
@@ -1266,6 +1272,7 @@ Mercury Agent ♱ transcends single-domain limitations by providing specialized 
 | Space | 4 | Solar flare (HMM), Schumann, cosmic ray, meteor (Bayesian) |
 | Infrastructure | 4 | CISA, crisis, climate, economic |
 | Environmental | 6 | Tsunami (FFT), earthquake (P/S-wave), landslide (SVM/RF), wildfire (CNN/NDVI), volcanic (HMM), disaster |
+| Statistical | 8 | MAD, LOF, DBSCAN, MCD, Grubbs, CUSUM, GESD, Dynamic Threshold |
 
 **Enhanced Geological Detectors:**
 - **Landslide**: SVM/RF classifiers with temporal lags, 3R Recursion synapse for multi-scale analysis
@@ -1399,6 +1406,201 @@ stats = model.train_with_advanced_optimizers(
 - Lyapunov stability tracking (λ=0.25)
 - Speedup factor estimation
 - Loss convergence monitoring
+
+</details>
+
+<details>
+<summary><strong>Enhanced Statistical Detection</strong> - 8 Robust Statistical Methods</summary>
+
+The **Enhanced Statistical Detection** module provides 8 advanced statistical anomaly detection methods for robust, interpretable detection:
+
+**Methods:**
+| Method | Description | Key Strength |
+|--------|-------------|--------------|
+| **MAD** | Median Absolute Deviation | 50% breakdown point, robust to outliers |
+| **LOF** | Local Outlier Factor | Density-based detection for local anomalies |
+| **DBSCAN** | Density-Based Clustering | Cluster-based anomaly identification |
+| **MCD** | Minimum Covariance Determinant | Robust covariance estimation |
+| **Grubbs** | Grubbs' Outlier Test | Statistical significance testing |
+| **CUSUM** | Cumulative Sum Control Chart | Sequential change detection |
+| **GESD** | Generalized ESD Test | Multiple outlier detection |
+| **Dynamic** | Dynamic Threshold Adaptation | Adaptive thresholding with EMA |
+
+**Usage:**
+```python
+from omni_mercury_engine.detectors.enhanced_statistical import (
+    MADDetector, LOFDetector, EnhancedStatisticalDetector
+)
+
+# Single method
+mad = MADDetector(threshold_multiplier=3.5)
+mad.fit(data)
+result = mad.detect(data)
+
+# Ensemble of methods
+detector = EnhancedStatisticalDetector(
+    methods=["mad", "lof", "dbscan"],
+    fusion_strategy="weighted_average"
+)
+```
+
+</details>
+
+<details>
+<summary><strong>Cross-Platform Integration Hub</strong> - Multi-Platform Orchestration</summary>
+
+The **Cross-Platform Hub** provides unified integration with external monitoring and observability platforms:
+
+**Supported Platforms:**
+| Platform | Protocol | Data Format |
+|----------|----------|-------------|
+| Prometheus | REST | Prometheus/OpenMetrics |
+| Elastic/OpenSearch | REST | JSON |
+| Splunk | REST | JSON |
+| Datadog | REST | JSON |
+| Azure Anomaly Detector | REST | JSON |
+| Netdata | REST/WebSocket | JSON |
+| Grafana | REST | JSON |
+| InfluxDB | REST | JSON |
+
+**Protocol Support:** REST, gRPC, WebSocket, MQTT, Kafka, Redis Streams
+
+**Data Formats:** JSON, Prometheus, OpenTelemetry, CSV, MessagePack, Avro, Parquet
+
+**Usage:**
+```python
+from omni_mercury_engine.integrations.cross_platform_hub import (
+    CrossPlatformHub, PlatformConfig, PlatformType
+)
+
+hub = CrossPlatformHub()
+hub.register_platform(PlatformConfig(
+    platform_type=PlatformType.PROMETHEUS,
+    name="prometheus-main",
+    endpoint="http://prometheus:9090"
+))
+
+# Ingest and correlate across platforms
+await hub.ingest_from_all()
+correlations = hub.correlate_events(window_seconds=300)
+```
+
+</details>
+
+<details>
+<summary><strong>Ensemble Coordination</strong> - Advanced Ensemble Fusion</summary>
+
+The **Ensemble Coordinator** provides sophisticated strategies for combining multiple detectors:
+
+**Ensemble Strategies:**
+| Strategy | Description | Best For |
+|----------|-------------|----------|
+| **Voting** | Majority/weighted voting | High precision requirements |
+| **Averaging** | Score averaging | Balanced precision/recall |
+| **Stacking** | Meta-learner on top | Complex data patterns |
+| **Cascading** | Sequential filtering (fast→accurate) | High-throughput scenarios |
+| **Boosting** | Boosting-style combination | Improving weak detectors |
+| **Mixture of Experts** | Gated expert selection | Domain-specific detection |
+| **Adaptive** | Dynamic strategy selection | Varying data characteristics |
+
+**Advanced Features:**
+- **Bayesian Weight Optimization** - Thompson Sampling for detector weights
+- **Gradient Weight Optimizer** - Momentum-based gradient descent
+- **Meta-Learner** - Automatic detector selection based on data characteristics
+- **Online Feedback Learning** - Continuous improvement from user feedback
+
+**Usage:**
+```python
+from omni_mercury_engine.ml.ensemble_coordinator import (
+    EnsembleCoordinator, EnsembleStrategy
+)
+
+coordinator = EnsembleCoordinator(
+    strategy=EnsembleStrategy.CASCADING,
+    enable_online_learning=True
+)
+coordinator.register_detector("fast_statistical", statistical_detector)
+coordinator.register_detector("accurate_neural", neural_detector)
+result = coordinator.detect(data)
+```
+
+</details>
+
+<details>
+<summary><strong>Distributed Processing</strong> - Scalable Parallel Detection</summary>
+
+The **Distributed Processor** enables large-scale anomaly detection with parallel processing:
+
+**Processing Strategies:**
+| Strategy | Use Case | Parallelism |
+|----------|----------|-------------|
+| **Sequential** | Small datasets | None |
+| **Threaded** | I/O-bound tasks | Threads |
+| **Multiprocess** | CPU-bound tasks | Processes |
+| **Async** | Network operations | Coroutines |
+| **Hybrid** | Mixed workloads | Threads + Processes |
+
+**Load Balancing:** Round-robin, Least-loaded, Weighted, Adaptive
+
+**Features:**
+- **ChunkGenerator** - Memory-efficient data iteration
+- **Fault Tolerance** - Automatic retry with exponential backoff
+- **Progress Tracking** - Real-time monitoring
+- **Backpressure Control** - Prevents memory exhaustion
+
+**Usage:**
+```python
+from omni_mercury_engine.scaling.distributed_processor import (
+    DistributedProcessor, ProcessingConfig, ProcessingStrategy
+)
+
+processor = DistributedProcessor(
+    detector=my_detector,
+    config=ProcessingConfig(
+        strategy=ProcessingStrategy.HYBRID,
+        num_workers=8,
+        chunk_size=1000
+    )
+)
+results = processor.process(large_dataset)
+```
+
+</details>
+
+<details>
+<summary><strong>Visualization Dashboard</strong> - Interactive Plotly Dashboards</summary>
+
+The **Visualization Dashboard** provides interactive visualizations for anomaly analysis:
+
+**Chart Types:**
+| Chart | Purpose |
+|-------|---------|
+| Time Series | Anomaly scores over time with threshold lines |
+| Feature Importance | Bar chart of feature contributions |
+| Correlation Heatmap | Feature correlation matrix |
+| 3D Scatter | Multi-dimensional anomaly visualization |
+| Radar Chart | Multi-detector comparison |
+| Anomaly Timeline | Event-based anomaly view |
+| Distribution Histogram | Score distribution with anomaly overlay |
+| Detector Comparison | Side-by-side detector performance |
+
+**Export Formats:** HTML (interactive), PNG, JSON
+
+**Usage:**
+```python
+from omni_mercury_engine.gui.visualization_dashboard import (
+    AnomalyVisualizer, DashboardBuilder
+)
+
+visualizer = AnomalyVisualizer(theme="plotly_dark")
+fig = visualizer.time_series_plot(timestamps, scores, threshold=0.5)
+
+# Build multi-panel dashboard
+dashboard = DashboardBuilder()
+dashboard.add_chart("time_series", timestamps, scores)
+dashboard.add_chart("heatmap", correlation_matrix)
+dashboard.export_html("anomaly_report.html")
+```
 
 </details>
 
@@ -1548,7 +1750,7 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**Mercury Agent ♱ v1.1 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
+**Mercury Agent ♱ v1.2 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 
@@ -1558,6 +1760,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 </div>
 
-*Last updated: 2026-01-27*
+*Last updated: 2026-02-03*
 
 </div>

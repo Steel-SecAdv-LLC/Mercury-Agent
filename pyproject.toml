@@ -709,6 +709,8 @@ ignore = [
 "src/omni_mercury_engine/detectors/**/*.py" = ["S310"]
 "src/omni_mercury_engine/validation/data_loaders.py" = ["S310"]
 "src/omni_mercury_engine/security/input_validation.py" = ["S310"]
+# C408: dict() is idiomatic for Plotly visualization code
+"src/omni_mercury_engine/gui/**/*.py" = ["C408"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["omni_mercury_engine"]
