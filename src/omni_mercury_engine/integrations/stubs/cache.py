@@ -705,7 +705,9 @@ class RedisCache:
             import base64
             import pickle  # nosec B403 - pickle used for internal cache serialization only
 
-            return pickle.loads(base64.b64decode(data.encode()))  # nosec B301 - trusted Redis cache data
+            return pickle.loads(
+                base64.b64decode(data.encode())
+            )  # nosec B301 - trusted Redis cache data
 
     async def get(self, key: str) -> Any | None:
         """Get value from cache.
