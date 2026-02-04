@@ -60,8 +60,7 @@ class PrivacyBudget:
     def can_spend(self, epsilon: float, delta: float = 0.0) -> bool:
         """Check if we can spend the given budget."""
         return (
-            self.spent_epsilon + epsilon <= self.epsilon and
-            self.spent_delta + delta <= self.delta
+            self.spent_epsilon + epsilon <= self.epsilon and self.spent_delta + delta <= self.delta
         )
 
     def spend(self, epsilon: float, delta: float = 0.0) -> bool:
@@ -139,20 +138,16 @@ class PrivacyAccountant:
             return 0.0
 
         if q == 1:
-            return order / (2 * sigma ** 2)
+            return order / (2 * sigma**2)
 
         log_terms = []
         for k in range(int(order) + 1):
-            log_coeff = (
-                math.lgamma(order + 1) -
-                math.lgamma(k + 1) -
-                math.lgamma(order - k + 1)
-            )
+            log_coeff = math.lgamma(order + 1) - math.lgamma(k + 1) - math.lgamma(order - k + 1)
             log_term = (
-                log_coeff +
-                k * math.log(q) +
-                (order - k) * math.log(1 - q) +
-                k * (k - 1) / (2 * sigma ** 2)
+                log_coeff
+                + k * math.log(q)
+                + (order - k) * math.log(1 - q)
+                + k * (k - 1) / (2 * sigma**2)
             )
             log_terms.append(log_term)
 
@@ -171,8 +166,11 @@ class PrivacyAccountant:
         for i, order in enumerate(self._rdp_orders):
             if order <= 1:
                 continue
-            eps = rdp_eps[i] - (math.log(delta) + math.log(order)) / (order - 1) + \
-                  math.log((order - 1) / order)
+            eps = (
+                rdp_eps[i]
+                - (math.log(delta) + math.log(order)) / (order - 1)
+                + math.log((order - 1) / order)
+            )
             epsilons.append(eps)
 
         return min(epsilons) if epsilons else float("inf")
@@ -187,8 +185,9 @@ class PrivacyAccountant:
         single_eps = sensitivity / (sigma * math.sqrt(2 * math.log(1.25 / self.total_delta)))
 
         k = len(self._queries) + 1
-        composed_eps = math.sqrt(2 * k * math.log(1 / self.total_delta)) * single_eps + \
-                       k * single_eps * (math.exp(single_eps) - 1)
+        composed_eps = math.sqrt(
+            2 * k * math.log(1 / self.total_delta)
+        ) * single_eps + k * single_eps * (math.exp(single_eps) - 1)
 
         return composed_eps, self.total_delta
 
@@ -427,9 +426,7 @@ class SecureAggregator:
             Aggregated update with DP noise
         """
         if len(updates) < self._min_clients:
-            raise ValueError(
-                f"Need at least {self._min_clients} clients, got {len(updates)}"
-            )
+            raise ValueError(f"Need at least {self._min_clients} clients, got {len(updates)}")
 
         if weights is None:
             weights = [1.0 / len(updates)] * len(updates)

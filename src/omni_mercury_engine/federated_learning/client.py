@@ -545,7 +545,8 @@ class ClientManager:
     def get_available_clients(self) -> list[FederatedClient]:
         """Get clients that are available for training."""
         return [
-            c for c in self._clients.values()
+            c
+            for c in self._clients.values()
             if c.status != ClientStatus.OFFLINE and not c.is_privacy_exhausted()
         ]
 
@@ -562,10 +563,7 @@ class ClientManager:
         available = self.get_available_clients()
 
         if len(available) < self._min_clients:
-            logger.warning(
-                f"Only {len(available)} clients available, "
-                f"need {self._min_clients}"
-            )
+            logger.warning(f"Only {len(available)} clients available, " f"need {self._min_clients}")
             return available
 
         if n_clients is None:

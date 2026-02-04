@@ -42,11 +42,9 @@ __all__ = [
 class DetectorProtocol(Protocol):
     """Protocol for compatible detectors."""
 
-    def fit(self, X: NDArray[np.float64], y: NDArray[np.float64] | None = None) -> Any:
-        ...
+    def fit(self, X: NDArray[np.float64], y: NDArray[np.float64] | None = None) -> Any: ...
 
-    def predict(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
-        ...
+    def predict(self, X: NDArray[np.float64]) -> NDArray[np.float64]: ...
 
 
 @dataclass
@@ -252,9 +250,7 @@ class GWOEnsembleDetector:
         self.detectors.append(detector)
         return self
 
-    def _compute_diversity(
-        self, predictions_list: list[NDArray[np.float64]]
-    ) -> float:
+    def _compute_diversity(self, predictions_list: list[NDArray[np.float64]]) -> float:
         """
         Compute diversity among detector predictions.
 
@@ -397,9 +393,7 @@ class GWOEnsembleDetector:
         self._fitted = True
         return self
 
-    def _aggregate_scores(
-        self, detector_scores: list[NDArray[np.float64]]
-    ) -> NDArray[np.float64]:
+    def _aggregate_scores(self, detector_scores: list[NDArray[np.float64]]) -> NDArray[np.float64]:
         """Aggregate scores from multiple detectors."""
         assert self.weights is not None
 

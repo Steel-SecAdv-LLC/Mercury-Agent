@@ -311,12 +311,9 @@ def neurocritical_interface() -> None:
     st.markdown("Advanced neurological emergency detection and monitoring")
 
     # Tab-based interface for different neurocritical assessments
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "Stroke Assessment",
-        "ICP Monitoring",
-        "Seizure Detection",
-        "Consciousness Assessment"
-    ])
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["Stroke Assessment", "ICP Monitoring", "Seizure Detection", "Consciousness Assessment"]
+    )
 
     with tab1:
         stroke_assessment_panel()
@@ -489,8 +486,15 @@ def icp_monitoring_panel() -> None:
         head_elevation = st.slider("Head of Bed Elevation (degrees)", 0, 45, 30)
         st.selectbox(
             "Sedation Level (RASS)",
-            ["-5 (Unarousable)", "-4 (Deep sedation)", "-3 (Moderate sedation)",
-             "-2 (Light sedation)", "-1 (Drowsy)", "0 (Alert)", "+1 (Restless)"],
+            [
+                "-5 (Unarousable)",
+                "-4 (Deep sedation)",
+                "-3 (Moderate sedation)",
+                "-2 (Light sedation)",
+                "-1 (Drowsy)",
+                "0 (Alert)",
+                "+1 (Restless)",
+            ],
             index=5,
         )
         pupil_reactivity = st.selectbox(
@@ -507,6 +511,7 @@ def icp_monitoring_panel() -> None:
     if icp_file is not None:
         try:
             import pandas as pd
+
             icp_trend_data = pd.read_csv(icp_file)
             st.success(f"Loaded {len(icp_trend_data)} ICP readings from file")
 
@@ -582,8 +587,15 @@ def seizure_detection_panel() -> None:
         st.markdown("**Clinical Observations**")
         seizure_type = st.selectbox(
             "Observed Seizure Type",
-            ["None observed", "Focal aware", "Focal impaired awareness",
-             "Generalized tonic-clonic", "Absence", "Myoclonic", "Status epilepticus"],
+            [
+                "None observed",
+                "Focal aware",
+                "Focal impaired awareness",
+                "Generalized tonic-clonic",
+                "Absence",
+                "Myoclonic",
+                "Status epilepticus",
+            ],
             index=0,
         )
         duration_seconds = st.number_input("Duration (seconds)", 0, 600, 0)
@@ -598,9 +610,15 @@ def seizure_detection_panel() -> None:
         st.markdown("**EEG Findings (if available)**")
         eeg_pattern = st.selectbox(
             "Predominant EEG Pattern",
-            ["Normal background", "Generalized slowing", "Focal slowing",
-             "Periodic discharges", "Spike-wave complexes", "Suppression-burst",
-             "Electrographic seizure"],
+            [
+                "Normal background",
+                "Generalized slowing",
+                "Focal slowing",
+                "Periodic discharges",
+                "Spike-wave complexes",
+                "Suppression-burst",
+                "Electrographic seizure",
+            ],
             index=0,
         )
         st.selectbox(
@@ -612,8 +630,15 @@ def seizure_detection_panel() -> None:
         st.markdown("**Antiepileptic Drugs**")
         current_aed = st.multiselect(
             "Current AEDs",
-            ["Levetiracetam", "Phenytoin", "Valproate", "Lacosamide",
-             "Carbamazepine", "Phenobarbital", "Midazolam"],
+            [
+                "Levetiracetam",
+                "Phenytoin",
+                "Valproate",
+                "Lacosamide",
+                "Carbamazepine",
+                "Phenobarbital",
+                "Midazolam",
+            ],
         )
 
     # Upload EEG data
@@ -626,25 +651,29 @@ def seizure_detection_panel() -> None:
 
             if file_type == "csv":
                 import pandas as pd
+
                 eeg_data = pd.read_csv(eeg_file)
-                st.success(f"Loaded EEG data: {eeg_data.shape[0]} samples, {eeg_data.shape[1]} channels")
+                st.success(
+                    f"Loaded EEG data: {eeg_data.shape[0]} samples, {eeg_data.shape[1]} channels"
+                )
 
                 # Display EEG waveform preview (first channel)
                 if len(eeg_data.columns) > 0:
                     st.markdown("**EEG Signal Preview (first channel):**")
-                    preview_data = eeg_data.iloc[:min(1000, len(eeg_data)), 0]
+                    preview_data = eeg_data.iloc[: min(1000, len(eeg_data)), 0]
                     st.line_chart(preview_data)
 
                     # Basic spectral analysis
                     import numpy as np
+
                     signal = eeg_data.iloc[:, 0].values
                     if len(signal) > 256:
                         # Simple power spectral density estimate
                         fft_vals = np.abs(np.fft.rfft(signal[:1024]))
-                        delta_power = np.mean(fft_vals[1:4])    # 0.5-4 Hz
-                        theta_power = np.mean(fft_vals[4:8])    # 4-8 Hz
-                        alpha_power = np.mean(fft_vals[8:13])   # 8-13 Hz
-                        beta_power = np.mean(fft_vals[13:30])   # 13-30 Hz
+                        delta_power = np.mean(fft_vals[1:4])  # 0.5-4 Hz
+                        theta_power = np.mean(fft_vals[4:8])  # 4-8 Hz
+                        alpha_power = np.mean(fft_vals[8:13])  # 8-13 Hz
+                        beta_power = np.mean(fft_vals[13:30])  # 13-30 Hz
 
                         st.markdown("**Spectral Power (relative):**")
                         col_a, col_b, col_c, col_d = st.columns(4)
@@ -656,7 +685,6 @@ def seizure_detection_panel() -> None:
                             st.metric("Alpha", f"{alpha_power:.1f}")
                         with col_d:
                             st.metric("Beta", f"{beta_power:.1f}")
-
 
             elif file_type == "edf":
                 st.info("EDF files require pyedflib library. Using header information only.")
@@ -779,7 +807,9 @@ def consciousness_assessment_panel() -> None:
         pupil_right = st.selectbox("Right Pupil", ["Reactive", "Sluggish", "Fixed"], index=0)
 
     gcs_total = e_score + v_score + m_score
-    pupil_reactivity_score = (1 if pupil_left == "Reactive" else 0) + (1 if pupil_right == "Reactive" else 0)
+    pupil_reactivity_score = (1 if pupil_left == "Reactive" else 0) + (
+        1 if pupil_right == "Reactive" else 0
+    )
     gcs_p = gcs_total - (2 - pupil_reactivity_score)  # GCS-Pupils score
 
     st.markdown("---")

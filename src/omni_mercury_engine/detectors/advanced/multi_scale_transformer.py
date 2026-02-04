@@ -86,9 +86,7 @@ class PositionalEncoding(nn.Module):
 
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
-        )
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
 
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term[: d_model // 2])
@@ -238,9 +236,7 @@ class CrossScaleAttention(nn.Module):
             nn.Dropout(dropout),
         )
 
-    def forward(
-        self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
         # Cross-attention
         attn_out, _ = self.cross_attn(query, key, value)
         x = self.norm1(query + attn_out)
@@ -303,9 +299,7 @@ class AssociationDiscrepancy(nn.Module):
 
         return prior_assoc, series_assoc
 
-    def compute_discrepancy(
-        self, prior: torch.Tensor, series: torch.Tensor
-    ) -> torch.Tensor:
+    def compute_discrepancy(self, prior: torch.Tensor, series: torch.Tensor) -> torch.Tensor:
         """Compute KL divergence between prior and series associations."""
         # Average over heads: series is [batch, heads, seq, seq]
         series_avg = series.mean(dim=1)  # [batch, seq, seq]
@@ -388,9 +382,7 @@ class MultiScaleTransformerModel(nn.Module):
             nn.Linear(config.d_ff, config.input_dim),
         )
 
-    def forward(
-        self, x: torch.Tensor, return_all: bool = False
-    ) -> dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, return_all: bool = False) -> dict[str, torch.Tensor]:
         """
         Forward pass.
 
@@ -500,9 +492,7 @@ class MultiScaleTransformerDetector:
         self.threshold: float = 0.0
         self._fitted = False
 
-    def _create_windows(
-        self, data: NDArray[np.float64], window_size: int
-    ) -> NDArray[np.float64]:
+    def _create_windows(self, data: NDArray[np.float64], window_size: int) -> NDArray[np.float64]:
         """Create sliding windows from time series."""
         n_samples = len(data) - window_size + 1
         windows = np.zeros((n_samples, window_size, data.shape[1]))
@@ -553,9 +543,7 @@ class MultiScaleTransformerDetector:
             lr=self.config.learning_rate,
             weight_decay=1e-5,
         )
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=self.config.epochs
-        )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.config.epochs)
 
         best_val_loss = float("inf")
         patience_counter = 0

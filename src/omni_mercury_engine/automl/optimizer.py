@@ -197,9 +197,7 @@ class TPESampler(Sampler):
                 config[name] = param.sample()
                 continue
 
-            config[name] = self._sample_param_tpe(
-                param, below_values, above_values
-            )
+            config[name] = self._sample_param_tpe(param, below_values, above_values)
 
         return config
 
@@ -397,9 +395,7 @@ class GaussianProcessSampler(Sampler):
             mu = np.dot(k_star, alpha)
 
             v = np.linalg.solve(L, k_star)
-            k_star_star = self._rbf_kernel(
-                x.reshape(1, -1), x.reshape(1, -1), length_scale
-            )[0, 0]
+            k_star_star = self._rbf_kernel(x.reshape(1, -1), x.reshape(1, -1), length_scale)[0, 0]
             sigma = np.sqrt(max(1e-8, k_star_star - np.dot(v, v)))
         except np.linalg.LinAlgError:
             mu = np.mean(y)
@@ -414,9 +410,11 @@ class GaussianProcessSampler(Sampler):
         length_scale: float,
     ) -> np.ndarray:
         """RBF (Gaussian) kernel."""
-        sq_dist = np.sum(X1**2, axis=1).reshape(-1, 1) + \
-                  np.sum(X2**2, axis=1).reshape(1, -1) - \
-                  2 * np.dot(X1, X2.T)
+        sq_dist = (
+            np.sum(X1**2, axis=1).reshape(-1, 1)
+            + np.sum(X2**2, axis=1).reshape(1, -1)
+            - 2 * np.dot(X1, X2.T)
+        )
         return np.exp(-0.5 * sq_dist / (length_scale**2))
 
     def _expected_improvement(
@@ -802,9 +800,7 @@ class MercuryAutoML:
             self._result.best_metric = -self._result.best_metric
             for trial in self._result.all_trials:
                 trial.metric = -trial.metric
-            self._result.convergence_history = [
-                -m for m in self._result.convergence_history
-            ]
+            self._result.convergence_history = [-m for m in self._result.convergence_history]
 
         self._best_config = self._result.best_config
 
@@ -934,7 +930,7 @@ class MercuryAutoML:
 
         auc = 0.0
         for i in range(1, len(fpr_values)):
-            auc += (fpr_values[i] - fpr_values[i-1]) * (tpr_values[i] + tpr_values[i-1]) / 2
+            auc += (fpr_values[i] - fpr_values[i - 1]) * (tpr_values[i] + tpr_values[i - 1]) / 2
 
         return auc
 
@@ -986,7 +982,9 @@ class MercuryAutoML:
             return {}
 
         importance = {}
-        all_metrics = [t.metric for t in self._result.all_trials if t.status == TrialStatus.COMPLETED]
+        all_metrics = [
+            t.metric for t in self._result.all_trials if t.status == TrialStatus.COMPLETED
+        ]
 
         if not all_metrics:
             return {}
@@ -1089,7 +1087,7 @@ class SimpleClassifier:
         predictions = []
         for x in X:
             distances = np.sqrt(np.sum((self._X_train - x) ** 2, axis=1))
-            nearest_indices = np.argsort(distances)[:self._n_neighbors]
+            nearest_indices = np.argsort(distances)[: self._n_neighbors]
             nearest_labels = self._y_train[nearest_indices]
             prediction = int(np.round(np.mean(nearest_labels)))
             predictions.append(prediction)
@@ -1124,7 +1122,7 @@ class SimpleRegressor:
         predictions = []
         for x in X:
             distances = np.sqrt(np.sum((self._X_train - x) ** 2, axis=1))
-            nearest_indices = np.argsort(distances)[:self._n_neighbors]
+            nearest_indices = np.argsort(distances)[: self._n_neighbors]
             nearest_values = self._y_train[nearest_indices]
             prediction = np.mean(nearest_values)
             predictions.append(prediction)

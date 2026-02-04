@@ -228,14 +228,16 @@ class SimulatorBackend:
 
             execution_time = time.time() - start_time
 
-            results.append(ExecutionResult(
-                job_id=str(uuid.uuid4()),
-                status=JobStatus.COMPLETED,
-                counts=counts,
-                shots=shots,
-                backend_name=self._name,
-                execution_time=execution_time,
-            ))
+            results.append(
+                ExecutionResult(
+                    job_id=str(uuid.uuid4()),
+                    status=JobStatus.COMPLETED,
+                    counts=counts,
+                    shots=shots,
+                    backend_name=self._name,
+                    execution_time=execution_time,
+                )
+            )
 
         return results
 
@@ -247,6 +249,7 @@ class SimulatorBackend:
         """Simulate a Qiskit circuit using Aer if available."""
         try:
             from qiskit_aer import AerSimulator
+
             simulator = AerSimulator()
             result = simulator.run(circuit, shots=shots).result()
             return dict(result.get_counts())
@@ -356,14 +359,16 @@ class IBMQuantumBackend:
 
             for i, pub_result in enumerate(result):
                 counts = pub_result.data.meas.get_counts()
-                execution_results.append(ExecutionResult(
-                    job_id=job.job_id,
-                    status=JobStatus.COMPLETED,
-                    counts=counts,
-                    shots=job._shots,
-                    backend_name=job._backend_name,
-                    execution_time=0.0,
-                ))
+                execution_results.append(
+                    ExecutionResult(
+                        job_id=job.job_id,
+                        status=JobStatus.COMPLETED,
+                        counts=counts,
+                        shots=job._shots,
+                        backend_name=job._backend_name,
+                        execution_time=0.0,
+                    )
+                )
 
             return execution_results
 
@@ -540,19 +545,15 @@ class BatchExecutor:
             List of execution results
         """
         batches = [
-            circuits[i:i + self._batch_size]
-            for i in range(0, len(circuits), self._batch_size)
+            circuits[i : i + self._batch_size] for i in range(0, len(circuits), self._batch_size)
         ]
 
         all_results = []
 
         for i in range(0, len(batches), self._max_parallel):
-            parallel_batches = batches[i:i + self._max_parallel]
+            parallel_batches = batches[i : i + self._max_parallel]
 
-            tasks = [
-                self._executor.run_async(batch, shots)
-                for batch in parallel_batches
-            ]
+            tasks = [self._executor.run_async(batch, shots) for batch in parallel_batches]
 
             batch_results = await asyncio.gather(*tasks)
 

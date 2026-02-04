@@ -126,7 +126,7 @@ class AudioPreprocessor:
             if end <= n_samples:
                 frames[i] = signal[start:end]
             else:
-                frames[i, :n_samples - start] = signal[start:]
+                frames[i, : n_samples - start] = signal[start:]
 
         window = np.hamming(self._frame_length)
         frames = frames * window
@@ -236,10 +236,10 @@ class MFCCExtractor:
             frame = frames[i]
 
             padded = np.zeros(self._n_fft)
-            padded[:len(frame)] = frame
+            padded[: len(frame)] = frame
             spectrum = np.abs(np.fft.rfft(padded))
 
-            power_spectrum = spectrum ** 2
+            power_spectrum = spectrum**2
 
             mel_spectrum = np.dot(self._mel_filterbank, power_spectrum)
             mel_spectrum = np.maximum(mel_spectrum, 1e-10)
@@ -267,7 +267,7 @@ class MFCCExtractor:
         n_frames, n_features = features.shape
         deltas = np.zeros_like(features)
 
-        denominator = 2 * sum(i ** 2 for i in range(1, n + 1))
+        denominator = 2 * sum(i**2 for i in range(1, n + 1))
 
         for t in range(n_frames):
             numerator = np.zeros(n_features)
@@ -323,9 +323,9 @@ class PitchExtractor:
         """Estimate pitch for a single frame using autocorrelation."""
         n = len(frame)
         autocorr = np.correlate(frame, frame, mode="full")
-        autocorr = autocorr[n - 1:]
+        autocorr = autocorr[n - 1 :]
 
-        valid_range = autocorr[self._min_lag:self._max_lag]
+        valid_range = autocorr[self._min_lag : self._max_lag]
         if len(valid_range) == 0:
             return 0.0
 
@@ -357,7 +357,7 @@ class EnergyExtractor:
         Returns:
             Log energy values
         """
-        energy = np.sum(frames ** 2, axis=1)
+        energy = np.sum(frames**2, axis=1)
         energy = np.maximum(energy, self._floor)
         log_energy = np.log(energy)
 
@@ -443,14 +443,18 @@ class VoiceMatcher:
         """
         embedding_sim = self._cosine_similarity(probe.embedding, enrolled.embedding)
 
-        probe_combined = np.concatenate([
-            probe.mfcc.flatten()[:1000],
-            probe.delta_mfcc.flatten()[:1000],
-        ])
-        enrolled_combined = np.concatenate([
-            enrolled.mfcc.flatten()[:1000],
-            enrolled.delta_mfcc.flatten()[:1000],
-        ])
+        probe_combined = np.concatenate(
+            [
+                probe.mfcc.flatten()[:1000],
+                probe.delta_mfcc.flatten()[:1000],
+            ]
+        )
+        enrolled_combined = np.concatenate(
+            [
+                enrolled.mfcc.flatten()[:1000],
+                enrolled.delta_mfcc.flatten()[:1000],
+            ]
+        )
 
         probe_combined = probe_combined / (np.linalg.norm(probe_combined) + 1e-8)
         enrolled_combined = enrolled_combined / (np.linalg.norm(enrolled_combined) + 1e-8)
@@ -565,7 +569,7 @@ class VoiceLivenessDetector:
 
         for i in range(n_frames):
             start = i * hop_length
-            frame = audio[start:start + n_fft]
+            frame = audio[start : start + n_fft]
 
             if len(frame) < n_fft:
                 frame = np.pad(frame, (0, n_fft - len(frame)))
@@ -592,27 +596,27 @@ class VoiceLivenessDetector:
         audio = audio / (np.max(np.abs(audio)) + 1e-8)
 
         n_fft = 1024
-        spectrum = np.abs(np.fft.rfft(audio[:n_fft * 10]))
+        spectrum = np.abs(np.fft.rfft(audio[: n_fft * 10]))
 
         log_spectrum = np.log(np.maximum(spectrum, 1e-10))
         cepstrum = np.fft.irfft(log_spectrum)
 
-        quefrency_range = cepstrum[sample_rate // 500:sample_rate // 50]
+        quefrency_range = cepstrum[sample_rate // 500 : sample_rate // 50]
         if len(quefrency_range) == 0:
             return 0.5
 
         pitch_peak = np.max(np.abs(quefrency_range))
-        avg_level = np.mean(np.abs(cepstrum[len(cepstrum) // 4:]))
+        avg_level = np.mean(np.abs(cepstrum[len(cepstrum) // 4 :]))
 
         if pitch_peak < avg_level * 2:
             return 0.3
 
         freq_bins = len(spectrum)
-        high_freq = spectrum[freq_bins // 2:]
-        low_freq = spectrum[:freq_bins // 2]
+        high_freq = spectrum[freq_bins // 2 :]
+        low_freq = spectrum[: freq_bins // 2]
 
-        high_energy = np.sum(high_freq ** 2)
-        low_energy = np.sum(low_freq ** 2) + 1e-10
+        high_energy = np.sum(high_freq**2)
+        low_energy = np.sum(low_freq**2) + 1e-10
 
         ratio = high_energy / low_energy
         expected_ratio = 0.1
@@ -628,18 +632,18 @@ class VoiceLivenessDetector:
         audio = audio / (np.max(np.abs(audio)) + 1e-8)
 
         n_fft = 2048
-        spectrum = np.abs(np.fft.rfft(audio[:n_fft * 20]))
+        spectrum = np.abs(np.fft.rfft(audio[: n_fft * 20]))
 
         freq_bins = len(spectrum)
         bin_hz = sample_rate / 2 / freq_bins
 
-        low_band = spectrum[int(100 / bin_hz):int(500 / bin_hz)]
-        mid_band = spectrum[int(500 / bin_hz):int(2000 / bin_hz)]
-        high_band = spectrum[int(2000 / bin_hz):int(8000 / bin_hz)]
+        low_band = spectrum[int(100 / bin_hz) : int(500 / bin_hz)]
+        mid_band = spectrum[int(500 / bin_hz) : int(2000 / bin_hz)]
+        high_band = spectrum[int(2000 / bin_hz) : int(8000 / bin_hz)]
 
-        low_energy = np.mean(low_band ** 2) if len(low_band) > 0 else 0
-        mid_energy = np.mean(mid_band ** 2) if len(mid_band) > 0 else 0
-        high_energy = np.mean(high_band ** 2) if len(high_band) > 0 else 0
+        low_energy = np.mean(low_band**2) if len(low_band) > 0 else 0
+        mid_energy = np.mean(mid_band**2) if len(mid_band) > 0 else 0
+        high_energy = np.mean(high_band**2) if len(high_band) > 0 else 0
 
         total_energy = low_energy + mid_energy + high_energy + 1e-10
 
@@ -697,8 +701,8 @@ class VoiceActivityDetector:
 
         for i in range(n_frames):
             start = i * self._frame_shift
-            frame = audio[start:start + self._frame_length]
-            energy[i] = np.sum(frame ** 2)
+            frame = audio[start : start + self._frame_length]
+            energy[i] = np.sum(frame**2)
 
         energy = energy / (np.max(energy) + 1e-8)
 
@@ -844,9 +848,7 @@ class VoiceRecognizer:
             if liveness_samples:
                 samples.extend(liveness_samples)
 
-            liveness_result = self._liveness_detector.detect(
-                samples, self._sample_rate
-            )
+            liveness_result = self._liveness_detector.detect(samples, self._sample_rate)
 
             if not liveness_result.is_live:
                 match_result = VoiceMatchResult(

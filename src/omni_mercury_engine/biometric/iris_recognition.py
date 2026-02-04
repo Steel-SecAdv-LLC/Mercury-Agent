@@ -88,7 +88,7 @@ class GaborFilter:
         half_size = self._kernel_size // 2
 
         for scale in range(self._num_scales):
-            wavelength = self._wavelength_base * (2 ** scale)
+            wavelength = self._wavelength_base * (2**scale)
             sigma = self._sigma * (2 ** (scale / 2))
 
             for orientation in range(self._num_orientations):
@@ -633,9 +633,7 @@ class IrisRecognizer:
         Returns:
             IrisFeatures containing iris code and metadata
         """
-        pupil_center, pupil_radius, iris_center, iris_radius = self._segmenter.segment(
-            image
-        )
+        pupil_center, pupil_radius, iris_center, iris_radius = self._segmenter.segment(image)
 
         normalized, mask = self._normalizer.normalize(
             image, pupil_center, pupil_radius, iris_center, iris_radius
@@ -715,8 +713,6 @@ class IrisRecognizer:
 
         contrast = np.std(normalized_iris[mask])
 
-        quality = 0.4 * usable_ratio + 0.3 * min(1.0, sharpness * 10) + 0.3 * min(
-            1.0, contrast * 5
-        )
+        quality = 0.4 * usable_ratio + 0.3 * min(1.0, sharpness * 10) + 0.3 * min(1.0, contrast * 5)
 
         return float(quality)

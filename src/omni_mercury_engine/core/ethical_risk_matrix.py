@@ -297,29 +297,23 @@ class GDPRCompliance:
         elif basis_type == "contract":
             # Processing necessary for contract performance
             valid = bool(
-                basis_doc.get("contract_reference")
-                and basis_doc.get("processing_necessary")
+                basis_doc.get("contract_reference") and basis_doc.get("processing_necessary")
             )
 
         elif basis_type == "legal_obligation":
             # Processing required by law
-            valid = bool(
-                basis_doc.get("legal_reference")
-                and basis_doc.get("member_state_law")
-            )
+            valid = bool(basis_doc.get("legal_reference") and basis_doc.get("member_state_law"))
 
         elif basis_type == "vital_interests":
             # Necessary to protect life
             valid = bool(
-                basis_doc.get("vital_interest_documented")
-                and basis_doc.get("no_alternative_basis")
+                basis_doc.get("vital_interest_documented") and basis_doc.get("no_alternative_basis")
             )
 
         elif basis_type == "public_task":
             # Processing for official authority
             valid = bool(
-                basis_doc.get("public_authority_mandate")
-                and basis_doc.get("task_documentation")
+                basis_doc.get("public_authority_mandate") and basis_doc.get("task_documentation")
             )
 
         elif basis_type == "legitimate_interests":
@@ -418,9 +412,7 @@ class GDPRCompliance:
                 "for data collected being adequate, relevant, and limited"
             )
         if not minimization_evidence.get("retention_policy_defined", False):
-            violations.append(
-                "GDPR Art. 5(1)(e): Storage limitation - no defined retention policy"
-            )
+            violations.append("GDPR Art. 5(1)(e): Storage limitation - no defined retention policy")
 
         # Article 5(1)(b): Purpose limitation with evidence
         purpose_evidence = context.get("purpose_limitation_evidence", {})
@@ -500,8 +492,7 @@ class GDPRCompliance:
                 )
             elif not dpia.get("risk_mitigation_documented", False):
                 violations.append(
-                    "GDPR Art. 35(7): DPIA conducted but risk mitigation measures "
-                    "not documented"
+                    "GDPR Art. 35(7): DPIA conducted but risk mitigation measures " "not documented"
                 )
 
         # Chapter V: International transfers
@@ -635,15 +626,11 @@ class GDPRCompliance:
         # Prioritize by severity
         critical_violations = [v for v in violations if v.severity == "critical"]
         if critical_violations:
-            recommendations.append(
-                "IMMEDIATE: Address critical compliance gaps before processing"
-            )
+            recommendations.append("IMMEDIATE: Address critical compliance gaps before processing")
 
         # Specific recommendations
         if any("Art. 6" in v.article for v in violations):
-            recommendations.append(
-                "Establish documented legal basis with all required elements"
-            )
+            recommendations.append("Establish documented legal basis with all required elements")
 
         if any("Art. 22" in v.article for v in violations):
             recommendations.append(
@@ -651,14 +638,10 @@ class GDPRCompliance:
             )
 
         if not context.get("data_protection_officer", False):
-            recommendations.append(
-                "Consider appointing a Data Protection Officer (Art. 37)"
-            )
+            recommendations.append("Consider appointing a Data Protection Officer (Art. 37)")
 
         if not context.get("records_of_processing", False):
-            recommendations.append(
-                "Maintain records of processing activities (Art. 30)"
-            )
+            recommendations.append("Maintain records of processing activities (Art. 30)")
 
         return recommendations
 

@@ -911,9 +911,7 @@ class AsyncDatabase:
             execution_time_ms=elapsed,
         )
 
-    async def executemany(
-        self, sql: str, args_list: list[tuple[Any, ...]]
-    ) -> QueryResult:
+    async def executemany(self, sql: str, args_list: list[tuple[Any, ...]]) -> QueryResult:
         """Execute a statement with multiple parameter sets.
 
         Args:

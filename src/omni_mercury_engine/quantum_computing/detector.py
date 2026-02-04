@@ -184,7 +184,11 @@ class QuantumAnomalyDetector:
         method = method or self._method or "vqe_anomaly"
         threshold = threshold or self._threshold
 
-        if self._trained_model is None and method in ["quantum_kernel", "vqe_anomaly", "qaoa_anomaly"]:
+        if self._trained_model is None and method in [
+            "quantum_kernel",
+            "vqe_anomaly",
+            "qaoa_anomaly",
+        ]:
             logger.warning("Model not fitted, using default scoring")
             return self._classical_detection(data, threshold)
 
@@ -389,7 +393,7 @@ class QuantumAnomalyDetector:
 
         scores = []
         for sample in X:
-            circuit = encoding.encode(sample[:2**self._num_qubits])
+            circuit = encoding.encode(sample[: 2**self._num_qubits])
             circuit.measure_all()
 
             result = self._executor.run(circuit)

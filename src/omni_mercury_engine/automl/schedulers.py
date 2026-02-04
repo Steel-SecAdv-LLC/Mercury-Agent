@@ -166,7 +166,7 @@ class HyperbandScheduler(TrialScheduler):
     def _initialize_brackets(self) -> None:
         """Initialize all brackets."""
         for s in range(self._s_max, -1, -1):
-            n = int(np.ceil((self._B / self._max_budget) * (self._eta ** s) / (s + 1)))
+            n = int(np.ceil((self._B / self._max_budget) * (self._eta**s) / (s + 1)))
             r = self._max_budget * (self._eta ** (-s))
 
             bracket = HyperbandBracket(
@@ -274,7 +274,7 @@ class HyperbandBracket:
         rung = self._budget_to_rung(latest_budget)
 
         rung_results = self.rung_results.get(rung, {})
-        if len(rung_results) < self.n_configs / (self.eta ** rung):
+        if len(rung_results) < self.n_configs / (self.eta**rung):
             return False
 
         sorted_trials = sorted(rung_results.items(), key=lambda x: x[1])

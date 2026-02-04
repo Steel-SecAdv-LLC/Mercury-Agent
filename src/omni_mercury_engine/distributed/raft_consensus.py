@@ -545,17 +545,12 @@ class RaftNode:
             vote_granted = False
 
             if request.term >= self._current_term:
-                log_ok = (
-                    request.last_log_term > self._log.last_term
-                    or (
-                        request.last_log_term == self._log.last_term
-                        and request.last_log_index >= self._log.last_index
-                    )
+                log_ok = request.last_log_term > self._log.last_term or (
+                    request.last_log_term == self._log.last_term
+                    and request.last_log_index >= self._log.last_index
                 )
 
-                if log_ok and (
-                    self._voted_for is None or self._voted_for == request.candidate_id
-                ):
+                if log_ok and (self._voted_for is None or self._voted_for == request.candidate_id):
                     self._voted_for = request.candidate_id
                     vote_granted = True
                     self._reset_election_timer()
@@ -617,14 +612,15 @@ class RaftNode:
             self._election_timer.cancel()
 
         if self._running and self._state != NodeState.LEADER:
-            timeout = random.randint(
-                self._config.election_timeout_min_ms,
-                self._config.election_timeout_max_ms,
-            ) / 1000.0
-
-            self._election_timer = asyncio.create_task(
-                self._election_timeout(timeout)
+            timeout = (
+                random.randint(
+                    self._config.election_timeout_min_ms,
+                    self._config.election_timeout_max_ms,
+                )
+                / 1000.0
             )
+
+            self._election_timer = asyncio.create_task(self._election_timeout(timeout))
 
     async def _election_timeout(self, timeout: float) -> None:
         """Handle election timeout."""
@@ -656,8 +652,7 @@ class RaftNode:
         )
 
         tasks = [
-            self._transport.send_request_vote(peer_id, request)
-            for peer_id in self._config.peers
+            self._transport.send_request_vote(peer_id, request) for peer_id in self._config.peers
         ]
 
         responses = await asyncio.gather(*tasks, return_exceptions=True)
@@ -713,9 +708,7 @@ class RaftNode:
 
         if self._running and self._state == NodeState.LEADER:
             interval = self._config.heartbeat_interval_ms / 1000.0
-            self._heartbeat_timer = asyncio.create_task(
-                self._heartbeat_loop(interval)
-            )
+            self._heartbeat_timer = asyncio.create_task(self._heartbeat_loop(interval))
 
     async def _heartbeat_loop(self, interval: float) -> None:
         """Send periodic heartbeats."""

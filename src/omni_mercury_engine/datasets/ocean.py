@@ -91,17 +91,21 @@ class NOAABuoyLoader(DatasetLoader):
     # https://www.ndbc.noaa.gov/measdes.shtml
     MISSING_VALUES = [
         # Standard NDBC missing codes
-        99.0, 99.00,      # General missing indicator
-        999.0, 999.00,    # Extended missing indicator
-        9999.0, 9999.00,  # Long format missing
-        99999.0,          # Very long format
+        99.0,
+        99.00,  # General missing indicator
+        999.0,
+        999.00,  # Extended missing indicator
+        9999.0,
+        9999.00,  # Long format missing
+        99999.0,  # Very long format
         # Specific sensor missing codes
-        -99.9, -999.9,    # Negative indicator variants
-        -9999.0,          # Negative long format
+        -99.9,
+        -999.9,  # Negative indicator variants
+        -9999.0,  # Negative long format
         # Column-specific codes (WDIR, MWD use 999 for calm/missing)
-        0.0,              # Some sensors use 0 for missing wind direction
+        0.0,  # Some sensors use 0 for missing wind direction
         # Temperature missing codes (some stations use different scales)
-        -99.0,            # Temperature missing
+        -99.0,  # Temperature missing
         # String-based (handled separately in processing)
         # "MM", "NA", "N/A" - converted to NaN via pd.to_numeric errors='coerce'
     ]
@@ -248,15 +252,15 @@ class NOAABuoyLoader(DatasetLoader):
         # Phase 2: Physics-based bounds checking (flag unrealistic values)
         # ============================================================
         physics_bounds = {
-            "WVHT": (0.0, 30.0),      # Wave height in meters (max ~30m for extreme waves)
-            "WTMP": (-5.0, 45.0),     # Water temperature in Celsius
-            "ATMP": (-60.0, 60.0),    # Air temperature in Celsius
+            "WVHT": (0.0, 30.0),  # Wave height in meters (max ~30m for extreme waves)
+            "WTMP": (-5.0, 45.0),  # Water temperature in Celsius
+            "ATMP": (-60.0, 60.0),  # Air temperature in Celsius
             "PRES": (870.0, 1084.0),  # Pressure in hPa (historical extremes)
-            "WSPD": (0.0, 100.0),     # Wind speed in m/s (Cat 5 ~70 m/s)
-            "WDIR": (0.0, 360.0),     # Wind direction in degrees
-            "DPD": (1.0, 30.0),       # Dominant wave period in seconds
-            "MWD": (0.0, 360.0),      # Mean wave direction
-            "APD": (1.0, 25.0),       # Average wave period
+            "WSPD": (0.0, 100.0),  # Wind speed in m/s (Cat 5 ~70 m/s)
+            "WDIR": (0.0, 360.0),  # Wind direction in degrees
+            "DPD": (1.0, 30.0),  # Dominant wave period in seconds
+            "MWD": (0.0, 360.0),  # Mean wave direction
+            "APD": (1.0, 25.0),  # Average wave period
         }
 
         for col in features_df.columns:
@@ -314,11 +318,11 @@ class NOAABuoyLoader(DatasetLoader):
                 # Rolling median with 24-hour window (assuming hourly data)
                 window_size = min(24, len(features_df) // 4)
                 if window_size >= 3:
-                    rolling_median = features_df[col].rolling(
-                        window=window_size,
-                        center=True,
-                        min_periods=1
-                    ).median()
+                    rolling_median = (
+                        features_df[col]
+                        .rolling(window=window_size, center=True, min_periods=1)
+                        .median()
+                    )
                     fill_mask = features_df[col].isna()
                     features_df.loc[fill_mask, col] = rolling_median[fill_mask]
 
@@ -367,7 +371,7 @@ class NOAABuoyLoader(DatasetLoader):
             roc_anomaly = np.zeros(len(features), dtype=bool)
 
         # Combine anomaly indicators: z-score OR IQR OR rate-of-change
-        zscore_anomaly = (np.nanmax(z_scores, axis=1) > self.anomaly_std)
+        zscore_anomaly = np.nanmax(z_scores, axis=1) > self.anomaly_std
         labels = (zscore_anomaly | iqr_anomaly | roc_anomaly).astype(np.int64)
 
         # Log anomaly statistics

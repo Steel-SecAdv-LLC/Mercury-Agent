@@ -37,6 +37,7 @@ try:
         Parameter as _Parameter,  # noqa: F401
         ParameterVector as _ParameterVector,  # noqa: F401
     )
+
     QISKIT_AVAILABLE = True
 except ImportError:
     logger.debug("Qiskit not available, using simulation fallback")
@@ -387,10 +388,10 @@ class AnomalyEncodingCircuit:
         data_normalized = data / (np.linalg.norm(data) + 1e-10)
 
         if len(data_normalized) > 2**self._num_qubits:
-            data_normalized = data_normalized[:2**self._num_qubits]
+            data_normalized = data_normalized[: 2**self._num_qubits]
 
         padded = np.zeros(2**self._num_qubits)
-        padded[:len(data_normalized)] = data_normalized
+        padded[: len(data_normalized)] = data_normalized
 
         angles = self._compute_amplitude_angles(padded)
 
@@ -410,8 +411,8 @@ class AnomalyEncodingCircuit:
         for level in range(int(np.log2(n))):
             step = 2 ** (level + 1)
             for i in range(0, n, step):
-                a = np.sum(amplitudes[i:i + step // 2] ** 2)
-                b = np.sum(amplitudes[i + step // 2:i + step] ** 2)
+                a = np.sum(amplitudes[i : i + step // 2] ** 2)
+                b = np.sum(amplitudes[i + step // 2 : i + step] ** 2)
 
                 if a + b > 1e-10:
                     angle = 2 * np.arccos(np.sqrt(a / (a + b)))
@@ -433,7 +434,7 @@ class AnomalyEncodingCircuit:
             for i in range(self._num_qubits):
                 circuit.h(i)
 
-            for i, val in enumerate(data[:self._num_qubits]):
+            for i, val in enumerate(data[: self._num_qubits]):
                 angle = float(val) * np.pi
                 circuit.ry(angle, i)
                 circuit.rz(angle, i)
@@ -454,7 +455,7 @@ class AnomalyEncodingCircuit:
 
         binary = (data > 0.5).astype(int)
 
-        for i, bit in enumerate(binary[:self._num_qubits]):
+        for i, bit in enumerate(binary[: self._num_qubits]):
             if bit:
                 circuit.x(i)
 
@@ -472,7 +473,7 @@ class AnomalyEncodingCircuit:
             for i in range(self._num_qubits):
                 circuit.h(i)
 
-            for i, val in enumerate(data[:self._num_qubits]):
+            for i, val in enumerate(data[: self._num_qubits]):
                 circuit.rz(float(val) * np.pi, i)
 
             for i in range(self._num_qubits - 1):
@@ -496,7 +497,7 @@ class AnomalyEncodingCircuit:
             for i in range(self._num_qubits):
                 circuit.h(i)
 
-            for i, val in enumerate(data[:self._num_qubits]):
+            for i, val in enumerate(data[: self._num_qubits]):
                 circuit.rz(2 * float(val), i)
 
             for i in range(self._num_qubits - 1):
@@ -764,6 +765,7 @@ class QuantumFeatureMap:
         """Simulate a Qiskit circuit."""
         try:
             from qiskit_aer import AerSimulator
+
             simulator = AerSimulator()
             result = simulator.run(circuit, shots=shots).result()
             return result.get_counts()

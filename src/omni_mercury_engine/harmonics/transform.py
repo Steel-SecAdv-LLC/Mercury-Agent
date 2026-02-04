@@ -107,8 +107,12 @@ class AssociatedLegendre:
                 self._plm_cache[key] = plm.copy()
 
         if self._normalization == "ortho":
-            norm = np.sqrt((2 * l + 1) / (4 * np.pi) *
-                          np.math.factorial(l - m_abs) / np.math.factorial(l + m_abs))
+            norm = np.sqrt(
+                (2 * l + 1)
+                / (4 * np.pi)
+                * np.math.factorial(l - m_abs)
+                / np.math.factorial(l + m_abs)
+            )
             plm = plm * norm
 
         if m < 0:
@@ -123,7 +127,7 @@ class AssociatedLegendre:
         cos_theta: np.ndarray,
     ) -> np.ndarray:
         """Compute P_l^m using stable recurrence."""
-        sin_theta = np.sqrt(1 - cos_theta ** 2)
+        sin_theta = np.sqrt(1 - cos_theta**2)
 
         if l == 0 and m == 0:
             return np.ones_like(cos_theta, dtype=self._dtype)
@@ -152,8 +156,7 @@ class AssociatedLegendre:
         plm_prev = pmm_plus_1
 
         for ll in range(m + 2, l + 1):
-            plm = ((2 * ll - 1) * cos_theta * plm_prev -
-                   (ll + m - 1) * plm_prev_prev) / (ll - m)
+            plm = ((2 * ll - 1) * cos_theta * plm_prev - (ll + m - 1) * plm_prev_prev) / (ll - m)
             plm_prev_prev = plm_prev
             plm_prev = plm
 
@@ -439,9 +442,7 @@ class FastSHTransform:
         self._theta = np.linspace(0, np.pi, self._n_theta)
         self._phi = np.linspace(0, 2 * np.pi, self._n_phi, endpoint=False)
 
-        self._theta_grid, self._phi_grid = np.meshgrid(
-            self._theta, self._phi, indexing="ij"
-        )
+        self._theta_grid, self._phi_grid = np.meshgrid(self._theta, self._phi, indexing="ij")
 
         sin_theta = np.sin(self._theta)
         self._weights = np.outer(sin_theta, np.ones(self._n_phi))

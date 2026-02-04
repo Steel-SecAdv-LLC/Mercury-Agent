@@ -273,8 +273,15 @@ class MIMICLoader(DatasetLoader):
         admissions = pd.read_csv(
             data_dir / "ADMISSIONS.csv.gz",
             compression="gzip",
-            usecols=["hadm_id", "deathtime", "hospital_expire_flag", "admission_type",
-                     "admittime", "dischtime", "discharge_location"],
+            usecols=[
+                "hadm_id",
+                "deathtime",
+                "hospital_expire_flag",
+                "admission_type",
+                "admittime",
+                "dischtime",
+                "discharge_location",
+            ],
             parse_dates=["admittime", "dischtime", "deathtime"],
         )
 
@@ -303,10 +310,18 @@ class MIMICLoader(DatasetLoader):
         # Merge ICU stays with admissions for outcomes
         icustays_with_outcomes = pd.merge(
             icustays,
-            admissions[["hadm_id", "hospital_expire_flag", "deathtime", "admission_type",
-                       "admittime", "dischtime"]],
+            admissions[
+                [
+                    "hadm_id",
+                    "hospital_expire_flag",
+                    "deathtime",
+                    "admission_type",
+                    "admittime",
+                    "dischtime",
+                ]
+            ],
             on="hadm_id",
-            how="left"
+            how="left",
         )
 
         # ItemID mapping for vital signs (MIMIC-III itemids)
@@ -362,13 +377,19 @@ class MIMICLoader(DatasetLoader):
                 continue
 
             # Extract label based on label_type
-            label = self._extract_outcome_label(stay_info, label_type, patients if has_patients else None)
+            label = self._extract_outcome_label(
+                stay_info, label_type, patients if has_patients else None
+            )
 
             features_list.append(feature_vec)
             labels_list.append(label)
 
         logger.info(f"Loaded {len(features_list)} ICU stays with {label_type} labels")
-        logger.info(f"Positive class rate: {sum(labels_list)/len(labels_list):.2%}" if labels_list else "No data")
+        logger.info(
+            f"Positive class rate: {sum(labels_list)/len(labels_list):.2%}"
+            if labels_list
+            else "No data"
+        )
 
         return np.array(features_list), np.array(labels_list)
 

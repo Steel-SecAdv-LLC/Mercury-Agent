@@ -1196,7 +1196,7 @@ class StreamingAnomalyPipeline:
 
             # EMA update for variance (Welford's algorithm variant)
             delta = float(value) - old_mean
-            new_var = (1 - alpha) * old_var + alpha * (delta ** 2)
+            new_var = (1 - alpha) * old_var + alpha * (delta**2)
 
             state["running_mean"][feature_key] = new_mean
             state["running_var"][feature_key] = new_var
@@ -1321,7 +1321,9 @@ class StreamingAnomalyPipeline:
                         lat_stats["max"] = max(lat_stats["max"], detection_latency_ms)
                         # Running average
                         n = self._stats["messages_processed"]
-                        lat_stats["avg"] = lat_stats["avg"] + (detection_latency_ms - lat_stats["avg"]) / n
+                        lat_stats["avg"] = (
+                            lat_stats["avg"] + (detection_latency_ms - lat_stats["avg"]) / n
+                        )
 
                         # Update score distribution
                         score = result.get("score", 0.0)
@@ -1349,7 +1351,9 @@ class StreamingAnomalyPipeline:
                         e2e_stats = self._stats["end_to_end_latency_ms"]
                         e2e_stats["min"] = min(e2e_stats["min"], e2e_latency_ms)
                         e2e_stats["max"] = max(e2e_stats["max"], e2e_latency_ms)
-                        e2e_stats["avg"] = e2e_stats["avg"] + (e2e_latency_ms - e2e_stats["avg"]) / n
+                        e2e_stats["avg"] = (
+                            e2e_stats["avg"] + (e2e_latency_ms - e2e_stats["avg"]) / n
+                        )
 
                         # Commit after processing
                         await self._consumer.commit(message)

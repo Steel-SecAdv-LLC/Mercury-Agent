@@ -95,11 +95,13 @@ class AnomalyExplanation:
         actions = []
         for cf in self.counterfactual_set.counterfactuals:
             if cf.validity:
-                actions.append({
-                    "changes": cf.feature_changes,
-                    "predicted_score": cf.counterfactual_prediction,
-                    "distance": cf.distance,
-                })
+                actions.append(
+                    {
+                        "changes": cf.feature_changes,
+                        "predicted_score": cf.counterfactual_prediction,
+                        "distance": cf.distance,
+                    }
+                )
 
         return sorted(actions, key=lambda x: x["distance"])
 
@@ -350,8 +352,7 @@ class MercuryExplainer:
                 subject_id = f"subject_{int(time.time())}"
 
             decision_category = (
-                DecisionCategory.HIGH_IMPACT if is_anomaly
-                else DecisionCategory.STANDARD
+                DecisionCategory.HIGH_IMPACT if is_anomaly else DecisionCategory.STANDARD
             )
 
             gdpr_report = self._gdpr_explainer.explain_decision(
@@ -498,7 +499,9 @@ class MercuryExplainer:
             decision_value="Anomaly" if is_anomaly else "Normal",
             subject_id=subject_id,
             confidence=anomaly_score,
-            decision_category=DecisionCategory.HIGH_IMPACT if is_anomaly else DecisionCategory.STANDARD,
+            decision_category=(
+                DecisionCategory.HIGH_IMPACT if is_anomaly else DecisionCategory.STANDARD
+            ),
             explanation_level=explanation_level,
             include_counterfactuals=True,
         )

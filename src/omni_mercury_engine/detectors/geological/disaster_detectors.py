@@ -1090,7 +1090,9 @@ class MeteorDetector:
                     # Estimate impact probability from closest approach
                     closest = min(imminent, key=lambda x: x.nominal_distance_km)
                     # Very rough heuristic: closer = higher concern
-                    nasa_impact_probability = max(0, 1 - closest.nominal_distance_km / lunar_distance_km) * 0.001
+                    nasa_impact_probability = (
+                        max(0, 1 - closest.nominal_distance_km / lunar_distance_km) * 0.001
+                    )
 
             # Check Sentry for elevated impact risks
             if self._sentry_cache:
@@ -1098,7 +1100,9 @@ class MeteorDetector:
                 if high_risk:
                     # Highest risk object
                     max_risk = max(high_risk, key=lambda x: x.palermo_scale)
-                    nasa_impact_probability = max(nasa_impact_probability, max_risk.impact_probability)
+                    nasa_impact_probability = max(
+                        nasa_impact_probability, max_risk.impact_probability
+                    )
 
         # Update Bayesian posterior with all detection sources
         # NASA data provides additional evidence
@@ -1158,7 +1162,9 @@ class MeteorDetector:
             optical_detection=combined_optical,
             radar_detection=combined_radar,
             bayesian_posterior=posterior,
-            trajectory_confidence=0.9 if nasa_close_approach_alert else (0.8 if combined_radar else 0.3),
+            trajectory_confidence=(
+                0.9 if nasa_close_approach_alert else (0.8 if combined_radar else 0.3)
+            ),
             warning_actions=warnings,
         )
 

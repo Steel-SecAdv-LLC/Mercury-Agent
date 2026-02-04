@@ -209,9 +209,7 @@ class COPODDetector:
         assert self._skewness is not None
 
         # Per-feature tail probabilities
-        per_feature_scores = self._compute_tail_probability(
-            left_ecdf, right_ecdf, self._skewness
-        )
+        per_feature_scores = self._compute_tail_probability(left_ecdf, right_ecdf, self._skewness)
 
         # Aggregate across features (sum of negative log probabilities)
         # This is equivalent to product of probabilities (assuming independence)
@@ -328,9 +326,7 @@ class COPODDetector:
         assert self._skewness is not None
 
         # Per-feature scores (before aggregation)
-        per_feature_scores = self._compute_tail_probability(
-            left_ecdf, right_ecdf, self._skewness
-        )
+        per_feature_scores = self._compute_tail_probability(left_ecdf, right_ecdf, self._skewness)
 
         return per_feature_scores
 

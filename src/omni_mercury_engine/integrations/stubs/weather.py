@@ -495,9 +495,7 @@ class WeatherService:
             raw_data=data,
         )
 
-    async def _fetch_openweathermap_by_coords(
-        self, lat: float, lon: float
-    ) -> WeatherData:
+    async def _fetch_openweathermap_by_coords(self, lat: float, lon: float) -> WeatherData:
         """Fetch weather from OpenWeatherMap by coordinates."""
         if not self.api_key:
             raise ValueError("OpenWeatherMap API key required")
@@ -755,9 +753,7 @@ class WeatherService:
         # For NOAA, fall back to stub
         return await self._stub.get_forecast(location, days)
 
-    async def _fetch_owm_forecast(
-        self, location: str, days: int
-    ) -> list[WeatherForecast]:
+    async def _fetch_owm_forecast(self, location: str, days: int) -> list[WeatherForecast]:
         """Fetch forecast from OpenWeatherMap."""
         if not self.api_key:
             return await self._stub.get_forecast(location, days)
@@ -808,7 +804,9 @@ class WeatherService:
                 for item in items
                 if item.get("weather")
             ]
-            condition = max(set(conditions), key=conditions.count) if conditions else WeatherCondition.CLEAR
+            condition = (
+                max(set(conditions), key=conditions.count) if conditions else WeatherCondition.CLEAR
+            )
 
             forecasts.append(
                 WeatherForecast(

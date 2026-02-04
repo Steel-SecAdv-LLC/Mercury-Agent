@@ -93,12 +93,14 @@ class Encoder(nn.Module):
         prev_dim = input_dim
 
         for h_dim in hidden_dims:
-            layers.extend([
-                nn.Linear(prev_dim, h_dim),
-                nn.LayerNorm(h_dim),
-                nn.LeakyReLU(0.2),
-                nn.Dropout(dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(prev_dim, h_dim),
+                    nn.LayerNorm(h_dim),
+                    nn.LeakyReLU(0.2),
+                    nn.Dropout(dropout),
+                ]
+            )
             prev_dim = h_dim
 
         self.encoder = nn.Sequential(*layers)
@@ -121,9 +123,7 @@ class Encoder(nn.Module):
             batch_first=True,
         )
 
-    def forward(
-        self, x: torch.Tensor, return_attention: bool = False
-    ) -> dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, return_attention: bool = False) -> dict[str, torch.Tensor]:
         """Encode input to latent space."""
         # Sensor correlation attention (if 3D input)
         if x.ndim == 3:
@@ -176,21 +176,21 @@ class Decoder(nn.Module):
         prev_dim = latent_dim
 
         for h_dim in reversed(hidden_dims):
-            layers.extend([
-                nn.Linear(prev_dim, h_dim),
-                nn.LayerNorm(h_dim),
-                nn.LeakyReLU(0.2),
-                nn.Dropout(dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(prev_dim, h_dim),
+                    nn.LayerNorm(h_dim),
+                    nn.LeakyReLU(0.2),
+                    nn.Dropout(dropout),
+                ]
+            )
             prev_dim = h_dim
 
         self.decoder = nn.Sequential(*layers)
         self.output_layer = nn.Linear(prev_dim, output_dim)
 
         # Multi-scale heads
-        self.scale_heads = nn.ModuleList([
-            nn.Linear(prev_dim, output_dim) for _ in range(3)
-        ])
+        self.scale_heads = nn.ModuleList([nn.Linear(prev_dim, output_dim) for _ in range(3)])
 
     def forward(self, z: torch.Tensor) -> dict[str, torch.Tensor]:
         """Decode latent representation."""
@@ -222,11 +222,13 @@ class Discriminator(nn.Module):
         prev_dim = latent_dim
 
         for h_dim in hidden_dims:
-            layers.extend([
-                nn.Linear(prev_dim, h_dim),
-                nn.LeakyReLU(0.2),
-                nn.Dropout(dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(prev_dim, h_dim),
+                    nn.LeakyReLU(0.2),
+                    nn.Dropout(dropout),
+                ]
+            )
             prev_dim = h_dim
 
         layers.append(nn.Linear(prev_dim, 1))
@@ -350,19 +352,13 @@ class AdversarialAutoencoder(nn.Module):
             d_real = self.discriminator(z_real)
             d_fake = self.discriminator(z_fake.detach())
 
-            d_loss_real = F.binary_cross_entropy_with_logits(
-                d_real, torch.ones_like(d_real)
-            )
-            d_loss_fake = F.binary_cross_entropy_with_logits(
-                d_fake, torch.zeros_like(d_fake)
-            )
+            d_loss_real = F.binary_cross_entropy_with_logits(d_real, torch.ones_like(d_real))
+            d_loss_fake = F.binary_cross_entropy_with_logits(d_fake, torch.zeros_like(d_fake))
             losses["discriminator"] = (d_loss_real + d_loss_fake) / 2
 
         # Generator adversarial loss (fool discriminator)
         d_fake_for_g = self.discriminator(z_fake)
-        g_adv_loss = F.binary_cross_entropy_with_logits(
-            d_fake_for_g, torch.ones_like(d_fake_for_g)
-        )
+        g_adv_loss = F.binary_cross_entropy_with_logits(d_fake_for_g, torch.ones_like(d_fake_for_g))
         losses["adversarial"] = g_adv_loss
 
         # 5. Covariance loss (preserve sensor correlations)
@@ -473,10 +469,7 @@ class AdversarialAutoencoderDetector:
         X_val = torch.FloatTensor(X[val_idx]).to(self.device) if n_val > 0 else None
 
         # Optimizers (separate for generator and discriminator)
-        params_g = (
-            list(self.model.encoder.parameters())
-            + list(self.model.decoder.parameters())
-        )
+        params_g = list(self.model.encoder.parameters()) + list(self.model.decoder.parameters())
         params_d = list(self.model.discriminator.parameters())
 
         optimizer_g = torch.optim.AdamW(params_g, lr=self.config.learning_rate)
@@ -500,7 +493,7 @@ class AdversarialAutoencoderDetector:
                 batch = X_train[batch_idx]
 
                 # Train discriminator every 2nd step
-                train_disc = (n_batches % 2 == 0)
+                train_disc = n_batches % 2 == 0
 
                 if train_disc:
                     optimizer_d.zero_grad()

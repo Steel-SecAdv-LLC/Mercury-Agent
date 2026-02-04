@@ -771,12 +771,16 @@ class DANNAdapter(BaseDomainAdapter):
         """Initialize network parameters."""
         # Feature extractor
         scale = np.sqrt(2.0 / (input_dim + self.hidden_dim))
-        self.W_feat = self.rng.standard_normal((input_dim, self.hidden_dim)).astype(np.float64) * scale
+        self.W_feat = (
+            self.rng.standard_normal((input_dim, self.hidden_dim)).astype(np.float64) * scale
+        )
         self.b_feat = np.zeros(self.hidden_dim, dtype=np.float64)
 
         # Label predictor
         scale = np.sqrt(2.0 / (self.hidden_dim + n_classes))
-        self.W_label = self.rng.standard_normal((self.hidden_dim, n_classes)).astype(np.float64) * scale
+        self.W_label = (
+            self.rng.standard_normal((self.hidden_dim, n_classes)).astype(np.float64) * scale
+        )
         self.b_label = np.zeros(n_classes, dtype=np.float64)
 
         # Domain classifier
@@ -859,7 +863,7 @@ class DANNAdapter(BaseDomainAdapter):
             # Compute gradients for domain classifier
             d_domain_logits = domain_probs.copy()
             d_domain_logits[np.arange(2 * batch_size), domain_labels] -= 1
-            d_domain_logits /= (2 * batch_size)
+            d_domain_logits /= 2 * batch_size
 
             dW_domain = combined_features.T @ d_domain_logits
             db_domain = np.sum(d_domain_logits, axis=0)
@@ -946,7 +950,9 @@ class JDAAdapter(BaseDomainAdapter):
         self._classifier: Any = None
         self.classes: list[int] = []
 
-    def _compute_kernel(self, X: NDArray[np.float64], Y: NDArray[np.float64]) -> NDArray[np.float64]:
+    def _compute_kernel(
+        self, X: NDArray[np.float64], Y: NDArray[np.float64]
+    ) -> NDArray[np.float64]:
         """Compute kernel matrix."""
         if self.kernel == "rbf":
             if self.gamma is None:
@@ -1043,16 +1049,14 @@ class JDAAdapter(BaseDomainAdapter):
             XHXt = X_combined_T @ H @ X_combined + reg
 
             try:
-                eigenvalues, eigenvectors = np.linalg.eigh(
-                    np.linalg.inv(XHXt) @ XMXt
-                )
+                eigenvalues, eigenvectors = np.linalg.eigh(np.linalg.inv(XHXt) @ XMXt)
                 # Sort by eigenvalue (ascending for minimization)
                 idx = np.argsort(eigenvalues)
-                self.projection_matrix = eigenvectors[:, idx[:self.n_components]]
+                self.projection_matrix = eigenvectors[:, idx[: self.n_components]]
             except np.linalg.LinAlgError:
                 # Fallback to PCA
                 _, _, Vt = np.linalg.svd(X_combined, full_matrices=False)
-                self.projection_matrix = Vt[:self.n_components].T
+                self.projection_matrix = Vt[: self.n_components].T
 
             # Update pseudo-labels
             source_proj = source_X_norm @ self.projection_matrix
@@ -1065,9 +1069,13 @@ class JDAAdapter(BaseDomainAdapter):
         source_proj = source_X_norm @ self.projection_matrix
         try:
             from sklearn.ensemble import GradientBoostingClassifier
-            self._classifier = GradientBoostingClassifier(n_estimators=100, max_depth=5, random_state=42)
+
+            self._classifier = GradientBoostingClassifier(
+                n_estimators=100, max_depth=5, random_state=42
+            )
         except ImportError:
             from sklearn.linear_model import LogisticRegression
+
             self._classifier = LogisticRegression(max_iter=1000, random_state=42)
         self._classifier.fit(source_proj, source_y)
 
@@ -1189,17 +1197,15 @@ class TCAAdapter(BaseDomainAdapter):
         KHK = K @ H @ K + 1e-6 * np.eye(n_total)
 
         try:
-            eigenvalues, eigenvectors = np.linalg.eigh(
-                np.linalg.inv(KLK) @ KHK
-            )
+            eigenvalues, eigenvectors = np.linalg.eigh(np.linalg.inv(KLK) @ KHK)
             # Sort by eigenvalue (descending)
             idx = np.argsort(eigenvalues)[::-1]
-            self.transformation = eigenvectors[:, idx[:self.n_components]]
+            self.transformation = eigenvectors[:, idx[: self.n_components]]
         except np.linalg.LinAlgError:
             # Fallback: use kernel PCA
             eigenvalues, eigenvectors = np.linalg.eigh(K)
             idx = np.argsort(eigenvalues)[::-1]
-            self.transformation = eigenvectors[:, idx[:self.n_components]]
+            self.transformation = eigenvectors[:, idx[: self.n_components]]
 
         # Transform and train classifier
         K_source = K[:n_s]
@@ -1207,9 +1213,13 @@ class TCAAdapter(BaseDomainAdapter):
 
         try:
             from sklearn.ensemble import GradientBoostingClassifier
-            self._classifier = GradientBoostingClassifier(n_estimators=100, max_depth=5, random_state=42)
+
+            self._classifier = GradientBoostingClassifier(
+                n_estimators=100, max_depth=5, random_state=42
+            )
         except ImportError:
             from sklearn.linear_model import LogisticRegression
+
             self._classifier = LogisticRegression(max_iter=1000, random_state=42)
         self._classifier.fit(source_proj, source_y)
 
@@ -1351,9 +1361,13 @@ class OptimalTransportAdapter(BaseDomainAdapter):
         # Train classifier on transported source data for out-of-sample prediction
         try:
             from sklearn.ensemble import GradientBoostingClassifier
-            self._classifier = GradientBoostingClassifier(n_estimators=100, max_depth=5, random_state=42)
+
+            self._classifier = GradientBoostingClassifier(
+                n_estimators=100, max_depth=5, random_state=42
+            )
         except ImportError:
             from sklearn.linear_model import LogisticRegression
+
             self._classifier = LogisticRegression(max_iter=1000, random_state=42)
 
         # Train on source transported to target domain
@@ -1419,7 +1433,7 @@ class OptimalTransportAdapter(BaseDomainAdapter):
         X_norm = self.transform(X, "target")
 
         # Check if samples are from fitted target set (by distance)
-        if hasattr(self, 'target_X') and self.target_X is not None:
+        if hasattr(self, "target_X") and self.target_X is not None:
             # For samples close to fitted target, use propagated labels
             dists_to_target = cdist(X_norm, self.target_X, metric="euclidean")
             min_dists = np.min(dists_to_target, axis=1)
@@ -1432,7 +1446,7 @@ class OptimalTransportAdapter(BaseDomainAdapter):
                     predictions[i] = self.target_y_propagated[nearest_idx]
                 else:
                     # Out-of-sample: use nearest neighbor in transported source
-                    dists_to_transported = cdist(X_norm[i:i+1], self.source_transported)
+                    dists_to_transported = cdist(X_norm[i : i + 1], self.source_transported)
                     nn_idx = np.argmin(dists_to_transported)
                     predictions[i] = self.source_y[nn_idx]
 

@@ -226,9 +226,7 @@ class ExactShapExplainer(ShapExplainer):
                 with_feature = self._marginal_expectation(x, subset_set | {feature_idx})
                 without_feature = self._marginal_expectation(x, subset_set)
 
-                weight = (
-                    math.factorial(size) * math.factorial(n - size - 1)
-                ) / math.factorial(n)
+                weight = (math.factorial(size) * math.factorial(n - size - 1)) / math.factorial(n)
 
                 shapley_value += weight * (with_feature - without_feature)
 
@@ -373,8 +371,7 @@ class KernelShapExplainer(ShapExplainer):
             return 1e10
 
         return (n_features - 1) / (
-            math.comb(n_features, coalition_size) *
-            coalition_size * (n_features - coalition_size)
+            math.comb(n_features, coalition_size) * coalition_size * (n_features - coalition_size)
         )
 
     def _evaluate_coalition(
@@ -469,7 +466,7 @@ class SamplingShapExplainer(ShapExplainer):
             for feature_idx in permutation:
                 current[feature_idx] = x[feature_idx]
                 curr_pred = self._predict(current.reshape(1, -1))[0]
-                shap_values[feature_idx] += (curr_pred - prev_pred)
+                shap_values[feature_idx] += curr_pred - prev_pred
                 prev_pred = curr_pred
 
         shap_values /= self._n_permutations
@@ -529,10 +526,7 @@ class TreeShapExplainer(ShapExplainer):
         if hasattr(self._model, "tree_"):
             return [self._extract_single_tree(self._model.tree_)]
         elif hasattr(self._model, "estimators_"):
-            return [
-                self._extract_single_tree(est.tree_)
-                for est in self._model.estimators_
-            ]
+            return [self._extract_single_tree(est.tree_) for est in self._model.estimators_]
         else:
             logger.warning("Could not extract tree structure, using sampling")
             return []
@@ -603,7 +597,7 @@ class TreeShapExplainer(ShapExplainer):
 
     def _fallback_explain(self, X: np.ndarray) -> ShapExplanation | list[ShapExplanation]:
         """Fallback to sampling-based explanation."""
-        background = X[:min(100, len(X))]
+        background = X[: min(100, len(X))]
         sampler = SamplingShapExplainer(
             self._predict,
             background,

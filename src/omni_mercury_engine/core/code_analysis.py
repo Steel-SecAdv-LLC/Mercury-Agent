@@ -253,7 +253,8 @@ class NeurosymbolicEngine:
         }
 
     def train_model(
-        self, training_data: list[tuple[ast.AST, dict[str, Any]]] | None = None,
+        self,
+        training_data: list[tuple[ast.AST, dict[str, Any]]] | None = None,
         epochs: int = 100,
         batch_size: int = 32,
         validation_split: float = 0.2,
@@ -490,15 +491,15 @@ class NeurosymbolicEngine:
             num_functions = sum(
                 1 for node in ast.walk(ast_tree) if isinstance(node, ast.FunctionDef)
             )
-            num_classes = sum(
-                1 for node in ast.walk(ast_tree) if isinstance(node, ast.ClassDef)
-            )
+            num_classes = sum(1 for node in ast.walk(ast_tree) if isinstance(node, ast.ClassDef))
 
-            feature_vector.extend([
-                num_nodes,
-                num_functions,
-                num_classes,
-            ])
+            feature_vector.extend(
+                [
+                    num_nodes,
+                    num_functions,
+                    num_classes,
+                ]
+            )
 
             features_list.append(feature_vector)
 
@@ -555,22 +556,23 @@ class NeurosymbolicEngine:
         # Neural prediction
         patterns = symbolic.get("patterns", {})
         num_nodes = sum(1 for _ in ast.walk(code_ast))
-        num_functions = sum(
-            1 for node in ast.walk(code_ast) if isinstance(node, ast.FunctionDef)
-        )
-        num_classes = sum(
-            1 for node in ast.walk(code_ast) if isinstance(node, ast.ClassDef)
-        )
+        num_functions = sum(1 for node in ast.walk(code_ast) if isinstance(node, ast.FunctionDef))
+        num_classes = sum(1 for node in ast.walk(code_ast) if isinstance(node, ast.ClassDef))
 
-        feature_vector = np.array([[
-            patterns.get("loops", 0),
-            patterns.get("conditionals", 0),
-            patterns.get("function_calls", 0),
-            patterns.get("nesting_depth", 0),
-            num_nodes,
-            num_functions,
-            num_classes,
-        ]], dtype=float)
+        feature_vector = np.array(
+            [
+                [
+                    patterns.get("loops", 0),
+                    patterns.get("conditionals", 0),
+                    patterns.get("function_calls", 0),
+                    patterns.get("nesting_depth", 0),
+                    num_nodes,
+                    num_functions,
+                    num_classes,
+                ]
+            ],
+            dtype=float,
+        )
 
         # Forward pass through trained model
         W1 = self.neural_model["W1"]

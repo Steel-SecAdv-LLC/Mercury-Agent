@@ -388,7 +388,6 @@ class CacheStub:
         await self._simulate_latency()
         self._maybe_fail()
 
-
         # Clean expired entries
         expired = [k for k, v in self._cache.items() if v.is_expired]
         for key in expired:
@@ -681,6 +680,7 @@ class RedisCache:
         else:
             import base64
             import pickle
+
             return base64.b64encode(pickle.dumps(value)).decode()
 
     def _deserialize(self, data: str | None) -> Any:
@@ -692,6 +692,7 @@ class RedisCache:
         else:
             import base64
             import pickle
+
             return pickle.loads(base64.b64decode(data.encode()))
 
     async def get(self, key: str) -> Any | None:
@@ -849,10 +850,7 @@ class RedisCache:
         try:
             full_keys = [self._make_key(k) for k in keys]
             values = await self._client.mget(full_keys)
-            return {
-                keys[i]: self._deserialize(v)
-                for i, v in enumerate(values)
-            }
+            return {keys[i]: self._deserialize(v) for i, v in enumerate(values)}
         except Exception as e:
             self._errors += 1
             logger.warning(f"Redis mget error: {e}")
@@ -881,10 +879,7 @@ class RedisCache:
 
         try:
             # Serialize all values
-            serialized_mapping = {
-                self._make_key(k): self._serialize(v)
-                for k, v in mapping.items()
-            }
+            serialized_mapping = {self._make_key(k): self._serialize(v) for k, v in mapping.items()}
 
             # Use pipeline for efficiency
             async with self._client.pipeline(transaction=True) as pipe:

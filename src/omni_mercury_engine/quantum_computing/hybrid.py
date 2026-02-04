@@ -229,9 +229,7 @@ class HybridOptimizer:
             OptimizationResult with optimal parameters
         """
         if initial_params is None:
-            initial_params = np.random.uniform(
-                0, 2 * np.pi, variational_circuit.num_parameters
-            )
+            initial_params = np.random.uniform(0, 2 * np.pi, variational_circuit.num_parameters)
 
         def objective(params: np.ndarray) -> float:
             circuit = variational_circuit.build(params)
@@ -243,9 +241,7 @@ class HybridOptimizer:
 
             return cost_function(result.counts)
 
-        optimal_params, optimal_value, history = self._optimizer.minimize(
-            objective, initial_params
-        )
+        optimal_params, optimal_value, history = self._optimizer.minimize(objective, initial_params)
 
         final_circuit = variational_circuit.build(optimal_params)
 
@@ -343,9 +339,7 @@ class QuantumKernel:
 
         def predict(X_test: np.ndarray) -> np.ndarray:
             K_test = self.compute_kernel_matrix(X_test, self._sv_X)
-            predictions = np.sign(
-                np.sum(self._sv_alpha * self._sv_y * K_test, axis=1)
-            )
+            predictions = np.sign(np.sum(self._sv_alpha * self._sv_y * K_test, axis=1))
             return predictions
 
         return predict
@@ -425,7 +419,7 @@ class VQEAnomalyDetector:
         scores = []
 
         for sample in X:
-            encoding_circuit = self._encoding.encode(sample[:self._num_qubits])
+            encoding_circuit = self._encoding.encode(sample[: self._num_qubits])
             variational_circuit = self._variational.build(self._optimal_params)
 
             builder = QuantumCircuitBuilder()
@@ -562,8 +556,8 @@ class QAOAAnomalyDetector:
         initial_params = np.random.uniform(0, np.pi, 2 * self._p)
 
         def objective(params: np.ndarray) -> float:
-            gamma = list(params[:self._p])
-            beta = list(params[self._p:])
+            gamma = list(params[: self._p])
+            beta = list(params[self._p :])
 
             circuit = self.build_qaoa_circuit(gamma, beta, cost_terms)
             circuit.measure_all()
@@ -594,11 +588,11 @@ class QAOAAnomalyDetector:
 
         scores = []
 
-        gamma = list(self._optimal_params[:self._p])
-        beta = list(self._optimal_params[self._p:])
+        gamma = list(self._optimal_params[: self._p])
+        beta = list(self._optimal_params[self._p :])
 
         for sample in X:
-            cost_terms = [(i, i, v) for i, v in enumerate(sample[:self._num_qubits])]
+            cost_terms = [(i, i, v) for i, v in enumerate(sample[: self._num_qubits])]
             cost_terms.extend(self._cost_terms)
 
             circuit = self.build_qaoa_circuit(gamma, beta, cost_terms)

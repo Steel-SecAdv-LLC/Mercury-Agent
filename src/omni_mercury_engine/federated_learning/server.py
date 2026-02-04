@@ -210,10 +210,10 @@ class FedAdamAggregator(Aggregator):
         self._t += 1
 
         self._m = self._beta1 * self._m + (1 - self._beta1) * delta
-        self._v = self._beta2 * self._v + (1 - self._beta2) * (delta ** 2)
+        self._v = self._beta2 * self._v + (1 - self._beta2) * (delta**2)
 
-        m_hat = self._m / (1 - self._beta1 ** self._t)
-        v_hat = self._v / (1 - self._beta2 ** self._t)
+        m_hat = self._m / (1 - self._beta1**self._t)
+        v_hat = self._v / (1 - self._beta2**self._t)
 
         new_weights = global_weights + self._lr * m_hat / (np.sqrt(v_hat) + self._tau)
         return new_weights
@@ -265,9 +265,10 @@ class ScaffoldAggregator(Aggregator):
 
         if delta_controls:
             avg_delta = np.mean(delta_controls, axis=0)
-            self._server_control = self._server_control + (
-                len(updates) / max(1, len(self._client_controls))
-            ) * avg_delta
+            self._server_control = (
+                self._server_control
+                + (len(updates) / max(1, len(self._client_controls))) * avg_delta
+            )
 
         new_weights = global_weights + self._learning_rate * aggregated_update
         return new_weights
@@ -551,9 +552,11 @@ class FederatedServer:
         agg_time = time.time() - agg_start
 
         total_samples = sum(u.n_samples for u in updates)
-        avg_loss = np.mean([
-            u.loss_history[-1] for u in updates if u.loss_history
-        ]) if any(u.loss_history for u in updates) else 0.0
+        avg_loss = (
+            np.mean([u.loss_history[-1] for u in updates if u.loss_history])
+            if any(u.loss_history for u in updates)
+            else 0.0
+        )
 
         privacy_spent = None
         if self._privacy_engine is not None:

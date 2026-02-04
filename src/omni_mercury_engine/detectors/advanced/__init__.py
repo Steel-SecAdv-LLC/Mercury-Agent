@@ -61,9 +61,7 @@ from omni_mercury_engine.detectors.advanced.point_adjustment import (
 
 
 # Type alias for detector types
-DetectorType = Literal[
-    "timeseries", "industrial", "contrastive", "copod", "ensemble", "fast"
-]
+DetectorType = Literal["timeseries", "industrial", "contrastive", "copod", "ensemble", "fast"]
 
 
 def create_detector(

@@ -338,14 +338,14 @@ class AdvancedHarmonicAnalyzer:
             ps_z_scores = np.abs(ps_diff / self._std_power_spectrum)
             ps_deviation = np.mean(ps_z_scores)
 
-        complexity_deviation = abs(
-            descriptor.complexity_measure - self._mean_complexity
-        ) / self._std_complexity
+        complexity_deviation = (
+            abs(descriptor.complexity_measure - self._mean_complexity) / self._std_complexity
+        )
 
         anomaly_score = (
-            0.4 * (1 - similarity_score) +
-            0.4 * min(1.0, ps_deviation / 3.0) +
-            0.2 * min(1.0, complexity_deviation / 3.0)
+            0.4 * (1 - similarity_score)
+            + 0.4 * min(1.0, ps_deviation / 3.0)
+            + 0.2 * min(1.0, complexity_deviation / 3.0)
         )
 
         is_anomaly = anomaly_score > threshold
@@ -378,10 +378,7 @@ class AdvancedHarmonicAnalyzer:
         Returns:
             List of anomaly results
         """
-        return [
-            self.detect_anomalies(pc, threshold)
-            for pc in point_clouds
-        ]
+        return [self.detect_anomalies(pc, threshold) for pc in point_clouds]
 
     def compare(
         self,

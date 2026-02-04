@@ -176,25 +176,29 @@ class ExplanationReport:
                 lines.append(f"  {description}")
 
         if self.counterfactual_actions:
-            lines.extend([
-                "",
-                "WHAT COULD CHANGE THIS DECISION",
-                "-" * 40,
-            ])
+            lines.extend(
+                [
+                    "",
+                    "WHAT COULD CHANGE THIS DECISION",
+                    "-" * 40,
+                ]
+            )
             for i, action in enumerate(self.counterfactual_actions[:3], 1):
                 lines.append(f"{i}. {action.get('description', 'Change not specified')}")
 
-        lines.extend([
-            "",
-            "SIGNIFICANCE AND CONSEQUENCES",
-            "-" * 40,
-            f"Significance: {self.significance}",
-            f"Potential consequences: {self.consequences}",
-            "",
-            "YOUR RIGHTS",
-            "-" * 40,
-            self.rights_info,
-        ])
+        lines.extend(
+            [
+                "",
+                "SIGNIFICANCE AND CONSEQUENCES",
+                "-" * 40,
+                f"Significance: {self.significance}",
+                f"Potential consequences: {self.consequences}",
+                "",
+                "YOUR RIGHTS",
+                "-" * 40,
+                self.rights_info,
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -365,8 +369,7 @@ Reference ID: {decision_id}
         )
 
         input_features = {
-            self._feature_names[i]: float(instance[0, i])
-            for i in range(len(self._feature_names))
+            self._feature_names[i]: float(instance[0, i]) for i in range(len(self._feature_names))
         }
 
         decision_info = DecisionInfo(
@@ -472,27 +475,32 @@ Reference ID: {decision_id}
             for feature, (old, new) in cf.feature_changes.items():
                 direction = "increase" if new > old else "decrease"
                 amount = abs(new - old)
-                changes.append({
-                    "feature": feature,
-                    "direction": direction,
-                    "amount": amount,
-                    "from": old,
-                    "to": new,
-                })
+                changes.append(
+                    {
+                        "feature": feature,
+                        "direction": direction,
+                        "amount": amount,
+                        "from": old,
+                        "to": new,
+                    }
+                )
 
             if changes:
                 change_descriptions = [
-                    f"{c['direction']} {c['feature']} by {c['amount']:.2f}"
-                    for c in changes[:3]
+                    f"{c['direction']} {c['feature']} by {c['amount']:.2f}" for c in changes[:3]
                 ]
-                description = "To change this decision, you could: " + ", ".join(change_descriptions)
+                description = "To change this decision, you could: " + ", ".join(
+                    change_descriptions
+                )
 
-                actions.append({
-                    "description": description,
-                    "changes": changes,
-                    "distance": cf.distance,
-                    "feasibility": 1.0 / (1.0 + cf.distance),
-                })
+                actions.append(
+                    {
+                        "description": description,
+                        "changes": changes,
+                        "distance": cf.distance,
+                        "feasibility": 1.0 / (1.0 + cf.distance),
+                    }
+                )
 
         return actions
 
@@ -522,8 +530,7 @@ Reference ID: {decision_id}
             if negative_factors:
                 factor_names = [f[0] for f in negative_factors[:3]]
                 parts.append(
-                    f"Factors that contributed negatively include: "
-                    f"{', '.join(factor_names)}."
+                    f"Factors that contributed negatively include: " f"{', '.join(factor_names)}."
                 )
 
         if level == ExplanationLevel.FULL:
@@ -554,8 +561,7 @@ Reference ID: {decision_id}
                 "personal aspects including behavior, preferences, or characteristics."
             ),
             DecisionCategory.STANDARD: (
-                "This decision may affect the services or information "
-                "provided to you."
+                "This decision may affect the services or information " "provided to you."
             ),
         }
         return significance_map.get(category, significance_map[DecisionCategory.STANDARD])
@@ -580,8 +586,7 @@ Reference ID: {decision_id}
                 "communications. You have the right to object to profiling."
             ),
             DecisionCategory.STANDARD: (
-                "This may affect the content, recommendations, or services "
-                "shown to you."
+                "This may affect the content, recommendations, or services " "shown to you."
             ),
         }
         return consequences_map.get(category, consequences_map[DecisionCategory.STANDARD])
@@ -673,10 +678,7 @@ Reference ID: {decision_id}
         if subject_id is None:
             return self._audit_records.copy()
 
-        return [
-            r for r in self._audit_records
-            if r.subject_id == subject_id
-        ]
+        return [r for r in self._audit_records if r.subject_id == subject_id]
 
     def generate_compliance_report(self) -> dict[str, Any]:
         """
@@ -702,7 +704,8 @@ Reference ID: {decision_id}
                 "explanation_rate": explanations_provided / max(1, total_decisions),
                 "human_reviews_requested": human_reviews_requested,
                 "human_reviews_completed": human_reviews_completed,
-                "human_review_completion_rate": human_reviews_completed / max(1, human_reviews_requested),
+                "human_review_completion_rate": human_reviews_completed
+                / max(1, human_reviews_requested),
                 "objections_raised": objections_raised,
                 "objections_resolved": objections_resolved,
                 "objection_resolution_rate": objections_resolved / max(1, objections_raised),

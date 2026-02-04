@@ -636,12 +636,14 @@ class OpenAICloudAdapter(BaseLLMAdapter):
             messages.append({"role": "user", "content": prompt})
 
             # Request body
-            body = json.dumps({
-                "model": self.model,
-                "messages": messages,
-                "temperature": self.config.temperature,
-                "max_tokens": self.config.max_tokens,
-            })
+            body = json.dumps(
+                {
+                    "model": self.model,
+                    "messages": messages,
+                    "temperature": self.config.temperature,
+                    "max_tokens": self.config.max_tokens,
+                }
+            )
 
             headers = {
                 "Content-Type": "application/json",
@@ -835,14 +837,16 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
                 full_prompt = f"{system_prompt}\n\n{prompt}"
 
             # Request body for text-generation pipeline
-            body = json.dumps({
-                "inputs": full_prompt,
-                "parameters": {
-                    "max_new_tokens": self.config.max_tokens,
-                    "temperature": max(0.01, self.config.temperature),  # HF requires > 0
-                    "return_full_text": False,
-                },
-            })
+            body = json.dumps(
+                {
+                    "inputs": full_prompt,
+                    "parameters": {
+                        "max_new_tokens": self.config.max_tokens,
+                        "temperature": max(0.01, self.config.temperature),  # HF requires > 0
+                        "return_full_text": False,
+                    },
+                }
+            )
 
             headers = {
                 "Content-Type": "application/json",

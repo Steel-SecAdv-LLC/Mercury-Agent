@@ -252,9 +252,7 @@ class ContrastiveModel(nn.Module):
             shift_range=config.shift_range,
         )
 
-    def forward(
-        self, x: torch.Tensor, return_projection: bool = True
-    ) -> dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, return_projection: bool = True) -> dict[str, torch.Tensor]:
         """
         Forward pass.
 
@@ -415,9 +413,7 @@ class ContrastiveLearningDetector:
             lr=self.config.learning_rate,
             weight_decay=1e-5,
         )
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=self.config.epochs
-        )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.config.epochs)
 
         best_val_loss = float("inf")
         patience_counter = 0

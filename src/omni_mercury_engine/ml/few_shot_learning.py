@@ -941,9 +941,12 @@ class MAMLNumpy(BaseFewShotLearner):
         for _ in range(self.inner_steps):
             # Compute gradients
             dW1, db1, dW2, db2 = self._compute_gradients(
-                episode.support_X, y_mapped,
-                self.adapted_W1, self.adapted_b1,
-                self.adapted_W2, self.adapted_b2,
+                episode.support_X,
+                y_mapped,
+                self.adapted_W1,
+                self.adapted_b1,
+                self.adapted_W2,
+                self.adapted_b2,
             )
 
             # Gradient descent step
@@ -968,8 +971,11 @@ class MAMLNumpy(BaseFewShotLearner):
         assert self.adapted_b2 is not None
 
         _, logits = self._forward(
-            X, self.adapted_W1, self.adapted_b1,
-            self.adapted_W2, self.adapted_b2,
+            X,
+            self.adapted_W1,
+            self.adapted_b1,
+            self.adapted_W2,
+            self.adapted_b2,
         )
         return self._softmax(logits)
 
@@ -1025,11 +1031,15 @@ class RelationNetworkNumpy(BaseFewShotLearner):
         hidden_dim = (input_dim + self.embedding_dim) // 2
 
         scale1 = np.sqrt(2.0 / (input_dim + hidden_dim))
-        self.embed_W1 = self.rng.standard_normal((input_dim, hidden_dim)).astype(np.float64) * scale1
+        self.embed_W1 = (
+            self.rng.standard_normal((input_dim, hidden_dim)).astype(np.float64) * scale1
+        )
         self.embed_b1 = np.zeros(hidden_dim, dtype=np.float64)
 
         scale2 = np.sqrt(2.0 / (hidden_dim + self.embedding_dim))
-        self.embed_W2 = self.rng.standard_normal((hidden_dim, self.embedding_dim)).astype(np.float64) * scale2
+        self.embed_W2 = (
+            self.rng.standard_normal((hidden_dim, self.embedding_dim)).astype(np.float64) * scale2
+        )
         self.embed_b2 = np.zeros(self.embedding_dim, dtype=np.float64)
 
     def _initialize_relation(self) -> None:
@@ -1037,7 +1047,9 @@ class RelationNetworkNumpy(BaseFewShotLearner):
         concat_dim = 2 * self.embedding_dim
 
         scale1 = np.sqrt(2.0 / (concat_dim + self.relation_dim))
-        self.rel_W1 = self.rng.standard_normal((concat_dim, self.relation_dim)).astype(np.float64) * scale1
+        self.rel_W1 = (
+            self.rng.standard_normal((concat_dim, self.relation_dim)).astype(np.float64) * scale1
+        )
         self.rel_b1 = np.zeros(self.relation_dim, dtype=np.float64)
 
         scale2 = np.sqrt(2.0 / (self.relation_dim + 1))

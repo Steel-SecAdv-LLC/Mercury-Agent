@@ -174,9 +174,7 @@ class HarmonicFeatureExtractor:
                     if (l1 + l2 + l3) % 2 != 0:
                         continue
 
-                    b = self._compute_bispectrum_component(
-                        coefficients, l1, l2, l3
-                    )
+                    b = self._compute_bispectrum_component(coefficients, l1, l2, l3)
                     indices.append((l1, l2, l3))
                     components.append(b)
 
@@ -214,9 +212,12 @@ class HarmonicFeatureExtractor:
 
     def _clebsch_gordan_approx(
         self,
-        l1: int, m1: int,
-        l2: int, m2: int,
-        l3: int, m3: int,
+        l1: int,
+        m1: int,
+        l2: int,
+        m2: int,
+        l3: int,
+        m3: int,
     ) -> float:
         """Approximate Clebsch-Gordan coefficient."""
         if m1 + m2 != m3:
@@ -353,9 +354,7 @@ class HarmonicSimilarity:
         distances["power_spectrum"] = ps_dist / max_ps_dist
 
         if desc1.bispectrum is not None and desc2.bispectrum is not None:
-            bs_dist = np.linalg.norm(
-                desc1.bispectrum.components - desc2.bispectrum.components
-            )
+            bs_dist = np.linalg.norm(desc1.bispectrum.components - desc2.bispectrum.components)
             max_bs = max(
                 np.linalg.norm(desc1.bispectrum.components),
                 np.linalg.norm(desc2.bispectrum.components),
@@ -363,9 +362,7 @@ class HarmonicSimilarity:
             )
             distances["bispectrum"] = bs_dist / max_bs
 
-        energy_dist = np.linalg.norm(
-            desc1.energy_distribution - desc2.energy_distribution
-        )
+        energy_dist = np.linalg.norm(desc1.energy_distribution - desc2.energy_distribution)
         distances["energy"] = energy_dist / np.sqrt(2.0)
 
         total_dist = 0.0

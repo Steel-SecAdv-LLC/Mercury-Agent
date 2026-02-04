@@ -575,9 +575,7 @@ class ConformalAnomalyDetector:
         percentile_anomaly = percentile_scores / n_features
 
         # Ensemble fusion (weighted average)
-        ensemble_scores = (
-            0.4 * z_anomaly + 0.35 * density_anomaly + 0.25 * percentile_anomaly
-        )
+        ensemble_scores = 0.4 * z_anomaly + 0.35 * density_anomaly + 0.25 * percentile_anomaly
 
         return np.clip(ensemble_scores, 0.0, 1.0)
 
@@ -850,8 +848,6 @@ def _compute_statistical_anomaly_scores(X: np.ndarray) -> np.ndarray:
     percentile_anomaly = percentile_scores / n_features
 
     # Weighted ensemble
-    ensemble_scores = (
-        0.4 * z_anomaly + 0.35 * density_anomaly + 0.25 * percentile_anomaly
-    )
+    ensemble_scores = 0.4 * z_anomaly + 0.35 * density_anomaly + 0.25 * percentile_anomaly
 
     return np.clip(ensemble_scores, 0.0, 1.0)

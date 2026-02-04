@@ -582,9 +582,7 @@ class DistributedAnomalyDetector:
             healthy_nodes=sum(1 for h in node_health.values() if h.is_alive),
             leader_id=leader.node_id if leader else None,
             active_tasks=sum(h.active_tasks for h in node_health.values()),
-            pending_tasks=sum(
-                len(s._local_queue) for s in self._schedulers.values()
-            ),
+            pending_tasks=sum(len(s._local_queue) for s in self._schedulers.values()),
             completed_tasks=sum(h.completed_tasks for h in node_health.values()),
             node_health=node_health,
         )

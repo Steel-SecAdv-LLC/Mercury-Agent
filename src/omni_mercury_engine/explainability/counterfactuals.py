@@ -92,8 +92,7 @@ class Counterfactual:
             "original_prediction": self.original_prediction,
             "counterfactual_prediction": self.counterfactual_prediction,
             "feature_changes": {
-                k: [float(v[0]), float(v[1])]
-                for k, v in self.feature_changes.items()
+                k: [float(v[0]), float(v[1])] for k, v in self.feature_changes.items()
             },
             "distance": self.distance,
             "validity": self.validity,
@@ -183,11 +182,11 @@ class CounterfactualGenerator(ABC):
         if metric == DistanceMetric.L1:
             return float(np.sum(np.abs(diff)))
         elif metric == DistanceMetric.L2:
-            return float(np.sqrt(np.sum(diff ** 2)))
+            return float(np.sqrt(np.sum(diff**2)))
         elif metric == DistanceMetric.MAD:
             return float(np.sum(np.abs(diff)))
         else:
-            return float(np.sqrt(np.sum(diff ** 2)))
+            return float(np.sqrt(np.sum(diff**2)))
 
     def _get_feature_changes(
         self,
@@ -265,22 +264,23 @@ class WachterCounterfactual(CounterfactualGenerator):
                 changes = self._get_feature_changes(original, cf)
                 distance = self._compute_distance(original, cf)
 
-                is_valid = (
-                    (target_class == 1 and cf_pred >= 0.5) or
-                    (target_class == 0 and cf_pred < 0.5)
+                is_valid = (target_class == 1 and cf_pred >= 0.5) or (
+                    target_class == 0 and cf_pred < 0.5
                 )
 
-                counterfactuals.append(Counterfactual(
-                    original=original,
-                    counterfactual=cf,
-                    original_prediction=original_pred,
-                    counterfactual_prediction=cf_pred,
-                    feature_changes=changes,
-                    distance=distance,
-                    validity=is_valid,
-                    sparsity=len(changes),
-                    feature_names=self._feature_names,
-                ))
+                counterfactuals.append(
+                    Counterfactual(
+                        original=original,
+                        counterfactual=cf,
+                        original_prediction=original_pred,
+                        counterfactual_prediction=cf_pred,
+                        feature_changes=changes,
+                        distance=distance,
+                        validity=is_valid,
+                        sparsity=len(changes),
+                        feature_names=self._feature_names,
+                    )
+                )
 
         diversity = self._compute_diversity(counterfactuals) if counterfactuals else 0.0
         coverage = sum(1 for cf in counterfactuals if cf.validity) / max(1, n_counterfactuals)
@@ -301,6 +301,7 @@ class WachterCounterfactual(CounterfactualGenerator):
         target_pred: float,
     ) -> np.ndarray | None:
         """Optimize to find counterfactual."""
+
         def objective(x: np.ndarray) -> float:
             pred = self._predict(x.reshape(1, -1))[0]
             pred_loss = (pred - target_pred) ** 2
@@ -424,22 +425,23 @@ class DiCECounterfactual(CounterfactualGenerator):
             changes = self._get_feature_changes(original, cf)
             distance = self._compute_distance(original, cf)
 
-            is_valid = (
-                (target_class == 1 and cf_pred >= 0.5) or
-                (target_class == 0 and cf_pred < 0.5)
+            is_valid = (target_class == 1 and cf_pred >= 0.5) or (
+                target_class == 0 and cf_pred < 0.5
             )
 
-            counterfactuals.append(Counterfactual(
-                original=original,
-                counterfactual=cf,
-                original_prediction=original_pred,
-                counterfactual_prediction=cf_pred,
-                feature_changes=changes,
-                distance=distance,
-                validity=is_valid,
-                sparsity=len(changes),
-                feature_names=self._feature_names,
-            ))
+            counterfactuals.append(
+                Counterfactual(
+                    original=original,
+                    counterfactual=cf,
+                    original_prediction=original_pred,
+                    counterfactual_prediction=cf_pred,
+                    feature_changes=changes,
+                    distance=distance,
+                    validity=is_valid,
+                    sparsity=len(changes),
+                    feature_names=self._feature_names,
+                )
+            )
 
         diversity = self._compute_pairwise_diversity(cf_points)
         coverage = sum(1 for cf in counterfactuals if cf.validity) / max(1, n_counterfactuals)
@@ -463,14 +465,11 @@ class DiCECounterfactual(CounterfactualGenerator):
         n_features = len(original)
         target_pred = float(target_class)
 
-        init_points = [
-            original + np.random.randn(n_features) * 0.1 * (i + 1)
-            for i in range(n_cfs)
-        ]
+        init_points = [original + np.random.randn(n_features) * 0.1 * (i + 1) for i in range(n_cfs)]
         init_flat = np.concatenate(init_points)
 
         def objective(x_flat: np.ndarray) -> float:
-            cfs = [x_flat[i * n_features:(i + 1) * n_features] for i in range(n_cfs)]
+            cfs = [x_flat[i * n_features : (i + 1) * n_features] for i in range(n_cfs)]
 
             validity_loss = 0.0
             proximity_loss = 0.0
@@ -487,9 +486,9 @@ class DiCECounterfactual(CounterfactualGenerator):
                     diversity_loss -= dist
 
             total = (
-                validity_loss +
-                self._proximity_weight * proximity_loss +
-                self._diversity_weight * diversity_loss / max(1, n_cfs * (n_cfs - 1) / 2)
+                validity_loss
+                + self._proximity_weight * proximity_loss
+                + self._diversity_weight * diversity_loss / max(1, n_cfs * (n_cfs - 1) / 2)
             )
 
             return total
@@ -502,10 +501,7 @@ class DiCECounterfactual(CounterfactualGenerator):
                 options={"maxiter": self._max_iter},
             )
 
-            cfs = [
-                result.x[i * n_features:(i + 1) * n_features]
-                for i in range(n_cfs)
-            ]
+            cfs = [result.x[i * n_features : (i + 1) * n_features] for i in range(n_cfs)]
             return cfs
 
         except Exception as e:
@@ -585,32 +581,35 @@ class GrowingSpheresCounterfactual(CounterfactualGenerator):
                 changes = self._get_feature_changes(original, cf)
                 distance = self._compute_distance(original, cf)
 
-                is_valid = (
-                    (target_class == 1 and cf_pred >= 0.5) or
-                    (target_class == 0 and cf_pred < 0.5)
+                is_valid = (target_class == 1 and cf_pred >= 0.5) or (
+                    target_class == 0 and cf_pred < 0.5
                 )
 
-                counterfactuals.append(Counterfactual(
-                    original=original,
-                    counterfactual=cf,
-                    original_prediction=original_pred,
-                    counterfactual_prediction=cf_pred,
-                    feature_changes=changes,
-                    distance=distance,
-                    validity=is_valid,
-                    sparsity=len(changes),
-                    feature_names=self._feature_names,
-                ))
+                counterfactuals.append(
+                    Counterfactual(
+                        original=original,
+                        counterfactual=cf,
+                        original_prediction=original_pred,
+                        counterfactual_prediction=cf_pred,
+                        feature_changes=changes,
+                        distance=distance,
+                        validity=is_valid,
+                        sparsity=len(changes),
+                        feature_names=self._feature_names,
+                    )
+                )
 
         diversity = 0.0
         if len(counterfactuals) > 1:
             distances = []
             for i in range(len(counterfactuals)):
                 for j in range(i + 1, len(counterfactuals)):
-                    distances.append(self._compute_distance(
-                        counterfactuals[i].counterfactual,
-                        counterfactuals[j].counterfactual,
-                    ))
+                    distances.append(
+                        self._compute_distance(
+                            counterfactuals[i].counterfactual,
+                            counterfactuals[j].counterfactual,
+                        )
+                    )
             diversity = float(np.mean(distances))
 
         coverage = sum(1 for cf in counterfactuals if cf.validity) / max(1, n_counterfactuals)
@@ -768,10 +767,7 @@ class PrototypeCounterfactual(CounterfactualGenerator):
             )
 
         target_prototypes = self._prototypes[target_class]
-        distances = [
-            self._compute_distance(original, p)
-            for p in target_prototypes
-        ]
+        distances = [self._compute_distance(original, p) for p in target_prototypes]
         sorted_indices = np.argsort(distances)
 
         counterfactuals = []
@@ -785,32 +781,35 @@ class PrototypeCounterfactual(CounterfactualGenerator):
                 changes = self._get_feature_changes(original, cf)
                 distance = self._compute_distance(original, cf)
 
-                is_valid = (
-                    (target_class == 1 and cf_pred >= 0.5) or
-                    (target_class == 0 and cf_pred < 0.5)
+                is_valid = (target_class == 1 and cf_pred >= 0.5) or (
+                    target_class == 0 and cf_pred < 0.5
                 )
 
-                counterfactuals.append(Counterfactual(
-                    original=original,
-                    counterfactual=cf,
-                    original_prediction=original_pred,
-                    counterfactual_prediction=cf_pred,
-                    feature_changes=changes,
-                    distance=distance,
-                    validity=is_valid,
-                    sparsity=len(changes),
-                    feature_names=self._feature_names,
-                ))
+                counterfactuals.append(
+                    Counterfactual(
+                        original=original,
+                        counterfactual=cf,
+                        original_prediction=original_pred,
+                        counterfactual_prediction=cf_pred,
+                        feature_changes=changes,
+                        distance=distance,
+                        validity=is_valid,
+                        sparsity=len(changes),
+                        feature_names=self._feature_names,
+                    )
+                )
 
         diversity = 0.0
         if len(counterfactuals) > 1:
             dist_pairs = []
             for i in range(len(counterfactuals)):
                 for j in range(i + 1, len(counterfactuals)):
-                    dist_pairs.append(self._compute_distance(
-                        counterfactuals[i].counterfactual,
-                        counterfactuals[j].counterfactual,
-                    ))
+                    dist_pairs.append(
+                        self._compute_distance(
+                            counterfactuals[i].counterfactual,
+                            counterfactuals[j].counterfactual,
+                        )
+                    )
             diversity = float(np.mean(dist_pairs))
 
         coverage = sum(1 for cf in counterfactuals if cf.validity) / max(1, n_counterfactuals)

@@ -74,20 +74,24 @@ def find_anomaly_segments(
             start = i
         elif labels[i] == 0 and in_segment:
             # End of segment
-            segments.append(SegmentInfo(
-                start=start,
-                end=i,
-                length=i - start,
-            ))
+            segments.append(
+                SegmentInfo(
+                    start=start,
+                    end=i,
+                    length=i - start,
+                )
+            )
             in_segment = False
 
     # Handle last segment
     if in_segment:
-        segments.append(SegmentInfo(
-            start=start,
-            end=len(labels),
-            length=len(labels) - start,
-        ))
+        segments.append(
+            SegmentInfo(
+                start=start,
+                end=len(labels),
+                length=len(labels) - start,
+            )
+        )
 
     return segments
 
@@ -192,6 +196,7 @@ def compute_adjusted_metrics(
     if scores is not None:
         try:
             from sklearn.metrics import roc_auc_score
+
             # Use original labels for AUC (not affected by point-adjustment)
             metrics["roc_auc"] = float(roc_auc_score(labels, scores))
         except (ValueError, ImportError):
@@ -365,27 +370,31 @@ class PointAdjustmentEvaluator:
         ]
 
         if "segment_recall" in metrics:
-            report_lines.extend([
-                "Segment-Level Metrics:",
-                f"  Segments:  {metrics['n_segments']}",
-                f"  Detected:  {metrics['detected_segments']}",
-                f"  Seg Recall: {metrics['segment_recall']:.4f}",
-                f"  Avg Delay: {metrics['avg_detection_delay']:.1f} steps",
-                "",
-            ])
+            report_lines.extend(
+                [
+                    "Segment-Level Metrics:",
+                    f"  Segments:  {metrics['n_segments']}",
+                    f"  Detected:  {metrics['detected_segments']}",
+                    f"  Seg Recall: {metrics['segment_recall']:.4f}",
+                    f"  Avg Delay: {metrics['avg_detection_delay']:.1f} steps",
+                    "",
+                ]
+            )
 
         if "roc_auc" in metrics:
             report_lines.append(f"ROC-AUC: {metrics['roc_auc']:.4f}")
 
-        report_lines.extend([
-            "",
-            "Comparison (Unadjusted):",
-            f"  Precision: {metrics['unadjusted_precision']:.4f}",
-            f"  Recall:    {metrics['unadjusted_recall']:.4f}",
-            f"  F1 Score:  {metrics['unadjusted_f1']:.4f}",
-            f"  F1 Improvement: +{metrics['f1_improvement']:.4f}",
-            "",
-            "=" * 50,
-        ])
+        report_lines.extend(
+            [
+                "",
+                "Comparison (Unadjusted):",
+                f"  Precision: {metrics['unadjusted_precision']:.4f}",
+                f"  Recall:    {metrics['unadjusted_recall']:.4f}",
+                f"  F1 Score:  {metrics['unadjusted_f1']:.4f}",
+                f"  F1 Improvement: +{metrics['f1_improvement']:.4f}",
+                "",
+                "=" * 50,
+            ]
+        )
 
         return "\n".join(report_lines)

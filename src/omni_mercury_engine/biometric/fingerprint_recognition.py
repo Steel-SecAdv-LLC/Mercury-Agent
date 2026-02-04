@@ -177,9 +177,7 @@ class OrientationFieldEstimator:
 
         for i in range(image.shape[0]):
             for j in range(image.shape[1]):
-                result[i, j] = np.sum(
-                    padded[i : i + kh, j : j + kw] * kernel
-                )
+                result[i, j] = np.sum(padded[i : i + kh, j : j + kw] * kernel)
 
         return result
 
@@ -349,10 +347,10 @@ class GaborEnhancer:
                 freq = frequency[i, j]
 
                 gabor = self._get_gabor_filter(angle, freq)
-                block = image[max(0, y1 - self._kernel_size // 2):
-                              min(h, y2 + self._kernel_size // 2),
-                              max(0, x1 - self._kernel_size // 2):
-                              min(w, x2 + self._kernel_size // 2)]
+                block = image[
+                    max(0, y1 - self._kernel_size // 2) : min(h, y2 + self._kernel_size // 2),
+                    max(0, x1 - self._kernel_size // 2) : min(w, x2 + self._kernel_size // 2),
+                ]
 
                 filtered = self._apply_filter(block, gabor)
 
@@ -368,7 +366,7 @@ class GaborEnhancer:
 
                 target_h = min(bh, extracted.shape[0])
                 target_w = min(bw, extracted.shape[1])
-                enhanced[y1:y1 + target_h, x1:x1 + target_w] = extracted[:target_h, :target_w]
+                enhanced[y1 : y1 + target_h, x1 : x1 + target_w] = extracted[:target_h, :target_w]
 
         enhanced = (enhanced - enhanced.min()) / (enhanced.max() - enhanced.min() + 1e-8)
         return enhanced
@@ -414,7 +412,7 @@ class GaborEnhancer:
         for i in range(pad_h, padded.shape[0] - pad_h):
             for j in range(pad_w, padded.shape[1] - pad_w):
                 result[i, j] = np.sum(
-                    padded[i - pad_h:i + pad_h + 1, j - pad_w:j + pad_w + 1] * kernel
+                    padded[i - pad_h : i + pad_h + 1, j - pad_w : j + pad_w + 1] * kernel
                 )
 
         return result[pad_h:-pad_h, pad_w:-pad_w]
@@ -565,13 +563,15 @@ class MinutiaeExtractor:
                 oj = min(int(j / (w / ow)), ow - 1)
                 angle = orientation[oi, oj]
 
-                minutiae.append(Minutia(
-                    x=float(j),
-                    y=float(i),
-                    orientation=angle,
-                    type=minutiae_type,
-                    quality=1.0,
-                ))
+                minutiae.append(
+                    Minutia(
+                        x=float(j),
+                        y=float(i),
+                        orientation=angle,
+                        type=minutiae_type,
+                        quality=1.0,
+                    )
+                )
 
         return minutiae
 
@@ -622,7 +622,7 @@ class MinutiaeExtractor:
                 continue
 
             cluster = [m1]
-            for j, m2 in enumerate(minutiae[i + 1:], i + 1):
+            for j, m2 in enumerate(minutiae[i + 1 :], i + 1):
                 if not used[j] and m1.distance_to(m2) < min_distance:
                     cluster.append(m2)
                     used[j] = True
@@ -691,13 +691,9 @@ class FingerprintMatcher:
                 dy = gm.y - pm.y
                 da = gm.orientation - pm.orientation
 
-                matched = self._count_matched_minutiae(
-                    probe_minutiae, gallery_minutiae, dx, dy, da
-                )
+                matched = self._count_matched_minutiae(probe_minutiae, gallery_minutiae, dx, dy, da)
 
-                score = self._compute_score(
-                    matched, len(probe_minutiae), len(gallery_minutiae)
-                )
+                score = self._compute_score(matched, len(probe_minutiae), len(gallery_minutiae))
 
                 if score > best_score:
                     best_score = score
@@ -705,7 +701,9 @@ class FingerprintMatcher:
                     best_transform = (dx, dy, da)
 
         is_match = best_score >= self._threshold
-        confidence = min(1.0, best_score / 100.0) if is_match else best_score / self._threshold * 0.5
+        confidence = (
+            min(1.0, best_score / 100.0) if is_match else best_score / self._threshold * 0.5
+        )
 
         return FingerprintMatchResult(
             match_score=best_score,
@@ -738,9 +736,7 @@ class FingerprintMatcher:
                 if gallery_used[gi]:
                     continue
 
-                dist = math.sqrt(
-                    (px_transformed - gm.x) ** 2 + (py_transformed - gm.y) ** 2
-                )
+                dist = math.sqrt((px_transformed - gm.x) ** 2 + (py_transformed - gm.y) ** 2)
                 if dist > self._dist_tol:
                     continue
 
@@ -765,7 +761,7 @@ class FingerprintMatcher:
         if probe_count == 0 or gallery_count == 0:
             return 0.0
 
-        score = (matched ** 2) / (probe_count * gallery_count) * 100
+        score = (matched**2) / (probe_count * gallery_count) * 100
         return score
 
 
@@ -912,9 +908,7 @@ class FingerprintLivenessDetector:
 
         for i in range(image.shape[0]):
             for j in range(image.shape[1]):
-                result[i, j] = np.sum(
-                    padded[i : i + kh, j : j + kw] * kernel
-                )
+                result[i, j] = np.sum(padded[i : i + kh, j : j + kw] * kernel)
 
         return result
 
@@ -1067,7 +1061,7 @@ class FingerprintRecognizer:
         cos_sum = sum(np.cos(2 * a) for a in angles)
         sin_sum = sum(np.sin(2 * a) for a in angles)
 
-        coherence = np.sqrt(cos_sum ** 2 + sin_sum ** 2) / len(angles)
+        coherence = np.sqrt(cos_sum**2 + sin_sum**2) / len(angles)
         return coherence
 
     def _detect_singularities(self, orientation: np.ndarray) -> list[Singularity]:
@@ -1100,19 +1094,23 @@ class FingerprintRecognizer:
                 poincare /= np.pi
 
                 if abs(poincare - 1) < 0.3:
-                    singularities.append(Singularity(
-                        x=float(j),
-                        y=float(i),
-                        type=SingularityType.CORE_LOOP,
-                        orientation=orientation[i, j],
-                    ))
+                    singularities.append(
+                        Singularity(
+                            x=float(j),
+                            y=float(i),
+                            type=SingularityType.CORE_LOOP,
+                            orientation=orientation[i, j],
+                        )
+                    )
                 elif abs(poincare + 1) < 0.3:
-                    singularities.append(Singularity(
-                        x=float(j),
-                        y=float(i),
-                        type=SingularityType.DELTA,
-                        orientation=orientation[i, j],
-                    ))
+                    singularities.append(
+                        Singularity(
+                            x=float(j),
+                            y=float(i),
+                            type=SingularityType.DELTA,
+                            orientation=orientation[i, j],
+                        )
+                    )
 
         return singularities
 

@@ -173,7 +173,9 @@ class BiometricAnomalyDetector:
         if "iris" in self._modalities:
             self._recognizers["iris"] = IrisRecognizer(liveness_required=liveness_required)
         if "fingerprint" in self._modalities:
-            self._recognizers["fingerprint"] = FingerprintRecognizer(liveness_required=liveness_required)
+            self._recognizers["fingerprint"] = FingerprintRecognizer(
+                liveness_required=liveness_required
+            )
         if "voice" in self._modalities:
             self._recognizers["voice"] = VoiceRecognizer(liveness_required=liveness_required)
 
@@ -211,7 +213,9 @@ class BiometricAnomalyDetector:
             enrollment.iris_features = self._recognizers["iris"].extract_features(iris_image)
 
         if "fingerprint" in self._modalities and fingerprint_image is not None:
-            enrollment.fingerprint_features = self._recognizers["fingerprint"].extract_features(fingerprint_image)
+            enrollment.fingerprint_features = self._recognizers["fingerprint"].extract_features(
+                fingerprint_image
+            )
 
         if "voice" in self._modalities and voice_sample is not None:
             enrollment.voice_features = self._recognizers["voice"].extract_features(voice_sample)
@@ -257,7 +261,11 @@ class BiometricAnomalyDetector:
         liveness_results: dict[str, Any] = {}
         scores: list[tuple[float, float]] = []
 
-        if "iris" in self._modalities and iris_image is not None and enrollment.iris_features is not None:
+        if (
+            "iris" in self._modalities
+            and iris_image is not None
+            and enrollment.iris_features is not None
+        ):
             match_result, liveness_result = self._recognizers["iris"].verify(
                 iris_image,
                 enrollment.iris_features,
@@ -276,7 +284,11 @@ class BiometricAnomalyDetector:
             quality = enrollment.iris_features.quality_score
             scores.append((match_result.match_score, quality))
 
-        if "fingerprint" in self._modalities and fingerprint_image is not None and enrollment.fingerprint_features is not None:
+        if (
+            "fingerprint" in self._modalities
+            and fingerprint_image is not None
+            and enrollment.fingerprint_features is not None
+        ):
             match_result, liveness_result = self._recognizers["fingerprint"].verify(
                 fingerprint_image,
                 enrollment.fingerprint_features,
@@ -295,7 +307,11 @@ class BiometricAnomalyDetector:
             quality = enrollment.fingerprint_features.overall_quality
             scores.append((match_result.match_score / 100.0, quality))
 
-        if "voice" in self._modalities and voice_sample is not None and enrollment.voice_features is not None:
+        if (
+            "voice" in self._modalities
+            and voice_sample is not None
+            and enrollment.voice_features is not None
+        ):
             match_result, liveness_result = self._recognizers["voice"].verify(
                 voice_sample,
                 enrollment.voice_features,
@@ -434,7 +450,9 @@ class BiometricAnomalyDetector:
             return is_verified, float(avg_score)
 
         elif self._fusion_strategy == FusionStrategy.DECISION_LEVEL:
-            matches = sum(1 for _, result in modality_results.items() if result.get("is_match", False))
+            matches = sum(
+                1 for _, result in modality_results.items() if result.get("is_match", False)
+            )
             total = len(modality_results)
             is_verified = matches > total / 2
             confidence = matches / total if total > 0 else 0.0

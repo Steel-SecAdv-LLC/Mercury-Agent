@@ -439,7 +439,7 @@ class BaseFoundationAdapter(BaseFoundationModel):
         # Compute autocorrelation
         series_centered = series - np.mean(series)
         acf = np.correlate(series_centered, series_centered, mode="full")
-        acf = acf[n - 1:]  # Take positive lags only
+        acf = acf[n - 1 :]  # Take positive lags only
         acf = acf / (acf[0] + 1e-10)  # Normalize
 
         # Find peaks in ACF (potential periods)
@@ -607,7 +607,7 @@ class BaseFoundationAdapter(BaseFoundationModel):
 
         # Use configurable threshold
         if threshold is None:
-            threshold = getattr(self.foundation_config, 'anomaly_threshold', 2.0)
+            threshold = getattr(self.foundation_config, "anomaly_threshold", 2.0)
 
         is_anomaly = z_scores > threshold
 
