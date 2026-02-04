@@ -573,31 +573,30 @@ class FeedbackProcessor:
                     linguistic_feedback.append(
                         f"Step {i}: Correct negative classification (score={pred:.2f})"
                     )
+            elif pred_class and not truth_bool:
+                linguistic_feedback.append(
+                    f"Step {i}: False positive - lower threshold recommended (score={pred:.2f})"
+                )
+                improvement_signals.append(
+                    {
+                        "step": i,
+                        "type": "false_positive",
+                        "suggestion": "increase_threshold",
+                        "score": pred,
+                    }
+                )
             else:
-                if pred_class and not truth_bool:
-                    linguistic_feedback.append(
-                        f"Step {i}: False positive - lower threshold recommended (score={pred:.2f})"
-                    )
-                    improvement_signals.append(
-                        {
-                            "step": i,
-                            "type": "false_positive",
-                            "suggestion": "increase_threshold",
-                            "score": pred,
-                        }
-                    )
-                else:
-                    linguistic_feedback.append(
-                        f"Step {i}: False negative - raise sensitivity (score={pred:.2f})"
-                    )
-                    improvement_signals.append(
-                        {
-                            "step": i,
-                            "type": "false_negative",
-                            "suggestion": "decrease_threshold",
-                            "score": pred,
-                        }
-                    )
+                linguistic_feedback.append(
+                    f"Step {i}: False negative - raise sensitivity (score={pred:.2f})"
+                )
+                improvement_signals.append(
+                    {
+                        "step": i,
+                        "type": "false_negative",
+                        "suggestion": "decrease_threshold",
+                        "score": pred,
+                    }
+                )
 
         return {
             "linguistic_feedback": linguistic_feedback,
@@ -823,7 +822,7 @@ class ChainOfHindsightEngine:
         step_id = f"{sequence_id}_step_{step_idx}"
 
         # Determine reward from outcome
-        correct = outcome.get("correct", outcome.get("success", None))
+        correct = outcome.get("correct", outcome.get("success"))
         if correct is True:
             reward = 1.0
             feedback = "Correct decision"
@@ -1469,8 +1468,8 @@ class AnomalyChainOfHindsight:
 
         if labels:
             # Analyze false positives and negatives
-            fp_scores = [s for s, l in labels if s > 0.5 and not l]
-            fn_scores = [s for s, l in labels if s <= 0.5 and l]
+            fp_scores = [s for s, label in labels if s > 0.5 and not label]
+            fn_scores = [s for s, label in labels if s <= 0.5 and label]
 
             if fp_scores:
                 avg_fp = np.mean(fp_scores)
