@@ -11,13 +11,13 @@ References:
 from __future__ import annotations
 
 import logging
-import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
 import numpy as np
+
 
 logger = logging.getLogger(__name__)
 

@@ -19,80 +19,81 @@ References:
 - GDPR Article 22: Automated individual decision-making
 """
 
-from omni_mercury_engine.explainability.shap import (
-    ExplainerType,
-    ShapExplanation,
-    GlobalExplanation,
-    ShapExplainer,
-    ExactShapExplainer,
-    KernelShapExplainer,
-    SamplingShapExplainer,
-    TreeShapExplainer,
-    LinearShapExplainer,
-    create_shap_explainer,
-)
 from omni_mercury_engine.explainability.counterfactuals import (
-    DistanceMetric,
-    CounterfactualMethod,
-    FeatureConstraint,
     Counterfactual,
-    CounterfactualSet,
     CounterfactualGenerator,
-    WachterCounterfactual,
+    CounterfactualMethod,
+    CounterfactualSet,
     DiCECounterfactual,
+    DistanceMetric,
+    FeatureConstraint,
     GrowingSpheresCounterfactual,
     PrototypeCounterfactual,
+    WachterCounterfactual,
     create_counterfactual_generator,
-)
-from omni_mercury_engine.explainability.gdpr_compliance import (
-    DecisionCategory,
-    ExplanationLevel,
-    DataSubjectInfo,
-    DecisionInfo,
-    ExplanationReport,
-    ComplianceAuditRecord,
-    GDPRExplainer,
 )
 from omni_mercury_engine.explainability.explainer import (
     AnomalyExplanation,
     GlobalAnomalyExplanation,
     MercuryExplainer,
 )
+from omni_mercury_engine.explainability.gdpr_compliance import (
+    ComplianceAuditRecord,
+    DataSubjectInfo,
+    DecisionCategory,
+    DecisionInfo,
+    ExplanationLevel,
+    ExplanationReport,
+    GDPRExplainer,
+)
+from omni_mercury_engine.explainability.shap import (
+    ExactShapExplainer,
+    ExplainerType,
+    GlobalExplanation,
+    KernelShapExplainer,
+    LinearShapExplainer,
+    SamplingShapExplainer,
+    ShapExplainer,
+    ShapExplanation,
+    TreeShapExplainer,
+    create_shap_explainer,
+)
+
 
 __all__ = [
-    # Main interface
-    "MercuryExplainer",
     "AnomalyExplanation",
-    "GlobalAnomalyExplanation",
-    # SHAP
-    "ExplainerType",
-    "ShapExplanation",
-    "GlobalExplanation",
-    "ShapExplainer",
-    "ExactShapExplainer",
-    "KernelShapExplainer",
-    "SamplingShapExplainer",
-    "TreeShapExplainer",
-    "LinearShapExplainer",
-    "create_shap_explainer",
-    # Counterfactuals
-    "DistanceMetric",
-    "CounterfactualMethod",
-    "FeatureConstraint",
+    "ComplianceAuditRecord",
     "Counterfactual",
-    "CounterfactualSet",
     "CounterfactualGenerator",
-    "WachterCounterfactual",
-    "DiCECounterfactual",
-    "GrowingSpheresCounterfactual",
-    "PrototypeCounterfactual",
-    "create_counterfactual_generator",
+    "CounterfactualMethod",
+    "CounterfactualSet",
+    "DataSubjectInfo",
     # GDPR Compliance
     "DecisionCategory",
-    "ExplanationLevel",
-    "DataSubjectInfo",
     "DecisionInfo",
+    "DiCECounterfactual",
+    # Counterfactuals
+    "DistanceMetric",
+    "ExactShapExplainer",
+    # SHAP
+    "ExplainerType",
+    "ExplanationLevel",
     "ExplanationReport",
-    "ComplianceAuditRecord",
+    "FeatureConstraint",
     "GDPRExplainer",
+    "GlobalAnomalyExplanation",
+    "GlobalExplanation",
+    "GrowingSpheresCounterfactual",
+    "KernelShapExplainer",
+    "LinearShapExplainer",
+    # Main interface
+    "MercuryExplainer",
+    "PrototypeCounterfactual",
+    "SamplingShapExplainer",
+    "ShapExplainer",
+    "ShapExplanation",
+    "TreeShapExplainer",
+    "WachterCounterfactual",
+    "create_counterfactual_generator",
+    "create_shap_explainer",
 ]

@@ -23,16 +23,19 @@ Reference:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from numpy.typing import NDArray
 from scipy import stats
 
 
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+
 __all__ = [
-    "COPODDetector",
     "COPODConfig",
+    "COPODDetector",
 ]
 
 
@@ -106,7 +109,7 @@ class COPODDetector:
 
         # Sort data for ECDF computation
         sorted_idx = np.argsort(X, axis=0)
-        sorted_data = np.take_along_axis(X, sorted_idx, axis=0)
+        np.take_along_axis(X, sorted_idx, axis=0)
 
         # Compute ranks (1 to n)
         ranks = np.empty_like(X)
@@ -160,7 +163,7 @@ class COPODDetector:
         self,
         X: NDArray[np.float64],
         y: NDArray[np.float64] | None = None,
-    ) -> "COPODDetector":
+    ) -> COPODDetector:
         """
         Fit the COPOD detector.
 

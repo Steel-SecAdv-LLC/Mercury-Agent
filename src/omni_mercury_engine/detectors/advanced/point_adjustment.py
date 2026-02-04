@@ -23,17 +23,20 @@ Reference:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from numpy.typing import NDArray
+
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 
 __all__ = [
     "PointAdjustmentEvaluator",
     "adjust_predictions",
-    "find_anomaly_segments",
     "compute_adjusted_metrics",
+    "find_anomaly_segments",
 ]
 
 

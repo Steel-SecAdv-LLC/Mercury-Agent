@@ -711,6 +711,13 @@ ignore = [
 "src/omni_mercury_engine/security/input_validation.py" = ["S310"]
 # C408: dict() is idiomatic for Plotly visualization code
 "src/omni_mercury_engine/gui/**/*.py" = ["C408"]
+# E741: 'l' is standard mathematical notation for spherical harmonic degree
+"src/omni_mercury_engine/harmonics/*.py" = ["E741"]
+# SIM113: Manual batch counting is intentional for stepped iteration and conditional logic
+"src/omni_mercury_engine/detectors/advanced/*.py" = ["SIM113"]
+# S310: Financial stubs use hardcoded HTTPS URLs for trusted financial APIs
+"src/omni_mercury_engine/integrations/stubs/financial.py" = ["S310"]
+"src/omni_mercury_engine/integrations/stubs/weather.py" = ["S310"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["omni_mercury_engine"]

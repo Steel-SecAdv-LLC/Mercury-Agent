@@ -15,18 +15,18 @@ import numpy as np
 from omni_mercury_engine.quantum_computing.circuits import (
     AnomalyEncodingCircuit,
     EncodingType,
-    VariationalAnsatz,
     ErrorMitigationCircuit,
+    VariationalAnsatz,
 )
 from omni_mercury_engine.quantum_computing.executor import (
     QuantumExecutor,
-    ExecutionResult,
 )
 from omni_mercury_engine.quantum_computing.hybrid import (
+    QAOAAnomalyDetector,
     QuantumKernel,
     VQEAnomalyDetector,
-    QAOAAnomalyDetector,
 )
+
 
 logger = logging.getLogger(__name__)
 

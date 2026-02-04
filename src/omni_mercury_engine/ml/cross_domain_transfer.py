@@ -1018,7 +1018,7 @@ class JDAAdapter(BaseDomainAdapter):
 
         # Combined data
         X_combined = np.vstack([source_X_norm, target_X_norm])
-        n_s = len(source_X)
+        len(source_X)
 
         # Initialize pseudo-labels using simple 1-NN
         dists = cdist(target_X_norm, source_X_norm)

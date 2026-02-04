@@ -11,12 +11,12 @@ References:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 import numpy as np
 
 from omni_mercury_engine.harmonics.transform import HarmonicCoefficients
+
 
 logger = logging.getLogger(__name__)
 
@@ -234,8 +234,7 @@ class HarmonicFeatureExtractor:
         l_max = coefficients.l_max
         n_bands = min(5, (l_max + 1) // 4)
 
-        if n_bands < 1:
-            n_bands = 1
+        n_bands = max(n_bands, 1)
 
         band_size = (l_max + 1) // n_bands
         energy = np.zeros(n_bands)

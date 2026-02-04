@@ -12,23 +12,35 @@ References:
 from __future__ import annotations
 
 import logging
-import math
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 logger = logging.getLogger(__name__)
 
 
 QISKIT_AVAILABLE = False
 try:
-    from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
-    from qiskit.circuit import Parameter, ParameterVector
+    from qiskit import (
+        ClassicalRegister as _ClassicalRegister,  # noqa: F401
+        QuantumCircuit,
+        QuantumRegister as _QuantumRegister,  # noqa: F401
+    )
+    from qiskit.circuit import (
+        Parameter as _Parameter,  # noqa: F401
+        ParameterVector as _ParameterVector,  # noqa: F401
+    )
     QISKIT_AVAILABLE = True
 except ImportError:
     logger.debug("Qiskit not available, using simulation fallback")
+    QuantumCircuit = None  # type: ignore[misc, assignment]
 
 
 class EncodingType(Enum):
@@ -826,7 +838,7 @@ class ErrorMitigationCircuit:
         if factor == 1.0:
             return circuit
 
-        builder = QuantumCircuitBuilder()
+        QuantumCircuitBuilder()
 
         if isinstance(circuit, SimulatedQuantumCircuit):
             scaled = SimulatedQuantumCircuit(circuit.num_qubits, circuit.num_clbits)

@@ -30,6 +30,7 @@ from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+
 logger = logging.getLogger(__name__)
 
 

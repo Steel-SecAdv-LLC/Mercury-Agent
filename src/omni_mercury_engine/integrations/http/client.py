@@ -363,8 +363,9 @@ class HTTPClient:
 
         # Try to use real HTTP client (aiohttp)
         try:
-            import aiohttp
             import ssl
+
+            import aiohttp
 
             return await self._execute_with_aiohttp(
                 aiohttp, ssl, method, url, headers, data, json_data, params, start_time

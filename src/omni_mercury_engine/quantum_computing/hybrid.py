@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -26,12 +26,13 @@ from omni_mercury_engine.quantum_computing.circuits import (
     VariationalCircuit,
 )
 from omni_mercury_engine.quantum_computing.executor import (
-    ExecutionResult,
     QuantumExecutor,
-    SimulatorBackend,
-    BackendConfig,
-    BackendType,
 )
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 logger = logging.getLogger(__name__)
 
@@ -386,7 +387,7 @@ class VQEAnomalyDetector:
         Returns:
             self for method chaining
         """
-        mean_data = np.mean(X_train, axis=0)
+        np.mean(X_train, axis=0)
 
         def cost_function(counts: dict[str, int]) -> float:
             total = sum(counts.values())

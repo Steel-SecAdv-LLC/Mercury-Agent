@@ -13,14 +13,13 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable
-
-import numpy as np
+from typing import Any
 
 from omni_mercury_engine.quantum_computing.circuits import (
-    SimulatedQuantumCircuit,
     QISKIT_AVAILABLE,
+    SimulatedQuantumCircuit,
 )
+
 
 logger = logging.getLogger(__name__)
 
@@ -317,8 +316,8 @@ class IBMQuantumBackend:
             return job
 
         try:
-            from qiskit_ibm_runtime import SamplerV2 as Sampler
             from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+            from qiskit_ibm_runtime import SamplerV2 as Sampler
 
             pm = generate_preset_pass_manager(
                 optimization_level=self._config.optimization_level,
@@ -450,7 +449,7 @@ class QuantumExecutor:
         if isinstance(self._backend, SimulatorBackend):
             results = self._backend.run(circuits, shots)
         else:
-            job = self._backend.run(circuits, shots)
+            self._backend.run(circuits, shots)
             results = []
 
         return results[0] if single_circuit and results else results

@@ -13,17 +13,17 @@ from typing import Any
 
 import numpy as np
 
-from omni_mercury_engine.harmonics.transform import (
-    HarmonicCoefficients,
-    SphericalHarmonicTransform,
-    FastSHTransform,
-)
 from omni_mercury_engine.harmonics.features import (
     HarmonicFeatureExtractor,
     HarmonicSimilarity,
     RotationInvariantDescriptor,
-    PowerSpectrum,
 )
+from omni_mercury_engine.harmonics.transform import (
+    FastSHTransform,
+    HarmonicCoefficients,
+    SphericalHarmonicTransform,
+)
+
 
 logger = logging.getLogger(__name__)
 

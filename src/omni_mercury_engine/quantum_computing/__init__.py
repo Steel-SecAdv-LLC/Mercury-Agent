@@ -14,51 +14,52 @@ Note: When Qiskit is not available, the module provides simulation fallbacks.
 """
 
 from omni_mercury_engine.quantum_computing.circuits import (
-    QuantumCircuitBuilder,
     AnomalyEncodingCircuit,
-    VariationalCircuit,
-    QuantumFeatureMap,
     ErrorMitigationCircuit,
-)
-from omni_mercury_engine.quantum_computing.executor import (
-    QuantumExecutor,
-    ExecutionResult,
-    BackendConfig,
-    JobStatus,
-)
-from omni_mercury_engine.quantum_computing.hybrid import (
-    HybridOptimizer,
-    OptimizationResult,
-    QuantumKernel,
-    VQEAnomalyDetector,
-    QAOAAnomalyDetector,
+    QuantumCircuitBuilder,
+    QuantumFeatureMap,
+    VariationalCircuit,
 )
 from omni_mercury_engine.quantum_computing.detector import (
     QuantumAnomalyDetector,
     QuantumDetectionResult,
     QuantumResourceEstimate,
 )
+from omni_mercury_engine.quantum_computing.executor import (
+    BackendConfig,
+    ExecutionResult,
+    JobStatus,
+    QuantumExecutor,
+)
+from omni_mercury_engine.quantum_computing.hybrid import (
+    HybridOptimizer,
+    OptimizationResult,
+    QAOAAnomalyDetector,
+    QuantumKernel,
+    VQEAnomalyDetector,
+)
+
 
 __all__ = [
-    # Circuit building
-    "QuantumCircuitBuilder",
     "AnomalyEncodingCircuit",
-    "VariationalCircuit",
-    "QuantumFeatureMap",
-    "ErrorMitigationCircuit",
-    # Execution
-    "QuantumExecutor",
-    "ExecutionResult",
     "BackendConfig",
-    "JobStatus",
+    "ErrorMitigationCircuit",
+    "ExecutionResult",
     # Hybrid optimization
     "HybridOptimizer",
+    "JobStatus",
     "OptimizationResult",
-    "QuantumKernel",
-    "VQEAnomalyDetector",
     "QAOAAnomalyDetector",
     # Detection
     "QuantumAnomalyDetector",
+    # Circuit building
+    "QuantumCircuitBuilder",
     "QuantumDetectionResult",
+    # Execution
+    "QuantumExecutor",
+    "QuantumFeatureMap",
+    "QuantumKernel",
     "QuantumResourceEstimate",
+    "VQEAnomalyDetector",
+    "VariationalCircuit",
 ]

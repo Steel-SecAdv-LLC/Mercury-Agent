@@ -23,16 +23,19 @@ Target: Improve ensemble F1 by 10-15% over simple averaging
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Protocol
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
-from numpy.typing import NDArray
+
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 
 __all__ = [
-    "GWOEnsembleDetector",
     "GWOEnsembleConfig",
+    "GWOEnsembleDetector",
 ]
 
 
@@ -244,7 +247,7 @@ class GWOEnsembleDetector:
         # Store individual detector scores for analysis
         self._detector_scores: list[NDArray[np.float64]] = []
 
-    def add_detector(self, detector: Any) -> "GWOEnsembleDetector":
+    def add_detector(self, detector: Any) -> GWOEnsembleDetector:
         """Add a detector to the ensemble."""
         self.detectors.append(detector)
         return self
@@ -324,7 +327,7 @@ class GWOEnsembleDetector:
         X: NDArray[np.float64],
         y: NDArray[np.float64] | None = None,
         y_val: NDArray[np.float64] | None = None,
-    ) -> "GWOEnsembleDetector":
+    ) -> GWOEnsembleDetector:
         """
         Fit the ensemble detector.
 

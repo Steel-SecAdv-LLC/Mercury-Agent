@@ -18,9 +18,14 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from itertools import combinations
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 logger = logging.getLogger(__name__)
 

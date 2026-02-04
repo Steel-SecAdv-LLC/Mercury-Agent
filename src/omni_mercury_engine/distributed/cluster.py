@@ -8,23 +8,24 @@ fault tolerance, and horizontal scaling capabilities.
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
 import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
 
 from omni_mercury_engine.distributed.raft_consensus import (
-    ClusterConfiguration,
     RaftCluster,
-    RaftNode,
-    StateMachine,
     create_cluster_configs,
 )
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +170,7 @@ class WorkStealingScheduler:
         """Get the next task to execute."""
         try:
             await asyncio.wait_for(self._task_available.wait(), timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return None
 
         async with self._lock:
@@ -545,7 +546,7 @@ class DistributedAnomalyDetector:
                 asyncio.gather(*coroutines, return_exceptions=True),
                 timeout=timeout,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Task execution timed out after %s seconds", timeout)
             results = [
                 TaskResult(

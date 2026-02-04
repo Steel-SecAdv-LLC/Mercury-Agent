@@ -59,6 +59,7 @@ from omni_mercury_engine.detectors.advanced.point_adjustment import (
     find_anomaly_segments,
 )
 
+
 # Type alias for detector types
 DetectorType = Literal[
     "timeseries", "industrial", "contrastive", "copod", "ensemble", "fast"
@@ -133,27 +134,27 @@ def list_detectors() -> dict[str, str]:
 
 
 __all__ = [
-    # Detectors
-    "AdversarialAutoencoderDetector",
-    "COPODDetector",
-    "ContrastiveLearningDetector",
-    "GWOEnsembleDetector",
-    "MultiScaleTransformerDetector",
     # Configs
     "AdversarialAEConfig",
+    # Detectors
+    "AdversarialAutoencoderDetector",
     "COPODConfig",
+    "COPODDetector",
     "ContrastiveConfig",
+    "ContrastiveLearningDetector",
+    # Type aliases
+    "DetectorType",
     "GWOEnsembleConfig",
+    "GWOEnsembleDetector",
     "MultiScaleTransformerConfig",
+    "MultiScaleTransformerDetector",
     # Evaluation
     "PointAdjustmentEvaluator",
     "SegmentInfo",
     "adjust_predictions",
     "compute_adjusted_metrics",
-    "find_anomaly_segments",
     # Factory functions
     "create_detector",
+    "find_anomaly_segments",
     "list_detectors",
-    # Type aliases
-    "DetectorType",
 ]

@@ -499,7 +499,7 @@ class ConformalAnomalyDetector:
             if hasattr(self.base_detector, "negative_outlier_factor_"):
                 # LOF stores this for training data - use as reference
                 nof = np.abs(self.base_detector.negative_outlier_factor_)
-                median_nof = np.median(nof)
+                np.median(nof)
                 # Estimate anomaly scores based on prediction
                 scores = np.where(predictions == -1, 0.7, 0.3)
             elif hasattr(self.base_detector, "offset_"):

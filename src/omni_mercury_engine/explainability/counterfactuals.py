@@ -16,10 +16,15 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy.optimize import minimize
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 logger = logging.getLogger(__name__)
 
@@ -625,7 +630,7 @@ class GrowingSpheresCounterfactual(CounterfactualGenerator):
         target_class: int,
     ) -> np.ndarray | None:
         """Grow sphere until crossing decision boundary."""
-        n_features = len(original)
+        len(original)
         radius = self._step_size
 
         for _ in range(self._max_iter):

@@ -13,6 +13,7 @@ from typing import Any
 
 import numpy as np
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -146,7 +147,7 @@ class IntUniformParameter(HyperParameter):
 
     def from_normalized(self, normalized: float) -> int:
         """Convert from [0, 1]."""
-        return int(round(self._low + normalized * (self._high - self._low)))
+        return round(self._low + normalized * (self._high - self._low))
 
     def get_bounds(self) -> tuple[int, int]:
         """Get bounds."""
@@ -179,7 +180,7 @@ class CategoricalParameter(HyperParameter):
 
     def from_normalized(self, normalized: float) -> Any:
         """Convert from [0, 1]."""
-        idx = int(round(normalized * (len(self._choices) - 1)))
+        idx = round(normalized * (len(self._choices) - 1))
         return self._choices[idx]
 
     def get_bounds(self) -> tuple[int, int]:

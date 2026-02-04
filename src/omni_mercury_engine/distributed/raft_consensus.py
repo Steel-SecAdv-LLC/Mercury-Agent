@@ -17,10 +17,14 @@ import json
 import logging
 import random
 import time
-import uuid
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 logger = logging.getLogger(__name__)
 
@@ -239,7 +243,7 @@ class RaftLog:
         return entry.term if entry else 0
 
 
-class StateMachine(Generic[T]):
+class StateMachine[T]:
     """
     State machine that applies committed log entries.
 
@@ -339,7 +343,7 @@ class InMemoryTransport(MessageTransport):
     Routes messages directly between RaftNode instances.
     """
 
-    _instances: dict[str, "RaftNode"] = {}
+    _instances: dict[str, RaftNode] = {}
 
     def __init__(self, node_id: str) -> None:
         """Initialize in-memory transport."""
@@ -348,7 +352,7 @@ class InMemoryTransport(MessageTransport):
         self._running = False
 
     @classmethod
-    def register_node(cls, node_id: str, node: "RaftNode") -> None:
+    def register_node(cls, node_id: str, node: RaftNode) -> None:
         """Register a node for message routing."""
         cls._instances[node_id] = node
 
@@ -431,6 +435,7 @@ class RaftNode:
 
         self._election_timer: asyncio.Task | None = None
         self._heartbeat_timer: asyncio.Task | None = None
+        self._replication_task: asyncio.Task | None = None
         self._running = False
 
         self._pending_commands: dict[int, asyncio.Future] = {}
@@ -516,12 +521,12 @@ class RaftNode:
             future: asyncio.Future = asyncio.Future()
             self._pending_commands[index] = future
 
-        asyncio.create_task(self._replicate_entries())
+        self._replication_task = asyncio.create_task(self._replicate_entries())
 
         try:
             result = await asyncio.wait_for(future, timeout=timeout)
             return True, result
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._pending_commands.pop(index, None)
             return False, {"error": "timeout"}
 

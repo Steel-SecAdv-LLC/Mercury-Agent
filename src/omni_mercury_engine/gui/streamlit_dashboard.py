@@ -434,7 +434,6 @@ def stroke_assessment_panel() -> None:
 
         with col_r1:
             severity = "Minor" if score <= 4 else "Moderate" if score <= 15 else "Severe"
-            color = "green" if score <= 4 else "orange" if score <= 15 else "red"
             st.metric("NIHSS Score", score, delta=severity)
 
         with col_r2:
@@ -488,7 +487,7 @@ def icp_monitoring_panel() -> None:
     with col2:
         st.markdown("**Patient Parameters**")
         head_elevation = st.slider("Head of Bed Elevation (degrees)", 0, 45, 30)
-        sedation_level = st.selectbox(
+        st.selectbox(
             "Sedation Level (RASS)",
             ["-5 (Unarousable)", "-4 (Deep sedation)", "-3 (Moderate sedation)",
              "-2 (Light sedation)", "-1 (Drowsy)", "0 (Alert)", "+1 (Restless)"],
@@ -513,7 +512,7 @@ def icp_monitoring_panel() -> None:
 
             # Display trend if data available
             if "icp" in icp_trend_data.columns.str.lower():
-                icp_col = [c for c in icp_trend_data.columns if "icp" in c.lower()][0]
+                icp_col = next(c for c in icp_trend_data.columns if "icp" in c.lower())
                 st.line_chart(icp_trend_data[icp_col])
 
                 # Calculate trend statistics
@@ -588,7 +587,7 @@ def seizure_detection_panel() -> None:
             index=0,
         )
         duration_seconds = st.number_input("Duration (seconds)", 0, 600, 0)
-        post_ictal = st.checkbox("Post-ictal state present")
+        st.checkbox("Post-ictal state present")
 
         st.markdown("**Risk Factors**")
         prior_seizures = st.checkbox("History of seizures/epilepsy")
@@ -604,7 +603,7 @@ def seizure_detection_panel() -> None:
              "Electrographic seizure"],
             index=0,
         )
-        eeg_laterality = st.selectbox(
+        st.selectbox(
             "Lateralization",
             ["Bilateral", "Left hemisphere", "Right hemisphere", "Multifocal"],
             index=0,
@@ -621,7 +620,6 @@ def seizure_detection_panel() -> None:
     eeg_file = st.file_uploader("Upload EEG Data (EDF/CSV)", type=["edf", "csv"])
 
     # Process uploaded EEG file if available
-    eeg_features = None
     if eeg_file is not None:
         try:
             file_type = eeg_file.name.split(".")[-1].lower()
@@ -659,12 +657,6 @@ def seizure_detection_panel() -> None:
                         with col_d:
                             st.metric("Beta", f"{beta_power:.1f}")
 
-                        eeg_features = {
-                            "delta": delta_power,
-                            "theta": theta_power,
-                            "alpha": alpha_power,
-                            "beta": beta_power,
-                        }
 
             elif file_type == "edf":
                 st.info("EDF files require pyedflib library. Using header information only.")
@@ -796,7 +788,6 @@ def consciousness_assessment_panel() -> None:
     col_r1, col_r2, col_r3, col_r4 = st.columns(4)
 
     with col_r1:
-        severity = "Mild" if gcs_total >= 13 else "Moderate" if gcs_total >= 9 else "Severe"
         if gcs_total <= 8:
             st.error(f"GCS: {gcs_total}/15 (Severe)")
         elif gcs_total <= 12:

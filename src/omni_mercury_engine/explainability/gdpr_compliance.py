@@ -16,21 +16,23 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
-
-from omni_mercury_engine.explainability.shap import (
-    ShapExplanation,
-    ShapExplainer,
-    create_shap_explainer,
-)
 from omni_mercury_engine.explainability.counterfactuals import (
-    Counterfactual,
     CounterfactualSet,
-    CounterfactualGenerator,
     create_counterfactual_generator,
 )
+from omni_mercury_engine.explainability.shap import (
+    ShapExplanation,
+    create_shap_explainer,
+)
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    import numpy as np
+
 
 logger = logging.getLogger(__name__)
 

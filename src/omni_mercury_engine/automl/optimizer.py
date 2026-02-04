@@ -11,32 +11,37 @@ References:
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import time
-import hashlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy import stats
 
-from omni_mercury_engine.automl.search_space import (
-    SearchSpace,
-    HyperParameter,
-    UniformParameter,
-    LogUniformParameter,
-    IntUniformParameter,
-    CategoricalParameter,
-)
 from omni_mercury_engine.automl.schedulers import (
-    TrialScheduler,
-    HyperbandScheduler,
     ASHAScheduler,
+    HyperbandScheduler,
     MedianStoppingScheduler,
     SchedulerDecision,
+    TrialScheduler,
 )
+from omni_mercury_engine.automl.search_space import (
+    CategoricalParameter,
+    HyperParameter,
+    IntUniformParameter,
+    LogUniformParameter,
+    SearchSpace,
+    UniformParameter,
+)
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 logger = logging.getLogger(__name__)
 
@@ -576,7 +581,7 @@ class BayesianOptimizer:
     def _generate_trial_id(self, config: dict[str, Any], idx: int) -> str:
         """Generate unique trial ID."""
         config_str = str(sorted(config.items()))
-        hash_str = hashlib.md5(config_str.encode()).hexdigest()[:8]
+        hash_str = hashlib.sha256(config_str.encode()).hexdigest()[:8]
         return f"trial_{idx:04d}_{hash_str}"
 
     def _update_best(self, trial: TrialResult) -> None:
@@ -588,9 +593,8 @@ class BayesianOptimizer:
         if self._direction == "minimize":
             if trial.metric < self._best_trial.metric:
                 self._best_trial = trial
-        else:
-            if trial.metric > self._best_trial.metric:
-                self._best_trial = trial
+        elif trial.metric > self._best_trial.metric:
+            self._best_trial = trial
 
 
 class MercuryAutoML:
@@ -989,7 +993,7 @@ class MercuryAutoML:
 
         total_var = np.var(all_metrics)
         if total_var < 1e-10:
-            return {p: 0.0 for p in self._search_space.parameters}
+            return dict.fromkeys(self._search_space.parameters, 0.0)
 
         for param_name in self._search_space.parameters:
             param_values: dict[Any, list[float]] = {}

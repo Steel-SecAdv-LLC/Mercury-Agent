@@ -12,11 +12,11 @@ References:
 from __future__ import annotations
 
 import logging
-import math
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+
 
 logger = logging.getLogger(__name__)
 
@@ -115,8 +115,7 @@ class AudioPreprocessor:
         n_samples = len(signal)
         n_frames = 1 + (n_samples - self._frame_length) // self._frame_shift
 
-        if n_frames < 1:
-            n_frames = 1
+        n_frames = max(n_frames, 1)
 
         frames = np.zeros((n_frames, self._frame_length))
 
@@ -644,7 +643,7 @@ class VoiceLivenessDetector:
 
         total_energy = low_energy + mid_energy + high_energy + 1e-10
 
-        low_ratio = low_energy / total_energy
+        low_energy / total_energy
         mid_ratio = mid_energy / total_energy
         high_ratio = high_energy / total_energy
 

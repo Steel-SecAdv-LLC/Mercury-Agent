@@ -29,6 +29,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -387,7 +388,6 @@ class CacheStub:
         await self._simulate_latency()
         self._maybe_fail()
 
-        import fnmatch
 
         # Clean expired entries
         expired = [k for k, v in self._cache.items() if v.is_expired]
@@ -679,8 +679,8 @@ class RedisCache:
         if self.serializer == "json":
             return json.dumps(value)
         else:
-            import pickle
             import base64
+            import pickle
             return base64.b64encode(pickle.dumps(value)).decode()
 
     def _deserialize(self, data: str | None) -> Any:
@@ -690,8 +690,8 @@ class RedisCache:
         if self.serializer == "json":
             return json.loads(data)
         else:
-            import pickle
             import base64
+            import pickle
             return pickle.loads(base64.b64decode(data.encode()))
 
     async def get(self, key: str) -> Any | None:
@@ -844,7 +844,7 @@ class RedisCache:
             if self.fallback_to_stub:
                 self._fallback_count += 1
                 return await self._stub.mget(keys)
-            return {k: None for k in keys}
+            return dict.fromkeys(keys)
 
         try:
             full_keys = [self._make_key(k) for k in keys]
@@ -859,7 +859,7 @@ class RedisCache:
             if self.fallback_to_stub:
                 self._fallback_count += 1
                 return await self._stub.mget(keys)
-            return {k: None for k in keys}
+            return dict.fromkeys(keys)
 
     async def mset(self, mapping: dict[str, Any], ttl: int | None = None) -> bool:
         """Set multiple values.

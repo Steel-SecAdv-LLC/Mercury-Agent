@@ -21,18 +21,21 @@ Performance Target: BATADAL F1 > 0.80, SWaT F1 > 0.90
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-from numpy.typing import NDArray
 from torch import nn
 
 
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+
 __all__ = [
-    "AdversarialAutoencoderDetector",
     "AdversarialAEConfig",
+    "AdversarialAutoencoderDetector",
 ]
 
 
@@ -439,7 +442,7 @@ class AdversarialAutoencoderDetector:
         X: NDArray[np.float64],
         y: NDArray[np.float64] | None = None,
         validation_split: float = 0.1,
-    ) -> "AdversarialAutoencoderDetector":
+    ) -> AdversarialAutoencoderDetector:
         """
         Fit the detector on training data.
 

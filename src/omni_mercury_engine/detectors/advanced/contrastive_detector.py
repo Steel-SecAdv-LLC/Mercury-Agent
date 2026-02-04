@@ -20,19 +20,22 @@ Reference:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-from numpy.typing import NDArray
 from torch import nn
 
 
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+
 __all__ = [
-    "ContrastiveLearningDetector",
     "ContrastiveConfig",
+    "ContrastiveLearningDetector",
 ]
 
 
@@ -375,7 +378,7 @@ class ContrastiveLearningDetector:
         X: NDArray[np.float64],
         y: NDArray[np.float64] | None = None,
         validation_split: float = 0.1,
-    ) -> "ContrastiveLearningDetector":
+    ) -> ContrastiveLearningDetector:
         """
         Fit the detector using contrastive learning.
 

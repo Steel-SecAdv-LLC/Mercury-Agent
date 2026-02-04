@@ -1374,7 +1374,7 @@ class StreamingAnomalyPipeline:
 
             except asyncio.CancelledError:
                 break
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self._stats["error_breakdown"]["timeout_errors"] += 1
             except (ConnectionError, OSError) as e:
                 logger.error(f"Pipeline connection error: {e}")

@@ -11,18 +11,12 @@ Key Components:
 - BiometricAnomalyDetector: Unified multi-modal biometric system
 """
 
-from omni_mercury_engine.biometric.iris_recognition import (
-    GaborFilter,
-    IrisEncoder,
-    IrisFeatures,
-    IrisLivenessDetector,
-    IrisMatcher,
-    IrisMatchResult,
-    IrisNormalizer,
-    IrisRecognizer,
-    IrisSegmenter,
-    LivenessResult as IrisLivenessResult,
-)
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import Any
+
+import numpy as np
+
 from omni_mercury_engine.biometric.fingerprint_recognition import (
     FingerprintFeatures,
     FingerprintLivenessDetector,
@@ -39,6 +33,18 @@ from omni_mercury_engine.biometric.fingerprint_recognition import (
     Singularity,
     SingularityType,
 )
+from omni_mercury_engine.biometric.iris_recognition import (
+    GaborFilter,
+    IrisEncoder,
+    IrisFeatures,
+    IrisLivenessDetector,
+    IrisMatcher,
+    IrisMatchResult,
+    IrisNormalizer,
+    IrisRecognizer,
+    IrisSegmenter,
+    LivenessResult as IrisLivenessResult,
+)
 from omni_mercury_engine.biometric.voice_recognition import (
     AudioPreprocessor,
     EnergyExtractor,
@@ -53,12 +59,6 @@ from omni_mercury_engine.biometric.voice_recognition import (
     VoiceMatchResult,
     VoiceRecognizer,
 )
-
-from dataclasses import dataclass, field
-from enum import Enum, auto
-from typing import Any
-
-import numpy as np
 
 
 class BiometricModality(Enum):
@@ -451,50 +451,50 @@ class BiometricAnomalyDetector:
 
 
 __all__ = [
+    "AudioPreprocessor",
     # Main classes
     "BiometricAnomalyDetector",
-    "BiometricEnrollment",
-    "BiometricVerificationResult",
     "BiometricAnomalyResult",
+    "BiometricEnrollment",
     "BiometricModality",
-    "FusionStrategy",
-    # Iris recognition
-    "IrisRecognizer",
-    "IrisFeatures",
-    "IrisMatchResult",
-    "IrisLivenessResult",
-    "IrisSegmenter",
-    "IrisNormalizer",
-    "IrisEncoder",
-    "IrisMatcher",
-    "IrisLivenessDetector",
-    "GaborFilter",
+    "BiometricVerificationResult",
+    "EnergyExtractor",
+    "FingerprintFeatures",
+    "FingerprintLivenessDetector",
+    "FingerprintLivenessResult",
+    "FingerprintMatchResult",
+    "FingerprintMatcher",
     # Fingerprint recognition
     "FingerprintRecognizer",
-    "FingerprintFeatures",
-    "FingerprintMatchResult",
-    "FingerprintLivenessResult",
+    "FusionStrategy",
+    "GaborEnhancer",
+    "GaborFilter",
+    "IrisEncoder",
+    "IrisFeatures",
+    "IrisLivenessDetector",
+    "IrisLivenessResult",
+    "IrisMatchResult",
+    "IrisMatcher",
+    "IrisNormalizer",
+    # Iris recognition
+    "IrisRecognizer",
+    "IrisSegmenter",
+    "MFCCExtractor",
     "Minutia",
+    "MinutiaeExtractor",
     "MinutiaeType",
+    "OrientationFieldEstimator",
+    "PitchExtractor",
+    "RidgeFrequencyEstimator",
     "Singularity",
     "SingularityType",
-    "MinutiaeExtractor",
-    "FingerprintMatcher",
-    "FingerprintLivenessDetector",
-    "OrientationFieldEstimator",
-    "RidgeFrequencyEstimator",
-    "GaborEnhancer",
+    "SpeakerEmbedding",
+    "VoiceActivityDetector",
+    "VoiceFeatures",
+    "VoiceLivenessDetector",
+    "VoiceLivenessResult",
+    "VoiceMatchResult",
+    "VoiceMatcher",
     # Voice recognition
     "VoiceRecognizer",
-    "VoiceFeatures",
-    "VoiceMatchResult",
-    "VoiceLivenessResult",
-    "AudioPreprocessor",
-    "MFCCExtractor",
-    "PitchExtractor",
-    "EnergyExtractor",
-    "SpeakerEmbedding",
-    "VoiceMatcher",
-    "VoiceLivenessDetector",
-    "VoiceActivityDetector",
 ]

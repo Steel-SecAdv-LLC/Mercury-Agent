@@ -17,21 +17,25 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from omni_mercury_engine.federated_learning.client import (
-    FederatedClient,
     ClientManager,
+    FederatedClient,
     LocalUpdate,
-    ClientStatus,
 )
 from omni_mercury_engine.federated_learning.privacy import (
-    SecureAggregator,
     PrivacyEngine,
     PrivacyReport,
+    SecureAggregator,
 )
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 logger = logging.getLogger(__name__)
 

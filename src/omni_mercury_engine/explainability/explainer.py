@@ -30,29 +30,31 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from omni_mercury_engine.explainability.shap import (
-    ShapExplanation,
-    GlobalExplanation,
-    ShapExplainer,
-    create_shap_explainer,
-)
 from omni_mercury_engine.explainability.counterfactuals import (
-    Counterfactual,
     CounterfactualSet,
-    CounterfactualGenerator,
     FeatureConstraint,
     create_counterfactual_generator,
 )
 from omni_mercury_engine.explainability.gdpr_compliance import (
-    GDPRExplainer,
-    ExplanationReport,
     DecisionCategory,
     ExplanationLevel,
+    ExplanationReport,
+    GDPRExplainer,
 )
+from omni_mercury_engine.explainability.shap import (
+    GlobalExplanation,
+    ShapExplanation,
+    create_shap_explainer,
+)
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +129,7 @@ class AnomalyExplanation:
     def summary(self) -> str:
         """Generate human-readable summary."""
         lines = [
-            f"Anomaly Explanation",
+            "Anomaly Explanation",
             "=" * 50,
             f"Anomaly Score: {self.anomaly_score:.4f}",
             f"Is Anomaly: {self.is_anomaly}",

@@ -22,18 +22,21 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-from numpy.typing import NDArray
 from torch import nn
 
 
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+
 __all__ = [
-    "MultiScaleTransformerDetector",
     "MultiScaleTransformerConfig",
+    "MultiScaleTransformerDetector",
 ]
 
 
@@ -512,7 +515,7 @@ class MultiScaleTransformerDetector:
         X: NDArray[np.float64],
         y: NDArray[np.float64] | None = None,
         validation_split: float = 0.1,
-    ) -> "MultiScaleTransformerDetector":
+    ) -> MultiScaleTransformerDetector:
         """
         Fit the detector on training data.
 
@@ -725,12 +728,11 @@ def _point_adjust(
             if not in_segment:
                 in_segment = True
                 segment_start = i
-        else:
-            if in_segment:
-                # Check if any point in segment was predicted as anomaly
-                if predictions[segment_start:i].sum() > 0:
-                    adjusted[segment_start:i] = 1
-                in_segment = False
+        elif in_segment:
+            # Check if any point in segment was predicted as anomaly
+            if predictions[segment_start:i].sum() > 0:
+                adjusted[segment_start:i] = 1
+            in_segment = False
 
     # Handle last segment
     if in_segment and predictions[segment_start:].sum() > 0:

@@ -649,7 +649,7 @@ def _synthesize_probabilities_from_predictions(
     Returns:
         Synthetic probability scores in [0, 1].
     """
-    n_samples = len(predictions)
+    len(predictions)
 
     # Determine anomaly convention
     if hasattr(detector, "contamination"):
