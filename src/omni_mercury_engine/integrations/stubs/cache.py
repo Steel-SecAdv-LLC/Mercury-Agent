@@ -674,26 +674,38 @@ class RedisCache:
         return f"{self.prefix}{key}"
 
     def _serialize(self, value: Any) -> str:
-        """Serialize value for storage."""
+        """Serialize value for storage.
+
+        Security Note: Pickle serialization is used for complex Python objects
+        that cannot be JSON-serialized. The data is stored in Redis which is
+        typically on a private network and the data was serialized by this
+        same application. For untrusted data sources, use serializer="json".
+        """
         if self.serializer == "json":
             return json.dumps(value)
         else:
             import base64
-            import pickle
+            import pickle  # nosec B403 - pickle used for internal cache serialization only
 
             return base64.b64encode(pickle.dumps(value)).decode()
 
     def _deserialize(self, data: str | None) -> Any:
-        """Deserialize value from storage."""
+        """Deserialize value from storage.
+
+        Security Note: Pickle deserialization is only used for data that was
+        serialized by this same application and stored in Redis. The Redis
+        instance should be on a private network with proper access controls.
+        For untrusted data sources, use serializer="json" instead.
+        """
         if data is None:
             return None
         if self.serializer == "json":
             return json.loads(data)
         else:
             import base64
-            import pickle
+            import pickle  # nosec B403 - pickle used for internal cache serialization only
 
-            return pickle.loads(base64.b64decode(data.encode()))
+            return pickle.loads(base64.b64decode(data.encode()))  # nosec B301 - trusted Redis cache data
 
     async def get(self, key: str) -> Any | None:
         """Get value from cache.
