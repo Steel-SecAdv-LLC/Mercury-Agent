@@ -253,18 +253,33 @@ class NeurosymbolicEngine:
         }
 
     def train_model(
-        self, training_data: list[tuple[ast.AST, dict[str, Any]]] | None = None
+        self,
+        training_data: list[tuple[ast.AST, dict[str, Any]]] | None = None,
+        epochs: int = 100,
+        batch_size: int = 32,
+        validation_split: float = 0.2,
     ) -> TrainingMetrics:
         """
-        Train neural model on code patterns (stub).
+        Train neural model on code patterns.
 
-        EXTENSION POINT: Implement training loop here.
+        Implements a neural network training loop for learning code refactoring
+        patterns from AST features. Uses a simple feedforward architecture
+        with gradient descent optimization.
 
         Args:
-            training_data: List of (AST, ground_truth) pairs
+            training_data: List of (AST, ground_truth) pairs where ground_truth
+                contains pattern labels and refactoring suggestions.
+            epochs: Number of training epochs.
+            batch_size: Training batch size.
+            validation_split: Fraction of data for validation.
 
         Returns:
-            Training metrics
+            Training metrics with loss, accuracy, and readiness level.
+
+        Example:
+            >>> engine = NeurosymbolicEngine(NeurosymbolicConfig(enable_neural=True))
+            >>> training_data = [(ast.parse("x = 1"), {"complexity": 1})]
+            >>> metrics = engine.train_model(training_data, epochs=50)
         """
         if training_data is None:
             logging.warning(
@@ -277,18 +292,339 @@ class NeurosymbolicEngine:
             logging.info("Neural components disabled in config. Set enable_neural=True to train.")
             return self.training_metrics
 
-        logging.info(f"Training stub: Would train on {len(training_data)} examples")
+        if len(training_data) < 2:
+            logging.warning("Insufficient training data. Need at least 2 samples.")
+            return self.training_metrics
 
+        logging.info(f"Starting neural training on {len(training_data)} examples")
         self.current_phase = TrainingPhase.SPECIALIZATION
 
+        # Extract features from AST data
+        features, labels = self._prepare_training_data(training_data)
+
+        if len(features) == 0:
+            logging.warning("Could not extract features from training data.")
+            return self.training_metrics
+
+        # Split into train/validation
+        n_samples = len(features)
+        n_val = max(1, int(n_samples * validation_split))
+        n_train = n_samples - n_val
+
+        indices = self._rng.permutation(n_samples)
+        train_indices = indices[:n_train]
+        val_indices = indices[n_train:]
+
+        X_train = features[train_indices]
+        y_train = labels[train_indices]
+        X_val = features[val_indices]
+        y_val = labels[val_indices]
+
+        # Initialize neural network weights
+        input_dim = features.shape[1]
+        hidden_dim = max(8, input_dim * 2)
+        output_dim = 1  # Binary or regression output
+
+        # Xavier initialization
+        W1 = self._rng.randn(input_dim, hidden_dim) * np.sqrt(2.0 / input_dim)
+        b1 = np.zeros(hidden_dim)
+        W2 = self._rng.randn(hidden_dim, output_dim) * np.sqrt(2.0 / hidden_dim)
+        b2 = np.zeros(output_dim)
+
+        learning_rate = self.config.backprop_learning_rate
+        best_val_loss = float("inf")
+        best_epoch = 0
+
+        # Training loop
+        train_losses = []
+        val_losses = []
+
+        for epoch in range(epochs):
+            # Shuffle training data
+            perm = self._rng.permutation(n_train)
+            X_train_shuffled = X_train[perm]
+            y_train_shuffled = y_train[perm]
+
+            epoch_loss = 0.0
+
+            # Mini-batch training
+            for i in range(0, n_train, batch_size):
+                X_batch = X_train_shuffled[i : i + batch_size]
+                y_batch = y_train_shuffled[i : i + batch_size]
+
+                # Forward pass
+                z1 = X_batch @ W1 + b1
+                a1 = np.maximum(0, z1)  # ReLU activation
+
+                z2 = a1 @ W2 + b2
+                y_pred = 1 / (1 + np.exp(-z2))  # Sigmoid for binary output
+
+                # Compute loss (binary cross-entropy)
+                epsilon = 1e-7
+                y_batch_reshaped = y_batch.reshape(-1, 1)
+                loss = -np.mean(
+                    y_batch_reshaped * np.log(y_pred + epsilon)
+                    + (1 - y_batch_reshaped) * np.log(1 - y_pred + epsilon)
+                )
+                epoch_loss += loss * len(X_batch)
+
+                # Backward pass
+                m = len(X_batch)
+                dz2 = (y_pred - y_batch_reshaped) / m
+                dW2 = a1.T @ dz2
+                db2 = np.sum(dz2, axis=0)
+
+                da1 = dz2 @ W2.T
+                dz1 = da1 * (z1 > 0)  # ReLU derivative
+                dW1 = X_batch.T @ dz1
+                db1 = np.sum(dz1, axis=0)
+
+                # Gradient descent update
+                W1 -= learning_rate * dW1
+                b1 -= learning_rate * db1
+                W2 -= learning_rate * dW2
+                b2 -= learning_rate * db2
+
+            # Compute average training loss
+            train_loss = epoch_loss / n_train
+            train_losses.append(train_loss)
+
+            # Validation
+            z1_val = X_val @ W1 + b1
+            a1_val = np.maximum(0, z1_val)
+            z2_val = a1_val @ W2 + b2
+            y_val_pred = 1 / (1 + np.exp(-z2_val))
+
+            y_val_reshaped = y_val.reshape(-1, 1)
+            val_loss = -np.mean(
+                y_val_reshaped * np.log(y_val_pred + epsilon)
+                + (1 - y_val_reshaped) * np.log(1 - y_val_pred + epsilon)
+            )
+            val_losses.append(val_loss)
+
+            # Track best model
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_epoch = epoch
+                # Store best weights
+                self.neural_model = {
+                    "W1": W1.copy(),
+                    "b1": b1.copy(),
+                    "W2": W2.copy(),
+                    "b2": b2.copy(),
+                    "input_dim": input_dim,
+                    "hidden_dim": hidden_dim,
+                }
+
+            # Log progress
+            if (epoch + 1) % max(1, epochs // 10) == 0:
+                logging.info(
+                    f"Epoch {epoch + 1}/{epochs} - "
+                    f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}"
+                )
+
+        # Compute final accuracy
+        z1_final = X_val @ self.neural_model["W1"] + self.neural_model["b1"]
+        a1_final = np.maximum(0, z1_final)
+        z2_final = a1_final @ self.neural_model["W2"] + self.neural_model["b2"]
+        y_final_pred = 1 / (1 + np.exp(-z2_final))
+        predictions = (y_final_pred > 0.5).astype(float).flatten()
+        accuracy = np.mean(predictions == y_val)
+
+        # Determine readiness level based on accuracy
+        if accuracy > 0.95:
+            readiness = ReadinessLevel.PRODUCTION_READY
+        elif accuracy > 0.80:
+            readiness = ReadinessLevel.READY
+        elif accuracy > 0.60:
+            readiness = ReadinessLevel.NEEDS_IMPROVEMENT
+        else:
+            readiness = ReadinessLevel.NOT_READY
+
+        self.current_phase = TrainingPhase.VALIDATION
         self.training_metrics = TrainingMetrics(
-            epoch=0,
-            loss=float("inf"),
-            accuracy=0.0,
-            readiness_level=ReadinessLevel.NOT_READY,
+            epoch=epochs,
+            loss=train_losses[-1],
+            accuracy=accuracy,
+            validation_loss=best_val_loss,
+            validation_accuracy=accuracy,
+            readiness_level=readiness,
+        )
+
+        logging.info(
+            f"Training complete - Accuracy: {accuracy:.2%}, "
+            f"Readiness: {readiness.value}, Best epoch: {best_epoch + 1}"
         )
 
         return self.training_metrics
+
+    def _prepare_training_data(
+        self, training_data: list[tuple[ast.AST, dict[str, Any]]]
+    ) -> tuple[NDArray[Any], NDArray[Any]]:
+        """
+        Extract features and labels from training data.
+
+        Args:
+            training_data: List of (AST, ground_truth) pairs.
+
+        Returns:
+            Tuple of (features array, labels array).
+        """
+        features_list = []
+        labels_list = []
+
+        for ast_tree, ground_truth in training_data:
+            # Extract symbolic features from AST
+            symbolic = self.symbolic_analysis(ast_tree)
+            patterns = symbolic.get("patterns", {})
+
+            # Build feature vector
+            feature_vector = [
+                patterns.get("loops", 0),
+                patterns.get("conditionals", 0),
+                patterns.get("function_calls", 0),
+                patterns.get("nesting_depth", 0),
+            ]
+
+            # Add additional AST metrics
+            num_nodes = sum(1 for _ in ast.walk(ast_tree))
+            num_functions = sum(
+                1 for node in ast.walk(ast_tree) if isinstance(node, ast.FunctionDef)
+            )
+            num_classes = sum(1 for node in ast.walk(ast_tree) if isinstance(node, ast.ClassDef))
+
+            feature_vector.extend(
+                [
+                    num_nodes,
+                    num_functions,
+                    num_classes,
+                ]
+            )
+
+            features_list.append(feature_vector)
+
+            # Extract label from ground truth
+            # Default to complexity score or binary refactoring need
+            label = ground_truth.get("needs_refactoring", 0)
+            if "complexity" in ground_truth:
+                label = 1 if ground_truth["complexity"] > 10 else 0
+            labels_list.append(label)
+
+        # Convert to numpy arrays
+        features = np.array(features_list, dtype=float)
+        labels = np.array(labels_list, dtype=float)
+
+        # Normalize features
+        if len(features) > 0:
+            mean = np.mean(features, axis=0, keepdims=True)
+            std = np.std(features, axis=0, keepdims=True) + 1e-7
+            features = (features - mean) / std
+
+        return features, labels
+
+    def predict(self, code_ast: ast.AST) -> dict[str, Any]:
+        """
+        Predict refactoring needs for given code.
+
+        Uses trained neural model if available, falls back to symbolic analysis.
+
+        Args:
+            code_ast: Abstract syntax tree to analyze.
+
+        Returns:
+            Prediction with refactoring recommendations and confidence.
+        """
+        # Always perform symbolic analysis
+        symbolic = self.symbolic_analysis(code_ast)
+
+        if not self.config.enable_neural or self.neural_model is None:
+            # Return symbolic-only prediction
+            patterns = symbolic.get("patterns", {})
+            complexity = (
+                patterns.get("loops", 0) * 2
+                + patterns.get("conditionals", 0)
+                + patterns.get("nesting_depth", 0) * 3
+            )
+            return {
+                "method": "symbolic",
+                "needs_refactoring": complexity > 10,
+                "complexity_score": complexity,
+                "confidence": 0.7,
+                "recommendations": self._generate_recommendations(patterns),
+            }
+
+        # Neural prediction
+        patterns = symbolic.get("patterns", {})
+        num_nodes = sum(1 for _ in ast.walk(code_ast))
+        num_functions = sum(1 for node in ast.walk(code_ast) if isinstance(node, ast.FunctionDef))
+        num_classes = sum(1 for node in ast.walk(code_ast) if isinstance(node, ast.ClassDef))
+
+        feature_vector = np.array(
+            [
+                [
+                    patterns.get("loops", 0),
+                    patterns.get("conditionals", 0),
+                    patterns.get("function_calls", 0),
+                    patterns.get("nesting_depth", 0),
+                    num_nodes,
+                    num_functions,
+                    num_classes,
+                ]
+            ],
+            dtype=float,
+        )
+
+        # Forward pass through trained model
+        W1 = self.neural_model["W1"]
+        b1 = self.neural_model["b1"]
+        W2 = self.neural_model["W2"]
+        b2 = self.neural_model["b2"]
+
+        z1 = feature_vector @ W1 + b1
+        a1 = np.maximum(0, z1)
+        z2 = a1 @ W2 + b2
+        probability = 1 / (1 + np.exp(-z2))
+
+        needs_refactoring = probability[0, 0] > 0.5
+        confidence = abs(probability[0, 0] - 0.5) * 2  # Scale to 0-1
+
+        return {
+            "method": "neural",
+            "needs_refactoring": bool(needs_refactoring),
+            "refactoring_probability": float(probability[0, 0]),
+            "confidence": float(confidence),
+            "recommendations": self._generate_recommendations(patterns),
+            "model_readiness": self.training_metrics.readiness_level.value,
+        }
+
+    def _generate_recommendations(self, patterns: dict[str, int]) -> list[str]:
+        """Generate refactoring recommendations based on code patterns."""
+        recommendations = []
+
+        if patterns.get("nesting_depth", 0) > 3:
+            recommendations.append(
+                "High nesting depth detected. Consider extracting nested code into functions."
+            )
+
+        if patterns.get("loops", 0) > 5:
+            recommendations.append(
+                "Multiple loops detected. Consider using list comprehensions or vectorization."
+            )
+
+        if patterns.get("conditionals", 0) > 10:
+            recommendations.append(
+                "Many conditionals detected. Consider using polymorphism or strategy pattern."
+            )
+
+        if patterns.get("function_calls", 0) > 20:
+            recommendations.append(
+                "High function call count. Consider caching expensive computations."
+            )
+
+        if not recommendations:
+            recommendations.append("Code structure appears clean. No immediate refactoring needed.")
+
+        return recommendations
 
     def check_bias(self, predictions: list[dict[str, Any]]) -> dict[str, Any]:
         """

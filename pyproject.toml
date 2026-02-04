@@ -412,6 +412,14 @@ module = [
     "omni_mercury_engine.ocean.*",
     # Modules being progressively typed (temporary)
     "omni_mercury_engine.agentic.*",
+    # New capability modules with heavy numpy/scipy/torch dependencies
+    "omni_mercury_engine.automl.*",
+    "omni_mercury_engine.biometric.*",
+    "omni_mercury_engine.distributed.*",
+    "omni_mercury_engine.explainability.*",
+    "omni_mercury_engine.federated_learning.*",
+    "omni_mercury_engine.harmonics.*",
+    "omni_mercury_engine.quantum_computing.*",
     "omni_mercury_engine.core.*",
     "omni_mercury_engine.crypto.*",
     "omni_mercury_engine.data.*",
@@ -711,6 +719,13 @@ ignore = [
 "src/omni_mercury_engine/security/input_validation.py" = ["S310"]
 # C408: dict() is idiomatic for Plotly visualization code
 "src/omni_mercury_engine/gui/**/*.py" = ["C408"]
+# SIM113: Manual batch counting is intentional for stepped iteration and conditional logic
+"src/omni_mercury_engine/detectors/advanced/*.py" = ["SIM113"]
+# S310: Financial stubs use hardcoded HTTPS URLs for trusted financial APIs
+"src/omni_mercury_engine/integrations/stubs/financial.py" = ["S310"]
+"src/omni_mercury_engine/integrations/stubs/weather.py" = ["S310"]
+# UP046: Using Generic[T] for Python 3.11 compatibility (PEP 695 requires Python 3.12+)
+"src/omni_mercury_engine/distributed/raft_consensus.py" = ["UP046"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["omni_mercury_engine"]

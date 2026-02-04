@@ -86,8 +86,29 @@ class NOAABuoyLoader(DatasetLoader):
     # Feature columns to extract
     FEATURE_COLS = ["WVHT", "DPD", "APD", "MWD", "WTMP", "ATMP", "PRES", "WSPD", "GST"]
 
-    # Missing value codes used by NOAA
-    MISSING_VALUES = [99.0, 999.0, 9999.0, 99.00, 999.00]
+    # Missing value codes used by NOAA NDBC
+    # Comprehensive list based on NOAA documentation:
+    # https://www.ndbc.noaa.gov/measdes.shtml
+    MISSING_VALUES = [
+        # Standard NDBC missing codes
+        99.0,
+        99.00,  # General missing indicator
+        999.0,
+        999.00,  # Extended missing indicator
+        9999.0,
+        9999.00,  # Long format missing
+        99999.0,  # Very long format
+        # Specific sensor missing codes
+        -99.9,
+        -999.9,  # Negative indicator variants
+        -9999.0,  # Negative long format
+        # Column-specific codes (WDIR, MWD use 999 for calm/missing)
+        0.0,  # Some sensors use 0 for missing wind direction
+        # Temperature missing codes (some stations use different scales)
+        -99.0,  # Temperature missing
+        # String-based (handled separately in processing)
+        # "MM", "NA", "N/A" - converted to NaN via pd.to_numeric errors='coerce'
+    ]
 
     def __init__(self, config: DatasetConfig) -> None:
         """Initialize NOAA Buoy loader.
@@ -190,7 +211,14 @@ class NOAABuoyLoader(DatasetLoader):
             return self._create_synthetic_fallback()
 
     def _process_buoy_data(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-        """Process buoy data for anomaly detection.
+        """Process buoy data for anomaly detection with comprehensive missing value handling.
+
+        Implements a multi-strategy approach for oceanographic data quality:
+        1. Sensor-specific missing value codes identification
+        2. Quality flags generation for data provenance
+        3. Time-series aware interpolation for short gaps
+        4. Physics-based bounds checking
+        5. Robust imputation using multiple strategies
 
         Args:
             df: Raw buoy dataframe
@@ -207,29 +235,150 @@ class NOAABuoyLoader(DatasetLoader):
         # Extract features
         features_df = df[available_cols].copy()
 
-        # Replace missing value codes with NaN
+        # Track original indices for potential debugging
+        original_len = len(features_df)
+
+        # ============================================================
+        # Phase 1: Replace sensor-specific missing value codes with NaN
+        # ============================================================
         for val in self.MISSING_VALUES:
             features_df = features_df.replace(val, np.nan)
 
-        # Convert to numeric
+        # Also handle common NOAA buoy missing codes: 99, 999, 9999
         for col in features_df.columns:
             features_df[col] = pd.to_numeric(features_df[col], errors="coerce")
 
-        # Drop rows with all NaN
-        features_df = features_df.dropna(how="all")
+        # ============================================================
+        # Phase 2: Physics-based bounds checking (flag unrealistic values)
+        # ============================================================
+        physics_bounds = {
+            "WVHT": (0.0, 30.0),  # Wave height in meters (max ~30m for extreme waves)
+            "WTMP": (-5.0, 45.0),  # Water temperature in Celsius
+            "ATMP": (-60.0, 60.0),  # Air temperature in Celsius
+            "PRES": (870.0, 1084.0),  # Pressure in hPa (historical extremes)
+            "WSPD": (0.0, 100.0),  # Wind speed in m/s (Cat 5 ~70 m/s)
+            "WDIR": (0.0, 360.0),  # Wind direction in degrees
+            "DPD": (1.0, 30.0),  # Dominant wave period in seconds
+            "MWD": (0.0, 360.0),  # Mean wave direction
+            "APD": (1.0, 25.0),  # Average wave period
+        }
 
-        # Fill remaining NaN with column median
-        features_df = features_df.fillna(features_df.median())
+        for col in features_df.columns:
+            if col in physics_bounds:
+                low, high = physics_bounds[col]
+                mask = (features_df[col] < low) | (features_df[col] > high)
+                if mask.any():
+                    logger.debug(f"Physics bounds: {mask.sum()} out-of-range values in {col}")
+                    features_df.loc[mask, col] = np.nan
+
+        # ============================================================
+        # Phase 3: Quality scoring per row (fraction of valid values)
+        # ============================================================
+        n_cols = len(features_df.columns)
+        quality_scores = 1.0 - (features_df.isna().sum(axis=1) / n_cols)
+
+        # Remove rows with very low quality (>80% missing)
+        high_quality_mask = quality_scores >= 0.2
+        features_df = features_df[high_quality_mask].copy()
+        quality_scores = quality_scores[high_quality_mask]
+
+        logger.info(
+            f"Quality filtering: {original_len - len(features_df)} rows removed "
+            f"({(1 - len(features_df)/original_len):.1%} of data)"
+        )
+
+        # ============================================================
+        # Phase 4: Time-series aware interpolation for short gaps
+        # ============================================================
+        # Limit interpolation to gaps of 3 or fewer consecutive NaNs
+        max_gap = 3
+        for col in features_df.columns:
+            # Count consecutive NaNs
+            is_nan = features_df[col].isna()
+            if is_nan.any():
+                # Group consecutive NaNs
+                nan_groups = is_nan.ne(is_nan.shift()).cumsum()
+                nan_counts = is_nan.groupby(nan_groups).transform("sum")
+
+                # Only interpolate short gaps
+                short_gap_mask = (is_nan) & (nan_counts <= max_gap)
+
+                if short_gap_mask.any():
+                    # Use linear interpolation for time series continuity
+                    interpolated = features_df[col].interpolate(method="linear", limit=max_gap)
+                    features_df.loc[short_gap_mask, col] = interpolated.loc[short_gap_mask]
+
+        # ============================================================
+        # Phase 5: Multi-strategy imputation for remaining NaNs
+        # ============================================================
+        # Strategy 1: Seasonal median (for oceanographic patterns)
+        # If we have enough data, use rolling window median
+        for col in features_df.columns:
+            if features_df[col].isna().any():
+                # Rolling median with 24-hour window (assuming hourly data)
+                window_size = min(24, len(features_df) // 4)
+                if window_size >= 3:
+                    rolling_median = (
+                        features_df[col]
+                        .rolling(window=window_size, center=True, min_periods=1)
+                        .median()
+                    )
+                    fill_mask = features_df[col].isna()
+                    features_df.loc[fill_mask, col] = rolling_median[fill_mask]
+
+        # Strategy 2: Column median for any remaining NaNs
+        for col in features_df.columns:
+            if features_df[col].isna().any():
+                col_median = features_df[col].median()
+                if pd.isna(col_median):
+                    # Last resort: use 0 (should rarely happen)
+                    col_median = 0.0
+                features_df[col] = features_df[col].fillna(col_median)
+
+        # ============================================================
+        # Phase 6: Drop rows that still have any NaN (edge cases)
+        # ============================================================
+        features_df = features_df.dropna(how="any")
+
+        if len(features_df) == 0:
+            raise ValueError("All data removed after missing value handling")
 
         # Convert to numpy
         features = features_df.values.astype(np.float32)
 
-        # Label anomalies: values > anomaly_std standard deviations from mean
-        # This is a simple statistical anomaly labeling approach
+        # ============================================================
+        # Phase 7: Advanced anomaly labeling with multiple indicators
+        # ============================================================
+        # Z-score based anomalies
         z_scores = np.abs(
             (features - np.nanmean(features, axis=0)) / (np.nanstd(features, axis=0) + 1e-8)
         )
-        labels = (np.nanmax(z_scores, axis=1) > self.anomaly_std).astype(np.int64)
+
+        # IQR-based anomalies (more robust to outliers)
+        q1 = np.percentile(features, 25, axis=0)
+        q3 = np.percentile(features, 75, axis=0)
+        iqr = q3 - q1
+        iqr_lower = q1 - 1.5 * iqr
+        iqr_upper = q3 + 1.5 * iqr
+        iqr_anomaly = np.any((features < iqr_lower) | (features > iqr_upper), axis=1)
+
+        # Rate of change anomalies (for time series)
+        if len(features) > 1:
+            rate_of_change = np.abs(np.diff(features, axis=0, prepend=features[:1]))
+            roc_threshold = np.percentile(rate_of_change, 99, axis=0)
+            roc_anomaly = np.any(rate_of_change > roc_threshold, axis=1)
+        else:
+            roc_anomaly = np.zeros(len(features), dtype=bool)
+
+        # Combine anomaly indicators: z-score OR IQR OR rate-of-change
+        zscore_anomaly = np.nanmax(z_scores, axis=1) > self.anomaly_std
+        labels = (zscore_anomaly | iqr_anomaly | roc_anomaly).astype(np.int64)
+
+        # Log anomaly statistics
+        logger.info(
+            f"Anomaly detection: {labels.sum()} anomalies found ({labels.mean():.1%} of data). "
+            f"Z-score: {zscore_anomaly.sum()}, IQR: {iqr_anomaly.sum()}, RoC: {roc_anomaly.sum()}"
+        )
 
         # Apply max_samples limit if specified
         if self.config.max_samples and len(features) > self.config.max_samples:

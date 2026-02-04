@@ -56,6 +56,8 @@ from datetime import UTC, datetime
 from enum import Enum, StrEnum
 from typing import Any
 
+import numpy as np
+
 
 logger = logging.getLogger(__name__)
 
@@ -1079,19 +1081,163 @@ class StreamingAnomalyPipeline:
 
         self._running = False
         self._task: asyncio.Task[None] | None = None
-        self._stats = {
+
+        # Comprehensive observability metrics for production monitoring
+        self._stats: dict[str, Any] = {
+            # Core throughput metrics
             "messages_processed": 0,
+            "messages_per_second": 0.0,
             "anomalies_detected": 0,
+            "anomaly_rate": 0.0,
             "errors": 0,
+            "error_rate": 0.0,
+            # Latency metrics (milliseconds)
+            "detection_latency_ms": {
+                "min": float("inf"),
+                "max": 0.0,
+                "avg": 0.0,
+                "p50": 0.0,
+                "p95": 0.0,
+                "p99": 0.0,
+            },
+            "end_to_end_latency_ms": {
+                "min": float("inf"),
+                "max": 0.0,
+                "avg": 0.0,
+            },
+            # Queue and backpressure metrics
+            "queue_depth": 0,
+            "backpressure_events": 0,
+            "consumer_lag": 0,
+            # Score distribution for anomaly analysis
+            "score_distribution": {
+                "min": 1.0,
+                "max": 0.0,
+                "avg": 0.0,
+                "sum": 0.0,
+            },
+            # Error breakdown by type
+            "error_breakdown": {
+                "detection_errors": 0,
+                "serialization_errors": 0,
+                "connection_errors": 0,
+                "timeout_errors": 0,
+            },
+            # Time tracking
+            "start_time": None,
+            "last_message_time": None,
+            "uptime_seconds": 0.0,
+        }
+        # Rolling window for percentile calculations
+        self._latency_window: list[float] = []
+        self._max_latency_window_size = 1000
+
+        # Statistical detector state for adaptive thresholding
+        self._detector_state: dict[str, Any] = {
+            "running_mean": {},
+            "running_var": {},
+            "sample_count": {},
+            "min_samples": 10,
+            "z_threshold": 3.0,  # Standard deviations for anomaly
+            "ema_alpha": 0.1,  # Exponential moving average decay
         }
 
     def _default_detector(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Default detector - passes through with placeholder score."""
+        """Statistical Z-score anomaly detector with adaptive thresholding.
+
+        This default detector performs real-time statistical anomaly detection
+        using exponential moving average (EMA) for mean and variance tracking.
+        Anomalies are flagged when values exceed z_threshold standard deviations
+        from the running mean.
+
+        The detector adapts to concept drift via the EMA decay parameter and
+        requires min_samples observations before flagging anomalies to avoid
+        false positives during warm-up.
+
+        Args:
+            data: Input data dictionary with numeric feature values
+
+        Returns:
+            Detection result with is_anomaly, score, anomaly_features,
+            and statistical context for explainability
+        """
+        state = self._detector_state
+        feature_scores: dict[str, float] = {}
+        anomaly_features: list[str] = []
+        total_score = 0.0
+        n_features = 0
+
+        # Extract numeric features for analysis
+        for key, value in data.items():
+            if not isinstance(value, int | float):
+                continue
+            if not np.isfinite(value):
+                continue
+
+            n_features += 1
+            feature_key = str(key)
+
+            # Initialize running statistics for new features
+            if feature_key not in state["running_mean"]:
+                state["running_mean"][feature_key] = float(value)
+                state["running_var"][feature_key] = 0.0
+                state["sample_count"][feature_key] = 1
+                feature_scores[feature_key] = 0.0
+                continue
+
+            # Update exponential moving average statistics
+            count = state["sample_count"][feature_key]
+            old_mean = state["running_mean"][feature_key]
+            old_var = state["running_var"][feature_key]
+            alpha = state["ema_alpha"]
+
+            # EMA update for mean
+            new_mean = (1 - alpha) * old_mean + alpha * float(value)
+
+            # EMA update for variance (Welford's algorithm variant)
+            delta = float(value) - old_mean
+            new_var = (1 - alpha) * old_var + alpha * (delta**2)
+
+            state["running_mean"][feature_key] = new_mean
+            state["running_var"][feature_key] = new_var
+            state["sample_count"][feature_key] = count + 1
+
+            # Compute Z-score if sufficient samples
+            if count >= state["min_samples"] and new_var > 1e-10:
+                std_dev = np.sqrt(new_var)
+                z_score = abs(float(value) - new_mean) / std_dev
+                normalized_score = min(1.0, z_score / (2 * state["z_threshold"]))
+                feature_scores[feature_key] = normalized_score
+
+                if z_score > state["z_threshold"]:
+                    anomaly_features.append(feature_key)
+                    total_score += normalized_score
+            else:
+                feature_scores[feature_key] = 0.0
+
+        # Aggregate score across all features
+        if n_features > 0:
+            avg_score = total_score / n_features if anomaly_features else 0.0
+            # Boost score if multiple features are anomalous
+            multi_feature_boost = min(1.0, len(anomaly_features) / max(1, n_features / 2))
+            final_score = min(1.0, avg_score + 0.2 * multi_feature_boost)
+        else:
+            final_score = 0.0
+
+        is_anomaly = len(anomaly_features) > 0 and final_score > 0.3
+
         return {
             "input": data,
-            "is_anomaly": False,
-            "score": 0.0,
-            "detector": "passthrough",
+            "is_anomaly": is_anomaly,
+            "score": round(final_score, 4),
+            "detector": "statistical_zscore",
+            "anomaly_features": anomaly_features,
+            "feature_scores": feature_scores,
+            "statistical_context": {
+                "z_threshold": state["z_threshold"],
+                "features_analyzed": n_features,
+                "anomaly_count": len(anomaly_features),
+            },
         }
 
     async def start(self) -> None:
@@ -1101,6 +1247,7 @@ class StreamingAnomalyPipeline:
         await self._consumer.subscribe([self.input_topic])
 
         self._running = True
+        self._stats["start_time"] = datetime.now(UTC).isoformat()
         self._task = asyncio.create_task(self._run())
         logger.info(f"StreamingAnomalyPipeline started: {self.input_topic} -> {self.output_topic}")
 
@@ -1119,20 +1266,78 @@ class StreamingAnomalyPipeline:
         await self._consumer.disconnect()
         logger.info("StreamingAnomalyPipeline stopped")
 
+    def _update_latency_percentiles(self) -> None:
+        """Update latency percentile metrics from rolling window."""
+        if not self._latency_window:
+            return
+
+        sorted_latencies = sorted(self._latency_window)
+        n = len(sorted_latencies)
+
+        self._stats["detection_latency_ms"]["p50"] = sorted_latencies[int(n * 0.50)]
+        self._stats["detection_latency_ms"]["p95"] = sorted_latencies[int(n * 0.95)]
+        self._stats["detection_latency_ms"]["p99"] = sorted_latencies[min(int(n * 0.99), n - 1)]
+
+    def _update_throughput_metrics(self, current_time: float) -> None:
+        """Update throughput and rate metrics."""
+        if self._stats["start_time"]:
+            start = datetime.fromisoformat(self._stats["start_time"])
+            elapsed = (datetime.now(UTC) - start).total_seconds()
+            if elapsed > 0:
+                self._stats["uptime_seconds"] = elapsed
+                self._stats["messages_per_second"] = self._stats["messages_processed"] / elapsed
+                if self._stats["messages_processed"] > 0:
+                    self._stats["anomaly_rate"] = (
+                        self._stats["anomalies_detected"] / self._stats["messages_processed"]
+                    )
+                    self._stats["error_rate"] = (
+                        self._stats["errors"] / self._stats["messages_processed"]
+                    )
+
     async def _run(self) -> None:
-        """Main processing loop."""
+        """Main processing loop with comprehensive observability."""
         while self._running:
             try:
                 async for message in self._consumer.consume(timeout_ms=1000):
+                    process_start = time.perf_counter()
                     try:
-                        # Apply anomaly detection
+                        # Apply anomaly detection with timing
+                        detection_start = time.perf_counter()
                         result = self.detector(message.value)
+                        detection_end = time.perf_counter()
+
+                        # Update core metrics
                         self._stats["messages_processed"] += 1
+                        self._stats["last_message_time"] = datetime.now(UTC).isoformat()
+
+                        # Update latency metrics
+                        detection_latency_ms = (detection_end - detection_start) * 1000
+                        self._latency_window.append(detection_latency_ms)
+                        if len(self._latency_window) > self._max_latency_window_size:
+                            self._latency_window.pop(0)
+
+                        lat_stats = self._stats["detection_latency_ms"]
+                        lat_stats["min"] = min(lat_stats["min"], detection_latency_ms)
+                        lat_stats["max"] = max(lat_stats["max"], detection_latency_ms)
+                        # Running average
+                        n = self._stats["messages_processed"]
+                        lat_stats["avg"] = (
+                            lat_stats["avg"] + (detection_latency_ms - lat_stats["avg"]) / n
+                        )
+
+                        # Update score distribution
+                        score = result.get("score", 0.0)
+                        score_stats = self._stats["score_distribution"]
+                        score_stats["min"] = min(score_stats["min"], score)
+                        score_stats["max"] = max(score_stats["max"], score)
+                        score_stats["sum"] += score
+                        score_stats["avg"] = score_stats["sum"] / n
 
                         # Publish if anomaly detected
-                        if result.get("is_anomaly") or result.get("score", 0) > 0.5:
+                        if result.get("is_anomaly") or score > 0.5:
                             result["source_topic"] = message.topic
                             result["source_timestamp"] = message.timestamp.isoformat()
+                            result["detection_latency_ms"] = round(detection_latency_ms, 3)
 
                             await self._producer.send(
                                 self.output_topic,
@@ -1141,22 +1346,66 @@ class StreamingAnomalyPipeline:
                             )
                             self._stats["anomalies_detected"] += 1
 
+                        # Update end-to-end latency
+                        e2e_latency_ms = (time.perf_counter() - process_start) * 1000
+                        e2e_stats = self._stats["end_to_end_latency_ms"]
+                        e2e_stats["min"] = min(e2e_stats["min"], e2e_latency_ms)
+                        e2e_stats["max"] = max(e2e_stats["max"], e2e_latency_ms)
+                        e2e_stats["avg"] = (
+                            e2e_stats["avg"] + (e2e_latency_ms - e2e_stats["avg"]) / n
+                        )
+
                         # Commit after processing
                         await self._consumer.commit(message)
 
-                    except (ValueError, TypeError, KeyError) as e:
+                        # Periodically update percentiles and throughput (every 100 messages)
+                        if n % 100 == 0:
+                            self._update_latency_percentiles()
+                            self._update_throughput_metrics(time.time())
+
+                    except (ValueError, TypeError) as e:
                         logger.error(f"Detection error: {e}")
                         self._stats["errors"] += 1
+                        self._stats["error_breakdown"]["detection_errors"] += 1
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Serialization error: {e}")
+                        self._stats["errors"] += 1
+                        self._stats["error_breakdown"]["serialization_errors"] += 1
+                    except KeyError as e:
+                        logger.error(f"Key error in detection: {e}")
+                        self._stats["errors"] += 1
+                        self._stats["error_breakdown"]["detection_errors"] += 1
 
             except asyncio.CancelledError:
                 break
+            except TimeoutError:
+                self._stats["error_breakdown"]["timeout_errors"] += 1
             except (ConnectionError, OSError) as e:
-                logger.error(f"Pipeline error: {e}")
+                logger.error(f"Pipeline connection error: {e}")
                 self._stats["errors"] += 1
+                self._stats["error_breakdown"]["connection_errors"] += 1
                 await asyncio.sleep(1)
 
-    def get_stats(self) -> dict[str, int]:
-        """Get pipeline statistics."""
+        # Final metrics update on shutdown
+        self._update_latency_percentiles()
+        self._update_throughput_metrics(time.time())
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get comprehensive pipeline statistics.
+
+        Returns:
+            Dictionary containing:
+            - Core metrics: messages_processed, anomalies_detected, errors
+            - Rates: messages_per_second, anomaly_rate, error_rate
+            - Latency: detection and end-to-end latency with min/max/avg/percentiles
+            - Score distribution: min/max/avg of anomaly scores
+            - Error breakdown: by error type
+            - Time tracking: start_time, last_message_time, uptime_seconds
+        """
+        # Update computed metrics before returning
+        self._update_throughput_metrics(time.time())
+        if self._latency_window:
+            self._update_latency_percentiles()
         return self._stats.copy()
 
 

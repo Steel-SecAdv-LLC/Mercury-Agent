@@ -18,12 +18,20 @@ Example:
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
 import math
+import os
 import random
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+
+logger = logging.getLogger(__name__)
 
 
 class TradingSignal(Enum):
@@ -460,3 +468,482 @@ class FinancialServiceStub:
             "cache_size": len(self._price_cache),
             "failure_rate": self._failure_rate,
         }
+
+
+class FinancialAPIProvider(Enum):
+    """Supported financial API providers."""
+
+    ALPHA_VANTAGE = "alpha_vantage"
+    YAHOO_FINANCE = "yahoo_finance"
+    STUB = "stub"
+
+
+class FinancialService:
+    """Production-ready financial data service with multiple API backends.
+
+    Supports real-time and historical market data from:
+    - Alpha Vantage (requires API key)
+    - Yahoo Finance (free tier available)
+    - Stub/Mock (for testing)
+
+    Example:
+        >>> # Using Alpha Vantage (requires API key)
+        >>> service = FinancialService(
+        ...     provider=FinancialAPIProvider.ALPHA_VANTAGE,
+        ...     api_key=os.getenv("ALPHA_VANTAGE_API_KEY")
+        ... )
+        >>> price = await service.get_price("AAPL")
+
+        >>> # Using Yahoo Finance (no API key required)
+        >>> service = FinancialService(provider=FinancialAPIProvider.YAHOO_FINANCE)
+        >>> price = await service.get_price("MSFT")
+
+        >>> # Fallback to stub for testing
+        >>> service = FinancialService(provider=FinancialAPIProvider.STUB)
+    """
+
+    # API endpoints
+    ALPHA_VANTAGE_BASE = "https://www.alphavantage.co/query"
+    YAHOO_FINANCE_BASE = "https://query1.finance.yahoo.com/v8/finance/chart"
+
+    def __init__(
+        self,
+        provider: FinancialAPIProvider = FinancialAPIProvider.STUB,
+        api_key: str | None = None,
+        timeout: int = 30,
+        cache_ttl: int = 60,
+        fallback_to_stub: bool = True,
+    ):
+        """Initialize financial service.
+
+        Args:
+            provider: API provider to use.
+            api_key: API key for Alpha Vantage (not needed for Yahoo/Stub).
+            timeout: Request timeout in seconds.
+            cache_ttl: Cache time-to-live in seconds.
+            fallback_to_stub: Fall back to stub on API failures.
+        """
+        self.provider = provider
+        self.api_key = api_key or os.getenv("ALPHA_VANTAGE_API_KEY")
+        self.timeout = timeout
+        self.cache_ttl = cache_ttl
+        self.fallback_to_stub = fallback_to_stub
+
+        # Price cache with TTL
+        self._cache: dict[str, tuple[SecurityPrice, datetime]] = {}
+        self._call_count = 0
+        self._api_errors = 0
+
+        # Stub fallback
+        self._stub = FinancialServiceStub()
+
+        # Validate Alpha Vantage configuration
+        if provider == FinancialAPIProvider.ALPHA_VANTAGE and not self.api_key:
+            logger.warning(
+                "Alpha Vantage requires an API key. Set ALPHA_VANTAGE_API_KEY "
+                "environment variable or provide api_key parameter. "
+                "Falling back to stub mode."
+            )
+            self.provider = FinancialAPIProvider.STUB
+
+    def _get_cached(self, symbol: str) -> SecurityPrice | None:
+        """Get cached price if still valid."""
+        if symbol in self._cache:
+            price, cached_at = self._cache[symbol]
+            if (datetime.now() - cached_at).total_seconds() < self.cache_ttl:
+                return price
+        return None
+
+    def _set_cached(self, symbol: str, price: SecurityPrice) -> None:
+        """Cache price data."""
+        self._cache[symbol] = (price, datetime.now())
+
+    async def _fetch_alpha_vantage(self, symbol: str) -> SecurityPrice:
+        """Fetch price from Alpha Vantage API.
+
+        API Documentation: https://www.alphavantage.co/documentation/
+        """
+        if not self.api_key:
+            raise ValueError("Alpha Vantage API key required")
+
+        params = {
+            "function": "GLOBAL_QUOTE",
+            "symbol": symbol.upper(),
+            "apikey": self.api_key,
+        }
+
+        url = f"{self.ALPHA_VANTAGE_BASE}?{urlencode(params)}"
+
+        def fetch() -> dict[str, Any]:
+            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+            with urlopen(req, timeout=self.timeout) as response:
+                return json.loads(response.read().decode())
+
+        # Run in thread pool to avoid blocking
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, fetch)
+
+        # Parse Alpha Vantage response
+        quote = data.get("Global Quote", {})
+        if not quote:
+            error_msg = data.get("Note") or data.get("Information") or "No data returned"
+            raise ValueError(f"Alpha Vantage API error: {error_msg}")
+
+        price = float(quote.get("05. price", 0))
+        previous_close = float(quote.get("08. previous close", price))
+        change = float(quote.get("09. change", 0))
+        change_percent = float(quote.get("10. change percent", "0%").rstrip("%"))
+        volume = int(quote.get("06. volume", 0))
+        high = float(quote.get("03. high", price))
+        low = float(quote.get("04. low", price))
+        open_price = float(quote.get("02. open", price))
+
+        return SecurityPrice(
+            symbol=symbol.upper(),
+            price=price,
+            change=change,
+            change_percent=change_percent,
+            volume=volume,
+            high=high,
+            low=low,
+            open=open_price,
+            previous_close=previous_close,
+        )
+
+    async def _fetch_yahoo_finance(self, symbol: str) -> SecurityPrice:
+        """Fetch price from Yahoo Finance API.
+
+        Uses the public Yahoo Finance chart API endpoint.
+        """
+        url = f"{self.YAHOO_FINANCE_BASE}/{symbol.upper()}"
+        params = {
+            "interval": "1d",
+            "range": "1d",
+        }
+        full_url = f"{url}?{urlencode(params)}"
+
+        def fetch() -> dict[str, Any]:
+            req = Request(
+                full_url,
+                headers={
+                    "User-Agent": "Mercury-Agent/1.0",
+                    "Accept": "application/json",
+                },
+            )
+            with urlopen(req, timeout=self.timeout) as response:
+                return json.loads(response.read().decode())
+
+        # Run in thread pool to avoid blocking
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, fetch)
+
+        # Parse Yahoo Finance response
+        result = data.get("chart", {}).get("result", [])
+        if not result:
+            error = data.get("chart", {}).get("error")
+            raise ValueError(f"Yahoo Finance API error: {error or 'No data returned'}")
+
+        quote_data = result[0]
+        meta = quote_data.get("meta", {})
+        indicators = quote_data.get("indicators", {}).get("quote", [{}])[0]
+
+        price = meta.get("regularMarketPrice", 0)
+        previous_close = meta.get("previousClose", price)
+        change = price - previous_close
+        change_percent = (change / previous_close * 100) if previous_close else 0
+
+        # Get OHLCV from indicators
+        opens = indicators.get("open", [])
+        highs = indicators.get("high", [])
+        lows = indicators.get("low", [])
+        volumes = indicators.get("volume", [])
+
+        open_price = opens[-1] if opens and opens[-1] is not None else price
+        high = highs[-1] if highs and highs[-1] is not None else price
+        low = lows[-1] if lows and lows[-1] is not None else price
+        volume = volumes[-1] if volumes and volumes[-1] is not None else 0
+
+        return SecurityPrice(
+            symbol=symbol.upper(),
+            price=round(price, 2),
+            change=round(change, 2),
+            change_percent=round(change_percent, 2),
+            volume=int(volume),
+            high=round(high, 2),
+            low=round(low, 2),
+            open=round(open_price, 2),
+            previous_close=round(previous_close, 2),
+        )
+
+    async def get_price(self, symbol: str) -> SecurityPrice:
+        """Get current price for symbol.
+
+        Attempts to fetch from configured API provider, with automatic
+        fallback to stub on failure if enabled.
+
+        Args:
+            symbol: Security symbol/ticker.
+
+        Returns:
+            Current price data.
+
+        Raises:
+            ValueError: If symbol is invalid or API fails without fallback.
+        """
+        self._call_count += 1
+
+        # Check cache first
+        cached = self._get_cached(symbol)
+        if cached:
+            return cached
+
+        # Use stub if configured
+        if self.provider == FinancialAPIProvider.STUB:
+            return await self._stub.get_price(symbol)
+
+        try:
+            if self.provider == FinancialAPIProvider.ALPHA_VANTAGE:
+                price = await self._fetch_alpha_vantage(symbol)
+            elif self.provider == FinancialAPIProvider.YAHOO_FINANCE:
+                price = await self._fetch_yahoo_finance(symbol)
+            else:
+                price = await self._stub.get_price(symbol)
+
+            # Cache successful result
+            self._set_cached(symbol, price)
+            return price
+
+        except Exception as e:
+            self._api_errors += 1
+            logger.warning(f"Financial API error for {symbol}: {e}")
+
+            if self.fallback_to_stub:
+                logger.info(f"Falling back to stub for {symbol}")
+                return await self._stub.get_price(symbol)
+            raise
+
+    async def get_prices(self, symbols: list[str]) -> dict[str, SecurityPrice]:
+        """Get prices for multiple symbols.
+
+        Args:
+            symbols: List of security symbols.
+
+        Returns:
+            Dictionary mapping symbols to prices.
+        """
+        results: dict[str, SecurityPrice] = {}
+        for symbol in symbols:
+            try:
+                results[symbol.upper()] = await self.get_price(symbol)
+            except Exception as e:
+                logger.warning(f"Failed to get price for {symbol}: {e}")
+        return results
+
+    async def get_history(
+        self,
+        symbol: str,
+        days: int = 30,
+        interval: str = "1d",
+    ) -> list[HistoricalBar]:
+        """Get historical price data.
+
+        Args:
+            symbol: Security symbol.
+            days: Number of days of history.
+            interval: Bar interval (1d, 1h, etc.).
+
+        Returns:
+            List of historical bars.
+        """
+        if self.provider == FinancialAPIProvider.STUB:
+            return await self._stub.get_history(symbol, days, interval)
+
+        if self.provider == FinancialAPIProvider.YAHOO_FINANCE:
+            return await self._fetch_yahoo_history(symbol, days, interval)
+
+        # Alpha Vantage historical requires different endpoint
+        if self.provider == FinancialAPIProvider.ALPHA_VANTAGE:
+            return await self._fetch_alpha_vantage_history(symbol, days)
+
+        return await self._stub.get_history(symbol, days, interval)
+
+    async def _fetch_yahoo_history(
+        self,
+        symbol: str,
+        days: int,
+        interval: str,
+    ) -> list[HistoricalBar]:
+        """Fetch historical data from Yahoo Finance."""
+        # Map days to range parameter
+        if days <= 7:
+            range_param = "5d"
+        elif days <= 30:
+            range_param = "1mo"
+        elif days <= 90:
+            range_param = "3mo"
+        elif days <= 180:
+            range_param = "6mo"
+        elif days <= 365:
+            range_param = "1y"
+        else:
+            range_param = "2y"
+
+        url = f"{self.YAHOO_FINANCE_BASE}/{symbol.upper()}"
+        params = {
+            "interval": interval,
+            "range": range_param,
+        }
+        full_url = f"{url}?{urlencode(params)}"
+
+        def fetch() -> dict[str, Any]:
+            req = Request(
+                full_url,
+                headers={
+                    "User-Agent": "Mercury-Agent/1.0",
+                    "Accept": "application/json",
+                },
+            )
+            with urlopen(req, timeout=self.timeout) as response:
+                return json.loads(response.read().decode())
+
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, fetch)
+
+        result = data.get("chart", {}).get("result", [])
+        if not result:
+            return []
+
+        quote_data = result[0]
+        timestamps = quote_data.get("timestamp", [])
+        indicators = quote_data.get("indicators", {}).get("quote", [{}])[0]
+
+        opens = indicators.get("open", [])
+        highs = indicators.get("high", [])
+        lows = indicators.get("low", [])
+        closes = indicators.get("close", [])
+        volumes = indicators.get("volume", [])
+
+        bars = []
+        for i, ts in enumerate(timestamps[-days:]):
+            if i >= len(opens):
+                break
+
+            bars.append(
+                HistoricalBar(
+                    timestamp=datetime.fromtimestamp(ts),
+                    open=round(opens[i] or 0, 2),
+                    high=round(highs[i] or 0, 2),
+                    low=round(lows[i] or 0, 2),
+                    close=round(closes[i] or 0, 2),
+                    volume=int(volumes[i] or 0),
+                )
+            )
+
+        return bars
+
+    async def _fetch_alpha_vantage_history(
+        self,
+        symbol: str,
+        days: int,
+    ) -> list[HistoricalBar]:
+        """Fetch historical data from Alpha Vantage."""
+        if not self.api_key:
+            return await self._stub.get_history(symbol, days)
+
+        # Use TIME_SERIES_DAILY for daily data
+        params = {
+            "function": "TIME_SERIES_DAILY",
+            "symbol": symbol.upper(),
+            "outputsize": "full" if days > 100 else "compact",
+            "apikey": self.api_key,
+        }
+
+        url = f"{self.ALPHA_VANTAGE_BASE}?{urlencode(params)}"
+
+        def fetch() -> dict[str, Any]:
+            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+            with urlopen(req, timeout=self.timeout) as response:
+                return json.loads(response.read().decode())
+
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, fetch)
+
+        time_series = data.get("Time Series (Daily)", {})
+        if not time_series:
+            return []
+
+        bars = []
+        sorted_dates = sorted(time_series.keys(), reverse=True)[:days]
+
+        for date_str in sorted_dates:
+            day_data = time_series[date_str]
+            bars.append(
+                HistoricalBar(
+                    timestamp=datetime.strptime(date_str, "%Y-%m-%d"),
+                    open=float(day_data.get("1. open", 0)),
+                    high=float(day_data.get("2. high", 0)),
+                    low=float(day_data.get("3. low", 0)),
+                    close=float(day_data.get("4. close", 0)),
+                    volume=int(day_data.get("5. volume", 0)),
+                )
+            )
+
+        return bars
+
+    def get_metrics(self) -> dict[str, Any]:
+        """Get service metrics."""
+        return {
+            "provider": self.provider.value,
+            "call_count": self._call_count,
+            "api_errors": self._api_errors,
+            "cache_size": len(self._cache),
+            "error_rate": self._api_errors / self._call_count if self._call_count > 0 else 0,
+        }
+
+
+# Factory function for easy service creation
+def create_financial_service(
+    use_real_api: bool = False,
+    provider: str = "yahoo",
+    api_key: str | None = None,
+) -> FinancialService | FinancialServiceStub:
+    """Create financial service with appropriate backend.
+
+    Args:
+        use_real_api: Whether to use real API or stub.
+        provider: API provider ("alpha_vantage", "yahoo", "stub").
+        api_key: API key for Alpha Vantage.
+
+    Returns:
+        Configured financial service.
+
+    Example:
+        >>> # For testing
+        >>> service = create_financial_service(use_real_api=False)
+
+        >>> # For production with Yahoo Finance
+        >>> service = create_financial_service(use_real_api=True, provider="yahoo")
+
+        >>> # For production with Alpha Vantage
+        >>> service = create_financial_service(
+        ...     use_real_api=True,
+        ...     provider="alpha_vantage",
+        ...     api_key="YOUR_API_KEY"
+        ... )
+    """
+    if not use_real_api:
+        return FinancialServiceStub()
+
+    provider_map = {
+        "alpha_vantage": FinancialAPIProvider.ALPHA_VANTAGE,
+        "yahoo": FinancialAPIProvider.YAHOO_FINANCE,
+        "stub": FinancialAPIProvider.STUB,
+    }
+
+    provider_enum = provider_map.get(provider.lower(), FinancialAPIProvider.STUB)
+
+    return FinancialService(
+        provider=provider_enum,
+        api_key=api_key,
+        fallback_to_stub=True,
+    )

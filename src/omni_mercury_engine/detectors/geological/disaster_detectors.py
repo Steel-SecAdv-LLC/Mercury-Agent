@@ -894,22 +894,115 @@ class EarthquakeDetector:
 
 
 class MeteorDetector:
-    """Meteor detector using optical/radar Bayesian filter.
+    """Meteor detector using optical/radar Bayesian filter with NASA CNEOS integration.
 
     Combines optical and radar observations with Bayesian inference
     for meteor/asteroid detection and trajectory estimation.
+
+    Production Features:
+        - NASA CNEOS Fireball API integration for real atmospheric impact data
+        - NASA Close Approach Data (CAD) for near-Earth object tracking
+        - NASA Sentry impact monitoring for potential future impacts
+        - Bayesian sensor fusion for optical/radar observations
     """
 
     def __init__(
         self,
         detection_threshold: float = 0.7,
         prior_probability: float = 1e-6,
+        use_nasa_data: bool = True,
     ):
+        """Initialize MeteorDetector.
+
+        Args:
+            detection_threshold: Confidence threshold for meteor detection (0-1)
+            prior_probability: Prior probability of meteor occurrence for Bayesian filter
+            use_nasa_data: Whether to fetch real-time data from NASA CNEOS APIs
+        """
         self.detection_threshold = detection_threshold
         self.bayesian_filter = BayesianMeteorFilter(prior_probability=prior_probability)
         self.rng = get_global_rng()
+        self.use_nasa_data = use_nasa_data
 
-        logger.info(f"MeteorDetector initialized: threshold={detection_threshold}")
+        # Cached NASA data
+        self._fireball_cache: list[Any] | None = None
+        self._close_approach_cache: list[Any] | None = None
+        self._sentry_cache: list[Any] | None = None
+        self._cache_timestamp: datetime | None = None
+        self._cache_ttl_hours: int = 6  # Refresh NASA data every 6 hours
+
+        logger.info(
+            f"MeteorDetector initialized: threshold={detection_threshold}, "
+            f"nasa_data={use_nasa_data}"
+        )
+
+    def _refresh_nasa_cache(self) -> None:
+        """Refresh NASA data cache if expired or empty."""
+        now = datetime.now()
+
+        # Check if cache needs refresh
+        if (
+            self._cache_timestamp is not None
+            and (now - self._cache_timestamp).total_seconds() < self._cache_ttl_hours * 3600
+        ):
+            return  # Cache is still valid
+
+        logger.info("Refreshing NASA CNEOS data cache...")
+
+        # Load all NASA data sources
+        self._fireball_cache = load_nasa_fireball_data(days_back=30)
+        self._close_approach_cache = load_nasa_close_approach_data(days_forward=30)
+        self._sentry_cache = load_nasa_sentry_data()
+        self._cache_timestamp = now
+
+    def get_recent_fireballs(self, days: int = 7) -> list[Any]:
+        """Get recent fireball events from NASA CNEOS.
+
+        Args:
+            days: Number of days back to look
+
+        Returns:
+            List of FireballEvent objects from the last N days
+        """
+        if not self.use_nasa_data:
+            return []
+
+        self._refresh_nasa_cache()
+
+        if self._fireball_cache is None:
+            return []
+
+        cutoff = datetime.now() - timedelta(days=days)
+        return [fb for fb in self._fireball_cache if fb.date >= cutoff]
+
+    def get_upcoming_close_approaches(self) -> list[Any]:
+        """Get upcoming near-Earth object close approaches.
+
+        Returns:
+            List of CloseApproachEvent objects
+        """
+        if not self.use_nasa_data:
+            return []
+
+        self._refresh_nasa_cache()
+        return self._close_approach_cache or []
+
+    def get_impact_risks(self) -> list[Any]:
+        """Get current impact risk assessments from NASA Sentry.
+
+        Returns:
+            List of SentryImpactRisk objects sorted by Palermo scale
+        """
+        if not self.use_nasa_data:
+            return []
+
+        self._refresh_nasa_cache()
+
+        if self._sentry_cache is None:
+            return []
+
+        # Sort by Palermo scale (higher = more concerning)
+        return sorted(self._sentry_cache, key=lambda x: x.palermo_scale, reverse=True)
 
     def predict_meteor(
         self,
@@ -917,44 +1010,147 @@ class MeteorDetector:
         radar_data: np.ndarray[Any, Any] | None = None,
         noaa_stub: dict[str, Any] | None = None,
     ) -> MeteorPredictionResult:
-        """Predict meteor from optical and radar data.
+        """Predict meteor from optical and radar data with NASA CNEOS integration.
+
+        This method combines local sensor data with real-time NASA CNEOS data
+        for comprehensive meteor/NEO detection.
 
         Args:
             optical_data: Optical sensor data (brightness measurements)
             radar_data: Radar return data
-            noaa_stub: Optional NOAA data stub for external integration
+            noaa_stub: Optional external data dict with keys:
+                - optical_alert: bool - External optical detection
+                - radar_alert: bool - External radar detection
+                - fireball_energy_kt: float - Observed impact energy in kilotons
+                - velocity_km_s: float - Observed velocity
+                - size_estimate_m: float - Estimated size in meters
 
         Returns:
-            MeteorPredictionResult with detection details
+            MeteorPredictionResult with detection details including NASA CNEOS data
         """
         optical_detection = False
         radar_detection = False
 
+        # Process local optical sensor data
         if optical_data is not None:
             optical_threshold = np.percentile(optical_data, 99)
             optical_detection = np.max(optical_data) > optical_threshold * 1.5
 
+        # Process local radar sensor data
         if radar_data is not None:
             radar_threshold = np.percentile(radar_data, 99)
             radar_detection = np.max(radar_data) > radar_threshold * 1.5
 
+        # Integrate external data (NOAA stub or other sources)
         if noaa_stub is not None:
             optical_detection = optical_detection or noaa_stub.get("optical_alert", False)
             radar_detection = radar_detection or noaa_stub.get("radar_alert", False)
 
-        posterior = self.bayesian_filter.update(optical_detection, radar_detection)
+        # Check NASA CNEOS data for recent significant events
+        nasa_fireball_alert = False
+        nasa_close_approach_alert = False
+        nasa_size_estimate = None
+        nasa_velocity_estimate = None
+        nasa_impact_probability = 0.0
+
+        if self.use_nasa_data:
+            self._refresh_nasa_cache()
+
+            # Check for recent fireballs (last 24 hours with significant energy)
+            if self._fireball_cache:
+                recent_cutoff = datetime.now() - timedelta(hours=24)
+                recent_fireballs = [
+                    fb
+                    for fb in self._fireball_cache
+                    if fb.date >= recent_cutoff
+                    and fb.calculated_total_impact_energy_kt is not None
+                    and fb.calculated_total_impact_energy_kt > 0.1  # > 100 tons TNT
+                ]
+                if recent_fireballs:
+                    nasa_fireball_alert = True
+                    # Use the most energetic recent fireball for estimates
+                    biggest = max(
+                        recent_fireballs,
+                        key=lambda x: x.calculated_total_impact_energy_kt or 0,
+                    )
+                    nasa_size_estimate = biggest.estimated_size_m
+                    nasa_velocity_estimate = biggest.velocity_km_s
+
+            # Check for imminent close approaches (within 1 lunar distance)
+            if self._close_approach_cache:
+                lunar_distance_km = 384400
+                imminent = [
+                    ca
+                    for ca in self._close_approach_cache
+                    if ca.nominal_distance_km < lunar_distance_km
+                    and ca.close_approach_date <= datetime.now() + timedelta(days=7)
+                ]
+                if imminent:
+                    nasa_close_approach_alert = True
+                    # Estimate impact probability from closest approach
+                    closest = min(imminent, key=lambda x: x.nominal_distance_km)
+                    # Very rough heuristic: closer = higher concern
+                    nasa_impact_probability = (
+                        max(0, 1 - closest.nominal_distance_km / lunar_distance_km) * 0.001
+                    )
+
+            # Check Sentry for elevated impact risks
+            if self._sentry_cache:
+                high_risk = [s for s in self._sentry_cache if s.palermo_scale > -3]
+                if high_risk:
+                    # Highest risk object
+                    max_risk = max(high_risk, key=lambda x: x.palermo_scale)
+                    nasa_impact_probability = max(
+                        nasa_impact_probability, max_risk.impact_probability
+                    )
+
+        # Update Bayesian posterior with all detection sources
+        # NASA data provides additional evidence
+        combined_optical = optical_detection or nasa_fireball_alert
+        combined_radar = radar_detection or nasa_close_approach_alert
+
+        posterior = self.bayesian_filter.update(combined_optical, combined_radar)
+
+        # Boost posterior if we have NASA confirmation
+        if nasa_fireball_alert:
+            posterior = min(1.0, posterior + 0.2)
+        if nasa_close_approach_alert:
+            posterior = min(1.0, posterior + 0.15)
 
         meteor_detected = posterior > self.detection_threshold
 
         threat_level = self._assess_threat(posterior, optical_data, radar_data)
 
-        size_estimate = None
-        velocity_estimate = None
-        if meteor_detected and radar_data is not None:
+        # Prefer NASA size/velocity estimates if available
+        size_estimate = nasa_size_estimate
+        velocity_estimate = nasa_velocity_estimate
+
+        # Fall back to local radar estimates
+        if size_estimate is None and meteor_detected and radar_data is not None:
             size_estimate = self._estimate_size(radar_data)
+        if velocity_estimate is None and meteor_detected and radar_data is not None:
             velocity_estimate = self._estimate_velocity(radar_data)
 
+        # Use external stub estimates if provided
+        if noaa_stub is not None:
+            if size_estimate is None:
+                size_estimate = noaa_stub.get("size_estimate_m")
+            if velocity_estimate is None:
+                velocity_estimate = noaa_stub.get("velocity_km_s")
+
+        # Compute final impact probability
+        final_impact_prob = max(
+            nasa_impact_probability,
+            posterior * 0.001 if meteor_detected else 0.0,
+        )
+
         warnings = self._generate_warnings(meteor_detected, threat_level)
+
+        # Add NASA-specific warnings
+        if nasa_fireball_alert:
+            warnings.insert(0, "NASA CNEOS: Recent significant fireball detected")
+        if nasa_close_approach_alert:
+            warnings.insert(0, "NASA CNEOS: Imminent near-Earth object close approach")
 
         return MeteorPredictionResult(
             meteor_detected=meteor_detected,
@@ -962,11 +1158,13 @@ class MeteorDetector:
             threat_level=threat_level,
             estimated_size_m=size_estimate,
             estimated_velocity_kms=velocity_estimate,
-            impact_probability=posterior * 0.001 if meteor_detected else 0.0,
-            optical_detection=optical_detection,
-            radar_detection=radar_detection,
+            impact_probability=final_impact_prob,
+            optical_detection=combined_optical,
+            radar_detection=combined_radar,
             bayesian_posterior=posterior,
-            trajectory_confidence=0.8 if radar_detection else 0.3,
+            trajectory_confidence=(
+                0.9 if nasa_close_approach_alert else (0.8 if combined_radar else 0.3)
+            ),
             warning_actions=warnings,
         )
 
@@ -1423,6 +1621,15 @@ NOAA_TSUNAMI_API_URL = TrustedEndpoints.NOAA_TSUNAMI_EVENTS
 # USGS Earthquake Catalog API (via TrustedEndpoints for SSRF prevention)
 USGS_EARTHQUAKE_API_URL = TrustedEndpoints.USGS_EARTHQUAKE
 
+# NASA CNEOS Fireball API (via TrustedEndpoints for SSRF prevention)
+NASA_CNEOS_FIREBALL_URL = TrustedEndpoints.NASA_CNEOS_FIREBALL
+
+# NASA CNEOS Close Approach Data API
+NASA_CNEOS_CAD_URL = TrustedEndpoints.NASA_CNEOS_CAD
+
+# NASA Sentry Impact Monitoring API
+NASA_SENTRY_URL = TrustedEndpoints.NASA_SENTRY
+
 
 def load_dart_buoy_data(
     station_id: str = "46419",
@@ -1662,6 +1869,356 @@ def load_usgs_earthquake_catalog(
         return result
     except Exception as e:
         logger.warning(f"Failed to load USGS earthquake catalog: {e}. Using synthetic fallback.")
+        return None
+
+
+# =============================================================================
+# NASA CNEOS Fireball and Near-Earth Object Data Loaders
+# =============================================================================
+
+
+@dataclass
+class FireballEvent:
+    """NASA CNEOS Fireball event data.
+
+    Represents a bolide (fireball) detected by US Government sensors.
+    Data source: NASA JPL Center for Near Earth Object Studies (CNEOS)
+    https://cneos.jpl.nasa.gov/fireballs/
+    """
+
+    date: datetime
+    latitude: float | None
+    longitude: float | None
+    altitude_km: float | None
+    velocity_km_s: float | None
+    total_radiated_energy_j: float | None
+    calculated_total_impact_energy_kt: float | None
+
+    @property
+    def estimated_size_m(self) -> float | None:
+        """Estimate size from impact energy using empirical relation.
+
+        Based on: E = 4.185 × 10^10 × D^3 (Brown et al., 2002)
+        Where E is energy in Joules and D is diameter in meters.
+        """
+        if self.calculated_total_impact_energy_kt is None:
+            return None
+        # Convert kt TNT to Joules (1 kt = 4.184e12 J)
+        energy_j = self.calculated_total_impact_energy_kt * 4.184e12
+        # Solve for diameter: D = (E / 4.185e10)^(1/3)
+        diameter = (energy_j / 4.185e10) ** (1 / 3)
+        return diameter
+
+
+@dataclass
+class CloseApproachEvent:
+    """NASA CNEOS Close Approach event data.
+
+    Represents a near-Earth object (NEO) close approach event.
+    Data source: NASA JPL CNEOS Close Approach Data API
+    https://ssd-api.jpl.nasa.gov/doc/cad.html
+    """
+
+    designation: str
+    close_approach_date: datetime
+    nominal_distance_au: float
+    nominal_distance_km: float
+    relative_velocity_km_s: float
+    absolute_magnitude_h: float | None
+    estimated_diameter_km: float | None
+
+
+@dataclass
+class SentryImpactRisk:
+    """NASA Sentry impact monitoring data.
+
+    Represents a potential future Earth impact event monitored by Sentry.
+    Data source: NASA JPL Sentry Impact Monitoring System
+    https://cneos.jpl.nasa.gov/sentry/
+    """
+
+    designation: str
+    potential_impacts: int
+    impact_probability: float
+    palermo_scale: float
+    torino_scale: int
+    estimated_diameter_km: float | None
+    next_impact_date: datetime | None
+
+
+def load_nasa_fireball_data(
+    days_back: int = 365,
+    min_energy_kt: float = 0.0,
+) -> list[FireballEvent] | None:
+    """Load fireball/bolide data from NASA CNEOS Fireball API.
+
+    Data source: NASA JPL Center for Near Earth Object Studies (CNEOS)
+    https://ssd-api.jpl.nasa.gov/doc/fireball.html
+
+    This API provides data on fireballs and bolides detected by US Government
+    sensors. The data includes location, velocity, and energy estimates.
+
+    Args:
+        days_back: Number of days of historical data to fetch
+        min_energy_kt: Minimum impact energy in kilotons TNT
+
+    Returns:
+        List of FireballEvent objects or None if API unavailable
+    """
+    circuit_breaker = get_data_loader_breaker("nasa_fireball")
+
+    def _fetch_fireball_data() -> list[FireballEvent]:
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days_back)
+
+        url = (
+            f"{NASA_CNEOS_FIREBALL_URL}"
+            f"?date-min={start_date.strftime('%Y-%m-%d')}"
+            f"&date-max={end_date.strftime('%Y-%m-%d')}"
+            f"&req-loc=true"
+        )
+
+        if not url.startswith("https://"):
+            raise RuntimeError("NASA Fireball API URL must use HTTPS")
+
+        # Validate URL before opening (SSRF protection via domain allowlist)
+        TrustedEndpoints.validate_url(NASA_CNEOS_FIREBALL_URL)
+        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+        with urlopen(req, timeout=30) as response:
+            data = json.loads(response.read().decode())
+
+        if "data" not in data or not data["data"]:
+            logger.info("NASA Fireball API returned no events")
+            return []
+
+        # Parse field indices from response
+        fields = {f: i for i, f in enumerate(data.get("fields", []))}
+
+        events: list[FireballEvent] = []
+        for row in data["data"]:
+            try:
+                # Parse date
+                date_str = row[fields.get("date", 0)]
+                event_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+
+                # Parse location (may be None if not available)
+                lat = float(row[fields.get("lat", 1)]) if row[fields.get("lat", 1)] else None
+                lon = float(row[fields.get("lon", 2)]) if row[fields.get("lon", 2)] else None
+                lat_dir = row[fields.get("lat-dir", 3)]
+                lon_dir = row[fields.get("lon-dir", 4)]
+
+                if lat is not None and lat_dir == "S":
+                    lat = -lat
+                if lon is not None and lon_dir == "W":
+                    lon = -lon
+
+                # Parse other fields
+                alt = float(row[fields.get("alt", 5)]) if row[fields.get("alt", 5)] else None
+                vel = float(row[fields.get("vel", 6)]) if row[fields.get("vel", 6)] else None
+                energy_rad = (
+                    float(row[fields.get("energy", 7)]) if row[fields.get("energy", 7)] else None
+                )
+                energy_impact = (
+                    float(row[fields.get("impact-e", 8)])
+                    if row[fields.get("impact-e", 8)]
+                    else None
+                )
+
+                # Filter by minimum energy
+                if min_energy_kt > 0 and (energy_impact is None or energy_impact < min_energy_kt):
+                    continue
+
+                events.append(
+                    FireballEvent(
+                        date=event_date,
+                        latitude=lat,
+                        longitude=lon,
+                        altitude_km=alt,
+                        velocity_km_s=vel,
+                        total_radiated_energy_j=energy_rad,
+                        calculated_total_impact_energy_kt=energy_impact,
+                    )
+                )
+            except (ValueError, IndexError, KeyError) as e:
+                logger.debug(f"Skipping malformed fireball record: {e}")
+                continue
+
+        return events
+
+    try:
+        result: list[FireballEvent] = circuit_breaker.call(_fetch_fireball_data)
+        logger.info(f"Loaded {len(result)} NASA CNEOS fireball events")
+        return result
+    except Exception as e:
+        logger.warning(f"Failed to load NASA fireball data: {e}")
+        return None
+
+
+def load_nasa_close_approach_data(
+    days_forward: int = 60,
+    distance_max_au: float = 0.05,
+) -> list[CloseApproachEvent] | None:
+    """Load close approach data from NASA CNEOS Close Approach API.
+
+    Data source: NASA JPL CNEOS Close Approach Data API
+    https://ssd-api.jpl.nasa.gov/doc/cad.html
+
+    This API provides predicted close approach data for near-Earth objects
+    (asteroids and comets) with Earth.
+
+    Args:
+        days_forward: Number of days to look ahead for close approaches
+        distance_max_au: Maximum close approach distance in AU (1 AU = ~150M km)
+
+    Returns:
+        List of CloseApproachEvent objects or None if API unavailable
+    """
+    circuit_breaker = get_data_loader_breaker("nasa_cad")
+
+    def _fetch_cad_data() -> list[CloseApproachEvent]:
+        start_date = datetime.utcnow()
+        end_date = start_date + timedelta(days=days_forward)
+
+        url = (
+            f"{NASA_CNEOS_CAD_URL}"
+            f"?date-min={start_date.strftime('%Y-%m-%d')}"
+            f"&date-max={end_date.strftime('%Y-%m-%d')}"
+            f"&dist-max={distance_max_au}"
+            f"&body=Earth"
+        )
+
+        if not url.startswith("https://"):
+            raise RuntimeError("NASA CAD API URL must use HTTPS")
+
+        TrustedEndpoints.validate_url(NASA_CNEOS_CAD_URL)
+        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+        with urlopen(req, timeout=30) as response:
+            data = json.loads(response.read().decode())
+
+        if "data" not in data or not data["data"]:
+            logger.info("NASA CAD API returned no close approaches")
+            return []
+
+        fields = {f: i for i, f in enumerate(data.get("fields", []))}
+
+        events: list[CloseApproachEvent] = []
+        for row in data["data"]:
+            try:
+                designation = row[fields.get("des", 0)]
+                date_str = row[fields.get("cd", 3)]
+                ca_date = datetime.strptime(date_str, "%Y-%b-%d %H:%M")
+
+                dist_au = float(row[fields.get("dist", 4)])
+                dist_km = dist_au * 149597870.7  # AU to km
+
+                v_rel = float(row[fields.get("v_rel", 7)])
+                h_mag = float(row[fields.get("h", 10)]) if row[fields.get("h", 10)] else None
+
+                # Estimate diameter from absolute magnitude H
+                # D = 1329 / sqrt(albedo) * 10^(-H/5)
+                # Assuming albedo = 0.15 (typical for rocky asteroids)
+                diameter_km = None
+                if h_mag is not None:
+                    diameter_km = 1329 / (0.15**0.5) * (10 ** (-h_mag / 5))
+
+                events.append(
+                    CloseApproachEvent(
+                        designation=designation,
+                        close_approach_date=ca_date,
+                        nominal_distance_au=dist_au,
+                        nominal_distance_km=dist_km,
+                        relative_velocity_km_s=v_rel,
+                        absolute_magnitude_h=h_mag,
+                        estimated_diameter_km=diameter_km,
+                    )
+                )
+            except (ValueError, IndexError, KeyError) as e:
+                logger.debug(f"Skipping malformed CAD record: {e}")
+                continue
+
+        return events
+
+    try:
+        result: list[CloseApproachEvent] = circuit_breaker.call(_fetch_cad_data)
+        logger.info(f"Loaded {len(result)} NASA CNEOS close approach events")
+        return result
+    except Exception as e:
+        logger.warning(f"Failed to load NASA close approach data: {e}")
+        return None
+
+
+def load_nasa_sentry_data() -> list[SentryImpactRisk] | None:
+    """Load potential impact data from NASA Sentry Impact Monitoring API.
+
+    Data source: NASA JPL Sentry Impact Monitoring System
+    https://ssd-api.jpl.nasa.gov/doc/sentry.html
+
+    Sentry is a highly automated collision monitoring system that continually
+    scans the most current asteroid catalog for possibilities of future impact
+    with Earth over the next 100 years.
+
+    Returns:
+        List of SentryImpactRisk objects or None if API unavailable
+    """
+    circuit_breaker = get_data_loader_breaker("nasa_sentry")
+
+    def _fetch_sentry_data() -> list[SentryImpactRisk]:
+        url = f"{NASA_SENTRY_URL}?all=1"
+
+        if not url.startswith("https://"):
+            raise RuntimeError("NASA Sentry API URL must use HTTPS")
+
+        TrustedEndpoints.validate_url(NASA_SENTRY_URL)
+        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
+        with urlopen(req, timeout=30) as response:
+            data = json.loads(response.read().decode())
+
+        if "data" not in data or not data["data"]:
+            logger.info("NASA Sentry API returned no impact risks (good news!)")
+            return []
+
+        risks: list[SentryImpactRisk] = []
+        for obj in data["data"]:
+            try:
+                designation = obj.get("des", "Unknown")
+                n_imp = int(obj.get("n_imp", 0))
+                ip = float(obj.get("ip", 0))
+                ps = float(obj.get("ps", -10))
+                ts = int(obj.get("ts", 0))
+                diameter = float(obj.get("diameter", 0)) if obj.get("diameter") else None
+
+                # Parse next impact date if available
+                next_impact = None
+                if obj.get("range"):
+                    try:
+                        date_str = obj["range"].split("-")[0].strip()
+                        next_impact = datetime.strptime(date_str, "%Y")
+                    except (ValueError, AttributeError):
+                        pass
+
+                risks.append(
+                    SentryImpactRisk(
+                        designation=designation,
+                        potential_impacts=n_imp,
+                        impact_probability=ip,
+                        palermo_scale=ps,
+                        torino_scale=ts,
+                        estimated_diameter_km=diameter,
+                        next_impact_date=next_impact,
+                    )
+                )
+            except (ValueError, KeyError) as e:
+                logger.debug(f"Skipping malformed Sentry record: {e}")
+                continue
+
+        return risks
+
+    try:
+        result: list[SentryImpactRisk] = circuit_breaker.call(_fetch_sentry_data)
+        logger.info(f"Loaded {len(result)} NASA Sentry impact risk objects")
+        return result
+    except Exception as e:
+        logger.warning(f"Failed to load NASA Sentry data: {e}")
         return None
 
 

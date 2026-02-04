@@ -83,9 +83,21 @@ class TestGDPRCompliance:
     """Test GDPR Compliance."""
 
     def test_initialization(self):
-        """Test initialization."""
+        """Test initialization with all 8 GDPR data subject rights."""
         gdpr = GDPRCompliance()
-        assert len(gdpr.data_subject_rights) == 5
+        # GDPR provides 8 data subject rights per Articles 15-22
+        assert len(gdpr.data_subject_rights) == 8
+        expected_rights = [
+            "right_to_access",
+            "right_to_rectification",
+            "right_to_erasure",
+            "right_to_data_portability",
+            "right_to_object",
+            "right_to_restriction",
+            "right_to_withdraw_consent",
+            "right_not_to_be_subject_to_automated_decisions",
+        ]
+        assert gdpr.data_subject_rights == expected_rights
 
     def test_no_personal_data_compliant(self):
         """Test that no personal data processing is compliant."""

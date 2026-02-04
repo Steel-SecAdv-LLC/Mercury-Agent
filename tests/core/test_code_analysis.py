@@ -226,10 +226,15 @@ for i in range(10):
         config = NeurosymbolicConfig(enable_neural=True, transparency_logging=False)
         engine = NeurosymbolicEngine(config=config)
 
-        training_data = [(sample_code_ast, {"refactoring": "extract_method"})]
+        # Need at least 2 samples for training
+        training_data = [
+            (sample_code_ast, {"refactoring": "extract_method"}),
+            (sample_code_ast, {"refactoring": "rename_variable"}),
+        ]
         engine.train_model(training_data)
 
-        assert engine.current_phase == TrainingPhase.SPECIALIZATION
+        # After training completes, phase should be VALIDATION
+        assert engine.current_phase == TrainingPhase.VALIDATION
 
     def test_check_bias_disabled(self):
         """Test bias check when disabled."""
