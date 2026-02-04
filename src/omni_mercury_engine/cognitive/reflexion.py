@@ -1,0 +1,1396 @@
+"""
+Mercury Agent ♱
+Copyright (C) 2025 Steel Security Advisory LLC
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see https://www.gnu.org/licenses/.
+"""
+
+from __future__ import annotations
+
+"""
+Reflexion Framework for Mercury Agent.
+
+Implements self-reflection architecture for learning from experience
+without extensive fine-tuning, inspired by:
+- "Reflexion: Language Agents with Verbal Reinforcement Learning" (Shinn et al., 2023)
+- "Self-Refine: Iterative Refinement with Self-Feedback" (Madaan et al., 2023)
+- "Constitutional AI: Harmlessness from AI Feedback" (Bai et al., 2022)
+
+Key Concepts:
+1. Self-Reflection: Analyze past decisions and their outcomes
+2. Linguistic Feedback: Generate verbal self-feedback for improvement
+3. Experience Memory: Store and retrieve relevant past experiences
+4. Iterative Refinement: Improve decisions through reflection cycles
+5. Heuristic Evaluation: Use heuristics to guide reflection
+
+The Reflexion framework enables Mercury Agent to:
+- Learn from anomaly detection errors without retraining
+- Generate actionable self-feedback
+- Improve decision quality over time
+- Maintain interpretable reasoning traces
+"""
+
+import logging
+import time
+import hashlib
+from collections import defaultdict
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any
+
+import numpy as np
+
+
+logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+PHI = (1 + np.sqrt(5)) / 2  # Golden ratio
+
+# Reflection limits
+MAX_REFLECTION_DEPTH = 5
+MAX_EXPERIENCE_MEMORY = 1000
+MAX_REFINEMENT_ITERATIONS = 3
+
+
+class ReflectionType(Enum):
+    """Types of self-reflection."""
+
+    SUCCESS_ANALYSIS = "success_analysis"  # Why did this work?
+    FAILURE_ANALYSIS = "failure_analysis"  # Why did this fail?
+    IMPROVEMENT = "improvement"  # How to do better?
+    PATTERN_RECOGNITION = "pattern_recognition"  # Recurring patterns
+    CONSISTENCY_CHECK = "consistency_check"  # Is this consistent with past?
+    ETHICAL_REVIEW = "ethical_review"  # Ethical implications
+
+
+class FeedbackType(Enum):
+    """Types of linguistic feedback."""
+
+    POSITIVE = "positive"  # Reinforcing good decisions
+    CORRECTIVE = "corrective"  # Suggesting corrections
+    EXPLORATORY = "exploratory"  # Encouraging exploration
+    CAUTIONARY = "cautionary"  # Warning about risks
+    NEUTRAL = "neutral"  # Objective observation
+
+
+class OutcomeType(Enum):
+    """Types of decision outcomes."""
+
+    TRUE_POSITIVE = "true_positive"
+    TRUE_NEGATIVE = "true_negative"
+    FALSE_POSITIVE = "false_positive"
+    FALSE_NEGATIVE = "false_negative"
+    UNCERTAIN = "uncertain"
+
+
+class ImprovementPriority(Enum):
+    """Priority levels for improvements."""
+
+    CRITICAL = "critical"  # Must address immediately
+    HIGH = "high"  # Important improvement
+    MEDIUM = "medium"  # Moderate benefit
+    LOW = "low"  # Nice to have
+
+
+# =============================================================================
+# Data Structures
+# =============================================================================
+
+
+@dataclass
+class Decision:
+    """A decision made by the agent."""
+
+    decision_id: str
+    action: str
+    context: dict[str, Any]
+    confidence: float
+    reasoning: str
+    timestamp: float = field(default_factory=time.time)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class Outcome:
+    """The outcome of a decision."""
+
+    outcome_id: str
+    decision_id: str
+    outcome_type: OutcomeType
+    actual_result: Any
+    expected_result: Any
+    error_magnitude: float = 0.0
+    feedback_received: str | None = None
+    timestamp: float = field(default_factory=time.time)
+
+
+@dataclass
+class Experience:
+    """An experience combining decision and outcome.
+
+    Stored in experience memory for future reference.
+    """
+
+    experience_id: str
+    decision: Decision
+    outcome: Outcome
+    reflection: Reflection | None = None
+    importance: float = 0.5
+    access_count: int = 0
+    last_accessed: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "id": self.experience_id,
+            "action": self.decision.action,
+            "outcome": self.outcome.outcome_type.value,
+            "confidence": self.decision.confidence,
+            "error": self.outcome.error_magnitude,
+            "importance": self.importance,
+        }
+
+
+@dataclass
+class Reflection:
+    """A self-reflection on an experience.
+
+    Generated by analyzing what happened and why.
+    """
+
+    reflection_id: str
+    reflection_type: ReflectionType
+    experience_id: str
+    analysis: str
+    insights: list[str]
+    feedback: LinguisticFeedback | None = None
+    suggested_improvements: list[str] = field(default_factory=list)
+    confidence: float = 0.8
+    timestamp: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "id": self.reflection_id,
+            "type": self.reflection_type.value,
+            "analysis": self.analysis,
+            "insights": self.insights,
+            "improvements": self.suggested_improvements,
+            "confidence": self.confidence,
+        }
+
+
+@dataclass
+class LinguisticFeedback:
+    """Verbal feedback for self-improvement.
+
+    Human-readable feedback that guides future decisions.
+    """
+
+    feedback_id: str
+    feedback_type: FeedbackType
+    content: str
+    actionable_items: list[str]
+    priority: ImprovementPriority
+    applies_to: list[str] = field(default_factory=list)  # Context keys where this applies
+    timestamp: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "id": self.feedback_id,
+            "type": self.feedback_type.value,
+            "content": self.content,
+            "actions": self.actionable_items,
+            "priority": self.priority.value,
+        }
+
+
+@dataclass
+class RefinementResult:
+    """Result of iterative refinement."""
+
+    original_decision: Decision
+    refined_decision: Decision
+    iterations: int
+    improvement_score: float
+    refinement_trace: list[str]
+    convergence_achieved: bool
+
+
+@dataclass
+class HeuristicEvaluation:
+    """Evaluation using heuristic function.
+
+    Provides quick assessment of decision quality.
+    """
+
+    heuristic_score: float
+    component_scores: dict[str, float]
+    violations: list[str]
+    suggestions: list[str]
+
+
+# =============================================================================
+# Experience Memory
+# =============================================================================
+
+
+class ExperienceMemory:
+    """
+    Memory store for past experiences.
+
+    Enables efficient storage and retrieval of relevant experiences
+    for reflection and learning.
+    """
+
+    def __init__(
+        self,
+        max_size: int = MAX_EXPERIENCE_MEMORY,
+        similarity_threshold: float = 0.7,
+    ):
+        """Initialize experience memory.
+
+        Args:
+            max_size: Maximum number of experiences to store
+            similarity_threshold: Threshold for similar experience retrieval
+        """
+        self.max_size = max_size
+        self.similarity_threshold = similarity_threshold
+
+        self._experiences: dict[str, Experience] = {}
+        self._index_by_action: defaultdict[str, list[str]] = defaultdict(list)
+        self._index_by_outcome: defaultdict[OutcomeType, list[str]] = defaultdict(list)
+        self._experience_counter = 0
+
+        logger.info(f"ExperienceMemory initialized (max_size={max_size})")
+
+    def store(self, experience: Experience) -> str:
+        """Store an experience.
+
+        Args:
+            experience: Experience to store
+
+        Returns:
+            Experience ID
+        """
+        # Evict if at capacity
+        if len(self._experiences) >= self.max_size:
+            self._evict_least_important()
+
+        # Store experience
+        self._experiences[experience.experience_id] = experience
+
+        # Update indices
+        self._index_by_action[experience.decision.action].append(experience.experience_id)
+        self._index_by_outcome[experience.outcome.outcome_type].append(experience.experience_id)
+
+        return experience.experience_id
+
+    def retrieve(
+        self,
+        context: dict[str, Any],
+        action: str | None = None,
+        outcome_type: OutcomeType | None = None,
+        top_k: int = 5,
+    ) -> list[Experience]:
+        """Retrieve relevant experiences.
+
+        Args:
+            context: Current context for similarity matching
+            action: Filter by action type
+            outcome_type: Filter by outcome type
+            top_k: Number of experiences to return
+
+        Returns:
+            List of relevant experiences
+        """
+        candidates: list[Experience] = []
+
+        # Filter by action if specified
+        if action and action in self._index_by_action:
+            exp_ids = self._index_by_action[action]
+            candidates.extend(self._experiences[eid] for eid in exp_ids if eid in self._experiences)
+        elif outcome_type and outcome_type in self._index_by_outcome:
+            exp_ids = self._index_by_outcome[outcome_type]
+            candidates.extend(self._experiences[eid] for eid in exp_ids if eid in self._experiences)
+        else:
+            candidates = list(self._experiences.values())
+
+        # Score by relevance
+        scored = []
+        for exp in candidates:
+            similarity = self._compute_similarity(context, exp.decision.context)
+            if similarity >= self.similarity_threshold:
+                scored.append((exp, similarity))
+                exp.access_count += 1
+                exp.last_accessed = time.time()
+
+        # Sort by similarity and importance
+        scored.sort(key=lambda x: x[1] * x[0].importance, reverse=True)
+
+        return [exp for exp, _ in scored[:top_k]]
+
+    def retrieve_by_outcome(
+        self, outcome_type: OutcomeType, top_k: int = 10
+    ) -> list[Experience]:
+        """Retrieve experiences by outcome type.
+
+        Args:
+            outcome_type: Type of outcome to filter by
+            top_k: Number of experiences to return
+
+        Returns:
+            List of experiences with specified outcome
+        """
+        exp_ids = self._index_by_outcome.get(outcome_type, [])
+        experiences = [self._experiences[eid] for eid in exp_ids if eid in self._experiences]
+
+        # Sort by importance and recency
+        experiences.sort(key=lambda x: (x.importance, -x.timestamp), reverse=True)
+
+        return experiences[:top_k]
+
+    def update_importance(self, experience_id: str, importance_delta: float) -> None:
+        """Update experience importance.
+
+        Args:
+            experience_id: ID of experience to update
+            importance_delta: Change in importance (-1 to 1)
+        """
+        if experience_id in self._experiences:
+            exp = self._experiences[experience_id]
+            exp.importance = max(0.0, min(1.0, exp.importance + importance_delta))
+
+    def _compute_similarity(
+        self, context1: dict[str, Any], context2: dict[str, Any]
+    ) -> float:
+        """Compute similarity between contexts."""
+        if not context1 or not context2:
+            return 0.0
+
+        keys1 = set(context1.keys())
+        keys2 = set(context2.keys())
+        common_keys = keys1 & keys2
+
+        if not common_keys:
+            return 0.0
+
+        # Key overlap
+        key_sim = len(common_keys) / len(keys1 | keys2)
+
+        # Value similarity for common keys
+        value_matches = 0
+        for key in common_keys:
+            v1, v2 = context1[key], context2[key]
+            if v1 == v2:
+                value_matches += 1
+            elif isinstance(v1, (int, float)) and isinstance(v2, (int, float)):
+                # Numerical similarity
+                if max(abs(v1), abs(v2)) > 0:
+                    value_matches += 1 - abs(v1 - v2) / max(abs(v1), abs(v2))
+
+        value_sim = value_matches / len(common_keys) if common_keys else 0
+
+        return 0.5 * key_sim + 0.5 * value_sim
+
+    def _evict_least_important(self) -> None:
+        """Evict least important experience."""
+        if not self._experiences:
+            return
+
+        # Find least important
+        min_exp = min(
+            self._experiences.values(),
+            key=lambda x: x.importance * 0.7 + (1 / (time.time() - x.last_accessed + 1)) * 0.3,
+        )
+
+        # Remove from indices
+        if min_exp.decision.action in self._index_by_action:
+            self._index_by_action[min_exp.decision.action] = [
+                eid
+                for eid in self._index_by_action[min_exp.decision.action]
+                if eid != min_exp.experience_id
+            ]
+
+        if min_exp.outcome.outcome_type in self._index_by_outcome:
+            self._index_by_outcome[min_exp.outcome.outcome_type] = [
+                eid
+                for eid in self._index_by_outcome[min_exp.outcome.outcome_type]
+                if eid != min_exp.experience_id
+            ]
+
+        # Remove experience
+        del self._experiences[min_exp.experience_id]
+
+    def get_statistics(self) -> dict[str, Any]:
+        """Get memory statistics."""
+        outcome_counts = {ot.value: len(ids) for ot, ids in self._index_by_outcome.items()}
+        return {
+            "total_experiences": len(self._experiences),
+            "max_size": self.max_size,
+            "outcome_distribution": outcome_counts,
+            "unique_actions": len(self._index_by_action),
+        }
+
+
+# =============================================================================
+# Heuristic Evaluator
+# =============================================================================
+
+
+class HeuristicEvaluator:
+    """
+    Evaluates decisions using heuristic functions.
+
+    Provides quick quality assessment without ground truth.
+    """
+
+    def __init__(
+        self,
+        confidence_weight: float = 0.3,
+        consistency_weight: float = 0.3,
+        evidence_weight: float = 0.2,
+        ethical_weight: float = 0.2,
+    ):
+        """Initialize heuristic evaluator.
+
+        Args:
+            confidence_weight: Weight for confidence score
+            consistency_weight: Weight for consistency score
+            evidence_weight: Weight for evidence score
+            ethical_weight: Weight for ethical score
+        """
+        self.weights = {
+            "confidence": confidence_weight,
+            "consistency": consistency_weight,
+            "evidence": evidence_weight,
+            "ethical": ethical_weight,
+        }
+
+        # Normalize weights
+        total = sum(self.weights.values())
+        self.weights = {k: v / total for k, v in self.weights.items()}
+
+    def evaluate(
+        self,
+        decision: Decision,
+        past_experiences: list[Experience] | None = None,
+    ) -> HeuristicEvaluation:
+        """Evaluate a decision using heuristics.
+
+        Args:
+            decision: Decision to evaluate
+            past_experiences: Relevant past experiences for consistency
+
+        Returns:
+            HeuristicEvaluation result
+        """
+        component_scores: dict[str, float] = {}
+        violations: list[str] = []
+        suggestions: list[str] = []
+
+        # Confidence score
+        component_scores["confidence"] = self._score_confidence(decision)
+        if decision.confidence < 0.5:
+            violations.append("Low confidence decision")
+            suggestions.append("Gather more evidence before deciding")
+
+        # Consistency score
+        component_scores["consistency"] = self._score_consistency(decision, past_experiences or [])
+        if component_scores["consistency"] < 0.5:
+            violations.append("Inconsistent with past decisions")
+            suggestions.append("Review similar past experiences")
+
+        # Evidence score
+        component_scores["evidence"] = self._score_evidence(decision)
+        if component_scores["evidence"] < 0.5:
+            violations.append("Insufficient evidence")
+            suggestions.append("Collect additional supporting data")
+
+        # Ethical score
+        component_scores["ethical"] = self._score_ethical(decision)
+        if component_scores["ethical"] < 0.99:
+            violations.append("Potential ethical concerns")
+            suggestions.append("Review ethical implications")
+
+        # Calculate weighted score
+        heuristic_score = sum(
+            score * self.weights[component] for component, score in component_scores.items()
+        )
+
+        return HeuristicEvaluation(
+            heuristic_score=heuristic_score,
+            component_scores=component_scores,
+            violations=violations,
+            suggestions=suggestions,
+        )
+
+    def _score_confidence(self, decision: Decision) -> float:
+        """Score based on decision confidence."""
+        return decision.confidence
+
+    def _score_consistency(
+        self, decision: Decision, past_experiences: list[Experience]
+    ) -> float:
+        """Score based on consistency with past decisions."""
+        if not past_experiences:
+            return 0.7  # Default when no history
+
+        similar_decisions = [
+            exp
+            for exp in past_experiences
+            if exp.decision.action == decision.action
+        ]
+
+        if not similar_decisions:
+            return 0.6  # No exact matches
+
+        # Check if similar decisions had good outcomes
+        success_rate = sum(
+            1
+            for exp in similar_decisions
+            if exp.outcome.outcome_type in [OutcomeType.TRUE_POSITIVE, OutcomeType.TRUE_NEGATIVE]
+        ) / len(similar_decisions)
+
+        return success_rate
+
+    def _score_evidence(self, decision: Decision) -> float:
+        """Score based on evidence quality."""
+        context = decision.context
+
+        score = 0.5  # Base score
+
+        # Check for evidence indicators
+        if "evidence" in context:
+            evidence_count = len(context["evidence"])
+            score += min(0.2, evidence_count * 0.05)
+
+        if "confidence_interval" in context:
+            score += 0.1
+
+        if "features" in context:
+            score += min(0.1, len(context["features"]) * 0.02)
+
+        if "reasoning" in context or decision.reasoning:
+            score += 0.1
+
+        return min(1.0, score)
+
+    def _score_ethical(self, decision: Decision) -> float:
+        """Score based on ethical considerations."""
+        context = decision.context
+
+        # Start with high ethical score
+        score = 0.99
+
+        # Check for ethical flags
+        if context.get("ethical_score"):
+            score = min(score, context["ethical_score"])
+
+        # Check action type
+        action_lower = decision.action.lower()
+        if "harm" in action_lower or "attack" in action_lower:
+            score -= 0.1
+        if "protect" in action_lower or "defense" in action_lower:
+            score += 0.01
+
+        return max(0.0, min(1.0, score))
+
+
+# =============================================================================
+# Reflexion Engine
+# =============================================================================
+
+
+class ReflexionEngine:
+    """
+    Main Reflexion Engine.
+
+    Implements self-reflection architecture for learning from experience
+    through verbal reinforcement without fine-tuning.
+
+    Key capabilities:
+    1. Analyze decision outcomes
+    2. Generate linguistic feedback
+    3. Store and retrieve experiences
+    4. Refine decisions iteratively
+    5. Track improvement over time
+    """
+
+    def __init__(
+        self,
+        max_reflection_depth: int = MAX_REFLECTION_DEPTH,
+        max_refinement_iterations: int = MAX_REFINEMENT_ITERATIONS,
+        experience_memory_size: int = MAX_EXPERIENCE_MEMORY,
+        enable_ethical_review: bool = True,
+    ):
+        """Initialize Reflexion engine.
+
+        Args:
+            max_reflection_depth: Maximum depth for recursive reflection
+            max_refinement_iterations: Maximum iterations for refinement
+            experience_memory_size: Size of experience memory
+            enable_ethical_review: Enable ethical reflection
+        """
+        self.max_reflection_depth = max_reflection_depth
+        self.max_refinement_iterations = max_refinement_iterations
+        self.enable_ethical_review = enable_ethical_review
+
+        self.experience_memory = ExperienceMemory(max_size=experience_memory_size)
+        self.heuristic_evaluator = HeuristicEvaluator()
+
+        self._reflection_counter = 0
+        self._feedback_counter = 0
+        self._experience_counter = 0
+
+        self._stats = {
+            "reflections_generated": 0,
+            "feedbacks_generated": 0,
+            "refinements_performed": 0,
+            "improvement_rate": 0.0,
+        }
+
+        # Feedback templates
+        self._feedback_templates = {
+            FeedbackType.POSITIVE: [
+                "The decision to {action} was correct. {reason}",
+                "Good judgment on {action}. Continue this approach when {context}.",
+                "{action} succeeded because {reason}. Remember this pattern.",
+            ],
+            FeedbackType.CORRECTIVE: [
+                "The {action} decision was suboptimal. Consider {alternative} instead.",
+                "When encountering {context}, prefer {alternative} over {action}.",
+                "{action} failed because {reason}. Adjust approach.",
+            ],
+            FeedbackType.EXPLORATORY: [
+                "Consider exploring {alternative} in similar situations.",
+                "The {context} scenario has multiple valid approaches.",
+                "Experiment with {alternative} to gather more data.",
+            ],
+            FeedbackType.CAUTIONARY: [
+                "Be cautious with {action} when {context}.",
+                "{action} carries risks: {reason}. Proceed carefully.",
+                "Verify before {action} in {context} scenarios.",
+            ],
+            FeedbackType.NEUTRAL: [
+                "Observed {action} in {context}. Outcome: {outcome}.",
+                "{action} completed with {outcome}. Data recorded.",
+                "Experience logged: {action} -> {outcome}.",
+            ],
+        }
+
+        logger.info(
+            f"ReflexionEngine initialized (max_depth={max_reflection_depth}, "
+            f"max_iterations={max_refinement_iterations})"
+        )
+
+    def record_experience(
+        self,
+        decision: Decision,
+        outcome: Outcome,
+        auto_reflect: bool = True,
+    ) -> Experience:
+        """Record a decision-outcome experience.
+
+        Args:
+            decision: The decision that was made
+            outcome: The outcome of that decision
+            auto_reflect: Whether to automatically generate reflection
+
+        Returns:
+            Created Experience object
+        """
+        self._experience_counter += 1
+        experience_id = f"exp_{self._experience_counter:06d}"
+
+        # Calculate importance based on outcome type and error
+        importance = self._calculate_importance(outcome)
+
+        experience = Experience(
+            experience_id=experience_id,
+            decision=decision,
+            outcome=outcome,
+            importance=importance,
+        )
+
+        # Auto-generate reflection
+        if auto_reflect:
+            reflection = self.reflect(experience)
+            experience.reflection = reflection
+
+        # Store in memory
+        self.experience_memory.store(experience)
+
+        return experience
+
+    def reflect(
+        self,
+        experience: Experience,
+        depth: int = 0,
+    ) -> Reflection:
+        """Generate self-reflection on an experience.
+
+        Args:
+            experience: Experience to reflect on
+            depth: Current reflection depth
+
+        Returns:
+            Reflection object with analysis and insights
+        """
+        self._reflection_counter += 1
+        reflection_id = f"refl_{self._reflection_counter:06d}"
+
+        # Determine reflection type based on outcome
+        reflection_type = self._determine_reflection_type(experience.outcome)
+
+        # Generate analysis
+        analysis = self._generate_analysis(experience, reflection_type)
+
+        # Extract insights
+        insights = self._extract_insights(experience, reflection_type)
+
+        # Generate linguistic feedback
+        feedback = self._generate_feedback(experience, reflection_type)
+
+        # Suggest improvements
+        improvements = self._suggest_improvements(experience, reflection_type)
+
+        # Calculate reflection confidence
+        confidence = self._calculate_reflection_confidence(experience, insights)
+
+        reflection = Reflection(
+            reflection_id=reflection_id,
+            reflection_type=reflection_type,
+            experience_id=experience.experience_id,
+            analysis=analysis,
+            insights=insights,
+            feedback=feedback,
+            suggested_improvements=improvements,
+            confidence=confidence,
+        )
+
+        self._stats["reflections_generated"] += 1
+
+        # Ethical review if enabled
+        if self.enable_ethical_review and depth < self.max_reflection_depth:
+            ethical_insights = self._ethical_reflection(experience)
+            reflection.insights.extend(ethical_insights)
+
+        return reflection
+
+    def refine_decision(
+        self,
+        decision: Decision,
+        max_iterations: int | None = None,
+    ) -> RefinementResult:
+        """Iteratively refine a decision using reflection.
+
+        Args:
+            decision: Decision to refine
+            max_iterations: Maximum refinement iterations
+
+        Returns:
+            RefinementResult with refined decision
+        """
+        max_iterations = max_iterations or self.max_refinement_iterations
+        refinement_trace: list[str] = []
+
+        current_decision = decision
+        best_score = 0.0
+
+        # Retrieve relevant experiences
+        past_experiences = self.experience_memory.retrieve(
+            context=decision.context,
+            action=decision.action,
+            top_k=10,
+        )
+
+        for iteration in range(max_iterations):
+            # Evaluate current decision
+            evaluation = self.heuristic_evaluator.evaluate(current_decision, past_experiences)
+            current_score = evaluation.heuristic_score
+
+            refinement_trace.append(
+                f"Iteration {iteration + 1}: score={current_score:.3f}, "
+                f"violations={len(evaluation.violations)}"
+            )
+
+            # Check for convergence
+            if current_score >= 0.95 or abs(current_score - best_score) < 0.01:
+                break
+
+            best_score = max(best_score, current_score)
+
+            # Apply refinements based on evaluation
+            current_decision = self._apply_refinements(
+                current_decision, evaluation, past_experiences
+            )
+
+        # Calculate improvement
+        original_eval = self.heuristic_evaluator.evaluate(decision, past_experiences)
+        final_eval = self.heuristic_evaluator.evaluate(current_decision, past_experiences)
+        improvement_score = final_eval.heuristic_score - original_eval.heuristic_score
+
+        self._stats["refinements_performed"] += 1
+        self._update_improvement_rate(improvement_score)
+
+        return RefinementResult(
+            original_decision=decision,
+            refined_decision=current_decision,
+            iterations=iteration + 1,
+            improvement_score=improvement_score,
+            refinement_trace=refinement_trace,
+            convergence_achieved=final_eval.heuristic_score >= 0.95,
+        )
+
+    def get_applicable_feedback(
+        self,
+        context: dict[str, Any],
+        action: str | None = None,
+    ) -> list[LinguisticFeedback]:
+        """Get feedback applicable to current context.
+
+        Args:
+            context: Current decision context
+            action: Optional action filter
+
+        Returns:
+            List of applicable feedback items
+        """
+        # Retrieve relevant experiences with reflections
+        experiences = self.experience_memory.retrieve(
+            context=context,
+            action=action,
+            top_k=20,
+        )
+
+        # Extract feedback from reflections
+        feedback_items: list[LinguisticFeedback] = []
+        for exp in experiences:
+            if exp.reflection and exp.reflection.feedback:
+                feedback_items.append(exp.reflection.feedback)
+
+        # Sort by priority and recency
+        priority_order = {
+            ImprovementPriority.CRITICAL: 0,
+            ImprovementPriority.HIGH: 1,
+            ImprovementPriority.MEDIUM: 2,
+            ImprovementPriority.LOW: 3,
+        }
+        feedback_items.sort(
+            key=lambda f: (priority_order[f.priority], -f.timestamp)
+        )
+
+        return feedback_items
+
+    def generate_improvement_plan(
+        self,
+        outcome_type: OutcomeType = OutcomeType.FALSE_POSITIVE,
+        top_k: int = 5,
+    ) -> list[dict[str, Any]]:
+        """Generate improvement plan based on past errors.
+
+        Args:
+            outcome_type: Type of outcomes to analyze
+            top_k: Number of experiences to analyze
+
+        Returns:
+            List of improvement recommendations
+        """
+        # Retrieve experiences with specified outcome
+        experiences = self.experience_memory.retrieve_by_outcome(outcome_type, top_k)
+
+        if not experiences:
+            return []
+
+        # Analyze patterns in failures
+        patterns: dict[str, int] = defaultdict(int)
+        improvements: list[dict[str, Any]] = []
+
+        for exp in experiences:
+            # Count common patterns
+            action = exp.decision.action
+            patterns[action] += 1
+
+            # Get reflection improvements
+            if exp.reflection:
+                for imp in exp.reflection.suggested_improvements:
+                    improvements.append({
+                        "improvement": imp,
+                        "source_action": action,
+                        "outcome": outcome_type.value,
+                        "priority": ImprovementPriority.HIGH.value
+                        if patterns[action] > 2
+                        else ImprovementPriority.MEDIUM.value,
+                    })
+
+        # Deduplicate and prioritize
+        seen = set()
+        unique_improvements = []
+        for imp in improvements:
+            imp_hash = hashlib.md5(imp["improvement"].encode()).hexdigest()
+            if imp_hash not in seen:
+                seen.add(imp_hash)
+                unique_improvements.append(imp)
+
+        return unique_improvements
+
+    # =========================================================================
+    # Private Methods
+    # =========================================================================
+
+    def _calculate_importance(self, outcome: Outcome) -> float:
+        """Calculate experience importance."""
+        base_importance = {
+            OutcomeType.TRUE_POSITIVE: 0.6,
+            OutcomeType.TRUE_NEGATIVE: 0.5,
+            OutcomeType.FALSE_POSITIVE: 0.8,  # Errors are more important to learn from
+            OutcomeType.FALSE_NEGATIVE: 0.9,  # Critical errors are most important
+            OutcomeType.UNCERTAIN: 0.7,
+        }.get(outcome.outcome_type, 0.5)
+
+        # Adjust by error magnitude
+        if outcome.error_magnitude > 0:
+            base_importance = min(1.0, base_importance + outcome.error_magnitude * 0.2)
+
+        return base_importance
+
+    def _determine_reflection_type(self, outcome: Outcome) -> ReflectionType:
+        """Determine appropriate reflection type."""
+        if outcome.outcome_type in [OutcomeType.TRUE_POSITIVE, OutcomeType.TRUE_NEGATIVE]:
+            return ReflectionType.SUCCESS_ANALYSIS
+        elif outcome.outcome_type in [OutcomeType.FALSE_POSITIVE, OutcomeType.FALSE_NEGATIVE]:
+            return ReflectionType.FAILURE_ANALYSIS
+        else:
+            return ReflectionType.IMPROVEMENT
+
+    def _generate_analysis(
+        self, experience: Experience, reflection_type: ReflectionType
+    ) -> str:
+        """Generate analysis text for reflection."""
+        decision = experience.decision
+        outcome = experience.outcome
+
+        if reflection_type == ReflectionType.SUCCESS_ANALYSIS:
+            return (
+                f"The decision '{decision.action}' (confidence: {decision.confidence:.2f}) "
+                f"resulted in a {outcome.outcome_type.value}. "
+                f"The reasoning '{decision.reasoning}' was validated by the outcome."
+            )
+        elif reflection_type == ReflectionType.FAILURE_ANALYSIS:
+            return (
+                f"The decision '{decision.action}' (confidence: {decision.confidence:.2f}) "
+                f"resulted in a {outcome.outcome_type.value} with error magnitude {outcome.error_magnitude:.3f}. "
+                f"Analysis needed to understand why '{decision.reasoning}' led to incorrect outcome."
+            )
+        else:
+            return (
+                f"Decision '{decision.action}' had {outcome.outcome_type.value} outcome. "
+                f"Further data needed to determine effectiveness."
+            )
+
+    def _extract_insights(
+        self, experience: Experience, reflection_type: ReflectionType
+    ) -> list[str]:
+        """Extract actionable insights from experience."""
+        insights: list[str] = []
+        decision = experience.decision
+        outcome = experience.outcome
+
+        if reflection_type == ReflectionType.SUCCESS_ANALYSIS:
+            insights.append(
+                f"Pattern: {decision.action} works well when confidence > {decision.confidence:.2f}"
+            )
+            if decision.context.get("features"):
+                insights.append(
+                    f"Key features for success: {list(decision.context.get('features', []))[:3]}"
+                )
+
+        elif reflection_type == ReflectionType.FAILURE_ANALYSIS:
+            insights.append(
+                f"Warning: {decision.action} failed despite {decision.confidence:.2f} confidence"
+            )
+            if outcome.error_magnitude > 0.5:
+                insights.append("High error magnitude suggests fundamental misunderstanding")
+            else:
+                insights.append("Moderate error suggests edge case or noise")
+
+            # Look for missing factors
+            if decision.context.get("missing_data"):
+                insights.append(f"Missing data contributed to error: {decision.context['missing_data']}")
+
+        else:
+            insights.append(f"Uncertain outcome requires more data for {decision.action}")
+
+        return insights
+
+    def _generate_feedback(
+        self, experience: Experience, reflection_type: ReflectionType
+    ) -> LinguisticFeedback:
+        """Generate linguistic feedback."""
+        self._feedback_counter += 1
+        feedback_id = f"feedback_{self._feedback_counter:06d}"
+
+        decision = experience.decision
+        outcome = experience.outcome
+
+        # Determine feedback type
+        if reflection_type == ReflectionType.SUCCESS_ANALYSIS:
+            feedback_type = FeedbackType.POSITIVE
+            priority = ImprovementPriority.LOW
+        elif reflection_type == ReflectionType.FAILURE_ANALYSIS:
+            if outcome.outcome_type == OutcomeType.FALSE_NEGATIVE:
+                feedback_type = FeedbackType.CAUTIONARY
+                priority = ImprovementPriority.CRITICAL
+            else:
+                feedback_type = FeedbackType.CORRECTIVE
+                priority = ImprovementPriority.HIGH
+        else:
+            feedback_type = FeedbackType.EXPLORATORY
+            priority = ImprovementPriority.MEDIUM
+
+        # Generate content from template
+        templates = self._feedback_templates.get(feedback_type, self._feedback_templates[FeedbackType.NEUTRAL])
+        template = np.random.choice(templates)
+
+        content = template.format(
+            action=decision.action,
+            context=str(list(decision.context.keys())[:3]),
+            reason=decision.reasoning[:100],
+            alternative="alternative approach",
+            outcome=outcome.outcome_type.value,
+        )
+
+        # Generate actionable items
+        actionable_items = self._generate_actionable_items(experience, reflection_type)
+
+        return LinguisticFeedback(
+            feedback_id=feedback_id,
+            feedback_type=feedback_type,
+            content=content,
+            actionable_items=actionable_items,
+            priority=priority,
+            applies_to=list(decision.context.keys())[:5],
+        )
+
+    def _generate_actionable_items(
+        self, experience: Experience, reflection_type: ReflectionType
+    ) -> list[str]:
+        """Generate actionable improvement items."""
+        items: list[str] = []
+        decision = experience.decision
+        outcome = experience.outcome
+
+        if reflection_type == ReflectionType.FAILURE_ANALYSIS:
+            items.append(f"Review decision threshold for {decision.action}")
+            if decision.confidence > 0.7:
+                items.append("High confidence failures indicate systematic bias - recalibrate")
+            if outcome.error_magnitude > 0.5:
+                items.append("Large error magnitude - consider alternative detection methods")
+        elif reflection_type == ReflectionType.SUCCESS_ANALYSIS:
+            items.append(f"Document successful pattern for {decision.action}")
+            items.append("Consider increasing confidence threshold for similar cases")
+        else:
+            items.append("Gather additional data points")
+            items.append("Monitor for pattern emergence")
+
+        return items
+
+    def _suggest_improvements(
+        self, experience: Experience, reflection_type: ReflectionType
+    ) -> list[str]:
+        """Suggest improvements based on experience."""
+        improvements: list[str] = []
+        decision = experience.decision
+        outcome = experience.outcome
+
+        if reflection_type == ReflectionType.FAILURE_ANALYSIS:
+            if outcome.outcome_type == OutcomeType.FALSE_POSITIVE:
+                improvements.append("Increase specificity to reduce false positives")
+                improvements.append("Add additional verification step before classification")
+            elif outcome.outcome_type == OutcomeType.FALSE_NEGATIVE:
+                improvements.append("Increase sensitivity to catch missed anomalies")
+                improvements.append("Lower threshold for suspicious patterns")
+
+            if decision.confidence > 0.8:
+                improvements.append("Calibrate confidence scoring - overconfident predictions detected")
+
+        elif reflection_type == ReflectionType.SUCCESS_ANALYSIS:
+            improvements.append("Reinforce current decision patterns")
+            if decision.confidence < 0.7:
+                improvements.append("Consider adjusting confidence thresholds upward")
+
+        return improvements
+
+    def _calculate_reflection_confidence(
+        self, experience: Experience, insights: list[str]
+    ) -> float:
+        """Calculate confidence in reflection."""
+        base_confidence = 0.7
+
+        # More insights = more confidence
+        insight_bonus = min(0.15, len(insights) * 0.05)
+
+        # Clear outcomes increase confidence
+        if experience.outcome.outcome_type != OutcomeType.UNCERTAIN:
+            base_confidence += 0.1
+
+        # Feedback from user increases confidence
+        if experience.outcome.feedback_received:
+            base_confidence += 0.05
+
+        return min(0.95, base_confidence + insight_bonus)
+
+    def _ethical_reflection(self, experience: Experience) -> list[str]:
+        """Perform ethical reflection on experience."""
+        insights: list[str] = []
+        decision = experience.decision
+        context = decision.context
+
+        # Check for ethical considerations
+        if context.get("affected_users"):
+            insights.append(f"Ethical note: Decision affected {context['affected_users']} users")
+
+        if context.get("privacy_impact"):
+            insights.append("Ethical consideration: Privacy implications detected")
+
+        # Humanitarian considerations
+        if "humanitarian" in str(context).lower():
+            insights.append("Humanitarian context: Ensure decision supports life-saving goals")
+
+        return insights
+
+    def _apply_refinements(
+        self,
+        decision: Decision,
+        evaluation: HeuristicEvaluation,
+        past_experiences: list[Experience],
+    ) -> Decision:
+        """Apply refinements to improve decision."""
+        refined_context = decision.context.copy()
+        refined_reasoning = decision.reasoning
+        refined_confidence = decision.confidence
+
+        # Apply suggestions from evaluation
+        for suggestion in evaluation.suggestions:
+            if "evidence" in suggestion.lower():
+                refined_context["evidence_requested"] = True
+            if "threshold" in suggestion.lower():
+                refined_confidence = min(0.95, refined_confidence * 0.95)
+
+        # Learn from past experiences
+        if past_experiences:
+            success_rate = sum(
+                1
+                for exp in past_experiences
+                if exp.outcome.outcome_type in [OutcomeType.TRUE_POSITIVE, OutcomeType.TRUE_NEGATIVE]
+            ) / len(past_experiences)
+
+            if success_rate < 0.5:
+                refined_reasoning += " (caution: low historical success rate)"
+                refined_confidence *= 0.9
+
+        return Decision(
+            decision_id=f"{decision.decision_id}_refined",
+            action=decision.action,
+            context=refined_context,
+            confidence=refined_confidence,
+            reasoning=refined_reasoning,
+            metadata={"refined": True, "original_id": decision.decision_id},
+        )
+
+    def _update_improvement_rate(self, improvement_score: float) -> None:
+        """Update running improvement rate."""
+        n = self._stats["refinements_performed"]
+        self._stats["improvement_rate"] = (
+            (self._stats["improvement_rate"] * (n - 1) + improvement_score) / n
+        )
+
+    def get_statistics(self) -> dict[str, Any]:
+        """Get engine statistics."""
+        return {
+            **self._stats,
+            "experience_memory": self.experience_memory.get_statistics(),
+            "max_reflection_depth": self.max_reflection_depth,
+            "max_refinement_iterations": self.max_refinement_iterations,
+            "ethical_review_enabled": self.enable_ethical_review,
+        }
+
+
+# =============================================================================
+# Integration with Anomaly Detection
+# =============================================================================
+
+
+class AnomalyReflexion:
+    """
+    Reflexion framework specialized for anomaly detection.
+
+    Integrates self-reflection with Mercury Agent's anomaly
+    detection pipeline for continuous improvement.
+    """
+
+    def __init__(
+        self,
+        reflexion_engine: ReflexionEngine | None = None,
+        anomaly_threshold: float = 0.5,
+    ):
+        """Initialize anomaly reflexion.
+
+        Args:
+            reflexion_engine: Base reflexion engine
+            anomaly_threshold: Threshold for anomaly classification
+        """
+        self.engine = reflexion_engine or ReflexionEngine()
+        self.anomaly_threshold = anomaly_threshold
+
+        self._decision_counter = 0
+
+    def record_detection(
+        self,
+        prediction: float,
+        ground_truth: bool | None,
+        features: dict[str, Any],
+        reasoning: str = "",
+    ) -> Experience:
+        """Record an anomaly detection result.
+
+        Args:
+            prediction: Predicted anomaly score (0-1)
+            ground_truth: Actual label (if known)
+            features: Feature context
+            reasoning: Detection reasoning
+
+        Returns:
+            Recorded experience
+        """
+        self._decision_counter += 1
+        decision_id = f"det_{self._decision_counter:06d}"
+
+        # Create decision
+        predicted_anomaly = prediction > self.anomaly_threshold
+        decision = Decision(
+            decision_id=decision_id,
+            action="anomaly_detected" if predicted_anomaly else "normal_classified",
+            context={
+                "anomaly_score": prediction,
+                "threshold": self.anomaly_threshold,
+                "features": features,
+            },
+            confidence=abs(prediction - 0.5) * 2,  # Distance from threshold
+            reasoning=reasoning or f"Score {prediction:.3f} {'>' if predicted_anomaly else '<='} threshold {self.anomaly_threshold}",
+        )
+
+        # Determine outcome type
+        if ground_truth is None:
+            outcome_type = OutcomeType.UNCERTAIN
+            error_magnitude = 0.0
+        else:
+            actual_anomaly = ground_truth
+            if predicted_anomaly and actual_anomaly:
+                outcome_type = OutcomeType.TRUE_POSITIVE
+            elif not predicted_anomaly and not actual_anomaly:
+                outcome_type = OutcomeType.TRUE_NEGATIVE
+            elif predicted_anomaly and not actual_anomaly:
+                outcome_type = OutcomeType.FALSE_POSITIVE
+            else:
+                outcome_type = OutcomeType.FALSE_NEGATIVE
+
+            error_magnitude = abs(prediction - (1.0 if actual_anomaly else 0.0))
+
+        outcome = Outcome(
+            outcome_id=f"out_{self._decision_counter:06d}",
+            decision_id=decision_id,
+            outcome_type=outcome_type,
+            actual_result=ground_truth,
+            expected_result=predicted_anomaly,
+            error_magnitude=error_magnitude,
+        )
+
+        return self.engine.record_experience(decision, outcome, auto_reflect=True)
+
+    def get_threshold_recommendation(self) -> dict[str, Any]:
+        """Get threshold recommendation based on experience.
+
+        Returns:
+            Recommended threshold adjustment
+        """
+        fp_experiences = self.engine.experience_memory.retrieve_by_outcome(
+            OutcomeType.FALSE_POSITIVE, top_k=50
+        )
+        fn_experiences = self.engine.experience_memory.retrieve_by_outcome(
+            OutcomeType.FALSE_NEGATIVE, top_k=50
+        )
+
+        fp_count = len(fp_experiences)
+        fn_count = len(fn_experiences)
+
+        recommendation = {
+            "current_threshold": self.anomaly_threshold,
+            "false_positives": fp_count,
+            "false_negatives": fn_count,
+            "recommendation": "maintain",
+            "suggested_threshold": self.anomaly_threshold,
+        }
+
+        if fn_count > fp_count * 2:
+            # Too many false negatives - lower threshold
+            avg_fn_score = np.mean([
+                exp.decision.context.get("anomaly_score", 0.5)
+                for exp in fn_experiences
+            ])
+            recommendation["recommendation"] = "decrease"
+            recommendation["suggested_threshold"] = max(0.1, avg_fn_score - 0.1)
+            recommendation["reasoning"] = "High false negative rate suggests threshold too high"
+
+        elif fp_count > fn_count * 2:
+            # Too many false positives - raise threshold
+            avg_fp_score = np.mean([
+                exp.decision.context.get("anomaly_score", 0.5)
+                for exp in fp_experiences
+            ])
+            recommendation["recommendation"] = "increase"
+            recommendation["suggested_threshold"] = min(0.9, avg_fp_score + 0.1)
+            recommendation["reasoning"] = "High false positive rate suggests threshold too low"
+
+        return recommendation
+
+    def get_error_patterns(self) -> dict[str, list[str]]:
+        """Get patterns in detection errors.
+
+        Returns:
+            Dictionary of error patterns by type
+        """
+        patterns: dict[str, list[str]] = {
+            "false_positives": [],
+            "false_negatives": [],
+        }
+
+        for outcome_type, pattern_key in [
+            (OutcomeType.FALSE_POSITIVE, "false_positives"),
+            (OutcomeType.FALSE_NEGATIVE, "false_negatives"),
+        ]:
+            experiences = self.engine.experience_memory.retrieve_by_outcome(
+                outcome_type, top_k=20
+            )
+            for exp in experiences:
+                if exp.reflection:
+                    patterns[pattern_key].extend(exp.reflection.insights)
+
+        return patterns

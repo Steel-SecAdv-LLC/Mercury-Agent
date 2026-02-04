@@ -53,36 +53,130 @@ Components:
 
 from omni_mercury_engine.cognitive.case_based_reasoning import Case, CaseBasedReasoner
 from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine, CausalGraph
+from omni_mercury_engine.cognitive.chain_of_hindsight import (
+    AnomalyChainOfHindsight,
+    ChainOfHindsightEngine,
+    CreditAssignment,
+    FeedbackProcessor,
+    HindsightRelabeler,
+)
+from omni_mercury_engine.cognitive.chain_of_thought import (
+    AnomalyChainOfThought,
+    ChainOfThoughtEngine,
+    ReasoningStrategy,
+    ThoughtGenerator,
+)
+from omni_mercury_engine.cognitive.formal_verification import (
+    AnomalyVerifier,
+    ConstraintSolver,
+    FormalVerificationEngine,
+    IntervalBoundPropagator,
+    ReachabilityAnalyzer,
+    SafetyVerifier,
+)
+from omni_mercury_engine.cognitive.hierarchical_planning import (
+    AbstractionLevel,
+    AnomalyHierarchicalPlanner,
+    GoalDecomposer,
+    HierarchicalPlanner,
+    HierarchicalValueFunction,
+    OptionLibrary,
+)
 from omni_mercury_engine.cognitive.indicator_system import Indicator, IndicatorDevelopmentSystem
 from omni_mercury_engine.cognitive.ipb_engine import BattlefieldAssessment, IPBEngine
 from omni_mercury_engine.cognitive.knowledge_graph import KnowledgeGraph, KnowledgeNode
+from omni_mercury_engine.cognitive.multi_agent_coordination import (
+    AgentCoordinator,
+    Coalition,
+    ConsensusProtocol,
+    DetectionAgent,
+    MultiAgentDetectionSystem,
+)
 from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, ReasoningChain
 from omni_mercury_engine.cognitive.orchestrator import (
     CognitiveAnalysisResult,
     CognitiveOrchestrator,
 )
 from omni_mercury_engine.cognitive.plasticity_engine import PlasticityEngine
+from omni_mercury_engine.cognitive.predictive_coding import (
+    ActiveInferenceAgent,
+    HierarchicalPredictiveCoder,
+    MercuryPredictiveCoding,
+    PrecisionEstimator,
+    PredictiveCodingDetector,
+)
+from omni_mercury_engine.cognitive.reflexion import (
+    AnomalyReflexion,
+    ExperienceMemory,
+    HeuristicEvaluator,
+    ReflexionEngine,
+)
 from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate, UncertaintyQuantifier
 
 
 __all__ = [
+    # Abstraction and Planning
+    "AbstractionLevel",
+    "AnomalyChainOfHindsight",
+    "AnomalyChainOfThought",
+    "AnomalyHierarchicalPlanner",
+    "AnomalyReflexion",
+    "AnomalyVerifier",
+    # Coordination
+    "AgentCoordinator",
+    # Core cognitive components
     "BattlefieldAssessment",
     "Case",
     "CaseBasedReasoner",
     "CausalDiscoveryEngine",
     "CausalGraph",
+    # Chain of Hindsight
+    "ChainOfHindsightEngine",
+    # Chain of Thought
+    "ChainOfThoughtEngine",
+    "Coalition",
     "CognitiveAnalysisResult",
     # Main integration point
     "CognitiveOrchestrator",
+    "ConsensusProtocol",
+    "ConstraintSolver",
+    "CreditAssignment",
+    "DetectionAgent",
+    "ExperienceMemory",
+    "FeedbackProcessor",
+    # Formal Verification
+    "FormalVerificationEngine",
+    "GoalDecomposer",
+    "HeuristicEvaluator",
+    # Hierarchical Planning
+    "HierarchicalPlanner",
+    "HierarchicalValueFunction",
+    # Predictive Coding
+    "HierarchicalPredictiveCoder",
+    "HindsightRelabeler",
     "IPBEngine",
     "Indicator",
     "IndicatorDevelopmentSystem",
+    "IntervalBoundPropagator",
     "KnowledgeGraph",
     "KnowledgeNode",
+    "MercuryPredictiveCoding",
+    # Multi-Agent Coordination
+    "MultiAgentDetectionSystem",
     "MultiHopReasoner",
+    "OptionLibrary",
     # Individual components
     "PlasticityEngine",
+    "PrecisionEstimator",
+    "PredictiveCodingDetector",
+    "ActiveInferenceAgent",
+    "ReachabilityAnalyzer",
     "ReasoningChain",
+    "ReasoningStrategy",
+    # Reflexion
+    "ReflexionEngine",
+    "SafetyVerifier",
+    "ThoughtGenerator",
     "UncertaintyEstimate",
     "UncertaintyQuantifier",
 ]
