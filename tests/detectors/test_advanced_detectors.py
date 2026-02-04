@@ -520,5 +520,77 @@ class TestIntegration:
         assert "weights" in result
 
 
+class TestFactoryFunctions:
+    """Tests for factory functions."""
+
+    def test_list_detectors(self) -> None:
+        """Test list_detectors returns all detectors."""
+        from omni_mercury_engine.detectors.advanced import list_detectors
+
+        detectors = list_detectors()
+        assert len(detectors) == 6
+        assert "MultiScaleTransformerDetector" in detectors
+        assert "COPODDetector" in detectors
+        assert "GWOEnsembleDetector" in detectors
+
+    def test_create_detector_copod(self) -> None:
+        """Test creating COPOD detector via factory."""
+        from omni_mercury_engine.detectors.advanced import COPODDetector, create_detector
+
+        detector = create_detector("copod")
+        assert isinstance(detector, COPODDetector)
+
+    def test_create_detector_fast_alias(self) -> None:
+        """Test 'fast' alias creates COPOD detector."""
+        from omni_mercury_engine.detectors.advanced import COPODDetector, create_detector
+
+        detector = create_detector("fast")
+        assert isinstance(detector, COPODDetector)
+
+    def test_create_detector_timeseries(self) -> None:
+        """Test creating timeseries detector via factory."""
+        from omni_mercury_engine.detectors.advanced import (
+            MultiScaleTransformerDetector,
+            create_detector,
+        )
+
+        detector = create_detector("timeseries", input_dim=10, window_sizes=[5], epochs=1)
+        assert isinstance(detector, MultiScaleTransformerDetector)
+
+    def test_create_detector_industrial(self) -> None:
+        """Test creating industrial detector via factory."""
+        from omni_mercury_engine.detectors.advanced import (
+            AdversarialAutoencoderDetector,
+            create_detector,
+        )
+
+        detector = create_detector("industrial", input_dim=10, epochs=1)
+        assert isinstance(detector, AdversarialAutoencoderDetector)
+
+    def test_create_detector_contrastive(self) -> None:
+        """Test creating contrastive detector via factory."""
+        from omni_mercury_engine.detectors.advanced import (
+            ContrastiveLearningDetector,
+            create_detector,
+        )
+
+        detector = create_detector("contrastive", input_dim=10, epochs=1)
+        assert isinstance(detector, ContrastiveLearningDetector)
+
+    def test_create_detector_ensemble(self) -> None:
+        """Test creating ensemble detector via factory."""
+        from omni_mercury_engine.detectors.advanced import GWOEnsembleDetector, create_detector
+
+        detector = create_detector("ensemble", n_wolves=5)
+        assert isinstance(detector, GWOEnsembleDetector)
+
+    def test_create_detector_invalid_type(self) -> None:
+        """Test invalid detector type raises error."""
+        from omni_mercury_engine.detectors.advanced import create_detector
+
+        with pytest.raises(ValueError, match="Unknown detector type"):
+            create_detector("invalid_type")  # type: ignore
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
