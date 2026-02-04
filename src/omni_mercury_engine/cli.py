@@ -350,7 +350,9 @@ def physics_dynamics(
 @click.option("--input", "-i", required=True, help="Input user interaction data file (JSON)")
 @click.option("--output", "-o", help="Output file for results")
 @click.option("--threshold", "-t", default=0.5, type=float, help="Anomaly threshold")
-@click.option("--rage-threshold", default=0.3, type=float, help="Rage click time threshold (seconds)")
+@click.option(
+    "--rage-threshold", default=0.3, type=float, help="Rage click time threshold (seconds)"
+)
 @click.option("--bot-threshold", default=0.7, type=float, help="Bot detection threshold")
 def physics_uiux(
     input: str, output: str, threshold: float, rage_threshold: float, bot_threshold: float
@@ -454,9 +456,15 @@ def physics_uiux(
                 "back_button_usage": nav_analysis.back_button_usage if nav_analysis else 0,
             },
             "session_analysis": {
-                "session_duration": float(session_analysis.session_duration) if session_analysis else 0.0,
-                "total_interactions": session_analysis.total_interactions if session_analysis else 0,
-                "engagement_score": float(session_analysis.engagement_score) if session_analysis else 0.0,
+                "session_duration": (
+                    float(session_analysis.session_duration) if session_analysis else 0.0
+                ),
+                "total_interactions": (
+                    session_analysis.total_interactions if session_analysis else 0
+                ),
+                "engagement_score": (
+                    float(session_analysis.engagement_score) if session_analysis else 0.0
+                ),
             },
         }
 
@@ -484,7 +492,9 @@ def physics_uiux(
 @click.option("--uiux-input", "-u", help="UI/UX interaction data file (JSON)")
 @click.option("--output", "-o", help="Output file for results")
 @click.option("--threshold", "-t", default=0.5, type=float, help="Anomaly threshold")
-@click.option("--fusion-weights", "-w", default="0.4,0.3,0.3", help="Fusion weights (spectral,dynamics,uiux)")
+@click.option(
+    "--fusion-weights", "-w", default="0.4,0.3,0.3", help="Fusion weights (spectral,dynamics,uiux)"
+)
 def physics_integrated(
     spectral_input: str,
     dynamics_input: str,

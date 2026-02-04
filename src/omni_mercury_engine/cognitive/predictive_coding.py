@@ -270,7 +270,9 @@ class PrecisionEstimator:
         self.max_precision = max_precision
 
         # Precision for each level
-        self._precisions: dict[ProcessingLevel, float] = dict.fromkeys(ProcessingLevel, initial_precision)
+        self._precisions: dict[ProcessingLevel, float] = dict.fromkeys(
+            ProcessingLevel, initial_precision
+        )
 
         # Running error statistics
         self._error_history: dict[ProcessingLevel, deque[float]] = {
@@ -310,10 +312,9 @@ class PrecisionEstimator:
         target_precision = np.clip(target_precision, self.min_precision, self.max_precision)
 
         # Exponential moving average
-        self._precisions[level] = (
-            (1 - self.learning_rate) * self._precisions[level]
-            + self.learning_rate * target_precision
-        )
+        self._precisions[level] = (1 - self.learning_rate) * self._precisions[
+            level
+        ] + self.learning_rate * target_precision
 
         return self._precisions[level]
 
@@ -349,7 +350,7 @@ class HierarchicalPredictiveCoder:
         self.learning_rate = learning_rate
 
         # Build hierarchy
-        self.levels = list(ProcessingLevel)[:len(self.hidden_dims) + 1]
+        self.levels = list(ProcessingLevel)[: len(self.hidden_dims) + 1]
         self.models: dict[ProcessingLevel, GenerativeModel] = {}
         self.beliefs: dict[ProcessingLevel, BeliefState] = {}
 
@@ -362,9 +363,7 @@ class HierarchicalPredictiveCoder:
         self._error_counter = 0
         self._prediction_counter = 0
 
-        logger.info(
-            f"HierarchicalPredictiveCoder initialized (levels={len(self.levels)})"
-        )
+        logger.info(f"HierarchicalPredictiveCoder initialized (levels={len(self.levels)})")
 
     def _build_hierarchy(self) -> None:
         """Build the predictive hierarchy."""
@@ -487,9 +486,7 @@ class HierarchicalPredictiveCoder:
                 lower_level = self.levels[i - 1]
 
                 if level in self.models:
-                    predicted_value = self.models[level].predict(
-                        self.beliefs[level].mean
-                    )
+                    predicted_value = self.models[level].predict(self.beliefs[level].mean)
 
                     precision = self.precision_estimator.get_precision(lower_level)
 
@@ -518,7 +515,7 @@ class HierarchicalPredictiveCoder:
         precision = self.precision_estimator.get_precision(level)
         precision_weighted_error = precision * error
 
-        magnitude = float(np.sqrt(np.mean(error ** 2)))
+        magnitude = float(np.sqrt(np.mean(error**2)))
 
         # Update precision estimate
         self.precision_estimator.update_precision(level, magnitude)
@@ -570,7 +567,7 @@ class HierarchicalPredictiveCoder:
         if len(bottom_up_signal) != len(belief.mean):
             # Project or truncate
             if len(bottom_up_signal) > len(belief.mean):
-                bottom_up_signal = bottom_up_signal[:len(belief.mean)]
+                bottom_up_signal = bottom_up_signal[: len(belief.mean)]
             else:
                 bottom_up_signal = np.pad(
                     bottom_up_signal,
@@ -579,7 +576,7 @@ class HierarchicalPredictiveCoder:
 
         if len(top_down_prediction) != len(belief.mean):
             if len(top_down_prediction) > len(belief.mean):
-                top_down_prediction = top_down_prediction[:len(belief.mean)]
+                top_down_prediction = top_down_prediction[: len(belief.mean)]
             else:
                 top_down_prediction = np.pad(
                     top_down_prediction,
@@ -588,8 +585,7 @@ class HierarchicalPredictiveCoder:
 
         # Update mean
         new_mean = (
-            bottom_up_precision * bottom_up_signal
-            + top_down_precision * top_down_prediction
+            bottom_up_precision * bottom_up_signal + top_down_precision * top_down_prediction
         ) / total_precision
 
         belief.mean = (1 - self.learning_rate) * belief.mean + self.learning_rate * new_mean
@@ -613,17 +609,14 @@ class HierarchicalPredictiveCoder:
     ) -> FreeEnergy:
         """Compute free energy from prediction errors."""
         # Prediction error term: sum of precision-weighted squared errors
-        pe_term = sum(
-            0.5 * np.sum(e.precision_weighted_error ** 2)
-            for e in errors
-        )
+        pe_term = sum(0.5 * np.sum(e.precision_weighted_error**2) for e in errors)
 
         # Complexity term: KL divergence from prior
         complexity_term = 0.0
         for level, belief in self.beliefs.items():
             # Assume standard normal prior
             complexity_term += 0.5 * np.sum(
-                belief.mean ** 2 + belief.variance - 1 - np.log(belief.variance + 1e-8)
+                belief.mean**2 + belief.variance - 1 - np.log(belief.variance + 1e-8)
             )
 
         total = pe_term + complexity_term
@@ -666,9 +659,7 @@ class ActiveInferenceAgent:
         self.action_prior = np.ones(action_dim) / action_dim
 
         # Action-outcome model
-        self._action_outcomes: dict[int, list[float]] = {
-            i: [] for i in range(action_dim)
-        }
+        self._action_outcomes: dict[int, list[float]] = {i: [] for i in range(action_dim)}
 
     def select_action(
         self,
@@ -838,11 +829,11 @@ class PredictiveCodingDetector:
 
         n = self._stats["detections"]
         self._stats["avg_prediction_error"] = (
-            (self._stats["avg_prediction_error"] * (n - 1) + avg_error) / n
-        )
+            self._stats["avg_prediction_error"] * (n - 1) + avg_error
+        ) / n
         self._stats["avg_free_energy"] = (
-            (self._stats["avg_free_energy"] * (n - 1) + free_energy.total) / n
-        )
+            self._stats["avg_free_energy"] * (n - 1) + free_energy.total
+        ) / n
 
         return {
             "detection_id": f"pc_det_{self._detection_counter:06d}",

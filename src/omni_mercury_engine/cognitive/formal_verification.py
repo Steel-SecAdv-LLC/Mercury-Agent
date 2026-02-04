@@ -614,9 +614,7 @@ class ReachabilityAnalyzer:
         transition_bounds = transition_bounds or {}
         path = [current_state.copy()]
 
-        reachable, steps = self.can_reach(
-            current_state, target_state, transition_bounds
-        )
+        reachable, steps = self.can_reach(current_state, target_state, transition_bounds)
 
         if not reachable:
             return path
@@ -628,9 +626,8 @@ class ReachabilityAnalyzer:
 
             for variable in target_state:
                 if variable in current_state:
-                    intermediate[variable] = (
-                        current_state[variable]
-                        + progress * (target_state[variable] - current_state[variable])
+                    intermediate[variable] = current_state[variable] + progress * (
+                        target_state[variable] - current_state[variable]
                     )
 
             path.append(intermediate)
@@ -733,10 +730,7 @@ class IntervalBoundPropagator:
         required_lower, required_upper = output_bounds
 
         # Check if computed bounds are within required bounds
-        return (
-            np.all(lower_out >= required_lower)
-            and np.all(upper_out <= required_upper)
-        )
+        return np.all(lower_out >= required_lower) and np.all(upper_out <= required_upper)
 
 
 # =============================================================================
@@ -828,9 +822,7 @@ class FormalVerificationEngine:
 
         # Add bounds to safety verifier
         for var, (lower, upper) in bounds.items():
-            self.safety_verifier.add_bound(
-                SafetyBound(variable=var, lower=lower, upper=upper)
-            )
+            self.safety_verifier.add_bound(SafetyBound(variable=var, lower=lower, upper=upper))
 
         self.register_property(property)
         return property
@@ -859,9 +851,7 @@ class FormalVerificationEngine:
         # Get properties to verify
         if properties:
             props_to_verify = [
-                self._properties[pid]
-                for pid in properties
-                if pid in self._properties
+                self._properties[pid] for pid in properties if pid in self._properties
             ]
         else:
             props_to_verify = list(self._properties.values())
@@ -897,8 +887,8 @@ class FormalVerificationEngine:
         n = self._stats["verifications_performed"]
         elapsed_ms = (time.time() - start_time) * 1000
         self._stats["avg_verification_time_ms"] = (
-            (self._stats["avg_verification_time_ms"] * (n - 1) + elapsed_ms) / n
-        )
+            self._stats["avg_verification_time_ms"] * (n - 1) + elapsed_ms
+        ) / n
 
         return reports
 
@@ -977,11 +967,7 @@ class FormalVerificationEngine:
         transition_bounds = property.formula.get("transitions", {})
 
         # Use numeric values from decision
-        current_state = {
-            k: float(v)
-            for k, v in decision.items()
-            if isinstance(v, (int, float))
-        }
+        current_state = {k: float(v) for k, v in decision.items() if isinstance(v, (int, float))}
 
         reachable, steps = self.reachability_analyzer.can_reach(
             current_state,
@@ -1127,9 +1113,7 @@ class AnomalyVerifier:
         # Summarize results
         all_verified = all(r.result == VerificationResult.VERIFIED for r in reports)
         violations = [
-            r.property_verified.name
-            for r in reports
-            if r.result == VerificationResult.VIOLATED
+            r.property_verified.name for r in reports if r.result == VerificationResult.VIOLATED
         ]
 
         return {

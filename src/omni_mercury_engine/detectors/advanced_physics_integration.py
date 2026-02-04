@@ -93,6 +93,7 @@ class PhysicsDetectorType(Enum):
 # Configuration
 # =============================================================================
 
+
 @dataclass
 class AdvancedPhysicsConfig:
     """Configuration for advanced physics integration.
@@ -165,6 +166,7 @@ class IntegratedPhysicsResult:
 # GOSNN Integration
 # =============================================================================
 
+
 class PhysicsGOSNNScalars:
     """GOSNN scalar network for physics-based anomaly detection.
 
@@ -198,7 +200,7 @@ class PhysicsGOSNNScalars:
         return {
             name: value
             for name, value in vars(cls).items()
-            if not name.startswith('_') and isinstance(value, (int, float))
+            if not name.startswith("_") and isinstance(value, (int, float))
         }
 
     @classmethod
@@ -247,6 +249,7 @@ class PhysicsGOSNNScalars:
 # =============================================================================
 # Main Integrated Detector
 # =============================================================================
+
 
 class AdvancedPhysicsIntegratedDetector(BaseDetector):
     """Unified detector integrating all advanced physics-based modules.
@@ -416,8 +419,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             # Fit each detector with appropriate data
             if not isinstance(data, dict):
                 raise DetectorException(
-                    "Mixed data type requires dict with keys: "
-                    "'time_series', 'interactions'"
+                    "Mixed data type requires dict with keys: " "'time_series', 'interactions'"
                 )
 
             if "time_series" in data:
@@ -435,8 +437,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
         else:
             raise DetectorException(
-                f"Unknown data_type: {data_type}. "
-                "Use 'time_series', 'interactions', or 'mixed'."
+                f"Unknown data_type: {data_type}. " "Use 'time_series', 'interactions', or 'mixed'."
             )
 
         self._is_fitted = True
@@ -630,7 +631,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         # Apply resonance engine (if we have spectral data)
         if self._resonance_engine is not None and spectral_result is not None:
             spectral_features = spectral_result.get("spectral_features")
-            if spectral_features is not None and hasattr(spectral_features, 'power_spectrum'):
+            if spectral_features is not None and hasattr(spectral_features, "power_spectrum"):
                 power_spectrum = spectral_features.power_spectrum
                 resonance_score = self._resonance_engine.analyze(power_spectrum)
             else:
@@ -640,7 +641,9 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         if self._fusion_equation is not None:
             # Use component scores as inputs to fusion
             r_score = component_scores.get("spectral", 0.5)
-            h_score = resonance_score if resonance_score > 0 else component_scores.get("dynamics", 0.5)
+            h_score = (
+                resonance_score if resonance_score > 0 else component_scores.get("dynamics", 0.5)
+            )
             o_score = component_scores.get("uiux", 0.5)
 
             fusion_result = self._fusion_equation.compute(
@@ -686,29 +689,23 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
                 phi_weights = [PHI ** (-i) for i in range(num_scores)]
                 total_weight = sum(phi_weights)
                 weights = {
-                    k: phi_weights[i] / total_weight
-                    for i, k in enumerate(component_scores.keys())
+                    k: phi_weights[i] / total_weight for i, k in enumerate(component_scores.keys())
                 }
 
             base_score = sum(
-                weights.get(k, 1.0 / len(component_scores)) * v
-                for k, v in component_scores.items()
+                weights.get(k, 1.0 / len(component_scores)) * v for k, v in component_scores.items()
             )
 
         # Blend with 3R scores
         if self._physics_config.use_3r_enhancement:
-            enhanced_score = (
-                0.6 * base_score +
-                0.25 * recursion_score +
-                0.15 * resonance_score
-            )
+            enhanced_score = 0.6 * base_score + 0.25 * recursion_score + 0.15 * resonance_score
         else:
             enhanced_score = base_score
 
         # Apply ethical scaling
         if self._physics_config.use_gosnn_scaling:
             # Ethical scaling reduces false positives by requiring higher confidence
-            final_score = enhanced_score * (ethical_scaling ** PHI)
+            final_score = enhanced_score * (ethical_scaling**PHI)
         else:
             final_score = enhanced_score
 
@@ -803,8 +800,11 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         # Spectral recommendations
         if spectral_result is not None:
             diagnostic = spectral_result.get("diagnostic")
-            if diagnostic is not None and hasattr(diagnostic, 'recommended_action'):
-                if diagnostic.recommended_action != "No action required. Continue routine monitoring.":
+            if diagnostic is not None and hasattr(diagnostic, "recommended_action"):
+                if (
+                    diagnostic.recommended_action
+                    != "No action required. Continue routine monitoring."
+                ):
                     recommendations.append(f"[Spectral] {diagnostic.recommended_action}")
 
         # Dynamics recommendations
@@ -814,7 +814,9 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
                 recommendations.append(f"[Dynamics] {desc}")
 
             if dynamics_result.get("is_chaotic", False):
-                recommendations.append("[Dynamics] System shows chaotic behavior - consider stabilization")
+                recommendations.append(
+                    "[Dynamics] System shows chaotic behavior - consider stabilization"
+                )
 
         # UI/UX recommendations
         if uiux_result is not None:
@@ -836,17 +838,12 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         """
         return {
             "spectral_vibration": (
-                self._spectral_detector is not None and
-                self._spectral_detector.is_fitted()
+                self._spectral_detector is not None and self._spectral_detector.is_fitted()
             ),
             "acceleration_dynamics": (
-                self._dynamics_detector is not None and
-                self._dynamics_detector.is_fitted()
+                self._dynamics_detector is not None and self._dynamics_detector.is_fitted()
             ),
-            "uiux_anomaly": (
-                self._uiux_detector is not None and
-                self._uiux_detector.is_fitted()
-            ),
+            "uiux_anomaly": (self._uiux_detector is not None and self._uiux_detector.is_fitted()),
         }
 
     def get_gosnn_scalars(self) -> dict[str, float]:
@@ -861,6 +858,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 # =============================================================================
 # Factory Functions
 # =============================================================================
+
 
 def create_spectral_detector(config: dict[str, Any] | None = None) -> SpectralVibrationDetector:
     """Factory function to create spectral vibration detector.
@@ -898,7 +896,9 @@ def create_uiux_detector(config: dict[str, Any] | None = None) -> UIUXAnomalyDet
     return UIUXAnomalyDetector(config)
 
 
-def create_integrated_detector(config: dict[str, Any] | None = None) -> AdvancedPhysicsIntegratedDetector:
+def create_integrated_detector(
+    config: dict[str, Any] | None = None,
+) -> AdvancedPhysicsIntegratedDetector:
     """Factory function to create integrated physics detector.
 
     Args:

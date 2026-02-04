@@ -347,9 +347,7 @@ class ExperienceMemory:
 
         return [exp for exp, _ in scored[:top_k]]
 
-    def retrieve_by_outcome(
-        self, outcome_type: OutcomeType, top_k: int = 10
-    ) -> list[Experience]:
+    def retrieve_by_outcome(self, outcome_type: OutcomeType, top_k: int = 10) -> list[Experience]:
         """Retrieve experiences by outcome type.
 
         Args:
@@ -378,9 +376,7 @@ class ExperienceMemory:
             exp = self._experiences[experience_id]
             exp.importance = max(0.0, min(1.0, exp.importance + importance_delta))
 
-    def _compute_similarity(
-        self, context1: dict[str, Any], context2: dict[str, Any]
-    ) -> float:
+    def _compute_similarity(self, context1: dict[str, Any], context2: dict[str, Any]) -> float:
         """Compute similarity between contexts."""
         if not context1 or not context2:
             return 0.0
@@ -546,17 +542,13 @@ class HeuristicEvaluator:
         """Score based on decision confidence."""
         return decision.confidence
 
-    def _score_consistency(
-        self, decision: Decision, past_experiences: list[Experience]
-    ) -> float:
+    def _score_consistency(self, decision: Decision, past_experiences: list[Experience]) -> float:
         """Score based on consistency with past decisions."""
         if not past_experiences:
             return 0.7  # Default when no history
 
         similar_decisions = [
-            exp
-            for exp in past_experiences
-            if exp.decision.action == decision.action
+            exp for exp in past_experiences if exp.decision.action == decision.action
         ]
 
         if not similar_decisions:
@@ -894,9 +886,7 @@ class ReflexionEngine:
             ImprovementPriority.MEDIUM: 2,
             ImprovementPriority.LOW: 3,
         }
-        feedback_items.sort(
-            key=lambda f: (priority_order[f.priority], -f.timestamp)
-        )
+        feedback_items.sort(key=lambda f: (priority_order[f.priority], -f.timestamp))
 
         return feedback_items
 
@@ -932,14 +922,18 @@ class ReflexionEngine:
             # Get reflection improvements
             if exp.reflection:
                 for imp in exp.reflection.suggested_improvements:
-                    improvements.append({
-                        "improvement": imp,
-                        "source_action": action,
-                        "outcome": outcome_type.value,
-                        "priority": ImprovementPriority.HIGH.value
-                        if patterns[action] > 2
-                        else ImprovementPriority.MEDIUM.value,
-                    })
+                    improvements.append(
+                        {
+                            "improvement": imp,
+                            "source_action": action,
+                            "outcome": outcome_type.value,
+                            "priority": (
+                                ImprovementPriority.HIGH.value
+                                if patterns[action] > 2
+                                else ImprovementPriority.MEDIUM.value
+                            ),
+                        }
+                    )
 
         # Deduplicate and prioritize
         seen = set()
@@ -981,9 +975,7 @@ class ReflexionEngine:
         else:
             return ReflectionType.IMPROVEMENT
 
-    def _generate_analysis(
-        self, experience: Experience, reflection_type: ReflectionType
-    ) -> str:
+    def _generate_analysis(self, experience: Experience, reflection_type: ReflectionType) -> str:
         """Generate analysis text for reflection."""
         decision = experience.decision
         outcome = experience.outcome
@@ -1034,7 +1026,9 @@ class ReflexionEngine:
 
             # Look for missing factors
             if decision.context.get("missing_data"):
-                insights.append(f"Missing data contributed to error: {decision.context['missing_data']}")
+                insights.append(
+                    f"Missing data contributed to error: {decision.context['missing_data']}"
+                )
 
         else:
             insights.append(f"Uncertain outcome requires more data for {decision.action}")
@@ -1067,7 +1061,9 @@ class ReflexionEngine:
             priority = ImprovementPriority.MEDIUM
 
         # Generate content from template
-        templates = self._feedback_templates.get(feedback_type, self._feedback_templates[FeedbackType.NEUTRAL])
+        templates = self._feedback_templates.get(
+            feedback_type, self._feedback_templates[FeedbackType.NEUTRAL]
+        )
         template = np.random.choice(templates)
 
         content = template.format(
@@ -1130,7 +1126,9 @@ class ReflexionEngine:
                 improvements.append("Lower threshold for suspicious patterns")
 
             if decision.confidence > 0.8:
-                improvements.append("Calibrate confidence scoring - overconfident predictions detected")
+                improvements.append(
+                    "Calibrate confidence scoring - overconfident predictions detected"
+                )
 
         elif reflection_type == ReflectionType.SUCCESS_ANALYSIS:
             improvements.append("Reinforce current decision patterns")
@@ -1200,7 +1198,8 @@ class ReflexionEngine:
             success_rate = sum(
                 1
                 for exp in past_experiences
-                if exp.outcome.outcome_type in [OutcomeType.TRUE_POSITIVE, OutcomeType.TRUE_NEGATIVE]
+                if exp.outcome.outcome_type
+                in [OutcomeType.TRUE_POSITIVE, OutcomeType.TRUE_NEGATIVE]
             ) / len(past_experiences)
 
             if success_rate < 0.5:
@@ -1220,8 +1219,8 @@ class ReflexionEngine:
         """Update running improvement rate."""
         n = self._stats["refinements_performed"]
         self._stats["improvement_rate"] = (
-            (self._stats["improvement_rate"] * (n - 1) + improvement_score) / n
-        )
+            self._stats["improvement_rate"] * (n - 1) + improvement_score
+        ) / n
 
     def get_statistics(self) -> dict[str, Any]:
         """Get engine statistics."""
@@ -1295,7 +1294,8 @@ class AnomalyReflexion:
                 "features": features,
             },
             confidence=abs(prediction - 0.5) * 2,  # Distance from threshold
-            reasoning=reasoning or f"Score {prediction:.3f} {'>' if predicted_anomaly else '<='} threshold {self.anomaly_threshold}",
+            reasoning=reasoning
+            or f"Score {prediction:.3f} {'>' if predicted_anomaly else '<='} threshold {self.anomaly_threshold}",
         )
 
         # Determine outcome type
@@ -1352,20 +1352,18 @@ class AnomalyReflexion:
 
         if fn_count > fp_count * 2:
             # Too many false negatives - lower threshold
-            avg_fn_score = np.mean([
-                exp.decision.context.get("anomaly_score", 0.5)
-                for exp in fn_experiences
-            ])
+            avg_fn_score = np.mean(
+                [exp.decision.context.get("anomaly_score", 0.5) for exp in fn_experiences]
+            )
             recommendation["recommendation"] = "decrease"
             recommendation["suggested_threshold"] = max(0.1, avg_fn_score - 0.1)
             recommendation["reasoning"] = "High false negative rate suggests threshold too high"
 
         elif fp_count > fn_count * 2:
             # Too many false positives - raise threshold
-            avg_fp_score = np.mean([
-                exp.decision.context.get("anomaly_score", 0.5)
-                for exp in fp_experiences
-            ])
+            avg_fp_score = np.mean(
+                [exp.decision.context.get("anomaly_score", 0.5) for exp in fp_experiences]
+            )
             recommendation["recommendation"] = "increase"
             recommendation["suggested_threshold"] = min(0.9, avg_fp_score + 0.1)
             recommendation["reasoning"] = "High false positive rate suggests threshold too low"
@@ -1387,9 +1385,7 @@ class AnomalyReflexion:
             (OutcomeType.FALSE_POSITIVE, "false_positives"),
             (OutcomeType.FALSE_NEGATIVE, "false_negatives"),
         ]:
-            experiences = self.engine.experience_memory.retrieve_by_outcome(
-                outcome_type, top_k=20
-            )
+            experiences = self.engine.experience_memory.retrieve_by_outcome(outcome_type, top_k=20)
             for exp in experiences:
                 if exp.reflection:
                     patterns[pattern_key].extend(exp.reflection.insights)

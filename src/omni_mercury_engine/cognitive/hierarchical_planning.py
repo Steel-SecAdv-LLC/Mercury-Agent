@@ -348,7 +348,9 @@ class HierarchicalValueFunction:
 
         # Value tables
         self._goal_values: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
-        self._completion_values: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+        self._completion_values: dict[str, dict[str, float]] = defaultdict(
+            lambda: defaultdict(float)
+        )
         self._option_values: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
 
         # Visit counts for exploration
@@ -939,9 +941,7 @@ class HierarchicalPlanner:
         """
         # Update value function
         if execution_state.current_goal:
-            goal_complete = self._check_goal_complete(
-                execution_state.current_goal, next_state
-            )
+            goal_complete = self._check_goal_complete(execution_state.current_goal, next_state)
             self.value_function.update_value(
                 state,
                 execution_state.current_goal,
@@ -1088,14 +1088,12 @@ class HierarchicalPlanner:
 
         # Update average depth
         depth = len(plan.goal_hierarchy)
-        self._stats["avg_plan_depth"] = (
-            (self._stats["avg_plan_depth"] * (n - 1) + depth) / n
-        )
+        self._stats["avg_plan_depth"] = (self._stats["avg_plan_depth"] * (n - 1) + depth) / n
 
         # Update average reward
         self._stats["avg_reward"] = (
-            (self._stats["avg_reward"] * (n - 1) + plan.estimated_reward) / n
-        )
+            self._stats["avg_reward"] * (n - 1) + plan.estimated_reward
+        ) / n
 
     def get_statistics(self) -> dict[str, Any]:
         """Get planner statistics."""
@@ -1239,6 +1237,8 @@ class AnomalyHierarchicalPlanner:
             "action": action,
             "option_name": option.name if option else None,
             "expected_duration": option.expected_duration if option else 1.0,
-            "current_goal": execution_state.current_goal.description if execution_state.current_goal else None,
+            "current_goal": (
+                execution_state.current_goal.description if execution_state.current_goal else None
+            ),
             "progress": execution_state.reward_accumulated,
         }

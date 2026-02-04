@@ -153,6 +153,7 @@ class UserBehaviorClass(Enum):
 # Data Structures
 # =============================================================================
 
+
 @dataclass
 class UserInteraction:
     """Single user interaction event.
@@ -346,6 +347,7 @@ class UIUXAnomalyResult:
 # =============================================================================
 # Neural Network Components
 # =============================================================================
+
 
 class InteractionSequenceEncoder(nn.Module):
     """Encoder for sequences of user interactions.
@@ -634,12 +636,15 @@ class BehaviorClassificationNetwork(nn.Module):
         Returns:
             Class logits [batch, num_classes]
         """
-        combined = torch.cat([
-            click_features,
-            mouse_features,
-            scroll_features,
-            nav_features,
-        ], dim=-1)
+        combined = torch.cat(
+            [
+                click_features,
+                mouse_features,
+                scroll_features,
+                nav_features,
+            ],
+            dim=-1,
+        )
 
         return self.classifier(combined)
 
@@ -647,6 +652,7 @@ class BehaviorClassificationNetwork(nn.Module):
 # =============================================================================
 # Main UI/UX Anomaly Detector
 # =============================================================================
+
 
 class UIUXAnomalyDetector(BaseDetector):
     """Comprehensive UI/UX anomaly detector.
@@ -824,8 +830,7 @@ class UIUXAnomalyDetector(BaseDetector):
         for from_page, to_pages in page_transitions.items():
             total = sum(to_pages.values())
             self._page_transition_probs[from_page] = {
-                to_page: count / total
-                for to_page, count in to_pages.items()
+                to_page: count / total for to_page, count in to_pages.items()
             }
 
         self._is_fitted = True
@@ -962,8 +967,10 @@ class UIUXAnomalyDetector(BaseDetector):
             features = features.reshape(1, -1)
 
         # Simple z-score based anomaly detection for features
-        if hasattr(self, '_reference_features_mean'):
-            z_scores = (features - self._reference_features_mean) / (self._reference_features_std + 1e-8)
+        if hasattr(self, "_reference_features_mean"):
+            z_scores = (features - self._reference_features_mean) / (
+                self._reference_features_std + 1e-8
+            )
             anomaly_score = float(np.mean(np.abs(z_scores)) / 3.0)
         else:
             anomaly_score = 0.5
@@ -1017,9 +1024,9 @@ class UIUXAnomalyDetector(BaseDetector):
         clicks = [i for i in interactions if i.interaction_type == InteractionType.CLICK]
         click_count = len(clicks)
 
-        click_positions = np.array([
-            [c.x or 0, c.y or 0] for c in clicks
-        ]) if clicks else np.zeros((1, 2))
+        click_positions = (
+            np.array([[c.x or 0, c.y or 0] for c in clicks]) if clicks else np.zeros((1, 2))
+        )
 
         click_position_std = np.std(click_positions, axis=0) if len(clicks) > 1 else np.zeros(2)
 
@@ -1053,22 +1060,23 @@ class UIUXAnomalyDetector(BaseDetector):
 
         # Session features
         session_duration = (
-            interactions[-1].timestamp - interactions[0].timestamp
-            if len(interactions) > 1 else 0
+            interactions[-1].timestamp - interactions[0].timestamp if len(interactions) > 1 else 0
         )
 
         # Combine all features
-        features = np.concatenate([
-            [click_count],
-            click_position_std,
-            [timing_mean, timing_std, timing_min, timing_max],
-            [scroll_count, scroll_total],
-            [unique_pages, page_revisits],
-            type_distribution,
-            [session_duration],
-            [len(interactions)],
-            np.zeros(64 - 16 - len(InteractionType) - 2),  # Padding to fixed size
-        ])
+        features = np.concatenate(
+            [
+                [click_count],
+                click_position_std,
+                [timing_mean, timing_std, timing_min, timing_max],
+                [scroll_count, scroll_total],
+                [unique_pages, page_revisits],
+                type_distribution,
+                [session_duration],
+                [len(interactions)],
+                np.zeros(64 - 16 - len(InteractionType) - 2),  # Padding to fixed size
+            ]
+        )
 
         return features[:64]  # Ensure fixed size
 
@@ -1085,7 +1093,8 @@ class UIUXAnomalyDetector(BaseDetector):
 
         # Filter click events
         clicks = [
-            i for i in interactions
+            i
+            for i in interactions
             if i.interaction_type in [InteractionType.CLICK, InteractionType.DOUBLE_CLICK]
         ]
 
@@ -1119,38 +1128,29 @@ class UIUXAnomalyDetector(BaseDetector):
             i = j
 
         # Detect dead clicks (clicks with no element response)
-        dead_clicks = sum(
-            1 for c in clicks
-            if c.element_id is None and c.element_type is None
-        )
+        dead_clicks = sum(1 for c in clicks if c.element_id is None and c.element_type is None)
 
         # Double click rate
-        double_clicks = sum(
-            1 for c in clicks
-            if c.interaction_type == InteractionType.DOUBLE_CLICK
-        )
+        double_clicks = sum(1 for c in clicks if c.interaction_type == InteractionType.DOUBLE_CLICK)
         double_click_rate = double_clicks / total_clicks if total_clicks > 0 else 0
 
         # Click accuracy (based on element targeting)
         targeted_clicks = sum(
-            1 for c in clicks
-            if c.element_id is not None or c.element_type is not None
+            1 for c in clicks if c.element_id is not None or c.element_type is not None
         )
         click_accuracy = targeted_clicks / total_clicks if total_clicks > 0 else 1.0
 
         # Click density map
-        positions = np.array([
-            [c.x or 0, c.y or 0] for c in clicks
-            if c.x is not None and c.y is not None
-        ])
+        positions = np.array(
+            [[c.x or 0, c.y or 0] for c in clicks if c.x is not None and c.y is not None]
+        )
 
         if len(positions) > 0:
             # Normalize to 10x10 grid
             x_bins = np.linspace(0, max(c.viewport_width for c in clicks), 11)
             y_bins = np.linspace(0, max(c.viewport_height for c in clicks), 11)
             click_density_map, _, _ = np.histogram2d(
-                positions[:, 0], positions[:, 1],
-                bins=[x_bins, y_bins]
+                positions[:, 0], positions[:, 1], bins=[x_bins, y_bins]
             )
         else:
             click_density_map = np.zeros((10, 10))
@@ -1296,8 +1296,7 @@ class UIUXAnomalyDetector(BaseDetector):
         # Abandonment risk (based on session ending patterns)
         # Higher if session is short or ends abruptly
         session_duration = (
-            interactions[-1].timestamp - interactions[0].timestamp
-            if len(interactions) > 1 else 0
+            interactions[-1].timestamp - interactions[0].timestamp if len(interactions) > 1 else 0
         )
         abandonment_risk = 1.0 - min(1.0, session_duration / self._reference_session_duration)
 
@@ -1378,8 +1377,7 @@ class UIUXAnomalyDetector(BaseDetector):
 
         # Task completion estimate (based on form submissions, etc.)
         completions = sum(
-            1 for i in interactions
-            if i.interaction_type == InteractionType.FORM_SUBMIT
+            1 for i in interactions if i.interaction_type == InteractionType.FORM_SUBMIT
         )
         task_completion = min(1.0, completions / max(1, nav_analysis.pages_visited * 0.3))
 
@@ -1457,9 +1455,11 @@ class UIUXAnomalyDetector(BaseDetector):
 
         # Extract mouse movements
         moves = [
-            i for i in interactions
+            i
+            for i in interactions
             if i.interaction_type == InteractionType.MOUSE_MOVE
-            and i.x is not None and i.y is not None
+            and i.x is not None
+            and i.y is not None
         ]
 
         if len(moves) < 3:
@@ -1472,7 +1472,7 @@ class UIUXAnomalyDetector(BaseDetector):
             if dt > 0:
                 dx = (moves[i].x or 0) - (moves[i - 1].x or 0)
                 dy = (moves[i].y or 0) - (moves[i - 1].y or 0)
-                velocity = math.sqrt(dx ** 2 + dy ** 2) / dt
+                velocity = math.sqrt(dx**2 + dy**2) / dt
                 velocities.append(velocity)
 
         if not velocities:
@@ -1555,9 +1555,11 @@ class UIUXAnomalyDetector(BaseDetector):
 
         # Check for linear mouse movements (straight lines)
         moves = [
-            (i.x, i.y) for i in interactions
+            (i.x, i.y)
+            for i in interactions
             if i.interaction_type == InteractionType.MOUSE_MOVE
-            and i.x is not None and i.y is not None
+            and i.x is not None
+            and i.y is not None
         ]
 
         if len(moves) >= 5:
@@ -1571,7 +1573,9 @@ class UIUXAnomalyDetector(BaseDetector):
 
                 # Check if vectors are parallel (cross product near zero)
                 cross = abs(v1[0] * v2[1] - v1[1] * v2[0])
-                magnitude = math.sqrt(v1[0] ** 2 + v1[1] ** 2) * math.sqrt(v2[0] ** 2 + v2[1] ** 2) + 1e-8
+                magnitude = (
+                    math.sqrt(v1[0] ** 2 + v1[1] ** 2) * math.sqrt(v2[0] ** 2 + v2[1] ** 2) + 1e-8
+                )
 
                 if cross / magnitude < 0.1:
                     linear_segments += 1
@@ -1589,10 +1593,9 @@ class UIUXAnomalyDetector(BaseDetector):
         clicks = [i for i in interactions if i.interaction_type == InteractionType.CLICK]
         if len(clicks) >= 2:
             click_timings = [
-                clicks[i].timestamp - clicks[i - 1].timestamp
-                for i in range(1, len(clicks))
+                clicks[i].timestamp - clicks[i - 1].timestamp for i in range(1, len(clicks))
             ]
-            min_click_time = min(click_timings) if click_timings else float('inf')
+            min_click_time = min(click_timings) if click_timings else float("inf")
             if min_click_time < 0.05:  # 50ms is superhuman
                 bot_indicators.append(0.9)
 
@@ -1682,39 +1685,39 @@ class UIUXAnomalyDetector(BaseDetector):
         """
         # Component scores
         click_score = (
-            click_analysis.rage_clicks * 0.4 +
-            (1 - click_analysis.click_accuracy) * 0.3 +
-            min(1.0, click_analysis.dead_clicks / max(1, click_analysis.total_clicks) * 2) * 0.3
+            click_analysis.rage_clicks * 0.4
+            + (1 - click_analysis.click_accuracy) * 0.3
+            + min(1.0, click_analysis.dead_clicks / max(1, click_analysis.total_clicks) * 2) * 0.3
         )
 
         scroll_score = (
-            min(1.0, scroll_analysis.rapid_scrolls / 5) * 0.5 +
-            min(1.0, scroll_analysis.scroll_reversals / 10) * 0.5
+            min(1.0, scroll_analysis.rapid_scrolls / 5) * 0.5
+            + min(1.0, scroll_analysis.scroll_reversals / 10) * 0.5
         )
 
         nav_score = (
-            navigation_analysis.confusion_score * 0.5 +
-            navigation_analysis.abandonment_risk * 0.3 +
-            (1 - navigation_analysis.path_efficiency) * 0.2
+            navigation_analysis.confusion_score * 0.5
+            + navigation_analysis.abandonment_risk * 0.3
+            + (1 - navigation_analysis.path_efficiency) * 0.2
         )
 
         session_score = (
-            (1 - session_analysis.engagement_score) * 0.3 +
-            (1 - session_analysis.attention_score) * 0.3 +
-            len(session_analysis.frustration_indicators) / 5 * 0.4
+            (1 - session_analysis.engagement_score) * 0.3
+            + (1 - session_analysis.attention_score) * 0.3
+            + len(session_analysis.frustration_indicators) / 5 * 0.4
         )
 
         # Golden ratio weighting
         phi_sum = PHI + 1.0 + (1.0 / PHI) + 0.5 + 0.3 + 0.3 + 0.2
 
         combined = (
-            PHI / phi_sum * click_score +
-            1.0 / phi_sum * scroll_score +
-            (1.0 / PHI) / phi_sum * nav_score +
-            0.5 / phi_sum * session_score +
-            0.3 / phi_sum * mouse_score +
-            0.3 / phi_sum * timing_score +
-            0.2 / phi_sum * bot_probability
+            PHI / phi_sum * click_score
+            + 1.0 / phi_sum * scroll_score
+            + (1.0 / PHI) / phi_sum * nav_score
+            + 0.5 / phi_sum * session_score
+            + 0.3 / phi_sum * mouse_score
+            + 0.3 / phi_sum * timing_score
+            + 0.2 / phi_sum * bot_probability
         )
 
         return float(np.clip(combined, 0.0, 1.0))
@@ -1788,9 +1791,7 @@ class UIUXAnomalyDetector(BaseDetector):
             )
 
         if not recommendations:
-            recommendations.append(
-                "No significant usability issues detected in this session."
-            )
+            recommendations.append("No significant usability issues detected in this session.")
 
         return recommendations
 
@@ -1801,22 +1802,38 @@ class UIUXAnomalyDetector(BaseDetector):
             Default detection result dictionary
         """
         default_click = ClickAnalysis(
-            total_clicks=0, rage_clicks=0, dead_clicks=0, double_click_rate=0.0,
-            click_accuracy=1.0, click_density_map=np.zeros((10, 10)),
-            click_timing_stats={"mean": 0, "std": 0, "min": 0, "max": 0}
+            total_clicks=0,
+            rage_clicks=0,
+            dead_clicks=0,
+            double_click_rate=0.0,
+            click_accuracy=1.0,
+            click_density_map=np.zeros((10, 10)),
+            click_timing_stats={"mean": 0, "std": 0, "min": 0, "max": 0},
         )
         default_scroll = ScrollAnalysis(
-            total_scrolls=0, rapid_scrolls=0, scroll_reversals=0,
-            average_velocity=0.0, scroll_depth=0.0, reading_patterns=0.0
+            total_scrolls=0,
+            rapid_scrolls=0,
+            scroll_reversals=0,
+            average_velocity=0.0,
+            scroll_depth=0.0,
+            reading_patterns=0.0,
         )
         default_nav = NavigationAnalysis(
-            pages_visited=0, navigation_loops=0, backtrack_rate=0.0,
-            path_efficiency=1.0, abandonment_risk=0.0, confusion_score=0.0
+            pages_visited=0,
+            navigation_loops=0,
+            backtrack_rate=0.0,
+            path_efficiency=1.0,
+            abandonment_risk=0.0,
+            confusion_score=0.0,
         )
         default_session = SessionAnalysis(
-            session_duration=0.0, total_interactions=0, engagement_score=0.5,
-            frustration_indicators=[], behavior_class=UserBehaviorClass.NORMAL,
-            attention_score=0.5, task_completion=0.0
+            session_duration=0.0,
+            total_interactions=0,
+            engagement_score=0.5,
+            frustration_indicators=[],
+            behavior_class=UserBehaviorClass.NORMAL,
+            attention_score=0.5,
+            task_completion=0.0,
         )
 
         return {
@@ -1843,6 +1860,7 @@ class UIUXAnomalyDetector(BaseDetector):
 # Utility Functions
 # =============================================================================
 
+
 def compute_fitts_law_time(
     distance: float,
     target_width: float,
@@ -1863,7 +1881,7 @@ def compute_fitts_law_time(
         Expected movement time in seconds
     """
     if target_width <= 0:
-        return float('inf')
+        return float("inf")
     id_ = math.log2(distance / target_width + 1)  # Index of difficulty
     return a + b * id_
 

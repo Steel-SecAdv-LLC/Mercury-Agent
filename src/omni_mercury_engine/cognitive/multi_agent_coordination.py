@@ -512,9 +512,7 @@ class ConsensusProtocol:
         confidence = np.mean([r.confidence for r in results])
 
         # Find dissenters
-        dissenting = [
-            r.agent_id for r in results if r.is_anomaly != final_decision
-        ]
+        dissenting = [r.agent_id for r in results if r.is_anomaly != final_decision]
 
         return ConsensusResult(
             consensus_id=consensus_id,
@@ -542,9 +540,7 @@ class ConsensusProtocol:
 
         confidence = np.mean([r.confidence for r in results]) * agreement_ratio
 
-        dissenting = [
-            r.agent_id for r in results if r.is_anomaly != final_decision
-        ]
+        dissenting = [r.agent_id for r in results if r.is_anomaly != final_decision]
 
         return ConsensusResult(
             consensus_id=consensus_id,
@@ -573,13 +569,9 @@ class ConsensusProtocol:
         else:
             # No consensus - default to anomaly for safety
             final_decision = any(decisions)
-            agreement_ratio = max(
-                decisions.count(True), decisions.count(False)
-            ) / len(decisions)
+            agreement_ratio = max(decisions.count(True), decisions.count(False)) / len(decisions)
             confidence = 0.5
-            dissenting = [
-                r.agent_id for r in results if r.is_anomaly != final_decision
-            ]
+            dissenting = [r.agent_id for r in results if r.is_anomaly != final_decision]
 
         return ConsensusResult(
             consensus_id=consensus_id,
@@ -622,9 +614,7 @@ class ConsensusProtocol:
 
         confidence = np.mean([r.confidence for r in results])
 
-        dissenting = [
-            r.agent_id for r in results if r.is_anomaly != final_decision
-        ]
+        dissenting = [r.agent_id for r in results if r.is_anomaly != final_decision]
 
         return ConsensusResult(
             consensus_id=consensus_id,
@@ -669,9 +659,7 @@ class ConsensusProtocol:
 
         confidence = avg_weighted_score if final_decision else (1 - avg_weighted_score)
 
-        dissenting = [
-            r.agent_id for r in results if r.is_anomaly != final_decision
-        ]
+        dissenting = [r.agent_id for r in results if r.is_anomaly != final_decision]
 
         return ConsensusResult(
             consensus_id=consensus_id,
@@ -826,17 +814,15 @@ class AgentCoordinator:
         if leader_id is None or leader_id not in self._agents:
             # Select coordinator agent if available
             coordinator_agents = [
-                a for a in self._agents.values()
+                a
+                for a in self._agents.values()
                 if a.role == AgentRole.COORDINATOR and a.status == AgentStatus.IDLE
             ]
             if coordinator_agents:
                 leader_id = coordinator_agents[0].agent_id
             else:
                 # Select any idle agent
-                idle_agents = [
-                    a for a in self._agents.values()
-                    if a.status == AgentStatus.IDLE
-                ]
+                idle_agents = [a for a in self._agents.values() if a.status == AgentStatus.IDLE]
                 if idle_agents:
                     leader_id = idle_agents[0].agent_id
                 else:
@@ -848,7 +834,8 @@ class AgentCoordinator:
         if required_roles:
             for role in required_roles:
                 role_agents = [
-                    a for a in self._agents.values()
+                    a
+                    for a in self._agents.values()
                     if a.role == role
                     and a.agent_id not in member_ids
                     and a.status == AgentStatus.IDLE
@@ -858,7 +845,8 @@ class AgentCoordinator:
         else:
             # Add available idle agents up to max_size
             idle_agents = [
-                a for a in self._agents.values()
+                a
+                for a in self._agents.values()
                 if a.agent_id not in member_ids and a.status == AgentStatus.IDLE
             ]
             for agent in idle_agents[: max_size - len(member_ids)]:
@@ -929,7 +917,8 @@ class AgentCoordinator:
             agents = [self._agents[aid] for aid in agent_ids if aid in self._agents]
         else:
             agents = [
-                a for a in self._agents.values()
+                a
+                for a in self._agents.values()
                 if a.status in [AgentStatus.IDLE, AgentStatus.ACTIVE]
             ]
 
@@ -972,10 +961,7 @@ class AgentCoordinator:
 
     def get_available_agents(self) -> list[DetectionAgent]:
         """Get all available (idle) agents."""
-        return [
-            a for a in self._agents.values()
-            if a.status == AgentStatus.IDLE
-        ]
+        return [a for a in self._agents.values() if a.status == AgentStatus.IDLE]
 
     def get_statistics(self) -> dict[str, Any]:
         """Get coordinator statistics."""
@@ -983,14 +969,9 @@ class AgentCoordinator:
             **self._stats,
             "registered_agents": len(self._agents),
             "active_coalitions": len(self._coalitions),
-            "agents_by_role": {
-                role.value: len(self.get_agent_by_role(role))
-                for role in AgentRole
-            },
+            "agents_by_role": {role.value: len(self.get_agent_by_role(role)) for role in AgentRole},
             "agents_by_status": {
-                status.value: sum(
-                    1 for a in self._agents.values() if a.status == status
-                )
+                status.value: sum(1 for a in self._agents.values() if a.status == status)
                 for status in AgentStatus
             },
         }
@@ -1079,9 +1060,7 @@ class MultiAgentDetectionSystem:
             )
 
             if coalition:
-                result = self.coordinator.coordinate_detection(
-                    data, context, coalition.member_ids
-                )
+                result = self.coordinator.coordinate_detection(data, context, coalition.member_ids)
                 self.coordinator.dissolve_coalition(coalition.coalition_id)
             else:
                 result = self.coordinator.coordinate_detection(data, context)

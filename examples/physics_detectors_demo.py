@@ -81,20 +81,24 @@ def parse_args():
     return parser.parse_args()
 
 
-def generate_normal_vibration_signal(n_samples: int = 4096, sample_rate: float = 1000.0) -> np.ndarray:
+def generate_normal_vibration_signal(
+    n_samples: int = 4096, sample_rate: float = 1000.0
+) -> np.ndarray:
     """Generate a normal vibration signal with harmonic components."""
     t = np.linspace(0, n_samples / sample_rate, n_samples)
     # Fundamental frequency with harmonics
     signal = (
-        np.sin(2 * np.pi * 50 * t) +  # 50 Hz fundamental
-        0.3 * np.sin(2 * np.pi * 100 * t) +  # 2nd harmonic
-        0.1 * np.sin(2 * np.pi * 150 * t) +  # 3rd harmonic
-        0.05 * np.random.randn(n_samples)  # Small noise
+        np.sin(2 * np.pi * 50 * t)  # 50 Hz fundamental
+        + 0.3 * np.sin(2 * np.pi * 100 * t)  # 2nd harmonic
+        + 0.1 * np.sin(2 * np.pi * 150 * t)  # 3rd harmonic
+        + 0.05 * np.random.randn(n_samples)  # Small noise
     )
     return signal
 
 
-def generate_anomalous_vibration_signal(n_samples: int = 4096, sample_rate: float = 1000.0) -> np.ndarray:
+def generate_anomalous_vibration_signal(
+    n_samples: int = 4096, sample_rate: float = 1000.0
+) -> np.ndarray:
     """Generate an anomalous vibration signal with bearing fault signature."""
     t = np.linspace(0, n_samples / sample_rate, n_samples)
     # Normal components
@@ -105,7 +109,11 @@ def generate_anomalous_vibration_signal(n_samples: int = 4096, sample_rate: floa
     # Add impulse responses (simulating bearing impacts)
     for i in range(0, n_samples, int(sample_rate / 20)):
         if i + 50 < n_samples:
-            signal[i:i+50] += 0.8 * np.exp(-np.linspace(0, 5, 50)) * np.sin(2 * np.pi * 500 * np.linspace(0, 0.05, 50))
+            signal[i : i + 50] += (
+                0.8
+                * np.exp(-np.linspace(0, 5, 50))
+                * np.sin(2 * np.pi * 500 * np.linspace(0, 0.05, 50))
+            )
     return signal
 
 
@@ -123,15 +131,15 @@ def generate_chaotic_motion(n_samples: int = 1000, dt: float = 0.01) -> np.ndarr
     t = np.linspace(0, n_samples * dt, n_samples)
     # Mix of frequencies creating chaotic-like behavior
     signal = (
-        np.sin(2.0 * t) +
-        0.5 * np.sin(3.14159 * t) +
-        0.3 * np.sin(5.7 * t) +
-        0.2 * np.sin(8.3 * t + np.cumsum(0.1 * np.random.randn(n_samples)))
+        np.sin(2.0 * t)
+        + 0.5 * np.sin(3.14159 * t)
+        + 0.3 * np.sin(5.7 * t)
+        + 0.2 * np.sin(8.3 * t + np.cumsum(0.1 * np.random.randn(n_samples)))
     )
     # Add occasional sudden jumps
     for i in range(5):
         idx = np.random.randint(100, n_samples - 100)
-        signal[idx:idx+10] += 3.0 * np.random.randn(10)
+        signal[idx : idx + 10] += 3.0 * np.random.randn(10)
     return signal
 
 
@@ -238,11 +246,13 @@ def demo_spectral_vibration(threshold: float = 0.5, verbose: bool = False):
     print("DEMO 1: SPECTRAL VIBRATION DETECTOR - FREQUENCY DOMAIN ANALYSIS")
     print("=" * 70)
 
-    detector = SpectralVibrationDetector({
-        "threshold": threshold,
-        "sample_rate": 1000.0,
-        "analysis_mode": SpectralAnalysisMode.COMPREHENSIVE,
-    })
+    detector = SpectralVibrationDetector(
+        {
+            "threshold": threshold,
+            "sample_rate": 1000.0,
+            "analysis_mode": SpectralAnalysisMode.COMPREHENSIVE,
+        }
+    )
 
     # Train on normal vibration
     print("\n[Training] Fitting on normal vibration signal...")
@@ -283,12 +293,14 @@ def demo_acceleration_dynamics(threshold: float = 0.5, verbose: bool = False):
     print("DEMO 2: ACCELERATION DYNAMICS DETECTOR - KINEMATIC ANALYSIS")
     print("=" * 70)
 
-    detector = AccelerationDynamicsDetector({
-        "threshold": threshold,
-        "time_step": 0.01,
-        "jerk_sensitivity": 2.0,
-        "chaos_threshold": 0.1,
-    })
+    detector = AccelerationDynamicsDetector(
+        {
+            "threshold": threshold,
+            "time_step": 0.01,
+            "jerk_sensitivity": 2.0,
+            "chaos_threshold": 0.1,
+        }
+    )
 
     # Train on normal motion
     print("\n[Training] Fitting on normal oscillatory motion...")
@@ -330,12 +342,14 @@ def demo_uiux_anomaly(threshold: float = 0.5, verbose: bool = False):
     print("DEMO 3: UI/UX ANOMALY DETECTOR - BEHAVIORAL ANALYSIS")
     print("=" * 70)
 
-    detector = UIUXAnomalyDetector({
-        "threshold": threshold,
-        "rage_click_threshold": 0.2,
-        "rage_click_count": 4,
-        "bot_detection_threshold": 0.7,
-    })
+    detector = UIUXAnomalyDetector(
+        {
+            "threshold": threshold,
+            "rage_click_threshold": 0.2,
+            "rage_click_count": 4,
+            "bot_detection_threshold": 0.7,
+        }
+    )
 
     # Train on normal user behavior
     print("\n[Training] Fitting on normal user session...")
@@ -353,8 +367,8 @@ def demo_uiux_anomaly(threshold: float = 0.5, verbose: bool = False):
     print(f"  Behavior class: {result_normal.get('behavior_class', 'unknown')}")
     print(f"  Bot probability: {result_normal.get('bot_probability', 0.0):.4f}")
 
-    if verbose and 'click_analysis' in result_normal:
-        ca = result_normal['click_analysis']
+    if verbose and "click_analysis" in result_normal:
+        ca = result_normal["click_analysis"]
         print(f"  Rage clicks: {ca.rage_clicks}")
         print(f"  Dead clicks: {ca.dead_clicks}")
 
@@ -377,8 +391,8 @@ def demo_uiux_anomaly(threshold: float = 0.5, verbose: bool = False):
     print(f"  Anomaly score: {result_rage.get('anomaly_score', 0.0):.4f}")
     print(f"  Anomaly categories: {result_rage.get('anomaly_categories', [])}")
 
-    if 'click_analysis' in result_rage:
-        ca = result_rage['click_analysis']
+    if "click_analysis" in result_rage:
+        ca = result_rage["click_analysis"]
         print(f"  Rage clicks detected: {ca.rage_clicks}")
 
 
@@ -388,19 +402,21 @@ def demo_integrated_physics(threshold: float = 0.5, verbose: bool = False):
     print("DEMO 4: INTEGRATED PHYSICS DETECTOR - MULTI-MODAL FUSION")
     print("=" * 70)
 
-    detector = AdvancedPhysicsIntegratedDetector({
-        "threshold": threshold,
-        "enabled_detectors": [
-            PhysicsDetectorType.SPECTRAL,
-            PhysicsDetectorType.DYNAMICS,
-            PhysicsDetectorType.UIUX,
-        ],
-        "fusion_weights": {
-            "spectral": 0.4,
-            "dynamics": 0.3,
-            "uiux": 0.3,
-        },
-    })
+    detector = AdvancedPhysicsIntegratedDetector(
+        {
+            "threshold": threshold,
+            "enabled_detectors": [
+                PhysicsDetectorType.SPECTRAL,
+                PhysicsDetectorType.DYNAMICS,
+                PhysicsDetectorType.UIUX,
+            ],
+            "fusion_weights": {
+                "spectral": 0.4,
+                "dynamics": 0.3,
+                "uiux": 0.3,
+            },
+        }
+    )
 
     # Prepare multi-modal training data
     print("\n[Training] Fitting integrated detector on multi-modal data...")
@@ -440,11 +456,15 @@ def demo_integrated_physics(threshold: float = 0.5, verbose: bool = False):
     print(f"  Fused anomaly score: {result_anomaly.get('fused_anomaly_score', 0.0):.4f}")
 
     # Show individual detector contributions
-    if 'spectral_result' in result_anomaly:
-        print(f"  Spectral score: {result_anomaly['spectral_result'].get('anomaly_score', 0.0):.4f}")
-    if 'dynamics_result' in result_anomaly:
-        print(f"  Dynamics score: {result_anomaly['dynamics_result'].get('anomaly_score', 0.0):.4f}")
-    if 'uiux_result' in result_anomaly:
+    if "spectral_result" in result_anomaly:
+        print(
+            f"  Spectral score: {result_anomaly['spectral_result'].get('anomaly_score', 0.0):.4f}"
+        )
+    if "dynamics_result" in result_anomaly:
+        print(
+            f"  Dynamics score: {result_anomaly['dynamics_result'].get('anomaly_score', 0.0):.4f}"
+        )
+    if "uiux_result" in result_anomaly:
         print(f"  UI/UX score: {result_anomaly['uiux_result'].get('anomaly_score', 0.0):.4f}")
 
 

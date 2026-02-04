@@ -106,6 +106,7 @@ class VibrationSignatureType(Enum):
 # Configuration Dataclasses
 # =============================================================================
 
+
 @dataclass
 class SpectralVibrationConfig:
     """Configuration for spectral vibration analysis.
@@ -204,6 +205,7 @@ class VibrationDiagnostic:
 # Neural Network Components
 # =============================================================================
 
+
 class SpectralGraphLayer(nn.Module):
     """Graph Neural Network layer for spectral analysis.
 
@@ -238,10 +240,9 @@ class SpectralGraphLayer(nn.Module):
         self.node_transform = nn.Linear(in_features, out_features)
 
         # Edge-type specific message functions
-        self.edge_transforms = nn.ModuleList([
-            nn.Linear(in_features, out_features)
-            for _ in range(num_edge_types)
-        ])
+        self.edge_transforms = nn.ModuleList(
+            [nn.Linear(in_features, out_features) for _ in range(num_edge_types)]
+        )
 
         # Attention mechanism for edge weighting
         self.attention = nn.Sequential(
@@ -340,10 +341,9 @@ class SpectralGNN(nn.Module):
         self.input_proj = nn.Linear(input_dim, hidden_dim)
 
         # Graph layers
-        self.layers = nn.ModuleList([
-            SpectralGraphLayer(hidden_dim, hidden_dim, num_edge_types)
-            for _ in range(num_layers)
-        ])
+        self.layers = nn.ModuleList(
+            [SpectralGraphLayer(hidden_dim, hidden_dim, num_edge_types) for _ in range(num_layers)]
+        )
 
         # Output projection with readout
         self.output_proj = nn.Sequential(
@@ -417,17 +417,19 @@ class SpectralCNN(nn.Module):
         self.output_dim = output_dim
 
         # Multi-scale parallel convolutions (inception-style)
-        self.conv_branches = nn.ModuleList([
-            nn.Sequential(
-                nn.Conv1d(input_channels, num_filters, kernel_size=k, padding=k // 2),
-                nn.BatchNorm1d(num_filters),
-                nn.ReLU(),
-                nn.Conv1d(num_filters, num_filters, kernel_size=k, padding=k // 2),
-                nn.BatchNorm1d(num_filters),
-                nn.ReLU(),
-            )
-            for k in kernel_sizes
-        ])
+        self.conv_branches = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Conv1d(input_channels, num_filters, kernel_size=k, padding=k // 2),
+                    nn.BatchNorm1d(num_filters),
+                    nn.ReLU(),
+                    nn.Conv1d(num_filters, num_filters, kernel_size=k, padding=k // 2),
+                    nn.BatchNorm1d(num_filters),
+                    nn.ReLU(),
+                )
+                for k in kernel_sizes
+            ]
+        )
 
         # Merge branches
         total_filters = num_filters * len(kernel_sizes)
@@ -572,7 +574,9 @@ class PhononInteractionNetwork(nn.Module):
         weighted_embeddings = embeddings * mode_amplitudes[mode_indices].unsqueeze(-1)
 
         # Compute pairwise interactions
-        coupling_matrix = torch.zeros(num_active_modes, num_active_modes, device=mode_amplitudes.device)
+        coupling_matrix = torch.zeros(
+            num_active_modes, num_active_modes, device=mode_amplitudes.device
+        )
         for i in range(num_active_modes):
             for j in range(i + 1, num_active_modes):
                 interaction = self.pair_interaction(weighted_embeddings[i], weighted_embeddings[j])
@@ -581,7 +585,9 @@ class PhononInteractionNetwork(nn.Module):
                 coupling_matrix[j, i] = coupling
 
         # Compute scattering rates
-        scattering_rates = torch.zeros(num_active_modes, num_active_modes, device=mode_amplitudes.device)
+        scattering_rates = torch.zeros(
+            num_active_modes, num_active_modes, device=mode_amplitudes.device
+        )
         for i in range(num_active_modes):
             for j in range(num_active_modes):
                 if i != j:
@@ -593,7 +599,11 @@ class PhononInteractionNetwork(nn.Module):
         total_energy = coupling_matrix.sum() / 2  # Divide by 2 for double counting
 
         # Anharmonicity score (deviation from harmonic behavior)
-        off_diagonal_mean = coupling_matrix[~torch.eye(num_active_modes, dtype=bool, device=mode_amplitudes.device)].abs().mean()
+        off_diagonal_mean = (
+            coupling_matrix[~torch.eye(num_active_modes, dtype=bool, device=mode_amplitudes.device)]
+            .abs()
+            .mean()
+        )
         anharmonic_score = torch.sigmoid(off_diagonal_mean)
 
         return {
@@ -676,7 +686,9 @@ class MLIPVibrationEncoder(nn.Module):
             Radial basis features [num_pairs, num_radial_basis]
         """
         # Gaussian radial basis
-        return torch.exp(-((distances.unsqueeze(-1) - self.radial_centers) ** 2) / (2 * self.radial_width ** 2))
+        return torch.exp(
+            -((distances.unsqueeze(-1) - self.radial_centers) ** 2) / (2 * self.radial_width**2)
+        )
 
     def forward(self, spectrum: torch.Tensor, k_neighbors: int = 8) -> torch.Tensor:
         """Encode spectrum using MLIP-style local descriptors.
@@ -727,7 +739,9 @@ class MLIPVibrationEncoder(nn.Module):
                 radial_features = self._compute_radial_basis(freq_distances)
 
                 # Combine with amplitude information
-                amp_features = self._compute_radial_basis(torch.abs(amp_diffs) / (spectrum[b].max() + 1e-8))
+                amp_features = self._compute_radial_basis(
+                    torch.abs(amp_diffs) / (spectrum[b].max() + 1e-8)
+                )
 
                 # Aggregate neighborhood features
                 combined = torch.cat([radial_features, amp_features], dim=-1)
@@ -744,7 +758,7 @@ class MLIPVibrationEncoder(nn.Module):
                 end = min(num_bins, i + k_neighbors // 2 + 1)
 
                 neighbor_descs = descriptors[:, start:end]
-                self_desc = descriptors[:, i:i+1].expand(-1, neighbor_descs.size(1), -1)
+                self_desc = descriptors[:, i : i + 1].expand(-1, neighbor_descs.size(1), -1)
 
                 messages = self.message_net(torch.cat([self_desc, neighbor_descs], dim=-1))
                 new_descriptors[:, i] = descriptors[:, i] + messages.mean(dim=1)
@@ -764,6 +778,7 @@ class MLIPVibrationEncoder(nn.Module):
 # =============================================================================
 # Main Spectral Vibration Detector
 # =============================================================================
+
 
 class SpectralVibrationDetector(BaseDetector):
     """Advanced spectral vibration anomaly detector.
@@ -799,9 +814,7 @@ class SpectralVibrationDetector(BaseDetector):
 
         # Parse configuration
         self._spectral_config = SpectralVibrationConfig(
-            analysis_mode=SpectralAnalysisMode(
-                self.config.get("analysis_mode", "hybrid_fusion")
-            ),
+            analysis_mode=SpectralAnalysisMode(self.config.get("analysis_mode", "hybrid_fusion")),
             sample_rate=self.config.get("sample_rate", 1000.0),
             fft_size=self.config.get("fft_size", 1024),
             overlap_ratio=self.config.get("overlap_ratio", 0.5),
@@ -896,9 +909,7 @@ class SpectralVibrationDetector(BaseDetector):
 
         # Validate input
         if data.size == 0:
-            raise DetectorException(
-                "Cannot fit SpectralVibrationDetector with empty data."
-            )
+            raise DetectorException("Cannot fit SpectralVibrationDetector with empty data.")
 
         # Handle batched input
         if data.ndim == 1:
@@ -1044,10 +1055,13 @@ class SpectralVibrationDetector(BaseDetector):
 
                 # Compute numerical gradient using forward differences with padding
                 spectrum_diff = torch.diff(spectrum_tensor, prepend=spectrum_tensor[:1])
-                node_features = torch.stack([
-                    spectrum_tensor,
-                    spectrum_diff,
-                ], dim=-1)
+                node_features = torch.stack(
+                    [
+                        spectrum_tensor,
+                        spectrum_diff,
+                    ],
+                    dim=-1,
+                )
 
                 gnn_features = self._gnn(node_features, edge_index, edge_type)
 
@@ -1061,12 +1075,14 @@ class SpectralVibrationDetector(BaseDetector):
                 mlip_features = self._mlip_encoder(spectrum_tensor)
 
             # Concatenate all features
-            combined = np.concatenate([
-                basic_features,
-                gnn_features.cpu().numpy(),
-                cnn_features.cpu().numpy(),
-                mlip_features.cpu().numpy(),
-            ])
+            combined = np.concatenate(
+                [
+                    basic_features,
+                    gnn_features.cpu().numpy(),
+                    cnn_features.cpu().numpy(),
+                    mlip_features.cpu().numpy(),
+                ]
+            )
 
             all_features.append(combined)
 
@@ -1096,14 +1112,14 @@ class SpectralVibrationDetector(BaseDetector):
 
             for i in range(num_frames):
                 start = i * hop
-                frame = signal[start:start + cfg.fft_size] * window
-                spectrum = np.abs(fft(frame)[:cfg.fft_size // 2]) ** 2
+                frame = signal[start : start + cfg.fft_size] * window
+                spectrum = np.abs(fft(frame)[: cfg.fft_size // 2]) ** 2
                 spectra.append(spectrum)
 
             return np.mean(spectra, axis=0)
 
         # Single FFT for short signals
-        spectrum = np.abs(fft(signal)[:cfg.fft_size // 2]) ** 2
+        spectrum = np.abs(fft(signal)[: cfg.fft_size // 2]) ** 2
         return spectrum
 
     def _extract_spectral_features(self, signal: np.ndarray) -> SpectralFeatures:
@@ -1119,7 +1135,7 @@ class SpectralVibrationDetector(BaseDetector):
 
         # Compute spectrum
         power_spectrum = self._compute_power_spectrum(signal)
-        freqs = fftfreq(cfg.fft_size, 1 / cfg.sample_rate)[:cfg.fft_size // 2]
+        freqs = fftfreq(cfg.fft_size, 1 / cfg.sample_rate)[: cfg.fft_size // 2]
 
         # Normalize spectrum
         power_spectrum_norm = power_spectrum / (power_spectrum.sum() + 1e-10)
@@ -1127,7 +1143,7 @@ class SpectralVibrationDetector(BaseDetector):
         # Dominant frequencies (peaks)
         peak_indices, _ = scipy_signal.find_peaks(power_spectrum, height=power_spectrum.max() * 0.1)
         dominant_frequencies = [
-            (freqs[i], power_spectrum[i]) for i in peak_indices[:cfg.num_harmonics]
+            (freqs[i], power_spectrum[i]) for i in peak_indices[: cfg.num_harmonics]
         ]
         dominant_frequencies.sort(key=lambda x: -x[1])  # Sort by amplitude
 
@@ -1138,7 +1154,9 @@ class SpectralVibrationDetector(BaseDetector):
         spectral_centroid = np.sum(freqs * power_spectrum_norm)
 
         # Spectral bandwidth
-        spectral_bandwidth = np.sqrt(np.sum(((freqs - spectral_centroid) ** 2) * power_spectrum_norm))
+        spectral_bandwidth = np.sqrt(
+            np.sum(((freqs - spectral_centroid) ** 2) * power_spectrum_norm)
+        )
 
         # Spectral rolloff (95% energy)
         cumsum = np.cumsum(power_spectrum_norm)
@@ -1150,7 +1168,7 @@ class SpectralVibrationDetector(BaseDetector):
         spectral_flatness = np.exp(np.mean(log_spectrum)) / (np.mean(power_spectrum) + 1e-10)
 
         # Crest factor
-        crest_factor = np.max(np.abs(signal)) / (np.sqrt(np.mean(signal ** 2)) + 1e-10)
+        crest_factor = np.max(np.abs(signal)) / (np.sqrt(np.mean(signal**2)) + 1e-10)
 
         # Kurtosis
         kurtosis = scipy_signal.kurtosis(signal) if len(signal) > 4 else 0.0
@@ -1211,7 +1229,7 @@ class SpectralVibrationDetector(BaseDetector):
         while len(ratios) < self._spectral_config.num_harmonics - 1:
             ratios.append(0.0)
 
-        return np.array(ratios[:self._spectral_config.num_harmonics - 1])
+        return np.array(ratios[: self._spectral_config.num_harmonics - 1])
 
     def _compute_phonon_coupling(self, spectrum: np.ndarray) -> float:
         """Compute phonon-like coupling strength.
@@ -1296,7 +1314,7 @@ class SpectralVibrationDetector(BaseDetector):
 
         # Compute smallest eigenvalues
         try:
-            eigenvalues, _ = eigsh(laplacian, k=k, which='SM')
+            eigenvalues, _ = eigsh(laplacian, k=k, which="SM")
             eigenvalues = np.sort(np.real(eigenvalues))
         except Exception:
             eigenvalues = np.zeros(k)
@@ -1323,7 +1341,9 @@ class SpectralVibrationDetector(BaseDetector):
                 spectrum_norm,
                 dtype=torch.float32,
                 device=self.device,
-            ).unsqueeze(0)  # [1, length]
+            ).unsqueeze(
+                0
+            )  # [1, length]
 
             features = self._cnn(spectrum_tensor)
 
@@ -1355,7 +1375,7 @@ class SpectralVibrationDetector(BaseDetector):
             if idx > 0 and idx < len(spectrum) - 1:
                 # Interpolate value at exact Schumann frequency
                 local_max = max(spectrum[idx - 1], spectrum[idx], spectrum[idx + 1])
-                local_mean = np.mean(spectrum[max(0, idx - 5):min(len(spectrum), idx + 6)])
+                local_mean = np.mean(spectrum[max(0, idx - 5) : min(len(spectrum), idx + 6)])
 
                 # Score based on peak prominence
                 if local_mean > 0:
@@ -1431,19 +1451,21 @@ class SpectralVibrationDetector(BaseDetector):
         Returns:
             Flat feature array
         """
-        return np.concatenate([
-            [features.spectral_centroid],
-            [features.spectral_bandwidth],
-            [features.spectral_rolloff],
-            [features.spectral_flatness],
-            [features.crest_factor],
-            [features.kurtosis],
-            [features.phonon_coupling],
-            [features.schumann_alignment],
-            features.harmonic_ratios[:7],  # Pad/truncate to 7
-            features.graph_laplacian_spectrum[:10],  # Top 10 eigenvalues
-            features.cnn_features[:32],  # CNN features
-        ])
+        return np.concatenate(
+            [
+                [features.spectral_centroid],
+                [features.spectral_bandwidth],
+                [features.spectral_rolloff],
+                [features.spectral_flatness],
+                [features.crest_factor],
+                [features.kurtosis],
+                [features.phonon_coupling],
+                [features.schumann_alignment],
+                features.harmonic_ratios[:7],  # Pad/truncate to 7
+                features.graph_laplacian_spectrum[:10],  # Top 10 eigenvalues
+                features.cnn_features[:32],  # CNN features
+            ]
+        )
 
     def _compute_anomaly_score(
         self,
@@ -1464,7 +1486,9 @@ class SpectralVibrationDetector(BaseDetector):
 
         # Compute z-scores against reference
         if self._reference_features_mean is not None:
-            z_scores = (feature_array - self._reference_features_mean) / self._reference_features_std
+            z_scores = (
+                feature_array - self._reference_features_mean
+            ) / self._reference_features_std
             feature_anomaly_score = np.mean(np.abs(z_scores)) / 3.0  # Normalize
         else:
             feature_anomaly_score = 0.5
@@ -1472,8 +1496,8 @@ class SpectralVibrationDetector(BaseDetector):
         # Spectral distance from reference
         if self._reference_spectrum is not None:
             spectral_distance = np.mean(
-                np.abs(features.power_spectrum - self._reference_spectrum) /
-                (self._reference_std + 1e-8)
+                np.abs(features.power_spectrum - self._reference_spectrum)
+                / (self._reference_std + 1e-8)
             )
             spectral_anomaly_score = min(1.0, spectral_distance / 3.0)
         else:
@@ -1492,14 +1516,16 @@ class SpectralVibrationDetector(BaseDetector):
         signature_anomaly = 0.0 if signature_type == VibrationSignatureType.NORMAL else 0.7
 
         combined_score = (
-            w_feature * feature_anomaly_score +
-            w_spectral * spectral_anomaly_score +
-            w_signature * signature_anomaly
+            w_feature * feature_anomaly_score
+            + w_spectral * spectral_anomaly_score
+            + w_signature * signature_anomaly
         )
         combined_score = float(np.clip(combined_score, 0.0, 1.0))
 
         # Create diagnostic
-        diagnostic = self._create_diagnostic(features, signature_type, signature_confidence, combined_score)
+        diagnostic = self._create_diagnostic(
+            features, signature_type, signature_confidence, combined_score
+        )
 
         return combined_score, diagnostic
 
@@ -1639,6 +1665,7 @@ class SpectralVibrationDetector(BaseDetector):
 # Utility Functions
 # =============================================================================
 
+
 def compute_short_time_fourier_transform(
     signal: np.ndarray,
     window_size: int = 256,
@@ -1670,8 +1697,8 @@ def compute_short_time_fourier_transform(
 
     for i in range(num_frames):
         start = i * hop_size
-        frame = signal[start:start + window_size] * window
-        spectrogram[:, i] = fft(frame)[:window_size // 2]
+        frame = signal[start : start + window_size] * window
+        spectrogram[:, i] = fft(frame)[: window_size // 2]
 
     # Create time and frequency axes
     times = np.arange(num_frames) * hop_size
@@ -1758,12 +1785,14 @@ def detect_peaks_with_harmonics(
             harmonic_idx = np.argmin(np.abs(frequencies - harmonic_freq))
 
             if abs(frequencies[harmonic_idx] - harmonic_freq) < fundamental * 0.1:
-                peak_info["harmonics"].append({
-                    "order": h,
-                    "frequency": frequencies[harmonic_idx],
-                    "amplitude": spectrum[harmonic_idx],
-                    "ratio": spectrum[harmonic_idx] / spectrum[idx],
-                })
+                peak_info["harmonics"].append(
+                    {
+                        "order": h,
+                        "frequency": frequencies[harmonic_idx],
+                        "amplitude": spectrum[harmonic_idx],
+                        "ratio": spectrum[harmonic_idx] / spectrum[idx],
+                    }
+                )
 
         peaks.append(peak_info)
 

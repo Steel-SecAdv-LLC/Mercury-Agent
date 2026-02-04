@@ -537,8 +537,7 @@ class TestMultiAgentCoordination:
                 return {"score": np.random.random()}
 
         agents = [
-            SpecializedAgent(agent_id=f"agent_{i}", capabilities=[f"cap_{i % 3}"])
-            for i in range(5)
+            SpecializedAgent(agent_id=f"agent_{i}", capabilities=[f"cap_{i % 3}"]) for i in range(5)
         ]
 
         coalition = Coalition(
@@ -686,7 +685,10 @@ class TestFormalVerification:
 
         safety_constraints = [
             {"name": "require_high_confidence", "condition": "score > 0.7"},
-            {"name": "no_isolate_without_confirmation", "condition": "severity == 'high' => score > 0.8"},
+            {
+                "name": "no_isolate_without_confirmation",
+                "condition": "severity == 'high' => score > 0.8",
+            },
         ]
 
         result = verifier.verify_decision(detection_decision, safety_constraints)
@@ -702,9 +704,7 @@ class TestFormalVerification:
 
         # Perform verifications
         for i in range(3):
-            engine.verify_property(
-                {"name": f"prop_{i}", "condition": "x > 0"}, {"x": i}
-            )
+            engine.verify_property({"name": f"prop_{i}", "condition": "x > 0"}, {"x": i})
 
         stats = engine.get_statistics()
         assert stats["total_verifications"] == 3

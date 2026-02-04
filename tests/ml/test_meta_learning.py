@@ -212,9 +212,7 @@ class TestPrototypicalNetworks:
 
         # Test with different distance metrics
         for metric in ["euclidean", "cosine"]:
-            proto = PrototypicalNetworks(
-                input_dim=10, embedding_dim=8, distance_metric=metric
-            )
+            proto = PrototypicalNetworks(input_dim=10, embedding_dim=8, distance_metric=metric)
 
             support_set = {
                 "a": np.random.randn(3, 10),
@@ -544,9 +542,7 @@ class TestMetaLearningEpisodes:
         )
 
         # Evaluate on N-way K-shot tasks
-        dataset = {
-            f"class_{i}": np.random.randn(30, 10) + i for i in range(5)
-        }
+        dataset = {f"class_{i}": np.random.randn(30, 10) + i for i in range(5)}
 
         accuracy = adapter.evaluate_n_way_k_shot(
             dataset,

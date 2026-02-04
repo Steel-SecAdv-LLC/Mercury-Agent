@@ -75,11 +75,13 @@ class TestSpectralVibrationDetector:
         duration = 1.0
         t = np.linspace(0, duration, int(sample_rate * duration))
 
-        signals = np.array([
-            np.sin(2 * np.pi * 100 * t),
-            np.sin(2 * np.pi * 150 * t),
-            np.sin(2 * np.pi * 200 * t),
-        ])
+        signals = np.array(
+            [
+                np.sin(2 * np.pi * 100 * t),
+                np.sin(2 * np.pi * 150 * t),
+                np.sin(2 * np.pi * 200 * t),
+            ]
+        )
 
         detector.fit(signals)
         assert detector.is_fitted()
@@ -172,10 +174,12 @@ class TestSpectralGraphLayer:
         node_features = torch.randn(num_nodes, 8)
 
         # Create simple edge connectivity
-        edge_index = torch.tensor([
-            [0, 1, 2, 3, 4],
-            [1, 2, 3, 4, 5],
-        ])
+        edge_index = torch.tensor(
+            [
+                [0, 1, 2, 3, 4],
+                [1, 2, 3, 4, 5],
+            ]
+        )
         edge_type = torch.zeros(5, dtype=torch.long)
 
         output = layer(node_features, edge_index, edge_type)
@@ -330,9 +334,7 @@ class TestUtilityFunctions:
         # Add some noise
         spectrum += np.random.randn(512) * 0.05
 
-        peaks = detect_peaks_with_harmonics(
-            spectrum, freqs, num_harmonics=3, min_prominence=0.1
-        )
+        peaks = detect_peaks_with_harmonics(spectrum, freqs, num_harmonics=3, min_prominence=0.1)
 
         assert len(peaks) > 0
         # First peak should be the fundamental

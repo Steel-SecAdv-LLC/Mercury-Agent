@@ -39,14 +39,16 @@ def create_test_interactions(count: int = 30) -> list[UserInteraction]:
     """Create test user interactions."""
     interactions = []
     for i in range(count):
-        interactions.append(UserInteraction(
-            timestamp=i * 0.5,
-            interaction_type=InteractionType.CLICK,
-            x=100 + i * 10,
-            y=200 + i * 5,
-            element_id=f"element_{i % 5}",
-            page_url=f"/page_{i % 3}",
-        ))
+        interactions.append(
+            UserInteraction(
+                timestamp=i * 0.5,
+                interaction_type=InteractionType.CLICK,
+                x=100 + i * 10,
+                y=200 + i * 5,
+                element_id=f"element_{i % 5}",
+                page_url=f"/page_{i % 3}",
+            )
+        )
     return interactions
 
 
@@ -91,9 +93,11 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_fit_time_series(self) -> None:
         """Test fitting on time series data."""
-        detector = AdvancedPhysicsIntegratedDetector({
-            "enabled_detectors": ["spectral_vibration", "acceleration_dynamics"],
-        })
+        detector = AdvancedPhysicsIntegratedDetector(
+            {
+                "enabled_detectors": ["spectral_vibration", "acceleration_dynamics"],
+            }
+        )
 
         signal = create_test_time_series()
         detector.fit(signal, data_type="time_series")
@@ -105,9 +109,11 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_fit_interactions(self) -> None:
         """Test fitting on user interactions."""
-        detector = AdvancedPhysicsIntegratedDetector({
-            "enabled_detectors": ["uiux_anomaly"],
-        })
+        detector = AdvancedPhysicsIntegratedDetector(
+            {
+                "enabled_detectors": ["uiux_anomaly"],
+            }
+        )
 
         interactions = create_test_interactions(count=50)
         detector.fit(interactions, data_type="interactions")
@@ -118,9 +124,11 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_fit_mixed_data(self) -> None:
         """Test fitting on mixed data types."""
-        detector = AdvancedPhysicsIntegratedDetector({
-            "enabled_detectors": ["all"],
-        })
+        detector = AdvancedPhysicsIntegratedDetector(
+            {
+                "enabled_detectors": ["all"],
+            }
+        )
 
         mixed_data = {
             "time_series": create_test_time_series(),
@@ -132,10 +140,12 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_detect_time_series(self) -> None:
         """Test detection on time series."""
-        detector = AdvancedPhysicsIntegratedDetector({
-            "enabled_detectors": ["spectral_vibration", "acceleration_dynamics"],
-            "threshold": 0.6,
-        })
+        detector = AdvancedPhysicsIntegratedDetector(
+            {
+                "enabled_detectors": ["spectral_vibration", "acceleration_dynamics"],
+                "threshold": 0.6,
+            }
+        )
 
         train_signal = create_test_time_series()
         detector.fit(train_signal, data_type="time_series")
@@ -152,10 +162,12 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_detect_with_3r_enhancement(self) -> None:
         """Test detection with 3R enhancement."""
-        detector = AdvancedPhysicsIntegratedDetector({
-            "enabled_detectors": ["spectral_vibration", "acceleration_dynamics"],
-            "use_3r_enhancement": True,
-        })
+        detector = AdvancedPhysicsIntegratedDetector(
+            {
+                "enabled_detectors": ["spectral_vibration", "acceleration_dynamics"],
+                "use_3r_enhancement": True,
+            }
+        )
 
         signal = create_test_time_series()
         detector.fit(signal, data_type="time_series")
@@ -167,10 +179,12 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_detect_with_gosnn_scaling(self) -> None:
         """Test detection with GOSNN ethical scaling."""
-        detector = AdvancedPhysicsIntegratedDetector({
-            "enabled_detectors": ["all"],
-            "use_gosnn_scaling": True,
-        })
+        detector = AdvancedPhysicsIntegratedDetector(
+            {
+                "enabled_detectors": ["all"],
+                "use_gosnn_scaling": True,
+            }
+        )
 
         mixed_data = {
             "time_series": create_test_time_series(),
@@ -196,9 +210,11 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_extract_features(self) -> None:
         """Test feature extraction."""
-        detector = AdvancedPhysicsIntegratedDetector({
-            "enabled_detectors": ["spectral_vibration", "acceleration_dynamics"],
-        })
+        detector = AdvancedPhysicsIntegratedDetector(
+            {
+                "enabled_detectors": ["spectral_vibration", "acceleration_dynamics"],
+            }
+        )
 
         signal = create_test_time_series()
         detector.fit(signal, data_type="time_series")
@@ -208,9 +224,11 @@ class TestAdvancedPhysicsIntegratedDetector:
 
     def test_get_detector_status(self) -> None:
         """Test getting detector status."""
-        detector = AdvancedPhysicsIntegratedDetector({
-            "enabled_detectors": ["spectral_vibration"],
-        })
+        detector = AdvancedPhysicsIntegratedDetector(
+            {
+                "enabled_detectors": ["spectral_vibration"],
+            }
+        )
 
         status = detector.get_detector_status()
         assert "spectral_vibration" in status
@@ -313,10 +331,12 @@ class TestFactoryFunctions:
         detector = create_integrated_detector()
         assert detector is not None
 
-        detector_with_config = create_integrated_detector({
-            "enabled_detectors": ["spectral_vibration"],
-            "threshold": 0.8,
-        })
+        detector_with_config = create_integrated_detector(
+            {
+                "enabled_detectors": ["spectral_vibration"],
+                "threshold": 0.8,
+            }
+        )
         assert detector_with_config.threshold == 0.8
 
 
@@ -325,13 +345,15 @@ class TestIntegrationScenarios:
 
     def test_predictive_maintenance_scenario(self) -> None:
         """Test predictive maintenance scenario with spectral analysis."""
-        detector = AdvancedPhysicsIntegratedDetector({
-            "enabled_detectors": ["spectral_vibration"],
-            "spectral_config": {
-                "sample_rate": 10000,
-                "fft_size": 2048,
-            },
-        })
+        detector = AdvancedPhysicsIntegratedDetector(
+            {
+                "enabled_detectors": ["spectral_vibration"],
+                "spectral_config": {
+                    "sample_rate": 10000,
+                    "fft_size": 2048,
+                },
+            }
+        )
 
         # Simulate normal vibration signal
         t = np.linspace(0, 1, 10000)
@@ -351,12 +373,14 @@ class TestIntegrationScenarios:
 
     def test_system_monitoring_scenario(self) -> None:
         """Test system monitoring scenario with dynamics analysis."""
-        detector = AdvancedPhysicsIntegratedDetector({
-            "enabled_detectors": ["acceleration_dynamics"],
-            "dynamics_config": {
-                "time_step": 1.0,  # 1 second intervals
-            },
-        })
+        detector = AdvancedPhysicsIntegratedDetector(
+            {
+                "enabled_detectors": ["acceleration_dynamics"],
+                "dynamics_config": {
+                    "time_step": 1.0,  # 1 second intervals
+                },
+            }
+        )
 
         # Simulate normal metric behavior
         t = np.arange(1000)
@@ -376,33 +400,39 @@ class TestIntegrationScenarios:
 
     def test_user_experience_scenario(self) -> None:
         """Test user experience monitoring scenario."""
-        detector = AdvancedPhysicsIntegratedDetector({
-            "enabled_detectors": ["uiux_anomaly"],
-        })
+        detector = AdvancedPhysicsIntegratedDetector(
+            {
+                "enabled_detectors": ["uiux_anomaly"],
+            }
+        )
 
         # Normal user session
         normal_interactions = []
         for i in range(50):
-            normal_interactions.append(UserInteraction(
-                timestamp=i * (0.5 + 0.3 * np.random.rand()),
-                interaction_type=InteractionType.CLICK if i % 3 else InteractionType.SCROLL,
-                x=100 + np.random.randint(0, 1000),
-                y=100 + np.random.randint(0, 500),
-                page_url=f"/page_{i % 5}",
-            ))
+            normal_interactions.append(
+                UserInteraction(
+                    timestamp=i * (0.5 + 0.3 * np.random.rand()),
+                    interaction_type=InteractionType.CLICK if i % 3 else InteractionType.SCROLL,
+                    x=100 + np.random.randint(0, 1000),
+                    y=100 + np.random.randint(0, 500),
+                    page_url=f"/page_{i % 5}",
+                )
+            )
 
         detector.fit(normal_interactions, data_type="interactions")
 
         # Frustrated user session (rage clicks)
         frustrated_interactions = []
         for i in range(30):
-            frustrated_interactions.append(UserInteraction(
-                timestamp=i * 0.1,  # Very fast
-                interaction_type=InteractionType.CLICK,
-                x=500,
-                y=300,
-                page_url="/stuck_page",
-            ))
+            frustrated_interactions.append(
+                UserInteraction(
+                    timestamp=i * 0.1,  # Very fast
+                    interaction_type=InteractionType.CLICK,
+                    x=500,
+                    y=300,
+                    page_url="/stuck_page",
+                )
+            )
 
         result = detector.detect(frustrated_interactions, data_type="interactions")
 
@@ -411,12 +441,14 @@ class TestIntegrationScenarios:
 
     def test_full_system_integration(self) -> None:
         """Test full system with all detectors and 3R enhancement."""
-        detector = AdvancedPhysicsIntegratedDetector({
-            "enabled_detectors": ["all"],
-            "use_3r_enhancement": True,
-            "use_gosnn_scaling": True,
-            "ethical_compliance_threshold": 0.96,
-        })
+        detector = AdvancedPhysicsIntegratedDetector(
+            {
+                "enabled_detectors": ["all"],
+                "use_3r_enhancement": True,
+                "use_gosnn_scaling": True,
+                "ethical_compliance_threshold": 0.96,
+            }
+        )
 
         # Mixed training data
         train_data = {

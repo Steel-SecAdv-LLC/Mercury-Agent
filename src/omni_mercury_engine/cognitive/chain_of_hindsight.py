@@ -439,9 +439,7 @@ class HindsightRelabeler:
             reasoning=f"Step had negative credit ({credit:.3f}), suggesting {best_alt} might be better",
         )
 
-    def _find_optimal_alternative(
-        self, step: SequenceStep, sequence: HistoricalSequence
-    ) -> str:
+    def _find_optimal_alternative(self, step: SequenceStep, sequence: HistoricalSequence) -> str:
         """Find optimal alternative action based on outcome."""
         outcome = sequence.outcome.lower()
 
@@ -486,9 +484,7 @@ class FeedbackProcessor:
             FeedbackQuality.TERRIBLE: 1.0,  # Strong signal
         }
 
-    def process_sequence(
-        self, sequence: HistoricalSequence
-    ) -> list[LearningSignal]:
+    def process_sequence(self, sequence: HistoricalSequence) -> list[LearningSignal]:
         """Process sequence to generate learning signals.
 
         Args:
@@ -558,9 +554,7 @@ class FeedbackProcessor:
             feedback_context=step.feedback or str(step.reward),
         )
 
-    def aggregate_signals(
-        self, signals: list[LearningSignal]
-    ) -> dict[str, list[LearningSignal]]:
+    def aggregate_signals(self, signals: list[LearningSignal]) -> dict[str, list[LearningSignal]]:
         """Aggregate signals by pattern.
 
         Args:
@@ -749,7 +743,11 @@ class ChainOfHindsightEngine:
                     "features": det.get("features", {}),
                     "anomaly_score": det.get("anomaly_score", 0.5),
                 },
-                output_action="anomaly_detected" if det.get("anomaly_score", 0.5) > 0.5 else "normal_classified",
+                output_action=(
+                    "anomaly_detected"
+                    if det.get("anomaly_score", 0.5) > 0.5
+                    else "normal_classified"
+                ),
                 feedback=feedback,
                 reward=reward,
                 confidence=abs(det.get("anomaly_score", 0.5) - 0.5) * 2,
@@ -816,8 +814,7 @@ class ChainOfHindsightEngine:
         """
         # Find relevant policy updates
         relevant_updates = [
-            u for u in self._policy_updates
-            if self._context_matches(context, u.context_pattern)
+            u for u in self._policy_updates if self._context_matches(context, u.context_pattern)
         ]
 
         if not relevant_updates:
@@ -953,6 +950,7 @@ class ChainOfHindsightEngine:
             return None
 
         from collections import Counter
+
         pos_counter = Counter(positive_actions)
         neg_counter = Counter(negative_actions)
 
@@ -1041,19 +1039,19 @@ class ChainOfHindsightEngine:
 
         for update in self._policy_updates:
             if update.confidence > 0.7 and update.evidence_count > 5:
-                patterns.append({
-                    "pattern": update.context_pattern,
-                    "change": f"{update.old_behavior} -> {update.new_behavior}",
-                    "confidence": update.confidence,
-                    "evidence": update.evidence_count,
-                })
+                patterns.append(
+                    {
+                        "pattern": update.context_pattern,
+                        "change": f"{update.old_behavior} -> {update.new_behavior}",
+                        "confidence": update.confidence,
+                        "evidence": update.evidence_count,
+                    }
+                )
 
         patterns.sort(key=lambda x: x["confidence"] * x["evidence"], reverse=True)
         return patterns[:10]
 
-    def _update_stats(
-        self, sequence: HistoricalSequence, signals: list[LearningSignal]
-    ) -> None:
+    def _update_stats(self, sequence: HistoricalSequence, signals: list[LearningSignal]) -> None:
         """Update engine statistics."""
         self._stats["sequences_recorded"] += 1
         self._stats["signals_generated"] += len(signals)
@@ -1061,14 +1059,18 @@ class ChainOfHindsightEngine:
         # Update averages
         n = self._stats["sequences_recorded"]
         self._stats["avg_sequence_length"] = (
-            (self._stats["avg_sequence_length"] * (n - 1) + len(sequence)) / n
-        )
+            self._stats["avg_sequence_length"] * (n - 1) + len(sequence)
+        ) / n
 
         # Update positive feedback ratio
-        positive = 1 if sequence.feedback_quality in [FeedbackQuality.GOOD, FeedbackQuality.EXCELLENT] else 0
-        self._stats["positive_feedback_ratio"] = (
-            (self._stats["positive_feedback_ratio"] * (n - 1) + positive) / n
+        positive = (
+            1
+            if sequence.feedback_quality in [FeedbackQuality.GOOD, FeedbackQuality.EXCELLENT]
+            else 0
         )
+        self._stats["positive_feedback_ratio"] = (
+            self._stats["positive_feedback_ratio"] * (n - 1) + positive
+        ) / n
 
     def get_statistics(self) -> dict[str, Any]:
         """Get engine statistics."""
@@ -1135,7 +1137,8 @@ class AnomalyChainOfHindsight:
 
         # Determine outcome
         correct = sum(
-            1 for det, truth in zip(self._current_batch, self._current_truths)
+            1
+            for det, truth in zip(self._current_batch, self._current_truths)
             if truth is not None and (det.get("anomaly_score", 0.5) > 0.5) == truth
         )
         total = sum(1 for t in self._current_truths if t is not None)
@@ -1152,9 +1155,7 @@ class AnomalyChainOfHindsight:
             outcome = "unlabeled_batch"
 
         # Record sequence
-        self.engine.record_detection_sequence(
-            self._current_batch, self._current_truths, outcome
-        )
+        self.engine.record_detection_sequence(self._current_batch, self._current_truths, outcome)
 
         # Clear batch
         self._current_batch = []

@@ -105,6 +105,7 @@ class EnergyState(Enum):
 # Configuration and Result Dataclasses
 # =============================================================================
 
+
 @dataclass
 class AccelerationDynamicsConfig:
     """Configuration for acceleration dynamics analysis.
@@ -233,6 +234,7 @@ class AccelerationAnomalyResult:
 # =============================================================================
 # Neural Network Components
 # =============================================================================
+
 
 class MotionEncoder(nn.Module):
     """Neural network encoder for motion feature extraction.
@@ -454,6 +456,7 @@ class EnergyConservationNetwork(nn.Module):
 # Main Acceleration Dynamics Detector
 # =============================================================================
 
+
 class AccelerationDynamicsDetector(BaseDetector):
     """Physics-based acceleration dynamics anomaly detector.
 
@@ -558,9 +561,7 @@ class AccelerationDynamicsDetector(BaseDetector):
             data = data.cpu().numpy()
 
         if data.size == 0:
-            raise DetectorException(
-                "Cannot fit AccelerationDynamicsDetector with empty data."
-            )
+            raise DetectorException("Cannot fit AccelerationDynamicsDetector with empty data.")
 
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -633,7 +634,11 @@ class AccelerationDynamicsDetector(BaseDetector):
 
         # Aggregate
         mean_score = float(np.mean(all_scores))
-        primary_result = all_results[0] if len(all_results) == 1 else max(all_results, key=lambda r: r.anomaly_score)
+        primary_result = (
+            all_results[0]
+            if len(all_results) == 1
+            else max(all_results, key=lambda r: r.anomaly_score)
+        )
 
         # Auto-calibration
         effective_threshold = self.threshold
@@ -695,13 +700,18 @@ class AccelerationDynamicsDetector(BaseDetector):
             # Extract neural features
             with torch.no_grad():
                 # Prepare kinematic sequence
-                kin_seq = np.stack([
-                    kin_features.position,
-                    kin_features.velocity,
-                    kin_features.acceleration,
-                    kin_features.jerk,
-                ], axis=-1)
-                kin_tensor = torch.tensor(kin_seq, dtype=torch.float32, device=self.device).unsqueeze(0)
+                kin_seq = np.stack(
+                    [
+                        kin_features.position,
+                        kin_features.velocity,
+                        kin_features.acceleration,
+                        kin_features.jerk,
+                    ],
+                    axis=-1,
+                )
+                kin_tensor = torch.tensor(
+                    kin_seq, dtype=torch.float32, device=self.device
+                ).unsqueeze(0)
                 motion_features = self._motion_encoder(kin_tensor).cpu().numpy().flatten()
 
                 # Prepare phase space sequence
@@ -714,26 +724,28 @@ class AccelerationDynamicsDetector(BaseDetector):
                 phase_nn_features = phase_nn_features.cpu().numpy().flatten()
 
             # Combine all features
-            combined = np.concatenate([
-                # Kinematic statistics
-                [kin_features.mean_velocity],
-                [kin_features.mean_acceleration],
-                [kin_features.max_jerk],
-                [np.std(kin_features.velocity)],
-                [np.std(kin_features.acceleration)],
-                # Energy features
-                [np.mean(kin_features.kinetic_energy)],
-                [np.std(kin_features.total_energy)],
-                # Phase space features
-                [phase_features.lyapunov_exponent],
-                [phase_features.correlation_dimension],
-                [phase_features.entropy],
-                [phase_features.recurrence_rate],
-                [phase_features.determinism],
-                # Neural features
-                motion_features,
-                phase_nn_features,
-            ])
+            combined = np.concatenate(
+                [
+                    # Kinematic statistics
+                    [kin_features.mean_velocity],
+                    [kin_features.mean_acceleration],
+                    [kin_features.max_jerk],
+                    [np.std(kin_features.velocity)],
+                    [np.std(kin_features.acceleration)],
+                    # Energy features
+                    [np.mean(kin_features.kinetic_energy)],
+                    [np.std(kin_features.total_energy)],
+                    # Phase space features
+                    [phase_features.lyapunov_exponent],
+                    [phase_features.correlation_dimension],
+                    [phase_features.entropy],
+                    [phase_features.recurrence_rate],
+                    [phase_features.determinism],
+                    # Neural features
+                    motion_features,
+                    phase_nn_features,
+                ]
+            )
 
             all_features.append(combined)
 
@@ -775,11 +787,11 @@ class AccelerationDynamicsDetector(BaseDetector):
         }
 
         combined_score = (
-            weights["velocity"] * velocity_score +
-            weights["acceleration"] * accel_score +
-            weights["jerk"] * jerk_score +
-            weights["energy"] * energy_score +
-            weights["chaos"] * chaos_score
+            weights["velocity"] * velocity_score
+            + weights["acceleration"] * accel_score
+            + weights["jerk"] * jerk_score
+            + weights["energy"] * energy_score
+            + weights["chaos"] * chaos_score
         )
         combined_score = float(np.clip(combined_score, 0.0, 1.0))
 
@@ -826,20 +838,22 @@ class AccelerationDynamicsDetector(BaseDetector):
 
         # Smooth velocity
         if cfg.velocity_window > 1:
-            velocity = uniform_filter1d(velocity, size=cfg.velocity_window, mode='nearest')
+            velocity = uniform_filter1d(velocity, size=cfg.velocity_window, mode="nearest")
 
         # Acceleration: a = dv/dt
         acceleration = np.gradient(velocity, dt)
 
         # Smooth acceleration
         if cfg.acceleration_window > 1:
-            acceleration = uniform_filter1d(acceleration, size=cfg.acceleration_window, mode='nearest')
+            acceleration = uniform_filter1d(
+                acceleration, size=cfg.acceleration_window, mode="nearest"
+            )
 
         # Jerk: j = da/dt
         jerk = np.gradient(acceleration, dt)
 
         # Kinetic Energy: KE = ½mv²
-        kinetic_energy = 0.5 * m * velocity ** 2
+        kinetic_energy = 0.5 * m * velocity**2
 
         # Potential Energy: Estimate from position (assume spring-like: PE = ½kx²)
         # Use reference mean as equilibrium
@@ -1122,7 +1136,9 @@ class AccelerationDynamicsDetector(BaseDetector):
         distances = np.array(distances)
 
         # Correlation sum for different radii
-        radii = np.logspace(np.log10(np.min(distances[distances > 0])), np.log10(np.max(distances)), 10)
+        radii = np.logspace(
+            np.log10(np.min(distances[distances > 0])), np.log10(np.max(distances)), 10
+        )
         correlations = []
 
         for r in radii:
@@ -1278,7 +1294,9 @@ class AccelerationDynamicsDetector(BaseDetector):
         Returns:
             Velocity anomaly score [0, 1]
         """
-        z_scores = (features.velocity - self._reference_velocity_mean) / self._reference_velocity_std
+        z_scores = (
+            features.velocity - self._reference_velocity_mean
+        ) / self._reference_velocity_std
         max_z = np.max(np.abs(z_scores))
         return float(np.clip(max_z / 3.0, 0.0, 1.0))
 
@@ -1291,7 +1309,9 @@ class AccelerationDynamicsDetector(BaseDetector):
         Returns:
             Acceleration anomaly score [0, 1]
         """
-        z_scores = (features.acceleration - self._reference_acceleration_mean) / self._reference_acceleration_std
+        z_scores = (
+            features.acceleration - self._reference_acceleration_mean
+        ) / self._reference_acceleration_std
         max_z = np.max(np.abs(z_scores))
         return float(np.clip(max_z / 3.0, 0.0, 1.0))
 
@@ -1378,19 +1398,27 @@ class AccelerationDynamicsDetector(BaseDetector):
         descriptions = []
 
         # Check for velocity anomalies
-        v_z = np.abs(kin_features.velocity - self._reference_velocity_mean) / self._reference_velocity_std
+        v_z = (
+            np.abs(kin_features.velocity - self._reference_velocity_mean)
+            / self._reference_velocity_std
+        )
         v_anomaly_idx = np.where(v_z > 3.0)[0]
         for idx in v_anomaly_idx[:5]:  # Limit to 5
             timestamps.append(int(idx))
             descriptions.append(f"Anomalous velocity at t={idx}: {kin_features.velocity[idx]:.4f}")
 
         # Check for acceleration anomalies
-        a_z = np.abs(kin_features.acceleration - self._reference_acceleration_mean) / self._reference_acceleration_std
+        a_z = (
+            np.abs(kin_features.acceleration - self._reference_acceleration_mean)
+            / self._reference_acceleration_std
+        )
         a_anomaly_idx = np.where(a_z > 3.0)[0]
         for idx in a_anomaly_idx[:5]:
             if idx not in timestamps:
                 timestamps.append(int(idx))
-                descriptions.append(f"Anomalous acceleration at t={idx}: {kin_features.acceleration[idx]:.4f}")
+                descriptions.append(
+                    f"Anomalous acceleration at t={idx}: {kin_features.acceleration[idx]:.4f}"
+                )
 
         # Check for jerk spikes
         j_z = np.abs(kin_features.jerk - self._reference_jerk_mean) / self._reference_jerk_std
@@ -1421,6 +1449,7 @@ class AccelerationDynamicsDetector(BaseDetector):
 # =============================================================================
 # Utility Functions
 # =============================================================================
+
 
 def compute_velocity(
     position: np.ndarray,
@@ -1486,7 +1515,7 @@ def compute_kinetic_energy(
     Returns:
         Kinetic energy array
     """
-    return 0.5 * mass * velocity ** 2
+    return 0.5 * mass * velocity**2
 
 
 def compute_momentum(

@@ -134,10 +134,12 @@ class TestUIUXAnomalyDetector:
 
     def test_detect_rage_clicks(self) -> None:
         """Test detection of rage clicks."""
-        detector = UIUXAnomalyDetector({
-            "rage_click_threshold": 0.2,
-            "rage_click_count": 3,
-        })
+        detector = UIUXAnomalyDetector(
+            {
+                "rage_click_threshold": 0.2,
+                "rage_click_count": 3,
+            }
+        )
 
         # Train on normal interactions
         train_interactions = create_test_interactions(count=50, time_gap=1.0)
@@ -149,21 +151,27 @@ class TestUIUXAnomalyDetector:
 
         # Normal interactions
         for i in range(10):
-            rage_interactions.append(UserInteraction(
-                timestamp=base_time + i,
-                interaction_type=InteractionType.CLICK,
-                x=100, y=100,
-                element_id="button",
-            ))
+            rage_interactions.append(
+                UserInteraction(
+                    timestamp=base_time + i,
+                    interaction_type=InteractionType.CLICK,
+                    x=100,
+                    y=100,
+                    element_id="button",
+                )
+            )
 
         # Rage click sequence (5 clicks in 0.5 seconds)
         for i in range(5):
-            rage_interactions.append(UserInteraction(
-                timestamp=base_time + 10 + i * 0.1,
-                interaction_type=InteractionType.CLICK,
-                x=500, y=300,
-                element_id="slow_button",
-            ))
+            rage_interactions.append(
+                UserInteraction(
+                    timestamp=base_time + 10 + i * 0.1,
+                    interaction_type=InteractionType.CLICK,
+                    x=500,
+                    y=300,
+                    element_id="slow_button",
+                )
+            )
 
         result = detector.detect(rage_interactions)
         click_analysis = result["click_analysis"]
@@ -172,28 +180,34 @@ class TestUIUXAnomalyDetector:
 
     def test_detect_rapid_scrolling(self) -> None:
         """Test detection of rapid scrolling."""
-        detector = UIUXAnomalyDetector({
-            "scroll_velocity_threshold": 1000.0,
-        })
+        detector = UIUXAnomalyDetector(
+            {
+                "scroll_velocity_threshold": 1000.0,
+            }
+        )
 
         # Train on normal scrolling
         train_interactions = []
         for i in range(30):
-            train_interactions.append(UserInteraction(
-                timestamp=i * 0.5,
-                interaction_type=InteractionType.SCROLL,
-                scroll_delta=100,
-            ))
+            train_interactions.append(
+                UserInteraction(
+                    timestamp=i * 0.5,
+                    interaction_type=InteractionType.SCROLL,
+                    scroll_delta=100,
+                )
+            )
         detector.fit(train_interactions)
 
         # Test with rapid scrolling
         rapid_scrolls = []
         for i in range(10):
-            rapid_scrolls.append(UserInteraction(
-                timestamp=i * 0.05,  # Very fast
-                interaction_type=InteractionType.SCROLL,
-                scroll_delta=500,
-            ))
+            rapid_scrolls.append(
+                UserInteraction(
+                    timestamp=i * 0.05,  # Very fast
+                    interaction_type=InteractionType.SCROLL,
+                    scroll_delta=500,
+                )
+            )
 
         result = detector.detect(rapid_scrolls)
         scroll_analysis = result["scroll_analysis"]
@@ -201,9 +215,11 @@ class TestUIUXAnomalyDetector:
 
     def test_detect_navigation_loop(self) -> None:
         """Test detection of navigation loops."""
-        detector = UIUXAnomalyDetector({
-            "navigation_loop_threshold": 3,
-        })
+        detector = UIUXAnomalyDetector(
+            {
+                "navigation_loop_threshold": 3,
+            }
+        )
 
         # Train
         train_interactions = create_test_interactions(count=30)
@@ -213,11 +229,13 @@ class TestUIUXAnomalyDetector:
         loop_interactions = []
         pages = ["/home", "/products", "/home", "/products", "/home", "/products"]
         for i, page in enumerate(pages):
-            loop_interactions.append(UserInteraction(
-                timestamp=i * 2.0,
-                interaction_type=InteractionType.PAGE_VIEW,
-                page_url=page,
-            ))
+            loop_interactions.append(
+                UserInteraction(
+                    timestamp=i * 2.0,
+                    interaction_type=InteractionType.PAGE_VIEW,
+                    page_url=page,
+                )
+            )
 
         result = detector.detect(loop_interactions)
         nav_analysis = result["navigation_analysis"]
@@ -225,31 +243,37 @@ class TestUIUXAnomalyDetector:
 
     def test_detect_bot_behavior(self) -> None:
         """Test detection of bot-like behavior."""
-        detector = UIUXAnomalyDetector({
-            "bot_detection_threshold": 0.6,
-        })
+        detector = UIUXAnomalyDetector(
+            {
+                "bot_detection_threshold": 0.6,
+            }
+        )
 
         # Train on human-like interactions (variable timing)
         train_interactions = []
         np.random.seed(42)
         for i in range(30):
-            train_interactions.append(UserInteraction(
-                timestamp=i * (0.5 + np.random.rand() * 0.5),
-                interaction_type=InteractionType.CLICK,
-                x=100 + np.random.randint(-10, 10),
-                y=100 + np.random.randint(-10, 10),
-            ))
+            train_interactions.append(
+                UserInteraction(
+                    timestamp=i * (0.5 + np.random.rand() * 0.5),
+                    interaction_type=InteractionType.CLICK,
+                    x=100 + np.random.randint(-10, 10),
+                    y=100 + np.random.randint(-10, 10),
+                )
+            )
         detector.fit(train_interactions)
 
         # Test with bot-like behavior (perfectly regular timing)
         bot_interactions = []
         for i in range(30):
-            bot_interactions.append(UserInteraction(
-                timestamp=i * 0.5,  # Perfectly regular
-                interaction_type=InteractionType.CLICK,
-                x=100 + i,  # Linear movement
-                y=100 + i,
-            ))
+            bot_interactions.append(
+                UserInteraction(
+                    timestamp=i * 0.5,  # Perfectly regular
+                    interaction_type=InteractionType.CLICK,
+                    x=100 + i,  # Linear movement
+                    y=100 + i,
+                )
+            )
 
         result = detector.detect(bot_interactions)
         assert "bot_probability" in result
@@ -399,13 +423,14 @@ class TestUtilityFunctions:
 
         # MT = a + b * log2(D/W + 1)
         import math
+
         expected = a + b * math.log2(distance / target_width + 1)
         assert abs(time - expected) < 1e-10
 
     def test_compute_fitts_law_zero_width(self) -> None:
         """Test Fitts's Law with zero target width."""
         time = compute_fitts_law_time(100.0, 0.0)
-        assert time == float('inf')
+        assert time == float("inf")
 
     def test_detect_rage_clicks_basic(self) -> None:
         """Test basic rage click detection."""
@@ -415,17 +440,21 @@ class TestUtilityFunctions:
         clicks = []
         # Normal clicks
         for i in range(5):
-            clicks.append(UserInteraction(
-                timestamp=base_time + i * 1.0,
-                interaction_type=InteractionType.CLICK,
-            ))
+            clicks.append(
+                UserInteraction(
+                    timestamp=base_time + i * 1.0,
+                    interaction_type=InteractionType.CLICK,
+                )
+            )
 
         # Rage clicks (4 in 0.3 seconds)
         for i in range(4):
-            clicks.append(UserInteraction(
-                timestamp=base_time + 5.0 + i * 0.1,
-                interaction_type=InteractionType.CLICK,
-            ))
+            clicks.append(
+                UserInteraction(
+                    timestamp=base_time + 5.0 + i * 0.1,
+                    interaction_type=InteractionType.CLICK,
+                )
+            )
 
         sequences = detect_rage_clicks(clicks, time_threshold=0.3, count_threshold=3)
 
@@ -437,14 +466,16 @@ class TestUtilityFunctions:
         clicks = []
         # Clicks clustered in top-left
         for i in range(20):
-            clicks.append(UserInteraction(
-                timestamp=i,
-                interaction_type=InteractionType.CLICK,
-                x=100 + np.random.randint(0, 50),
-                y=100 + np.random.randint(0, 50),
-                viewport_width=1920,
-                viewport_height=1080,
-            ))
+            clicks.append(
+                UserInteraction(
+                    timestamp=i,
+                    interaction_type=InteractionType.CLICK,
+                    x=100 + np.random.randint(0, 50),
+                    y=100 + np.random.randint(0, 50),
+                    viewport_width=1920,
+                    viewport_height=1080,
+                )
+            )
 
         heatmap = compute_click_heatmap(clicks, grid_size=10)
 
@@ -455,10 +486,18 @@ class TestUtilityFunctions:
     def test_analyze_navigation_flow(self) -> None:
         """Test navigation flow analysis."""
         interactions = [
-            UserInteraction(timestamp=0, interaction_type=InteractionType.PAGE_VIEW, page_url="/home"),
-            UserInteraction(timestamp=1, interaction_type=InteractionType.PAGE_VIEW, page_url="/products"),
-            UserInteraction(timestamp=2, interaction_type=InteractionType.PAGE_VIEW, page_url="/cart"),
-            UserInteraction(timestamp=3, interaction_type=InteractionType.PAGE_VIEW, page_url="/checkout"),
+            UserInteraction(
+                timestamp=0, interaction_type=InteractionType.PAGE_VIEW, page_url="/home"
+            ),
+            UserInteraction(
+                timestamp=1, interaction_type=InteractionType.PAGE_VIEW, page_url="/products"
+            ),
+            UserInteraction(
+                timestamp=2, interaction_type=InteractionType.PAGE_VIEW, page_url="/cart"
+            ),
+            UserInteraction(
+                timestamp=3, interaction_type=InteractionType.PAGE_VIEW, page_url="/checkout"
+            ),
         ]
 
         flow = analyze_navigation_flow(interactions)

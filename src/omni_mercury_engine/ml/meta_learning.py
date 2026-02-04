@@ -699,8 +699,8 @@ class MAML:
         improvement = post_acc - pre_acc
         n = self._stats["tasks_adapted"]
         self._stats["avg_adaptation_improvement"] = (
-            (self._stats["avg_adaptation_improvement"] * (n - 1) + improvement) / n
-        )
+            self._stats["avg_adaptation_improvement"] * (n - 1) + improvement
+        ) / n
 
         return AdaptationResult(
             task_id=task.task_id,
@@ -818,9 +818,8 @@ class Reptile:
 
             # Reptile update: interpolate towards adapted params
             for key in self.maml.params:
-                self.maml.params[key] = (
-                    self.maml.params[key]
-                    + self.maml.outer_lr * (adapted_params[key] - self.maml.params[key])
+                self.maml.params[key] = self.maml.params[key] + self.maml.outer_lr * (
+                    adapted_params[key] - self.maml.params[key]
                 )
 
             # Compute loss for monitoring
@@ -987,8 +986,8 @@ class MetaLearningAdapter:
         self._stats["adaptations_performed"] += 1
         n = self._stats["adaptations_performed"]
         self._stats["avg_post_adaptation_acc"] = (
-            (self._stats["avg_post_adaptation_acc"] * (n - 1) + result.post_adaptation_accuracy) / n
-        )
+            self._stats["avg_post_adaptation_acc"] * (n - 1) + result.post_adaptation_accuracy
+        ) / n
 
         return result
 
@@ -1016,7 +1015,11 @@ class MetaLearningAdapter:
             # Use current model
             probs = self._learner.maml._forward(
                 features.reshape(1, -1),
-                self._learner.maml.params if isinstance(self._learner, Reptile) else self._learner.params,
+                (
+                    self._learner.maml.params
+                    if isinstance(self._learner, Reptile)
+                    else self._learner.params
+                ),
             )[0]
             return int(probs.argmax()), probs
         else:

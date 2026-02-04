@@ -760,9 +760,7 @@ class ChainOfThoughtEngine:
         for sp in sorted_subproblems:
             # Build context with solved prerequisites
             sp_context = context.copy()
-            sp_context["solved"] = {
-                dep: solutions.get(dep, "unknown") for dep in sp.dependencies
-            }
+            sp_context["solved"] = {dep: solutions.get(dep, "unknown") for dep in sp.dependencies}
 
             # Analyze sub-problem
             analysis_thought = self.thought_generator.generate_thought(
@@ -999,9 +997,7 @@ class ChainOfThoughtEngine:
 
         return "patterns requiring further analysis"
 
-    def _generate_inferences(
-        self, context: dict[str, Any], parent: Thought
-    ) -> list[Thought]:
+    def _generate_inferences(self, context: dict[str, Any], parent: Thought) -> list[Thought]:
         """Generate inference thoughts based on context."""
         inferences = []
 
@@ -1039,7 +1035,9 @@ class ChainOfThoughtEngine:
 
     def _synthesize_thoughts(self, thoughts: list[Thought]) -> str:
         """Synthesize multiple thoughts into a summary."""
-        key_findings = [t.content[:50] for t in thoughts if t.thought_type != ThoughtType.OBSERVATION]
+        key_findings = [
+            t.content[:50] for t in thoughts if t.thought_type != ThoughtType.OBSERVATION
+        ]
         if key_findings:
             return f"Combining {len(key_findings)} findings into unified assessment"
         return "Synthesizing available evidence"
@@ -1085,9 +1083,7 @@ class ChainOfThoughtEngine:
             all_answers=dict(counter),
         )
 
-    def _decompose_problem(
-        self, problem: str, context: dict[str, Any]
-    ) -> list[SubProblem]:
+    def _decompose_problem(self, problem: str, context: dict[str, Any]) -> list[SubProblem]:
         """Decompose problem into sub-problems."""
         subproblems = []
 
@@ -1215,12 +1211,10 @@ class ChainOfThoughtEngine:
 
         # Update averages
         n = self._stats["chains_generated"]
-        self._stats["avg_depth"] = (
-            (self._stats["avg_depth"] * (n - 1) + chain.reasoning_depth) / n
-        )
+        self._stats["avg_depth"] = (self._stats["avg_depth"] * (n - 1) + chain.reasoning_depth) / n
         self._stats["avg_confidence"] = (
-            (self._stats["avg_confidence"] * (n - 1) + chain.overall_confidence) / n
-        )
+            self._stats["avg_confidence"] * (n - 1) + chain.overall_confidence
+        ) / n
 
     def get_statistics(self) -> dict[str, Any]:
         """Get engine statistics."""
@@ -1302,9 +1296,7 @@ class AnomalyChainOfThought:
 
         # Default reasoning
         problem = f"Analyze potential {domain} anomaly (score: {anomaly_score:.3f})"
-        return self.cot_engine.reason(
-            problem, context, ReasoningStrategy.VERIFICATION_COT
-        )
+        return self.cot_engine.reason(problem, context, ReasoningStrategy.VERIFICATION_COT)
 
     def _reason_statistical_anomaly(self, context: dict[str, Any]) -> ThoughtChain:
         """Reason about statistical anomalies."""
@@ -1320,9 +1312,7 @@ class AnomalyChainOfThought:
         ]
         context["evidence"] = ["statistical distribution", "historical baseline"]
 
-        return self.cot_engine.reason(
-            problem, context, ReasoningStrategy.SELF_CONSISTENCY
-        )
+        return self.cot_engine.reason(problem, context, ReasoningStrategy.SELF_CONSISTENCY)
 
     def _reason_temporal_anomaly(self, context: dict[str, Any]) -> ThoughtChain:
         """Reason about temporal anomalies."""
@@ -1337,9 +1327,7 @@ class AnomalyChainOfThought:
         ]
         context["evidence"] = ["temporal sequence", "historical patterns"]
 
-        return self.cot_engine.reason(
-            problem, context, ReasoningStrategy.LEAST_TO_MOST
-        )
+        return self.cot_engine.reason(problem, context, ReasoningStrategy.LEAST_TO_MOST)
 
     def _reason_spatial_anomaly(self, context: dict[str, Any]) -> ThoughtChain:
         """Reason about spatial anomalies."""
@@ -1353,9 +1341,7 @@ class AnomalyChainOfThought:
             "distance metrics",
         ]
 
-        return self.cot_engine.reason(
-            problem, context, ReasoningStrategy.TREE_OF_THOUGHTS
-        )
+        return self.cot_engine.reason(problem, context, ReasoningStrategy.TREE_OF_THOUGHTS)
 
     def _reason_behavioral_anomaly(self, context: dict[str, Any]) -> ThoughtChain:
         """Reason about behavioral anomalies."""
@@ -1369,9 +1355,7 @@ class AnomalyChainOfThought:
             "deviation from baseline",
         ]
 
-        return self.cot_engine.reason(
-            problem, context, ReasoningStrategy.VERIFICATION_COT
-        )
+        return self.cot_engine.reason(problem, context, ReasoningStrategy.VERIFICATION_COT)
 
     def _reason_dimensional_anomaly(self, context: dict[str, Any]) -> ThoughtChain:
         """Reason about high-dimensional anomalies."""
@@ -1385,9 +1369,7 @@ class AnomalyChainOfThought:
             "clustering distance",
         ]
 
-        return self.cot_engine.reason(
-            problem, context, ReasoningStrategy.SELF_CONSISTENCY
-        )
+        return self.cot_engine.reason(problem, context, ReasoningStrategy.SELF_CONSISTENCY)
 
     def explain_decision(self, chain: ThoughtChain) -> str:
         """Generate human-readable explanation of anomaly decision.
