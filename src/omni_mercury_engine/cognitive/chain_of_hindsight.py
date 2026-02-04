@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Chain of Hindsight (CoH) Learning Module for Mercury Agent.
 
@@ -44,9 +45,9 @@ This module enables Mercury Agent to learn from past detection
 sequences and feedback to improve future performance.
 """
 
+import hashlib
 import logging
 import time
-import hashlib
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from enum import Enum
@@ -581,7 +582,7 @@ class FeedbackProcessor:
         """Create pattern key from input state."""
         key_features = sorted(input_state.keys())[:5]
         key_str = "_".join(key_features)
-        return hashlib.md5(key_str.encode()).hexdigest()[:8]
+        return hashlib.sha256(key_str.encode()).hexdigest()[:8]
 
 
 # =============================================================================
@@ -813,8 +814,6 @@ class ChainOfHindsightEngine:
         Returns:
             Recommendation or None
         """
-        pattern_key = self.feedback_processor._create_pattern_key(context)
-
         # Find relevant policy updates
         relevant_updates = [
             u for u in self._policy_updates
@@ -1167,8 +1166,6 @@ class AnomalyChainOfHindsight:
         Returns:
             Threshold adjustment recommendation
         """
-        insights = self.engine.get_learning_insights()
-
         # Analyze recent sequences
         recent_sequences = list(self.engine._sequences)[-50:]
         if not recent_sequences:

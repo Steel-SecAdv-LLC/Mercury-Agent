@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 UI/UX Anomaly Detection Module for Mercury Agent.
 
@@ -74,11 +75,8 @@ from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from scipy import signal as scipy_signal
-from scipy.spatial.distance import cdist
-from scipy.stats import entropy
+from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException

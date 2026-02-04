@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Physics Acceleration Dynamics Module for Mercury Agent.
 
@@ -51,16 +52,14 @@ Research foundations:
 """
 
 import logging
-import math
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
-from scipy import signal as scipy_signal
 from scipy.ndimage import uniform_filter1d
+from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
@@ -821,7 +820,6 @@ class AccelerationDynamicsDetector(BaseDetector):
 
         # Position is the signal itself
         position = signal.copy()
-        n = len(position)
 
         # Velocity: v = dx/dt (central difference)
         velocity = np.gradient(position, dt)
@@ -1104,7 +1102,6 @@ class AccelerationDynamicsDetector(BaseDetector):
             return 1.0
 
         # Compute pairwise distances (subsample for efficiency)
-        max_pairs = 500
         if n > 50:
             indices = np.random.choice(n, min(n, 50), replace=False)
             points = trajectory[indices]
@@ -1225,9 +1222,6 @@ class AccelerationDynamicsDetector(BaseDetector):
 
         # Bin the phase space
         num_bins = max(3, int(n ** (1 / dim)))
-
-        # Compute histogram
-        ranges = [(trajectory[:, i].min(), trajectory[:, i].max()) for i in range(dim)]
 
         # Flatten to 1D histogram for simplicity
         hist, _ = np.histogramdd(trajectory, bins=num_bins)
@@ -1382,8 +1376,6 @@ class AccelerationDynamicsDetector(BaseDetector):
         """
         timestamps = []
         descriptions = []
-
-        n = len(kin_features.velocity)
 
         # Check for velocity anomalies
         v_z = np.abs(kin_features.velocity - self._reference_velocity_mean) / self._reference_velocity_std

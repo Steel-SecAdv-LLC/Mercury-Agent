@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Advanced Physics Integration Module for Mercury Agent.
 
@@ -48,37 +49,24 @@ from typing import Any
 import numpy as np
 import torch
 
-from omni_mercury_engine.core.base import BaseDetector, DetectorMetrics
+from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.core.three_r.engines import RecursionEngine, ResonanceEngine
 from omni_mercury_engine.core.three_r.fusion import AnomalyFusionEquation
 from omni_mercury_engine.core.three_r.types import AnomalyFusionResult
-from omni_mercury_engine.core.three_r.engines import RecursionEngine, ResonanceEngine
-from omni_mercury_engine.utils.constants import MathematicalConstants
+from omni_mercury_engine.detectors.acceleration_dynamics import (
+    AccelerationDynamicsDetector,
+)
 
 # Import the new advanced detectors
 from omni_mercury_engine.detectors.spectral_vibration import (
     SpectralVibrationDetector,
-    SpectralVibrationConfig,
-    SpectralFeatures,
-    VibrationDiagnostic,
-    VibrationSignatureType,
-)
-from omni_mercury_engine.detectors.acceleration_dynamics import (
-    AccelerationDynamicsDetector,
-    AccelerationDynamicsConfig,
-    KinematicFeatures,
-    PhaseSpaceFeatures,
-    MotionState,
-    EnergyState,
 )
 from omni_mercury_engine.detectors.uiux_anomaly import (
     UIUXAnomalyDetector,
-    UIUXConfig,
     UserInteraction,
-    InteractionType,
-    AnomalyCategory,
-    UserBehaviorClass,
 )
+from omni_mercury_engine.utils.constants import MathematicalConstants
 
 
 logger = logging.getLogger(__name__)

@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Predictive Coding Module for Mercury Agent.
 
@@ -46,7 +47,6 @@ anomaly detection in Mercury Agent.
 
 import logging
 import time
-from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
@@ -270,9 +270,7 @@ class PrecisionEstimator:
         self.max_precision = max_precision
 
         # Precision for each level
-        self._precisions: dict[ProcessingLevel, float] = {
-            level: initial_precision for level in ProcessingLevel
-        }
+        self._precisions: dict[ProcessingLevel, float] = dict.fromkeys(ProcessingLevel, initial_precision)
 
         # Running error statistics
         self._error_history: dict[ProcessingLevel, deque[float]] = {

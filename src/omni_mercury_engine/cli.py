@@ -209,8 +209,8 @@ def physics_spectral(
     """
     try:
         from omni_mercury_engine.detectors.spectral_vibration import (
-            SpectralVibrationDetector,
             SpectralAnalysisMode,
+            SpectralVibrationDetector,
         )
 
         # Map mode string to enum
@@ -371,9 +371,9 @@ def physics_uiux(
     """
     try:
         from omni_mercury_engine.detectors.uiux_anomaly import (
+            InteractionType,
             UIUXAnomalyDetector,
             UserInteraction,
-            InteractionType,
         )
 
         config = {
@@ -385,7 +385,7 @@ def physics_uiux(
         detector = UIUXAnomalyDetector(config)
 
         # Load interaction data
-        with open(input, "r") as f:
+        with open(input) as f:
             raw_data = json.load(f)
 
         # Convert to UserInteraction objects
@@ -514,8 +514,8 @@ def physics_integrated(
             PhysicsDetectorType,
         )
         from omni_mercury_engine.detectors.uiux_anomaly import (
-            UserInteraction,
             InteractionType,
+            UserInteraction,
         )
 
         # Parse fusion weights
@@ -558,7 +558,7 @@ def physics_integrated(
             dynamics_data = data.flatten() if data.ndim > 1 else data
 
         if uiux_input:
-            with open(uiux_input, "r") as f:
+            with open(uiux_input) as f:
                 raw_data = json.load(f)
 
             type_map = {

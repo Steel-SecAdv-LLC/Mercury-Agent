@@ -1314,7 +1314,9 @@ class DetectorRegistry:
             logger.debug("Optional detector 'spectral_vibration' not available: %s", e)
 
         try:
-            from omni_mercury_engine.detectors.acceleration_dynamics import AccelerationDynamicsDetector
+            from omni_mercury_engine.detectors.acceleration_dynamics import (
+                AccelerationDynamicsDetector,
+            )
 
             self.register(
                 "acceleration_dynamics",

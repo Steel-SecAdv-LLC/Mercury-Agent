@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Formal Verification Module for Mercury Agent.
 
@@ -46,7 +47,6 @@ critical anomaly detection decisions.
 
 import logging
 import time
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any

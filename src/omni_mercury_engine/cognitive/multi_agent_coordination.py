@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Multi-Agent Coordination Protocol for Mercury Agent.
 
@@ -43,12 +44,10 @@ Key Concepts:
 
 import logging
 import time
-import threading
 from abc import ABC, abstractmethod
-from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from queue import Queue, Empty
+from queue import Empty, Queue
 from typing import Any
 
 import numpy as np

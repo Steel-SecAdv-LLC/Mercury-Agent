@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Meta-Learning Adapter for Mercury Agent.
 
@@ -54,8 +55,8 @@ import numpy as np
 
 try:
     import torch
-    import torch.nn as nn
     import torch.nn.functional as F
+    from torch import nn
 
     TORCH_AVAILABLE = True
 except ImportError:
@@ -949,7 +950,7 @@ class MetaLearningAdapter:
         task_name = task_name or f"Anomaly Detection Task {self._task_counter}"
 
         # Determine n_way from data
-        support_labels = set(y for _, y in support_data)
+        support_labels = {y for _, y in support_data}
         n_way = len(support_labels)
 
         # Determine k_shot

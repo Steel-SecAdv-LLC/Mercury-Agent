@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Reflexion Framework for Mercury Agent.
 
@@ -41,9 +42,9 @@ The Reflexion framework enables Mercury Agent to:
 - Maintain interpretable reasoning traces
 """
 
+import hashlib
 import logging
 import time
-import hashlib
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
@@ -944,7 +945,7 @@ class ReflexionEngine:
         seen = set()
         unique_improvements = []
         for imp in improvements:
-            imp_hash = hashlib.md5(imp["improvement"].encode()).hexdigest()
+            imp_hash = hashlib.sha256(imp["improvement"].encode()).hexdigest()
             if imp_hash not in seen:
                 seen.add(imp_hash)
                 unique_improvements.append(imp)

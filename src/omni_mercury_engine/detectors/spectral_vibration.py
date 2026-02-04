@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Spectral Vibration Analysis Module for Mercury Agent.
 
@@ -40,19 +41,17 @@ Research foundations:
 """
 
 import logging
-import math
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from scipy import signal as scipy_signal
-from scipy.fft import fft, fftfreq, ifft
+from scipy.fft import fft, fftfreq
 from scipy.sparse import csr_matrix, diags
 from scipy.sparse.linalg import eigsh
+from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
@@ -1522,7 +1521,6 @@ class SpectralVibrationDetector(BaseDetector):
         if len(dominant_freqs) == 0:
             return VibrationSignatureType.NORMAL, 0.5
 
-        primary_freq = dominant_freqs[0][0]
         harmonic_ratios = features.harmonic_ratios
 
         # Check for specific fault signatures

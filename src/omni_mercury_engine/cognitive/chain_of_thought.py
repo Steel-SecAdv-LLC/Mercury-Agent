@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Chain-of-Thought Reasoning Engine for Mercury Agent.
 
@@ -42,9 +43,9 @@ This module provides the cognitive scaffold for Mercury Agent's
 decision-making, ensuring transparent and auditable reasoning.
 """
 
+import hashlib
 import logging
 import time
-import hashlib
 from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum
@@ -187,6 +188,11 @@ class ThoughtChain:
     is_valid: bool = True
     computation_time_ms: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def confidence(self) -> float:
+        """Alias for overall_confidence for API compatibility."""
+        return self.overall_confidence
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -535,6 +541,7 @@ class ChainOfThoughtEngine:
         self._chain_counter = 0
         self._stats = {
             "chains_generated": 0,
+            "total_reasoning_sessions": 0,
             "thoughts_generated": 0,
             "verifications_performed": 0,
             "avg_depth": 0.0,
@@ -1063,7 +1070,7 @@ class ChainOfThoughtEngine:
         elif "normal" in conclusion:
             return "normal"
         # Hash for other cases
-        return hashlib.md5(conclusion.encode()).hexdigest()[:8]
+        return hashlib.sha256(conclusion.encode()).hexdigest()[:8]
 
     def _vote_on_conclusions(self, conclusions: list[str]) -> ConsistencyResult:
         """Vote on conclusions for self-consistency."""

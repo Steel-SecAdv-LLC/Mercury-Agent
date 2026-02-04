@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Hierarchical Planning Agent for Mercury Agent.
 
@@ -44,12 +45,10 @@ anomaly detection and response tasks.
 
 import logging
 import time
-import heapq
-from abc import ABC, abstractmethod
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Protocol
+from typing import Any
 
 import numpy as np
 
@@ -1207,8 +1206,6 @@ class AnomalyHierarchicalPlanner:
         Returns:
             Hierarchical plan for response
         """
-        template = self._goal_templates["response_action"]
-
         root_goal = self.planner.create_goal(
             description=f"Respond to {anomaly_type} anomaly",
             level=AbstractionLevel.STRATEGIC,
