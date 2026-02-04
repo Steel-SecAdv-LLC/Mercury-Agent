@@ -364,12 +364,14 @@ class GaussianProcessSampler(Sampler):
                 vector.append(idx)
             elif isinstance(param, LogUniformParameter):
                 log_val = np.log(value)
-                log_low = np.log(param.low)
-                log_high = np.log(param.high)
+                bounds = param.get_bounds()
+                log_low = np.log(bounds[0])
+                log_high = np.log(bounds[1])
                 normalized = (log_val - log_low) / (log_high - log_low + 1e-12)
                 vector.append(normalized)
             elif isinstance(param, (UniformParameter, IntUniformParameter)):
-                normalized = (value - param.low) / (param.high - param.low + 1e-12)
+                bounds = param.get_bounds()
+                normalized = (value - bounds[0]) / (bounds[1] - bounds[0] + 1e-12)
                 vector.append(normalized)
             else:
                 vector.append(float(value))
