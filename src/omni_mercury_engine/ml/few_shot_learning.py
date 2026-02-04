@@ -780,6 +780,373 @@ class SiameseNetworkNumpy(BaseFewShotLearner):
         return class_probs
 
 
+class MAMLNumpy(BaseFewShotLearner):
+    """
+    NumPy implementation of Model-Agnostic Meta-Learning (MAML).
+
+    MAML learns an initialization for a neural network that can be
+    rapidly adapted to new tasks with just a few gradient steps.
+    This NumPy version uses finite difference approximation for
+    gradient computation.
+
+    Reference: "Model-Agnostic Meta-Learning for Fast Adaptation of Deep Networks"
+               (Finn et al., 2017)
+    """
+
+    def __init__(
+        self,
+        embedding_dim: int = 64,
+        hidden_dim: int = 32,
+        inner_lr: float = 0.01,
+        inner_steps: int = 5,
+        random_state: int | None = None,
+    ):
+        """
+        Initialize MAML.
+
+        Args:
+            embedding_dim: Dimension of output embedding
+            hidden_dim: Hidden layer dimension
+            inner_lr: Learning rate for inner loop adaptation
+            inner_steps: Number of gradient steps in inner loop
+            random_state: Seed for reproducible random initialization
+        """
+        self.embedding_dim = embedding_dim
+        self.hidden_dim = hidden_dim
+        self.inner_lr = inner_lr
+        self.inner_steps = inner_steps
+        self.rng = np.random.default_rng(random_state)
+
+        # Network parameters (will be initialized on first fit)
+        self.W1: NDArray[np.float64] | None = None
+        self.b1: NDArray[np.float64] | None = None
+        self.W2: NDArray[np.float64] | None = None
+        self.b2: NDArray[np.float64] | None = None
+
+        # Task-adapted parameters
+        self.adapted_W1: NDArray[np.float64] | None = None
+        self.adapted_b1: NDArray[np.float64] | None = None
+        self.adapted_W2: NDArray[np.float64] | None = None
+        self.adapted_b2: NDArray[np.float64] | None = None
+
+        self.classes: list[int] = []
+
+    def _initialize_params(self, input_dim: int, n_classes: int) -> None:
+        """Initialize network parameters using Xavier initialization."""
+        # Layer 1: input -> hidden
+        scale1 = np.sqrt(2.0 / (input_dim + self.hidden_dim))
+        self.W1 = self.rng.standard_normal((input_dim, self.hidden_dim)).astype(np.float64) * scale1
+        self.b1 = np.zeros(self.hidden_dim, dtype=np.float64)
+
+        # Layer 2: hidden -> output (n_classes)
+        scale2 = np.sqrt(2.0 / (self.hidden_dim + n_classes))
+        self.W2 = self.rng.standard_normal((self.hidden_dim, n_classes)).astype(np.float64) * scale2
+        self.b2 = np.zeros(n_classes, dtype=np.float64)
+
+    def _forward(
+        self,
+        X: NDArray[np.float64],
+        W1: NDArray[np.float64],
+        b1: NDArray[np.float64],
+        W2: NDArray[np.float64],
+        b2: NDArray[np.float64],
+    ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+        """Forward pass through network.
+
+        Returns:
+            Tuple of (hidden activations, output logits)
+        """
+        # Layer 1 with ReLU
+        h = np.maximum(0, X @ W1 + b1)
+        # Layer 2 (logits)
+        logits = h @ W2 + b2
+        return h, logits
+
+    def _softmax(self, logits: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Numerically stable softmax."""
+        exp_logits = np.exp(logits - np.max(logits, axis=1, keepdims=True))
+        return exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+
+    def _cross_entropy_loss(
+        self,
+        logits: NDArray[np.float64],
+        y: NDArray[np.int64],
+    ) -> float:
+        """Compute cross-entropy loss."""
+        probs = self._softmax(logits)
+        n = len(y)
+        # Add small epsilon to avoid log(0)
+        log_probs = np.log(probs[np.arange(n), y] + 1e-10)
+        return -np.mean(log_probs)
+
+    def _compute_gradients(
+        self,
+        X: NDArray[np.float64],
+        y: NDArray[np.int64],
+        W1: NDArray[np.float64],
+        b1: NDArray[np.float64],
+        W2: NDArray[np.float64],
+        b2: NDArray[np.float64],
+    ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+        """Compute gradients using backpropagation."""
+        n = len(X)
+
+        # Forward pass
+        h, logits = self._forward(X, W1, b1, W2, b2)
+        probs = self._softmax(logits)
+
+        # Backward pass
+        # Gradient of loss w.r.t. logits
+        d_logits = probs.copy()
+        d_logits[np.arange(n), y] -= 1
+        d_logits /= n
+
+        # Gradient w.r.t. W2, b2
+        dW2 = h.T @ d_logits
+        db2 = np.sum(d_logits, axis=0)
+
+        # Gradient w.r.t. hidden layer
+        d_h = d_logits @ W2.T
+        # ReLU backward
+        d_h = d_h * (h > 0)
+
+        # Gradient w.r.t. W1, b1
+        dW1 = X.T @ d_h
+        db1 = np.sum(d_h, axis=0)
+
+        return dW1, db1, dW2, db2
+
+    def fit_episode(self, episode: Episode) -> None:
+        """Adapt to a new task using gradient descent on support set."""
+        self.classes = list(np.unique(episode.support_y))
+        n_classes = len(self.classes)
+
+        # Map labels to indices
+        label_to_idx = {cls: i for i, cls in enumerate(self.classes)}
+        y_mapped = np.array([label_to_idx[y] for y in episode.support_y])
+
+        # Initialize parameters if needed
+        if self.W1 is None or self.W2 is None or self.W2.shape[1] != n_classes:
+            self._initialize_params(episode.support_X.shape[1], n_classes)
+
+        # Copy meta-parameters for adaptation
+        assert self.W1 is not None and self.b1 is not None
+        assert self.W2 is not None and self.b2 is not None
+        self.adapted_W1 = self.W1.copy()
+        self.adapted_b1 = self.b1.copy()
+        self.adapted_W2 = self.W2.copy()
+        self.adapted_b2 = self.b2.copy()
+
+        # Inner loop: adapt to task
+        for _ in range(self.inner_steps):
+            # Compute gradients
+            dW1, db1, dW2, db2 = self._compute_gradients(
+                episode.support_X, y_mapped,
+                self.adapted_W1, self.adapted_b1,
+                self.adapted_W2, self.adapted_b2,
+            )
+
+            # Gradient descent step
+            self.adapted_W1 -= self.inner_lr * dW1
+            self.adapted_b1 -= self.inner_lr * db1
+            self.adapted_W2 -= self.inner_lr * dW2
+            self.adapted_b2 -= self.inner_lr * db2
+
+    def predict(self, X: NDArray[np.float64]) -> NDArray[np.int64]:
+        """Predict using adapted parameters."""
+        probs = self.predict_proba(X)
+        pred_indices = np.argmax(probs, axis=1)
+        return np.array([self.classes[i] for i in pred_indices])
+
+    def predict_proba(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Compute class probabilities using adapted network."""
+        if self.adapted_W1 is None:
+            raise ValueError("Model not fitted. Call fit_episode first.")
+
+        assert self.adapted_b1 is not None
+        assert self.adapted_W2 is not None
+        assert self.adapted_b2 is not None
+
+        _, logits = self._forward(
+            X, self.adapted_W1, self.adapted_b1,
+            self.adapted_W2, self.adapted_b2,
+        )
+        return self._softmax(logits)
+
+
+class RelationNetworkNumpy(BaseFewShotLearner):
+    """
+    NumPy implementation of Relation Networks.
+
+    Uses a learned relation module to compare query samples to class
+    prototypes, outputting relation scores that represent similarity.
+
+    Reference: "Learning to Compare: Relation Network for Few-Shot Learning"
+               (Sung et al., 2018)
+    """
+
+    def __init__(
+        self,
+        embedding_dim: int = 64,
+        relation_dim: int = 32,
+        random_state: int | None = None,
+    ):
+        """
+        Initialize Relation Network.
+
+        Args:
+            embedding_dim: Dimension of embedding space
+            relation_dim: Hidden dimension in relation module
+            random_state: Seed for reproducible random initialization
+        """
+        self.embedding_dim = embedding_dim
+        self.relation_dim = relation_dim
+        self.rng = np.random.default_rng(random_state)
+
+        # Embedding network parameters
+        self.embed_W1: NDArray[np.float64] | None = None
+        self.embed_b1: NDArray[np.float64] | None = None
+        self.embed_W2: NDArray[np.float64] | None = None
+        self.embed_b2: NDArray[np.float64] | None = None
+
+        # Relation module parameters
+        # Takes concatenated embeddings (2 * embedding_dim) -> relation_dim -> 1
+        self.rel_W1: NDArray[np.float64] | None = None
+        self.rel_b1: NDArray[np.float64] | None = None
+        self.rel_W2: NDArray[np.float64] | None = None
+        self.rel_b2: NDArray[np.float64] | None = None
+
+        # Class prototypes from support set
+        self.prototypes: NDArray[np.float64] | None = None
+        self.classes: list[int] = []
+
+    def _initialize_embedding(self, input_dim: int) -> None:
+        """Initialize embedding network parameters."""
+        hidden_dim = (input_dim + self.embedding_dim) // 2
+
+        scale1 = np.sqrt(2.0 / (input_dim + hidden_dim))
+        self.embed_W1 = self.rng.standard_normal((input_dim, hidden_dim)).astype(np.float64) * scale1
+        self.embed_b1 = np.zeros(hidden_dim, dtype=np.float64)
+
+        scale2 = np.sqrt(2.0 / (hidden_dim + self.embedding_dim))
+        self.embed_W2 = self.rng.standard_normal((hidden_dim, self.embedding_dim)).astype(np.float64) * scale2
+        self.embed_b2 = np.zeros(self.embedding_dim, dtype=np.float64)
+
+    def _initialize_relation(self) -> None:
+        """Initialize relation module parameters."""
+        concat_dim = 2 * self.embedding_dim
+
+        scale1 = np.sqrt(2.0 / (concat_dim + self.relation_dim))
+        self.rel_W1 = self.rng.standard_normal((concat_dim, self.relation_dim)).astype(np.float64) * scale1
+        self.rel_b1 = np.zeros(self.relation_dim, dtype=np.float64)
+
+        scale2 = np.sqrt(2.0 / (self.relation_dim + 1))
+        self.rel_W2 = self.rng.standard_normal((self.relation_dim, 1)).astype(np.float64) * scale2
+        self.rel_b2 = np.zeros(1, dtype=np.float64)
+
+    def _embed(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Project features to embedding space."""
+        if self.embed_W1 is None:
+            self._initialize_embedding(X.shape[1])
+
+        assert self.embed_W1 is not None and self.embed_b1 is not None
+        assert self.embed_W2 is not None and self.embed_b2 is not None
+
+        # Handle dimension mismatch
+        if X.shape[1] != self.embed_W1.shape[0]:
+            self._initialize_embedding(X.shape[1])
+
+        assert self.embed_W1 is not None and self.embed_b1 is not None
+        assert self.embed_W2 is not None and self.embed_b2 is not None
+
+        # Two-layer embedding with ReLU
+        h = np.maximum(0, X @ self.embed_W1 + self.embed_b1)
+        embeddings = np.maximum(0, h @ self.embed_W2 + self.embed_b2)
+
+        # L2 normalize
+        norms = np.linalg.norm(embeddings, axis=1, keepdims=True) + 1e-10
+        return embeddings / norms
+
+    def _relation_score(
+        self,
+        query_embed: NDArray[np.float64],
+        proto_embed: NDArray[np.float64],
+    ) -> NDArray[np.float64]:
+        """Compute relation scores between queries and prototypes.
+
+        Args:
+            query_embed: Query embeddings [n_query, embedding_dim]
+            proto_embed: Prototype embeddings [n_classes, embedding_dim]
+
+        Returns:
+            Relation scores [n_query, n_classes]
+        """
+        if self.rel_W1 is None:
+            self._initialize_relation()
+
+        assert self.rel_W1 is not None and self.rel_b1 is not None
+        assert self.rel_W2 is not None and self.rel_b2 is not None
+
+        n_query = query_embed.shape[0]
+        n_classes = proto_embed.shape[0]
+
+        # Compute relation scores for all query-prototype pairs
+        scores = np.zeros((n_query, n_classes))
+
+        for i in range(n_query):
+            for j in range(n_classes):
+                # Concatenate query and prototype embeddings
+                concat = np.concatenate([query_embed[i], proto_embed[j]])
+
+                # Relation module forward pass
+                h = np.maximum(0, concat @ self.rel_W1 + self.rel_b1)
+                score = h @ self.rel_W2 + self.rel_b2
+
+                # Sigmoid activation for relation score [0, 1]
+                scores[i, j] = 1.0 / (1.0 + np.exp(-score[0]))
+
+        return scores
+
+    def fit_episode(self, episode: Episode) -> None:
+        """Compute class prototypes from support set."""
+        self.classes = list(np.unique(episode.support_y))
+
+        # Embed support samples
+        embeddings = self._embed(episode.support_X)
+
+        # Compute prototype for each class (mean embedding)
+        prototypes = []
+        for cls in self.classes:
+            mask = episode.support_y == cls
+            class_embeddings = embeddings[mask]
+            prototype = np.mean(class_embeddings, axis=0)
+            prototypes.append(prototype)
+
+        self.prototypes = np.array(prototypes)
+
+    def predict(self, X: NDArray[np.float64]) -> NDArray[np.int64]:
+        """Predict using relation scores."""
+        probs = self.predict_proba(X)
+        pred_indices = np.argmax(probs, axis=1)
+        return np.array([self.classes[i] for i in pred_indices])
+
+    def predict_proba(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Compute class probabilities using relation scores."""
+        if self.prototypes is None:
+            raise ValueError("Model not fitted. Call fit_episode first.")
+
+        # Embed query samples
+        query_embeddings = self._embed(X)
+
+        # Compute relation scores (already in [0, 1] due to sigmoid)
+        relation_scores = self._relation_score(query_embeddings, self.prototypes)
+
+        # Normalize to probabilities
+        probs = relation_scores / (np.sum(relation_scores, axis=1, keepdims=True) + 1e-10)
+
+        return probs
+
+
 if TORCH_AVAILABLE:
 
     class PrototypicalNetworkTorch(nn.Module, BaseFewShotLearner):
@@ -939,6 +1306,20 @@ class FewShotLearner:
 
         elif self.method == FewShotMethod.SIAMESE:
             return SiameseNetworkNumpy(embedding_dim=self.embedding_dim)
+
+        elif self.method == FewShotMethod.MAML:
+            return MAMLNumpy(
+                embedding_dim=self.embedding_dim,
+                hidden_dim=self.embedding_dim // 2,
+                inner_lr=0.01,
+                inner_steps=5,
+            )
+
+        elif self.method == FewShotMethod.RELATION:
+            return RelationNetworkNumpy(
+                embedding_dim=self.embedding_dim,
+                relation_dim=self.embedding_dim // 2,
+            )
 
         elif self.method == FewShotMethod.NEAREST_CENTROID:
             return PrototypicalNetworkNumpy(embedding_dim=self.embedding_dim)

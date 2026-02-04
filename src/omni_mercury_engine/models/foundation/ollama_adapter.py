@@ -572,6 +572,310 @@ class TemplateLLMAdapter(BaseLLMAdapter):
         return True
 
 
+class OpenAICloudAdapter(BaseLLMAdapter):
+    """
+    OpenAI cloud adapter for GPT models.
+
+    Provides integration with OpenAI's API for high-capability
+    language model inference when local models are unavailable.
+    """
+
+    def __init__(self, config: LLMConfig):
+        """Initialize OpenAI adapter.
+
+        Args:
+            config: LLM configuration with API key
+        """
+        super().__init__(config)
+
+        # Get API key from config or environment
+        self.api_key = config.api_key or os.environ.get("OPENAI_API_KEY")
+        self.base_url = config.base_url or "https://api.openai.com/v1"
+        self.model = config.model_name or "gpt-4o-mini"
+
+        if self.api_key:
+            self._is_available = True
+        else:
+            logger.warning("OpenAI API key not found")
+            self._is_available = False
+
+    def generate(self, prompt: str, system_prompt: str | None = None) -> str:
+        """Generate text using OpenAI API.
+
+        Args:
+            prompt: User prompt
+            system_prompt: Optional system prompt
+
+        Returns:
+            Generated response text
+        """
+        if not self._is_available:
+            return "OpenAI adapter not available - API key required"
+
+        import http.client
+        import ssl
+
+        # Validate URL before connecting
+        if not _validate_url_scheme(self.base_url):
+            return "Invalid API URL scheme"
+
+        parsed_url = urllib.parse.urlparse(self.base_url)
+        host = parsed_url.netloc or "api.openai.com"
+
+        # Create secure connection
+        context = ssl.create_default_context()
+        conn: http.client.HTTPSConnection | None = None
+
+        try:
+            conn = http.client.HTTPSConnection(host, timeout=self.config.timeout, context=context)
+
+            # Build messages
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+
+            # Request body
+            body = json.dumps({
+                "model": self.model,
+                "messages": messages,
+                "temperature": self.config.temperature,
+                "max_tokens": self.config.max_tokens,
+            })
+
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.api_key}",
+            }
+
+            conn.request("POST", "/v1/chat/completions", body, headers)
+            response = conn.getresponse()
+            data = json.loads(response.read().decode("utf-8"))
+
+            if response.status == 200:
+                return data["choices"][0]["message"]["content"]
+            else:
+                error_msg = data.get("error", {}).get("message", "Unknown error")
+                logger.error(f"OpenAI API error: {error_msg}")
+                return f"API error: {error_msg}"
+
+        except Exception as e:
+            logger.error(f"OpenAI request failed: {e}")
+            return f"Request failed: {e}"
+        finally:
+            if conn is not None:
+                conn.close()
+
+    def is_available(self) -> bool:
+        """Check if OpenAI adapter is available."""
+        return self._is_available
+
+
+class AnthropicCloudAdapter(BaseLLMAdapter):
+    """
+    Anthropic cloud adapter for Claude models.
+
+    Provides integration with Anthropic's API for Claude model
+    inference when local models are unavailable.
+    """
+
+    def __init__(self, config: LLMConfig):
+        """Initialize Anthropic adapter.
+
+        Args:
+            config: LLM configuration with API key
+        """
+        super().__init__(config)
+
+        # Get API key from config or environment
+        self.api_key = config.api_key or os.environ.get("ANTHROPIC_API_KEY")
+        self.base_url = config.base_url or "https://api.anthropic.com"
+        self.model = config.model_name or "claude-3-5-sonnet-20241022"
+
+        if self.api_key:
+            self._is_available = True
+        else:
+            logger.warning("Anthropic API key not found")
+            self._is_available = False
+
+    def generate(self, prompt: str, system_prompt: str | None = None) -> str:
+        """Generate text using Anthropic API.
+
+        Args:
+            prompt: User prompt
+            system_prompt: Optional system prompt
+
+        Returns:
+            Generated response text
+        """
+        if not self._is_available:
+            return "Anthropic adapter not available - API key required"
+
+        import http.client
+        import ssl
+
+        # Validate URL before connecting
+        if not _validate_url_scheme(self.base_url):
+            return "Invalid API URL scheme"
+
+        parsed_url = urllib.parse.urlparse(self.base_url)
+        host = parsed_url.netloc or "api.anthropic.com"
+
+        # Create secure connection
+        context = ssl.create_default_context()
+        conn: http.client.HTTPSConnection | None = None
+
+        try:
+            conn = http.client.HTTPSConnection(host, timeout=self.config.timeout, context=context)
+
+            # Build request body
+            body_dict: dict[str, Any] = {
+                "model": self.model,
+                "max_tokens": self.config.max_tokens,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+
+            if system_prompt:
+                body_dict["system"] = system_prompt
+
+            body = json.dumps(body_dict)
+
+            headers = {
+                "Content-Type": "application/json",
+                "x-api-key": self.api_key,
+                "anthropic-version": "2023-06-01",
+            }
+
+            conn.request("POST", "/v1/messages", body, headers)
+            response = conn.getresponse()
+            data = json.loads(response.read().decode("utf-8"))
+
+            if response.status == 200:
+                content = data.get("content", [])
+                if content and len(content) > 0:
+                    return content[0].get("text", "")
+                return ""
+            else:
+                error_msg = data.get("error", {}).get("message", "Unknown error")
+                logger.error(f"Anthropic API error: {error_msg}")
+                return f"API error: {error_msg}"
+
+        except Exception as e:
+            logger.error(f"Anthropic request failed: {e}")
+            return f"Request failed: {e}"
+        finally:
+            if conn is not None:
+                conn.close()
+
+    def is_available(self) -> bool:
+        """Check if Anthropic adapter is available."""
+        return self._is_available
+
+
+class HuggingFaceCloudAdapter(BaseLLMAdapter):
+    """
+    HuggingFace Inference API adapter.
+
+    Provides integration with HuggingFace's hosted inference API
+    for various open-source models.
+    """
+
+    def __init__(self, config: LLMConfig):
+        """Initialize HuggingFace adapter.
+
+        Args:
+            config: LLM configuration with API key
+        """
+        super().__init__(config)
+
+        # Get API key from config or environment
+        self.api_key = config.api_key or os.environ.get("HUGGINGFACE_API_KEY")
+        self.base_url = config.base_url or "https://api-inference.huggingface.co"
+        self.model = config.model_name or "meta-llama/Llama-3.2-3B-Instruct"
+
+        if self.api_key:
+            self._is_available = True
+        else:
+            logger.warning("HuggingFace API key not found")
+            self._is_available = False
+
+    def generate(self, prompt: str, system_prompt: str | None = None) -> str:
+        """Generate text using HuggingFace Inference API.
+
+        Args:
+            prompt: User prompt
+            system_prompt: Optional system prompt
+
+        Returns:
+            Generated response text
+        """
+        if not self._is_available:
+            return "HuggingFace adapter not available - API key required"
+
+        import http.client
+        import ssl
+
+        # Validate URL before connecting
+        if not _validate_url_scheme(self.base_url):
+            return "Invalid API URL scheme"
+
+        parsed_url = urllib.parse.urlparse(self.base_url)
+        host = parsed_url.netloc or "api-inference.huggingface.co"
+
+        # Create secure connection
+        context = ssl.create_default_context()
+        conn: http.client.HTTPSConnection | None = None
+
+        try:
+            conn = http.client.HTTPSConnection(host, timeout=self.config.timeout, context=context)
+
+            # Combine prompts for text generation
+            full_prompt = prompt
+            if system_prompt:
+                full_prompt = f"{system_prompt}\n\n{prompt}"
+
+            # Request body for text-generation pipeline
+            body = json.dumps({
+                "inputs": full_prompt,
+                "parameters": {
+                    "max_new_tokens": self.config.max_tokens,
+                    "temperature": max(0.01, self.config.temperature),  # HF requires > 0
+                    "return_full_text": False,
+                },
+            })
+
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.api_key}",
+            }
+
+            # Model-specific endpoint
+            endpoint = f"/models/{self.model}"
+            conn.request("POST", endpoint, body, headers)
+            response = conn.getresponse()
+            data = json.loads(response.read().decode("utf-8"))
+
+            if response.status == 200:
+                if isinstance(data, list) and len(data) > 0:
+                    return data[0].get("generated_text", "")
+                return str(data)
+            else:
+                error_msg = data.get("error", "Unknown error")
+                logger.error(f"HuggingFace API error: {error_msg}")
+                return f"API error: {error_msg}"
+
+        except Exception as e:
+            logger.error(f"HuggingFace request failed: {e}")
+            return f"Request failed: {e}"
+        finally:
+            if conn is not None:
+                conn.close()
+
+    def is_available(self) -> bool:
+        """Check if HuggingFace adapter is available."""
+        return self._is_available
+
+
 class FallbackLLMChain:
     """
     Graceful fallback chain for LLM operations.
@@ -637,14 +941,28 @@ class FallbackLLMChain:
         logger.info("LLM chain using template fallback")
 
     def _create_cloud_adapter(self) -> BaseLLMAdapter | None:
-        """Create cloud adapter based on configuration."""
+        """Create cloud adapter based on configuration.
+
+        Supports OpenAI, Anthropic, and HuggingFace cloud providers.
+        Each provider requires appropriate API keys set via environment
+        variables or configuration.
+        """
         if not self.cloud_config:
             return None
 
-        # Import appropriate adapter based on provider
-        # Currently returns None - cloud adapters can be added
-        logger.info(f"Cloud adapter for {self.cloud_config.provider} not implemented")
-        return None
+        try:
+            if self.cloud_config.provider == LLMProvider.OPENAI:
+                return OpenAICloudAdapter(self.cloud_config)
+            elif self.cloud_config.provider == LLMProvider.ANTHROPIC:
+                return AnthropicCloudAdapter(self.cloud_config)
+            elif self.cloud_config.provider == LLMProvider.HUGGINGFACE:
+                return HuggingFaceCloudAdapter(self.cloud_config)
+            else:
+                logger.warning(f"Cloud provider {self.cloud_config.provider} not supported")
+                return None
+        except Exception as e:
+            logger.warning(f"Failed to create cloud adapter: {e}")
+            return None
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
         """
