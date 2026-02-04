@@ -128,12 +128,12 @@ class HarmonicFeatureExtractor:
         l_max = min(coefficients.l_max, self._l_max)
         spectrum = np.zeros(l_max + 1)
 
-        for l in range(l_max + 1):
+        for degree in range(l_max + 1):
             power = 0.0
-            for m in range(-l, l + 1):
-                c = coefficients.get_coefficient(l, m)
+            for m in range(-degree, degree + 1):
+                c = coefficients.get_coefficient(degree, m)
                 power += np.abs(c) ** 2
-            spectrum[l] = power
+            spectrum[degree] = power
 
         if self._normalize:
             total = np.sum(spectrum) + 1e-10
@@ -244,8 +244,8 @@ class HarmonicFeatureExtractor:
             l_start = band * band_size
             l_end = min((band + 1) * band_size, l_max + 1)
 
-            for l in range(l_start, l_end):
-                energy[band] += coefficients.get_power_at_l(l)
+            for degree in range(l_start, l_end):
+                energy[band] += coefficients.get_power_at_l(degree)
 
         total = np.sum(energy) + 1e-10
         return energy / total
@@ -256,8 +256,8 @@ class HarmonicFeatureExtractor:
     ) -> float:
         """Compute shape complexity measure."""
         powers = []
-        for l in range(coefficients.l_max + 1):
-            p = coefficients.get_power_at_l(l)
+        for degree in range(coefficients.l_max + 1):
+            p = coefficients.get_power_at_l(degree)
             if p > 0:
                 powers.append(p)
 
@@ -310,10 +310,10 @@ class HarmonicFeatureExtractor:
         n_coeffs = (new_l_max + 1) ** 2
         new_coeffs = np.zeros(n_coeffs, dtype=np.complex128)
 
-        for l in range(new_l_max + 1):
-            for m in range(-l, l + 1):
-                idx = l * (l + 1) + m
-                new_coeffs[idx] = coefficients.get_coefficient(l, m)
+        for degree in range(new_l_max + 1):
+            for m in range(-degree, degree + 1):
+                idx = degree * (degree + 1) + m
+                new_coeffs[idx] = coefficients.get_coefficient(degree, m)
 
         return HarmonicCoefficients(
             l_max=new_l_max,

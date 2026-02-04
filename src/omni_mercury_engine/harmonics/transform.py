@@ -30,25 +30,25 @@ class HarmonicCoefficients:
     real_basis: bool = True
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    def get_coefficient(self, l: int, m: int) -> complex:
-        """Get coefficient for degree l and order m."""
-        if l > self.l_max or abs(m) > l:
+    def get_coefficient(self, degree: int, m: int) -> complex:
+        """Get coefficient for degree and order m."""
+        if degree > self.l_max or abs(m) > degree:
             return 0.0j
 
-        idx = l * (l + 1) + m
+        idx = degree * (degree + 1) + m
         return self.coefficients[idx]
 
-    def set_coefficient(self, l: int, m: int, value: complex) -> None:
-        """Set coefficient for degree l and order m."""
-        if l <= self.l_max and abs(m) <= l:
-            idx = l * (l + 1) + m
+    def set_coefficient(self, degree: int, m: int, value: complex) -> None:
+        """Set coefficient for degree and order m."""
+        if degree <= self.l_max and abs(m) <= degree:
+            idx = degree * (degree + 1) + m
             self.coefficients[idx] = value
 
-    def get_power_at_l(self, l: int) -> float:
-        """Get power at degree l (sum of |c_lm|^2)."""
+    def get_power_at_l(self, degree: int) -> float:
+        """Get power at degree (sum of |c_lm|^2)."""
         power = 0.0
-        for m in range(-l, l + 1):
-            c = self.get_coefficient(l, m)
+        for m in range(-degree, degree + 1):
+            c = self.get_coefficient(degree, m)
             power += np.abs(c) ** 2
         return power
 
@@ -82,36 +82,36 @@ class AssociatedLegendre:
 
         self._plm_cache: dict[tuple[int, int], np.ndarray] = {}
 
-    def compute(self, l: int, m: int, cos_theta: np.ndarray) -> np.ndarray:
+    def compute(self, degree: int, m: int, cos_theta: np.ndarray) -> np.ndarray:
         """
         Compute P_l^m(cos(theta)) with proper normalization.
 
         Args:
-            l: Degree
-            m: Order (|m| <= l)
+            degree: Degree
+            m: Order (|m| <= degree)
             cos_theta: Cosine of colatitude angles
 
         Returns:
             Associated Legendre polynomial values
         """
         m_abs = abs(m)
-        if m_abs > l:
+        if m_abs > degree:
             return np.zeros_like(cos_theta, dtype=self._dtype)
 
-        key = (l, m_abs)
+        key = (degree, m_abs)
         if key in self._plm_cache:
             plm = self._plm_cache[key].copy()
         else:
-            plm = self._compute_plm(l, m_abs, cos_theta)
+            plm = self._compute_plm(degree, m_abs, cos_theta)
             if len(self._plm_cache) < 10000:
                 self._plm_cache[key] = plm.copy()
 
         if self._normalization == "ortho":
             norm = np.sqrt(
-                (2 * l + 1)
+                (2 * degree + 1)
                 / (4 * np.pi)
-                * np.math.factorial(l - m_abs)
-                / np.math.factorial(l + m_abs)
+                * np.math.factorial(degree - m_abs)
+                / np.math.factorial(degree + m_abs)
             )
             plm = plm * norm
 
@@ -231,10 +231,10 @@ class SHBasis:
         n_coeffs = (self._l_max + 1) ** 2
         result = np.zeros((n_coeffs, n_points), dtype=np.float64)
 
-        for l in range(self._l_max + 1):
-            for m in range(-l, l + 1):
-                idx = l * (l + 1) + m
-                result[idx] = self.compute(l, m, theta, phi)
+        for degree in range(self._l_max + 1):
+            for m in range(-degree, degree + 1):
+                idx = degree * (degree + 1) + m
+                result[idx] = self.compute(degree, m, theta, phi)
 
         return result
 
@@ -339,9 +339,9 @@ class SphericalHarmonicTransform:
 
         f = np.zeros(len(theta), dtype=self._dtype)
 
-        for l in range(coefficients.l_max + 1):
-            for m in range(-l, l + 1):
-                idx = l * (l + 1) + m
+        for degree in range(coefficients.l_max + 1):
+            for m in range(-degree, degree + 1):
+                idx = degree * (degree + 1) + m
                 c = coefficients.coefficients[idx]
                 f += np.real(c) * basis[idx]
 
@@ -454,10 +454,10 @@ class FastSHTransform:
         self._cos_theta = np.cos(self._theta)
 
         self._plm_table: dict[tuple[int, int], np.ndarray] = {}
-        for l in range(self._l_max + 1):
-            for m in range(l + 1):
-                plm = self._legendre.compute(l, m, self._cos_theta)
-                self._plm_table[(l, m)] = plm
+        for degree in range(self._l_max + 1):
+            for m in range(degree + 1):
+                plm = self._legendre.compute(degree, m, self._cos_theta)
+                self._plm_table[(degree, m)] = plm
 
     def forward(self, f: np.ndarray) -> HarmonicCoefficients:
         """
@@ -474,11 +474,11 @@ class FastSHTransform:
         n_coeffs = (self._l_max + 1) ** 2
         coefficients = np.zeros(n_coeffs, dtype=np.complex128)
 
-        for l in range(self._l_max + 1):
-            for m in range(-l, l + 1):
-                idx = l * (l + 1) + m
+        for degree in range(self._l_max + 1):
+            for m in range(-degree, degree + 1):
+                idx = degree * (degree + 1) + m
 
-                plm = self._plm_table.get((l, abs(m)))
+                plm = self._plm_table.get((degree, abs(m)))
                 if plm is None:
                     continue
 
@@ -508,12 +508,12 @@ class FastSHTransform:
         """
         f_phi_fft = np.zeros((self._n_theta, self._n_phi), dtype=np.complex128)
 
-        for l in range(coefficients.l_max + 1):
-            for m in range(-l, l + 1):
-                idx = l * (l + 1) + m
+        for degree in range(coefficients.l_max + 1):
+            for m in range(-degree, degree + 1):
+                idx = degree * (degree + 1) + m
                 c = coefficients.coefficients[idx]
 
-                plm = self._plm_table.get((l, abs(m)))
+                plm = self._plm_table.get((degree, abs(m)))
                 if plm is None:
                     continue
 

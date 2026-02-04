@@ -416,10 +416,10 @@ class AdvancedHarmonicAnalyzer:
             List of (l, m, coefficient) tuples
         """
         modes = []
-        for l in range(coefficients.l_max + 1):
-            for m in range(-l, l + 1):
-                c = coefficients.get_coefficient(l, m)
-                modes.append((l, m, c))
+        for degree in range(coefficients.l_max + 1):
+            for m in range(-degree, degree + 1):
+                c = coefficients.get_coefficient(degree, m)
+                modes.append((degree, m, c))
 
         modes.sort(key=lambda x: -np.abs(x[2]))
         return modes[:n_modes]
@@ -448,11 +448,11 @@ class AdvancedHarmonicAnalyzer:
         n_coeffs = (new_l_max + 1) ** 2
         new_coeffs = np.zeros(n_coeffs, dtype=np.complex128)
 
-        for l in range(l_min, l_max + 1):
-            for m in range(-l, l + 1):
-                idx = l * (l + 1) + m
-                if l <= coefficients.l_max:
-                    new_coeffs[idx] = coefficients.get_coefficient(l, m)
+        for degree in range(l_min, l_max + 1):
+            for m in range(-degree, degree + 1):
+                idx = degree * (degree + 1) + m
+                if degree <= coefficients.l_max:
+                    new_coeffs[idx] = coefficients.get_coefficient(degree, m)
 
         return HarmonicCoefficients(
             l_max=new_l_max,
