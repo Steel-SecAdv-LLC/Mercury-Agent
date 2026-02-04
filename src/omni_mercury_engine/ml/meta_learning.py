@@ -1357,8 +1357,7 @@ class MetaLearningAdapter:
         if result is not None and hasattr(result, "post_adaptation_accuracy"):
             n = self._stats["adaptations_performed"]
             self._stats["avg_post_adaptation_acc"] = (
-                self._stats["avg_post_adaptation_acc"] * (n - 1)
-                + result.post_adaptation_accuracy
+                self._stats["avg_post_adaptation_acc"] * (n - 1) + result.post_adaptation_accuracy
             ) / n
 
         return result
@@ -1665,9 +1664,7 @@ class MetaLearningAdapter:
                     # Not enough samples, use what we have
                     selected = class_indices
                 else:
-                    selected = np.random.choice(
-                        class_indices, k_shot + n_query, replace=False
-                    )
+                    selected = np.random.choice(class_indices, k_shot + n_query, replace=False)
 
                 support_indices = selected[:k_shot]
                 query_indices = selected[k_shot : k_shot + n_query]
@@ -1693,14 +1690,16 @@ class MetaLearningAdapter:
                     [query_x[i] for i in range(len(query_x)) if query_y[i] == new_label]
                 )
 
-            episodes.append({
-                "support": support_dict,
-                "query": query_dict,
-                "support_x": np.array(support_x),
-                "support_y": np.array(support_y),
-                "query_x": np.array(query_x),
-                "query_y": np.array(query_y),
-            })
+            episodes.append(
+                {
+                    "support": support_dict,
+                    "query": query_dict,
+                    "support_x": np.array(support_x),
+                    "support_y": np.array(support_y),
+                    "query_x": np.array(query_x),
+                    "query_y": np.array(query_y),
+                }
+            )
 
         return episodes
 
@@ -1768,9 +1767,7 @@ class MetaLearningAdapter:
                 accuracies.append(accuracy)
             elif isinstance(self._learner, Reptile):
                 # evaluate_few_shot now returns float accuracy
-                accuracy = self._learner.evaluate_few_shot(
-                    support_x, support_y, query_x, query_y
-                )
+                accuracy = self._learner.evaluate_few_shot(support_x, support_y, query_x, query_y)
                 accuracies.append(accuracy)
 
         return float(np.mean(accuracies)) if accuracies else 0.0
@@ -2130,7 +2127,9 @@ class AnomalyMetaLearner:
         """Calibrate confidence score using temperature scaling."""
         # Simple temperature scaling
         temperature = 1.5
-        calibrated = 1.0 / (1.0 + np.exp(-np.log(confidence / (1 - confidence + 1e-8)) / temperature))
+        calibrated = 1.0 / (
+            1.0 + np.exp(-np.log(confidence / (1 - confidence + 1e-8)) / temperature)
+        )
         return float(np.clip(calibrated, 0.0, 1.0))
 
     def adapt_to_new_anomaly_type(
@@ -2222,9 +2221,7 @@ class AnomalyMetaLearner:
             Statistics dict with anomaly_types_learned count
         """
         # Count only anomaly types (exclude "normal")
-        anomaly_types = [
-            t for t in self._learned_types.keys() if t.lower() != "normal"
-        ]
+        anomaly_types = [t for t in self._learned_types.keys() if t.lower() != "normal"]
         return {
             "anomaly_types_learned": len(anomaly_types),
             "learned_types": list(self._learned_types.keys()),
