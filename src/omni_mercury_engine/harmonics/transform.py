@@ -122,18 +122,18 @@ class AssociatedLegendre:
 
     def _compute_plm(
         self,
-        l: int,
+        degree: int,
         m: int,
         cos_theta: np.ndarray,
     ) -> np.ndarray:
         """Compute P_l^m using stable recurrence."""
         sin_theta = np.sqrt(1 - cos_theta**2)
 
-        if l == 0 and m == 0:
+        if degree == 0 and m == 0:
             return np.ones_like(cos_theta, dtype=self._dtype)
 
-        if m == l:
-            if l == 0:
+        if m == degree:
+            if degree == 0:
                 return np.ones_like(cos_theta, dtype=self._dtype)
 
             pmm_prev = np.ones_like(cos_theta, dtype=self._dtype)
@@ -144,18 +144,18 @@ class AssociatedLegendre:
 
         pmm = self._compute_plm(m, m, cos_theta)
 
-        if l == m:
+        if degree == m:
             return pmm
 
         pmm_plus_1 = cos_theta * (2 * m + 1) * pmm
 
-        if l == m + 1:
+        if degree == m + 1:
             return pmm_plus_1
 
         plm_prev_prev = pmm
         plm_prev = pmm_plus_1
 
-        for ll in range(m + 2, l + 1):
+        for ll in range(m + 2, degree + 1):
             plm = ((2 * ll - 1) * cos_theta * plm_prev - (ll + m - 1) * plm_prev_prev) / (ll - m)
             plm_prev_prev = plm_prev
             plm_prev = plm
@@ -182,7 +182,7 @@ class SHBasis:
 
     def compute(
         self,
-        l: int,
+        degree: int,
         m: int,
         theta: np.ndarray,
         phi: np.ndarray,
@@ -191,7 +191,7 @@ class SHBasis:
         Compute spherical harmonic Y_l^m(theta, phi).
 
         Args:
-            l: Degree
+            degree: Degree
             m: Order
             theta: Colatitude angles (0 to pi)
             phi: Azimuthal angles (0 to 2*pi)
@@ -200,7 +200,7 @@ class SHBasis:
             Spherical harmonic values
         """
         cos_theta = np.cos(theta)
-        plm = self._legendre.compute(l, m, cos_theta)
+        plm = self._legendre.compute(degree, m, cos_theta)
 
         if self._real_basis:
             if m > 0:
