@@ -421,7 +421,12 @@ class TestMotionStateClassification:
         # Sine wave classification depends on thresholds and signal characteristics
         # It may be classified as oscillating, uniform_motion, or accelerating/decelerating
         # depending on the relative magnitudes of velocity and acceleration
-        assert result["motion_state"] in ["oscillating", "uniform_motion", "accelerating", "decelerating"]
+        assert result["motion_state"] in [
+            "oscillating",
+            "uniform_motion",
+            "accelerating",
+            "decelerating",
+        ]
 
 
 class TestEnergyConservation:
