@@ -265,8 +265,7 @@ class Coalition:
         # If members provided but not member_ids, extract IDs
         if self.members and not self.member_ids:
             self.member_ids = [
-                m.agent_id if hasattr(m, "agent_id") else str(m)
-                for m in self.members
+                m.agent_id if hasattr(m, "agent_id") else str(m) for m in self.members
             ]
         # If leader_id not set, use first member
         if self.leader_id is None and self.member_ids:
@@ -570,15 +569,19 @@ class ConsensusProtocol:
         elif self._method_str == "weighted_vote":
             weighted_for = sum(
                 v.get("confidence", 0.5) * v.get("weight", 1.0)
-                for v in votes if v.get("decision", False)
+                for v in votes
+                if v.get("decision", False)
             )
             weighted_against = sum(
                 v.get("confidence", 0.5) * v.get("weight", 1.0)
-                for v in votes if not v.get("decision", False)
+                for v in votes
+                if not v.get("decision", False)
             )
             decision = weighted_for > weighted_against
             total_weight = weighted_for + weighted_against
-            agreement_ratio = max(weighted_for, weighted_against) / total_weight if total_weight > 0 else 0.5
+            agreement_ratio = (
+                max(weighted_for, weighted_against) / total_weight if total_weight > 0 else 0.5
+            )
 
         elif self._method_str == "byzantine_tolerant":
             # Byzantine fault tolerance: can tolerate f < n/3 faulty nodes
@@ -1196,10 +1199,14 @@ class MultiAgentDetectionSystem:
             "dissenting_agents": result.dissenting_agents,
             "detection_id": f"detection_{self._detection_counter:06d}",
             "consensus_decision": result.final_decision,
-            "individual_results": [
-                {"agent_id": agent_id, "decision": vote}
-                for agent_id, vote in getattr(result, "votes", {}).items()
-            ] if hasattr(result, "votes") else [],
+            "individual_results": (
+                [
+                    {"agent_id": agent_id, "decision": vote}
+                    for agent_id, vote in getattr(result, "votes", {}).items()
+                ]
+                if hasattr(result, "votes")
+                else []
+            ),
         }
 
     def register_agent(self, agent: DetectionAgent) -> bool:

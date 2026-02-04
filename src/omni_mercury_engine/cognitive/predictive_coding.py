@@ -686,9 +686,7 @@ class HierarchicalPredictiveCoder:
         if len(self.levels) > 1:
             higher_level = self.levels[1]
             if higher_level in self.models:
-                prediction = self.models[higher_level].predict(
-                    self.beliefs[higher_level].mean
-                )
+                prediction = self.models[higher_level].predict(self.beliefs[higher_level].mean)
             else:
                 prediction = np.zeros_like(observation)
         else:

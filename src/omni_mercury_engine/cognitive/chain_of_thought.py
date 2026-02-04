@@ -1335,7 +1335,9 @@ class AnomalyChainOfThought:
                 std_val = float(np.std(raw_features)) + 1e-8
                 max_z = float(np.max(np.abs((raw_features - mean_val) / std_val)))
                 anomaly_score = min(1.0, max_z / 3.0)
-            data["raw_features"] = raw_features.tolist() if hasattr(raw_features, "tolist") else raw_features
+            data["raw_features"] = (
+                raw_features.tolist() if hasattr(raw_features, "tolist") else raw_features
+            )
         elif anomaly_score_or_features is not None:
             anomaly_score = float(anomaly_score_or_features)
         else:

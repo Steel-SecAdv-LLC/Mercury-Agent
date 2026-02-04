@@ -621,9 +621,7 @@ class SafetyVerifier:
 
             if antecedent_true:
                 # If antecedent is true, consequent must be true
-                consequent_true = self._evaluate_simple_condition(
-                    consequent, system_state
-                )
+                consequent_true = self._evaluate_simple_condition(consequent, system_state)
                 satisfied = consequent_true
             else:
                 # If antecedent is false, implication is vacuously true
@@ -939,8 +937,7 @@ class IntervalBoundPropagator:
 
             # Return as dict with output variable names
             return {
-                f"y{i}": (float(lower_out[i]), float(upper_out[i]))
-                for i in range(len(lower_out))
+                f"y{i}": (float(lower_out[i]), float(upper_out[i])) for i in range(len(lower_out))
             }
 
         # Original tuple format
@@ -1458,11 +1455,13 @@ class AnomalyVerifier:
 
             # Evaluate condition
             satisfied = self._evaluate_constraint(condition, detection_decision)
-            results.append({
-                "name": name,
-                "condition": condition,
-                "satisfied": satisfied,
-            })
+            results.append(
+                {
+                    "name": name,
+                    "condition": condition,
+                    "satisfied": satisfied,
+                }
+            )
 
             if not satisfied:
                 all_satisfied = False

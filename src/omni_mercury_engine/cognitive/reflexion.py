@@ -578,7 +578,9 @@ class HeuristicEvaluator:
         # Handle simplified dict-based API (test compatibility)
         if isinstance(decision, dict):
             decision_dict = decision
-            outcome_dict = past_experiences_or_outcome if isinstance(past_experiences_or_outcome, dict) else {}
+            outcome_dict = (
+                past_experiences_or_outcome if isinstance(past_experiences_or_outcome, dict) else {}
+            )
 
             # Extract values from dicts
             confidence = decision_dict.get("confidence", 0.5)
@@ -616,7 +618,9 @@ class HeuristicEvaluator:
             }
 
         # Original API with Decision object
-        past_experiences = past_experiences_or_outcome if isinstance(past_experiences_or_outcome, list) else []
+        past_experiences = (
+            past_experiences_or_outcome if isinstance(past_experiences_or_outcome, list) else []
+        )
 
         component_scores: dict[str, float] = {}
         violations: list[str] = []
@@ -856,9 +860,13 @@ class ReflexionEngine:
 
                     # Classify based on score
                     if anomaly_score > 0.7:
-                        decision_class = possible_classes[-1] if len(possible_classes) > 1 else "anomaly"
+                        decision_class = (
+                            possible_classes[-1] if len(possible_classes) > 1 else "anomaly"
+                        )
                     elif anomaly_score > 0.4:
-                        decision_class = possible_classes[1] if len(possible_classes) > 2 else "uncertain"
+                        decision_class = (
+                            possible_classes[1] if len(possible_classes) > 2 else "uncertain"
+                        )
                     else:
                         decision_class = possible_classes[0]
 
@@ -1524,7 +1532,9 @@ class AnomalyReflexion:
 
             # Generate recommendations
             if refined_score > 0.8:
-                recommendations.append("High confidence anomaly - recommend immediate investigation")
+                recommendations.append(
+                    "High confidence anomaly - recommend immediate investigation"
+                )
             elif refined_score > 0.6:
                 recommendations.append("Moderate anomaly signal - recommend monitoring")
             elif refined_score > 0.4:
@@ -1533,7 +1543,9 @@ class AnomalyReflexion:
                 recommendations.append("Low anomaly probability - continue normal operation")
 
             if std_val > 1.0:
-                recommendations.append("High feature variance detected - consider feature normalization")
+                recommendations.append(
+                    "High feature variance detected - consider feature normalization"
+                )
             if abs(mean_val) > 2.0:
                 recommendations.append("Feature mean deviation - check for data drift")
         else:

@@ -559,13 +559,15 @@ class GoalDecomposer:
             result = []
             for i, subgoal_desc in enumerate(template_subgoals[: self.max_subgoals]):
                 self._decomposition_counter += 1
-                result.append({
-                    "type": subgoal_desc,
-                    "level": i,
-                    "parent": goal_id,
-                    "priority": priority * (1 - i * 0.1),
-                    "constraints": goal.get("constraints", {}),
-                })
+                result.append(
+                    {
+                        "type": subgoal_desc,
+                        "level": i,
+                        "parent": goal_id,
+                        "priority": priority * (1 - i * 0.1),
+                        "constraints": goal.get("constraints", {}),
+                    }
+                )
             return result
 
         # Original Goal object handling
@@ -1020,9 +1022,11 @@ class HierarchicalPlanner:
         # Create Goal object from dict
         objective = goal.get("objective", goal.get("description", "achieve_goal"))
         priority = goal.get("priority", "normal")
-        priority_value = {"low": 0.3, "normal": 0.5, "high": 0.7, "critical": 0.9}.get(
-            priority, 0.5
-        ) if isinstance(priority, str) else float(priority)
+        priority_value = (
+            {"low": 0.3, "normal": 0.5, "high": 0.7, "critical": 0.9}.get(priority, 0.5)
+            if isinstance(priority, str)
+            else float(priority)
+        )
 
         root_goal = self.create_goal(
             description=objective,
@@ -1037,19 +1041,27 @@ class HierarchicalPlanner:
         # Convert to simplified dict format
         actions = []
         for option in hierarchical_plan.options_used:
-            actions.append({
-                "name": option.name,
-                "policy": option.policy,
-                "expected_duration": option.expected_duration,
-            })
+            actions.append(
+                {
+                    "name": option.name,
+                    "policy": option.policy,
+                    "expected_duration": option.expected_duration,
+                }
+            )
 
         steps = []
         for subgoal in hierarchical_plan.subgoals:
-            steps.append({
-                "description": subgoal.description,
-                "level": subgoal.level.value if hasattr(subgoal.level, "value") else str(subgoal.level),
-                "target_state": subgoal.target_state,
-            })
+            steps.append(
+                {
+                    "description": subgoal.description,
+                    "level": (
+                        subgoal.level.value
+                        if hasattr(subgoal.level, "value")
+                        else str(subgoal.level)
+                    ),
+                    "target_state": subgoal.target_state,
+                }
+            )
 
         return {
             "plan_id": hierarchical_plan.plan_id,
@@ -1393,11 +1405,13 @@ class AnomalyHierarchicalPlanner:
 
             tactical_actions = []
             for system in affected_systems:
-                tactical_actions.append({
-                    "target": system,
-                    "action": "isolate" if severity > 0.7 else "monitor",
-                    "priority": severity,
-                })
+                tactical_actions.append(
+                    {
+                        "target": system,
+                        "action": "isolate" if severity > 0.7 else "monitor",
+                        "priority": severity,
+                    }
+                )
 
             return {
                 "strategic_goals": strategic_goals,

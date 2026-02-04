@@ -430,7 +430,11 @@ class HindsightRelabeler:
         """
         # Handle list of dicts (test API: trajectory with achieved_goal)
         if isinstance(sequence, list):
-            achieved_goal = strategy_or_achieved_goal if isinstance(strategy_or_achieved_goal, str) else "achieved"
+            achieved_goal = (
+                strategy_or_achieved_goal
+                if isinstance(strategy_or_achieved_goal, str)
+                else "achieved"
+            )
             relabeled_trajectory = []
             for step in sequence:
                 relabeled_step = step.copy()
@@ -439,7 +443,11 @@ class HindsightRelabeler:
             return relabeled_trajectory
 
         # Original API with HistoricalSequence
-        strategy = strategy_or_achieved_goal if isinstance(strategy_or_achieved_goal, RelabelingStrategy) else RelabelingStrategy.OPTIMAL
+        strategy = (
+            strategy_or_achieved_goal
+            if isinstance(strategy_or_achieved_goal, RelabelingStrategy)
+            else RelabelingStrategy.OPTIMAL
+        )
 
         relabelings: list[HindsightRelabeling] = []
         credits = CreditAssignment().assign_credit(sequence)
@@ -558,31 +566,48 @@ class FeedbackProcessor:
 
             if pred_class == truth_bool:
                 if truth_bool:
-                    linguistic_feedback.append(f"Step {i}: Correct positive detection (score={pred:.2f})")
+                    linguistic_feedback.append(
+                        f"Step {i}: Correct positive detection (score={pred:.2f})"
+                    )
                 else:
-                    linguistic_feedback.append(f"Step {i}: Correct negative classification (score={pred:.2f})")
+                    linguistic_feedback.append(
+                        f"Step {i}: Correct negative classification (score={pred:.2f})"
+                    )
             else:
                 if pred_class and not truth_bool:
-                    linguistic_feedback.append(f"Step {i}: False positive - lower threshold recommended (score={pred:.2f})")
-                    improvement_signals.append({
-                        "step": i,
-                        "type": "false_positive",
-                        "suggestion": "increase_threshold",
-                        "score": pred,
-                    })
+                    linguistic_feedback.append(
+                        f"Step {i}: False positive - lower threshold recommended (score={pred:.2f})"
+                    )
+                    improvement_signals.append(
+                        {
+                            "step": i,
+                            "type": "false_positive",
+                            "suggestion": "increase_threshold",
+                            "score": pred,
+                        }
+                    )
                 else:
-                    linguistic_feedback.append(f"Step {i}: False negative - raise sensitivity (score={pred:.2f})")
-                    improvement_signals.append({
-                        "step": i,
-                        "type": "false_negative",
-                        "suggestion": "decrease_threshold",
-                        "score": pred,
-                    })
+                    linguistic_feedback.append(
+                        f"Step {i}: False negative - raise sensitivity (score={pred:.2f})"
+                    )
+                    improvement_signals.append(
+                        {
+                            "step": i,
+                            "type": "false_negative",
+                            "suggestion": "decrease_threshold",
+                            "score": pred,
+                        }
+                    )
 
         return {
             "linguistic_feedback": linguistic_feedback,
             "improvement_signals": improvement_signals,
-            "accuracy": sum(1 for p, t in zip(predictions, ground_truth) if (p > 0.5) == bool(t)) / len(predictions) if predictions else 0.0,
+            "accuracy": (
+                sum(1 for p, t in zip(predictions, ground_truth) if (p > 0.5) == bool(t))
+                / len(predictions)
+                if predictions
+                else 0.0
+            ),
         }
 
     def process_sequence(self, sequence: HistoricalSequence) -> list[LearningSignal]:
@@ -1450,20 +1475,24 @@ class AnomalyChainOfHindsight:
             if fp_scores:
                 avg_fp = np.mean(fp_scores)
                 pattern_insights.append(f"False positives cluster around score {avg_fp:.2f}")
-                threshold_recommendations.append({
-                    "type": "increase_threshold",
-                    "reason": f"False positives at avg score {avg_fp:.2f}",
-                    "suggested_value": min(0.9, avg_fp + 0.1),
-                })
+                threshold_recommendations.append(
+                    {
+                        "type": "increase_threshold",
+                        "reason": f"False positives at avg score {avg_fp:.2f}",
+                        "suggested_value": min(0.9, avg_fp + 0.1),
+                    }
+                )
 
             if fn_scores:
                 avg_fn = np.mean(fn_scores)
                 pattern_insights.append(f"False negatives cluster around score {avg_fn:.2f}")
-                threshold_recommendations.append({
-                    "type": "decrease_threshold",
-                    "reason": f"False negatives at avg score {avg_fn:.2f}",
-                    "suggested_value": max(0.1, avg_fn - 0.1),
-                })
+                threshold_recommendations.append(
+                    {
+                        "type": "decrease_threshold",
+                        "reason": f"False negatives at avg score {avg_fn:.2f}",
+                        "suggested_value": max(0.1, avg_fn - 0.1),
+                    }
+                )
 
         # Temporal pattern analysis
         if len(scores) >= 3:
