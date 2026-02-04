@@ -1447,11 +1447,9 @@ class MetaLearningAdapter:
             Training statistics with "loss" or "accuracy" key
         """
         losses = []
-        accuracies = []
 
         for epoch in range(epochs):
             epoch_loss = 0.0
-            epoch_acc = 0.0
 
             for task_dict in tasks:
                 # Handle both task formats
@@ -1565,8 +1563,7 @@ class MetaLearningAdapter:
             # Convert dict to arrays for MAML/Reptile
             support_x = []
             support_y = []
-            class_names = list(support_set.keys())
-            for idx, (class_name, features) in enumerate(support_set.items()):
+            for idx, (_, features) in enumerate(support_set.items()):
                 if features.ndim == 1:
                     features = features.reshape(1, -1)
                 for f in features:
@@ -2221,7 +2218,7 @@ class AnomalyMetaLearner:
             Statistics dict with anomaly_types_learned count
         """
         # Count only anomaly types (exclude "normal")
-        anomaly_types = [t for t in self._learned_types.keys() if t.lower() != "normal"]
+        anomaly_types = [t for t in self._learned_types if t.lower() != "normal"]
         return {
             "anomaly_types_learned": len(anomaly_types),
             "learned_types": list(self._learned_types.keys()),
