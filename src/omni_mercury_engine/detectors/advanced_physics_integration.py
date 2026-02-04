@@ -90,6 +90,10 @@ class PhysicsDetectorType(Enum):
     ACCELERATION_DYNAMICS = "acceleration_dynamics"
     UIUX_ANOMALY = "uiux_anomaly"
     ALL = "all"
+    # CLI-friendly aliases
+    SPECTRAL = "spectral_vibration"  # Alias for SPECTRAL_VIBRATION
+    DYNAMICS = "acceleration_dynamics"  # Alias for ACCELERATION_DYNAMICS
+    UIUX = "uiux_anomaly"  # Alias for UIUX_ANOMALY
 
 
 # =============================================================================

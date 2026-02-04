@@ -136,60 +136,18 @@ class ThreatLevel(Enum):
     SEVERE = 6  # Major risk
     CRITICAL = 7  # Extreme risk / Maximum severity
 
-    # Compatibility aliases (class-level properties)
-    @classmethod
-    @property
-    def MINIMAL(cls) -> "ThreatLevel":
-        """Alias for LOW threat level."""
-        return cls.LOW
-
-    @classmethod
-    @property
-    def MEDIUM(cls) -> "ThreatLevel":
-        """Alias for MODERATE threat level."""
-        return cls.MODERATE
-
-    @classmethod
-    @property
-    def ELEVATED(cls) -> "ThreatLevel":
-        """Alias for SUBSTANTIAL threat level."""
-        return cls.SUBSTANTIAL
-
-    @classmethod
-    @property
-    def EXTREME(cls) -> "ThreatLevel":
-        """Alias for CRITICAL threat level."""
-        return cls.CRITICAL
-
-    @classmethod
-    @property
-    def SAFE(cls) -> "ThreatLevel":
-        """Alias for NONE threat level."""
-        return cls.NONE
-
-    @classmethod
-    @property
-    def BENIGN(cls) -> "ThreatLevel":
-        """Alias for NONE threat level."""
-        return cls.NONE
-
-    @classmethod
-    @property
-    def ANOMALOUS(cls) -> "ThreatLevel":
-        """Alias for LOW threat level."""
-        return cls.LOW
-
-    @classmethod
-    @property
-    def SUSPICIOUS(cls) -> "ThreatLevel":
-        """Alias for MODERATE threat level."""
-        return cls.MODERATE
-
-    @classmethod
-    @property
-    def THREAT(cls) -> "ThreatLevel":
-        """Alias for HIGH threat level."""
-        return cls.HIGH
+    # Compatibility aliases (same values as primary levels)
+    # These provide alternative semantic names for the same threat levels.
+    # Using same value makes them aliases via Python Enum semantics.
+    MINIMAL = 2  # Alias for LOW
+    MEDIUM = 3  # Alias for MODERATE
+    ELEVATED = 4  # Alias for SUBSTANTIAL
+    EXTREME = 7  # Alias for CRITICAL
+    SAFE = 0  # Alias for NONE
+    BENIGN = 0  # Alias for NONE
+    ANOMALOUS = 2  # Alias for LOW
+    SUSPICIOUS = 3  # Alias for MODERATE
+    THREAT = 5  # Alias for HIGH
 
     def is_actionable(self) -> bool:
         """Return True if threat level requires active response."""

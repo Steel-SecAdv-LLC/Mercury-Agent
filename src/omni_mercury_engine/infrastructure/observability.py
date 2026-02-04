@@ -37,10 +37,11 @@ from enum import Enum
 from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from collections.abc import Callable, Generator
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -623,7 +624,7 @@ class DistributedTracer:
         name: str,
         kind: str = "internal",
         attributes: dict[str, Any] | None = None,
-    ) -> Iterator[dict[str, str]]:
+    ) -> Generator[dict[str, str], None, None]:
         """Create a tracing span context manager."""
         if not OTEL_AVAILABLE or self._tracer is None:
             yield {"trace_id": "", "span_id": ""}
