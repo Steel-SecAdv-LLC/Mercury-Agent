@@ -762,9 +762,9 @@ class UIUXAnomalyDetector(BaseDetector):
             raise DetectorException("Cannot fit UIUXAnomalyDetector with empty data.")
 
         if isinstance(interactions[0], UserInteraction):
-            sessions = [interactions]  # type: ignore
+            sessions = [interactions]
         else:
-            sessions = interactions  # type: ignore
+            sessions = interactions
 
         # Collect statistics from all sessions
         all_timings = []
@@ -1567,9 +1567,9 @@ class UIUXAnomalyDetector(BaseDetector):
             linear_segments = 0
             for i in range(len(moves) - 2):
                 # Vector from point i to i+1
-                v1 = (moves[i + 1][0] - moves[i][0], moves[i + 1][1] - moves[i][1])  # type: ignore
+                v1 = (moves[i + 1][0] - moves[i][0], moves[i + 1][1] - moves[i][1])
                 # Vector from point i+1 to i+2
-                v2 = (moves[i + 2][0] - moves[i + 1][0], moves[i + 2][1] - moves[i + 1][1])  # type: ignore
+                v2 = (moves[i + 2][0] - moves[i + 1][0], moves[i + 2][1] - moves[i + 1][1])
 
                 # Check if vectors are parallel (cross product near zero)
                 cross = abs(v1[0] * v2[1] - v1[1] * v2[0])

@@ -896,7 +896,7 @@ class IntervalBoundPropagator:
     compute output bounds.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize interval bound propagator."""
         pass
 

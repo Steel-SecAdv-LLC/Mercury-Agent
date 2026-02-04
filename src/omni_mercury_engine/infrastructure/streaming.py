@@ -948,7 +948,7 @@ class StreamProducerFactory:
     def create(
         backend: str | StreamingBackend = StreamingBackend.MEMORY,
         config: StreamConfig | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> StreamProducer:
         """Create a stream producer for the specified backend.
 
@@ -986,7 +986,7 @@ class StreamConsumerFactory:
         backend: str | StreamingBackend = StreamingBackend.MEMORY,
         config: StreamConfig | None = None,
         group_id: str = "mercury-agent",
-        **kwargs,
+        **kwargs: Any,
     ) -> StreamConsumer:
         """Create a stream consumer for the specified backend.
 

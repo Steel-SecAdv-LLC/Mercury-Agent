@@ -90,6 +90,10 @@ class PhysicsDetectorType(Enum):
     ACCELERATION_DYNAMICS = "acceleration_dynamics"
     UIUX_ANOMALY = "uiux_anomaly"
     ALL = "all"
+    # CLI-friendly aliases
+    SPECTRAL = "spectral_vibration"  # Alias for SPECTRAL_VIBRATION
+    DYNAMICS = "acceleration_dynamics"  # Alias for ACCELERATION_DYNAMICS
+    UIUX = "uiux_anomaly"  # Alias for UIUX_ANOMALY
 
 
 # =============================================================================
@@ -483,7 +487,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
         elif data_type == "interactions":
             if self._uiux_detector is not None and self._uiux_detector.is_fitted():
-                uiux_result = self._uiux_detector.detect(data)  # type: ignore
+                uiux_result = self._uiux_detector.detect(data)
 
         elif data_type == "mixed" and isinstance(data, dict):
             if "time_series" in data:

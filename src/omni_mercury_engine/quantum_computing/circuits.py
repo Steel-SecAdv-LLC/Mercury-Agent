@@ -41,7 +41,7 @@ try:
     QISKIT_AVAILABLE = True
 except ImportError:
     logger.debug("Qiskit not available, using simulation fallback")
-    QuantumCircuit = None  # type: ignore[misc, assignment]
+    QuantumCircuit = None
 
 
 class EncodingType(Enum):
