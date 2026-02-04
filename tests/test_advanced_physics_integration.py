@@ -13,17 +13,15 @@ import torch
 
 from omni_mercury_engine.detectors.advanced_physics_integration import (
     AdvancedPhysicsIntegratedDetector,
-    AdvancedPhysicsConfig,
-    PhysicsDetectorType,
     PhysicsGOSNNScalars,
-    create_spectral_detector,
     create_dynamics_detector,
-    create_uiux_detector,
     create_integrated_detector,
+    create_spectral_detector,
+    create_uiux_detector,
 )
 from omni_mercury_engine.detectors.uiux_anomaly import (
-    UserInteraction,
     InteractionType,
+    UserInteraction,
 )
 
 
@@ -247,7 +245,7 @@ class TestAdvancedPhysicsIntegratedDetector:
     def test_detect_not_fitted_raises(self) -> None:
         """Test that detection before fitting raises exception."""
         detector = AdvancedPhysicsIntegratedDetector()
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, RuntimeError)):
             detector.detect(create_test_time_series(), data_type="time_series")
 
 

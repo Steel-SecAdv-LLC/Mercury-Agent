@@ -13,22 +13,20 @@ import torch
 
 from omni_mercury_engine.detectors.acceleration_dynamics import (
     AccelerationDynamicsDetector,
-    AccelerationDynamicsConfig,
-    KinematicFeatures,
-    PhaseSpaceFeatures,
-    AccelerationAnomalyResult,
-    MotionState,
-    EnergyState,
-    MotionEncoder,
-    PhaseSpaceNetwork,
     EnergyConservationNetwork,
-    compute_velocity,
+    EnergyState,
+    KinematicFeatures,
+    MotionEncoder,
+    MotionState,
+    PhaseSpaceFeatures,
+    PhaseSpaceNetwork,
     compute_acceleration,
+    compute_average_acceleration,
+    compute_impulse,
     compute_kinetic_energy,
     compute_momentum,
-    compute_impulse,
+    compute_velocity,
     estimate_initial_acceleration,
-    compute_average_acceleration,
 )
 
 
@@ -81,7 +79,7 @@ class TestAccelerationDynamicsDetector:
     def test_fit_empty_data_raises(self) -> None:
         """Test that fitting with empty data raises exception."""
         detector = AccelerationDynamicsDetector()
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, RuntimeError)):
             detector.fit(np.array([]))
 
     def test_detect_uniform_motion(self) -> None:
@@ -178,7 +176,7 @@ class TestAccelerationDynamicsDetector:
     def test_detect_not_fitted_raises(self) -> None:
         """Test that detection before fitting raises exception."""
         detector = AccelerationDynamicsDetector()
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, RuntimeError)):
             detector.detect(np.random.randn(100))
 
 

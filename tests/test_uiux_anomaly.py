@@ -8,29 +8,27 @@ Tests for UI/UX Anomaly Detection Module.
 from __future__ import annotations
 
 import time
+
 import numpy as np
 import pytest
 import torch
 
 from omni_mercury_engine.detectors.uiux_anomaly import (
-    UIUXAnomalyDetector,
-    UIUXConfig,
-    UserInteraction,
-    InteractionType,
     AnomalyCategory,
-    UserBehaviorClass,
-    ClickAnalysis,
-    ScrollAnalysis,
-    NavigationAnalysis,
-    SessionAnalysis,
-    InteractionSequenceEncoder,
-    MouseTrajectoryNetwork,
-    ClickPatternNetwork,
     BehaviorClassificationNetwork,
+    ClickAnalysis,
+    ClickPatternNetwork,
+    InteractionSequenceEncoder,
+    InteractionType,
+    MouseTrajectoryNetwork,
+    SessionAnalysis,
+    UIUXAnomalyDetector,
+    UserBehaviorClass,
+    UserInteraction,
+    analyze_navigation_flow,
+    compute_click_heatmap,
     compute_fitts_law_time,
     detect_rage_clicks,
-    compute_click_heatmap,
-    analyze_navigation_flow,
 )
 
 
@@ -109,7 +107,7 @@ class TestUIUXAnomalyDetector:
     def test_fit_empty_data_raises(self) -> None:
         """Test that fitting with empty data raises exception."""
         detector = UIUXAnomalyDetector()
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, RuntimeError)):
             detector.fit([])
 
     def test_detect_normal_session(self) -> None:
@@ -319,7 +317,7 @@ class TestUIUXAnomalyDetector:
     def test_detect_not_fitted_raises(self) -> None:
         """Test that detection before fitting raises exception."""
         detector = UIUXAnomalyDetector()
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, RuntimeError)):
             detector.detect(create_test_interactions(count=10))
 
 
@@ -553,4 +551,4 @@ class TestDataClasses:
         )
 
         assert analysis.session_duration == 300.0
-        assert UserBehaviorClass.TASK_FOCUSED == analysis.behavior_class
+        assert analysis.behavior_class == UserBehaviorClass.TASK_FOCUSED

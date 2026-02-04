@@ -1069,7 +1069,7 @@ class HierarchicalPlanner:
         option_reward = sum(o.expected_reward for o in options)
 
         # Value function estimate
-        root_goal = list(hierarchy.values())[0]
+        root_goal = next(iter(hierarchy.values()))
         value_estimate = self.value_function.get_value(state, root_goal)
 
         return goal_reward * 0.3 + option_reward * 0.3 + value_estimate * 0.4

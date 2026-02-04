@@ -117,13 +117,14 @@ from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate, Uncer
 __all__ = [
     # Abstraction and Planning
     "AbstractionLevel",
+    "ActiveInferenceAgent",
+    # Coordination
+    "AgentCoordinator",
     "AnomalyChainOfHindsight",
     "AnomalyChainOfThought",
     "AnomalyHierarchicalPlanner",
     "AnomalyReflexion",
     "AnomalyVerifier",
-    # Coordination
-    "AgentCoordinator",
     # Core cognitive components
     "BattlefieldAssessment",
     "Case",
@@ -150,9 +151,9 @@ __all__ = [
     "HeuristicEvaluator",
     # Hierarchical Planning
     "HierarchicalPlanner",
-    "HierarchicalValueFunction",
     # Predictive Coding
     "HierarchicalPredictiveCoder",
+    "HierarchicalValueFunction",
     "HindsightRelabeler",
     "IPBEngine",
     "Indicator",
@@ -169,7 +170,6 @@ __all__ = [
     "PlasticityEngine",
     "PrecisionEstimator",
     "PredictiveCodingDetector",
-    "ActiveInferenceAgent",
     "ReachabilityAnalyzer",
     "ReasoningChain",
     "ReasoningStrategy",

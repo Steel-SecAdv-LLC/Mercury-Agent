@@ -44,7 +44,7 @@ With the existing Mercury Agent systems:
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
@@ -53,7 +53,6 @@ from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.core.three_r.engines import RecursionEngine, ResonanceEngine
 from omni_mercury_engine.core.three_r.fusion import AnomalyFusionEquation
-from omni_mercury_engine.core.three_r.types import AnomalyFusionResult
 from omni_mercury_engine.detectors.acceleration_dynamics import (
     AccelerationDynamicsDetector,
 )
@@ -67,6 +66,10 @@ from omni_mercury_engine.detectors.uiux_anomaly import (
     UserInteraction,
 )
 from omni_mercury_engine.utils.constants import MathematicalConstants
+
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.core.three_r.types import AnomalyFusionResult
 
 
 logger = logging.getLogger(__name__)

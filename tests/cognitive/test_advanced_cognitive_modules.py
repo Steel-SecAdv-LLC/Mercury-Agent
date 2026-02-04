@@ -17,7 +17,6 @@ Verifies that all new cognitive components work correctly:
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 
 # =============================================================================
@@ -489,7 +488,7 @@ class TestMultiAgentCoordination:
 
         consensus = protocol.reach_consensus(votes)
 
-        assert consensus["decision"] == True
+        assert consensus["decision"]
         assert "agreement_ratio" in consensus
 
     def test_consensus_protocol_weighted_vote(self):
@@ -506,7 +505,7 @@ class TestMultiAgentCoordination:
         consensus = protocol.reach_consensus(votes)
 
         # Weighted: True has 1.8, False has 1.5
-        assert consensus["decision"] == True
+        assert consensus["decision"]
 
     def test_byzantine_tolerant_consensus(self):
         from omni_mercury_engine.cognitive.multi_agent_coordination import ConsensusProtocol
@@ -523,8 +522,8 @@ class TestMultiAgentCoordination:
 
         consensus = protocol.reach_consensus(votes)
 
-        assert consensus["decision"] == True
-        assert consensus["is_byzantine_safe"] == True
+        assert consensus["decision"]
+        assert consensus["is_byzantine_safe"]
 
     def test_coalition_formation(self):
         from omni_mercury_engine.cognitive.multi_agent_coordination import (
@@ -615,7 +614,7 @@ class TestFormalVerification:
 
         result = verifier.verify(safety_property, system_state)
 
-        assert result["satisfied"] == True
+        assert result["satisfied"]
 
     def test_constraint_solver(self):
         from omni_mercury_engine.cognitive.formal_verification import ConstraintSolver
@@ -630,7 +629,7 @@ class TestFormalVerification:
 
         result = solver.solve(constraints)
 
-        assert result["satisfiable"] == True
+        assert result["satisfiable"]
         assert 0.5 < result["solution"]["threshold"] < 0.9
 
     def test_reachability_analyzer(self):
@@ -649,7 +648,7 @@ class TestFormalVerification:
         # Check if "mitigate" is reachable from "normal"
         result = analyzer.is_reachable("normal", "mitigate", states)
 
-        assert result["reachable"] == True
+        assert result["reachable"]
         assert len(result["path"]) > 0
 
     def test_interval_bound_propagator(self):
@@ -695,7 +694,7 @@ class TestFormalVerification:
 
         assert result is not None
         assert "all_satisfied" in result
-        assert result["all_satisfied"] == True
+        assert result["all_satisfied"]
 
     def test_statistics_tracking(self):
         from omni_mercury_engine.cognitive.formal_verification import FormalVerificationEngine

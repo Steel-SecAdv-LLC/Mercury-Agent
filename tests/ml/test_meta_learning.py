@@ -642,4 +642,4 @@ class TestEdgeCases:
         result = learner.detect(sample)
 
         assert result is not None
-        assert result["predicted_type"] in examples.keys()
+        assert result["predicted_type"] in examples

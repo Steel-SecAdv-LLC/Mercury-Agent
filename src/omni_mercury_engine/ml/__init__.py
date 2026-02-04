@@ -42,6 +42,7 @@ except ImportError:
 __all__ = [
     "HAS_PYTORCH_LIGHTNING",
     "HAS_TORCH",
+    "MAML",
     "ActiveLearner",
     "AffectiveEncoder",
     "AnomalyExplainer",
@@ -73,7 +74,6 @@ __all__ = [
     "LightweightAutoencoder",
     "LightweightMLP",
     "LyapunovAnomalyLoss",
-    "MAML",
     "MLPConfig",
     "MemoryEfficientCache",
     "MetaLearningAdapter",

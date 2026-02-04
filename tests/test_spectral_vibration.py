@@ -12,17 +12,15 @@ import pytest
 import torch
 
 from omni_mercury_engine.detectors.spectral_vibration import (
-    SpectralVibrationDetector,
-    SpectralVibrationConfig,
-    SpectralAnalysisMode,
-    VibrationSignatureType,
-    SpectralFeatures,
-    VibrationDiagnostic,
-    SpectralGraphLayer,
-    SpectralGNN,
-    SpectralCNN,
-    PhononInteractionNetwork,
     MLIPVibrationEncoder,
+    PhononInteractionNetwork,
+    SpectralCNN,
+    SpectralFeatures,
+    SpectralGNN,
+    SpectralGraphLayer,
+    SpectralVibrationDetector,
+    VibrationDiagnostic,
+    VibrationSignatureType,
     compute_short_time_fourier_transform,
     compute_wavelet_decomposition,
     detect_peaks_with_harmonics,
@@ -89,7 +87,7 @@ class TestSpectralVibrationDetector:
     def test_fit_empty_data_raises(self) -> None:
         """Test that fitting with empty data raises exception."""
         detector = SpectralVibrationDetector()
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, RuntimeError)):
             detector.fit(np.array([]))
 
     def test_detect_normal_signal(self) -> None:
@@ -159,7 +157,7 @@ class TestSpectralVibrationDetector:
     def test_detect_not_fitted_raises(self) -> None:
         """Test that detection before fitting raises exception."""
         detector = SpectralVibrationDetector()
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, RuntimeError)):
             detector.detect(np.random.randn(100))
 
 
