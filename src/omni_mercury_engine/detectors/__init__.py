@@ -28,6 +28,7 @@ Includes:
     - Base detectors (statistical, temporal, spatial, dimensional)
     - Visual anomaly detectors (PatchCore, PaDiM, STFPM, Reverse Distillation, CFlow)
     - Vision-Language Model detectors (AnyAnomaly, LAVAD)
+    - Advanced SOTA detectors (time-series, industrial, contrastive, copula-based)
 """
 
 from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
@@ -49,6 +50,17 @@ from omni_mercury_engine.detectors.visual import (
 # Vision-Language Model Detectors
 from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector, BaseVLMDetector, LAVADDetector
 
+# Advanced SOTA Detectors (v1.3.0)
+from omni_mercury_engine.detectors.advanced import (
+    AdversarialAutoencoderDetector,
+    COPODDetector,
+    ContrastiveLearningDetector,
+    GWOEnsembleDetector,
+    MultiScaleTransformerDetector,
+    PointAdjustmentEvaluator,
+    create_detector,
+)
+
 
 __all__ = [
     # VLM detectors
@@ -68,4 +80,12 @@ __all__ = [
     "SpatialAnomalyDetector",
     "StatisticalAnomalyDetector",
     "TemporalAnomalyDetector",
+    # Advanced SOTA detectors (v1.3.0)
+    "AdversarialAutoencoderDetector",
+    "COPODDetector",
+    "ContrastiveLearningDetector",
+    "GWOEnsembleDetector",
+    "MultiScaleTransformerDetector",
+    "PointAdjustmentEvaluator",
+    "create_detector",
 ]
