@@ -18,11 +18,18 @@ Example:
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
+import os
 import random
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+logger = logging.getLogger(__name__)
 
 
 class WeatherCondition(Enum):
@@ -315,3 +322,579 @@ class WeatherServiceStub:
             "cache_size": len(self._cache),
             "failure_rate": self._failure_rate,
         }
+
+
+class WeatherAPIProvider(Enum):
+    """Supported weather API providers."""
+
+    OPENWEATHERMAP = "openweathermap"
+    NOAA = "noaa"
+    STUB = "stub"
+
+
+class WeatherService:
+    """Production-ready weather data service with multiple API backends.
+
+    Supports weather data from:
+    - OpenWeatherMap (requires API key, free tier available)
+    - NOAA (National Weather Service, free, US only)
+    - Stub/Mock (for testing)
+
+    Example:
+        >>> # Using OpenWeatherMap (requires API key)
+        >>> service = WeatherService(
+        ...     provider=WeatherAPIProvider.OPENWEATHERMAP,
+        ...     api_key=os.getenv("OPENWEATHERMAP_API_KEY")
+        ... )
+        >>> data = await service.get_current("London")
+
+        >>> # Using NOAA (US locations only)
+        >>> service = WeatherService(provider=WeatherAPIProvider.NOAA)
+        >>> data = await service.get_current_by_coords(40.7128, -74.0060)
+
+        >>> # Fallback to stub for testing
+        >>> service = WeatherService(provider=WeatherAPIProvider.STUB)
+    """
+
+    # API endpoints
+    OPENWEATHERMAP_BASE = "https://api.openweathermap.org/data/2.5"
+    NOAA_POINTS_BASE = "https://api.weather.gov/points"
+    NOAA_FORECAST_BASE = "https://api.weather.gov/gridpoints"
+
+    # Condition mapping from OpenWeatherMap codes
+    OWM_CONDITION_MAP: dict[int, WeatherCondition] = {
+        800: WeatherCondition.CLEAR,
+        801: WeatherCondition.PARTLY_CLOUDY,
+        802: WeatherCondition.PARTLY_CLOUDY,
+        803: WeatherCondition.CLOUDY,
+        804: WeatherCondition.CLOUDY,
+        300: WeatherCondition.RAIN,
+        301: WeatherCondition.RAIN,
+        500: WeatherCondition.RAIN,
+        501: WeatherCondition.RAIN,
+        502: WeatherCondition.HEAVY_RAIN,
+        503: WeatherCondition.HEAVY_RAIN,
+        511: WeatherCondition.SNOW,
+        520: WeatherCondition.RAIN,
+        600: WeatherCondition.SNOW,
+        601: WeatherCondition.SNOW,
+        602: WeatherCondition.SNOW,
+        200: WeatherCondition.THUNDERSTORM,
+        201: WeatherCondition.THUNDERSTORM,
+        202: WeatherCondition.THUNDERSTORM,
+        741: WeatherCondition.FOG,
+        701: WeatherCondition.FOG,
+    }
+
+    def __init__(
+        self,
+        provider: WeatherAPIProvider = WeatherAPIProvider.STUB,
+        api_key: str | None = None,
+        timeout: int = 30,
+        cache_ttl: int = 300,  # 5 minutes
+        fallback_to_stub: bool = True,
+    ):
+        """Initialize weather service.
+
+        Args:
+            provider: API provider to use.
+            api_key: API key for OpenWeatherMap (not needed for NOAA/Stub).
+            timeout: Request timeout in seconds.
+            cache_ttl: Cache time-to-live in seconds.
+            fallback_to_stub: Fall back to stub on API failures.
+        """
+        self.provider = provider
+        self.api_key = api_key or os.getenv("OPENWEATHERMAP_API_KEY")
+        self.timeout = timeout
+        self.cache_ttl = cache_ttl
+        self.fallback_to_stub = fallback_to_stub
+
+        # Cache with TTL
+        self._cache: dict[str, tuple[WeatherData, datetime]] = {}
+        self._call_count = 0
+        self._api_errors = 0
+
+        # Stub fallback
+        self._stub = WeatherServiceStub()
+
+        # Validate OpenWeatherMap configuration
+        if provider == WeatherAPIProvider.OPENWEATHERMAP and not self.api_key:
+            logger.warning(
+                "OpenWeatherMap requires an API key. Set OPENWEATHERMAP_API_KEY "
+                "environment variable or provide api_key parameter. "
+                "Falling back to stub mode."
+            )
+            self.provider = WeatherAPIProvider.STUB
+
+    def _get_cached(self, key: str) -> WeatherData | None:
+        """Get cached data if still valid."""
+        if key in self._cache:
+            data, cached_at = self._cache[key]
+            if (datetime.now() - cached_at).total_seconds() < self.cache_ttl:
+                return data
+        return None
+
+    def _set_cached(self, key: str, data: WeatherData) -> None:
+        """Cache weather data."""
+        self._cache[key] = (data, datetime.now())
+
+    def _condition_from_owm_code(self, code: int) -> WeatherCondition:
+        """Map OpenWeatherMap condition code to WeatherCondition."""
+        return self.OWM_CONDITION_MAP.get(code, WeatherCondition.CLOUDY)
+
+    async def _fetch_openweathermap(self, location: str) -> WeatherData:
+        """Fetch weather from OpenWeatherMap API.
+
+        API Documentation: https://openweathermap.org/api
+        """
+        if not self.api_key:
+            raise ValueError("OpenWeatherMap API key required")
+
+        params = {
+            "q": location,
+            "appid": self.api_key,
+            "units": "metric",
+        }
+
+        url = f"{self.OPENWEATHERMAP_BASE}/weather?{urlencode(params)}"
+
+        def fetch() -> dict[str, Any]:
+            req = Request(
+                url,
+                headers={"User-Agent": "Mercury-Agent/1.0"},
+            )
+            with urlopen(req, timeout=self.timeout) as response:
+                return json.loads(response.read().decode())
+
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, fetch)
+
+        if data.get("cod") != 200:
+            raise ValueError(f"OpenWeatherMap API error: {data.get('message', 'Unknown')}")
+
+        main = data.get("main", {})
+        wind = data.get("wind", {})
+        weather = data.get("weather", [{}])[0]
+        visibility = data.get("visibility", 10000) / 1000  # Convert to km
+
+        condition_code = weather.get("id", 800)
+        condition = self._condition_from_owm_code(condition_code)
+
+        return WeatherData(
+            location=location,
+            temperature=round(main.get("temp", 0), 1),
+            feels_like=round(main.get("feels_like", main.get("temp", 0)), 1),
+            humidity=round(main.get("humidity", 0), 1),
+            pressure=round(main.get("pressure", 1013), 1),
+            wind_speed=round(wind.get("speed", 0), 1),
+            wind_direction=wind.get("deg", 0),
+            condition=condition,
+            visibility=round(visibility, 1),
+            uv_index=0,  # Requires separate API call
+            raw_data=data,
+        )
+
+    async def _fetch_openweathermap_by_coords(
+        self, lat: float, lon: float
+    ) -> WeatherData:
+        """Fetch weather from OpenWeatherMap by coordinates."""
+        if not self.api_key:
+            raise ValueError("OpenWeatherMap API key required")
+
+        params = {
+            "lat": lat,
+            "lon": lon,
+            "appid": self.api_key,
+            "units": "metric",
+        }
+
+        url = f"{self.OPENWEATHERMAP_BASE}/weather?{urlencode(params)}"
+
+        def fetch() -> dict[str, Any]:
+            req = Request(
+                url,
+                headers={"User-Agent": "Mercury-Agent/1.0"},
+            )
+            with urlopen(req, timeout=self.timeout) as response:
+                return json.loads(response.read().decode())
+
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, fetch)
+
+        if data.get("cod") != 200:
+            raise ValueError(f"OpenWeatherMap API error: {data.get('message', 'Unknown')}")
+
+        main = data.get("main", {})
+        wind = data.get("wind", {})
+        weather = data.get("weather", [{}])[0]
+        visibility = data.get("visibility", 10000) / 1000
+
+        condition_code = weather.get("id", 800)
+        condition = self._condition_from_owm_code(condition_code)
+
+        return WeatherData(
+            location=f"{lat},{lon}",
+            temperature=round(main.get("temp", 0), 1),
+            feels_like=round(main.get("feels_like", main.get("temp", 0)), 1),
+            humidity=round(main.get("humidity", 0), 1),
+            pressure=round(main.get("pressure", 1013), 1),
+            wind_speed=round(wind.get("speed", 0), 1),
+            wind_direction=wind.get("deg", 0),
+            condition=condition,
+            visibility=round(visibility, 1),
+            uv_index=0,
+            raw_data=data,
+        )
+
+    async def _fetch_noaa_point_info(self, lat: float, lon: float) -> dict[str, Any]:
+        """Get NOAA grid point information for coordinates."""
+        url = f"{self.NOAA_POINTS_BASE}/{lat},{lon}"
+
+        def fetch() -> dict[str, Any]:
+            req = Request(
+                url,
+                headers={
+                    "User-Agent": "Mercury-Agent/1.0",
+                    "Accept": "application/geo+json",
+                },
+            )
+            with urlopen(req, timeout=self.timeout) as response:
+                return json.loads(response.read().decode())
+
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, fetch)
+
+    async def _fetch_noaa(self, lat: float, lon: float) -> WeatherData:
+        """Fetch weather from NOAA National Weather Service API.
+
+        API Documentation: https://www.weather.gov/documentation/services-web-api
+        Only works for US locations.
+        """
+        # First get the grid point info
+        point_data = await self._fetch_noaa_point_info(lat, lon)
+        properties = point_data.get("properties", {})
+
+        forecast_url = properties.get("forecastHourly")
+        if not forecast_url:
+            raise ValueError("NOAA API: Could not get forecast URL")
+
+        # Fetch the hourly forecast
+        def fetch_forecast() -> dict[str, Any]:
+            req = Request(
+                forecast_url,
+                headers={
+                    "User-Agent": "Mercury-Agent/1.0",
+                    "Accept": "application/geo+json",
+                },
+            )
+            with urlopen(req, timeout=self.timeout) as response:
+                return json.loads(response.read().decode())
+
+        loop = asyncio.get_event_loop()
+        forecast_data = await loop.run_in_executor(None, fetch_forecast)
+
+        periods = forecast_data.get("properties", {}).get("periods", [])
+        if not periods:
+            raise ValueError("NOAA API: No forecast periods returned")
+
+        current = periods[0]
+
+        # Parse NOAA weather condition
+        short_forecast = current.get("shortForecast", "").lower()
+        condition = WeatherCondition.CLEAR
+        if "thunder" in short_forecast:
+            condition = WeatherCondition.THUNDERSTORM
+        elif "rain" in short_forecast or "shower" in short_forecast:
+            condition = WeatherCondition.RAIN
+        elif "snow" in short_forecast:
+            condition = WeatherCondition.SNOW
+        elif "cloud" in short_forecast or "overcast" in short_forecast:
+            condition = WeatherCondition.CLOUDY
+        elif "partly" in short_forecast:
+            condition = WeatherCondition.PARTLY_CLOUDY
+        elif "fog" in short_forecast:
+            condition = WeatherCondition.FOG
+        elif "wind" in short_forecast:
+            condition = WeatherCondition.WINDY
+
+        # Temperature conversion if in Fahrenheit
+        temp = current.get("temperature", 0)
+        temp_unit = current.get("temperatureUnit", "F")
+        if temp_unit == "F":
+            temp = (temp - 32) * 5 / 9
+
+        # Parse wind
+        wind_speed_str = current.get("windSpeed", "0 mph")
+        wind_speed = float(wind_speed_str.split()[0]) * 0.44704  # mph to m/s
+
+        wind_direction_str = current.get("windDirection", "N")
+        wind_dirs = {"N": 0, "NE": 45, "E": 90, "SE": 135, "S": 180, "SW": 225, "W": 270, "NW": 315}
+        wind_direction = wind_dirs.get(wind_direction_str, 0)
+
+        return WeatherData(
+            location=f"{lat},{lon}",
+            temperature=round(temp, 1),
+            feels_like=round(temp, 1),  # NOAA doesn't provide feels-like
+            humidity=current.get("relativeHumidity", {}).get("value", 50),
+            pressure=1013,  # NOAA doesn't provide in hourly forecast
+            wind_speed=round(wind_speed, 1),
+            wind_direction=wind_direction,
+            condition=condition,
+            visibility=10,  # NOAA doesn't provide in hourly
+            uv_index=0,
+            raw_data=forecast_data,
+        )
+
+    async def get_current(self, location: str) -> WeatherData:
+        """Get current weather for location.
+
+        Args:
+            location: Location name (city, address).
+
+        Returns:
+            Current weather data.
+
+        Raises:
+            ValueError: If location is invalid or API fails without fallback.
+        """
+        self._call_count += 1
+
+        # Check cache
+        cached = self._get_cached(location)
+        if cached:
+            return cached
+
+        if self.provider == WeatherAPIProvider.STUB:
+            return await self._stub.get_current(location)
+
+        try:
+            if self.provider == WeatherAPIProvider.OPENWEATHERMAP:
+                data = await self._fetch_openweathermap(location)
+            elif self.provider == WeatherAPIProvider.NOAA:
+                # NOAA requires coordinates, cannot use city name directly
+                raise ValueError(
+                    "NOAA API requires coordinates. Use get_current_by_coords() instead."
+                )
+            else:
+                data = await self._stub.get_current(location)
+
+            self._set_cached(location, data)
+            return data
+
+        except Exception as e:
+            self._api_errors += 1
+            logger.warning(f"Weather API error for {location}: {e}")
+
+            if self.fallback_to_stub:
+                logger.info(f"Falling back to stub for {location}")
+                return await self._stub.get_current(location)
+            raise
+
+    async def get_current_by_coords(self, lat: float, lon: float) -> WeatherData:
+        """Get current weather by coordinates.
+
+        Args:
+            lat: Latitude.
+            lon: Longitude.
+
+        Returns:
+            Current weather data.
+        """
+        self._call_count += 1
+        cache_key = f"{lat:.4f},{lon:.4f}"
+
+        cached = self._get_cached(cache_key)
+        if cached:
+            return cached
+
+        if self.provider == WeatherAPIProvider.STUB:
+            return await self._stub.get_current(cache_key)
+
+        try:
+            if self.provider == WeatherAPIProvider.OPENWEATHERMAP:
+                data = await self._fetch_openweathermap_by_coords(lat, lon)
+            elif self.provider == WeatherAPIProvider.NOAA:
+                data = await self._fetch_noaa(lat, lon)
+            else:
+                data = await self._stub.get_current(cache_key)
+
+            self._set_cached(cache_key, data)
+            return data
+
+        except Exception as e:
+            self._api_errors += 1
+            logger.warning(f"Weather API error for ({lat}, {lon}): {e}")
+
+            if self.fallback_to_stub:
+                return await self._stub.get_current(cache_key)
+            raise
+
+    async def get_forecast(
+        self,
+        location: str,
+        days: int = 7,
+    ) -> list[WeatherForecast]:
+        """Get weather forecast.
+
+        Args:
+            location: Location name.
+            days: Number of days to forecast.
+
+        Returns:
+            List of daily forecasts.
+        """
+        self._call_count += 1
+
+        if self.provider == WeatherAPIProvider.STUB:
+            return await self._stub.get_forecast(location, days)
+
+        if self.provider == WeatherAPIProvider.OPENWEATHERMAP:
+            return await self._fetch_owm_forecast(location, days)
+
+        # For NOAA, fall back to stub
+        return await self._stub.get_forecast(location, days)
+
+    async def _fetch_owm_forecast(
+        self, location: str, days: int
+    ) -> list[WeatherForecast]:
+        """Fetch forecast from OpenWeatherMap."""
+        if not self.api_key:
+            return await self._stub.get_forecast(location, days)
+
+        params = {
+            "q": location,
+            "appid": self.api_key,
+            "units": "metric",
+            "cnt": min(days * 8, 40),  # 3-hour intervals
+        }
+
+        url = f"{self.OPENWEATHERMAP_BASE}/forecast?{urlencode(params)}"
+
+        def fetch() -> dict[str, Any]:
+            req = Request(
+                url,
+                headers={"User-Agent": "Mercury-Agent/1.0"},
+            )
+            with urlopen(req, timeout=self.timeout) as response:
+                return json.loads(response.read().decode())
+
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, fetch)
+
+        if str(data.get("cod")) != "200":
+            logger.warning(f"OpenWeatherMap forecast error: {data}")
+            return await self._stub.get_forecast(location, days)
+
+        forecast_list = data.get("list", [])
+
+        # Group by day and aggregate
+        daily_data: dict[str, list[dict[str, Any]]] = {}
+        for item in forecast_list:
+            date_str = item.get("dt_txt", "")[:10]
+            if date_str not in daily_data:
+                daily_data[date_str] = []
+            daily_data[date_str].append(item)
+
+        forecasts = []
+        for date_str, items in sorted(daily_data.items())[:days]:
+            temps = [item["main"]["temp"] for item in items]
+            wind_speeds = [item.get("wind", {}).get("speed", 0) for item in items]
+            pop = max(item.get("pop", 0) for item in items)
+
+            # Get most common condition
+            conditions = [
+                self._condition_from_owm_code(item["weather"][0]["id"])
+                for item in items
+                if item.get("weather")
+            ]
+            condition = max(set(conditions), key=conditions.count) if conditions else WeatherCondition.CLEAR
+
+            forecasts.append(
+                WeatherForecast(
+                    location=location,
+                    forecast_time=datetime.strptime(date_str, "%Y-%m-%d"),
+                    high_temp=round(max(temps), 1),
+                    low_temp=round(min(temps), 1),
+                    condition=condition,
+                    precipitation_chance=round(pop * 100, 1),
+                    wind_speed=round(sum(wind_speeds) / len(wind_speeds), 1),
+                )
+            )
+
+        return forecasts
+
+    async def get_alerts(self, location: str) -> list[dict[str, Any]]:
+        """Get weather alerts for location.
+
+        Args:
+            location: Location name.
+
+        Returns:
+            List of active alerts.
+        """
+        self._call_count += 1
+
+        if self.provider == WeatherAPIProvider.STUB:
+            return await self._stub.get_alerts(location)
+
+        # OpenWeatherMap requires separate API call for alerts
+        # For now, return stub alerts
+        return await self._stub.get_alerts(location)
+
+    def get_metrics(self) -> dict[str, Any]:
+        """Get service metrics."""
+        return {
+            "provider": self.provider.value,
+            "call_count": self._call_count,
+            "api_errors": self._api_errors,
+            "cache_size": len(self._cache),
+            "error_rate": self._api_errors / self._call_count if self._call_count > 0 else 0,
+        }
+
+
+# Factory function for easy service creation
+def create_weather_service(
+    use_real_api: bool = False,
+    provider: str = "openweathermap",
+    api_key: str | None = None,
+) -> WeatherService | WeatherServiceStub:
+    """Create weather service with appropriate backend.
+
+    Args:
+        use_real_api: Whether to use real API or stub.
+        provider: API provider ("openweathermap", "noaa", "stub").
+        api_key: API key for OpenWeatherMap.
+
+    Returns:
+        Configured weather service.
+
+    Example:
+        >>> # For testing
+        >>> service = create_weather_service(use_real_api=False)
+
+        >>> # For production with OpenWeatherMap
+        >>> service = create_weather_service(
+        ...     use_real_api=True,
+        ...     provider="openweathermap",
+        ...     api_key="YOUR_API_KEY"
+        ... )
+
+        >>> # For production with NOAA (US only)
+        >>> service = create_weather_service(use_real_api=True, provider="noaa")
+    """
+    if not use_real_api:
+        return WeatherServiceStub()
+
+    provider_map = {
+        "openweathermap": WeatherAPIProvider.OPENWEATHERMAP,
+        "noaa": WeatherAPIProvider.NOAA,
+        "stub": WeatherAPIProvider.STUB,
+    }
+
+    provider_enum = provider_map.get(provider.lower(), WeatherAPIProvider.STUB)
+
+    return WeatherService(
+        provider=provider_enum,
+        api_key=api_key,
+        fallback_to_stub=True,
+    )

@@ -611,6 +611,8 @@ class TrustedEndpoints:
             "intrusion-detection.distrinet-research.be",  # CICIDS 2017 improved dataset
             # Weather APIs
             "archive-api.open-meteo.com",
+            # NASA JPL Solar System Dynamics (CNEOS Near-Earth Objects)
+            "ssd-api.jpl.nasa.gov",
             # Code/Data Repositories
             "raw.githubusercontent.com",
         }
@@ -829,6 +831,19 @@ class TrustedEndpoints:
     # ==========================================================================
     USGS_MRDATA_GEOCHEM = "https://mrdata.usgs.gov/geochem"
     USGS_MRDATA_GEOPHYS = "https://mrdata.usgs.gov/geophysics"
+
+    # ==========================================================================
+    # NASA JPL - Center for Near Earth Object Studies (CNEOS)
+    # ==========================================================================
+    # Fireball API - Atmospheric impact data for bolides/fireballs
+    # Data source: US Government sensors (CNEOS/JPL)
+    NASA_CNEOS_FIREBALL = "https://ssd-api.jpl.nasa.gov/fireball.api"
+    # Close Approach API - Near-Earth asteroid approaches
+    NASA_CNEOS_CAD = "https://ssd-api.jpl.nasa.gov/cad.api"
+    # Small-Body Database Query API
+    NASA_SBDB_QUERY = "https://ssd-api.jpl.nasa.gov/sbdb_query.api"
+    # Sentry Impact Monitoring API - Potential future impact events
+    NASA_SENTRY = "https://ssd-api.jpl.nasa.gov/sentry.api"
 
 
 __all__ = [
