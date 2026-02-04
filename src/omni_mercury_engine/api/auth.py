@@ -502,7 +502,7 @@ class JWTAuth:
         else:
             token = credentials.credentials
 
-        # Validate JWT (stub - implement proper JWT validation)
+        # Validate JWT using PyJWT with cryptographic signature verification
         user = await self._validate_jwt(token)
         if user is None:
             if self.auto_error:
