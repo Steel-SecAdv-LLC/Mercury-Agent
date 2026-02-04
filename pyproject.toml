@@ -412,6 +412,14 @@ module = [
     "omni_mercury_engine.ocean.*",
     # Modules being progressively typed (temporary)
     "omni_mercury_engine.agentic.*",
+    # New capability modules with heavy numpy/scipy/torch dependencies
+    "omni_mercury_engine.automl.*",
+    "omni_mercury_engine.biometric.*",
+    "omni_mercury_engine.distributed.*",
+    "omni_mercury_engine.explainability.*",
+    "omni_mercury_engine.federated_learning.*",
+    "omni_mercury_engine.harmonics.*",
+    "omni_mercury_engine.quantum_computing.*",
     "omni_mercury_engine.core.*",
     "omni_mercury_engine.crypto.*",
     "omni_mercury_engine.data.*",
