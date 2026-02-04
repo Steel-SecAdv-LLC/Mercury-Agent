@@ -41,6 +41,8 @@ from enum import Enum
 from typing import Any
 from urllib.parse import urljoin
 
+from omni_mercury_engine.core.types import CircuitState
+
 
 logger = logging.getLogger(__name__)
 
@@ -149,14 +151,6 @@ class CircuitOpenError(HTTPError):
     def __init__(self, service_name: str) -> None:
         super().__init__(f"Circuit breaker open for service: {service_name}")
         self.service_name = service_name
-
-
-class CircuitState(Enum):
-    """Circuit breaker states."""
-
-    CLOSED = "closed"
-    OPEN = "open"
-    HALF_OPEN = "half_open"
 
 
 class HTTPCircuitBreaker:

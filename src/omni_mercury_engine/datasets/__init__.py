@@ -50,7 +50,24 @@ from .adrepository import (
     load_dataset,
 )
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, DatasetSplit
-from .benchmarks import BenchmarkResult, RealWorldBenchmarkSuite
+from .benchmarks import (
+    BaseDatasetConfig,
+    BaseImageDataset,
+    BaseVideoDataset,
+    BenchmarkComparison,
+    BenchmarkResult,
+    MVTecADConfig,
+    MVTecADDataset,
+    RealWorldBenchmarkSuite,
+    ShanghaiTechConfig,
+    ShanghaiTechDataset,
+    UCFCrimeConfig,
+    UCFCrimeDataset,
+    get_default_transforms,
+    isolation_forest_baseline,
+    one_class_svm_baseline,
+    random_baseline,
+)
 from .climate import (
     CopernicusSeaLevelLoader,
     SimonsCMAPLoader,
@@ -79,6 +96,11 @@ __all__ = [
     "ADREPOSITORY_DATASETS",
     "ADRepositoryLoader",
     "BATADALLoader",
+    # Visual anomaly detection base classes (from data/benchmarks)
+    "BaseDatasetConfig",
+    "BaseImageDataset",
+    "BaseVideoDataset",
+    "BenchmarkComparison",
     "BenchmarkResult",
     "CICIDSLoader",
     "CWRUBearingLoader",
@@ -93,6 +115,9 @@ __all__ = [
     "MBALoader",
     "MIMICLoader",
     "MSDSLoader",
+    # MVTec AD dataset
+    "MVTecADConfig",
+    "MVTecADDataset",
     "NABLoader",
     "NASAExoplanetLoader",
     "NOAABuoyLoader",
@@ -105,15 +130,26 @@ __all__ = [
     "SMDLoader",
     "SWaTLoader",
     "SepsisDataset",
+    # Shanghai Tech Campus dataset
+    "ShanghaiTechConfig",
+    "ShanghaiTechDataset",
     "SimonsCMAPLoader",
     "SolarDynamicsLoader",
     "ThreatIntelLoader",
+    # UCF-Crime dataset
+    "UCFCrimeConfig",
+    "UCFCrimeDataset",
     "UCRLoader",
     "USGSEarthquakeLoader",
     "USGSGeochemistryLoader",
     "WADILoader",
     "WildfireDataLoader",
     "WorldOceanDatabaseLoader",
+    # Benchmark utilities
+    "get_default_transforms",
+    "isolation_forest_baseline",
     "list_available_datasets",
     "load_dataset",
+    "one_class_svm_baseline",
+    "random_baseline",
 ]

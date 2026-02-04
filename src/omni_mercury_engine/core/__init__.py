@@ -48,9 +48,28 @@ from omni_mercury_engine.core.score_calibration import (
     calibrate_scores,
     diagnose_scores,
 )
+from omni_mercury_engine.core.types import (
+    AnomalyType,
+    CircuitState,
+    ConfidenceLevel,
+    DetectorStatus,
+    EthicalPrinciple,
+    FusionStrategy,
+    PrivacyLevel,
+    ThreatLevel,
+)
 
 
 __all__ = [
+    # Canonical types from core.types
+    "AnomalyType",
+    "CircuitState",
+    "ConfidenceLevel",
+    "DetectorStatus",
+    "EthicalPrinciple",
+    "FusionStrategy",
+    "PrivacyLevel",
+    "ThreatLevel",
     # Score calibration (solves F1=0 problem)
     "AutoThresholdOptimizer",
     "CalibrationDiagnostics",

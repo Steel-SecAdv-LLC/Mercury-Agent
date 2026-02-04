@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from .base import DatasetConfig, DatasetLoader, DatasetRegistry, DatasetSplit
+from ..base import DatasetConfig, DatasetLoader, DatasetRegistry, DatasetSplit
 
 
 if TYPE_CHECKING:
