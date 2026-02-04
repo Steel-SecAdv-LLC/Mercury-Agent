@@ -582,7 +582,7 @@ class BayesianOptimizer:
     def _generate_trial_id(self, config: dict[str, Any], idx: int) -> str:
         """Generate unique trial ID."""
         config_str = str(sorted(config.items()))
-        hash_str = hashlib.sha256(config_str.encode()).hexdigest()[:8]
+        hash_str = hashlib.sha3_256(config_str.encode()).hexdigest()[:8]
         return f"trial_{idx:04d}_{hash_str}"
 
     def _update_best(self, trial: TrialResult) -> None:

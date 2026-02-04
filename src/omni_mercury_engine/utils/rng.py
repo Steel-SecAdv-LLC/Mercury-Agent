@@ -347,9 +347,9 @@ class RNGState:
             "seed": self.seed,
             "version": self.version,
             "numpy_state_hash": (
-                # Using SHA-256 instead of MD5 to satisfy security scanners (CodeQL/ruff S324)
+                # Using SHA3-256 for Ava-Guardian alignment
                 # Note: This is non-cryptographic use for state hashing
-                hashlib.sha256(str(self.numpy_state).encode()).hexdigest()
+                hashlib.sha3_256(str(self.numpy_state).encode()).hexdigest()
                 if self.numpy_state
                 else None
             ),

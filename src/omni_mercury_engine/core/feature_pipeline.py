@@ -758,7 +758,7 @@ class FeatureStore:
 
     def _hash_data(self, data: np.ndarray) -> str:
         """Generate hash of input data."""
-        return hashlib.sha256(data.tobytes()).hexdigest()[:16]
+        return hashlib.sha3_256(data.tobytes()).hexdigest()[:16]
 
     def get(self, detector_name: str, data: np.ndarray) -> np.ndarray | None:
         """

@@ -70,7 +70,7 @@ class LogEntry:
     def checksum(self) -> str:
         """Compute checksum for integrity verification."""
         content = json.dumps(self.to_dict(), sort_keys=True)
-        return hashlib.sha256(content.encode()).hexdigest()[:16]
+        return hashlib.sha3_256(content.encode()).hexdigest()[:16]
 
 
 @dataclass

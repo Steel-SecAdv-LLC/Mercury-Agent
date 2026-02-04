@@ -1108,7 +1108,7 @@ class ChainOfThoughtEngine:
         elif "normal" in conclusion:
             return "normal"
         # Hash for other cases
-        return hashlib.sha256(conclusion.encode()).hexdigest()[:8]
+        return hashlib.sha3_256(conclusion.encode()).hexdigest()[:8]
 
     def _vote_on_conclusions(self, conclusions: list[str]) -> ConsistencyResult:
         """Vote on conclusions for self-consistency."""
