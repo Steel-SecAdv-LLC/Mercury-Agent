@@ -558,6 +558,9 @@ class ChainOfThoughtEngine:
         problem: str,
         context: dict[str, Any],
         strategy: ReasoningStrategy | None = None,
+        num_samples: int | None = None,
+        beam_width: int | None = None,
+        max_depth: int | None = None,
     ) -> ThoughtChain:
         """Perform chain-of-thought reasoning on a problem.
 
@@ -565,6 +568,9 @@ class ChainOfThoughtEngine:
             problem: The problem or question to reason about
             context: Context data for reasoning
             strategy: Reasoning strategy (uses default if None)
+            num_samples: Number of samples for self-consistency (overrides consistency_paths)
+            beam_width: Beam width for tree-of-thoughts exploration
+            max_depth: Maximum reasoning depth (overrides instance max_depth)
 
         Returns:
             Complete ThoughtChain with reasoning trace
@@ -572,23 +578,50 @@ class ChainOfThoughtEngine:
         start_time = time.time()
         strategy = strategy or self.default_strategy
 
-        if strategy == ReasoningStrategy.STANDARD_COT:
-            chain = self._standard_cot(problem, context)
-        elif strategy == ReasoningStrategy.SELF_CONSISTENCY:
-            chain = self._self_consistency_cot(problem, context)
-        elif strategy == ReasoningStrategy.LEAST_TO_MOST:
-            chain = self._least_to_most_cot(problem, context)
-        elif strategy == ReasoningStrategy.TREE_OF_THOUGHTS:
-            chain = self._tree_of_thoughts(problem, context)
-        elif strategy == ReasoningStrategy.VERIFICATION_COT:
-            chain = self._verification_cot(problem, context)
-        else:
-            chain = self._standard_cot(problem, context)
+        # Store original values for restoration
+        original_consistency_paths = self.consistency_paths
+        original_max_depth = self.max_depth
 
-        chain.computation_time_ms = (time.time() - start_time) * 1000
-        self._update_stats(chain)
+        # Apply overrides if provided
+        if num_samples is not None:
+            self.consistency_paths = min(num_samples, MAX_CONSISTENCY_PATHS)
+        if max_depth is not None:
+            self.max_depth = min(max_depth, MAX_THOUGHT_DEPTH)
 
-        return chain
+        # Store beam_width in context for tree-of-thoughts
+        if beam_width is not None:
+            context = context.copy()
+            context["_beam_width"] = beam_width
+
+        try:
+            if strategy == ReasoningStrategy.STANDARD_COT:
+                chain = self._standard_cot(problem, context)
+            elif strategy == ReasoningStrategy.SELF_CONSISTENCY:
+                chain = self._self_consistency_cot(problem, context)
+            elif strategy == ReasoningStrategy.LEAST_TO_MOST:
+                chain = self._least_to_most_cot(problem, context)
+            elif strategy == ReasoningStrategy.TREE_OF_THOUGHTS:
+                chain = self._tree_of_thoughts(problem, context)
+            elif strategy == ReasoningStrategy.VERIFICATION_COT:
+                chain = self._verification_cot(problem, context)
+            else:
+                chain = self._standard_cot(problem, context)
+
+            chain.computation_time_ms = (time.time() - start_time) * 1000
+
+            # Add consistency_score to metadata for self-consistency strategy
+            if strategy == ReasoningStrategy.SELF_CONSISTENCY:
+                if "consistency_score" not in chain.metadata:
+                    chain.metadata["consistency_score"] = chain.metadata.get(
+                        "agreement_ratio", chain.overall_confidence
+                    )
+
+            self._update_stats(chain)
+            return chain
+        finally:
+            # Restore original values
+            self.consistency_paths = original_consistency_paths
+            self.max_depth = original_max_depth
 
     def _standard_cot(self, problem: str, context: dict[str, Any]) -> ThoughtChain:
         """Standard chain-of-thought reasoning.
@@ -602,9 +635,13 @@ class ChainOfThoughtEngine:
         parent: Thought | None = None
 
         # Step 1: Observation
+        data = context.get("data", [])
+        # Handle non-list data types
+        if not isinstance(data, (list, tuple)):
+            data = [data] if data is not None else []
         obs_context = {
             "observation": problem,
-            "evidence": context.get("data", [])[:3],
+            "evidence": list(data)[:3],
         }
         obs_thought = self.thought_generator.generate_thought(
             ThoughtType.OBSERVATION, obs_context, parent
@@ -827,6 +864,9 @@ class ChainOfThoughtEngine:
         self._chain_counter += 1
         chain_id = f"cot_tot_{self._chain_counter:06d}"
 
+        # Get beam_width from context if provided, otherwise use default
+        beam_width = context.get("_beam_width", min(3, self.consistency_paths))
+
         # Start with observation
         root = self.thought_generator.generate_thought(
             ThoughtType.OBSERVATION,
@@ -838,7 +878,7 @@ class ChainOfThoughtEngine:
         branches: list[list[Thought]] = []
         branch_scores: list[float] = []
 
-        for branch_idx in range(min(3, self.consistency_paths)):
+        for branch_idx in range(beam_width):
             branch_context = context.copy()
             branch_context["branch"] = branch_idx
 
@@ -1207,6 +1247,7 @@ class ChainOfThoughtEngine:
     def _update_stats(self, chain: ThoughtChain) -> None:
         """Update engine statistics."""
         self._stats["chains_generated"] += 1
+        self._stats["total_reasoning_sessions"] += 1
         self._stats["thoughts_generated"] += len(chain.thoughts)
 
         # Update averages
@@ -1269,19 +1310,37 @@ class AnomalyChainOfThought:
     def analyze_anomaly(
         self,
         data: dict[str, Any],
-        anomaly_score: float,
+        anomaly_score_or_features: float | np.ndarray | None = None,
         domain: str = "general",
-    ) -> ThoughtChain:
+    ) -> dict[str, Any]:
         """Analyze potential anomaly with chain-of-thought reasoning.
 
         Args:
-            data: Input data and features
-            anomaly_score: Pre-computed anomaly score
+            data: Input data and features (dict with detection info)
+            anomaly_score_or_features: Pre-computed anomaly score (float) or raw features (ndarray)
             domain: Anomaly domain (statistical, temporal, etc.)
 
         Returns:
-            ThoughtChain with anomaly analysis
+            Dictionary with reasoning_chain, conclusion, and analysis details
         """
+        # Handle different input formats for API compatibility
+        if isinstance(anomaly_score_or_features, np.ndarray):
+            # Test API: analyze_anomaly(detection_result, raw_features)
+            raw_features = anomaly_score_or_features
+            anomaly_score = data.get("score", 0.5)
+            # Compute score from features if not provided
+            if anomaly_score == 0.5 and len(raw_features) > 0:
+                # Use simple z-score based anomaly detection
+                mean_val = float(np.mean(raw_features))
+                std_val = float(np.std(raw_features)) + 1e-8
+                max_z = float(np.max(np.abs((raw_features - mean_val) / std_val)))
+                anomaly_score = min(1.0, max_z / 3.0)
+            data["raw_features"] = raw_features.tolist() if hasattr(raw_features, "tolist") else raw_features
+        elif anomaly_score_or_features is not None:
+            anomaly_score = float(anomaly_score_or_features)
+        else:
+            anomaly_score = data.get("score", data.get("anomaly_score", 0.5))
+
         # Build context
         context = {
             "anomaly_score": anomaly_score,
@@ -1292,11 +1351,21 @@ class AnomalyChainOfThought:
 
         # Use domain-specific reasoning if available
         if self.domain_specific and domain in self._anomaly_patterns:
-            return self._anomaly_patterns[domain](context)
+            chain = self._anomaly_patterns[domain](context)
+        else:
+            # Default reasoning
+            problem = f"Analyze potential {domain} anomaly (score: {anomaly_score:.3f})"
+            chain = self.cot_engine.reason(problem, context, ReasoningStrategy.VERIFICATION_COT)
 
-        # Default reasoning
-        problem = f"Analyze potential {domain} anomaly (score: {anomaly_score:.3f})"
-        return self.cot_engine.reason(problem, context, ReasoningStrategy.VERIFICATION_COT)
+        # Return dict format for API compatibility
+        return {
+            "reasoning_chain": [t.to_dict() for t in chain.thoughts],
+            "conclusion": chain.conclusion,
+            "confidence": chain.overall_confidence,
+            "is_anomaly": anomaly_score > self.anomaly_threshold,
+            "anomaly_score": anomaly_score,
+            "chain": chain,  # Include original chain for advanced usage
+        }
 
     def _reason_statistical_anomaly(self, context: dict[str, Any]) -> ThoughtChain:
         """Reason about statistical anomalies."""

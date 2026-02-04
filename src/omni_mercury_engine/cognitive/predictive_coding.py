@@ -283,6 +283,38 @@ class PrecisionEstimator:
         """Get precision for a level."""
         return self._precisions[level]
 
+    def estimate(
+        self,
+        errors: np.ndarray,
+    ) -> np.ndarray:
+        """Estimate precisions for an array of errors (simplified API).
+
+        Args:
+            errors: Array of prediction errors
+
+        Returns:
+            Array of precision values (inverse variance)
+        """
+        errors = np.asarray(errors)
+
+        # Compute local variance using sliding window
+        window_size = min(10, len(errors))
+        precisions = np.zeros_like(errors, dtype=float)
+
+        for i in range(len(errors)):
+            start = max(0, i - window_size // 2)
+            end = min(len(errors), i + window_size // 2 + 1)
+            local_errors = errors[start:end]
+
+            # Variance with small epsilon for stability
+            variance = np.var(local_errors) + 1e-8
+
+            # Precision is inverse variance, clipped to reasonable range
+            precision = 1.0 / variance
+            precisions[i] = np.clip(precision, self.min_precision, self.max_precision)
+
+        return precisions
+
     def update_precision(
         self,
         level: ProcessingLevel,
@@ -334,9 +366,10 @@ class HierarchicalPredictiveCoder:
 
     def __init__(
         self,
-        input_dim: int,
+        input_dim: int | None = None,
         hidden_dims: list[int] | None = None,
         learning_rate: float = DEFAULT_LEARNING_RATE,
+        num_levels: int | None = None,
     ):
         """Initialize hierarchical predictive coder.
 
@@ -344,10 +377,19 @@ class HierarchicalPredictiveCoder:
             input_dim: Input dimension (sensory level)
             hidden_dims: Dimensions for each hidden level
             learning_rate: Learning rate for updates
+            num_levels: Number of hierarchy levels (alternative to hidden_dims)
         """
-        self.input_dim = input_dim
-        self.hidden_dims = hidden_dims or [64, 32, 16]
+        self.input_dim = input_dim or 10
         self.learning_rate = learning_rate
+
+        # Handle num_levels parameter (test API)
+        if num_levels is not None:
+            self.num_levels = num_levels
+            # Generate hidden dims based on num_levels
+            self.hidden_dims = [max(8, self.input_dim // (2**i)) for i in range(1, num_levels)]
+        else:
+            self.hidden_dims = hidden_dims or [64, 32, 16]
+            self.num_levels = len(self.hidden_dims) + 1
 
         # Build hierarchy
         self.levels = list(ProcessingLevel)[: len(self.hidden_dims) + 1]
@@ -627,6 +669,91 @@ class HierarchicalPredictiveCoder:
             complexity_term=float(complexity_term),
         )
 
+    def predict_and_compute_error(
+        self,
+        observation: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Predict and compute error for observation (simplified API).
+
+        Args:
+            observation: Input observation array
+
+        Returns:
+            Tuple of (prediction, error) arrays
+        """
+        # Get prediction from top level
+        sensory_level = self.levels[0]
+        if len(self.levels) > 1:
+            higher_level = self.levels[1]
+            if higher_level in self.models:
+                prediction = self.models[higher_level].predict(
+                    self.beliefs[higher_level].mean
+                )
+            else:
+                prediction = np.zeros_like(observation)
+        else:
+            prediction = self.beliefs[sensory_level].mean.copy()
+
+        # Ensure prediction matches observation shape
+        if prediction.shape != observation.shape:
+            prediction = np.zeros_like(observation)
+
+        # Compute error
+        error = observation - prediction
+
+        # Update beliefs
+        self.process(observation, update_beliefs=True)
+
+        return prediction, error
+
+    def compute_free_energy(
+        self,
+        error: np.ndarray,
+    ) -> float:
+        """Compute free energy from error array (simplified API).
+
+        Args:
+            error: Prediction error array
+
+        Returns:
+            Free energy value
+        """
+        # Prediction error term
+        pe_term = 0.5 * np.sum(error**2)
+
+        # Complexity term (simplified)
+        complexity_term = 0.0
+        for level, belief in self.beliefs.items():
+            complexity_term += 0.5 * np.sum(belief.mean**2)
+
+        return float(pe_term + complexity_term)
+
+    def update_beliefs(
+        self,
+        prior: np.ndarray,
+        observation: np.ndarray,
+        learning_rate: float = 0.1,
+    ) -> np.ndarray:
+        """Update beliefs given prior and observation (simplified API).
+
+        Args:
+            prior: Prior belief array
+            observation: New observation array
+            learning_rate: Learning rate for update
+
+        Returns:
+            Posterior belief array
+        """
+        # Simple Bayesian update: weighted average of prior and observation
+        posterior = (1 - learning_rate) * prior + learning_rate * observation
+
+        # Also update internal beliefs
+        sensory_level = self.levels[0]
+        if sensory_level in self.beliefs:
+            self.beliefs[sensory_level].mean = posterior.copy()
+
+        return posterior
+
 
 # =============================================================================
 # Active Inference Agent
@@ -643,17 +770,30 @@ class ActiveInferenceAgent:
 
     def __init__(
         self,
-        predictive_coder: HierarchicalPredictiveCoder,
+        predictive_coder: HierarchicalPredictiveCoder | None = None,
         action_dim: int = 4,
+        state_dim: int | None = None,
     ):
         """Initialize active inference agent.
 
         Args:
-            predictive_coder: Predictive coding network
+            predictive_coder: Predictive coding network (optional)
             action_dim: Number of available actions
+            state_dim: State dimension (creates internal predictive coder if provided)
         """
-        self.predictive_coder = predictive_coder
+        # Handle state_dim parameter (test API)
+        if predictive_coder is None and state_dim is not None:
+            self.predictive_coder = HierarchicalPredictiveCoder(
+                input_dim=state_dim,
+                num_levels=2,
+            )
+        elif predictive_coder is not None:
+            self.predictive_coder = predictive_coder
+        else:
+            self.predictive_coder = HierarchicalPredictiveCoder(input_dim=10, num_levels=2)
+
         self.action_dim = action_dim
+        self.state_dim = state_dim or self.predictive_coder.input_dim
 
         # Action preferences (prior expectations)
         self.action_prior = np.ones(action_dim) / action_dim
@@ -663,19 +803,39 @@ class ActiveInferenceAgent:
 
     def select_action(
         self,
-        observation: np.ndarray,
+        observation_or_state: np.ndarray,
+        available_actions: list[dict[str, Any]] | None = None,
         planning_horizon: int = 5,
-    ) -> tuple[int, float]:
+    ) -> dict[str, Any] | tuple[int, float]:
         """Select action to minimize expected free energy.
 
         Args:
-            observation: Current observation
+            observation_or_state: Current observation/state
+            available_actions: List of available action dicts (test API)
             planning_horizon: Planning horizon
 
         Returns:
-            Tuple of (selected_action, expected_free_energy)
+            Selected action (dict if available_actions provided, else tuple)
         """
-        # Process current observation
+        observation = np.asarray(observation_or_state)
+
+        # Handle available_actions parameter (test API)
+        if available_actions is not None:
+            # Evaluate expected free energy for each available action
+            best_action = available_actions[0]
+            best_fe = float("inf")
+
+            for action in available_actions:
+                action_id = action.get("id", 0)
+                # Simplified expected free energy computation
+                expected_fe = self._compute_action_fe(observation, action)
+                if expected_fe < best_fe:
+                    best_fe = expected_fe
+                    best_action = action
+
+            return best_action
+
+        # Original API
         errors, current_fe = self.predictive_coder.process(observation)
 
         # Evaluate expected free energy for each action
@@ -691,6 +851,22 @@ class ActiveInferenceAgent:
         selected_action = int(np.argmin(expected_fes))
 
         return selected_action, float(expected_fes[selected_action])
+
+    def _compute_action_fe(
+        self,
+        state: np.ndarray,
+        action: dict[str, Any],
+    ) -> float:
+        """Compute expected free energy for an action dict."""
+        action_params = action.get("params", np.zeros(self.action_dim))
+        if isinstance(action_params, list):
+            action_params = np.array(action_params)
+
+        # Simple heuristic: prefer actions that reduce state magnitude
+        state_magnitude = np.sum(state**2)
+        action_magnitude = np.sum(action_params**2)
+
+        return state_magnitude + 0.1 * action_magnitude
 
     def _expected_free_energy(
         self,
@@ -762,6 +938,7 @@ class PredictiveCodingDetector:
         hidden_dims: list[int] | None = None,
         anomaly_threshold: float = 2.0,
         learning_rate: float = DEFAULT_LEARNING_RATE,
+        num_levels: int | None = None,
     ):
         """Initialize predictive coding detector.
 
@@ -770,6 +947,7 @@ class PredictiveCodingDetector:
             hidden_dims: Hidden layer dimensions
             anomaly_threshold: Threshold for anomaly detection
             learning_rate: Learning rate
+            num_levels: Number of hierarchy levels (alternative to hidden_dims)
         """
         self.input_dim = input_dim
         self.anomaly_threshold = anomaly_threshold
@@ -779,12 +957,14 @@ class PredictiveCodingDetector:
             input_dim=input_dim,
             hidden_dims=hidden_dims,
             learning_rate=learning_rate,
+            num_levels=num_levels,
         )
 
         # Statistics
         self._detection_counter = 0
         self._stats = {
             "detections": 0,
+            "total_predictions": 0,
             "anomalies_detected": 0,
             "avg_prediction_error": 0.0,
             "avg_free_energy": 0.0,
@@ -824,6 +1004,7 @@ class PredictiveCodingDetector:
 
         # Update statistics
         self._stats["detections"] += 1
+        self._stats["total_predictions"] += 1
         if is_anomaly:
             self._stats["anomalies_detected"] += 1
 
@@ -916,6 +1097,18 @@ class PredictiveCodingDetector:
             List of predictions
         """
         return self.coder.predict(steps)
+
+    def update(
+        self,
+        observation: np.ndarray,
+    ) -> None:
+        """Update the model with a new observation (simplified API).
+
+        Args:
+            observation: Input observation to learn from
+        """
+        self.coder.process(observation, update_beliefs=True)
+        self._stats["total_predictions"] += 1
 
     def get_statistics(self) -> dict[str, Any]:
         """Get detector statistics."""
@@ -1020,6 +1213,57 @@ class MercuryPredictiveCoding:
             Training history
         """
         return self.detector.fit(data, epochs)
+
+    def enhance_detection(
+        self,
+        detection_result: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Enhance a detection result with predictive coding analysis (simplified API).
+
+        Args:
+            detection_result: Detection result dict with scores and features
+
+        Returns:
+            Enhanced result with prediction-based scores
+        """
+        # Extract features from detection result
+        features = detection_result.get("features", [])
+        if isinstance(features, list):
+            features = np.array(features)
+
+        # Handle different feature sizes
+        if len(features) != self.detector.input_dim:
+            # Resize or pad features
+            if len(features) > self.detector.input_dim:
+                features = features[: self.detector.input_dim]
+            else:
+                features = np.pad(features, (0, self.detector.input_dim - len(features)))
+
+        # Get prediction-based analysis
+        prediction, error = self.detector.coder.predict_and_compute_error(features)
+        free_energy = self.detector.coder.compute_free_energy(error)
+
+        # Compute prediction-based score
+        prediction_error_magnitude = float(np.mean(np.abs(error)))
+        prediction_based_score = 1.0 / (1.0 + np.exp(-prediction_error_magnitude + 1))
+
+        # Get original scores
+        original_scores = detection_result.get("scores", [])
+        if isinstance(original_scores, list) and original_scores:
+            avg_original = float(np.mean(original_scores))
+        else:
+            avg_original = 0.5
+
+        # Combine scores
+        enhanced_score = 0.6 * avg_original + 0.4 * prediction_based_score
+
+        return {
+            **detection_result,
+            "prediction_based_score": prediction_based_score,
+            "enhanced_scores": [enhanced_score],
+            "free_energy": free_energy,
+            "prediction_error": prediction_error_magnitude,
+        }
 
     def get_statistics(self) -> dict[str, Any]:
         """Get module statistics."""

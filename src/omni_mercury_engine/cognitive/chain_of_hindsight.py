@@ -291,15 +291,53 @@ class CreditAssignment:
         self.discount_factor = discount_factor
         self.use_advantage = use_advantage
 
-    def assign_credit(self, sequence: HistoricalSequence) -> list[float]:
+    def assign_credit(
+        self,
+        sequence: HistoricalSequence | list[dict[str, Any]],
+        gamma: float | None = None,
+    ) -> list[float]:
         """Assign credit to each step in sequence.
 
         Args:
-            sequence: Historical sequence
+            sequence: Historical sequence or list of step dicts
+            gamma: Optional discount factor override
 
         Returns:
             List of credit values for each step
         """
+        discount = gamma if gamma is not None else self.discount_factor
+
+        # Handle list of dicts (test API)
+        if isinstance(sequence, list):
+            n_steps = len(sequence)
+            if n_steps == 0:
+                return []
+
+            credits = [0.0] * n_steps
+
+            # Forward credit assignment: later decisions with positive outcomes get higher credit
+            # This reflects that later decisions are closer to the outcome
+            for t in range(n_steps):
+                step_dict = sequence[t]
+                outcome = step_dict.get("outcome", {})
+                reward = outcome.get("reward", 0.0)
+                # Weight by position: later steps get higher weight
+                position_weight = (t + 1) / n_steps
+                credits[t] = reward * position_weight
+
+            # Apply discount for temporal consistency
+            for t in range(n_steps - 2, -1, -1):
+                credits[t] += discount * credits[t + 1] * 0.1  # Small propagation
+
+            # Normalize credits
+            if self.use_advantage and len(credits) > 1:
+                mean_credit = np.mean(credits)
+                std_credit = np.std(credits) + 1e-8
+                credits = [(c - mean_credit) / std_credit for c in credits]
+
+            return credits
+
+        # Original API with HistoricalSequence
         n_steps = len(sequence.steps)
         if n_steps == 0:
             return []
@@ -310,11 +348,11 @@ class CreditAssignment:
         running_return = 0.0
         for t in range(n_steps - 1, -1, -1):
             step = sequence.steps[t]
-            running_return = step.reward + self.discount_factor * running_return
+            running_return = step.reward + discount * running_return
             credits[t] = running_return
 
         # Normalize credits
-        if self.use_advantage:
+        if self.use_advantage and len(credits) > 1:
             mean_credit = np.mean(credits)
             std_credit = np.std(credits) + 1e-8
             credits = [(c - mean_credit) / std_credit for c in credits]
@@ -378,18 +416,31 @@ class HindsightRelabeler:
 
     def relabel(
         self,
-        sequence: HistoricalSequence,
-        strategy: RelabelingStrategy = RelabelingStrategy.OPTIMAL,
-    ) -> list[HindsightRelabeling]:
+        sequence: HistoricalSequence | list[dict[str, Any]],
+        strategy_or_achieved_goal: RelabelingStrategy | str = RelabelingStrategy.OPTIMAL,
+    ) -> list[HindsightRelabeling] | list[dict[str, Any]]:
         """Relabel sequence with hindsight.
 
         Args:
-            sequence: Sequence to relabel
-            strategy: Relabeling strategy
+            sequence: Sequence to relabel (HistoricalSequence or list of step dicts)
+            strategy_or_achieved_goal: Relabeling strategy or achieved goal string
 
         Returns:
-            List of relabeling suggestions
+            List of relabeling suggestions or relabeled trajectory
         """
+        # Handle list of dicts (test API: trajectory with achieved_goal)
+        if isinstance(sequence, list):
+            achieved_goal = strategy_or_achieved_goal if isinstance(strategy_or_achieved_goal, str) else "achieved"
+            relabeled_trajectory = []
+            for step in sequence:
+                relabeled_step = step.copy()
+                relabeled_step["goal"] = achieved_goal
+                relabeled_trajectory.append(relabeled_step)
+            return relabeled_trajectory
+
+        # Original API with HistoricalSequence
+        strategy = strategy_or_achieved_goal if isinstance(strategy_or_achieved_goal, RelabelingStrategy) else RelabelingStrategy.OPTIMAL
+
         relabelings: list[HindsightRelabeling] = []
         credits = CreditAssignment().assign_credit(sequence)
 
@@ -482,6 +533,56 @@ class FeedbackProcessor:
             FeedbackQuality.NEUTRAL: 0.5,
             FeedbackQuality.BAD: 0.8,  # Bad feedback is also informative
             FeedbackQuality.TERRIBLE: 1.0,  # Strong signal
+        }
+
+    def process(
+        self,
+        predictions: list[float],
+        ground_truth: list[int | bool],
+    ) -> dict[str, Any]:
+        """Process predictions and ground truth to generate feedback.
+
+        Args:
+            predictions: List of predicted scores
+            ground_truth: List of ground truth labels
+
+        Returns:
+            Dict with linguistic_feedback and improvement_signals
+        """
+        linguistic_feedback = []
+        improvement_signals = []
+
+        for i, (pred, truth) in enumerate(zip(predictions, ground_truth)):
+            truth_bool = bool(truth)
+            pred_class = pred > 0.5
+
+            if pred_class == truth_bool:
+                if truth_bool:
+                    linguistic_feedback.append(f"Step {i}: Correct positive detection (score={pred:.2f})")
+                else:
+                    linguistic_feedback.append(f"Step {i}: Correct negative classification (score={pred:.2f})")
+            else:
+                if pred_class and not truth_bool:
+                    linguistic_feedback.append(f"Step {i}: False positive - lower threshold recommended (score={pred:.2f})")
+                    improvement_signals.append({
+                        "step": i,
+                        "type": "false_positive",
+                        "suggestion": "increase_threshold",
+                        "score": pred,
+                    })
+                else:
+                    linguistic_feedback.append(f"Step {i}: False negative - raise sensitivity (score={pred:.2f})")
+                    improvement_signals.append({
+                        "step": i,
+                        "type": "false_negative",
+                        "suggestion": "decrease_threshold",
+                        "score": pred,
+                    })
+
+        return {
+            "linguistic_feedback": linguistic_feedback,
+            "improvement_signals": improvement_signals,
+            "accuracy": sum(1 for p, t in zip(predictions, ground_truth) if (p > 0.5) == bool(t)) / len(predictions) if predictions else 0.0,
         }
 
     def process_sequence(self, sequence: HistoricalSequence) -> list[LearningSignal]:
@@ -644,12 +745,121 @@ class ChainOfHindsightEngine:
             "policy_updates": 0,
             "avg_sequence_length": 0.0,
             "positive_feedback_ratio": 0.0,
+            "total_sequences": 0,
         }
+
+        # Active sequences for incremental API
+        self._active_sequences: dict[str, dict[str, Any]] = {}
 
         logger.info(
             f"ChainOfHindsightEngine initialized (max_history={max_history_size}, "
             f"lr={learning_rate})"
         )
+
+    def start_sequence(self, task_name: str) -> str:
+        """Start a new sequence for incremental recording.
+
+        Args:
+            task_name: Name/description of the task
+
+        Returns:
+            Sequence ID for subsequent operations
+        """
+        self._sequence_counter += 1
+        sequence_id = f"seq_{self._sequence_counter:06d}"
+
+        self._active_sequences[sequence_id] = {
+            "task_name": task_name,
+            "steps": [],
+            "start_time": time.time(),
+        }
+
+        return sequence_id
+
+    def record_step(
+        self,
+        sequence_id: str,
+        decision: dict[str, Any],
+        outcome: dict[str, Any],
+        features: list[float] | None = None,
+    ) -> None:
+        """Record a step in an active sequence.
+
+        Args:
+            sequence_id: ID from start_sequence
+            decision: Decision made at this step
+            outcome: Outcome of the decision
+            features: Optional feature vector
+        """
+        if sequence_id not in self._active_sequences:
+            raise ValueError(f"Unknown sequence ID: {sequence_id}")
+
+        step_idx = len(self._active_sequences[sequence_id]["steps"])
+        step_id = f"{sequence_id}_step_{step_idx}"
+
+        # Determine reward from outcome
+        correct = outcome.get("correct", outcome.get("success", None))
+        if correct is True:
+            reward = 1.0
+            feedback = "Correct decision"
+        elif correct is False:
+            reward = -1.0
+            feedback = "Incorrect decision"
+        else:
+            reward = 0.0
+            feedback = None
+
+        step = SequenceStep(
+            step_id=step_id,
+            input_state={"features": features or [], **decision},
+            output_action=str(decision.get("threshold", decision.get("action", "unknown"))),
+            feedback=feedback,
+            reward=reward,
+            confidence=decision.get("confidence", 0.5),
+        )
+
+        self._active_sequences[sequence_id]["steps"].append(step)
+
+    def end_sequence(
+        self,
+        sequence_id: str,
+        final_outcome: dict[str, Any],
+    ) -> HistoricalSequence:
+        """End an active sequence and finalize it.
+
+        Args:
+            sequence_id: ID from start_sequence
+            final_outcome: Final outcome of the sequence
+
+        Returns:
+            Completed HistoricalSequence
+        """
+        if sequence_id not in self._active_sequences:
+            raise ValueError(f"Unknown sequence ID: {sequence_id}")
+
+        active = self._active_sequences.pop(sequence_id)
+        steps = active["steps"]
+
+        # Determine feedback quality from final outcome
+        success = final_outcome.get("success", False)
+        if success:
+            quality = FeedbackQuality.GOOD
+        else:
+            quality = FeedbackQuality.BAD
+
+        outcome_str = "success" if success else "failure"
+
+        # Create and record the sequence
+        sequence = self.record_sequence(
+            steps=steps,
+            sequence_type=SequenceType.DECISION,
+            outcome=outcome_str,
+            feedback_quality=quality,
+        )
+
+        self._stats["total_sequences"] += 1
+
+        return sequence
 
     def record_sequence(
         self,
@@ -1204,6 +1414,71 @@ class AnomalyChainOfHindsight:
                 "reasoning": f"Balanced error rate ({fp_count} FP, {fn_count} FN)",
                 "confidence": 0.9,
             }
+
+    def learn_from_history(self, history: list[dict[str, Any]]) -> dict[str, Any]:
+        """Learn from a history of detection results.
+
+        Args:
+            history: List of detection history entries with timestamp, detection, label
+
+        Returns:
+            Dict with threshold_recommendations or pattern_insights
+        """
+        if not history:
+            return {"pattern_insights": [], "threshold_recommendations": []}
+
+        # Analyze patterns in history
+        scores = []
+        labels = []
+        for entry in history:
+            detection = entry.get("detection", {})
+            score = detection.get("score", 0.5)
+            label = entry.get("label")
+            scores.append(score)
+            if label is not None:
+                labels.append((score, label))
+
+        # Generate insights
+        pattern_insights = []
+        threshold_recommendations = []
+
+        if labels:
+            # Analyze false positives and negatives
+            fp_scores = [s for s, l in labels if s > 0.5 and not l]
+            fn_scores = [s for s, l in labels if s <= 0.5 and l]
+
+            if fp_scores:
+                avg_fp = np.mean(fp_scores)
+                pattern_insights.append(f"False positives cluster around score {avg_fp:.2f}")
+                threshold_recommendations.append({
+                    "type": "increase_threshold",
+                    "reason": f"False positives at avg score {avg_fp:.2f}",
+                    "suggested_value": min(0.9, avg_fp + 0.1),
+                })
+
+            if fn_scores:
+                avg_fn = np.mean(fn_scores)
+                pattern_insights.append(f"False negatives cluster around score {avg_fn:.2f}")
+                threshold_recommendations.append({
+                    "type": "decrease_threshold",
+                    "reason": f"False negatives at avg score {avg_fn:.2f}",
+                    "suggested_value": max(0.1, avg_fn - 0.1),
+                })
+
+        # Temporal pattern analysis
+        if len(scores) >= 3:
+            score_trend = np.polyfit(range(len(scores)), scores, 1)[0]
+            if score_trend > 0.01:
+                pattern_insights.append("Anomaly scores trending upward over time")
+            elif score_trend < -0.01:
+                pattern_insights.append("Anomaly scores trending downward over time")
+
+        return {
+            "pattern_insights": pattern_insights,
+            "threshold_recommendations": threshold_recommendations,
+            "history_length": len(history),
+            "labeled_samples": len(labels),
+        }
 
     def force_learn(self) -> list[PolicyUpdate]:
         """Force learning from current history.

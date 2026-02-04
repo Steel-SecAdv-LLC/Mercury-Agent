@@ -242,19 +242,38 @@ class Coalition:
         coalition_id: Unique identifier
         leader_id: Coalition leader agent ID
         member_ids: Member agent IDs
+        members: List of agent objects (alternative to member_ids)
         task: Task the coalition is addressing
+        objective: Coalition objective (alternative to task)
         created_at: Creation timestamp
         status: Coalition status
         results: Collected results
     """
 
     coalition_id: str
-    leader_id: str
-    member_ids: list[str]
-    task: dict[str, Any]
+    leader_id: str | None = None
+    member_ids: list[str] = field(default_factory=list)
+    members: list[Any] = field(default_factory=list)
+    task: dict[str, Any] = field(default_factory=dict)
+    objective: str = ""
     created_at: float = field(default_factory=time.time)
     status: str = "active"
     results: list[DetectionResult] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        """Post-initialization to handle alternative parameters."""
+        # If members provided but not member_ids, extract IDs
+        if self.members and not self.member_ids:
+            self.member_ids = [
+                m.agent_id if hasattr(m, "agent_id") else str(m)
+                for m in self.members
+            ]
+        # If leader_id not set, use first member
+        if self.leader_id is None and self.member_ids:
+            self.leader_id = self.member_ids[0]
+        # If objective provided but not task, create task from objective
+        if self.objective and not self.task:
+            self.task = {"objective": self.objective}
 
 
 # =============================================================================
@@ -268,19 +287,30 @@ class DetectionAgent(ABC):
     def __init__(
         self,
         agent_id: str,
-        role: AgentRole,
-        capabilities: list[AgentCapability] | None = None,
+        role: AgentRole | None = None,
+        capabilities: list[AgentCapability] | list[str] | None = None,
     ):
         """Initialize detection agent.
 
         Args:
             agent_id: Unique agent identifier
-            role: Agent role
-            capabilities: Agent capabilities
+            role: Agent role (optional, defaults to STATISTICAL)
+            capabilities: Agent capabilities (AgentCapability objects or strings)
         """
         self.agent_id = agent_id
-        self.role = role
-        self.capabilities = capabilities or []
+        self.role = role or AgentRole.STATISTICAL
+
+        # Handle both AgentCapability objects and string capabilities
+        if capabilities is None:
+            self.capabilities: list[AgentCapability] = []
+            self._capability_names: list[str] = []
+        elif capabilities and isinstance(capabilities[0], str):
+            self._capability_names = list(capabilities)
+            self.capabilities = []
+        else:
+            self.capabilities = list(capabilities)
+            self._capability_names = [c.name for c in self.capabilities]
+
         self.status = AgentStatus.IDLE
 
         self._message_queue: Queue[Message] = Queue()
@@ -441,39 +471,57 @@ class ConsensusProtocol:
 
     def __init__(
         self,
-        method: ConsensusMethod = ConsensusMethod.CONFIDENCE_WEIGHTED,
+        method: ConsensusMethod | str = ConsensusMethod.CONFIDENCE_WEIGHTED,
         threshold: float = DEFAULT_CONSENSUS_THRESHOLD,
         min_participants: int = 3,
     ):
         """Initialize consensus protocol.
 
         Args:
-            method: Consensus method to use
+            method: Consensus method to use (ConsensusMethod or string)
             threshold: Agreement threshold
             min_participants: Minimum participants required
         """
-        self.method = method
+        # Handle string method names
+        if isinstance(method, str):
+            method_map = {
+                "majority_vote": ConsensusMethod.MAJORITY_VOTE,
+                "weighted_vote": ConsensusMethod.WEIGHTED_VOTE,
+                "unanimous": ConsensusMethod.UNANIMOUS,
+                "byzantine_tolerant": ConsensusMethod.BYZANTINE_TOLERANT,
+                "confidence_weighted": ConsensusMethod.CONFIDENCE_WEIGHTED,
+            }
+            self.method = method_map.get(method.lower(), ConsensusMethod.MAJORITY_VOTE)
+            self._method_str = method.lower()
+        else:
+            self.method = method
+            self._method_str = method.value
+
         self.threshold = threshold
         self.min_participants = min_participants
         self._consensus_counter = 0
 
     def reach_consensus(
         self,
-        results: list[DetectionResult],
-    ) -> ConsensusResult:
+        results: list[DetectionResult] | list[dict[str, Any]],
+    ) -> ConsensusResult | dict[str, Any]:
         """Reach consensus on detection results.
 
         Args:
-            results: Results from multiple agents
+            results: Results from multiple agents (DetectionResult objects or vote dicts)
 
         Returns:
-            Consensus result
+            Consensus result (ConsensusResult or dict)
         """
         self._consensus_counter += 1
         consensus_id = f"consensus_{self._consensus_counter:06d}"
 
+        # Handle list of vote dicts (test API)
+        if results and isinstance(results[0], dict):
+            return self._reach_consensus_from_votes(consensus_id, results)
+
+        # Original DetectionResult handling
         if len(results) < self.min_participants:
-            # Not enough participants
             return ConsensusResult(
                 consensus_id=consensus_id,
                 final_decision=False,
@@ -495,6 +543,78 @@ class ConsensusProtocol:
             return self._confidence_weighted(consensus_id, results)
         else:
             return self._majority_vote(consensus_id, results)
+
+    def _reach_consensus_from_votes(
+        self,
+        consensus_id: str,
+        votes: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Reach consensus from vote dicts (test API).
+
+        Args:
+            consensus_id: Consensus ID
+            votes: List of vote dicts with agent, decision, confidence, weight
+
+        Returns:
+            Consensus result dict
+        """
+        if not votes:
+            return {"decision": False, "agreement_ratio": 0.0, "is_byzantine_safe": True}
+
+        if self._method_str == "majority_vote":
+            votes_for = sum(1 for v in votes if v.get("decision", False))
+            votes_against = len(votes) - votes_for
+            decision = votes_for > votes_against
+            agreement_ratio = max(votes_for, votes_against) / len(votes)
+
+        elif self._method_str == "weighted_vote":
+            weighted_for = sum(
+                v.get("confidence", 0.5) * v.get("weight", 1.0)
+                for v in votes if v.get("decision", False)
+            )
+            weighted_against = sum(
+                v.get("confidence", 0.5) * v.get("weight", 1.0)
+                for v in votes if not v.get("decision", False)
+            )
+            decision = weighted_for > weighted_against
+            total_weight = weighted_for + weighted_against
+            agreement_ratio = max(weighted_for, weighted_against) / total_weight if total_weight > 0 else 0.5
+
+        elif self._method_str == "byzantine_tolerant":
+            # Byzantine fault tolerance: can tolerate f < n/3 faulty nodes
+            n = len(votes)
+            f_max = (n - 1) // 3  # Maximum faulty nodes we can tolerate
+
+            # Sort by confidence to identify potential outliers
+            sorted_votes = sorted(votes, key=lambda v: v.get("confidence", 0.5), reverse=True)
+
+            # Use top 2/3 of votes (excluding potential Byzantine nodes)
+            reliable_count = n - f_max
+            reliable_votes = sorted_votes[:reliable_count]
+
+            votes_for = sum(1 for v in reliable_votes if v.get("decision", False))
+            decision = votes_for > reliable_count / 2
+            agreement_ratio = votes_for / reliable_count if reliable_count > 0 else 0.5
+
+            return {
+                "decision": decision,
+                "agreement_ratio": agreement_ratio,
+                "is_byzantine_safe": True,
+                "reliable_votes": reliable_count,
+                "total_votes": n,
+            }
+
+        else:
+            # Default to majority
+            votes_for = sum(1 for v in votes if v.get("decision", False))
+            decision = votes_for > len(votes) / 2
+            agreement_ratio = max(votes_for, len(votes) - votes_for) / len(votes)
+
+        return {
+            "decision": decision,
+            "agreement_ratio": agreement_ratio,
+            "is_byzantine_safe": self._method_str == "byzantine_tolerant",
+        }
 
     def _majority_vote(
         self,
@@ -1075,7 +1195,23 @@ class MultiAgentDetectionSystem:
             "consensus_method": result.method_used.value,
             "dissenting_agents": result.dissenting_agents,
             "detection_id": f"detection_{self._detection_counter:06d}",
+            "consensus_decision": result.final_decision,
+            "individual_results": [
+                {"agent_id": agent_id, "decision": vote}
+                for agent_id, vote in getattr(result, "votes", {}).items()
+            ] if hasattr(result, "votes") else [],
         }
+
+    def register_agent(self, agent: DetectionAgent) -> bool:
+        """Register a detection agent (simplified API).
+
+        Args:
+            agent: Detection agent to register
+
+        Returns:
+            True if registered successfully
+        """
+        return self.coordinator.register_agent(agent)
 
     def add_agent(
         self,

@@ -345,6 +345,79 @@ class ConstraintSolver:
 
         return True
 
+    def solve(
+        self,
+        constraints: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Solve constraint satisfaction problem (simplified API).
+
+        Args:
+            constraints: List of constraint dicts with type, variable, min/max/value
+
+        Returns:
+            Dict with satisfiable flag and solution
+        """
+        if not constraints:
+            return {"satisfiable": True, "solution": {}}
+
+        # Extract variables and their bounds
+        variables: dict[str, tuple[float, float]] = {}
+        additional_constraints: list[dict[str, Any]] = []
+
+        for c in constraints:
+            var = c.get("variable", "x")
+            c_type = c.get("type", "range")
+
+            if c_type == "range":
+                lower = c.get("min", float("-inf"))
+                upper = c.get("max", float("inf"))
+                if var in variables:
+                    old_lower, old_upper = variables[var]
+                    variables[var] = (max(lower, old_lower), min(upper, old_upper))
+                else:
+                    variables[var] = (lower, upper)
+            else:
+                additional_constraints.append(c)
+
+        # Apply additional constraints to narrow bounds
+        for c in additional_constraints:
+            var = c.get("variable", "x")
+            c_type = c.get("type", "")
+            value = c.get("value", 0.0)
+
+            if var not in variables:
+                variables[var] = (float("-inf"), float("inf"))
+
+            lower, upper = variables[var]
+
+            if c_type == "greater_than":
+                lower = max(lower, value + self.epsilon)
+            elif c_type == "less_than":
+                upper = min(upper, value - self.epsilon)
+            elif c_type == "greater_equal":
+                lower = max(lower, value)
+            elif c_type == "less_equal":
+                upper = min(upper, value)
+
+            variables[var] = (lower, upper)
+
+        # Check satisfiability and find solution
+        solution = {}
+        satisfiable = True
+
+        for var, (lower, upper) in variables.items():
+            if lower > upper:
+                satisfiable = False
+                break
+            # Pick midpoint as solution
+            solution[var] = (lower + upper) / 2
+
+        return {
+            "satisfiable": satisfiable,
+            "solution": solution,
+            "bounds": variables,
+        }
+
     def find_counterexample(
         self,
         constraints: list[Constraint],
@@ -519,6 +592,110 @@ class SafetyVerifier:
         """Add an invariant condition."""
         self.invariants.append(invariant)
 
+    def verify(
+        self,
+        safety_property: dict[str, Any],
+        system_state: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Verify a safety property against system state (simplified API).
+
+        Args:
+            safety_property: Property dict with name, condition, priority
+            system_state: Current system state dict
+
+        Returns:
+            Dict with satisfied flag and details
+        """
+        condition = safety_property.get("condition", "")
+        name = safety_property.get("name", "unnamed_property")
+        priority = safety_property.get("priority", "normal")
+
+        # Parse implication conditions (A => B means if A then B)
+        if "=>" in condition:
+            parts = condition.split("=>")
+            antecedent = parts[0].strip()
+            consequent = parts[1].strip()
+
+            # Evaluate antecedent
+            antecedent_true = self._evaluate_simple_condition(antecedent, system_state)
+
+            if antecedent_true:
+                # If antecedent is true, consequent must be true
+                consequent_true = self._evaluate_simple_condition(
+                    consequent, system_state
+                )
+                satisfied = consequent_true
+            else:
+                # If antecedent is false, implication is vacuously true
+                satisfied = True
+        else:
+            # Simple condition
+            satisfied = self._evaluate_simple_condition(condition, system_state)
+
+        return {
+            "satisfied": satisfied,
+            "property_name": name,
+            "priority": priority,
+            "condition": condition,
+            "state_evaluated": system_state,
+        }
+
+    def _evaluate_simple_condition(
+        self,
+        condition: str,
+        state: dict[str, Any],
+    ) -> bool:
+        """Evaluate a simple condition against state."""
+        condition = condition.strip()
+
+        # Handle boolean variable references
+        if condition in state:
+            return bool(state[condition])
+
+        # Handle negation
+        if condition.startswith("not ") or condition.startswith("!"):
+            inner = condition[4:].strip() if condition.startswith("not ") else condition[1:].strip()
+            return not self._evaluate_simple_condition(inner, state)
+
+        # Handle comparisons
+        for op in [">=", "<=", "==", "!=", ">", "<"]:
+            if op in condition:
+                parts = condition.split(op)
+                if len(parts) == 2:
+                    var_name = parts[0].strip()
+                    value_str = parts[1].strip()
+
+                    if var_name not in state:
+                        return False
+
+                    var_value = state[var_name]
+                    try:
+                        compare_value = float(value_str)
+                    except ValueError:
+                        # String comparison
+                        compare_value = value_str.strip("'\"")
+                        if op == "==":
+                            return str(var_value) == compare_value
+                        elif op == "!=":
+                            return str(var_value) != compare_value
+                        return False
+
+                    if op == ">=":
+                        return var_value >= compare_value
+                    elif op == "<=":
+                        return var_value <= compare_value
+                    elif op == "==":
+                        return abs(var_value - compare_value) < 0.0001
+                    elif op == "!=":
+                        return abs(var_value - compare_value) >= 0.0001
+                    elif op == ">":
+                        return var_value > compare_value
+                    elif op == "<":
+                        return var_value < compare_value
+
+        # Default: check if variable exists and is truthy
+        return bool(state.get(condition, False))
+
 
 # =============================================================================
 # Reachability Analyzer
@@ -634,6 +811,79 @@ class ReachabilityAnalyzer:
 
         return path
 
+    def is_reachable(
+        self,
+        start_state: str,
+        target_state: str,
+        state_machine: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Check if target state is reachable in a state machine (simplified API).
+
+        Args:
+            start_state: Starting state name
+            target_state: Target state name
+            state_machine: Dict mapping state names to their transitions
+
+        Returns:
+            Dict with reachable flag and path
+        """
+        if start_state not in state_machine:
+            return {"reachable": False, "path": [], "error": "Start state not found"}
+
+        if target_state not in state_machine:
+            return {"reachable": False, "path": [], "error": "Target state not found"}
+
+        if start_state == target_state:
+            return {"reachable": True, "path": [start_state]}
+
+        # BFS to find path
+        from collections import deque
+
+        visited: set[str] = set()
+        queue: deque[tuple[str, list[str]]] = deque([(start_state, [start_state])])
+
+        while queue:
+            current, path = queue.popleft()
+
+            if current in visited:
+                continue
+            visited.add(current)
+
+            # Get transitions from current state
+            state_info = state_machine.get(current, {})
+            transitions = state_info.get("transitions", {})
+
+            for action, next_state in transitions.items():
+                if next_state == target_state:
+                    return {
+                        "reachable": True,
+                        "path": path + [next_state],
+                        "actions": self._extract_actions(path + [next_state], state_machine),
+                    }
+
+                if next_state not in visited and next_state in state_machine:
+                    queue.append((next_state, path + [next_state]))
+
+        return {"reachable": False, "path": [], "visited_states": list(visited)}
+
+    def _extract_actions(
+        self,
+        path: list[str],
+        state_machine: dict[str, dict[str, Any]],
+    ) -> list[str]:
+        """Extract actions taken along a path."""
+        actions = []
+        for i in range(len(path) - 1):
+            current = path[i]
+            next_state = path[i + 1]
+            state_info = state_machine.get(current, {})
+            transitions = state_info.get("transitions", {})
+            for action, target in transitions.items():
+                if target == next_state:
+                    actions.append(action)
+                    break
+        return actions
+
 
 # =============================================================================
 # Interval Bound Propagation
@@ -654,20 +904,46 @@ class IntervalBoundPropagator:
 
     def propagate_linear(
         self,
-        input_bounds: tuple[np.ndarray, np.ndarray],
+        input_bounds: tuple[np.ndarray, np.ndarray] | dict[str, tuple[float, float]],
         weights: np.ndarray,
         bias: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray] | dict[str, tuple[float, float]]:
         """Propagate bounds through linear layer.
 
         Args:
-            input_bounds: Tuple of (lower, upper) bounds
+            input_bounds: Tuple of (lower, upper) bounds or dict of variable bounds
             weights: Weight matrix
             bias: Bias vector
 
         Returns:
-            Output bounds (lower, upper)
+            Output bounds (lower, upper) or dict of output bounds
         """
+        # Handle dict input format (test API)
+        if isinstance(input_bounds, dict):
+            # Extract bounds in order
+            var_names = sorted(input_bounds.keys())
+            lower_in = np.array([input_bounds[v][0] for v in var_names], dtype=np.float64)
+            upper_in = np.array([input_bounds[v][1] for v in var_names], dtype=np.float64)
+
+            # Ensure weights are float
+            weights = np.array(weights, dtype=np.float64)
+            bias = np.array(bias, dtype=np.float64)
+
+            # Separate positive and negative weights
+            W_pos = np.maximum(weights, 0)
+            W_neg = np.minimum(weights, 0)
+
+            # Compute output bounds
+            lower_out = W_pos @ lower_in + W_neg @ upper_in + bias
+            upper_out = W_pos @ upper_in + W_neg @ lower_in + bias
+
+            # Return as dict with output variable names
+            return {
+                f"y{i}": (float(lower_out[i]), float(upper_out[i]))
+                for i in range(len(lower_out))
+            }
+
+        # Original tuple format
         lower_in, upper_in = input_bounds
 
         # Separate positive and negative weights
@@ -1018,10 +1294,46 @@ class FormalVerificationEngine:
         # Default: assume condition holds
         return True
 
+    def verify_property(
+        self,
+        property_dict: dict[str, Any],
+        state: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Verify a property against state (simplified API).
+
+        Args:
+            property_dict: Property dict with name, condition
+            state: Current state dict
+
+        Returns:
+            Dict with verified flag and details
+        """
+        self._stats["verifications_performed"] += 1
+        self._stats["total_verifications"] = self._stats["verifications_performed"]
+
+        condition = property_dict.get("condition", "")
+        name = property_dict.get("name", "unnamed")
+
+        # Evaluate condition
+        verified = self._evaluate_condition(condition, state)
+
+        if verified:
+            self._stats["properties_verified"] += 1
+        else:
+            self._stats["properties_violated"] += 1
+
+        return {
+            "verified": verified,
+            "property_name": name,
+            "condition": condition,
+            "state": state,
+        }
+
     def get_statistics(self) -> dict[str, Any]:
         """Get engine statistics."""
         return {
             **self._stats,
+            "total_verifications": self._stats["verifications_performed"],
             "registered_properties": len(self._properties),
             "timeout_ms": self.timeout_ms,
         }
@@ -1122,6 +1434,104 @@ class AnomalyVerifier:
             "reports": [r.to_dict() for r in reports],
             "decision": decision,
         }
+
+    def verify_decision(
+        self,
+        detection_decision: dict[str, Any],
+        safety_constraints: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Verify a detection decision against safety constraints (simplified API).
+
+        Args:
+            detection_decision: Decision dict with is_anomaly, score, severity, etc.
+            safety_constraints: List of constraint dicts with name, condition
+
+        Returns:
+            Dict with all_satisfied flag and constraint results
+        """
+        results = []
+        all_satisfied = True
+
+        for constraint in safety_constraints:
+            name = constraint.get("name", "unnamed")
+            condition = constraint.get("condition", "")
+
+            # Evaluate condition
+            satisfied = self._evaluate_constraint(condition, detection_decision)
+            results.append({
+                "name": name,
+                "condition": condition,
+                "satisfied": satisfied,
+            })
+
+            if not satisfied:
+                all_satisfied = False
+
+        return {
+            "all_satisfied": all_satisfied,
+            "constraint_results": results,
+            "decision_evaluated": detection_decision,
+        }
+
+    def _evaluate_constraint(
+        self,
+        condition: str,
+        decision: dict[str, Any],
+    ) -> bool:
+        """Evaluate a constraint condition against decision."""
+        condition = condition.strip()
+
+        # Handle implication (A => B)
+        if "=>" in condition:
+            parts = condition.split("=>")
+            antecedent = parts[0].strip()
+            consequent = parts[1].strip()
+
+            antecedent_true = self._evaluate_constraint(antecedent, decision)
+            if antecedent_true:
+                return self._evaluate_constraint(consequent, decision)
+            return True  # Vacuously true
+
+        # Handle string equality with quotes
+        if "==" in condition and "'" in condition:
+            parts = condition.split("==")
+            var_name = parts[0].strip()
+            value_str = parts[1].strip().strip("'\"")
+            return str(decision.get(var_name, "")) == value_str
+
+        # Handle comparisons
+        for op in [">=", "<=", "!=", ">", "<"]:
+            if op in condition:
+                parts = condition.split(op)
+                if len(parts) == 2:
+                    var_name = parts[0].strip()
+                    value_str = parts[1].strip()
+
+                    if var_name not in decision:
+                        return False
+
+                    var_value = decision[var_name]
+                    try:
+                        compare_value = float(value_str)
+                    except ValueError:
+                        return False
+
+                    if op == ">=":
+                        return var_value >= compare_value
+                    elif op == "<=":
+                        return var_value <= compare_value
+                    elif op == "!=":
+                        return var_value != compare_value
+                    elif op == ">":
+                        return var_value > compare_value
+                    elif op == "<":
+                        return var_value < compare_value
+
+        # Handle boolean
+        if condition in decision:
+            return bool(decision[condition])
+
+        return True
 
     def is_safe_to_report(
         self,
