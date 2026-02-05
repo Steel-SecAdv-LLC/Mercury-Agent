@@ -318,7 +318,10 @@ class AdaptiveNoiseFilter:
         Effective for removing salt-and-pepper noise and outliers while
         preserving edges. Useful for sensor data with occasional spikes.
         """
-        return cast(npt.NDArray[Any], signal.medfilt(data, kernel_size=min(self.config.window_size, len(data))))
+        return cast(
+            npt.NDArray[Any],
+            signal.medfilt(data, kernel_size=min(self.config.window_size, len(data))),
+        )
 
     def _ema_filter(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Exponential moving average filter.

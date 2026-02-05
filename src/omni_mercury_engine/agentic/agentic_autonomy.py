@@ -581,7 +581,9 @@ class AgenticAutonomy:
         if transformation == "normalize":
             return cast(npt.NDArray[Any], (data - np.mean(data)) / (np.std(data) + 1e-8))
         elif transformation == "scale":
-            return cast(npt.NDArray[Any], (data - np.min(data)) / (np.max(data) - np.min(data) + 1e-8))
+            return cast(
+                npt.NDArray[Any], (data - np.min(data)) / (np.max(data) - np.min(data) + 1e-8)
+            )
         else:
             return data
 
