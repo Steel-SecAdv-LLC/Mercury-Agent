@@ -522,7 +522,9 @@ class SolarDynamicsLoader(DatasetLoader):
             logger.warning(f"NOAA SWPC download failed: {e}")
             return False
 
-    def _process_swpc_data(self, data: list[dict[str, Any]]) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
+    def _process_swpc_data(
+        self, data: list[dict[str, Any]]
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Process NOAA SWPC X-ray flux data.
 
         Args:

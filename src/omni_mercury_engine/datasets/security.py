@@ -265,7 +265,9 @@ class NSLKDDLoader(DatasetLoader):
             logger.warning("Falling back to SYNTHETIC data.")
             return self._create_synthetic_fallback()
 
-    def _process_nslkdd_dataframe(self, df: pd.DataFrame) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
+    def _process_nslkdd_dataframe(
+        self, df: pd.DataFrame
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Process NSL-KDD dataframe: encode categoricals and labels.
 
         Args:
@@ -855,7 +857,9 @@ class CICIDSLoader(DatasetLoader):
             logger.warning(f"{source_name} download failed: {e}")
             return False
 
-    def _process_cicids_dataframe(self, df: pd.DataFrame) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
+    def _process_cicids_dataframe(
+        self, df: pd.DataFrame
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Process CICIDS dataframe: clean data and encode labels.
 
         Args:
