@@ -1060,7 +1060,7 @@ class OmniMercuryEngine(LoggerMixin):
             f"n_anomalies={int(pseudo_labels.sum())}/{n_samples}"
         )
 
-        return pseudo_labels
+        return cast(npt.NDArray[Any], pseudo_labels)
 
     def enable_drift_detection(
         self,
