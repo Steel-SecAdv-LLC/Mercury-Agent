@@ -38,11 +38,12 @@ import itertools
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
 
-def optimize_mercury_equation():
+def optimize_mercury_equation() -> list[dict[str, Any]]:
     """
     Optimize Mercury equation variations.
 
@@ -94,7 +95,7 @@ def optimize_mercury_equation():
     return results
 
 
-def optimize_ethical_scalars():
+def optimize_ethical_scalars() -> list[dict[str, Any]]:
     """
     Optimize ethical scalar combinations.
 
@@ -139,7 +140,7 @@ def optimize_ethical_scalars():
     return results
 
 
-def optimize_fusion_weights():
+def optimize_fusion_weights() -> list[dict[str, Any]]:
     """Optimize fusion weight combinations."""
     results = []
 
@@ -178,7 +179,7 @@ def optimize_fusion_weights():
     return results
 
 
-def optimize_harmonic_coefficients():
+def optimize_harmonic_coefficients() -> list[dict[str, Any]]:
     """Optimize harmonic coefficient combinations."""
     results = []
 
@@ -220,25 +221,25 @@ def optimize_harmonic_coefficients():
     return results
 
 
-def _evaluate_mercury_config(w1, w2, w3, e1, e2, t1):
+def _evaluate_mercury_config(w1: float, w2: float, w3: float, e1: float, e2: float, t1: float) -> float:
     """Simulate Mercury equation evaluation."""
     base_score = (w1**e1) + (w2**e2) + (w3 * (e1 + e2) / 2)
     tensor_adjustment = t1 * np.sqrt(w1 * w2 * w3)
-    noise = np.random.randn() * 0.05  # Small noise for realism
-    return base_score * tensor_adjustment + noise
+    noise = float(np.random.randn()) * 0.05  # Small noise for realism
+    return float(base_score * tensor_adjustment + noise)
 
 
-def _evaluate_ethical_config(scale_factors, group):
+def _evaluate_ethical_config(scale_factors: tuple[float, ...], group: list[str]) -> float:
     """Simulate ethical scalar evaluation."""
-    avg = np.mean(scale_factors)
-    diversity = np.std(scale_factors)
+    avg = float(np.mean(scale_factors))
+    diversity = float(np.std(scale_factors))
     balance_penalty = abs(1.0 - avg) * 0.5
-    return avg + diversity * 0.2 - balance_penalty
+    return float(avg + diversity * 0.2 - balance_penalty)
 
 
-def _evaluate_fusion_config(strategy, weights):
+def _evaluate_fusion_config(strategy: str, weights: list[float]) -> float:
     """Simulate fusion evaluation."""
-    base_score = np.sum(weights)
+    base_score = float(np.sum(weights))
 
     strategy_bonus = {
         "early": 0.05,
@@ -248,22 +249,22 @@ def _evaluate_fusion_config(strategy, weights):
         "adaptive": 0.12,
     }
 
-    weight_balance = 1.0 - np.std(weights)
+    weight_balance = 1.0 - float(np.std(weights))
 
-    return base_score * (1.0 + strategy_bonus.get(strategy, 0)) * weight_balance
+    return float(base_score * (1.0 + strategy_bonus.get(strategy, 0)) * weight_balance)
 
 
-def _evaluate_harmonic_config(f1, f2, a1, a2, p1):
+def _evaluate_harmonic_config(f1: float, f2: float, a1: float, a2: float, p1: float) -> float:
     """Simulate harmonic evaluation."""
     freq_resonance = abs(f1 - f2)  # Lower difference = better resonance
     amp_balance = (a1 + a2) / 2
-    phase_alignment = np.cos(p1)
+    phase_alignment = float(np.cos(p1))
 
     score = amp_balance * phase_alignment / (freq_resonance + 0.1)
-    return score
+    return float(score)
 
 
-def main():
+def main() -> None:
     """Run all optimization experiments."""
     print("=" * 60)
     print("COMPREHENSIVE EQUATION OPTIMIZATION EXPERIMENTS")
@@ -276,13 +277,13 @@ def main():
     fusion_results = optimize_fusion_weights()
     harmonic_results = optimize_harmonic_coefficients()
 
-    all_results = {
+    total_experiments = (
+        len(mercury_results) + len(ethical_results) + len(fusion_results) + len(harmonic_results)
+    )
+    all_results: dict[str, Any] = {
         "metadata": {
             "timestamp": datetime.now().isoformat(),
-            "total_experiments": len(mercury_results)
-            + len(ethical_results)
-            + len(fusion_results)
-            + len(harmonic_results),
+            "total_experiments": total_experiments,
             "optimization_areas": [
                 "mercury_equation",
                 "ethical_scalars",
@@ -305,7 +306,7 @@ def main():
 
     print()
     print("=" * 60)
-    print(f"COMPLETED {all_results['metadata']['total_experiments']} OPTIMIZATION EXPERIMENTS")
+    print(f"COMPLETED {total_experiments} OPTIMIZATION EXPERIMENTS")
     print("=" * 60)
     print(f"Results saved to {output_path}")
     print()

@@ -690,16 +690,18 @@ def run_all_benchmarks() -> dict[str, Any]:
     print("Mercury Agent ♱ REAL-DATA BENCHMARKS")
     print("=" * 70)
 
-    results = {
+    benchmarks: dict[str, dict[str, Any]] = {}
+    summary: dict[str, Any] = {}
+    results: dict[str, Any] = {
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
-        "benchmarks": {},
-        "summary": {},
+        "benchmarks": benchmarks,
+        "summary": summary,
     }
 
     print("\n[1/2] Running NSL-KDD Security Benchmark...")
     nsl_benchmark = NSLKDDBenchmark()
     nsl_result = nsl_benchmark.run_benchmark(max_samples=50000, n_folds=5)
-    results["benchmarks"]["nsl_kdd"] = {
+    benchmarks["nsl_kdd"] = {
         "dataset_name": nsl_result.dataset_name,
         "domain": nsl_result.domain,
         "num_samples": nsl_result.num_samples,
@@ -729,7 +731,7 @@ def run_all_benchmarks() -> dict[str, Any]:
     print("\n[2/2] Running MIMIC-III Demo Medical Benchmark...")
     mimic_benchmark = MIMICDemoBenchmark()
     mimic_result = mimic_benchmark.run_benchmark(n_patients=2000, n_folds=5)
-    results["benchmarks"]["mimic_demo"] = {
+    benchmarks["mimic_demo"] = {
         "dataset_name": mimic_result.dataset_name,
         "domain": mimic_result.domain,
         "num_samples": mimic_result.num_samples,
@@ -756,7 +758,7 @@ def run_all_benchmarks() -> dict[str, Any]:
         dpd = mimic_result.bias_metrics.get("demographic_parity_difference", "N/A")
         print(f"  Demographic Parity Diff: {dpd}")
 
-    results["summary"] = {
+    summary.update({
         "total_benchmarks": 2,
         "avg_f1": (nsl_result.f1 + mimic_result.f1) / 2,
         "avg_roc_auc": (nsl_result.roc_auc + mimic_result.roc_auc) / 2,
@@ -766,16 +768,16 @@ def run_all_benchmarks() -> dict[str, Any]:
             for r in [nsl_result, mimic_result]
             if r.bias_metrics
         ),
-    }
+    })
 
     print("\n" + "=" * 70)
     print("BENCHMARK SUMMARY")
     print("=" * 70)
-    print(f"  Total Benchmarks: {results['summary']['total_benchmarks']}")
-    print(f"  Average F1: {results['summary']['avg_f1']:.4f}")
-    print(f"  Average ROC-AUC: {results['summary']['avg_roc_auc']:.4f}")
-    print(f"  Total Runtime: {results['summary']['total_runtime_seconds']:.2f}s")
-    print(f"  Bias Checks Passed: {results['summary']['all_bias_checks_passed']}")
+    print(f"  Total Benchmarks: {summary['total_benchmarks']}")
+    print(f"  Average F1: {summary['avg_f1']:.4f}")
+    print(f"  Average ROC-AUC: {summary['avg_roc_auc']:.4f}")
+    print(f"  Total Runtime: {summary['total_runtime_seconds']:.2f}s")
+    print(f"  Bias Checks Passed: {summary['all_bias_checks_passed']}")
 
     return results
 

@@ -412,12 +412,6 @@ def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
     final_metrics = epoch_metrics[-1]
     first_metrics = epoch_metrics[0]
 
-    anomaly_f1 = (
-        2 * final_metrics.anomaly_precision * final_metrics.anomaly_recall
-        / max(0.001, final_metrics.anomaly_precision + final_metrics.anomaly_recall)
-    )
-    confidence_growth = final_metrics.avg_confidence - first_metrics.avg_confidence
-
     results: dict[str, Any] = {
         "timestamp": datetime.now(UTC).isoformat(),
         "epochs_completed": epochs,
@@ -431,9 +425,12 @@ def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
             "benevolence_score": final_metrics.benevolence_score,
             "anomaly_precision": final_metrics.anomaly_precision,
             "anomaly_recall": final_metrics.anomaly_recall,
-            "anomaly_f1": anomaly_f1,
+            "anomaly_f1": 2
+            * final_metrics.anomaly_precision
+            * final_metrics.anomaly_recall
+            / max(0.001, final_metrics.anomaly_precision + final_metrics.anomaly_recall),
             "memory_entries": final_metrics.memory_entries,
-            "confidence_growth": confidence_growth,
+            "confidence_growth": final_metrics.avg_confidence - first_metrics.avg_confidence,
         },
         "epoch_summaries": [asdict(m) for m in epoch_metrics],
         "domain_performance": {
@@ -449,8 +446,8 @@ def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
     # Print summary
     print(f"\nFinal Confidence: {final_metrics.avg_confidence:.3f}")
     print(f"Final Benevolence: {final_metrics.benevolence_score:.3f}")
-    print(f"Anomaly Detection F1: {anomaly_f1:.3f}")
-    print(f"Confidence Growth: {confidence_growth:+.3f}")
+    print(f"Anomaly Detection F1: {results['final_metrics']['anomaly_f1']:.3f}")
+    print(f"Confidence Growth: {results['final_metrics']['confidence_growth']:+.3f}")
     print(f"Memory Entries: {final_metrics.memory_entries}")
 
     return results

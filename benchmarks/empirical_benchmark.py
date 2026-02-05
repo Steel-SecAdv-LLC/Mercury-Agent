@@ -68,8 +68,7 @@ import warnings
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from collections.abc import Callable
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -261,7 +260,8 @@ def fetch_from_mirror(
             response = requests.get(url, headers=_BROWSER_HEADERS, timeout=timeout)
             response.raise_for_status()
             logger.info(f"Successfully fetched {dataset_name} from mirror: {url}")
-            return response.content
+            content: bytes = response.content
+            return content
         except requests.exceptions.RequestException as e:
             if attempt < max_retries - 1:
                 delay = base_delay * (2**attempt)
@@ -416,7 +416,7 @@ def _create_labels_from_ranges(
     return y
 
 
-def fetch_smap_msl_local(dataset: str = "SMAP") -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, str] | None:
+def fetch_smap_msl_local(dataset: str = "SMAP") -> tuple[np.ndarray, np.ndarray | None, np.ndarray, np.ndarray | None, str] | None:
     """
     Load SMAP/MSL from local directory matching telemanom structure.
 
@@ -1160,8 +1160,10 @@ def prepare_smd_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
         # Limit samples if needed
         if len(X) > n_samples:
             indices = np.random.RandomState(42).choice(len(X), n_samples, replace=False)
+            assert y is not None, "y must be defined for SMD dataset"
             X, y = X[indices], y[indices]
 
+        assert y is not None, "y must be defined for SMD dataset"
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
         scaler = StandardScaler()
@@ -1249,8 +1251,10 @@ def prepare_smap_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
 
         if len(X) > n_samples:
             indices = np.random.RandomState(43).choice(len(X), n_samples, replace=False)
+            assert y is not None, "y must be defined for SMAP dataset"
             X, y = X[indices], y[indices]
 
+        assert y is not None, "y must be defined for SMAP dataset"
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
         scaler = StandardScaler()
@@ -1338,8 +1342,10 @@ def prepare_msl_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
 
         if len(X) > n_samples:
             indices = np.random.RandomState(44).choice(len(X), n_samples, replace=False)
+            assert y is not None, "y must be defined for MSL dataset"
             X, y = X[indices], y[indices]
 
+        assert y is not None, "y must be defined for MSL dataset"
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
         scaler = StandardScaler()
@@ -1431,8 +1437,10 @@ def prepare_swat_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
 
         if len(X) > n_samples:
             indices = np.random.RandomState(45).choice(len(X), n_samples, replace=False)
+            assert y is not None, "y must be defined for water treatment dataset"
             X, y = X[indices], y[indices]
 
+        assert y is not None, "y must be defined for water treatment dataset"
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
         scaler = StandardScaler()
@@ -1507,6 +1515,7 @@ class TranADDetector:
                 X_train = X_scaled
 
             # Minimal training loop (bounded for CI efficiency)
+            assert self.model is not None, "TranAD model must be initialized"
             self.model.train()
             optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
             n_epochs = 20  # Bounded epochs for CI
@@ -1574,7 +1583,8 @@ class TranADDetector:
 
     def _compute_scores(self, X: np.ndarray) -> np.ndarray:
         """Compute TranAD anomaly scores."""
-        scores = []
+        assert self.model is not None, "TranAD model must be initialized"
+        scores: list[float] = []
         with torch.no_grad():
             for i in range(len(X)):
                 # Create window
@@ -1647,6 +1657,7 @@ class MAATDetector:
                 X_train = X_scaled
 
             # Minimal training loop (bounded for CI efficiency)
+            assert self.model is not None, "MAAT model must be initialized"
             self.model.train()
             optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
             n_epochs = 20  # Bounded epochs for CI
@@ -1714,7 +1725,8 @@ class MAATDetector:
 
     def _compute_scores(self, X: np.ndarray) -> np.ndarray:
         """Compute MAAT anomaly scores."""
-        scores = []
+        assert self.model is not None, "MAAT model must be initialized"
+        scores: list[Any] = []
         batch_size = min(32, len(X))
 
         with torch.no_grad():
@@ -2017,7 +2029,11 @@ class OmniMercuryDetector:
                                 # Handle array scores (take mean if array)
                                 if hasattr(score, "__len__") and not isinstance(score, str):
                                     score = float(np.mean(score))
-                                score_matrix[i, j] = float(score)
+                                # Safely convert score to float, with default fallback
+                                if score is not None and not isinstance(score, str):
+                                    score_matrix[i, j] = float(score)
+                                else:
+                                    score_matrix[i, j] = 0.5
                             else:
                                 score_matrix[i, j] = float(result) if result is not None else 0.5
                         elif hasattr(detector, "decision_function"):
@@ -2267,20 +2283,22 @@ class OmniMercuryDetector:
         """Initialize fallback detectors based on configured strategy."""
         if self.fallback_strategy == FallbackStrategy.LOF:
             try:
-                self._lof_detector = LocalOutlierFactor(
+                lof_detector = LocalOutlierFactor(
                     contamination=self.contamination, novelty=True, n_neighbors=min(20, len(X) - 1)
                 )
-                self._lof_detector.fit(X)
+                lof_detector.fit(X)
+                self._lof_detector = lof_detector
                 logger.info("LOF fallback detector initialized")
             except Exception as e:
                 logger.warning(f"Failed to initialize LOF fallback: {e}")
 
         elif self.fallback_strategy == FallbackStrategy.ISOLATION_FOREST:
             try:
-                self._iforest_detector = IsolationForest(
+                iforest_detector = IsolationForest(
                     contamination=self.contamination, random_state=42, n_estimators=100
                 )
-                self._iforest_detector.fit(X)
+                iforest_detector.fit(X)
+                self._iforest_detector = iforest_detector
                 logger.info("IsolationForest fallback detector initialized")
             except Exception as e:
                 logger.warning(f"Failed to initialize IsolationForest fallback: {e}")
@@ -2361,7 +2379,7 @@ class OmniMercuryDetector:
             Threshold value for anomaly classification
         """
         if len(scores) < 2:
-            return np.percentile(scores, 100 * (1 - self.contamination))
+            return float(np.percentile(scores, 100 * (1 - self.contamination)))
 
         # Use improved score calibration when available
         if SCORE_CALIBRATION_AVAILABLE:
@@ -2391,7 +2409,7 @@ class OmniMercuryDetector:
                         f"predicted_ratio={result.diagnostics.predicted_anomaly_ratio:.4f}"
                     )
 
-                return result.threshold
+                return float(result.threshold)
 
             except Exception as e:
                 logger.warning(f"ScoreCalibration failed, using fallback: {e}")
@@ -2491,7 +2509,8 @@ class OmniMercuryDetector:
             return self._compute_trained_fusion_scores(X)
 
         # Fall back to engine's detect_with_fusion
-        scores = []
+        assert self.engine is not None, "Engine must be initialized"
+        scores: list[float] = []
         for sample in X:
             try:
                 # Use detect_with_fusion for proper anomaly probability scores
@@ -2521,6 +2540,7 @@ class OmniMercuryDetector:
         This method uses the logistic regression trained during fit() to produce
         meaningful anomaly probabilities based on detector scores.
         """
+        assert self.engine is not None, "Engine must be initialized for fusion scoring"
         n_detectors = len(self._detector_names)
         score_matrix = np.zeros((len(X), n_detectors))
 
@@ -2549,7 +2569,11 @@ class OmniMercuryDetector:
                                 # Handle array scores (take mean if array)
                                 if hasattr(score, "__len__") and not isinstance(score, str):
                                     score = float(np.mean(score))
-                                score_matrix[i, j] = float(score)
+                                # Safely convert score to float, with default fallback
+                                if score is not None and not isinstance(score, str):
+                                    score_matrix[i, j] = float(score)
+                                else:
+                                    score_matrix[i, j] = 0.5
                             else:
                                 score_matrix[i, j] = float(result) if result is not None else 0.5
                         elif hasattr(detector, "decision_function"):
@@ -2565,15 +2589,21 @@ class OmniMercuryDetector:
 
         # Normalize using training statistics
         try:
-            X_scaled = self._score_scaler.transform(score_matrix)
+            if self._score_scaler is not None:
+                X_scaled = self._score_scaler.transform(score_matrix)
+            else:
+                X_scaled = score_matrix
         except Exception:
             # If scaling fails, use raw scores
             X_scaled = score_matrix
 
         # Get probabilities from logistic regression
         try:
-            probs = self._fusion_lr.predict_proba(X_scaled)[:, 1]
-            return probs
+            if self._fusion_lr is not None:
+                probs: np.ndarray = self._fusion_lr.predict_proba(X_scaled)[:, 1]
+                return probs
+            else:
+                return np.mean(score_matrix, axis=1)
         except Exception as e:
             logger.warning(f"Logistic regression prediction failed: {e}")
             # Fall back to mean of detector scores
@@ -2696,14 +2726,15 @@ def get_detector_health_endpoint() -> dict[str, Any]:
     Returns JSON with operational status of each detector component.
     Can be exposed via FastAPI or similar framework.
     """
-    health_status = {
+    components: dict[str, dict[str, Any]] = {}
+    health_status: dict[str, Any] = {
         "timestamp": datetime.now(UTC).isoformat(),
         "status": "healthy",
-        "components": {},
+        "components": components,
     }
 
     # Check Mercury-Agent availability
-    health_status["components"]["mercury_agent"] = {
+    components["mercury_agent"] = {
         "available": MERCURY_AGENT_AVAILABLE,
         "status": "operational" if MERCURY_AGENT_AVAILABLE else "unavailable",
     }
@@ -2719,12 +2750,12 @@ def get_detector_health_endpoint() -> dict[str, Any]:
     for name, detector_class in sklearn_detectors:
         try:
             detector_class()
-            health_status["components"][name] = {
+            components[name] = {
                 "available": True,
                 "status": "operational",
             }
         except Exception as e:
-            health_status["components"][name] = {
+            components[name] = {
                 "available": False,
                 "status": "error",
                 "error": str(e),
@@ -2735,35 +2766,35 @@ def get_detector_health_endpoint() -> dict[str, Any]:
         import importlib.util
 
         tranad_spec = importlib.util.find_spec("omni_mercury_engine.models.sota.tranad")
-        health_status["components"]["TranAD"] = {
+        components["TranAD"] = {
             "available": tranad_spec is not None,
             "status": "operational" if tranad_spec is not None else "unavailable",
         }
     except (ImportError, ModuleNotFoundError):
-        health_status["components"]["TranAD"] = {
+        components["TranAD"] = {
             "available": False,
             "status": "unavailable",
         }
 
     try:
         maat_spec = importlib.util.find_spec("omni_mercury_engine.models.sota.maat")
-        health_status["components"]["MAAT"] = {
+        components["MAAT"] = {
             "available": maat_spec is not None,
             "status": "operational" if maat_spec is not None else "unavailable",
         }
     except (ImportError, ModuleNotFoundError):
-        health_status["components"]["MAAT"] = {
+        components["MAAT"] = {
             "available": False,
             "status": "unavailable",
         }
 
     # Determine overall status
     unavailable_count = sum(
-        1 for c in health_status["components"].values() if c.get("status") != "operational"
+        1 for c in components.values() if c.get("status") != "operational"
     )
-    if unavailable_count > len(health_status["components"]) // 2:
+    if unavailable_count > len(components) // 2:
         health_status["status"] = "degraded"
-    elif unavailable_count == len(health_status["components"]):
+    elif unavailable_count == len(components):
         health_status["status"] = "unhealthy"
 
     return health_status
@@ -3130,7 +3161,7 @@ def run_full_benchmark(
     print()
 
     # Define detectors including SOTA models
-    detectors = [
+    detectors: list[tuple[type, str, dict[str, Any]]] = [
         (OmniMercuryDetector, "Mercury-Agent", {}),
         (IsolationForest, "IsolationForest", {"random_state": 42, "n_estimators": 100}),
         (OneClassSVM, "OneClassSVM", {"kernel": "rbf", "gamma": "auto"}),
@@ -3244,7 +3275,7 @@ def run_full_benchmark(
     summary = generate_summary(results)
 
     # Generate confusion matrix summary
-    confusion_summary = {}
+    confusion_summary: dict[str, dict[str, dict[str, int]]] = {}
     for r in results:
         if r.dataset_name not in confusion_summary:
             confusion_summary[r.dataset_name] = {}
@@ -3344,7 +3375,7 @@ def generate_honest_assessment(
     summary: dict[str, Any], comparison: dict[str, Any]
 ) -> dict[str, Any]:
     """Generate honest assessment of Mercury-Agent performance."""
-    assessment = {
+    assessment: dict[str, Any] = {
         "methodology_notes": [
             "Benchmarks use publicly available sklearn datasets",
             "Anomaly labels derived from minority class designation",

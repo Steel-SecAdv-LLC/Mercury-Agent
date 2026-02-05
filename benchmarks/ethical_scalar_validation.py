@@ -32,6 +32,7 @@ import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -195,7 +196,7 @@ def analyze_by_scenario_type(scenarios: list[dict[str, Any]], scalars: EthicalSc
     return type_results
 
 
-def main() -> None:
+def main() -> int:
     """Run comprehensive ethical scalar validation."""
     print("=" * 80)
     print("ETHICAL SCALAR VALIDATION - PRODUCTION DEPLOYMENT")

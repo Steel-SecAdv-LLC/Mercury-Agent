@@ -29,12 +29,12 @@ Quick validation on synthetic data - comprehensive benchmarks on actual repos
 import json
 import time
 from pathlib import Path
-
-import numpy as np
 from typing import Any
 
+import numpy as np
 
-def generate_synthetic_anomaly_data(n_samples: int = 1000, anomaly_ratio: float = 0.05) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+
+def generate_synthetic_anomaly_data(n_samples: int = 1000, anomaly_ratio: float = 0.05) -> tuple[np.ndarray, np.ndarray]:
     """Generate synthetic data with known anomalies for testing."""
     np.random.seed(42)
 
@@ -49,7 +49,7 @@ def generate_synthetic_anomaly_data(n_samples: int = 1000, anomaly_ratio: float 
     return data[indices], labels[indices]
 
 
-def evaluate_detection_config(data: np.ndarray[Any, Any], labels: np.ndarray[Any, Any], config: dict[str, float]) -> dict[str, Any]:
+def evaluate_detection_config(data: np.ndarray, labels: np.ndarray, config: dict[str, Any]) -> dict[str, Any]:
     """Evaluate anomaly detection with given configuration."""
     start_time = time.time()
 

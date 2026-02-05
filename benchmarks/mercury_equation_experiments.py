@@ -57,7 +57,7 @@ class SimpleTestModel(nn.Module):
 
 
 def run_optimizer_experiment(
-    optimizer_class: type[Any],
+    optimizer_class: type,
     params: dict[str, Any],
     num_iterations: int = 1000,
     seed: int = 42,
