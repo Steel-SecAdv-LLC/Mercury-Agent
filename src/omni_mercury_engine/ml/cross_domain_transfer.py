@@ -33,7 +33,6 @@ import numpy.typing as npt
 from scipy.linalg import sqrtm
 from scipy.spatial.distance import cdist
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
@@ -1408,7 +1407,7 @@ class OptimalTransportAdapter(BaseDomainAdapter):
                 class_scores[cls] = np.sum(weights[cls_mask])
 
             # Assign most likely class
-            target_labels[t] = max(class_scores, key=class_scores.get)
+            target_labels[t] = max(class_scores, key=lambda k: class_scores[k])
 
         return target_labels
 
