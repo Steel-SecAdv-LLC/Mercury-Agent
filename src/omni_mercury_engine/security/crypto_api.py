@@ -209,7 +209,8 @@ class Ed25519Provider:
     def sign(self, message: bytes, secret_key: bytes) -> bytes:
         """Sign message with Ed25519."""
         private_key = Ed25519PrivateKey.from_private_bytes(secret_key)
-        return private_key.sign(message)
+        signature: bytes = private_key.sign(message)
+        return signature
 
     def verify(self, message: bytes, signature: bytes, public_key: bytes) -> bool:
         """Verify Ed25519 signature.

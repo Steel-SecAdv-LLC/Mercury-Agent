@@ -27,6 +27,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import json
+from typing import Any
 
 import numpy as np
 import torch
@@ -49,15 +50,15 @@ class SimpleTestModel(nn.Module):
         self.fc2 = nn.Linear(20, 10)
         self.fc3 = nn.Linear(10, 1)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
         return self.fc3(x)
 
 
 def run_optimizer_experiment(
-    optimizer_class,
-    params: dict,
+    optimizer_class: type,
+    params: dict[str, Any],
     num_iterations: int = 1000,
     seed: int = 42,
 ) -> dict[str, float]:
@@ -114,7 +115,7 @@ def run_optimizer_experiment(
 
 def grid_search_mercury_base(
     num_experiments: int = 1000,
-) -> list[tuple[dict, dict]]:
+) -> list[tuple[dict[str, Any], dict[str, float]]]:
     """
     Grid search over MercuryOptimizer parameters.
 
@@ -152,7 +153,7 @@ def grid_search_mercury_base(
 
 def grid_search_mercury_variants(
     num_experiments: int = 500,
-) -> dict[str, list[tuple[dict, dict]]]:
+) -> dict[str, list[tuple[dict[str, Any], dict[str, float]]]]:
     """
     Grid search over all Mercury optimizer variants.
 
@@ -205,7 +206,7 @@ def grid_search_mercury_variants(
     return all_results
 
 
-def main():
+def main() -> None:
     """Run all Mercury equation experiments and save results."""
     print("=" * 60)
     print("AVA EQUATION OPTIMIZATION EXPERIMENTS")

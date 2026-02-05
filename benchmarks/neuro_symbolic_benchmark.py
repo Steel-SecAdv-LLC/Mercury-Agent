@@ -412,7 +412,7 @@ def run_neuro_symbolic_benchmark(epochs: int = 200) -> dict[str, Any]:
     final_metrics = epoch_metrics[-1]
     first_metrics = epoch_metrics[0]
 
-    results = {
+    results: dict[str, Any] = {
         "timestamp": datetime.now(UTC).isoformat(),
         "epochs_completed": epochs,
         "scenarios_per_epoch": len(scenarios),

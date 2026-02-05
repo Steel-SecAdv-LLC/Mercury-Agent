@@ -223,12 +223,16 @@ def run_all_benchmarks(include_real_data: bool = True) -> dict[str, Any]:
     print("Mercury Agent ♱ COMPREHENSIVE BENCHMARK")
     print("=" * 70)
 
-    results = {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()), "benchmarks": {}}
+    benchmarks: dict[str, dict[str, Any]] = {}
+    results: dict[str, Any] = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+        "benchmarks": benchmarks,
+    }
 
     total_steps = 6 if include_real_data else 4
 
     print(f"\n[1/{total_steps}] Benchmarking module instantiation...")
-    results["benchmarks"]["module_instantiation"] = benchmark_module_instantiation()
+    benchmarks["module_instantiation"] = benchmark_module_instantiation()
     print(f"  ✓ 1 module: {results['benchmarks']['module_instantiation']['1_module_ms']:.2f} ms")
     print(f"  ✓ 5 modules: {results['benchmarks']['module_instantiation']['5_modules_ms']:.2f} ms")
     print(
@@ -236,17 +240,17 @@ def run_all_benchmarks(include_real_data: bool = True) -> dict[str, Any]:
     )
 
     print(f"\n[2/{total_steps}] Benchmarking space exploration analyzer...")
-    results["benchmarks"]["space_exploration"] = benchmark_space_exploration()
+    benchmarks["space_exploration"] = benchmark_space_exploration()
     print(f"  ✓ Runtime: {results['benchmarks']['space_exploration']['runtime_ms']:.2f} ms")
     print(f"  ✓ Anomaly detected: {results['benchmarks']['space_exploration']['anomaly_detected']}")
 
     print(f"\n[3/{total_steps}] Benchmarking simulation module...")
-    results["benchmarks"]["simulation"] = benchmark_simulation_module()
+    benchmarks["simulation"] = benchmark_simulation_module()
     print(f"  ✓ Collatz: {results['benchmarks']['simulation']['collatz_exploration_ms']:.2f} ms")
     print(f"  ✓ Millennium: {results['benchmarks']['simulation']['millennium_analysis_ms']:.2f} ms")
 
     print(f"\n[4/{total_steps}] Benchmarking cosmic ray detection...")
-    results["benchmarks"]["cosmic_ray"] = benchmark_cosmic_ray_detection()
+    benchmarks["cosmic_ray"] = benchmark_cosmic_ray_detection()
     print(f"  ✓ Runtime: {results['benchmarks']['cosmic_ray']['runtime_ms']:.2f} ms")
     print(
         f"  ✓ Events detected: {results['benchmarks']['cosmic_ray']['cosmic_ray_events_detected']}"
@@ -254,20 +258,20 @@ def run_all_benchmarks(include_real_data: bool = True) -> dict[str, Any]:
 
     if include_real_data:
         print(f"\n[5/{total_steps}] Benchmarking NSL-KDD (security domain)...")
-        results["benchmarks"]["nsl_kdd"] = benchmark_real_data_nsl_kdd()
+        benchmarks["nsl_kdd"] = benchmark_real_data_nsl_kdd()
         print(f"  ✓ F1 Score: {results['benchmarks']['nsl_kdd']['f1']:.4f}")
         print(f"  ✓ ROC-AUC: {results['benchmarks']['nsl_kdd']['roc_auc']:.4f}")
         print(f"  ✓ Data Source: {results['benchmarks']['nsl_kdd']['data_source']}")
 
         print(f"\n[6/{total_steps}] Benchmarking MIMIC-III Demo (medical domain)...")
-        results["benchmarks"]["mimic_demo"] = benchmark_real_data_mimic()
+        benchmarks["mimic_demo"] = benchmark_real_data_mimic()
         print(f"  ✓ F1 Score: {results['benchmarks']['mimic_demo']['f1']:.4f}")
         print(f"  ✓ ROC-AUC: {results['benchmarks']['mimic_demo']['roc_auc']:.4f}")
         print(f"  ✓ Data Source: {results['benchmarks']['mimic_demo']['data_source']}")
 
     # Validate all metrics are within valid range [0, 1] to prevent regression
     print(f"\n[{total_steps + 1}/{total_steps + 1}] Validating metric invariants...")
-    for benchmark_name, benchmark_results in results["benchmarks"].items():
+    for benchmark_name, benchmark_results in benchmarks.items():
         validate_metrics(benchmark_results, benchmark_name)
     print("  ✓ All metrics within valid range [0, 1]")
 
