@@ -11,6 +11,7 @@ import logging
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -397,7 +398,7 @@ async def detect_three_r(
 
         data = np.array(request.data)
 
-        def compute_recursion_score(x: np.ndarray, depth: int) -> float:
+        def compute_recursion_score(x: npt.NDArray[Any], depth: int) -> float:
             """Compute R(x) - hierarchical feature extraction."""
             if depth == 0 or len(x) < 2:
                 return float(np.std(x) / (np.mean(np.abs(x)) + 1e-8))

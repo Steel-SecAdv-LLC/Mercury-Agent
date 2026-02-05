@@ -17,6 +17,7 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 if TYPE_CHECKING:
@@ -41,7 +42,7 @@ try:
     QISKIT_AVAILABLE = True
 except ImportError:
     logger.debug("Qiskit not available, using simulation fallback")
-    QuantumCircuit = None  # type: ignore[misc, assignment]
+    QuantumCircuit = None
 
 
 class EncodingType(Enum):
@@ -88,7 +89,7 @@ class SimulatedQuantumCircuit:
         self.num_clbits = num_clbits
         self._gates: list[tuple[str, list[int], list[float]]] = []
         self._parameters: list[str] = []
-        self._state: np.ndarray | None = None
+        self._state: npt.NDArray[Any] | None = None
 
     def h(self, qubit: int) -> SimulatedQuantumCircuit:
         """Hadamard gate."""
@@ -186,11 +187,11 @@ class SimulatedQuantumCircuit:
 
     def _apply_gate(
         self,
-        state: np.ndarray,
+        state: npt.NDArray[Any],
         gate_name: str,
         qubits: list[int],
         params: list[float],
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Apply a gate to the state vector."""
         n = self.num_qubits
 
@@ -237,11 +238,11 @@ class SimulatedQuantumCircuit:
 
     def _apply_single_qubit_gate(
         self,
-        state: np.ndarray,
-        matrix: np.ndarray,
+        state: npt.NDArray[Any],
+        matrix: npt.NDArray[Any],
         qubit: int,
         n_qubits: int,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Apply single-qubit gate using tensor product."""
         new_state = np.zeros_like(state)
         for i in range(len(state)):
@@ -253,11 +254,11 @@ class SimulatedQuantumCircuit:
 
     def _apply_cnot(
         self,
-        state: np.ndarray,
+        state: npt.NDArray[Any],
         control: int,
         target: int,
         n_qubits: int,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Apply CNOT gate."""
         new_state = state.copy()
         for i in range(len(state)):
@@ -268,11 +269,11 @@ class SimulatedQuantumCircuit:
 
     def _apply_cz(
         self,
-        state: np.ndarray,
+        state: npt.NDArray[Any],
         control: int,
         target: int,
         n_qubits: int,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Apply CZ gate."""
         new_state = state.copy()
         for i in range(len(state)):
@@ -354,7 +355,7 @@ class AnomalyEncodingCircuit:
         self._reps = reps
         self._builder = QuantumCircuitBuilder()
 
-    def encode(self, data: np.ndarray) -> Any:
+    def encode(self, data: npt.NDArray[Any]) -> Any:
         """
         Encode classical data into a quantum circuit.
 
@@ -377,7 +378,7 @@ class AnomalyEncodingCircuit:
         else:
             return self._angle_encoding(data)
 
-    def _amplitude_encoding(self, data: np.ndarray) -> Any:
+    def _amplitude_encoding(self, data: npt.NDArray[Any]) -> Any:
         """
         Amplitude encoding - encodes data in state amplitudes.
 
@@ -403,7 +404,7 @@ class AnomalyEncodingCircuit:
 
         return circuit
 
-    def _compute_amplitude_angles(self, amplitudes: np.ndarray) -> list[float]:
+    def _compute_amplitude_angles(self, amplitudes: npt.NDArray[Any]) -> list[float]:
         """Compute rotation angles for amplitude encoding."""
         angles = []
         n = len(amplitudes)
@@ -422,7 +423,7 @@ class AnomalyEncodingCircuit:
 
         return angles
 
-    def _angle_encoding(self, data: np.ndarray) -> Any:
+    def _angle_encoding(self, data: npt.NDArray[Any]) -> Any:
         """
         Angle encoding - encodes each feature as a rotation angle.
 
@@ -445,7 +446,7 @@ class AnomalyEncodingCircuit:
 
         return circuit
 
-    def _basis_encoding(self, data: np.ndarray) -> Any:
+    def _basis_encoding(self, data: npt.NDArray[Any]) -> Any:
         """
         Basis encoding - encodes binary data in computational basis.
 
@@ -461,7 +462,7 @@ class AnomalyEncodingCircuit:
 
         return circuit
 
-    def _iqp_encoding(self, data: np.ndarray) -> Any:
+    def _iqp_encoding(self, data: npt.NDArray[Any]) -> Any:
         """
         IQP (Instantaneous Quantum Polynomial) encoding.
 
@@ -485,7 +486,7 @@ class AnomalyEncodingCircuit:
 
         return circuit
 
-    def _zz_feature_map_encoding(self, data: np.ndarray) -> Any:
+    def _zz_feature_map_encoding(self, data: npt.NDArray[Any]) -> Any:
         """
         ZZ Feature Map encoding for quantum kernels.
 
@@ -546,7 +547,7 @@ class VariationalCircuit:
         else:
             return 2 * self._num_qubits * (self._reps + 1)
 
-    def build(self, parameters: np.ndarray | None = None) -> Any:
+    def build(self, parameters: npt.NDArray[Any] | None = None) -> Any:
         """
         Build the variational circuit with given parameters.
 
@@ -570,7 +571,7 @@ class VariationalCircuit:
         else:
             return self._hardware_efficient(parameters)
 
-    def _real_amplitudes(self, parameters: np.ndarray) -> Any:
+    def _real_amplitudes(self, parameters: npt.NDArray[Any]) -> Any:
         """Real amplitudes ansatz with RY rotations."""
         circuit = self._builder.create_circuit(self._num_qubits)
         param_idx = 0
@@ -586,7 +587,7 @@ class VariationalCircuit:
 
         return circuit
 
-    def _efficient_su2(self, parameters: np.ndarray) -> Any:
+    def _efficient_su2(self, parameters: npt.NDArray[Any]) -> Any:
         """Efficient SU2 ansatz with full single-qubit rotations."""
         circuit = self._builder.create_circuit(self._num_qubits)
         param_idx = 0
@@ -606,7 +607,7 @@ class VariationalCircuit:
 
         return circuit
 
-    def _two_local(self, parameters: np.ndarray) -> Any:
+    def _two_local(self, parameters: npt.NDArray[Any]) -> Any:
         """Two-local ansatz with RY and RZ rotations."""
         circuit = self._builder.create_circuit(self._num_qubits)
         param_idx = 0
@@ -624,7 +625,7 @@ class VariationalCircuit:
 
         return circuit
 
-    def _hardware_efficient(self, parameters: np.ndarray) -> Any:
+    def _hardware_efficient(self, parameters: npt.NDArray[Any]) -> Any:
         """Hardware-efficient ansatz optimized for NISQ devices."""
         circuit = self._builder.create_circuit(self._num_qubits)
         param_idx = 0
@@ -668,7 +669,7 @@ class QuantumFeatureMap:
             reps,
         )
 
-    def map(self, data: np.ndarray) -> Any:
+    def map(self, data: npt.NDArray[Any]) -> Any:
         """
         Map classical data to quantum feature space.
 
@@ -682,8 +683,8 @@ class QuantumFeatureMap:
 
     def compute_kernel(
         self,
-        x1: np.ndarray,
-        x2: np.ndarray,
+        x1: npt.NDArray[Any],
+        x2: npt.NDArray[Any],
         shots: int = 1024,
     ) -> float:
         """

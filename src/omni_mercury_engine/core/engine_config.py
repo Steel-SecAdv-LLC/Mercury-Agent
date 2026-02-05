@@ -350,7 +350,7 @@ class MercuryEngineConfig(BaseModel):
         """Accept string or DomainType."""
         if isinstance(v, str):
             return DomainType(v.lower())
-        return v  # type: ignore[no-any-return]
+        return v
 
     @model_validator(mode="after")
     def adjust_for_domain(self) -> MercuryEngineConfig:

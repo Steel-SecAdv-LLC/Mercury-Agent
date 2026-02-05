@@ -53,7 +53,7 @@ __all__ = [
     "DistributedAnomalyDetector",
     # Cluster management
     "DistributedMercuryCluster",
-    # Task management
+    # Task[Any] management
     "DistributedTask",
     "InMemoryTransport",
     "LogEntry",

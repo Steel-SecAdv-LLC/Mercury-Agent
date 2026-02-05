@@ -16,6 +16,7 @@ References:
 - Li et al. (2020): A System for Massively Parallel Hyperparameter Tuning
 """
 
+from typing import Any
 from omni_mercury_engine.automl.optimizer import (
     BayesianOptimizer,
     GaussianProcessSampler,

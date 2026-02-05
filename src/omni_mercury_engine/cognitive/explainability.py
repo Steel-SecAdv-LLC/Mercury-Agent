@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     import shap as shap_module  # noqa: F401
 
 import numpy as np
+import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -145,8 +146,8 @@ class BaseExplainer(ABC):
     @abstractmethod
     def explain(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        instance: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        instance: npt.NDArray[Any],
         feature_names: list[str] | None = None,
     ) -> Explanation:
         """Generate explanation for an instance."""
@@ -163,7 +164,7 @@ class SHAPExplainer(BaseExplainer):
 
     def __init__(
         self,
-        background_data: np.ndarray | None = None,
+        background_data: npt.NDArray[Any] | None = None,
         n_samples: int = 100,
         link: str = "identity",
     ):
@@ -182,8 +183,8 @@ class SHAPExplainer(BaseExplainer):
 
     def _create_explainer(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        background: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        background: npt.NDArray[Any],
     ) -> Any:
         """Create SHAP explainer instance."""
         if not SHAP_AVAILABLE:
@@ -193,8 +194,8 @@ class SHAPExplainer(BaseExplainer):
 
     def explain(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        instance: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        instance: npt.NDArray[Any],
         feature_names: list[str] | None = None,
     ) -> Explanation:
         """Generate SHAP explanation."""
@@ -260,9 +261,9 @@ class SHAPExplainer(BaseExplainer):
 
     def _approximate_shap(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        instance: np.ndarray,
-    ) -> np.ndarray:
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        instance: npt.NDArray[Any],
+    ) -> npt.NDArray[Any]:
         """Approximate SHAP values without SHAP library."""
         instance = instance.flatten()
         n_features = len(instance)
@@ -325,7 +326,7 @@ class LIMEExplainer(BaseExplainer):
 
     def __init__(
         self,
-        training_data: np.ndarray | None = None,
+        training_data: npt.NDArray[Any] | None = None,
         mode: str = "regression",
         n_samples: int = 5000,
         kernel_width: float | None = None,
@@ -347,7 +348,7 @@ class LIMEExplainer(BaseExplainer):
 
     def _create_explainer(
         self,
-        training_data: np.ndarray,
+        training_data: npt.NDArray[Any],
         feature_names: list[str],
     ) -> Any:
         """Create LIME explainer instance."""
@@ -363,8 +364,8 @@ class LIMEExplainer(BaseExplainer):
 
     def explain(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        instance: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        instance: npt.NDArray[Any],
         feature_names: list[str] | None = None,
     ) -> Explanation:
         """Generate LIME explanation."""
@@ -430,8 +431,8 @@ class LIMEExplainer(BaseExplainer):
 
     def _approximate_lime(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        instance: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        instance: npt.NDArray[Any],
         feature_names: list[str],
     ) -> tuple[dict[str, float], float]:
         """Approximate LIME without LIME library."""
@@ -493,7 +494,7 @@ class IntegratedGradientsExplainer(BaseExplainer):
 
     def __init__(
         self,
-        baseline: np.ndarray | None = None,
+        baseline: npt.NDArray[Any] | None = None,
         n_steps: int = 50,
     ):
         """
@@ -508,8 +509,8 @@ class IntegratedGradientsExplainer(BaseExplainer):
 
     def explain(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        instance: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        instance: npt.NDArray[Any],
         feature_names: list[str] | None = None,
     ) -> Explanation:
         """Generate Integrated Gradients explanation."""
@@ -567,10 +568,10 @@ class IntegratedGradientsExplainer(BaseExplainer):
 
     def _compute_ig_torch(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        instance: np.ndarray,
-        baseline: np.ndarray,
-    ) -> np.ndarray:
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        instance: npt.NDArray[Any],
+        baseline: npt.NDArray[Any],
+    ) -> npt.NDArray[Any]:
         """Compute IG using PyTorch gradients."""
         instance_t = torch.tensor(instance, dtype=torch.float32, requires_grad=True)
         baseline_t = torch.tensor(baseline, dtype=torch.float32)
@@ -598,10 +599,10 @@ class IntegratedGradientsExplainer(BaseExplainer):
 
     def _compute_ig_finite_diff(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        instance: np.ndarray,
-        baseline: np.ndarray,
-    ) -> np.ndarray:
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        instance: npt.NDArray[Any],
+        baseline: npt.NDArray[Any],
+    ) -> npt.NDArray[Any]:
         """Compute IG using finite differences."""
         alphas = np.linspace(0, 1, self.n_steps)
         gradients = []
@@ -618,10 +619,10 @@ class IntegratedGradientsExplainer(BaseExplainer):
 
     def _numerical_gradient(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        x: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        x: npt.NDArray[Any],
         epsilon: float = 1e-5,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Compute numerical gradient."""
         x = x.flatten()
         grad = np.zeros_like(x)
@@ -689,8 +690,8 @@ class CounterfactualExplainer:
 
     def generate_counterfactual(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        instance: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        instance: npt.NDArray[Any],
         target_class: int = 0,
         feature_names: list[str] | None = None,
     ) -> dict[str, Any]:
@@ -766,10 +767,10 @@ class CounterfactualExplainer:
 
     def _estimate_gradient(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        x: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        x: npt.NDArray[Any],
         epsilon: float = 1e-4,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Estimate gradient numerically."""
         grad = np.zeros_like(x)
 
@@ -810,8 +811,8 @@ class FaithfulnessEvaluator:
 
     def evaluate(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        instance: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        instance: npt.NDArray[Any],
         explanation: Explanation,
     ) -> dict[str, float]:
         """
@@ -850,8 +851,8 @@ class FaithfulnessEvaluator:
 
     def _compute_comprehensiveness(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        instance: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        instance: npt.NDArray[Any],
         ranked_features: list[FeatureImportance],
         original_pred: float,
     ) -> float:
@@ -869,8 +870,8 @@ class FaithfulnessEvaluator:
 
     def _compute_sufficiency(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        instance: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        instance: npt.NDArray[Any],
         ranked_features: list[FeatureImportance],
         original_pred: float,
     ) -> float:
@@ -888,8 +889,8 @@ class FaithfulnessEvaluator:
 
     def _compute_monotonicity(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        instance: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        instance: npt.NDArray[Any],
         ranked_features: list[FeatureImportance],
         original_pred: float,
     ) -> float:
@@ -926,7 +927,7 @@ class ExplainabilityEngine:
 
     def __init__(
         self,
-        training_data: np.ndarray | None = None,
+        training_data: npt.NDArray[Any] | None = None,
         feature_names: list[str] | None = None,
         default_method: ExplanationType = ExplanationType.SHAP,
     ):
@@ -954,8 +955,8 @@ class ExplainabilityEngine:
 
     def explain(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        instance: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        instance: npt.NDArray[Any],
         method: ExplanationType | None = None,
         include_counterfactual: bool = False,
         include_faithfulness: bool = True,
@@ -998,8 +999,8 @@ class ExplainabilityEngine:
 
     def compare_methods(
         self,
-        model: Callable[[np.ndarray], np.ndarray],
-        instance: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray],
+        instance: npt.NDArray[Any],
     ) -> dict[str, Explanation]:
         """
         Compare explanations from all methods.

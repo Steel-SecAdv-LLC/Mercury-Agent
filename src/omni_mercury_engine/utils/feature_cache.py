@@ -50,6 +50,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 
 
@@ -399,8 +400,8 @@ class IncrementalFeatureComputer:
         if isinstance(data, torch.Tensor):
             data = data.detach().cpu().numpy()
 
-        # Use SHA-256 instead of MD5 for better security (non-cryptographic use for cache keys)
-        return hashlib.sha256(data.tobytes()).hexdigest()
+        # Use SHA3-256 for Ava-Guardian alignment (non-cryptographic use for cache keys)
+        return hashlib.sha3_256(data.tobytes()).hexdigest()
 
     def needs_update(self, key: str, data: np.ndarray[Any, Any] | torch.Tensor) -> bool:
         """Check if features need to be recomputed.

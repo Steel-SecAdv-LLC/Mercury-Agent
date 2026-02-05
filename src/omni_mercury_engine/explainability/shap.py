@@ -21,6 +21,7 @@ from itertools import combinations
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 if TYPE_CHECKING:
@@ -45,8 +46,8 @@ class ExplainerType(Enum):
 class ShapExplanation:
     """SHAP explanation for a single instance."""
 
-    instance: np.ndarray
-    shap_values: np.ndarray
+    instance: npt.NDArray[Any]
+    shap_values: npt.NDArray[Any]
     base_value: float
     feature_names: list[str] | None = None
     prediction: float | None = None
@@ -87,11 +88,11 @@ class ShapExplanation:
 class GlobalExplanation:
     """Global SHAP explanation across multiple instances."""
 
-    shap_values: np.ndarray
+    shap_values: npt.NDArray[Any]
     base_value: float
     feature_names: list[str] | None
-    data: np.ndarray
-    mean_abs_shap: np.ndarray = field(default=None)
+    data: npt.NDArray[Any]
+    mean_abs_shap: npt.NDArray[Any] = field(default=None)
 
     def __post_init__(self) -> None:
         """Compute mean absolute SHAP values."""
@@ -107,7 +108,7 @@ class GlobalExplanation:
 
         return dict(zip(names, self.mean_abs_shap.tolist()))
 
-    def get_interaction_values(self) -> np.ndarray | None:
+    def get_interaction_values(self) -> npt.NDArray[Any] | None:
         """Get feature interaction values (if computed)."""
         return None
 
@@ -117,7 +118,7 @@ class ShapExplainer(ABC):
 
     def __init__(
         self,
-        model: Callable[[np.ndarray], np.ndarray] | Any,
+        model: Callable[[npt.NDArray[Any]], np.ndarray] | Any,
         feature_names: list[str] | None = None,
     ) -> None:
         """
@@ -139,14 +140,14 @@ class ShapExplainer(ABC):
         self._feature_names = feature_names
 
     @abstractmethod
-    def explain(self, X: np.ndarray) -> ShapExplanation | list[ShapExplanation]:
+    def explain(self, X: npt.NDArray[Any]) -> ShapExplanation | list[ShapExplanation]:
         """Generate SHAP explanations for instances."""
         pass
 
     @abstractmethod
     def explain_global(
         self,
-        X: np.ndarray,
+        X: npt.NDArray[Any],
     ) -> GlobalExplanation:
         """Generate global SHAP explanation."""
         pass
@@ -162,8 +163,8 @@ class ExactShapExplainer(ShapExplainer):
 
     def __init__(
         self,
-        model: Callable[[np.ndarray], np.ndarray] | Any,
-        background_data: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray] | Any,
+        background_data: npt.NDArray[Any],
         feature_names: list[str] | None = None,
     ) -> None:
         """
@@ -184,7 +185,7 @@ class ExactShapExplainer(ShapExplainer):
                 "Consider using KernelSHAP or SamplingSHAP."
             )
 
-    def explain(self, X: np.ndarray) -> ShapExplanation | list[ShapExplanation]:
+    def explain(self, X: npt.NDArray[Any]) -> ShapExplanation | list[ShapExplanation]:
         """Compute exact SHAP values."""
         if X.ndim == 1:
             X = X.reshape(1, -1)
@@ -194,7 +195,7 @@ class ExactShapExplainer(ShapExplainer):
 
         return [self._explain_single(x) for x in X]
 
-    def _explain_single(self, x: np.ndarray) -> ShapExplanation:
+    def _explain_single(self, x: npt.NDArray[Any]) -> ShapExplanation:
         """Compute exact SHAP values for a single instance."""
         n = self._n_features
         shap_values = np.zeros(n)
@@ -213,7 +214,7 @@ class ExactShapExplainer(ShapExplainer):
             prediction=instance_pred,
         )
 
-    def _compute_shapley_value(self, x: np.ndarray, feature_idx: int) -> float:
+    def _compute_shapley_value(self, x: npt.NDArray[Any], feature_idx: int) -> float:
         """Compute Shapley value for a single feature."""
         n = self._n_features
         other_features = [j for j in range(n) if j != feature_idx]
@@ -234,7 +235,7 @@ class ExactShapExplainer(ShapExplainer):
 
     def _marginal_expectation(
         self,
-        x: np.ndarray,
+        x: npt.NDArray[Any],
         feature_subset: set[int],
     ) -> float:
         """Compute marginal expectation over background data."""
@@ -249,7 +250,7 @@ class ExactShapExplainer(ShapExplainer):
 
         return np.mean(predictions)
 
-    def explain_global(self, X: np.ndarray) -> GlobalExplanation:
+    def explain_global(self, X: npt.NDArray[Any]) -> GlobalExplanation:
         """Compute global SHAP explanation."""
         explanations = self.explain(X)
         if isinstance(explanations, ShapExplanation):
@@ -276,8 +277,8 @@ class KernelShapExplainer(ShapExplainer):
 
     def __init__(
         self,
-        model: Callable[[np.ndarray], np.ndarray] | Any,
-        background_data: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray] | Any,
+        background_data: npt.NDArray[Any],
         feature_names: list[str] | None = None,
         n_samples: int = 2048,
         regularization: float = 0.01,
@@ -298,7 +299,7 @@ class KernelShapExplainer(ShapExplainer):
         self._regularization = regularization
         self._n_features = background_data.shape[1]
 
-    def explain(self, X: np.ndarray) -> ShapExplanation | list[ShapExplanation]:
+    def explain(self, X: npt.NDArray[Any]) -> ShapExplanation | list[ShapExplanation]:
         """Compute Kernel SHAP values."""
         if X.ndim == 1:
             X = X.reshape(1, -1)
@@ -308,7 +309,7 @@ class KernelShapExplainer(ShapExplainer):
 
         return [self._explain_single(x) for x in X]
 
-    def _explain_single(self, x: np.ndarray) -> ShapExplanation:
+    def _explain_single(self, x: npt.NDArray[Any]) -> ShapExplanation:
         """Compute Kernel SHAP values for a single instance."""
         n = self._n_features
 
@@ -376,7 +377,7 @@ class KernelShapExplainer(ShapExplainer):
 
     def _evaluate_coalition(
         self,
-        x: np.ndarray,
+        x: npt.NDArray[Any],
         coalition: list[int],
     ) -> float:
         """Evaluate model on a coalition."""
@@ -391,7 +392,7 @@ class KernelShapExplainer(ShapExplainer):
 
         return np.mean(predictions)
 
-    def explain_global(self, X: np.ndarray) -> GlobalExplanation:
+    def explain_global(self, X: npt.NDArray[Any]) -> GlobalExplanation:
         """Compute global Kernel SHAP explanation."""
         explanations = self.explain(X)
         if isinstance(explanations, ShapExplanation):
@@ -418,8 +419,8 @@ class SamplingShapExplainer(ShapExplainer):
 
     def __init__(
         self,
-        model: Callable[[np.ndarray], np.ndarray] | Any,
-        background_data: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray] | Any,
+        background_data: npt.NDArray[Any],
         feature_names: list[str] | None = None,
         n_permutations: int = 100,
     ) -> None:
@@ -437,7 +438,7 @@ class SamplingShapExplainer(ShapExplainer):
         self._n_permutations = n_permutations
         self._n_features = background_data.shape[1]
 
-    def explain(self, X: np.ndarray) -> ShapExplanation | list[ShapExplanation]:
+    def explain(self, X: npt.NDArray[Any]) -> ShapExplanation | list[ShapExplanation]:
         """Compute Sampling SHAP values."""
         if X.ndim == 1:
             X = X.reshape(1, -1)
@@ -447,7 +448,7 @@ class SamplingShapExplainer(ShapExplainer):
 
         return [self._explain_single(x) for x in X]
 
-    def _explain_single(self, x: np.ndarray) -> ShapExplanation:
+    def _explain_single(self, x: npt.NDArray[Any]) -> ShapExplanation:
         """Compute Sampling SHAP values for a single instance."""
         n = self._n_features
         shap_values = np.zeros(n)
@@ -479,7 +480,7 @@ class SamplingShapExplainer(ShapExplainer):
             prediction=instance_pred,
         )
 
-    def explain_global(self, X: np.ndarray) -> GlobalExplanation:
+    def explain_global(self, X: npt.NDArray[Any]) -> GlobalExplanation:
         """Compute global Sampling SHAP explanation."""
         explanations = self.explain(X)
         if isinstance(explanations, ShapExplanation):
@@ -542,7 +543,7 @@ class TreeShapExplainer(ShapExplainer):
             "value": tree.value if hasattr(tree, "value") else [],
         }
 
-    def explain(self, X: np.ndarray) -> ShapExplanation | list[ShapExplanation]:
+    def explain(self, X: npt.NDArray[Any]) -> ShapExplanation | list[ShapExplanation]:
         """Compute Tree SHAP values."""
         if X.ndim == 1:
             X = X.reshape(1, -1)
@@ -555,7 +556,7 @@ class TreeShapExplainer(ShapExplainer):
 
         return [self._explain_single_tree(x) for x in X]
 
-    def _explain_single_tree(self, x: np.ndarray) -> ShapExplanation:
+    def _explain_single_tree(self, x: npt.NDArray[Any]) -> ShapExplanation:
         """Compute Tree SHAP for a single instance."""
         n_features = len(x)
         shap_values = np.zeros(n_features)
@@ -586,16 +587,16 @@ class TreeShapExplainer(ShapExplainer):
 
     def _tree_shap_single(
         self,
-        x: np.ndarray,
+        x: npt.NDArray[Any],
         tree_info: dict[str, Any],
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Compute SHAP values for a single tree."""
         n_features = len(x)
         shap_values = np.zeros(n_features)
 
         return shap_values
 
-    def _fallback_explain(self, X: np.ndarray) -> ShapExplanation | list[ShapExplanation]:
+    def _fallback_explain(self, X: npt.NDArray[Any]) -> ShapExplanation | list[ShapExplanation]:
         """Fallback to sampling-based explanation."""
         background = X[: min(100, len(X))]
         sampler = SamplingShapExplainer(
@@ -605,7 +606,7 @@ class TreeShapExplainer(ShapExplainer):
         )
         return sampler.explain(X)
 
-    def explain_global(self, X: np.ndarray) -> GlobalExplanation:
+    def explain_global(self, X: npt.NDArray[Any]) -> GlobalExplanation:
         """Compute global Tree SHAP explanation."""
         explanations = self.explain(X)
         if isinstance(explanations, ShapExplanation):
@@ -632,7 +633,7 @@ class LinearShapExplainer(ShapExplainer):
     def __init__(
         self,
         model: Any,
-        background_data: np.ndarray,
+        background_data: npt.NDArray[Any],
         feature_names: list[str] | None = None,
     ) -> None:
         """
@@ -656,7 +657,7 @@ class LinearShapExplainer(ShapExplainer):
         if isinstance(self._intercept, np.ndarray):
             self._intercept = self._intercept[0]
 
-    def explain(self, X: np.ndarray) -> ShapExplanation | list[ShapExplanation]:
+    def explain(self, X: npt.NDArray[Any]) -> ShapExplanation | list[ShapExplanation]:
         """Compute Linear SHAP values."""
         if X.ndim == 1:
             X = X.reshape(1, -1)
@@ -666,7 +667,7 @@ class LinearShapExplainer(ShapExplainer):
 
         return [self._explain_single(x) for x in X]
 
-    def _explain_single(self, x: np.ndarray) -> ShapExplanation:
+    def _explain_single(self, x: npt.NDArray[Any]) -> ShapExplanation:
         """Compute Linear SHAP for a single instance."""
         deviation = x - self._background_mean
 
@@ -683,7 +684,7 @@ class LinearShapExplainer(ShapExplainer):
             prediction=instance_pred,
         )
 
-    def explain_global(self, X: np.ndarray) -> GlobalExplanation:
+    def explain_global(self, X: npt.NDArray[Any]) -> GlobalExplanation:
         """Compute global Linear SHAP explanation."""
         explanations = self.explain(X)
         if isinstance(explanations, ShapExplanation):
@@ -702,7 +703,7 @@ class LinearShapExplainer(ShapExplainer):
 
 def create_shap_explainer(
     model: Any,
-    background_data: np.ndarray,
+    background_data: npt.NDArray[Any],
     feature_names: list[str] | None = None,
     explainer_type: str = "auto",
 ) -> ShapExplainer:

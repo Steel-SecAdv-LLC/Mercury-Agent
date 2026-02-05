@@ -25,6 +25,7 @@ import logging
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 try:
@@ -121,8 +122,8 @@ class NOAABuoyLoader(DatasetLoader):
         super().__init__(config)
         self.stations = config.preprocessing.get("stations", list(self.BUOY_STATIONS.keys())[:5])
         self.anomaly_std = config.preprocessing.get("anomaly_std", 3.0)
-        self._features: np.ndarray | None = None
-        self._labels: np.ndarray | None = None
+        self._features: npt.NDArray[Any] | None = None
+        self._labels: npt.NDArray[Any] | None = None
         self._is_real_data = False
 
     @property
@@ -210,7 +211,7 @@ class NOAABuoyLoader(DatasetLoader):
             logger.warning(f"NOAA Buoy download failed: {e}")
             return self._create_synthetic_fallback()
 
-    def _process_buoy_data(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    def _process_buoy_data(self, df: pd.DataFrame) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Process buoy data for anomaly detection with comprehensive missing value handling.
 
         Implements a multi-strategy approach for oceanographic data quality:
@@ -482,7 +483,7 @@ class NOAABuoyLoader(DatasetLoader):
 
         raise FileNotFoundError("NOAA buoy data not found. Run download() first.")
 
-    def load_data(self) -> tuple[np.ndarray, np.ndarray]:
+    def load_data(self) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Load NOAA buoy dataset.
 
         Returns:

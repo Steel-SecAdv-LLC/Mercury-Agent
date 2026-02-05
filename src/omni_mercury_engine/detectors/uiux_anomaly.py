@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 UI/UX Anomaly Detection Module for Mercury Agent.
 
@@ -71,9 +70,10 @@ import math
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -81,7 +81,6 @@ from torch import nn
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.utils.constants import MathematicalConstants
-
 
 logger = logging.getLogger(__name__)
 
@@ -244,7 +243,7 @@ class ClickAnalysis:
     dead_clicks: int
     double_click_rate: float
     click_accuracy: float
-    click_density_map: np.ndarray
+    click_density_map: npt.NDArray[Any]
     click_timing_stats: dict[str, float]
 
 
@@ -705,7 +704,7 @@ class UIUXAnomalyDetector(BaseDetector):
         # Reference statistics
         self._reference_timing_mean: float = 0.0
         self._reference_timing_std: float = 1.0
-        self._reference_click_density: np.ndarray | None = None
+        self._reference_click_density: npt.NDArray[Any] | None = None
         self._reference_scroll_velocity: float = 500.0
         self._reference_session_duration: float = 300.0
         self._page_transition_probs: dict[str, dict[str, float]] = {}
@@ -761,10 +760,13 @@ class UIUXAnomalyDetector(BaseDetector):
         if len(interactions) == 0:
             raise DetectorException("Cannot fit UIUXAnomalyDetector with empty data.")
 
+        sessions: list[list[UserInteraction]]
         if isinstance(interactions[0], UserInteraction):
-            sessions = [interactions]  # type: ignore
+            # Single session provided - wrap in list
+            sessions = [cast(list[UserInteraction], interactions)]
         else:
-            sessions = interactions  # type: ignore
+            # Multiple sessions provided
+            sessions = cast(list[list[UserInteraction]], interactions)
 
         # Collect statistics from all sessions
         all_timings = []
@@ -843,7 +845,7 @@ class UIUXAnomalyDetector(BaseDetector):
 
     def detect(
         self,
-        interactions: list[UserInteraction] | np.ndarray | torch.Tensor,
+        interactions: list[UserInteraction] | npt.NDArray[Any] | torch.Tensor,
     ) -> dict[str, Any]:
         """Detect UI/UX anomalies in user interactions.
 
@@ -950,7 +952,7 @@ class UIUXAnomalyDetector(BaseDetector):
 
     def _detect_from_features(
         self,
-        features: np.ndarray | torch.Tensor,
+        features: npt.NDArray[Any] | torch.Tensor,
     ) -> dict[str, Any]:
         """Detect from pre-computed features (for ML fusion).
 
@@ -967,7 +969,7 @@ class UIUXAnomalyDetector(BaseDetector):
             features = features.reshape(1, -1)
 
         # Simple z-score based anomaly detection for features
-        if hasattr(self, "_reference_features_mean"):
+        if hasattr(self, "_reference_features_mean") and hasattr(self, "_reference_features_std"):
             z_scores = (features - self._reference_features_mean) / (
                 self._reference_features_std + 1e-8
             )
@@ -985,7 +987,7 @@ class UIUXAnomalyDetector(BaseDetector):
 
     def extract_features(
         self,
-        interactions: list[UserInteraction] | np.ndarray | torch.Tensor,
+        interactions: list[UserInteraction] | npt.NDArray[Any] | torch.Tensor,
     ) -> torch.Tensor:
         """Extract features for ML fusion.
 
@@ -1008,7 +1010,7 @@ class UIUXAnomalyDetector(BaseDetector):
     def _extract_interaction_features(
         self,
         interactions: list[UserInteraction],
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Extract numerical features from interactions.
 
         Args:
@@ -1375,7 +1377,7 @@ class UIUXAnomalyDetector(BaseDetector):
         else:
             attention_score = 0.5
 
-        # Task completion estimate (based on form submissions, etc.)
+        # Task[Any] completion estimate (based on form submissions, etc.)
         completions = sum(
             1 for i in interactions if i.interaction_type == InteractionType.FORM_SUBMIT
         )
@@ -1567,9 +1569,9 @@ class UIUXAnomalyDetector(BaseDetector):
             linear_segments = 0
             for i in range(len(moves) - 2):
                 # Vector from point i to i+1
-                v1 = (moves[i + 1][0] - moves[i][0], moves[i + 1][1] - moves[i][1])  # type: ignore
+                v1 = (moves[i + 1][0] - moves[i][0], moves[i + 1][1] - moves[i][1])
                 # Vector from point i+1 to i+2
-                v2 = (moves[i + 2][0] - moves[i + 1][0], moves[i + 2][1] - moves[i + 1][1])  # type: ignore
+                v2 = (moves[i + 2][0] - moves[i + 1][0], moves[i + 2][1] - moves[i + 1][1])
 
                 # Check if vectors are parallel (cross product near zero)
                 cross = abs(v1[0] * v2[1] - v1[1] * v2[0])
@@ -1928,7 +1930,7 @@ def compute_click_heatmap(
     width: int = 1920,
     height: int = 1080,
     grid_size: int = 20,
-) -> np.ndarray:
+) -> npt.NDArray[Any]:
     """Compute click density heatmap.
 
     Args:

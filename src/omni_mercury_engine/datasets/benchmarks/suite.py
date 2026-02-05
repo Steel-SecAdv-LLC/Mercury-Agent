@@ -21,8 +21,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 
-from .base import DatasetConfig, DatasetLoader, DatasetRegistry, DatasetSplit
+from ..base import DatasetConfig, DatasetLoader, DatasetRegistry, DatasetSplit
 
 
 if TYPE_CHECKING:

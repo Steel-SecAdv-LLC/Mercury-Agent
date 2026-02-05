@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -345,11 +346,11 @@ class AttentionOptimizer:
         self.triadic_weights = self._compute_triadic_weights()
 
         # Cached computations
-        self._attention_cache: dict[int, np.ndarray] = {}
+        self._attention_cache: dict[int, npt.NDArray[Any]] = {}
         self._cache_hits = 0
         self._cache_misses = 0
 
-    def _compute_triadic_weights(self) -> np.ndarray:
+    def _compute_triadic_weights(self) -> npt.NDArray[Any]:
         """Pre-compute triadic φ-weights."""
         weights = np.ones(self.num_heads)
         heads_per_band = self.num_heads // 3
@@ -370,9 +371,9 @@ class AttentionOptimizer:
 
     def optimize_attention(
         self,
-        attention_scores: np.ndarray,
+        attention_scores: npt.NDArray[Any],
         use_cache: bool = True,
-    ) -> tuple[np.ndarray, float]:
+    ) -> tuple[npt.NDArray[Any], float]:
         """
         Apply optimized triadic φ-weighting.
 
@@ -466,7 +467,7 @@ class GOSNNOptimizer:
     def optimize(
         self,
         gosnn: Any,
-        X: np.ndarray | None = None,
+        X: npt.NDArray[Any] | None = None,
         context: dict[str, Any] | None = None,
     ) -> OptimizationResult:
         """
@@ -565,7 +566,7 @@ class GOSNNOptimizer:
 
         return result
 
-    def _profile_latency(self, gosnn: Any, X: np.ndarray | None) -> float:
+    def _profile_latency(self, gosnn: Any, X: npt.NDArray[Any] | None) -> float:
         """Profile GOSNN latency."""
         n_iterations = 10
         times = []
@@ -599,7 +600,7 @@ class GOSNNOptimizer:
 
 def optimize_gosnn(
     gosnn: Any,
-    X: np.ndarray | None = None,
+    X: npt.NDArray[Any] | None = None,
     sigma_immutable: float = SIGMA_IMMUTABLE_TARGET,
     **kwargs: Any,
 ) -> OptimizationResult:

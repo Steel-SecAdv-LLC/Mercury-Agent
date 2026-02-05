@@ -98,7 +98,7 @@ class ResonanceHashIntegrityChecker(LoggerMixin):
         """
         threshold = threshold_std if threshold_std is not None else self.threshold_std
         hash_signal = np.array(
-            [int(hashlib.sha256(h.encode()).hexdigest()[:16], 16) % 10000 for h in hash_chain],
+            [int(hashlib.sha3_256(h.encode()).hexdigest()[:16], 16) % 10000 for h in hash_chain],
             dtype=np.float32,
         )
 
@@ -128,7 +128,7 @@ class ResonanceHashIntegrityChecker(LoggerMixin):
         if reference_chain:
             ref_signal = np.array(
                 [
-                    int(hashlib.sha256(h.encode()).hexdigest()[:16], 16) % 10000
+                    int(hashlib.sha3_256(h.encode()).hexdigest()[:16], 16) % 10000
                     for h in reference_chain
                 ],
                 dtype=np.float32,

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Reflexion Framework for Mercury Agent.
 
@@ -51,7 +50,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-
+import numpy.typing as npt
 
 logger = logging.getLogger(__name__)
 
@@ -438,7 +437,7 @@ class ExperienceMemory:
         experiences = [self._experiences[eid] for eid in exp_ids if eid in self._experiences]
 
         # Sort by importance and recency
-        experiences.sort(key=lambda x: (x.importance, -x.timestamp), reverse=True)
+        experiences.sort(key=lambda x: (x.importance, -x.last_accessed), reverse=True)
 
         return experiences[:top_k]
 
@@ -469,7 +468,7 @@ class ExperienceMemory:
         key_sim = len(common_keys) / len(keys1 | keys2)
 
         # Value similarity for common keys
-        value_matches = 0
+        value_matches: float = 0.0
         for key in common_keys:
             v1, v2 = context1[key], context2[key]
             if v1 == v2:
@@ -827,7 +826,7 @@ class ReflexionEngine:
         """Execute a task with iterative reflection and refinement.
 
         Args:
-            task: Task specification dict with type, data, and optional parameters
+            task: Task[Any] specification dict with type, data, and optional parameters
             max_iterations: Maximum reflection iterations
 
         Returns:
@@ -898,6 +897,8 @@ class ReflexionEngine:
 
             # Evaluate decision
             evaluation = self.heuristic_evaluator.evaluate(decision, [])
+            # For Decision objects, evaluate returns HeuristicEvaluation
+            assert isinstance(evaluation, HeuristicEvaluation)
             current_score = evaluation.heuristic_score
 
             # Track best decision
@@ -1043,12 +1044,14 @@ class ReflexionEngine:
 
         for iteration in range(max_iterations):
             # Evaluate current decision
-            evaluation = self.heuristic_evaluator.evaluate(current_decision, past_experiences)
-            current_score = evaluation.heuristic_score
+            eval_result = self.heuristic_evaluator.evaluate(current_decision, past_experiences)
+            # For Decision objects, evaluate returns HeuristicEvaluation
+            assert isinstance(eval_result, HeuristicEvaluation)
+            current_score = eval_result.heuristic_score
 
             refinement_trace.append(
                 f"Iteration {iteration + 1}: score={current_score:.3f}, "
-                f"violations={len(evaluation.violations)}"
+                f"violations={len(eval_result.violations)}"
             )
 
             # Check for convergence
@@ -1059,12 +1062,15 @@ class ReflexionEngine:
 
             # Apply refinements based on evaluation
             current_decision = self._apply_refinements(
-                current_decision, evaluation, past_experiences
+                current_decision, eval_result, past_experiences
             )
 
         # Calculate improvement
         original_eval = self.heuristic_evaluator.evaluate(decision, past_experiences)
         final_eval = self.heuristic_evaluator.evaluate(current_decision, past_experiences)
+        # For Decision objects, evaluate returns HeuristicEvaluation
+        assert isinstance(original_eval, HeuristicEvaluation)
+        assert isinstance(final_eval, HeuristicEvaluation)
         improvement_score = final_eval.heuristic_score - original_eval.heuristic_score
 
         self._stats["refinements_performed"] += 1
@@ -1163,13 +1169,13 @@ class ReflexionEngine:
                     )
 
         # Deduplicate and prioritize
-        seen = set()
-        unique_improvements = []
-        for imp in improvements:
-            imp_hash = hashlib.sha256(imp["improvement"].encode()).hexdigest()
+        seen: set[str] = set()
+        unique_improvements: list[dict[str, Any]] = []
+        for imp_dict in improvements:
+            imp_hash = hashlib.sha3_256(imp_dict["improvement"].encode()).hexdigest()
             if imp_hash not in seen:
                 seen.add(imp_hash)
-                unique_improvements.append(imp)
+                unique_improvements.append(imp_dict)
 
         return {
             "improvements": unique_improvements,

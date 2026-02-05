@@ -30,9 +30,10 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -582,8 +583,8 @@ class Learnable3REngine:
 
     def compute(
         self,
-        data: np.ndarray | list[float],
-        context: np.ndarray | None = None,
+        data: npt.NDArray[Any] | list[float],
+        context: npt.NDArray[Any] | None = None,
     ) -> Learnable3RResult:
         """
         Compute learnable 3R fusion score.
@@ -622,7 +623,7 @@ class Learnable3REngine:
 
     def train_step(
         self,
-        data: np.ndarray,
+        data: npt.NDArray[Any],
         target: float,
     ) -> float:
         """
@@ -658,11 +659,11 @@ class Learnable3REngine:
 
         return loss_value
 
-    def _numpy_fallback(self, data: np.ndarray | list[float]) -> Learnable3RResult:
+    def _numpy_fallback(self, data: npt.NDArray[Any] | list[float]) -> Learnable3RResult:
         """NumPy fallback when PyTorch is unavailable."""
         arr = np.array(data)
 
-        def recursion_score(x: np.ndarray, depth: int = 5) -> float:
+        def recursion_score(x: npt.NDArray[Any], depth: int = 5) -> float:
             if depth == 0 or len(x) < 2:
                 return float(np.std(x) / (np.mean(np.abs(x)) + 1e-8))
             mid = len(x) // 2

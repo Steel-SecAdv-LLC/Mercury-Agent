@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -25,14 +26,14 @@ logger = logging.getLogger(__name__)
 class IrisFeatures:
     """Extracted iris features."""
 
-    iris_code: np.ndarray
-    mask: np.ndarray
+    iris_code: npt.NDArray[Any]
+    mask: npt.NDArray[Any]
     pupil_center: tuple[float, float]
     pupil_radius: float
     iris_center: tuple[float, float]
     iris_radius: float
     quality_score: float
-    normalized_iris: np.ndarray | None = None
+    normalized_iris: npt.NDArray[Any] | None = None
 
 
 @dataclass
@@ -82,7 +83,7 @@ class GaborFilter:
         self._wavelength_base = wavelength_base
         self._filters = self._create_filter_bank()
 
-    def _create_filter_bank(self) -> list[np.ndarray]:
+    def _create_filter_bank(self) -> list[npt.NDArray[Any]]:
         """Create the Gabor filter bank."""
         filters = []
         half_size = self._kernel_size // 2
@@ -110,7 +111,7 @@ class GaborFilter:
 
         return filters
 
-    def apply(self, image: np.ndarray) -> list[np.ndarray]:
+    def apply(self, image: npt.NDArray[Any]) -> list[npt.NDArray[Any]]:
         """Apply all filters to an image."""
         responses = []
 
@@ -122,9 +123,9 @@ class GaborFilter:
 
     def _convolve2d(
         self,
-        image: np.ndarray,
-        kernel: np.ndarray,
-    ) -> np.ndarray:
+        image: npt.NDArray[Any],
+        kernel: npt.NDArray[Any],
+    ) -> npt.NDArray[Any]:
         """2D convolution using FFT."""
         image_fft = np.fft.fft2(image, s=image.shape)
         kernel_padded = np.zeros_like(image, dtype=complex)
@@ -160,7 +161,7 @@ class IrisSegmenter:
 
     def segment(
         self,
-        image: np.ndarray,
+        image: npt.NDArray[Any],
     ) -> tuple[tuple[float, float], float, tuple[float, float], float]:
         """
         Segment iris from eye image.
@@ -192,7 +193,7 @@ class IrisSegmenter:
 
     def _find_circle(
         self,
-        image: np.ndarray,
+        image: npt.NDArray[Any],
         radius_range: tuple[int, int],
         dark_circle: bool = True,
         center_hint: tuple[float, float] | None = None,
@@ -236,7 +237,7 @@ class IrisSegmenter:
 
     def _circle_score(
         self,
-        image: np.ndarray,
+        image: npt.NDArray[Any],
         center: tuple[int, int],
         radius: int,
         dark_circle: bool,
@@ -294,12 +295,12 @@ class IrisNormalizer:
 
     def normalize(
         self,
-        image: np.ndarray,
+        image: npt.NDArray[Any],
         pupil_center: tuple[float, float],
         pupil_radius: float,
         iris_center: tuple[float, float],
         iris_radius: float,
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """
         Normalize iris region to rectangular coordinates.
 
@@ -357,9 +358,9 @@ class IrisEncoder:
 
     def encode(
         self,
-        normalized_iris: np.ndarray,
-        mask: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
+        normalized_iris: npt.NDArray[Any],
+        mask: npt.NDArray[Any],
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """
         Encode normalized iris to binary code.
 
@@ -404,10 +405,10 @@ class IrisMatcher:
 
     def match(
         self,
-        code1: np.ndarray,
-        mask1: np.ndarray,
-        code2: np.ndarray,
-        mask2: np.ndarray,
+        code1: npt.NDArray[Any],
+        mask1: npt.NDArray[Any],
+        code2: npt.NDArray[Any],
+        mask2: npt.NDArray[Any],
     ) -> IrisMatchResult:
         """
         Match two iris codes.
@@ -468,7 +469,7 @@ class IrisLivenessDetector:
 
     def detect(
         self,
-        images: list[np.ndarray],
+        images: list[npt.NDArray[Any]],
         pupil_radii: list[float] | None = None,
     ) -> LivenessResult:
         """
@@ -517,7 +518,7 @@ class IrisLivenessDetector:
 
     def _analyze_pupil_dynamics(
         self,
-        images: list[np.ndarray],
+        images: list[npt.NDArray[Any]],
         pupil_radii: list[float] | None,
     ) -> float:
         """Analyze pupil light response dynamics."""
@@ -543,7 +544,7 @@ class IrisLivenessDetector:
 
         return response_score
 
-    def _analyze_specular_reflections(self, image: np.ndarray) -> float:
+    def _analyze_specular_reflections(self, image: npt.NDArray[Any]) -> float:
         """Analyze specular reflection patterns for authenticity."""
         if image.ndim == 3:
             gray = np.mean(image, axis=2)
@@ -566,7 +567,7 @@ class IrisLivenessDetector:
 
         return min(1.0, 1.0 - abs(spot_ratio - expected_ratio) / expected_ratio)
 
-    def _analyze_texture_authenticity(self, image: np.ndarray) -> float:
+    def _analyze_texture_authenticity(self, image: npt.NDArray[Any]) -> float:
         """Analyze iris texture for authenticity markers."""
         if image.ndim == 3:
             gray = np.mean(image, axis=2)
@@ -623,7 +624,7 @@ class IrisRecognizer:
         self._liveness_detector = IrisLivenessDetector()
         self._liveness_required = liveness_required
 
-    def extract_features(self, image: np.ndarray) -> IrisFeatures:
+    def extract_features(self, image: npt.NDArray[Any]) -> IrisFeatures:
         """
         Extract iris features from an eye image.
 
@@ -656,9 +657,9 @@ class IrisRecognizer:
 
     def verify(
         self,
-        probe_image: np.ndarray,
+        probe_image: npt.NDArray[Any],
         enrolled_features: IrisFeatures,
-        liveness_images: list[np.ndarray] | None = None,
+        liveness_images: list[npt.NDArray[Any]] | None = None,
     ) -> tuple[IrisMatchResult, LivenessResult | None]:
         """
         Verify an iris against enrolled features.
@@ -701,8 +702,8 @@ class IrisRecognizer:
 
     def _compute_quality(
         self,
-        normalized_iris: np.ndarray,
-        mask: np.ndarray,
+        normalized_iris: npt.NDArray[Any],
+        mask: npt.NDArray[Any],
     ) -> float:
         """Compute iris image quality score."""
         usable_ratio = np.sum(mask) / mask.size

@@ -28,6 +28,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.core.global_omni_scalar_network import (
     PHI,
@@ -763,7 +764,7 @@ class CrossDomainTransferManager:
         "infrastructure": ["security", "humanitarian"],
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize cross-domain transfer manager."""
         self._domain_integrations: dict[str, GOSNN3RIntegration] = {}
         self._transfer_weights: dict[str, dict[str, float]] = {}

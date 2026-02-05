@@ -7,27 +7,28 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-Backward compatibility shim for self-healing module.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
 
-Note:
-    This module is deprecated. Use the following instead:
+You should have received a copy of the GNU General Public License
+along with this program. If not, see https://www.gnu.org/licenses/.
 
-    from omni_mercury_engine.resilience.self_healing import (
-        SelfHealingEngine,
-        AdaptiveDefenseSystem,
-        AnomalySignature,
-    )
+Self-Healing Module - Backwards Compatibility Layer
 
-    To suppress this deprecation warning, set the environment variable:
-        MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS=1
+This module re-exports from resilience.self_healing for backwards compatibility.
+New code should import directly from omni_mercury_engine.resilience.self_healing.
+
+Deprecated:
+    Import from omni_mercury_engine.resilience.self_healing instead.
 """
 
+from typing import Any
 from __future__ import annotations
 
-import os
-import warnings
-
-# Re-export from new location
+# Explicit re-exports for backwards compatibility
+# New code should import directly from omni_mercury_engine.resilience.self_healing
 from omni_mercury_engine.resilience.self_healing import (
     AdaptiveDefenseSystem,
     AnomalySignature,
@@ -44,39 +45,3 @@ __all__ = [
     "CRISPRInspiredSelfHealing",
     "SelfHealingEngine",
 ]
-
-
-class SelfHealingDeprecationWarning(DeprecationWarning):
-    """Custom deprecation warning for self_healing module.
-
-    This warning is issued when importing from the deprecated
-    omni_mercury_engine.core.self_healing module.
-
-    To suppress this warning:
-        - Set MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS=1 environment variable
-        - Use warnings.filterwarnings('ignore', category=SelfHealingDeprecationWarning)
-        - Import from omni_mercury_engine.resilience.self_healing directly
-    """
-
-    pass
-
-
-def _emit_deprecation_warning() -> None:
-    """Emit deprecation warning if not suppressed."""
-    if os.environ.get("MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS", "").lower() in (
-        "1",
-        "true",
-        "yes",
-    ):
-        return
-
-    warnings.warn(
-        "omni_mercury_engine.core.self_healing is deprecated. "
-        "Use omni_mercury_engine.resilience.self_healing instead. "
-        "Set MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS=1 to suppress this warning.",
-        SelfHealingDeprecationWarning,
-        stacklevel=3,
-    )
-
-
-_emit_deprecation_warning()

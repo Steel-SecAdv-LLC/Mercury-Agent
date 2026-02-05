@@ -25,6 +25,7 @@ from collections import deque
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 class NeuralCognitiveModel:

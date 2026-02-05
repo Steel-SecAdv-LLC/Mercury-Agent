@@ -54,6 +54,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -701,7 +702,7 @@ class FeedbackProcessor:
         """Create pattern key from input state."""
         key_features = sorted(input_state.keys())[:5]
         key_str = "_".join(key_features)
-        return hashlib.sha256(key_str.encode()).hexdigest()[:8]
+        return hashlib.sha3_256(key_str.encode()).hexdigest()[:8]
 
 
 # =============================================================================

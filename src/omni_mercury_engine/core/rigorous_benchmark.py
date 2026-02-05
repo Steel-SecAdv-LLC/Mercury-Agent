@@ -21,9 +21,10 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import numpy as np
+import numpy.typing as npt
 from scipy import stats
 from sklearn.metrics import (
     average_precision_score,
@@ -45,15 +46,15 @@ logger = logging.getLogger(__name__)
 class AnomalyDetector(Protocol):
     """Protocol for anomaly detectors to benchmark."""
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
+    def fit(self, X: npt.NDArray[Any], y: npt.NDArray[Any] | None = None) -> None:
         """Fit the detector to training data."""
         ...
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Predict anomaly labels (0=normal, 1=anomaly)."""
         ...
 
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+    def predict_proba(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Predict anomaly probabilities."""
         ...
 
@@ -116,8 +117,8 @@ class BenchmarkResult:
     predict_times: list[float] = field(default_factory=list)
 
     # Per-fold predictions for statistical tests
-    fold_predictions: list[np.ndarray] = field(default_factory=list)
-    fold_labels: list[np.ndarray] = field(default_factory=list)
+    fold_predictions: list[npt.NDArray[Any]] = field(default_factory=list)
+    fold_labels: list[npt.NDArray[Any]] = field(default_factory=list)
 
     def finalize(self) -> None:
         """Compute all statistics after folds complete."""
@@ -189,11 +190,11 @@ def set_all_seeds(seed: int = GLOBAL_SEED) -> None:
 
 
 def stratified_split(
-    X: np.ndarray,
-    y: np.ndarray,
+    X: npt.NDArray[Any],
+    y: npt.NDArray[Any],
     test_size: float = 0.2,
     seed: int = GLOBAL_SEED,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[npt.NDArray[Any], npt.NDArray[Any], npt.NDArray[Any], npt.NDArray[Any]]:
     """
     Perform stratified train/test split.
 
@@ -211,8 +212,8 @@ def stratified_split(
 
 
 def compute_event_metrics(
-    y_true: np.ndarray,
-    y_pred: np.ndarray,
+    y_true: npt.NDArray[Any],
+    y_pred: npt.NDArray[Any],
     tolerance: int = 0,
 ) -> tuple[float, float, float]:
     """
@@ -231,7 +232,7 @@ def compute_event_metrics(
         (event_precision, event_recall, event_f1)
     """
 
-    def get_events(arr: np.ndarray) -> list[tuple[int, int]]:
+    def get_events(arr: npt.NDArray[Any]) -> list[tuple[int, int]]:
         """Extract contiguous event ranges."""
         events = []
         in_event = False
@@ -290,8 +291,8 @@ def compute_event_metrics(
 
 
 def point_adjusted_f1(
-    y_true: np.ndarray,
-    y_pred: np.ndarray,
+    y_true: npt.NDArray[Any],
+    y_pred: npt.NDArray[Any],
 ) -> float:
     """
     Compute point-adjusted F1 score (PA-F1).
@@ -374,8 +375,8 @@ class RigorousBenchmarkHarness:
     def benchmark_detector(
         self,
         detector: Any,
-        X: np.ndarray,
-        y: np.ndarray,
+        X: npt.NDArray[Any],
+        y: npt.NDArray[Any],
         detector_name: str = "Unknown",
         dataset_name: str = "Unknown",
     ) -> BenchmarkResult:
@@ -568,8 +569,8 @@ class RigorousBenchmarkHarness:
 
 
 def run_baseline_benchmarks(
-    X: np.ndarray,
-    y: np.ndarray,
+    X: npt.NDArray[Any],
+    y: npt.NDArray[Any],
     dataset_name: str = "Dataset",
     n_folds: int = 10,
     seed: int = GLOBAL_SEED,
@@ -608,18 +609,18 @@ def run_baseline_benchmarks(
                 random_state=seed,
             )
 
-        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
+        def fit(self, X: npt.NDArray[Any], y: npt.NDArray[Any] | None = None) -> None:
             self.model.fit(X)
 
-        def predict(self, X: np.ndarray) -> np.ndarray:
+        def predict(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
             preds = self.model.predict(X)
-            return (preds == -1).astype(int)
+            return cast(npt.NDArray[Any], (preds == -1).astype(int))
 
-        def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        def predict_proba(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
             scores = -self.model.score_samples(X)
             # Normalize to [0, 1]
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return scores
+            return cast(npt.NDArray[Any], scores)
 
     results["IsolationForest"] = harness.benchmark_detector(
         IFWrapper(), X, y, "IsolationForest", dataset_name
@@ -630,17 +631,17 @@ def run_baseline_benchmarks(
         def __init__(self) -> None:
             self.model = OneClassSVM(kernel="rbf", nu=contamination)
 
-        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
+        def fit(self, X: npt.NDArray[Any], y: npt.NDArray[Any] | None = None) -> None:
             self.model.fit(X)
 
-        def predict(self, X: np.ndarray) -> np.ndarray:
+        def predict(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
             preds = self.model.predict(X)
-            return (preds == -1).astype(int)
+            return cast(npt.NDArray[Any], (preds == -1).astype(int))
 
-        def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        def predict_proba(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
             scores = -self.model.decision_function(X)
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return scores
+            return cast(npt.NDArray[Any], scores)
 
     results["OneClassSVM"] = harness.benchmark_detector(
         OCSVMWrapper(), X, y, "OneClassSVM", dataset_name
@@ -655,17 +656,17 @@ def run_baseline_benchmarks(
                 novelty=True,
             )
 
-        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
+        def fit(self, X: npt.NDArray[Any], y: npt.NDArray[Any] | None = None) -> None:
             self.model.fit(X)
 
-        def predict(self, X: np.ndarray) -> np.ndarray:
+        def predict(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
             preds = self.model.predict(X)
-            return (preds == -1).astype(int)
+            return cast(npt.NDArray[Any], (preds == -1).astype(int))
 
-        def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        def predict_proba(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
             scores = -self.model.decision_function(X)
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return scores
+            return cast(npt.NDArray[Any], scores)
 
     results["LOF"] = harness.benchmark_detector(LOFWrapper(), X, y, "LOF", dataset_name)
 
@@ -677,7 +678,7 @@ def run_baseline_benchmarks(
                 random_state=seed,
             )
 
-        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
+        def fit(self, X: npt.NDArray[Any], y: npt.NDArray[Any] | None = None) -> None:
             try:
                 self.model.fit(X)
             except ValueError:
@@ -689,14 +690,14 @@ def run_baseline_benchmarks(
                 )
                 self.model.fit(X)
 
-        def predict(self, X: np.ndarray) -> np.ndarray:
+        def predict(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
             preds = self.model.predict(X)
-            return (preds == -1).astype(int)
+            return cast(npt.NDArray[Any], (preds == -1).astype(int))
 
-        def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        def predict_proba(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
             scores = -self.model.decision_function(X)
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return scores
+            return cast(npt.NDArray[Any], scores)
 
     results["EllipticEnvelope"] = harness.benchmark_detector(
         EEWrapper(), X, y, "EllipticEnvelope", dataset_name

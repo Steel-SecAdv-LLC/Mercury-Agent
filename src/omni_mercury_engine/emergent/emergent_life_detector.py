@@ -43,6 +43,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from scipy import fft
 
 from omni_mercury_engine.core.three_r_mechanism import ResonanceEngine

@@ -26,6 +26,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 from scipy import stats
 
 from omni_mercury_engine.core.base import BaseDetector
@@ -67,11 +68,11 @@ class DynamicThresholdState:
 class AnomalyResult:
     """Comprehensive anomaly detection result."""
 
-    is_anomaly: np.ndarray
-    scores: np.ndarray
+    is_anomaly: npt.NDArray[Any]
+    scores: npt.NDArray[Any]
     method: str
     threshold: float
-    confidence: np.ndarray | None = None
+    confidence: npt.NDArray[Any] | None = None
     details: dict[str, Any] = field(default_factory=dict)
 
 
@@ -102,8 +103,8 @@ class MADDetector:
         """
         self.threshold_multiplier = threshold_multiplier
         self.consistency_constant = consistency_constant
-        self.median_: np.ndarray | None = None
-        self.mad_: np.ndarray | None = None
+        self.median_: npt.NDArray[Any] | None = None
+        self.mad_: npt.NDArray[Any] | None = None
         self._fitted = False
 
     def fit(self, X: NDArray[np.float64]) -> MADDetector:
@@ -132,6 +133,8 @@ class MADDetector:
             X = X.reshape(-1, 1)
 
         # Modified Z-score using MAD
+        if self.median_ is None or self.mad_ is None:
+            raise DetectorException("MADDetector must be fitted before detection")
         modified_z = (X - self.median_) / (self.consistency_constant * self.mad_)
 
         # Max absolute modified z-score across features
@@ -280,7 +283,7 @@ class DBSCANDetector:
         self.metric = metric
         self.auto_eps = auto_eps
         self._fitted_eps: float | None = None
-        self._reference_data: np.ndarray | None = None
+        self._reference_data: npt.NDArray[Any] | None = None
         self._fitted = False
 
     def _estimate_eps(self, X: NDArray[np.float64]) -> float:
@@ -317,7 +320,7 @@ class DBSCANDetector:
 
     def detect(self, X: NDArray[np.float64]) -> AnomalyResult:
         """Detect anomalies using DBSCAN."""
-        if not self._fitted:
+        if not self._fitted or self._fitted_eps is None:
             raise DetectorException("DBSCANDetector must be fitted before detection")
 
         try:
@@ -431,7 +434,7 @@ class MCDDetector:
 
     def detect(self, X: NDArray[np.float64]) -> AnomalyResult:
         """Detect anomalies using MCD."""
-        if not self._fitted or self._mcd is None:
+        if not self._fitted or self._mcd is None or self._threshold is None:
             raise DetectorException("MCDDetector must be fitted before detection")
 
         X = np.asarray(X)
@@ -621,7 +624,7 @@ class CUSUMDetector:
 
     def detect(self, X: NDArray[np.float64]) -> AnomalyResult:
         """Detect anomalies using CUSUM."""
-        if not self._fitted:
+        if not self._fitted or self._fitted_mean is None or self._fitted_std is None:
             raise DetectorException("CUSUMDetector must be fitted before detection")
 
         X = np.asarray(X)
@@ -997,7 +1000,7 @@ class EnhancedStatisticalDetector(BaseDetector):
                     alpha=self.config.get("gesd_alpha", 0.05),
                 )
 
-    def fit(self, data: np.ndarray | Any) -> EnhancedStatisticalDetector:
+    def fit(self, data: npt.NDArray[Any] | Any) -> EnhancedStatisticalDetector:
         """Fit all detectors."""
         data = np.asarray(data)
         if data.ndim == 1:
@@ -1013,7 +1016,7 @@ class EnhancedStatisticalDetector(BaseDetector):
         self._is_fitted = True
         return self
 
-    def detect(self, data: np.ndarray | Any) -> dict[str, Any]:
+    def detect(self, data: npt.NDArray[Any] | Any) -> dict[str, Any]:
         """Detect anomalies using ensemble of methods."""
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
@@ -1024,9 +1027,9 @@ class EnhancedStatisticalDetector(BaseDetector):
 
         n_samples = len(data)
         all_results: dict[str, AnomalyResult] = {}
-        all_scores: list[np.ndarray] = []
+        all_scores: list[npt.NDArray[Any]] = []
         all_weights: list[float] = []
-        all_predictions: list[np.ndarray] = []
+        all_predictions: list[npt.NDArray[Any]] = []
 
         # Run each detector
         for method, detector in self._detectors.items():
@@ -1094,7 +1097,7 @@ class EnhancedStatisticalDetector(BaseDetector):
             ),
         }
 
-    def extract_features(self, data: np.ndarray | Any) -> Any:
+    def extract_features(self, data: npt.NDArray[Any] | Any) -> Any:
         """Extract features from all statistical methods."""
         data = np.asarray(data)
         if data.ndim == 1:

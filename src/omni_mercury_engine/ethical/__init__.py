@@ -13,6 +13,7 @@ This module provides ethical constraint systems for bias detection,
 fairness verification, and multi-dimensional ethical scoring.
 """
 
+from typing import Any
 from __future__ import annotations
 
 from omni_mercury_engine.ethical.ethical_constraint_engine import (

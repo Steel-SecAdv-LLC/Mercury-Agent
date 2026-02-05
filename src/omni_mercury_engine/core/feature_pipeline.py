@@ -21,9 +21,10 @@ import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import numpy as np
+import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -84,7 +85,7 @@ class FeatureSchema:
 class FeatureExtractionResult:
     """Result from feature extraction with metadata."""
 
-    features: np.ndarray
+    features: npt.NDArray[Any]
     detector_name: str
     extraction_time_ms: float
     success: bool
@@ -113,17 +114,17 @@ class FeatureStandardizer:
         self._fitted = False
 
         # Statistics for different scaling strategies
-        self._mean: np.ndarray | None = None
-        self._std: np.ndarray | None = None
-        self._min: np.ndarray | None = None
-        self._max: np.ndarray | None = None
-        self._median: np.ndarray | None = None
-        self._iqr: np.ndarray | None = None
-        self._max_abs: np.ndarray | None = None
+        self._mean: npt.NDArray[Any] | None = None
+        self._std: npt.NDArray[Any] | None = None
+        self._min: npt.NDArray[Any] | None = None
+        self._max: npt.NDArray[Any] | None = None
+        self._median: npt.NDArray[Any] | None = None
+        self._iqr: npt.NDArray[Any] | None = None
+        self._max_abs: npt.NDArray[Any] | None = None
 
         logger.info(f"FeatureStandardizer initialized with strategy: {strategy.value}")
 
-    def fit(self, X: np.ndarray) -> "FeatureStandardizer":
+    def fit(self, X: npt.NDArray[Any]) -> "FeatureStandardizer":
         """
         Fit the standardizer on training data.
 
@@ -158,7 +159,7 @@ class FeatureStandardizer:
         logger.debug(f"FeatureStandardizer fitted on {X.shape[0]} samples")
         return self
 
-    def transform(self, X: np.ndarray) -> np.ndarray:
+    def transform(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Transform features using the fitted standardizer.
 
@@ -176,30 +177,30 @@ class FeatureStandardizer:
         if self.strategy == ScalingStrategy.STANDARD:
             if self._mean is None or self._std is None:
                 raise ValueError("FeatureStandardizer: _mean/_std not set for STANDARD strategy")
-            return (X - self._mean) / self._std
+            return cast(npt.NDArray[Any], (X - self._mean) / self._std)
 
         elif self.strategy == ScalingStrategy.MINMAX:
             if self._min is None or self._max is None:
                 raise ValueError("FeatureStandardizer: _min/_max not set for MINMAX strategy")
-            return (X - self._min) / (self._max - self._min)
+            return cast(npt.NDArray[Any], (X - self._min) / (self._max - self._min))
 
         elif self.strategy == ScalingStrategy.ROBUST:
             if self._median is None or self._iqr is None:
                 raise ValueError("FeatureStandardizer: _median/_iqr not set for ROBUST strategy")
-            return (X - self._median) / self._iqr
+            return cast(npt.NDArray[Any], (X - self._median) / self._iqr)
 
         elif self.strategy == ScalingStrategy.MAXABS:
             if self._max_abs is None:
                 raise ValueError("FeatureStandardizer: _max_abs not set for MAXABS strategy")
-            return X / self._max_abs
+            return cast(npt.NDArray[Any], X / self._max_abs)
 
         return X  # NONE strategy
 
-    def fit_transform(self, X: np.ndarray) -> np.ndarray:
+    def fit_transform(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Fit and transform in one step."""
         return self.fit(X).transform(X)
 
-    def inverse_transform(self, X: np.ndarray) -> np.ndarray:
+    def inverse_transform(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Inverse transform to original scale.
 
@@ -217,22 +218,22 @@ class FeatureStandardizer:
         if self.strategy == ScalingStrategy.STANDARD:
             if self._mean is None or self._std is None:
                 raise ValueError("FeatureStandardizer: _mean/_std not set for STANDARD strategy")
-            return X * self._std + self._mean
+            return cast(npt.NDArray[Any], X * self._std + self._mean)
 
         elif self.strategy == ScalingStrategy.MINMAX:
             if self._min is None or self._max is None:
                 raise ValueError("FeatureStandardizer: _min/_max not set for MINMAX strategy")
-            return X * (self._max - self._min) + self._min
+            return cast(npt.NDArray[Any], X * (self._max - self._min) + self._min)
 
         elif self.strategy == ScalingStrategy.ROBUST:
             if self._median is None or self._iqr is None:
                 raise ValueError("FeatureStandardizer: _median/_iqr not set for ROBUST strategy")
-            return X * self._iqr + self._median
+            return cast(npt.NDArray[Any], X * self._iqr + self._median)
 
         elif self.strategy == ScalingStrategy.MAXABS:
             if self._max_abs is None:
                 raise ValueError("FeatureStandardizer: _max_abs not set for MAXABS strategy")
-            return X * self._max_abs
+            return cast(npt.NDArray[Any], X * self._max_abs)
 
         return X
 
@@ -264,13 +265,13 @@ class FeatureSelector:
         self.method = method
 
         self._fitted = False
-        self._feature_scores: np.ndarray | None = None
-        self._selected_indices: np.ndarray | None = None
+        self._feature_scores: npt.NDArray[Any] | None = None
+        self._selected_indices: npt.NDArray[Any] | None = None
         self._n_original_features: int = 0
 
         logger.info(f"FeatureSelector initialized with method: {method}")
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> "FeatureSelector":
+    def fit(self, X: npt.NDArray[Any], y: npt.NDArray[Any] | None = None) -> "FeatureSelector":
         """
         Fit the feature selector.
 
@@ -309,7 +310,7 @@ class FeatureSelector:
         logger.debug(f"FeatureSelector selected {n_select}/{X.shape[1]} features")
         return self
 
-    def _compute_mutual_info(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def _compute_mutual_info(self, X: npt.NDArray[Any], y: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Compute mutual information scores for each feature."""
         try:
             from sklearn.feature_selection import mutual_info_classif
@@ -321,21 +322,21 @@ class FeatureSelector:
                 y_discrete = y
 
             scores = mutual_info_classif(X, y_discrete, random_state=42)
-            return scores
+            return cast(npt.NDArray[Any], scores)
         except ImportError:
             logger.warning("sklearn not available, falling back to variance")
-            return np.var(X, axis=0)
+            return cast(npt.NDArray[Any], np.var(X, axis=0))
 
-    def _compute_correlation_scores(self, X: np.ndarray) -> np.ndarray:
+    def _compute_correlation_scores(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Compute correlation-based scores (inverse of mean correlation)."""
         corr_matrix = np.corrcoef(X.T)
         # Handle NaN values
         corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
         # Score is inverse of mean absolute correlation (prefer less correlated)
         mean_corr = np.mean(np.abs(corr_matrix), axis=1)
-        return 1.0 / (mean_corr + 1e-8)
+        return cast(npt.NDArray[Any], 1.0 / (mean_corr + 1e-8))
 
-    def transform(self, X: np.ndarray) -> np.ndarray:
+    def transform(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Transform features by selecting the fitted subset.
 
@@ -351,7 +352,9 @@ class FeatureSelector:
         X = np.asarray(X)
         return X[:, self._selected_indices]
 
-    def fit_transform(self, X: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
+    def fit_transform(
+        self, X: npt.NDArray[Any], y: npt.NDArray[Any] | None = None
+    ) -> npt.NDArray[Any]:
         """Fit and transform in one step."""
         return self.fit(X, y).transform(X)
 
@@ -361,7 +364,7 @@ class FeatureSelector:
             return {}
         return {i: float(score) for i, score in enumerate(self._feature_scores)}
 
-    def get_selected_indices(self) -> np.ndarray:
+    def get_selected_indices(self) -> npt.NDArray[Any]:
         """Get indices of selected features."""
         if self._selected_indices is None:
             return np.array([])
@@ -388,12 +391,12 @@ class FeatureImputer:
         self.max_history = max_history
 
         # Historical statistics per detector
-        self._detector_history: dict[str, list[np.ndarray]] = {}
-        self._detector_stats: dict[str, dict[str, np.ndarray]] = {}
+        self._detector_history: dict[str, list[npt.NDArray[Any]]] = {}
+        self._detector_stats: dict[str, dict[str, npt.NDArray[Any]]] = {}
 
         logger.info(f"FeatureImputer initialized with strategy: {strategy}")
 
-    def update_history(self, detector_name: str, features: np.ndarray) -> None:
+    def update_history(self, detector_name: str, features: npt.NDArray[Any]) -> None:
         """
         Update historical features for a detector.
 
@@ -421,7 +424,7 @@ class FeatureImputer:
             "last": history[-1],
         }
 
-    def impute(self, detector_name: str, n_features: int) -> np.ndarray:
+    def impute(self, detector_name: str, n_features: int) -> npt.NDArray[Any]:
         """
         Impute features for a failed detector.
 
@@ -504,7 +507,7 @@ class FeatureVersionManager:
         return self._schemas.get(key)
 
     def validate_features(
-        self, features: np.ndarray, schema_name: str, schema_version: str | None = None
+        self, features: npt.NDArray[Any], schema_name: str, schema_version: str | None = None
     ) -> tuple[bool, list[str]]:
         """
         Validate features against a schema.
@@ -548,7 +551,11 @@ class FeatureVersionManager:
         return is_valid, errors
 
     def create_schema_from_features(
-        self, name: str, version: str, features: np.ndarray, feature_names: list[str] | None = None
+        self,
+        name: str,
+        version: str,
+        features: npt.NDArray[Any],
+        feature_names: list[str] | None = None,
     ) -> FeatureSchema:
         """
         Create a schema from sample features.
@@ -756,11 +763,11 @@ class FeatureStore:
         """Generate cache key from detector name and data hash."""
         return f"features:{detector_name}:{data_hash}"
 
-    def _hash_data(self, data: np.ndarray) -> str:
+    def _hash_data(self, data: npt.NDArray[Any]) -> str:
         """Generate hash of input data."""
-        return hashlib.sha256(data.tobytes()).hexdigest()[:16]
+        return hashlib.sha3_256(data.tobytes()).hexdigest()[:16]
 
-    def get(self, detector_name: str, data: np.ndarray) -> np.ndarray | None:
+    def get(self, detector_name: str, data: npt.NDArray[Any]) -> npt.NDArray[Any] | None:
         """
         Get cached features.
 
@@ -787,7 +794,11 @@ class FeatureStore:
         return None
 
     def store(
-        self, detector_name: str, data: np.ndarray, features: np.ndarray, ttl: int | None = None
+        self,
+        detector_name: str,
+        data: npt.NDArray[Any],
+        features: npt.NDArray[Any],
+        ttl: int | None = None,
     ) -> bool:
         """
         Store features in cache.
@@ -814,7 +825,7 @@ class FeatureStore:
             logger.error(f"Failed to store features: {e}")
             return False
 
-    def invalidate(self, detector_name: str, data: np.ndarray) -> bool:
+    def invalidate(self, detector_name: str, data: npt.NDArray[Any]) -> bool:
         """Invalidate cached features."""
         data_hash = self._hash_data(data)
         key = self._generate_key(detector_name, data_hash)
@@ -880,7 +891,7 @@ class FeaturePipeline:
             f"selection_ratio={selection_ratio}, cache={cache_backend}"
         )
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> "FeaturePipeline":
+    def fit(self, X: npt.NDArray[Any], y: npt.NDArray[Any] | None = None) -> "FeaturePipeline":
         """
         Fit the pipeline on training data.
 
@@ -906,7 +917,7 @@ class FeaturePipeline:
 
     def transform(
         self,
-        X: np.ndarray,
+        X: npt.NDArray[Any],
         detector_name: str = "default",
         use_cache: bool = True,
     ) -> FeatureExtractionResult:
@@ -986,7 +997,7 @@ class FeaturePipeline:
             )
 
     def fit_transform(
-        self, X: np.ndarray, y: np.ndarray | None = None, detector_name: str = "default"
+        self, X: npt.NDArray[Any], y: npt.NDArray[Any] | None = None, detector_name: str = "default"
     ) -> FeatureExtractionResult:
         """Fit and transform in one step."""
         self.fit(X, y)

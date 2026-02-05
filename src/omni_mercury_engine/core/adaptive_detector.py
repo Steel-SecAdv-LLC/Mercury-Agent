@@ -13,9 +13,10 @@ Copyright (C) 2025 Steel Security Advisory LLC
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 from numpy.typing import NDArray
 
 
@@ -323,7 +324,7 @@ class CovarianceAwareDetector:
         left = np.dot(centered, self._covariance_inv)
         distances = np.sqrt(np.sum(left * centered, axis=1))
 
-        return distances
+        return cast(NDArray[np.float64], distances)
 
     def score_samples(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
         """Return anomaly scores (higher = more anomalous)."""

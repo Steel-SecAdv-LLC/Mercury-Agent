@@ -48,30 +48,46 @@ from omni_mercury_engine.core.score_calibration import (
     calibrate_scores,
     diagnose_scores,
 )
+from omni_mercury_engine.core.types import (
+    AnomalyType,
+    CircuitState,
+    ConfidenceLevel,
+    DetectorStatus,
+    EthicalPrinciple,
+    FusionStrategy,
+    PrivacyLevel,
+    ThreatLevel,
+)
 
 
 __all__ = [
-    # Score calibration (solves F1=0 problem)
+    "AnomalyType",
     "AutoThresholdOptimizer",
     "CalibrationDiagnostics",
     "CalibrationMethod",
     "CalibrationResult",
-    # Original exports
+    "CircuitState",
+    "ConfidenceLevel",
+    "DetectorStatus",
     "DomainType",
     "DoubleHelixEvolutionEngine",
     "EnhancementResult",
     "EthicalConfig",
     "EthicalGate",
+    "EthicalPrinciple",
+    "FusionStrategy",
     "FusionWeightConfig",
     "GlobalOmniScalarNetwork",
     "HelixConfig",
     "MercuryEngineConfig",
     "MercuryEquationEngine",
     "MultiHeadAttentionFusion",
+    "PrivacyLevel",
     "ScalarGroup",
     "ScalarRegistration",
     "ScoreCalibrationManager",
     "ScoreDiagnostics",
+    "ThreatLevel",
     "ThreeRConfig",
     "calibrate_scores",
     "diagnose_scores",

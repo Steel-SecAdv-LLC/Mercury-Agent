@@ -5,6 +5,7 @@ Copyright (C) 2025 Steel Security Advisory LLC
 Multi-modal fusion module for combining VLM and Visual detector outputs.
 """
 
+from typing import Any
 from __future__ import annotations
 
 from .multimodal_fusion import (

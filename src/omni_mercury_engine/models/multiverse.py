@@ -38,6 +38,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.utils.constants import OmniCodes
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
@@ -64,7 +65,7 @@ class Universe:
     """Represents a parallel universe (solution pathway)."""
 
     universe_id: str
-    state_vector: np.ndarray
+    state_vector: npt.NDArray[Any]
     probability_amplitude: float
     fitness: float
     state: UniverseState
@@ -118,7 +119,7 @@ class MultiverseOmniEngine:
     def _initialize_multiverse(self) -> None:
         """Initialize the multiverse with random universes."""
         for i in range(self.num_universes):
-            universe_id = hashlib.sha256(f"universe_{i}_{time.time()}".encode()).hexdigest()[:16]
+            universe_id = hashlib.sha3_256(f"universe_{i}_{time.time()}".encode()).hexdigest()[:16]
 
             state_vector = self._rng.randn(self.state_dim) * 0.5
             probability_amplitude = 1.0 / self.num_universes
@@ -183,7 +184,7 @@ class MultiverseOmniEngine:
         for i, universe in enumerate(universes):
             superposed_state += weights[i] * universe.state_vector
 
-        universe_id = hashlib.sha256(
+        universe_id = hashlib.sha3_256(
             f"superposed_{time.time()}_{self._rng.randint(0, 1000000)}".encode()
         ).hexdigest()[:16]
 

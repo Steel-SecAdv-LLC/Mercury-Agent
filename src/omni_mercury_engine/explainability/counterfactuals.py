@@ -19,6 +19,7 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 from scipy.optimize import minimize
 
 
@@ -66,8 +67,8 @@ class FeatureConstraint:
 class Counterfactual:
     """A single counterfactual explanation."""
 
-    original: np.ndarray
-    counterfactual: np.ndarray
+    original: npt.NDArray[Any]
+    counterfactual: npt.NDArray[Any]
     original_prediction: float
     counterfactual_prediction: float
     feature_changes: dict[str, tuple[Any, Any]]
@@ -104,7 +105,7 @@ class Counterfactual:
 class CounterfactualSet:
     """Set of diverse counterfactual explanations."""
 
-    original: np.ndarray
+    original: npt.NDArray[Any]
     counterfactuals: list[Counterfactual]
     original_prediction: float
     target_class: int | None
@@ -130,7 +131,7 @@ class CounterfactualGenerator(ABC):
 
     def __init__(
         self,
-        model: Callable[[np.ndarray], np.ndarray] | Any,
+        model: Callable[[npt.NDArray[Any]], np.ndarray] | Any,
         feature_names: list[str] | None = None,
         feature_constraints: list[FeatureConstraint] | None = None,
     ) -> None:
@@ -159,7 +160,7 @@ class CounterfactualGenerator(ABC):
     @abstractmethod
     def generate(
         self,
-        instance: np.ndarray,
+        instance: npt.NDArray[Any],
         target_class: int | None = None,
         n_counterfactuals: int = 1,
     ) -> CounterfactualSet:
@@ -168,10 +169,10 @@ class CounterfactualGenerator(ABC):
 
     def _compute_distance(
         self,
-        x1: np.ndarray,
-        x2: np.ndarray,
+        x1: npt.NDArray[Any],
+        x2: npt.NDArray[Any],
         metric: DistanceMetric = DistanceMetric.L2,
-        feature_weights: np.ndarray | None = None,
+        feature_weights: npt.NDArray[Any] | None = None,
     ) -> float:
         """Compute distance between two instances."""
         diff = x1 - x2
@@ -190,8 +191,8 @@ class CounterfactualGenerator(ABC):
 
     def _get_feature_changes(
         self,
-        original: np.ndarray,
-        counterfactual: np.ndarray,
+        original: npt.NDArray[Any],
+        counterfactual: npt.NDArray[Any],
     ) -> dict[str, tuple[Any, Any]]:
         """Get dictionary of feature changes."""
         changes = {}
@@ -212,7 +213,7 @@ class WachterCounterfactual(CounterfactualGenerator):
 
     def __init__(
         self,
-        model: Callable[[np.ndarray], np.ndarray] | Any,
+        model: Callable[[npt.NDArray[Any]], np.ndarray] | Any,
         feature_names: list[str] | None = None,
         feature_constraints: list[FeatureConstraint] | None = None,
         lambda_param: float = 0.1,
@@ -237,7 +238,7 @@ class WachterCounterfactual(CounterfactualGenerator):
 
     def generate(
         self,
-        instance: np.ndarray,
+        instance: npt.NDArray[Any],
         target_class: int | None = None,
         n_counterfactuals: int = 1,
     ) -> CounterfactualSet:
@@ -296,13 +297,13 @@ class WachterCounterfactual(CounterfactualGenerator):
 
     def _optimize(
         self,
-        original: np.ndarray,
-        init_point: np.ndarray,
+        original: npt.NDArray[Any],
+        init_point: npt.NDArray[Any],
         target_pred: float,
-    ) -> np.ndarray | None:
+    ) -> npt.NDArray[Any] | None:
         """Optimize to find counterfactual."""
 
-        def objective(x: np.ndarray) -> float:
+        def objective(x: npt.NDArray[Any]) -> float:
             pred = self._predict(x.reshape(1, -1))[0]
             pred_loss = (pred - target_pred) ** 2
             dist_loss = self._lambda * np.sum((x - original) ** 2)
@@ -326,7 +327,7 @@ class WachterCounterfactual(CounterfactualGenerator):
 
         return None
 
-    def _get_bounds(self, original: np.ndarray) -> list[tuple[float, float]]:
+    def _get_bounds(self, original: npt.NDArray[Any]) -> list[tuple[float, float]]:
         """Get optimization bounds from constraints."""
         bounds = []
         for i in range(len(original)):
@@ -374,7 +375,7 @@ class DiCECounterfactual(CounterfactualGenerator):
 
     def __init__(
         self,
-        model: Callable[[np.ndarray], np.ndarray] | Any,
+        model: Callable[[npt.NDArray[Any]], np.ndarray] | Any,
         feature_names: list[str] | None = None,
         feature_constraints: list[FeatureConstraint] | None = None,
         proximity_weight: float = 0.5,
@@ -399,7 +400,7 @@ class DiCECounterfactual(CounterfactualGenerator):
 
     def generate(
         self,
-        instance: np.ndarray,
+        instance: npt.NDArray[Any],
         target_class: int | None = None,
         n_counterfactuals: int = 4,
     ) -> CounterfactualSet:
@@ -457,10 +458,10 @@ class DiCECounterfactual(CounterfactualGenerator):
 
     def _optimize_diverse(
         self,
-        original: np.ndarray,
+        original: npt.NDArray[Any],
         target_class: int,
         n_cfs: int,
-    ) -> list[np.ndarray]:
+    ) -> list[npt.NDArray[Any]]:
         """Optimize for diverse counterfactuals simultaneously."""
         n_features = len(original)
         target_pred = float(target_class)
@@ -468,7 +469,7 @@ class DiCECounterfactual(CounterfactualGenerator):
         init_points = [original + np.random.randn(n_features) * 0.1 * (i + 1) for i in range(n_cfs)]
         init_flat = np.concatenate(init_points)
 
-        def objective(x_flat: np.ndarray) -> float:
+        def objective(x_flat: npt.NDArray[Any]) -> float:
             cfs = [x_flat[i * n_features : (i + 1) * n_features] for i in range(n_cfs)]
 
             validity_loss = 0.0
@@ -508,7 +509,7 @@ class DiCECounterfactual(CounterfactualGenerator):
             logger.warning(f"DiCE optimization failed: {e}")
             return init_points
 
-    def _compute_pairwise_diversity(self, points: list[np.ndarray]) -> float:
+    def _compute_pairwise_diversity(self, points: list[npt.NDArray[Any]]) -> float:
         """Compute pairwise diversity."""
         if len(points) < 2:
             return 0.0
@@ -532,7 +533,7 @@ class GrowingSpheresCounterfactual(CounterfactualGenerator):
 
     def __init__(
         self,
-        model: Callable[[np.ndarray], np.ndarray] | Any,
+        model: Callable[[npt.NDArray[Any]], np.ndarray] | Any,
         feature_names: list[str] | None = None,
         feature_constraints: list[FeatureConstraint] | None = None,
         n_samples: int = 1000,
@@ -557,7 +558,7 @@ class GrowingSpheresCounterfactual(CounterfactualGenerator):
 
     def generate(
         self,
-        instance: np.ndarray,
+        instance: npt.NDArray[Any],
         target_class: int | None = None,
         n_counterfactuals: int = 1,
     ) -> CounterfactualSet:
@@ -625,9 +626,9 @@ class GrowingSpheresCounterfactual(CounterfactualGenerator):
 
     def _grow_sphere(
         self,
-        original: np.ndarray,
+        original: npt.NDArray[Any],
         target_class: int,
-    ) -> np.ndarray | None:
+    ) -> npt.NDArray[Any] | None:
         """Grow sphere until crossing decision boundary."""
         len(original)
         radius = self._step_size
@@ -648,10 +649,10 @@ class GrowingSpheresCounterfactual(CounterfactualGenerator):
 
     def _sample_sphere(
         self,
-        center: np.ndarray,
+        center: npt.NDArray[Any],
         radius: float,
         n_samples: int,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Sample points uniformly on a hypersphere."""
         n_features = len(center)
 
@@ -665,10 +666,10 @@ class GrowingSpheresCounterfactual(CounterfactualGenerator):
 
     def _refine_counterfactual(
         self,
-        original: np.ndarray,
-        candidate: np.ndarray,
+        original: npt.NDArray[Any],
+        candidate: npt.NDArray[Any],
         target_class: int,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Refine counterfactual using binary search."""
         low = 0.0
         high = 1.0
@@ -695,9 +696,9 @@ class PrototypeCounterfactual(CounterfactualGenerator):
 
     def __init__(
         self,
-        model: Callable[[np.ndarray], np.ndarray] | Any,
-        training_data: np.ndarray,
-        training_labels: np.ndarray,
+        model: Callable[[npt.NDArray[Any]], np.ndarray] | Any,
+        training_data: npt.NDArray[Any],
+        training_labels: npt.NDArray[Any],
         feature_names: list[str] | None = None,
         feature_constraints: list[FeatureConstraint] | None = None,
         n_prototypes: int = 5,
@@ -720,7 +721,7 @@ class PrototypeCounterfactual(CounterfactualGenerator):
 
         self._prototypes = self._compute_prototypes()
 
-    def _compute_prototypes(self) -> dict[int, np.ndarray]:
+    def _compute_prototypes(self) -> dict[int, npt.NDArray[Any]]:
         """Compute class prototypes using k-means-like approach."""
         prototypes = {}
         unique_labels = np.unique(self._training_labels)
@@ -742,7 +743,7 @@ class PrototypeCounterfactual(CounterfactualGenerator):
 
     def generate(
         self,
-        instance: np.ndarray,
+        instance: npt.NDArray[Any],
         target_class: int | None = None,
         n_counterfactuals: int = 1,
     ) -> CounterfactualSet:
@@ -825,10 +826,10 @@ class PrototypeCounterfactual(CounterfactualGenerator):
 
     def _interpolate_to_boundary(
         self,
-        original: np.ndarray,
-        prototype: np.ndarray,
+        original: npt.NDArray[Any],
+        prototype: npt.NDArray[Any],
         target_class: int,
-    ) -> np.ndarray | None:
+    ) -> npt.NDArray[Any] | None:
         """Interpolate between original and prototype to find boundary."""
         low = 0.0
         high = 1.0
@@ -855,8 +856,8 @@ class PrototypeCounterfactual(CounterfactualGenerator):
 def create_counterfactual_generator(
     model: Any,
     method: str = "wachter",
-    training_data: np.ndarray | None = None,
-    training_labels: np.ndarray | None = None,
+    training_data: npt.NDArray[Any] | None = None,
+    training_labels: npt.NDArray[Any] | None = None,
     feature_names: list[str] | None = None,
     feature_constraints: list[FeatureConstraint] | None = None,
     **kwargs: Any,

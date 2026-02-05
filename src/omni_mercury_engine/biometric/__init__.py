@@ -16,6 +16,7 @@ from enum import Enum, auto
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.biometric.fingerprint_recognition import (
     FingerprintFeatures,
@@ -184,9 +185,9 @@ class BiometricAnomalyDetector:
     def enroll(
         self,
         identity: str,
-        iris_image: np.ndarray | None = None,
-        fingerprint_image: np.ndarray | None = None,
-        voice_sample: np.ndarray | None = None,
+        iris_image: npt.NDArray[Any] | None = None,
+        fingerprint_image: npt.NDArray[Any] | None = None,
+        voice_sample: npt.NDArray[Any] | None = None,
         **kwargs: Any,
     ) -> BiometricEnrollment:
         """
@@ -226,12 +227,12 @@ class BiometricAnomalyDetector:
     def verify(
         self,
         claimed_identity: str,
-        iris_image: np.ndarray | None = None,
-        fingerprint_image: np.ndarray | None = None,
-        voice_sample: np.ndarray | None = None,
-        iris_liveness_images: list[np.ndarray] | None = None,
-        fingerprint_liveness_images: list[np.ndarray] | None = None,
-        voice_liveness_samples: list[np.ndarray] | None = None,
+        iris_image: npt.NDArray[Any] | None = None,
+        fingerprint_image: npt.NDArray[Any] | None = None,
+        voice_sample: npt.NDArray[Any] | None = None,
+        iris_liveness_images: list[npt.NDArray[Any]] | None = None,
+        fingerprint_liveness_images: list[npt.NDArray[Any]] | None = None,
+        voice_liveness_samples: list[npt.NDArray[Any]] | None = None,
     ) -> BiometricVerificationResult:
         """
         Verify a claimed identity against enrolled biometrics.
@@ -343,9 +344,9 @@ class BiometricAnomalyDetector:
 
     def detect_anomaly(
         self,
-        iris_image: np.ndarray | None = None,
-        fingerprint_image: np.ndarray | None = None,
-        voice_sample: np.ndarray | None = None,
+        iris_image: npt.NDArray[Any] | None = None,
+        fingerprint_image: npt.NDArray[Any] | None = None,
+        voice_sample: npt.NDArray[Any] | None = None,
     ) -> BiometricAnomalyResult:
         """
         Detect anomalies in biometric samples without identity verification.

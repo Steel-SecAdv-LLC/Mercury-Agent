@@ -189,8 +189,8 @@ class ResultCache:
     def _cache_key(self, query: str, source: str) -> str:
         """Generate cache key for query."""
         key_str = f"{source}:{query}"
-        # MD5 is safe for non-cryptographic cache key generation
-        return hashlib.md5(key_str.encode()).hexdigest()  # noqa: S324  # nosec B324
+        # SHA3-256 for Ava-Guardian alignment
+        return hashlib.sha3_256(key_str.encode()).hexdigest()
 
     def get(self, query: str, source: str) -> list[ExternalResult] | None:
         """Get cached results for query."""

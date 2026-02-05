@@ -25,7 +25,7 @@ Model modules for Mercury Agent ♱ anomaly detection.
 Uses lazy imports to avoid circular dependency issues during package initialization.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 
 # Type-only imports for static analysis (CodeQL, mypy, etc.)
@@ -155,5 +155,5 @@ def __getattr__(name: str) -> type:
 
         module_path = _LAZY_IMPORTS[name]
         module = importlib.import_module(module_path)
-        return getattr(module, name)  # type: ignore[no-any-return]
+        return getattr(module, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

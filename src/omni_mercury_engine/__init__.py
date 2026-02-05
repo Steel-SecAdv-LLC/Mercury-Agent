@@ -26,7 +26,7 @@ A unified toolkit for anomaly detection across security, biometrics, temporal pa
 and multi-dimensional data using neural network fusion of specialized detectors.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 
 # Type-only imports for static analysis (CodeQL, mypy, etc.)

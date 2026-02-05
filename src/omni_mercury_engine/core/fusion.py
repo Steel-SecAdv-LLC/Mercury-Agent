@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import torch
 import torch.nn.functional as F
@@ -327,7 +327,7 @@ class SparseTopKAttention(nn.Module):
 
         if return_attention:
             return out, attn_weights
-        return out
+        return cast(torch.Tensor, out)
 
 
 class UncertaintyWeightedFusion(nn.Module):

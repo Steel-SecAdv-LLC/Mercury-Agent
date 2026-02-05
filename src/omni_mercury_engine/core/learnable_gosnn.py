@@ -25,9 +25,10 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -382,7 +383,7 @@ if TORCH_AVAILABLE:
         ) -> torch.Tensor:
             """Predict correlation between two scalar embeddings."""
             combined = torch.cat([emb1, emb2], dim=-1)
-            return self.correlation_learner(combined)
+            return cast(torch.Tensor, self.correlation_learner(combined))
 
 
 class LearnableGOSNN:
@@ -524,7 +525,7 @@ class LearnableGOSNN:
         state = self.scalar_states[name]
         return state.effective_value
 
-    def get_scalar_embedding(self, name: str) -> np.ndarray | None:
+    def get_scalar_embedding(self, name: str) -> npt.NDArray[Any] | None:
         """Get scalar embedding vector."""
         if not TORCH_AVAILABLE or self.scalar_embeddings is None:
             return None

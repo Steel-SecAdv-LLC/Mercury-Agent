@@ -52,6 +52,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -1108,7 +1109,7 @@ class ChainOfThoughtEngine:
         elif "normal" in conclusion:
             return "normal"
         # Hash for other cases
-        return hashlib.sha256(conclusion.encode()).hexdigest()[:8]
+        return hashlib.sha3_256(conclusion.encode()).hexdigest()[:8]
 
     def _vote_on_conclusions(self, conclusions: list[str]) -> ConsistencyResult:
         """Vote on conclusions for self-consistency."""
@@ -1310,7 +1311,7 @@ class AnomalyChainOfThought:
     def analyze_anomaly(
         self,
         data: dict[str, Any],
-        anomaly_score_or_features: float | np.ndarray | None = None,
+        anomaly_score_or_features: float | npt.NDArray[Any] | None = None,
         domain: str = "general",
     ) -> dict[str, Any]:
         """Analyze potential anomaly with chain-of-thought reasoning.

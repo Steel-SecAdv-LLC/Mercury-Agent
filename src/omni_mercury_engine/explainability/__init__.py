@@ -19,6 +19,7 @@ References:
 - GDPR Article 22: Automated individual decision-making
 """
 
+from typing import Any
 from omni_mercury_engine.explainability.counterfactuals import (
     Counterfactual,
     CounterfactualGenerator,

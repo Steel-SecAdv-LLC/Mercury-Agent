@@ -38,6 +38,7 @@ Run with: streamlit run streamlit_dashboard.py
 import json
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st

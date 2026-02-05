@@ -46,6 +46,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 if TYPE_CHECKING:
@@ -58,7 +59,7 @@ logger = logging.getLogger(__name__)
 class QuantumState:
     """Represents a quantum state vector."""
 
-    amplitudes: np.ndarray
+    amplitudes: npt.NDArray[Any]
     num_qubits: int
 
     def normalize(self) -> None:

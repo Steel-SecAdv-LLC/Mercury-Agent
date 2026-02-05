@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 import numpy as np
+import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -54,8 +55,8 @@ class ObjectiveResult:
 class ParetoSolution:
     """A single solution on the Pareto front."""
 
-    parameters: np.ndarray
-    objectives: np.ndarray  # [detection_loss, 1 - benevolence, 1 - fairness]
+    parameters: npt.NDArray[Any]
+    objectives: npt.NDArray[Any]  # [detection_loss, 1 - benevolence, 1 - fairness]
     dominated_by: int = 0  # Number of solutions that dominate this one
 
 
@@ -127,9 +128,9 @@ class BenevolenceLoss:
 
     def compute(
         self,
-        predictions: np.ndarray,
-        labels: np.ndarray,
-        sensitive_attrs: np.ndarray | None = None,
+        predictions: npt.NDArray[Any],
+        labels: npt.NDArray[Any],
+        sensitive_attrs: npt.NDArray[Any] | None = None,
         explanation_provided: bool = True,
     ) -> float:
         """
@@ -176,9 +177,9 @@ class BenevolenceLoss:
 
     def _compute_equity(
         self,
-        predictions: np.ndarray,
-        labels: np.ndarray,
-        sensitive_attrs: np.ndarray,
+        predictions: npt.NDArray[Any],
+        labels: npt.NDArray[Any],
+        sensitive_attrs: npt.NDArray[Any],
     ) -> float:
         """
         Compute equity score based on group fairness.
@@ -248,9 +249,9 @@ class MultiObjectiveLoss:
 
     def compute(
         self,
-        predictions: np.ndarray,
-        labels: np.ndarray,
-        sensitive_attrs: np.ndarray | None = None,
+        predictions: npt.NDArray[Any],
+        labels: npt.NDArray[Any],
+        sensitive_attrs: npt.NDArray[Any] | None = None,
     ) -> ObjectiveResult:
         """
         Compute multi-objective loss.
@@ -306,9 +307,9 @@ class MultiObjectiveLoss:
 
     def _compute_fairness(
         self,
-        predictions: np.ndarray,
-        labels: np.ndarray,
-        sensitive_attrs: np.ndarray | None,
+        predictions: npt.NDArray[Any],
+        labels: npt.NDArray[Any],
+        sensitive_attrs: npt.NDArray[Any] | None,
     ) -> float:
         """Compute fairness via equalized odds."""
         if sensitive_attrs is None or len(np.unique(sensitive_attrs)) < 2:
@@ -354,7 +355,7 @@ class ParetoOptimizer:
 
     def __init__(
         self,
-        objective_fn: Callable[[np.ndarray], np.ndarray],
+        objective_fn: Callable[[npt.NDArray[Any]], np.ndarray],
         n_objectives: int = 3,
         population_size: int = 50,
         n_generations: int = 100,
@@ -556,11 +557,11 @@ class ParetoOptimizer:
 
     def _sbx_crossover(
         self,
-        p1: np.ndarray,
-        p2: np.ndarray,
+        p1: npt.NDArray[Any],
+        p2: npt.NDArray[Any],
         bounds: list[tuple[float, float]],
         eta: float = 20.0,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Simulated Binary Crossover (SBX)."""
         child = np.zeros_like(p1)
 
@@ -590,10 +591,10 @@ class ParetoOptimizer:
 
     def _polynomial_mutation(
         self,
-        params: np.ndarray,
+        params: npt.NDArray[Any],
         bounds: list[tuple[float, float]],
         eta: float = 20.0,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Polynomial mutation."""
         mutated = params.copy()
 
@@ -615,15 +616,15 @@ class ParetoOptimizer:
 
 
 def optimize_benevolent_detector(
-    model_fn: Callable[[np.ndarray], Any],
-    X_train: np.ndarray,
-    y_train: np.ndarray,
+    model_fn: Callable[[npt.NDArray[Any]], Any],
+    X_train: npt.NDArray[Any],
+    y_train: npt.NDArray[Any],
     parameter_bounds: list[tuple[float, float]],
-    sensitive_attrs: np.ndarray | None = None,
+    sensitive_attrs: npt.NDArray[Any] | None = None,
     benevolence_threshold: float = BENEVOLENCE_THRESHOLD,
     n_generations: int = 50,
     seed: int = 42,
-) -> tuple[np.ndarray, ParetoFront]:
+) -> tuple[npt.NDArray[Any], ParetoFront]:
     """
     Optimize detector parameters for benevolence.
 
@@ -642,7 +643,7 @@ def optimize_benevolent_detector(
     """
     mo_loss = MultiObjectiveLoss(benevolence_threshold=benevolence_threshold)
 
-    def objective(params: dict[str, Any]) -> np.ndarray:
+    def objective(params: dict[str, Any]) -> npt.NDArray[Any]:
         """Multi-objective function returning [detection, 1-benevolence, 1-fairness]."""
         try:
             model = model_fn(params)

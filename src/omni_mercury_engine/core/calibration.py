@@ -19,9 +19,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 from sklearn.calibration import calibration_curve
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
@@ -43,7 +44,7 @@ class CalibrationResult:
     mce_before: float  # Maximum Calibration Error
     mce_after: float
     improvement_percent: float
-    reliability_curve: dict[str, np.ndarray] = field(default_factory=dict)
+    reliability_curve: dict[str, npt.NDArray[Any]] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to serializable dictionary."""
@@ -60,7 +61,7 @@ class CalibrationResult:
         }
 
 
-def compute_ece(y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 10) -> float:
+def compute_ece(y_true: npt.NDArray[Any], y_prob: npt.NDArray[Any], n_bins: int = 10) -> float:
     """
     Compute Expected Calibration Error (ECE).
 
@@ -92,7 +93,7 @@ def compute_ece(y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 10) -> flo
     return ece
 
 
-def compute_mce(y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 10) -> float:
+def compute_mce(y_true: npt.NDArray[Any], y_prob: npt.NDArray[Any], n_bins: int = 10) -> float:
     """
     Compute Maximum Calibration Error (MCE).
 
@@ -149,7 +150,7 @@ class PlattScaling:
         )
         self._fitted = False
 
-    def fit(self, y_prob: np.ndarray, y_true: np.ndarray) -> PlattScaling:
+    def fit(self, y_prob: npt.NDArray[Any], y_true: npt.NDArray[Any]) -> PlattScaling:
         """
         Fit Platt scaling calibrator.
 
@@ -178,7 +179,7 @@ class PlattScaling:
         )
         return self
 
-    def calibrate(self, y_prob: np.ndarray) -> np.ndarray:
+    def calibrate(self, y_prob: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Apply Platt scaling calibration.
 
@@ -192,7 +193,7 @@ class PlattScaling:
             return y_prob
 
         X = y_prob.reshape(-1, 1)
-        return self.model.predict_proba(X)[:, 1]
+        return cast(npt.NDArray[Any], self.model.predict_proba(X)[:, 1])
 
 
 class IsotonicCalibration:
@@ -220,7 +221,7 @@ class IsotonicCalibration:
         )
         self._fitted = False
 
-    def fit(self, y_prob: np.ndarray, y_true: np.ndarray) -> IsotonicCalibration:
+    def fit(self, y_prob: npt.NDArray[Any], y_true: npt.NDArray[Any]) -> IsotonicCalibration:
         """
         Fit isotonic regression calibrator.
 
@@ -242,7 +243,7 @@ class IsotonicCalibration:
         logger.debug("IsotonicCalibration fitted")
         return self
 
-    def calibrate(self, y_prob: np.ndarray) -> np.ndarray:
+    def calibrate(self, y_prob: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Apply isotonic calibration.
 
@@ -255,7 +256,7 @@ class IsotonicCalibration:
         if not self._fitted:
             return y_prob
 
-        return self.model.predict(y_prob)
+        return cast(npt.NDArray[Any], self.model.predict(y_prob))
 
 
 class TemperatureScaling:
@@ -282,16 +283,16 @@ class TemperatureScaling:
         self.lr = lr
         self._fitted = False
 
-    def _logit(self, p: np.ndarray) -> np.ndarray:
+    def _logit(self, p: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Convert probabilities to logits."""
         p = np.clip(p, 1e-10, 1 - 1e-10)
-        return np.log(p / (1 - p))
+        return cast(npt.NDArray[Any], np.log(p / (1 - p)))
 
-    def _sigmoid(self, z: np.ndarray) -> np.ndarray:
+    def _sigmoid(self, z: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Convert logits to probabilities."""
-        return 1 / (1 + np.exp(-z))
+        return cast(npt.NDArray[Any], 1 / (1 + np.exp(-z)))
 
-    def fit(self, y_prob: np.ndarray, y_true: np.ndarray) -> TemperatureScaling:
+    def fit(self, y_prob: npt.NDArray[Any], y_true: npt.NDArray[Any]) -> TemperatureScaling:
         """
         Fit temperature parameter by minimizing NLL.
 
@@ -326,7 +327,7 @@ class TemperatureScaling:
         logger.debug(f"TemperatureScaling fitted: T={self.temperature:.4f}")
         return self
 
-    def calibrate(self, y_prob: np.ndarray) -> np.ndarray:
+    def calibrate(self, y_prob: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Apply temperature scaling.
 
@@ -363,8 +364,8 @@ class CalibrationEnsemble:
 
     def fit(
         self,
-        y_prob: np.ndarray,
-        y_true: np.ndarray,
+        y_prob: npt.NDArray[Any],
+        y_true: npt.NDArray[Any],
         validation_split: float = 0.3,
     ) -> CalibrationEnsemble:
         """
@@ -413,7 +414,7 @@ class CalibrationEnsemble:
         logger.info(f"CalibrationEnsemble selected: {self.best_method} (Brier={best_brier:.4f})")
         return self
 
-    def calibrate(self, y_prob: np.ndarray) -> np.ndarray:
+    def calibrate(self, y_prob: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Apply best calibration method.
 
@@ -426,13 +427,13 @@ class CalibrationEnsemble:
         if not self._fitted or not self.best_method:
             return y_prob
 
-        return self.calibrators[self.best_method].calibrate(y_prob)  # type: ignore[attr-defined]
+        return cast(npt.NDArray[Any], self.calibrators[self.best_method].calibrate(y_prob))  # type: ignore[attr-defined]
 
 
 def evaluate_calibration(
-    y_true: np.ndarray,
-    y_prob_uncalibrated: np.ndarray,
-    y_prob_calibrated: np.ndarray,
+    y_true: npt.NDArray[Any],
+    y_prob_uncalibrated: npt.NDArray[Any],
+    y_prob_calibrated: npt.NDArray[Any],
     method: str = "Unknown",
     n_bins: int = 10,
 ) -> CalibrationResult:
@@ -501,8 +502,8 @@ def evaluate_calibration(
 
 def calibrate_detector(
     detector: Any,
-    X_cal: np.ndarray,
-    y_cal: np.ndarray,
+    X_cal: npt.NDArray[Any],
+    y_cal: npt.NDArray[Any],
     method: str = "auto",
 ) -> tuple[Any, CalibrationResult | None]:
     """
@@ -565,8 +566,8 @@ def calibrate_detector(
 
 def _extract_calibration_scores(
     detector: Any,
-    X: np.ndarray,
-) -> tuple[np.ndarray | None, str]:
+    X: npt.NDArray[Any],
+) -> tuple[npt.NDArray[Any] | None, str]:
     """Extract probability-like scores from any detector for calibration.
 
     Uses a multi-strategy fallback cascade:
@@ -633,9 +634,9 @@ def _extract_calibration_scores(
 
 def _synthesize_probabilities_from_predictions(
     detector: Any,
-    predictions: np.ndarray,
-    X: np.ndarray,
-) -> np.ndarray:
+    predictions: npt.NDArray[Any],
+    X: npt.NDArray[Any],
+) -> npt.NDArray[Any]:
     """Synthesize continuous probabilities from binary predictions.
 
     Creates differentiated probability scores for samples within
@@ -677,7 +678,7 @@ def _synthesize_probabilities_from_predictions(
     return np.clip(probs, 0.01, 0.99)
 
 
-def _compute_feature_variation(X: np.ndarray) -> np.ndarray:
+def _compute_feature_variation(X: npt.NDArray[Any]) -> npt.NDArray[Any]:
     """Compute per-sample feature variation for probability differentiation."""
     # Use standardized feature distances from center
     mean = np.mean(X, axis=0)
@@ -688,11 +689,11 @@ def _compute_feature_variation(X: np.ndarray) -> np.ndarray:
     # Normalize to [0, 1]
     min_z, max_z = np.min(avg_z), np.max(avg_z)
     if max_z > min_z:
-        return (avg_z - min_z) / (max_z - min_z)
-    return np.full(len(avg_z), 0.5)
+        return cast(npt.NDArray[Any], (avg_z - min_z) / (max_z - min_z))
+    return cast(npt.NDArray[Any], np.full(len(avg_z), 0.5))
 
 
-def _compute_statistical_scores_for_calibration(X: np.ndarray) -> np.ndarray:
+def _compute_statistical_scores_for_calibration(X: npt.NDArray[Any]) -> npt.NDArray[Any]:
     """Compute statistical anomaly scores when detector provides no scoring.
 
     Combines multiple statistical methods:
@@ -743,4 +744,4 @@ def _compute_statistical_scores_for_calibration(X: np.ndarray) -> np.ndarray:
     # Weighted ensemble
     scores = 0.4 * z_anomaly + 0.35 * density_anomaly + 0.25 * pct_anomaly
 
-    return np.clip(scores, 0.0, 1.0)
+    return cast(npt.NDArray[Any], np.clip(scores, 0.0, 1.0))

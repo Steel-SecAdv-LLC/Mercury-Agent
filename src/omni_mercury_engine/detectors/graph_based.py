@@ -35,6 +35,7 @@ from typing import Any
 
 import networkx as nx
 import numpy as np
+import numpy.typing as npt
 import torch
 
 from omni_mercury_engine.core.base import BaseDetector

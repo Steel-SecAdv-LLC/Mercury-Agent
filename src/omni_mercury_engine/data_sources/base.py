@@ -39,9 +39,9 @@ from typing import Any, TypeVar
 
 import httpx
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker, CircuitState
-
 
 logger = logging.getLogger(__name__)
 
@@ -195,7 +195,7 @@ class DataPoint:
             metadata=data.get("metadata", {}),
         )
 
-    def to_feature_vector(self, feature_dim: int = 32) -> np.ndarray:
+    def to_feature_vector(self, feature_dim: int = 32) -> npt.NDArray[Any]:
         """Convert DataPoint to a feature vector for ML processing.
 
         Creates a numerical representation suitable for fusion network input.
@@ -435,7 +435,7 @@ class DataSourceBase(ABC):
             self._circuit_breaker = CircuitBreaker(
                 failure_threshold=cb_config.failure_threshold,
                 recovery_timeout=cb_config.recovery_timeout,
-                expected_exception=httpx.HTTPError,
+                excluded_exceptions=(httpx.HTTPError,),
                 enable_exponential_backoff=cb_config.enable_exponential_backoff,
                 backoff_base=cb_config.backoff_base,
                 max_backoff_timeout=cb_config.max_backoff_timeout,
@@ -509,19 +509,16 @@ class DataSourceBase(ABC):
             DataSourceError: If request fails after retries or circuit is open
         """
         # Check circuit breaker state first
+        # Note: The state property handles OPEN->HALF_OPEN transition automatically
         if self._circuit_breaker is not None:
-            if self._circuit_breaker.state == CircuitState.OPEN:
-                if self._circuit_breaker._should_attempt_reset():
-                    self._circuit_breaker.state = CircuitState.HALF_OPEN
-                    self._circuit_breaker.half_open_success_count = 0
-                    logger.info(f"{self.source_id}: Circuit breaker transitioning to HALF_OPEN")
-                else:
-                    raise DataSourceError(
-                        f"Circuit breaker is OPEN for {self.source_id}. "
-                        f"Will retry after {self._circuit_breaker._get_current_timeout():.0f}s",
-                        source_id=self.source_id,
-                        retryable=True,
-                    )
+            cb_state = self._circuit_breaker.state
+            if cb_state == CircuitState.OPEN:
+                raise DataSourceError(
+                    f"Circuit breaker is OPEN for {self.source_id}. "
+                    f"Will retry after {self._circuit_breaker._get_current_timeout():.0f}s",
+                    source_id=self.source_id,
+                    retryable=True,
+                )
 
         await self._check_rate_limit()
 
@@ -550,7 +547,7 @@ class DataSourceBase(ABC):
 
                 # Notify circuit breaker of success
                 if self._circuit_breaker is not None:
-                    self._circuit_breaker._on_success()
+                    self._circuit_breaker._record_success()
 
                 return response
 
@@ -561,7 +558,7 @@ class DataSourceBase(ABC):
 
                 # Notify circuit breaker of failure (only for server errors)
                 if e.response.status_code >= 500 and self._circuit_breaker is not None:
-                    self._circuit_breaker._on_failure()
+                    self._circuit_breaker._record_failure()
 
                 if e.response.status_code < 500:
                     # Client error - don't retry
@@ -587,7 +584,7 @@ class DataSourceBase(ABC):
 
                 # Notify circuit breaker of failure
                 if self._circuit_breaker is not None:
-                    self._circuit_breaker._on_failure()
+                    self._circuit_breaker._record_failure()
 
                 if attempt < self.config.retry_attempts:
                     logger.warning(
@@ -610,19 +607,16 @@ class DataSourceBase(ABC):
     ) -> httpx.Response:
         """Synchronous version of _http_get with circuit breaker support."""
         # Check circuit breaker state first
+        # Note: The state property handles OPEN->HALF_OPEN transition automatically
         if self._circuit_breaker is not None:
-            if self._circuit_breaker.state == CircuitState.OPEN:
-                if self._circuit_breaker._should_attempt_reset():
-                    self._circuit_breaker.state = CircuitState.HALF_OPEN
-                    self._circuit_breaker.half_open_success_count = 0
-                    logger.info(f"{self.source_id}: Circuit breaker transitioning to HALF_OPEN")
-                else:
-                    raise DataSourceError(
-                        f"Circuit breaker is OPEN for {self.source_id}. "
-                        f"Will retry after {self._circuit_breaker._get_current_timeout():.0f}s",
-                        source_id=self.source_id,
-                        retryable=True,
-                    )
+            cb_state = self._circuit_breaker.state
+            if cb_state == CircuitState.OPEN:
+                raise DataSourceError(
+                    f"Circuit breaker is OPEN for {self.source_id}. "
+                    f"Will retry after {self._circuit_breaker._get_current_timeout():.0f}s",
+                    source_id=self.source_id,
+                    retryable=True,
+                )
 
         self._check_rate_limit_sync()
 
@@ -651,7 +645,7 @@ class DataSourceBase(ABC):
 
                 # Notify circuit breaker of success
                 if self._circuit_breaker is not None:
-                    self._circuit_breaker._on_success()
+                    self._circuit_breaker._record_success()
 
                 return response
 
@@ -662,7 +656,7 @@ class DataSourceBase(ABC):
 
                 # Notify circuit breaker of failure (only for server errors)
                 if e.response.status_code >= 500 and self._circuit_breaker is not None:
-                    self._circuit_breaker._on_failure()
+                    self._circuit_breaker._record_failure()
 
                 if e.response.status_code < 500:
                     raise DataSourceError(
@@ -687,7 +681,7 @@ class DataSourceBase(ABC):
 
                 # Notify circuit breaker of failure
                 if self._circuit_breaker is not None:
-                    self._circuit_breaker._on_failure()
+                    self._circuit_breaker._record_failure()
 
                 if attempt < self.config.retry_attempts:
                     logger.warning(
@@ -761,7 +755,7 @@ class DataSourceBase(ABC):
     def _get_cache_key(self, params: dict[str, Any] | None = None) -> str:
         """Generate cache key for request parameters."""
         key_data = f"{self.source_id}:{params or {}}"
-        return hashlib.sha256(key_data.encode()).hexdigest()[:16]
+        return hashlib.sha3_256(key_data.encode()).hexdigest()[:16]
 
     def _get_cached(self, cache_key: str) -> list[DataPoint] | None:
         """Get cached data if valid (thread-safe)."""

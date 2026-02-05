@@ -43,6 +43,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from scipy.fft import fft
 
@@ -624,7 +625,7 @@ class SigmaDirectiveDetector(BaseDetector):
         """
         Molecular-level hash function for nano-scale integrity
         """
-        hash_obj = hashlib.sha256(data)
+        hash_obj = hashlib.sha3_256(data)
         hash_bytes = hash_obj.digest()
 
         byte_values = np.frombuffer(hash_bytes, dtype=np.uint8)
@@ -647,7 +648,7 @@ class SigmaDirectiveDetector(BaseDetector):
         checksum = 0.0
 
         for _i in range(4):
-            hash_obj = hashlib.sha256(current)
+            hash_obj = hashlib.sha3_256(current)
             current = hash_obj.digest()
 
             byte_sum = sum(current)

@@ -41,9 +41,10 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
+import numpy.typing as npt
 from scipy import fft, optimize, signal
 
 from omni_mercury_engine.core.ai_ethics import EthicalAutonomyGovernor, EthicsConfig
@@ -410,14 +411,14 @@ class _LegacyAAFEWeightOptimizer:
         else:
             self.initial_weights = np.array([1 / 3, 1 / 3, 1 / 3])
 
-        self.optimized_weights: np.ndarray | None = None
+        self.optimized_weights: npt.NDArray[Any] | None = None
         self.optimization_history: list[dict[str, Any]] = []
 
     def _compute_aafe_scores(
         self,
-        weights: np.ndarray,
-        X: np.ndarray,
-    ) -> np.ndarray:
+        weights: npt.NDArray[Any],
+        X: npt.NDArray[Any],
+    ) -> npt.NDArray[Any]:
         """Compute AAFE scores for given weights and input data.
 
         Args:
@@ -430,13 +431,13 @@ class _LegacyAAFEWeightOptimizer:
         # A = (w_R * R + w_H * H + w_O * O) * η^Φ
         weighted_sum = np.dot(X, weights)
         ethical_scaling = self.ethical_threshold**self.golden_ratio
-        return weighted_sum * ethical_scaling
+        return cast(npt.NDArray[Any], weighted_sum * ethical_scaling)
 
     def _objective_function(
         self,
-        weights: np.ndarray,
-        X: np.ndarray,
-        y: np.ndarray,
+        weights: npt.NDArray[Any],
+        X: npt.NDArray[Any],
+        y: npt.NDArray[Any],
         threshold: float = 0.5,
     ) -> float:
         """Objective function to minimize (negative F1 score).
@@ -611,7 +612,7 @@ class _LegacyRecursionEngine:
             window_size = max(3, len(data) // (2**level))
             return self._sliding_window_stats(data, window_size)
         else:
-            return np.mean(data, axis=1, keepdims=True)
+            return cast(NDArray[Any], np.mean(data, axis=1, keepdims=True))
 
     def _sliding_window_stats(self, data: NDArray[Any], window_size: int) -> NDArray[Any]:
         if len(data) < window_size:

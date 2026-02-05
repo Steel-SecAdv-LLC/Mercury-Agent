@@ -100,6 +100,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
+import numpy.typing as npt
 import torch
 
 from omni_mercury_engine.core.config import EngineConfig
@@ -1059,7 +1060,7 @@ class OmniMercuryEngine(LoggerMixin):
             f"n_anomalies={int(pseudo_labels.sum())}/{n_samples}"
         )
 
-        return pseudo_labels
+        return cast(npt.NDArray[Any], pseudo_labels)
 
     def enable_drift_detection(
         self,
@@ -1492,7 +1493,7 @@ class OmniMercuryEngine(LoggerMixin):
     def _get_anomaly_threshold(
         self,
         current_score: float,
-        all_scores: np.ndarray | None = None,
+        all_scores: npt.NDArray[Any] | None = None,
     ) -> float:
         """Determine anomaly threshold based on configuration.
 
@@ -1834,7 +1835,7 @@ class OmniMercuryEngine(LoggerMixin):
         detection_result = self.detect(data)
 
         # Aggregate scores from all detectors
-        all_scores: list[np.ndarray] = []
+        all_scores: list[npt.NDArray[Any]] = []
         for detector_result in detection_result.get("detectors", {}).values():
             scores = detector_result.get("scores")
             if scores is not None:

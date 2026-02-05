@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
+from typing import Any
 from __future__ import annotations
 
 
@@ -40,10 +41,16 @@ from omni_mercury_engine.resilience.api_circuit_breakers import (
 from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker
 from omni_mercury_engine.resilience.health_monitoring import HealthMonitor
 from omni_mercury_engine.resilience.retry import RetryPolicy
-from omni_mercury_engine.resilience.self_healing import SelfHealingEngine
+from omni_mercury_engine.resilience.self_healing import (
+    AdaptiveDefenseSystem,
+    AnomalySignature,
+    SelfHealingEngine,
+)
 
 
 __all__ = [
+    "AdaptiveDefenseSystem",
+    "AnomalySignature",
     "CircuitBreaker",
     "DataLoaderCircuitBreaker",
     "DetectorCircuitBreaker",

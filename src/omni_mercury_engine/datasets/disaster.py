@@ -20,6 +20,7 @@ from datetime import datetime
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 try:
@@ -230,7 +231,9 @@ class FEMADisasterLoader(DatasetLoader):
             logger.warning(f"OpenFEMA API download failed: {e}")
             return False
 
-    def _process_fema_data(self, records: list[dict[str, Any]]) -> tuple[np.ndarray, np.ndarray]:
+    def _process_fema_data(
+        self, records: list[dict[str, Any]]
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Process OpenFEMA disaster declaration records.
 
         Args:

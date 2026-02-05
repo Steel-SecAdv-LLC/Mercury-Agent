@@ -29,6 +29,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
+import numpy.typing as npt
 from scipy import stats
 from sklearn.metrics import (
     accuracy_score,
@@ -114,8 +115,8 @@ class SplitPerformance:
     drift_score: float = 0.0
 
     # Additional metrics
-    predictions: np.ndarray | None = None
-    true_labels: np.ndarray | None = None
+    predictions: npt.NDArray[Any] | None = None
+    true_labels: npt.NDArray[Any] | None = None
     feature_importance: dict[str, float] | None = None
 
 
@@ -607,7 +608,7 @@ class DegradationAnalyzer:
 
         # Check for outlier differences (sudden shifts)
         threshold = abs(mean_diff) + 3 * std_diff
-        return np.any(np.abs(diffs) > threshold)  # type: ignore[no-any-return]
+        return np.any(np.abs(diffs) > threshold)
 
     def _is_oscillating(self, performances: NDArray[np.float64]) -> bool:
         """Check for oscillating pattern."""
@@ -620,7 +621,7 @@ class DegradationAnalyzer:
         sign_changes = np.sum(np.abs(np.diff(np.sign(diffs))) == 2)
 
         # Oscillating if many sign changes relative to length
-        return sign_changes > n * 0.4  # type: ignore[no-any-return]
+        return sign_changes > n * 0.4
 
     def _find_inflection_points(self, performances: NDArray[np.float64]) -> list[int]:
         """Find points where trend changes direction."""
@@ -1081,7 +1082,7 @@ class ConceptDriftEvaluator:
             )
 
         detector = self._drift_detectors["main"]
-        return detector.detect(X_test, feature_names)  # type: ignore[no-any-return]
+        return detector.detect(X_test, feature_names)
 
     def _extract_metric_values(self, performances: list[SplitPerformance]) -> list[float]:
         """Extract primary metric values for degradation analysis."""

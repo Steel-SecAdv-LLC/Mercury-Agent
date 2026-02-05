@@ -37,6 +37,7 @@ from enum import StrEnum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -122,8 +123,8 @@ class FairnessAuditor:
 
     def compute_demographic_parity(
         self,
-        predictions: np.ndarray,
-        sensitive_features: np.ndarray,
+        predictions: npt.NDArray[Any],
+        sensitive_features: npt.NDArray[Any],
     ) -> dict[str, Any]:
         """
         Compute demographic parity difference.
@@ -161,9 +162,9 @@ class FairnessAuditor:
 
     def compute_equalized_odds(
         self,
-        predictions: np.ndarray,
-        labels: np.ndarray,
-        sensitive_features: np.ndarray,
+        predictions: npt.NDArray[Any],
+        labels: npt.NDArray[Any],
+        sensitive_features: npt.NDArray[Any],
     ) -> dict[str, Any]:
         """
         Compute equalized odds difference.
@@ -218,8 +219,8 @@ class FairnessAuditor:
 
     def compute_disparate_impact(
         self,
-        predictions: np.ndarray,
-        sensitive_features: np.ndarray,
+        predictions: npt.NDArray[Any],
+        sensitive_features: npt.NDArray[Any],
         reference_group: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -274,9 +275,9 @@ class FairnessAuditor:
 
     def compute_calibration(
         self,
-        predictions: np.ndarray,
-        labels: np.ndarray,
-        sensitive_features: np.ndarray,
+        predictions: npt.NDArray[Any],
+        labels: npt.NDArray[Any],
+        sensitive_features: npt.NDArray[Any],
         n_bins: int = 10,
     ) -> dict[str, Any]:
         """
@@ -335,9 +336,9 @@ class FairnessAuditor:
 
     def audit(
         self,
-        predictions: np.ndarray,
-        labels: np.ndarray | None = None,
-        sensitive_features: np.ndarray | None = None,
+        predictions: npt.NDArray[Any],
+        labels: npt.NDArray[Any] | None = None,
+        sensitive_features: npt.NDArray[Any] | None = None,
         feature_names: list[str] | None = None,
     ) -> FairnessReport:
         """
@@ -474,9 +475,9 @@ class BiasmitigationProcessor:
 
     def fit(
         self,
-        predictions: np.ndarray,
-        labels: np.ndarray,
-        sensitive_features: np.ndarray,
+        predictions: npt.NDArray[Any],
+        labels: npt.NDArray[Any],
+        sensitive_features: npt.NDArray[Any],
     ) -> BiasmitigationProcessor:
         """
         Fit the mitigation processor.
@@ -498,9 +499,9 @@ class BiasmitigationProcessor:
 
     def _fit_threshold_optimization(
         self,
-        predictions: np.ndarray,
-        labels: np.ndarray,
-        sensitive_features: np.ndarray,
+        predictions: npt.NDArray[Any],
+        labels: npt.NDArray[Any],
+        sensitive_features: npt.NDArray[Any],
     ) -> None:
         """Fit group-specific thresholds for demographic parity."""
         groups = np.unique(sensitive_features)
@@ -520,9 +521,9 @@ class BiasmitigationProcessor:
 
     def _fit_reweighting(
         self,
-        predictions: np.ndarray,
-        labels: np.ndarray,
-        sensitive_features: np.ndarray,
+        predictions: npt.NDArray[Any],
+        labels: npt.NDArray[Any],
+        sensitive_features: npt.NDArray[Any],
     ) -> None:
         """Compute sample weights for reweighting strategy."""
         # Placeholder for reweighting implementation
@@ -532,9 +533,9 @@ class BiasmitigationProcessor:
 
     def transform(
         self,
-        predictions: np.ndarray,
-        sensitive_features: np.ndarray,
-    ) -> np.ndarray:
+        predictions: npt.NDArray[Any],
+        sensitive_features: npt.NDArray[Any],
+    ) -> npt.NDArray[Any]:
         """
         Apply mitigation to predictions.
 
@@ -552,9 +553,9 @@ class BiasmitigationProcessor:
 
     def _apply_threshold_optimization(
         self,
-        predictions: np.ndarray,
-        sensitive_features: np.ndarray,
-    ) -> np.ndarray:
+        predictions: npt.NDArray[Any],
+        sensitive_features: npt.NDArray[Any],
+    ) -> npt.NDArray[Any]:
         """Apply group-specific thresholds."""
         adjusted = np.zeros_like(predictions)
 
@@ -566,9 +567,9 @@ class BiasmitigationProcessor:
 
 
 def compute_fairness_score(
-    predictions: np.ndarray,
-    labels: np.ndarray | None,
-    sensitive_features: np.ndarray,
+    predictions: npt.NDArray[Any],
+    labels: npt.NDArray[Any] | None,
+    sensitive_features: npt.NDArray[Any],
     metric: FairnessMetric = FairnessMetric.DEMOGRAPHIC_PARITY,
 ) -> float:
     """

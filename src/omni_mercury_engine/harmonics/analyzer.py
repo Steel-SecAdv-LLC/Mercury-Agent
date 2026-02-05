@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.harmonics.features import (
     HarmonicFeatureExtractor,
@@ -183,8 +184,8 @@ class AdvancedHarmonicAnalyzer:
         self._similarity = HarmonicSimilarity()
 
         self._reference_db: HarmonicDatabase | None = None
-        self._mean_power_spectrum: np.ndarray | None = None
-        self._std_power_spectrum: np.ndarray | None = None
+        self._mean_power_spectrum: npt.NDArray[Any] | None = None
+        self._std_power_spectrum: npt.NDArray[Any] | None = None
         self._mean_complexity: float = 0.5
         self._std_complexity: float = 0.2
 
@@ -195,7 +196,7 @@ class AdvancedHarmonicAnalyzer:
 
     def decompose(
         self,
-        point_cloud: np.ndarray,
+        point_cloud: npt.NDArray[Any],
         sampling: str = "healpix",
     ) -> HarmonicCoefficients:
         """
@@ -215,7 +216,7 @@ class AdvancedHarmonicAnalyzer:
         coefficients: HarmonicCoefficients,
         n_theta: int = 64,
         n_phi: int = 128,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any], npt.NDArray[Any]]:
         """
         Reconstruct surface from coefficients.
 
@@ -233,7 +234,7 @@ class AdvancedHarmonicAnalyzer:
         self,
         coefficients: HarmonicCoefficients,
         descriptors: list[str] | None = None,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """
         Extract rotation-invariant features.
 
@@ -270,7 +271,7 @@ class AdvancedHarmonicAnalyzer:
 
     def fit(
         self,
-        point_clouds: list[np.ndarray],
+        point_clouds: list[npt.NDArray[Any]],
         labels: list[str] | None = None,
     ) -> AdvancedHarmonicAnalyzer:
         """
@@ -310,7 +311,7 @@ class AdvancedHarmonicAnalyzer:
 
     def detect_anomalies(
         self,
-        point_cloud: np.ndarray,
+        point_cloud: npt.NDArray[Any],
         threshold: float = 0.5,
     ) -> HarmonicAnomalyResult:
         """
@@ -365,7 +366,7 @@ class AdvancedHarmonicAnalyzer:
 
     def batch_detect(
         self,
-        point_clouds: list[np.ndarray],
+        point_clouds: list[npt.NDArray[Any]],
         threshold: float = 0.5,
     ) -> list[HarmonicAnomalyResult]:
         """

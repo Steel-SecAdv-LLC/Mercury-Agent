@@ -15,6 +15,7 @@ References:
 - Kazhdan et al. (2003): Rotation Invariant Spherical Harmonic Representation
 """
 
+from typing import Any
 from omni_mercury_engine.harmonics.analyzer import (
     AdvancedHarmonicAnalyzer,
     HarmonicAnomalyResult,

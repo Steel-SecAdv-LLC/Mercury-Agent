@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Utilities subpackage
 Enhanced with Black Hole Engine compression and gravitational lensing utilities
@@ -27,6 +28,8 @@ import zlib
 from typing import Any, Union
 
 import numpy as np
+import numpy.typing as npt
+
 
 # Make torch optional to support environments without ML dependencies
 try:
@@ -34,7 +37,7 @@ try:
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None
+    torch = None  # type: ignore[assignment,unused-ignore]
     TORCH_AVAILABLE = False
 
 from omni_mercury_engine.utils.comm import AsyncMessageQueue, Message, MessagePriority, SimplePubSub
@@ -104,7 +107,7 @@ def normalize_data(
     is_torch = TORCH_AVAILABLE and torch is not None and isinstance(data, torch.Tensor)
 
     if is_torch:
-        data_np = data.cpu().numpy()
+        data_np = data.cpu().numpy()  # type: ignore[union-attr,unused-ignore]
     else:
         data_np = data
 
@@ -294,7 +297,7 @@ def convert_numpy_for_json(obj: Any) -> Any:
         - np.bool_ -> bool
         - np.integer -> int
         - np.floating -> float
-        - np.ndarray -> list
+        - npt.NDArray[Any] -> list
 
     Example:
         >>> import numpy as np

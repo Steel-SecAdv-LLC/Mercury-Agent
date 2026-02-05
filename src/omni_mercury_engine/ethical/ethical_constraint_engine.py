@@ -53,6 +53,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.core.config import ThresholdConfig
 
@@ -149,7 +150,7 @@ class ArchetypalAnalysis:
     dominant_archetype: WisdomArchetype
     archetype_scores: dict[str, float]
     pattern_strength: float
-    alignment_vector: np.ndarray
+    alignment_vector: npt.NDArray[Any]
     recommendations: list[str] = field(default_factory=list)
 
 

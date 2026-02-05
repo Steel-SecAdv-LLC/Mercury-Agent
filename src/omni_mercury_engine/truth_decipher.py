@@ -47,6 +47,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 
 from omni_mercury_engine.agentic.agentic_autonomy import AgenticAutonomy
