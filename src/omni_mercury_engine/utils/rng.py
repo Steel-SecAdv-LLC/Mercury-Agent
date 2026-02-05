@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Internal Random Number Generator Utility for Test Determinism
 
@@ -41,7 +40,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-
 if TYPE_CHECKING:
     from collections.abc import Generator
 
@@ -51,7 +49,7 @@ try:
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None  # type: ignore[assignment]
+    torch = None
     TORCH_AVAILABLE = False
 
 
