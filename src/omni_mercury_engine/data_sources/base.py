@@ -39,6 +39,7 @@ from typing import Any, TypeVar
 
 import httpx
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker, CircuitState
 
@@ -195,7 +196,7 @@ class DataPoint:
             metadata=data.get("metadata", {}),
         )
 
-    def to_feature_vector(self, feature_dim: int = 32) -> np.ndarray:
+    def to_feature_vector(self, feature_dim: int = 32) -> npt.NDArray[Any]:
         """Convert DataPoint to a feature vector for ML processing.
 
         Creates a numerical representation suitable for fusion network input.

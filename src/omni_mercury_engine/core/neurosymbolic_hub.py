@@ -28,6 +28,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from scipy.optimize import minimize
 
 # P2-P3 Integration: Import centralized constants and domain modules
@@ -434,7 +435,7 @@ class NeuralEncoder:
             self.weights = None
             self.bias = 0.0
 
-    def encode(self, X: np.ndarray) -> np.ndarray:
+    def encode(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Encode input to anomaly scores.
 
@@ -469,7 +470,7 @@ class NeuralEncoder:
 
             return score
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> NeuralEncoder:
+    def fit(self, X: npt.NDArray[Any], y: npt.NDArray[Any] | None = None) -> NeuralEncoder:
         """Fit encoder (placeholder for training)."""
         self._fitted = True
 
@@ -805,8 +806,8 @@ class NeuroSymbolicHub:
 
     def fit(
         self,
-        X: np.ndarray,
-        y: np.ndarray | None = None,
+        X: npt.NDArray[Any],
+        y: npt.NDArray[Any] | None = None,
         validation_split: float = 0.2,
     ) -> NeuroSymbolicHub:
         """
@@ -850,7 +851,7 @@ class NeuroSymbolicHub:
 
         return self
 
-    def _setup_calibration(self, scores: np.ndarray, labels: np.ndarray) -> None:
+    def _setup_calibration(self, scores: npt.NDArray[Any], labels: npt.NDArray[Any]) -> None:
         """Set up Platt scaling calibration."""
         try:
             from omni_mercury_engine.core.calibration import PlattScaling
@@ -862,7 +863,7 @@ class NeuroSymbolicHub:
             # Simple sigmoid calibration fallback
             self._calibrator = None
 
-    def _learn_fusion_weights(self, X: np.ndarray, y: np.ndarray) -> None:
+    def _learn_fusion_weights(self, X: npt.NDArray[Any], y: npt.NDArray[Any]) -> None:
         """Learn optimal fusion weights."""
         # Get neural scores
         neural_scores = self.neural_encoder.encode(X)
@@ -887,7 +888,7 @@ class NeuroSymbolicHub:
 
         elif self.fusion_mode in [FusionMode.BMA, FusionMode.ADAPTIVE]:
             # Optimize weights using cross-entropy loss
-            def objective(w: np.ndarray) -> float:
+            def objective(w: npt.NDArray[Any]) -> float:
                 w = np.abs(w)
                 w = w / (np.sum(w) + 1e-10)
 
@@ -908,7 +909,7 @@ class NeuroSymbolicHub:
 
     def predict(
         self,
-        X: np.ndarray,
+        X: npt.NDArray[Any],
         context: dict[str, Any] | None = None,
         return_explanations: bool = True,
     ) -> list[ExplainableOutput]:
@@ -1170,7 +1171,7 @@ class NeuroSymbolicHub:
 
         return results
 
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+    def predict_proba(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Get anomaly probabilities (for sklearn compatibility)."""
         results = self.predict(X, return_explanations=False)
         scores = np.array([r.anomaly_score for r in results])

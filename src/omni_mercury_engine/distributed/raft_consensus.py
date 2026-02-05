@@ -323,7 +323,7 @@ class MessageTransport:
         """Send append entries to peer."""
         raise NotImplementedError
 
-    def register_handler(self, message_type: str, handler: Callable) -> None:
+    def register_handler(self, message_type: str, handler: Callable[..., Any]) -> None:
         """Register message handler."""
         self._message_handlers[message_type] = handler
 
@@ -518,7 +518,7 @@ class RaftNode:
             )
             await self._log.append(entry)
 
-            future: asyncio.Future = asyncio.Future()
+            future: asyncio.Future[Any] = asyncio.Future()
             self._pending_commands[index] = future
 
         self._replication_task = asyncio.create_task(self._replicate_entries())

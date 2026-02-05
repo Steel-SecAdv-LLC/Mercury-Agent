@@ -74,6 +74,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -244,7 +245,7 @@ class ClickAnalysis:
     dead_clicks: int
     double_click_rate: float
     click_accuracy: float
-    click_density_map: np.ndarray
+    click_density_map: npt.NDArray[Any]
     click_timing_stats: dict[str, float]
 
 
@@ -705,7 +706,7 @@ class UIUXAnomalyDetector(BaseDetector):
         # Reference statistics
         self._reference_timing_mean: float = 0.0
         self._reference_timing_std: float = 1.0
-        self._reference_click_density: np.ndarray | None = None
+        self._reference_click_density: npt.NDArray[Any] | None = None
         self._reference_scroll_velocity: float = 500.0
         self._reference_session_duration: float = 300.0
         self._page_transition_probs: dict[str, dict[str, float]] = {}
@@ -950,7 +951,7 @@ class UIUXAnomalyDetector(BaseDetector):
 
     def _detect_from_features(
         self,
-        features: np.ndarray | torch.Tensor,
+        features: npt.NDArray[Any] | torch.Tensor,
     ) -> dict[str, Any]:
         """Detect from pre-computed features (for ML fusion).
 
@@ -1008,7 +1009,7 @@ class UIUXAnomalyDetector(BaseDetector):
     def _extract_interaction_features(
         self,
         interactions: list[UserInteraction],
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Extract numerical features from interactions.
 
         Args:
@@ -1928,7 +1929,7 @@ def compute_click_heatmap(
     width: int = 1920,
     height: int = 1080,
     grid_size: int = 20,
-) -> np.ndarray:
+) -> npt.NDArray[Any]:
     """Compute click density heatmap.
 
     Args:

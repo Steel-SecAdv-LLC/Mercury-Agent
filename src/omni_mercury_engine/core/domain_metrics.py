@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
@@ -169,12 +170,12 @@ class MetricsCalculator:
 
     def compute_all_metrics(
         self,
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
-        y_prob: np.ndarray | None = None,
-        protected_attrs: np.ndarray | None = None,
-        timestamps: np.ndarray | None = None,
-        spatial_weights: np.ndarray | None = None,
+        y_true: npt.NDArray[Any],
+        y_pred: npt.NDArray[Any],
+        y_prob: npt.NDArray[Any] | None = None,
+        protected_attrs: npt.NDArray[Any] | None = None,
+        timestamps: npt.NDArray[Any] | None = None,
+        spatial_weights: npt.NDArray[Any] | None = None,
     ) -> ComprehensiveMetrics:
         """
         Compute comprehensive metrics suite.
@@ -222,9 +223,9 @@ class MetricsCalculator:
     def _compute_classification_metrics(
         self,
         metrics: ComprehensiveMetrics,
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
-        y_prob: np.ndarray | None,
+        y_true: npt.NDArray[Any],
+        y_pred: npt.NDArray[Any],
+        y_prob: npt.NDArray[Any] | None,
     ) -> None:
         """Compute standard classification metrics."""
         try:
@@ -243,8 +244,8 @@ class MetricsCalculator:
     def _compute_event_metrics(
         self,
         metrics: ComprehensiveMetrics,
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
+        y_true: npt.NDArray[Any],
+        y_pred: npt.NDArray[Any],
     ) -> None:
         """Compute event-based metrics for time series data."""
         # Extract events
@@ -305,7 +306,7 @@ class MetricsCalculator:
             metrics.pa_recall = float(recall_score(y_true, y_pred_adjusted, zero_division=0))
             metrics.pa_f1 = float(f1_score(y_true, y_pred_adjusted, zero_division=0))
 
-    def _extract_events(self, labels: np.ndarray) -> list[tuple[int, int]]:
+    def _extract_events(self, labels: npt.NDArray[Any]) -> list[tuple[int, int]]:
         """Extract contiguous events from binary labels."""
         events = []
         in_event = False
@@ -324,7 +325,7 @@ class MetricsCalculator:
 
         return events
 
-    def _point_adjust(self, y_true: np.ndarray, y_pred: np.ndarray) -> np.ndarray:
+    def _point_adjust(self, y_true: npt.NDArray[Any], y_pred: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Apply point-adjustment to predictions."""
         y_adjusted = y_pred.copy()
         true_events = self._extract_events(y_true)
@@ -338,8 +339,8 @@ class MetricsCalculator:
     def _compute_calibration_metrics(
         self,
         metrics: ComprehensiveMetrics,
-        y_true: np.ndarray,
-        y_prob: np.ndarray,
+        y_true: npt.NDArray[Any],
+        y_prob: npt.NDArray[Any],
     ) -> None:
         """Compute calibration metrics."""
         try:
@@ -355,7 +356,7 @@ class MetricsCalculator:
         except Exception as e:
             logger.warning(f"Calibration metrics computation failed: {e}")
 
-    def _compute_ece(self, y_true: np.ndarray, y_prob: np.ndarray) -> float:
+    def _compute_ece(self, y_true: npt.NDArray[Any], y_prob: npt.NDArray[Any]) -> float:
         """Compute Expected Calibration Error."""
         bin_edges = np.linspace(0, 1, self.n_calibration_bins + 1)
         ece = 0.0
@@ -373,7 +374,7 @@ class MetricsCalculator:
 
         return float(ece)
 
-    def _compute_mce(self, y_true: np.ndarray, y_prob: np.ndarray) -> float:
+    def _compute_mce(self, y_true: npt.NDArray[Any], y_prob: npt.NDArray[Any]) -> float:
         """Compute Maximum Calibration Error."""
         bin_edges = np.linspace(0, 1, self.n_calibration_bins + 1)
         mce = 0.0
@@ -393,9 +394,9 @@ class MetricsCalculator:
     def _compute_fairness_metrics(
         self,
         metrics: ComprehensiveMetrics,
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
-        protected_attrs: np.ndarray,
+        y_true: npt.NDArray[Any],
+        y_pred: npt.NDArray[Any],
+        protected_attrs: npt.NDArray[Any],
     ) -> None:
         """Compute fairness metrics."""
         try:
@@ -448,8 +449,8 @@ class MetricsCalculator:
     def _compute_spatial_metrics(
         self,
         metrics: ComprehensiveMetrics,
-        scores: np.ndarray,
-        weights: np.ndarray,
+        scores: npt.NDArray[Any],
+        weights: npt.NDArray[Any],
     ) -> None:
         """Compute spatial autocorrelation metrics."""
         try:
@@ -483,9 +484,9 @@ class MetricsCalculator:
     def _compute_benevolence_metrics(
         self,
         metrics: ComprehensiveMetrics,
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
-        y_prob: np.ndarray | None,
+        y_true: npt.NDArray[Any],
+        y_pred: npt.NDArray[Any],
+        y_prob: npt.NDArray[Any] | None,
     ) -> None:
         """Compute benevolence and ethical metrics."""
         try:
@@ -561,9 +562,9 @@ class DomainSpecificMetrics:
 
     @staticmethod
     def compute_temporal_metrics(
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
-        timestamps: np.ndarray | None = None,
+        y_true: npt.NDArray[Any],
+        y_pred: npt.NDArray[Any],
+        timestamps: npt.NDArray[Any] | None = None,
     ) -> dict[str, float]:
         """Compute temporal domain metrics."""
         calculator = MetricsCalculator()
@@ -579,9 +580,9 @@ class DomainSpecificMetrics:
 
     @staticmethod
     def compute_statistical_metrics(
-        y_true: np.ndarray,
-        y_pred: np.ndarray,
-        y_prob: np.ndarray | None = None,
+        y_true: npt.NDArray[Any],
+        y_pred: npt.NDArray[Any],
+        y_prob: npt.NDArray[Any] | None = None,
     ) -> dict[str, float]:
         """Compute statistical domain metrics."""
         calculator = MetricsCalculator()
@@ -597,8 +598,8 @@ class DomainSpecificMetrics:
 
     @staticmethod
     def compute_spatial_metrics(
-        scores: np.ndarray,
-        spatial_weights: np.ndarray,
+        scores: npt.NDArray[Any],
+        spatial_weights: npt.NDArray[Any],
     ) -> dict[str, float]:
         """Compute spatial domain metrics."""
         calculator = MetricsCalculator()
@@ -622,8 +623,8 @@ class DomainSpecificMetrics:
 
     @staticmethod
     def compute_graph_metrics(
-        node_scores: np.ndarray,
-        adjacency_matrix: np.ndarray,
+        node_scores: npt.NDArray[Any],
+        adjacency_matrix: npt.NDArray[Any],
     ) -> dict[str, float]:
         """Compute graph domain metrics."""
         # Use adjacency as spatial weights
@@ -631,9 +632,9 @@ class DomainSpecificMetrics:
 
 
 def compute_benchmark_metrics(
-    y_true: np.ndarray,
-    y_pred: np.ndarray,
-    y_prob: np.ndarray | None = None,
+    y_true: npt.NDArray[Any],
+    y_pred: npt.NDArray[Any],
+    y_prob: npt.NDArray[Any] | None = None,
     domain: str = "general",
     **kwargs: Any,
 ) -> ComprehensiveMetrics:

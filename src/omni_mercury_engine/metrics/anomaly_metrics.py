@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from scipy.ndimage import label as connected_components
 
 from omni_mercury_engine.core.config import ThresholdConfig

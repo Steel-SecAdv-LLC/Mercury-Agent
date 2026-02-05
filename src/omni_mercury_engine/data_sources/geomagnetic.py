@@ -38,6 +38,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.data_sources.base import (
     AlertLevel,
@@ -743,7 +744,7 @@ class BGSELFStationSource(DataSourceBase):
 
     def _welch_power_estimate(
         self,
-        signal: np.ndarray,
+        signal: npt.NDArray[Any],
         fs: float,
         target_freq: float,
         window_size: int = 256,
@@ -788,7 +789,7 @@ class BGSELFStationSource(DataSourceBase):
 
     def _extract_schumann_resonances(
         self,
-        signal: np.ndarray,
+        signal: npt.NDArray[Any],
         fs: float = 100.0,
     ) -> dict[str, float]:
         """Extract Schumann resonance power from ELF signal.

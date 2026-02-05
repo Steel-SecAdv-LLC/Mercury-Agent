@@ -38,6 +38,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.utils.constants import OmniCodes
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
@@ -64,7 +65,7 @@ class Universe:
     """Represents a parallel universe (solution pathway)."""
 
     universe_id: str
-    state_vector: np.ndarray
+    state_vector: npt.NDArray[Any]
     probability_amplitude: float
     fitness: float
     state: UniverseState

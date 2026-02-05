@@ -52,6 +52,7 @@ from enum import StrEnum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi

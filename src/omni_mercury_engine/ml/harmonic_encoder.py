@@ -28,6 +28,7 @@ Provides frequency-domain feature extraction for anomaly detection.
 
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from scipy.fft import fft, ifft
 from torch import nn
@@ -37,7 +38,7 @@ from torch import nn
 try:
     from scipy.special import sph_harm_y
 
-    def _sph_harm(m: int, n: int, theta: np.ndarray, phi: np.ndarray) -> np.ndarray:
+    def _sph_harm(m: int, n: int, theta: npt.NDArray[Any], phi: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Wrapper for spherical harmonics using new scipy API."""
         return sph_harm_y(n, m, theta, phi)
 

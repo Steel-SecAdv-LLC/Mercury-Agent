@@ -39,6 +39,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 import numpy as np
+import numpy.typing as npt
 
 
 class AgentState(Enum):

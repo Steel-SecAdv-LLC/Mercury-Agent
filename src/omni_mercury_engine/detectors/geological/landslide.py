@@ -53,6 +53,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from scipy import signal
 from sklearn.ensemble import RandomForestClassifier

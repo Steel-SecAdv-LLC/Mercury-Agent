@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.quantum_computing.circuits import (
     AnomalyEncodingCircuit,
@@ -35,8 +36,8 @@ logger = logging.getLogger(__name__)
 class QuantumDetectionResult:
     """Result of quantum anomaly detection."""
 
-    anomaly_scores: np.ndarray
-    predictions: np.ndarray
+    anomaly_scores: npt.NDArray[Any]
+    predictions: npt.NDArray[Any]
     threshold: float
     method: str
     quantum_metrics: dict[str, float] = field(default_factory=dict)
@@ -126,8 +127,8 @@ class QuantumAnomalyDetector:
 
     def fit(
         self,
-        X_train: np.ndarray,
-        y_train: np.ndarray | None = None,
+        X_train: npt.NDArray[Any],
+        y_train: npt.NDArray[Any] | None = None,
         method: str = "quantum_kernel",
         num_qubits: int | None = None,
         **kwargs: Any,
@@ -164,7 +165,7 @@ class QuantumAnomalyDetector:
 
     def detect(
         self,
-        data: np.ndarray,
+        data: npt.NDArray[Any],
         method: str | None = None,
         classical_fallback: bool = True,
         threshold: float | None = None,
@@ -293,7 +294,7 @@ class QuantumAnomalyDetector:
             recommendations=recommendations,
         )
 
-    def _normalize_data(self, X: np.ndarray) -> np.ndarray:
+    def _normalize_data(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Normalize data to [0, 1] range."""
         if X.ndim == 1:
             X = X.reshape(-1, 1)
@@ -306,8 +307,8 @@ class QuantumAnomalyDetector:
 
     def _fit_quantum_kernel(
         self,
-        X_train: np.ndarray,
-        y_train: np.ndarray | None,
+        X_train: npt.NDArray[Any],
+        y_train: npt.NDArray[Any] | None,
         **kwargs: Any,
     ) -> Any:
         """Fit quantum kernel model."""
@@ -323,7 +324,7 @@ class QuantumAnomalyDetector:
         predict_fn = kernel.fit_svm(X_train, y_train)
         return {"kernel": kernel, "predict": predict_fn, "X_train": X_train}
 
-    def _fit_vqe(self, X_train: np.ndarray, **kwargs: Any) -> VQEAnomalyDetector:
+    def _fit_vqe(self, X_train: npt.NDArray[Any], **kwargs: Any) -> VQEAnomalyDetector:
         """Fit VQE anomaly detector."""
         detector = VQEAnomalyDetector(
             self._num_qubits,
@@ -334,7 +335,7 @@ class QuantumAnomalyDetector:
         detector.fit(X_train, maxiter=kwargs.get("maxiter", 50))
         return detector
 
-    def _fit_qaoa(self, X_train: np.ndarray, **kwargs: Any) -> QAOAAnomalyDetector:
+    def _fit_qaoa(self, X_train: npt.NDArray[Any], **kwargs: Any) -> QAOAAnomalyDetector:
         """Fit QAOA anomaly detector."""
         adjacency = self._compute_similarity_matrix(X_train)
 
@@ -346,7 +347,7 @@ class QuantumAnomalyDetector:
         detector.fit(adjacency, maxiter=kwargs.get("maxiter", 50))
         return detector
 
-    def _compute_similarity_matrix(self, X: np.ndarray) -> np.ndarray:
+    def _compute_similarity_matrix(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Compute similarity matrix for QAOA."""
         n = min(X.shape[0], self._num_qubits)
         X_subset = X[:n]
@@ -361,7 +362,7 @@ class QuantumAnomalyDetector:
 
         return similarity
 
-    def _detect_quantum_kernel(self, X: np.ndarray) -> np.ndarray:
+    def _detect_quantum_kernel(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Detect using quantum kernel."""
         model = self._trained_model
         kernel = model["kernel"]
@@ -372,15 +373,15 @@ class QuantumAnomalyDetector:
         scores = 1 - np.max(K, axis=1)
         return scores
 
-    def _detect_vqe(self, X: np.ndarray) -> np.ndarray:
+    def _detect_vqe(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Detect using VQE."""
         return self._trained_model.score(X)
 
-    def _detect_qaoa(self, X: np.ndarray) -> np.ndarray:
+    def _detect_qaoa(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Detect using QAOA."""
         return self._trained_model.score(X)
 
-    def _detect_amplitude_estimation(self, X: np.ndarray) -> np.ndarray:
+    def _detect_amplitude_estimation(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Detect using amplitude estimation.
 
@@ -414,7 +415,7 @@ class QuantumAnomalyDetector:
 
     def _classical_detection(
         self,
-        X: np.ndarray,
+        X: npt.NDArray[Any],
         threshold: float,
     ) -> QuantumDetectionResult:
         """Classical fallback detection using statistical methods."""

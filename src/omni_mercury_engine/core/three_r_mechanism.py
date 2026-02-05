@@ -44,6 +44,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 from scipy import fft, optimize, signal
 
 from omni_mercury_engine.core.ai_ethics import EthicalAutonomyGovernor, EthicsConfig
@@ -410,14 +411,14 @@ class _LegacyAAFEWeightOptimizer:
         else:
             self.initial_weights = np.array([1 / 3, 1 / 3, 1 / 3])
 
-        self.optimized_weights: np.ndarray | None = None
+        self.optimized_weights: npt.NDArray[Any] | None = None
         self.optimization_history: list[dict[str, Any]] = []
 
     def _compute_aafe_scores(
         self,
-        weights: np.ndarray,
-        X: np.ndarray,
-    ) -> np.ndarray:
+        weights: npt.NDArray[Any],
+        X: npt.NDArray[Any],
+    ) -> npt.NDArray[Any]:
         """Compute AAFE scores for given weights and input data.
 
         Args:
@@ -434,9 +435,9 @@ class _LegacyAAFEWeightOptimizer:
 
     def _objective_function(
         self,
-        weights: np.ndarray,
-        X: np.ndarray,
-        y: np.ndarray,
+        weights: npt.NDArray[Any],
+        X: npt.NDArray[Any],
+        y: npt.NDArray[Any],
         threshold: float = 0.5,
     ) -> float:
         """Objective function to minimize (negative F1 score).

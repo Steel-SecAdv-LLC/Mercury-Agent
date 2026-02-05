@@ -46,6 +46,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -74,9 +75,9 @@ class ModalityInput:
     modality_type: str  # "vlm" or "visual"
     detector_name: str
     features: torch.Tensor | None = None  # [N, D]
-    scores: np.ndarray | None = None  # [N]
-    predictions: np.ndarray | None = None  # [N] binary
-    confidence: np.ndarray | None = None  # [N] [0, 1]
+    scores: npt.NDArray[Any] | None = None  # [N]
+    predictions: npt.NDArray[Any] | None = None  # [N] binary
+    confidence: npt.NDArray[Any] | None = None  # [N] [0, 1]
     anomaly_maps: torch.Tensor | None = None  # [N, H, W] for visual
     explanations: list[str] | None = None  # For VLM
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -86,12 +87,12 @@ class ModalityInput:
 class FusionResult:
     """Result of multi-modal fusion."""
 
-    fused_scores: np.ndarray  # [N] final anomaly scores
-    fused_predictions: np.ndarray  # [N] binary predictions
+    fused_scores: npt.NDArray[Any]  # [N] final anomaly scores
+    fused_predictions: npt.NDArray[Any]  # [N] binary predictions
     fused_features: torch.Tensor | None = None  # [N, D_fused]
     fused_anomaly_maps: torch.Tensor | None = None  # [N, H, W]
     modality_weights: dict[str, float] = field(default_factory=dict)
-    confidence: np.ndarray | None = None
+    confidence: npt.NDArray[Any] | None = None
     explanation: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 

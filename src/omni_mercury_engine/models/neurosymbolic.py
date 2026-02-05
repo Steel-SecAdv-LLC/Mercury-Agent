@@ -63,6 +63,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.utils.constants import OmniCodes
 

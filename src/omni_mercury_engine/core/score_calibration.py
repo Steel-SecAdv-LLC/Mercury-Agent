@@ -29,6 +29,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 # P2: Import from centralized constants

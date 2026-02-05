@@ -38,6 +38,7 @@ from datetime import datetime
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -47,7 +48,7 @@ class ClientModel:
     """Client model in federated learning."""
 
     client_id: str
-    model_weights: np.ndarray
+    model_weights: npt.NDArray[Any]
     num_samples: int
     loss: float
     timestamp: datetime = field(default_factory=datetime.now)
@@ -58,7 +59,7 @@ class GlobalModel:
     """Global aggregated model."""
 
     round_number: int
-    weights: np.ndarray
+    weights: npt.NDArray[Any]
     participating_clients: int
     aggregated_loss: float
     timestamp: datetime = field(default_factory=datetime.now)

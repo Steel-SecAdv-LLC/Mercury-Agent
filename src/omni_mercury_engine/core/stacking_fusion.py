@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 import numpy as np
+import numpy.typing as npt
 from scipy.optimize import minimize
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_predict
@@ -38,19 +39,19 @@ SIGMA_IMMUTABLE_DEFAULT = 0.96
 class BaseDetector(Protocol):
     """Protocol for base detectors in ensemble."""
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> None: ...
+    def fit(self, X: npt.NDArray[Any], y: npt.NDArray[Any]) -> None: ...
 
-    def predict(self, X: np.ndarray) -> np.ndarray: ...
+    def predict(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]: ...
 
-    def predict_proba(self, X: np.ndarray) -> np.ndarray: ...
+    def predict_proba(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]: ...
 
 
 @dataclass
 class FusionResult:
     """Result of ensemble fusion."""
 
-    predictions: np.ndarray
-    probabilities: np.ndarray
+    predictions: npt.NDArray[Any]
+    probabilities: npt.NDArray[Any]
     detector_weights: dict[str, float]
     fusion_method: str
     ethical_gate_passed: bool
@@ -62,10 +63,10 @@ class FusionResult:
 class BayesianWeights:
     """Bayesian model weights with uncertainty."""
 
-    weights: np.ndarray
-    posterior_probs: np.ndarray
-    weight_uncertainty: np.ndarray  # Standard deviation of weights
-    bic_scores: np.ndarray  # BIC for each model
+    weights: npt.NDArray[Any]
+    posterior_probs: npt.NDArray[Any]
+    weight_uncertainty: npt.NDArray[Any]  # Standard deviation of weights
+    bic_scores: npt.NDArray[Any]  # BIC for each model
 
 
 class StackingFusion:
@@ -130,7 +131,7 @@ class StackingFusion:
         self.detector_names.append(name)
         return self
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> StackingFusion:
+    def fit(self, X: npt.NDArray[Any], y: npt.NDArray[Any]) -> StackingFusion:
         """
         Fit stacking ensemble.
 
@@ -209,7 +210,7 @@ class StackingFusion:
         )
         return self
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Predict using stacking ensemble.
 
@@ -225,7 +226,7 @@ class StackingFusion:
         meta_X = self._get_meta_features(X)
         return self.meta_learner.predict(meta_X)
 
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+    def predict_proba(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Predict probabilities using stacking ensemble.
 
@@ -245,7 +246,7 @@ class StackingFusion:
             # Meta-learner doesn't support proba
             return self.meta_learner.predict(meta_X).astype(float)
 
-    def _get_meta_features(self, X: np.ndarray) -> np.ndarray:
+    def _get_meta_features(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Get meta-features from base detectors."""
         meta_features = []
 
@@ -345,7 +346,7 @@ class BayesianModelAveraging:
         self.detectors[name] = detector
         return self
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> BayesianModelAveraging:
+    def fit(self, X: npt.NDArray[Any], y: npt.NDArray[Any]) -> BayesianModelAveraging:
         """
         Fit BMA ensemble and compute posterior weights.
 
@@ -458,12 +459,12 @@ class BayesianModelAveraging:
         )
         return self
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Predict using BMA weighted average."""
         proba = self.predict_proba(X)
         return (proba > 0.5).astype(int)
 
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+    def predict_proba(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Predict probabilities using BMA weighted average.
 
@@ -536,7 +537,7 @@ class EthicallyConstrainedFusion:
         self.use_golden_ratio = use_golden_ratio
 
         self.detectors: dict[str, Any] = {}
-        self.weights: np.ndarray | None = None
+        self.weights: npt.NDArray[Any] | None = None
         self.ethical_scores: dict[str, float] = {}
         self._fitted = False
 
@@ -558,7 +559,7 @@ class EthicallyConstrainedFusion:
         self.ethical_scores[name] = ethical_score
         return self
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> EthicallyConstrainedFusion:
+    def fit(self, X: npt.NDArray[Any], y: npt.NDArray[Any]) -> EthicallyConstrainedFusion:
         """
         Fit fusion with ethical constraints.
 
@@ -600,7 +601,7 @@ class EthicallyConstrainedFusion:
         ethical_vec = np.array([self.ethical_scores[name] for name in self.detectors])
 
         # Optimize weights with ethical constraints
-        def objective(w: np.ndarray) -> float:
+        def objective(w: npt.NDArray[Any]) -> float:
             # Normalize weights
             w = np.abs(w)
             w = w / (np.sum(w) + 1e-10)
@@ -653,7 +654,7 @@ class EthicallyConstrainedFusion:
 
         return self
 
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+    def predict_proba(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Predict with ethically-weighted fusion."""
         if not self._fitted or self.weights is None:
             raise RuntimeError("Must call fit() before predict_proba()")
@@ -676,7 +677,7 @@ class EthicallyConstrainedFusion:
 
         return weighted_sum
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Predict binary labels."""
         return (self.predict_proba(X) > 0.5).astype(int)
 

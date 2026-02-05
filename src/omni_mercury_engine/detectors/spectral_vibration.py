@@ -46,6 +46,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from scipy import (
     signal as scipy_signal,
@@ -172,9 +173,9 @@ class SpectralFeatures:
         schumann_alignment: Alignment with Schumann frequencies
     """
 
-    power_spectrum: np.ndarray
+    power_spectrum: npt.NDArray[Any]
     dominant_frequencies: list[tuple[float, float]]  # (freq, amplitude)
-    harmonic_ratios: np.ndarray
+    harmonic_ratios: npt.NDArray[Any]
     spectral_centroid: float
     spectral_bandwidth: float
     spectral_rolloff: float
@@ -182,8 +183,8 @@ class SpectralFeatures:
     crest_factor: float
     kurtosis: float
     phonon_coupling: float
-    graph_laplacian_spectrum: np.ndarray
-    cnn_features: np.ndarray
+    graph_laplacian_spectrum: npt.NDArray[Any]
+    cnn_features: npt.NDArray[Any]
     schumann_alignment: float
 
 
@@ -844,15 +845,15 @@ class SpectralVibrationDetector(BaseDetector):
         self._init_networks()
 
         # Reference statistics for anomaly detection
-        self._reference_spectrum: np.ndarray | None = None
+        self._reference_spectrum: npt.NDArray[Any] | None = None
         self._reference_features: SpectralFeatures | None = None
-        self._reference_mean: np.ndarray | None = None
-        self._reference_std: np.ndarray | None = None
-        self._reference_features_mean: np.ndarray | None = None
-        self._reference_features_std: np.ndarray | None = None
+        self._reference_mean: npt.NDArray[Any] | None = None
+        self._reference_std: npt.NDArray[Any] | None = None
+        self._reference_features_mean: npt.NDArray[Any] | None = None
+        self._reference_features_std: npt.NDArray[Any] | None = None
 
         # Vibration signature database
-        self._signature_database: dict[VibrationSignatureType, list[np.ndarray]] = {
+        self._signature_database: dict[VibrationSignatureType, list[npt.NDArray[Any]]] = {
             sig_type: [] for sig_type in VibrationSignatureType
         }
 
@@ -898,7 +899,7 @@ class SpectralVibrationDetector(BaseDetector):
 
     def fit(
         self,
-        data: np.ndarray | torch.Tensor,
+        data: npt.NDArray[Any] | torch.Tensor,
         signature_type: VibrationSignatureType = VibrationSignatureType.NORMAL,
     ) -> SpectralVibrationDetector:
         """Fit detector on reference/training data.
@@ -956,7 +957,7 @@ class SpectralVibrationDetector(BaseDetector):
 
         return self
 
-    def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
+    def detect(self, data: npt.NDArray[Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies in spectral vibration data.
 
         Args:
@@ -1032,7 +1033,7 @@ class SpectralVibrationDetector(BaseDetector):
             "calibration_diagnostics": calibration_diagnostics,
         }
 
-    def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
+    def extract_features(self, data: npt.NDArray[Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion.
 
         Args:
@@ -1097,7 +1098,7 @@ class SpectralVibrationDetector(BaseDetector):
 
         return torch.tensor(np.array(all_features), dtype=torch.float32)
 
-    def _compute_power_spectrum(self, signal: np.ndarray) -> np.ndarray:
+    def _compute_power_spectrum(self, signal: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Compute power spectral density.
 
         Args:
@@ -1131,7 +1132,7 @@ class SpectralVibrationDetector(BaseDetector):
         spectrum = np.abs(fft(signal)[: cfg.fft_size // 2]) ** 2
         return spectrum
 
-    def _extract_spectral_features(self, signal: np.ndarray) -> SpectralFeatures:
+    def _extract_spectral_features(self, signal: npt.NDArray[Any]) -> SpectralFeatures:
         """Extract comprehensive spectral features.
 
         Args:
@@ -1213,7 +1214,7 @@ class SpectralVibrationDetector(BaseDetector):
     def _compute_harmonic_ratios(
         self,
         dominant_frequencies: list[tuple[float, float]],
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Compute ratios between harmonic components.
 
         Args:
@@ -1240,7 +1241,7 @@ class SpectralVibrationDetector(BaseDetector):
 
         return np.array(ratios[: self._spectral_config.num_harmonics - 1])
 
-    def _compute_phonon_coupling(self, spectrum: np.ndarray) -> float:
+    def _compute_phonon_coupling(self, spectrum: npt.NDArray[Any]) -> float:
         """Compute phonon-like coupling strength.
 
         Args:
@@ -1266,7 +1267,7 @@ class SpectralVibrationDetector(BaseDetector):
 
             return float(result["anharmonic_score"].cpu().numpy())
 
-    def _compute_graph_laplacian_spectrum(self, spectrum: np.ndarray, k: int = 10) -> np.ndarray:
+    def _compute_graph_laplacian_spectrum(self, spectrum: npt.NDArray[Any], k: int = 10) -> npt.NDArray[Any]:
         """Compute eigenvalues of frequency graph Laplacian.
 
         The graph connects frequency bins with weights based on their
@@ -1334,7 +1335,7 @@ class SpectralVibrationDetector(BaseDetector):
 
         return eigenvalues
 
-    def _compute_cnn_features(self, spectrum: np.ndarray) -> np.ndarray:
+    def _compute_cnn_features(self, spectrum: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Extract CNN features from spectrum.
 
         Args:
@@ -1360,8 +1361,8 @@ class SpectralVibrationDetector(BaseDetector):
 
     def _compute_schumann_alignment(
         self,
-        freqs: np.ndarray,
-        spectrum: np.ndarray,
+        freqs: npt.NDArray[Any],
+        spectrum: npt.NDArray[Any],
     ) -> float:
         """Compute alignment with Schumann resonance frequencies.
 
@@ -1451,7 +1452,7 @@ class SpectralVibrationDetector(BaseDetector):
 
         return edge_index, edge_type
 
-    def _features_to_array(self, features: SpectralFeatures) -> np.ndarray:
+    def _features_to_array(self, features: SpectralFeatures) -> npt.NDArray[Any]:
         """Convert SpectralFeatures to flat array.
 
         Args:
@@ -1478,7 +1479,7 @@ class SpectralVibrationDetector(BaseDetector):
 
     def _compute_anomaly_score(
         self,
-        signal: np.ndarray,
+        signal: npt.NDArray[Any],
         features: SpectralFeatures,
     ) -> tuple[float, VibrationDiagnostic]:
         """Compute anomaly score and diagnostic.
@@ -1676,11 +1677,11 @@ class SpectralVibrationDetector(BaseDetector):
 
 
 def compute_short_time_fourier_transform(
-    signal: np.ndarray,
+    signal: npt.NDArray[Any],
     window_size: int = 256,
     hop_size: int = 64,
     window_type: str = "hann",
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[npt.NDArray[Any], np.ndarray, np.ndarray]:
     """Compute Short-Time Fourier Transform (STFT).
 
     Args:
@@ -1717,9 +1718,9 @@ def compute_short_time_fourier_transform(
 
 
 def compute_wavelet_decomposition(
-    signal: np.ndarray,
+    signal: npt.NDArray[Any],
     levels: int = 5,
-) -> list[np.ndarray]:
+) -> list[npt.NDArray[Any]]:
     """Compute Haar wavelet decomposition.
 
     Args:
@@ -1753,8 +1754,8 @@ def compute_wavelet_decomposition(
 
 
 def detect_peaks_with_harmonics(
-    spectrum: np.ndarray,
-    frequencies: np.ndarray,
+    spectrum: npt.NDArray[Any],
+    frequencies: npt.NDArray[Any],
     num_harmonics: int = 5,
     min_prominence: float = 0.1,
 ) -> list[dict[str, Any]]:

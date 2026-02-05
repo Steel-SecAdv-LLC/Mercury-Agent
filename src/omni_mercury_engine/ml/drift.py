@@ -37,6 +37,7 @@ from enum import StrEnum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from scipy import stats
 
 
@@ -117,9 +118,9 @@ class KolmogorovSmirnovDriftDetector:
         """
         self.p_value_threshold = p_value_threshold
         self.correction = correction
-        self.reference_data: np.ndarray | None = None
+        self.reference_data: npt.NDArray[Any] | None = None
 
-    def fit(self, reference_data: np.ndarray) -> KolmogorovSmirnovDriftDetector:
+    def fit(self, reference_data: npt.NDArray[Any]) -> KolmogorovSmirnovDriftDetector:
         """
         Fit the detector with reference (baseline) data.
 
@@ -137,7 +138,7 @@ class KolmogorovSmirnovDriftDetector:
 
     def detect(
         self,
-        current_data: np.ndarray,
+        current_data: npt.NDArray[Any],
         feature_names: list[str] | None = None,
     ) -> DriftResult:
         """
@@ -263,10 +264,10 @@ class PopulationStabilityIndexDetector:
         self.n_bins = n_bins
         self.psi_threshold_low = psi_threshold_low
         self.psi_threshold_high = psi_threshold_high
-        self.reference_data: np.ndarray | None = None
-        self.bin_edges: list[np.ndarray] = []
+        self.reference_data: npt.NDArray[Any] | None = None
+        self.bin_edges: list[npt.NDArray[Any]] = []
 
-    def fit(self, reference_data: np.ndarray) -> PopulationStabilityIndexDetector:
+    def fit(self, reference_data: npt.NDArray[Any]) -> PopulationStabilityIndexDetector:
         """
         Fit the detector with reference data.
 
@@ -291,9 +292,9 @@ class PopulationStabilityIndexDetector:
 
     def _calculate_psi(
         self,
-        reference: np.ndarray,
-        current: np.ndarray,
-        bin_edges: np.ndarray,
+        reference: npt.NDArray[Any],
+        current: npt.NDArray[Any],
+        bin_edges: npt.NDArray[Any],
     ) -> float:
         """Calculate PSI between two distributions."""
         # Compute histograms
@@ -312,7 +313,7 @@ class PopulationStabilityIndexDetector:
 
     def detect(
         self,
-        current_data: np.ndarray,
+        current_data: npt.NDArray[Any],
         feature_names: list[str] | None = None,
     ) -> DriftResult:
         """
@@ -421,10 +422,10 @@ class ChiSquaredDriftDetector:
             p_value_threshold: Significance level for drift detection
         """
         self.p_value_threshold = p_value_threshold
-        self.reference_data: np.ndarray | None = None
+        self.reference_data: npt.NDArray[Any] | None = None
         self.reference_counts: list[dict[Any, int]] = []
 
-    def fit(self, reference_data: np.ndarray) -> ChiSquaredDriftDetector:
+    def fit(self, reference_data: npt.NDArray[Any]) -> ChiSquaredDriftDetector:
         """
         Fit the detector with reference data.
 
@@ -451,7 +452,7 @@ class ChiSquaredDriftDetector:
 
     def detect(
         self,
-        current_data: np.ndarray,
+        current_data: npt.NDArray[Any],
         feature_names: list[str] | None = None,
     ) -> DriftResult:
         """
@@ -575,11 +576,11 @@ class OnlineDriftDetector:
         self.max_window_size = max_window_size
         self.min_window_size = min_window_size
         self.significance_level = significance_level
-        self.window: list[np.ndarray] = []
+        self.window: list[npt.NDArray[Any]] = []
         self.drift_detected = False
         self.drift_count = 0
 
-    def update(self, sample: np.ndarray) -> DriftResult | None:
+    def update(self, sample: npt.NDArray[Any]) -> DriftResult | None:
         """
         Update detector with new sample and check for drift.
 
@@ -670,7 +671,7 @@ class EnsembleDriftDetector:
         self.psi_detector = PopulationStabilityIndexDetector(psi_threshold_low=psi_threshold)
         self.is_fitted = False
 
-    def fit(self, reference_data: np.ndarray) -> EnsembleDriftDetector:
+    def fit(self, reference_data: npt.NDArray[Any]) -> EnsembleDriftDetector:
         """
         Fit all detectors with reference data.
 
@@ -688,7 +689,7 @@ class EnsembleDriftDetector:
 
     def detect(
         self,
-        current_data: np.ndarray,
+        current_data: npt.NDArray[Any],
         feature_names: list[str] | None = None,
     ) -> DriftResult:
         """

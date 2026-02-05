@@ -18,6 +18,7 @@ import logging
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 try:
@@ -255,7 +256,7 @@ class SimonsCMAPLoader(DatasetLoader):
             logger.warning(f"Simons CMAP download failed: {e}")
             return self._create_synthetic_ocean()
 
-    def _process_cmap_data(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    def _process_cmap_data(self, df: pd.DataFrame) -> tuple[npt.NDArray[Any], np.ndarray]:
         """Process CMAP query results.
 
         Args:
@@ -739,7 +740,7 @@ class CopernicusSeaLevelLoader(DatasetLoader):
             logger.warning(f"Copernicus CDS download failed: {e}")
             return self._create_synthetic_sea_level()
 
-    def _process_netcdf(self, ds: Any) -> tuple[np.ndarray, np.ndarray]:
+    def _process_netcdf(self, ds: Any) -> tuple[npt.NDArray[Any], np.ndarray]:
         """Process NetCDF sea level data."""
         lats = ds.variables["latitude"][:]
         lons = ds.variables["longitude"][:]
@@ -1032,7 +1033,7 @@ class CopernicusERA5Loader(DatasetLoader):
             logger.warning(f"ERA5 CDS download failed: {e}")
             return self._create_synthetic_era5()
 
-    def _process_era5_netcdf(self, ds: Any) -> tuple[np.ndarray, np.ndarray]:
+    def _process_era5_netcdf(self, ds: Any) -> tuple[npt.NDArray[Any], np.ndarray]:
         """Process NetCDF ERA5 data."""
         lats = ds.variables.get("latitude", ds.variables.get("lat"))[:]
         lons = ds.variables.get("longitude", ds.variables.get("lon"))[:]

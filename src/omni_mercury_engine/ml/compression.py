@@ -47,6 +47,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 import torch.nn.functional as F
 from torch import nn

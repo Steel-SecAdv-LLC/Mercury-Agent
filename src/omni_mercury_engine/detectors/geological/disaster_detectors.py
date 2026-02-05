@@ -51,6 +51,7 @@ from typing import Any
 from urllib.request import Request, urlopen
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from scipy import signal
 from scipy.fft import fft, fftfreq

@@ -16,6 +16,7 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.distributed.raft_consensus import (
     RaftCluster,
@@ -79,7 +80,7 @@ class DistributedTask:
 
     task_id: str
     task_type: str
-    data: np.ndarray | None = None
+    data: npt.NDArray[Any] | None = None
     data_indices: tuple[int, int] | None = None
     parameters: dict[str, Any] = field(default_factory=dict)
     priority: int = 0
@@ -239,7 +240,7 @@ class DataPartitioner:
 
     def partition(
         self,
-        data: np.ndarray,
+        data: npt.NDArray[Any],
         node_ids: list[str],
     ) -> dict[str, tuple[int, int]]:
         """
@@ -406,7 +407,7 @@ class DistributedAnomalyDetector:
         """Register default task handlers."""
 
         def anomaly_detection_handler(
-            data: np.ndarray,
+            data: npt.NDArray[Any],
             parameters: dict[str, Any],
         ) -> dict[str, Any]:
             """Default anomaly detection handler using statistical methods."""
@@ -433,7 +434,7 @@ class DistributedAnomalyDetector:
     def register_handler(
         self,
         task_type: str,
-        handler: Callable[[np.ndarray, dict[str, Any]], dict[str, Any]],
+        handler: Callable[[npt.NDArray[Any], dict[str, Any]], dict[str, Any]],
     ) -> None:
         """Register a task handler."""
         self._task_handlers[task_type] = handler
@@ -454,7 +455,7 @@ class DistributedAnomalyDetector:
 
     async def detect(
         self,
-        data: np.ndarray,
+        data: npt.NDArray[Any],
         task_type: str = "anomaly_detection",
         parameters: dict[str, Any] | None = None,
         timeout: float = 30.0,
@@ -638,7 +639,7 @@ class DistributedMercuryCluster:
 
     async def detect_anomalies(
         self,
-        data: np.ndarray,
+        data: npt.NDArray[Any],
         partition_strategy: str = "hash",
         aggregation: str = "weighted_fusion",
         **kwargs: Any,

@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np  # noqa: TC002
+import numpy.typing as npt
 
 
 try:

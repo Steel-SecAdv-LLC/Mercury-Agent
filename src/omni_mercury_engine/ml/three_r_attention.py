@@ -43,6 +43,7 @@ Reference: three_r_mechanism.py lines 95-327
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -184,7 +185,7 @@ class ThreeRAttentionBlock(nn.Module):
     def init_from_resonance_engine(
         self,
         resonance_engine: ResonanceEngine,
-        training_data: np.ndarray,
+        training_data: npt.NDArray[Any],
     ) -> None:
         """Initialize H(ω) frequencies from actual ResonanceEngine.
 
@@ -500,7 +501,7 @@ class ThreeRAnomalyTransformer(nn.Module):
     def init_from_resonance_engine(
         self,
         resonance_engine: ResonanceEngine,
-        training_data: np.ndarray,
+        training_data: npt.NDArray[Any],
     ) -> None:
         """Initialize all layers from ResonanceEngine frequencies.
 

@@ -46,6 +46,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from scipy.spatial.distance import cdist
 
 
@@ -79,7 +80,7 @@ class MemoryEmbedding:
 
     entry_id: str
     memory_type: MemoryType
-    embedding: np.ndarray
+    embedding: npt.NDArray[Any]
     timestamp: float
     importance: float = 0.5
     cluster_id: int = -1

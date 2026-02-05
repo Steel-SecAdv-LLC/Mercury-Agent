@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from scipy import linalg
 
 
@@ -67,7 +68,7 @@ class StabilityMetrics:
     """Lyapunov stability metrics for consciousness/state analysis."""
 
     largest_lyapunov_exponent: float
-    lyapunov_spectrum: np.ndarray
+    lyapunov_spectrum: npt.NDArray[Any]
     stability_margin: float
     is_stable: bool
     convergence_rate: float
@@ -111,7 +112,7 @@ class EnhancedQuantumModel:
         self._pauli_z = np.array([[1, 0], [0, -1]], dtype=complex)
         self._identity = np.eye(2, dtype=complex)
 
-    def _create_density_matrix(self, data: np.ndarray) -> np.ndarray:
+    def _create_density_matrix(self, data: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Create density matrix from classical data using amplitude encoding.
 
@@ -146,7 +147,7 @@ class EnhancedQuantumModel:
 
         return rho
 
-    def _apply_decoherence(self, rho: np.ndarray) -> np.ndarray:
+    def _apply_decoherence(self, rho: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Apply decoherence channel (amplitude damping + dephasing).
 
@@ -171,7 +172,7 @@ class EnhancedQuantumModel:
 
         return rho_decohered
 
-    def compute_von_neumann_entropy(self, rho: np.ndarray) -> float:
+    def compute_von_neumann_entropy(self, rho: npt.NDArray[Any]) -> float:
         """
         Compute von Neumann entropy: S(ρ) = -Tr(ρ log ρ).
 
@@ -195,7 +196,7 @@ class EnhancedQuantumModel:
 
         return float(np.real(entropy))
 
-    def compute_purity(self, rho: np.ndarray) -> float:
+    def compute_purity(self, rho: npt.NDArray[Any]) -> float:
         """
         Compute purity: γ = Tr(ρ²).
 
@@ -209,7 +210,7 @@ class EnhancedQuantumModel:
         """
         return float(np.real(np.trace(rho @ rho)))
 
-    def compute_coherence(self, rho: np.ndarray) -> float:
+    def compute_coherence(self, rho: npt.NDArray[Any]) -> float:
         """
         Compute l1-norm coherence measure.
 
@@ -225,7 +226,7 @@ class EnhancedQuantumModel:
         np.fill_diagonal(off_diagonal, 0)
         return float(np.sum(np.abs(off_diagonal)))
 
-    def compute_entanglement(self, rho: np.ndarray, subsystem_dim: int = 2) -> float:
+    def compute_entanglement(self, rho: npt.NDArray[Any], subsystem_dim: int = 2) -> float:
         """
         Compute entanglement entropy via partial trace.
 
@@ -258,8 +259,8 @@ class EnhancedQuantumModel:
 
     def quantum_kernel(
         self,
-        x1: np.ndarray,
-        x2: np.ndarray,
+        x1: npt.NDArray[Any],
+        x2: npt.NDArray[Any],
     ) -> float:
         """
         Compute quantum kernel similarity: k(x,y) = |⟨ψ(x)|ψ(y)⟩|².
@@ -280,7 +281,7 @@ class EnhancedQuantumModel:
 
         return float(fidelity**2)
 
-    def extract_features(self, data: np.ndarray) -> np.ndarray:
+    def extract_features(self, data: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Extract quantum-inspired features with enhanced metrics.
 
@@ -325,7 +326,7 @@ class EnhancedQuantumModel:
 
         return np.array(features_list, dtype=np.float32)
 
-    def compute_metrics(self, data: np.ndarray) -> QuantumMetrics:
+    def compute_metrics(self, data: npt.NDArray[Any]) -> QuantumMetrics:
         """
         Compute comprehensive quantum metrics for a sample.
 
@@ -376,9 +377,9 @@ class EnhancedBiometricModel:
 
     def compute_fairness_metrics(
         self,
-        predictions: np.ndarray,
-        labels: np.ndarray,
-        protected_attrs: np.ndarray,
+        predictions: npt.NDArray[Any],
+        labels: npt.NDArray[Any],
+        protected_attrs: npt.NDArray[Any],
     ) -> FairnessMetrics:
         """
         Compute comprehensive fairness metrics.
@@ -430,14 +431,14 @@ class EnhancedBiometricModel:
             disparate_impact_ratio=di_ratio,
         )
 
-    def _compute_tpr(self, predictions: np.ndarray, labels: np.ndarray) -> float:
+    def _compute_tpr(self, predictions: npt.NDArray[Any], labels: npt.NDArray[Any]) -> float:
         """Compute True Positive Rate."""
         positives = labels == 1
         if np.sum(positives) == 0:
             return 0.5
         return float(np.mean(predictions[positives]))
 
-    def _compute_fpr(self, predictions: np.ndarray, labels: np.ndarray) -> float:
+    def _compute_fpr(self, predictions: npt.NDArray[Any], labels: npt.NDArray[Any]) -> float:
         """Compute False Positive Rate."""
         negatives = labels == 0
         if np.sum(negatives) == 0:
@@ -446,8 +447,8 @@ class EnhancedBiometricModel:
 
     def _compute_individual_fairness(
         self,
-        predictions: np.ndarray,
-        protected_attrs: np.ndarray,
+        predictions: npt.NDArray[Any],
+        protected_attrs: npt.NDArray[Any],
     ) -> float:
         """
         Compute individual fairness score.
@@ -477,10 +478,10 @@ class EnhancedBiometricModel:
 
     def apply_fairness_constraint(
         self,
-        scores: np.ndarray,
-        protected_attrs: np.ndarray,
+        scores: npt.NDArray[Any],
+        protected_attrs: npt.NDArray[Any],
         method: str = "threshold_adjustment",
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """
         Apply fairness constraint to scores.
 
@@ -561,7 +562,7 @@ class LyapunovStabilityAnalyzer:
         self.tau = tau
         self.min_neighbors = min_neighbors
 
-    def embed_time_series(self, x: np.ndarray) -> np.ndarray:
+    def embed_time_series(self, x: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Create time-delay embedding of time series.
 
@@ -583,7 +584,7 @@ class LyapunovStabilityAnalyzer:
 
     def compute_largest_lyapunov(
         self,
-        data: np.ndarray,
+        data: npt.NDArray[Any],
         dt: float = 1.0,
     ) -> float:
         """
@@ -646,7 +647,7 @@ class LyapunovStabilityAnalyzer:
 
     def analyze_stability(
         self,
-        data: np.ndarray,
+        data: npt.NDArray[Any],
         dt: float = 1.0,
     ) -> StabilityMetrics:
         """
@@ -725,7 +726,7 @@ class EnhancedAffectiveModel:
 
     def compute_emotional_entropy(
         self,
-        emotion_probs: np.ndarray,
+        emotion_probs: npt.NDArray[Any],
     ) -> float:
         """
         Compute emotional entropy (uncertainty in emotion state).
@@ -752,7 +753,7 @@ class EnhancedAffectiveModel:
 
     def analyze_valence_arousal(
         self,
-        features: np.ndarray,
+        features: npt.NDArray[Any],
     ) -> dict[str, float]:
         """
         Analyze valence-arousal state from features.
@@ -788,7 +789,7 @@ class EnhancedAffectiveModel:
 
     def detect_distress(
         self,
-        temporal_emotions: np.ndarray,
+        temporal_emotions: npt.NDArray[Any],
         threshold: float = 0.7,
     ) -> dict[str, Any]:
         """
@@ -833,7 +834,7 @@ class EnhancedAffectiveModel:
             "sustained_negative_ratio": float(sustained_negative),
         }
 
-    def extract_features(self, data: np.ndarray) -> np.ndarray:
+    def extract_features(self, data: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Extract comprehensive affective features.
 

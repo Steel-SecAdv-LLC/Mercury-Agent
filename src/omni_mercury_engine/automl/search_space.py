@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -276,7 +277,7 @@ class SearchSpace:
 
         return config
 
-    def to_normalized(self, config: dict[str, Any]) -> np.ndarray:
+    def to_normalized(self, config: dict[str, Any]) -> npt.NDArray[Any]:
         """Convert configuration to normalized array."""
         values = []
         for name, param in self.parameters.items():
@@ -286,7 +287,7 @@ class SearchSpace:
                 values.append(0.5)
         return np.array(values)
 
-    def from_normalized(self, normalized: np.ndarray) -> dict[str, Any]:
+    def from_normalized(self, normalized: npt.NDArray[Any]) -> dict[str, Any]:
         """Convert normalized array to configuration."""
         config = {}
         for i, (name, param) in enumerate(self.parameters.items()):

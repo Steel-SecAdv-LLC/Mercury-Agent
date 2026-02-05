@@ -18,6 +18,7 @@ from enum import Enum, auto
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -79,10 +80,10 @@ class FingerprintFeatures:
 
     minutiae: list[Minutia]
     singularities: list[Singularity]
-    orientation_field: np.ndarray
-    ridge_frequency: np.ndarray
-    quality_map: np.ndarray
-    enhanced_image: np.ndarray | None = None
+    orientation_field: npt.NDArray[Any]
+    ridge_frequency: npt.NDArray[Any]
+    quality_map: npt.NDArray[Any]
+    enhanced_image: npt.NDArray[Any] | None = None
     overall_quality: float = 0.0
 
 
@@ -122,7 +123,7 @@ class OrientationFieldEstimator:
         """Initialize the estimator."""
         self._block_size = block_size
 
-    def estimate(self, image: np.ndarray) -> np.ndarray:
+    def estimate(self, image: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Estimate orientation field from fingerprint image.
 
@@ -167,7 +168,7 @@ class OrientationFieldEstimator:
 
         return orientation
 
-    def _convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
+    def _convolve2d(self, image: npt.NDArray[Any], kernel: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """2D convolution."""
         kh, kw = kernel.shape
         pad_h, pad_w = kh // 2, kw // 2
@@ -200,9 +201,9 @@ class RidgeFrequencyEstimator:
 
     def estimate(
         self,
-        image: np.ndarray,
-        orientation: np.ndarray,
-    ) -> np.ndarray:
+        image: npt.NDArray[Any],
+        orientation: npt.NDArray[Any],
+    ) -> npt.NDArray[Any]:
         """
         Estimate ridge frequency from image and orientation.
 
@@ -240,9 +241,9 @@ class RidgeFrequencyEstimator:
 
     def _project_along_direction(
         self,
-        block: np.ndarray,
+        block: npt.NDArray[Any],
         angle: float,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Project block along perpendicular to ridge direction."""
         h, w = block.shape
         projection = np.zeros(w)
@@ -264,7 +265,7 @@ class RidgeFrequencyEstimator:
 
         return projection
 
-    def _estimate_frequency_from_projection(self, projection: np.ndarray) -> float:
+    def _estimate_frequency_from_projection(self, projection: npt.NDArray[Any]) -> float:
         """Estimate frequency from projection profile."""
         projection = projection - np.mean(projection)
 
@@ -307,11 +308,11 @@ class GaborEnhancer:
 
     def enhance(
         self,
-        image: np.ndarray,
-        orientation: np.ndarray,
-        frequency: np.ndarray,
-        quality_mask: np.ndarray | None = None,
-    ) -> np.ndarray:
+        image: npt.NDArray[Any],
+        orientation: npt.NDArray[Any],
+        frequency: npt.NDArray[Any],
+        quality_mask: npt.NDArray[Any] | None = None,
+    ) -> npt.NDArray[Any]:
         """
         Enhance fingerprint image using Gabor filters.
 
@@ -371,7 +372,7 @@ class GaborEnhancer:
         enhanced = (enhanced - enhanced.min()) / (enhanced.max() - enhanced.min() + 1e-8)
         return enhanced
 
-    def _get_gabor_filter(self, angle: float, frequency: float) -> np.ndarray:
+    def _get_gabor_filter(self, angle: float, frequency: float) -> npt.NDArray[Any]:
         """Get or create Gabor filter for given parameters."""
         key = (round(angle, 2), round(frequency, 3))
         if key in self._filter_cache:
@@ -400,7 +401,7 @@ class GaborEnhancer:
         self._filter_cache[key] = gabor
         return gabor
 
-    def _apply_filter(self, image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
+    def _apply_filter(self, image: npt.NDArray[Any], kernel: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Apply filter using FFT convolution."""
         pad_h = kernel.shape[0] // 2
         pad_w = kernel.shape[1] // 2
@@ -436,9 +437,9 @@ class MinutiaeExtractor:
 
     def extract(
         self,
-        enhanced_image: np.ndarray,
-        orientation: np.ndarray,
-        quality_map: np.ndarray | None = None,
+        enhanced_image: npt.NDArray[Any],
+        orientation: npt.NDArray[Any],
+        quality_map: npt.NDArray[Any] | None = None,
     ) -> list[Minutia]:
         """
         Extract minutiae from enhanced fingerprint.
@@ -458,13 +459,13 @@ class MinutiaeExtractor:
 
         return minutiae
 
-    def _binarize(self, image: np.ndarray) -> np.ndarray:
+    def _binarize(self, image: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Binarize the image using adaptive thresholding."""
         threshold = np.mean(image)
         binary = (image < threshold).astype(np.uint8)
         return binary
 
-    def _thin(self, binary: np.ndarray) -> np.ndarray:
+    def _thin(self, binary: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Morphological thinning to get ridge skeleton."""
         skeleton = binary.copy()
         changed = True
@@ -523,8 +524,8 @@ class MinutiaeExtractor:
 
     def _find_minutiae(
         self,
-        skeleton: np.ndarray,
-        orientation: np.ndarray,
+        skeleton: npt.NDArray[Any],
+        orientation: npt.NDArray[Any],
     ) -> list[Minutia]:
         """Find minutiae using crossing number."""
         minutiae = []
@@ -579,7 +580,7 @@ class MinutiaeExtractor:
         self,
         minutiae: list[Minutia],
         image_shape: tuple[int, int],
-        quality_map: np.ndarray | None,
+        quality_map: npt.NDArray[Any] | None,
     ) -> list[Minutia]:
         """Filter spurious minutiae."""
         h, w = image_shape
@@ -785,7 +786,7 @@ class FingerprintLivenessDetector:
 
     def detect(
         self,
-        images: list[np.ndarray],
+        images: list[npt.NDArray[Any]],
         features: FingerprintFeatures | None = None,
     ) -> FingerprintLivenessResult:
         """
@@ -832,7 +833,7 @@ class FingerprintLivenessDetector:
             },
         )
 
-    def _analyze_sweat_pores(self, image: np.ndarray) -> float:
+    def _analyze_sweat_pores(self, image: npt.NDArray[Any]) -> float:
         """Analyze sweat pore presence and distribution."""
         if image.ndim == 3:
             gray = np.mean(image, axis=2)
@@ -856,7 +857,7 @@ class FingerprintLivenessDetector:
         score = min(1.0, pore_density / expected_density)
         return score
 
-    def _analyze_perspiration(self, images: list[np.ndarray]) -> float:
+    def _analyze_perspiration(self, images: list[npt.NDArray[Any]]) -> float:
         """Analyze perspiration changes over time."""
         if len(images) < 2:
             return 0.5
@@ -877,7 +878,7 @@ class FingerprintLivenessDetector:
         score = min(1.0, variation / 0.02)
         return score
 
-    def _analyze_elasticity(self, images: list[np.ndarray]) -> float:
+    def _analyze_elasticity(self, images: list[npt.NDArray[Any]]) -> float:
         """Analyze skin elasticity from pressure variations."""
         if len(images) < 2:
             return 0.5
@@ -898,7 +899,7 @@ class FingerprintLivenessDetector:
         score = min(1.0, variation / 0.05)
         return score
 
-    def _convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
+    def _convolve2d(self, image: npt.NDArray[Any], kernel: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """2D convolution."""
         kh, kw = kernel.shape
         pad_h, pad_w = kh // 2, kw // 2
@@ -934,7 +935,7 @@ class FingerprintRecognizer:
         self._liveness_detector = FingerprintLivenessDetector()
         self._liveness_required = liveness_required
 
-    def extract_features(self, image: np.ndarray) -> FingerprintFeatures:
+    def extract_features(self, image: npt.NDArray[Any]) -> FingerprintFeatures:
         """
         Extract fingerprint features from image.
 
@@ -973,9 +974,9 @@ class FingerprintRecognizer:
 
     def verify(
         self,
-        probe_image: np.ndarray,
+        probe_image: npt.NDArray[Any],
         enrolled_features: FingerprintFeatures,
-        liveness_images: list[np.ndarray] | None = None,
+        liveness_images: list[npt.NDArray[Any]] | None = None,
     ) -> tuple[FingerprintMatchResult, FingerprintLivenessResult | None]:
         """
         Verify a fingerprint against enrolled features.
@@ -1013,9 +1014,9 @@ class FingerprintRecognizer:
 
     def _compute_quality_map(
         self,
-        image: np.ndarray,
-        orientation: np.ndarray,
-    ) -> np.ndarray:
+        image: npt.NDArray[Any],
+        orientation: npt.NDArray[Any],
+    ) -> npt.NDArray[Any]:
         """Compute local quality map."""
         oh, ow = orientation.shape
         quality = np.zeros((oh, ow))
@@ -1041,7 +1042,7 @@ class FingerprintRecognizer:
 
     def _compute_coherence(
         self,
-        orientation: np.ndarray,
+        orientation: npt.NDArray[Any],
         i: int,
         j: int,
     ) -> float:
@@ -1064,7 +1065,7 @@ class FingerprintRecognizer:
         coherence = np.sqrt(cos_sum**2 + sin_sum**2) / len(angles)
         return coherence
 
-    def _detect_singularities(self, orientation: np.ndarray) -> list[Singularity]:
+    def _detect_singularities(self, orientation: npt.NDArray[Any]) -> list[Singularity]:
         """Detect singular points (cores and deltas)."""
         singularities = []
         oh, ow = orientation.shape
@@ -1116,7 +1117,7 @@ class FingerprintRecognizer:
 
     def _compute_overall_quality(
         self,
-        quality_map: np.ndarray,
+        quality_map: npt.NDArray[Any],
         minutiae_count: int,
     ) -> float:
         """Compute overall fingerprint quality."""

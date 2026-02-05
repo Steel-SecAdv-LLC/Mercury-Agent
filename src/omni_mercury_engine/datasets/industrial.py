@@ -31,6 +31,7 @@ import logging
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit, safe_urlretrieve
 

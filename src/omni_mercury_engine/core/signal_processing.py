@@ -43,6 +43,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from scipy import signal
 from scipy.ndimage import uniform_filter1d
 

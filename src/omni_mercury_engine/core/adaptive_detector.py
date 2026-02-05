@@ -16,6 +16,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from numpy.typing import NDArray
 
 

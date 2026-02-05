@@ -20,6 +20,7 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.federated_learning.client import (
     ClientManager,
@@ -81,7 +82,7 @@ class RoundResult:
     """Result of a federated round."""
 
     round_num: int
-    global_weights: np.ndarray
+    global_weights: npt.NDArray[Any]
     n_clients: int
     total_samples: int
     avg_loss: float
@@ -95,7 +96,7 @@ class RoundResult:
 class TrainingResult:
     """Result of federated training."""
 
-    final_weights: np.ndarray
+    final_weights: npt.NDArray[Any]
     n_rounds: int
     total_time: float
     round_results: list[RoundResult]
@@ -110,9 +111,9 @@ class Aggregator(ABC):
     @abstractmethod
     def aggregate(
         self,
-        global_weights: np.ndarray,
+        global_weights: npt.NDArray[Any],
         updates: list[LocalUpdate],
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Aggregate client updates into new global weights."""
         pass
 
@@ -130,9 +131,9 @@ class FedAvgAggregator(Aggregator):
 
     def aggregate(
         self,
-        global_weights: np.ndarray,
+        global_weights: npt.NDArray[Any],
         updates: list[LocalUpdate],
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Aggregate using weighted averaging."""
         if not updates:
             return global_weights
@@ -181,15 +182,15 @@ class FedAdamAggregator(Aggregator):
         self._epsilon = epsilon
         self._tau = tau
 
-        self._m: np.ndarray | None = None
-        self._v: np.ndarray | None = None
+        self._m: npt.NDArray[Any] | None = None
+        self._v: npt.NDArray[Any] | None = None
         self._t = 0
 
     def aggregate(
         self,
-        global_weights: np.ndarray,
+        global_weights: npt.NDArray[Any],
         updates: list[LocalUpdate],
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Aggregate using FedAdam."""
         if not updates:
             return global_weights
@@ -229,14 +230,14 @@ class ScaffoldAggregator(Aggregator):
     def __init__(self, learning_rate: float = 1.0) -> None:
         """Initialize SCAFFOLD aggregator."""
         self._learning_rate = learning_rate
-        self._server_control: np.ndarray | None = None
-        self._client_controls: dict[str, np.ndarray] = {}
+        self._server_control: npt.NDArray[Any] | None = None
+        self._client_controls: dict[str, npt.NDArray[Any]] = {}
 
     def aggregate(
         self,
-        global_weights: np.ndarray,
+        global_weights: npt.NDArray[Any],
         updates: list[LocalUpdate],
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Aggregate using SCAFFOLD."""
         if not updates:
             return global_weights
@@ -299,9 +300,9 @@ class SecureAggregatorWrapper(Aggregator):
 
     def aggregate(
         self,
-        global_weights: np.ndarray,
+        global_weights: npt.NDArray[Any],
         updates: list[LocalUpdate],
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Aggregate with secure aggregation and DP."""
         if not updates:
             return global_weights
@@ -352,9 +353,9 @@ class FederatedServer:
 
     def __init__(
         self,
-        initial_weights: np.ndarray,
+        initial_weights: npt.NDArray[Any],
         config: ServerConfig | None = None,
-        eval_fn: Callable[[np.ndarray], dict[str, float]] | None = None,
+        eval_fn: Callable[[npt.NDArray[Any]], dict[str, float]] | None = None,
     ) -> None:
         """
         Initialize federated server.
@@ -414,7 +415,7 @@ class FederatedServer:
         return self._client_manager.unregister(client_id)
 
     @property
-    def global_weights(self) -> np.ndarray:
+    def global_weights(self) -> npt.NDArray[Any]:
         """Get current global model weights."""
         return self._global_weights.copy()
 
@@ -650,9 +651,9 @@ class FederatedAnomalyDetector:
         self._delta = delta
         self._aggregation = aggregation
 
-        self._weights: np.ndarray | None = None
-        self._mean: np.ndarray | None = None
-        self._std: np.ndarray | None = None
+        self._weights: npt.NDArray[Any] | None = None
+        self._mean: npt.NDArray[Any] | None = None
+        self._std: npt.NDArray[Any] | None = None
         self._threshold: float = 0.0
 
         self._clients: list[FederatedClient] = []
@@ -662,8 +663,8 @@ class FederatedAnomalyDetector:
     def add_client(
         self,
         client_id: str,
-        X: np.ndarray,
-        y: np.ndarray | None = None,
+        X: npt.NDArray[Any],
+        y: npt.NDArray[Any] | None = None,
     ) -> None:
         """
         Add a client with local data.
@@ -744,7 +745,7 @@ class FederatedAnomalyDetector:
             scores = self._compute_scores(combined)
             self._threshold = np.percentile(scores, 95)
 
-    def _compute_scores(self, X: np.ndarray) -> np.ndarray:
+    def _compute_scores(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Compute anomaly scores."""
         if self._mean is None:
             return np.zeros(len(X))
@@ -752,11 +753,11 @@ class FederatedAnomalyDetector:
         z_scores = np.abs((X - self._mean) / self._std)
         return np.mean(z_scores, axis=1)
 
-    def _evaluate_global(self, weights: np.ndarray) -> dict[str, float]:
+    def _evaluate_global(self, weights: npt.NDArray[Any]) -> dict[str, float]:
         """Evaluate global model."""
         return {"weight_norm": float(np.linalg.norm(weights))}
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Predict anomaly labels.
 
@@ -769,7 +770,7 @@ class FederatedAnomalyDetector:
         scores = self.decision_function(X)
         return (scores > self._threshold).astype(int)
 
-    def decision_function(self, X: np.ndarray) -> np.ndarray:
+    def decision_function(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
         Compute anomaly scores.
 

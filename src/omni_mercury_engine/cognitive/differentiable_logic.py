@@ -28,6 +28,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -76,7 +77,7 @@ class Predicate:
     confidence: float = 1.0
     description: str = ""
     domain_constraints: list[str] = field(default_factory=list)
-    embedding: np.ndarray | None = None
+    embedding: npt.NDArray[Any] | None = None
 
     def __post_init__(self) -> None:
         if self.embedding is None:

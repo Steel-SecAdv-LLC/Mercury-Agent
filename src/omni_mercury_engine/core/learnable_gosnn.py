@@ -28,6 +28,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -524,7 +525,7 @@ class LearnableGOSNN:
         state = self.scalar_states[name]
         return state.effective_value
 
-    def get_scalar_embedding(self, name: str) -> np.ndarray | None:
+    def get_scalar_embedding(self, name: str) -> npt.NDArray[Any] | None:
         """Get scalar embedding vector."""
         if not TORCH_AVAILABLE or self.scalar_embeddings is None:
             return None

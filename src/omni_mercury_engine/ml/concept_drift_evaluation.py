@@ -29,6 +29,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
+import numpy.typing as npt
 from scipy import stats
 from sklearn.metrics import (
     accuracy_score,
@@ -114,8 +115,8 @@ class SplitPerformance:
     drift_score: float = 0.0
 
     # Additional metrics
-    predictions: np.ndarray | None = None
-    true_labels: np.ndarray | None = None
+    predictions: npt.NDArray[Any] | None = None
+    true_labels: npt.NDArray[Any] | None = None
     feature_importance: dict[str, float] | None = None
 
 

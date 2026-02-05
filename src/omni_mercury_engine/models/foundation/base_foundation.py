@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 
 from omni_mercury_engine.core.base import BaseModel
@@ -354,10 +355,10 @@ class BaseFoundationAdapter(BaseFoundationModel):
 
         # Forecasting state
         self._fitted = False
-        self._trend_coef: np.ndarray | None = None
+        self._trend_coef: npt.NDArray[Any] | None = None
         self._level: float = 0.0
         self._trend: float = 0.0
-        self._seasonal: np.ndarray | None = None
+        self._seasonal: npt.NDArray[Any] | None = None
         self._residual_std: float = 0.0
 
     def _initialize_model(self) -> None:
@@ -366,7 +367,7 @@ class BaseFoundationAdapter(BaseFoundationModel):
 
     def _estimate_trend(
         self,
-        series: np.ndarray,
+        series: npt.NDArray[Any],
     ) -> tuple[float, float]:
         """Estimate linear trend using least squares.
 
@@ -389,7 +390,7 @@ class BaseFoundationAdapter(BaseFoundationModel):
 
     def _exponential_smoothing(
         self,
-        series: np.ndarray,
+        series: npt.NDArray[Any],
         alpha: float = 0.3,
         beta: float = 0.1,
     ) -> tuple[float, float]:
@@ -420,7 +421,7 @@ class BaseFoundationAdapter(BaseFoundationModel):
 
     def _detect_seasonality(
         self,
-        series: np.ndarray,
+        series: npt.NDArray[Any],
         max_period: int = 52,
     ) -> tuple[int | None, np.ndarray | None]:
         """Detect seasonal period using autocorrelation.
@@ -465,11 +466,11 @@ class BaseFoundationAdapter(BaseFoundationModel):
 
     def _bootstrap_confidence_interval(
         self,
-        series: np.ndarray,
-        forecast: np.ndarray,
+        series: npt.NDArray[Any],
+        forecast: npt.NDArray[Any],
         n_bootstrap: int = 100,
         confidence: float = 0.95,
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], np.ndarray]:
         """Estimate confidence intervals via residual bootstrapping.
 
         Args:

@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 import numpy as np
+import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -59,13 +60,13 @@ class TTLCache:
         self._hits = 0
         self._misses = 0
 
-    def _compute_key(self, data: np.ndarray) -> str:
+    def _compute_key(self, data: npt.NDArray[Any]) -> str:
         """Compute cache key from numpy array using fast hashing."""
         # Use tobytes() for efficient array hashing
         # Using SHA3-256 for Ava-Guardian alignment
         return hashlib.sha3_256(data.tobytes()).hexdigest()
 
-    def get(self, data: np.ndarray) -> Any | None:
+    def get(self, data: npt.NDArray[Any]) -> Any | None:
         """Get cached result if valid."""
         key = self._compute_key(data)
         with self._lock:
@@ -82,7 +83,7 @@ class TTLCache:
             self._misses += 1
             return None
 
-    def set(self, data: np.ndarray, value: Any) -> None:
+    def set(self, data: npt.NDArray[Any], value: Any) -> None:
         """Store result in cache."""
         key = self._compute_key(data)
         with self._lock:
@@ -228,13 +229,13 @@ class IntegrationResult:
     """Result from integrated detection pipeline."""
 
     # Detection outputs
-    is_anomaly: np.ndarray
-    anomaly_scores: np.ndarray
-    calibrated_scores: np.ndarray
-    confidence_intervals: np.ndarray | None = None
+    is_anomaly: npt.NDArray[Any]
+    anomaly_scores: npt.NDArray[Any]
+    calibrated_scores: npt.NDArray[Any]
+    confidence_intervals: npt.NDArray[Any] | None = None
 
     # Domain contributions
-    domain_scores: dict[str, np.ndarray] = field(default_factory=dict)
+    domain_scores: dict[str, npt.NDArray[Any]] = field(default_factory=dict)
     domain_weights: dict[str, float] = field(default_factory=dict)
 
     # Ethical metrics
@@ -263,11 +264,11 @@ class IntegrationResult:
 class DetectorProtocol(Protocol):
     """Protocol for detectors in the integration layer."""
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> Any: ...
+    def fit(self, X: npt.NDArray[Any], y: npt.NDArray[Any] | None = None) -> Any: ...
 
-    def detect(self, X: np.ndarray) -> dict[str, Any]: ...
+    def detect(self, X: npt.NDArray[Any]) -> dict[str, Any]: ...
 
-    def extract_features(self, X: np.ndarray) -> np.ndarray: ...
+    def extract_features(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]: ...
 
 
 @dataclass
@@ -481,8 +482,8 @@ class GOSNNIntegration:
 
     def fit(
         self,
-        X: np.ndarray,
-        y: np.ndarray | None = None,
+        X: npt.NDArray[Any],
+        y: npt.NDArray[Any] | None = None,
         validation_split: float = 0.2,
     ) -> GOSNNIntegration:
         """
@@ -564,7 +565,7 @@ class GOSNNIntegration:
 
     def detect(
         self,
-        X: np.ndarray,
+        X: npt.NDArray[Any],
         return_details: bool = False,
         use_cache: bool = True,
     ) -> IntegrationResult:
@@ -687,8 +688,8 @@ class GOSNNIntegration:
 
     def _setup_fusion(
         self,
-        domain_predictions: dict[str, np.ndarray],
-        y_val: np.ndarray | None,
+        domain_predictions: dict[str, npt.NDArray[Any]],
+        y_val: npt.NDArray[Any] | None,
     ) -> None:
         """Set up fusion strategy."""
         try:
@@ -730,8 +731,8 @@ class GOSNNIntegration:
 
     def _setup_calibration(
         self,
-        domain_predictions: dict[str, np.ndarray],
-        y_val: np.ndarray,
+        domain_predictions: dict[str, npt.NDArray[Any]],
+        y_val: npt.NDArray[Any],
     ) -> None:
         """Set up probability calibration."""
         try:
@@ -749,8 +750,8 @@ class GOSNNIntegration:
 
     def _setup_conformal(
         self,
-        domain_predictions: dict[str, np.ndarray],
-        y_val: np.ndarray,
+        domain_predictions: dict[str, npt.NDArray[Any]],
+        y_val: npt.NDArray[Any],
     ) -> None:
         """Set up conformal prediction."""
         try:
@@ -769,8 +770,8 @@ class GOSNNIntegration:
 
     def _fuse_predictions(
         self,
-        domain_scores: dict[str, np.ndarray],
-    ) -> np.ndarray:
+        domain_scores: dict[str, npt.NDArray[Any]],
+    ) -> npt.NDArray[Any]:
         """Fuse domain predictions using configured strategy."""
         if not domain_scores:
             return np.array([])
@@ -784,7 +785,7 @@ class GOSNNIntegration:
 
         return fused
 
-    def _compute_adaptive_threshold(self, scores: np.ndarray) -> float:
+    def _compute_adaptive_threshold(self, scores: npt.NDArray[Any]) -> float:
         """Compute adaptive threshold using Otsu's method."""
         if len(scores) < 10:
             return 0.5
@@ -830,9 +831,9 @@ class GOSNNIntegration:
 
     def _apply_benevolence_adjustment(
         self,
-        scores: np.ndarray,
+        scores: npt.NDArray[Any],
         threshold: float,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Apply benevolence-aware adjustment to scores."""
         # Higher benevolence = more conservative (reduce false positives)
         # Lower benevolence = more aggressive (reduce false negatives)
@@ -849,7 +850,7 @@ class GOSNNIntegration:
 
     def _compute_benevolence_score(
         self,
-        domain_scores: dict[str, np.ndarray],
+        domain_scores: dict[str, npt.NDArray[Any]],
     ) -> float:
         """Compute overall benevolence score."""
         ethical_scores = []

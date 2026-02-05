@@ -18,6 +18,7 @@ import logging
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 try:
@@ -164,7 +165,7 @@ class USGSEarthquakeLoader(DatasetLoader):
 
     def _process_usgs_geojson(
         self, features_list: list[dict[str, Any]]
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], np.ndarray]:
         """Process USGS GeoJSON earthquake data.
 
         Args:
@@ -662,7 +663,7 @@ class WildfireDataLoader(DatasetLoader):
             logger.warning(f"NASA FIRMS download failed: {e}")
             return False
 
-    def _process_firms_data(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    def _process_firms_data(self, df: pd.DataFrame) -> tuple[npt.NDArray[Any], np.ndarray]:
         """Process NASA FIRMS CSV data.
 
         Args:

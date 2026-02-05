@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 try:
@@ -186,8 +187,8 @@ class NSLKDDLoader(DatasetLoader):
         super().__init__(config)
         self.binary_labels = config.preprocessing.get("binary", True)
         self.include_test = config.preprocessing.get("include_test", True)
-        self._features: np.ndarray | None = None
-        self._labels: np.ndarray | None = None
+        self._features: npt.NDArray[Any] | None = None
+        self._labels: npt.NDArray[Any] | None = None
         self._is_real_data = False
         self._encoders: dict[str, dict[str, int]] = {}
 
@@ -264,7 +265,7 @@ class NSLKDDLoader(DatasetLoader):
             logger.warning("Falling back to SYNTHETIC data.")
             return self._create_synthetic_fallback()
 
-    def _process_nslkdd_dataframe(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    def _process_nslkdd_dataframe(self, df: pd.DataFrame) -> tuple[npt.NDArray[Any], np.ndarray]:
         """Process NSL-KDD dataframe: encode categoricals and labels.
 
         Args:
@@ -401,7 +402,7 @@ class NSLKDDLoader(DatasetLoader):
 
         raise FileNotFoundError("NSL-KDD data not found. Run download() first.")
 
-    def load_data(self) -> tuple[np.ndarray, np.ndarray]:
+    def load_data(self) -> tuple[npt.NDArray[Any], np.ndarray]:
         """Load NSL-KDD dataset features and labels.
 
         This is the main entry point for loading the dataset.
@@ -572,8 +573,8 @@ class CICIDSLoader(DatasetLoader):
         self.subset = config.preprocessing.get("subset", "all")
         self.local_path = config.preprocessing.get("local_path", None)
         self.retry_count = config.preprocessing.get("retry_count", 3)
-        self._features: np.ndarray | None = None
-        self._labels: np.ndarray | None = None
+        self._features: npt.NDArray[Any] | None = None
+        self._labels: npt.NDArray[Any] | None = None
         self._is_real_data = False
         self._label_names: list[str] = []
 
@@ -854,7 +855,7 @@ class CICIDSLoader(DatasetLoader):
             logger.warning(f"{source_name} download failed: {e}")
             return False
 
-    def _process_cicids_dataframe(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    def _process_cicids_dataframe(self, df: pd.DataFrame) -> tuple[npt.NDArray[Any], np.ndarray]:
         """Process CICIDS dataframe: clean data and encode labels.
 
         Args:
@@ -1044,7 +1045,7 @@ class CICIDSLoader(DatasetLoader):
         )
         return True
 
-    def _generate_benign_flow(self, n_features: int) -> np.ndarray:
+    def _generate_benign_flow(self, n_features: int) -> npt.NDArray[Any]:
         """Generate synthetic benign network flow features."""
         flow = np.zeros(n_features)
         # Typical benign traffic characteristics
@@ -1057,7 +1058,7 @@ class CICIDSLoader(DatasetLoader):
         flow[5:] = np.random.exponential(100, n_features - 5)
         return flow
 
-    def _generate_dos_flow(self, n_features: int) -> np.ndarray:
+    def _generate_dos_flow(self, n_features: int) -> npt.NDArray[Any]:
         """Generate synthetic DoS attack flow features."""
         flow = self._generate_benign_flow(n_features)
         # DoS characteristics: high packet rate, short flows
@@ -1067,7 +1068,7 @@ class CICIDSLoader(DatasetLoader):
         flow[12] = np.random.exponential(10000)  # High packets/sec
         return flow
 
-    def _generate_portscan_flow(self, n_features: int) -> np.ndarray:
+    def _generate_portscan_flow(self, n_features: int) -> npt.NDArray[Any]:
         """Generate synthetic port scan flow features."""
         flow = self._generate_benign_flow(n_features)
         # Port scan: very short flows, mostly SYN
@@ -1077,7 +1078,7 @@ class CICIDSLoader(DatasetLoader):
         flow[33] = 1  # SYN flag
         return flow
 
-    def _generate_attack_flow(self, n_features: int) -> np.ndarray:
+    def _generate_attack_flow(self, n_features: int) -> npt.NDArray[Any]:
         """Generate generic attack flow features."""
         flow = self._generate_benign_flow(n_features)
         # Anomalous characteristics
@@ -1108,7 +1109,7 @@ class CICIDSLoader(DatasetLoader):
 
         raise FileNotFoundError("CICIDS data not found. Run download() first.")
 
-    def load_data(self) -> tuple[np.ndarray, np.ndarray]:
+    def load_data(self) -> tuple[npt.NDArray[Any], np.ndarray]:
         """Load CICIDS dataset features and labels.
 
         This is the main entry point for loading the dataset.
@@ -1327,7 +1328,7 @@ class ThreatIntelLoader(DatasetLoader):
 
     def _process_mitre_data(
         self, techniques: list[dict[str, Any]]
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], np.ndarray]:
         """Process MITRE ATT&CK techniques into features.
 
         Args:

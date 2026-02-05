@@ -47,6 +47,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 
 from omni_mercury_engine.core.base import BaseDetector
@@ -386,7 +387,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
     def fit(
         self,
-        data: np.ndarray | torch.Tensor | dict[str, Any],
+        data: npt.NDArray[Any] | torch.Tensor | dict[str, Any],
         data_type: str = "time_series",
     ) -> AdvancedPhysicsIntegratedDetector:
         """Fit all component detectors on training data.
@@ -452,7 +453,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
     def detect(
         self,
-        data: np.ndarray | torch.Tensor | dict[str, Any] | list[UserInteraction],
+        data: npt.NDArray[Any] | torch.Tensor | dict[str, Any] | list[UserInteraction],
         data_type: str = "time_series",
     ) -> dict[str, Any]:
         """Detect anomalies using all enabled detectors.
@@ -588,7 +589,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
     def extract_features(
         self,
-        data: np.ndarray | torch.Tensor | dict[str, Any],
+        data: npt.NDArray[Any] | torch.Tensor | dict[str, Any],
         data_type: str = "time_series",
     ) -> torch.Tensor:
         """Extract features from all enabled detectors.

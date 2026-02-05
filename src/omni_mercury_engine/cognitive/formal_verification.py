@@ -52,6 +52,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -902,10 +903,10 @@ class IntervalBoundPropagator:
 
     def propagate_linear(
         self,
-        input_bounds: tuple[np.ndarray, np.ndarray] | dict[str, tuple[float, float]],
-        weights: np.ndarray,
-        bias: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray] | dict[str, tuple[float, float]]:
+        input_bounds: tuple[npt.NDArray[Any], np.ndarray] | dict[str, tuple[float, float]],
+        weights: npt.NDArray[Any],
+        bias: npt.NDArray[Any],
+    ) -> tuple[npt.NDArray[Any], np.ndarray] | dict[str, tuple[float, float]]:
         """Propagate bounds through linear layer.
 
         Args:
@@ -955,8 +956,8 @@ class IntervalBoundPropagator:
 
     def propagate_relu(
         self,
-        input_bounds: tuple[np.ndarray, np.ndarray],
-    ) -> tuple[np.ndarray, np.ndarray]:
+        input_bounds: tuple[npt.NDArray[Any], np.ndarray],
+    ) -> tuple[npt.NDArray[Any], np.ndarray]:
         """Propagate bounds through ReLU.
 
         Args:
@@ -975,8 +976,8 @@ class IntervalBoundPropagator:
 
     def verify_output_bounds(
         self,
-        input_bounds: tuple[np.ndarray, np.ndarray],
-        network_params: list[tuple[np.ndarray, np.ndarray]],
+        input_bounds: tuple[npt.NDArray[Any], np.ndarray],
+        network_params: list[tuple[npt.NDArray[Any], np.ndarray]],
         output_bounds: tuple[float, float],
     ) -> bool:
         """Verify network outputs are within bounds.

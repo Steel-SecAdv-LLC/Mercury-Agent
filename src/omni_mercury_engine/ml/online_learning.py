@@ -33,6 +33,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 if TYPE_CHECKING:
@@ -453,7 +454,7 @@ class OnlineLearningPipeline:
         self.buffer = SampleBuffer(max_size=buffer_size, strategy="fifo", random_state=random_state)
 
         # Reference data for drift detection
-        self._reference_data: np.ndarray | None = None
+        self._reference_data: npt.NDArray[Any] | None = None
         self._reference_size = 500
 
         # Drift detector

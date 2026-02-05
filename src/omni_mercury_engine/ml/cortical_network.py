@@ -53,6 +53,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -771,7 +772,7 @@ class GolgiAnalyzer:
             "pathway_strengths": pathway_strengths,
         }
 
-    def visualize_dendrite_tree(self, layer_name: str) -> np.ndarray:
+    def visualize_dendrite_tree(self, layer_name: str) -> npt.NDArray[Any]:
         """Create dendritic tree visualization for a layer.
 
         Args:
