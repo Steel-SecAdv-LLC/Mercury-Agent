@@ -1476,7 +1476,7 @@ class TranADDetector:
     def __init__(self, contamination: float = 0.1, window_size: int = 10):
         self.contamination = contamination
         self.window_size = window_size
-        self.model = None
+        self.model: Any = None
         self.threshold = None
         self.scaler = StandardScaler()
         self._is_fitted = False
@@ -1619,7 +1619,7 @@ class MAATDetector:
     def __init__(self, contamination: float = 0.1, window_size: int = 100):
         self.contamination = contamination
         self.window_size = window_size
-        self.model = None
+        self.model: Any = None
         self.threshold = None
         self.scaler = StandardScaler()
         self._is_fitted = False
@@ -1852,7 +1852,7 @@ class OmniMercuryDetector:
         self.enable_partial_mode = enable_partial_mode
 
         # Engine state
-        self.engine = None
+        self.engine: Any = None
         self.threshold = 0.5
         self.mean = None
         self.std = None
@@ -2517,9 +2517,10 @@ class OmniMercuryDetector:
                 result = self.engine.detect_with_fusion(sample.reshape(1, -1), enable_gosnn=False)
                 if isinstance(result, dict):
                     # anomaly_prob is the primary score (0.0-1.0, higher = more anomalous)
-                    score = result.get(
+                    raw_score = result.get(
                         "anomaly_prob", result.get("anomaly_score", result.get("score", 0.5))
                     )
+                    score: float = float(raw_score) if raw_score is not None else 0.5
                 else:
                     score = float(result) if result is not None else 0.5
             except Exception:
