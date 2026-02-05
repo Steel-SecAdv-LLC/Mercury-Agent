@@ -37,7 +37,7 @@ Meta-learning enables Mercury Agent to:
 Key Concepts:
 - Inner loop: Fast adaptation to specific task
 - Outer loop: Learning to learn (meta-optimization)
-- Task[Any]: A specific anomaly detection scenario
+- Task: A specific anomaly detection scenario
 - Support set: Examples for adaptation
 - Query set: Examples for evaluation
 """
@@ -152,7 +152,7 @@ class AdaptationResult:
     """Result of task adaptation.
 
     Attributes:
-        task_id: Task[Any] that was adapted to
+        task_id: Task that was adapted to
         pre_adaptation_loss: Loss before adaptation
         post_adaptation_loss: Loss after adaptation
         pre_adaptation_accuracy: Accuracy before
@@ -574,11 +574,11 @@ class PrototypicalNetworks:
 
         return predicted_class, prob_array
 
-    def adapt(self, task: Task[Any]) -> AdaptationResult:
+    def adapt(self, task: Task) -> AdaptationResult:
         """Adapt to a task by computing prototypes.
 
         Args:
-            task: Task[Any] to adapt to
+            task: Task to adapt to
 
         Returns:
             Adaptation result
@@ -772,13 +772,13 @@ class MAML:
 
     def _inner_loop(
         self,
-        task: Task[Any],
+        task: Task,
         params: dict[str, npt.NDArray[Any]],
     ) -> dict[str, npt.NDArray[Any]]:
         """Perform inner loop adaptation.
 
         Args:
-            task: Task[Any] to adapt to
+            task: Task to adapt to
             params: Starting parameters
 
         Returns:
@@ -798,26 +798,26 @@ class MAML:
 
     def adapt(
         self,
-        support_x_or_task: npt.NDArray[Any] | Task[Any],
+        support_x_or_task: npt.NDArray[Any] | Task,
         support_y: npt.NDArray[Any] | None = None,
     ) -> AdaptationResult | None:
         """Adapt to support set or task.
 
-        Supports both array-based API (for tests) and Task[Any]-based API.
+        Supports both array-based API (for tests) and Task-based API.
 
         Args:
-            support_x_or_task: Support features array OR Task[Any] object
+            support_x_or_task: Support features array OR Task object
             support_y: Support labels (required if support_x_or_task is array)
 
         Returns:
-            AdaptationResult if Task[Any] provided, None if arrays provided
+            AdaptationResult if Task provided, None if arrays provided
         """
         # Array-based API (test expectation)
         if support_y is not None:
             self._adapted_params = self.inner_loop_adapt(support_x_or_task, support_y)
             return None
 
-        # Task[Any]-based API (original implementation)
+        # Task-based API (original implementation)
         task = support_x_or_task
         start_time = time.time()
 
@@ -857,7 +857,7 @@ class MAML:
 
     def meta_train_step(
         self,
-        task_batch: list[Task[Any]],
+        task_batch: list[Task],
     ) -> float:
         """Perform one meta-training step.
 
@@ -1070,7 +1070,7 @@ class Reptile:
             "total_loss": 0.0,
         }
 
-    def adapt(self, task: Task[Any]) -> AdaptationResult:
+    def adapt(self, task: Task) -> AdaptationResult:
         """Adapt to task."""
         return self.maml.adapt(task)
 
@@ -1083,8 +1083,8 @@ class Reptile:
         """Train on a single task (test API).
 
         Args:
-            task_x: Task[Any] features
-            task_y: Task[Any] labels
+            task_x: Task features
+            task_y: Task labels
             num_steps: Number of training steps (default: self.inner_steps)
 
         Returns:
@@ -1109,8 +1109,8 @@ class Reptile:
         """Perform meta-update on a single task (test API).
 
         Args:
-            task_x: Task[Any] features
-            task_y: Task[Any] labels
+            task_x: Task features
+            task_y: Task labels
 
         Returns:
             Loss after update
@@ -1168,7 +1168,7 @@ class Reptile:
             "inner_steps": self.inner_steps,
         }
 
-    def meta_train_step(self, task_batch: list[Task[Any]]) -> float:
+    def meta_train_step(self, task_batch: list[Task]) -> float:
         """Perform Reptile meta-training step."""
         total_loss = 0.0
 
@@ -1238,7 +1238,7 @@ class MetaLearningAdapter:
         # Initialize algorithm
         self._init_algorithm()
 
-        # Task[Any] counter
+        # Task counter
         self._task_counter = 0
 
         # Statistics
@@ -1292,21 +1292,21 @@ class MetaLearningAdapter:
         query_data: list[tuple[npt.NDArray[Any], int]],
         task_name: str | None = None,
         domain: str = "general",
-    ) -> Task[Any]:
+    ) -> Task:
         """Create a meta-learning task.
 
         Args:
             support_data: Support set examples
             query_data: Query set examples
             task_name: Optional task name
-            domain: Task[Any] domain
+            domain: Task domain
 
         Returns:
-            Created Task[Any] object
+            Created Task object
         """
         self._task_counter += 1
         task_id = f"task_{self._task_counter:06d}"
-        task_name = task_name or f"Anomaly Detection Task[Any] {self._task_counter}"
+        task_name = task_name or f"Anomaly Detection Task {self._task_counter}"
 
         # Determine n_way from data
         support_labels = {y for _, y in support_data}
@@ -1318,7 +1318,7 @@ class MetaLearningAdapter:
             label_counts[y] += 1
         k_shot = min(label_counts.values()) if label_counts else self.k_shot
 
-        task = Task[Any](
+        task = Task(
             task_id=task_id,
             task_name=task_name,
             support_set=support_data,
@@ -1333,12 +1333,12 @@ class MetaLearningAdapter:
 
     def adapt(
         self,
-        task_or_support: Task[Any] | dict[str, npt.NDArray[Any]],
+        task_or_support: Task | dict[str, npt.NDArray[Any]],
     ) -> AdaptationResult | None:
         """Adapt to a specific task or support set.
 
         Args:
-            task_or_support: Task[Any] object OR dict of {class_name: features_array}
+            task_or_support: Task object OR dict of {class_name: features_array}
 
         Returns:
             Adaptation result (or None for dict input)
@@ -1349,7 +1349,7 @@ class MetaLearningAdapter:
             self._stats["adaptations_performed"] += 1
             return None
 
-        # Handle Task[Any]-based API (original implementation)
+        # Handle Task-based API (original implementation)
         task = task_or_support
         result = self._learner.adapt(task)
 
@@ -1366,7 +1366,7 @@ class MetaLearningAdapter:
     def predict(
         self,
         features: npt.NDArray[Any],
-        task: Task[Any] | None = None,
+        task: Task | None = None,
     ) -> list[str] | tuple[int, npt.NDArray[Any]]:
         """Make prediction for features.
 
