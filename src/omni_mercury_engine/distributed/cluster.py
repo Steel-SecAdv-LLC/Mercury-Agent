@@ -398,7 +398,7 @@ class DistributedAnomalyDetector:
             node_id: WorkStealingScheduler(node_id) for node_id in node_ids
         }
 
-        self._task_handlers: dict[str, Callable] = {}
+        self._task_handlers: dict[str, Callable[..., Any]] = {}
         self._running = False
 
         self._register_default_handlers()

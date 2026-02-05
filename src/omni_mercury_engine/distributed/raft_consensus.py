@@ -304,7 +304,7 @@ class MessageTransport:
 
     def __init__(self) -> None:
         """Initialize the transport."""
-        self._message_handlers: dict[str, Callable] = {}
+        self._message_handlers: dict[str, Callable[..., Any]] = {}
         self._connected_peers: set[str] = set()
 
     async def send_request_vote(
@@ -433,12 +433,12 @@ class RaftNode:
         self._next_index: dict[str, int] = {}
         self._match_index: dict[str, int] = {}
 
-        self._election_timer: asyncio.Task | None = None
-        self._heartbeat_timer: asyncio.Task | None = None
-        self._replication_task: asyncio.Task | None = None
+        self._election_timer: asyncio.Task[None] | None = None
+        self._heartbeat_timer: asyncio.Task[None] | None = None
+        self._replication_task: asyncio.Task[None] | None = None
         self._running = False
 
-        self._pending_commands: dict[int, asyncio.Future] = {}
+        self._pending_commands: dict[int, asyncio.Future[Any]] = {}
         self._lock = asyncio.Lock()
 
         self._votes_received: set[str] = set()

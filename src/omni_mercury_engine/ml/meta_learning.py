@@ -62,9 +62,9 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None
-    nn = None
-    F = None
+    torch = None  # type: ignore[assignment]
+    nn = None  # type: ignore[assignment]
+    F = None  # type: ignore[assignment]
 
 
 logger = logging.getLogger(__name__)
