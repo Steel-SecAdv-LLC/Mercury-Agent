@@ -133,6 +133,8 @@ class MADDetector:
             X = X.reshape(-1, 1)
 
         # Modified Z-score using MAD
+        if self.median_ is None or self.mad_ is None:
+            raise DetectorException("MADDetector must be fitted before detection")
         modified_z = (X - self.median_) / (self.consistency_constant * self.mad_)
 
         # Max absolute modified z-score across features
@@ -318,7 +320,7 @@ class DBSCANDetector:
 
     def detect(self, X: NDArray[np.float64]) -> AnomalyResult:
         """Detect anomalies using DBSCAN."""
-        if not self._fitted:
+        if not self._fitted or self._fitted_eps is None:
             raise DetectorException("DBSCANDetector must be fitted before detection")
 
         try:
@@ -432,7 +434,7 @@ class MCDDetector:
 
     def detect(self, X: NDArray[np.float64]) -> AnomalyResult:
         """Detect anomalies using MCD."""
-        if not self._fitted or self._mcd is None:
+        if not self._fitted or self._mcd is None or self._threshold is None:
             raise DetectorException("MCDDetector must be fitted before detection")
 
         X = np.asarray(X)
@@ -622,7 +624,7 @@ class CUSUMDetector:
 
     def detect(self, X: NDArray[np.float64]) -> AnomalyResult:
         """Detect anomalies using CUSUM."""
-        if not self._fitted:
+        if not self._fitted or self._fitted_mean is None or self._fitted_std is None:
             raise DetectorException("CUSUMDetector must be fitted before detection")
 
         X = np.asarray(X)
