@@ -21,7 +21,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -177,22 +177,22 @@ class FeatureStandardizer:
         if self.strategy == ScalingStrategy.STANDARD:
             if self._mean is None or self._std is None:
                 raise ValueError("FeatureStandardizer: _mean/_std not set for STANDARD strategy")
-            return (X - self._mean) / self._std
+            return cast(npt.NDArray[Any], (X - self._mean) / self._std)
 
         elif self.strategy == ScalingStrategy.MINMAX:
             if self._min is None or self._max is None:
                 raise ValueError("FeatureStandardizer: _min/_max not set for MINMAX strategy")
-            return (X - self._min) / (self._max - self._min)
+            return cast(npt.NDArray[Any], (X - self._min) / (self._max - self._min))
 
         elif self.strategy == ScalingStrategy.ROBUST:
             if self._median is None or self._iqr is None:
                 raise ValueError("FeatureStandardizer: _median/_iqr not set for ROBUST strategy")
-            return (X - self._median) / self._iqr
+            return cast(npt.NDArray[Any], (X - self._median) / self._iqr)
 
         elif self.strategy == ScalingStrategy.MAXABS:
             if self._max_abs is None:
                 raise ValueError("FeatureStandardizer: _max_abs not set for MAXABS strategy")
-            return X / self._max_abs
+            return cast(npt.NDArray[Any], X / self._max_abs)
 
         return X  # NONE strategy
 
@@ -218,22 +218,22 @@ class FeatureStandardizer:
         if self.strategy == ScalingStrategy.STANDARD:
             if self._mean is None or self._std is None:
                 raise ValueError("FeatureStandardizer: _mean/_std not set for STANDARD strategy")
-            return X * self._std + self._mean
+            return cast(npt.NDArray[Any], X * self._std + self._mean)
 
         elif self.strategy == ScalingStrategy.MINMAX:
             if self._min is None or self._max is None:
                 raise ValueError("FeatureStandardizer: _min/_max not set for MINMAX strategy")
-            return X * (self._max - self._min) + self._min
+            return cast(npt.NDArray[Any], X * (self._max - self._min) + self._min)
 
         elif self.strategy == ScalingStrategy.ROBUST:
             if self._median is None or self._iqr is None:
                 raise ValueError("FeatureStandardizer: _median/_iqr not set for ROBUST strategy")
-            return X * self._iqr + self._median
+            return cast(npt.NDArray[Any], X * self._iqr + self._median)
 
         elif self.strategy == ScalingStrategy.MAXABS:
             if self._max_abs is None:
                 raise ValueError("FeatureStandardizer: _max_abs not set for MAXABS strategy")
-            return X * self._max_abs
+            return cast(npt.NDArray[Any], X * self._max_abs)
 
         return X
 
@@ -322,10 +322,10 @@ class FeatureSelector:
                 y_discrete = y
 
             scores = mutual_info_classif(X, y_discrete, random_state=42)
-            return scores
+            return cast(npt.NDArray[Any], scores)
         except ImportError:
             logger.warning("sklearn not available, falling back to variance")
-            return np.var(X, axis=0)
+            return cast(npt.NDArray[Any], np.var(X, axis=0))
 
     def _compute_correlation_scores(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Compute correlation-based scores (inverse of mean correlation)."""
@@ -334,7 +334,7 @@ class FeatureSelector:
         corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
         # Score is inverse of mean absolute correlation (prefer less correlated)
         mean_corr = np.mean(np.abs(corr_matrix), axis=1)
-        return 1.0 / (mean_corr + 1e-8)
+        return cast(npt.NDArray[Any], 1.0 / (mean_corr + 1e-8))
 
     def transform(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
