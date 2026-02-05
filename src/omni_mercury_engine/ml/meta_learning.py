@@ -109,7 +109,7 @@ class AdaptationStrategy(Enum):
 
 
 @dataclass
-class Task[Any]:
+class Task:
     """A meta-learning task (episode).
 
     Represents a specific anomaly detection scenario.
@@ -121,7 +121,7 @@ class Task[Any]:
         query_set: Examples for evaluation
         n_way: Number of classes
         k_shot: Examples per class in support
-        domain: Task[Any] domain
+        domain: Task domain
         metadata: Additional metadata
     """
 
