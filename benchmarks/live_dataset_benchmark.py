@@ -166,7 +166,7 @@ class LiveDatasetBenchmarkRunner:
 
     def __init__(self, detector_name: str = "adaptive"):
         self.detector_name = detector_name
-        self.detector = None
+        self.detector: Any = None
         self.results: list[DatasetBenchmarkResult] = []
 
     def _initialize_detector(self) -> None:
@@ -175,9 +175,8 @@ class LiveDatasetBenchmarkRunner:
             from omni_mercury_engine.core.adaptive_detector import AdaptiveAnomalyDetector
 
             self.detector = AdaptiveAnomalyDetector(
-                contamination="auto",
-                enable_3r=True,
-                use_adaptive_fusion=True,
+                contamination=0.1,
+                auto_profile=True,
             )
             logger.info(f"Initialized {self.detector_name} detector")
         except ImportError as e:
