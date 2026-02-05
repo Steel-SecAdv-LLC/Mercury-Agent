@@ -33,7 +33,7 @@ import subprocess
 import tempfile
 import time
 import tracemalloc
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -41,7 +41,7 @@ from benchmarks.statistical_validation import statistical_analysis
 from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine as ImprovedEngine
 
 
-def load_baseline_engine():
+def load_baseline_engine() -> type[Any]:
     """Load baseline RefactoringEngine from main branch."""
     # Use cross-platform temp directory instead of hardcoded /tmp
     baseline_path = os.path.join(tempfile.gettempdir(), "three_r_mechanism_baseline.py")
@@ -68,7 +68,7 @@ def load_baseline_engine():
         raise ImportError(f"Could not load baseline module from {baseline_path}")
     baseline_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(baseline_module)
-    return baseline_module.RefactoringEngine
+    return cast(type[Any], baseline_module.RefactoringEngine)
 
 
 def extract_test_functions(
@@ -103,8 +103,8 @@ def extract_test_functions(
 
 
 def benchmark_execution_time(
-    engine_class, functions: list[tuple], iterations: int = 10, is_improved: bool = False
-) -> np.ndarray:
+    engine_class: type[Any], functions: list[tuple[str, ast.FunctionDef, Path]], iterations: int = 10, is_improved: bool = False
+) -> np.ndarray[Any, Any]:
     """
     Benchmark execution time for RefactoringEngine analysis operations.
 
@@ -117,13 +117,13 @@ def benchmark_execution_time(
     Returns:
         Array of mean execution times per function
     """
-    times = []
+    times: list[float] = []
 
     try:
         engine = engine_class()
     except TypeError:
         try:
-            engine = engine_class.__new__(engine_class)
+            engine = object.__new__(engine_class)
             engine.__init__()
         except Exception:
             print(f"Warning: Could not properly initialize {engine_class}")
@@ -131,7 +131,7 @@ def benchmark_execution_time(
 
     for func_name, func_node, file_path in functions:
         try:
-            module_globals = {"__name__": "__main__", "__builtins__": __builtins__}
+            module_globals: dict[str, Any] = {"__name__": "__main__", "__builtins__": __builtins__}
             func_code = compile(
                 ast.Module(body=[func_node], type_ignores=[]), filename="<benchmark>", mode="exec"
             )
@@ -140,12 +140,12 @@ def benchmark_execution_time(
 
             if test_func is None:
 
-                def test_func():
+                def test_func() -> None:
                     pass
 
                 test_func.__name__ = func_name
 
-            iter_times = []
+            iter_times: list[float] = []
             for _ in range(iterations):
                 start = time.perf_counter()
 
@@ -197,8 +197,8 @@ def benchmark_execution_time(
 
 
 def benchmark_memory_usage(
-    engine_class, functions: list[tuple], is_improved: bool = False
-) -> np.ndarray:
+    engine_class: type[Any], functions: list[tuple[str, ast.FunctionDef, Path]], is_improved: bool = False
+) -> np.ndarray[Any, Any]:
     """
     Benchmark memory usage during RefactoringEngine analysis.
 
@@ -210,13 +210,13 @@ def benchmark_memory_usage(
     Returns:
         Array of peak memory usage (KB) per function
     """
-    memory_usage = []
+    memory_usage: list[float] = []
 
     try:
         engine = engine_class()
     except TypeError:
         try:
-            engine = engine_class.__new__(engine_class)
+            engine = object.__new__(engine_class)
             engine.__init__()
         except Exception:
             print(f"Warning: Could not properly initialize {engine_class}")
@@ -224,7 +224,7 @@ def benchmark_memory_usage(
 
     for func_name, func_node, file_path in functions:
         try:
-            module_globals = {"__name__": "__main__", "__builtins__": __builtins__}
+            module_globals: dict[str, Any] = {"__name__": "__main__", "__builtins__": __builtins__}
             func_code = compile(
                 ast.Module(body=[func_node], type_ignores=[]), filename="<benchmark>", mode="exec"
             )
@@ -233,7 +233,7 @@ def benchmark_memory_usage(
 
             if test_func is None:
 
-                def test_func():
+                def test_func() -> None:
                     pass
 
                 test_func.__name__ = func_name
@@ -268,7 +268,7 @@ def benchmark_memory_usage(
     return np.array(memory_usage)
 
 
-def benchmark_accuracy(engine_class, functions: list[tuple]) -> np.ndarray:
+def benchmark_accuracy(engine_class: type[Any], functions: list[tuple[str, ast.FunctionDef, Path]]) -> np.ndarray[Any, Any]:
     """
     Note on accuracy measurement for code complexity analysis.
 
@@ -290,7 +290,7 @@ def benchmark_accuracy(engine_class, functions: list[tuple]) -> np.ndarray:
 
 
 def run_comprehensive_comparison(
-    baseline_engine, improved_engine, functions: list[tuple]
+    baseline_engine: type[Any], improved_engine: type[Any], functions: list[tuple[str, ast.FunctionDef, Path]]
 ) -> dict[str, Any]:
     """Run comprehensive benchmarks comparing baseline vs improved."""
 

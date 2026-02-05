@@ -68,6 +68,7 @@ import warnings
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
@@ -169,11 +170,11 @@ def verify_checksum(content: bytes, dataset_key: str) -> bool:
 
 
 def fetch_with_retry(
-    fetch_func: callable,
+    fetch_func: Callable[..., Any],
     dataset_name: str,
     max_retries: int = 5,
     base_delay: float = 2.0,
-    **fetch_kwargs,
+    **fetch_kwargs: Any,
 ) -> Any | None:
     """
     Fetch a dataset with exponential backoff retry logic.
@@ -415,7 +416,7 @@ def _create_labels_from_ranges(
     return y
 
 
-def fetch_smap_msl_local(dataset: str = "SMAP") -> tuple | None:
+def fetch_smap_msl_local(dataset: str = "SMAP") -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, str] | None:
     """
     Load SMAP/MSL from local directory matching telemanom structure.
 
@@ -1766,7 +1767,7 @@ class DetectorHealth:
 class FallbackTelemetry:
     """Telemetry tracking for fallback mechanisms."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.fallback_counts: dict[str, int] = {
             "import_failure": 0,
             "initialization_error": 0,

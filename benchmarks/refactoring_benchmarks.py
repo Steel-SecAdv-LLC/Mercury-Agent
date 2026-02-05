@@ -49,7 +49,7 @@ class RefactoringBenchmark:
                 require_confirmation=False,
             )
         )
-        self.results = []
+        self.results: list[dict[str, Any]] = []
 
     def extract_functions_from_file(
         self, file_path: Path
@@ -119,10 +119,12 @@ class RefactoringBenchmark:
         }
 
     def benchmark_dimension_4_scalability(
-        self, functions: list[tuple], batch_sizes: list[int] = [10, 50, 100]
+        self, functions: list[tuple[str, ast.FunctionDef, Path]], batch_sizes: list[int] | None = None
     ) -> dict[str, Any]:
         """Measure scalability with increasing batch sizes."""
-        scalability_results = {}
+        if batch_sizes is None:
+            batch_sizes = [10, 50, 100]
+        scalability_results: dict[str, Any] = {}
 
         for batch_size in batch_sizes:
             if len(functions) < batch_size:
@@ -208,7 +210,7 @@ class RefactoringBenchmark:
         sample_size = min(100, len(all_functions))
         sample_functions = all_functions[:sample_size]
 
-        dimension_results = {
+        dimension_results: dict[str, list[float]] = {
             "execution_time": [],
             "memory": [],
             "correctness": [],
