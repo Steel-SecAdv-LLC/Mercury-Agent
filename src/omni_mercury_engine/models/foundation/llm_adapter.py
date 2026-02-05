@@ -191,7 +191,7 @@ Analyze carefully considering:
 - Domain-specific knowledge"""
 
         # Convert data to string representation
-        if isinstance(data, npt.NDArray[Any]):
+        if isinstance(data, np.ndarray):
             data_str = f"Numerical data: shape={data.shape}, mean={np.mean(data):.4f}, std={np.std(data):.4f}, min={np.min(data):.4f}, max={np.max(data):.4f}"
         elif isinstance(data, torch.Tensor):
             data_np = data.detach().cpu().numpy()

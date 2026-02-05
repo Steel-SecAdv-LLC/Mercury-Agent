@@ -1325,7 +1325,7 @@ class AnomalyChainOfThought:
             Dictionary with reasoning_chain, conclusion, and analysis details
         """
         # Handle different input formats for API compatibility
-        if isinstance(anomaly_score_or_features, npt.NDArray[Any]):
+        if isinstance(anomaly_score_or_features, np.ndarray):
             # Test API: analyze_anomaly(detection_result, raw_features)
             raw_features = anomaly_score_or_features
             anomaly_score = data.get("score", 0.5)

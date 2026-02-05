@@ -298,7 +298,7 @@ class TruthDecipherFramework(LoggerMixin):
 
         if self.enable_novel_discovery and self.novel_discovery:
             try:
-                if isinstance(data_stream, npt.NDArray[Any]) and len(data_stream.shape) >= 2:
+                if isinstance(data_stream, np.ndarray) and len(data_stream.shape) >= 2:
                     masks = np.ones_like(data_stream[:, :1])
                     novel_result = self.novel_discovery.discover_novel_classes(
                         data_stream[:10] if len(data_stream) > 10 else data_stream,

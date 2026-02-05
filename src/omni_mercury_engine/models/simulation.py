@@ -561,7 +561,7 @@ class SimulationModule:
         data_arr: np.ndarray[Any, Any]
         if isinstance(data, dict):
             data_arr = np.array(next(iter(data.values())))
-        elif not isinstance(data, npt.NDArray[Any]):
+        elif not isinstance(data, np.ndarray):
             data_arr = np.array(data)
         else:
             data_arr = data

@@ -315,7 +315,7 @@ def convert_numpy_for_json(obj: Any) -> Any:
         return int(obj)
     elif isinstance(obj, np.floating):
         return float(obj)
-    elif isinstance(obj, npt.NDArray[Any]):
+    elif isinstance(obj, np.ndarray):
         return obj.tolist()
     return obj
 

@@ -181,7 +181,7 @@ class PaDiMDetector(BaseVisualDetector):
         Returns:
             Self for method chaining
         """
-        if isinstance(data, npt.NDArray[Any]):
+        if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)
@@ -269,7 +269,7 @@ class PaDiMDetector(BaseVisualDetector):
         if not self._is_fitted:
             raise RuntimeError("Detector must be fitted before detection")
 
-        if isinstance(data, npt.NDArray[Any]):
+        if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
         original_size = data.shape[-2:]
@@ -374,7 +374,7 @@ class PaDiMDetector(BaseVisualDetector):
         Returns:
             Feature tensor [N, 128] normalized for fusion
         """
-        if isinstance(data, npt.NDArray[Any]):
+        if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
         data = self.preprocess(data)

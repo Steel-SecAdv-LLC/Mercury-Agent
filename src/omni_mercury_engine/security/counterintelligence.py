@@ -273,7 +273,7 @@ class OverwatchNexus(LoggerMixin):
         Returns:
             Chaos score (higher = more bifurcation)
         """
-        if isinstance(data_stream, npt.NDArray[Any]) and data_stream.size > 0:
+        if isinstance(data_stream, np.ndarray) and data_stream.size > 0:
             variance = float(np.var(data_stream))
             chaos_score = min(variance / 10.0, 1.0)
         else:
@@ -301,7 +301,7 @@ class OverwatchNexus(LoggerMixin):
             if osint_data.get("threat_score", 0) > 0.6:
                 indicators.append("OSINT disease outbreak signals")
 
-        if isinstance(data_stream, npt.NDArray[Any]) and data_stream.size > 0:
+        if isinstance(data_stream, np.ndarray) and data_stream.size > 0:
             if float(np.mean(data_stream)) > 2.0:
                 indicators.append("Pathogen energy threshold exceeded (QBM model)")
 
@@ -384,7 +384,7 @@ class OverwatchNexus(LoggerMixin):
         Enables Overwatch Nexus and Response module to integrate with existing
         hybrid fusion architecture (core/fusion.py).
         """
-        if isinstance(data, npt.NDArray[Any]):
+        if isinstance(data, np.ndarray):
             features = torch.tensor(data, dtype=torch.float32)
         else:
             features = torch.zeros(128, dtype=torch.float32)

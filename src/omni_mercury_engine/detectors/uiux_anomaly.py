@@ -862,7 +862,7 @@ class UIUXAnomalyDetector(BaseDetector):
             raise DetectorException("Detector must be fitted before detection")
 
         # Handle array input (for ML fusion compatibility)
-        if isinstance(interactions, (npt.NDArray[Any], torch.Tensor)):
+        if isinstance(interactions, (np.ndarray, torch.Tensor)):
             return self._detect_from_features(interactions)
 
         # Full interaction analysis
@@ -997,8 +997,8 @@ class UIUXAnomalyDetector(BaseDetector):
             Feature tensor [batch_size, feature_dim]
         """
         # Handle array input
-        if isinstance(interactions, (npt.NDArray[Any], torch.Tensor)):
-            if isinstance(interactions, npt.NDArray[Any]):
+        if isinstance(interactions, (np.ndarray, torch.Tensor)):
+            if isinstance(interactions, np.ndarray):
                 return torch.tensor(interactions, dtype=torch.float32)
             return interactions
 
