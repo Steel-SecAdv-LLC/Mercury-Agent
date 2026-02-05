@@ -17,6 +17,7 @@ References:
 """
 
 from typing import Any
+
 from omni_mercury_engine.automl.optimizer import (
     BayesianOptimizer,
     GaussianProcessSampler,

@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Cortical-Laminated Neural Network Architecture
 
@@ -56,6 +57,7 @@ import numpy.typing as npt
 import torch
 import torch.nn.functional as F
 from torch import nn
+
 
 __all__ = [
     "CorticalColumn",

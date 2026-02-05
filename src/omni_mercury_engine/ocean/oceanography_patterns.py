@@ -46,7 +46,6 @@ from dataclasses import dataclass
 from enum import Enum
 
 import numpy as np
-import numpy.typing as npt
 
 
 class DepthLevel(Enum):

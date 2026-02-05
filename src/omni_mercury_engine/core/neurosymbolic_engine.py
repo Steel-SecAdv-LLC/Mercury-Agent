@@ -22,7 +22,6 @@ Note:
         MERCURY_AGENT_SUPPRESS_DEPRECATION_WARNINGS=1
 """
 
-from typing import Any
 from __future__ import annotations
 
 import os

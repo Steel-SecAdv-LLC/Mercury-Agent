@@ -49,7 +49,6 @@ from typing import Any
 
 import httpx
 import numpy as np
-import numpy.typing as npt
 
 
 try:

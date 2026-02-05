@@ -27,6 +27,7 @@ Example:
 """
 
 from typing import Any
+
 from omni_mercury_engine.core.three_r.engines import (
     RecursionEngine,
     ResonanceEngine,

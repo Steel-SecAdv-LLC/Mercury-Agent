@@ -41,7 +41,6 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import numpy as np
-import numpy.typing as npt
 import torch
 from PIL import Image
 

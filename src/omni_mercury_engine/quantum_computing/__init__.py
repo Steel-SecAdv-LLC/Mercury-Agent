@@ -14,6 +14,7 @@ Note: When Qiskit is not available, the module provides simulation fallbacks.
 """
 
 from typing import Any
+
 from omni_mercury_engine.quantum_computing.circuits import (
     AnomalyEncodingCircuit,
     ErrorMitigationCircuit,

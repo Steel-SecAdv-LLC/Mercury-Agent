@@ -327,7 +327,7 @@ class SparseTopKAttention(nn.Module):
 
         if return_attention:
             return out, attn_weights
-        return cast(torch.Tensor, out)
+        return cast("torch.Tensor", out)
 
 
 class UncertaintyWeightedFusion(nn.Module):

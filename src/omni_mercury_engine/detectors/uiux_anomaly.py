@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 UI/UX Anomaly Detection Module for Mercury Agent.
 
@@ -81,6 +82,7 @@ from torch import nn
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.utils.constants import MathematicalConstants
+
 
 logger = logging.getLogger(__name__)
 
@@ -763,10 +765,10 @@ class UIUXAnomalyDetector(BaseDetector):
         sessions: list[list[UserInteraction]]
         if isinstance(interactions[0], UserInteraction):
             # Single session provided - wrap in list
-            sessions = [cast(list[UserInteraction], interactions)]
+            sessions = [cast("list[UserInteraction]", interactions)]
         else:
             # Multiple sessions provided
-            sessions = cast(list[list[UserInteraction]], interactions)
+            sessions = cast("list[list[UserInteraction]]", interactions)
 
         # Collect statistics from all sessions
         all_timings = []

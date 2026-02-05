@@ -22,8 +22,9 @@ These metrics match those used in benchmark papers:
 - TranAD (VLDB 2022)
 """
 
-from typing import Any
 from __future__ import annotations
+
+from typing import Any
 
 from .baselines import (
     BASELINE_RESULTS,

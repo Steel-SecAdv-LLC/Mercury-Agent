@@ -39,6 +39,7 @@ Example:
 """
 
 from typing import Any
+
 from omni_mercury_engine.narrative.engine import (
     ConfidenceLevel,
     NarrativeEngine,

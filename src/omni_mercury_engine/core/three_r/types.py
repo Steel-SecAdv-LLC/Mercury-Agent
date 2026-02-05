@@ -5,7 +5,6 @@ Copyright (C) 2025 Steel Security Advisory LLC
 Type definitions, enums, and dataclasses for the 3R Mechanism.
 """
 
-from typing import Any
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -33,7 +33,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import numpy.typing as npt
 import torch
 
 from omni_mercury_engine.metrics.anomaly_metrics import AnomalyMetrics

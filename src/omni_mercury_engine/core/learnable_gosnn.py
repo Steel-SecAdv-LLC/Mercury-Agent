@@ -383,7 +383,7 @@ if TORCH_AVAILABLE:
         ) -> torch.Tensor:
             """Predict correlation between two scalar embeddings."""
             combined = torch.cat([emb1, emb2], dim=-1)
-            return cast(torch.Tensor, self.correlation_learner(combined))
+            return cast("torch.Tensor", self.correlation_learner(combined))
 
 
 class LearnableGOSNN:

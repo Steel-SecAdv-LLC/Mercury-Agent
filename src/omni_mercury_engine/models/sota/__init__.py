@@ -19,8 +19,9 @@ References:
     - Benaissa et al., "MAAT: Mamba Adaptive Anomaly Transformer", arXiv 2025
 """
 
-from typing import Any
 from __future__ import annotations
+
+from typing import Any
 
 from omni_mercury_engine.models.sota.association_discrepancy import (
     AnomalyTransformerEncoder,

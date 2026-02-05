@@ -18,6 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+
 """
 Meta-Learning Adapter for Mercury Agent.
 
@@ -47,10 +48,11 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Union, cast
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
+
 
 try:
     import torch
@@ -1236,7 +1238,7 @@ class MetaLearningAdapter:
         self.k_shot = k_shot
 
         # Declare learner type before initialization
-        self._learner: Union[PrototypicalNetworks, MAML, Reptile]
+        self._learner: PrototypicalNetworks | MAML | Reptile
 
         # Initialize algorithm
         self._init_algorithm()

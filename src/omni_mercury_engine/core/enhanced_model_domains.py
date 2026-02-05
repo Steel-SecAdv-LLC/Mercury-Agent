@@ -170,7 +170,7 @@ class EnhancedQuantumModel:
         # Ensure trace = 1
         rho_decohered = rho_decohered / np.trace(rho_decohered)
 
-        return cast(npt.NDArray[Any], rho_decohered)
+        return cast("npt.NDArray[Any]", rho_decohered)
 
     def compute_von_neumann_entropy(self, rho: npt.NDArray[Any]) -> float:
         """

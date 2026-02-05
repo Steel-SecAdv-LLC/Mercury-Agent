@@ -31,7 +31,6 @@ from pathlib import Path
 
 import click
 import numpy as np
-import numpy.typing as npt
 
 
 # Lazy import to support CLI help without torch dependency

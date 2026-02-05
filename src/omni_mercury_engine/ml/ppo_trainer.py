@@ -44,7 +44,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)

@@ -48,7 +48,6 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import numpy.typing as npt
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 

@@ -2,8 +2,9 @@
 Request routing and fallback handling components.
 """
 
-from typing import Any
 from __future__ import annotations
+
+from typing import Any
 
 from omni_mercury_engine.integrations.routing.fallback import (
     FallbackChain,

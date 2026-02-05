@@ -28,7 +28,6 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import numpy.typing as npt
 
 from omni_mercury_engine.core.global_omni_scalar_network import (
     PHI,

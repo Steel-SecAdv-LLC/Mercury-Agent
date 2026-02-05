@@ -16,8 +16,9 @@ This package provides:
 - Ava-Guardian post-quantum cryptography adapter
 """
 
-from typing import Any
 from __future__ import annotations
+
+from typing import Any
 
 from omni_mercury_engine.integrations.http.client import HTTPClient, HTTPClientConfig, HTTPResponse
 from omni_mercury_engine.integrations.mercury_guardian import (

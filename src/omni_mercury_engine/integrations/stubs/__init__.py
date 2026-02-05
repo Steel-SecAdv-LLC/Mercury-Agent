@@ -5,8 +5,9 @@ These stubs provide mock implementations of external services,
 allowing development and testing without actual service dependencies.
 """
 
-from typing import Any
 from __future__ import annotations
+
+from typing import Any
 
 from omni_mercury_engine.integrations.stubs.cache import CacheEntry, CacheStub
 from omni_mercury_engine.integrations.stubs.database import DatabaseStub, QueryResult

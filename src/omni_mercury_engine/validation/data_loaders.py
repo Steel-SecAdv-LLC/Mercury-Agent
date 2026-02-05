@@ -40,7 +40,6 @@ from typing import Any
 from urllib.request import urlopen
 
 import numpy as np
-import numpy.typing as npt
 
 from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
 from omni_mercury_engine.security.input_validation import TrustedEndpoints

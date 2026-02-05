@@ -25,6 +25,7 @@ References:
 """
 
 from typing import Any
+
 from omni_mercury_engine.federated_learning.cisa_coordinator import (
     CISAFederatedCoordinator,
     CrossSectorResult,

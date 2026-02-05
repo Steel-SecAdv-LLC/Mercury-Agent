@@ -25,6 +25,7 @@ Usage:
 """
 
 from typing import Any
+
 from omni_mercury_engine.data_sources.base import (
     AlertLevel,
     CacheConfig,

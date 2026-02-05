@@ -8,8 +8,9 @@ the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 """
 
-from typing import Any
 from __future__ import annotations
+
+from typing import Any
 
 
 """
