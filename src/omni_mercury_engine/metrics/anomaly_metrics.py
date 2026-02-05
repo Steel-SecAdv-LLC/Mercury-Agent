@@ -27,7 +27,7 @@ Implements standard metrics used in anomaly detection literature.
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -45,8 +45,8 @@ _thresholds = ThresholdConfig()
 def _to_numpy(arr: Any) -> np.ndarray[Any, Any]:
     """Convert array-like to numpy."""
     if hasattr(arr, "cpu"):  # torch tensor
-        return arr.cpu().numpy()
-    return np.asarray(arr)
+        return cast(npt.NDArray[Any], arr.cpu().numpy())
+    return cast(npt.NDArray[Any], np.asarray(arr))
 
 
 def compute_auroc(

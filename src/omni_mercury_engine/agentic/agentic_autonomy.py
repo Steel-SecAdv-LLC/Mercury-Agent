@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 
 """
@@ -579,9 +579,9 @@ class AgenticAutonomy:
     ) -> np.ndarray[Any, Any]:
         """Apply data transformation."""
         if transformation == "normalize":
-            return (data - np.mean(data)) / (np.std(data) + 1e-8)
+            return cast(npt.NDArray[Any], (data - np.mean(data)) / (np.std(data) + 1e-8))
         elif transformation == "scale":
-            return (data - np.min(data)) / (np.max(data) - np.min(data) + 1e-8)
+            return cast(npt.NDArray[Any], (data - np.min(data)) / (np.max(data) - np.min(data) + 1e-8))
         else:
             return data
 

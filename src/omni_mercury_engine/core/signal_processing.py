@@ -40,7 +40,7 @@ Research sources:
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -221,7 +221,7 @@ class AdaptiveNoiseFilter:
 
     def _soft_threshold(self, data: np.ndarray[Any, Any], threshold: float) -> np.ndarray[Any, Any]:
         """Apply soft thresholding to wavelet coefficients."""
-        return np.sign(data) * np.maximum(np.abs(data) - threshold, 0)
+        return cast(npt.NDArray[Any], np.sign(data) * np.maximum(np.abs(data) - threshold, 0))
 
     def _kalman_filter(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Kalman filter for optimal temporal noise reduction.
@@ -272,7 +272,7 @@ class AdaptiveNoiseFilter:
         poly_order = min(self.config.poly_order, window - 1)
 
         try:
-            return signal.savgol_filter(data, window, poly_order)
+            return cast(npt.NDArray[Any], signal.savgol_filter(data, window, poly_order))
         except ValueError:
             return data.copy()
 
@@ -308,7 +308,7 @@ class AdaptiveNoiseFilter:
 
         try:
             b, a = signal.butter(2, [low_freq * 2, high_freq * 2], btype="band")
-            return signal.filtfilt(b, a, data)
+            return cast(npt.NDArray[Any], signal.filtfilt(b, a, data))
         except ValueError:
             return data.copy()
 
@@ -318,7 +318,7 @@ class AdaptiveNoiseFilter:
         Effective for removing salt-and-pepper noise and outliers while
         preserving edges. Useful for sensor data with occasional spikes.
         """
-        return signal.medfilt(data, kernel_size=min(self.config.window_size, len(data)))
+        return cast(npt.NDArray[Any], signal.medfilt(data, kernel_size=min(self.config.window_size, len(data))))
 
     def _ema_filter(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Exponential moving average filter.
