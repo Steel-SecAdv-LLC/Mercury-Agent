@@ -34,7 +34,7 @@ from omni_mercury_engine.medical.medical_cure_predictor import MedicalCurePredic
 from omni_mercury_engine.security.cyber_fortress import CyberFortress
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Humanitarian Demo - Mercury Agent ♱ Extensions")
     parser.add_argument(
         "--threshold", type=float, default=5.0, help="Detection threshold (3.0-10.0, default: 5.0)"
@@ -52,7 +52,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def demo_fortress_mode():
+def demo_fortress_mode() -> None:
     print("\n" + "=" * 70)
     print("DEMO 1: CYBER FORTRESS - PROACTIVE THREAT ELIMINATION")
     print("=" * 70)
@@ -70,7 +70,7 @@ def demo_fortress_mode():
     print(f"✓ Hash integrity: {result.hash_integrity_verified}")
 
 
-def demo_disease_detection():
+def demo_disease_detection() -> None:
     print("\n" + "=" * 70)
     print("DEMO 2: MEDICAL CURE PREDICTOR - EARLY DISEASE DETECTION")
     print("=" * 70)
@@ -90,7 +90,7 @@ def demo_disease_detection():
     print(f"✓ Disease type: {result.disease_type}")
 
 
-def demo_seti_analysis():
+def demo_seti_analysis() -> None:
     print("\n" + "=" * 70)
     print("DEMO 3: EMERGENT LIFE DETECTOR - SETI SIGNAL ANALYSIS")
     print("=" * 70)
@@ -104,7 +104,7 @@ def demo_seti_analysis():
     print(f"✓ Signal type: {result.signal_type}")
 
 
-def main():
+def main() -> None:
     args = parse_args()
 
     print("\n" + "=" * 70)
@@ -128,7 +128,7 @@ def main():
     print("=" * 70 + "\n")
 
 
-def profile_memory_usage():
+def profile_memory_usage() -> None:
     """Profile memory usage of humanitarian extensions."""
     print("\n" + "=" * 70)
     print("MEMORY PROFILING")
@@ -182,7 +182,7 @@ def profile_memory_usage():
     tracemalloc.stop()
 
 
-def profile_runtime():
+def profile_runtime() -> None:
     """Profile runtime performance."""
     import time
 
