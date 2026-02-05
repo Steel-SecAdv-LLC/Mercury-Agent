@@ -51,7 +51,7 @@ from omni_mercury_engine.detectors.advanced_physics_integration import (
 )
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Physics-Inspired Anomaly Detection Demo - Mercury Agent v1.4.0"
     )
@@ -240,7 +240,7 @@ def generate_rage_click_session(n_interactions: int = 50) -> list[UserInteractio
     return interactions
 
 
-def demo_spectral_vibration(threshold: float = 0.5, verbose: bool = False):
+def demo_spectral_vibration(threshold: float = 0.5, verbose: bool = False) -> None:
     """Demonstrate SpectralVibrationDetector."""
     print("\n" + "=" * 70)
     print("DEMO 1: SPECTRAL VIBRATION DETECTOR - FREQUENCY DOMAIN ANALYSIS")
@@ -287,7 +287,7 @@ def demo_spectral_vibration(threshold: float = 0.5, verbose: bool = False):
         print(f"  Harmonic distortion: {result_anomaly.get('harmonic_distortion', 0.0):.4f}")
 
 
-def demo_acceleration_dynamics(threshold: float = 0.5, verbose: bool = False):
+def demo_acceleration_dynamics(threshold: float = 0.5, verbose: bool = False) -> None:
     """Demonstrate AccelerationDynamicsDetector."""
     print("\n" + "=" * 70)
     print("DEMO 2: ACCELERATION DYNAMICS DETECTOR - KINEMATIC ANALYSIS")
@@ -336,7 +336,7 @@ def demo_acceleration_dynamics(threshold: float = 0.5, verbose: bool = False):
     print(f"  Jerk anomaly: {result_chaotic.get('jerk_anomaly', False)}")
 
 
-def demo_uiux_anomaly(threshold: float = 0.5, verbose: bool = False):
+def demo_uiux_anomaly(threshold: float = 0.5, verbose: bool = False) -> None:
     """Demonstrate UIUXAnomalyDetector."""
     print("\n" + "=" * 70)
     print("DEMO 3: UI/UX ANOMALY DETECTOR - BEHAVIORAL ANALYSIS")
@@ -396,7 +396,7 @@ def demo_uiux_anomaly(threshold: float = 0.5, verbose: bool = False):
         print(f"  Rage clicks detected: {ca.rage_clicks}")
 
 
-def demo_integrated_physics(threshold: float = 0.5, verbose: bool = False):
+def demo_integrated_physics(threshold: float = 0.5, verbose: bool = False) -> None:
     """Demonstrate AdvancedPhysicsIntegratedDetector."""
     print("\n" + "=" * 70)
     print("DEMO 4: INTEGRATED PHYSICS DETECTOR - MULTI-MODAL FUSION")
@@ -468,7 +468,7 @@ def demo_integrated_physics(threshold: float = 0.5, verbose: bool = False):
         print(f"  UI/UX score: {result_anomaly['uiux_result'].get('anomaly_score', 0.0):.4f}")
 
 
-def profile_memory_usage():
+def profile_memory_usage() -> None:
     """Profile memory usage of physics detectors."""
     print("\n" + "=" * 70)
     print("MEMORY PROFILING")
@@ -533,7 +533,7 @@ def profile_memory_usage():
     tracemalloc.stop()
 
 
-def profile_runtime():
+def profile_runtime() -> None:
     """Profile runtime performance."""
     print("\n" + "=" * 70)
     print("RUNTIME PROFILING")
@@ -602,7 +602,7 @@ def profile_runtime():
     print(f"  Mean runtime: {np.mean(times)*1000:.2f} ms +/- {np.std(times)*1000:.2f} ms")
 
 
-def main():
+def main() -> None:
     args = parse_args()
 
     print("\n" + "=" * 70)

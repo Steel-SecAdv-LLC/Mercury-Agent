@@ -34,7 +34,7 @@ from assets.loaders import generate_mimic_vitals
 from omni_mercury_engine.medical.medical_cure_predictor import MedicalCurePredictor
 
 
-def validate_medical_predictor():
+def validate_medical_predictor() -> None:
     """Validate Medical Predictor with t-tests."""
     print("Medical Predictor Validation")
     print("=" * 60)

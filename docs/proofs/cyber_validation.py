@@ -34,7 +34,7 @@ from assets.loaders import generate_pcap_data
 from omni_mercury_engine.security.cyber_fortress import ResonanceHashIntegrityChecker
 
 
-def validate_cyber_fortress():
+def validate_cyber_fortress() -> None:
     """Validate Cyber Fortress with t-tests."""
     print("Cyber Fortress Validation")
     print("=" * 60)
