@@ -7,7 +7,7 @@ Core engines for the 3R (Recursion-Resonance-Refactoring) Mechanism.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -131,7 +131,7 @@ class RecursionEngine:
             window_size = max(3, len(data) // (2**level))
             return self._sliding_window_stats(data, window_size)
         else:
-            return np.mean(data, axis=1, keepdims=True)
+            return cast(npt.NDArray[Any], np.mean(data, axis=1, keepdims=True))
 
     def _sliding_window_stats(self, data: NDArray[Any], window_size: int) -> NDArray[Any]:
         """Compute sliding window statistics."""
@@ -226,7 +226,7 @@ class ResonanceEngine:
             if mirror_idx < len(fft_result):
                 fft_result[mirror_idx] *= amplification_factor
 
-        return np.real(np.array(fft.ifft(fft_result)))
+        return cast(npt.NDArray[Any], np.real(np.array(fft.ifft(fft_result))))
 
     def compute_resonance_score(self, signal_data: NDArray[Any]) -> float:
         """
