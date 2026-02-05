@@ -51,7 +51,7 @@ try:
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None
+    torch = None  # type: ignore[assignment]
     TORCH_AVAILABLE = False
 
 
