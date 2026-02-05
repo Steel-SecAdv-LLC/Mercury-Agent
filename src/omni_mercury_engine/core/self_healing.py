@@ -27,7 +27,7 @@ Deprecated:
 from __future__ import annotations
 
 # Re-export everything from canonical location
-from omni_mercury_engine.resilience.self_healing import *  # noqa: F403
+from omni_mercury_engine.resilience.self_healing import *  # noqa: F401, F403
 
 # Explicit re-exports for type checking
 from omni_mercury_engine.resilience.self_healing import (
