@@ -58,6 +58,7 @@ from datetime import datetime
 from enum import Enum, auto
 from typing import Any, TypeVar
 
+
 # Import CircuitState from canonical location with fallback for backwards compatibility
 try:
     from omni_mercury_engine.core.types import CircuitState
@@ -249,7 +250,7 @@ class CircuitBreaker:
         else:
             # Limit exponent to prevent overflow (max 10 doublings)
             exponent = min(self._open_count - 1, 10)
-            base_timeout = self.config.reset_timeout * (self.config.backoff_base ** exponent)
+            base_timeout = self.config.reset_timeout * (self.config.backoff_base**exponent)
             base_timeout = min(base_timeout, self.config.max_backoff_timeout)
 
         if self.config.enable_jitter and base_timeout > 0:

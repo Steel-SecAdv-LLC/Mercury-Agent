@@ -37,14 +37,8 @@ from typing import Any
 
 import numpy as np
 
-from omni_mercury_engine.federated_learning.client import (
-    ClientConfig,
-    FederatedClient,
-)
 from omni_mercury_engine.federated_learning.server import (
     FederatedAnomalyDetector,
-    FederatedServer,
-    ServerConfig,
     TrainingResult,
 )
 
@@ -314,7 +308,8 @@ class CISAFederatedCoordinator:
                 continue
 
             detector = self._sector_detectors[sector]
-            config = self._sector_configs[sector]
+            # config is used for logging privacy level in future enhancements
+            _ = self._sector_configs[sector]
 
             logger.info(
                 f"Training sector {sector} with {len(self._sector_clients[sector])} clients"
@@ -329,9 +324,7 @@ class CISAFederatedCoordinator:
 
                 # Track statistics
                 total_clients += len(self._sector_clients[sector])
-                total_samples += sum(
-                    len(data) for _, data, _ in self._sector_clients[sector]
-                )
+                total_samples += sum(len(data) for _, data, _ in self._sector_clients[sector])
 
                 # Get privacy report if available
                 privacy_report = detector.get_privacy_report()
@@ -354,9 +347,7 @@ class CISAFederatedCoordinator:
         cross_sector_metrics: dict[str, float] = {}
 
         if cross_sector_aggregation and len(participating_sectors) > 1:
-            global_weights, cross_sector_metrics = self._aggregate_across_sectors(
-                sector_results
-            )
+            global_weights, cross_sector_metrics = self._aggregate_across_sectors(sector_results)
             logger.info(
                 f"Cross-sector aggregation complete across {len(participating_sectors)} sectors"
             )
@@ -399,9 +390,7 @@ class CISAFederatedCoordinator:
             if result.final_weights is not None:
                 weights_list.append(result.final_weights)
                 # Weight by total samples in sector
-                sector_samples = sum(
-                    len(data) for _, data, _ in self._sector_clients[sector]
-                )
+                sector_samples = sum(len(data) for _, data, _ in self._sector_clients[sector])
                 sample_counts.append(sector_samples)
 
         if not weights_list:
@@ -494,8 +483,6 @@ class CISAFederatedCoordinator:
                 "cross_sector_sharing": config.cross_sector_sharing if config else False,
             }
 
-        stats["total_clients"] = sum(
-            len(clients) for clients in self._sector_clients.values()
-        )
+        stats["total_clients"] = sum(len(clients) for clients in self._sector_clients.values())
 
         return stats

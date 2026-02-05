@@ -34,22 +34,12 @@ from typing import Any
 
 import numpy as np
 
-from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
-
 # Re-export core federated learning components from the new consolidated module
+# Import the new FederatedAnomalyDetector for reference but don't export it directly
 from omni_mercury_engine.federated_learning import (
     # Server components
     AggregationStrategy,
     Aggregator,
-    FedAdamAggregator,
-    FedAvgAggregator,
-    FederatedServer,
-    RoundResult,
-    ScaffoldAggregator,
-    SecureAggregatorWrapper,
-    ServerConfig,
-    ServerStatus,
-    TrainingResult,
     # Client components
     ClientConfig,
     ClientConnectionStatus,
@@ -57,35 +47,41 @@ from omni_mercury_engine.federated_learning import (
     ClientManager,
     ClientState,
     ClientStatus,
-    FederatedClient,
-    FederationConfig,
-    FedProxTrainer,
-    LocalTrainer,
-    LocalUpdate,
-    SGDTrainer,
+    # CISA Coordinator (new implementation)
+    CrossSectorResult,
     # Privacy components
     DifferentialPrivacyMechanism,
+    FedAdamAggregator,
+    FedAvgAggregator,
+    FederatedAnomalyDetector as NewFederatedAnomalyDetector,
+    FederatedClient,
+    FederatedServer,
+    FederationConfig,
+    FedProxTrainer,
     GaussianMechanism,
     GradientClipper,
     LaplaceMechanism,
     LocalDifferentialPrivacy,
+    LocalTrainer,
+    LocalUpdate,
     PrivacyAccountant,
     PrivacyBudget,
     PrivacyEngine,
     PrivacyMechanism,
     PrivacyReport,
-    SecureAggregator,
-    # CISA Coordinator (new implementation)
-    CrossSectorResult,
+    RoundResult,
+    ScaffoldAggregator,
     SectorConfig,
     SectorPrivacyLevel,
     SectorType,
+    SecureAggregator,
+    SecureAggregatorWrapper,
+    ServerConfig,
+    ServerStatus,
+    SGDTrainer,
+    TrainingResult,
 )
-
-# Import the new FederatedAnomalyDetector for reference but don't export it directly
-from omni_mercury_engine.federated_learning import (
-    FederatedAnomalyDetector as NewFederatedAnomalyDetector,
-)
+from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
 # Legacy enum definitions for backward compatibility
@@ -195,9 +191,7 @@ class FederatedAnomalyDetector:
                 )
 
                 if self.privacy_level == PrivacyLevel.DIFFERENTIAL_PRIVACY:
-                    local_model_update = self._add_differential_privacy_noise(
-                        local_model_update
-                    )
+                    local_model_update = self._add_differential_privacy_noise(local_model_update)
                     privacy_budget_spent += self.epsilon
 
                 client_updates.append(local_model_update)
@@ -207,17 +201,11 @@ class FederatedAnomalyDetector:
                 continue
 
             if self.strategy == FederatedStrategy.FEDAVG:
-                aggregated_update = self._federated_averaging(
-                    client_updates, client_weights
-                )
+                aggregated_update = self._federated_averaging(client_updates, client_weights)
             elif self.strategy == FederatedStrategy.FEDPROX:
-                aggregated_update = self._federated_proximal(
-                    client_updates, client_weights
-                )
+                aggregated_update = self._federated_proximal(client_updates, client_weights)
             else:
-                aggregated_update = self._federated_averaging(
-                    client_updates, client_weights
-                )
+                aggregated_update = self._federated_averaging(client_updates, client_weights)
 
             self.global_model_weights = aggregated_update
 
@@ -262,9 +250,7 @@ class FederatedAnomalyDetector:
             Anomaly detection results for each client
         """
         if self.global_model_weights is None:
-            raise ValueError(
-                "Model must be trained before detection. Call federated_train first."
-            )
+            raise ValueError("Model must be trained before detection. Call federated_train first.")
 
         detection_results = {}
 
@@ -277,9 +263,7 @@ class FederatedAnomalyDetector:
                 )
                 anomaly_scores = self._compute_anomaly_scores(personalized_model, data)
             else:
-                anomaly_scores = self._compute_anomaly_scores(
-                    self.global_model_weights, data
-                )
+                anomaly_scores = self._compute_anomaly_scores(self.global_model_weights, data)
 
             threshold = np.percentile(anomaly_scores, 95)
             anomalies = anomaly_scores > threshold
@@ -382,9 +366,7 @@ class FederatedAnomalyDetector:
         )
         return reconstruction_errors
 
-    def _evaluate_global_model(
-        self, client_data: dict[str, np.ndarray[Any, Any]]
-    ) -> float:
+    def _evaluate_global_model(self, client_data: dict[str, np.ndarray[Any, Any]]) -> float:
         """Evaluate global model across all clients."""
         if self.global_model_weights is None:
             return 0.0
@@ -459,51 +441,46 @@ class CISAFederatedCoordinator:
 
 
 __all__ = [
-    # Server
     "AggregationStrategy",
     "Aggregator",
-    "FedAdamAggregator",
-    "FedAvgAggregator",
-    "FederatedServer",
-    "RoundResult",
-    "ScaffoldAggregator",
-    "SecureAggregatorWrapper",
-    "ServerConfig",
-    "ServerStatus",
-    "TrainingResult",
-    # Client
+    "CISAFederatedCoordinator",
     "ClientConfig",
     "ClientConnectionStatus",
     "ClientHealth",
     "ClientManager",
     "ClientState",
     "ClientStatus",
-    "FederatedClient",
-    "FederationConfig",
-    "FedProxTrainer",
-    "LocalTrainer",
-    "LocalUpdate",
-    "SGDTrainer",
-    # Privacy
+    "CrossSectorResult",
     "DifferentialPrivacyMechanism",
+    "FedAdamAggregator",
+    "FedAvgAggregator",
+    "FedProxTrainer",
+    "FederatedAnomalyDetector",
+    "FederatedClient",
+    "FederatedServer",
+    "FederatedStrategy",
+    "FederationConfig",
     "GaussianMechanism",
     "GradientClipper",
     "LaplaceMechanism",
     "LocalDifferentialPrivacy",
+    "LocalTrainer",
+    "LocalUpdate",
     "PrivacyAccountant",
     "PrivacyBudget",
     "PrivacyEngine",
+    "PrivacyLevel",
     "PrivacyMechanism",
     "PrivacyReport",
-    "SecureAggregator",
-    # CISA Coordinator (new)
-    "CrossSectorResult",
+    "RoundResult",
+    "SGDTrainer",
+    "ScaffoldAggregator",
     "SectorConfig",
     "SectorPrivacyLevel",
     "SectorType",
-    # Legacy classes (backwards compatible)
-    "CISAFederatedCoordinator",
-    "FederatedAnomalyDetector",
-    "FederatedStrategy",
-    "PrivacyLevel",
+    "SecureAggregator",
+    "SecureAggregatorWrapper",
+    "ServerConfig",
+    "ServerStatus",
+    "TrainingResult",
 ]

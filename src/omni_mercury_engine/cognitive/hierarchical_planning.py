@@ -1400,7 +1400,7 @@ class AnomalyHierarchicalPlanner:
             strategic_goals = [
                 f"assess_{anomaly_type}_impact",
                 f"contain_{anomaly_type}_threat",
-                f"remediate_affected_systems",
+                "remediate_affected_systems",
             ]
 
             tactical_actions = []

@@ -91,9 +91,7 @@ class ClientHealth:
         self.consecutive_successes = 0
         if self.consecutive_timeouts >= 3:
             self.connection_status = ClientConnectionStatus.PARTITIONED
-            logger.warning(
-                f"Client {self.client_id} marked as partitioned after 3 timeouts"
-            )
+            logger.warning(f"Client {self.client_id} marked as partitioned after 3 timeouts")
         else:
             self.connection_status = ClientConnectionStatus.TIMEOUT
             logger.warning(

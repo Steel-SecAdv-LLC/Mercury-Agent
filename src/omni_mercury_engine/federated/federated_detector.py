@@ -14,9 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
-"""
 
-"""
 Federated Learning for Privacy-Preserving Anomaly Detection
 
 DEPRECATED: This module is deprecated and maintained for backward compatibility only.
@@ -68,12 +66,10 @@ import numpy as np
 
 # Re-export from new consolidated module for backward compatibility
 from omni_mercury_engine.federated_learning import (
-    FederatedAnomalyDetector as _NewFederatedAnomalyDetector,
-)
-from omni_mercury_engine.federated_learning import (
     CISAFederatedCoordinator,
     ClientConnectionStatus,
     ClientHealth,
+    FederatedAnomalyDetector as _NewFederatedAnomalyDetector,
     FederationConfig,
 )
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
@@ -325,9 +321,9 @@ class FederatedAnomalyDetector:
 
 
 __all__ = [
+    "CISAFederatedCoordinator",
     "ClientHealth",
     "ClientStatus",
-    "CISAFederatedCoordinator",
     "FederatedAnomalyDetector",
     "FederatedStrategy",
     "FederationConfig",

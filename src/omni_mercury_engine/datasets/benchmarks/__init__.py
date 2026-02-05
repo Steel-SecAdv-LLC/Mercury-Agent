@@ -46,7 +46,6 @@ from .base_dataset import (
 )
 from .mvtec import MVTecADConfig, MVTecADDataset
 from .shanghai_tech import ShanghaiTechConfig, ShanghaiTechDataset
-from .ucf_crime import UCFCrimeConfig, UCFCrimeDataset
 
 # Real-world benchmark suite (from datasets/benchmarks.py)
 from .suite import (
@@ -57,27 +56,23 @@ from .suite import (
     one_class_svm_baseline,
     random_baseline,
 )
+from .ucf_crime import UCFCrimeConfig, UCFCrimeDataset
 
 
 __all__ = [
-    # Visual anomaly detection base classes
     "BaseDatasetConfig",
     "BaseImageDataset",
     "BaseVideoDataset",
-    "get_default_transforms",
-    # MVTec AD
-    "MVTecADConfig",
-    "MVTecADDataset",
-    # Shanghai Tech Campus
-    "ShanghaiTechConfig",
-    "ShanghaiTechDataset",
-    # UCF-Crime
-    "UCFCrimeConfig",
-    "UCFCrimeDataset",
-    # Benchmark suite
     "BenchmarkComparison",
     "BenchmarkResult",
+    "MVTecADConfig",
+    "MVTecADDataset",
     "RealWorldBenchmarkSuite",
+    "ShanghaiTechConfig",
+    "ShanghaiTechDataset",
+    "UCFCrimeConfig",
+    "UCFCrimeDataset",
+    "get_default_transforms",
     "isolation_forest_baseline",
     "one_class_svm_baseline",
     "random_baseline",

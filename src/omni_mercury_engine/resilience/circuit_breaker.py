@@ -33,6 +33,7 @@ from omni_mercury_engine.utils.resilience import (
     CircuitBreakerOpenError,
 )
 
+
 # Import CircuitState from canonical types module
 try:
     from omni_mercury_engine.core.types import CircuitState

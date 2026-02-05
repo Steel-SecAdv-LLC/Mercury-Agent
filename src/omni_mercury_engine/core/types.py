@@ -45,14 +45,14 @@ from enum import Enum, auto
 
 
 __all__ = [
+    "AnomalyType",
     "CircuitState",
-    "ThreatLevel",
-    "EthicalPrinciple",
-    "FusionStrategy",
     "ConfidenceLevel",
     "DetectorStatus",
-    "AnomalyType",
+    "EthicalPrinciple",
+    "FusionStrategy",
     "PrivacyLevel",
+    "ThreatLevel",
 ]
 
 
@@ -227,7 +227,7 @@ class EthicalPrinciple(Enum):
     EXPLAINABILITY = "explainability"
 
     @classmethod
-    def core_principles(cls) -> list["EthicalPrinciple"]:
+    def core_principles(cls) -> list[EthicalPrinciple]:
         """Return the 8 core Mercury principles."""
         return [
             cls.COMPASSION,
@@ -241,12 +241,12 @@ class EthicalPrinciple(Enum):
         ]
 
     @classmethod
-    def ai_ethics_principles(cls) -> list["EthicalPrinciple"]:
+    def ai_ethics_principles(cls) -> list[EthicalPrinciple]:
         """Return standard AI ethics principles."""
         return [cls.BENEFICENCE, cls.NON_MALEFICENCE, cls.AUTONOMY]
 
     @classmethod
-    def operational_principles(cls) -> list["EthicalPrinciple"]:
+    def operational_principles(cls) -> list[EthicalPrinciple]:
         """Return operational governance principles."""
         return [
             cls.TRANSPARENCY,
@@ -404,7 +404,7 @@ class ConfidenceLevel(Enum):
     MODERATE = "moderate"  # Alias for MEDIUM
 
     @classmethod
-    def from_probability(cls, probability: float) -> "ConfidenceLevel":
+    def from_probability(cls, probability: float) -> ConfidenceLevel:
         """
         Classify a probability value into a confidence level.
 
@@ -502,7 +502,7 @@ class DetectorStatus(Enum):
             DetectorStatus.ERROR,
         }
 
-    def can_transition_to(self, target: "DetectorStatus") -> bool:
+    def can_transition_to(self, target: DetectorStatus) -> bool:
         """Check if transition to target status is valid."""
         valid_transitions = {
             DetectorStatus.IDLE: {
@@ -673,7 +673,7 @@ class PrivacyLevel(Enum):
         }
 
     @classmethod
-    def for_compliance(cls, regulation: str) -> "PrivacyLevel":
+    def for_compliance(cls, regulation: str) -> PrivacyLevel:
         """
         Suggest minimum privacy level for regulatory compliance.
 

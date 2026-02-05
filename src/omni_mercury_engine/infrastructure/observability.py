@@ -30,18 +30,15 @@ import threading
 import time
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-from collections.abc import Callable, Generator
+from typing import Any
 
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
