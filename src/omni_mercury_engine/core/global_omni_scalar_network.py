@@ -55,7 +55,7 @@ import os
 import threading
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -269,7 +269,7 @@ class TriadicPhiWeighting:
             # Fallback: apply mean weight
             weighted = attention_scores * np.mean(self.head_weights)
 
-        return weighted
+        return cast(np.ndarray[Any, Any], weighted)
 
     def compute_harmonic_synergy(self, attention_output: np.ndarray[Any, Any]) -> float:
         """Compute harmonic synergy score from attention output.

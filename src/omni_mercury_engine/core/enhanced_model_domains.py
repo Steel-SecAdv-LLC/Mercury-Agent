@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -170,7 +170,7 @@ class EnhancedQuantumModel:
         # Ensure trace = 1
         rho_decohered = rho_decohered / np.trace(rho_decohered)
 
-        return rho_decohered
+        return cast(npt.NDArray[Any], rho_decohered)
 
     def compute_von_neumann_entropy(self, rho: npt.NDArray[Any]) -> float:
         """
