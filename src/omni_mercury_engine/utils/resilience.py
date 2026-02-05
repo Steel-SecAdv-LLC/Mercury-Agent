@@ -231,6 +231,27 @@ class CircuitBreaker:
         with self._lock:
             return self._open_count
 
+    @property
+    def failure_threshold(self) -> int:
+        """Get the failure threshold (backwards compatibility)."""
+        return self.config.failure_threshold
+
+    @property
+    def failure_count(self) -> int:
+        """Get the current failure count (backwards compatibility)."""
+        with self._lock:
+            return self._failure_count
+
+    @property
+    def recovery_timeout(self) -> float:
+        """Get the recovery timeout (backwards compatibility alias for reset_timeout)."""
+        return self.config.reset_timeout
+
+    @recovery_timeout.setter
+    def recovery_timeout(self, value: float) -> None:
+        """Set the recovery timeout (backwards compatibility)."""
+        self.config.reset_timeout = value
+
     def _should_attempt_reset(self) -> bool:
         """Check if enough time has passed to try half-open."""
         if self._last_failure_time is None:
