@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Hierarchical Planning Agent for Mercury Agent.
 
@@ -52,7 +51,6 @@ from typing import Any
 
 import numpy as np
 import numpy.typing as npt
-
 
 logger = logging.getLogger(__name__)
 
@@ -540,7 +538,9 @@ class GoalDecomposer:
         """
         # Handle dict input (test API)
         if isinstance(goal, dict):
-            description = goal.get("type", goal.get("description", "unknown_goal"))
+            description: str = (
+                goal.get("type", goal.get("description", "unknown_goal")) or "unknown_goal"
+            )
             goal_id = f"goal_dict_{self._decomposition_counter:06d}"
             priority = 0.5
 
@@ -973,7 +973,10 @@ class HierarchicalPlanner:
         for goal in goal_hierarchy.values():
             if goal.level in [AbstractionLevel.STRATEGIC, AbstractionLevel.TACTICAL]:
                 subgoals = self.goal_decomposer.decompose(goal, context)
-                all_subgoals.extend(subgoals)
+                # For Goal objects, decompose returns list[Subgoal]
+                for sg in subgoals:
+                    if isinstance(sg, Subgoal):
+                        all_subgoals.append(sg)
 
         # Select options for subgoals
         options_used: list[Option] = []

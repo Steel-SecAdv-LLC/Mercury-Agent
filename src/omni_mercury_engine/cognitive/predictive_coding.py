@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Predictive Coding Module for Mercury Agent.
 
@@ -54,7 +53,6 @@ from typing import Any
 
 import numpy as np
 import numpy.typing as npt
-
 
 logger = logging.getLogger(__name__)
 
@@ -839,9 +837,9 @@ class ActiveInferenceAgent:
         # Evaluate expected free energy for each action
         expected_fes = []
 
-        for action in range(self.action_dim):
+        for action_idx in range(self.action_dim):
             # Simulate action consequences (simplified)
-            expected_fe = self._expected_free_energy(action, errors, planning_horizon)
+            expected_fe = self._expected_free_energy(action_idx, errors, planning_horizon)
             expected_fes.append(expected_fe)
 
         # Select action with minimum expected free energy
@@ -1064,7 +1062,7 @@ class PredictiveCodingDetector:
         Returns:
             Training history
         """
-        history = {"free_energy": [], "prediction_error": []}
+        history: dict[str, list[float]] = {"free_energy": [], "prediction_error": []}
 
         for epoch in range(epochs):
             epoch_fe = []
@@ -1190,9 +1188,12 @@ class MercuryPredictiveCoding:
 
         # Get recommended action via active inference
         if return_action and self.enable_active_inference:
-            action_idx, expected_fe = self.agent.select_action(features)
+            action_result = self.agent.select_action(features)
+            # When no available_actions is passed, returns tuple[int, float]
+            assert isinstance(action_result, tuple)
+            action_idx, expected_fe = action_result
             result["recommended_action"] = self._actions[action_idx]
-            result["action_confidence"] = np.exp(-expected_fe)
+            result["action_confidence"] = float(np.exp(-expected_fe))
 
         return result
 
