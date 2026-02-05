@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Cortical-Laminated Neural Network Architecture
 
@@ -57,7 +56,6 @@ import numpy.typing as npt
 import torch
 import torch.nn.functional as F
 from torch import nn
-
 
 __all__ = [
     "CorticalColumn",
@@ -652,6 +650,9 @@ class CorticalLaminatedNetwork(nn.Module):
             nn.GELU(),
         )
 
+        # Thalamic feedback from last forward pass (used for gating)
+        self._prev_feedback: torch.Tensor | None = None
+
     def forward(
         self,
         x: torch.Tensor,
@@ -669,9 +670,7 @@ class CorticalLaminatedNetwork(nn.Module):
         all_activations = {}
 
         # Get feedback from last column for thalamic gating (if available)
-        feedback = None
-        if hasattr(self, "_prev_feedback"):
-            feedback = self._prev_feedback
+        feedback = self._prev_feedback
 
         # Apply thalamocortical gating
         if self.use_thalamic_gate:
