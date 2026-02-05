@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -193,7 +193,7 @@ class PlattScaling:
             return y_prob
 
         X = y_prob.reshape(-1, 1)
-        return self.model.predict_proba(X)[:, 1]
+        return cast(npt.NDArray[Any], self.model.predict_proba(X)[:, 1])
 
 
 class IsotonicCalibration:
@@ -256,7 +256,7 @@ class IsotonicCalibration:
         if not self._fitted:
             return y_prob
 
-        return self.model.predict(y_prob)
+        return cast(npt.NDArray[Any], self.model.predict(y_prob))
 
 
 class TemperatureScaling:
@@ -286,11 +286,11 @@ class TemperatureScaling:
     def _logit(self, p: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Convert probabilities to logits."""
         p = np.clip(p, 1e-10, 1 - 1e-10)
-        return np.log(p / (1 - p))
+        return cast(npt.NDArray[Any], np.log(p / (1 - p)))
 
     def _sigmoid(self, z: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Convert logits to probabilities."""
-        return 1 / (1 + np.exp(-z))
+        return cast(npt.NDArray[Any], 1 / (1 + np.exp(-z)))
 
     def fit(self, y_prob: npt.NDArray[Any], y_true: npt.NDArray[Any]) -> TemperatureScaling:
         """
