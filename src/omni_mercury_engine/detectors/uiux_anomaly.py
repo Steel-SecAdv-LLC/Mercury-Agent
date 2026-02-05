@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 UI/UX Anomaly Detection Module for Mercury Agent.
 
@@ -71,7 +70,7 @@ import math
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -82,7 +81,6 @@ from torch import nn
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.utils.constants import MathematicalConstants
-
 
 logger = logging.getLogger(__name__)
 
@@ -762,10 +760,13 @@ class UIUXAnomalyDetector(BaseDetector):
         if len(interactions) == 0:
             raise DetectorException("Cannot fit UIUXAnomalyDetector with empty data.")
 
+        sessions: list[list[UserInteraction]]
         if isinstance(interactions[0], UserInteraction):
-            sessions = [interactions]
+            # Single session provided - wrap in list
+            sessions = [cast(list[UserInteraction], interactions)]
         else:
-            sessions = interactions
+            # Multiple sessions provided
+            sessions = cast(list[list[UserInteraction]], interactions)
 
         # Collect statistics from all sessions
         all_timings = []
@@ -968,7 +969,7 @@ class UIUXAnomalyDetector(BaseDetector):
             features = features.reshape(1, -1)
 
         # Simple z-score based anomaly detection for features
-        if hasattr(self, "_reference_features_mean"):
+        if hasattr(self, "_reference_features_mean") and hasattr(self, "_reference_features_std"):
             z_scores = (features - self._reference_features_mean) / (
                 self._reference_features_std + 1e-8
             )

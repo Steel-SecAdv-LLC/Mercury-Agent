@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Meta-Learning Adapter for Mercury Agent.
 
@@ -48,11 +47,10 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Union, cast
 
 import numpy as np
 import numpy.typing as npt
-
 
 try:
     import torch
@@ -62,9 +60,9 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None  # type: ignore[assignment]
-    nn = None  # type: ignore[assignment]
-    F = None  # type: ignore[assignment]
+    torch = None
+    nn = None
+    F = None
 
 
 logger = logging.getLogger(__name__)
@@ -1072,7 +1070,9 @@ class Reptile:
 
     def adapt(self, task: Task) -> AdaptationResult:
         """Adapt to task."""
-        return self.maml.adapt(task)
+        result = self.maml.adapt(task)
+        assert result is not None, "MAML.adapt should return AdaptationResult for Task"
+        return result
 
     def task_training(
         self,
@@ -1235,6 +1235,9 @@ class MetaLearningAdapter:
         self.n_way = n_way
         self.k_shot = k_shot
 
+        # Declare learner type before initialization
+        self._learner: Union[PrototypicalNetworks, MAML, Reptile]
+
         # Initialize algorithm
         self._init_algorithm()
 
@@ -1313,7 +1316,7 @@ class MetaLearningAdapter:
         n_way = len(support_labels)
 
         # Determine k_shot
-        label_counts = defaultdict(int)
+        label_counts: defaultdict[int, int] = defaultdict(int)
         for _, y in support_data:
             label_counts[y] += 1
         k_shot = min(label_counts.values()) if label_counts else self.k_shot
@@ -1425,7 +1428,10 @@ class MetaLearningAdapter:
 
         # Adapt and predict
         self.adapt(task)
-        pred, probs = self.predict(query_features)
+        result = self.predict(query_features)
+        # For single sample, predict returns tuple[int, ndarray]
+        assert isinstance(result, tuple), "Expected tuple for single sample prediction"
+        pred, probs = result
 
         is_anomaly = pred == 1
         confidence = probs[pred] if pred < len(probs) else 0.5
@@ -1504,7 +1510,7 @@ class MetaLearningAdapter:
                         self._learner.fit(task_dict["support"])
                     else:
                         # Convert arrays to dict
-                        support_dict_conv = {}
+                        support_dict_conv: dict[str, list[Any]] = {}
                         for i in range(len(support_x)):
                             label = f"class_{support_y[i]}"
                             if label not in support_dict_conv:
@@ -1743,7 +1749,7 @@ class MetaLearningAdapter:
             # Adapt to support set
             if isinstance(self._learner, PrototypicalNetworks):
                 # Convert to dict format
-                support_dict = {}
+                support_dict: dict[str, list[Any]] = {}
                 for i in range(len(support_x)):
                     label = f"class_{support_y[i]}"
                     if label not in support_dict:
@@ -1772,7 +1778,7 @@ class MetaLearningAdapter:
 
     def get_statistics(self) -> dict[str, Any]:
         """Get adapter statistics."""
-        learner_stats = {}
+        learner_stats: dict[str, Any] = {}
         if hasattr(self._learner, "get_statistics"):
             learner_stats = self._learner.get_statistics()
 
@@ -1921,21 +1927,25 @@ class AnomalyMetaLearner:
         type_name = type_name_or_data
         if examples is None:
             raise ValueError("examples required when type_name is a string")
+        if not isinstance(examples, np.ndarray):
+            raise ValueError("examples must be ndarray when type_name is a string")
 
-        if examples.ndim == 1:
-            examples = examples.reshape(1, -1)
+        # Type narrowing: examples is now confirmed to be np.ndarray
+        examples_arr: npt.NDArray[Any] = examples
+        if examples_arr.ndim == 1:
+            examples_arr = examples_arr.reshape(1, -1)
 
         self._learned_types[type_name] = {
-            "examples": examples,
+            "examples": examples_arr,
             "is_anomaly": is_anomaly,
-            "n_examples": len(examples),
-            "mean_embedding": examples.mean(axis=0),
+            "n_examples": len(examples_arr),
+            "mean_embedding": examples_arr.mean(axis=0),
         }
 
         # Update feature importance based on variance
         if self._feature_importance is None:
-            self._feature_importance = np.ones(examples.shape[1])
-        variance = examples.var(axis=0)
+            self._feature_importance = np.ones(examples_arr.shape[1])
+        variance = examples_arr.var(axis=0)
         # Higher variance = more important for distinguishing
         self._feature_importance = 0.9 * self._feature_importance + 0.1 * (
             variance / (variance.max() + 1e-8)
@@ -1943,7 +1953,7 @@ class AnomalyMetaLearner:
 
         return {
             "type_name": type_name,
-            "n_examples": len(examples),
+            "n_examples": len(examples_arr),
             "is_anomaly": is_anomaly,
             "learned_types_count": len(self._learned_types),
         }
@@ -2026,7 +2036,10 @@ class AnomalyMetaLearner:
             anomaly_score = result["distances"].get("anomaly", 0.5)
         else:
             # Fallback: use simple distance-based detection
-            pred, probs = self.adapter.predict(sample[0])
+            pred_result = self.adapter.predict(sample[0])
+            # For single sample, predict returns tuple[int, ndarray]
+            assert isinstance(pred_result, tuple), "Expected tuple for single sample prediction"
+            pred, probs = pred_result
             is_anomaly = pred == 1
             predicted_type = "anomaly" if is_anomaly else "normal"
             confidence = float(probs[pred]) if pred < len(probs) else 0.5
@@ -2161,6 +2174,7 @@ class AnomalyMetaLearner:
         )
 
         result = self.adapter.adapt(task)
+        assert result is not None, "adapt should return AdaptationResult for Task"
         self._adaptation_cache[anomaly_type] = result
 
         return result
