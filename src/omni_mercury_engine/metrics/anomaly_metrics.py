@@ -42,11 +42,11 @@ logger = logging.getLogger(__name__)
 _thresholds = ThresholdConfig()
 
 
-def _to_numpy(arr: Any) -> np.ndarray[Any, Any]:
+def _to_numpy(arr: Any) -> npt.NDArray[Any]:
     """Convert array-like to numpy."""
     if hasattr(arr, "cpu"):  # torch tensor
         return cast(npt.NDArray[Any], arr.cpu().numpy())
-    return cast(npt.NDArray[Any], np.asarray(arr))
+    return np.asarray(arr)
 
 
 def compute_auroc(
