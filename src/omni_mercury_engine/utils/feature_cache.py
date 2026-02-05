@@ -50,6 +50,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 
 
@@ -165,7 +166,7 @@ class MemoryEfficientFeatureCache:
 
             now = time.time()
 
-            original_dtype = data.dtype if isinstance(data, np.ndarray) else data.dtype
+            original_dtype = data.dtype if isinstance(data, npt.NDArray[Any]) else data.dtype
             original_shape = data.shape
 
             entry = CacheEntry(
@@ -284,20 +285,20 @@ class MemoryEfficientFeatureCache:
         data = entry.data
 
         if self.config.quantization in (QuantizationType.INT8, QuantizationType.DYNAMIC):
-            if isinstance(data, np.ndarray) and data.dtype == np.uint8:
+            if isinstance(data, npt.NDArray[Any]) and data.dtype == np.uint8:
                 data = data.astype(np.float32) / 255.0
 
         if self.config.quantization == QuantizationType.FP16:
-            if isinstance(data, np.ndarray):
+            if isinstance(data, npt.NDArray[Any]):
                 data = data.astype(np.float32)
 
         if entry.is_sparse and entry.sparse_indices is not None:
             full_data = np.zeros(entry.original_shape, dtype=np.float32)
-            if isinstance(data, np.ndarray):
+            if isinstance(data, npt.NDArray[Any]):
                 full_data[entry.sparse_indices] = data
             data = full_data
 
-        if isinstance(data, np.ndarray):
+        if isinstance(data, npt.NDArray[Any]):
             return data
         # Convert torch.Tensor to numpy array if needed
         return np.asarray(data)

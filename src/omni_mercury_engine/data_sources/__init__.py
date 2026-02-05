@@ -24,6 +24,7 @@ Usage:
     data = await manager.fetch_all()
 """
 
+from typing import Any
 from omni_mercury_engine.data_sources.base import (
     AlertLevel,
     CacheConfig,

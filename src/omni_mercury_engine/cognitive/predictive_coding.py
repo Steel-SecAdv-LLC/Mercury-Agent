@@ -673,7 +673,7 @@ class HierarchicalPredictiveCoder:
     def predict_and_compute_error(
         self,
         observation: npt.NDArray[Any],
-    ) -> tuple[npt.NDArray[Any], np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Predict and compute error for observation (simplified API).
 
         Args:

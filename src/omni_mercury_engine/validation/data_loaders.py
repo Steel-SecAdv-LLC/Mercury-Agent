@@ -40,6 +40,7 @@ from typing import Any
 from urllib.request import urlopen
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
@@ -77,8 +78,8 @@ class DatasetLoader(ABC):
 
         Returns:
             Tuple of (features, labels, metadata)
-            - features: np.ndarray of shape (n_samples, n_features)
-            - labels: np.ndarray of shape (n_samples,) with 0=normal, 1=anomaly
+            - features: npt.NDArray[Any] of shape (n_samples, n_features)
+            - labels: npt.NDArray[Any] of shape (n_samples,) with 0=normal, 1=anomaly
             - metadata: DatasetMetadata with dataset information
         """
         ...

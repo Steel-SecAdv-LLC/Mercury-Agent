@@ -300,7 +300,7 @@ class IrisNormalizer:
         pupil_radius: float,
         iris_center: tuple[float, float],
         iris_radius: float,
-    ) -> tuple[npt.NDArray[Any], np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """
         Normalize iris region to rectangular coordinates.
 
@@ -360,7 +360,7 @@ class IrisEncoder:
         self,
         normalized_iris: npt.NDArray[Any],
         mask: npt.NDArray[Any],
-    ) -> tuple[npt.NDArray[Any], np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """
         Encode normalized iris to binary code.
 

@@ -844,7 +844,7 @@ class UIUXAnomalyDetector(BaseDetector):
 
     def detect(
         self,
-        interactions: list[UserInteraction] | np.ndarray | torch.Tensor,
+        interactions: list[UserInteraction] | npt.NDArray[Any] | torch.Tensor,
     ) -> dict[str, Any]:
         """Detect UI/UX anomalies in user interactions.
 
@@ -862,7 +862,7 @@ class UIUXAnomalyDetector(BaseDetector):
             raise DetectorException("Detector must be fitted before detection")
 
         # Handle array input (for ML fusion compatibility)
-        if isinstance(interactions, (np.ndarray, torch.Tensor)):
+        if isinstance(interactions, (npt.NDArray[Any], torch.Tensor)):
             return self._detect_from_features(interactions)
 
         # Full interaction analysis
@@ -986,7 +986,7 @@ class UIUXAnomalyDetector(BaseDetector):
 
     def extract_features(
         self,
-        interactions: list[UserInteraction] | np.ndarray | torch.Tensor,
+        interactions: list[UserInteraction] | npt.NDArray[Any] | torch.Tensor,
     ) -> torch.Tensor:
         """Extract features for ML fusion.
 
@@ -997,8 +997,8 @@ class UIUXAnomalyDetector(BaseDetector):
             Feature tensor [batch_size, feature_dim]
         """
         # Handle array input
-        if isinstance(interactions, (np.ndarray, torch.Tensor)):
-            if isinstance(interactions, np.ndarray):
+        if isinstance(interactions, (npt.NDArray[Any], torch.Tensor)):
+            if isinstance(interactions, npt.NDArray[Any]):
                 return torch.tensor(interactions, dtype=torch.float32)
             return interactions
 
@@ -1376,7 +1376,7 @@ class UIUXAnomalyDetector(BaseDetector):
         else:
             attention_score = 0.5
 
-        # Task completion estimate (based on form submissions, etc.)
+        # Task[Any] completion estimate (based on form submissions, etc.)
         completions = sum(
             1 for i in interactions if i.interaction_type == InteractionType.FORM_SUBMIT
         )

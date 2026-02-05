@@ -166,7 +166,7 @@ class SyntheticDataGenerator:
 
     def generate_smd_like(
         self, n_samples: int = 5000, n_features: int = 38
-    ) -> tuple[npt.NDArray[Any], np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """
         Generate data mimicking SMD (Server Machine Dataset).
 
@@ -208,7 +208,7 @@ class SyntheticDataGenerator:
 
     def generate_nslkdd_like(
         self, n_samples: int = 5000, n_features: int = 41
-    ) -> tuple[npt.NDArray[Any], np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """
         Generate data mimicking NSL-KDD.
 
@@ -240,7 +240,7 @@ class SyntheticDataGenerator:
 
     def generate_batadal_like(
         self, n_samples: int = 5000, n_features: int = 43
-    ) -> tuple[npt.NDArray[Any], np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """
         Generate data mimicking BATADAL.
 
@@ -348,7 +348,7 @@ class RealWorldBenchmarkRunner:
             f"use_synthetic={use_synthetic}, min_real_samples={min_real_samples}"
         )
 
-    def load_dataset(self, name: str) -> tuple[npt.NDArray[Any], np.ndarray, DatasetInfo]:
+    def load_dataset(self, name: str) -> tuple[npt.NDArray[Any], npt.NDArray[Any], DatasetInfo]:
         """
         Load a benchmark dataset.
 
@@ -427,7 +427,7 @@ class RealWorldBenchmarkRunner:
 
         return X, y, info
 
-    def _try_load_real(self, name: str) -> tuple[npt.NDArray[Any], np.ndarray] | None:
+    def _try_load_real(self, name: str) -> tuple[npt.NDArray[Any], npt.NDArray[Any]] | None:
         """Attempt to load real data files."""
         if not self.data_dir or not self.data_dir.exists():
             return None
@@ -463,7 +463,7 @@ class RealWorldBenchmarkRunner:
 
         return None
 
-    def _generate_synthetic(self, name: str) -> tuple[npt.NDArray[Any], np.ndarray]:
+    def _generate_synthetic(self, name: str) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Generate synthetic data for dataset."""
         name_key = name.upper().replace("-", "").replace("_", "")
 

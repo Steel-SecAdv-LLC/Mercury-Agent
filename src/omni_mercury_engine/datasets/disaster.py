@@ -233,7 +233,7 @@ class FEMADisasterLoader(DatasetLoader):
 
     def _process_fema_data(
         self, records: list[dict[str, Any]]
-    ) -> tuple[npt.NDArray[Any], np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Process OpenFEMA disaster declaration records.
 
         Args:

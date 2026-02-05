@@ -108,7 +108,7 @@ class LVLMBackend(ABC):
         """Convert image to PIL format."""
         if isinstance(image, Image.Image):
             return image
-        if isinstance(image, np.ndarray):
+        if isinstance(image, npt.NDArray[Any]):
             if image.ndim == 4:
                 image = image[0]  # Take first if batched
             if image.shape[0] in [1, 3]:  # CHW format

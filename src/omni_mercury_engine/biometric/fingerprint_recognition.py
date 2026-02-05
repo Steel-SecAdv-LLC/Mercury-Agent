@@ -304,7 +304,7 @@ class GaborEnhancer:
     def __init__(self, kernel_size: int = 25) -> None:
         """Initialize the enhancer."""
         self._kernel_size = kernel_size
-        self._filter_cache: dict[tuple[float, float], np.ndarray] = {}
+        self._filter_cache: dict[tuple[float, float], npt.NDArray[Any]] = {}
 
     def enhance(
         self,

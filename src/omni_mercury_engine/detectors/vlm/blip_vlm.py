@@ -335,7 +335,7 @@ class BLIPVLMDetector(BaseVLMDetector):
         Returns:
             List of PIL Images or processed tensors
         """
-        if isinstance(data, np.ndarray):
+        if isinstance(data, npt.NDArray[Any]):
             data = torch.from_numpy(data)
 
         # Ensure 4D tensor [N, C, H, W]

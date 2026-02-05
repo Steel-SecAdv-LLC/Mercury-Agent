@@ -608,7 +608,7 @@ class ConformalAnomalyDetector:
     def predict_with_uncertainty(
         self,
         X: npt.NDArray[Any],
-    ) -> tuple[npt.NDArray[Any], np.ndarray, np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any], npt.NDArray[Any]]:
         """
         Predict with uncertainty quantification.
 

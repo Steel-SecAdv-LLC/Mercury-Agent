@@ -179,7 +179,7 @@ class CISAFederatedCoordinator:
         self._sector_detectors: dict[str, FederatedAnomalyDetector] = {}
 
         # Track sector clients
-        self._sector_clients: dict[str, list[tuple[str, npt.NDArray[Any], np.ndarray | None]]] = {
+        self._sector_clients: dict[str, list[tuple[str, npt.NDArray[Any], npt.NDArray[Any] | None]]] = {
             sector: [] for sector in sectors
         }
 

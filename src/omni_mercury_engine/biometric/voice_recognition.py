@@ -212,11 +212,11 @@ class MFCCExtractor:
 
         return dct_matrix
 
-    def _hz_to_mel(self, hz: float | np.ndarray) -> float | np.ndarray:
+    def _hz_to_mel(self, hz: float | npt.NDArray[Any]) -> float | npt.NDArray[Any]:
         """Convert frequency in Hz to Mel scale."""
         return 2595 * np.log10(1 + hz / 700)
 
-    def _mel_to_hz(self, mel: float | np.ndarray) -> float | np.ndarray:
+    def _mel_to_hz(self, mel: float | npt.NDArray[Any]) -> float | npt.NDArray[Any]:
         """Convert Mel scale to frequency in Hz."""
         return 700 * (10 ** (mel / 2595) - 1)
 

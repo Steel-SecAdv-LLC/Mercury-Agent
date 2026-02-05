@@ -962,7 +962,7 @@ class CorticalLoss(nn.Module):
     """Biologically-plausible loss combining multiple cortical constraints.
 
     Combines:
-    1. Task loss (classification/regression)
+    1. Task[Any] loss (classification/regression)
     2. Sparsity constraint (sparse coding)
     3. Hebbian correlation loss (local learning signal)
     4. Lateral inhibition energy (winner-take-all)
@@ -1007,7 +1007,7 @@ class CorticalLoss(nn.Module):
         Returns:
             Dict containing loss components and total loss
         """
-        # Task loss
+        # Task[Any] loss
         if task_type == "classification":
             # Check if multi-class classification (predictions have multiple classes)
             if predictions.dim() > 1 and predictions.shape[1] > 1:

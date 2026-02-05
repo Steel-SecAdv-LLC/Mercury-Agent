@@ -24,6 +24,7 @@ References:
 - Bonawitz et al. (2017): Practical Secure Aggregation
 """
 
+from typing import Any
 from omni_mercury_engine.federated_learning.cisa_coordinator import (
     CISAFederatedCoordinator,
     CrossSectorResult,

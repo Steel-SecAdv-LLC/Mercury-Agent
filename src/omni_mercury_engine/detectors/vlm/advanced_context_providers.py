@@ -232,7 +232,7 @@ class SemanticContextProvider(BaseContextProvider):
 
     def _compute_edge_density(
         self, gray: npt.NDArray[Any]
-    ) -> tuple[float, npt.NDArray[Any], np.ndarray]:
+    ) -> tuple[float, npt.NDArray[Any], npt.NDArray[Any]]:
         """Compute edge density using gradient magnitude."""
         # Sobel-like kernels
         k = self.edge_kernel_size

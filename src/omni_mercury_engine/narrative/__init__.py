@@ -38,6 +38,7 @@ Example:
     #  Confidence: 82%. Recommendation: Clinical review within 4 hours."
 """
 
+from typing import Any
 from omni_mercury_engine.narrative.engine import (
     ConfidenceLevel,
     NarrativeEngine,

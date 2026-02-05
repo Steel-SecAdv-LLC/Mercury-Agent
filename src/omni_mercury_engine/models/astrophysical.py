@@ -26,6 +26,7 @@ Astrophysical anomaly detection model with black hole physics.
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.utils.constants import OmniCodes
 
@@ -71,7 +72,7 @@ class AstrophysicalAnomalyModel:
         """Extract astrophysical features from data."""
         if isinstance(data, dict):
             data = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray):
+        elif not isinstance(data, npt.NDArray[Any]):
             data = np.array(data)
 
         if data.ndim == 1:

@@ -216,7 +216,7 @@ class AdvancedHarmonicAnalyzer:
         coefficients: HarmonicCoefficients,
         n_theta: int = 64,
         n_phi: int = 128,
-    ) -> tuple[npt.NDArray[Any], np.ndarray, np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any], npt.NDArray[Any]]:
         """
         Reconstruct surface from coefficients.
 

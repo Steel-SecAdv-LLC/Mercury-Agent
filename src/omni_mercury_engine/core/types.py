@@ -39,6 +39,7 @@ Note:
     consistent semantics across the codebase.
 """
 
+from typing import Any
 from __future__ import annotations
 
 from enum import Enum, auto

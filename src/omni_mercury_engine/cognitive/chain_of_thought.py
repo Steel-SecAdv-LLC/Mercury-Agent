@@ -1311,7 +1311,7 @@ class AnomalyChainOfThought:
     def analyze_anomaly(
         self,
         data: dict[str, Any],
-        anomaly_score_or_features: float | np.ndarray | None = None,
+        anomaly_score_or_features: float | npt.NDArray[Any] | None = None,
         domain: str = "general",
     ) -> dict[str, Any]:
         """Analyze potential anomaly with chain-of-thought reasoning.
@@ -1325,7 +1325,7 @@ class AnomalyChainOfThought:
             Dictionary with reasoning_chain, conclusion, and analysis details
         """
         # Handle different input formats for API compatibility
-        if isinstance(anomaly_score_or_features, np.ndarray):
+        if isinstance(anomaly_score_or_features, npt.NDArray[Any]):
             # Test API: analyze_anomaly(detection_result, raw_features)
             raw_features = anomaly_score_or_features
             anomaly_score = data.get("score", 0.5)

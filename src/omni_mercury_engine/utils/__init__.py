@@ -28,6 +28,7 @@ import zlib
 from typing import Any, Union
 
 import numpy as np
+import numpy.typing as npt
 
 
 # Make torch optional to support environments without ML dependencies
@@ -296,7 +297,7 @@ def convert_numpy_for_json(obj: Any) -> Any:
         - np.bool_ -> bool
         - np.integer -> int
         - np.floating -> float
-        - np.ndarray -> list
+        - npt.NDArray[Any] -> list
 
     Example:
         >>> import numpy as np
@@ -314,7 +315,7 @@ def convert_numpy_for_json(obj: Any) -> Any:
         return int(obj)
     elif isinstance(obj, np.floating):
         return float(obj)
-    elif isinstance(obj, np.ndarray):
+    elif isinstance(obj, npt.NDArray[Any]):
         return obj.tolist()
     return obj
 

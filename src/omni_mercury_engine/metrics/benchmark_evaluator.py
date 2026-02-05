@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 
 from omni_mercury_engine.metrics.anomaly_metrics import AnomalyMetrics
@@ -170,7 +171,7 @@ class BenchmarkEvaluator:
             try:
                 result = detector.detect(data)
                 score = result.get("scores", result.get("score", 0.0))
-                if isinstance(score, np.ndarray):
+                if isinstance(score, npt.NDArray[Any]):
                     score = score.mean()
                 elif isinstance(score, torch.Tensor):
                     score = score.mean().item()

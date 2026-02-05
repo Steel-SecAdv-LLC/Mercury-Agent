@@ -26,6 +26,7 @@ Production inference utilities for fusion model
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from torch import nn
 
@@ -70,7 +71,7 @@ class InferenceEngine:
         Returns:
             Model output tensor
         """
-        if isinstance(x, np.ndarray):
+        if isinstance(x, npt.NDArray[Any]):
             x = torch.tensor(x, dtype=torch.float32)
 
         x = x.to(self.device)
@@ -121,7 +122,7 @@ class BatchInference:
         Returns:
             Concatenated output tensor
         """
-        if isinstance(x, np.ndarray):
+        if isinstance(x, npt.NDArray[Any]):
             x = torch.tensor(x, dtype=torch.float32)
 
         outputs = []
@@ -182,7 +183,7 @@ class ModelEnsemble:
         Returns:
             Aggregated output tensor
         """
-        if isinstance(x, np.ndarray):
+        if isinstance(x, npt.NDArray[Any]):
             x = torch.tensor(x, dtype=torch.float32)
 
         x = x.to(self.device)
@@ -213,7 +214,7 @@ class ModelEnsemble:
         Returns:
             Tuple of (aggregated output, uncertainty estimate)
         """
-        if isinstance(x, np.ndarray):
+        if isinstance(x, npt.NDArray[Any]):
             x = torch.tensor(x, dtype=torch.float32)
 
         x = x.to(self.device)
@@ -284,7 +285,7 @@ class FusionInference:
             Dict containing predictions and optionally attention weights
         """
         features_tensor: dict[str, torch.Tensor] = {
-            k: (torch.tensor(v, dtype=torch.float32) if isinstance(v, np.ndarray) else v)
+            k: (torch.tensor(v, dtype=torch.float32) if isinstance(v, npt.NDArray[Any]) else v)
             for k, v in detector_features.items()
         }
 
@@ -339,7 +340,7 @@ class FusionInference:
                 tensors: list[torch.Tensor] = []
                 for sample in batch:
                     val = sample[key]
-                    if isinstance(val, np.ndarray):
+                    if isinstance(val, npt.NDArray[Any]):
                         tensors.append(torch.tensor(val, dtype=torch.float32))
                     else:
                         tensors.append(val)
@@ -349,15 +350,15 @@ class FusionInference:
 
             for j in range(len(batch)):
                 anomaly_prob = batch_results["anomaly_probs"][j]
-                if isinstance(anomaly_prob, np.ndarray):
+                if isinstance(anomaly_prob, npt.NDArray[Any]):
                     anomaly_prob = anomaly_prob.item()
 
                 severity_score = batch_results["severity_scores"][j]
-                if isinstance(severity_score, np.ndarray):
+                if isinstance(severity_score, npt.NDArray[Any]):
                     severity_score = severity_score.item()
 
                 class_pred = batch_results["class_predictions"][j]
-                if isinstance(class_pred, np.ndarray):
+                if isinstance(class_pred, npt.NDArray[Any]):
                     class_pred = class_pred.item()
 
                 results.append(
@@ -389,11 +390,11 @@ class FusionInference:
         )
 
         anomaly_prob = result["anomaly_probs"][0]
-        if isinstance(anomaly_prob, np.ndarray):
+        if isinstance(anomaly_prob, npt.NDArray[Any]):
             anomaly_prob = anomaly_prob.item()
 
         severity = result["severity_scores"][0]
-        if isinstance(severity, np.ndarray):
+        if isinstance(severity, npt.NDArray[Any]):
             severity = severity.item()
 
         explanation = {

@@ -37,6 +37,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 
 from omni_mercury_engine.models.foundation.base_foundation import (
@@ -166,7 +167,7 @@ class ChronosAdapter(BaseFoundationModel):
         """
         self._ensure_initialized()
 
-        if isinstance(series, np.ndarray):
+        if isinstance(series, npt.NDArray[Any]):
             series = torch.from_numpy(series).float()
 
         if series.dim() == 1:

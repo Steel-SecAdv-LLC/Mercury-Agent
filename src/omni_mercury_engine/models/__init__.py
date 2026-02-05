@@ -25,7 +25,7 @@ Model modules for Mercury Agent ♱ anomaly detection.
 Uses lazy imports to avoid circular dependency issues during package initialization.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 
 # Type-only imports for static analysis (CodeQL, mypy, etc.)

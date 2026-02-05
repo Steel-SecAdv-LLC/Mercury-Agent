@@ -24,6 +24,7 @@ Deprecated:
     Import from omni_mercury_engine.utils.resilience instead.
 """
 
+from typing import Any
 from __future__ import annotations
 
 # Re-export from canonical location

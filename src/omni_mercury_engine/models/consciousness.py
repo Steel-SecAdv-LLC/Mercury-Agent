@@ -24,6 +24,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 class ConsciousnessPreservationModel:
@@ -94,7 +95,7 @@ class ConsciousnessPreservationModel:
         """Extract consciousness-related features from data."""
         if isinstance(data, dict):
             data = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray):
+        elif not isinstance(data, npt.NDArray[Any]):
             data = np.array(data)
 
         if data.ndim == 1:
@@ -123,7 +124,7 @@ class ConsciousnessPreservationModel:
         """Predict consciousness state anomalies."""
         if isinstance(data, dict):
             data_array = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray):
+        elif not isinstance(data, npt.NDArray[Any]):
             data_array = np.array(data)
         else:
             data_array = data

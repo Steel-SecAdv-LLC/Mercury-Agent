@@ -24,6 +24,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -44,7 +45,7 @@ class AffectiveAnomalyModel:
         """Extract affective features from data."""
         if isinstance(data, dict):
             data = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray):
+        elif not isinstance(data, npt.NDArray[Any]):
             data = np.array(data)
 
         if data.ndim == 1:

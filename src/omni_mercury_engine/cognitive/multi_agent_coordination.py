@@ -127,7 +127,7 @@ class CoordinationStrategy(Enum):
     CENTRALIZED = "centralized"  # Single coordinator
     DISTRIBUTED = "distributed"  # No coordinator
     HIERARCHICAL = "hierarchical"  # Multi-level coordination
-    MARKET_BASED = "market_based"  # Task auction
+    MARKET_BASED = "market_based"  # Task[Any] auction
 
 
 # =============================================================================
@@ -244,7 +244,7 @@ class Coalition:
         leader_id: Coalition leader agent ID
         member_ids: Member agent IDs
         members: List of agent objects (alternative to member_ids)
-        task: Task the coalition is addressing
+        task: Task[Any] the coalition is addressing
         objective: Coalition objective (alternative to task)
         created_at: Creation timestamp
         status: Coalition status
@@ -923,7 +923,7 @@ class AgentCoordinator:
         """Form a coalition for a task.
 
         Args:
-            task: Task description
+            task: Task[Any] description
             leader_id: Preferred leader (or auto-select)
             required_roles: Required agent roles
             max_size: Maximum coalition size

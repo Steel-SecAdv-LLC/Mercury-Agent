@@ -828,7 +828,7 @@ class ReflexionEngine:
         """Execute a task with iterative reflection and refinement.
 
         Args:
-            task: Task specification dict with type, data, and optional parameters
+            task: Task[Any] specification dict with type, data, and optional parameters
             max_iterations: Maximum reflection iterations
 
         Returns:
@@ -840,7 +840,7 @@ class ReflexionEngine:
         possible_classes = task.get("possible_classes", ["normal", "anomaly"])
 
         # Convert data to numpy array if needed
-        if hasattr(data, "__len__") and not isinstance(data, np.ndarray):
+        if hasattr(data, "__len__") and not isinstance(data, npt.NDArray[Any]):
             data = np.array(data)
 
         best_decision = None

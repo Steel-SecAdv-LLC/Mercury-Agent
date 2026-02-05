@@ -25,6 +25,7 @@ Methods included:
 - Anomaly Transformer (ICLR 2022)
 """
 
+from typing import Any
 from __future__ import annotations
 
 from dataclasses import dataclass

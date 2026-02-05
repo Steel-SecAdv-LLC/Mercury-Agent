@@ -284,7 +284,7 @@ class ADRepositoryLoader(DatasetLoader):
             logger.info("Falling back to synthetic approximation")
             return self._create_synthetic_fallback()
 
-    def _load_raw(self) -> tuple[npt.NDArray[Any], np.ndarray]:
+    def _load_raw(self) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Load raw data from files (implements abstract method)."""
         dataset_dir = self.data_path / self.dataset_name
         filename = self.dataset_info["file"]
@@ -455,7 +455,7 @@ class ADRepositoryLoader(DatasetLoader):
         self._is_real_data = False
         return True
 
-    def load_data(self) -> tuple[npt.NDArray[Any], np.ndarray]:
+    def load_data(self) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """
         Load dataset features and labels.
 
@@ -595,7 +595,7 @@ def load_dataset(
     name: str,
     data_dir: str = "./data/adrepository",
     max_samples: int | None = None,
-) -> tuple[npt.NDArray[Any], np.ndarray, dict[str, Any]]:
+) -> tuple[npt.NDArray[Any], npt.NDArray[Any], dict[str, Any]]:
     """
     Convenience function to load an ADRepository dataset.
 

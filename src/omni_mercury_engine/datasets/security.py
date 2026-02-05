@@ -265,7 +265,7 @@ class NSLKDDLoader(DatasetLoader):
             logger.warning("Falling back to SYNTHETIC data.")
             return self._create_synthetic_fallback()
 
-    def _process_nslkdd_dataframe(self, df: pd.DataFrame) -> tuple[npt.NDArray[Any], np.ndarray]:
+    def _process_nslkdd_dataframe(self, df: pd.DataFrame) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Process NSL-KDD dataframe: encode categoricals and labels.
 
         Args:
@@ -402,7 +402,7 @@ class NSLKDDLoader(DatasetLoader):
 
         raise FileNotFoundError("NSL-KDD data not found. Run download() first.")
 
-    def load_data(self) -> tuple[npt.NDArray[Any], np.ndarray]:
+    def load_data(self) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Load NSL-KDD dataset features and labels.
 
         This is the main entry point for loading the dataset.
@@ -855,7 +855,7 @@ class CICIDSLoader(DatasetLoader):
             logger.warning(f"{source_name} download failed: {e}")
             return False
 
-    def _process_cicids_dataframe(self, df: pd.DataFrame) -> tuple[npt.NDArray[Any], np.ndarray]:
+    def _process_cicids_dataframe(self, df: pd.DataFrame) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Process CICIDS dataframe: clean data and encode labels.
 
         Args:
@@ -1109,7 +1109,7 @@ class CICIDSLoader(DatasetLoader):
 
         raise FileNotFoundError("CICIDS data not found. Run download() first.")
 
-    def load_data(self) -> tuple[npt.NDArray[Any], np.ndarray]:
+    def load_data(self) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Load CICIDS dataset features and labels.
 
         This is the main entry point for loading the dataset.
@@ -1328,7 +1328,7 @@ class ThreatIntelLoader(DatasetLoader):
 
     def _process_mitre_data(
         self, techniques: list[dict[str, Any]]
-    ) -> tuple[npt.NDArray[Any], np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Process MITRE ATT&CK techniques into features.
 
         Args:

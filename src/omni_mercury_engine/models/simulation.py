@@ -42,6 +42,7 @@ import logging
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -560,7 +561,7 @@ class SimulationModule:
         data_arr: np.ndarray[Any, Any]
         if isinstance(data, dict):
             data_arr = np.array(next(iter(data.values())))
-        elif not isinstance(data, np.ndarray):
+        elif not isinstance(data, npt.NDArray[Any]):
             data_arr = np.array(data)
         else:
             data_arr = data

@@ -21,6 +21,7 @@ import zipfile
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit, safe_urlretrieve
 
@@ -339,7 +340,7 @@ class MBALoader(DatasetLoader):
                 # Find the vibration data key
                 data_key = None
                 for key in mat_data:
-                    if not key.startswith("_") and isinstance(mat_data[key], np.ndarray):
+                    if not key.startswith("_") and isinstance(mat_data[key], npt.NDArray[Any]):
                         if mat_data[key].size > 1000:
                             data_key = key
                             break

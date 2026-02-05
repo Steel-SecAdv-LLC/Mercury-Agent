@@ -211,7 +211,7 @@ class NOAABuoyLoader(DatasetLoader):
             logger.warning(f"NOAA Buoy download failed: {e}")
             return self._create_synthetic_fallback()
 
-    def _process_buoy_data(self, df: pd.DataFrame) -> tuple[npt.NDArray[Any], np.ndarray]:
+    def _process_buoy_data(self, df: pd.DataFrame) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Process buoy data for anomaly detection with comprehensive missing value handling.
 
         Implements a multi-strategy approach for oceanographic data quality:
@@ -483,7 +483,7 @@ class NOAABuoyLoader(DatasetLoader):
 
         raise FileNotFoundError("NOAA buoy data not found. Run download() first.")
 
-    def load_data(self) -> tuple[npt.NDArray[Any], np.ndarray]:
+    def load_data(self) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Load NOAA buoy dataset.
 
         Returns:

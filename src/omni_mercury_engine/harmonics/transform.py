@@ -81,7 +81,7 @@ class AssociatedLegendre:
         self._normalization = normalization
         self._dtype = np.float64 if use_float64 else np.float32
 
-        self._plm_cache: dict[tuple[int, int], np.ndarray] = {}
+        self._plm_cache: dict[tuple[int, int], npt.NDArray[Any]] = {}
 
     def compute(self, degree: int, m: int, cos_theta: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
@@ -271,7 +271,7 @@ class SphericalHarmonicTransform:
         self._legendre = AssociatedLegendre(l_max)
 
         self._quadrature_weights: npt.NDArray[Any] | None = None
-        self._quadrature_points: tuple[npt.NDArray[Any], np.ndarray] | None = None
+        self._quadrature_points: tuple[npt.NDArray[Any], npt.NDArray[Any]] | None = None
 
     @property
     def l_max(self) -> int:
@@ -392,7 +392,7 @@ class SphericalHarmonicTransform:
         coefficients: HarmonicCoefficients,
         n_theta: int = 64,
         n_phi: int = 128,
-    ) -> tuple[npt.NDArray[Any], np.ndarray, np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any], npt.NDArray[Any]]:
         """
         Reconstruct surface from spherical harmonic coefficients.
 
@@ -454,7 +454,7 @@ class FastSHTransform:
         self._legendre = AssociatedLegendre(self._l_max)
         self._cos_theta = np.cos(self._theta)
 
-        self._plm_table: dict[tuple[int, int], np.ndarray] = {}
+        self._plm_table: dict[tuple[int, int], npt.NDArray[Any]] = {}
         for degree in range(self._l_max + 1):
             for m in range(degree + 1):
                 plm = self._legendre.compute(degree, m, self._cos_theta)

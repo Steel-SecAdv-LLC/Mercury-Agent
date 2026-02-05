@@ -1683,7 +1683,7 @@ def compute_short_time_fourier_transform(
     window_size: int = 256,
     hop_size: int = 64,
     window_type: str = "hann",
-) -> tuple[npt.NDArray[Any], np.ndarray, np.ndarray]:
+) -> tuple[npt.NDArray[Any], npt.NDArray[Any], npt.NDArray[Any]]:
     """Compute Short-Time Fourier Transform (STFT).
 
     Args:

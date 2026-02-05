@@ -194,7 +194,7 @@ def stratified_split(
     y: npt.NDArray[Any],
     test_size: float = 0.2,
     seed: int = GLOBAL_SEED,
-) -> tuple[npt.NDArray[Any], np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[npt.NDArray[Any], npt.NDArray[Any], npt.NDArray[Any], npt.NDArray[Any]]:
     """
     Perform stratified train/test split.
 

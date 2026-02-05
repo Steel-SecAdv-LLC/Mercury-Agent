@@ -24,6 +24,7 @@ Deprecated:
     Import from omni_mercury_engine.resilience.self_healing instead.
 """
 
+from typing import Any
 from __future__ import annotations
 
 # Explicit re-exports for backwards compatibility
