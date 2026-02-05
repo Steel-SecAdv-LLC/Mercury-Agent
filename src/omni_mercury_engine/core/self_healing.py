@@ -26,10 +26,8 @@ Deprecated:
 
 from __future__ import annotations
 
-# Re-export everything from canonical location
-from omni_mercury_engine.resilience.self_healing import *  # noqa: F401, F403
-
-# Explicit re-exports for type checking
+# Explicit re-exports for backwards compatibility
+# New code should import directly from omni_mercury_engine.resilience.self_healing
 from omni_mercury_engine.resilience.self_healing import (
     AdaptiveDefenseSystem,
     AnomalySignature,
