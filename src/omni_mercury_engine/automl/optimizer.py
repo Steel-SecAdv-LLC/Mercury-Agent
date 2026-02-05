@@ -938,7 +938,9 @@ class MercuryAutoML:
 
         return auc
 
-    def _compute_average_precision(self, y_true: npt.NDArray[Any], y_scores: npt.NDArray[Any]) -> float:
+    def _compute_average_precision(
+        self, y_true: npt.NDArray[Any], y_scores: npt.NDArray[Any]
+    ) -> float:
         """Compute Average Precision."""
         sorted_indices = np.argsort(y_scores)[::-1]
         y_true_sorted = y_true[sorted_indices]

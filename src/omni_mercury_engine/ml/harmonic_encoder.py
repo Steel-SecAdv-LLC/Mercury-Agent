@@ -38,7 +38,9 @@ from torch import nn
 try:
     from scipy.special import sph_harm_y
 
-    def _sph_harm(m: int, n: int, theta: npt.NDArray[Any], phi: npt.NDArray[Any]) -> npt.NDArray[Any]:
+    def _sph_harm(
+        m: int, n: int, theta: npt.NDArray[Any], phi: npt.NDArray[Any]
+    ) -> npt.NDArray[Any]:
         """Wrapper for spherical harmonics using new scipy API."""
         return sph_harm_y(n, m, theta, phi)
 

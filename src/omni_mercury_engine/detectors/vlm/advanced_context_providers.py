@@ -230,7 +230,9 @@ class SemanticContextProvider(BaseContextProvider):
             clutter_score=float(clutter),
         )
 
-    def _compute_edge_density(self, gray: npt.NDArray[Any]) -> tuple[float, npt.NDArray[Any], np.ndarray]:
+    def _compute_edge_density(
+        self, gray: npt.NDArray[Any]
+    ) -> tuple[float, npt.NDArray[Any], np.ndarray]:
         """Compute edge density using gradient magnitude."""
         # Sobel-like kernels
         k = self.edge_kernel_size
@@ -630,7 +632,9 @@ class FrequencyContextProvider(BaseContextProvider):
             "spectral_spread": spectral_spread,
         }
 
-    def _analyze_temporal_frequency(self, gray_frames: npt.NDArray[Any]) -> tuple[float | None, bool]:
+    def _analyze_temporal_frequency(
+        self, gray_frames: npt.NDArray[Any]
+    ) -> tuple[float | None, bool]:
         """Analyze temporal frequency content."""
         t = len(gray_frames)
 
@@ -871,7 +875,9 @@ class AppearanceContextProvider(BaseContextProvider):
             hist, _ = np.histogram(frame.flatten(), bins=self.color_bins, range=(0, 256))
             return hist / hist.sum()
 
-    def _find_dominant_colors(self, frame: npt.NDArray[Any]) -> list[tuple[tuple[int, int, int], float]]:
+    def _find_dominant_colors(
+        self, frame: npt.NDArray[Any]
+    ) -> list[tuple[tuple[int, int, int], float]]:
         """Find dominant colors using simple binning."""
         c, h, w = frame.shape
 

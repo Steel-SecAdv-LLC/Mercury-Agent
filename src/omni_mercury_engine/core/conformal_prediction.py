@@ -394,7 +394,9 @@ class ConformalAnomalyDetector:
 
         self._fitted = False
 
-    def fit(self, X: npt.NDArray[Any], y: npt.NDArray[Any] | None = None) -> ConformalAnomalyDetector:
+    def fit(
+        self, X: npt.NDArray[Any], y: npt.NDArray[Any] | None = None
+    ) -> ConformalAnomalyDetector:
         """
         Fit detector and calibrate conformal predictor.
 
@@ -435,7 +437,9 @@ class ConformalAnomalyDetector:
             self.conformal.fit(cal_scores)
         elif isinstance(self.conformal, CrossConformalPredictor):
             # For cross-conformal, need scoring function
-            def score_fn(X_input: npt.NDArray[Any], y: npt.NDArray[Any] | None = None) -> npt.NDArray[Any]:
+            def score_fn(
+                X_input: npt.NDArray[Any], y: npt.NDArray[Any] | None = None
+            ) -> npt.NDArray[Any]:
                 return self._get_anomaly_scores(X_input)
 
             self.conformal.fit(X_cal, score_fn)  # type: ignore[arg-type]
@@ -721,7 +725,9 @@ def add_conformal_to_detector(
     else:
         cross_conformal = CrossConformalPredictor(coverage=coverage)
 
-        def score_fn(X_input: npt.NDArray[Any], y: npt.NDArray[Any] | None = None) -> npt.NDArray[Any]:
+        def score_fn(
+            X_input: npt.NDArray[Any], y: npt.NDArray[Any] | None = None
+        ) -> npt.NDArray[Any]:
             return _extract_detector_scores(detector, X_input)
 
         cross_conformal.fit(X_cal, score_fn)  # type: ignore[arg-type]

@@ -1267,7 +1267,9 @@ class SpectralVibrationDetector(BaseDetector):
 
             return float(result["anharmonic_score"].cpu().numpy())
 
-    def _compute_graph_laplacian_spectrum(self, spectrum: npt.NDArray[Any], k: int = 10) -> npt.NDArray[Any]:
+    def _compute_graph_laplacian_spectrum(
+        self, spectrum: npt.NDArray[Any], k: int = 10
+    ) -> npt.NDArray[Any]:
         """Compute eigenvalues of frequency graph Laplacian.
 
         The graph connects frequency bins with weights based on their

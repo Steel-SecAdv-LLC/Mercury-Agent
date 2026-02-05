@@ -352,7 +352,9 @@ class FeatureSelector:
         X = np.asarray(X)
         return X[:, self._selected_indices]
 
-    def fit_transform(self, X: npt.NDArray[Any], y: npt.NDArray[Any] | None = None) -> npt.NDArray[Any]:
+    def fit_transform(
+        self, X: npt.NDArray[Any], y: npt.NDArray[Any] | None = None
+    ) -> npt.NDArray[Any]:
         """Fit and transform in one step."""
         return self.fit(X, y).transform(X)
 
@@ -549,7 +551,11 @@ class FeatureVersionManager:
         return is_valid, errors
 
     def create_schema_from_features(
-        self, name: str, version: str, features: npt.NDArray[Any], feature_names: list[str] | None = None
+        self,
+        name: str,
+        version: str,
+        features: npt.NDArray[Any],
+        feature_names: list[str] | None = None,
     ) -> FeatureSchema:
         """
         Create a schema from sample features.
@@ -788,7 +794,11 @@ class FeatureStore:
         return None
 
     def store(
-        self, detector_name: str, data: npt.NDArray[Any], features: npt.NDArray[Any], ttl: int | None = None
+        self,
+        detector_name: str,
+        data: npt.NDArray[Any],
+        features: npt.NDArray[Any],
+        ttl: int | None = None,
     ) -> bool:
         """
         Store features in cache.

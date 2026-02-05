@@ -41,7 +41,9 @@ try:
     from numba import jit
 
     @jit(nopython=True, cache=True)
-    def _compute_distances_jit(data: npt.NDArray[Any], center: npt.NDArray[Any]) -> npt.NDArray[Any]:
+    def _compute_distances_jit(
+        data: npt.NDArray[Any], center: npt.NDArray[Any]
+    ) -> npt.NDArray[Any]:
         """JIT-compiled Euclidean distance computation.
 
         Optimized for large datasets to achieve <1s/sample inference.
@@ -54,7 +56,9 @@ try:
         return distances
 
     @jit(nopython=True, cache=True)
-    def _compute_distance_scores_jit(distances: npt.NDArray[Any], radius_threshold: float) -> npt.NDArray[Any]:
+    def _compute_distance_scores_jit(
+        distances: npt.NDArray[Any], radius_threshold: float
+    ) -> npt.NDArray[Any]:
         """JIT-compiled distance-based anomaly scoring."""
         n_samples = len(distances)
         scores = np.empty(n_samples, dtype=np.float64)
