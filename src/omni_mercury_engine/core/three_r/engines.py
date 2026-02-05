@@ -65,7 +65,7 @@ class RecursionEngine:
 
         diff = np.linalg.norm(transformed - data)
         if diff < threshold:
-            return transformed
+            return cast(npt.NDArray[Any], transformed)
 
         return self.recursive_transform(transformed, transform_fn, depth + 1, threshold)
 
