@@ -30,7 +30,6 @@ from typing import Any
 
 import numpy as np
 
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from omni_mercury_engine.core.three_r_mechanism import (
@@ -120,9 +119,7 @@ class RefactoringBenchmark:
         }
 
     def benchmark_dimension_4_scalability(
-        self,
-        functions: list[tuple[str, ast.FunctionDef, Path]],
-        batch_sizes: list[int] = [10, 50, 100],
+        self, functions: list[tuple[Any, ...]], batch_sizes: list[int] = [10, 50, 100]
     ) -> dict[str, Any]:
         """Measure scalability with increasing batch sizes."""
         scalability_results = {}

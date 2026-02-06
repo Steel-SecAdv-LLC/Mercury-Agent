@@ -48,10 +48,9 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
-import numpy.typing as npt
 
 
 try:
@@ -127,20 +126,20 @@ class Task:
 
     task_id: str
     task_name: str
-    support_set: list[tuple[npt.NDArray[Any], int]]  # (features, label) pairs
-    query_set: list[tuple[npt.NDArray[Any], int]]
+    support_set: list[tuple[np.ndarray, int]]  # (features, label) pairs
+    query_set: list[tuple[np.ndarray, int]]
     n_way: int = 2  # Normal vs anomaly
     k_shot: int = 5
     domain: str = "general"
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    def get_support_arrays(self) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
+    def get_support_arrays(self) -> tuple[np.ndarray, np.ndarray]:
         """Get support set as arrays."""
         X = np.array([x for x, _ in self.support_set])
         y = np.array([y for _, y in self.support_set])
         return X, y
 
-    def get_query_arrays(self) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
+    def get_query_arrays(self) -> tuple[np.ndarray, np.ndarray]:
         """Get query set as arrays."""
         X = np.array([x for x, _ in self.query_set])
         y = np.array([y for _, y in self.query_set])
@@ -205,7 +204,7 @@ class Prototype:
     """
 
     class_id: int
-    embedding: npt.NDArray[Any]
+    embedding: np.ndarray
     support_count: int
     variance: float = 0.0
 
@@ -219,7 +218,7 @@ class FeatureEncoder(ABC):
     """Abstract base class for feature encoders."""
 
     @abstractmethod
-    def encode(self, x: npt.NDArray[Any]) -> npt.NDArray[Any]:
+    def encode(self, x: np.ndarray) -> np.ndarray:
         """Encode features to embedding space."""
         pass
 
@@ -253,8 +252,8 @@ class MLPEncoder(FeatureEncoder):
         self.embedding_dim = embedding_dim
 
         # Initialize weights
-        self.weights: list[npt.NDArray[Any]] = []
-        self.biases: list[npt.NDArray[Any]] = []
+        self.weights: list[np.ndarray] = []
+        self.biases: list[np.ndarray] = []
 
         dims = [input_dim] + self.hidden_dims + [embedding_dim]
         np.random.seed(42)
@@ -264,7 +263,7 @@ class MLPEncoder(FeatureEncoder):
             self.weights.append(np.random.randn(dims[i], dims[i + 1]) * scale)
             self.biases.append(np.zeros(dims[i + 1]))
 
-    def encode(self, x: npt.NDArray[Any]) -> npt.NDArray[Any]:
+    def encode(self, x: np.ndarray) -> np.ndarray:
         """Encode features to embedding space."""
         h = x
         for i, (w, b) in enumerate(zip(self.weights, self.biases)):
@@ -318,7 +317,7 @@ if TORCH_AVAILABLE:
             # L2 normalize
             return F.normalize(embeddings, p=2, dim=-1)
 
-        def encode(self, x: npt.NDArray[Any]) -> npt.NDArray[Any]:
+        def encode(self, x: np.ndarray) -> np.ndarray:
             """Encode numpy array."""
             self.eval()
             with torch.no_grad():
@@ -394,8 +393,8 @@ class PrototypicalNetworks:
 
     def compute_prototypes(
         self,
-        support_set: list[tuple[npt.NDArray[Any], int]] | dict[str, npt.NDArray[Any]],
-    ) -> dict[int, Prototype] | dict[str, npt.NDArray[Any]]:
+        support_set: list[tuple[np.ndarray, int]] | dict[str, np.ndarray],
+    ) -> dict[int, Prototype] | dict[str, np.ndarray]:
         """Compute class prototypes from support set.
 
         Args:
@@ -408,7 +407,7 @@ class PrototypicalNetworks:
         if isinstance(support_set, dict):
             self._class_names = {}
             self._name_to_id = {}
-            class_embeddings: dict[int, list[npt.NDArray[Any]]] = defaultdict(list)
+            class_embeddings: dict[int, list[np.ndarray]] = defaultdict(list)
 
             for idx, (class_name, features_array) in enumerate(support_set.items()):
                 self._class_names[idx] = class_name
@@ -422,7 +421,7 @@ class PrototypicalNetworks:
 
             # Compute prototypes and return as dict with string keys
             prototypes = {}
-            result_dict: dict[str, npt.NDArray[Any]] = {}
+            result_dict: dict[str, np.ndarray] = {}
             for class_id, embeddings in class_embeddings.items():
                 embeddings_array = np.array(embeddings)
                 mean_embedding = embeddings_array.mean(axis=0)
@@ -440,7 +439,7 @@ class PrototypicalNetworks:
             return result_dict
 
         # Original list-based API
-        class_embeddings_list: dict[int, list[npt.NDArray[Any]]] = defaultdict(list)
+        class_embeddings_list: dict[int, list[np.ndarray]] = defaultdict(list)
 
         for features, label in support_set:
             embedding = self.encoder.encode(features.reshape(1, -1))[0]
@@ -463,7 +462,7 @@ class PrototypicalNetworks:
         self.prototypes = prototypes
         return prototypes
 
-    def fit(self, support_set: dict[str, npt.NDArray[Any]]) -> None:
+    def fit(self, support_set: dict[str, np.ndarray]) -> None:
         """Fit prototypes from support set (dict-based API).
 
         Args:
@@ -473,7 +472,7 @@ class PrototypicalNetworks:
             raise ValueError("Support set cannot be empty")
         self.compute_prototypes(support_set)
 
-    def classify(self, query: npt.NDArray[Any]) -> dict[str, Any]:
+    def classify(self, query: np.ndarray) -> dict[str, Any]:
         """Classify a single query sample (dict-based API).
 
         Args:
@@ -517,7 +516,7 @@ class PrototypicalNetworks:
             "distances": distances,
         }
 
-    def batch_classify(self, queries: npt.NDArray[Any]) -> list[dict[str, Any]]:
+    def batch_classify(self, queries: np.ndarray) -> list[dict[str, Any]]:
         """Classify multiple query samples.
 
         Args:
@@ -530,8 +529,8 @@ class PrototypicalNetworks:
 
     def predict(
         self,
-        query_features: npt.NDArray[Any],
-    ) -> tuple[int, npt.NDArray[Any]]:
+        query_features: np.ndarray,
+    ) -> tuple[int, np.ndarray]:
         """Predict class for query features.
 
         Args:
@@ -672,7 +671,7 @@ class MAML:
         self._init_parameters()
 
         # Store adapted parameters for prediction
-        self._adapted_params: dict[str, npt.NDArray[Any]] | None = None
+        self._adapted_params: dict[str, np.ndarray] | None = None
 
         # Statistics
         self._stats = {
@@ -698,9 +697,9 @@ class MAML:
 
     def _forward(
         self,
-        X: npt.NDArray[Any],
-        params: dict[str, npt.NDArray[Any]],
-    ) -> npt.NDArray[Any]:
+        X: np.ndarray,
+        params: dict[str, np.ndarray],
+    ) -> np.ndarray:
         """Forward pass through network."""
         # Hidden layer
         h = X @ params["W1"] + params["b1"]
@@ -717,10 +716,10 @@ class MAML:
 
     def _compute_loss(
         self,
-        X: npt.NDArray[Any],
-        y: npt.NDArray[Any],
-        params: dict[str, npt.NDArray[Any]],
-    ) -> tuple[float, npt.NDArray[Any]]:
+        X: np.ndarray,
+        y: np.ndarray,
+        params: dict[str, np.ndarray],
+    ) -> tuple[float, np.ndarray]:
         """Compute cross-entropy loss and predictions."""
         probs = self._forward(X, params)
         n_samples = len(y)
@@ -732,10 +731,10 @@ class MAML:
 
     def _compute_gradients(
         self,
-        X: npt.NDArray[Any],
-        y: npt.NDArray[Any],
-        params: dict[str, npt.NDArray[Any]],
-    ) -> dict[str, npt.NDArray[Any]]:
+        X: np.ndarray,
+        y: np.ndarray,
+        params: dict[str, np.ndarray],
+    ) -> dict[str, np.ndarray]:
         """Compute gradients via manual backprop."""
         n_samples = len(y)
 
@@ -773,8 +772,8 @@ class MAML:
     def _inner_loop(
         self,
         task: Task,
-        params: dict[str, npt.NDArray[Any]],
-    ) -> dict[str, npt.NDArray[Any]]:
+        params: dict[str, np.ndarray],
+    ) -> dict[str, np.ndarray]:
         """Perform inner loop adaptation.
 
         Args:
@@ -798,8 +797,8 @@ class MAML:
 
     def adapt(
         self,
-        support_x_or_task: npt.NDArray[Any] | Task,
-        support_y: npt.NDArray[Any] | None = None,
+        support_x_or_task: np.ndarray | Task,
+        support_y: np.ndarray | None = None,
     ) -> AdaptationResult | None:
         """Adapt to support set or task.
 
@@ -867,7 +866,7 @@ class MAML:
         Returns:
             Average meta-loss
         """
-        meta_gradients: dict[str, npt.NDArray[Any]] = {
+        meta_gradients: dict[str, np.ndarray] = {
             k: np.zeros_like(v) for k, v in self.params.items()
         }
         total_loss = 0.0
@@ -901,10 +900,10 @@ class MAML:
 
     def inner_loop_adapt(
         self,
-        support_x: npt.NDArray[Any],
-        support_y: npt.NDArray[Any],
+        support_x: np.ndarray,
+        support_y: np.ndarray,
         num_steps: int | None = None,
-    ) -> dict[str, npt.NDArray[Any]]:
+    ) -> dict[str, np.ndarray]:
         """Perform inner loop adaptation with array inputs (test API).
 
         Args:
@@ -935,7 +934,7 @@ class MAML:
         Returns:
             Average meta-loss
         """
-        meta_gradients: dict[str, npt.NDArray[Any]] = {
+        meta_gradients: dict[str, np.ndarray] = {
             k: np.zeros_like(v) for k, v in self.params.items()
         }
         total_loss = 0.0
@@ -973,8 +972,8 @@ class MAML:
 
     def adapt_arrays(
         self,
-        support_x: npt.NDArray[Any],
-        support_y: npt.NDArray[Any],
+        support_x: np.ndarray,
+        support_y: np.ndarray,
     ) -> None:
         """Adapt to support set using arrays (test API).
 
@@ -984,7 +983,7 @@ class MAML:
         """
         self._adapted_params = self.inner_loop_adapt(support_x, support_y)
 
-    def predict(self, query_x: npt.NDArray[Any]) -> npt.NDArray[Any]:
+    def predict(self, query_x: np.ndarray) -> np.ndarray:
         """Predict class labels for query samples (test API).
 
         Args:
@@ -1073,15 +1072,15 @@ class Reptile:
     def adapt(self, task: Task) -> AdaptationResult:
         """Adapt to task."""
         result = self.maml.adapt(task)
-        assert result is not None, "MAML.adapt should return AdaptationResult for Task"
+        assert result is not None
         return result
 
     def task_training(
         self,
-        task_x: npt.NDArray[Any],
-        task_y: npt.NDArray[Any],
+        task_x: np.ndarray,
+        task_y: np.ndarray,
         num_steps: int | None = None,
-    ) -> dict[str, npt.NDArray[Any]]:
+    ) -> dict[str, np.ndarray]:
         """Train on a single task (test API).
 
         Args:
@@ -1105,8 +1104,8 @@ class Reptile:
 
     def meta_update(
         self,
-        task_x: npt.NDArray[Any],
-        task_y: npt.NDArray[Any],
+        task_x: np.ndarray,
+        task_y: np.ndarray,
     ) -> float:
         """Perform meta-update on a single task (test API).
 
@@ -1135,10 +1134,10 @@ class Reptile:
 
     def evaluate_few_shot(
         self,
-        support_x: npt.NDArray[Any],
-        support_y: npt.NDArray[Any],
-        query_x: npt.NDArray[Any],
-        query_y: npt.NDArray[Any],
+        support_x: np.ndarray,
+        support_y: np.ndarray,
+        query_x: np.ndarray,
+        query_y: np.ndarray,
     ) -> float:
         """Evaluate few-shot performance (test API).
 
@@ -1237,10 +1236,8 @@ class MetaLearningAdapter:
         self.n_way = n_way
         self.k_shot = k_shot
 
-        # Declare learner type before initialization
-        self._learner: PrototypicalNetworks | MAML | Reptile
-
         # Initialize algorithm
+        self._learner: PrototypicalNetworks | MAML | Reptile
         self._init_algorithm()
 
         # Task counter
@@ -1293,8 +1290,8 @@ class MetaLearningAdapter:
 
     def create_task(
         self,
-        support_data: list[tuple[npt.NDArray[Any], int]],
-        query_data: list[tuple[npt.NDArray[Any], int]],
+        support_data: list[tuple[np.ndarray, int]],
+        query_data: list[tuple[np.ndarray, int]],
         task_name: str | None = None,
         domain: str = "general",
     ) -> Task:
@@ -1338,7 +1335,7 @@ class MetaLearningAdapter:
 
     def adapt(
         self,
-        task_or_support: Task | dict[str, npt.NDArray[Any]],
+        task_or_support: Task | dict[str, np.ndarray],
     ) -> AdaptationResult | None:
         """Adapt to a specific task or support set.
 
@@ -1370,9 +1367,9 @@ class MetaLearningAdapter:
 
     def predict(
         self,
-        features: npt.NDArray[Any],
+        features: np.ndarray,
         task: Task | None = None,
-    ) -> list[str] | tuple[int, npt.NDArray[Any]]:
+    ) -> list[str] | tuple[int, np.ndarray]:
         """Make prediction for features.
 
         Args:
@@ -1406,8 +1403,8 @@ class MetaLearningAdapter:
 
     def few_shot_detect(
         self,
-        support_examples: list[tuple[npt.NDArray[Any], bool]],
-        query_features: npt.NDArray[Any],
+        support_examples: list[tuple[np.ndarray, bool]],
+        query_features: np.ndarray,
     ) -> tuple[bool, float]:
         """Few-shot anomaly detection.
 
@@ -1430,10 +1427,9 @@ class MetaLearningAdapter:
 
         # Adapt and predict
         self.adapt(task)
-        result = self.predict(query_features)
-        # For single sample, predict returns tuple[int, ndarray]
-        assert isinstance(result, tuple), "Expected tuple for single sample prediction"
-        pred, probs = result
+        _predict_result = self.predict(query_features)
+        assert isinstance(_predict_result, tuple)
+        pred, probs = _predict_result
 
         is_anomaly = pred == 1
         confidence = probs[pred] if pred < len(probs) else 0.5
@@ -1512,7 +1508,7 @@ class MetaLearningAdapter:
                         self._learner.fit(task_dict["support"])
                     else:
                         # Convert arrays to dict
-                        support_dict_conv: dict[str, list[Any]] = {}
+                        support_dict_conv: dict[str, Any] = {}
                         for i in range(len(support_x)):
                             label = f"class_{support_y[i]}"
                             if label not in support_dict_conv:
@@ -1533,7 +1529,7 @@ class MetaLearningAdapter:
             "loss_history": losses,
         }
 
-    def get_embeddings(self, samples: npt.NDArray[Any]) -> npt.NDArray[Any]:
+    def get_embeddings(self, samples: np.ndarray) -> np.ndarray:
         """Get embeddings for samples (test API).
 
         Args:
@@ -1560,7 +1556,7 @@ class MetaLearningAdapter:
             return np.maximum(0, h)  # ReLU activation
         return samples[:, : self.hidden_dim]
 
-    def adapt_dict(self, support_set: dict[str, npt.NDArray[Any]]) -> None:
+    def adapt_dict(self, support_set: dict[str, np.ndarray]) -> None:
         """Adapt to support set using dict API (test API).
 
         Args:
@@ -1588,7 +1584,7 @@ class MetaLearningAdapter:
 
     def predict_class_names(
         self,
-        query_samples: npt.NDArray[Any],
+        query_samples: np.ndarray,
     ) -> list[str]:
         """Predict class names for query samples (test API).
 
@@ -1610,8 +1606,8 @@ class MetaLearningAdapter:
 
     def generate_episodes(
         self,
-        data: npt.NDArray[Any] | dict[str, npt.NDArray[Any]],
-        labels: npt.NDArray[Any] | None = None,
+        data: np.ndarray | dict[str, np.ndarray],
+        labels: np.ndarray | None = None,
         n_episodes: int = 10,
         n_way: int | None = None,
         k_shot: int | None = None,
@@ -1711,7 +1707,7 @@ class MetaLearningAdapter:
 
     def evaluate_n_way_k_shot(
         self,
-        data_or_episodes: dict[str, npt.NDArray[Any]] | list[dict[str, Any]],
+        data_or_episodes: dict[str, np.ndarray] | list[dict[str, Any]],
         n_way: int | None = None,
         k_shot: int | None = None,
         n_episodes: int = 10,
@@ -1751,7 +1747,7 @@ class MetaLearningAdapter:
             # Adapt to support set
             if isinstance(self._learner, PrototypicalNetworks):
                 # Convert to dict format
-                support_dict: dict[str, list[Any]] = {}
+                support_dict: dict[str, Any] = {}
                 for i in range(len(support_x)):
                     label = f"class_{support_y[i]}"
                     if label not in support_dict:
@@ -1840,15 +1836,15 @@ class AnomalyMetaLearner:
         self._learned_types: dict[str, dict[str, Any]] = {}
 
         # Feature importance tracking
-        self._feature_importance: npt.NDArray[Any] | None = None
+        self._feature_importance: np.ndarray | None = None
 
         # Online adaptation buffer
-        self._online_buffer: list[tuple[npt.NDArray[Any], bool]] = []
+        self._online_buffer: list[tuple[np.ndarray, bool]] = []
 
     def learn_new_type(
         self,
-        type_name_or_data: str | dict[str, npt.NDArray[Any]],
-        examples: npt.NDArray[Any] | dict[str, npt.NDArray[Any]] | None = None,
+        type_name_or_data: str | dict[str, np.ndarray],
+        examples: np.ndarray | dict[str, np.ndarray] | None = None,
         is_anomaly: bool = True,
     ) -> dict[str, Any]:
         """Learn a new anomaly type (test API).
@@ -1929,25 +1925,23 @@ class AnomalyMetaLearner:
         type_name = type_name_or_data
         if examples is None:
             raise ValueError("examples required when type_name is a string")
-        if not isinstance(examples, np.ndarray):
-            raise ValueError("examples must be ndarray when type_name is a string")
 
-        # Type narrowing: examples is now confirmed to be np.ndarray
-        examples_arr: npt.NDArray[Any] = examples
-        if examples_arr.ndim == 1:
-            examples_arr = examples_arr.reshape(1, -1)
+        assert isinstance(examples, np.ndarray)
+        ex: np.ndarray[Any, Any] = examples
+        if ex.ndim == 1:
+            ex = ex.reshape(1, -1)
 
         self._learned_types[type_name] = {
-            "examples": examples_arr,
+            "examples": ex,
             "is_anomaly": is_anomaly,
-            "n_examples": len(examples_arr),
-            "mean_embedding": examples_arr.mean(axis=0),
+            "n_examples": len(ex),
+            "mean_embedding": ex.mean(axis=0),
         }
 
         # Update feature importance based on variance
         if self._feature_importance is None:
-            self._feature_importance = np.ones(examples_arr.shape[1])
-        variance = examples_arr.var(axis=0)
+            self._feature_importance = np.ones(ex.shape[1])
+        variance = ex.var(axis=0)
         # Higher variance = more important for distinguishing
         self._feature_importance = 0.9 * self._feature_importance + 0.1 * (
             variance / (variance.max() + 1e-8)
@@ -1955,15 +1949,15 @@ class AnomalyMetaLearner:
 
         return {
             "type_name": type_name,
-            "n_examples": len(examples_arr),
+            "n_examples": len(ex),
             "is_anomaly": is_anomaly,
             "learned_types_count": len(self._learned_types),
         }
 
     def fit(
         self,
-        examples: npt.NDArray[Any] | dict[str, npt.NDArray[Any]],
-        labels: npt.NDArray[Any] | None = None,
+        examples: np.ndarray | dict[str, np.ndarray],
+        labels: np.ndarray | None = None,
     ) -> None:
         """Fit the meta-learner on examples (test API).
 
@@ -2014,7 +2008,7 @@ class AnomalyMetaLearner:
             self._feature_importance.max() + 1e-8
         )
 
-    def detect(self, sample: npt.NDArray[Any]) -> dict[str, Any]:
+    def detect(self, sample: np.ndarray) -> dict[str, Any]:
         """Detect if a single sample is anomalous (test API).
 
         Args:
@@ -2038,10 +2032,9 @@ class AnomalyMetaLearner:
             anomaly_score = result["distances"].get("anomaly", 0.5)
         else:
             # Fallback: use simple distance-based detection
-            pred_result = self.adapter.predict(sample[0])
-            # For single sample, predict returns tuple[int, ndarray]
-            assert isinstance(pred_result, tuple), "Expected tuple for single sample prediction"
-            pred, probs = pred_result
+            _result = self.adapter.predict(sample[0])
+            assert isinstance(_result, tuple)
+            pred, probs = _result
             is_anomaly = pred == 1
             predicted_type = "anomaly" if is_anomaly else "normal"
             confidence = float(probs[pred]) if pred < len(probs) else 0.5
@@ -2058,7 +2051,7 @@ class AnomalyMetaLearner:
             "predicted_type": predicted_type,
         }
 
-    def batch_detect(self, batch: npt.NDArray[Any]) -> list[dict[str, Any]]:
+    def batch_detect(self, batch: np.ndarray) -> list[dict[str, Any]]:
         """Detect anomalies in a batch of samples (test API).
 
         Args:
@@ -2071,7 +2064,7 @@ class AnomalyMetaLearner:
 
     def adapt_online(
         self,
-        examples: list[tuple[npt.NDArray[Any], bool]] | dict[str, npt.NDArray[Any]],
+        examples: list[tuple[np.ndarray, bool]] | dict[str, np.ndarray],
     ) -> dict[str, Any]:
         """Adapt online with new examples (test API).
 
@@ -2126,7 +2119,7 @@ class AnomalyMetaLearner:
             "adapted": len(self._online_buffer) == 0,
         }
 
-    def get_feature_importance(self) -> npt.NDArray[Any]:
+    def get_feature_importance(self) -> np.ndarray:
         """Get feature importance scores (test API).
 
         Returns:
@@ -2147,8 +2140,8 @@ class AnomalyMetaLearner:
 
     def adapt_to_new_anomaly_type(
         self,
-        normal_examples: list[npt.NDArray[Any]],
-        anomaly_examples: list[npt.NDArray[Any]],
+        normal_examples: list[np.ndarray],
+        anomaly_examples: list[np.ndarray],
         anomaly_type: str = "unknown",
     ) -> AdaptationResult:
         """Adapt to a new type of anomaly.
@@ -2176,16 +2169,16 @@ class AnomalyMetaLearner:
         )
 
         result = self.adapter.adapt(task)
-        assert result is not None, "adapt should return AdaptationResult for Task"
+        assert result is not None
         self._adaptation_cache[anomaly_type] = result
 
         return result
 
     def detect_with_adaptation(
         self,
-        features: npt.NDArray[Any],
-        reference_normal: list[npt.NDArray[Any]],
-        reference_anomaly: list[npt.NDArray[Any]] | None = None,
+        features: np.ndarray,
+        reference_normal: list[np.ndarray],
+        reference_anomaly: list[np.ndarray] | None = None,
     ) -> dict[str, Any]:
         """Detect anomaly with few-shot adaptation.
 

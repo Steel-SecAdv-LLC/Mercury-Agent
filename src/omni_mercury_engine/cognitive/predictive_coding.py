@@ -53,7 +53,6 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -122,7 +121,7 @@ class Prediction:
     prediction_id: str
     prediction_type: PredictionType
     level: ProcessingLevel
-    value: npt.NDArray[Any]
+    value: np.ndarray
     precision: float = DEFAULT_PRECISION
     timestamp: float = field(default_factory=time.time)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -146,10 +145,10 @@ class PredictionError:
 
     error_id: str
     level: ProcessingLevel
-    prediction: npt.NDArray[Any]
-    observation: npt.NDArray[Any]
-    error: npt.NDArray[Any]
-    precision_weighted_error: npt.NDArray[Any]
+    prediction: np.ndarray
+    observation: np.ndarray
+    error: np.ndarray
+    precision_weighted_error: np.ndarray
     magnitude: float
     is_anomaly: bool = False
     timestamp: float = field(default_factory=time.time)
@@ -177,16 +176,16 @@ class GenerativeModel:
     """
 
     level: ProcessingLevel
-    weights: npt.NDArray[Any]
-    bias: npt.NDArray[Any]
+    weights: np.ndarray
+    bias: np.ndarray
     precision: float = DEFAULT_PRECISION
     learning_rate: float = DEFAULT_LEARNING_RATE
 
-    def predict(self, higher_level_state: npt.NDArray[Any]) -> npt.NDArray[Any]:
+    def predict(self, higher_level_state: np.ndarray) -> np.ndarray:
         """Generate prediction from higher-level state."""
         return higher_level_state @ self.weights + self.bias
 
-    def update(self, error: npt.NDArray[Any], higher_level_state: npt.NDArray[Any]) -> None:
+    def update(self, error: np.ndarray, higher_level_state: np.ndarray) -> None:
         """Update weights based on prediction error."""
         # Gradient descent on prediction error
         grad_weights = np.outer(higher_level_state, error)
@@ -209,9 +208,9 @@ class BeliefState:
     """
 
     level: ProcessingLevel
-    mean: npt.NDArray[Any]
-    variance: npt.NDArray[Any]
-    precision: npt.NDArray[Any] = field(default_factory=lambda: np.array([]))
+    mean: np.ndarray
+    variance: np.ndarray
+    precision: np.ndarray = field(default_factory=lambda: np.array([]))
     timestamp: float = field(default_factory=time.time)
 
     def __post_init__(self) -> None:
@@ -286,8 +285,8 @@ class PrecisionEstimator:
 
     def estimate(
         self,
-        errors: npt.NDArray[Any],
-    ) -> npt.NDArray[Any]:
+        errors: np.ndarray,
+    ) -> np.ndarray:
         """Estimate precisions for an array of errors (simplified API).
 
         Args:
@@ -437,7 +436,7 @@ class HierarchicalPredictiveCoder:
 
     def process(
         self,
-        observation: npt.NDArray[Any],
+        observation: np.ndarray,
         update_beliefs: bool = True,
     ) -> tuple[list[PredictionError], FreeEnergy]:
         """Process an observation through the hierarchy.
@@ -547,8 +546,8 @@ class HierarchicalPredictiveCoder:
     def _compute_error(
         self,
         level: ProcessingLevel,
-        prediction: npt.NDArray[Any],
-        observation: npt.NDArray[Any],
+        prediction: np.ndarray,
+        observation: np.ndarray,
     ) -> PredictionError:
         """Compute prediction error at a level."""
         self._error_counter += 1
@@ -580,7 +579,7 @@ class HierarchicalPredictiveCoder:
     def _update_belief(
         self,
         level: ProcessingLevel,
-        bottom_up_signal: npt.NDArray[Any],
+        bottom_up_signal: np.ndarray,
     ) -> None:
         """Update belief at a level."""
         belief = self.beliefs[level]
@@ -672,8 +671,8 @@ class HierarchicalPredictiveCoder:
 
     def predict_and_compute_error(
         self,
-        observation: npt.NDArray[Any],
-    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
+        observation: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Predict and compute error for observation (simplified API).
 
         Args:
@@ -707,7 +706,7 @@ class HierarchicalPredictiveCoder:
 
     def compute_free_energy(
         self,
-        error: npt.NDArray[Any],
+        error: np.ndarray,
     ) -> float:
         """Compute free energy from error array (simplified API).
 
@@ -729,10 +728,10 @@ class HierarchicalPredictiveCoder:
 
     def update_beliefs(
         self,
-        prior: npt.NDArray[Any],
-        observation: npt.NDArray[Any],
+        prior: np.ndarray,
+        observation: np.ndarray,
         learning_rate: float = 0.1,
-    ) -> npt.NDArray[Any]:
+    ) -> np.ndarray:
         """Update beliefs given prior and observation (simplified API).
 
         Args:
@@ -802,7 +801,7 @@ class ActiveInferenceAgent:
 
     def select_action(
         self,
-        observation_or_state: npt.NDArray[Any],
+        observation_or_state: np.ndarray,
         available_actions: list[dict[str, Any]] | None = None,
         planning_horizon: int = 5,
     ) -> dict[str, Any] | tuple[int, float]:
@@ -852,7 +851,7 @@ class ActiveInferenceAgent:
 
     def _compute_action_fe(
         self,
-        state: npt.NDArray[Any],
+        state: np.ndarray,
         action: dict[str, Any],
     ) -> float:
         """Compute expected free energy for an action dict."""
@@ -864,7 +863,7 @@ class ActiveInferenceAgent:
         state_magnitude = np.sum(state**2)
         action_magnitude = np.sum(action_params**2)
 
-        return state_magnitude + 0.1 * action_magnitude
+        return float(state_magnitude + 0.1 * action_magnitude)
 
     def _expected_free_energy(
         self,
@@ -891,12 +890,12 @@ class ActiveInferenceAgent:
         # Divergence from action prior (prefer more common actions)
         prior_divergence = -np.log(self.action_prior[action] + 1e-8)
 
-        return expected_surprise + 0.1 * prior_divergence
+        return float(expected_surprise + 0.1 * prior_divergence)
 
     def update_from_outcome(
         self,
         action: int,
-        observation: npt.NDArray[Any],
+        observation: np.ndarray,
         success: bool,
     ) -> None:
         """Update models based on action outcome.
@@ -972,7 +971,7 @@ class PredictiveCodingDetector:
 
     def detect(
         self,
-        observation: npt.NDArray[Any],
+        observation: np.ndarray,
         update_model: bool = True,
     ) -> dict[str, Any]:
         """Detect anomalies in observation.
@@ -1052,7 +1051,7 @@ class PredictiveCodingDetector:
 
     def fit(
         self,
-        data: npt.NDArray[Any],
+        data: np.ndarray,
         epochs: int = 10,
     ) -> dict[str, list[float]]:
         """Fit the model to data.
@@ -1098,7 +1097,7 @@ class PredictiveCodingDetector:
 
     def update(
         self,
-        observation: npt.NDArray[Any],
+        observation: np.ndarray,
     ) -> None:
         """Update the model with a new observation (simplified API).
 
@@ -1165,7 +1164,7 @@ class MercuryPredictiveCoding:
 
     def analyze(
         self,
-        features: npt.NDArray[Any],
+        features: np.ndarray,
         return_action: bool = False,
     ) -> dict[str, Any]:
         """Analyze features for anomalies.
@@ -1190,18 +1189,15 @@ class MercuryPredictiveCoding:
 
         # Get recommended action via active inference
         if return_action and self.enable_active_inference:
-            action_result = self.agent.select_action(features)
-            # When no available_actions is passed, returns tuple[int, float]
-            assert isinstance(action_result, tuple)
-            action_idx, expected_fe = action_result
-            result["recommended_action"] = self._actions[action_idx]
-            result["action_confidence"] = float(np.exp(-expected_fe))
+            action_idx, expected_fe = self.agent.select_action(features)
+            result["recommended_action"] = self._actions[int(action_idx)]
+            result["action_confidence"] = np.exp(-float(expected_fe))
 
         return result
 
     def train(
         self,
-        data: npt.NDArray[Any],
+        data: np.ndarray,
         epochs: int = 10,
     ) -> dict[str, list[float]]:
         """Train the predictive model.

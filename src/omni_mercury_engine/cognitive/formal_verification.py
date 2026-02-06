@@ -52,7 +52,6 @@ from enum import Enum
 from typing import Any, cast
 
 import numpy as np
-import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -314,28 +313,28 @@ class ConstraintSolver:
         if constraint.constraint_type == ConstraintType.BOUND:
             # Check bounds
             lower, upper = constraint.value
-            return lower - self.epsilon <= var_value <= upper + self.epsilon
+            return bool(lower - self.epsilon <= var_value <= upper + self.epsilon)
 
         elif constraint.constraint_type == ConstraintType.EQUALITY:
-            return abs(var_value - constraint.value) < self.epsilon
+            return bool(abs(var_value - constraint.value) < self.epsilon)
 
         elif constraint.constraint_type == ConstraintType.INEQUALITY:
             op = constraint.operator
             if op == "<":
-                return var_value < constraint.value
+                return bool(var_value < constraint.value)
             elif op == "<=":
-                return var_value <= constraint.value + self.epsilon
+                return bool(var_value <= constraint.value + self.epsilon)
             elif op == ">":
-                return var_value > constraint.value
+                return bool(var_value > constraint.value)
             elif op == ">=":
-                return var_value >= constraint.value - self.epsilon
+                return bool(var_value >= constraint.value - self.epsilon)
             elif op == "!=":
-                return abs(var_value - constraint.value) >= self.epsilon
+                return bool(abs(var_value - constraint.value) >= self.epsilon)
             return False
 
         elif constraint.constraint_type == ConstraintType.RANGE:
             lower, upper = constraint.value
-            return lower <= var_value <= upper
+            return bool(lower <= var_value <= upper)
 
         elif constraint.constraint_type == ConstraintType.PREDICATE:
             # Custom predicate evaluation
@@ -566,13 +565,13 @@ class SafetyVerifier:
         condition = invariant.condition.lower()
 
         if "confidence >= 0" in condition:
-            return decision.get("confidence", 0) >= 0
+            return bool(decision.get("confidence", 0) >= 0)
 
         if "anomaly_score" in condition and "<= 1" in condition:
-            return decision.get("anomaly_score", 0) <= 1
+            return bool(decision.get("anomaly_score", 0) <= 1)
 
         if "ethical" in condition and ">=" in condition:
-            return decision.get("ethical_score", 1.0) >= 0.99
+            return bool(decision.get("ethical_score", 1.0) >= 0.99)
 
         # Default: assume invariant holds
         return True
@@ -671,26 +670,25 @@ class SafetyVerifier:
                     try:
                         compare_value = float(value_str)
                     except ValueError:
-                        # String comparison
-                        str_compare = value_str.strip("'\"")
+                        str_value = value_str.strip("'\"")
                         if op == "==":
-                            return str(var_value) == str_compare
+                            return str(var_value) == str_value
                         elif op == "!=":
-                            return str(var_value) != str_compare
+                            return str(var_value) != str_value
                         return False
 
                     if op == ">=":
-                        return var_value >= compare_value
+                        return bool(var_value >= compare_value)
                     elif op == "<=":
-                        return var_value <= compare_value
+                        return bool(var_value <= compare_value)
                     elif op == "==":
-                        return abs(var_value - compare_value) < 0.0001
+                        return bool(abs(var_value - compare_value) < 0.0001)
                     elif op == "!=":
-                        return abs(var_value - compare_value) >= 0.0001
+                        return bool(abs(var_value - compare_value) >= 0.0001)
                     elif op == ">":
-                        return var_value > compare_value
+                        return bool(var_value > compare_value)
                     elif op == "<":
-                        return var_value < compare_value
+                        return bool(var_value < compare_value)
 
         # Default: check if variable exists and is truthy
         return bool(state.get(condition, False))
@@ -903,10 +901,10 @@ class IntervalBoundPropagator:
 
     def propagate_linear(
         self,
-        input_bounds: tuple[npt.NDArray[Any], npt.NDArray[Any]] | dict[str, tuple[float, float]],
-        weights: npt.NDArray[Any],
-        bias: npt.NDArray[Any],
-    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]] | dict[str, tuple[float, float]]:
+        input_bounds: tuple[np.ndarray, np.ndarray] | dict[str, tuple[float, float]],
+        weights: np.ndarray,
+        bias: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray] | dict[str, tuple[float, float]]:
         """Propagate bounds through linear layer.
 
         Args:
@@ -956,8 +954,8 @@ class IntervalBoundPropagator:
 
     def propagate_relu(
         self,
-        input_bounds: tuple[npt.NDArray[Any], npt.NDArray[Any]],
-    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
+        input_bounds: tuple[np.ndarray, np.ndarray],
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Propagate bounds through ReLU.
 
         Args:
@@ -976,8 +974,8 @@ class IntervalBoundPropagator:
 
     def verify_output_bounds(
         self,
-        input_bounds: tuple[npt.NDArray[Any], npt.NDArray[Any]],
-        network_params: list[tuple[npt.NDArray[Any], npt.NDArray[Any]]],
+        input_bounds: tuple[np.ndarray, np.ndarray],
+        network_params: list[tuple[np.ndarray, np.ndarray]],
         output_bounds: tuple[float, float],
     ) -> bool:
         """Verify network outputs are within bounds.
@@ -994,10 +992,7 @@ class IntervalBoundPropagator:
 
         for i, (weights, bias) in enumerate(network_params):
             # Linear layer
-            bounds = cast(
-                "tuple[npt.NDArray[Any], npt.NDArray[Any]]",
-                self.propagate_linear(bounds, weights, bias),
-            )
+            bounds = cast(tuple[np.ndarray, np.ndarray], self.propagate_linear(bounds, weights, bias))
 
             # ReLU (except last layer)
             if i < len(network_params) - 1:
@@ -1007,7 +1002,7 @@ class IntervalBoundPropagator:
         required_lower, required_upper = output_bounds
 
         # Check if computed bounds are within required bounds
-        return np.all(lower_out >= required_lower) and np.all(upper_out <= required_upper)
+        return bool(np.all(lower_out >= required_lower) and np.all(upper_out <= required_upper))
 
 
 # =============================================================================
@@ -1280,17 +1275,17 @@ class FormalVerificationEngine:
         condition_lower = condition.lower()
 
         if "confidence >= 0" in condition_lower:
-            return decision.get("confidence", 0) >= 0
+            return bool(decision.get("confidence", 0) >= 0)
 
         if "anomaly_score" in condition_lower:
             score = decision.get("anomaly_score", 0)
             if "<= 1" in condition_lower:
-                return score <= 1
+                return bool(score <= 1)
             if ">= 0" in condition_lower:
-                return score >= 0
+                return bool(score >= 0)
 
         if "ethical" in condition_lower and ">=" in condition_lower:
-            return decision.get("ethical_score", 1.0) >= 0.99
+            return bool(decision.get("ethical_score", 1.0) >= 0.99)
 
         # Default: assume condition holds
         return True
@@ -1520,15 +1515,15 @@ class AnomalyVerifier:
                         return False
 
                     if op == ">=":
-                        return var_value >= compare_value
+                        return bool(var_value >= compare_value)
                     elif op == "<=":
-                        return var_value <= compare_value
+                        return bool(var_value <= compare_value)
                     elif op == "!=":
-                        return var_value != compare_value
+                        return bool(var_value != compare_value)
                     elif op == ">":
-                        return var_value > compare_value
+                        return bool(var_value > compare_value)
                     elif op == "<":
-                        return var_value < compare_value
+                        return bool(var_value < compare_value)
 
         # Handle boolean
         if condition in decision:

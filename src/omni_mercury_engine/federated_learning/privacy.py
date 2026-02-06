@@ -20,7 +20,6 @@ from enum import Enum, auto
 from typing import Any
 
 import numpy as np
-import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -89,10 +88,10 @@ class PrivacyAccountant:
     sample_rate: float = 1.0
 
     _queries: list[tuple[float, float]] = field(default_factory=list)
-    _rdp_orders: npt.NDArray[Any] = field(
+    _rdp_orders: np.ndarray = field(
         default_factory=lambda: np.array([1.5, 2, 2.5, 3, 4, 5, 6, 8, 16, 32, 64])
     )
-    _rdp_eps: npt.NDArray[Any] | None = None
+    _rdp_eps: np.ndarray | None = None
 
     def __post_init__(self) -> None:
         """Initialize RDP epsilon array."""
@@ -159,7 +158,7 @@ class PrivacyAccountant:
         rdp = (max_log + math.log(sum_exp)) / (order - 1)
         return max(0.0, rdp)
 
-    def _rdp_to_dp(self, rdp_eps: npt.NDArray[Any], delta: float) -> float:
+    def _rdp_to_dp(self, rdp_eps: np.ndarray, delta: float) -> float:
         """Convert RDP to (epsilon, delta)-DP."""
         if delta <= 0:
             return float("inf")
@@ -239,10 +238,10 @@ class DifferentialPrivacyMechanism(ABC):
     @abstractmethod
     def add_noise(
         self,
-        value: npt.NDArray[Any],
+        value: np.ndarray,
         sensitivity: float,
         epsilon: float,
-    ) -> npt.NDArray[Any]:
+    ) -> np.ndarray:
         """Add noise to satisfy differential privacy."""
         pass
 
@@ -266,10 +265,10 @@ class GaussianMechanism(DifferentialPrivacyMechanism):
 
     def add_noise(
         self,
-        value: npt.NDArray[Any],
+        value: np.ndarray,
         sensitivity: float,
         epsilon: float,
-    ) -> npt.NDArray[Any]:
+    ) -> np.ndarray:
         """Add Gaussian noise to the value."""
         sigma = self.compute_noise_scale(sensitivity, epsilon)
         noise = self._rng.normal(0, sigma, size=value.shape)
@@ -297,10 +296,10 @@ class LaplaceMechanism(DifferentialPrivacyMechanism):
 
     def add_noise(
         self,
-        value: npt.NDArray[Any],
+        value: np.ndarray,
         sensitivity: float,
         epsilon: float,
-    ) -> npt.NDArray[Any]:
+    ) -> np.ndarray:
         """Add Laplace noise to the value."""
         scale = self.compute_noise_scale(sensitivity, epsilon)
         noise = self._rng.laplace(0, scale, size=value.shape)
@@ -335,7 +334,7 @@ class GradientClipper:
         self._max_norm = max_norm
         self._norm_type = norm_type
 
-    def clip(self, gradients: npt.NDArray[Any]) -> npt.NDArray[Any]:
+    def clip(self, gradients: np.ndarray) -> np.ndarray:
         """
         Clip gradients to bounded norm.
 
@@ -354,7 +353,7 @@ class GradientClipper:
 
         return clipped
 
-    def _clip_single(self, gradient: npt.NDArray[Any]) -> npt.NDArray[Any]:
+    def _clip_single(self, gradient: np.ndarray) -> np.ndarray:
         """Clip a single gradient vector."""
         if self._norm_type == "l2":
             norm = np.linalg.norm(gradient)
@@ -399,7 +398,7 @@ class SecureAggregator:
         self._delta = delta
         self._min_clients = min_clients
 
-        self._mechanism: LaplaceMechanism | GaussianMechanism
+        self._mechanism: DifferentialPrivacyMechanism
         if mechanism == "laplace":
             self._mechanism = LaplaceMechanism()
         else:
@@ -413,10 +412,10 @@ class SecureAggregator:
 
     def aggregate(
         self,
-        updates: list[npt.NDArray[Any]],
+        updates: list[np.ndarray],
         weights: list[float] | None = None,
         sensitivity: float = 1.0,
-    ) -> npt.NDArray[Any]:
+    ) -> np.ndarray:
         """
         Securely aggregate client updates with DP noise.
 
@@ -476,7 +475,7 @@ class LocalDifferentialPrivacy:
         self._epsilon = epsilon
         self._delta = delta
 
-        self._mechanism: LaplaceMechanism | GaussianMechanism
+        self._mechanism: DifferentialPrivacyMechanism
         if mechanism == "laplace":
             self._mechanism = LaplaceMechanism()
         else:
@@ -484,9 +483,9 @@ class LocalDifferentialPrivacy:
 
     def privatize(
         self,
-        value: npt.NDArray[Any],
+        value: np.ndarray,
         sensitivity: float = 1.0,
-    ) -> npt.NDArray[Any]:
+    ) -> np.ndarray:
         """
         Apply local differential privacy to a value.
 
@@ -501,9 +500,9 @@ class LocalDifferentialPrivacy:
 
     def privatize_gradients(
         self,
-        gradients: npt.NDArray[Any],
+        gradients: np.ndarray,
         max_norm: float = 1.0,
-    ) -> npt.NDArray[Any]:
+    ) -> np.ndarray:
         """
         Privatize gradients with clipping and noise.
 
@@ -602,7 +601,7 @@ class PrivacyEngine:
 
         self._clipper = GradientClipper(max_grad_norm)
 
-        self._mechanism: LaplaceMechanism | GaussianMechanism
+        self._mechanism: DifferentialPrivacyMechanism
         if mechanism == "laplace":
             self._mechanism = LaplaceMechanism()
         else:
@@ -619,9 +618,9 @@ class PrivacyEngine:
 
     def privatize_gradients(
         self,
-        gradients: npt.NDArray[Any],
+        gradients: np.ndarray,
         batch_size: int | None = None,
-    ) -> npt.NDArray[Any]:
+    ) -> np.ndarray:
         """
         Privatize gradients with clipping and noise.
 
@@ -656,9 +655,9 @@ class PrivacyEngine:
 
     def privatize_model_update(
         self,
-        update: npt.NDArray[Any],
+        update: np.ndarray,
         sensitivity: float | None = None,
-    ) -> npt.NDArray[Any]:
+    ) -> np.ndarray:
         """
         Privatize a model update (weights delta).
 

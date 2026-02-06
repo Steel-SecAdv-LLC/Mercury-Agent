@@ -539,14 +539,12 @@ class GoalDecomposer:
         """
         # Handle dict input (test API)
         if isinstance(goal, dict):
-            description: str = (
-                goal.get("type", goal.get("description", "unknown_goal")) or "unknown_goal"
-            )
+            description = goal.get("type", goal.get("description", "unknown_goal"))
             goal_id = f"goal_dict_{self._decomposition_counter:06d}"
             priority = 0.5
 
             # Find matching template
-            template_key = self._find_template(description)
+            template_key = self._find_template(str(description))
             if template_key:
                 template_subgoals = self._templates[template_key]
             else:
@@ -974,17 +972,14 @@ class HierarchicalPlanner:
         for goal in goal_hierarchy.values():
             if goal.level in [AbstractionLevel.STRATEGIC, AbstractionLevel.TACTICAL]:
                 subgoals = self.goal_decomposer.decompose(goal, context)
-                # For Goal objects, decompose returns list[Subgoal]
-                for sg in subgoals:
-                    if isinstance(sg, Subgoal):
-                        all_subgoals.append(sg)
+                all_subgoals.extend(cast(list[Subgoal], subgoals))
 
         # Select options for subgoals
-        options_used: list[Any] = []
+        options_used: list[Option] = []
         for subgoal in all_subgoals:
             applicable = self.option_library.get_applicable_options(current_state)
             if applicable:
-                options_used.append(applicable[0])  # Best option
+                options_used.append(cast(Option, applicable[0]))
 
         # Estimate plan value
         estimated_reward = self._estimate_plan_reward(
@@ -1102,7 +1097,7 @@ class HierarchicalPlanner:
                 state, execution_state.current_goal
             )
             if applicable:
-                execution_state.current_option = cast("Option", applicable[0])
+                execution_state.current_option = cast(Option, applicable[0])
 
         # Get action from option
         if execution_state.current_option:
@@ -1405,7 +1400,7 @@ class AnomalyHierarchicalPlanner:
             strategic_goals = [
                 f"assess_{anomaly_type}_impact",
                 f"contain_{anomaly_type}_threat",
-                "remediate_affected_systems",
+                f"remediate_affected_systems",
             ]
 
             tactical_actions = []

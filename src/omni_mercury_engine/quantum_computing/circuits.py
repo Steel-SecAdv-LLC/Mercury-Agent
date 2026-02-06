@@ -769,7 +769,7 @@ class QuantumFeatureMap:
 
             simulator = AerSimulator()
             result = simulator.run(circuit, shots=shots).result()
-            return result.get_counts()
+            return dict(result.get_counts())
         except ImportError:
             return {"0" * self._num_qubits: shots // 2}
 

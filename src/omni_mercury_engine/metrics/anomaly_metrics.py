@@ -27,10 +27,9 @@ Implements standard metrics used in anomaly detection literature.
 
 import logging
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
-import numpy.typing as npt
 from scipy.ndimage import label as connected_components
 
 from omni_mercury_engine.core.config import ThresholdConfig
@@ -42,10 +41,10 @@ logger = logging.getLogger(__name__)
 _thresholds = ThresholdConfig()
 
 
-def _to_numpy(arr: Any) -> npt.NDArray[Any]:
+def _to_numpy(arr: Any) -> np.ndarray[Any, Any]:
     """Convert array-like to numpy."""
     if hasattr(arr, "cpu"):  # torch tensor
-        return cast("npt.NDArray[Any]", arr.cpu().numpy())
+        return arr.cpu().numpy()
     return np.asarray(arr)
 
 
@@ -453,7 +452,7 @@ class AnomalyMetrics:
         y_score = _to_numpy(y_score).flatten()
 
         unique_categories = list(set(categories))
-        results: dict[str, Any] = {}
+        results: dict[str, dict[str, Any]] = {}
 
         for cat in unique_categories:
             mask = np.array([c == cat for c in categories])

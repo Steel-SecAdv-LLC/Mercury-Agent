@@ -51,7 +51,6 @@ from queue import Empty, Queue
 from typing import Any, cast
 
 import numpy as np
-import numpy.typing as npt
 
 
 logger = logging.getLogger(__name__)
@@ -127,7 +126,7 @@ class CoordinationStrategy(Enum):
     CENTRALIZED = "centralized"  # Single coordinator
     DISTRIBUTED = "distributed"  # No coordinator
     HIERARCHICAL = "hierarchical"  # Multi-level coordination
-    MARKET_BASED = "market_based"  # Task[Any] auction
+    MARKET_BASED = "market_based"  # Task auction
 
 
 # =============================================================================
@@ -244,7 +243,7 @@ class Coalition:
         leader_id: Coalition leader agent ID
         member_ids: Member agent IDs
         members: List of agent objects (alternative to member_ids)
-        task: Task[Any] the coalition is addressing
+        task: Task the coalition is addressing
         objective: Coalition objective (alternative to task)
         created_at: Creation timestamp
         status: Coalition status
@@ -305,10 +304,10 @@ class DetectionAgent(ABC):
             self.capabilities: list[AgentCapability] = []
             self._capability_names: list[str] = []
         elif capabilities and isinstance(capabilities[0], str):
-            self._capability_names = list(cast("list[str]", capabilities))
+            self._capability_names = [str(c) for c in capabilities]
             self.capabilities = []
         else:
-            self.capabilities = list(cast("list[AgentCapability]", capabilities))
+            self.capabilities = [c for c in capabilities if isinstance(c, AgentCapability)]
             self._capability_names = [c.name for c in self.capabilities]
 
         self.status = AgentStatus.IDLE
@@ -319,7 +318,7 @@ class DetectionAgent(ABC):
     @abstractmethod
     def detect(
         self,
-        data: npt.NDArray[Any],
+        data: np.ndarray,
         context: dict[str, Any] | None = None,
     ) -> DetectionResult:
         """Perform anomaly detection.
@@ -398,7 +397,7 @@ class SimpleDetectionAgent(DetectionAgent):
 
     def detect(
         self,
-        data: npt.NDArray[Any],
+        data: np.ndarray,
         context: dict[str, Any] | None = None,
     ) -> DetectionResult:
         """Perform simple threshold-based detection."""
@@ -424,14 +423,14 @@ class SimpleDetectionAgent(DetectionAgent):
             reasoning=f"{self.role.value} detection with score {score:.3f}",
         )
 
-    def _statistical_score(self, data: npt.NDArray[Any]) -> float:
+    def _statistical_score(self, data: np.ndarray) -> float:
         """Compute statistical anomaly score."""
         mean = np.mean(data)
         std = np.std(data) + 1e-8
         z_scores = np.abs((data - mean) / std)
         return float(np.clip(np.max(z_scores) / 3, 0, 1))
 
-    def _temporal_score(self, data: npt.NDArray[Any]) -> float:
+    def _temporal_score(self, data: np.ndarray) -> float:
         """Compute temporal anomaly score."""
         if len(data) < 2:
             return 0.5
@@ -440,7 +439,7 @@ class SimpleDetectionAgent(DetectionAgent):
         max_diff = np.max(np.abs(diffs))
         return float(np.clip(max_diff / (mean_diff + 1e-8) / 5, 0, 1))
 
-    def _dimensional_score(self, data: npt.NDArray[Any]) -> float:
+    def _dimensional_score(self, data: np.ndarray) -> float:
         """Compute dimensional anomaly score."""
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -451,7 +450,7 @@ class SimpleDetectionAgent(DetectionAgent):
         mean_dist = np.mean(distances)
         return float(np.clip((max_dist - mean_dist) / (mean_dist + 1e-8), 0, 1))
 
-    def _generic_score(self, data: npt.NDArray[Any]) -> float:
+    def _generic_score(self, data: np.ndarray) -> float:
         """Generic anomaly score."""
         return float(np.clip(np.max(np.abs(data)) / 10, 0, 1))
 
@@ -518,12 +517,11 @@ class ConsensusProtocol:
 
         # Handle list of vote dicts (test API)
         if results and isinstance(results[0], dict):
-            return self._reach_consensus_from_votes(
-                consensus_id, cast("list[dict[str, Any]]", results)
-            )
+            return self._reach_consensus_from_votes(consensus_id, cast(list[dict[str, Any]], results))
+
+        det_results = cast(list[DetectionResult], results)
 
         # Original DetectionResult handling
-        det_results = cast("list[DetectionResult]", results)
         if len(det_results) < self.min_participants:
             return ConsensusResult(
                 consensus_id=consensus_id,
@@ -926,7 +924,7 @@ class AgentCoordinator:
         """Form a coalition for a task.
 
         Args:
-            task: Task[Any] description
+            task: Task description
             leader_id: Preferred leader (or auto-select)
             required_roles: Required agent roles
             max_size: Maximum coalition size
@@ -1023,7 +1021,7 @@ class AgentCoordinator:
 
     def coordinate_detection(
         self,
-        data: npt.NDArray[Any],
+        data: np.ndarray,
         context: dict[str, Any] | None = None,
         agent_ids: list[str] | None = None,
     ) -> ConsensusResult:
@@ -1073,7 +1071,7 @@ class AgentCoordinator:
         consensus = self.consensus_protocol.reach_consensus(results)
         self._stats["consensus_reached"] += 1
 
-        return cast("ConsensusResult", consensus)
+        return cast(ConsensusResult, consensus)
 
     def get_agent_by_role(self, role: AgentRole) -> list[DetectionAgent]:
         """Get agents by role.
@@ -1163,7 +1161,7 @@ class MultiAgentDetectionSystem:
 
     def detect(
         self,
-        data: npt.NDArray[Any],
+        data: np.ndarray,
         context: dict[str, Any] | None = None,
         use_coalition: bool = False,
     ) -> dict[str, Any]:

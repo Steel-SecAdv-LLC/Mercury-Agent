@@ -122,7 +122,7 @@ class NeurosymbolicEngine:
         self.config = config or NeurosymbolicConfig()
         self.training_metrics = TrainingMetrics()
         self.current_phase = TrainingPhase.FOUNDATION
-        self.neural_model: Any = None
+        self.neural_model: dict[str, Any] | None = None
         self.pattern_library: dict[str, Any] = {}
         self._rng = rng or get_global_rng()
 
@@ -424,6 +424,7 @@ class NeurosymbolicEngine:
                 )
 
         # Compute final accuracy
+        assert self.neural_model is not None
         z1_final = X_val @ self.neural_model["W1"] + self.neural_model["b1"]
         a1_final = np.maximum(0, z1_final)
         z2_final = a1_final @ self.neural_model["W2"] + self.neural_model["b2"]

@@ -70,7 +70,7 @@ class LogEntry:
     def checksum(self) -> str:
         """Compute checksum for integrity verification."""
         content = json.dumps(self.to_dict(), sort_keys=True)
-        return hashlib.sha3_256(content.encode()).hexdigest()[:16]
+        return hashlib.sha256(content.encode()).hexdigest()[:16]
 
 
 @dataclass
@@ -433,9 +433,9 @@ class RaftNode:
         self._next_index: dict[str, int] = {}
         self._match_index: dict[str, int] = {}
 
-        self._election_timer: asyncio.Task[None] | None = None
-        self._heartbeat_timer: asyncio.Task[None] | None = None
-        self._replication_task: asyncio.Task[None] | None = None
+        self._election_timer: asyncio.Task[Any] | None = None
+        self._heartbeat_timer: asyncio.Task[Any] | None = None
+        self._replication_task: asyncio.Task[Any] | None = None
         self._running = False
 
         self._pending_commands: dict[int, asyncio.Future[Any]] = {}

@@ -176,9 +176,7 @@ def evaluate_with_scalars(
     }
 
 
-def analyze_by_scenario_type(
-    scenarios: list[dict[str, Any]], scalars: EthicalScalars
-) -> dict[str, Any]:
+def analyze_by_scenario_type(scenarios: list[dict[str, Any]], scalars: EthicalScalars) -> dict[str, Any]:
     """Analyze performance breakdown by scenario type."""
     type_results = {}
 

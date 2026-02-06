@@ -46,7 +46,6 @@ from typing import Any
 
 import numpy as np
 
-
 # Add src to path for development
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -58,7 +57,6 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +164,7 @@ class LiveDatasetBenchmarkRunner:
         ],
     }
 
-    def __init__(self, detector_name: str = "adaptive") -> None:
+    def __init__(self, detector_name: str = "adaptive"):
         self.detector_name = detector_name
         self.detector: Any = None
         self.results: list[DatasetBenchmarkResult] = []
@@ -251,7 +249,7 @@ class LiveDatasetBenchmarkRunner:
             return X, y, metadata
 
         except Exception as e:
-            metadata["warnings"].append(f"Load error: {e!s}")
+            metadata["warnings"].append(f"Load error: {str(e)}")
             logger.warning(f"Failed to load {dataset_name}: {e}")
             return None, None, metadata
 
@@ -463,7 +461,7 @@ class LiveDatasetBenchmarkRunner:
         print(f"Total Time: {result.total_time_seconds:.1f}s")
         print("-" * 80)
 
-        print("\nDATASET COVERAGE:")
+        print(f"\nDATASET COVERAGE:")
         print(f"  Total Datasets: {result.total_datasets}")
         print(f"  Successful: {result.successful_datasets}")
         print(f"  Failed: {result.failed_datasets}")
@@ -471,7 +469,7 @@ class LiveDatasetBenchmarkRunner:
         live_count = sum(1 for v in result.live_data_coverage.values() if v)
         print(f"  Live Data: {live_count}/{len(result.live_data_coverage)}")
 
-        print("\nAGGREGATE METRICS:")
+        print(f"\nAGGREGATE METRICS:")
         print(f"  Mean ROC-AUC: {result.mean_roc_auc:.4f}")
         print(f"  Mean PR-AUC:  {result.mean_pr_auc:.4f}")
         print(f"  Mean F1:      {result.mean_f1:.4f} (std: {result.std_f1:.4f})")
@@ -494,7 +492,7 @@ class LiveDatasetBenchmarkRunner:
     def export_results(self, result: BenchmarkSuiteResult, output_path: str) -> None:
         """Export results to JSON file."""
 
-        def serialize(obj: object) -> object:
+        def serialize(obj: Any) -> Any:
             if isinstance(obj, DatasetBenchmarkResult):
                 return obj.to_dict()
             if isinstance(obj, np.floating):

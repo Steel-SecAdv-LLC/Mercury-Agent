@@ -33,7 +33,6 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import numpy.typing as npt
 
 from omni_mercury_engine.explainability.counterfactuals import (
     CounterfactualSet,
@@ -68,7 +67,7 @@ class AnomalyExplanation:
     Combines multiple explanation methods into a unified result.
     """
 
-    instance: npt.NDArray[Any]
+    instance: np.ndarray
     anomaly_score: float
     is_anomaly: bool
     threshold: float
@@ -220,8 +219,8 @@ class MercuryExplainer:
 
     def __init__(
         self,
-        model: Callable[[npt.NDArray[Any]], np.ndarray] | Any,
-        background_data: npt.NDArray[Any],
+        model: Callable[[np.ndarray], np.ndarray] | Any,
+        background_data: np.ndarray,
         feature_names: list[str] | None = None,
         feature_descriptions: dict[str, str] | None = None,
         feature_constraints: list[FeatureConstraint] | None = None,
@@ -298,7 +297,7 @@ class MercuryExplainer:
 
     def explain(
         self,
-        instance: npt.NDArray[Any],
+        instance: np.ndarray,
         anomaly_score: float | None = None,
         is_anomaly: bool | None = None,
         include_shap: bool = True,
@@ -337,7 +336,9 @@ class MercuryExplainer:
         shap_explanation: ShapExplanation | None = None
         if include_shap:
             shap_result = self._shap_explainer.explain(instance[0])
-            shap_explanation = shap_result[0] if isinstance(shap_result, list) else shap_result
+            shap_explanation = (
+                shap_result[0] if isinstance(shap_result, list) else shap_result
+            )
 
         counterfactual_set = None
         if include_counterfactuals:
@@ -382,8 +383,8 @@ class MercuryExplainer:
 
     def explain_batch(
         self,
-        instances: npt.NDArray[Any],
-        anomaly_scores: npt.NDArray[Any] | None = None,
+        instances: np.ndarray,
+        anomaly_scores: np.ndarray | None = None,
         include_shap: bool = True,
         include_counterfactuals: bool = False,
     ) -> list[AnomalyExplanation]:
@@ -417,8 +418,8 @@ class MercuryExplainer:
 
     def explain_global(
         self,
-        X: npt.NDArray[Any],
-        y: npt.NDArray[Any] | None = None,
+        X: np.ndarray,
+        y: np.ndarray | None = None,
     ) -> GlobalAnomalyExplanation:
         """
         Generate global explanation for the model.
@@ -449,7 +450,7 @@ class MercuryExplainer:
 
     def get_feature_importance(
         self,
-        X: npt.NDArray[Any],
+        X: np.ndarray,
         n_samples: int | None = None,
     ) -> dict[str, float]:
         """
@@ -471,7 +472,7 @@ class MercuryExplainer:
 
     def generate_report(
         self,
-        instance: npt.NDArray[Any],
+        instance: np.ndarray,
         subject_id: str,
         anomaly_score: float | None = None,
         explanation_level: ExplanationLevel = ExplanationLevel.STANDARD,

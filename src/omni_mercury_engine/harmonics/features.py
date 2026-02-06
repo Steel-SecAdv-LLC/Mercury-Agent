@@ -227,7 +227,7 @@ class HarmonicFeatureExtractor:
         if l3 < abs(l1 - l2) or l3 > l1 + l2:
             return 0.0
 
-        return 1.0 / np.sqrt(2 * l3 + 1)
+        return float(1.0 / np.sqrt(2 * l3 + 1))
 
     def _compute_energy_distribution(
         self,
@@ -273,7 +273,7 @@ class HarmonicFeatureExtractor:
         entropy = -np.sum(probs * np.log(probs + 1e-10))
         max_entropy = np.log(len(powers))
 
-        return entropy / (max_entropy + 1e-10)
+        return float(entropy / (max_entropy + 1e-10))
 
     def extract_multi_scale(
         self,

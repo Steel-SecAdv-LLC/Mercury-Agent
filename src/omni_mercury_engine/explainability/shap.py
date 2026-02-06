@@ -248,7 +248,7 @@ class ExactShapExplainer(ShapExplainer):
                 combined[j] = x[j]
             predictions[i] = self._predict(combined.reshape(1, -1))[0]
 
-        return np.mean(predictions)
+        return float(np.mean(predictions))
 
     def explain_global(self, X: npt.NDArray[Any]) -> GlobalExplanation:
         """Compute global SHAP explanation."""
@@ -390,7 +390,7 @@ class KernelShapExplainer(ShapExplainer):
             pred = self._predict(combined.reshape(1, -1))[0]
             predictions.append(pred)
 
-        return np.mean(predictions)
+        return float(np.mean(predictions))
 
     def explain_global(self, X: npt.NDArray[Any]) -> GlobalExplanation:
         """Compute global Kernel SHAP explanation."""

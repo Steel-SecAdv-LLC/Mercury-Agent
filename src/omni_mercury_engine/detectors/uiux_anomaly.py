@@ -71,10 +71,9 @@ import math
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
-import numpy.typing as npt
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -245,7 +244,7 @@ class ClickAnalysis:
     dead_clicks: int
     double_click_rate: float
     click_accuracy: float
-    click_density_map: npt.NDArray[Any]
+    click_density_map: np.ndarray
     click_timing_stats: dict[str, float]
 
 
@@ -706,10 +705,12 @@ class UIUXAnomalyDetector(BaseDetector):
         # Reference statistics
         self._reference_timing_mean: float = 0.0
         self._reference_timing_std: float = 1.0
-        self._reference_click_density: npt.NDArray[Any] | None = None
+        self._reference_click_density: np.ndarray | None = None
         self._reference_scroll_velocity: float = 500.0
         self._reference_session_duration: float = 300.0
         self._page_transition_probs: dict[str, dict[str, float]] = {}
+        self._reference_features_mean: np.ndarray | None = None
+        self._reference_features_std: np.ndarray | None = None
 
     def _init_networks(self) -> None:
         """Initialize neural network components."""
@@ -764,11 +765,9 @@ class UIUXAnomalyDetector(BaseDetector):
 
         sessions: list[list[UserInteraction]]
         if isinstance(interactions[0], UserInteraction):
-            # Single session provided - wrap in list
-            sessions = [cast("list[UserInteraction]", interactions)]
+            sessions = [interactions]  # type: ignore[list-item]
         else:
-            # Multiple sessions provided
-            sessions = cast("list[list[UserInteraction]]", interactions)
+            sessions = interactions  # type: ignore[assignment]
 
         # Collect statistics from all sessions
         all_timings = []
@@ -847,7 +846,7 @@ class UIUXAnomalyDetector(BaseDetector):
 
     def detect(
         self,
-        interactions: list[UserInteraction] | npt.NDArray[Any] | torch.Tensor,
+        interactions: list[UserInteraction] | np.ndarray | torch.Tensor,
     ) -> dict[str, Any]:
         """Detect UI/UX anomalies in user interactions.
 
@@ -954,7 +953,7 @@ class UIUXAnomalyDetector(BaseDetector):
 
     def _detect_from_features(
         self,
-        features: npt.NDArray[Any] | torch.Tensor,
+        features: np.ndarray | torch.Tensor,
     ) -> dict[str, Any]:
         """Detect from pre-computed features (for ML fusion).
 
@@ -971,7 +970,7 @@ class UIUXAnomalyDetector(BaseDetector):
             features = features.reshape(1, -1)
 
         # Simple z-score based anomaly detection for features
-        if hasattr(self, "_reference_features_mean") and hasattr(self, "_reference_features_std"):
+        if self._reference_features_mean is not None and self._reference_features_std is not None:
             z_scores = (features - self._reference_features_mean) / (
                 self._reference_features_std + 1e-8
             )
@@ -989,7 +988,7 @@ class UIUXAnomalyDetector(BaseDetector):
 
     def extract_features(
         self,
-        interactions: list[UserInteraction] | npt.NDArray[Any] | torch.Tensor,
+        interactions: list[UserInteraction] | np.ndarray | torch.Tensor,
     ) -> torch.Tensor:
         """Extract features for ML fusion.
 
@@ -1012,7 +1011,7 @@ class UIUXAnomalyDetector(BaseDetector):
     def _extract_interaction_features(
         self,
         interactions: list[UserInteraction],
-    ) -> npt.NDArray[Any]:
+    ) -> np.ndarray:
         """Extract numerical features from interactions.
 
         Args:
@@ -1379,7 +1378,7 @@ class UIUXAnomalyDetector(BaseDetector):
         else:
             attention_score = 0.5
 
-        # Task[Any] completion estimate (based on form submissions, etc.)
+        # Task completion estimate (based on form submissions, etc.)
         completions = sum(
             1 for i in interactions if i.interaction_type == InteractionType.FORM_SUBMIT
         )
@@ -1932,7 +1931,7 @@ def compute_click_heatmap(
     width: int = 1920,
     height: int = 1080,
     grid_size: int = 20,
-) -> npt.NDArray[Any]:
+) -> np.ndarray:
     """Compute click density heatmap.
 
     Args:

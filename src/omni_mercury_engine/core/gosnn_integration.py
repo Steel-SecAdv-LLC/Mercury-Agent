@@ -26,7 +26,7 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -593,7 +593,7 @@ class GOSNNIntegration:
             cached_result = cache.get(X)
             if cached_result is not None and isinstance(cached_result, IntegrationResult):
                 monitor.record("detect_cached", (time.time() - start_time) * 1000)
-                return cached_result
+                return cast(IntegrationResult, cached_result)
 
         # Collect domain predictions
         domain_scores = {}

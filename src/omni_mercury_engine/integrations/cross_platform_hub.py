@@ -26,7 +26,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -157,7 +157,7 @@ class AnomalyEvent:
         else:
             severity = "low"
 
-        event_id = hashlib.sha3_256(f"{source}:{time.time_ns()}:{index}".encode()).hexdigest()[:16]
+        event_id = hashlib.sha256(f"{source}:{time.time_ns()}:{index}".encode()).hexdigest()[:16]
 
         return cls(
             event_id=event_id,
@@ -391,7 +391,7 @@ class PlatformAdapter(ABC):
         query: dict[str, Any],
     ) -> AsyncIterator[dict[str, Any]]:
         """Fetch data from platform."""
-        ...
+        pass
 
     @property
     def is_connected(self) -> bool:
@@ -930,8 +930,7 @@ class CrossPlatformHub:
             return {}
 
         if len(events) == 1:
-            pub_result: dict[str, bool | int] = dict(await self.publish_event(events[0], platforms))
-            return pub_result
+            return cast("dict[str, bool | int]", await self.publish_event(events[0], platforms))
         else:
             return await self.publish_batch(events, platforms)
 

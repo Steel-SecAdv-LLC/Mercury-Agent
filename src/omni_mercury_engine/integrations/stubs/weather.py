@@ -465,7 +465,8 @@ class WeatherService:
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
             with urlopen(req, timeout=self.timeout) as response:
-                return json.loads(response.read().decode())
+                _result: dict[str, Any] = json.loads(response.read().decode())
+                return _result
 
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, fetch)
@@ -515,7 +516,8 @@ class WeatherService:
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
             with urlopen(req, timeout=self.timeout) as response:
-                return json.loads(response.read().decode())
+                _result: dict[str, Any] = json.loads(response.read().decode())
+                return _result
 
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, fetch)
@@ -558,7 +560,8 @@ class WeatherService:
                 },
             )
             with urlopen(req, timeout=self.timeout) as response:
-                return json.loads(response.read().decode())
+                _result: dict[str, Any] = json.loads(response.read().decode())
+                return _result
 
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, fetch)
@@ -587,7 +590,8 @@ class WeatherService:
                 },
             )
             with urlopen(req, timeout=self.timeout) as response:
-                return json.loads(response.read().decode())
+                _result: dict[str, Any] = json.loads(response.read().decode())
+                return _result
 
         loop = asyncio.get_event_loop()
         forecast_data = await loop.run_in_executor(None, fetch_forecast)
@@ -773,7 +777,8 @@ class WeatherService:
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
             with urlopen(req, timeout=self.timeout) as response:
-                return json.loads(response.read().decode())
+                _result: dict[str, Any] = json.loads(response.read().decode())
+                return _result
 
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, fetch)

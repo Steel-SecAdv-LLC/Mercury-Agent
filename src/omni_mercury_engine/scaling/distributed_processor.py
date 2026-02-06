@@ -645,7 +645,8 @@ class StreamProcessor:
             Tuple of (scores, is_anomaly, metadata) or None if timeout
         """
         try:
-            return self._output_queue.get(timeout=timeout)
+            result: tuple[NDArray[np.float64], NDArray[np.bool_], dict[str, Any]] = self._output_queue.get(timeout=timeout)
+            return result
         except queue.Empty:
             return None
 

@@ -38,7 +38,6 @@ from datetime import datetime
 from typing import Any
 
 import numpy as np
-import numpy.typing as npt
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -48,7 +47,7 @@ class ClientModel:
     """Client model in federated learning."""
 
     client_id: str
-    model_weights: npt.NDArray[Any]
+    model_weights: np.ndarray
     num_samples: int
     loss: float
     timestamp: datetime = field(default_factory=datetime.now)
@@ -59,7 +58,7 @@ class GlobalModel:
     """Global aggregated model."""
 
     round_number: int
-    weights: npt.NDArray[Any]
+    weights: np.ndarray
     participating_clients: int
     aggregated_loss: float
     timestamp: datetime = field(default_factory=datetime.now)
@@ -113,9 +112,7 @@ class FederatedAnomalyDetection:
         self.client_models: dict[str, ClientModel] = {}
         self.round_history: list[GlobalModel] = []
 
-    def register_client(
-        self, client_id: str, initial_weights: np.ndarray[Any, Any] | None = None
-    ) -> None:
+    def register_client(self, client_id: str, initial_weights: np.ndarray[Any, Any] | None = None) -> None:
         """
         Register new client in federated system.
 

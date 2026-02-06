@@ -24,7 +24,6 @@ Runs 10,000+ iterations to find optimal parameters for Mercury optimizers.
 import sys
 from pathlib import Path
 
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import json
@@ -42,7 +41,7 @@ from omni_mercury_engine.ml.training import (
 )
 
 
-class SimpleTestModel(nn.Module):  # type: ignore[misc]
+class SimpleTestModel(nn.Module):
     """Simple model for testing optimizer performance."""
 
     def __init__(self, input_dim: int = 10):
@@ -58,7 +57,7 @@ class SimpleTestModel(nn.Module):  # type: ignore[misc]
 
 
 def run_optimizer_experiment(
-    optimizer_class: type,
+    optimizer_class: type[Any],
     params: dict[str, Any],
     num_iterations: int = 1000,
     seed: int = 42,

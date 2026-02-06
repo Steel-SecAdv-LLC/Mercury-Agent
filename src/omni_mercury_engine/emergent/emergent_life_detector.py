@@ -344,7 +344,7 @@ class BioSignalPatternRecognizer:
 
         ratio = np.mean(data[:, 0]) / (np.mean(data[:, 1]) + 1e-8)
 
-        return ratio > 10.0 or ratio < 0.1
+        return bool(ratio > 10.0 or ratio < 0.1)
 
     def _generate_biosig_recommendations(
         self, biosignatures: list[str], confidence: float

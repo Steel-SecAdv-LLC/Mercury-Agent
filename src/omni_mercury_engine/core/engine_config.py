@@ -31,7 +31,7 @@ Provides:
 """
 
 from enum import StrEnum
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -413,12 +413,12 @@ class MercuryEngineConfig(BaseModel):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
-        return self.model_dump()
+        return dict(self.model_dump())
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> MercuryEngineConfig:
         """Create from dictionary."""
-        return cls.model_validate(data)
+        return cast("MercuryEngineConfig", cls.model_validate(data))
 
     @classmethod
     def for_domain(cls, domain: DomainType | str, **kwargs: Any) -> MercuryEngineConfig:

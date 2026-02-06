@@ -535,7 +535,7 @@ class BatchExecutor:
         self,
         circuits: list[Any],
         shots: int | None = None,
-    ) -> list[ExecutionResult]:
+    ) -> list[ExecutionResult | QuantumJob]:
         """
         Run a batch of circuits.
 
@@ -550,7 +550,7 @@ class BatchExecutor:
             circuits[i : i + self._batch_size] for i in range(0, len(circuits), self._batch_size)
         ]
 
-        all_results: list[Any] = []
+        all_results: list[ExecutionResult | QuantumJob] = []
 
         for i in range(0, len(batches), self._max_parallel):
             parallel_batches = batches[i : i + self._max_parallel]

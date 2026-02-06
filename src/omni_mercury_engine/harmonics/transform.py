@@ -37,7 +37,7 @@ class HarmonicCoefficients:
             return 0.0j
 
         idx = degree * (degree + 1) + m
-        return self.coefficients[idx]
+        return complex(self.coefficients[idx])
 
     def set_coefficient(self, degree: int, m: int, value: complex) -> None:
         """Set coefficient for degree and order m."""

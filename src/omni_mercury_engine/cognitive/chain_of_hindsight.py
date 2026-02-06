@@ -436,8 +436,8 @@ class HindsightRelabeler:
                 else "achieved"
             )
             relabeled_trajectory = []
-            for dict_step in sequence:
-                relabeled_step = dict_step.copy()
+            for step_dict in sequence:
+                relabeled_step = step_dict.copy()
                 relabeled_step["goal"] = achieved_goal
                 relabeled_trajectory.append(relabeled_step)
             return relabeled_trajectory
@@ -701,7 +701,7 @@ class FeedbackProcessor:
         """Create pattern key from input state."""
         key_features = sorted(input_state.keys())[:5]
         key_str = "_".join(key_features)
-        return hashlib.sha3_256(key_str.encode()).hexdigest()[:8]
+        return hashlib.sha256(key_str.encode()).hexdigest()[:8]
 
 
 # =============================================================================
@@ -1104,12 +1104,12 @@ class ChainOfHindsightEngine:
         avg_reward = total_reward / len(self._sequences)
 
         # Quality distribution
-        quality_dist: defaultdict[str, int] = defaultdict(int)
+        quality_dist: dict[str, int] = defaultdict(int)
         for seq in self._sequences:
             quality_dist[seq.feedback_quality.value] += 1
 
         # Type distribution
-        type_dist: defaultdict[str, int] = defaultdict(int)
+        type_dist: dict[str, int] = defaultdict(int)
         for seq in self._sequences:
             type_dist[seq.sequence_type.value] += 1
 

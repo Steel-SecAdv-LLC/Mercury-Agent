@@ -469,7 +469,7 @@ class ExperienceMemory:
         key_sim = len(common_keys) / len(keys1 | keys2)
 
         # Value similarity for common keys
-        value_matches: float = 0.0
+        value_matches: float = 0
         for key in common_keys:
             v1, v2 = context1[key], context2[key]
             if v1 == v2:
@@ -827,7 +827,7 @@ class ReflexionEngine:
         """Execute a task with iterative reflection and refinement.
 
         Args:
-            task: Task[Any] specification dict with type, data, and optional parameters
+            task: Task specification dict with type, data, and optional parameters
             max_iterations: Maximum reflection iterations
 
         Returns:
@@ -898,7 +898,6 @@ class ReflexionEngine:
 
             # Evaluate decision
             evaluation = self.heuristic_evaluator.evaluate(decision, [])
-            # For Decision objects, evaluate returns HeuristicEvaluation
             assert isinstance(evaluation, HeuristicEvaluation)
             current_score = evaluation.heuristic_score
 
@@ -1045,14 +1044,13 @@ class ReflexionEngine:
 
         for iteration in range(max_iterations):
             # Evaluate current decision
-            eval_result = self.heuristic_evaluator.evaluate(current_decision, past_experiences)
-            # For Decision objects, evaluate returns HeuristicEvaluation
-            assert isinstance(eval_result, HeuristicEvaluation)
-            current_score = eval_result.heuristic_score
+            evaluation = self.heuristic_evaluator.evaluate(current_decision, past_experiences)
+            assert isinstance(evaluation, HeuristicEvaluation)
+            current_score = evaluation.heuristic_score
 
             refinement_trace.append(
                 f"Iteration {iteration + 1}: score={current_score:.3f}, "
-                f"violations={len(eval_result.violations)}"
+                f"violations={len(evaluation.violations)}"
             )
 
             # Check for convergence
@@ -1063,13 +1061,12 @@ class ReflexionEngine:
 
             # Apply refinements based on evaluation
             current_decision = self._apply_refinements(
-                current_decision, eval_result, past_experiences
+                current_decision, evaluation, past_experiences
             )
 
         # Calculate improvement
         original_eval = self.heuristic_evaluator.evaluate(decision, past_experiences)
         final_eval = self.heuristic_evaluator.evaluate(current_decision, past_experiences)
-        # For Decision objects, evaluate returns HeuristicEvaluation
         assert isinstance(original_eval, HeuristicEvaluation)
         assert isinstance(final_eval, HeuristicEvaluation)
         improvement_score = final_eval.heuristic_score - original_eval.heuristic_score
@@ -1170,13 +1167,13 @@ class ReflexionEngine:
                     )
 
         # Deduplicate and prioritize
-        seen: set[str] = set()
-        unique_improvements: list[dict[str, Any]] = []
-        for imp_dict in improvements:
-            imp_hash = hashlib.sha3_256(imp_dict["improvement"].encode()).hexdigest()
+        seen = set()
+        unique_improvements = []
+        for imp_entry in improvements:
+            imp_hash = hashlib.sha256(imp_entry["improvement"].encode()).hexdigest()
             if imp_hash not in seen:
                 seen.add(imp_hash)
-                unique_improvements.append(imp_dict)
+                unique_improvements.append(imp_entry)
 
         return {
             "improvements": unique_improvements,

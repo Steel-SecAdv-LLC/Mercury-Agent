@@ -65,11 +65,10 @@ import os
 import sys
 import time
 import warnings
-from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -261,8 +260,7 @@ def fetch_from_mirror(
             response = requests.get(url, headers=_BROWSER_HEADERS, timeout=timeout)
             response.raise_for_status()
             logger.info(f"Successfully fetched {dataset_name} from mirror: {url}")
-            content: bytes = response.content
-            return content
+            return bytes(response.content)
         except requests.exceptions.RequestException as e:
             if attempt < max_retries - 1:
                 delay = base_delay * (2**attempt)
@@ -417,9 +415,7 @@ def _create_labels_from_ranges(
     return y
 
 
-def fetch_smap_msl_local(
-    dataset: str = "SMAP",
-) -> tuple[np.ndarray, np.ndarray | None, np.ndarray, np.ndarray | None, str] | None:
+def fetch_smap_msl_local(dataset: str = "SMAP") -> tuple[Any, ...] | None:
     """
     Load SMAP/MSL from local directory matching telemanom structure.
 
@@ -1161,9 +1157,9 @@ def prepare_smd_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
             source_info = "synthetic (fallback)"
 
         # Limit samples if needed
-        assert y is not None
         if len(X) > n_samples:
             indices = np.random.RandomState(42).choice(len(X), n_samples, replace=False)
+            assert y is not None
             X, y = X[indices], y[indices]
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
@@ -1251,9 +1247,9 @@ def prepare_smap_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
             )
             source_info = "synthetic (fallback)"
 
-        assert y is not None
         if len(X) > n_samples:
             indices = np.random.RandomState(43).choice(len(X), n_samples, replace=False)
+            assert y is not None
             X, y = X[indices], y[indices]
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
@@ -1341,9 +1337,9 @@ def prepare_msl_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
             )
             source_info = "synthetic (fallback)"
 
-        assert y is not None
         if len(X) > n_samples:
             indices = np.random.RandomState(44).choice(len(X), n_samples, replace=False)
+            assert y is not None
             X, y = X[indices], y[indices]
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
@@ -1435,9 +1431,9 @@ def prepare_swat_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
             )
             source_info = "synthetic (fallback)"
 
-        assert y is not None
         if len(X) > n_samples:
             indices = np.random.RandomState(45).choice(len(X), n_samples, replace=False)
+            assert y is not None
             X, y = X[indices], y[indices]
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
@@ -1472,10 +1468,10 @@ class TranADDetector:
     for time-series anomaly detection.
     """
 
-    def __init__(self, contamination: float = 0.1, window_size: int = 10) -> None:
+    def __init__(self, contamination: float = 0.1, window_size: int = 10):
         self.contamination = contamination
         self.window_size = window_size
-        self.model: Any = None
+        self.model: Any | None = None
         self.threshold: float | None = None
         self.scaler = StandardScaler()
         self._is_fitted = False
@@ -1500,6 +1496,7 @@ class TranADDetector:
             )
 
             self.model = TranADModel(config)
+            assert self.model is not None
             X_scaled = self.scaler.fit_transform(X)
 
             # Train on normal data only (unsupervised anomaly detection)
@@ -1581,6 +1578,7 @@ class TranADDetector:
 
     def _compute_scores(self, X: np.ndarray) -> np.ndarray:
         """Compute TranAD anomaly scores."""
+        assert self.model is not None
         scores = []
         with torch.no_grad():
             for i in range(len(X)):
@@ -1613,10 +1611,10 @@ class MAATDetector:
     long-sequence anomaly detection.
     """
 
-    def __init__(self, contamination: float = 0.1, window_size: int = 100) -> None:
+    def __init__(self, contamination: float = 0.1, window_size: int = 100):
         self.contamination = contamination
         self.window_size = window_size
-        self.model: Any = None
+        self.model: Any | None = None
         self.threshold: float | None = None
         self.scaler = StandardScaler()
         self._is_fitted = False
@@ -1640,6 +1638,7 @@ class MAATDetector:
             )
 
             self.model = MAATModel(config)
+            assert self.model is not None
             X_scaled = self.scaler.fit_transform(X)
 
             # Train on normal data only (unsupervised anomaly detection)
@@ -1721,6 +1720,7 @@ class MAATDetector:
 
     def _compute_scores(self, X: np.ndarray) -> np.ndarray:
         """Compute MAAT anomaly scores."""
+        assert self.model is not None
         scores = []
         batch_size = min(32, len(X))
 
@@ -1847,15 +1847,15 @@ class OmniMercuryDetector:
         self.enable_partial_mode = enable_partial_mode
 
         # Engine state
-        self.engine: Any = None
+        self.engine: Any | None = None
         self.threshold = 0.5
-        self.mean: Any = None
-        self.std: Any = None
-        self.cov_inv: Any = None
+        self.mean: np.ndarray[Any, Any] | None = None
+        self.std: np.ndarray[Any, Any] | None = None
+        self.cov_inv: np.ndarray[Any, Any] | None = None
 
         # Fallback detectors
-        self._lof_detector: Any = None
-        self._iforest_detector: Any = None
+        self._lof_detector = None
+        self._iforest_detector = None
 
         # Telemetry and health tracking
         self.telemetry = FallbackTelemetry()
@@ -1876,8 +1876,8 @@ class OmniMercuryDetector:
 
         # Trained fusion state (logistic regression approach)
         self._fusion_trained = False
-        self._fusion_lr: Any = None
-        self._score_scaler: Any = None
+        self._fusion_lr = None
+        self._score_scaler = None
         self._detector_names: list[str] = []
 
         # Adaptive Enhancement: Adaptive detector for targeted improvements
@@ -2277,6 +2277,7 @@ class OmniMercuryDetector:
                 self._lof_detector = LocalOutlierFactor(
                     contamination=self.contamination, novelty=True, n_neighbors=min(20, len(X) - 1)
                 )
+                assert self._lof_detector is not None
                 self._lof_detector.fit(X)
                 logger.info("LOF fallback detector initialized")
             except Exception as e:
@@ -2287,6 +2288,7 @@ class OmniMercuryDetector:
                 self._iforest_detector = IsolationForest(
                     contamination=self.contamination, random_state=42, n_estimators=100
                 )
+                assert self._iforest_detector is not None
                 self._iforest_detector.fit(X)
                 logger.info("IsolationForest fallback detector initialized")
             except Exception as e:
@@ -2493,6 +2495,7 @@ class OmniMercuryDetector:
         uses that for scoring. Otherwise falls back to detect_with_fusion() which
         returns anomaly_prob (0.0-1.0) where higher values indicate more anomalous samples.
         """
+        assert self.engine is not None
         # Use trained fusion classifier if available - this produces meaningful scores
         if getattr(self, "_fusion_trained", False) and hasattr(self, "_fusion_lr"):
             return self._compute_trained_fusion_scores(X)
@@ -2528,6 +2531,7 @@ class OmniMercuryDetector:
         This method uses the logistic regression trained during fit() to produce
         meaningful anomaly probabilities based on detector scores.
         """
+        assert self.engine is not None
         n_detectors = len(self._detector_names)
         score_matrix = np.zeros((len(X), n_detectors))
 
@@ -2572,6 +2576,7 @@ class OmniMercuryDetector:
 
         # Normalize using training statistics
         try:
+            assert self._score_scaler is not None
             X_scaled = self._score_scaler.transform(score_matrix)
         except Exception:
             # If scaling fails, use raw scores
@@ -2579,6 +2584,7 @@ class OmniMercuryDetector:
 
         # Get probabilities from logistic regression
         try:
+            assert self._fusion_lr is not None
             probs = self._fusion_lr.predict_proba(X_scaled)[:, 1]
             return probs
         except Exception as e:
@@ -2703,15 +2709,14 @@ def get_detector_health_endpoint() -> dict[str, Any]:
     Returns JSON with operational status of each detector component.
     Can be exposed via FastAPI or similar framework.
     """
-    components: dict[str, Any] = {}
     health_status: dict[str, Any] = {
         "timestamp": datetime.now(UTC).isoformat(),
         "status": "healthy",
-        "components": components,
+        "components": {},
     }
 
     # Check Mercury-Agent availability
-    components["mercury_agent"] = {
+    health_status["components"]["mercury_agent"] = {
         "available": MERCURY_AGENT_AVAILABLE,
         "status": "operational" if MERCURY_AGENT_AVAILABLE else "unavailable",
     }
@@ -2727,12 +2732,12 @@ def get_detector_health_endpoint() -> dict[str, Any]:
     for name, detector_class in sklearn_detectors:
         try:
             detector_class()
-            components[name] = {
+            health_status["components"][name] = {
                 "available": True,
                 "status": "operational",
             }
         except Exception as e:
-            components[name] = {
+            health_status["components"][name] = {
                 "available": False,
                 "status": "error",
                 "error": str(e),
@@ -2743,33 +2748,35 @@ def get_detector_health_endpoint() -> dict[str, Any]:
         import importlib.util
 
         tranad_spec = importlib.util.find_spec("omni_mercury_engine.models.sota.tranad")
-        components["TranAD"] = {
+        health_status["components"]["TranAD"] = {
             "available": tranad_spec is not None,
             "status": "operational" if tranad_spec is not None else "unavailable",
         }
     except (ImportError, ModuleNotFoundError):
-        components["TranAD"] = {
+        health_status["components"]["TranAD"] = {
             "available": False,
             "status": "unavailable",
         }
 
     try:
         maat_spec = importlib.util.find_spec("omni_mercury_engine.models.sota.maat")
-        components["MAAT"] = {
+        health_status["components"]["MAAT"] = {
             "available": maat_spec is not None,
             "status": "operational" if maat_spec is not None else "unavailable",
         }
     except (ImportError, ModuleNotFoundError):
-        components["MAAT"] = {
+        health_status["components"]["MAAT"] = {
             "available": False,
             "status": "unavailable",
         }
 
     # Determine overall status
-    unavailable_count = sum(1 for c in components.values() if c.get("status") != "operational")
-    if unavailable_count > len(components) // 2:
+    unavailable_count = sum(
+        1 for c in health_status["components"].values() if c.get("status") != "operational"
+    )
+    if unavailable_count > len(health_status["components"]) // 2:
         health_status["status"] = "degraded"
-    elif unavailable_count == len(components):
+    elif unavailable_count == len(health_status["components"]):
         health_status["status"] = "unhealthy"
 
     return health_status
@@ -3250,7 +3257,7 @@ def run_full_benchmark(
     summary = generate_summary(results)
 
     # Generate confusion matrix summary
-    confusion_summary: dict[str, dict[str, Any]] = {}
+    confusion_summary: dict[str, Any] = {}
     for r in results:
         if r.dataset_name not in confusion_summary:
             confusion_summary[r.dataset_name] = {}

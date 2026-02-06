@@ -53,7 +53,6 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-import numpy.typing as npt
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -652,7 +651,6 @@ class CorticalLaminatedNetwork(nn.Module):
             nn.GELU(),
         )
 
-        # Thalamic feedback from last forward pass (used for gating)
         self._prev_feedback: torch.Tensor | None = None
 
     def forward(
@@ -672,7 +670,9 @@ class CorticalLaminatedNetwork(nn.Module):
         all_activations = {}
 
         # Get feedback from last column for thalamic gating (if available)
-        feedback = self._prev_feedback
+        feedback = None
+        if hasattr(self, "_prev_feedback"):
+            feedback = self._prev_feedback
 
         # Apply thalamocortical gating
         if self.use_thalamic_gate:
@@ -773,7 +773,7 @@ class GolgiAnalyzer:
             "pathway_strengths": pathway_strengths,
         }
 
-    def visualize_dendrite_tree(self, layer_name: str) -> npt.NDArray[Any]:
+    def visualize_dendrite_tree(self, layer_name: str) -> np.ndarray:
         """Create dendritic tree visualization for a layer.
 
         Args:
@@ -963,7 +963,7 @@ class CorticalLoss(nn.Module):
     """Biologically-plausible loss combining multiple cortical constraints.
 
     Combines:
-    1. Task[Any] loss (classification/regression)
+    1. Task loss (classification/regression)
     2. Sparsity constraint (sparse coding)
     3. Hebbian correlation loss (local learning signal)
     4. Lateral inhibition energy (winner-take-all)
@@ -1008,7 +1008,7 @@ class CorticalLoss(nn.Module):
         Returns:
             Dict containing loss components and total loss
         """
-        # Task[Any] loss
+        # Task loss
         if task_type == "classification":
             # Check if multi-class classification (predictions have multiple classes)
             if predictions.dim() > 1 and predictions.shape[1] > 1:
