@@ -68,7 +68,7 @@ import warnings
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -169,11 +169,11 @@ def verify_checksum(content: bytes, dataset_key: str) -> bool:
 
 
 def fetch_with_retry(
-    fetch_func: callable,
+    fetch_func: Callable[..., Any],
     dataset_name: str,
     max_retries: int = 5,
     base_delay: float = 2.0,
-    **fetch_kwargs,
+    **fetch_kwargs: Any,
 ) -> Any | None:
     """
     Fetch a dataset with exponential backoff retry logic.
@@ -260,7 +260,8 @@ def fetch_from_mirror(
             response = requests.get(url, headers=_BROWSER_HEADERS, timeout=timeout)
             response.raise_for_status()
             logger.info(f"Successfully fetched {dataset_name} from mirror: {url}")
-            return response.content
+            content: bytes = response.content
+            return content
         except requests.exceptions.RequestException as e:
             if attempt < max_retries - 1:
                 delay = base_delay * (2**attempt)
@@ -415,7 +416,9 @@ def _create_labels_from_ranges(
     return y
 
 
-def fetch_smap_msl_local(dataset: str = "SMAP") -> tuple | None:
+def fetch_smap_msl_local(
+    dataset: str = "SMAP",
+) -> tuple[np.ndarray, np.ndarray | None, np.ndarray, np.ndarray | None, str] | None:
     """
     Load SMAP/MSL from local directory matching telemanom structure.
 
@@ -1157,6 +1160,7 @@ def prepare_smd_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
             source_info = "synthetic (fallback)"
 
         # Limit samples if needed
+        assert y is not None
         if len(X) > n_samples:
             indices = np.random.RandomState(42).choice(len(X), n_samples, replace=False)
             X, y = X[indices], y[indices]
@@ -1246,6 +1250,7 @@ def prepare_smap_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
             )
             source_info = "synthetic (fallback)"
 
+        assert y is not None
         if len(X) > n_samples:
             indices = np.random.RandomState(43).choice(len(X), n_samples, replace=False)
             X, y = X[indices], y[indices]
@@ -1335,6 +1340,7 @@ def prepare_msl_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
             )
             source_info = "synthetic (fallback)"
 
+        assert y is not None
         if len(X) > n_samples:
             indices = np.random.RandomState(44).choice(len(X), n_samples, replace=False)
             X, y = X[indices], y[indices]
@@ -1428,6 +1434,7 @@ def prepare_swat_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
             )
             source_info = "synthetic (fallback)"
 
+        assert y is not None
         if len(X) > n_samples:
             indices = np.random.RandomState(45).choice(len(X), n_samples, replace=False)
             X, y = X[indices], y[indices]
@@ -1464,11 +1471,11 @@ class TranADDetector:
     for time-series anomaly detection.
     """
 
-    def __init__(self, contamination: float = 0.1, window_size: int = 10):
+    def __init__(self, contamination: float = 0.1, window_size: int = 10) -> None:
         self.contamination = contamination
         self.window_size = window_size
-        self.model = None
-        self.threshold = None
+        self.model: Any = None
+        self.threshold: float | None = None
         self.scaler = StandardScaler()
         self._is_fitted = False
 
@@ -1605,11 +1612,11 @@ class MAATDetector:
     long-sequence anomaly detection.
     """
 
-    def __init__(self, contamination: float = 0.1, window_size: int = 100):
+    def __init__(self, contamination: float = 0.1, window_size: int = 100) -> None:
         self.contamination = contamination
         self.window_size = window_size
-        self.model = None
-        self.threshold = None
+        self.model: Any = None
+        self.threshold: float | None = None
         self.scaler = StandardScaler()
         self._is_fitted = False
 
@@ -1766,7 +1773,7 @@ class DetectorHealth:
 class FallbackTelemetry:
     """Telemetry tracking for fallback mechanisms."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.fallback_counts: dict[str, int] = {
             "import_failure": 0,
             "initialization_error": 0,
@@ -1839,15 +1846,15 @@ class OmniMercuryDetector:
         self.enable_partial_mode = enable_partial_mode
 
         # Engine state
-        self.engine = None
+        self.engine: Any = None
         self.threshold = 0.5
-        self.mean = None
-        self.std = None
-        self.cov_inv = None
+        self.mean: Any = None
+        self.std: Any = None
+        self.cov_inv: Any = None
 
         # Fallback detectors
-        self._lof_detector = None
-        self._iforest_detector = None
+        self._lof_detector: Any = None
+        self._iforest_detector: Any = None
 
         # Telemetry and health tracking
         self.telemetry = FallbackTelemetry()
@@ -1868,8 +1875,8 @@ class OmniMercuryDetector:
 
         # Trained fusion state (logistic regression approach)
         self._fusion_trained = False
-        self._fusion_lr = None
-        self._score_scaler = None
+        self._fusion_lr: Any = None
+        self._score_scaler: Any = None
         self._detector_names: list[str] = []
 
         # Adaptive Enhancement: Adaptive detector for targeted improvements
@@ -2016,7 +2023,7 @@ class OmniMercuryDetector:
                                 # Handle array scores (take mean if array)
                                 if hasattr(score, "__len__") and not isinstance(score, str):
                                     score = float(np.mean(score))
-                                score_matrix[i, j] = float(score)
+                                score_matrix[i, j] = float(score) if score is not None else 0.5
                             else:
                                 score_matrix[i, j] = float(result) if result is not None else 0.5
                         elif hasattr(detector, "decision_function"):
@@ -2360,7 +2367,7 @@ class OmniMercuryDetector:
             Threshold value for anomaly classification
         """
         if len(scores) < 2:
-            return np.percentile(scores, 100 * (1 - self.contamination))
+            return float(np.percentile(scores, 100 * (1 - self.contamination)))
 
         # Use improved score calibration when available
         if SCORE_CALIBRATION_AVAILABLE:
@@ -2390,7 +2397,7 @@ class OmniMercuryDetector:
                         f"predicted_ratio={result.diagnostics.predicted_anomaly_ratio:.4f}"
                     )
 
-                return result.threshold
+                return float(result.threshold)
 
             except Exception as e:
                 logger.warning(f"ScoreCalibration failed, using fallback: {e}")
@@ -2548,7 +2555,7 @@ class OmniMercuryDetector:
                                 # Handle array scores (take mean if array)
                                 if hasattr(score, "__len__") and not isinstance(score, str):
                                     score = float(np.mean(score))
-                                score_matrix[i, j] = float(score)
+                                score_matrix[i, j] = float(score) if score is not None else 0.5
                             else:
                                 score_matrix[i, j] = float(result) if result is not None else 0.5
                         elif hasattr(detector, "decision_function"):
@@ -2695,14 +2702,15 @@ def get_detector_health_endpoint() -> dict[str, Any]:
     Returns JSON with operational status of each detector component.
     Can be exposed via FastAPI or similar framework.
     """
-    health_status = {
+    components: dict[str, Any] = {}
+    health_status: dict[str, Any] = {
         "timestamp": datetime.now(UTC).isoformat(),
         "status": "healthy",
-        "components": {},
+        "components": components,
     }
 
     # Check Mercury-Agent availability
-    health_status["components"]["mercury_agent"] = {
+    components["mercury_agent"] = {
         "available": MERCURY_AGENT_AVAILABLE,
         "status": "operational" if MERCURY_AGENT_AVAILABLE else "unavailable",
     }
@@ -2718,12 +2726,12 @@ def get_detector_health_endpoint() -> dict[str, Any]:
     for name, detector_class in sklearn_detectors:
         try:
             detector_class()
-            health_status["components"][name] = {
+            components[name] = {
                 "available": True,
                 "status": "operational",
             }
         except Exception as e:
-            health_status["components"][name] = {
+            components[name] = {
                 "available": False,
                 "status": "error",
                 "error": str(e),
@@ -2734,35 +2742,35 @@ def get_detector_health_endpoint() -> dict[str, Any]:
         import importlib.util
 
         tranad_spec = importlib.util.find_spec("omni_mercury_engine.models.sota.tranad")
-        health_status["components"]["TranAD"] = {
+        components["TranAD"] = {
             "available": tranad_spec is not None,
             "status": "operational" if tranad_spec is not None else "unavailable",
         }
     except (ImportError, ModuleNotFoundError):
-        health_status["components"]["TranAD"] = {
+        components["TranAD"] = {
             "available": False,
             "status": "unavailable",
         }
 
     try:
         maat_spec = importlib.util.find_spec("omni_mercury_engine.models.sota.maat")
-        health_status["components"]["MAAT"] = {
+        components["MAAT"] = {
             "available": maat_spec is not None,
             "status": "operational" if maat_spec is not None else "unavailable",
         }
     except (ImportError, ModuleNotFoundError):
-        health_status["components"]["MAAT"] = {
+        components["MAAT"] = {
             "available": False,
             "status": "unavailable",
         }
 
     # Determine overall status
     unavailable_count = sum(
-        1 for c in health_status["components"].values() if c.get("status") != "operational"
+        1 for c in components.values() if c.get("status") != "operational"
     )
-    if unavailable_count > len(health_status["components"]) // 2:
+    if unavailable_count > len(components) // 2:
         health_status["status"] = "degraded"
-    elif unavailable_count == len(health_status["components"]):
+    elif unavailable_count == len(components):
         health_status["status"] = "unhealthy"
 
     return health_status
@@ -3129,7 +3137,7 @@ def run_full_benchmark(
     print()
 
     # Define detectors including SOTA models
-    detectors = [
+    detectors: list[tuple[type, str, dict[str, Any]]] = [
         (OmniMercuryDetector, "Mercury-Agent", {}),
         (IsolationForest, "IsolationForest", {"random_state": 42, "n_estimators": 100}),
         (OneClassSVM, "OneClassSVM", {"kernel": "rbf", "gamma": "auto"}),
@@ -3243,7 +3251,7 @@ def run_full_benchmark(
     summary = generate_summary(results)
 
     # Generate confusion matrix summary
-    confusion_summary = {}
+    confusion_summary: dict[str, dict[str, Any]] = {}
     for r in results:
         if r.dataset_name not in confusion_summary:
             confusion_summary[r.dataset_name] = {}
@@ -3343,7 +3351,7 @@ def generate_honest_assessment(
     summary: dict[str, Any], comparison: dict[str, Any]
 ) -> dict[str, Any]:
     """Generate honest assessment of Mercury-Agent performance."""
-    assessment = {
+    assessment: dict[str, Any] = {
         "methodology_notes": [
             "Benchmarks use publicly available sklearn datasets",
             "Anomaly labels derived from minority class designation",

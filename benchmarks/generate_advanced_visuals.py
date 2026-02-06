@@ -42,7 +42,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
+import seaborn as sns  # type: ignore[import-untyped]
 from matplotlib.gridspec import GridSpec
 
 plt.style.use("seaborn-v0_8-whitegrid")

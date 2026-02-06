@@ -148,7 +148,7 @@ def generate_synthetic_data(
 
     shuffle_idx = np.random.permutation(n_samples)
     features = features[shuffle_idx]
-    labels = labels[shuffle_idx]  # type: ignore[assignment]
+    labels = labels[shuffle_idx]
     class_labels = class_labels[shuffle_idx]
 
     return features, labels, class_labels

@@ -373,7 +373,7 @@ def run_training_epochs(
     if agent.confidence_calibrator is not None:
         final_calibrator_stats = agent.confidence_calibrator.get_summary()
 
-    summary = {
+    summary: dict[str, Any] = {
         "timestamp": datetime.now(UTC).isoformat(),
         "epochs_completed": epochs,
         "scenarios_per_epoch": len(scenarios),
