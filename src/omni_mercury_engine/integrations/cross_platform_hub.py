@@ -26,7 +26,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -386,12 +386,12 @@ class PlatformAdapter(ABC):
         pass
 
     @abstractmethod
-    async def fetch_data(
+    def fetch_data(
         self,
         query: dict[str, Any],
     ) -> AsyncIterator[dict[str, Any]]:
         """Fetch data from platform."""
-        pass
+        ...
 
     @property
     def is_connected(self) -> bool:
@@ -412,7 +412,7 @@ class HTTPPlatformAdapter(PlatformAdapter):
     async def connect(self) -> bool:
         """Establish HTTP session."""
         try:
-            import aiohttp
+            import aiohttp  # type: ignore[import-not-found]
 
             connector = aiohttp.TCPConnector(
                 ssl=self.config.ssl_verify,
@@ -678,7 +678,7 @@ class OpenTelemetryAdapter(PlatformAdapter):
     async def send_event(self, event: AnomalyEvent) -> bool:
         """Send event via OpenTelemetry."""
         try:
-            import aiohttp
+            import aiohttp  # type: ignore[import-not-found]
 
             data = DataTransformer.to_opentelemetry(event)
 
@@ -930,9 +930,9 @@ class CrossPlatformHub:
             return {}
 
         if len(events) == 1:
-            return await self.publish_event(events[0], platforms)
+            return cast(dict[str, bool | int], await self.publish_event(events[0], platforms))
         else:
-            return await self.publish_batch(events, platforms)
+            return cast(dict[str, bool | int], await self.publish_batch(events, platforms))
 
     async def fetch_from_platform(
         self,

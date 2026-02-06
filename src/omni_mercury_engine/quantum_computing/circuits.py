@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -41,7 +41,7 @@ try:
     QISKIT_AVAILABLE = True
 except ImportError:
     logger.debug("Qiskit not available, using simulation fallback")
-    QuantumCircuit = None  # type: ignore[misc, assignment]
+    QuantumCircuit = None  # type: ignore[assignment]
 
 
 class EncodingType(Enum):
@@ -768,7 +768,7 @@ class QuantumFeatureMap:
 
             simulator = AerSimulator()
             result = simulator.run(circuit, shots=shots).result()
-            return result.get_counts()
+            return cast(dict[str, int], result.get_counts())
         except ImportError:
             return {"0" * self._num_qubits: shots // 2}
 

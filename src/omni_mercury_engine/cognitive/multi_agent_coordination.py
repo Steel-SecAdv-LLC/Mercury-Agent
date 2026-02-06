@@ -48,7 +48,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from queue import Empty, Queue
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -304,10 +304,10 @@ class DetectionAgent(ABC):
             self.capabilities: list[AgentCapability] = []
             self._capability_names: list[str] = []
         elif capabilities and isinstance(capabilities[0], str):
-            self._capability_names = list(capabilities)
+            self._capability_names = list(cast(list[str], capabilities))
             self.capabilities = []
         else:
-            self.capabilities = list(capabilities)
+            self.capabilities = list(cast(list[AgentCapability], capabilities))
             self._capability_names = [c.name for c in self.capabilities]
 
         self.status = AgentStatus.IDLE
@@ -517,31 +517,33 @@ class ConsensusProtocol:
 
         # Handle list of vote dicts (test API)
         if results and isinstance(results[0], dict):
-            return self._reach_consensus_from_votes(consensus_id, results)
+            return self._reach_consensus_from_votes(consensus_id, cast(list[dict[str, Any]], results))
 
         # Original DetectionResult handling
-        if len(results) < self.min_participants:
+        detection_results = cast(list[DetectionResult], results)
+
+        if len(detection_results) < self.min_participants:
             return ConsensusResult(
                 consensus_id=consensus_id,
                 final_decision=False,
                 confidence=0.0,
                 agreement_ratio=0.0,
-                participant_count=len(results),
+                participant_count=len(detection_results),
                 method_used=self.method,
             )
 
         if self.method == ConsensusMethod.MAJORITY_VOTE:
-            return self._majority_vote(consensus_id, results)
+            return self._majority_vote(consensus_id, detection_results)
         elif self.method == ConsensusMethod.WEIGHTED_VOTE:
-            return self._weighted_vote(consensus_id, results)
+            return self._weighted_vote(consensus_id, detection_results)
         elif self.method == ConsensusMethod.UNANIMOUS:
-            return self._unanimous(consensus_id, results)
+            return self._unanimous(consensus_id, detection_results)
         elif self.method == ConsensusMethod.BYZANTINE_TOLERANT:
-            return self._byzantine_tolerant(consensus_id, results)
+            return self._byzantine_tolerant(consensus_id, detection_results)
         elif self.method == ConsensusMethod.CONFIDENCE_WEIGHTED:
-            return self._confidence_weighted(consensus_id, results)
+            return self._confidence_weighted(consensus_id, detection_results)
         else:
-            return self._majority_vote(consensus_id, results)
+            return self._majority_vote(consensus_id, detection_results)
 
     def _reach_consensus_from_votes(
         self,
@@ -1066,7 +1068,7 @@ class AgentCoordinator:
                 logger.error(f"Agent {agent.agent_id} detection error: {e}")
 
         # Reach consensus
-        consensus = self.consensus_protocol.reach_consensus(results)
+        consensus = cast(ConsensusResult, self.consensus_protocol.reach_consensus(results))
         self._stats["consensus_reached"] += 1
 
         return consensus

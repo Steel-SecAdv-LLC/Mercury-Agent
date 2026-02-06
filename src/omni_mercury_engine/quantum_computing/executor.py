@@ -268,8 +268,8 @@ class IBMQuantumBackend:
     def __init__(self, config: BackendConfig) -> None:
         """Initialize the IBM backend."""
         self._config = config
-        self._service = None
-        self._backend = None
+        self._service: Any = None
+        self._backend: Any = None
 
         if QISKIT_AVAILABLE and config.api_token:
             self._initialize_service()
@@ -424,6 +424,7 @@ class QuantumExecutor:
             extra_options=kwargs,
         )
 
+        self._backend: IBMQuantumBackend | SimulatorBackend
         if backend_type == BackendType.REAL_HARDWARE:
             self._backend = IBMQuantumBackend(self._config)
         else:
@@ -455,7 +456,7 @@ class QuantumExecutor:
             results = self._backend.run(circuits, shots)
         else:
             self._backend.run(circuits, shots)
-            results = []
+            results: list[ExecutionResult] = []
 
         return results[0] if single_circuit and results else results
 
@@ -465,7 +466,7 @@ class QuantumExecutor:
         shots: int | None = None,
         wait: bool = True,
         timeout: float = 3600.0,
-    ) -> QuantumJob | list[ExecutionResult]:
+    ) -> QuantumJob | ExecutionResult | list[ExecutionResult]:
         """
         Execute quantum circuit(s) asynchronously.
 
@@ -476,7 +477,7 @@ class QuantumExecutor:
             timeout: Maximum wait time
 
         Returns:
-            QuantumJob if not waiting, ExecutionResults if waiting
+            QuantumJob if not waiting, ExecutionResult(s) if waiting
         """
         single_circuit = not isinstance(circuits, list)
         if single_circuit:
@@ -560,7 +561,7 @@ class BatchExecutor:
             for result in batch_results:
                 if isinstance(result, list):
                     all_results.extend(result)
-                else:
+                elif isinstance(result, ExecutionResult):
                     all_results.append(result)
 
         return all_results

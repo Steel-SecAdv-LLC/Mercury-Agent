@@ -337,137 +337,19 @@ module = [
     # Observability
     "opentelemetry",
     "opentelemetry.*",
+    # Quantum computing
+    "qiskit",
+    "qiskit.*",
+    "qiskit_aer",
+    "qiskit_aer.*",
+    "qiskit_ibm_runtime",
+    "qiskit_ibm_runtime.*",
 ]
 ignore_missing_imports = true
 
 # =============================================================================
-# Type Checking Exclusions
-# NOTE: These exclusions exist because the modules heavily depend on third-party
-# libraries that lack type stubs. This is NOT a permanent state - as libraries
-# gain type support, these modules should be progressively typed.
+# All modules are now fully type-checked. No ignore_errors overrides.
 # =============================================================================
-
-# Override for PyTorch nn.Module subclasses (torch types are inherently complex)
-[[tool.mypy.overrides]]
-module = [
-    "omni_mercury_engine.ml.fusion_network",
-    "omni_mercury_engine.ml.attention",
-    "omni_mercury_engine.ml.encoders",
-    "omni_mercury_engine.ml.training",
-    "omni_mercury_engine.ml.three_r_attention",
-    "omni_mercury_engine.ml.ppo_trainer",
-    "omni_mercury_engine.ml.advanced_optimizers",
-    "omni_mercury_engine.ml.vae_pattern_learner",
-    "omni_mercury_engine.ml.multimodal_fusion",
-    "omni_mercury_engine.ml.hatcn_ad",
-    "omni_mercury_engine.ml.concept_drift_evaluation",
-    "omni_mercury_engine.ml.compression",
-    "omni_mercury_engine.ml.distillation.*",
-    "omni_mercury_engine.ml.few_shot_learning",
-    "omni_mercury_engine.ml.cross_domain_transfer",
-    "omni_mercury_engine.ml.active_learning",
-    "omni_mercury_engine.ml.online_learning",
-    "omni_mercury_engine.ml.explainability",
-    "omni_mercury_engine.models.sota.*",
-    "omni_mercury_engine.models.lstm_ae",
-    "omni_mercury_engine.models.neurosymbolic",
-    "omni_mercury_engine.models.neurosymbolic_enhanced",
-    "omni_mercury_engine.detectors.visual.*",
-    "omni_mercury_engine.detectors.vlm.*",
-    # Security modules with nn.Module subclasses
-    "omni_mercury_engine.security.traffic_analysis",
-    "omni_mercury_engine.security.tempest_detection",
-    "omni_mercury_engine.security.intelligence_fusion",
-    "omni_mercury_engine.security.cybint_subprocessor",
-    # PQC backends depend on optional cryptography libraries
-    "omni_mercury_engine.security.pqc_backends",
-]
-ignore_errors = true
-
-# Override for API and GUI modules (FastAPI/Starlette typing issues)
-[[tool.mypy.overrides]]
-module = [
-    "omni_mercury_engine.api.*",
-    "omni_mercury_engine.gui.*",
-]
-ignore_errors = true
-
-# Override for modules with complex third-party integrations
-# NOTE: These modules have heavy dependencies on untyped third-party libraries
-# (torch, transformers, etc.) making full type coverage impractical
-[[tool.mypy.overrides]]
-module = [
-    # Models with heavy torch/transformers dependencies
-    "omni_mercury_engine.models.foundation.*",
-    "omni_mercury_engine.models.biometric_advanced",
-    "omni_mercury_engine.models.*",
-    # Domain-specific modules with complex ML integrations
-    "omni_mercury_engine.cognitive.*",
-    "omni_mercury_engine.ethical.*",
-    "omni_mercury_engine.space.*",
-    "omni_mercury_engine.medical.*",
-    "omni_mercury_engine.emergent.*",
-    "omni_mercury_engine.energy.*",
-    "omni_mercury_engine.quantum.*",
-    "omni_mercury_engine.ocean.*",
-    # Modules being progressively typed (temporary)
-    "omni_mercury_engine.agentic.*",
-    # New capability modules with heavy numpy/scipy/torch dependencies
-    "omni_mercury_engine.automl.*",
-    "omni_mercury_engine.biometric.*",
-    "omni_mercury_engine.distributed.*",
-    "omni_mercury_engine.explainability.*",
-    "omni_mercury_engine.federated_learning.*",
-    "omni_mercury_engine.harmonics.*",
-    "omni_mercury_engine.quantum_computing.*",
-    "omni_mercury_engine.core.*",
-    "omni_mercury_engine.crypto.*",
-    "omni_mercury_engine.data.*",
-    "omni_mercury_engine.data_sources.*",
-    "omni_mercury_engine.datasets.*",
-    "omni_mercury_engine.detectors.*",
-    "omni_mercury_engine.evaluation.*",
-    "omni_mercury_engine.federated.*",
-    "omni_mercury_engine.infrastructure.*",
-    "omni_mercury_engine.ml.*",
-    "omni_mercury_engine.integrations.*",
-    "omni_mercury_engine.metrics.*",
-    "omni_mercury_engine.resilience.*",
-    "omni_mercury_engine.safeguards.*",
-    "omni_mercury_engine.scaling.*",
-    "omni_mercury_engine.narrative.*",
-    "omni_mercury_engine.truth_decipher",
-    "omni_mercury_engine.cli",
-    "omni_mercury_engine.engine",
-    "omni_mercury_engine",
-]
-ignore_errors = true
-
-# =============================================================================
-# Progressive Typing - Modules with Full Type Checking
-# =============================================================================
-
-# Utils module - properly typed
-[[tool.mypy.overrides]]
-module = [
-    "omni_mercury_engine.utils.*",
-]
-ignore_errors = false
-
-# Validation module - production-critical, fully typed
-[[tool.mypy.overrides]]
-module = [
-    "omni_mercury_engine.validation.*",
-]
-ignore_errors = false
-
-# Security input validation - OWASP compliance, fully typed
-[[tool.mypy.overrides]]
-module = [
-    "omni_mercury_engine.security.input_validation",
-    "omni_mercury_engine.security.authentication",
-]
-ignore_errors = false
 
 # Report generator uses untyped reportlab library
 [[tool.mypy.overrides]]
