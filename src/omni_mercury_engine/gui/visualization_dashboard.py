@@ -526,7 +526,7 @@ class AnomalyVisualizer:
     def radar_chart(
         self,
         categories: list[str],
-        values: list[dict[str, list[float]]],
+        values: dict[str, list[float]],
         title: str = "Multi-Detector Radar Chart",
     ) -> go.Figure:
         """

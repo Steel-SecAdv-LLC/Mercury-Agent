@@ -414,7 +414,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         elif data_type == "interactions":
             # Fit UI/UX detector
             if self._uiux_detector is not None:
-                self._uiux_detector.fit(data)  # type: ignore
+                self._uiux_detector.fit(data)  # type: ignore[arg-type]
 
         elif data_type == "mixed":
             # Fit each detector with appropriate data
@@ -483,7 +483,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
         elif data_type == "interactions":
             if self._uiux_detector is not None and self._uiux_detector.is_fitted():
-                uiux_result = self._uiux_detector.detect(data)  # type: ignore
+                uiux_result = self._uiux_detector.detect(data)
 
         elif data_type == "mixed" and isinstance(data, dict):
             if "time_series" in data:

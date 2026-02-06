@@ -114,6 +114,7 @@ class QuantumAnomalyDetector:
         self._shots = shots
         self._error_mitigation = error_mitigation
 
+        self._error_mitigator: ErrorMitigationCircuit | None
         if error_mitigation:
             self._error_mitigator = ErrorMitigationCircuit(error_mitigation)
         else:

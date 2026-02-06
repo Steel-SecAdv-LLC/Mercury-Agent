@@ -215,11 +215,11 @@ def physics_spectral(
 
         # Map mode string to enum
         mode_map = {
-            "comprehensive": SpectralAnalysisMode.COMPREHENSIVE,
-            "fft_only": SpectralAnalysisMode.FFT_ONLY,
-            "wavelet_only": SpectralAnalysisMode.WAVELET_ONLY,
-            "phonon": SpectralAnalysisMode.PHONON,
-            "predictive": SpectralAnalysisMode.PREDICTIVE,
+            "comprehensive": SpectralAnalysisMode.HYBRID_FUSION,
+            "fft_only": SpectralAnalysisMode.FFT_STANDARD,
+            "wavelet_only": SpectralAnalysisMode.WAVELET_MULTIRESOLUTION,
+            "phonon": SpectralAnalysisMode.PHONON_INTERACTION,
+            "predictive": SpectralAnalysisMode.MLIP_VIBRATIONAL,
         }
 
         config = {
@@ -536,11 +536,11 @@ def physics_integrated(
         # Determine which detectors to enable
         enabled_detectors = []
         if spectral_input:
-            enabled_detectors.append(PhysicsDetectorType.SPECTRAL)
+            enabled_detectors.append(PhysicsDetectorType.SPECTRAL_VIBRATION)
         if dynamics_input:
-            enabled_detectors.append(PhysicsDetectorType.DYNAMICS)
+            enabled_detectors.append(PhysicsDetectorType.ACCELERATION_DYNAMICS)
         if uiux_input:
-            enabled_detectors.append(PhysicsDetectorType.UIUX)
+            enabled_detectors.append(PhysicsDetectorType.UIUX_ANOMALY)
 
         config = {
             "threshold": threshold,

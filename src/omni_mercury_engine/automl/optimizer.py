@@ -232,7 +232,7 @@ class TPESampler(Sampler):
     ) -> float:
         """Compute Parzen estimator density."""
         if isinstance(param, CategoricalParameter):
-            counts = {}
+            counts: dict[Any, int] = {}
             for obs in observations:
                 counts[obs] = counts.get(obs, 0) + 1
 
@@ -240,7 +240,7 @@ class TPESampler(Sampler):
             n_choices = len(param.choices)
 
             prob = (counts.get(value, 0) + 1) / (n_total + n_choices)
-            return prob
+            return float(prob)
 
         elif isinstance(param, IntUniformParameter):
             obs_array = np.array(observations, dtype=float)
@@ -248,7 +248,7 @@ class TPESampler(Sampler):
 
             sigma = max(1.0, np.std(obs_array) + 1e-6)
             weights = stats.norm.pdf(value_float, loc=obs_array, scale=sigma)
-            return np.mean(weights) + 1e-12
+            return float(np.mean(weights) + 1e-12)
 
         elif isinstance(param, LogUniformParameter):
             obs_array = np.log(np.array(observations) + 1e-12)
@@ -256,7 +256,7 @@ class TPESampler(Sampler):
 
             sigma = max(0.1, np.std(obs_array) + 1e-6)
             weights = stats.norm.pdf(value_log, loc=obs_array, scale=sigma)
-            return np.mean(weights) + 1e-12
+            return float(np.mean(weights) + 1e-12)
 
         else:
             obs_array = np.array(observations, dtype=float)
@@ -264,7 +264,7 @@ class TPESampler(Sampler):
 
             sigma = max(0.01, np.std(obs_array) + 1e-6)
             weights = stats.norm.pdf(value_float, loc=obs_array, scale=sigma)
-            return np.mean(weights) + 1e-12
+            return float(np.mean(weights) + 1e-12)
 
     def tell(
         self,
@@ -356,6 +356,7 @@ class GaussianProcessSampler(Sampler):
         """Convert config to numerical vector."""
         vector = []
         for name in self._param_names:
+            assert self._search_space is not None
             param = self._search_space.parameters[name]
             value = config[name]
 
@@ -432,7 +433,7 @@ class GaussianProcessSampler(Sampler):
 
         z = (y_best - mu - xi) / sigma
         ei = (y_best - mu - xi) * stats.norm.cdf(z) + sigma * stats.norm.pdf(z)
-        return ei
+        return float(ei)
 
     def tell(
         self,
@@ -496,7 +497,7 @@ class BayesianOptimizer:
 
     def _create_sampler(self, sampler: str, seed: int | None) -> Sampler:
         """Create the specified sampler."""
-        samplers = {
+        samplers: dict[str, Callable[[], Sampler]] = {
             "tpe": lambda: TPESampler(seed=seed),
             "gp": lambda: GaussianProcessSampler(seed=seed),
             "random": lambda: RandomSampler(seed=seed),
@@ -866,38 +867,38 @@ class MercuryAutoML:
         y_pred_binary = (y_pred > 0.5).astype(int) if y_pred.dtype == float else y_pred
 
         if self._metric == "accuracy":
-            return np.mean(y_true == y_pred_binary)
+            return float(np.mean(y_true == y_pred_binary))
 
         elif self._metric == "precision":
             tp = np.sum((y_pred_binary == 1) & (y_true == 1))
             fp = np.sum((y_pred_binary == 1) & (y_true == 0))
-            return tp / (tp + fp + 1e-10)
+            return float(tp / (tp + fp + 1e-10))
 
         elif self._metric == "recall":
             tp = np.sum((y_pred_binary == 1) & (y_true == 1))
             fn = np.sum((y_pred_binary == 0) & (y_true == 1))
-            return tp / (tp + fn + 1e-10)
+            return float(tp / (tp + fn + 1e-10))
 
         elif self._metric == "f1":
             precision = self._compute_metric(y_true, y_pred_binary)
             self._metric = "recall"
             recall = self._compute_metric(y_true, y_pred_binary)
             self._metric = "f1"
-            return 2 * precision * recall / (precision + recall + 1e-10)
+            return float(2 * precision * recall / (precision + recall + 1e-10))
 
         elif self._metric in ["mse", "loss"]:
-            return np.mean((y_true - y_pred) ** 2)
+            return float(np.mean((y_true - y_pred) ** 2))
 
         elif self._metric == "rmse":
-            return np.sqrt(np.mean((y_true - y_pred) ** 2))
+            return float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
 
         elif self._metric == "mae":
-            return np.mean(np.abs(y_true - y_pred))
+            return float(np.mean(np.abs(y_true - y_pred)))
 
         elif self._metric == "r2":
             ss_res = np.sum((y_true - y_pred) ** 2)
             ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
-            return 1 - ss_res / (ss_tot + 1e-10)
+            return float(1 - ss_res / (ss_tot + 1e-10))
 
         elif self._metric == "auc":
             return self._compute_auc(y_true, y_pred)
@@ -961,7 +962,7 @@ class MercuryAutoML:
         if not precisions:
             return 0.0
 
-        return np.mean(precisions)
+        return float(np.mean(precisions))
 
     def get_best_model(self) -> Any:
         """Get the best model found during optimization."""
@@ -1091,6 +1092,7 @@ class SimpleClassifier:
         for x in X:
             distances = np.sqrt(np.sum((self._X_train - x) ** 2, axis=1))
             nearest_indices = np.argsort(distances)[: self._n_neighbors]
+            assert self._y_train is not None
             nearest_labels = self._y_train[nearest_indices]
             prediction = int(np.round(np.mean(nearest_labels)))
             predictions.append(prediction)
@@ -1126,6 +1128,7 @@ class SimpleRegressor:
         for x in X:
             distances = np.sqrt(np.sum((self._X_train - x) ** 2, axis=1))
             nearest_indices = np.argsort(distances)[: self._n_neighbors]
+            assert self._y_train is not None
             nearest_values = self._y_train[nearest_indices]
             prediction = np.mean(nearest_values)
             predictions.append(prediction)

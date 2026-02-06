@@ -540,7 +540,7 @@ class JWTAuth:
             # Decode and validate the JWT
             payload = jwt.decode(
                 token,
-                self.secret_key,
+                self.secret_key or "",
                 algorithms=[self.algorithm],
                 options={
                     "require": ["exp", "sub"],  # Require expiration and subject

@@ -291,7 +291,7 @@ class StreamConsumer(ABC):
         pass
 
     @abstractmethod
-    async def consume(
+    def consume(
         self,
         timeout_ms: int = 1000,
     ) -> AsyncIterator[StreamMessage]:
@@ -415,7 +415,7 @@ class InMemoryStreamConsumer(StreamConsumer):
             if topic not in self._offsets:
                 self._offsets[topic] = 0
 
-    async def consume(  # type: ignore[override, misc]
+    async def consume(
         self,
         timeout_ms: int = 1000,
     ) -> AsyncIterator[StreamMessage]:
@@ -644,7 +644,7 @@ class KafkaStreamConsumer(StreamConsumer):
         self._consumer.subscribe(topics)
         logger.info(f"Kafka consumer subscribed to topics: {topics}")
 
-    async def consume(  # type: ignore[override, misc]
+    async def consume(
         self,
         timeout_ms: int = 1000,
     ) -> AsyncIterator[StreamMessage]:
@@ -883,7 +883,7 @@ class RedisStreamConsumer(StreamConsumer):
 
         logger.info(f"Redis consumer subscribed to streams: {topics}")
 
-    async def consume(  # type: ignore[override, misc]
+    async def consume(
         self,
         timeout_ms: int = 1000,
     ) -> AsyncIterator[StreamMessage]:
@@ -954,7 +954,7 @@ class StreamProducerFactory:
     def create(
         backend: str | StreamingBackend = StreamingBackend.MEMORY,
         config: StreamConfig | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> StreamProducer:
         """Create a stream producer for the specified backend.
 
@@ -992,7 +992,7 @@ class StreamConsumerFactory:
         backend: str | StreamingBackend = StreamingBackend.MEMORY,
         config: StreamConfig | None = None,
         group_id: str = "mercury-agent",
-        **kwargs,
+        **kwargs: Any,
     ) -> StreamConsumer:
         """Create a stream consumer for the specified backend.
 

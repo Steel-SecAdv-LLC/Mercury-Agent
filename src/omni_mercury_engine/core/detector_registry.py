@@ -81,7 +81,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import numpy as np
 import torch
@@ -386,7 +386,7 @@ class DetectorRegistry:
             )
 
         try:
-            return breaker.call(_execute_detector)
+            return cast(FeatureExtractionResult, breaker.call(_execute_detector))
 
         except Exception as e:
             execution_time = (time.perf_counter() - start_time) * 1000

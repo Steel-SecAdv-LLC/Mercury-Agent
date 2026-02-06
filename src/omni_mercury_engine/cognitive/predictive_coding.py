@@ -838,9 +838,9 @@ class ActiveInferenceAgent:
         # Evaluate expected free energy for each action
         expected_fes = []
 
-        for action in range(self.action_dim):
+        for action_idx in range(self.action_dim):
             # Simulate action consequences (simplified)
-            expected_fe = self._expected_free_energy(action, errors, planning_horizon)
+            expected_fe = self._expected_free_energy(action_idx, errors, planning_horizon)
             expected_fes.append(expected_fe)
 
         # Select action with minimum expected free energy
@@ -863,7 +863,7 @@ class ActiveInferenceAgent:
         state_magnitude = np.sum(state**2)
         action_magnitude = np.sum(action_params**2)
 
-        return state_magnitude + 0.1 * action_magnitude
+        return float(state_magnitude + 0.1 * action_magnitude)
 
     def _expected_free_energy(
         self,
@@ -890,7 +890,7 @@ class ActiveInferenceAgent:
         # Divergence from action prior (prefer more common actions)
         prior_divergence = -np.log(self.action_prior[action] + 1e-8)
 
-        return expected_surprise + 0.1 * prior_divergence
+        return float(expected_surprise + 0.1 * prior_divergence)
 
     def update_from_outcome(
         self,
@@ -1063,7 +1063,7 @@ class PredictiveCodingDetector:
         Returns:
             Training history
         """
-        history = {"free_energy": [], "prediction_error": []}
+        history: dict[str, list[float]] = {"free_energy": [], "prediction_error": []}
 
         for epoch in range(epochs):
             epoch_fe = []
@@ -1190,8 +1190,8 @@ class MercuryPredictiveCoding:
         # Get recommended action via active inference
         if return_action and self.enable_active_inference:
             action_idx, expected_fe = self.agent.select_action(features)
-            result["recommended_action"] = self._actions[action_idx]
-            result["action_confidence"] = np.exp(-expected_fe)
+            result["recommended_action"] = self._actions[int(action_idx)]
+            result["action_confidence"] = np.exp(-float(expected_fe))
 
         return result
 

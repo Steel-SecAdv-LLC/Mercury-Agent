@@ -268,8 +268,8 @@ class IBMQuantumBackend:
     def __init__(self, config: BackendConfig) -> None:
         """Initialize the IBM backend."""
         self._config = config
-        self._service = None
-        self._backend = None
+        self._service: Any = None
+        self._backend: Any = None
 
         if QISKIT_AVAILABLE and config.api_token:
             self._initialize_service()
@@ -424,6 +424,7 @@ class QuantumExecutor:
             extra_options=kwargs,
         )
 
+        self._backend: IBMQuantumBackend | SimulatorBackend
         if backend_type == BackendType.REAL_HARDWARE:
             self._backend = IBMQuantumBackend(self._config)
         else:
@@ -451,6 +452,7 @@ class QuantumExecutor:
         if shots is None:
             shots = self._config.shots
 
+        results: list[ExecutionResult]
         if isinstance(self._backend, SimulatorBackend):
             results = self._backend.run(circuits, shots)
         else:
@@ -465,7 +467,7 @@ class QuantumExecutor:
         shots: int | None = None,
         wait: bool = True,
         timeout: float = 3600.0,
-    ) -> QuantumJob | list[ExecutionResult]:
+    ) -> QuantumJob | ExecutionResult | list[ExecutionResult]:
         """
         Execute quantum circuit(s) asynchronously.
 
@@ -533,7 +535,7 @@ class BatchExecutor:
         self,
         circuits: list[Any],
         shots: int | None = None,
-    ) -> list[ExecutionResult]:
+    ) -> list[ExecutionResult | QuantumJob]:
         """
         Run a batch of circuits.
 
@@ -548,7 +550,7 @@ class BatchExecutor:
             circuits[i : i + self._batch_size] for i in range(0, len(circuits), self._batch_size)
         ]
 
-        all_results = []
+        all_results: list[ExecutionResult | QuantumJob] = []
 
         for i in range(0, len(batches), self._max_parallel):
             parallel_batches = batches[i : i + self._max_parallel]

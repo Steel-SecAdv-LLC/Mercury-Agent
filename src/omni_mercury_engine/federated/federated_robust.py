@@ -112,7 +112,7 @@ class FederatedAnomalyDetection:
         self.client_models: dict[str, ClientModel] = {}
         self.round_history: list[GlobalModel] = []
 
-    def register_client(self, client_id: str, initial_weights: np.ndarray[Any, Any] | None = None):
+    def register_client(self, client_id: str, initial_weights: np.ndarray[Any, Any] | None = None) -> None:
         """
         Register new client in federated system.
 

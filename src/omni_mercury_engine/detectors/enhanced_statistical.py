@@ -126,6 +126,7 @@ class MADDetector:
         """Detect anomalies using MAD."""
         if not self._fitted:
             raise DetectorException("MADDetector must be fitted before detection")
+        assert self.median_ is not None and self.mad_ is not None
 
         X = np.asarray(X)
         if X.ndim == 1:
@@ -198,14 +199,15 @@ class LOFDetector:
         try:
             from sklearn.neighbors import LocalOutlierFactor
 
-            self._lof = LocalOutlierFactor(
+            lof = LocalOutlierFactor(
                 n_neighbors=min(self.n_neighbors, len(X) - 1),
                 contamination=self.contamination,
                 metric=self.metric,
                 p=self.p,
                 novelty=True,
             )
-            self._lof.fit(X)
+            lof.fit(X)
+            self._lof = lof
             self._fitted = True
         except ImportError:
             raise DetectorException("scikit-learn required for LOF detection")
@@ -319,6 +321,7 @@ class DBSCANDetector:
         """Detect anomalies using DBSCAN."""
         if not self._fitted:
             raise DetectorException("DBSCANDetector must be fitted before detection")
+        assert self._fitted_eps is not None
 
         try:
             from sklearn.cluster import DBSCAN
@@ -416,14 +419,15 @@ class MCDDetector:
         if X.ndim == 1:
             X = X.reshape(-1, 1)
 
-        self._mcd = MinCovDet(
+        mcd = MinCovDet(
             support_fraction=self.support_fraction,
             random_state=self.random_state,
         )
-        self._mcd.fit(X)
+        mcd.fit(X)
 
         # Compute threshold from training data
-        distances = self._mcd.mahalanobis(X)
+        distances = mcd.mahalanobis(X)
+        self._mcd = mcd
         self._threshold = float(np.percentile(distances, (1 - self.contamination) * 100))
 
         self._fitted = True

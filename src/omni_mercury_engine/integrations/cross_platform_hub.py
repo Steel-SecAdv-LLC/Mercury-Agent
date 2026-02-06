@@ -26,7 +26,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -386,7 +386,7 @@ class PlatformAdapter(ABC):
         pass
 
     @abstractmethod
-    async def fetch_data(
+    def fetch_data(
         self,
         query: dict[str, Any],
     ) -> AsyncIterator[dict[str, Any]]:
@@ -930,7 +930,7 @@ class CrossPlatformHub:
             return {}
 
         if len(events) == 1:
-            return await self.publish_event(events[0], platforms)
+            return cast("dict[str, bool | int]", await self.publish_event(events[0], platforms))
         else:
             return await self.publish_batch(events, platforms)
 

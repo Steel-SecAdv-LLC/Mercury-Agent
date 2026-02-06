@@ -335,7 +335,7 @@ class PitchExtractor:
             return 0.0
 
         pitch = self._sample_rate / peak_idx
-        return pitch
+        return float(pitch)
 
 
 class EnergyExtractor:
@@ -624,7 +624,7 @@ class VoiceLivenessDetector:
         if ratio < expected_ratio / 10:
             return 0.3
 
-        return min(1.0, 0.5 + pitch_peak / (avg_level * 4))
+        return float(min(1.0, 0.5 + pitch_peak / (avg_level * 4)))
 
     def _analyze_channel(self, audio: np.ndarray, sample_rate: int) -> float:
         """Analyze recording channel characteristics."""

@@ -607,7 +607,7 @@ class ClientManager:
         total_samples = sum(c.n_samples for c in clients)
         total_updates = sum(c.get_state().total_updates for c in clients)
 
-        status_counts = {}
+        status_counts: dict[str, int] = {}
         for c in clients:
             status = c.status.name
             status_counts[status] = status_counts.get(status, 0) + 1

@@ -436,8 +436,8 @@ class HindsightRelabeler:
                 else "achieved"
             )
             relabeled_trajectory = []
-            for step in sequence:
-                relabeled_step = step.copy()
+            for step_dict in sequence:
+                relabeled_step = step_dict.copy()
                 relabeled_step["goal"] = achieved_goal
                 relabeled_trajectory.append(relabeled_step)
             return relabeled_trajectory
@@ -1104,12 +1104,12 @@ class ChainOfHindsightEngine:
         avg_reward = total_reward / len(self._sequences)
 
         # Quality distribution
-        quality_dist = defaultdict(int)
+        quality_dist: dict[str, int] = defaultdict(int)
         for seq in self._sequences:
             quality_dist[seq.feedback_quality.value] += 1
 
         # Type distribution
-        type_dist = defaultdict(int)
+        type_dist: dict[str, int] = defaultdict(int)
         for seq in self._sequences:
             type_dist[seq.sequence_type.value] += 1
 
@@ -1254,7 +1254,7 @@ class ChainOfHindsightEngine:
 
         key_sim = len(common) / len(keys1 | keys2)
 
-        value_matches = 0
+        value_matches: float = 0
         for key in common:
             v1, v2 = context1[key], context2[key]
             if v1 == v2:
@@ -1269,7 +1269,7 @@ class ChainOfHindsightEngine:
 
     def _identify_key_patterns(self) -> list[dict[str, Any]]:
         """Identify key learning patterns."""
-        patterns = []
+        patterns: list[dict[str, Any]] = []
 
         for update in self._policy_updates:
             if update.confidence > 0.7 and update.evidence_count > 5:

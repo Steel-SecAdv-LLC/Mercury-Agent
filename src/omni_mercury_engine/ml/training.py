@@ -25,7 +25,7 @@ Enhanced with Ava Equation state evolution optimizers
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import torch
@@ -201,7 +201,7 @@ class LearningRateScheduler:
 
     def get_last_lr(self) -> list[float]:
         """Get the last computed learning rate."""
-        return self._scheduler.get_last_lr()
+        return list(self._scheduler.get_last_lr())
 
 
 class Trainer:
@@ -783,7 +783,7 @@ class AnomalyDataset(
         self.num_samples = labels.shape[0]
 
     def __len__(self) -> int:
-        return self.num_samples
+        return int(self.num_samples)
 
     def __getitem__(
         self, idx: int
@@ -808,7 +808,7 @@ def _get_lightning_base() -> type:
             "pytorch_lightning is required for FusionTrainer and ThreeRAnomalyTrainer. "
             "Install with: pip install pytorch-lightning"
         )
-    return pl.LightningModule
+    return cast(type, pl.LightningModule)
 
 
 # Conditional base class - evaluated at class definition time
@@ -1029,7 +1029,8 @@ class ThreeRAnomalyTrainer(_LightningBase):  # type: ignore[misc, valid-type]
 
     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward pass through 3R Anomaly Transformer."""
-        return self.model(x)
+        result: dict[str, torch.Tensor] = self.model(x)
+        return result
 
     def training_step(
         self,

@@ -68,7 +68,7 @@ class UniformParameter(HyperParameter):
         """Sample uniformly."""
         if rng is None:
             rng = np.random.default_rng()
-        return rng.uniform(self._low, self._high)
+        return float(rng.uniform(self._low, self._high))
 
     def to_normalized(self, value: float) -> float:
         """Convert to [0, 1]."""
@@ -104,17 +104,17 @@ class LogUniformParameter(HyperParameter):
         if rng is None:
             rng = np.random.default_rng()
         log_val = rng.uniform(self._log_low, self._log_high)
-        return np.exp(log_val)
+        return float(np.exp(log_val))
 
     def to_normalized(self, value: float) -> float:
         """Convert to [0, 1]."""
         log_val = np.log(value)
-        return (log_val - self._log_low) / (self._log_high - self._log_low)
+        return float((log_val - self._log_low) / (self._log_high - self._log_low))
 
     def from_normalized(self, normalized: float) -> float:
         """Convert from [0, 1]."""
         log_val = self._log_low + normalized * (self._log_high - self._log_low)
-        return np.exp(log_val)
+        return float(np.exp(log_val))
 
     def get_bounds(self) -> tuple[float, float]:
         """Get bounds."""
@@ -139,7 +139,7 @@ class IntUniformParameter(HyperParameter):
         """Sample integer uniformly."""
         if rng is None:
             rng = np.random.default_rng()
-        return rng.integers(self._low, self._high + 1)
+        return int(rng.integers(self._low, self._high + 1))
 
     def to_normalized(self, value: int) -> float:
         """Convert to [0, 1]."""
@@ -221,7 +221,7 @@ class ConditionalParameter(HyperParameter):
 
     def is_active(self, parent_actual_value: Any) -> bool:
         """Check if this parameter is active."""
-        return parent_actual_value == self._parent_value
+        return bool(parent_actual_value == self._parent_value)
 
     def sample(self, rng: np.random.Generator | None = None) -> Any:
         """Sample from underlying parameter."""
@@ -300,7 +300,7 @@ class SearchSpace:
         return len(self.parameters)
 
     @classmethod
-    def from_dict(cls, spec: dict[str, tuple]) -> SearchSpace:
+    def from_dict(cls, spec: dict[str, tuple[Any, ...]]) -> SearchSpace:
         """
         Create search space from dictionary specification.
 

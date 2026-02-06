@@ -438,7 +438,7 @@ class ExperienceMemory:
         experiences = [self._experiences[eid] for eid in exp_ids if eid in self._experiences]
 
         # Sort by importance and recency
-        experiences.sort(key=lambda x: (x.importance, -x.timestamp), reverse=True)
+        experiences.sort(key=lambda x: (x.importance, -x.last_accessed), reverse=True)
 
         return experiences[:top_k]
 
@@ -469,7 +469,7 @@ class ExperienceMemory:
         key_sim = len(common_keys) / len(keys1 | keys2)
 
         # Value similarity for common keys
-        value_matches = 0
+        value_matches: float = 0
         for key in common_keys:
             v1, v2 = context1[key], context2[key]
             if v1 == v2:
@@ -898,6 +898,7 @@ class ReflexionEngine:
 
             # Evaluate decision
             evaluation = self.heuristic_evaluator.evaluate(decision, [])
+            assert isinstance(evaluation, HeuristicEvaluation)
             current_score = evaluation.heuristic_score
 
             # Track best decision
@@ -1044,6 +1045,7 @@ class ReflexionEngine:
         for iteration in range(max_iterations):
             # Evaluate current decision
             evaluation = self.heuristic_evaluator.evaluate(current_decision, past_experiences)
+            assert isinstance(evaluation, HeuristicEvaluation)
             current_score = evaluation.heuristic_score
 
             refinement_trace.append(
@@ -1065,6 +1067,8 @@ class ReflexionEngine:
         # Calculate improvement
         original_eval = self.heuristic_evaluator.evaluate(decision, past_experiences)
         final_eval = self.heuristic_evaluator.evaluate(current_decision, past_experiences)
+        assert isinstance(original_eval, HeuristicEvaluation)
+        assert isinstance(final_eval, HeuristicEvaluation)
         improvement_score = final_eval.heuristic_score - original_eval.heuristic_score
 
         self._stats["refinements_performed"] += 1
@@ -1165,11 +1169,11 @@ class ReflexionEngine:
         # Deduplicate and prioritize
         seen = set()
         unique_improvements = []
-        for imp in improvements:
-            imp_hash = hashlib.sha256(imp["improvement"].encode()).hexdigest()
+        for imp_entry in improvements:
+            imp_hash = hashlib.sha256(imp_entry["improvement"].encode()).hexdigest()
             if imp_hash not in seen:
                 seen.add(imp_hash)
-                unique_improvements.append(imp)
+                unique_improvements.append(imp_entry)
 
         return {
             "improvements": unique_improvements,
