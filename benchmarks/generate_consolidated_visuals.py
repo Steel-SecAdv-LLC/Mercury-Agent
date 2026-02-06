@@ -21,8 +21,8 @@ from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns  # type: ignore[import-untyped]
 from matplotlib.gridspec import GridSpec
+
 
 # Use non-interactive backend
 plt.style.use("seaborn-v0_8-whitegrid")
@@ -785,7 +785,7 @@ def generate_all_consolidated_visuals() -> None:
     print()
     print("=" * 70)
     print("All consolidated visualizations generated successfully!")
-    print(f"Output directories:")
+    print("Output directories:")
     print(f"  - {OUTPUT_DIR}")
     print(f"  - {RESULTS_DIR}")
     print("=" * 70)

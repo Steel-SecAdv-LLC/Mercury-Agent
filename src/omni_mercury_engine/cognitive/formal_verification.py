@@ -995,7 +995,7 @@ class IntervalBoundPropagator:
         for i, (weights, bias) in enumerate(network_params):
             # Linear layer
             bounds = cast(
-                tuple[npt.NDArray[Any], npt.NDArray[Any]],
+                "tuple[npt.NDArray[Any], npt.NDArray[Any]]",
                 self.propagate_linear(bounds, weights, bias),
             )
 

@@ -1102,7 +1102,7 @@ class HierarchicalPlanner:
                 state, execution_state.current_goal
             )
             if applicable:
-                execution_state.current_option = cast(Option, applicable[0])
+                execution_state.current_option = cast("Option", applicable[0])
 
         # Get action from option
         if execution_state.current_option:

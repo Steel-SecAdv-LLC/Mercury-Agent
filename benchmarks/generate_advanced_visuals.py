@@ -45,6 +45,7 @@ import numpy as np
 import seaborn as sns  # type: ignore[import-untyped]
 from matplotlib.gridspec import GridSpec
 
+
 plt.style.use("seaborn-v0_8-whitegrid")
 plt.rcParams.update(
     {

@@ -305,10 +305,10 @@ class DetectionAgent(ABC):
             self.capabilities: list[AgentCapability] = []
             self._capability_names: list[str] = []
         elif capabilities and isinstance(capabilities[0], str):
-            self._capability_names = list(cast(list[str], capabilities))
+            self._capability_names = list(cast("list[str]", capabilities))
             self.capabilities = []
         else:
-            self.capabilities = list(cast(list[AgentCapability], capabilities))
+            self.capabilities = list(cast("list[AgentCapability]", capabilities))
             self._capability_names = [c.name for c in self.capabilities]
 
         self.status = AgentStatus.IDLE
@@ -519,11 +519,11 @@ class ConsensusProtocol:
         # Handle list of vote dicts (test API)
         if results and isinstance(results[0], dict):
             return self._reach_consensus_from_votes(
-                consensus_id, cast(list[dict[str, Any]], results)
+                consensus_id, cast("list[dict[str, Any]]", results)
             )
 
         # Original DetectionResult handling
-        det_results = cast(list[DetectionResult], results)
+        det_results = cast("list[DetectionResult]", results)
         if len(det_results) < self.min_participants:
             return ConsensusResult(
                 consensus_id=consensus_id,
@@ -1073,7 +1073,7 @@ class AgentCoordinator:
         consensus = self.consensus_protocol.reach_consensus(results)
         self._stats["consensus_reached"] += 1
 
-        return cast(ConsensusResult, consensus)
+        return cast("ConsensusResult", consensus)
 
     def get_agent_by_role(self, role: AgentRole) -> list[DetectionAgent]:
         """Get agents by role.

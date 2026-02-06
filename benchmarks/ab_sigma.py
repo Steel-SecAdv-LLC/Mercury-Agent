@@ -40,9 +40,11 @@ from typing import Any
 
 import numpy as np
 
+
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from omni_mercury_engine.utils import convert_numpy_for_json
+
 
 # Configure logging
 logging.basicConfig(
@@ -53,6 +55,7 @@ logger = logging.getLogger(__name__)
 
 # Optional torch import
 import importlib.util
+
 
 HAS_TORCH = importlib.util.find_spec("torch") is not None
 if not HAS_TORCH:
