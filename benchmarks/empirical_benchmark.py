@@ -416,7 +416,9 @@ def _create_labels_from_ranges(
     return y
 
 
-def fetch_smap_msl_local(dataset: str = "SMAP") -> tuple[np.ndarray, np.ndarray | None, np.ndarray, np.ndarray | None, str] | None:
+def fetch_smap_msl_local(
+    dataset: str = "SMAP",
+) -> tuple[np.ndarray, np.ndarray | None, np.ndarray, np.ndarray | None, str] | None:
     """
     Load SMAP/MSL from local directory matching telemanom structure.
 
@@ -1158,12 +1160,11 @@ def prepare_smd_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
             source_info = "synthetic (fallback)"
 
         # Limit samples if needed
+        assert y is not None
         if len(X) > n_samples:
             indices = np.random.RandomState(42).choice(len(X), n_samples, replace=False)
-            assert y is not None, "y must be defined for SMD dataset"
             X, y = X[indices], y[indices]
 
-        assert y is not None, "y must be defined for SMD dataset"
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
         scaler = StandardScaler()
@@ -1249,12 +1250,11 @@ def prepare_smap_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
             )
             source_info = "synthetic (fallback)"
 
+        assert y is not None
         if len(X) > n_samples:
             indices = np.random.RandomState(43).choice(len(X), n_samples, replace=False)
-            assert y is not None, "y must be defined for SMAP dataset"
             X, y = X[indices], y[indices]
 
-        assert y is not None, "y must be defined for SMAP dataset"
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
         scaler = StandardScaler()
@@ -1340,12 +1340,11 @@ def prepare_msl_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
             )
             source_info = "synthetic (fallback)"
 
+        assert y is not None
         if len(X) > n_samples:
             indices = np.random.RandomState(44).choice(len(X), n_samples, replace=False)
-            assert y is not None, "y must be defined for MSL dataset"
             X, y = X[indices], y[indices]
 
-        assert y is not None, "y must be defined for MSL dataset"
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
         scaler = StandardScaler()
@@ -1435,12 +1434,11 @@ def prepare_swat_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
             )
             source_info = "synthetic (fallback)"
 
+        assert y is not None
         if len(X) > n_samples:
             indices = np.random.RandomState(45).choice(len(X), n_samples, replace=False)
-            assert y is not None, "y must be defined for water treatment dataset"
             X, y = X[indices], y[indices]
 
-        assert y is not None, "y must be defined for water treatment dataset"
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
         scaler = StandardScaler()
@@ -1473,11 +1471,11 @@ class TranADDetector:
     for time-series anomaly detection.
     """
 
-    def __init__(self, contamination: float = 0.1, window_size: int = 10):
+    def __init__(self, contamination: float = 0.1, window_size: int = 10) -> None:
         self.contamination = contamination
         self.window_size = window_size
         self.model: Any = None
-        self.threshold = None
+        self.threshold: float | None = None
         self.scaler = StandardScaler()
         self._is_fitted = False
 
@@ -1515,7 +1513,6 @@ class TranADDetector:
                 X_train = X_scaled
 
             # Minimal training loop (bounded for CI efficiency)
-            assert self.model is not None, "TranAD model must be initialized"
             self.model.train()
             optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
             n_epochs = 20  # Bounded epochs for CI
@@ -1583,8 +1580,7 @@ class TranADDetector:
 
     def _compute_scores(self, X: np.ndarray) -> np.ndarray:
         """Compute TranAD anomaly scores."""
-        assert self.model is not None, "TranAD model must be initialized"
-        scores: list[float] = []
+        scores = []
         with torch.no_grad():
             for i in range(len(X)):
                 # Create window
@@ -1616,11 +1612,11 @@ class MAATDetector:
     long-sequence anomaly detection.
     """
 
-    def __init__(self, contamination: float = 0.1, window_size: int = 100):
+    def __init__(self, contamination: float = 0.1, window_size: int = 100) -> None:
         self.contamination = contamination
         self.window_size = window_size
         self.model: Any = None
-        self.threshold = None
+        self.threshold: float | None = None
         self.scaler = StandardScaler()
         self._is_fitted = False
 
@@ -1657,7 +1653,6 @@ class MAATDetector:
                 X_train = X_scaled
 
             # Minimal training loop (bounded for CI efficiency)
-            assert self.model is not None, "MAAT model must be initialized"
             self.model.train()
             optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
             n_epochs = 20  # Bounded epochs for CI
@@ -1725,8 +1720,7 @@ class MAATDetector:
 
     def _compute_scores(self, X: np.ndarray) -> np.ndarray:
         """Compute MAAT anomaly scores."""
-        assert self.model is not None, "MAAT model must be initialized"
-        scores: list[Any] = []
+        scores = []
         batch_size = min(32, len(X))
 
         with torch.no_grad():
@@ -1854,13 +1848,13 @@ class OmniMercuryDetector:
         # Engine state
         self.engine: Any = None
         self.threshold = 0.5
-        self.mean = None
-        self.std = None
-        self.cov_inv = None
+        self.mean: Any = None
+        self.std: Any = None
+        self.cov_inv: Any = None
 
         # Fallback detectors
-        self._lof_detector = None
-        self._iforest_detector = None
+        self._lof_detector: Any = None
+        self._iforest_detector: Any = None
 
         # Telemetry and health tracking
         self.telemetry = FallbackTelemetry()
@@ -1881,8 +1875,8 @@ class OmniMercuryDetector:
 
         # Trained fusion state (logistic regression approach)
         self._fusion_trained = False
-        self._fusion_lr = None
-        self._score_scaler = None
+        self._fusion_lr: Any = None
+        self._score_scaler: Any = None
         self._detector_names: list[str] = []
 
         # Adaptive Enhancement: Adaptive detector for targeted improvements
@@ -2029,11 +2023,7 @@ class OmniMercuryDetector:
                                 # Handle array scores (take mean if array)
                                 if hasattr(score, "__len__") and not isinstance(score, str):
                                     score = float(np.mean(score))
-                                # Safely convert score to float, with default fallback
-                                if score is not None and not isinstance(score, str):
-                                    score_matrix[i, j] = float(score)
-                                else:
-                                    score_matrix[i, j] = 0.5
+                                score_matrix[i, j] = float(score) if score is not None else 0.5
                             else:
                                 score_matrix[i, j] = float(result) if result is not None else 0.5
                         elif hasattr(detector, "decision_function"):
@@ -2283,22 +2273,20 @@ class OmniMercuryDetector:
         """Initialize fallback detectors based on configured strategy."""
         if self.fallback_strategy == FallbackStrategy.LOF:
             try:
-                lof_detector = LocalOutlierFactor(
+                self._lof_detector = LocalOutlierFactor(
                     contamination=self.contamination, novelty=True, n_neighbors=min(20, len(X) - 1)
                 )
-                lof_detector.fit(X)
-                self._lof_detector = lof_detector
+                self._lof_detector.fit(X)
                 logger.info("LOF fallback detector initialized")
             except Exception as e:
                 logger.warning(f"Failed to initialize LOF fallback: {e}")
 
         elif self.fallback_strategy == FallbackStrategy.ISOLATION_FOREST:
             try:
-                iforest_detector = IsolationForest(
+                self._iforest_detector = IsolationForest(
                     contamination=self.contamination, random_state=42, n_estimators=100
                 )
-                iforest_detector.fit(X)
-                self._iforest_detector = iforest_detector
+                self._iforest_detector.fit(X)
                 logger.info("IsolationForest fallback detector initialized")
             except Exception as e:
                 logger.warning(f"Failed to initialize IsolationForest fallback: {e}")
@@ -2509,18 +2497,16 @@ class OmniMercuryDetector:
             return self._compute_trained_fusion_scores(X)
 
         # Fall back to engine's detect_with_fusion
-        assert self.engine is not None, "Engine must be initialized"
-        scores: list[float] = []
+        scores = []
         for sample in X:
             try:
                 # Use detect_with_fusion for proper anomaly probability scores
                 result = self.engine.detect_with_fusion(sample.reshape(1, -1), enable_gosnn=False)
                 if isinstance(result, dict):
                     # anomaly_prob is the primary score (0.0-1.0, higher = more anomalous)
-                    raw_score = result.get(
+                    score = result.get(
                         "anomaly_prob", result.get("anomaly_score", result.get("score", 0.5))
                     )
-                    score: float = float(raw_score) if raw_score is not None else 0.5
                 else:
                     score = float(result) if result is not None else 0.5
             except Exception:
@@ -2541,7 +2527,6 @@ class OmniMercuryDetector:
         This method uses the logistic regression trained during fit() to produce
         meaningful anomaly probabilities based on detector scores.
         """
-        assert self.engine is not None, "Engine must be initialized for fusion scoring"
         n_detectors = len(self._detector_names)
         score_matrix = np.zeros((len(X), n_detectors))
 
@@ -2570,11 +2555,7 @@ class OmniMercuryDetector:
                                 # Handle array scores (take mean if array)
                                 if hasattr(score, "__len__") and not isinstance(score, str):
                                     score = float(np.mean(score))
-                                # Safely convert score to float, with default fallback
-                                if score is not None and not isinstance(score, str):
-                                    score_matrix[i, j] = float(score)
-                                else:
-                                    score_matrix[i, j] = 0.5
+                                score_matrix[i, j] = float(score) if score is not None else 0.5
                             else:
                                 score_matrix[i, j] = float(result) if result is not None else 0.5
                         elif hasattr(detector, "decision_function"):
@@ -2590,21 +2571,15 @@ class OmniMercuryDetector:
 
         # Normalize using training statistics
         try:
-            if self._score_scaler is not None:
-                X_scaled = self._score_scaler.transform(score_matrix)
-            else:
-                X_scaled = score_matrix
+            X_scaled = self._score_scaler.transform(score_matrix)
         except Exception:
             # If scaling fails, use raw scores
             X_scaled = score_matrix
 
         # Get probabilities from logistic regression
         try:
-            if self._fusion_lr is not None:
-                probs: np.ndarray = self._fusion_lr.predict_proba(X_scaled)[:, 1]
-                return probs
-            else:
-                return np.mean(score_matrix, axis=1)
+            probs = self._fusion_lr.predict_proba(X_scaled)[:, 1]
+            return probs
         except Exception as e:
             logger.warning(f"Logistic regression prediction failed: {e}")
             # Fall back to mean of detector scores
@@ -2727,7 +2702,7 @@ def get_detector_health_endpoint() -> dict[str, Any]:
     Returns JSON with operational status of each detector component.
     Can be exposed via FastAPI or similar framework.
     """
-    components: dict[str, dict[str, Any]] = {}
+    components: dict[str, Any] = {}
     health_status: dict[str, Any] = {
         "timestamp": datetime.now(UTC).isoformat(),
         "status": "healthy",
@@ -3276,7 +3251,7 @@ def run_full_benchmark(
     summary = generate_summary(results)
 
     # Generate confusion matrix summary
-    confusion_summary: dict[str, dict[str, dict[str, int]]] = {}
+    confusion_summary: dict[str, dict[str, Any]] = {}
     for r in results:
         if r.dataset_name not in confusion_summary:
             confusion_summary[r.dataset_name] = {}

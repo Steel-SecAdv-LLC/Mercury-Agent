@@ -56,9 +56,8 @@ def generate_weight_variations() -> list[dict[str, Any]]:
 
     for i, scalar_name in enumerate(key_scalars[:3]):
         for mult in multipliers:
-            base_config = base_scalars.to_dict()
+            config: dict[str, Any] = dict(base_scalars.to_dict())
             original_value = getattr(base_scalars, scalar_name)
-            config: dict[str, Any] = dict(base_config)
             config[scalar_name] = original_value * mult
             config["experiment_id"] = f"{scalar_name}_{mult:.2f}"
             config["experiment_type"] = "single_scalar"
@@ -70,26 +69,24 @@ def generate_weight_variations() -> list[dict[str, Any]]:
         (key_scalars[4], key_scalars[5]),
     ]:
         for m1, m2 in product([0.8, 1.0, 1.2], repeat=2):
-            base_config = base_scalars.to_dict()
+            config2: dict[str, Any] = dict(base_scalars.to_dict())
             v1 = getattr(base_scalars, s1)
             v2 = getattr(base_scalars, s2)
-            config = dict(base_config)
-            config[s1] = v1 * m1
-            config[s2] = v2 * m2
-            config["experiment_id"] = f"{s1}_{m1:.1f}_{s2}_{m2:.1f}"
-            config["experiment_type"] = "paired_scalar"
-            variations.append(config)
+            config2[s1] = v1 * m1
+            config2[s2] = v2 * m2
+            config2["experiment_id"] = f"{s1}_{m1:.1f}_{s2}_{m2:.1f}"
+            config2["experiment_type"] = "paired_scalar"
+            variations.append(config2)
 
     all_mults = [0.7, 0.85, 1.0, 1.15, 1.3]
     for mult in all_mults:
-        base_config = base_scalars.to_dict()
-        config = dict(base_config)
+        config3: dict[str, Any] = dict(base_scalars.to_dict())
         for scalar_name in key_scalars:
             v = getattr(base_scalars, scalar_name)
-            config[scalar_name] = v * mult
-        config["experiment_id"] = f"all_key_{mult:.2f}"
-        config["experiment_type"] = "all_scalars"
-        variations.append(config)
+            config3[scalar_name] = v * mult
+        config3["experiment_id"] = f"all_key_{mult:.2f}"
+        config3["experiment_type"] = "all_scalars"
+        variations.append(config3)
 
     return variations
 

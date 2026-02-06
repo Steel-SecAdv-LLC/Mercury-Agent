@@ -164,7 +164,7 @@ class LiveDatasetBenchmarkRunner:
         ],
     }
 
-    def __init__(self, detector_name: str = "adaptive"):
+    def __init__(self, detector_name: str = "adaptive") -> None:
         self.detector_name = detector_name
         self.detector: Any = None
         self.results: list[DatasetBenchmarkResult] = []
@@ -175,8 +175,7 @@ class LiveDatasetBenchmarkRunner:
             from omni_mercury_engine.core.adaptive_detector import AdaptiveAnomalyDetector
 
             self.detector = AdaptiveAnomalyDetector(
-                contamination=0.1,
-                auto_profile=True,
+                contamination=0.05,
             )
             logger.info(f"Initialized {self.detector_name} detector")
         except ImportError as e:
@@ -191,13 +190,12 @@ class LiveDatasetBenchmarkRunner:
         self, category: str, dataset_name: str, loader_name: str
     ) -> tuple[np.ndarray | None, np.ndarray | None, dict[str, Any]]:
         """Load a dataset with proper error handling."""
-        warnings: list[str] = []
         metadata: dict[str, Any] = {
             "source": "synthetic",
             "n_samples": 0,
             "n_features": 0,
             "anomaly_ratio": 0.0,
-            "warnings": warnings,
+            "warnings": [],
         }
 
         try:
@@ -217,7 +215,7 @@ class LiveDatasetBenchmarkRunner:
 
             loader_class = getattr(datasets, loader_name, None)
             if loader_class is None:
-                warnings.append(f"Loader {loader_name} not found")
+                metadata["warnings"].append(f"Loader {loader_name} not found")
                 return None, None, metadata
 
             loader = loader_class()
@@ -232,7 +230,7 @@ class LiveDatasetBenchmarkRunner:
                 X = data.data
                 y = getattr(data, "labels", np.zeros(len(X)))
             else:
-                warnings.append("Unknown data format")
+                metadata["warnings"].append("Unknown data format")
                 return None, None, metadata
 
             # Ensure numpy arrays
@@ -251,13 +249,12 @@ class LiveDatasetBenchmarkRunner:
             return X, y, metadata
 
         except Exception as e:
-            warnings.append(f"Load error: {str(e)}")
+            metadata["warnings"].append(f"Load error: {str(e)}")
             logger.warning(f"Failed to load {dataset_name}: {e}")
             return None, None, metadata
 
     def _run_detection(self, X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:
         """Run anomaly detection and return predictions, scores, and time."""
-        assert self.detector is not None, "Detector must be initialized before detection"
         start = time.perf_counter()
 
         try:
@@ -392,8 +389,7 @@ class LiveDatasetBenchmarkRunner:
                 if len(X) > max_samples:
                     indices = np.random.choice(len(X), max_samples, replace=False)
                     X, y = X[indices], y[indices]
-                    metadata_warnings: list[str] = metadata.get("warnings", [])
-                    metadata_warnings.append(f"Subsampled to {max_samples}")
+                    metadata["warnings"].append(f"Subsampled to {max_samples}")
 
                 # Run detection
                 y_pred, y_scores, detection_time_ms = self._run_detection(X, y)
@@ -496,7 +492,7 @@ class LiveDatasetBenchmarkRunner:
     def export_results(self, result: BenchmarkSuiteResult, output_path: str) -> None:
         """Export results to JSON file."""
 
-        def serialize(obj: Any) -> Any:
+        def serialize(obj: object) -> object:
             if isinstance(obj, DatasetBenchmarkResult):
                 return obj.to_dict()
             if isinstance(obj, np.floating):

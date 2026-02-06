@@ -119,12 +119,10 @@ class RefactoringBenchmark:
         }
 
     def benchmark_dimension_4_scalability(
-        self, functions: list[tuple[str, ast.FunctionDef, Path]], batch_sizes: list[int] | None = None
+        self, functions: list[tuple[str, ast.FunctionDef, Path]], batch_sizes: list[int] = [10, 50, 100]
     ) -> dict[str, Any]:
         """Measure scalability with increasing batch sizes."""
-        if batch_sizes is None:
-            batch_sizes = [10, 50, 100]
-        scalability_results: dict[str, Any] = {}
+        scalability_results = {}
 
         for batch_size in batch_sizes:
             if len(functions) < batch_size:
@@ -210,7 +208,7 @@ class RefactoringBenchmark:
         sample_size = min(100, len(all_functions))
         sample_functions = all_functions[:sample_size]
 
-        dimension_results: dict[str, list[float]] = {
+        dimension_results: dict[str, list[Any]] = {
             "execution_time": [],
             "memory": [],
             "correctness": [],
