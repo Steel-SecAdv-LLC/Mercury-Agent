@@ -83,7 +83,8 @@ DOMAIN_COLORS = {
 def load_training_results(results_path: Path) -> dict[str, Any]:
     """Load training results from JSON file."""
     with open(results_path) as f:
-        return json.load(f)
+        result: dict[str, Any] = json.load(f)
+        return result
 
 
 def plot_confidence_evolution(

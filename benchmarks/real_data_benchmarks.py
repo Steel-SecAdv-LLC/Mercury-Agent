@@ -690,7 +690,7 @@ def run_all_benchmarks() -> dict[str, Any]:
     print("Mercury Agent ♱ REAL-DATA BENCHMARKS")
     print("=" * 70)
 
-    results = {
+    results: dict[str, Any] = {
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
         "benchmarks": {},
         "summary": {},
