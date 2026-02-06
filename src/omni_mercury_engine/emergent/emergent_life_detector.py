@@ -59,7 +59,7 @@ class LifeDetectionResult:
     signal_type: str
     anomaly_score: float
     bio_signature_patterns: list[str] = field(default_factory=list)
-    seti_technosignatures: list[dict] = field(default_factory=list)
+    seti_technosignatures: list[dict[str, Any]] = field(default_factory=list)
     contact_protocols: list[str] = field(default_factory=list)
     recommendations: list[str] = field(default_factory=list)
 
@@ -87,7 +87,7 @@ class SETICosmicSignalAnalyzer:
     def detect_seti_anomaly(
         self,
         signal_data: np.ndarray[Any, Any],
-        context: dict | None = None,
+        context: dict[str, Any] | None = None,
         threshold_std: float | None = None,
     ) -> dict[str, Any]:
         """
@@ -235,7 +235,7 @@ class SETICosmicSignalAnalyzer:
         return min(confidence, 1.0)
 
     def _generate_seti_recommendations(
-        self, confidence: float, technosignatures: list[dict]
+        self, confidence: float, technosignatures: list[dict[str, Any]]
     ) -> list[str]:
         """Generate SETI analysis recommendations."""
         recs = []
@@ -428,7 +428,7 @@ class MultiverseContactProtocolExplorer:
             "recommendations": self._generate_protocol_recommendations(protocol_candidates),
         }
 
-    def _generate_protocol_recommendations(self, protocols: list[dict]) -> list[str]:
+    def _generate_protocol_recommendations(self, protocols: list[dict[str, Any]]) -> list[str]:
         """Generate contact protocol recommendations."""
         recs = []
 
@@ -472,7 +472,7 @@ class EmergentLifeDetector:
         self.logger = logging.getLogger(__name__)
 
     def detect_emergent_life(
-        self, data: np.ndarray[Any, Any], analysis_type: str, context: dict | None = None
+        self, data: np.ndarray[Any, Any], analysis_type: str, context: dict[str, Any] | None = None
     ) -> LifeDetectionResult:
         """
         Comprehensive emergent life detection.

@@ -233,7 +233,7 @@ class TPESampler(Sampler):
     ) -> float:
         """Compute Parzen estimator density."""
         if isinstance(param, CategoricalParameter):
-            counts = {}
+            counts: dict[Any, int] = {}
             for obs in observations:
                 counts[obs] = counts.get(obs, 0) + 1
 
@@ -356,6 +356,7 @@ class GaussianProcessSampler(Sampler):
     def _config_to_vector(self, config: dict[str, Any]) -> npt.NDArray[Any]:
         """Convert config to numerical vector."""
         vector = []
+        assert self._search_space is not None
         for name in self._param_names:
             param = self._search_space.parameters[name]
             value = config[name]
@@ -502,7 +503,9 @@ class BayesianOptimizer:
             "gp": lambda: GaussianProcessSampler(seed=seed),
             "random": lambda: RandomSampler(seed=seed),
         }
-        return samplers.get(sampler, samplers["tpe"])()
+        factory = samplers.get(sampler, samplers["tpe"])
+        assert factory is not None
+        return factory()  # type: ignore[no-untyped-call]
 
     def _create_scheduler(self, scheduler: str | None) -> TrialScheduler | None:
         """Create the specified scheduler."""
@@ -1091,6 +1094,7 @@ class SimpleClassifier:
             return np.zeros(len(X))
 
         predictions = []
+        assert self._y_train is not None
         for x in X:
             distances = np.sqrt(np.sum((self._X_train - x) ** 2, axis=1))
             nearest_indices = np.argsort(distances)[: self._n_neighbors]
@@ -1126,6 +1130,7 @@ class SimpleRegressor:
             return np.zeros(len(X))
 
         predictions = []
+        assert self._y_train is not None
         for x in X:
             distances = np.sqrt(np.sum((self._X_train - x) ** 2, axis=1))
             nearest_indices = np.argsort(distances)[: self._n_neighbors]

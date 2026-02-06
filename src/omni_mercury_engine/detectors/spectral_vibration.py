@@ -1507,6 +1507,7 @@ class SpectralVibrationDetector(BaseDetector):
 
         # Spectral distance from reference
         if self._reference_spectrum is not None:
+            assert self._reference_std is not None
             spectral_distance = np.mean(
                 np.abs(features.power_spectrum - self._reference_spectrum)
                 / (self._reference_std + 1e-8)

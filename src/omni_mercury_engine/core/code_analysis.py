@@ -122,7 +122,7 @@ class NeurosymbolicEngine:
         self.config = config or NeurosymbolicConfig()
         self.training_metrics = TrainingMetrics()
         self.current_phase = TrainingPhase.FOUNDATION
-        self.neural_model = None
+        self.neural_model: Any = None
         self.pattern_library: dict[str, Any] = {}
         self._rng = rng or get_global_rng()
 

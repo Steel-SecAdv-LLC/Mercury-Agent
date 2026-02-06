@@ -301,7 +301,7 @@ class SearchSpace:
         return len(self.parameters)
 
     @classmethod
-    def from_dict(cls, spec: dict[str, tuple]) -> SearchSpace:
+    def from_dict(cls, spec: dict[str, tuple[Any, ...]]) -> SearchSpace:
         """
         Create search space from dictionary specification.
 

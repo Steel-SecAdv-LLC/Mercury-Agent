@@ -47,9 +47,9 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
 )
 from omni_mercury_engine.cognitive.neurosymbolic_fusion import (
     FusionStrategy,
-    MemoryType,
     NeurosymbolicFusionEngine,
 )
+from omni_mercury_engine.cognitive.neural_memory_layer import MemoryType
 
 # Style configuration
 plt.rcParams.update(

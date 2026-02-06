@@ -538,6 +538,7 @@ class JWTAuth:
 
         try:
             # Decode and validate the JWT
+            assert self.secret_key is not None
             payload = jwt.decode(
                 token,
                 self.secret_key,

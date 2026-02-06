@@ -370,7 +370,7 @@ class BiometricAnomalyDetector:
             quality_score = features.quality_score
             modality_scores["iris"] = quality_score
 
-            liveness_detector = IrisLivenessDetector()
+            liveness_detector: Any = IrisLivenessDetector()
             liveness = liveness_detector.detect([iris_image])
             liveness_scores["iris"] = liveness.confidence
             anomaly_details["iris"] = {

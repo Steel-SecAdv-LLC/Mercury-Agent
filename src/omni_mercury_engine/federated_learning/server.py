@@ -210,6 +210,7 @@ class FedAdamAggregator(Aggregator):
 
         self._t += 1
 
+        assert self._v is not None
         self._m = self._beta1 * self._m + (1 - self._beta1) * delta
         self._v = self._beta2 * self._v + (1 - self._beta2) * (delta**2)
 

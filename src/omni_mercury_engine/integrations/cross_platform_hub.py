@@ -386,12 +386,12 @@ class PlatformAdapter(ABC):
         pass
 
     @abstractmethod
-    async def fetch_data(
+    def fetch_data(
         self,
         query: dict[str, Any],
     ) -> AsyncIterator[dict[str, Any]]:
         """Fetch data from platform."""
-        pass
+        ...
 
     @property
     def is_connected(self) -> bool:
@@ -930,7 +930,8 @@ class CrossPlatformHub:
             return {}
 
         if len(events) == 1:
-            return await self.publish_event(events[0], platforms)
+            pub_result: dict[str, bool | int] = dict(await self.publish_event(events[0], platforms))
+            return pub_result
         else:
             return await self.publish_batch(events, platforms)
 

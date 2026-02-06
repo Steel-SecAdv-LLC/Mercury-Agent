@@ -384,6 +384,7 @@ Reference ID: {decision_id}
         )
 
         shap_explanation = self._shap_explainer.explain(instance[0])
+        assert isinstance(shap_explanation, ShapExplanation)
 
         feature_contributions = shap_explanation.get_feature_importance()
 

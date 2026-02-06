@@ -729,7 +729,7 @@ def create_shap_explainer(
         else:
             return KernelShapExplainer(model, background_data, feature_names)
 
-    explainer_map = {
+    explainer_map: dict[str, Callable[[], ShapExplainer]] = {
         "exact": lambda: ExactShapExplainer(model, background_data, feature_names),
         "kernel": lambda: KernelShapExplainer(model, background_data, feature_names),
         "sampling": lambda: SamplingShapExplainer(model, background_data, feature_names),

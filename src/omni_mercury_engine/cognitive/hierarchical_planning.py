@@ -48,7 +48,7 @@ import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -980,7 +980,7 @@ class HierarchicalPlanner:
                         all_subgoals.append(sg)
 
         # Select options for subgoals
-        options_used: list[Option] = []
+        options_used: list[Any] = []
         for subgoal in all_subgoals:
             applicable = self.option_library.get_applicable_options(current_state)
             if applicable:
@@ -1102,7 +1102,7 @@ class HierarchicalPlanner:
                 state, execution_state.current_goal
             )
             if applicable:
-                execution_state.current_option = applicable[0]
+                execution_state.current_option = cast(Option, applicable[0])
 
         # Get action from option
         if execution_state.current_option:
@@ -1365,7 +1365,7 @@ class AnomalyHierarchicalPlanner:
 
         # Create root goal
         root_goal = self.planner.create_goal(
-            description=template["description"],
+            description=str(template["description"]),
             level=AbstractionLevel.STRATEGIC,
             priority={"low": 0.3, "normal": 0.5, "high": 0.7, "critical": 0.9}.get(urgency, 0.5),
             metadata={"data_source": data_source, "urgency": urgency},

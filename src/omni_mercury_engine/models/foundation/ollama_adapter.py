@@ -742,9 +742,9 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
 
             body = json.dumps(body_dict)
 
-            headers = {
+            headers: dict[str, str] = {
                 "Content-Type": "application/json",
-                "x-api-key": self.api_key,
+                "x-api-key": self.api_key or "",
                 "anthropic-version": "2023-06-01",
             }
 

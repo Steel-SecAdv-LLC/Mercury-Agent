@@ -393,6 +393,7 @@ class DistributedProcessor:
         # Submit all chunks
         for chunk_id, start_idx, chunk_data in chunk_gen:
             worker_id = chunk_id % self.config.num_workers
+            assert self._pool is not None
             future = self._pool.submit(
                 self._process_chunk_wrapper,
                 chunk_id,
@@ -421,7 +422,7 @@ class DistributedProcessor:
         self,
         chunk_id: int,
         start_idx: int,
-        chunk_data_list: list,
+        chunk_data_list: list[Any],
         worker_id: int,
     ) -> ChunkResult:
         """Wrapper for multiprocessing (data must be serializable)."""

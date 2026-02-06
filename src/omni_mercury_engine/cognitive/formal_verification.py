@@ -49,7 +49,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -672,11 +672,11 @@ class SafetyVerifier:
                         compare_value = float(value_str)
                     except ValueError:
                         # String comparison
-                        compare_value = value_str.strip("'\"")
+                        str_compare = value_str.strip("'\"")
                         if op == "==":
-                            return str(var_value) == compare_value
+                            return str(var_value) == str_compare
                         elif op == "!=":
-                            return str(var_value) != compare_value
+                            return str(var_value) != str_compare
                         return False
 
                     if op == ">=":
@@ -994,7 +994,10 @@ class IntervalBoundPropagator:
 
         for i, (weights, bias) in enumerate(network_params):
             # Linear layer
-            bounds = self.propagate_linear(bounds, weights, bias)
+            bounds = cast(
+                tuple[npt.NDArray[Any], npt.NDArray[Any]],
+                self.propagate_linear(bounds, weights, bias),
+            )
 
             # ReLU (except last layer)
             if i < len(network_params) - 1:

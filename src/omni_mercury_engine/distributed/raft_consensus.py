@@ -416,7 +416,7 @@ class RaftNode:
         self,
         config: ClusterConfiguration,
         transport: MessageTransport,
-        state_machine: StateMachine | None = None,
+        state_machine: StateMachine[Any] | None = None,
     ) -> None:
         """Initialize a Raft node."""
         self._config = config
@@ -830,7 +830,7 @@ class RaftCluster:
             else:
                 raise NotImplementedError("Network transport not yet implemented")
 
-            state_machine = StateMachine()
+            state_machine: StateMachine[Any] = StateMachine()
             node = RaftNode(config, transport, state_machine)
             self._nodes[config.node_id] = node
 

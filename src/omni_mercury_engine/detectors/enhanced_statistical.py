@@ -193,7 +193,7 @@ class LOFDetector:
         self.contamination = contamination
         self.metric = metric
         self.p = p
-        self._lof = None
+        self._lof: Any = None
         self._fitted = False
 
     def fit(self, X: NDArray[np.float64]) -> LOFDetector:
@@ -404,7 +404,7 @@ class MCDDetector:
         self.support_fraction = support_fraction
         self.contamination = contamination
         self.random_state = random_state
-        self._mcd = None
+        self._mcd: Any = None
         self._threshold: float | None = None
         self._fitted = False
 

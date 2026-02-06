@@ -41,7 +41,7 @@ from omni_mercury_engine.ml.training import (
 )
 
 
-class SimpleTestModel(nn.Module):
+class SimpleTestModel(nn.Module):  # type: ignore[misc]
     """Simple model for testing optimizer performance."""
 
     def __init__(self, input_dim: int = 10):
