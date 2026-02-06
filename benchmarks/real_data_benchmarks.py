@@ -759,17 +759,19 @@ def run_all_benchmarks() -> dict[str, Any]:
         dpd = mimic_result.bias_metrics.get("demographic_parity_difference", "N/A")
         print(f"  Demographic Parity Diff: {dpd}")
 
-    summary.update({
-        "total_benchmarks": 2,
-        "avg_f1": (nsl_result.f1 + mimic_result.f1) / 2,
-        "avg_roc_auc": (nsl_result.roc_auc + mimic_result.roc_auc) / 2,
-        "total_runtime_seconds": nsl_result.runtime_seconds + mimic_result.runtime_seconds,
-        "all_bias_checks_passed": all(
-            abs(r.bias_metrics.get("demographic_parity_difference", 0)) <= 0.1
-            for r in [nsl_result, mimic_result]
-            if r.bias_metrics
-        ),
-    })
+    summary.update(
+        {
+            "total_benchmarks": 2,
+            "avg_f1": (nsl_result.f1 + mimic_result.f1) / 2,
+            "avg_roc_auc": (nsl_result.roc_auc + mimic_result.roc_auc) / 2,
+            "total_runtime_seconds": nsl_result.runtime_seconds + mimic_result.runtime_seconds,
+            "all_bias_checks_passed": all(
+                abs(r.bias_metrics.get("demographic_parity_difference", 0)) <= 0.1
+                for r in [nsl_result, mimic_result]
+                if r.bias_metrics
+            ),
+        }
+    )
 
     print("\n" + "=" * 70)
     print("BENCHMARK SUMMARY")

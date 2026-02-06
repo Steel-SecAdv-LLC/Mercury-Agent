@@ -104,7 +104,10 @@ def extract_test_functions(
 
 
 def benchmark_execution_time(
-    engine_class: Any, functions: list[tuple[str, ast.FunctionDef, Path]], iterations: int = 10, is_improved: bool = False
+    engine_class: Any,
+    functions: list[tuple[str, ast.FunctionDef, Path]],
+    iterations: int = 10,
+    is_improved: bool = False,
 ) -> np.ndarray:
     """
     Benchmark execution time for RefactoringEngine analysis operations.
@@ -269,7 +272,9 @@ def benchmark_memory_usage(
     return np.array(memory_usage)
 
 
-def benchmark_accuracy(engine_class: Any, functions: list[tuple[str, ast.FunctionDef, Path]]) -> np.ndarray:
+def benchmark_accuracy(
+    engine_class: Any, functions: list[tuple[str, ast.FunctionDef, Path]]
+) -> np.ndarray:
     """
     Note on accuracy measurement for code complexity analysis.
 

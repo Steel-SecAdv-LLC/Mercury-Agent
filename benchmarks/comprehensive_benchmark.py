@@ -235,9 +235,7 @@ def run_all_benchmarks(include_real_data: bool = True) -> dict[str, Any]:
     benchmarks["module_instantiation"] = benchmark_module_instantiation()
     print(f"  ✓ 1 module: {benchmarks['module_instantiation']['1_module_ms']:.2f} ms")
     print(f"  ✓ 5 modules: {benchmarks['module_instantiation']['5_modules_ms']:.2f} ms")
-    print(
-        f"  ✓ All modules: {benchmarks['module_instantiation']['all_modules_ms']:.2f} ms"
-    )
+    print(f"  ✓ All modules: {benchmarks['module_instantiation']['all_modules_ms']:.2f} ms")
 
     print(f"\n[2/{total_steps}] Benchmarking space exploration analyzer...")
     benchmarks["space_exploration"] = benchmark_space_exploration()
@@ -252,9 +250,7 @@ def run_all_benchmarks(include_real_data: bool = True) -> dict[str, Any]:
     print(f"\n[4/{total_steps}] Benchmarking cosmic ray detection...")
     benchmarks["cosmic_ray"] = benchmark_cosmic_ray_detection()
     print(f"  ✓ Runtime: {benchmarks['cosmic_ray']['runtime_ms']:.2f} ms")
-    print(
-        f"  ✓ Events detected: {benchmarks['cosmic_ray']['cosmic_ray_events_detected']}"
-    )
+    print(f"  ✓ Events detected: {benchmarks['cosmic_ray']['cosmic_ray_events_detected']}")
 
     if include_real_data:
         print(f"\n[5/{total_steps}] Benchmarking NSL-KDD (security domain)...")

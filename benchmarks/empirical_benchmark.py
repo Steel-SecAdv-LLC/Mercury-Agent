@@ -2766,9 +2766,7 @@ def get_detector_health_endpoint() -> dict[str, Any]:
         }
 
     # Determine overall status
-    unavailable_count = sum(
-        1 for c in components.values() if c.get("status") != "operational"
-    )
+    unavailable_count = sum(1 for c in components.values() if c.get("status") != "operational")
     if unavailable_count > len(components) // 2:
         health_status["status"] = "degraded"
     elif unavailable_count == len(components):

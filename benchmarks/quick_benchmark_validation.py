@@ -34,7 +34,9 @@ from typing import Any
 import numpy as np
 
 
-def generate_synthetic_anomaly_data(n_samples: int = 1000, anomaly_ratio: float = 0.05) -> tuple[np.ndarray, np.ndarray]:
+def generate_synthetic_anomaly_data(
+    n_samples: int = 1000, anomaly_ratio: float = 0.05
+) -> tuple[np.ndarray, np.ndarray]:
     """Generate synthetic data with known anomalies for testing."""
     np.random.seed(42)
 
@@ -49,7 +51,9 @@ def generate_synthetic_anomaly_data(n_samples: int = 1000, anomaly_ratio: float 
     return data[indices], labels[indices]
 
 
-def evaluate_detection_config(data: np.ndarray, labels: np.ndarray, config: dict[str, Any]) -> dict[str, Any]:
+def evaluate_detection_config(
+    data: np.ndarray, labels: np.ndarray, config: dict[str, Any]
+) -> dict[str, Any]:
     """Evaluate anomaly detection with given configuration."""
     start_time = time.time()
 

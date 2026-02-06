@@ -221,7 +221,9 @@ def optimize_harmonic_coefficients() -> list[dict[str, Any]]:
     return results
 
 
-def _evaluate_mercury_config(w1: float, w2: float, w3: float, e1: float, e2: float, t1: float) -> float:
+def _evaluate_mercury_config(
+    w1: float, w2: float, w3: float, e1: float, e2: float, t1: float
+) -> float:
     """Simulate Mercury equation evaluation."""
     base_score = (w1**e1) + (w2**e2) + (w3 * (e1 + e2) / 2)
     tensor_adjustment = t1 * np.sqrt(w1 * w2 * w3)
