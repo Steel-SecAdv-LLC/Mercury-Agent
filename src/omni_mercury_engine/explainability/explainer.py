@@ -333,9 +333,12 @@ class MercuryExplainer:
         if is_anomaly is None:
             is_anomaly = anomaly_score > self._threshold
 
-        shap_explanation = None
+        shap_explanation: ShapExplanation | None = None
         if include_shap:
-            shap_explanation = self._shap_explainer.explain(instance[0])
+            shap_result = self._shap_explainer.explain(instance[0])
+            shap_explanation = (
+                shap_result if isinstance(shap_result, ShapExplanation) else shap_result[0]
+            )
 
         counterfactual_set = None
         if include_counterfactuals:

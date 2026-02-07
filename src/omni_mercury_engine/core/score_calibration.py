@@ -646,7 +646,9 @@ class AutoThresholdOptimizer:
                 return self._youden_j_threshold(scores, labels)
 
         # Get threshold from selected method
-        method_func = self._methods.get(method, self._percentile_threshold)
+        method_func: Callable[..., tuple[float, dict[str, Any]]] = self._methods.get(
+            method, self._percentile_threshold
+        )
         threshold, method_info = method_func(scores, contamination, fixed_threshold)
 
         # Ensure threshold is within score range

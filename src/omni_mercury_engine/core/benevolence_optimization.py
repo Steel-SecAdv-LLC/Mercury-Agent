@@ -85,7 +85,7 @@ class ParetoFront:
         scores = normalized.sum(axis=1)
         best_idx = np.argmin(scores)
 
-        return self.solutions[best_idx]
+        return self.solutions[int(best_idx)]
 
     def get_best_benevolent(self) -> ParetoSolution | None:
         """Get solution with highest benevolence."""
@@ -94,7 +94,7 @@ class ParetoFront:
 
         # Benevolence is stored as (1 - benevolence), so minimize
         benevolence_idx = 1  # Index in objectives array
-        best_idx = np.argmin([s.objectives[benevolence_idx] for s in self.solutions])
+        best_idx = int(np.argmin([s.objectives[benevolence_idx] for s in self.solutions]))
 
         return self.solutions[best_idx]
 

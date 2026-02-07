@@ -412,7 +412,7 @@ class HTTPPlatformAdapter(PlatformAdapter):
     async def connect(self) -> bool:
         """Establish HTTP session."""
         try:
-            import aiohttp  # type: ignore[import-not-found]
+            import aiohttp
 
             connector = aiohttp.TCPConnector(
                 ssl=self.config.ssl_verify,

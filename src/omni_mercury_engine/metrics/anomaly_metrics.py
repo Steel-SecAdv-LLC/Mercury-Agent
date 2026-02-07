@@ -467,6 +467,6 @@ class AnomalyMetrics:
                 results[cat] = {"auroc": 0.5, "note": "single_class"}
                 continue
 
-            results[cat] = AnomalyMetrics.compute_all(cat_true, cat_score)
+            results[cat] = AnomalyMetrics.compute_all(cat_true, cat_score)  # type: ignore[assignment]
 
         return results

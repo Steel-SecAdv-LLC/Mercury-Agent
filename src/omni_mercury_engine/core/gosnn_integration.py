@@ -592,7 +592,8 @@ class GOSNNIntegration:
             cached_result = cache.get(X)
             if cached_result is not None and isinstance(cached_result, IntegrationResult):
                 monitor.record("detect_cached", (time.time() - start_time) * 1000)
-                return cached_result
+                result: IntegrationResult = cached_result
+                return result
 
         # Collect domain predictions
         domain_scores = {}
@@ -606,8 +607,8 @@ class GOSNNIntegration:
 
             try:
                 if hasattr(detector, "detect"):
-                    result = detector.detect(X)
-                    scores = result.get("scores", np.zeros(len(X)))
+                    detect_result = detector.detect(X)
+                    scores = detect_result.get("scores", np.zeros(len(X)))
                 elif hasattr(detector, "extract_features"):
                     features = detector.extract_features(X)
                     domain_features[name] = features

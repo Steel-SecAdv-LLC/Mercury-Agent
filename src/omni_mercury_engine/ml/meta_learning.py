@@ -1069,7 +1069,7 @@ class Reptile:
             "total_loss": 0.0,
         }
 
-    def adapt(self, task: Task) -> AdaptationResult:
+    def adapt(self, task: Task) -> AdaptationResult | None:
         """Adapt to task."""
         return self.maml.adapt(task)
 
@@ -1254,6 +1254,7 @@ class MetaLearningAdapter:
 
     def _init_algorithm(self) -> None:
         """Initialize meta-learning algorithm."""
+        self._learner: PrototypicalNetworks | MAML | Reptile
         if self.algorithm == MetaLearningAlgorithm.PROTOTYPICAL:
             encoder = MLPEncoder(
                 input_dim=self.input_dim,
@@ -1312,7 +1313,7 @@ class MetaLearningAdapter:
         n_way = len(support_labels)
 
         # Determine k_shot
-        label_counts = defaultdict(int)
+        label_counts: dict[Any, int] = defaultdict(int)
         for _, y in support_data:
             label_counts[y] += 1
         k_shot = min(label_counts.values()) if label_counts else self.k_shot
@@ -1426,6 +1427,7 @@ class MetaLearningAdapter:
         self.adapt(task)
         pred, probs = self.predict(query_features)
 
+        assert isinstance(pred, int)
         is_anomaly = pred == 1
         confidence = probs[pred] if pred < len(probs) else 0.5
 
@@ -1503,7 +1505,7 @@ class MetaLearningAdapter:
                         self._learner.fit(task_dict["support"])
                     else:
                         # Convert arrays to dict
-                        support_dict_conv = {}
+                        support_dict_conv: dict[str, list[Any]] = {}
                         for i in range(len(support_x)):
                             label = f"class_{support_y[i]}"
                             if label not in support_dict_conv:
@@ -1742,7 +1744,7 @@ class MetaLearningAdapter:
             # Adapt to support set
             if isinstance(self._learner, PrototypicalNetworks):
                 # Convert to dict format
-                support_dict = {}
+                support_dict: dict[str, list[Any]] = {}
                 for i in range(len(support_x)):
                     label = f"class_{support_y[i]}"
                     if label not in support_dict:
@@ -1771,7 +1773,7 @@ class MetaLearningAdapter:
 
     def get_statistics(self) -> dict[str, Any]:
         """Get adapter statistics."""
-        learner_stats = {}
+        learner_stats: dict[str, Any] = {}
         if hasattr(self._learner, "get_statistics"):
             learner_stats = self._learner.get_statistics()
 
@@ -1825,7 +1827,7 @@ class AnomalyMetaLearner:
         self.calibrate_confidence = calibrate_confidence
 
         # Cache for recent adaptations
-        self._adaptation_cache: dict[str, AdaptationResult] = {}
+        self._adaptation_cache: dict[str, AdaptationResult | None] = {}
 
         # Learned anomaly types
         self._learned_types: dict[str, dict[str, Any]] = {}
@@ -1921,20 +1923,22 @@ class AnomalyMetaLearner:
         if examples is None:
             raise ValueError("examples required when type_name is a string")
 
-        if examples.ndim == 1:
-            examples = examples.reshape(1, -1)
+        assert not isinstance(examples, dict)
+        examples_arr: np.ndarray = examples
+        if examples_arr.ndim == 1:
+            examples_arr = examples_arr.reshape(1, -1)
 
         self._learned_types[type_name] = {
-            "examples": examples,
+            "examples": examples_arr,
             "is_anomaly": is_anomaly,
-            "n_examples": len(examples),
-            "mean_embedding": examples.mean(axis=0),
+            "n_examples": len(examples_arr),
+            "mean_embedding": examples_arr.mean(axis=0),
         }
 
         # Update feature importance based on variance
         if self._feature_importance is None:
-            self._feature_importance = np.ones(examples.shape[1])
-        variance = examples.var(axis=0)
+            self._feature_importance = np.ones(examples_arr.shape[1])
+        variance = examples_arr.var(axis=0)
         # Higher variance = more important for distinguishing
         self._feature_importance = 0.9 * self._feature_importance + 0.1 * (
             variance / (variance.max() + 1e-8)
@@ -2026,6 +2030,7 @@ class AnomalyMetaLearner:
         else:
             # Fallback: use simple distance-based detection
             pred, probs = self.adapter.predict(sample[0])
+            assert isinstance(pred, int)
             is_anomaly = pred == 1
             predicted_type = "anomaly" if is_anomaly else "normal"
             confidence = float(probs[pred]) if pred < len(probs) else 0.5
@@ -2134,7 +2139,7 @@ class AnomalyMetaLearner:
         normal_examples: list[np.ndarray],
         anomaly_examples: list[np.ndarray],
         anomaly_type: str = "unknown",
-    ) -> AdaptationResult:
+    ) -> AdaptationResult | None:
         """Adapt to a new type of anomaly.
 
         Args:
@@ -2159,7 +2164,7 @@ class AnomalyMetaLearner:
             domain="anomaly_detection",
         )
 
-        result = self.adapter.adapt(task)
+        result: AdaptationResult | None = self.adapter.adapt(task)
         self._adaptation_cache[anomaly_type] = result
 
         return result
@@ -2207,7 +2212,7 @@ class AnomalyMetaLearner:
             "support_size": len(support_examples),
         }
 
-    def get_adaptation_history(self) -> dict[str, AdaptationResult]:
+    def get_adaptation_history(self) -> dict[str, AdaptationResult | None]:
         """Get history of adaptations."""
         return self._adaptation_cache
 

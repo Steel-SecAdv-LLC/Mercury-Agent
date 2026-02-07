@@ -344,6 +344,27 @@ module = [
     "qiskit_aer.*",
     "qiskit_ibm_runtime",
     "qiskit_ibm_runtime.*",
+    # ML model dependencies
+    "mamba_ssm",
+    "mamba_ssm.*",
+    "face_recognition",
+    "face_recognition.*",
+    "facenet_pytorch",
+    "facenet_pytorch.*",
+    # Explainability
+    "lime",
+    "lime.*",
+    "shap",
+    "shap.*",
+    # Config parsing
+    "tomli",
+    "tomli.*",
+    # PQC backends
+    "ava_guardian",
+    "ava_guardian.*",
+    # HTTP async
+    "aiohttp",
+    "aiohttp.*",
 ]
 ignore_missing_imports = true
 
