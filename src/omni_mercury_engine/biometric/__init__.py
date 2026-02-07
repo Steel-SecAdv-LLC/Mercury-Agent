@@ -383,7 +383,7 @@ class BiometricAnomalyDetector:
             quality_score = features.overall_quality
             modality_scores["fingerprint"] = quality_score
 
-            liveness_detector = FingerprintLivenessDetector()
+            fingerprint_liveness_detector = FingerprintLivenessDetector()
             liveness = liveness_detector.detect([fingerprint_image])
             liveness_scores["fingerprint"] = liveness.confidence
             anomaly_details["fingerprint"] = {

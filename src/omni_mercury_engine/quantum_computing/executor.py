@@ -452,11 +452,12 @@ class QuantumExecutor:
         if shots is None:
             shots = self._config.shots
 
+        results: list[ExecutionResult]
         if isinstance(self._backend, SimulatorBackend):
             results = self._backend.run(circuits, shots)
         else:
             self._backend.run(circuits, shots)
-            results: list[ExecutionResult] = []
+            results = []
 
         return results[0] if single_circuit and results else results
 

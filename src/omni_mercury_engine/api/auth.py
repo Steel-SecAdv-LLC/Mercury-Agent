@@ -537,6 +537,10 @@ class JWTAuth:
             return None
 
         try:
+            if self.secret_key is None:
+                logger.error("JWT secret key is not configured")
+                return None
+
             # Decode and validate the JWT
             payload = jwt.decode(
                 token,

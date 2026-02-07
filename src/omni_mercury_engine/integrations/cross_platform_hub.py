@@ -678,7 +678,7 @@ class OpenTelemetryAdapter(PlatformAdapter):
     async def send_event(self, event: AnomalyEvent) -> bool:
         """Send event via OpenTelemetry."""
         try:
-            import aiohttp  # type: ignore[import-not-found]
+            import aiohttp
 
             data = DataTransformer.to_opentelemetry(event)
 
@@ -932,7 +932,7 @@ class CrossPlatformHub:
         if len(events) == 1:
             return cast(dict[str, bool | int], await self.publish_event(events[0], platforms))
         else:
-            return cast(dict[str, bool | int], await self.publish_batch(events, platforms))
+            return await self.publish_batch(events, platforms)
 
     async def fetch_from_platform(
         self,

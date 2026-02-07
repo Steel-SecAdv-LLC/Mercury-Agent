@@ -1062,7 +1062,7 @@ class FingerprintRecognizer:
         sin_sum = sum(np.sin(2 * a) for a in angles)
 
         coherence = np.sqrt(cos_sum**2 + sin_sum**2) / len(angles)
-        return coherence
+        return float(coherence)
 
     def _detect_singularities(self, orientation: np.ndarray) -> list[Singularity]:
         """Detect singular points (cores and deltas)."""
@@ -1123,4 +1123,4 @@ class FingerprintRecognizer:
         avg_quality = np.mean(quality_map)
         minutiae_factor = min(1.0, minutiae_count / 30.0)
 
-        return 0.6 * avg_quality + 0.4 * minutiae_factor
+        return float(0.6 * avg_quality + 0.4 * minutiae_factor)

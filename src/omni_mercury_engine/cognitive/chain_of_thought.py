@@ -1039,7 +1039,7 @@ class ChainOfThoughtEngine:
 
     def _generate_inferences(self, context: dict[str, Any], parent: Thought) -> list[Thought]:
         """Generate inference thoughts based on context."""
-        inferences = []
+        inferences: list[Thought] = []
 
         # Generate 1-3 inferences based on available data
         inference_count = min(3, max(1, len(context.get("features", [])) // 2))

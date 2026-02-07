@@ -54,7 +54,7 @@ from collections.abc import AsyncIterator, Callable  # noqa: TC003 - used in run
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum, StrEnum
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -954,7 +954,7 @@ class StreamProducerFactory:
     def create(
         backend: str | StreamingBackend = StreamingBackend.MEMORY,
         config: StreamConfig | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> StreamProducer:
         """Create a stream producer for the specified backend.
 
@@ -992,7 +992,7 @@ class StreamConsumerFactory:
         backend: str | StreamingBackend = StreamingBackend.MEMORY,
         config: StreamConfig | None = None,
         group_id: str = "mercury-agent",
-        **kwargs,
+        **kwargs: Any,
     ) -> StreamConsumer:
         """Create a stream consumer for the specified backend.
 
@@ -1298,7 +1298,7 @@ class StreamingAnomalyPipeline:
         """Main processing loop with comprehensive observability."""
         while self._running:
             try:
-                async for message in self._consumer.consume(timeout_ms=1000):
+                async for message in cast(AsyncIterator[StreamMessage], self._consumer.consume(timeout_ms=1000)):
                     process_start = time.perf_counter()
                     try:
                         # Apply anomaly detection with timing

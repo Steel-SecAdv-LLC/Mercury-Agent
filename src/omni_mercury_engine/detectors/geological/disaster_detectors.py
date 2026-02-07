@@ -1907,7 +1907,7 @@ class FireballEvent:
         energy_j = self.calculated_total_impact_energy_kt * 4.184e12
         # Solve for diameter: D = (E / 4.185e10)^(1/3)
         diameter = (energy_j / 4.185e10) ** (1 / 3)
-        return diameter
+        return float(diameter)
 
 
 @dataclass

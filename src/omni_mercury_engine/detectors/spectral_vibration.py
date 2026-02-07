@@ -1497,7 +1497,7 @@ class SpectralVibrationDetector(BaseDetector):
             feature_anomaly_score = 0.5
 
         # Spectral distance from reference
-        if self._reference_spectrum is not None:
+        if self._reference_spectrum is not None and self._reference_std is not None:
             spectral_distance = np.mean(
                 np.abs(features.power_spectrum - self._reference_spectrum)
                 / (self._reference_std + 1e-8)
