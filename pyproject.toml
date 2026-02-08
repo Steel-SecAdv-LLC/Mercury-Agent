@@ -365,6 +365,14 @@ module = [
     # HTTP async
     "aiohttp",
     "aiohttp.*",
+    # Database async drivers
+    "asyncpg",
+    "asyncpg.*",
+    "aiosqlite",
+    "aiosqlite.*",
+    # Reinforcement learning
+    "stable_baselines3",
+    "stable_baselines3.*",
 ]
 ignore_missing_imports = true
 

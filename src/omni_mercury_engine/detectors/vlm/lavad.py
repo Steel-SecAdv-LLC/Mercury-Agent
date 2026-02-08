@@ -384,18 +384,18 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
             scores = scores / scores.max()
 
         # Threshold for anomaly detection
-        is_anomaly = scores > self.vlm_config.confidence_threshold
+        anomaly_mask = scores > self.vlm_config.confidence_threshold
 
         # Generate features
         features = self._generate_features(scores, captions)
 
         return {
             "scores": scores,
-            "is_anomaly": is_anomaly,
+            "is_anomaly": anomaly_mask,
             "captions": captions,
             "explanations": all_explanations,
             "features": features,
-            "anomaly_frames": np.where(is_anomaly)[0].tolist(),
+            "anomaly_frames": np.where(anomaly_mask)[0].tolist(),
         }
 
     def _simple_analysis(

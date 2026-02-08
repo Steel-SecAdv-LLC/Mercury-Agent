@@ -279,7 +279,7 @@ class BiometricAnomalyModel:
             if TORCH_AVAILABLE and isinstance(features, torch.Tensor):
                 features = features.detach().cpu().numpy()
 
-            anomaly_score = np.mean(np.abs(features - 0.5))
+            anomaly_score = float(np.mean(np.abs(features - 0.5)))
 
             return {
                 "model_type": "biometric",

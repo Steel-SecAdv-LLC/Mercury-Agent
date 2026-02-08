@@ -698,7 +698,7 @@ class AsyncDatabase:
     async def _connect_postgresql(self) -> bool:
         """Connect to PostgreSQL using asyncpg."""
         try:
-            import asyncpg  # type: ignore[import-not-found]
+            import asyncpg
         except ImportError:
             self._connection_error = "asyncpg not installed (pip install asyncpg)"
             logger.warning(self._connection_error)
@@ -725,7 +725,7 @@ class AsyncDatabase:
     async def _connect_sqlite(self) -> bool:
         """Connect to SQLite using aiosqlite."""
         try:
-            import aiosqlite  # type: ignore[import-not-found]
+            import aiosqlite
         except ImportError:
             self._connection_error = "aiosqlite not installed (pip install aiosqlite)"
             logger.warning(self._connection_error)
