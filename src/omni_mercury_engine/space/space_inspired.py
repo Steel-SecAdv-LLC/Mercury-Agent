@@ -155,7 +155,7 @@ class SpaceInspiredResilience:
 
         filtered_data = data * mask
 
-        return filtered_data
+        return np.asarray(filtered_data)
 
     def trajectory_optimization(
         self,

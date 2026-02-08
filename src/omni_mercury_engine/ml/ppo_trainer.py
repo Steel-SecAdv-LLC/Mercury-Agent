@@ -150,7 +150,7 @@ class ConvergenceMonitor(BaseCallback):
                     mean_reward = np.mean(self.reward_history[-100:])
 
                     if mean_reward > self.best_mean_reward:
-                        self.best_mean_reward = mean_reward
+                        self.best_mean_reward = float(mean_reward)
                         self.episodes_without_improvement = 0
                     else:
                         self.episodes_without_improvement += 1

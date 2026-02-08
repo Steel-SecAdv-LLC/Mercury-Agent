@@ -182,7 +182,7 @@ def compute_adjusted_metrics(
                 detected_segments += 1
                 # Find first detection
                 first_detection = np.argmax(segment_preds)
-                total_delay += first_detection
+                total_delay += int(first_detection)
 
         segment_recall = detected_segments / len(segments)
         avg_delay = total_delay / max(detected_segments, 1)

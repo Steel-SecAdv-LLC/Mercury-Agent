@@ -331,9 +331,9 @@ class CreditAssignment:
 
             # Normalize credits
             if self.use_advantage and len(credits) > 1:
-                mean_credit = np.mean(credits)
-                std_credit = np.std(credits) + 1e-8
-                credits = [(c - mean_credit) / std_credit for c in credits]
+                mean_credit = float(np.mean(credits))
+                std_credit = float(np.std(credits)) + 1e-8
+                credits = [float((c - mean_credit) / std_credit) for c in credits]
 
             return credits
 
@@ -353,9 +353,9 @@ class CreditAssignment:
 
         # Normalize credits
         if self.use_advantage and len(credits) > 1:
-            mean_credit = np.mean(credits)
-            std_credit = np.std(credits) + 1e-8
-            credits = [(c - mean_credit) / std_credit for c in credits]
+            mean_credit = float(np.mean(credits))
+            std_credit = float(np.std(credits)) + 1e-8
+            credits = [float((c - mean_credit) / std_credit) for c in credits]
 
         return credits
 

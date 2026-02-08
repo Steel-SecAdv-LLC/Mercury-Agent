@@ -153,7 +153,7 @@ class EducationEquityDetector:
             },
             "intervention_urgency": "immediate" if severity == "critical" else "standard",
             "recommendations": self._generate_education_recommendations(
-                threat_type, severity, dropout_risk
+                threat_type, severity, float(dropout_risk)
             ),
             "timestamp": datetime.now(),
         }

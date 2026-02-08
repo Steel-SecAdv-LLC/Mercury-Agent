@@ -833,7 +833,7 @@ class AgenticAutonomy:
         is_converged = False
         if len(self.policy_metrics.convergence_history) >= 10:
             recent_errors = self.policy_metrics.convergence_history[-10:]
-            is_converged = np.mean(recent_errors) < 0.1
+            is_converged = bool(np.mean(recent_errors) < 0.1)
 
         return {
             "autonomy_level": self.autonomy_level,

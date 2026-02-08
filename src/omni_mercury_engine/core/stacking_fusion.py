@@ -597,7 +597,7 @@ class EthicallyConstrainedFusion:
 
             detector_preds.append(proba)
 
-        detector_preds = np.array(detector_preds).T  # (n_samples, n_detectors)
+        detector_preds_arr = np.array(detector_preds).T  # (n_samples, n_detectors)
         ethical_vec = np.array([self.ethical_scores[name] for name in self.detectors])
 
         # Optimize weights with ethical constraints
@@ -607,7 +607,7 @@ class EthicallyConstrainedFusion:
             w = w / (np.sum(w) + 1e-10)
 
             # Weighted prediction
-            pred = detector_preds @ w
+            pred = detector_preds_arr @ w
 
             # Binary cross-entropy loss
             pred = np.clip(pred, 1e-10, 1 - 1e-10)

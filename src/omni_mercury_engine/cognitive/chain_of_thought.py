@@ -1188,7 +1188,7 @@ class ChainOfThoughtEngine:
         for depth in range(max_depth):
             # Randomly choose thought type
             thought_types = [ThoughtType.ANALYSIS, ThoughtType.INFERENCE, ThoughtType.HYPOTHESIS]
-            thought_type = np.random.choice(thought_types)
+            thought_type = thought_types[int(np.random.randint(len(thought_types)))]
 
             step_context = {
                 "subject": f"branch aspect {depth}",

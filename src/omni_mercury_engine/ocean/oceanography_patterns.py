@@ -217,7 +217,7 @@ class OceanographyPatterns:
         if weights is None:
             weights = {key: 1.0 / len(sensor_data) for key in sensor_data}
 
-        fused_features = []
+        fused_features: list[float] = []
 
         for sensor_name, data in sensor_data.items():
             weight = weights.get(sensor_name, 1.0)

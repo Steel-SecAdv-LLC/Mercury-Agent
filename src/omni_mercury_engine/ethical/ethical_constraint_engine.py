@@ -1090,7 +1090,7 @@ class ImmutableWisdomEngine:
             "judgment": performance_metrics.get("decision_accuracy", 0.5),
             "authority": ethical_scores.get("control", 0.5),
             "knowledge": (
-                np.mean(list(knowledge_indicators.values())) if knowledge_indicators else 0.5
+                float(np.mean(list(knowledge_indicators.values()))) if knowledge_indicators else 0.5
             ),
             "balance": ethical_scores.get("balance", 0.5),
             "strategy": performance_metrics.get("planning", 0.5),

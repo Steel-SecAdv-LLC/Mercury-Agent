@@ -499,10 +499,10 @@ class CaseBasedReasoner:
         if not v1:
             return 0.0
 
-        v1, v2 = np.array(v1), np.array(v2)
-        norm1, norm2 = np.linalg.norm(v1), np.linalg.norm(v2)
+        v1_arr, v2_arr = np.array(v1), np.array(v2)
+        norm1, norm2 = np.linalg.norm(v1_arr), np.linalg.norm(v2_arr)
         if norm1 > 0 and norm2 > 0:
-            return float(np.dot(v1, v2) / (norm1 * norm2))
+            return float(np.dot(v1_arr, v2_arr) / (norm1 * norm2))
         return 0.0
 
     def _manhattan_similarity(

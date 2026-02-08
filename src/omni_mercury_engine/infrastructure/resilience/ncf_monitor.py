@@ -221,7 +221,7 @@ class NCFMonitor:
         """Calculate z-scores for anomaly detection."""
         mean = np.mean(data)
         std = np.std(data) + 1e-8
-        return np.abs((data - mean) / std)
+        return np.asarray(np.abs((data - mean) / std))
 
     def _calculate_ethical_impact(self, ncf_id: str, context: dict[str, Any] | None) -> float:
         """Calculate ethical impact score based on survivor-first principles."""

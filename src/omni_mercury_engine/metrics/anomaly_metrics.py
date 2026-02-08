@@ -44,7 +44,7 @@ _thresholds = ThresholdConfig()
 def _to_numpy(arr: Any) -> np.ndarray[Any, Any]:
     """Convert array-like to numpy."""
     if hasattr(arr, "cpu"):  # torch tensor
-        return arr.cpu().numpy()
+        return np.asarray(arr.cpu().numpy())
     return np.asarray(arr)
 
 
@@ -337,23 +337,23 @@ def compute_pro(
             pros.append(0.0)
 
     # Convert to arrays and sort by FPR
-    fprs = np.array(fprs)
-    pros = np.array(pros)
-    order = np.argsort(fprs)
-    fprs = fprs[order]
-    pros = pros[order]
+    fprs_arr = np.array(fprs)
+    pros_arr = np.array(pros)
+    order = np.argsort(fprs_arr)
+    fprs_arr = fprs_arr[order]
+    pros_arr = pros_arr[order]
 
     # Integrate up to limit
-    valid = fprs <= integration_limit
+    valid = fprs_arr <= integration_limit
     if valid.sum() < 2:
         # If we have high PRO at FPR=0, that's still good localization
         # Return the PRO value at the lowest FPR
-        if len(pros) > 0 and pros[0] > 0.8:
-            return float(pros[0])
+        if len(pros_arr) > 0 and pros_arr[0] > 0.8:
+            return float(pros_arr[0])
         return 0.0
 
-    fprs_valid = fprs[valid]
-    pros_valid = pros[valid]
+    fprs_valid = fprs_arr[valid]
+    pros_valid = pros_arr[valid]
 
     # Normalize FPR to [0, 1] within integration limit
     fprs_norm = fprs_valid / integration_limit
@@ -467,6 +467,6 @@ class AnomalyMetrics:
                 results[cat] = {"auroc": 0.5, "note": "single_class"}
                 continue
 
-            results[cat] = AnomalyMetrics.compute_all(cat_true, cat_score)  # type: ignore[assignment]
+            results[cat] = AnomalyMetrics.compute_all(cat_true, cat_score)
 
         return results

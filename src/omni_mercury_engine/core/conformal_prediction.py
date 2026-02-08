@@ -221,7 +221,7 @@ class CrossConformalPredictor:
         """
         kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=self.seed)
 
-        all_scores = []
+        all_scores: list[float] = []
         self.fold_thresholds = []
 
         for train_idx, cal_idx in kf.split(X):
@@ -519,12 +519,12 @@ class ConformalAnomalyDetector:
                 scores = 0.3 + 0.4 * scores + 0.1 * np.random.rand(len(scores))
                 scores = np.clip(scores, 0.0, 1.0)
 
-            return cast("npt.NDArray[Any]", scores)
+            return np.asarray(scores)
         except (AttributeError, NotImplementedError):
             pass
 
         # Strategy 5: Ensemble scoring from feature statistics
-        return cast("npt.NDArray[Any]", self._compute_ensemble_anomaly_scores(X))
+        return self._compute_ensemble_anomaly_scores(X)
 
     def _compute_ensemble_anomaly_scores(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Compute anomaly scores using ensemble of statistical methods.
@@ -801,12 +801,12 @@ def _extract_detector_scores(detector: Any, X: npt.NDArray[Any]) -> npt.NDArray[
             np.max(feature_std) - np.min(feature_std) + 1e-10
         )
         scores = scores + 0.1 * (feature_std_norm - 0.5)
-        return cast("npt.NDArray[Any]", np.clip(scores, 0.0, 1.0))
+        return np.asarray(np.clip(scores, 0.0, 1.0))
     except (AttributeError, NotImplementedError):
         pass
 
     # Strategy 5: Ensemble statistical fallback
-    return cast("npt.NDArray[Any]", _compute_statistical_anomaly_scores(X))
+    return _compute_statistical_anomaly_scores(X)
 
 
 def _compute_statistical_anomaly_scores(X: npt.NDArray[Any]) -> npt.NDArray[Any]:

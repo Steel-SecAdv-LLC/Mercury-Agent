@@ -147,7 +147,7 @@ class SpaceInfrastructureMonitor:
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0) + 1e-8
         z_scores = np.abs((data - mean) / std)
-        return np.max(z_scores, axis=1) if data.ndim > 1 else z_scores.flatten()
+        return np.asarray(np.max(z_scores, axis=1) if data.ndim > 1 else z_scores.flatten())
 
     def _generate_space_recommendations(self, threat_type: str) -> list[str]:
         """Generate recommendations based on threat type."""
