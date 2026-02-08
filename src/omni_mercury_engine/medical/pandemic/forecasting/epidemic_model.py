@@ -244,11 +244,11 @@ class EpidemicForecaster:
 
         exponential_growth = np.sum(derivatives > 0) / len(derivatives)
 
-        chaos_score = variance * 0.5 + exponential_growth * 0.5
+        raw_chaos = variance * 0.5 + exponential_growth * 0.5
 
-        chaos_score = float(min(chaos_score * 10.0, 5.0))
+        clamped_chaos: float = float(min(raw_chaos * 10.0, 5.0))
 
-        return float(chaos_score)
+        return clamped_chaos
 
     def _assess_pandemic_impact(self, peak_infections: int, r0: float) -> dict[str, Any]:
         """
