@@ -223,7 +223,10 @@ def run_all_benchmarks(include_real_data: bool = True) -> dict[str, Any]:
     print("Mercury Agent ♱ COMPREHENSIVE BENCHMARK")
     print("=" * 70)
 
-    results: dict[str, Any] = {"timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()), "benchmarks": {}}
+    results: dict[str, Any] = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+        "benchmarks": {},
+    }
 
     total_steps = 6 if include_real_data else 4
 

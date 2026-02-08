@@ -578,8 +578,12 @@ class StreamProcessor:
         self.config = config or ProcessingConfig()
         self.queue_size = queue_size
 
-        self._input_queue: queue.Queue[tuple[NDArray[np.float64], dict[str, Any]]] = queue.Queue(maxsize=queue_size)
-        self._output_queue: queue.Queue[tuple[NDArray[np.float64], NDArray[np.bool_], dict[str, Any]]] = queue.Queue(maxsize=queue_size)
+        self._input_queue: queue.Queue[tuple[NDArray[np.float64], dict[str, Any]]] = queue.Queue(
+            maxsize=queue_size
+        )
+        self._output_queue: queue.Queue[
+            tuple[NDArray[np.float64], NDArray[np.bool_], dict[str, Any]]
+        ] = queue.Queue(maxsize=queue_size)
         self._running = False
         self._workers: list[threading.Thread] = []
         self._stats = ProcessingStats()
@@ -646,7 +650,9 @@ class StreamProcessor:
             Tuple of (scores, is_anomaly, metadata) or None if timeout
         """
         try:
-            result: tuple[NDArray[np.float64], NDArray[np.bool_], dict[str, Any]] = self._output_queue.get(timeout=timeout)
+            result: tuple[NDArray[np.float64], NDArray[np.bool_], dict[str, Any]] = (
+                self._output_queue.get(timeout=timeout)
+            )
             return result
         except queue.Empty:
             return None

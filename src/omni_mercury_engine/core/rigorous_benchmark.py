@@ -622,7 +622,7 @@ def run_baseline_benchmarks(
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
             return scores
 
-    results["IsolationForest"]= harness.benchmark_detector(
+    results["IsolationForest"] = harness.benchmark_detector(
         IFWrapper(), X, y, "IsolationForest", dataset_name
     )
 
@@ -643,7 +643,7 @@ def run_baseline_benchmarks(
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
             return scores
 
-    results["OneClassSVM"]= harness.benchmark_detector(
+    results["OneClassSVM"] = harness.benchmark_detector(
         OCSVMWrapper(), X, y, "OneClassSVM", dataset_name
     )
 
@@ -668,7 +668,7 @@ def run_baseline_benchmarks(
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
             return scores
 
-    results["LOF"]= harness.benchmark_detector(LOFWrapper(), X, y, "LOF", dataset_name)
+    results["LOF"] = harness.benchmark_detector(LOFWrapper(), X, y, "LOF", dataset_name)
 
     # Elliptic Envelope
     class EEWrapper:
@@ -699,7 +699,7 @@ def run_baseline_benchmarks(
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
             return scores
 
-    results["EllipticEnvelope"]= harness.benchmark_detector(
+    results["EllipticEnvelope"] = harness.benchmark_detector(
         EEWrapper(), X, y, "EllipticEnvelope", dataset_name
     )
 

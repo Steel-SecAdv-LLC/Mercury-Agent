@@ -141,7 +141,9 @@ def generate_synthetic_results() -> dict[str, Any]:
     }
 
 
-def generate_anomaly_detection_panel(results: dict[str, Any], output_path: Path | None = None) -> None:
+def generate_anomaly_detection_panel(
+    results: dict[str, Any], output_path: Path | None = None
+) -> None:
     """Generate comprehensive anomaly detection panel."""
     if output_path is None:
         output_path = OUTPUT_DIR / "anomaly_detection_panel.png"
@@ -268,7 +270,9 @@ def generate_anomaly_detection_panel(results: dict[str, Any], output_path: Path 
     print(f"Generated: {output_path}")
 
 
-def generate_benchmark_summary_live_data(results: dict[str, Any], output_path: Path | None = None) -> None:
+def generate_benchmark_summary_live_data(
+    results: dict[str, Any], output_path: Path | None = None
+) -> None:
     """Generate live data benchmark summary visualization."""
     if output_path is None:
         output_path = OUTPUT_DIR / "benchmark_summary_live_data.png"
@@ -540,7 +544,9 @@ def generate_neuro_symbolic_benchmark_report(
     print(f"Generated: {output_path}")
 
 
-def generate_performance_dashboard(results: dict[str, Any], output_path: Path | None = None) -> None:
+def generate_performance_dashboard(
+    results: dict[str, Any], output_path: Path | None = None
+) -> None:
     """Generate consolidated performance dashboard combining performance, ethical gating, and test coverage."""
     if output_path is None:
         output_path = OUTPUT_DIR / "mercury_performance_dashboard.png"

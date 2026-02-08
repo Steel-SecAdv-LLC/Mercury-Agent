@@ -336,9 +336,7 @@ class MercuryExplainer:
         shap_explanation: ShapExplanation | None = None
         if include_shap:
             shap_result = self._shap_explainer.explain(instance[0])
-            shap_explanation = (
-                shap_result[0] if isinstance(shap_result, list) else shap_result
-            )
+            shap_explanation = shap_result[0] if isinstance(shap_result, list) else shap_result
 
         counterfactual_set = None
         if include_counterfactuals:
