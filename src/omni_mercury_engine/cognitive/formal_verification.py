@@ -670,12 +670,11 @@ class SafetyVerifier:
                     try:
                         compare_value: str | float = float(value_str)
                     except ValueError:
-                        # String comparison
-                        compare_value = value_str.strip("'\"")
+                        str_value = value_str.strip("'\"")
                         if op == "==":
-                            return str(var_value) == compare_value
+                            return str(var_value) == str_value
                         elif op == "!=":
-                            return str(var_value) != compare_value
+                            return str(var_value) != str_value
                         return False
 
                     if op == ">=":

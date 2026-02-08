@@ -652,6 +652,8 @@ class CorticalLaminatedNetwork(nn.Module):
             nn.GELU(),
         )
 
+        self._prev_feedback: torch.Tensor | None = None
+
     def forward(
         self,
         x: torch.Tensor,

@@ -124,7 +124,7 @@ class GatingFormConfig:
     delta: float = 0.05  # Transition threshold for piecewise
     variance: float = 0.05  # Variance for Gaussian RBF
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate configuration values."""
         if self.threshold < SIGMA_IMMUTABLE_MEDICAL:
             raise ImmutableEthicsError(

@@ -83,7 +83,7 @@ class ParetoFront:
 
         # Find solution with minimum sum (balanced)
         scores = normalized.sum(axis=1)
-        best_idx = np.argmin(scores)
+        best_idx = int(np.argmin(scores))
 
         return self.solutions[int(best_idx)]
 
