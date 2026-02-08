@@ -141,7 +141,7 @@ class TemporalAnomalyDetector(BaseDetector):
 
         with torch.no_grad():
             _, (hidden, _) = self.lstm(data_tensor)
-            lstm_features = hidden[-1]
+            lstm_features: torch.Tensor = hidden[-1]
 
         return lstm_features
 
@@ -207,4 +207,4 @@ class TemporalAnomalyDetector(BaseDetector):
             max_z = np.max(z_scores, axis=1)
             scores = max_z / (self.change_threshold + max_z)
 
-        return scores
+        return np.asarray(scores)

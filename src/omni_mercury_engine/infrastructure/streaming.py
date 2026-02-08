@@ -50,11 +50,14 @@ import logging
 import os
 import time
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator, Callable  # noqa: TC003 - used in runtime annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable
 
 import numpy as np
 
@@ -1292,7 +1295,7 @@ class StreamingAnomalyPipeline:
         """Main processing loop with comprehensive observability."""
         while self._running:
             try:
-                async for message in cast(AsyncIterator[StreamMessage], self._consumer.consume(timeout_ms=1000)):
+                async for message in self._consumer.consume(timeout_ms=1000):
                     process_start = time.perf_counter()
                     try:
                         # Apply anomaly detection with timing

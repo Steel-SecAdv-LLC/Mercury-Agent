@@ -229,7 +229,7 @@ class ChaosEvolutionOptimizer:
             self.convergence_history.append(float(self.best_fitness))
 
             if iteration % 10 == 0:
-                chaos_value = self._rng.rand()
+                chaos_value = float(self._rng.rand())
 
         results = {
             "best_solution": self.best_solution,
@@ -301,7 +301,7 @@ class ChaosEvolutionOptimizer:
             List of creative hypothesis solutions
         """
         hypotheses = []
-        chaos_value = self._rng.rand()
+        chaos_value = float(self._rng.rand())
 
         for _ in range(num_hypotheses):
             chaos_value = self.chaotic_map(chaos_value)

@@ -320,7 +320,8 @@ class SecureAggregatorWrapper(Aggregator):
             sensitivity=self._max_grad_norm,
         )
 
-        return global_weights + aggregated
+        result: npt.NDArray[Any] = global_weights + aggregated
+        return result
 
     def get_privacy_spent(self) -> tuple[float, float]:
         """Get privacy spent."""
@@ -755,7 +756,7 @@ class FederatedAnomalyDetector:
             return np.zeros(len(X))
 
         z_scores = np.abs((X - self._mean) / self._std)
-        return np.mean(z_scores, axis=1)
+        return np.asarray(np.mean(z_scores, axis=1))
 
     def _evaluate_global(self, weights: npt.NDArray[Any]) -> dict[str, float]:
         """Evaluate global model."""

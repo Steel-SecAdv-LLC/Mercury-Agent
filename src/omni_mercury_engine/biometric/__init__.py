@@ -422,8 +422,8 @@ class BiometricAnomalyDetector:
                 anomaly_type = "suspicious_pattern"
 
         return BiometricAnomalyResult(
-            is_anomaly=is_anomaly,
-            anomaly_score=anomaly_score,
+            is_anomaly=bool(is_anomaly),
+            anomaly_score=float(anomaly_score),
             anomaly_type=anomaly_type,
             modality_scores=modality_scores,
             liveness_scores=liveness_scores,
@@ -447,7 +447,7 @@ class BiometricAnomalyDetector:
 
         if self._fusion_strategy == FusionStrategy.SCORE_LEVEL:
             avg_score = np.mean([s[0] for s in scores])
-            is_verified = avg_score >= 0.5
+            is_verified = bool(avg_score >= 0.5)
             return is_verified, float(avg_score)
 
         elif self._fusion_strategy == FusionStrategy.DECISION_LEVEL:
@@ -455,7 +455,7 @@ class BiometricAnomalyDetector:
                 1 for _, result in modality_results.items() if result.get("is_match", False)
             )
             total = len(modality_results)
-            is_verified = matches > total / 2
+            is_verified = bool(matches > total / 2)
             confidence = matches / total if total > 0 else 0.0
             return is_verified, confidence
 
@@ -465,7 +465,7 @@ class BiometricAnomalyDetector:
                 return False, 0.0
 
             weighted_score = sum(s * q for s, q in scores) / total_weight
-            is_verified = weighted_score >= 0.5
+            is_verified = bool(weighted_score >= 0.5)
             return is_verified, float(weighted_score)
 
 

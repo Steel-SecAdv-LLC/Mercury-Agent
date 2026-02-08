@@ -41,7 +41,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import numpy.typing as npt
@@ -431,7 +431,7 @@ class _LegacyAAFEWeightOptimizer:
         # A = (w_R * R + w_H * H + w_O * O) * η^Φ
         weighted_sum = np.dot(X, weights)
         ethical_scaling = self.ethical_threshold**self.golden_ratio
-        return cast("npt.NDArray[Any]", weighted_sum * ethical_scaling)
+        return weighted_sum * ethical_scaling
 
     def _objective_function(
         self,
@@ -612,7 +612,7 @@ class _LegacyRecursionEngine:
             window_size = max(3, len(data) // (2**level))
             return self._sliding_window_stats(data, window_size)
         else:
-            return cast("NDArray[Any]", np.mean(data, axis=1, keepdims=True))
+            return np.mean(data, axis=1, keepdims=True)
 
     def _sliding_window_stats(self, data: NDArray[Any], window_size: int) -> NDArray[Any]:
         if len(data) < window_size:

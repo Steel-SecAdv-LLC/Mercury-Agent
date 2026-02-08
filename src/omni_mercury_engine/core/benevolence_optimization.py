@@ -355,7 +355,7 @@ class ParetoOptimizer:
 
     def __init__(
         self,
-        objective_fn: Callable[[npt.NDArray[Any]], np.ndarray],
+        objective_fn: Callable[[npt.NDArray[Any]], npt.NDArray[Any]],
         n_objectives: int = 3,
         population_size: int = 50,
         n_generations: int = 100,
@@ -643,10 +643,10 @@ def optimize_benevolent_detector(
     """
     mo_loss = MultiObjectiveLoss(benevolence_threshold=benevolence_threshold)
 
-    def objective(params: dict[str, Any]) -> npt.NDArray[Any]:
+    def objective(params: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Multi-objective function returning [detection, 1-benevolence, 1-fairness]."""
         try:
-            model = model_fn(params)
+            model: Any = model_fn(params)
             model.fit(X_train, y_train)
             predictions = model.predict_proba(X_train)
             if predictions.ndim == 2:

@@ -155,5 +155,6 @@ def __getattr__(name: str) -> type:
 
         module_path = _LAZY_IMPORTS[name]
         module = importlib.import_module(module_path)
-        return getattr(module, name)
+        result: type = getattr(module, name)
+        return result
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

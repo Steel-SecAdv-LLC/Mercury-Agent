@@ -498,11 +498,11 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
         features.append(anomaly_ratio)
 
         # Pad to 128D
-        features = np.array(features)
-        if len(features) < 128:
-            features = np.pad(features, (0, 128 - len(features)))
+        features_arr = np.array(features)
+        if len(features_arr) < 128:
+            features_arr = np.pad(features_arr, (0, 128 - len(features_arr)))
 
-        return torch.from_numpy(features).float().unsqueeze(0)
+        return torch.from_numpy(features_arr).float().unsqueeze(0)
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract features for ML fusion pipeline."""

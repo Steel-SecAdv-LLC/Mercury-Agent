@@ -98,7 +98,7 @@ __all__ = [
 
 
 # Lazy imports for engine configuration (requires pydantic)
-def get_default_config() -> MercuryEngineConfig:
+def get_default_config() -> Any:
     """Get the global default configuration. Lazy import to avoid pydantic at module load."""
     from omni_mercury_engine.core.engine_config import get_default_config as _get
 

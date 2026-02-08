@@ -612,7 +612,7 @@ class USGSEarthquakeSource(ExternalDataSource):
         end_time = datetime.now(UTC)
         start_time = end_time - timedelta(days=self.days_back)
 
-        params = {
+        query_params: dict[str, str | int | float] = {
             "format": "geojson",
             "starttime": start_time.strftime("%Y-%m-%d"),
             "endtime": end_time.strftime("%Y-%m-%d"),
@@ -622,7 +622,7 @@ class USGSEarthquakeSource(ExternalDataSource):
         }
 
         try:
-            response = self._client.get(self.USGS_API_BASE, params=params)
+            response = self._client.get(self.USGS_API_BASE, params=query_params)
             response.raise_for_status()
             data = response.json()
 

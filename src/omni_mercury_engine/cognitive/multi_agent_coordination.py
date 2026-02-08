@@ -48,7 +48,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from queue import Empty, Queue
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 
@@ -517,9 +517,10 @@ class ConsensusProtocol:
 
         # Handle list of vote dicts (test API)
         if results and isinstance(results[0], dict):
-            return self._reach_consensus_from_votes(consensus_id, cast(list[dict[str, Any]], results))
+            vote_results: list[dict[str, Any]] = results  # type: ignore[assignment]
+            return self._reach_consensus_from_votes(consensus_id, vote_results)
 
-        det_results = cast(list[DetectionResult], results)
+        det_results: list[DetectionResult] = results  # type: ignore[assignment]
 
         # Original DetectionResult handling
         if len(det_results) < self.min_participants:
@@ -1068,10 +1069,10 @@ class AgentCoordinator:
                 logger.error(f"Agent {agent.agent_id} detection error: {e}")
 
         # Reach consensus
-        consensus = cast(ConsensusResult, self.consensus_protocol.reach_consensus(results))
+        consensus = self.consensus_protocol.reach_consensus(results)
         self._stats["consensus_reached"] += 1
 
-        return cast(ConsensusResult, consensus)
+        return consensus  # type: ignore[return-value]
 
     def get_agent_by_role(self, role: AgentRole) -> list[DetectionAgent]:
         """Get agents by role.

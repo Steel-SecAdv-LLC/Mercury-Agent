@@ -420,7 +420,8 @@ class GaussianProcessSampler(Sampler):
             + np.sum(X2**2, axis=1).reshape(1, -1)
             - 2 * np.dot(X1, X2.T)
         )
-        return np.exp(-0.5 * sq_dist / (length_scale**2))
+        result: npt.NDArray[Any] = np.exp(-0.5 * sq_dist / (length_scale**2))
+        return result
 
     def _expected_improvement(
         self,
@@ -506,7 +507,7 @@ class BayesianOptimizer:
         }
         factory = samplers.get(sampler, samplers["tpe"])
         assert factory is not None
-        return factory()  # type: ignore[no-untyped-call]
+        return factory()
 
     def _create_scheduler(self, scheduler: str | None) -> TrialScheduler | None:
         """Create the specified scheduler."""
@@ -747,7 +748,7 @@ class MercuryAutoML:
         y_train: npt.NDArray[Any] | None = None,
         X_val: npt.NDArray[Any] | None = None,
         y_val: npt.NDArray[Any] | None = None,
-        eval_func: Callable[[Any, npt.NDArray[Any], np.ndarray | None], float] | None = None,
+        eval_func: Callable[[Any, npt.NDArray[Any], npt.NDArray[Any] | None], float] | None = None,
     ) -> OptimizationResult:
         """
         Run hyperparameter optimization.
@@ -1062,7 +1063,7 @@ class SimpleAnomalyModel:
             return np.zeros(len(X))
 
         z_scores = np.abs((X - self._mean) / self._std)
-        return np.mean(z_scores, axis=1)
+        return np.asarray(np.mean(z_scores, axis=1))
 
     def predict(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Predict anomalies."""

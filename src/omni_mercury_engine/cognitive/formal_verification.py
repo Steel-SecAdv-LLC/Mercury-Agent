@@ -49,7 +49,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 
@@ -992,7 +992,7 @@ class IntervalBoundPropagator:
 
         for i, (weights, bias) in enumerate(network_params):
             # Linear layer
-            bounds = cast(tuple[np.ndarray, np.ndarray], self.propagate_linear(bounds, weights, bias))
+            bounds = self.propagate_linear(bounds, weights, bias)
 
             # ReLU (except last layer)
             if i < len(network_params) - 1:

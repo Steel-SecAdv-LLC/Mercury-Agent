@@ -326,7 +326,7 @@ class TemporalContextProvider(BaseContextProvider):
         # Motion magnitude per frame
         motion = diffs.mean(axis=(1, 2, 3))  # [T-1]
 
-        return motion
+        return np.asarray(motion)
 
     def _analyze_motion_pattern(self, motion: np.ndarray[Any, Any]) -> str:
         """Analyze overall motion pattern."""

@@ -130,9 +130,10 @@ class PaDiMDetector(BaseVisualDetector):
             Projection matrix [input_dim, output_dim]
         """
         # Random Gaussian projection
-        projection = torch.randn(input_dim, output_dim)
+        random_matrix = torch.randn(input_dim, output_dim)
         # Orthogonalize for better preservation of distances
-        projection, _ = torch.linalg.qr(projection)
+        projection: torch.Tensor
+        projection, _ = torch.linalg.qr(random_matrix)
         return projection
 
     def _aggregate_features(

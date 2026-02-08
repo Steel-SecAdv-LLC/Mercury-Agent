@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Protocol, cast
+from typing import Any, Protocol
 
 import numpy as np
 import numpy.typing as npt
@@ -470,8 +470,8 @@ class ConformalAnomalyDetector:
         try:
             proba = self.base_detector.predict_proba(X)
             if proba.ndim == 2:
-                return cast("npt.NDArray[Any]", proba[:, 1])
-            return cast("npt.NDArray[Any]", proba)
+                return proba[:, 1]
+            return proba
         except (AttributeError, NotImplementedError):
             pass
 
@@ -479,7 +479,7 @@ class ConformalAnomalyDetector:
         try:
             decision = self.base_detector.decision_function(X)
             # Normalize to [0, 1] using sigmoid
-            return cast("npt.NDArray[Any]", 1.0 / (1.0 + np.exp(-decision)))
+            return 1.0 / (1.0 + np.exp(-decision))
         except (AttributeError, NotImplementedError):
             pass
 
@@ -491,10 +491,8 @@ class ConformalAnomalyDetector:
             min_score = np.min(scores)
             max_score = np.max(scores)
             if max_score > min_score:
-                return cast(
-                    "npt.NDArray[Any]", 1.0 - (scores - min_score) / (max_score - min_score)
-                )
-            return cast("npt.NDArray[Any]", np.full(len(scores), 0.5))
+                return 1.0 - (scores - min_score) / (max_score - min_score)
+            return np.full(len(scores), 0.5)
         except (AttributeError, NotImplementedError):
             pass
 
@@ -584,7 +582,7 @@ class ConformalAnomalyDetector:
         # Ensemble fusion (weighted average)
         ensemble_scores = 0.4 * z_anomaly + 0.35 * density_anomaly + 0.25 * percentile_anomaly
 
-        return cast("npt.NDArray[Any]", np.clip(ensemble_scores, 0.0, 1.0))
+        return np.clip(ensemble_scores, 0.0, 1.0)
 
     def predict(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
@@ -759,8 +757,8 @@ def _extract_detector_scores(detector: Any, X: npt.NDArray[Any]) -> npt.NDArray[
     try:
         proba = detector.predict_proba(X)
         if proba.ndim == 2:
-            return cast("npt.NDArray[Any]", proba[:, 1])
-        return cast("npt.NDArray[Any]", proba)
+            return proba[:, 1]
+        return proba
     except (AttributeError, NotImplementedError):
         pass
 
@@ -768,7 +766,7 @@ def _extract_detector_scores(detector: Any, X: npt.NDArray[Any]) -> npt.NDArray[
     try:
         decision = detector.decision_function(X)
         # For most detectors, negative = anomaly, so negate
-        return cast("npt.NDArray[Any]", 1.0 / (1.0 + np.exp(decision)))  # Sigmoid to [0, 1]
+        return 1.0 / (1.0 + np.exp(decision))  # Sigmoid to [0, 1]
     except (AttributeError, NotImplementedError):
         pass
 
@@ -778,8 +776,8 @@ def _extract_detector_scores(detector: Any, X: npt.NDArray[Any]) -> npt.NDArray[
         # Higher score_samples = more normal, invert for anomaly
         min_s, max_s = np.min(scores), np.max(scores)
         if max_s > min_s:
-            return cast("npt.NDArray[Any]", 1.0 - (scores - min_s) / (max_s - min_s))
-        return cast("npt.NDArray[Any]", np.full(len(scores), 0.5))
+            return 1.0 - (scores - min_s) / (max_s - min_s)
+        return np.full(len(scores), 0.5)
     except (AttributeError, NotImplementedError):
         pass
 
@@ -859,4 +857,4 @@ def _compute_statistical_anomaly_scores(X: npt.NDArray[Any]) -> npt.NDArray[Any]
     # Weighted ensemble
     ensemble_scores = 0.4 * z_anomaly + 0.35 * density_anomaly + 0.25 * percentile_anomaly
 
-    return cast("npt.NDArray[Any]", np.clip(ensemble_scores, 0.0, 1.0))
+    return np.clip(ensemble_scores, 0.0, 1.0)

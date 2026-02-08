@@ -339,7 +339,7 @@ class MultiverseOmniEngine:
         if len(state) > len(powers_of_20):
             scaled_state = np.concatenate([scaled_state, state[len(powers_of_20) :]])
 
-        return scaled_state
+        return np.asarray(scaled_state)
 
     def _decompose_to_unit_fractions(self, value: float) -> list[float]:
         """

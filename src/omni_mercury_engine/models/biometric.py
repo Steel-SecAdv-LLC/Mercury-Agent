@@ -35,7 +35,7 @@ try:
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None
+    torch = None  # type: ignore[assignment]
     TORCH_AVAILABLE = False
 
 try:
@@ -211,13 +211,13 @@ class BiometricAnomalyModel:
         else:
             features = self._extract_harmonic_features(data)
 
-        features = self._normalize_embedding_size(features)
+        normalized_features = self._normalize_embedding_size(features)
 
         if TORCH_AVAILABLE:
-            if isinstance(features, np.ndarray):
-                return torch.from_numpy(features)
-            return features
-        return features
+            if isinstance(normalized_features, np.ndarray):
+                return torch.from_numpy(normalized_features)
+            return normalized_features
+        return normalized_features
 
     def predict(self, data: np.ndarray[Any, Any] | dict[str, Any]) -> dict[str, Any]:
         """Predict biometric anomalies and quality scores."""

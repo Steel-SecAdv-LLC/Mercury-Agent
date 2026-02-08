@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Protocol, cast
+from typing import Any, Protocol
 
 import numpy as np
 import numpy.typing as npt
@@ -224,7 +224,7 @@ class StackingFusion:
             raise RuntimeError("Must call fit() before predict()")
 
         meta_X = self._get_meta_features(X)
-        return cast("npt.NDArray[Any]", self.meta_learner.predict(meta_X))
+        return self.meta_learner.predict(meta_X)
 
     def predict_proba(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """
@@ -241,10 +241,10 @@ class StackingFusion:
 
         meta_X = self._get_meta_features(X)
         try:
-            return cast("npt.NDArray[Any]", self.meta_learner.predict_proba(meta_X))
+            return self.meta_learner.predict_proba(meta_X)
         except AttributeError:
             # Meta-learner doesn't support proba
-            return cast("npt.NDArray[Any]", self.meta_learner.predict(meta_X).astype(float))
+            return self.meta_learner.predict(meta_X).astype(float)
 
     def _get_meta_features(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Get meta-features from base detectors."""

@@ -28,10 +28,9 @@ References:
 from __future__ import annotations
 
 import logging
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
-import numpy.typing as npt
 
 from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit, safe_urlretrieve
 
@@ -186,7 +185,7 @@ class SWaTLoader(DatasetLoader):
         # Z-score normalization
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0) + 1e-8
-        return cast("npt.NDArray[Any]", (data - mean) / std)
+        return (data - mean) / std
 
     def download(self) -> bool:
         """
@@ -366,7 +365,7 @@ class WADILoader(DatasetLoader):
         """Apply WADI-specific preprocessing (normalization)."""
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0) + 1e-8
-        return cast("npt.NDArray[Any]", (data - mean) / std)
+        return (data - mean) / std
 
     def download(self) -> bool:
         """Download WADI dataset (requires iTrust registration)."""
@@ -500,7 +499,7 @@ class BATADALLoader(DatasetLoader):
         """Apply BATADAL-specific preprocessing (normalization)."""
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0) + 1e-8
-        return cast("npt.NDArray[Any]", (data - mean) / std)
+        return (data - mean) / std
 
     def download(self) -> bool:
         """Download BATADAL dataset from official source."""

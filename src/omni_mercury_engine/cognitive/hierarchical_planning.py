@@ -48,7 +48,7 @@ import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 
@@ -972,14 +972,14 @@ class HierarchicalPlanner:
         for goal in goal_hierarchy.values():
             if goal.level in [AbstractionLevel.STRATEGIC, AbstractionLevel.TACTICAL]:
                 subgoals = self.goal_decomposer.decompose(goal, context)
-                all_subgoals.extend(cast(list[Subgoal], subgoals))
+                all_subgoals.extend(subgoals)  # type: ignore[arg-type]
 
         # Select options for subgoals
         options_used: list[Option] = []
         for subgoal in all_subgoals:
             applicable = self.option_library.get_applicable_options(current_state)
             if applicable:
-                options_used.append(cast(Option, applicable[0]))
+                options_used.append(applicable[0])  # type: ignore[arg-type]
 
         # Estimate plan value
         estimated_reward = self._estimate_plan_reward(
@@ -1097,7 +1097,7 @@ class HierarchicalPlanner:
                 state, execution_state.current_goal
             )
             if applicable:
-                execution_state.current_option = cast(Option, applicable[0])
+                execution_state.current_option = applicable[0]  # type: ignore[assignment]
 
         # Get action from option
         if execution_state.current_option:
@@ -1400,7 +1400,7 @@ class AnomalyHierarchicalPlanner:
             strategic_goals = [
                 f"assess_{anomaly_type}_impact",
                 f"contain_{anomaly_type}_threat",
-                f"remediate_affected_systems",
+                "remediate_affected_systems",
             ]
 
             tactical_actions = []

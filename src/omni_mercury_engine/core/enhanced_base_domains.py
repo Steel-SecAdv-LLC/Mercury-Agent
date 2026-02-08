@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -750,20 +750,20 @@ class EnhancedBaseDetector:
             features = self.base_detector.extract_features(X)
             if hasattr(features, "numpy"):
                 features = features.numpy()
-            return cast("npt.NDArray[Any]", features)
-        return cast("npt.NDArray[Any]", np.zeros((len(X), 32)))
+            return features
+        return np.zeros((len(X), 32))
 
     def _get_scores(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Get anomaly scores from base detector."""
         if hasattr(self.base_detector, "detect"):
             result = self.base_detector.detect(X)
-            return cast("npt.NDArray[Any]", result.get("scores", np.zeros(len(X))))
+            return result.get("scores", np.zeros(len(X)))
         elif hasattr(self.base_detector, "predict"):
             result = self.base_detector.predict(X)
             if isinstance(result, dict):
-                return cast("npt.NDArray[Any]", result.get("anomaly_scores", np.zeros(len(X))))
-            return cast("npt.NDArray[Any]", result)
-        return cast("npt.NDArray[Any]", np.zeros(len(X)))
+                return result.get("anomaly_scores", np.zeros(len(X)))
+            return result
+        return np.zeros(len(X))
 
     def _setup_calibration(self, scores: npt.NDArray[Any], labels: npt.NDArray[Any]) -> None:
         """Set up calibration using Platt scaling."""

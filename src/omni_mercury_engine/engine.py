@@ -97,7 +97,7 @@ import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import numpy.typing as npt
@@ -1060,7 +1060,7 @@ class OmniMercuryEngine(LoggerMixin):
             f"n_anomalies={int(pseudo_labels.sum())}/{n_samples}"
         )
 
-        return cast("npt.NDArray[Any]", pseudo_labels)
+        return pseudo_labels
 
     def enable_drift_detection(
         self,
@@ -2346,7 +2346,7 @@ class OmniMercuryEngine(LoggerMixin):
             ... )
             >>> print(f"Match score: {result.get('match_score', 0):.3f}")
         """
-        biometric_model = cast("BiometricAnomalyModel", self.models["biometric"])
+        biometric_model: BiometricAnomalyModel = self.models["biometric"]  # type: ignore[assignment]
 
         if test_image is not None:
             return biometric_model.predict(

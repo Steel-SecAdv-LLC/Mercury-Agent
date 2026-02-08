@@ -25,7 +25,7 @@ Enhanced with Ava Equation state evolution optimizers
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch

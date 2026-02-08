@@ -37,7 +37,7 @@ try:
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None
+    torch = None  # type: ignore[assignment]
     TORCH_AVAILABLE = False
 
 from omni_mercury_engine.utils.comm import AsyncMessageQueue, Message, MessagePriority, SimplePubSub
@@ -106,10 +106,12 @@ def normalize_data(
     """
     is_torch = TORCH_AVAILABLE and torch is not None and isinstance(data, torch.Tensor)
 
-    if is_torch:
-        data_np = data.cpu().numpy()
-    else:
+    if is_torch and isinstance(data, torch.Tensor):
+        data_np: np.ndarray[Any, Any] = data.cpu().numpy()
+    elif isinstance(data, np.ndarray):
         data_np = data
+    else:
+        data_np = np.asarray(data)
 
     if method == "standard":
         mean = np.mean(data_np, axis=0)

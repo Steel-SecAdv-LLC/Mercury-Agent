@@ -242,7 +242,7 @@ class MatrixProfileDetector(BaseFoundationModel):
                 break
 
             # Find max (most anomalous)
-            idx = np.argmax(mp_copy)
+            idx = int(np.argmax(mp_copy))
             score = mp_copy[idx]
 
             if np.isinf(score):
@@ -250,7 +250,7 @@ class MatrixProfileDetector(BaseFoundationModel):
 
             discords.append(
                 {
-                    "index": int(idx),
+                    "index": idx,
                     "score": float(score),
                 }
             )

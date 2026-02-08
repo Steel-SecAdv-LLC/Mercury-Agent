@@ -235,7 +235,7 @@ class PatchCoreDetector(BaseVisualDetector):
 
             # Select point with maximum minimum distance
             next_idx = np.argmax(min_distances)
-            indices.append(next_idx)
+            indices.append(int(next_idx))
             selected = np.vstack([selected, embeddings_np[next_idx : next_idx + 1]])
 
         return torch.from_numpy(selected).to(embeddings.device)
@@ -396,7 +396,7 @@ class PatchCoreDetector(BaseVisualDetector):
             patches = self._apply_local_neighborhood_aggregation(patches, patch_shape)
 
             batch_scores, batch_maps = self._compute_anomaly_scores(
-                patches, patch_shape, original_size
+                patches, patch_shape, (int(original_size[0]), int(original_size[1]))
             )
 
             all_scores.append(batch_scores)
