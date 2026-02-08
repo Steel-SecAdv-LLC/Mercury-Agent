@@ -1152,10 +1152,10 @@ class ReflexionEngine:
 
             # Get reflection improvements
             if exp.reflection:
-                for imp in exp.reflection.suggested_improvements:
+                for imp_text in exp.reflection.suggested_improvements:
                     improvements.append(
                         {
-                            "improvement": imp,
+                            "improvement": imp_text,
                             "source_action": action,
                             "outcome": outcome_type.value,
                             "priority": (

@@ -421,7 +421,7 @@ class RaftNode:
         """Initialize a Raft node."""
         self._config = config
         self._transport = transport
-        self._state_machine = state_machine or StateMachine()
+        self._state_machine: StateMachine[Any] = state_machine or StateMachine()
         self._log = RaftLog(config.snapshot_threshold)
 
         self._current_term: int = 0
@@ -433,9 +433,9 @@ class RaftNode:
         self._next_index: dict[str, int] = {}
         self._match_index: dict[str, int] = {}
 
-        self._election_timer: asyncio.Task[Any] | None = None
-        self._heartbeat_timer: asyncio.Task[Any] | None = None
-        self._replication_task: asyncio.Task[Any] | None = None
+        self._election_timer: asyncio.Task[None] | None = None
+        self._heartbeat_timer: asyncio.Task[None] | None = None
+        self._replication_task: asyncio.Task[None] | None = None
         self._running = False
 
         self._pending_commands: dict[int, asyncio.Future[Any]] = {}

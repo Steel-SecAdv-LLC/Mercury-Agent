@@ -199,6 +199,8 @@ class FedAdamAggregator(Aggregator):
             self._m = np.zeros_like(global_weights)
             self._v = np.zeros_like(global_weights)
 
+        assert self._v is not None
+
         total_samples = sum(u.n_samples for u in updates)
         if total_samples == 0:
             return global_weights

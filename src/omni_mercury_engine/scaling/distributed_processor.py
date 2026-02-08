@@ -28,7 +28,7 @@ from abc import ABC, abstractmethod
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -391,6 +391,7 @@ class DistributedProcessor:
         futures = []
 
         # Submit all chunks
+        assert self._pool is not None
         for chunk_id, start_idx, chunk_data in chunk_gen:
             worker_id = chunk_id % self.config.num_workers
             assert self._pool is not None
@@ -577,8 +578,8 @@ class StreamProcessor:
         self.config = config or ProcessingConfig()
         self.queue_size = queue_size
 
-        self._input_queue: queue.Queue[Any] = queue.Queue(maxsize=queue_size)
-        self._output_queue: queue.Queue[Any] = queue.Queue(maxsize=queue_size)
+        self._input_queue: queue.Queue[tuple[NDArray[np.float64], dict[str, Any]]] = queue.Queue(maxsize=queue_size)
+        self._output_queue: queue.Queue[tuple[NDArray[np.float64], NDArray[np.bool_], dict[str, Any]]] = queue.Queue(maxsize=queue_size)
         self._running = False
         self._workers: list[threading.Thread] = []
         self._stats = ProcessingStats()

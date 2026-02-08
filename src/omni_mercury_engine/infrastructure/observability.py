@@ -40,7 +40,7 @@ from typing import TYPE_CHECKING, Any
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator
+    from collections.abc import Callable, Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -623,7 +623,7 @@ class DistributedTracer:
         name: str,
         kind: str = "internal",
         attributes: dict[str, Any] | None = None,
-    ) -> Generator[dict[str, str], None, None]:
+    ) -> Iterator[dict[str, str]]:
         """Create a tracing span context manager."""
         if not OTEL_AVAILABLE or self._tracer is None:
             yield {"trace_id": "", "span_id": ""}

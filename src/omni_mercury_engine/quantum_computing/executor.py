@@ -478,7 +478,7 @@ class QuantumExecutor:
             timeout: Maximum wait time
 
         Returns:
-            QuantumJob if not waiting, ExecutionResults if waiting
+            QuantumJob if not waiting, ExecutionResult(s) if waiting
         """
         single_circuit = not isinstance(circuits, list)
         if single_circuit:
@@ -562,7 +562,7 @@ class BatchExecutor:
             for result in batch_results:
                 if isinstance(result, list):
                     all_results.extend(result)
-                else:
+                elif isinstance(result, ExecutionResult):
                     all_results.append(result)
 
         return all_results

@@ -1292,7 +1292,7 @@ class StreamingAnomalyPipeline:
         """Main processing loop with comprehensive observability."""
         while self._running:
             try:
-                async for message in self._consumer.consume(timeout_ms=1000):
+                async for message in cast(AsyncIterator[StreamMessage], self._consumer.consume(timeout_ms=1000)):
                     process_start = time.perf_counter()
                     try:
                         # Apply anomaly detection with timing

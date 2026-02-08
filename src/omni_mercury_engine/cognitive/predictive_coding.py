@@ -823,12 +823,12 @@ class ActiveInferenceAgent:
             best_action = available_actions[0]
             best_fe = float("inf")
 
-            for action in available_actions:
+            for candidate_action in available_actions:
                 # Simplified expected free energy computation
-                expected_fe = self._compute_action_fe(observation, action)
+                expected_fe = self._compute_action_fe(observation, candidate_action)
                 if expected_fe < best_fe:
                     best_fe = expected_fe
-                    best_action = action
+                    best_action = candidate_action
 
             return best_action
 

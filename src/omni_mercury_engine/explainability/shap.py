@@ -740,4 +740,4 @@ def create_shap_explainer(
     if explainer_type not in explainer_map:
         raise ValueError(f"Unknown explainer type: {explainer_type}")
 
-    return explainer_map[explainer_type]()
+    return explainer_map[explainer_type]()  # type: ignore[no-untyped-call]

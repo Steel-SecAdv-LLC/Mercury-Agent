@@ -1068,7 +1068,7 @@ class AgentCoordinator:
                 logger.error(f"Agent {agent.agent_id} detection error: {e}")
 
         # Reach consensus
-        consensus = self.consensus_protocol.reach_consensus(results)
+        consensus = cast(ConsensusResult, self.consensus_protocol.reach_consensus(results))
         self._stats["consensus_reached"] += 1
 
         return cast(ConsensusResult, consensus)

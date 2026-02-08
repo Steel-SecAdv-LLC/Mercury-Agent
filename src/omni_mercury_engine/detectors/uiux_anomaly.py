@@ -71,7 +71,7 @@ import math
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch

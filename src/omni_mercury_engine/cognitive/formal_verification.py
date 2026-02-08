@@ -668,7 +668,7 @@ class SafetyVerifier:
 
                     var_value = state[var_name]
                     try:
-                        compare_value = float(value_str)
+                        compare_value: str | float = float(value_str)
                     except ValueError:
                         str_value = value_str.strip("'\"")
                         if op == "==":

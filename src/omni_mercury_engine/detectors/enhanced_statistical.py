@@ -350,6 +350,7 @@ class DBSCANDetector:
         scores = np.zeros(len(X))
         core_mask = np.isin(np.arange(len(X)), dbscan.core_sample_indices_)
 
+        assert self._fitted_eps is not None
         if np.any(core_mask):
             core_points = X[core_mask]
             for i, point in enumerate(X):
@@ -427,6 +428,7 @@ class MCDDetector:
             random_state=self.random_state,
         )
         mcd.fit(X)
+        self._mcd = mcd
 
         # Compute threshold from training data
         distances = mcd.mahalanobis(X)

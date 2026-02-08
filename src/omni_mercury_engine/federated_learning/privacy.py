@@ -122,7 +122,9 @@ class PrivacyAccountant:
         """Compute privacy cost using Renyi DP."""
         sigma = noise_scale / (sensitivity + 1e-10)
 
-        assert self._rdp_eps is not None
+        if self._rdp_eps is None:
+            self._rdp_eps = np.zeros(len(self._rdp_orders))
+
         for i, order in enumerate(self._rdp_orders):
             rdp_eps = self._compute_rdp_single(order, sigma, self.sample_rate)
             self._rdp_eps[i] += rdp_eps

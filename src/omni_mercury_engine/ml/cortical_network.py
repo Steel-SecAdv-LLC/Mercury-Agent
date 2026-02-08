@@ -610,6 +610,7 @@ class CorticalLaminatedNetwork(nn.Module):
         super().__init__()
         self.config = config
         self.num_columns = num_columns
+        self._prev_feedback: torch.Tensor | None = None
 
         # Thalamocortical gate for input gating
         self.use_thalamic_gate = use_thalamic_gate

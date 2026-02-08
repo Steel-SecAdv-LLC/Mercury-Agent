@@ -539,7 +539,7 @@ class GoalDecomposer:
         """
         # Handle dict input (test API)
         if isinstance(goal, dict):
-            description = goal.get("type", goal.get("description", "unknown_goal"))
+            description = str(goal.get("type", goal.get("description", "unknown_goal")))
             goal_id = f"goal_dict_{self._decomposition_counter:06d}"
             priority = 0.5
 

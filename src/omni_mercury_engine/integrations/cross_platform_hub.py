@@ -391,7 +391,7 @@ class PlatformAdapter(ABC):
         query: dict[str, Any],
     ) -> AsyncIterator[dict[str, Any]]:
         """Fetch data from platform."""
-        pass
+        ...
 
     @property
     def is_connected(self) -> bool:

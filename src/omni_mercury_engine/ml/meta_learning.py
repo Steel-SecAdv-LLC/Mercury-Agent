@@ -1069,7 +1069,7 @@ class Reptile:
             "total_loss": 0.0,
         }
 
-    def adapt(self, task: Task) -> AdaptationResult:
+    def adapt(self, task: Task) -> AdaptationResult | None:
         """Adapt to task."""
         result = self.maml.adapt(task)
         assert result is not None
@@ -1257,6 +1257,7 @@ class MetaLearningAdapter:
 
     def _init_algorithm(self) -> None:
         """Initialize meta-learning algorithm."""
+        self._learner: PrototypicalNetworks | MAML | Reptile
         if self.algorithm == MetaLearningAlgorithm.PROTOTYPICAL:
             encoder = MLPEncoder(
                 input_dim=self.input_dim,
@@ -1431,6 +1432,7 @@ class MetaLearningAdapter:
         assert isinstance(_predict_result, tuple)
         pred, probs = _predict_result
 
+        assert isinstance(pred, int)
         is_anomaly = pred == 1
         confidence = probs[pred] if pred < len(probs) else 0.5
 
@@ -1508,7 +1510,7 @@ class MetaLearningAdapter:
                         self._learner.fit(task_dict["support"])
                     else:
                         # Convert arrays to dict
-                        support_dict_conv: dict[str, Any] = {}
+                        support_dict_conv: dict[str, list[Any]] = {}
                         for i in range(len(support_x)):
                             label = f"class_{support_y[i]}"
                             if label not in support_dict_conv:
@@ -1747,7 +1749,7 @@ class MetaLearningAdapter:
             # Adapt to support set
             if isinstance(self._learner, PrototypicalNetworks):
                 # Convert to dict format
-                support_dict: dict[str, Any] = {}
+                support_dict: dict[str, list[Any]] = {}
                 for i in range(len(support_x)):
                     label = f"class_{support_y[i]}"
                     if label not in support_dict:
@@ -1830,7 +1832,7 @@ class AnomalyMetaLearner:
         self.calibrate_confidence = calibrate_confidence
 
         # Cache for recent adaptations
-        self._adaptation_cache: dict[str, AdaptationResult] = {}
+        self._adaptation_cache: dict[str, AdaptationResult | None] = {}
 
         # Learned anomaly types
         self._learned_types: dict[str, dict[str, Any]] = {}
@@ -2143,7 +2145,7 @@ class AnomalyMetaLearner:
         normal_examples: list[np.ndarray],
         anomaly_examples: list[np.ndarray],
         anomaly_type: str = "unknown",
-    ) -> AdaptationResult:
+    ) -> AdaptationResult | None:
         """Adapt to a new type of anomaly.
 
         Args:
@@ -2217,7 +2219,7 @@ class AnomalyMetaLearner:
             "support_size": len(support_examples),
         }
 
-    def get_adaptation_history(self) -> dict[str, AdaptationResult]:
+    def get_adaptation_history(self) -> dict[str, AdaptationResult | None]:
         """Get history of adaptations."""
         return self._adaptation_cache
 

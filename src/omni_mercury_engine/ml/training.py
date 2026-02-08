@@ -780,7 +780,7 @@ class AnomalyDataset(
         self.detector_features = detector_features
         self.labels = labels
         self.scores = scores
-        self.num_samples = labels.shape[0]
+        self.num_samples: int = int(labels.shape[0])
 
     def __len__(self) -> int:
         return int(self.num_samples)
@@ -808,7 +808,7 @@ def _get_lightning_base() -> type:
             "pytorch_lightning is required for FusionTrainer and ThreeRAnomalyTrainer. "
             "Install with: pip install pytorch-lightning"
         )
-    return cast(type, pl.LightningModule)
+    return pl.LightningModule  # type: ignore[no-any-return]
 
 
 # Conditional base class - evaluated at class definition time

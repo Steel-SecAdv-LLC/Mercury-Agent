@@ -86,7 +86,7 @@ class ParetoFront:
         scores = normalized.sum(axis=1)
         best_idx = int(np.argmin(scores))
 
-        return self.solutions[best_idx]
+        return self.solutions[int(best_idx)]
 
     def get_best_benevolent(self) -> ParetoSolution | None:
         """Get solution with highest benevolence."""

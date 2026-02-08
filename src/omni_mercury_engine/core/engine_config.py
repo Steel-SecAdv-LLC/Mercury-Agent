@@ -418,7 +418,8 @@ class MercuryEngineConfig(BaseModel):
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> MercuryEngineConfig:
         """Create from dictionary."""
-        return cast("MercuryEngineConfig", cls.model_validate(data))
+        result: MercuryEngineConfig = cls.model_validate(data)
+        return result
 
     @classmethod
     def for_domain(cls, domain: DomainType | str, **kwargs: Any) -> MercuryEngineConfig:
