@@ -41,7 +41,7 @@ from benchmarks.statistical_validation import statistical_analysis
 from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine as ImprovedEngine
 
 
-def load_baseline_engine():
+def load_baseline_engine() -> Any:
     """Load baseline RefactoringEngine from main branch."""
     # Use cross-platform temp directory instead of hardcoded /tmp
     baseline_path = os.path.join(tempfile.gettempdir(), "three_r_mechanism_baseline.py")
@@ -103,7 +103,10 @@ def extract_test_functions(
 
 
 def benchmark_execution_time(
-    engine_class, functions: list[tuple], iterations: int = 10, is_improved: bool = False
+    engine_class: Any,
+    functions: list[tuple[str, ast.FunctionDef, Path]],
+    iterations: int = 10,
+    is_improved: bool = False,
 ) -> np.ndarray:
     """
     Benchmark execution time for RefactoringEngine analysis operations.
@@ -140,7 +143,7 @@ def benchmark_execution_time(
 
             if test_func is None:
 
-                def test_func():
+                def test_func() -> None:
                     pass
 
                 test_func.__name__ = func_name
@@ -197,7 +200,7 @@ def benchmark_execution_time(
 
 
 def benchmark_memory_usage(
-    engine_class, functions: list[tuple], is_improved: bool = False
+    engine_class: Any, functions: list[tuple[str, ast.FunctionDef, Path]], is_improved: bool = False
 ) -> np.ndarray:
     """
     Benchmark memory usage during RefactoringEngine analysis.
@@ -233,7 +236,7 @@ def benchmark_memory_usage(
 
             if test_func is None:
 
-                def test_func():
+                def test_func() -> None:
                     pass
 
                 test_func.__name__ = func_name
@@ -268,7 +271,9 @@ def benchmark_memory_usage(
     return np.array(memory_usage)
 
 
-def benchmark_accuracy(engine_class, functions: list[tuple]) -> np.ndarray:
+def benchmark_accuracy(
+    engine_class: Any, functions: list[tuple[str, ast.FunctionDef, Path]]
+) -> np.ndarray:
     """
     Note on accuracy measurement for code complexity analysis.
 
@@ -290,7 +295,7 @@ def benchmark_accuracy(engine_class, functions: list[tuple]) -> np.ndarray:
 
 
 def run_comprehensive_comparison(
-    baseline_engine, improved_engine, functions: list[tuple]
+    baseline_engine: Any, improved_engine: Any, functions: list[tuple[str, ast.FunctionDef, Path]]
 ) -> dict[str, Any]:
     """Run comprehensive benchmarks comparing baseline vs improved."""
 

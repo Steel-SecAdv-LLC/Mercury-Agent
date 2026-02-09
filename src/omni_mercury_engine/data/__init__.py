@@ -19,14 +19,19 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Data module for Mercury Agent.
+Data Module - Backwards Compatibility Layer
 
-Provides benchmark dataset loaders for visual anomaly detection:
-- MVTec AD: Industrial defect detection
-- UCF-Crime: Video anomaly detection
-- Shanghai Tech Campus: Surveillance anomaly detection
+This module re-exports from datasets for backwards compatibility.
+New code should import directly from omni_mercury_engine.datasets.
+
+Deprecated:
+    Import from omni_mercury_engine.datasets instead.
 """
 
-from . import benchmarks
+from omni_mercury_engine.datasets import *  # noqa: F403
+
+# Re-export the benchmarks submodule for backwards compatibility
+# (e.g., from omni_mercury_engine.data import benchmarks)
+from omni_mercury_engine.datasets import benchmarks
 
 __all__ = ["benchmarks"]

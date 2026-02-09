@@ -121,6 +121,9 @@ class PrivacyAccountant:
         """Compute privacy cost using Renyi DP."""
         sigma = noise_scale / (sensitivity + 1e-10)
 
+        if self._rdp_eps is None:
+            self._rdp_eps = np.zeros(len(self._rdp_orders))
+
         for i, order in enumerate(self._rdp_orders):
             rdp_eps = self._compute_rdp_single(order, sigma, self.sample_rate)
             self._rdp_eps[i] += rdp_eps
@@ -396,6 +399,7 @@ class SecureAggregator:
         self._delta = delta
         self._min_clients = min_clients
 
+        self._mechanism: DifferentialPrivacyMechanism
         if mechanism == "laplace":
             self._mechanism = LaplaceMechanism()
         else:
@@ -472,6 +476,7 @@ class LocalDifferentialPrivacy:
         self._epsilon = epsilon
         self._delta = delta
 
+        self._mechanism: DifferentialPrivacyMechanism
         if mechanism == "laplace":
             self._mechanism = LaplaceMechanism()
         else:
@@ -597,6 +602,7 @@ class PrivacyEngine:
 
         self._clipper = GradientClipper(max_grad_norm)
 
+        self._mechanism: DifferentialPrivacyMechanism
         if mechanism == "laplace":
             self._mechanism = LaplaceMechanism()
         else:

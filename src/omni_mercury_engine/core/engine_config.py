@@ -349,7 +349,7 @@ class MercuryEngineConfig(BaseModel):
         """Accept string or DomainType."""
         if isinstance(v, str):
             return DomainType(v.lower())
-        return v  # type: ignore[no-any-return]
+        return v
 
     @model_validator(mode="after")
     def adjust_for_domain(self) -> MercuryEngineConfig:
@@ -412,12 +412,13 @@ class MercuryEngineConfig(BaseModel):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
-        return self.model_dump()
+        return dict(self.model_dump())
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> MercuryEngineConfig:
         """Create from dictionary."""
-        return cls.model_validate(data)
+        result: MercuryEngineConfig = cls.model_validate(data)
+        return result
 
     @classmethod
     def for_domain(cls, domain: DomainType | str, **kwargs: Any) -> MercuryEngineConfig:

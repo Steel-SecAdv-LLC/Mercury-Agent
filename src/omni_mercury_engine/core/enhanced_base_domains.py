@@ -811,7 +811,7 @@ def create_enhanced_detector(
     detector_class: type,
     domain: str,
     config: dict[str, Any] | None = None,
-    **enhancement_kwargs,
+    **enhancement_kwargs: Any,
 ) -> EnhancedBaseDetector:
     """
     Factory function to create enhanced detector.

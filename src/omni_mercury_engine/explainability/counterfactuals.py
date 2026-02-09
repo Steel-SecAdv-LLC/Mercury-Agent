@@ -305,7 +305,7 @@ class WachterCounterfactual(CounterfactualGenerator):
             pred = self._predict(x.reshape(1, -1))[0]
             pred_loss = (pred - target_pred) ** 2
             dist_loss = self._lambda * np.sum((x - original) ** 2)
-            return pred_loss + dist_loss
+            return float(pred_loss + dist_loss)
 
         bounds = self._get_bounds(original)
 

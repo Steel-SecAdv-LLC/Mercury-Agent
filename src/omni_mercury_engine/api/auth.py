@@ -536,10 +536,14 @@ class JWTAuth:
             return None
 
         try:
+            if self.secret_key is None:
+                logger.error("JWT secret key is not configured")
+                return None
+
             # Decode and validate the JWT
             payload = jwt.decode(
                 token,
-                self.secret_key,
+                self.secret_key or "",
                 algorithms=[self.algorithm],
                 options={
                     "require": ["exp", "sub"],  # Require expiration and subject
@@ -631,7 +635,8 @@ class JWTAuth:
         if email:
             payload["email"] = email
 
-        return jwt.encode(payload, secret_key, algorithm=algorithm)
+        result: str = jwt.encode(payload, secret_key, algorithm=algorithm)
+        return result
 
 
 class RequestRateLimiter:

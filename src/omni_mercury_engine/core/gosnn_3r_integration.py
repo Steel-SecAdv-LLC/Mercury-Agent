@@ -762,7 +762,7 @@ class CrossDomainTransferManager:
         "infrastructure": ["security", "humanitarian"],
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize cross-domain transfer manager."""
         self._domain_integrations: dict[str, GOSNN3RIntegration] = {}
         self._transfer_weights: dict[str, dict[str, float]] = {}

@@ -284,7 +284,7 @@ async def record_detection(
     """Record a detection for historical tracking."""
     store = get_data_store()
 
-    data_hash = hashlib.sha256(json.dumps(data, default=str).encode()).hexdigest()[:16]
+    data_hash = hashlib.sha3_256(json.dumps(data, default=str).encode()).hexdigest()[:16]
 
     anomaly_count = sum(1 for a in results.get("anomalies", []) if a)
     scores = results.get("scores", [])

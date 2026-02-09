@@ -264,15 +264,15 @@ class IrisSegmenter:
                 outer_values.append(image[oy, ox])
 
         if not inner_values or not outer_values:
-            return -np.inf
+            return float(-np.inf)
 
         inner_mean = np.mean(inner_values)
         outer_mean = np.mean(outer_values)
 
         if dark_circle:
-            return outer_mean - inner_mean
+            return float(outer_mean - inner_mean)
         else:
-            return np.abs(outer_mean - inner_mean)
+            return float(np.abs(outer_mean - inner_mean))
 
 
 class IrisNormalizer:
@@ -540,7 +540,7 @@ class IrisLivenessDetector:
         variation = np.std(radii) / (np.mean(radii) + 1e-8)
         response_score = min(1.0, variation / 0.2)
 
-        return response_score
+        return float(response_score)
 
     def _analyze_specular_reflections(self, image: np.ndarray) -> float:
         """Analyze specular reflection patterns for authenticity."""
@@ -563,7 +563,7 @@ class IrisLivenessDetector:
         elif spot_ratio > expected_ratio * 10:
             return 0.3
 
-        return min(1.0, 1.0 - abs(spot_ratio - expected_ratio) / expected_ratio)
+        return float(min(1.0, 1.0 - abs(spot_ratio - expected_ratio) / expected_ratio))
 
     def _analyze_texture_authenticity(self, image: np.ndarray) -> float:
         """Analyze iris texture for authenticity markers."""
@@ -599,7 +599,7 @@ class IrisLivenessDetector:
         if freq_ratio < expected_ratio / 5:
             return 0.3
 
-        return min(1.0, gradient_variance / expected_variance * 0.5 + 0.5)
+        return float(min(1.0, gradient_variance / expected_variance * 0.5 + 0.5))
 
 
 class IrisRecognizer:

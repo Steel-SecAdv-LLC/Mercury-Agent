@@ -384,7 +384,8 @@ class DetectorRegistry:
             )
 
         try:
-            return breaker.call(_execute_detector)
+            result: FeatureExtractionResult = breaker.call(_execute_detector)
+            return result
 
         except Exception as e:
             execution_time = (time.perf_counter() - start_time) * 1000

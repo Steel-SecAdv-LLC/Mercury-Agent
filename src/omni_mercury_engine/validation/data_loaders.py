@@ -245,7 +245,7 @@ class NSLKDDLoader(DatasetLoader):
             anomaly_ratio=num_anomalies / len(self._labels),
             feature_names=self.FEATURE_NAMES[: self._data.shape[1]],
             load_time_seconds=load_time,
-            checksum=hashlib.sha256(self._data.tobytes()).hexdigest()[:16],
+            checksum=hashlib.sha3_256(self._data.tobytes()).hexdigest()[:16],
             license="Public Domain",
             citation="Tavallaee et al. (2009). A detailed analysis of the KDD CUP 99 data set.",
         )
@@ -423,7 +423,7 @@ class USGSEarthquakeLoader(DatasetLoader):
             anomaly_ratio=num_anomalies / len(self._labels) if len(self._labels) > 0 else 0,
             feature_names=self.FEATURE_NAMES[: self._data.shape[1]],
             load_time_seconds=load_time,
-            checksum=hashlib.sha256(self._data.tobytes()).hexdigest()[:16],
+            checksum=hashlib.sha3_256(self._data.tobytes()).hexdigest()[:16],
             license="Public Domain (U.S. Government Work)",
             citation="U.S. Geological Survey. Earthquake Hazards Program.",
         )
@@ -692,7 +692,7 @@ class MIMICLoader(DatasetLoader):
             anomaly_ratio=num_anomalies / len(self._labels),
             feature_names=self.FEATURE_NAMES,
             load_time_seconds=load_time,
-            checksum=hashlib.sha256(self._data.tobytes()).hexdigest()[:16],
+            checksum=hashlib.sha3_256(self._data.tobytes()).hexdigest()[:16],
             license="Synthetic - No restrictions",
             citation="Simulated based on Johnson et al. (2016). MIMIC-III.",
         )
@@ -976,7 +976,7 @@ class NOAASpaceWeatherLoader(DatasetLoader):
             anomaly_ratio=num_anomalies / len(self._labels) if len(self._labels) > 0 else 0,
             feature_names=self.FEATURE_NAMES[: self._data.shape[1]],
             load_time_seconds=load_time,
-            checksum=hashlib.sha256(self._data.tobytes()).hexdigest()[:16],
+            checksum=hashlib.sha3_256(self._data.tobytes()).hexdigest()[:16],
             license="Public Domain (U.S. Government Work)",
             citation="NOAA Space Weather Prediction Center. https://www.swpc.noaa.gov/",
         )
@@ -1263,7 +1263,7 @@ class NOAAHurricaneLoader(DatasetLoader):
             anomaly_ratio=num_anomalies / len(self._labels) if len(self._labels) > 0 else 0,
             feature_names=self.FEATURE_NAMES[: self._data.shape[1]],
             load_time_seconds=load_time,
-            checksum=hashlib.sha256(self._data.tobytes()).hexdigest()[:16],
+            checksum=hashlib.sha3_256(self._data.tobytes()).hexdigest()[:16],
             license="Public Domain (U.S. Government Work)",
             citation="NOAA National Hurricane Center. https://www.nhc.noaa.gov/",
         )
@@ -1557,7 +1557,7 @@ class NOAAOceanLoader(DatasetLoader):
             anomaly_ratio=num_anomalies / len(self._labels) if len(self._labels) > 0 else 0,
             feature_names=self.FEATURE_NAMES[: self._data.shape[1]],
             load_time_seconds=load_time,
-            checksum=hashlib.sha256(self._data.tobytes()).hexdigest()[:16],
+            checksum=hashlib.sha3_256(self._data.tobytes()).hexdigest()[:16],
             license="Public Domain (U.S. Government Work)",
             citation="NOAA National Ocean Service. https://oceanservice.noaa.gov/",
         )

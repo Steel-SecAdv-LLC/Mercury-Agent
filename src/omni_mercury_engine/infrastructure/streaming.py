@@ -52,10 +52,12 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Callable  # noqa: TC003 - used in runtime annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum, StrEnum
+from enum import StrEnum
 from typing import Any
 
 import numpy as np
+
+from omni_mercury_engine.core.types import CircuitState
 
 logger = logging.getLogger(__name__)
 
@@ -151,14 +153,6 @@ class StreamMessage:
 # =============================================================================
 # Circuit Breaker Pattern
 # =============================================================================
-class CircuitState(Enum):
-    """Circuit breaker states."""
-
-    CLOSED = "closed"  # Normal operation
-    OPEN = "open"  # Failing, rejecting requests
-    HALF_OPEN = "half_open"  # Testing recovery
-
-
 @dataclass
 class CircuitBreaker:
     """Circuit breaker for streaming connections.
@@ -289,7 +283,7 @@ class StreamConsumer(ABC):
         pass
 
     @abstractmethod
-    async def consume(
+    def consume(
         self,
         timeout_ms: int = 1000,
     ) -> AsyncIterator[StreamMessage]:
@@ -301,7 +295,7 @@ class StreamConsumer(ABC):
         Yields:
             StreamMessage objects
         """
-        pass
+        ...
 
     @abstractmethod
     async def commit(self, message: StreamMessage) -> None:
@@ -413,7 +407,7 @@ class InMemoryStreamConsumer(StreamConsumer):
             if topic not in self._offsets:
                 self._offsets[topic] = 0
 
-    async def consume(  # type: ignore[override, misc]
+    async def consume(
         self,
         timeout_ms: int = 1000,
     ) -> AsyncIterator[StreamMessage]:
@@ -642,7 +636,7 @@ class KafkaStreamConsumer(StreamConsumer):
         self._consumer.subscribe(topics)
         logger.info(f"Kafka consumer subscribed to topics: {topics}")
 
-    async def consume(  # type: ignore[override, misc]
+    async def consume(
         self,
         timeout_ms: int = 1000,
     ) -> AsyncIterator[StreamMessage]:
@@ -881,7 +875,7 @@ class RedisStreamConsumer(StreamConsumer):
 
         logger.info(f"Redis consumer subscribed to streams: {topics}")
 
-    async def consume(  # type: ignore[override, misc]
+    async def consume(
         self,
         timeout_ms: int = 1000,
     ) -> AsyncIterator[StreamMessage]:
@@ -952,7 +946,7 @@ class StreamProducerFactory:
     def create(
         backend: str | StreamingBackend = StreamingBackend.MEMORY,
         config: StreamConfig | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> StreamProducer:
         """Create a stream producer for the specified backend.
 
@@ -990,7 +984,7 @@ class StreamConsumerFactory:
         backend: str | StreamingBackend = StreamingBackend.MEMORY,
         config: StreamConfig | None = None,
         group_id: str = "mercury-agent",
-        **kwargs,
+        **kwargs: Any,
     ) -> StreamConsumer:
         """Create a stream consumer for the specified backend.
 

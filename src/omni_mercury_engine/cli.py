@@ -57,7 +57,7 @@ def _get_engine(*args: Any, **kwargs: Any) -> Any:
 
 
 @click.group()
-@click.version_option(version="1.4.0")
+@click.version_option(version="1.2.0")
 def main() -> None:
     """Mercury Agent ♱: ML-Centric Anomaly Detection Framework"""
     pass
@@ -168,13 +168,13 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
 
 
 # =============================================================================
-# Physics-Inspired Anomaly Detection Commands (v1.4.0)
+# Physics-Inspired Anomaly Detection Commands
 # =============================================================================
 
 
 @main.group()
 def physics() -> None:
-    """Physics-inspired anomaly detection commands (v1.4.0)"""
+    """Physics-inspired anomaly detection commands"""
     pass
 
 
@@ -213,11 +213,11 @@ def physics_spectral(
 
         # Map mode string to enum
         mode_map = {
-            "comprehensive": SpectralAnalysisMode.COMPREHENSIVE,
-            "fft_only": SpectralAnalysisMode.FFT_ONLY,
-            "wavelet_only": SpectralAnalysisMode.WAVELET_ONLY,
-            "phonon": SpectralAnalysisMode.PHONON,
-            "predictive": SpectralAnalysisMode.PREDICTIVE,
+            "comprehensive": SpectralAnalysisMode.HYBRID_FUSION,
+            "fft_only": SpectralAnalysisMode.FFT_STANDARD,
+            "wavelet_only": SpectralAnalysisMode.WAVELET_MULTIRESOLUTION,
+            "phonon": SpectralAnalysisMode.PHONON_INTERACTION,
+            "predictive": SpectralAnalysisMode.MLIP_VIBRATIONAL,
         }
 
         config = {
@@ -534,11 +534,11 @@ def physics_integrated(
         # Determine which detectors to enable
         enabled_detectors = []
         if spectral_input:
-            enabled_detectors.append(PhysicsDetectorType.SPECTRAL)
+            enabled_detectors.append(PhysicsDetectorType.SPECTRAL_VIBRATION)
         if dynamics_input:
-            enabled_detectors.append(PhysicsDetectorType.DYNAMICS)
+            enabled_detectors.append(PhysicsDetectorType.ACCELERATION_DYNAMICS)
         if uiux_input:
-            enabled_detectors.append(PhysicsDetectorType.UIUX)
+            enabled_detectors.append(PhysicsDetectorType.UIUX_ANOMALY)
 
         config = {
             "threshold": threshold,
@@ -657,7 +657,7 @@ def physics_integrated(
 def physics_list() -> None:
     """List available physics-inspired detectors and their capabilities."""
     click.echo("\n" + "=" * 65)
-    click.echo("  Mercury Agent ♱ - Physics-Inspired Anomaly Detectors (v1.4.0)")
+    click.echo("  Mercury Agent ♱ - Physics-Inspired Anomaly Detectors")
     click.echo("=" * 65)
 
     click.echo("\n  1. SpectralVibrationDetector")

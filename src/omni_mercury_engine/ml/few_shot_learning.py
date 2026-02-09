@@ -876,7 +876,7 @@ class MAMLNumpy(BaseFewShotLearner):
         n = len(y)
         # Add small epsilon to avoid log(0)
         log_probs = np.log(probs[np.arange(n), y] + 1e-10)
-        return -np.mean(log_probs)
+        return float(-np.mean(log_probs))
 
     def _compute_gradients(
         self,

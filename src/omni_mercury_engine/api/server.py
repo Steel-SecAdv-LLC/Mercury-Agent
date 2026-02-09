@@ -1118,7 +1118,7 @@ def custom_openapi() -> dict[str, Any]:
         Dict containing the complete OpenAPI specification.
     """
     if app.openapi_schema:
-        return app.openapi_schema
+        return dict(app.openapi_schema)
 
     openapi_schema: dict[str, Any] = get_openapi(
         title=API_TITLE,

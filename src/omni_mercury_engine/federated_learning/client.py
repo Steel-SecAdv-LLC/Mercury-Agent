@@ -7,6 +7,12 @@ with support for differential privacy and secure communication.
 References:
 - McMahan et al. (2017): Communication-Efficient Learning of Deep Networks
 - Li et al. (2020): Federated Optimization in Heterogeneous Networks (FedProx)
+
+Enhanced with:
+- Timeout handling for unresponsive clients
+- Network partition detection and recovery
+- Byzantine fault tolerance for malicious clients
+- Graceful degradation under partial failures
 """
 
 from __future__ import annotations
@@ -34,13 +40,102 @@ logger = logging.getLogger(__name__)
 
 
 class ClientStatus(Enum):
-    """Status of a federated client."""
+    """Status of a federated client during training."""
 
     IDLE = auto()
     TRAINING = auto()
     UPLOADING = auto()
     WAITING = auto()
     OFFLINE = auto()
+
+
+class ClientConnectionStatus(Enum):
+    """Client connection/fault status for Byzantine fault tolerance."""
+
+    CONNECTED = "connected"
+    TIMEOUT = "timeout"
+    PARTITIONED = "partitioned"
+    BYZANTINE = "byzantine"  # Suspected malicious behavior
+    DROPPED = "dropped"
+
+
+@dataclass
+class ClientHealth:
+    """Health metrics for a federated client with fault tolerance tracking."""
+
+    client_id: str
+    connection_status: ClientConnectionStatus = ClientConnectionStatus.CONNECTED
+    last_seen: float = field(default_factory=time.time)
+    consecutive_timeouts: int = 0
+    consecutive_successes: int = 0
+    total_rounds_participated: int = 0
+    suspicious_updates: int = 0
+
+    def update_success(self) -> None:
+        """Record successful client update."""
+        self.last_seen = time.time()
+        self.consecutive_successes += 1
+        self.consecutive_timeouts = 0
+        self.total_rounds_participated += 1
+        if self.connection_status in (
+            ClientConnectionStatus.TIMEOUT,
+            ClientConnectionStatus.PARTITIONED,
+        ):
+            self.connection_status = ClientConnectionStatus.CONNECTED
+            logger.info(f"Client {self.client_id} reconnected")
+
+    def update_timeout(self) -> None:
+        """Record client timeout."""
+        self.consecutive_timeouts += 1
+        self.consecutive_successes = 0
+        if self.consecutive_timeouts >= 3:
+            self.connection_status = ClientConnectionStatus.PARTITIONED
+            logger.warning(f"Client {self.client_id} marked as partitioned after 3 timeouts")
+        else:
+            self.connection_status = ClientConnectionStatus.TIMEOUT
+            logger.warning(
+                f"Client {self.client_id} timeout ({self.consecutive_timeouts} consecutive)"
+            )
+
+    def flag_suspicious(self) -> None:
+        """Flag suspicious update from client (potential Byzantine behavior)."""
+        self.suspicious_updates += 1
+        if self.suspicious_updates >= 3:
+            self.connection_status = ClientConnectionStatus.BYZANTINE
+            logger.warning(
+                f"Client {self.client_id} marked as Byzantine after 3 suspicious updates"
+            )
+
+    def reset_health(self) -> None:
+        """Reset health metrics for recovery."""
+        self.connection_status = ClientConnectionStatus.CONNECTED
+        self.consecutive_timeouts = 0
+        self.consecutive_successes = 0
+        self.suspicious_updates = 0
+        self.last_seen = time.time()
+
+
+@dataclass
+class FederationConfig:
+    """Configuration for federation timeout and fault tolerance."""
+
+    # Timeout settings
+    client_timeout_seconds: float = 30.0
+    max_consecutive_timeouts: int = 3
+    partition_detection_threshold: int = 3
+
+    # Byzantine fault tolerance
+    enable_byzantine_detection: bool = True
+    byzantine_threshold: float = 3.0  # Standard deviations for outlier detection
+    min_clients_for_byzantine_detection: int = 4
+
+    # Partial aggregation settings
+    min_clients_for_aggregation: float = 0.5  # Minimum fraction of clients required
+    allow_partial_rounds: bool = True
+
+    # Recovery settings
+    enable_client_recovery: bool = True
+    recovery_cooldown_seconds: float = 60.0
 
 
 @dataclass
@@ -606,7 +701,7 @@ class ClientManager:
         total_samples = sum(c.n_samples for c in clients)
         total_updates = sum(c.get_state().total_updates for c in clients)
 
-        status_counts = {}
+        status_counts: dict[str, int] = {}
         for c in clients:
             status = c.status.name
             status_counts[status] = status_counts.get(status, 0) + 1

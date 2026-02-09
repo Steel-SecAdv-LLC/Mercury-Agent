@@ -237,14 +237,14 @@ class AdaptiveDefenseSystem:
     def _generate_signature_id(self, feature_vector: npt.NDArray[np.floating[Any]]) -> str:
         """Generate unique ID for signature based on feature vector.
 
-        Uses hashlib.sha256 for stable, reproducible hashing across Python sessions.
+        Uses hashlib.sha3_256 for stable, reproducible hashing across Python sessions.
         Python's built-in hash() is randomized per-session (PEP 456) and would
         produce different IDs for the same feature vector across runs.
         """
         import hashlib
 
-        # Use SHA-256 for stable, reproducible hashing
-        hash_bytes = hashlib.sha256(feature_vector.tobytes()).digest()
+        # Use SHA3-256 for Ava-Guardian alignment with stable, reproducible hashing
+        hash_bytes = hashlib.sha3_256(feature_vector.tobytes()).digest()
         # Take first 8 bytes (64 bits) for a compact but collision-resistant ID
         hash_value = int.from_bytes(hash_bytes[:8], byteorder="big")
         return f"sig_{hash_value:016x}"

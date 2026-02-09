@@ -131,6 +131,8 @@ class MADDetector:
             X = X.reshape(-1, 1)
 
         # Modified Z-score using MAD
+        assert self.median_ is not None
+        assert self.mad_ is not None
         modified_z = (X - self.median_) / (self.consistency_constant * self.mad_)
 
         # Max absolute modified z-score across features
@@ -204,6 +206,7 @@ class LOFDetector:
                 p=self.p,
                 novelty=True,
             )
+            assert self._lof is not None
             self._lof.fit(X)
             self._fitted = True
         except ImportError:
@@ -343,6 +346,7 @@ class DBSCANDetector:
         scores = np.zeros(len(X))
         core_mask = np.isin(np.arange(len(X)), dbscan.core_sample_indices_)
 
+        assert self._fitted_eps is not None
         if np.any(core_mask):
             core_points = X[core_mask]
             for i, point in enumerate(X):
@@ -415,14 +419,15 @@ class MCDDetector:
         if X.ndim == 1:
             X = X.reshape(-1, 1)
 
-        self._mcd = MinCovDet(
+        mcd = MinCovDet(
             support_fraction=self.support_fraction,
             random_state=self.random_state,
         )
-        self._mcd.fit(X)
+        mcd.fit(X)
+        self._mcd = mcd
 
         # Compute threshold from training data
-        distances = self._mcd.mahalanobis(X)
+        distances = mcd.mahalanobis(X)
         self._threshold = float(np.percentile(distances, (1 - self.contamination) * 100))
 
         self._fitted = True

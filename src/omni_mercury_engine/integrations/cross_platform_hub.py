@@ -156,7 +156,7 @@ class AnomalyEvent:
         else:
             severity = "low"
 
-        event_id = hashlib.sha256(f"{source}:{time.time_ns()}:{index}".encode()).hexdigest()[:16]
+        event_id = hashlib.sha3_256(f"{source}:{time.time_ns()}:{index}".encode()).hexdigest()[:16]
 
         return cls(
             event_id=event_id,
@@ -385,12 +385,12 @@ class PlatformAdapter(ABC):
         pass
 
     @abstractmethod
-    async def fetch_data(
+    def fetch_data(
         self,
         query: dict[str, Any],
     ) -> AsyncIterator[dict[str, Any]]:
         """Fetch data from platform."""
-        pass
+        ...
 
     @property
     def is_connected(self) -> bool:
@@ -929,7 +929,8 @@ class CrossPlatformHub:
             return {}
 
         if len(events) == 1:
-            return await self.publish_event(events[0], platforms)
+            single_event_result = await self.publish_event(events[0], platforms)
+            return {k: v for k, v in single_event_result.items()}
         else:
             return await self.publish_batch(events, platforms)
 

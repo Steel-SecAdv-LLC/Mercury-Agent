@@ -451,7 +451,7 @@ class AnomalyMetrics:
         y_score = _to_numpy(y_score).flatten()
 
         unique_categories = list(set(categories))
-        results = {}
+        results: dict[str, dict[str, Any]] = {}
 
         for cat in unique_categories:
             mask = np.array([c == cat for c in categories])

@@ -13,6 +13,7 @@ Generates consolidated publication-quality benchmark visualizations for v1.2.0:
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -56,16 +57,17 @@ OUTPUT_DIR = Path(__file__).parent.parent / "docs" / "images"
 RESULTS_DIR = Path(__file__).parent.parent / "results" / "latest"
 
 
-def load_benchmark_results() -> dict:
+def load_benchmark_results() -> dict[str, Any]:
     """Load actual benchmark results from the latest run."""
     results_file = RESULTS_DIR / "neuro_symbolic_benchmark_results.json"
     if results_file.exists():
         with open(results_file) as f:
-            return json.load(f)
+            result: dict[str, Any] = json.load(f)
+            return result
     raise FileNotFoundError(f"Benchmark results not found: {results_file}")
 
 
-def generate_neuro_symbolic_report(results: dict) -> None:
+def generate_neuro_symbolic_report(results: dict[str, Any]) -> None:
     """Generate comprehensive neuro-symbolic benchmark report (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
     fig.suptitle(
@@ -195,7 +197,7 @@ def generate_neuro_symbolic_report(results: dict) -> None:
     print(f"✓ Generated: {output_path}")
 
 
-def generate_anomaly_detection_panel(results: dict) -> None:
+def generate_anomaly_detection_panel(results: dict[str, Any]) -> None:
     """Generate anomaly detection analysis panel (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
     fig.suptitle(
@@ -379,7 +381,7 @@ def generate_anomaly_detection_panel(results: dict) -> None:
     print(f"✓ Generated: {output_path}")
 
 
-def generate_benchmark_summary(results: dict) -> None:
+def generate_benchmark_summary(results: dict[str, Any]) -> None:
     """Generate benchmark summary with live data and module coverage (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
     fig.suptitle(
@@ -581,7 +583,7 @@ def generate_benchmark_summary(results: dict) -> None:
     print(f"✓ Generated: {output_path}")
 
 
-def generate_performance_dashboard(results: dict) -> None:
+def generate_performance_dashboard(results: dict[str, Any]) -> None:
     """Generate performance, ethics, and quality dashboard (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
     fig.suptitle(
@@ -745,7 +747,7 @@ def generate_performance_dashboard(results: dict) -> None:
     print(f"✓ Generated: {output_path}")
 
 
-def main():
+def main() -> None:
     """Generate all consolidated visualizations."""
     print("=" * 60)
     print("Mercury Agent ♱ v1.2.0 - Visualization Generator")

@@ -61,8 +61,8 @@ class TTLCache:
     def _compute_key(self, data: np.ndarray) -> str:
         """Compute cache key from numpy array using fast hashing."""
         # Use tobytes() for efficient array hashing
-        # Using SHA256 instead of MD5 to satisfy security scanners (S324)
-        return hashlib.sha256(data.tobytes()).hexdigest()
+        # Using SHA3-256 for Ava-Guardian alignment
+        return hashlib.sha3_256(data.tobytes()).hexdigest()
 
     def get(self, data: np.ndarray) -> Any | None:
         """Get cached result if valid."""
@@ -591,7 +591,8 @@ class GOSNNIntegration:
             cached_result = cache.get(X)
             if cached_result is not None and isinstance(cached_result, IntegrationResult):
                 monitor.record("detect_cached", (time.time() - start_time) * 1000)
-                return cached_result
+                result: IntegrationResult = cached_result
+                return result
 
         # Collect domain predictions
         domain_scores = {}
@@ -605,8 +606,8 @@ class GOSNNIntegration:
 
             try:
                 if hasattr(detector, "detect"):
-                    result = detector.detect(X)
-                    scores = result.get("scores", np.zeros(len(X)))
+                    detect_result = detector.detect(X)
+                    scores = detect_result.get("scores", np.zeros(len(X)))
                 elif hasattr(detector, "extract_features"):
                     features = detector.extract_features(X)
                     domain_features[name] = features

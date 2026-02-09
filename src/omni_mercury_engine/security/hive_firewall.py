@@ -118,7 +118,7 @@ class HiveFirewall:
     def _compute_signature_hash(self, data: np.ndarray[Any, Any]) -> str:
         """Compute O(1) signature hash for threat data."""
         data_bytes = data.tobytes()
-        return hashlib.sha256(data_bytes).hexdigest()[:16]
+        return hashlib.sha3_256(data_bytes).hexdigest()[:16]
 
     def is_blocked(self, data: np.ndarray[Any, Any]) -> tuple[bool, ThreatBlocking | None]:
         """

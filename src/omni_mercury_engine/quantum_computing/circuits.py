@@ -40,7 +40,7 @@ try:
     QISKIT_AVAILABLE = True
 except ImportError:
     logger.debug("Qiskit not available, using simulation fallback")
-    QuantumCircuit = None  # type: ignore[misc, assignment]
+    QuantumCircuit = None
 
 
 class EncodingType(Enum):
@@ -767,7 +767,8 @@ class QuantumFeatureMap:
 
             simulator = AerSimulator()
             result = simulator.run(circuit, shots=shots).result()
-            return result.get_counts()
+            counts: dict[str, int] = result.get_counts()
+            return counts
         except ImportError:
             return {"0" * self._num_qubits: shots // 2}
 

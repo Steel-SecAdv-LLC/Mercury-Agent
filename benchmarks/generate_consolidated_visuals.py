@@ -17,6 +17,7 @@ Generates consolidated publication-quality benchmark visualizations:
 
 import json
 from pathlib import Path
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -59,17 +60,18 @@ OUTPUT_DIR = Path(__file__).parent.parent / "docs" / "images"
 RESULTS_DIR = Path(__file__).parent.parent / "results" / "latest"
 
 
-def load_benchmark_results() -> dict:
+def load_benchmark_results() -> dict[str, Any]:
     """Load benchmark results from JSON file."""
     results_file = Path(__file__).parent / "neuro_symbolic_results.json"
     if results_file.exists():
         with open(results_file) as f:
-            return json.load(f)
+            result: dict[str, Any] = json.load(f)
+            return result
     # Return synthetic data if no results file
     return generate_synthetic_results()
 
 
-def generate_synthetic_results() -> dict:
+def generate_synthetic_results() -> dict[str, Any]:
     """Generate synthetic benchmark results for visualization."""
     np.random.seed(42)
     epochs = 200
@@ -138,7 +140,9 @@ def generate_synthetic_results() -> dict:
     }
 
 
-def generate_anomaly_detection_panel(results: dict, output_path: Path | None = None) -> None:
+def generate_anomaly_detection_panel(
+    results: dict[str, Any], output_path: Path | None = None
+) -> None:
     """Generate comprehensive anomaly detection panel."""
     if output_path is None:
         output_path = OUTPUT_DIR / "anomaly_detection_panel.png"
@@ -265,7 +269,9 @@ def generate_anomaly_detection_panel(results: dict, output_path: Path | None = N
     print(f"Generated: {output_path}")
 
 
-def generate_benchmark_summary_live_data(results: dict, output_path: Path | None = None) -> None:
+def generate_benchmark_summary_live_data(
+    results: dict[str, Any], output_path: Path | None = None
+) -> None:
     """Generate live data benchmark summary visualization."""
     if output_path is None:
         output_path = OUTPUT_DIR / "benchmark_summary_live_data.png"
@@ -351,7 +357,7 @@ def generate_benchmark_summary_live_data(results: dict, output_path: Path | None
 
 
 def generate_neuro_symbolic_benchmark_report(
-    results: dict, output_path: Path | None = None
+    results: dict[str, Any], output_path: Path | None = None
 ) -> None:
     """Generate comprehensive neuro-symbolic benchmark report."""
     if output_path is None:
@@ -537,7 +543,9 @@ def generate_neuro_symbolic_benchmark_report(
     print(f"Generated: {output_path}")
 
 
-def generate_performance_dashboard(results: dict, output_path: Path | None = None) -> None:
+def generate_performance_dashboard(
+    results: dict[str, Any], output_path: Path | None = None
+) -> None:
     """Generate consolidated performance dashboard combining performance, ethical gating, and test coverage."""
     if output_path is None:
         output_path = OUTPUT_DIR / "mercury_performance_dashboard.png"

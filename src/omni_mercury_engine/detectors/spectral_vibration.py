@@ -86,6 +86,12 @@ class SpectralAnalysisMode(Enum):
     PHONON_INTERACTION = "phonon_interaction"
     MLIP_VIBRATIONAL = "mlip_vibrational"
     HYBRID_FUSION = "hybrid_fusion"
+    # CLI-friendly aliases
+    COMPREHENSIVE = "hybrid_fusion"  # Alias for HYBRID_FUSION
+    FFT_ONLY = "fft_standard"  # Alias for FFT_STANDARD
+    WAVELET_ONLY = "wavelet_multiresolution"  # Alias for WAVELET_MULTIRESOLUTION
+    PHONON = "phonon_interaction"  # Alias for PHONON_INTERACTION
+    PREDICTIVE = "mlip_vibrational"  # Alias for MLIP_VIBRATIONAL
 
 
 class VibrationSignatureType(Enum):
@@ -1495,7 +1501,7 @@ class SpectralVibrationDetector(BaseDetector):
             feature_anomaly_score = 0.5
 
         # Spectral distance from reference
-        if self._reference_spectrum is not None:
+        if self._reference_spectrum is not None and self._reference_std is not None:
             spectral_distance = np.mean(
                 np.abs(features.power_spectrum - self._reference_spectrum)
                 / (self._reference_std + 1e-8)

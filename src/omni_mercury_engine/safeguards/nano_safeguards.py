@@ -491,7 +491,7 @@ class NanoSafeguardDetector(BaseDetector):
         """Molecular-level analysis for nano-scale integrity."""
         data_bytes = data.tobytes()
 
-        hash_obj = hashlib.sha256(data_bytes)
+        hash_obj = hashlib.sha3_256(data_bytes)
         hash_bytes = hash_obj.digest()
         byte_values = np.frombuffer(hash_bytes, dtype=np.uint8)
         _, counts = np.unique(byte_values, return_counts=True)
@@ -502,7 +502,7 @@ class NanoSafeguardDetector(BaseDetector):
         current = data_bytes
         checksum = 0.0
         for _ in range(4):
-            hash_obj = hashlib.sha256(current)
+            hash_obj = hashlib.sha3_256(current)
             current = hash_obj.digest()
             byte_sum = sum(current)
             checksum += byte_sum / (256.0 * len(current))

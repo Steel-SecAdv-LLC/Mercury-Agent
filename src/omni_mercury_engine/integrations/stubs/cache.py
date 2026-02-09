@@ -806,7 +806,7 @@ class RedisCache:
 
         try:
             result = await self._client.delete(self._make_key(key))
-            return result > 0
+            return bool(result > 0)
         except Exception as e:
             self._errors += 1
             logger.warning(f"Redis delete error: {e}")
@@ -834,7 +834,7 @@ class RedisCache:
 
         try:
             result = await self._client.exists(self._make_key(key))
-            return result > 0
+            return bool(result > 0)
         except Exception as e:
             self._errors += 1
             logger.warning(f"Redis exists error: {e}")
@@ -929,7 +929,7 @@ class RedisCache:
             return 0
 
         try:
-            return await self._client.incrby(self._make_key(key), amount)
+            return int(await self._client.incrby(self._make_key(key), amount))
         except Exception as e:
             self._errors += 1
             logger.warning(f"Redis incr error: {e}")
@@ -969,7 +969,7 @@ class RedisCache:
             return False
 
         try:
-            return await self._client.expire(self._make_key(key), ttl)
+            return bool(await self._client.expire(self._make_key(key), ttl))
         except Exception as e:
             self._errors += 1
             logger.warning(f"Redis expire error: {e}")
@@ -1054,7 +1054,7 @@ class RedisCache:
         try:
             keys = await self._client.keys(f"{self.prefix}*")
             if keys:
-                return await self._client.delete(*keys)
+                return int(await self._client.delete(*keys))
             return 0
         except Exception as e:
             self._errors += 1

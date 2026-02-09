@@ -383,12 +383,12 @@ class BiometricAnomalyDetector:
             quality_score = features.overall_quality
             modality_scores["fingerprint"] = quality_score
 
-            liveness_detector = FingerprintLivenessDetector()
-            liveness = liveness_detector.detect([fingerprint_image])
-            liveness_scores["fingerprint"] = liveness.confidence
+            fingerprint_liveness_detector = FingerprintLivenessDetector()
+            fp_liveness = fingerprint_liveness_detector.detect([fingerprint_image])
+            liveness_scores["fingerprint"] = fp_liveness.confidence
             anomaly_details["fingerprint"] = {
                 "quality": quality_score,
-                "liveness": liveness.confidence,
+                "liveness": fp_liveness.confidence,
                 "minutiae_count": len(features.minutiae),
             }
 
@@ -397,12 +397,12 @@ class BiometricAnomalyDetector:
             quality_score = features.quality_score
             modality_scores["voice"] = quality_score
 
-            liveness_detector = VoiceLivenessDetector()
-            liveness = liveness_detector.detect([voice_sample])
-            liveness_scores["voice"] = liveness.confidence
+            voice_liveness_detector = VoiceLivenessDetector()
+            voice_liveness = voice_liveness_detector.detect([voice_sample])
+            liveness_scores["voice"] = voice_liveness.confidence
             anomaly_details["voice"] = {
                 "quality": quality_score,
-                "liveness": liveness.confidence,
+                "liveness": voice_liveness.confidence,
                 "duration": features.duration,
             }
 

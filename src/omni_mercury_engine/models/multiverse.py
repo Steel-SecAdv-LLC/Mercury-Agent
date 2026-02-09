@@ -116,7 +116,7 @@ class MultiverseOmniEngine:
     def _initialize_multiverse(self) -> None:
         """Initialize the multiverse with random universes."""
         for i in range(self.num_universes):
-            universe_id = hashlib.sha256(f"universe_{i}_{time.time()}".encode()).hexdigest()[:16]
+            universe_id = hashlib.sha3_256(f"universe_{i}_{time.time()}".encode()).hexdigest()[:16]
 
             state_vector = self._rng.randn(self.state_dim) * 0.5
             probability_amplitude = 1.0 / self.num_universes
@@ -181,7 +181,7 @@ class MultiverseOmniEngine:
         for i, universe in enumerate(universes):
             superposed_state += weights[i] * universe.state_vector
 
-        universe_id = hashlib.sha256(
+        universe_id = hashlib.sha3_256(
             f"superposed_{time.time()}_{self._rng.randint(0, 1000000)}".encode()
         ).hexdigest()[:16]
 
