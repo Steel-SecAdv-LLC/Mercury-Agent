@@ -18,13 +18,11 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Tests for REST API endpoints."""
 
 from fastapi.testclient import TestClient
 
 from omni_mercury_engine.api.server import app
-
 
 client = TestClient(app)
 

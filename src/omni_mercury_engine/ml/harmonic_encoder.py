@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 """
 Harmonic analysis encoder using spherical harmonics and Fourier analysis.
 Provides frequency-domain feature extraction for anomaly detection.
@@ -31,7 +30,6 @@ import numpy as np
 import torch
 from scipy.fft import fft, ifft
 from torch import nn
-
 
 # Handle scipy.special spherical harmonics API deprecation (scipy 1.14+)
 try:

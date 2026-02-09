@@ -66,7 +66,6 @@ from omni_mercury_engine.data_sources.space_weather import (
     SolarSystemOpenDataSource,
 )
 
-
 # =============================================================================
 # Test Fixtures
 # =============================================================================

@@ -27,7 +27,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -36,7 +35,6 @@ if TYPE_CHECKING:
     import shap as shap_module  # noqa: F401
 
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 
@@ -714,7 +712,6 @@ class CounterfactualExplainer:
 
         original_pred = float(model(instance.reshape(1, -1))[0])
         original_class = 1 if original_pred > self.threshold else 0
-        _target_pred = 1.0 if target_class == 1 else 0.0
 
         counterfactual = instance.copy()
 

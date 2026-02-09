@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Real-data tests for Emergent Life Detector using simulated datasets."""
 
 import os
@@ -26,14 +25,12 @@ import sys
 
 import pytest
 
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from omni_mercury_engine.emergent.emergent_life_detector import (
     EmergentLifeDetector,
     SETICosmicSignalAnalyzer,
 )
-
 
 try:
     from assets.loaders import generate_seti_signal

@@ -34,7 +34,6 @@ from typing import Any
 
 import numpy as np
 
-
 logger = logging.getLogger(__name__)
 
 try:
@@ -55,7 +54,6 @@ from omni_mercury_engine.core.three_r.types import (
     CONVERGENCE_RATE_PARAMETER,
     GOLDEN_RATIO_CONSTANT,
 )
-
 
 PHI = GOLDEN_RATIO_CONSTANT
 LAMBDA = CONVERGENCE_RATE_PARAMETER
@@ -207,8 +205,6 @@ if TORCH_AVAILABLE:
             """
             if x.dim() == 1:
                 x = x.unsqueeze(0)
-
-            _batch_size = x.shape[0]
 
             if x.shape[-1] != self.encoder.in_features:
                 x_padded = F.pad(x, (0, self.encoder.in_features - x.shape[-1]))
@@ -386,8 +382,6 @@ if TORCH_AVAILABLE:
             """
             if x.dim() == 1:
                 x = x.unsqueeze(0)
-
-            _batch_size = x.shape[0]
 
             x_padded = F.pad(x, (0, max(0, 64 - x.shape[-1])))
             x_padded = x_padded[:, :64]

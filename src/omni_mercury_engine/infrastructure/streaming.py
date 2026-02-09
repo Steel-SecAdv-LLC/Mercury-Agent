@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 SaaS Streaming Infrastructure for Mercury Agent
 
@@ -57,7 +56,6 @@ from enum import Enum, StrEnum
 from typing import Any
 
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 

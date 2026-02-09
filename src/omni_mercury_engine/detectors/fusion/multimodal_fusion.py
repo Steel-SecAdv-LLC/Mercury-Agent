@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Multi-Modal Fusion Optimizer for VLM + Visual Detector Ensemble.
 
@@ -49,7 +48,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
-
 
 logger = logging.getLogger(__name__)
 

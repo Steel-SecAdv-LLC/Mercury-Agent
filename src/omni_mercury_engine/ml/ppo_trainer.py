@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 PPO Trainer for Mercury Agent ♱
 
@@ -44,7 +43,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 

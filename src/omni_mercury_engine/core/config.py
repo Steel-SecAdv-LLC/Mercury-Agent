@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Configuration classes for Mercury Agent ♱
 
@@ -39,7 +38,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable

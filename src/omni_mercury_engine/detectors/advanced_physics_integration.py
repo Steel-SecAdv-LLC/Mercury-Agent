@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Advanced Physics Integration Module for Mercury Agent.
 
@@ -66,7 +65,6 @@ from omni_mercury_engine.detectors.uiux_anomaly import (
     UserInteraction,
 )
 from omni_mercury_engine.utils.constants import MathematicalConstants
-
 
 if TYPE_CHECKING:
     from omni_mercury_engine.core.three_r.types import AnomalyFusionResult

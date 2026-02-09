@@ -47,7 +47,6 @@ from omni_mercury_engine.ml.drift import (
     PopulationStabilityIndexDetector,
 )
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 

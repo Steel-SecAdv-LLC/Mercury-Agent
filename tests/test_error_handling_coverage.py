@@ -19,7 +19,6 @@ import logging
 import numpy as np
 import pytest
 
-
 # Conditional torch import
 try:
     import torch

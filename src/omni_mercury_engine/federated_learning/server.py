@@ -32,7 +32,6 @@ from omni_mercury_engine.federated_learning.privacy import (
     SecureAggregator,
 )
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Advanced Context Providers for VLM-based Anomaly Detection.
 
@@ -39,7 +38,6 @@ import numpy as np
 import torch
 
 from .context_providers import BaseContextProvider, ContextInfo
-
 
 logger = logging.getLogger(__name__)
 

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Pre-configured circuit breakers for external API integrations.
 
@@ -37,7 +36,6 @@ from functools import wraps
 from typing import TYPE_CHECKING, Any, cast
 
 from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker, CircuitState
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable

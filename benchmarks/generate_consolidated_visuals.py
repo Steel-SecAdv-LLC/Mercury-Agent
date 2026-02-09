@@ -20,7 +20,6 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
 from matplotlib.gridspec import GridSpec
 
 # Use non-interactive backend
@@ -783,7 +782,7 @@ def generate_all_consolidated_visuals() -> None:
     print()
     print("=" * 70)
     print("All consolidated visualizations generated successfully!")
-    print(f"Output directories:")
+    print("Output directories:")
     print(f"  - {OUTPUT_DIR}")
     print(f"  - {RESULTS_DIR}")
     print("=" * 70)

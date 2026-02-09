@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Predictive Coding Module for Mercury Agent.
 
@@ -53,7 +52,6 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 

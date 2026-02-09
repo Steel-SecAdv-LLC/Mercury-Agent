@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 

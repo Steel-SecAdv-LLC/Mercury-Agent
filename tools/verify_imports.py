@@ -26,7 +26,6 @@ from omni_mercury_engine.models import (
     neurosymbolic,
 )
 
-
 # Verify modules are accessible (satisfies static analysis)
 assert ethical_config is not None, "ethical_config module not loaded"
 assert astrophysical is not None, "astrophysical module not loaded"

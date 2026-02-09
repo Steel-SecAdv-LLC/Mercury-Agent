@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Astrophysical anomaly detection model with black hole physics.
 """
@@ -28,7 +27,6 @@ from typing import Any
 import numpy as np
 
 from omni_mercury_engine.utils.constants import OmniCodes
-
 
 # Omni-Code: Omni-Indivisible Guardian (unified protection and integrity)
 _ETHICAL_ANCHOR = OmniCodes.OMNI_INDIVISIBLE.code

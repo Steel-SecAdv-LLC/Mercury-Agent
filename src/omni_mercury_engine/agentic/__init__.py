@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Agentic AI autonomy modules."""
 
 from omni_mercury_engine.agentic.agentic_autonomy import AgentAction, AgenticAutonomy, AgentState
@@ -40,7 +39,6 @@ from omni_mercury_engine.agentic.mercury_a_agent import (
     TaskPriority,
     create_mercury_agent,
 )
-
 
 __all__ = [
     "AgentAction",

@@ -20,7 +20,6 @@ from omni_mercury_engine.quantum_computing.circuits import (
     SimulatedQuantumCircuit,
 )
 
-
 logger = logging.getLogger(__name__)
 
 

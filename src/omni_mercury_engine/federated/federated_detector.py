@@ -23,7 +23,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-
 """
 Federated Learning for Privacy-Preserving Anomaly Detection
 
@@ -47,7 +46,6 @@ from enum import Enum
 import numpy as np
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
-
 
 logger = logging.getLogger(__name__)
 

@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 """
 Streamlit Dashboard for Mercury Agent ♱
 
@@ -43,7 +42,6 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from omni_mercury_engine.utils.rng import get_global_rng
-
 
 st.set_page_config(
     page_title="Mercury Agent ♱ Dashboard",

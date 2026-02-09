@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Real-World Dataset Loaders for Mercury Agent
 
@@ -73,7 +72,6 @@ from .security import CICIDSLoader, NSLKDDLoader, ThreatIntelLoader
 from .space import NASAExoplanetLoader, SETILoader, SolarDynamicsLoader
 from .timeseries import NABLoader, SMAPMSLLoader, SMDLoader
 from .ucr_archive import CWRUBearingLoader, MBALoader, MSDSLoader, UCRLoader
-
 
 __all__ = [
     "ADREPOSITORY_DATASETS",

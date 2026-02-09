@@ -24,7 +24,6 @@ from omni_mercury_engine.harmonics.transform import (
     SphericalHarmonicTransform,
 )
 
-
 logger = logging.getLogger(__name__)
 
 

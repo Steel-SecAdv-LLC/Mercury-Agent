@@ -27,7 +27,6 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
-
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
@@ -36,7 +35,6 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
-
 
 logger = logging.getLogger(__name__)
 

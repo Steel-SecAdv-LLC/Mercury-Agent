@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Multivariate Time-Series Anomaly Detection with LTG Method.
 
 Based on: A novel anomaly detection method for multivariate time series based on LTG

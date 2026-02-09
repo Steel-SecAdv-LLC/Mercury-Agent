@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """FastAPI server for real-time anomaly detection.
 
 This module provides a REST API for multi-domain anomaly detection using
@@ -58,7 +57,6 @@ from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
 
-
 # Type alias for ASGI middleware call_next parameter
 RequestResponseEndpoint = Callable[[Request], Awaitable[Response]]
 
@@ -72,7 +70,6 @@ from omni_mercury_engine.validation.api_validators import (
     APIRequestValidator,
     ValidationConfig,
 )
-
 
 # Configure PII-masking logger
 logger = logging.getLogger(__name__)

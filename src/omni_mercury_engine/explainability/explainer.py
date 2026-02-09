@@ -51,7 +51,6 @@ from omni_mercury_engine.explainability.shap import (
     create_shap_explainer,
 )
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 

@@ -31,7 +31,6 @@ from scipy import stats
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 

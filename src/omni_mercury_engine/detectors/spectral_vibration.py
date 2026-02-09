@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Spectral Vibration Analysis Module for Mercury Agent.
 
@@ -59,7 +58,6 @@ from torch import nn
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.utils.constants import MathematicalConstants
-
 
 logger = logging.getLogger(__name__)
 

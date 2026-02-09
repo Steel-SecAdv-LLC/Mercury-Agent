@@ -38,7 +38,6 @@ import logging
 import secrets
 from typing import TYPE_CHECKING, Any, Literal
 
-
 logger = logging.getLogger(__name__)
 
 

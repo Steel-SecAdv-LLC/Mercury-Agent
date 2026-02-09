@@ -38,7 +38,6 @@ from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 

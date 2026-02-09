@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Mercury Voice - True Conversational Interface
 
@@ -44,7 +43,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -58,7 +56,6 @@ from omni_mercury_engine.narrative.retriever import (
     QueryIntent,
     SearchResponse,
 )
-
 
 logger = logging.getLogger(__name__)
 

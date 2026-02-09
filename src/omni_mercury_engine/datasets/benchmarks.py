@@ -24,7 +24,6 @@ import numpy as np
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, DatasetSplit
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 

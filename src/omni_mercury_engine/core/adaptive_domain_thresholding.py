@@ -35,7 +35,6 @@ from omni_mercury_engine.core.score_calibration import (
     ScoreDiagnostics,
 )
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 

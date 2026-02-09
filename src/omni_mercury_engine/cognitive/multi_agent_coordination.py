@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Multi-Agent Coordination Protocol for Mercury Agent.
 
@@ -51,7 +50,6 @@ from queue import Empty, Queue
 from typing import Any
 
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 

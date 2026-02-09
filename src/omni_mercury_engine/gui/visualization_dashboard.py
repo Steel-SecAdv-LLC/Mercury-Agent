@@ -29,7 +29,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
@@ -352,7 +351,8 @@ class AnomalyVisualizer:
         if labels is not None:
             for name, scores in detector_scores.items():
                 fpr, tpr = self._compute_roc(labels, scores)
-                auc = np.trapz(tpr, fpr)
+                _trapz = np.trapezoid if hasattr(np, "trapezoid") else np.trapz
+                auc = _trapz(tpr, fpr)
                 fig.add_trace(
                     go.Scatter(x=fpr, y=tpr, name=f"{name} (AUC={auc:.3f})", mode="lines"),
                     row=1,

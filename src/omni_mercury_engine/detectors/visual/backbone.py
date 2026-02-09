@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Feature extraction backbones for visual anomaly detection.
 
@@ -31,7 +30,6 @@ from typing import Any
 
 import torch
 from torch import nn
-
 
 logger = logging.getLogger(__name__)
 

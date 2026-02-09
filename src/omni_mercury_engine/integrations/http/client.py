@@ -41,7 +41,6 @@ from enum import Enum
 from typing import Any
 from urllib.parse import urljoin
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -305,7 +304,7 @@ class HTTPClient:
     def _get_circuit_breaker(self, endpoint: str) -> HTTPCircuitBreaker:
         """Get or create circuit breaker for endpoint."""
         # Create a key based on the endpoint pattern (ignore query params)
-        pattern = endpoint.split("?")[0]
+        pattern = endpoint.split("?", maxsplit=1)[0]
         # Use SHA-256 instead of MD5 for better security (non-cryptographic use for cache keys)
         pattern_hash = hashlib.sha256(pattern.encode()).hexdigest()[:8]
 

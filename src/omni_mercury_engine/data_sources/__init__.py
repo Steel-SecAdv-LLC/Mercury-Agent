@@ -64,7 +64,6 @@ from omni_mercury_engine.data_sources.space_weather import (
     SolarSystemOpenDataSource,
 )
 
-
 __all__ = [
     # Base types
     "AlertLevel",

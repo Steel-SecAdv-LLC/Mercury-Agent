@@ -17,7 +17,6 @@ import numpy as np
 
 from omni_mercury_engine.harmonics.transform import HarmonicCoefficients
 
-
 logger = logging.getLogger(__name__)
 
 

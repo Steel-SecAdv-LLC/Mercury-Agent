@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 LVLM Backend Cache with Pre-warming and Resource Management.
 
@@ -47,7 +46,6 @@ from typing import TYPE_CHECKING, Any
 import torch
 
 from .lvlm_backends import LVLMBackend, get_lvlm_backend
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable

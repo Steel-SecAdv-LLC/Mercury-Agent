@@ -27,7 +27,6 @@ from typing import Any
 
 import numpy as np
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -136,8 +135,9 @@ def _auc_roc_numpy(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) 
     tpr = tps / n_pos
     fpr = fps / n_neg
 
-    # Compute AUC using trapezoidal rule
-    auc = np.trapz(tpr, fpr)
+    # Compute AUC using trapezoidal rule (trapezoid in NumPy 2.0+)
+    _trapz = np.trapezoid if hasattr(np, "trapezoid") else np.trapz
+    auc = _trapz(tpr, fpr)
     return float(auc)
 
 

@@ -734,7 +734,7 @@ section-order = ["future", "standard-library", "third-party", "first-party", "lo
 force-wrap-aliases = true
 combine-as-imports = true
 split-on-trailing-comma = true
-lines-after-imports = 2
+lines-after-imports = -1
 
 # =============================================================================
 # Pydocstyle Configuration

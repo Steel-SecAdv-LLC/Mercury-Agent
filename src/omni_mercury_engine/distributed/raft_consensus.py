@@ -21,7 +21,6 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 

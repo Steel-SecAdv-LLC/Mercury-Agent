@@ -10,7 +10,6 @@ the Free Software Foundation, either version 3 of the License, or
 
 from __future__ import annotations
 
-
 """
 Knowledge Graph Engine - Production Implementation
 
@@ -39,7 +38,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy import sparse
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -1852,10 +1850,6 @@ class KnowledgeGraph:
                 if prop.domain:
                     subject_node = self._nodes.get(subject)
                     if subject_node:
-                        # Domain class URI computed for validation
-                        _subject_class = (
-                            f"{self.ontology.base_uri}class/{subject_node.node_type.value}"
-                        )
                         if prop.domain and not any(
                             self.ontology.is_subclass_of(
                                 subject_node.node_type.value,

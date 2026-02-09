@@ -21,7 +21,6 @@ from .multimodal_fusion import (
     create_fusion_optimizer,
 )
 
-
 __all__ = [
     "AdaptiveFusion",
     "AttentionFusion",

@@ -32,7 +32,6 @@ from hypothesis import (
 from hypothesis.extra.numpy import arrays
 from sklearn.linear_model import LogisticRegression
 
-
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from omni_mercury_engine.core.benevolence_optimization import (
@@ -64,7 +63,6 @@ from omni_mercury_engine.core.stacking_fusion import (
     EthicallyConstrainedFusion,
     StackingFusion,
 )
-
 
 # =============================================================================
 # Hypothesis Strategies

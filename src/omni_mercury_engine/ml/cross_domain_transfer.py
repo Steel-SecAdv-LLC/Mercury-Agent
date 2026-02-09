@@ -32,7 +32,6 @@ import numpy as np
 from scipy.linalg import sqrtm
 from scipy.spatial.distance import cdist
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 

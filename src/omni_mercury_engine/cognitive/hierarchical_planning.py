@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Hierarchical Planning Agent for Mercury Agent.
 
@@ -51,7 +50,6 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 
@@ -1400,7 +1398,7 @@ class AnomalyHierarchicalPlanner:
             strategic_goals = [
                 f"assess_{anomaly_type}_impact",
                 f"contain_{anomaly_type}_threat",
-                f"remediate_affected_systems",
+                "remediate_affected_systems",
             ]
 
             tactical_actions = []

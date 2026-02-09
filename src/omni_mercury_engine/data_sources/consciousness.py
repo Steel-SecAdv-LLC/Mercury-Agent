@@ -55,7 +55,6 @@ from omni_mercury_engine.data_sources.base import (
     RateLimitConfig,
 )
 
-
 logger = logging.getLogger(__name__)
 
 

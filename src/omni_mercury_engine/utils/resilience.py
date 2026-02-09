@@ -57,7 +57,6 @@ from datetime import datetime
 from enum import Enum, auto
 from typing import Any, TypeVar
 
-
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")

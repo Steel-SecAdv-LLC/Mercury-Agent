@@ -29,7 +29,6 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 

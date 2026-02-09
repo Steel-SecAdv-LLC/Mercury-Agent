@@ -29,7 +29,6 @@ from typing import Any
 
 import numpy as np
 
-
 logger = logging.getLogger(__name__)
 
 try:
@@ -52,7 +51,6 @@ from omni_mercury_engine.core.centralized_constants import (
     LYAPUNOV,
     MATH,
 )
-
 
 PHI: float = MATH.GOLDEN_RATIO
 LAMBDA_LYAPUNOV: float = LYAPUNOV.LAMBDA_CONVERGENCE
@@ -749,7 +747,6 @@ class LearnableGOSNN:
             }
 
         values = np.array(trajectory.values[-100:])
-        _timestamps = np.array(trajectory.timestamps[-100:])
 
         if len(values) >= 2:
             coeffs = np.polyfit(range(len(values)), values, 1)

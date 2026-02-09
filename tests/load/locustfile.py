@@ -31,7 +31,6 @@ import time
 
 from locust import HttpUser, between, events, tag, task
 
-
 # Configuration
 API_KEY = os.getenv("MERCURY_API_KEY", "")
 THINK_TIME_MIN = float(os.getenv("MERCURY_LOAD_TEST_THINK_TIME_MIN", "0.5"))

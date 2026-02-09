@@ -25,7 +25,6 @@ import logging
 import numpy as np
 import pytest
 
-
 # Optional torch import
 try:
     import torch

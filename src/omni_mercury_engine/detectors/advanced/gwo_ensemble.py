@@ -28,7 +28,6 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 

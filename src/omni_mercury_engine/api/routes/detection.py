@@ -17,7 +17,6 @@ from pydantic import BaseModel, Field
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
 from omni_mercury_engine.api.routes.export import record_detection
 
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/detect", tags=["Detection"])

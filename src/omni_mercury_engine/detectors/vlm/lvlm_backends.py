@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 LVLM Backend implementations for anomaly detection.
 
@@ -43,7 +42,6 @@ from typing import Any
 import numpy as np
 import torch
 from PIL import Image
-
 
 logger = logging.getLogger(__name__)
 

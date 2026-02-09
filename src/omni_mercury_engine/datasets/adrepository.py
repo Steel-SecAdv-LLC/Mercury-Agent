@@ -31,7 +31,6 @@ from typing import TYPE_CHECKING, Any, TypedDict
 
 import numpy as np
 
-
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -58,7 +57,6 @@ class ODDSDatasetInfo(TypedDict, total=False):
 
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, safe_urlretrieve
-
 
 logger = logging.getLogger(__name__)
 

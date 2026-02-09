@@ -22,7 +22,6 @@ from omni_mercury_engine.distributed.raft_consensus import (
     create_cluster_configs,
 )
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 

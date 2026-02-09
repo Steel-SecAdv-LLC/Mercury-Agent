@@ -31,7 +31,6 @@ import numpy as np
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 
-
 try:
     import pandas as pd
 

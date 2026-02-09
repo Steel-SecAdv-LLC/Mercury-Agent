@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Recursion-Resonance-Refactoring (3R) Mechanism
 Adaptive enhancement system using self-referential processing,
@@ -69,7 +68,6 @@ from omni_mercury_engine.core.three_r.types import (
 )
 from omni_mercury_engine.utils.constants import MathematicalConstants
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -1702,7 +1700,16 @@ class RefactoringEngine:
             complexity = self.analyze_function_complexity(func)
 
             import numpy as np
-            from scipy.special import sph_harm
+
+            # SciPy 1.14+ removed sph_harm, use sph_harm_y instead
+            try:
+                from scipy.special import sph_harm_y
+
+                def sph_harm(m: int, n: int, phi: float, theta: float) -> complex:
+                    return complex(sph_harm_y(n, m, theta, phi))
+
+            except ImportError:
+                from scipy.special import sph_harm  # type: ignore[attr-defined,no-redef]
 
             metrics = np.array(
                 [

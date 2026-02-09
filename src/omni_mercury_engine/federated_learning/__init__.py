@@ -56,7 +56,6 @@ from omni_mercury_engine.federated_learning.server import (
     TrainingResult,
 )
 
-
 __all__ = [
     # Server
     "AggregationStrategy",

@@ -10,7 +10,6 @@ the Free Software Foundation, either version 3 of the License, or
 
 from __future__ import annotations
 
-
 """
 Uncertainty Quantification Module - Production Implementation
 
@@ -37,7 +36,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy import optimize
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable

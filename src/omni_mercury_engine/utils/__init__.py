@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Utilities subpackage
 Enhanced with Black Hole Engine compression and gravitational lensing utilities
@@ -29,14 +28,13 @@ from typing import Any, Union
 
 import numpy as np
 
-
 # Make torch optional to support environments without ML dependencies
 try:
     import torch
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None  # type: ignore[assignment]
+    torch = None
     TORCH_AVAILABLE = False
 
 from omni_mercury_engine.utils.comm import AsyncMessageQueue, Message, MessagePriority, SimplePubSub
@@ -106,7 +104,7 @@ def normalize_data(
     is_torch = TORCH_AVAILABLE and torch is not None and isinstance(data, torch.Tensor)
 
     if is_torch:
-        data_np = data.cpu().numpy()  # type: ignore[union-attr]
+        data_np = data.cpu().numpy()
     else:
         data_np = data
 

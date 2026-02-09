@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Core anomaly detection metrics.
 
@@ -33,7 +32,6 @@ import numpy as np
 from scipy.ndimage import label as connected_components
 
 from omni_mercury_engine.core.config import ThresholdConfig
-
 
 logger = logging.getLogger(__name__)
 
@@ -358,8 +356,9 @@ def compute_pro(
     # Normalize FPR to [0, 1] within integration limit
     fprs_norm = fprs_valid / integration_limit
 
-    # Compute AUC
-    pro_auc = np.trapz(pros_valid, fprs_norm)
+    # Compute AUC (trapezoid in NumPy 2.0+)
+    _trapz = np.trapezoid if hasattr(np, "trapezoid") else np.trapz
+    pro_auc = _trapz(pros_valid, fprs_norm)
 
     return float(pro_auc)
 

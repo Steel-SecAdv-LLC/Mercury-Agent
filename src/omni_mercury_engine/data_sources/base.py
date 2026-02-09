@@ -42,7 +42,6 @@ import numpy as np
 
 from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker, CircuitState
 
-
 logger = logging.getLogger(__name__)
 
 

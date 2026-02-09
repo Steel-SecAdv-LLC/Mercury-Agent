@@ -59,7 +59,6 @@ from omni_mercury_engine.detectors.advanced.point_adjustment import (
     find_anomaly_segments,
 )
 
-
 # Type alias for detector types
 DetectorType = Literal["timeseries", "industrial", "contrastive", "copod", "ensemble", "fast"]
 

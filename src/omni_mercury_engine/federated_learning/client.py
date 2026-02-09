@@ -26,7 +26,6 @@ from omni_mercury_engine.federated_learning.privacy import (
     PrivacyReport,
 )
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 

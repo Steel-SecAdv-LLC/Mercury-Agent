@@ -26,7 +26,6 @@ from typing import Any
 
 import numpy as np
 
-
 try:
     import pandas as pd
 
@@ -38,7 +37,6 @@ except ImportError:
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
-
 
 logger = logging.getLogger(__name__)
 

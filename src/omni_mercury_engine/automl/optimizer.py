@@ -38,7 +38,6 @@ from omni_mercury_engine.automl.search_space import (
     UniformParameter,
 )
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Training utilities for fusion model using PyTorch Lightning
 Enhanced with Ava Equation state evolution optimizers
@@ -34,7 +33,6 @@ from torch.optim import lr_scheduler
 from torch.utils.data import Dataset
 
 from omni_mercury_engine.ml.fusion_network import OmniFusionModel
-
 
 # pytorch_lightning is optional - gracefully degrade when not available
 try:

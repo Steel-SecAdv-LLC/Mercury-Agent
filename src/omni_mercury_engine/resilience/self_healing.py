@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Unified Self-Healing Engine for Autonomous Error Recovery and Adaptive Defense
 
@@ -45,7 +44,6 @@ import numpy.typing as npt
 
 from omni_mercury_engine.core.config import ThresholdConfig
 from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker
-
 
 # Centralized thresholds for consistent behavior
 _thresholds = ThresholdConfig()

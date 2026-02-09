@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Global Omni-Scalar Network (GOSNN) - Intelligence Fusion Hub
 
@@ -65,7 +64,6 @@ from omni_mercury_engine.core.centralized_constants import (
     LYAPUNOV,
     MATH,
 )
-
 
 # Golden ratio constant for triadic harmony and phi-weighting
 # P2: Now references centralized constant

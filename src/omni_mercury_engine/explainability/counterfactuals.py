@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from scipy.optimize import minimize
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 

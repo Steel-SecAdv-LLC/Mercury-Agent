@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Base classes for visual anomaly detection.
 
@@ -35,7 +34,6 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
-
 
 if TYPE_CHECKING:
     from omni_mercury_engine.core.base import DetectorMetrics

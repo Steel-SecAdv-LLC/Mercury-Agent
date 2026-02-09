@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Main OmniMercuryEngine orchestrating all detectors and models.
 
 This module provides the core anomaly detection engine that integrates
@@ -122,7 +121,6 @@ from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 from omni_mercury_engine.ml.inference import FusionInference
 from omni_mercury_engine.ml.optimization import OptimizationConfig, ParallelExecutor
 from omni_mercury_engine.utils.logging import LoggerMixin
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator

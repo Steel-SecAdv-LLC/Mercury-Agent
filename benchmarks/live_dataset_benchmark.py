@@ -251,7 +251,7 @@ class LiveDatasetBenchmarkRunner:
             return X, y, metadata
 
         except Exception as e:
-            metadata["warnings"].append(f"Load error: {str(e)}")
+            metadata["warnings"].append(f"Load error: {e!s}")
             logger.warning(f"Failed to load {dataset_name}: {e}")
             return None, None, metadata
 
@@ -463,7 +463,7 @@ class LiveDatasetBenchmarkRunner:
         print(f"Total Time: {result.total_time_seconds:.1f}s")
         print("-" * 80)
 
-        print(f"\nDATASET COVERAGE:")
+        print("\nDATASET COVERAGE:")
         print(f"  Total Datasets: {result.total_datasets}")
         print(f"  Successful: {result.successful_datasets}")
         print(f"  Failed: {result.failed_datasets}")
@@ -471,7 +471,7 @@ class LiveDatasetBenchmarkRunner:
         live_count = sum(1 for v in result.live_data_coverage.values() if v)
         print(f"  Live Data: {live_count}/{len(result.live_data_coverage)}")
 
-        print(f"\nAGGREGATE METRICS:")
+        print("\nAGGREGATE METRICS:")
         print(f"  Mean ROC-AUC: {result.mean_roc_auc:.4f}")
         print(f"  Mean PR-AUC:  {result.mean_pr_auc:.4f}")
         print(f"  Mean F1:      {result.mean_f1:.4f} (std: {result.std_f1:.4f})")

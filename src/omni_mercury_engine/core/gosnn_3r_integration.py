@@ -41,7 +41,6 @@ from omni_mercury_engine.core.three_r.types import (
     AnomalyFusionResult,
 )
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 

@@ -36,7 +36,6 @@ from omni_mercury_engine.integrations.routing.fallback import (
 )
 from omni_mercury_engine.integrations.routing.router import RequestRouter, Route, RouteMatch
 
-
 __all__ = [
     "AVA_GUARDIAN_AVAILABLE",
     "DILITHIUM_AVAILABLE",

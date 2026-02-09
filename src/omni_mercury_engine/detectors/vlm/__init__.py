@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Vision-Language Model (VLM) Anomaly Detection Module
 
@@ -79,7 +78,6 @@ from omni_mercury_engine.detectors.vlm.lvlm_cache import (
     get_cached_backend,
     prewarm_backend,
 )
-
 
 __all__ = [
     # Detectors

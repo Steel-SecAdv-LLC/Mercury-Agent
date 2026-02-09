@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Basic integration tests for omnidisciplinary modules"""
 
 import numpy as np
