@@ -45,8 +45,8 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None
-    nn = None
+    torch = None  # type: ignore[assignment, unused-ignore]
+    nn = None  # type: ignore[assignment, unused-ignore]
 
 # Optional SHAP import
 try:
@@ -586,8 +586,8 @@ class IntegratedGradientsExplainer(BaseExplainer):
                 grad = torch.autograd.grad(output.sum(), interpolated)[0]
                 gradients.append(grad.detach().numpy())
             else:
-                grad = self._numerical_gradient(model, interpolated.detach().numpy())
-                gradients.append(grad)
+                grad = self._numerical_gradient(model, interpolated.detach().numpy())  # type: ignore[assignment, unused-ignore]
+                gradients.append(grad)  # type: ignore[arg-type, unused-ignore]
 
         avg_gradients = np.mean(gradients, axis=0)
         attributions = (instance - baseline) * avg_gradients

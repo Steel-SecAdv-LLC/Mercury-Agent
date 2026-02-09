@@ -178,13 +178,13 @@ class NABLoader(DatasetLoader):
                 all_features.extend(features)
                 all_labels.extend(labels)
 
-        features = np.array(all_features, dtype=np.float32)
-        labels = np.array(all_labels, dtype=np.int64)
+        features = np.array(all_features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
+        labels = np.array(all_labels, dtype=np.int64)  # type: ignore[assignment, unused-ignore]
 
         logger.info(f"Loaded {len(features)} NAB samples")
-        logger.info(f"  Anomalies: {labels.sum()}")
+        logger.info(f"  Anomalies: {labels.sum()}")  # type: ignore[attr-defined, unused-ignore]
 
-        return features, labels
+        return features, labels  # type: ignore[return-value, unused-ignore]
 
     def _parse_nab_file(
         self, filepath: Path, anomaly_windows: dict[str, Any]

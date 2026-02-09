@@ -697,7 +697,7 @@ class ConsensusProtocol:
             # No consensus - default to anomaly for safety
             final_decision = any(decisions)
             agreement_ratio = max(decisions.count(True), decisions.count(False)) / len(decisions)
-            confidence = 0.5
+            confidence = 0.5  # type: ignore[assignment, unused-ignore]
             dissenting = [r.agent_id for r in results if r.is_anomaly != final_decision]
 
         return ConsensusResult(

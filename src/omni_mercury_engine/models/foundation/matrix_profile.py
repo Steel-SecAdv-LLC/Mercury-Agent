@@ -256,7 +256,7 @@ class MatrixProfileDetector(BaseFoundationModel):
             # Apply exclusion zone
             start = max(0, idx - exclusion_zone)
             end = min(len(mp_copy), idx + exclusion_zone + 1)
-            mp_copy[start:end] = -np.inf
+            mp_copy[start:end] = -np.inf  # type: ignore[misc, unused-ignore]
 
         return discords
 
@@ -511,7 +511,7 @@ class MatrixProfileDetector(BaseFoundationModel):
             if n <= max_candidates:
                 candidates = range(n)
             else:
-                candidates = np.linspace(0, n - 1, max_candidates, dtype=int)
+                candidates = np.linspace(0, n - 1, max_candidates, dtype=int)  # type: ignore[assignment, unused-ignore]
 
             for j in candidates:
                 if abs(i - j) <= window_size // 2:

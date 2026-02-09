@@ -216,7 +216,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
 
         # Apply ImageNet normalization
         images = images.to(self.device)
-        images = (images - self._norm_mean) / self._norm_std
+        images = (images - self._norm_mean) / self._norm_std  # type: ignore[operator, unused-ignore]
 
         return images
 

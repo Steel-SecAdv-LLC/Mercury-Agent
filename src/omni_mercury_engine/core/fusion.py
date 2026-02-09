@@ -326,7 +326,7 @@ class SparseTopKAttention(nn.Module):
 
         if return_attention:
             return out, attn_weights
-        return out
+        return out  # type: ignore[no-any-return, unused-ignore]
 
 
 class UncertaintyWeightedFusion(nn.Module):
@@ -1424,7 +1424,7 @@ class DoubleHelixEvolutionEngine:
     def _term_inf_b(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """∞_b: Asymptotic clip (bound divergences)."""
         bound = 10.0
-        return self.np.clip(state, -bound, bound)
+        return self.np.clip(state, -bound, bound)  # type: ignore[no-any-return, unused-ignore]
 
     def _term_Omega(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """

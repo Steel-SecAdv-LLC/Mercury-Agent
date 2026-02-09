@@ -380,8 +380,8 @@ class RealWorldBenchmarkSuite:
             baseline_name=baseline_name,
             improvement_vs_baseline=improvements,
             statistical_tests=stat_tests,
-            overall_f1=overall_f1,
-            overall_improvement=overall_improvement,
+            overall_f1=overall_f1,  # type: ignore[arg-type, unused-ignore]
+            overall_improvement=overall_improvement,  # type: ignore[arg-type, unused-ignore]
         )
 
     def _calculate_metrics(
@@ -613,7 +613,7 @@ def isolation_forest_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any,
         clf = IsolationForest(random_state=42, contamination=0.1)
         clf.fit(features)
         scores = -clf.score_samples(features)  # Higher = more anomalous
-        return (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
+        return (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)  # type: ignore[no-any-return, unused-ignore]
     except ImportError:
         return random_baseline(features)
 
@@ -626,6 +626,6 @@ def one_class_svm_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, An
         clf = OneClassSVM(nu=0.1, kernel="rbf", gamma="auto")
         clf.fit(features[: min(1000, len(features))])  # Limit for speed
         scores = -clf.score_samples(features)
-        return (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
+        return (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)  # type: ignore[no-any-return, unused-ignore]
     except ImportError:
         return random_baseline(features)

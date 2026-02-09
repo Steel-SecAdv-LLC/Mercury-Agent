@@ -264,11 +264,11 @@ class BaseFoundationModel(BaseModel):
             feat = self._compute_feature_statistics(series, results)
             features.append(feat)
 
-        features = np.stack(features)
+        features = np.stack(features)  # type: ignore[assignment, unused-ignore]
 
         # Pad to 128D if needed
-        if features.shape[1] < 128:
-            features = np.pad(features, ((0, 0), (0, 128 - features.shape[1])))
+        if features.shape[1] < 128:  # type: ignore[attr-defined, unused-ignore]
+            features = np.pad(features, ((0, 0), (0, 128 - features.shape[1])))  # type: ignore[assignment, attr-defined, unused-ignore]
 
         return torch.from_numpy(features).float()
 

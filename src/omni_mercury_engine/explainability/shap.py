@@ -90,7 +90,7 @@ class GlobalExplanation:
     base_value: float
     feature_names: list[str] | None
     data: np.ndarray
-    mean_abs_shap: np.ndarray = field(default=None)
+    mean_abs_shap: np.ndarray = field(default=None)  # type: ignore[arg-type, unused-ignore]
 
     def __post_init__(self) -> None:
         """Compute mean absolute SHAP values."""

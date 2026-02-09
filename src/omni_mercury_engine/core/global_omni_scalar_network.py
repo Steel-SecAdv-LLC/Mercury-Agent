@@ -85,8 +85,8 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None
-    nn = None
+    torch = None  # type: ignore[assignment, unused-ignore]
+    nn = None  # type: ignore[assignment, unused-ignore]
 
 
 class ScalarGroup(Enum):
@@ -155,7 +155,7 @@ class EthicalGate:
                 nn.Sigmoid(),
             )
         else:
-            self.gate_network = None
+            self.gate_network = None  # type: ignore[assignment, unused-ignore]
 
     def evaluate(self, scalar_vector: np.ndarray[Any, Any]) -> tuple[bool, float]:
         """
@@ -266,7 +266,7 @@ class TriadicPhiWeighting:
             # Fallback: apply mean weight
             weighted = attention_scores * np.mean(self.head_weights)
 
-        return weighted
+        return weighted  # type: ignore[no-any-return, unused-ignore]
 
     def compute_harmonic_synergy(self, attention_output: np.ndarray[Any, Any]) -> float:
         """Compute harmonic synergy score from attention output.
@@ -346,9 +346,9 @@ class MultiHeadAttentionFusion:
             self.projection = nn.Linear(max_dimensions, d_model)
             self.output_projection = nn.Linear(d_model, max_dimensions)
         else:
-            self.attention = None
-            self.projection = None
-            self.output_projection = None
+            self.attention = None  # type: ignore[assignment, unused-ignore]
+            self.projection = None  # type: ignore[assignment, unused-ignore]
+            self.output_projection = None  # type: ignore[assignment, unused-ignore]
 
     def fuse(
         self, dimensional_states: list[np.ndarray[Any, Any]], return_synergy: bool = False
@@ -926,7 +926,7 @@ class GlobalOmniScalarNetwork:
         Returns:
             Fused 37D state vector
         """
-        return self.attention_fusion.fuse(dimensional_states)
+        return self.attention_fusion.fuse(dimensional_states)  # type: ignore[return-value, unused-ignore]
 
     def compute_global_intelligence_score(self) -> float:
         """

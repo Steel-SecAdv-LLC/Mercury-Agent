@@ -117,7 +117,7 @@ class PriorAssociation(nn.Module):
             positions = torch.arange(seq_len, dtype=torch.float32, device=device)
             distances = (positions.unsqueeze(0) - positions.unsqueeze(1)) ** 2
         else:
-            distances = self.distance_matrix[:seq_len, :seq_len]
+            distances = self.distance_matrix[:seq_len, :seq_len]  # type: ignore[index, unused-ignore]
             if device is not None:
                 distances = distances.to(device)
 
@@ -493,9 +493,9 @@ class AnomalyTransformerEncoder(nn.Module):
         if threshold is None:
             mean_score = anomaly_score.mean()
             std_score = anomaly_score.std()
-            threshold = mean_score + 3 * std_score
+            threshold = mean_score + 3 * std_score  # type: ignore[assignment, unused-ignore]
 
-        predictions = (anomaly_score > threshold).float()
+        predictions = (anomaly_score > threshold).float()  # type: ignore[operator, unused-ignore]
 
         return {
             "anomaly_score": anomaly_score,
@@ -574,7 +574,7 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Add positional encoding to input."""
-        x = x + self.pe[:, : x.size(1), :]
+        x = x + self.pe[:, : x.size(1), :]  # type: ignore[index, unused-ignore]
         return self.dropout(x)
 
 

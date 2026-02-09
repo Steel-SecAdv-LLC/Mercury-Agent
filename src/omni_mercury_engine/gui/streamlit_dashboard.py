@@ -173,7 +173,7 @@ def cardiology_interface() -> None:
                     else rng.randn(12, 1000)
                 )
 
-            patient_data["biomarkers"] = {
+            patient_data["biomarkers"] = {  # type: ignore[assignment, unused-ignore]
                 "troponin_i_ng_ml": troponin,
                 "bnp_pg_ml": bnp,
                 "ck_mb_ng_ml": ck_mb,
@@ -1090,7 +1090,7 @@ def load_file_data(uploaded_file: Any) -> np.ndarray[Any, Any] | None:
             return np.array([data])
         elif uploaded_file.name.endswith(".csv"):
             df = pd.read_csv(uploaded_file)
-            return df.values
+            return df.values  # type: ignore[no-any-return, unused-ignore]
         else:
             st.error("Unsupported file format")
             return None

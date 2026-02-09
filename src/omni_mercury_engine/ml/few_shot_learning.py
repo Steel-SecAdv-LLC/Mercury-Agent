@@ -48,8 +48,8 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None
-    nn = None
+    torch = None  # type: ignore[assignment, unused-ignore]
+    nn = None  # type: ignore[assignment, unused-ignore]
 
 
 class FewShotMethod(StrEnum):
@@ -317,8 +317,8 @@ class EpisodeGenerator:
                 valid_classes, size=self.n_way, replace=False
             ).tolist()
 
-            support_indices = []
-            query_indices = []
+            support_indices = []  # type: ignore[var-annotated, unused-ignore]
+            query_indices = []  # type: ignore[var-annotated, unused-ignore]
 
             for cls in episode_classes:
                 indices = class_indices[cls]
@@ -387,8 +387,8 @@ class EpisodeGenerator:
 
             for trial_id in range(n_trials):
                 # Create single large episode with k_per_class support samples
-                support_indices = []
-                query_indices = []
+                support_indices = []  # type: ignore[var-annotated, unused-ignore]
+                query_indices = []  # type: ignore[var-annotated, unused-ignore]
 
                 class_indices: dict[int, NDArray[np.int64]] = {}
                 for cls in unique_classes:
@@ -1379,8 +1379,8 @@ class FewShotLearner:
             all_true.extend(episode.query_y.tolist())
 
         # Aggregate metrics
-        all_preds = np.array(all_preds)
-        all_true = np.array(all_true)
+        all_preds = np.array(all_preds)  # type: ignore[assignment, unused-ignore]
+        all_true = np.array(all_true)  # type: ignore[assignment, unused-ignore]
 
         # Handle binary classification
         avg_precision = 0.0

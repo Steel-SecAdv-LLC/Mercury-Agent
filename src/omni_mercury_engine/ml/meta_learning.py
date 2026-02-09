@@ -59,9 +59,9 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None
-    nn = None
-    F = None
+    torch = None  # type: ignore[assignment, unused-ignore]
+    nn = None  # type: ignore[assignment, unused-ignore]
+    F = None  # type: ignore[assignment, unused-ignore]
 
 
 logger = logging.getLogger(__name__)
@@ -302,8 +302,8 @@ if TORCH_AVAILABLE:
 
             for i in range(len(dims) - 1):
                 layers.append(nn.Linear(dims[i], dims[i + 1]))
-                layers.append(nn.ReLU())
-                layers.append(nn.Dropout(dropout))
+                layers.append(nn.ReLU())  # type: ignore[arg-type, unused-ignore]
+                layers.append(nn.Dropout(dropout))  # type: ignore[arg-type, unused-ignore]
 
             layers.append(nn.Linear(dims[-1], embedding_dim))
 
@@ -811,14 +811,14 @@ class MAML:
         """
         # Array-based API (test expectation)
         if support_y is not None:
-            self._adapted_params = self.inner_loop_adapt(support_x_or_task, support_y)
+            self._adapted_params = self.inner_loop_adapt(support_x_or_task, support_y)  # type: ignore[arg-type, unused-ignore]
             return None
 
         # Task-based API (original implementation)
         task = support_x_or_task
         start_time = time.time()
 
-        X_query, y_query = task.get_query_arrays()
+        X_query, y_query = task.get_query_arrays()  # type: ignore[union-attr, unused-ignore]
 
         # Pre-adaptation evaluation
         pre_loss, pre_probs = self._compute_loss(X_query, y_query, self.params)
@@ -826,7 +826,7 @@ class MAML:
         pre_acc = (pre_preds == y_query).mean()
 
         # Inner loop adaptation
-        adapted_params = self._inner_loop(task, self.params)
+        adapted_params = self._inner_loop(task, self.params)  # type: ignore[arg-type, unused-ignore]
         self._adapted_params = adapted_params
 
         # Post-adaptation evaluation
@@ -842,7 +842,7 @@ class MAML:
         ) / n
 
         return AdaptationResult(
-            task_id=task.task_id,
+            task_id=task.task_id,  # type: ignore[union-attr, unused-ignore]
             pre_adaptation_loss=pre_loss,
             post_adaptation_loss=post_loss,
             pre_adaptation_accuracy=float(pre_acc),
@@ -1466,8 +1466,8 @@ class MetaLearningAdapter:
                         for f in features:
                             support_x.append(f)
                             support_y.append(idx)
-                    support_x = np.array(support_x)
-                    support_y = np.array(support_y)
+                    support_x = np.array(support_x)  # type: ignore[assignment, unused-ignore]
+                    support_y = np.array(support_y)  # type: ignore[assignment, unused-ignore]
 
                     query_x, query_y = [], []
                     for idx, (class_name, features) in enumerate(query_dict.items()):
@@ -1476,8 +1476,8 @@ class MetaLearningAdapter:
                         for f in features:
                             query_x.append(f)
                             query_y.append(idx)
-                    query_x = np.array(query_x) if query_x else support_x
-                    query_y = np.array(query_y) if query_y else support_y
+                    query_x = np.array(query_x) if query_x else support_x  # type: ignore[assignment, unused-ignore]
+                    query_y = np.array(query_y) if query_y else support_y  # type: ignore[assignment, unused-ignore]
                 else:
                     # Array-based format
                     support_x = task_dict["support_x"]
@@ -1495,7 +1495,7 @@ class MetaLearningAdapter:
                     loss = self._learner.meta_step([converted_task])
                     epoch_loss += loss
                 elif isinstance(self._learner, Reptile):
-                    loss = self._learner.meta_update(support_x, support_y)
+                    loss = self._learner.meta_update(support_x, support_y)  # type: ignore[arg-type, unused-ignore]
                     epoch_loss += loss
                 elif isinstance(self._learner, PrototypicalNetworks):
                     # For prototypical networks, fit on support set
@@ -1510,8 +1510,8 @@ class MetaLearningAdapter:
                                 support_dict_conv[label] = []
                             support_dict_conv[label].append(support_x[i])
                         for key in support_dict_conv:
-                            support_dict_conv[key] = np.array(support_dict_conv[key])
-                        self._learner.fit(support_dict_conv)
+                            support_dict_conv[key] = np.array(support_dict_conv[key])  # type: ignore[assignment, unused-ignore]
+                        self._learner.fit(support_dict_conv)  # type: ignore[arg-type, unused-ignore]
 
             losses.append(epoch_loss / max(len(tasks), 1))
 
@@ -1569,12 +1569,12 @@ class MetaLearningAdapter:
                 for f in features:
                     support_x.append(f)
                     support_y.append(idx)
-            support_x = np.array(support_x)
-            support_y = np.array(support_y)
+            support_x = np.array(support_x)  # type: ignore[assignment, unused-ignore]
+            support_y = np.array(support_y)  # type: ignore[assignment, unused-ignore]
             if isinstance(self._learner, MAML):
-                self._learner.adapt(support_x, support_y)
+                self._learner.adapt(support_x, support_y)  # type: ignore[arg-type, unused-ignore]
             else:
-                self._learner.task_training(support_x, support_y)
+                self._learner.task_training(support_x, support_y)  # type: ignore[arg-type, unused-ignore]
         self._class_names = list(support_set.keys())
 
     def predict_class_names(
@@ -1642,7 +1642,7 @@ class MetaLearningAdapter:
             data = np.array(all_data)
             labels = np.array(all_labels)
 
-        unique_classes = np.unique(labels)
+        unique_classes = np.unique(labels)  # type: ignore[arg-type, unused-ignore]
         episodes = []
 
         for _ in range(n_episodes):
@@ -1749,8 +1749,8 @@ class MetaLearningAdapter:
                         support_dict[label] = []
                     support_dict[label].append(support_x[i])
                 for key in support_dict:
-                    support_dict[key] = np.array(support_dict[key])
-                self._learner.fit(support_dict)
+                    support_dict[key] = np.array(support_dict[key])  # type: ignore[assignment, unused-ignore]
+                self._learner.fit(support_dict)  # type: ignore[arg-type, unused-ignore]
 
                 # Predict
                 results = self._learner.batch_classify(query_x)
@@ -1759,7 +1759,7 @@ class MetaLearningAdapter:
                 accuracies.append(accuracy)
             elif isinstance(self._learner, MAML):
                 self._learner.adapt(support_x, support_y)
-                preds = self._learner.predict(query_x)
+                preds = self._learner.predict(query_x)  # type: ignore[assignment, unused-ignore]
                 accuracy = float((preds == query_y).mean())
                 accuracies.append(accuracy)
             elif isinstance(self._learner, Reptile):

@@ -45,8 +45,8 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None
-    nn = None
+    torch = None  # type: ignore[assignment, unused-ignore]
+    nn = None  # type: ignore[assignment, unused-ignore]
 
 try:
     from sklearn.metrics import (
@@ -887,7 +887,7 @@ class DANNAdapter(BaseDomainAdapter):
             self.b_label -= self.learning_rate * db_label
             self.W_domain -= self.learning_rate * dW_domain
             self.b_domain -= self.learning_rate * db_domain
-            self.W_feat -= self.learning_rate * dW_feat
+            self.W_feat -= self.learning_rate * dW_feat  # type: ignore[operator, unused-ignore]
             self.b_feat -= self.learning_rate * db_feat
 
     def transform(self, X: NDArray[np.float64], domain: str = "target") -> NDArray[np.float64]:
@@ -1228,7 +1228,7 @@ class TCAAdapter(BaseDomainAdapter):
             raise ValueError("Adapter not fitted")
 
         # Compute kernel with training data
-        train_data = np.vstack([self.source_data, self.target_data])
+        train_data = np.vstack([self.source_data, self.target_data])  # type: ignore[list-item, unused-ignore]
         K_new = self._compute_kernel(X, train_data)
         return K_new @ self.transformation
 

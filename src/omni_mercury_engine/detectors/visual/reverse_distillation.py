@@ -351,7 +351,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
                         total_loss = total_loss + loss
 
                 optimizer.zero_grad()
-                total_loss.backward()
+                total_loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
                 optimizer.step()
 
                 epoch_loss += total_loss.item()

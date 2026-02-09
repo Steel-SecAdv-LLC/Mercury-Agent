@@ -607,7 +607,7 @@ class PhononInteractionNetwork(nn.Module):
 
         # Anharmonicity score (deviation from harmonic behavior)
         off_diagonal_mean = (
-            coupling_matrix[~torch.eye(num_active_modes, dtype=bool, device=mode_amplitudes.device)]
+            coupling_matrix[~torch.eye(num_active_modes, dtype=bool, device=mode_amplitudes.device)]  # type: ignore[call-overload, unused-ignore]
             .abs()
             .mean()
         )
@@ -1382,7 +1382,7 @@ class SpectralVibrationDetector(BaseDetector):
             if idx > 0 and idx < len(spectrum) - 1:
                 # Interpolate value at exact Schumann frequency
                 local_max = max(spectrum[idx - 1], spectrum[idx], spectrum[idx + 1])
-                local_mean = np.mean(spectrum[max(0, idx - 5) : min(len(spectrum), idx + 6)])
+                local_mean = np.mean(spectrum[max(0, idx - 5) : min(len(spectrum), idx + 6)])  # type: ignore[misc, unused-ignore]
 
                 # Score based on peak prominence
                 if local_mean > 0:
@@ -1394,7 +1394,7 @@ class SpectralVibrationDetector(BaseDetector):
 
         # Weight by golden ratio (higher weight to fundamental)
         weights = [PHI ** (-i) for i in range(len(alignment_scores))]
-        weights = np.array(weights) / sum(weights)
+        weights = np.array(weights) / sum(weights)  # type: ignore[assignment, unused-ignore]
 
         return float(np.average(alignment_scores, weights=weights))
 

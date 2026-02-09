@@ -710,7 +710,7 @@ class VoiceActivityDetector:
         silence_frames = energy < threshold * 0.5
         if np.sum(silence_frames) > n_frames * 0.1:
             noise_level = np.mean(energy[silence_frames])
-            threshold = max(self._energy_threshold, noise_level * 3)
+            threshold = max(self._energy_threshold, noise_level * 3)  # type: ignore[assignment, unused-ignore]
 
         vad = energy > threshold
 

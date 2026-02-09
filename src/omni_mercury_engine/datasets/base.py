@@ -440,7 +440,7 @@ class DatasetLoader(ABC):
 
         features, labels = self.load(split)
 
-        class TorchDataset(Dataset):
+        class TorchDataset(Dataset):  # type: ignore[type-arg, unused-ignore]
             def __init__(self, X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> None:
                 self.X = torch.FloatTensor(X)
                 self.y = torch.LongTensor(y)

@@ -45,9 +45,9 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None
-    nn = None
-    F = None
+    torch = None  # type: ignore[assignment, unused-ignore]
+    nn = None  # type: ignore[assignment, unused-ignore]
+    F = None  # type: ignore[assignment, unused-ignore]
 
 
 from omni_mercury_engine.core.three_r.types import (
@@ -154,7 +154,7 @@ if TORCH_AVAILABLE:
             raw_gate = self.gate_network(scores)
             scaled_gate = self.min_gate + raw_gate * (self.max_gate - self.min_gate)
 
-            return scaled_gate
+            return scaled_gate  # type: ignore[no-any-return, unused-ignore]
 
     class MultiScaleRecursion(nn.Module):
         """
@@ -567,8 +567,8 @@ class Learnable3REngine:
                 weight_decay=self.config.weight_decay,
             )
         else:
-            self.model = None
-            self.optimizer = None
+            self.model = None  # type: ignore[assignment, unused-ignore]
+            self.optimizer = None  # type: ignore[assignment, unused-ignore]
 
         self.training_history: list[float] = []
 
@@ -644,7 +644,7 @@ class Learnable3REngine:
 
         loss = F.mse_loss(prediction, target_tensor)
 
-        loss.backward()
+        loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
         self.optimizer.step()
 
         loss_value = float(loss.item())

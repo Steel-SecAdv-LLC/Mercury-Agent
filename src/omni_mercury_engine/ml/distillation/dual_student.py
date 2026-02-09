@@ -391,7 +391,7 @@ class DualStudentDistillation(nn.Module):
                 total_loss = loss1 + loss2
 
                 optimizer.zero_grad()
-                total_loss.backward()
+                total_loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
                 optimizer.step()
 
                 epoch_loss += total_loss.item()
