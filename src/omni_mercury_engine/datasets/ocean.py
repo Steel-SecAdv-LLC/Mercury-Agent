@@ -120,7 +120,7 @@ class NOAABuoyLoader(DatasetLoader):
         self.stations = config.preprocessing.get("stations", list(self.BUOY_STATIONS.keys())[:5])
         self.anomaly_std = config.preprocessing.get("anomaly_std", 3.0)
         self._features: np.ndarray | None = None
-        self._labels: np.ndarray | None = None
+        self._labels: np.ndarray | None = None  # type: ignore[assignment]
         self._is_real_data = False
 
     @property
@@ -165,7 +165,7 @@ class NOAABuoyLoader(DatasetLoader):
                         url,
                         headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},
                     )
-                    with urllib.request.urlopen(req, timeout=60) as response:
+                    with urllib.request.urlopen(req, timeout=60) as response:  # nosec B310
                         content = response.read().decode("utf-8")
 
                     # Parse the data (space-delimited, first row is header, second is units)

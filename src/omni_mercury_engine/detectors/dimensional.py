@@ -279,7 +279,7 @@ class DimensionalAnalyzer(BaseDetector):
             loss = nn.functional.mse_loss(reconstructed, data_tensor)
 
             optimizer.zero_grad()
-            loss.backward()
+            loss.backward()  # type: ignore[no-untyped-call]
             optimizer.step()
 
         if self.use_db_term:

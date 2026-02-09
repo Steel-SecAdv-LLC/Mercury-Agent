@@ -285,8 +285,8 @@ def generate_anomaly_detection_panel(results: dict[str, Any]) -> None:
     throughput = [10000, 4000, 2000]  # samples/sec
     latency = [10, 25, 50]  # ms
     ax6_twin = ax6.twinx()
-    bars = ax6.bar(configs, throughput, color=COLORS["primary"], alpha=0.7, label="Throughput")
-    line = ax6_twin.plot(
+    ax6.bar(configs, throughput, color=COLORS["primary"], alpha=0.7, label="Throughput")
+    ax6_twin.plot(
         configs, latency, color=COLORS["danger"], marker="o", linewidth=2, label="Latency"
     )
     ax6.set_ylabel("Throughput (samples/sec)", color=COLORS["primary"])
@@ -415,7 +415,7 @@ def generate_benchmark_summary(results: dict[str, Any]) -> None:
     ax2 = fig.add_subplot(gs[0, 1])
     modules = ["Core", "ML", "Detectors", "Medical", "Security", "Cognitive", "API"]
     coverage = [92, 88, 85, 82, 90, 78, 95]
-    bars = ax2.barh(modules, coverage, color=plt.cm.Greens(np.linspace(0.3, 0.9, len(modules))))
+    ax2.barh(modules, coverage, color=plt.cm.Greens(np.linspace(0.3, 0.9, len(modules))))
     ax2.axvline(x=85, color=COLORS["warning"], linestyle="--", label="Target (85%)")
     ax2.set_xlabel("Coverage %")
     ax2.set_title("Test Coverage by Module")
@@ -594,7 +594,6 @@ def generate_performance_dashboard(results: dict[str, Any]) -> None:
     )
 
     gs = GridSpec(3, 3, figure=fig, hspace=0.35, wspace=0.3)
-    metrics = results.get("final_metrics", {})
     epochs_data = results.get("epoch_summaries", [])
 
     # Panel 1: Benevolence Score Evolution

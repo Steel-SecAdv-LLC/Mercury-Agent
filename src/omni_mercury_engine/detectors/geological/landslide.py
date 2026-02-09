@@ -314,7 +314,7 @@ class RecursionMultiScaleAnalyzer:
             scale_scores.append(recursion_score * self._scale_weights[i])
 
         # Aggregate recursion score across scales
-        features["recursion_score"] = float(np.sum(scale_scores))
+        features["recursion_score"] = float(np.sum(scale_scores))  # type: ignore[assignment]
         features["scale_weights"] = self._scale_weights
 
         return features

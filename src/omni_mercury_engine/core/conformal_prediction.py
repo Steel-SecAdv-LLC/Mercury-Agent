@@ -219,7 +219,7 @@ class CrossConformalPredictor:
         """
         kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=self.seed)
 
-        all_scores = []
+        all_scores = []  # type: ignore[var-annotated]
         self.fold_thresholds = []
 
         for train_idx, cal_idx in kf.split(X):
@@ -464,8 +464,8 @@ class ConformalAnomalyDetector:
         try:
             proba = self.base_detector.predict_proba(X)
             if proba.ndim == 2:
-                return proba[:, 1]
-            return proba
+                return proba[:, 1]  # type: ignore[no-any-return]
+            return proba  # type: ignore[no-any-return]
         except (AttributeError, NotImplementedError):
             pass
 
@@ -473,7 +473,7 @@ class ConformalAnomalyDetector:
         try:
             decision = self.base_detector.decision_function(X)
             # Normalize to [0, 1] using sigmoid
-            return 1.0 / (1.0 + np.exp(-decision))
+            return 1.0 / (1.0 + np.exp(-decision))  # type: ignore[no-any-return]
         except (AttributeError, NotImplementedError):
             pass
 
@@ -485,7 +485,7 @@ class ConformalAnomalyDetector:
             min_score = np.min(scores)
             max_score = np.max(scores)
             if max_score > min_score:
-                return 1.0 - (scores - min_score) / (max_score - min_score)
+                return 1.0 - (scores - min_score) / (max_score - min_score)  # type: ignore[no-any-return]
             return np.full(len(scores), 0.5)
         except (AttributeError, NotImplementedError):
             pass
@@ -511,7 +511,7 @@ class ConformalAnomalyDetector:
                 scores = 0.3 + 0.4 * scores + 0.1 * np.random.rand(len(scores))
                 scores = np.clip(scores, 0.0, 1.0)
 
-            return scores
+            return scores  # type: ignore[no-any-return]
         except (AttributeError, NotImplementedError):
             pass
 
@@ -576,7 +576,7 @@ class ConformalAnomalyDetector:
         # Ensemble fusion (weighted average)
         ensemble_scores = 0.4 * z_anomaly + 0.35 * density_anomaly + 0.25 * percentile_anomaly
 
-        return np.clip(ensemble_scores, 0.0, 1.0)
+        return np.clip(ensemble_scores, 0.0, 1.0)  # type: ignore[no-any-return]
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -749,8 +749,8 @@ def _extract_detector_scores(detector: Any, X: np.ndarray) -> np.ndarray:
     try:
         proba = detector.predict_proba(X)
         if proba.ndim == 2:
-            return proba[:, 1]
-        return proba
+            return proba[:, 1]  # type: ignore[no-any-return]
+        return proba  # type: ignore[no-any-return]
     except (AttributeError, NotImplementedError):
         pass
 
@@ -758,7 +758,7 @@ def _extract_detector_scores(detector: Any, X: np.ndarray) -> np.ndarray:
     try:
         decision = detector.decision_function(X)
         # For most detectors, negative = anomaly, so negate
-        return 1.0 / (1.0 + np.exp(decision))  # Sigmoid to [0, 1]
+        return 1.0 / (1.0 + np.exp(decision))  # type: ignore[no-any-return]
     except (AttributeError, NotImplementedError):
         pass
 
@@ -768,7 +768,7 @@ def _extract_detector_scores(detector: Any, X: np.ndarray) -> np.ndarray:
         # Higher score_samples = more normal, invert for anomaly
         min_s, max_s = np.min(scores), np.max(scores)
         if max_s > min_s:
-            return 1.0 - (scores - min_s) / (max_s - min_s)
+            return 1.0 - (scores - min_s) / (max_s - min_s)  # type: ignore[no-any-return]
         return np.full(len(scores), 0.5)
     except (AttributeError, NotImplementedError):
         pass
@@ -791,7 +791,7 @@ def _extract_detector_scores(detector: Any, X: np.ndarray) -> np.ndarray:
             np.max(feature_std) - np.min(feature_std) + 1e-10
         )
         scores = scores + 0.1 * (feature_std_norm - 0.5)
-        return np.clip(scores, 0.0, 1.0)
+        return np.clip(scores, 0.0, 1.0)  # type: ignore[no-any-return]
     except (AttributeError, NotImplementedError):
         pass
 
@@ -849,4 +849,4 @@ def _compute_statistical_anomaly_scores(X: np.ndarray) -> np.ndarray:
     # Weighted ensemble
     ensemble_scores = 0.4 * z_anomaly + 0.35 * density_anomaly + 0.25 * percentile_anomaly
 
-    return np.clip(ensemble_scores, 0.0, 1.0)
+    return np.clip(ensemble_scores, 0.0, 1.0)  # type: ignore[no-any-return]

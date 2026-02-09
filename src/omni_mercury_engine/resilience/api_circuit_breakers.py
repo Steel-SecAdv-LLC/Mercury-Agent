@@ -67,7 +67,6 @@ class DataLoaderCircuitBreaker(CircuitBreaker):
         super().__init__(
             failure_threshold=3,
             recovery_timeout=30,
-            excluded_exceptions=(Exception,),
             enable_exponential_backoff=True,
             backoff_base=2.0,
             max_backoff_timeout=300.0,
@@ -92,7 +91,6 @@ class DetectorCircuitBreaker(CircuitBreaker):
         super().__init__(
             failure_threshold=5,
             recovery_timeout=60,
-            excluded_exceptions=(Exception,),
             enable_exponential_backoff=True,
             backoff_base=2.0,
             max_backoff_timeout=600.0,
@@ -117,7 +115,6 @@ class ExternalIntegrationCircuitBreaker(CircuitBreaker):
         super().__init__(
             failure_threshold=3,
             recovery_timeout=45,
-            excluded_exceptions=(Exception,),
             enable_exponential_backoff=True,
             backoff_base=2.0,
             max_backoff_timeout=900.0,

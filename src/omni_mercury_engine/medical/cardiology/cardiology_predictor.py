@@ -612,10 +612,10 @@ class CardiologyPredictor:
 
         probs = torch.softmax(classification[0], dim=0)
         rhythm_idx = torch.argmax(probs).item()
-        confidence = float(probs[rhythm_idx].item())
+        confidence = float(probs[rhythm_idx].item())  # type: ignore[index]
 
         arrhythmia_types = [e.value for e in ArrhythmiaType]
-        detected_rhythm = arrhythmia_types[rhythm_idx]
+        detected_rhythm = arrhythmia_types[rhythm_idx]  # type: ignore[index]
 
         anomalies = []
         if detected_rhythm != "normal_sinus_rhythm":

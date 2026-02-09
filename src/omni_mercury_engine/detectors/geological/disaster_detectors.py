@@ -531,7 +531,7 @@ class TsunamiDetector:
         for target_freq in self.tsunami_frequencies:
             idx = np.argmin(np.abs(freqs - target_freq))
             if idx < len(power_spectrum):
-                local_power = power_spectrum[max(0, idx - 2) : idx + 3].mean()
+                local_power = power_spectrum[max(0, idx - 2) : idx + 3].mean()  # type: ignore[misc]
                 global_power = power_spectrum.mean() + 1e-10
                 if local_power / global_power > 2.0:
                     resonance_score += 0.25
@@ -1664,7 +1664,7 @@ def load_dart_buoy_data(
 
         TrustedEndpoints.validate_url(DART_BUOY_API_URL)
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:
+        with urlopen(req, timeout=30) as response:  # nosec B310
             raw_data = response.read().decode()
 
         lines = raw_data.strip().split("\n")
@@ -1747,7 +1747,7 @@ def load_noaa_tsunami_records(
 
         TrustedEndpoints.validate_url(NOAA_TSUNAMI_API_URL)
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:
+        with urlopen(req, timeout=30) as response:  # nosec B310
             data = json.loads(response.read().decode())
 
         events: list[dict[str, Any]] = data.get("items", [])
@@ -1812,7 +1812,7 @@ def load_usgs_earthquake_catalog(
 
         TrustedEndpoints.validate_url(USGS_EARTHQUAKE_API_URL)
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:
+        with urlopen(req, timeout=30) as response:  # nosec B310
             data = json.loads(response.read().decode())
 
         features = data.get("features", [])
@@ -1982,7 +1982,7 @@ def load_nasa_fireball_data(
         # Validate URL before opening (SSRF protection via domain allowlist)
         TrustedEndpoints.validate_url(NASA_CNEOS_FIREBALL_URL)
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:
+        with urlopen(req, timeout=30) as response:  # nosec B310
             data = json.loads(response.read().decode())
 
         if "data" not in data or not data["data"]:
@@ -2090,7 +2090,7 @@ def load_nasa_close_approach_data(
 
         TrustedEndpoints.validate_url(NASA_CNEOS_CAD_URL)
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:
+        with urlopen(req, timeout=30) as response:  # nosec B310
             data = json.loads(response.read().decode())
 
         if "data" not in data or not data["data"]:
@@ -2168,7 +2168,7 @@ def load_nasa_sentry_data() -> list[SentryImpactRisk] | None:
 
         TrustedEndpoints.validate_url(NASA_SENTRY_URL)
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:
+        with urlopen(req, timeout=30) as response:  # nosec B310
             data = json.loads(response.read().decode())
 
         if "data" not in data or not data["data"]:

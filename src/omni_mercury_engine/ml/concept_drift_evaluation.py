@@ -606,7 +606,7 @@ class DegradationAnalyzer:
 
         # Check for outlier differences (sudden shifts)
         threshold = abs(mean_diff) + 3 * std_diff
-        return np.any(np.abs(diffs) > threshold)
+        return np.any(np.abs(diffs) > threshold)  # type: ignore[return-value]
 
     def _is_oscillating(self, performances: NDArray[np.float64]) -> bool:
         """Check for oscillating pattern."""
@@ -718,7 +718,7 @@ class DegradationAnalyzer:
             elif trend == DegradationTrend.LINEAR_DECLINE:
                 # Linear extrapolation
                 intercept = np.mean(performances) - slope * (n - 1) / 2
-                pred = intercept + slope * future_time
+                pred = intercept + slope * future_time  # type: ignore[assignment]
                 pred = max(0, pred)  # Clip to non-negative
 
             elif trend == DegradationTrend.EXPONENTIAL_DECAY:
@@ -731,7 +731,7 @@ class DegradationAnalyzer:
             elif trend == DegradationTrend.RECOVERING:
                 # Optimistic linear extrapolation with ceiling
                 intercept = np.mean(performances) - slope * (n - 1) / 2
-                pred = intercept + slope * future_time
+                pred = intercept + slope * future_time  # type: ignore[assignment]
                 pred = min(1, pred)  # Clip to maximum 1
 
             else:

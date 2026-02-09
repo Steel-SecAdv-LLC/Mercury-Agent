@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mercury-agent"
-version = "1.2.0"
+version = "1.4.0"
 description = "Mercury Agent ♱: ML-Centric Multi-Domain Anomaly Detection Framework"
 readme = "README.md"
 license = {text = "GPL-3.0+"}
@@ -764,6 +764,8 @@ ignore = [
 # S310: Financial stubs use hardcoded HTTPS URLs for trusted financial APIs
 "src/omni_mercury_engine/integrations/stubs/financial.py" = ["S310"]
 "src/omni_mercury_engine/integrations/stubs/weather.py" = ["S310"]
+# RUF100: noqa: F401 needed for Flake8 compat on wildcard re-exports
+"src/omni_mercury_engine/core/self_healing.py" = ["RUF100"]
 # UP046: Using Generic[T] for Python 3.11 compatibility (PEP 695 requires Python 3.12+)
 "src/omni_mercury_engine/distributed/raft_consensus.py" = ["UP046"]
 

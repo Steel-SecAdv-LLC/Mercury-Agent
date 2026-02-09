@@ -175,22 +175,22 @@ class FeatureStandardizer:
         if self.strategy == ScalingStrategy.STANDARD:
             if self._mean is None or self._std is None:
                 raise ValueError("FeatureStandardizer: _mean/_std not set for STANDARD strategy")
-            return (X - self._mean) / self._std
+            return (X - self._mean) / self._std  # type: ignore[no-any-return]
 
         elif self.strategy == ScalingStrategy.MINMAX:
             if self._min is None or self._max is None:
                 raise ValueError("FeatureStandardizer: _min/_max not set for MINMAX strategy")
-            return (X - self._min) / (self._max - self._min)
+            return (X - self._min) / (self._max - self._min)  # type: ignore[no-any-return]
 
         elif self.strategy == ScalingStrategy.ROBUST:
             if self._median is None or self._iqr is None:
                 raise ValueError("FeatureStandardizer: _median/_iqr not set for ROBUST strategy")
-            return (X - self._median) / self._iqr
+            return (X - self._median) / self._iqr  # type: ignore[no-any-return]
 
         elif self.strategy == ScalingStrategy.MAXABS:
             if self._max_abs is None:
                 raise ValueError("FeatureStandardizer: _max_abs not set for MAXABS strategy")
-            return X / self._max_abs
+            return X / self._max_abs  # type: ignore[no-any-return]
 
         return X  # NONE strategy
 
@@ -216,22 +216,22 @@ class FeatureStandardizer:
         if self.strategy == ScalingStrategy.STANDARD:
             if self._mean is None or self._std is None:
                 raise ValueError("FeatureStandardizer: _mean/_std not set for STANDARD strategy")
-            return X * self._std + self._mean
+            return X * self._std + self._mean  # type: ignore[no-any-return]
 
         elif self.strategy == ScalingStrategy.MINMAX:
             if self._min is None or self._max is None:
                 raise ValueError("FeatureStandardizer: _min/_max not set for MINMAX strategy")
-            return X * (self._max - self._min) + self._min
+            return X * (self._max - self._min) + self._min  # type: ignore[no-any-return]
 
         elif self.strategy == ScalingStrategy.ROBUST:
             if self._median is None or self._iqr is None:
                 raise ValueError("FeatureStandardizer: _median/_iqr not set for ROBUST strategy")
-            return X * self._iqr + self._median
+            return X * self._iqr + self._median  # type: ignore[no-any-return]
 
         elif self.strategy == ScalingStrategy.MAXABS:
             if self._max_abs is None:
                 raise ValueError("FeatureStandardizer: _max_abs not set for MAXABS strategy")
-            return X * self._max_abs
+            return X * self._max_abs  # type: ignore[no-any-return]
 
         return X
 
@@ -320,10 +320,10 @@ class FeatureSelector:
                 y_discrete = y
 
             scores = mutual_info_classif(X, y_discrete, random_state=42)
-            return scores
+            return scores  # type: ignore[no-any-return]
         except ImportError:
             logger.warning("sklearn not available, falling back to variance")
-            return np.var(X, axis=0)
+            return np.var(X, axis=0)  # type: ignore[no-any-return]
 
     def _compute_correlation_scores(self, X: np.ndarray) -> np.ndarray:
         """Compute correlation-based scores (inverse of mean correlation)."""
@@ -332,7 +332,7 @@ class FeatureSelector:
         corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
         # Score is inverse of mean absolute correlation (prefer less correlated)
         mean_corr = np.mean(np.abs(corr_matrix), axis=1)
-        return 1.0 / (mean_corr + 1e-8)
+        return 1.0 / (mean_corr + 1e-8)  # type: ignore[no-any-return]
 
     def transform(self, X: np.ndarray) -> np.ndarray:
         """
@@ -674,7 +674,7 @@ class RedisCache:
         if self._client is None:
             return None
         try:
-            return self._client.get(key)  # type: ignore[no-any-return]
+            return self._client.get(key)  # type: ignore[return-value]
         except Exception as e:
             logger.error(f"Redis get error: {e}")
             return None
@@ -685,8 +685,8 @@ class RedisCache:
             return False
         try:
             if ttl:
-                return self._client.setex(key, ttl, value)  # type: ignore[no-any-return]
-            return self._client.set(key, value)  # type: ignore[no-any-return]
+                return self._client.setex(key, ttl, value)  # type: ignore[return-value]
+            return self._client.set(key, value)  # type: ignore[return-value]
         except Exception as e:
             logger.error(f"Redis set error: {e}")
             return False
@@ -696,7 +696,7 @@ class RedisCache:
         if self._client is None:
             return False
         try:
-            return self._client.delete(key) > 0  # type: ignore[no-any-return]
+            return self._client.delete(key) > 0  # type: ignore[operator]
         except Exception as e:
             logger.error(f"Redis delete error: {e}")
             return False
@@ -706,7 +706,7 @@ class RedisCache:
         if self._client is None:
             return False
         try:
-            return self._client.exists(key) > 0  # type: ignore[no-any-return]
+            return self._client.exists(key) > 0  # type: ignore[operator]
         except Exception as e:
             logger.error(f"Redis exists error: {e}")
             return False

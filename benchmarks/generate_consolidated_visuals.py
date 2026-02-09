@@ -286,8 +286,8 @@ def generate_benchmark_summary_live_data(
     roc_aucs = [0.94, 0.92, 0.90, 0.95, 0.93]
     x = np.arange(len(datasets))
     width = 0.35
-    bars1 = ax1.bar(x - width / 2, f1_scores, width, label="F1 Score", color=VIRIDIS(0.3))
-    bars2 = ax1.bar(x + width / 2, roc_aucs, width, label="ROC-AUC", color=VIRIDIS(0.7))
+    ax1.bar(x - width / 2, f1_scores, width, label="F1 Score", color=VIRIDIS(0.3))
+    ax1.bar(x + width / 2, roc_aucs, width, label="ROC-AUC", color=VIRIDIS(0.7))
     ax1.set_ylabel("Score")
     ax1.set_title("Real-World Dataset Performance")
     ax1.set_xticks(x)
@@ -648,10 +648,8 @@ def generate_performance_dashboard(
     thresholds = [0.1, 0.1, 0.8]
     x = np.arange(len(metrics))
     width = 0.35
-    bars1 = ax5.bar(x - width / 2, current, width, label="Current", color=COLORS["success"])
-    bars2 = ax5.bar(
-        x + width / 2, thresholds, width, label="Threshold", color=COLORS["warning"], alpha=0.5
-    )
+    ax5.bar(x - width / 2, current, width, label="Current", color=COLORS["success"])
+    ax5.bar(x + width / 2, thresholds, width, label="Threshold", color=COLORS["warning"], alpha=0.5)
     ax5.set_ylabel("Value")
     ax5.set_title("Fairlearn Bias Metrics")
     ax5.set_xticks(x)

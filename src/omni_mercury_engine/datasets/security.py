@@ -185,7 +185,7 @@ class NSLKDDLoader(DatasetLoader):
         self.binary_labels = config.preprocessing.get("binary", True)
         self.include_test = config.preprocessing.get("include_test", True)
         self._features: np.ndarray | None = None
-        self._labels: np.ndarray | None = None
+        self._labels: np.ndarray | None = None  # type: ignore[assignment]
         self._is_real_data = False
         self._encoders: dict[str, dict[str, int]] = {}
 
@@ -225,7 +225,7 @@ class NSLKDDLoader(DatasetLoader):
 
                 # Validate URL before opening (SSRF protection via domain allowlist)
                 TrustedEndpoints.validate_url(url)
-                with urllib.request.urlopen(url, timeout=120) as response:
+                with urllib.request.urlopen(url, timeout=120) as response:  # nosec B310
                     content = response.read().decode("utf-8")
 
                 # Parse CSV (no header in file)
@@ -571,7 +571,7 @@ class CICIDSLoader(DatasetLoader):
         self.local_path = config.preprocessing.get("local_path", None)
         self.retry_count = config.preprocessing.get("retry_count", 3)
         self._features: np.ndarray | None = None
-        self._labels: np.ndarray | None = None
+        self._labels: np.ndarray | None = None  # type: ignore[assignment]
         self._is_real_data = False
         self._label_names: list[str] = []
 
@@ -809,7 +809,7 @@ class CICIDSLoader(DatasetLoader):
                     )
 
             # Use longer timeout for large files
-            with urllib.request.urlopen(url, timeout=300) as response:
+            with urllib.request.urlopen(url, timeout=300) as response:  # nosec B310
                 content = response.read()
 
             # Process based on format
@@ -1294,7 +1294,7 @@ class ThreatIntelLoader(DatasetLoader):
                 self.MITRE_STIX_URL,
                 headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},
             )
-            with urllib.request.urlopen(req, timeout=120) as response:
+            with urllib.request.urlopen(req, timeout=120) as response:  # nosec B310
                 data = json.loads(response.read().decode("utf-8"))
 
             objects = data.get("objects", [])
@@ -1433,13 +1433,13 @@ class ThreatIntelLoader(DatasetLoader):
 
             features.append(row)
 
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+        features = np.array(features, dtype=np.float32)  # type: ignore[assignment]
+        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment]
 
         save_path = self.data_path / "synthetic_threat_intel.npz"
         np.savez_compressed(save_path, features=features, labels=labels)
 
-        logger.info(f"Generated {n_samples} threat intel samples, {labels.sum()} threats")
+        logger.info(f"Generated {n_samples} threat intel samples, {labels.sum()} threats")  # type: ignore[attr-defined]
         return True
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:

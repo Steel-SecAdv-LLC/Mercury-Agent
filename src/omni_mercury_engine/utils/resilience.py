@@ -203,6 +203,8 @@ class CircuitBreaker:
             jitter_factor=jitter_factor,
         )
         self.name = name
+        self.failure_threshold = self.config.failure_threshold
+        self._recovery_timeout = self.config.reset_timeout
         self._state = CircuitState.CLOSED
         self._failure_count = 0
         self._success_count = 0
@@ -213,6 +215,23 @@ class CircuitBreaker:
         self._total_failures = 0
         self._total_successes = 0
         self._open_count = 0
+
+    @property
+    def recovery_timeout(self) -> float:
+        """Get the recovery timeout in seconds."""
+        return self._recovery_timeout
+
+    @recovery_timeout.setter
+    def recovery_timeout(self, value: float) -> None:
+        """Set recovery timeout, syncing with internal config."""
+        self._recovery_timeout = value
+        self.config.reset_timeout = value
+
+    @property
+    def failure_count(self) -> int:
+        """Get the current consecutive failure count."""
+        with self._lock:
+            return self._failure_count
 
     @property
     def state(self) -> CircuitState:
@@ -229,6 +248,12 @@ class CircuitBreaker:
         """Get the number of times the circuit has opened."""
         with self._lock:
             return self._open_count
+
+    @open_count.setter
+    def open_count(self, value: int) -> None:
+        """Set the open count (for testing)."""
+        with self._lock:
+            self._open_count = value
 
     def _should_attempt_reset(self) -> bool:
         """Check if enough time has passed to try half-open."""
@@ -395,7 +420,7 @@ class CircuitBreaker:
         """
         with self._lock:
             return {
-                "state": self._state.name,
+                "state": self._state.name.lower(),
                 "failure_count": self._failure_count,
                 "success_count": self._success_count,
                 "open_count": self._open_count,

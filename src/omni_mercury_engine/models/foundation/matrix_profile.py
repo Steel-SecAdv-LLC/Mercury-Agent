@@ -256,7 +256,7 @@ class MatrixProfileDetector(BaseFoundationModel):
             # Apply exclusion zone
             start = max(0, idx - exclusion_zone)
             end = min(len(mp_copy), idx + exclusion_zone + 1)
-            mp_copy[start:end] = -np.inf
+            mp_copy[start:end] = -np.inf  # type: ignore[misc]
 
         return discords
 
@@ -486,11 +486,15 @@ class MatrixProfileDetector(BaseFoundationModel):
         """Mock Matrix Profile computation.
 
         Uses simple distance calculations as a fallback when
-        STUMPY is not available.
+        STUMPY is not available. For large series, samples candidates
+        to keep computation tractable.
         """
         n = len(series) - window_size + 1
         mp = np.zeros(n)
         pi = np.zeros(n, dtype=int)
+
+        # Limit candidates for large n to avoid O(n²) blowup
+        max_candidates = min(n, 500)
 
         for i in range(n):
             subseq_i = series[i : i + window_size]
@@ -503,7 +507,13 @@ class MatrixProfileDetector(BaseFoundationModel):
             min_dist = np.inf
             min_idx = -1
 
-            for j in range(n):
+            # Sample candidate indices when n is large
+            if n <= max_candidates:
+                candidates = range(n)
+            else:
+                candidates = np.linspace(0, n - 1, max_candidates, dtype=int)  # type: ignore[assignment]
+
+            for j in candidates:
                 if abs(i - j) <= window_size // 2:
                     continue
 

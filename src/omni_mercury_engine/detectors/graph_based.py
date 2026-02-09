@@ -158,7 +158,7 @@ class GraphAnomalyDetector(BaseDetector):
                 diff = abs(current[key] - baseline[key]) / baseline[key]
                 diffs.append(diff)
 
-        return np.mean(diffs) * 10 if diffs else 0.0
+        return np.mean(diffs) * 10 if diffs else 0.0  # type: ignore[return-value]
 
     def _detect_cascade_failure_risk(self, graph: nx.Graph) -> float:
         """Assess risk of cascade failures."""

@@ -642,7 +642,7 @@ class RedisCache:
             import redis.asyncio as aioredis
 
             self._client = aioredis.Redis(
-                host=self.host,
+                host=self.host,  # type: ignore[arg-type]
                 port=self.port,
                 password=self.password,
                 db=self.db,

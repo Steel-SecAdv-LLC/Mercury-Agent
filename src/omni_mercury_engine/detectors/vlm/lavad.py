@@ -382,7 +382,7 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
             scores = scores / scores.max()
 
         # Threshold for anomaly detection
-        is_anomaly = scores > self.vlm_config.confidence_threshold
+        is_anomaly = scores > self.vlm_config.confidence_threshold  # type: ignore[assignment]
 
         # Generate features
         features = self._generate_features(scores, captions)
@@ -496,9 +496,9 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
         features.append(anomaly_ratio)
 
         # Pad to 128D
-        features = np.array(features)
+        features = np.array(features)  # type: ignore[assignment]
         if len(features) < 128:
-            features = np.pad(features, (0, 128 - len(features)))
+            features = np.pad(features, (0, 128 - len(features)))  # type: ignore[assignment]
 
         return torch.from_numpy(features).float().unsqueeze(0)
 

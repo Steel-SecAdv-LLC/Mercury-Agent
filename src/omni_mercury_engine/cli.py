@@ -57,7 +57,7 @@ def _get_engine(*args: Any, **kwargs: Any) -> Any:
 
 
 @click.group()
-@click.version_option(version="1.2.0")
+@click.version_option(version="1.4.0")
 def main() -> None:
     """Mercury Agent ♱: ML-Centric Anomaly Detection Framework"""
     pass
@@ -161,7 +161,7 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
         data = np.loadtxt(path, delimiter=",", dtype=np.float32)
         if data.ndim == 1:
             data = data.reshape(1, -1)
-        return data
+        return data  # type: ignore[no-any-return]
 
     else:
         raise ValueError(f"Unsupported file format: {path.suffix}")

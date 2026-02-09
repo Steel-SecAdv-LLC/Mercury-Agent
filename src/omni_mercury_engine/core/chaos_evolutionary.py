@@ -227,7 +227,7 @@ class ChaosEvolutionOptimizer:
             self.convergence_history.append(float(self.best_fitness))
 
             if iteration % 10 == 0:
-                chaos_value = self._rng.rand()
+                chaos_value = self._rng.rand()  # type: ignore[assignment]
 
         results = {
             "best_solution": self.best_solution,
@@ -302,7 +302,7 @@ class ChaosEvolutionOptimizer:
         chaos_value = self._rng.rand()
 
         for _ in range(num_hypotheses):
-            chaos_value = self.chaotic_map(chaos_value)
+            chaos_value = self.chaotic_map(chaos_value)  # type: ignore[arg-type, assignment]
             perturbation = chaos_intensity * (2 * chaos_value - 1)
 
             hypothesis = base_solution + perturbation * self._rng.randn(*base_solution.shape)

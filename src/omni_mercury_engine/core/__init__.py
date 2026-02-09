@@ -103,7 +103,7 @@ def get_default_config() -> MercuryEngineConfig:
     """Get the global default configuration. Lazy import to avoid pydantic at module load."""
     from omni_mercury_engine.core.engine_config import get_default_config as _get
 
-    return _get()
+    return _get()  # type: ignore[return-value]
 
 
 class MercuryEngineConfig:

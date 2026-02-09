@@ -95,7 +95,7 @@ class TestDataLoaderCircuitBreaker:
                 pass  # Expected: testing circuit breaker failure counting
 
         # Now calls should be blocked
-        with pytest.raises(Exception, match="Circuit breaker is OPEN"):
+        with pytest.raises(Exception, match="is open"):
             breaker.call(lambda: "should not run")
 
 

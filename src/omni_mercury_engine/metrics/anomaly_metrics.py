@@ -42,7 +42,7 @@ _thresholds = ThresholdConfig()
 def _to_numpy(arr: Any) -> np.ndarray[Any, Any]:
     """Convert array-like to numpy."""
     if hasattr(arr, "cpu"):  # torch tensor
-        return arr.cpu().numpy()
+        return arr.cpu().numpy()  # type: ignore[no-any-return]
     return np.asarray(arr)
 
 
@@ -335,8 +335,8 @@ def compute_pro(
             pros.append(0.0)
 
     # Convert to arrays and sort by FPR
-    fprs = np.array(fprs)
-    pros = np.array(pros)
+    fprs = np.array(fprs)  # type: ignore[assignment]
+    pros = np.array(pros)  # type: ignore[assignment]
     order = np.argsort(fprs)
     fprs = fprs[order]
     pros = pros[order]
@@ -357,7 +357,7 @@ def compute_pro(
     fprs_norm = fprs_valid / integration_limit
 
     # Compute AUC (trapezoid in NumPy 2.0+)
-    _trapz = np.trapezoid if hasattr(np, "trapezoid") else np.trapz
+    _trapz = np.trapezoid if hasattr(np, "trapezoid") else np.trapz  # type: ignore[attr-defined]
     pro_auc = _trapz(pros_valid, fprs_norm)
 
     return float(pro_auc)

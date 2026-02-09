@@ -136,7 +136,7 @@ def _auc_roc_numpy(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) 
     fpr = fps / n_neg
 
     # Compute AUC using trapezoidal rule (trapezoid in NumPy 2.0+)
-    _trapz = np.trapezoid if hasattr(np, "trapezoid") else np.trapz
+    _trapz = np.trapezoid if hasattr(np, "trapezoid") else np.trapz  # type: ignore[attr-defined]
     auc = _trapz(tpr, fpr)
     return float(auc)
 

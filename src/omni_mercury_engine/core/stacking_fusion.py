@@ -222,7 +222,7 @@ class StackingFusion:
             raise RuntimeError("Must call fit() before predict()")
 
         meta_X = self._get_meta_features(X)
-        return self.meta_learner.predict(meta_X)
+        return self.meta_learner.predict(meta_X)  # type: ignore[no-any-return]
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         """
@@ -239,10 +239,10 @@ class StackingFusion:
 
         meta_X = self._get_meta_features(X)
         try:
-            return self.meta_learner.predict_proba(meta_X)
+            return self.meta_learner.predict_proba(meta_X)  # type: ignore[no-any-return]
         except AttributeError:
             # Meta-learner doesn't support proba
-            return self.meta_learner.predict(meta_X).astype(float)
+            return self.meta_learner.predict(meta_X).astype(float)  # type: ignore[no-any-return]
 
     def _get_meta_features(self, X: np.ndarray) -> np.ndarray:
         """Get meta-features from base detectors."""
@@ -595,7 +595,9 @@ class EthicallyConstrainedFusion:
 
             detector_preds.append(proba)
 
-        detector_preds = np.array(detector_preds).T  # (n_samples, n_detectors)
+        detector_preds = np.array(  # type: ignore[assignment]
+            detector_preds
+        ).T  # (n_samples, n_detectors)  # type: ignore[assignment]
         ethical_vec = np.array([self.ethical_scores[name] for name in self.detectors])
 
         # Optimize weights with ethical constraints

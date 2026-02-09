@@ -920,7 +920,7 @@ class OmniMercuryEngine(LoggerMixin):
                 loss = torch.nn.functional.binary_cross_entropy(
                     outputs["anomaly_probs"], batch_labels
                 )
-                loss.backward()
+                loss.backward()  # type: ignore[no-untyped-call]
                 torch.nn.utils.clip_grad_norm_(self.fusion_model.parameters(), 1.0)
                 optimizer.step()
 
@@ -1057,7 +1057,7 @@ class OmniMercuryEngine(LoggerMixin):
             f"n_anomalies={int(pseudo_labels.sum())}/{n_samples}"
         )
 
-        return pseudo_labels
+        return pseudo_labels  # type: ignore[no-any-return]
 
     def enable_drift_detection(
         self,
@@ -1217,7 +1217,7 @@ class OmniMercuryEngine(LoggerMixin):
         try:
             fairness_report = self.fairness_auditor.audit(
                 predictions=predictions,
-                sensitive_features=sensitive_data,
+                sensitive_features=sensitive_data,  # type: ignore[arg-type]
             )
             if not fairness_report.is_fair:
                 logger.warning(
@@ -2188,7 +2188,7 @@ class OmniMercuryEngine(LoggerMixin):
                 }
 
         # Runtime Pipeline Integration: LLM Enhancement (non-blocking)
-        llm_enhancement = self._enhance_with_llm(data, result)
+        llm_enhancement = self._enhance_with_llm(data, result)  # type: ignore[arg-type]
         if llm_enhancement is not None:
             result["llm_enhancement"] = llm_enhancement
 
@@ -2606,7 +2606,7 @@ class OmniMercuryEngine(LoggerMixin):
                         optimizer.zero_grad()
                 else:
                     loss = trainer_module.training_step(batch, batch_idx)
-                    (loss / gradient_accumulation_steps).backward()
+                    (loss / gradient_accumulation_steps).backward()  # type: ignore[no-untyped-call]
 
                     if (batch_idx + 1) % gradient_accumulation_steps == 0:
                         optimizer.step()

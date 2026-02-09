@@ -575,7 +575,7 @@ class FinancialService:
 
         def fetch() -> dict[str, Any]:
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=self.timeout) as response:
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 
@@ -630,7 +630,7 @@ class FinancialService:
                     "Accept": "application/json",
                 },
             )
-            with urlopen(req, timeout=self.timeout) as response:
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 
@@ -804,7 +804,7 @@ class FinancialService:
                     "Accept": "application/json",
                 },
             )
-            with urlopen(req, timeout=self.timeout) as response:
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
                 fetched: dict[str, Any] = json.loads(response.read().decode())
                 return fetched
 
@@ -864,7 +864,7 @@ class FinancialService:
 
         def fetch() -> dict[str, Any]:
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=self.timeout) as response:
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 

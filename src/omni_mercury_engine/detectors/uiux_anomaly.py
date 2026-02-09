@@ -744,7 +744,7 @@ class UIUXAnomalyDetector(BaseDetector):
 
     def fit(
         self,
-        interactions: list[UserInteraction] | list[list[UserInteraction]],
+        interactions: list[UserInteraction] | list[list[UserInteraction]],  # type: ignore[override]
     ) -> UIUXAnomalyDetector:
         """Fit detector on reference/training data.
 
@@ -1490,7 +1490,7 @@ class UIUXAnomalyDetector(BaseDetector):
         erratic_score = min(1.0, max_velocity / cfg.mouse_velocity_threshold)
         variance_score = min(1.0, velocity_std / (np.mean(velocities) + 1e-8))
 
-        return float((erratic_score + variance_score) / 2)
+        return float((erratic_score + variance_score) / 2)  # type: ignore[operator]
 
     def _compute_timing_anomaly_score(
         self,

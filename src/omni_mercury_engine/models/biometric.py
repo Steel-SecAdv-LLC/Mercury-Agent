@@ -33,7 +33,7 @@ try:
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None
+    torch = None  # type: ignore[assignment]
     TORCH_AVAILABLE = False
 
 try:
@@ -209,7 +209,7 @@ class BiometricAnomalyModel:
         else:
             features = self._extract_harmonic_features(data)
 
-        features = self._normalize_embedding_size(features)
+        features = self._normalize_embedding_size(features)  # type: ignore[assignment]
 
         if TORCH_AVAILABLE:
             if isinstance(features, np.ndarray):
@@ -277,7 +277,7 @@ class BiometricAnomalyModel:
             if TORCH_AVAILABLE and isinstance(features, torch.Tensor):
                 features = features.detach().cpu().numpy()
 
-            anomaly_score = np.mean(np.abs(features - 0.5))
+            anomaly_score = np.mean(np.abs(features - 0.5))  # type: ignore[assignment]
 
             return {
                 "model_type": "biometric",

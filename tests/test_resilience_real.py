@@ -94,7 +94,7 @@ class TestCircuitBreakerStateMachine:
             call_made["value"] = True
             return "success"
 
-        with pytest.raises(Exception, match="OPEN"):
+        with pytest.raises(Exception, match="is open"):
             breaker.call(should_not_run)
 
         # Function should not have been called

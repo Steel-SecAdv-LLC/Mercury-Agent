@@ -380,9 +380,9 @@ class IrisEncoder:
             code_mask.append(mask)
 
         iris_code = np.stack(code_bits, axis=0)
-        code_mask = np.stack(code_mask, axis=0)
+        code_mask = np.stack(code_mask, axis=0)  # type: ignore[assignment]
 
-        return iris_code, code_mask
+        return iris_code, code_mask  # type: ignore[return-value]
 
 
 class IrisMatcher:
@@ -523,12 +523,12 @@ class IrisLivenessDetector:
         if pupil_radii is not None and len(pupil_radii) >= 2:
             radii = np.array(pupil_radii)
         else:
-            radii = []
+            radii = []  # type: ignore[assignment]
             segmenter = IrisSegmenter()
             for img in images:
                 try:
                     _, pupil_r, _, _ = segmenter.segment(img)
-                    radii.append(pupil_r)
+                    radii.append(pupil_r)  # type: ignore[attr-defined]
                 except Exception:
                     pass
 
@@ -712,6 +712,6 @@ class IrisRecognizer:
 
         contrast = np.std(normalized_iris[mask])
 
-        quality = 0.4 * usable_ratio + 0.3 * min(1.0, sharpness * 10) + 0.3 * min(1.0, contrast * 5)
+        quality = 0.4 * usable_ratio + 0.3 * min(1.0, sharpness * 10) + 0.3 * min(1.0, contrast * 5)  # type: ignore[operator]
 
         return float(quality)

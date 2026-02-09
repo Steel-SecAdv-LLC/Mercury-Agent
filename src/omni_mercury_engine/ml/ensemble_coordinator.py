@@ -305,7 +305,7 @@ class GradientWeightOptimizer(WeightOptimizer):
 
             # Momentum update
             self._velocities[name] = (
-                self.momentum * self._velocities[name] + (1 - self.momentum) * grad
+                self.momentum * self._velocities[name] + (1 - self.momentum) * grad  # type: ignore[assignment]
             )
 
             # Update weight using exponential gradient
@@ -372,12 +372,12 @@ class MetaLearner:
             # Correlation strength
             if data.shape[1] > 1:
                 corr = np.corrcoef(data.T)
-                features.append(np.mean(np.abs(corr[np.triu_indices(len(corr), 1)])))
+                features.append(np.mean(np.abs(corr[np.triu_indices(len(corr), 1)])))  # type: ignore[arg-type, index]
             else:
-                features.append(0.0)
+                features.append(0.0)  # type: ignore[arg-type]
         else:
-            features.append(1)
-            features.append(0.0)
+            features.append(1)  # type: ignore[arg-type]
+            features.append(0.0)  # type: ignore[arg-type]
 
         return np.array(features[: self.n_features])
 
@@ -588,7 +588,7 @@ class EnsembleCoordinator:
         if enable_cascading:
             self._cascade = CascadingPipeline()
 
-        self._feedback_buffer: deque[tuple[NDArray, NDArray]] = deque(maxlen=feedback_window)
+        self._feedback_buffer: deque[tuple[NDArray, NDArray]] = deque(maxlen=feedback_window)  # type: ignore[type-arg]
         self._lock = threading.Lock()
 
         # Strategy-specific state

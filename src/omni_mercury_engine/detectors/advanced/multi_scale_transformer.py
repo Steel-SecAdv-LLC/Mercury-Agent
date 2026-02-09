@@ -94,7 +94,7 @@ class PositionalEncoding(nn.Module):
         self.register_buffer("pe", pe)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        pe = self.pe[:, : x.size(1), :]
+        pe = self.pe[:, : x.size(1), :]  # type: ignore[index]
         x = x + self.scale * pe
         return self.dropout(x)
 
@@ -200,10 +200,10 @@ class MultiScaleEncoder(nn.Module):
             x_scale = self.pos_encodings[i](x)
 
             # Local patterns via convolution
-            x_local = encoder["conv"](x_scale)
+            x_local = encoder["conv"](x_scale)  # type: ignore[index]
 
             # Global patterns via transformer
-            x_global = encoder["transformer"](x_local)
+            x_global = encoder["transformer"](x_local)  # type: ignore[index]
 
             scale_outputs.append(x_global)
 
@@ -600,7 +600,7 @@ class MultiScaleTransformerDetector:
                 result = self.model(batch)
                 train_scores.append(result["anomaly_score"].cpu().numpy())
 
-            train_scores = np.concatenate([s.flatten() for s in train_scores])
+            train_scores = np.concatenate([s.flatten() for s in train_scores])  # type: ignore[assignment]
             self.threshold = float(np.percentile(train_scores, self.config.threshold_percentile))
 
         self._fitted = True
