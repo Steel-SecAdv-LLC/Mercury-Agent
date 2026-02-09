@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Chain of Hindsight (CoH) Learning Module for Mercury Agent.
 
@@ -54,7 +53,6 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 
@@ -333,7 +331,7 @@ class CreditAssignment:
             if self.use_advantage and len(credits) > 1:
                 mean_credit = np.mean(credits)
                 std_credit = np.std(credits) + 1e-8
-                credits = [(c - mean_credit) / std_credit for c in credits]
+                credits = [(c - mean_credit) / std_credit for c in credits]  # type: ignore[misc, unused-ignore]
 
             return credits
 
@@ -355,7 +353,7 @@ class CreditAssignment:
         if self.use_advantage and len(credits) > 1:
             mean_credit = np.mean(credits)
             std_credit = np.std(credits) + 1e-8
-            credits = [(c - mean_credit) / std_credit for c in credits]
+            credits = [(c - mean_credit) / std_credit for c in credits]  # type: ignore[misc, unused-ignore]
 
         return credits
 
@@ -436,8 +434,8 @@ class HindsightRelabeler:
                 else "achieved"
             )
             relabeled_trajectory = []
-            for step in sequence:
-                relabeled_step = step.copy()
+            for step_dict in sequence:
+                relabeled_step = step_dict.copy()
                 relabeled_step["goal"] = achieved_goal
                 relabeled_trajectory.append(relabeled_step)
             return relabeled_trajectory
@@ -701,7 +699,7 @@ class FeedbackProcessor:
         """Create pattern key from input state."""
         key_features = sorted(input_state.keys())[:5]
         key_str = "_".join(key_features)
-        return hashlib.sha256(key_str.encode()).hexdigest()[:8]
+        return hashlib.sha3_256(key_str.encode()).hexdigest()[:8]
 
 
 # =============================================================================
@@ -1104,12 +1102,12 @@ class ChainOfHindsightEngine:
         avg_reward = total_reward / len(self._sequences)
 
         # Quality distribution
-        quality_dist = defaultdict(int)
+        quality_dist: defaultdict[str, int] = defaultdict(int)
         for seq in self._sequences:
             quality_dist[seq.feedback_quality.value] += 1
 
         # Type distribution
-        type_dist = defaultdict(int)
+        type_dist: defaultdict[str, int] = defaultdict(int)
         for seq in self._sequences:
             type_dist[seq.sequence_type.value] += 1
 
@@ -1254,7 +1252,7 @@ class ChainOfHindsightEngine:
 
         key_sim = len(common) / len(keys1 | keys2)
 
-        value_matches = 0
+        value_matches: float = 0
         for key in common:
             v1, v2 = context1[key], context2[key]
             if v1 == v2:
@@ -1269,7 +1267,7 @@ class ChainOfHindsightEngine:
 
     def _identify_key_patterns(self) -> list[dict[str, Any]]:
         """Identify key learning patterns."""
-        patterns = []
+        patterns: list[dict[str, Any]] = []
 
         for update in self._policy_updates:
             if update.confidence > 0.7 and update.evidence_count > 5:

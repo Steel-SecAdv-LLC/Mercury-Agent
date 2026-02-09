@@ -19,7 +19,6 @@ from typing import Any
 
 import numpy as np
 
-
 try:
     import pandas as pd
 
@@ -31,7 +30,6 @@ except ImportError:
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
-
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +133,7 @@ class USGSEarthquakeLoader(DatasetLoader):
             req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
-            with urllib.request.urlopen(req, timeout=120) as response:
+            with urllib.request.urlopen(req, timeout=120) as response:  # nosec B310
                 data = json.loads(response.read().decode("utf-8"))
 
             features_list = data.get("features", [])
@@ -278,13 +276,13 @@ class USGSEarthquakeLoader(DatasetLoader):
             )
             labels.append(1 if is_anomaly else 0)
 
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+        features = np.array(features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
+        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment, unused-ignore]
 
         save_path = self.data_path / "synthetic_earthquake.npz"
         np.savez_compressed(save_path, features=features, labels=labels)
 
-        logger.info(f"Generated {n_samples} earthquake samples, {labels.sum()} significant events")
+        logger.info(f"Generated {n_samples} earthquake samples, {labels.sum()} significant events")  # type: ignore[attr-defined, unused-ignore]
         return True
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
@@ -423,7 +421,7 @@ class NOAAWeatherLoader(DatasetLoader):
                 req = urllib.request.Request(
                     url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
                 )
-                with urllib.request.urlopen(req, timeout=60) as response:
+                with urllib.request.urlopen(req, timeout=60) as response:  # nosec B310
                     data = json.loads(response.read().decode("utf-8"))
 
                 hourly = data.get("hourly", {})
@@ -635,7 +633,7 @@ class WildfireDataLoader(DatasetLoader):
             req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
-            with urllib.request.urlopen(req, timeout=120) as response:
+            with urllib.request.urlopen(req, timeout=120) as response:  # nosec B310
                 content = response.read().decode("utf-8")
 
             # Parse CSV
@@ -791,13 +789,13 @@ class WildfireDataLoader(DatasetLoader):
             feature_vec = [params[f] for f in self.FEATURE_NAMES]
             features.append(feature_vec)
 
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+        features = np.array(features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
+        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment, unused-ignore]
 
         save_path = self.data_path / "synthetic_wildfire.npz"
         np.savez_compressed(save_path, features=features, labels=labels)
 
-        logger.info(f"Generated {n_samples} wildfire samples, {labels.sum()} fire detections")
+        logger.info(f"Generated {n_samples} wildfire samples, {labels.sum()} fire detections")  # type: ignore[attr-defined, unused-ignore]
         return True
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
@@ -988,15 +986,15 @@ class USGSGeochemistryLoader(DatasetLoader):
             )
             labels.append(1 if is_anomaly else 0)
 
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+        features = np.array(features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
+        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment, unused-ignore]
 
         save_path = self.data_path / "synthetic_geochemistry.npz"
         np.savez_compressed(save_path, features=features, labels=labels)
 
         logger.info(
             f"Generated {n_samples} synthetic geochemistry samples, "
-            f"{labels.sum()} contamination anomalies (is_real_data=False)"
+            f"{labels.sum()} contamination anomalies (is_real_data=False)"  # type: ignore[attr-defined, unused-ignore]
         )
         return True
 
@@ -1028,7 +1026,7 @@ class USGSGeochemistryLoader(DatasetLoader):
         data_processed = (data_processed - data_processed.mean(axis=0)) / (
             data_processed.std(axis=0) + 1e-8
         )
-        return data_processed.astype(np.float32)
+        return data_processed.astype(np.float32)  # type: ignore[no-any-return, unused-ignore]
 
 
 # Register environmental loaders

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """FastAPI server for real-time anomaly detection.
 
 This module provides a REST API for multi-domain anomaly detection using
@@ -58,7 +57,6 @@ from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
 
-
 # Type alias for ASGI middleware call_next parameter
 RequestResponseEndpoint = Callable[[Request], Awaitable[Response]]
 
@@ -72,7 +70,6 @@ from omni_mercury_engine.validation.api_validators import (
     APIRequestValidator,
     ValidationConfig,
 )
-
 
 # Configure PII-masking logger
 logger = logging.getLogger(__name__)
@@ -181,7 +178,7 @@ app = FastAPI(
     title=API_TITLE,
     description=API_DESCRIPTION,
     version=API_VERSION,
-    openapi_tags=tags_metadata,
+    openapi_tags=tags_metadata,  # type: ignore[arg-type, unused-ignore]
     contact={
         "name": "Steel Security Advisors LLC",
         "url": "https://github.com/Steel-SecAdv-LLC/Mercury-Agent",
@@ -288,7 +285,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 
 # Register rate limiting middleware
-app.add_middleware(RateLimitMiddleware)
+app.add_middleware(RateLimitMiddleware)  # type: ignore[arg-type, unused-ignore]
 
 
 # =============================================================================
@@ -1121,14 +1118,14 @@ def custom_openapi() -> dict[str, Any]:
         Dict containing the complete OpenAPI specification.
     """
     if app.openapi_schema:
-        return app.openapi_schema
+        return dict(app.openapi_schema)
 
     openapi_schema: dict[str, Any] = get_openapi(
         title=API_TITLE,
         version=API_VERSION,
         description=API_DESCRIPTION,
         routes=app.routes,
-        tags=tags_metadata,
+        tags=tags_metadata,  # type: ignore[arg-type, unused-ignore]
     )
 
     # Add security schemes for future use
@@ -1157,7 +1154,7 @@ def custom_openapi() -> dict[str, Any]:
     return openapi_schema
 
 
-app.openapi = custom_openapi
+app.openapi = custom_openapi  # type: ignore[method-assign, unused-ignore]
 
 
 # =============================================================================

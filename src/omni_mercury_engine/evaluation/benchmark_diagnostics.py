@@ -37,7 +37,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
@@ -486,7 +485,7 @@ class BenchmarkDiagnostics:
         print("-" * 40)
 
     @staticmethod
-    def _compute_roc_auc(labels: NDArray, scores: NDArray) -> float:
+    def _compute_roc_auc(labels: NDArray, scores: NDArray) -> float:  # type: ignore[type-arg, unused-ignore]
         """Compute ROC-AUC score."""
         try:
             from sklearn.metrics import roc_auc_score
@@ -497,7 +496,7 @@ class BenchmarkDiagnostics:
             return 0.5
 
     @staticmethod
-    def _compute_f1_pr(labels: NDArray, predictions: NDArray) -> tuple[float, float, float]:
+    def _compute_f1_pr(labels: NDArray, predictions: NDArray) -> tuple[float, float, float]:  # type: ignore[type-arg, unused-ignore]
         """Compute F1, precision, recall."""
         tp = np.sum((labels == 1) & predictions)
         fp = np.sum((labels == 0) & predictions)
@@ -510,7 +509,7 @@ class BenchmarkDiagnostics:
         return float(f1), float(precision), float(recall)
 
     @staticmethod
-    def _find_best_f1(labels: NDArray, scores: NDArray) -> tuple[float, float]:
+    def _find_best_f1(labels: NDArray, scores: NDArray) -> tuple[float, float]:  # type: ignore[type-arg, unused-ignore]
         """Find threshold that maximizes F1."""
         thresholds = np.percentile(scores, np.linspace(0, 100, 100))
 
@@ -527,7 +526,7 @@ class BenchmarkDiagnostics:
         return float(best_f1), float(best_threshold)
 
     @staticmethod
-    def _check_bimodal(scores: NDArray) -> bool:
+    def _check_bimodal(scores: NDArray) -> bool:  # type: ignore[type-arg, unused-ignore]
         """Check if score distribution is bimodal."""
         if len(scores) < 20:
             return False

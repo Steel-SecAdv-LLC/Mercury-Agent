@@ -31,7 +31,6 @@ from scipy import stats
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
@@ -132,6 +131,8 @@ class MADDetector:
             X = X.reshape(-1, 1)
 
         # Modified Z-score using MAD
+        assert self.median_ is not None
+        assert self.mad_ is not None
         modified_z = (X - self.median_) / (self.consistency_constant * self.mad_)
 
         # Max absolute modified z-score across features
@@ -205,6 +206,7 @@ class LOFDetector:
                 p=self.p,
                 novelty=True,
             )
+            assert self._lof is not None
             self._lof.fit(X)
             self._fitted = True
         except ImportError:
@@ -344,6 +346,7 @@ class DBSCANDetector:
         scores = np.zeros(len(X))
         core_mask = np.isin(np.arange(len(X)), dbscan.core_sample_indices_)
 
+        assert self._fitted_eps is not None
         if np.any(core_mask):
             core_points = X[core_mask]
             for i, point in enumerate(X):
@@ -416,14 +419,15 @@ class MCDDetector:
         if X.ndim == 1:
             X = X.reshape(-1, 1)
 
-        self._mcd = MinCovDet(
+        mcd = MinCovDet(
             support_fraction=self.support_fraction,
             random_state=self.random_state,
         )
-        self._mcd.fit(X)
+        mcd.fit(X)
+        self._mcd = mcd
 
         # Compute threshold from training data
-        distances = self._mcd.mahalanobis(X)
+        distances = mcd.mahalanobis(X)
         self._threshold = float(np.percentile(distances, (1 - self.contamination) * 100))
 
         self._fitted = True
@@ -610,10 +614,10 @@ class CUSUMDetector:
             X = np.mean(X, axis=1)
         X = X.flatten()
 
-        self._fitted_mean = self.target_mean if self.target_mean is not None else np.mean(X)
-        self._fitted_std = self.target_std if self.target_std is not None else np.std(X)
+        self._fitted_mean = self.target_mean if self.target_mean is not None else np.mean(X)  # type: ignore[assignment, unused-ignore]
+        self._fitted_std = self.target_std if self.target_std is not None else np.std(X)  # type: ignore[assignment, unused-ignore]
 
-        if self._fitted_std < 1e-10:
+        if self._fitted_std < 1e-10:  # type: ignore[operator, unused-ignore]
             self._fitted_std = 1.0
 
         self._fitted = True
@@ -632,7 +636,7 @@ class CUSUMDetector:
         n = len(X)
 
         # Normalize data
-        z = (X - self._fitted_mean) / self._fitted_std
+        z = (X - self._fitted_mean) / self._fitted_std  # type: ignore[operator, unused-ignore]
 
         # CUSUM statistics
         c_plus = np.zeros(n)  # Upper CUSUM

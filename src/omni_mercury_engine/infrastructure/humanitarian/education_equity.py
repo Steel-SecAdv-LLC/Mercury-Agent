@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Education Equity Module - Learning bias and access anomaly detection
 
@@ -153,7 +152,7 @@ class EducationEquityDetector:
             },
             "intervention_urgency": "immediate" if severity == "critical" else "standard",
             "recommendations": self._generate_education_recommendations(
-                threat_type, severity, dropout_risk
+                threat_type, severity, dropout_risk  # type: ignore[arg-type, unused-ignore]
             ),
             "timestamp": datetime.now(),
         }

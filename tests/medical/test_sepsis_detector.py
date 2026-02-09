@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import pytest
 
-
 try:
     from omni_mercury_engine.medical.critical_care.sepsis_detector import (
         QuickSOFACalculator,

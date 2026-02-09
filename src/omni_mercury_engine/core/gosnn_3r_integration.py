@@ -41,7 +41,6 @@ from omni_mercury_engine.core.three_r.types import (
     AnomalyFusionResult,
 )
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
@@ -628,8 +627,8 @@ class GOSNN3RIntegration:
                 score_variance = np.var(self.state.fusion_score_history[-10:])
                 score_stable = score_variance < 0.05
             else:
-                score_stable = True
-                score_variance = 0.0
+                score_stable = True  # type: ignore[assignment, unused-ignore]
+                score_variance = 0.0  # type: ignore[assignment, unused-ignore]
 
             # Overall stability
             is_stable = lyapunov_stable and weight_stable and score_stable
@@ -651,7 +650,7 @@ class GOSNN3RIntegration:
                 },
             }
 
-            return is_stable, report
+            return is_stable, report  # type: ignore[return-value, unused-ignore]
 
     def adjust_weights(
         self,
@@ -763,7 +762,7 @@ class CrossDomainTransferManager:
         "infrastructure": ["security", "humanitarian"],
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize cross-domain transfer manager."""
         self._domain_integrations: dict[str, GOSNN3RIntegration] = {}
         self._transfer_weights: dict[str, dict[str, float]] = {}

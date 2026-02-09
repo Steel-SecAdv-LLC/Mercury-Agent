@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Mercury Agent ♱: ML-Centric Anomaly Detection Framework
 
@@ -27,7 +26,6 @@ and multi-dimensional data using neural network fusion of specialized detectors.
 """
 
 from typing import TYPE_CHECKING
-
 
 # Type-only imports for static analysis (CodeQL, mypy, etc.)
 # These are not imported at runtime to support lazy loading
@@ -73,7 +71,7 @@ def __getattr__(name: str) -> type:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__version__ = "1.2.0"
+__version__ = "1.4.0"
 __author__ = "Steel Security Advisors LLC"
 __license__ = "GPL-3.0"
 

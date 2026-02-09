@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Sigma Directive detector implementing PCP, GSIS, RMD, and EOA protocols.
 
@@ -48,7 +47,6 @@ from scipy.fft import fft
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
-
 
 logger = logging.getLogger(__name__)
 
@@ -460,7 +458,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         convergence_diffs = np.linalg.norm(data - self.baseline_pattern, axis=1)
 
-        normalized_diffs = convergence_diffs / (np.linalg.norm(self.baseline_pattern) + 1e-6)
+        normalized_diffs = convergence_diffs / (np.linalg.norm(self.baseline_pattern) + 1e-6)  # type: ignore[arg-type, unused-ignore]
 
         # Soft normalization: x / (threshold + x) approaches 1 asymptotically
         # Preserves ordering while keeping scores in [0, 1) range
@@ -624,7 +622,7 @@ class SigmaDirectiveDetector(BaseDetector):
         """
         Molecular-level hash function for nano-scale integrity
         """
-        hash_obj = hashlib.sha256(data)
+        hash_obj = hashlib.sha3_256(data)
         hash_bytes = hash_obj.digest()
 
         byte_values = np.frombuffer(hash_bytes, dtype=np.uint8)
@@ -647,7 +645,7 @@ class SigmaDirectiveDetector(BaseDetector):
         checksum = 0.0
 
         for _i in range(4):
-            hash_obj = hashlib.sha256(current)
+            hash_obj = hashlib.sha3_256(current)
             current = hash_obj.digest()
 
             byte_sum = sum(current)

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Meta-Learning Adapter for Mercury Agent.
 
@@ -52,7 +51,6 @@ from typing import Any
 
 import numpy as np
 
-
 try:
     import torch
     import torch.nn.functional as F
@@ -61,9 +59,9 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None
-    nn = None
-    F = None
+    torch = None  # type: ignore[assignment, unused-ignore]
+    nn = None  # type: ignore[assignment, unused-ignore]
+    F = None  # type: ignore[assignment, unused-ignore]
 
 
 logger = logging.getLogger(__name__)
@@ -304,8 +302,8 @@ if TORCH_AVAILABLE:
 
             for i in range(len(dims) - 1):
                 layers.append(nn.Linear(dims[i], dims[i + 1]))
-                layers.append(nn.ReLU())
-                layers.append(nn.Dropout(dropout))
+                layers.append(nn.ReLU())  # type: ignore[arg-type, unused-ignore]
+                layers.append(nn.Dropout(dropout))  # type: ignore[arg-type, unused-ignore]
 
             layers.append(nn.Linear(dims[-1], embedding_dim))
 
@@ -813,14 +811,14 @@ class MAML:
         """
         # Array-based API (test expectation)
         if support_y is not None:
-            self._adapted_params = self.inner_loop_adapt(support_x_or_task, support_y)
+            self._adapted_params = self.inner_loop_adapt(support_x_or_task, support_y)  # type: ignore[arg-type, unused-ignore]
             return None
 
         # Task-based API (original implementation)
         task = support_x_or_task
         start_time = time.time()
 
-        X_query, y_query = task.get_query_arrays()
+        X_query, y_query = task.get_query_arrays()  # type: ignore[union-attr, unused-ignore]
 
         # Pre-adaptation evaluation
         pre_loss, pre_probs = self._compute_loss(X_query, y_query, self.params)
@@ -828,7 +826,7 @@ class MAML:
         pre_acc = (pre_preds == y_query).mean()
 
         # Inner loop adaptation
-        adapted_params = self._inner_loop(task, self.params)
+        adapted_params = self._inner_loop(task, self.params)  # type: ignore[arg-type, unused-ignore]
         self._adapted_params = adapted_params
 
         # Post-adaptation evaluation
@@ -844,7 +842,7 @@ class MAML:
         ) / n
 
         return AdaptationResult(
-            task_id=task.task_id,
+            task_id=task.task_id,  # type: ignore[union-attr, unused-ignore]
             pre_adaptation_loss=pre_loss,
             post_adaptation_loss=post_loss,
             pre_adaptation_accuracy=float(pre_acc),
@@ -1069,7 +1067,7 @@ class Reptile:
             "total_loss": 0.0,
         }
 
-    def adapt(self, task: Task) -> AdaptationResult:
+    def adapt(self, task: Task) -> AdaptationResult | None:
         """Adapt to task."""
         return self.maml.adapt(task)
 
@@ -1254,6 +1252,7 @@ class MetaLearningAdapter:
 
     def _init_algorithm(self) -> None:
         """Initialize meta-learning algorithm."""
+        self._learner: PrototypicalNetworks | MAML | Reptile
         if self.algorithm == MetaLearningAlgorithm.PROTOTYPICAL:
             encoder = MLPEncoder(
                 input_dim=self.input_dim,
@@ -1312,7 +1311,7 @@ class MetaLearningAdapter:
         n_way = len(support_labels)
 
         # Determine k_shot
-        label_counts = defaultdict(int)
+        label_counts: dict[Any, int] = defaultdict(int)
         for _, y in support_data:
             label_counts[y] += 1
         k_shot = min(label_counts.values()) if label_counts else self.k_shot
@@ -1426,6 +1425,7 @@ class MetaLearningAdapter:
         self.adapt(task)
         pred, probs = self.predict(query_features)
 
+        assert isinstance(pred, int)
         is_anomaly = pred == 1
         confidence = probs[pred] if pred < len(probs) else 0.5
 
@@ -1466,8 +1466,8 @@ class MetaLearningAdapter:
                         for f in features:
                             support_x.append(f)
                             support_y.append(idx)
-                    support_x = np.array(support_x)
-                    support_y = np.array(support_y)
+                    support_x = np.array(support_x)  # type: ignore[assignment, unused-ignore]
+                    support_y = np.array(support_y)  # type: ignore[assignment, unused-ignore]
 
                     query_x, query_y = [], []
                     for idx, (class_name, features) in enumerate(query_dict.items()):
@@ -1476,8 +1476,8 @@ class MetaLearningAdapter:
                         for f in features:
                             query_x.append(f)
                             query_y.append(idx)
-                    query_x = np.array(query_x) if query_x else support_x
-                    query_y = np.array(query_y) if query_y else support_y
+                    query_x = np.array(query_x) if query_x else support_x  # type: ignore[assignment, unused-ignore]
+                    query_y = np.array(query_y) if query_y else support_y  # type: ignore[assignment, unused-ignore]
                 else:
                     # Array-based format
                     support_x = task_dict["support_x"]
@@ -1495,7 +1495,7 @@ class MetaLearningAdapter:
                     loss = self._learner.meta_step([converted_task])
                     epoch_loss += loss
                 elif isinstance(self._learner, Reptile):
-                    loss = self._learner.meta_update(support_x, support_y)
+                    loss = self._learner.meta_update(support_x, support_y)  # type: ignore[arg-type, unused-ignore]
                     epoch_loss += loss
                 elif isinstance(self._learner, PrototypicalNetworks):
                     # For prototypical networks, fit on support set
@@ -1503,15 +1503,15 @@ class MetaLearningAdapter:
                         self._learner.fit(task_dict["support"])
                     else:
                         # Convert arrays to dict
-                        support_dict_conv = {}
+                        support_dict_conv: dict[str, list[Any]] = {}
                         for i in range(len(support_x)):
                             label = f"class_{support_y[i]}"
                             if label not in support_dict_conv:
                                 support_dict_conv[label] = []
                             support_dict_conv[label].append(support_x[i])
                         for key in support_dict_conv:
-                            support_dict_conv[key] = np.array(support_dict_conv[key])
-                        self._learner.fit(support_dict_conv)
+                            support_dict_conv[key] = np.array(support_dict_conv[key])  # type: ignore[assignment, unused-ignore]
+                        self._learner.fit(support_dict_conv)  # type: ignore[arg-type, unused-ignore]
 
             losses.append(epoch_loss / max(len(tasks), 1))
 
@@ -1569,12 +1569,12 @@ class MetaLearningAdapter:
                 for f in features:
                     support_x.append(f)
                     support_y.append(idx)
-            support_x = np.array(support_x)
-            support_y = np.array(support_y)
+            support_x = np.array(support_x)  # type: ignore[assignment, unused-ignore]
+            support_y = np.array(support_y)  # type: ignore[assignment, unused-ignore]
             if isinstance(self._learner, MAML):
-                self._learner.adapt(support_x, support_y)
+                self._learner.adapt(support_x, support_y)  # type: ignore[arg-type, unused-ignore]
             else:
-                self._learner.task_training(support_x, support_y)
+                self._learner.task_training(support_x, support_y)  # type: ignore[arg-type, unused-ignore]
         self._class_names = list(support_set.keys())
 
     def predict_class_names(
@@ -1642,7 +1642,7 @@ class MetaLearningAdapter:
             data = np.array(all_data)
             labels = np.array(all_labels)
 
-        unique_classes = np.unique(labels)
+        unique_classes = np.unique(labels)  # type: ignore[arg-type, unused-ignore]
         episodes = []
 
         for _ in range(n_episodes):
@@ -1742,15 +1742,15 @@ class MetaLearningAdapter:
             # Adapt to support set
             if isinstance(self._learner, PrototypicalNetworks):
                 # Convert to dict format
-                support_dict = {}
+                support_dict: dict[str, list[Any]] = {}
                 for i in range(len(support_x)):
                     label = f"class_{support_y[i]}"
                     if label not in support_dict:
                         support_dict[label] = []
                     support_dict[label].append(support_x[i])
                 for key in support_dict:
-                    support_dict[key] = np.array(support_dict[key])
-                self._learner.fit(support_dict)
+                    support_dict[key] = np.array(support_dict[key])  # type: ignore[assignment, unused-ignore]
+                self._learner.fit(support_dict)  # type: ignore[arg-type, unused-ignore]
 
                 # Predict
                 results = self._learner.batch_classify(query_x)
@@ -1759,7 +1759,7 @@ class MetaLearningAdapter:
                 accuracies.append(accuracy)
             elif isinstance(self._learner, MAML):
                 self._learner.adapt(support_x, support_y)
-                preds = self._learner.predict(query_x)
+                preds = self._learner.predict(query_x)  # type: ignore[assignment, unused-ignore]
                 accuracy = float((preds == query_y).mean())
                 accuracies.append(accuracy)
             elif isinstance(self._learner, Reptile):
@@ -1771,7 +1771,7 @@ class MetaLearningAdapter:
 
     def get_statistics(self) -> dict[str, Any]:
         """Get adapter statistics."""
-        learner_stats = {}
+        learner_stats: dict[str, Any] = {}
         if hasattr(self._learner, "get_statistics"):
             learner_stats = self._learner.get_statistics()
 
@@ -1825,7 +1825,7 @@ class AnomalyMetaLearner:
         self.calibrate_confidence = calibrate_confidence
 
         # Cache for recent adaptations
-        self._adaptation_cache: dict[str, AdaptationResult] = {}
+        self._adaptation_cache: dict[str, AdaptationResult | None] = {}
 
         # Learned anomaly types
         self._learned_types: dict[str, dict[str, Any]] = {}
@@ -1921,20 +1921,22 @@ class AnomalyMetaLearner:
         if examples is None:
             raise ValueError("examples required when type_name is a string")
 
-        if examples.ndim == 1:
-            examples = examples.reshape(1, -1)
+        assert not isinstance(examples, dict)
+        examples_arr: np.ndarray = examples
+        if examples_arr.ndim == 1:
+            examples_arr = examples_arr.reshape(1, -1)
 
         self._learned_types[type_name] = {
-            "examples": examples,
+            "examples": examples_arr,
             "is_anomaly": is_anomaly,
-            "n_examples": len(examples),
-            "mean_embedding": examples.mean(axis=0),
+            "n_examples": len(examples_arr),
+            "mean_embedding": examples_arr.mean(axis=0),
         }
 
         # Update feature importance based on variance
         if self._feature_importance is None:
-            self._feature_importance = np.ones(examples.shape[1])
-        variance = examples.var(axis=0)
+            self._feature_importance = np.ones(examples_arr.shape[1])
+        variance = examples_arr.var(axis=0)
         # Higher variance = more important for distinguishing
         self._feature_importance = 0.9 * self._feature_importance + 0.1 * (
             variance / (variance.max() + 1e-8)
@@ -2026,6 +2028,7 @@ class AnomalyMetaLearner:
         else:
             # Fallback: use simple distance-based detection
             pred, probs = self.adapter.predict(sample[0])
+            assert isinstance(pred, int)
             is_anomaly = pred == 1
             predicted_type = "anomaly" if is_anomaly else "normal"
             confidence = float(probs[pred]) if pred < len(probs) else 0.5
@@ -2134,7 +2137,7 @@ class AnomalyMetaLearner:
         normal_examples: list[np.ndarray],
         anomaly_examples: list[np.ndarray],
         anomaly_type: str = "unknown",
-    ) -> AdaptationResult:
+    ) -> AdaptationResult | None:
         """Adapt to a new type of anomaly.
 
         Args:
@@ -2159,7 +2162,7 @@ class AnomalyMetaLearner:
             domain="anomaly_detection",
         )
 
-        result = self.adapter.adapt(task)
+        result: AdaptationResult | None = self.adapter.adapt(task)
         self._adaptation_cache[anomaly_type] = result
 
         return result
@@ -2207,7 +2210,7 @@ class AnomalyMetaLearner:
             "support_size": len(support_examples),
         }
 
-    def get_adaptation_history(self) -> dict[str, AdaptationResult]:
+    def get_adaptation_history(self) -> dict[str, AdaptationResult | None]:
         """Get history of adaptations."""
         return self._adaptation_cache
 

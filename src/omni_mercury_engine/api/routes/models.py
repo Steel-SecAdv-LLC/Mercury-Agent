@@ -32,7 +32,6 @@ from pydantic import BaseModel, Field
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
 
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/models", tags=["Model Management"])
@@ -152,7 +151,9 @@ class ModelRegistry:
     ) -> Model:
         """Register a new model."""
         with self._lock:
-            model_id = hashlib.sha256(f"{name}:{owner_id}:{time.time()}".encode()).hexdigest()[:16]
+            model_id = hashlib.sha3_256(f"{name}:{owner_id}:{time.time()}".encode()).hexdigest()[
+                :16
+            ]
 
             if any(m.name == name and m.owner_id == owner_id for m in self._models.values()):
                 raise HTTPException(
@@ -247,7 +248,7 @@ class ModelRegistry:
                 with open(file_path, "wb") as f:
                     f.write(file_content)
 
-                file_hash = hashlib.sha256(file_content).hexdigest()
+                file_hash = hashlib.sha3_256(file_content).hexdigest()
                 file_size = len(file_content)
 
             version = ModelVersion(

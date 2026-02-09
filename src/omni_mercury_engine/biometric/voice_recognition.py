@@ -17,7 +17,6 @@ from typing import Any
 
 import numpy as np
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -335,7 +334,7 @@ class PitchExtractor:
             return 0.0
 
         pitch = self._sample_rate / peak_idx
-        return pitch
+        return float(pitch)
 
 
 class EnergyExtractor:
@@ -624,7 +623,7 @@ class VoiceLivenessDetector:
         if ratio < expected_ratio / 10:
             return 0.3
 
-        return min(1.0, 0.5 + pitch_peak / (avg_level * 4))
+        return float(min(1.0, 0.5 + pitch_peak / (avg_level * 4)))
 
     def _analyze_channel(self, audio: np.ndarray, sample_rate: int) -> float:
         """Analyze recording channel characteristics."""
@@ -711,7 +710,7 @@ class VoiceActivityDetector:
         silence_frames = energy < threshold * 0.5
         if np.sum(silence_frames) > n_frames * 0.1:
             noise_level = np.mean(energy[silence_frames])
-            threshold = max(self._energy_threshold, noise_level * 3)
+            threshold = max(self._energy_threshold, noise_level * 3)  # type: ignore[assignment, unused-ignore]
 
         vad = energy > threshold
 

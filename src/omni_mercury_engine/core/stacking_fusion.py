@@ -25,7 +25,6 @@ from scipy.optimize import minimize
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_predict
 
-
 logger = logging.getLogger(__name__)
 
 # Golden ratio for ethical scaling
@@ -223,7 +222,7 @@ class StackingFusion:
             raise RuntimeError("Must call fit() before predict()")
 
         meta_X = self._get_meta_features(X)
-        return self.meta_learner.predict(meta_X)
+        return self.meta_learner.predict(meta_X)  # type: ignore[no-any-return, unused-ignore]
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         """
@@ -240,10 +239,10 @@ class StackingFusion:
 
         meta_X = self._get_meta_features(X)
         try:
-            return self.meta_learner.predict_proba(meta_X)
+            return self.meta_learner.predict_proba(meta_X)  # type: ignore[no-any-return, unused-ignore]
         except AttributeError:
             # Meta-learner doesn't support proba
-            return self.meta_learner.predict(meta_X).astype(float)
+            return self.meta_learner.predict(meta_X).astype(float)  # type: ignore[no-any-return, unused-ignore]
 
     def _get_meta_features(self, X: np.ndarray) -> np.ndarray:
         """Get meta-features from base detectors."""
@@ -596,7 +595,9 @@ class EthicallyConstrainedFusion:
 
             detector_preds.append(proba)
 
-        detector_preds = np.array(detector_preds).T  # (n_samples, n_detectors)
+        detector_preds = np.array(  # type: ignore[assignment, unused-ignore]
+            detector_preds
+        ).T  # (n_samples, n_detectors)
         ethical_vec = np.array([self.ethical_scores[name] for name in self.detectors])
 
         # Optimize weights with ethical constraints

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Pre-configured circuit breakers for external API integrations.
 
@@ -37,7 +36,6 @@ from functools import wraps
 from typing import TYPE_CHECKING, Any, cast
 
 from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker, CircuitState
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -69,7 +67,6 @@ class DataLoaderCircuitBreaker(CircuitBreaker):
         super().__init__(
             failure_threshold=3,
             recovery_timeout=30,
-            expected_exception=Exception,
             enable_exponential_backoff=True,
             backoff_base=2.0,
             max_backoff_timeout=300.0,
@@ -94,7 +91,6 @@ class DetectorCircuitBreaker(CircuitBreaker):
         super().__init__(
             failure_threshold=5,
             recovery_timeout=60,
-            expected_exception=Exception,
             enable_exponential_backoff=True,
             backoff_base=2.0,
             max_backoff_timeout=600.0,
@@ -119,7 +115,6 @@ class ExternalIntegrationCircuitBreaker(CircuitBreaker):
         super().__init__(
             failure_threshold=3,
             recovery_timeout=45,
-            expected_exception=Exception,
             enable_exponential_backoff=True,
             backoff_base=2.0,
             max_backoff_timeout=900.0,

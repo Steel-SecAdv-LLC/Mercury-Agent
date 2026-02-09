@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Ensemble Learning for Enhanced Detector Fusion
 
@@ -269,7 +268,7 @@ class EnsembleOmniFusionModel(nn.Module):
         result["anomaly_probs"] = ensemble_probs
         result["base_anomaly_probs"] = base_output["anomaly_probs"]
         result["meta_output"] = meta_output
-        result["ensemble_method"] = "stacking"
+        result["ensemble_method"] = "stacking"  # type: ignore[assignment, unused-ignore]
 
         return result
 
@@ -318,7 +317,7 @@ class EnsembleOmniFusionModel(nn.Module):
         result["anomaly_probs"] = ensemble_probs
         result["base_anomaly_probs"] = base_output["anomaly_probs"]
         result["adaptive_weights"] = adaptive_weights
-        result["ensemble_method"] = "weighted_average"
+        result["ensemble_method"] = "weighted_average"  # type: ignore[assignment, unused-ignore]
 
         return result
 
@@ -330,7 +329,7 @@ class EnsembleOmniFusionModel(nn.Module):
     ) -> dict[str, torch.Tensor]:
         """Boosting-style ensemble with error-weighted combination."""
         result = dict(base_output)
-        result["ensemble_method"] = "boosting"
+        result["ensemble_method"] = "boosting"  # type: ignore[assignment, unused-ignore]
         result["base_anomaly_probs"] = base_output["anomaly_probs"]
         return result
 
@@ -441,8 +440,8 @@ class VotingEnsemble:
         return {
             "predictions": predictions,
             "confidence": confidence,
-            "detector_names": names,
-            "voting_type": self.voting_type,
+            "detector_names": names,  # type: ignore[dict-item, unused-ignore]
+            "voting_type": self.voting_type,  # type: ignore[dict-item, unused-ignore]
         }
 
 

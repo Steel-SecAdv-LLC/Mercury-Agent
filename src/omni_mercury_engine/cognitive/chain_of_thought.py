@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Chain-of-Thought Reasoning Engine for Mercury Agent.
 
@@ -52,7 +51,6 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 
@@ -1039,7 +1037,7 @@ class ChainOfThoughtEngine:
 
     def _generate_inferences(self, context: dict[str, Any], parent: Thought) -> list[Thought]:
         """Generate inference thoughts based on context."""
-        inferences = []
+        inferences: list[Thought] = []
 
         # Generate 1-3 inferences based on available data
         inference_count = min(3, max(1, len(context.get("features", [])) // 2))
@@ -1108,7 +1106,7 @@ class ChainOfThoughtEngine:
         elif "normal" in conclusion:
             return "normal"
         # Hash for other cases
-        return hashlib.sha256(conclusion.encode()).hexdigest()[:8]
+        return hashlib.sha3_256(conclusion.encode()).hexdigest()[:8]
 
     def _vote_on_conclusions(self, conclusions: list[str]) -> ConsistencyResult:
         """Vote on conclusions for self-consistency."""
@@ -1187,7 +1185,7 @@ class ChainOfThoughtEngine:
         for depth in range(max_depth):
             # Randomly choose thought type
             thought_types = [ThoughtType.ANALYSIS, ThoughtType.INFERENCE, ThoughtType.HYPOTHESIS]
-            thought_type = np.random.choice(thought_types)
+            thought_type = np.random.choice(thought_types)  # type: ignore[arg-type, unused-ignore]
 
             step_context = {
                 "subject": f"branch aspect {depth}",

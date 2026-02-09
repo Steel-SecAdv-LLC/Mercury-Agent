@@ -21,12 +21,10 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +81,9 @@ class ParetoFront:
 
         # Find solution with minimum sum (balanced)
         scores = normalized.sum(axis=1)
-        best_idx = np.argmin(scores)
+        best_idx = int(np.argmin(scores))
 
-        return self.solutions[best_idx]
+        return self.solutions[int(best_idx)]
 
     def get_best_benevolent(self) -> ParetoSolution | None:
         """Get solution with highest benevolence."""
@@ -94,7 +92,7 @@ class ParetoFront:
 
         # Benevolence is stored as (1 - benevolence), so minimize
         benevolence_idx = 1  # Index in objectives array
-        best_idx = np.argmin([s.objectives[benevolence_idx] for s in self.solutions])
+        best_idx = int(np.argmin([s.objectives[benevolence_idx] for s in self.solutions]))
 
         return self.solutions[best_idx]
 
@@ -645,7 +643,7 @@ def optimize_benevolent_detector(
     def objective(params: dict[str, Any]) -> np.ndarray:
         """Multi-objective function returning [detection, 1-benevolence, 1-fairness]."""
         try:
-            model = model_fn(params)
+            model = model_fn(params)  # type: ignore[arg-type, unused-ignore]
             model.fit(X_train, y_train)
             predictions = model.predict_proba(X_train)
             if predictions.ndim == 2:
@@ -665,7 +663,7 @@ def optimize_benevolent_detector(
         )
 
     optimizer = ParetoOptimizer(
-        objective_fn=objective,
+        objective_fn=objective,  # type: ignore[arg-type, unused-ignore]
         n_objectives=3,
         n_generations=n_generations,
         seed=seed,

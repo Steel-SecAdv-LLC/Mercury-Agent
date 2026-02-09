@@ -22,7 +22,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -91,7 +90,7 @@ class GlobalExplanation:
     base_value: float
     feature_names: list[str] | None
     data: np.ndarray
-    mean_abs_shap: np.ndarray = field(default=None)
+    mean_abs_shap: np.ndarray = field(default=None)  # type: ignore[arg-type, unused-ignore]
 
     def __post_init__(self) -> None:
         """Compute mean absolute SHAP values."""
@@ -247,7 +246,7 @@ class ExactShapExplainer(ShapExplainer):
                 combined[j] = x[j]
             predictions[i] = self._predict(combined.reshape(1, -1))[0]
 
-        return np.mean(predictions)
+        return float(np.mean(predictions))
 
     def explain_global(self, X: np.ndarray) -> GlobalExplanation:
         """Compute global SHAP explanation."""
@@ -389,7 +388,7 @@ class KernelShapExplainer(ShapExplainer):
             pred = self._predict(combined.reshape(1, -1))[0]
             predictions.append(pred)
 
-        return np.mean(predictions)
+        return float(np.mean(predictions))
 
     def explain_global(self, X: np.ndarray) -> GlobalExplanation:
         """Compute global Kernel SHAP explanation."""
@@ -728,7 +727,7 @@ def create_shap_explainer(
         else:
             return KernelShapExplainer(model, background_data, feature_names)
 
-    explainer_map = {
+    explainer_map: dict[str, Callable[[], ShapExplainer]] = {
         "exact": lambda: ExactShapExplainer(model, background_data, feature_names),
         "kernel": lambda: KernelShapExplainer(model, background_data, feature_names),
         "sampling": lambda: SamplingShapExplainer(model, background_data, feature_names),

@@ -29,7 +29,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
@@ -50,7 +49,7 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None
+    torch = None  # type: ignore[assignment, unused-ignore]
 
 
 class ExplainabilityMethod(StrEnum):
@@ -305,7 +304,7 @@ class SHAPExplainer(BaseExplainer):
             # Sample background
             n_samples = min(self.background_samples, len(X_background))
             indices = self.rng.choice(len(X_background), n_samples, replace=False)
-            background = torch.tensor(X_background[indices], dtype=torch.float32)
+            background = torch.tensor(X_background[indices], dtype=torch.float32)  # type: ignore[assignment, unused-ignore]
 
             return shap.DeepExplainer(model, background)
 
@@ -315,7 +314,7 @@ class SHAPExplainer(BaseExplainer):
 
             n_samples = min(self.background_samples, len(X_background))
             indices = self.rng.choice(len(X_background), n_samples, replace=False)
-            background = torch.tensor(X_background[indices], dtype=torch.float32)
+            background = torch.tensor(X_background[indices], dtype=torch.float32)  # type: ignore[assignment, unused-ignore]
 
             return shap.GradientExplainer(model, background)
 
@@ -706,7 +705,7 @@ class CounterfactualExplainer:
                     if flipped and distance < best_distance:
                         best_counterfactual = candidate.copy()
                         best_pred = pred
-                        best_distance = distance
+                        best_distance = distance  # type: ignore[assignment, unused-ignore]
                         counterfactual = candidate.copy()
 
             # Early stopping if valid counterfactual found

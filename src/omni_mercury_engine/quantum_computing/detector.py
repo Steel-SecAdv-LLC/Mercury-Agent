@@ -27,7 +27,6 @@ from omni_mercury_engine.quantum_computing.hybrid import (
     VQEAnomalyDetector,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -114,10 +113,9 @@ class QuantumAnomalyDetector:
         self._shots = shots
         self._error_mitigation = error_mitigation
 
+        self._error_mitigator: ErrorMitigationCircuit | None = None
         if error_mitigation:
             self._error_mitigator = ErrorMitigationCircuit(error_mitigation)
-        else:
-            self._error_mitigator = None
 
         self._trained_model: Any = None
         self._method: str | None = None

@@ -30,7 +30,6 @@ from typing import Any
 import numpy as np
 from scipy import stats
 
-
 logger = logging.getLogger(__name__)
 
 # Fixed seed for reproducibility
@@ -378,7 +377,7 @@ class RealWorldBenchmarkRunner:
             info.n_features = X.shape[1]
             info.anomaly_ratio = float(np.mean(y))
             info.source = "real-local"
-            info.checksum = hashlib.sha256(X.tobytes()).hexdigest()[:16]
+            info.checksum = hashlib.sha3_256(X.tobytes()).hexdigest()[:16]
             info.used_synthetic = False
 
             # Validate minimum samples
@@ -421,7 +420,7 @@ class RealWorldBenchmarkRunner:
         info.n_features = X.shape[1]
         info.anomaly_ratio = float(np.mean(y))
         info.source = "synthetic"
-        info.checksum = hashlib.sha256(X.tobytes()).hexdigest()[:16]
+        info.checksum = hashlib.sha3_256(X.tobytes()).hexdigest()[:16]
         info.used_synthetic = True
 
         return X, y, info
@@ -751,7 +750,7 @@ class RealWorldBenchmarkRunner:
         diff = np.array(values_a) - np.array(values_b)
         cohens_d = np.mean(diff) / (np.std(diff) + 1e-10)
 
-        improvement = (np.mean(values_a) - np.mean(values_b)) / max(np.mean(values_b), 1e-10) * 100
+        improvement = (np.mean(values_a) - np.mean(values_b)) / max(np.mean(values_b), 1e-10) * 100  # type: ignore[operator, unused-ignore]
 
         return {
             "detector_a": result_a.detector_name,

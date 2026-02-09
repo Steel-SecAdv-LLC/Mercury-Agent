@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Recursion-Resonance-Refactoring (3R) Mechanism
 Adaptive enhancement system using self-referential processing,
@@ -69,7 +68,6 @@ from omni_mercury_engine.core.three_r.types import (
 )
 from omni_mercury_engine.utils.constants import MathematicalConstants
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -430,7 +428,7 @@ class _LegacyAAFEWeightOptimizer:
         # A = (w_R * R + w_H * H + w_O * O) * η^Φ
         weighted_sum = np.dot(X, weights)
         ethical_scaling = self.ethical_threshold**self.golden_ratio
-        return weighted_sum * ethical_scaling
+        return weighted_sum * ethical_scaling  # type: ignore[no-any-return, unused-ignore]
 
     def _objective_function(
         self,
@@ -587,7 +585,7 @@ class _LegacyRecursionEngine:
 
         diff = np.linalg.norm(transformed - data)
         if diff < threshold:
-            return transformed
+            return transformed  # type: ignore[no-any-return, unused-ignore]
 
         return self.recursive_transform(transformed, transform_fn, depth + 1, threshold)
 
@@ -611,7 +609,7 @@ class _LegacyRecursionEngine:
             window_size = max(3, len(data) // (2**level))
             return self._sliding_window_stats(data, window_size)
         else:
-            return np.mean(data, axis=1, keepdims=True)
+            return np.mean(data, axis=1, keepdims=True)  # type: ignore[no-any-return, unused-ignore]
 
     def _sliding_window_stats(self, data: NDArray[Any], window_size: int) -> NDArray[Any]:
         if len(data) < window_size:
@@ -1702,7 +1700,16 @@ class RefactoringEngine:
             complexity = self.analyze_function_complexity(func)
 
             import numpy as np
-            from scipy.special import sph_harm
+
+            # SciPy 1.14+ removed sph_harm, use sph_harm_y instead
+            try:
+                from scipy.special import sph_harm_y
+
+                def sph_harm(m: int, n: int, phi: float, theta: float) -> complex:
+                    return complex(sph_harm_y(n, m, theta, phi))
+
+            except ImportError:
+                from scipy.special import sph_harm  # type: ignore[no-redef]
 
             metrics = np.array(
                 [
@@ -2110,10 +2117,10 @@ class RefactoringEngine:
 
         for i in range(num_variants):
             config = RefactoringConfig(
-                enable_harmonics=bool(self._rng.choice([True, False])),
-                enable_quantum_paths=bool(self._rng.choice([True, False])),
-                enable_pattern_resonance=bool(self._rng.choice([True, False])),
-                quantum_num_paths=int(self._rng.choice([1, 2, 3])),
+                enable_harmonics=bool(self._rng.choice([True, False])),  # type: ignore[arg-type, unused-ignore]
+                enable_quantum_paths=bool(self._rng.choice([True, False])),  # type: ignore[arg-type, unused-ignore]
+                enable_pattern_resonance=bool(self._rng.choice([True, False])),  # type: ignore[arg-type, unused-ignore]
+                quantum_num_paths=int(self._rng.choice([1, 2, 3])),  # type: ignore[arg-type, unused-ignore]
                 enable_caching=True,
             )
 

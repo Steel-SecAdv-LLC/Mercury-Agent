@@ -29,7 +29,6 @@ from omni_mercury_engine.quantum_computing.executor import (
     QuantumExecutor,
 )
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 

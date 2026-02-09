@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Schumann Resonance Detector Module
 
@@ -303,7 +302,7 @@ class SchumannResonanceDetector:
         confidence_score = float(confidence[0].item())
 
         anomaly_types = ["normal", "amplitude", "frequency", "combined"]
-        anomaly_type = anomaly_types[anomaly_class]
+        anomaly_type = anomaly_types[anomaly_class]  # type: ignore[index, unused-ignore]
 
         risk_score = (
             confidence_score

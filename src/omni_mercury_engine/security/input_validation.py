@@ -29,7 +29,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, TypeVar
 
-
 T = TypeVar("T")
 
 
@@ -701,7 +700,7 @@ class TrustedEndpoints:
             default_headers.update(headers)
 
         request = urllib.request.Request(url, headers=default_headers)
-        return urllib.request.urlopen(request, timeout=timeout)
+        return urllib.request.urlopen(request, timeout=timeout)  # nosec B310
 
     # ==========================================================================
     # USGS - Earthquake Hazards Program

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Federated Learning for Distributed Robustness
 
@@ -112,7 +111,9 @@ class FederatedAnomalyDetection:
         self.client_models: dict[str, ClientModel] = {}
         self.round_history: list[GlobalModel] = []
 
-    def register_client(self, client_id: str, initial_weights: np.ndarray[Any, Any] | None = None):
+    def register_client(
+        self, client_id: str, initial_weights: np.ndarray[Any, Any] | None = None
+    ) -> None:
         """
         Register new client in federated system.
 

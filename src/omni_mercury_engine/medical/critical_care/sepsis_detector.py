@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Sepsis Detector - Early Sepsis Detection & Septic Shock Prevention
 
@@ -48,7 +47,6 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 from torch import nn
-
 
 if TYPE_CHECKING:
     import numpy as np
@@ -486,10 +484,10 @@ class SepsisDetector:
 
         stage_probs = torch.softmax(stage_logits[0], dim=0)
         stage_idx = torch.argmax(stage_probs).item()
-        confidence = float(stage_probs[stage_idx].item())
+        confidence = float(stage_probs[stage_idx].item())  # type: ignore[index, unused-ignore]
 
         stages = [e.value for e in SepsisStage]
-        predicted_stage = stages[stage_idx]
+        predicted_stage = stages[stage_idx]  # type: ignore[index, unused-ignore]
 
         return {
             "predicted_stage": predicted_stage,

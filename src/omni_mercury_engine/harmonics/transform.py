@@ -16,7 +16,6 @@ from typing import Any
 
 import numpy as np
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -36,7 +35,7 @@ class HarmonicCoefficients:
             return 0.0j
 
         idx = degree * (degree + 1) + m
-        return self.coefficients[idx]
+        return complex(self.coefficients[idx])
 
     def set_coefficient(self, degree: int, m: int, value: complex) -> None:
         """Set coefficient for degree and order m."""
@@ -110,8 +109,8 @@ class AssociatedLegendre:
             norm = np.sqrt(
                 (2 * degree + 1)
                 / (4 * np.pi)
-                * np.math.factorial(degree - m_abs)
-                / np.math.factorial(degree + m_abs)
+                * np.math.factorial(degree - m_abs)  # type: ignore[attr-defined, unused-ignore]
+                / np.math.factorial(degree + m_abs)  # type: ignore[attr-defined, unused-ignore]
             )
             plm = plm * norm
 
@@ -343,7 +342,7 @@ class SphericalHarmonicTransform:
             for m in range(-degree, degree + 1):
                 idx = degree * (degree + 1) + m
                 c = coefficients.coefficients[idx]
-                f += np.real(c) * basis[idx]
+                f += np.real(c) * basis[idx]  # type: ignore[misc, unused-ignore]
 
         return f
 

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Spectral Vibration Analysis Module for Mercury Agent.
 
@@ -60,7 +59,6 @@ from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.utils.constants import MathematicalConstants
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -88,6 +86,12 @@ class SpectralAnalysisMode(Enum):
     PHONON_INTERACTION = "phonon_interaction"
     MLIP_VIBRATIONAL = "mlip_vibrational"
     HYBRID_FUSION = "hybrid_fusion"
+    # CLI-friendly aliases
+    COMPREHENSIVE = "hybrid_fusion"  # Alias for HYBRID_FUSION
+    FFT_ONLY = "fft_standard"  # Alias for FFT_STANDARD
+    WAVELET_ONLY = "wavelet_multiresolution"  # Alias for WAVELET_MULTIRESOLUTION
+    PHONON = "phonon_interaction"  # Alias for PHONON_INTERACTION
+    PREDICTIVE = "mlip_vibrational"  # Alias for MLIP_VIBRATIONAL
 
 
 class VibrationSignatureType(Enum):
@@ -603,7 +607,7 @@ class PhononInteractionNetwork(nn.Module):
 
         # Anharmonicity score (deviation from harmonic behavior)
         off_diagonal_mean = (
-            coupling_matrix[~torch.eye(num_active_modes, dtype=bool, device=mode_amplitudes.device)]
+            coupling_matrix[~torch.eye(num_active_modes, dtype=bool, device=mode_amplitudes.device)]  # type: ignore[call-overload, unused-ignore]
             .abs()
             .mean()
         )
@@ -1378,7 +1382,7 @@ class SpectralVibrationDetector(BaseDetector):
             if idx > 0 and idx < len(spectrum) - 1:
                 # Interpolate value at exact Schumann frequency
                 local_max = max(spectrum[idx - 1], spectrum[idx], spectrum[idx + 1])
-                local_mean = np.mean(spectrum[max(0, idx - 5) : min(len(spectrum), idx + 6)])
+                local_mean = np.mean(spectrum[max(0, idx - 5) : min(len(spectrum), idx + 6)])  # type: ignore[misc, unused-ignore]
 
                 # Score based on peak prominence
                 if local_mean > 0:
@@ -1390,7 +1394,7 @@ class SpectralVibrationDetector(BaseDetector):
 
         # Weight by golden ratio (higher weight to fundamental)
         weights = [PHI ** (-i) for i in range(len(alignment_scores))]
-        weights = np.array(weights) / sum(weights)
+        weights = np.array(weights) / sum(weights)  # type: ignore[assignment, unused-ignore]
 
         return float(np.average(alignment_scores, weights=weights))
 
@@ -1497,7 +1501,7 @@ class SpectralVibrationDetector(BaseDetector):
             feature_anomaly_score = 0.5
 
         # Spectral distance from reference
-        if self._reference_spectrum is not None:
+        if self._reference_spectrum is not None and self._reference_std is not None:
             spectral_distance = np.mean(
                 np.abs(features.power_spectrum - self._reference_spectrum)
                 / (self._reference_std + 1e-8)

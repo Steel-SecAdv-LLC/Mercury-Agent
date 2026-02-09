@@ -166,18 +166,16 @@ class LiveDatasetBenchmarkRunner:
 
     def __init__(self, detector_name: str = "adaptive"):
         self.detector_name = detector_name
-        self.detector = None
+        self.detector: Any = None
         self.results: list[DatasetBenchmarkResult] = []
 
-    def _initialize_detector(self):
+    def _initialize_detector(self) -> None:
         """Initialize the anomaly detector."""
         try:
             from omni_mercury_engine.core.adaptive_detector import AdaptiveAnomalyDetector
 
             self.detector = AdaptiveAnomalyDetector(
-                contamination="auto",
-                enable_3r=True,
-                use_adaptive_fusion=True,
+                contamination=0.05,
             )
             logger.info(f"Initialized {self.detector_name} detector")
         except ImportError as e:
@@ -192,7 +190,7 @@ class LiveDatasetBenchmarkRunner:
         self, category: str, dataset_name: str, loader_name: str
     ) -> tuple[np.ndarray | None, np.ndarray | None, dict[str, Any]]:
         """Load a dataset with proper error handling."""
-        metadata = {
+        metadata: dict[str, Any] = {
             "source": "synthetic",
             "n_samples": 0,
             "n_features": 0,
@@ -251,7 +249,7 @@ class LiveDatasetBenchmarkRunner:
             return X, y, metadata
 
         except Exception as e:
-            metadata["warnings"].append(f"Load error: {str(e)}")
+            metadata["warnings"].append(f"Load error: {e!s}")
             logger.warning(f"Failed to load {dataset_name}: {e}")
             return None, None, metadata
 
@@ -463,7 +461,7 @@ class LiveDatasetBenchmarkRunner:
         print(f"Total Time: {result.total_time_seconds:.1f}s")
         print("-" * 80)
 
-        print(f"\nDATASET COVERAGE:")
+        print("\nDATASET COVERAGE:")
         print(f"  Total Datasets: {result.total_datasets}")
         print(f"  Successful: {result.successful_datasets}")
         print(f"  Failed: {result.failed_datasets}")
@@ -471,7 +469,7 @@ class LiveDatasetBenchmarkRunner:
         live_count = sum(1 for v in result.live_data_coverage.values() if v)
         print(f"  Live Data: {live_count}/{len(result.live_data_coverage)}")
 
-        print(f"\nAGGREGATE METRICS:")
+        print("\nAGGREGATE METRICS:")
         print(f"  Mean ROC-AUC: {result.mean_roc_auc:.4f}")
         print(f"  Mean PR-AUC:  {result.mean_pr_auc:.4f}")
         print(f"  Mean F1:      {result.mean_f1:.4f} (std: {result.std_f1:.4f})")
@@ -494,7 +492,7 @@ class LiveDatasetBenchmarkRunner:
     def export_results(self, result: BenchmarkSuiteResult, output_path: str) -> None:
         """Export results to JSON file."""
 
-        def serialize(obj):
+        def serialize(obj: Any) -> Any:
             if isinstance(obj, DatasetBenchmarkResult):
                 return obj.to_dict()
             if isinstance(obj, np.floating):
@@ -533,7 +531,7 @@ class LiveDatasetBenchmarkRunner:
         logger.info(f"Results exported to {output_path}")
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Mercury Agent Live Dataset Benchmark Suite")
     parser.add_argument(
         "--category",

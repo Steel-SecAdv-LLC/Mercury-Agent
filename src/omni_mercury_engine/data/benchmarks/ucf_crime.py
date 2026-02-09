@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 UCF-Crime Dataset Loader.
 
@@ -37,7 +36,6 @@ from typing import Any
 import numpy as np
 
 from .base_dataset import BaseDatasetConfig, BaseVideoDataset
-
 
 UCF_ANOMALY_TYPES: list[str] = [
     "Abuse",

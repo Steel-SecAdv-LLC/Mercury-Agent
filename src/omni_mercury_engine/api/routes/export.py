@@ -27,7 +27,6 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
-
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
@@ -36,7 +35,6 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
-
 
 logger = logging.getLogger(__name__)
 
@@ -286,7 +284,7 @@ async def record_detection(
     """Record a detection for historical tracking."""
     store = get_data_store()
 
-    data_hash = hashlib.sha256(json.dumps(data, default=str).encode()).hexdigest()[:16]
+    data_hash = hashlib.sha3_256(json.dumps(data, default=str).encode()).hexdigest()[:16]
 
     anomaly_count = sum(1 for a in results.get("anomalies", []) if a)
     scores = results.get("scores", [])

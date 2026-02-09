@@ -31,7 +31,6 @@ from typing import TYPE_CHECKING, Any, TypedDict
 
 import numpy as np
 
-
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -58,7 +57,6 @@ class ODDSDatasetInfo(TypedDict, total=False):
 
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, safe_urlretrieve
-
 
 logger = logging.getLogger(__name__)
 
@@ -254,7 +252,7 @@ class ADRepositoryLoader(DatasetLoader):
 
         self.dataset_info = ADREPOSITORY_DATASETS[self.dataset_name]
         self._features: np.ndarray | None = None
-        self._labels: np.ndarray | None = None
+        self._labels: np.ndarray | None = None  # type: ignore[assignment, unused-ignore]
         self._is_real_data = False
 
         logger.info(
@@ -328,7 +326,7 @@ class ADRepositoryLoader(DatasetLoader):
         # Basic normalization - zero mean, unit variance
         mean = np.mean(data, axis=0, keepdims=True)
         std = np.std(data, axis=0, keepdims=True) + 1e-8
-        return (data - mean) / std
+        return (data - mean) / std  # type: ignore[no-any-return, unused-ignore]
 
     def _download_from_repository(self) -> bool:
         """Download from ODDS or ADRepository GitHub."""

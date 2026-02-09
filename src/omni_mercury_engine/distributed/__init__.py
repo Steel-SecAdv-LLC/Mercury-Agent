@@ -42,7 +42,6 @@ from omni_mercury_engine.distributed.raft_consensus import (
     create_cluster_configs,
 )
 
-
 __all__ = [
     "AppendEntriesRequest",
     "AppendEntriesResponse",

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Ethical Risk Matrix with Dynamic Compliance and Anomaly Forecasting
 
@@ -44,7 +43,6 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable

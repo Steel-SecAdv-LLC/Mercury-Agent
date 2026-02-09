@@ -65,6 +65,7 @@ import os
 import sys
 import time
 import warnings
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -74,7 +75,6 @@ import numpy as np
 import pandas as pd
 import requests
 import torch
-
 
 # =============================================================================
 # Configuration (environment-variable driven for CI flexibility)
@@ -113,7 +113,6 @@ from sklearn.model_selection import KFold, StratifiedKFold, train_test_split
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import OneClassSVM
-
 
 # Import adaptive detector for targeted performance enhancements
 try:
@@ -169,11 +168,11 @@ def verify_checksum(content: bytes, dataset_key: str) -> bool:
 
 
 def fetch_with_retry(
-    fetch_func: callable,
+    fetch_func: Callable[..., Any],
     dataset_name: str,
     max_retries: int = 5,
     base_delay: float = 2.0,
-    **fetch_kwargs,
+    **fetch_kwargs: Any,
 ) -> Any | None:
     """
     Fetch a dataset with exponential backoff retry logic.
@@ -260,7 +259,7 @@ def fetch_from_mirror(
             response = requests.get(url, headers=_BROWSER_HEADERS, timeout=timeout)
             response.raise_for_status()
             logger.info(f"Successfully fetched {dataset_name} from mirror: {url}")
-            return response.content
+            return bytes(response.content)
         except requests.exceptions.RequestException as e:
             if attempt < max_retries - 1:
                 delay = base_delay * (2**attempt)
@@ -415,7 +414,7 @@ def _create_labels_from_ranges(
     return y
 
 
-def fetch_smap_msl_local(dataset: str = "SMAP") -> tuple | None:
+def fetch_smap_msl_local(dataset: str = "SMAP") -> tuple[Any, ...] | None:
     """
     Load SMAP/MSL from local directory matching telemanom structure.
 
@@ -1159,6 +1158,7 @@ def prepare_smd_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
         # Limit samples if needed
         if len(X) > n_samples:
             indices = np.random.RandomState(42).choice(len(X), n_samples, replace=False)
+            assert y is not None
             X, y = X[indices], y[indices]
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
@@ -1248,6 +1248,7 @@ def prepare_smap_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
 
         if len(X) > n_samples:
             indices = np.random.RandomState(43).choice(len(X), n_samples, replace=False)
+            assert y is not None
             X, y = X[indices], y[indices]
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
@@ -1337,6 +1338,7 @@ def prepare_msl_dataset(n_samples: int = 5000, window_size: int = 10) -> Dataset
 
         if len(X) > n_samples:
             indices = np.random.RandomState(44).choice(len(X), n_samples, replace=False)
+            assert y is not None
             X, y = X[indices], y[indices]
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
@@ -1430,6 +1432,7 @@ def prepare_swat_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
 
         if len(X) > n_samples:
             indices = np.random.RandomState(45).choice(len(X), n_samples, replace=False)
+            assert y is not None
             X, y = X[indices], y[indices]
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
@@ -1467,8 +1470,8 @@ class TranADDetector:
     def __init__(self, contamination: float = 0.1, window_size: int = 10):
         self.contamination = contamination
         self.window_size = window_size
-        self.model = None
-        self.threshold = None
+        self.model: Any | None = None
+        self.threshold: float | None = None
         self.scaler = StandardScaler()
         self._is_fitted = False
 
@@ -1492,6 +1495,7 @@ class TranADDetector:
             )
 
             self.model = TranADModel(config)
+            assert self.model is not None
             X_scaled = self.scaler.fit_transform(X)
 
             # Train on normal data only (unsupervised anomaly detection)
@@ -1573,6 +1577,7 @@ class TranADDetector:
 
     def _compute_scores(self, X: np.ndarray) -> np.ndarray:
         """Compute TranAD anomaly scores."""
+        assert self.model is not None
         scores = []
         with torch.no_grad():
             for i in range(len(X)):
@@ -1608,8 +1613,8 @@ class MAATDetector:
     def __init__(self, contamination: float = 0.1, window_size: int = 100):
         self.contamination = contamination
         self.window_size = window_size
-        self.model = None
-        self.threshold = None
+        self.model: Any | None = None
+        self.threshold: float | None = None
         self.scaler = StandardScaler()
         self._is_fitted = False
 
@@ -1632,6 +1637,7 @@ class MAATDetector:
             )
 
             self.model = MAATModel(config)
+            assert self.model is not None
             X_scaled = self.scaler.fit_transform(X)
 
             # Train on normal data only (unsupervised anomaly detection)
@@ -1713,6 +1719,7 @@ class MAATDetector:
 
     def _compute_scores(self, X: np.ndarray) -> np.ndarray:
         """Compute MAAT anomaly scores."""
+        assert self.model is not None
         scores = []
         batch_size = min(32, len(X))
 
@@ -1766,7 +1773,7 @@ class DetectorHealth:
 class FallbackTelemetry:
     """Telemetry tracking for fallback mechanisms."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.fallback_counts: dict[str, int] = {
             "import_failure": 0,
             "initialization_error": 0,
@@ -1839,11 +1846,11 @@ class OmniMercuryDetector:
         self.enable_partial_mode = enable_partial_mode
 
         # Engine state
-        self.engine = None
+        self.engine: Any | None = None
         self.threshold = 0.5
-        self.mean = None
-        self.std = None
-        self.cov_inv = None
+        self.mean: np.ndarray[Any, Any] | None = None
+        self.std: np.ndarray[Any, Any] | None = None
+        self.cov_inv: np.ndarray[Any, Any] | None = None
 
         # Fallback detectors
         self._lof_detector = None
@@ -2016,7 +2023,7 @@ class OmniMercuryDetector:
                                 # Handle array scores (take mean if array)
                                 if hasattr(score, "__len__") and not isinstance(score, str):
                                     score = float(np.mean(score))
-                                score_matrix[i, j] = float(score)
+                                score_matrix[i, j] = float(score) if score is not None else 0.5
                             else:
                                 score_matrix[i, j] = float(result) if result is not None else 0.5
                         elif hasattr(detector, "decision_function"):
@@ -2269,6 +2276,7 @@ class OmniMercuryDetector:
                 self._lof_detector = LocalOutlierFactor(
                     contamination=self.contamination, novelty=True, n_neighbors=min(20, len(X) - 1)
                 )
+                assert self._lof_detector is not None
                 self._lof_detector.fit(X)
                 logger.info("LOF fallback detector initialized")
             except Exception as e:
@@ -2279,6 +2287,7 @@ class OmniMercuryDetector:
                 self._iforest_detector = IsolationForest(
                     contamination=self.contamination, random_state=42, n_estimators=100
                 )
+                assert self._iforest_detector is not None
                 self._iforest_detector.fit(X)
                 logger.info("IsolationForest fallback detector initialized")
             except Exception as e:
@@ -2360,7 +2369,7 @@ class OmniMercuryDetector:
             Threshold value for anomaly classification
         """
         if len(scores) < 2:
-            return np.percentile(scores, 100 * (1 - self.contamination))
+            return float(np.percentile(scores, 100 * (1 - self.contamination)))
 
         # Use improved score calibration when available
         if SCORE_CALIBRATION_AVAILABLE:
@@ -2390,7 +2399,7 @@ class OmniMercuryDetector:
                         f"predicted_ratio={result.diagnostics.predicted_anomaly_ratio:.4f}"
                     )
 
-                return result.threshold
+                return float(result.threshold)
 
             except Exception as e:
                 logger.warning(f"ScoreCalibration failed, using fallback: {e}")
@@ -2485,6 +2494,7 @@ class OmniMercuryDetector:
         uses that for scoring. Otherwise falls back to detect_with_fusion() which
         returns anomaly_prob (0.0-1.0) where higher values indicate more anomalous samples.
         """
+        assert self.engine is not None
         # Use trained fusion classifier if available - this produces meaningful scores
         if getattr(self, "_fusion_trained", False) and hasattr(self, "_fusion_lr"):
             return self._compute_trained_fusion_scores(X)
@@ -2520,6 +2530,7 @@ class OmniMercuryDetector:
         This method uses the logistic regression trained during fit() to produce
         meaningful anomaly probabilities based on detector scores.
         """
+        assert self.engine is not None
         n_detectors = len(self._detector_names)
         score_matrix = np.zeros((len(X), n_detectors))
 
@@ -2548,7 +2559,7 @@ class OmniMercuryDetector:
                                 # Handle array scores (take mean if array)
                                 if hasattr(score, "__len__") and not isinstance(score, str):
                                     score = float(np.mean(score))
-                                score_matrix[i, j] = float(score)
+                                score_matrix[i, j] = float(score) if score is not None else 0.5
                             else:
                                 score_matrix[i, j] = float(result) if result is not None else 0.5
                         elif hasattr(detector, "decision_function"):
@@ -2564,6 +2575,7 @@ class OmniMercuryDetector:
 
         # Normalize using training statistics
         try:
+            assert self._score_scaler is not None
             X_scaled = self._score_scaler.transform(score_matrix)
         except Exception:
             # If scaling fails, use raw scores
@@ -2571,6 +2583,7 @@ class OmniMercuryDetector:
 
         # Get probabilities from logistic regression
         try:
+            assert self._fusion_lr is not None
             probs = self._fusion_lr.predict_proba(X_scaled)[:, 1]
             return probs
         except Exception as e:
@@ -2695,7 +2708,7 @@ def get_detector_health_endpoint() -> dict[str, Any]:
     Returns JSON with operational status of each detector component.
     Can be exposed via FastAPI or similar framework.
     """
-    health_status = {
+    health_status: dict[str, Any] = {
         "timestamp": datetime.now(UTC).isoformat(),
         "status": "healthy",
         "components": {},
@@ -3129,7 +3142,7 @@ def run_full_benchmark(
     print()
 
     # Define detectors including SOTA models
-    detectors = [
+    detectors: list[tuple[type, str, dict[str, Any]]] = [
         (OmniMercuryDetector, "Mercury-Agent", {}),
         (IsolationForest, "IsolationForest", {"random_state": 42, "n_estimators": 100}),
         (OneClassSVM, "OneClassSVM", {"kernel": "rbf", "gamma": "auto"}),
@@ -3243,7 +3256,7 @@ def run_full_benchmark(
     summary = generate_summary(results)
 
     # Generate confusion matrix summary
-    confusion_summary = {}
+    confusion_summary: dict[str, Any] = {}
     for r in results:
         if r.dataset_name not in confusion_summary:
             confusion_summary[r.dataset_name] = {}
@@ -3343,7 +3356,7 @@ def generate_honest_assessment(
     summary: dict[str, Any], comparison: dict[str, Any]
 ) -> dict[str, Any]:
     """Generate honest assessment of Mercury-Agent performance."""
-    assessment = {
+    assessment: dict[str, Any] = {
         "methodology_notes": [
             "Benchmarks use publicly available sklearn datasets",
             "Anomaly labels derived from minority class designation",

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Epidemic Forecasting using SEIR Model with Chaos Detection
 
@@ -246,7 +245,7 @@ class EpidemicForecaster:
 
         chaos_score = variance * 0.5 + exponential_growth * 0.5
 
-        chaos_score = min(chaos_score * 10.0, 5.0)
+        chaos_score = min(chaos_score * 10.0, 5.0)  # type: ignore[assignment, unused-ignore]
 
         return float(chaos_score)
 

@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 """
 Secure data handling utilities with quantum-resistant encryption support.
 
@@ -107,7 +106,7 @@ class QuantumResistantEncryption:
         Note: Noise term e set to zero for deterministic testing.
         Production implementation should use proper noise distribution.
         """
-        seed_hash = hashlib.sha256(self.seed).digest()
+        seed_hash = hashlib.sha3_256(self.seed).digest()
         seed_int = int.from_bytes(seed_hash[:4], "big")
         rng = np.random.RandomState(seed_int)
 
@@ -149,7 +148,7 @@ class QuantumResistantEncryption:
         A, b = public_key
 
         ephemeral_seed = secrets.token_bytes(16)
-        seed_hash = hashlib.sha256(ephemeral_seed).digest()
+        seed_hash = hashlib.sha3_256(ephemeral_seed).digest()
         seed_int = int.from_bytes(seed_hash[:4], "big")
         rng = np.random.RandomState(seed_int)
 
@@ -157,13 +156,13 @@ class QuantumResistantEncryption:
         e1 = np.zeros(self.n, dtype=np.int64)
         e2 = np.int64(0)
 
-        m_bytes = hashlib.sha256(ephemeral_seed).digest()[:2]
+        m_bytes = hashlib.sha3_256(ephemeral_seed).digest()[:2]
         m_int = int.from_bytes(m_bytes, "big") % self.q
 
         u = np.mod(A.T @ r + e1, self.q).astype(np.int64)
         v = np.int64(np.mod(b @ r + e2 + m_int, self.q))
 
-        shared_secret = hashlib.sha256(int(m_int).to_bytes(2, "big")).digest()
+        shared_secret = hashlib.sha3_256(int(m_int).to_bytes(2, "big")).digest()
 
         encrypted = bytes(
             a ^ b
@@ -210,7 +209,7 @@ class QuantumResistantEncryption:
 
         m_int = np.int64(np.mod(v - v_prime, self.q))
 
-        shared_secret = hashlib.sha256(int(m_int).to_bytes(2, "big")).digest()
+        shared_secret = hashlib.sha3_256(int(m_int).to_bytes(2, "big")).digest()
 
         decrypted = bytes(
             a ^ b
@@ -290,7 +289,7 @@ class QuantumResistantEncryption:
             Signature bytes
         """
         if not self._oqs_available or self._oqs_signature is None:
-            return hashlib.sha256(data + self.seed).digest()
+            return hashlib.sha3_256(data + self.seed).digest()
 
         self._oqs_signature.generate_keypair()
         signature = self._oqs_signature.sign(data)
@@ -308,7 +307,7 @@ class QuantumResistantEncryption:
             True if signature is valid
         """
         if not self._oqs_available or self._oqs_signature is None:
-            expected_sig = hashlib.sha256(data + self.seed).digest()
+            expected_sig = hashlib.sha3_256(data + self.seed).digest()
             return signature == expected_sig
 
         return self._oqs_signature.verify(data, signature)

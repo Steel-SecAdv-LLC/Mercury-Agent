@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Hurricane/Cyclone/Typhoon Detector - Tropical Cyclone Monitoring System
 

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Machine Learning module for Mercury Agent ♱
 
@@ -29,7 +28,6 @@ to function without torch installed. Access ML components only when torch is ava
 """
 
 from typing import TYPE_CHECKING, Any
-
 
 # Check if torch is available
 try:
@@ -129,7 +127,6 @@ from omni_mercury_engine.ml.lightweight_primitives import (
     MLPConfig,
     quick_anomaly_score,
 )
-
 
 # Lazy imports - only load when torch is available OR during type checking
 if HAS_TORCH or TYPE_CHECKING:

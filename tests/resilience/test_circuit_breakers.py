@@ -11,7 +11,6 @@ import time
 
 import pytest
 
-
 try:
     from omni_mercury_engine.resilience.api_circuit_breakers import (
         DataLoaderCircuitBreaker,
@@ -96,7 +95,7 @@ class TestDataLoaderCircuitBreaker:
                 pass  # Expected: testing circuit breaker failure counting
 
         # Now calls should be blocked
-        with pytest.raises(Exception, match="Circuit breaker is OPEN"):
+        with pytest.raises(Exception, match="is open"):
             breaker.call(lambda: "should not run")
 
 

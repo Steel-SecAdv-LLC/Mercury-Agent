@@ -28,7 +28,6 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
@@ -499,13 +498,13 @@ class AdversarialAutoencoderDetector:
                     optimizer_d.zero_grad()
                     losses = self.model.compute_losses(batch, train_discriminator=True)
                     if "discriminator" in losses:
-                        losses["discriminator"].backward(retain_graph=True)
+                        losses["discriminator"].backward(retain_graph=True)  # type: ignore[no-untyped-call, unused-ignore]
                         optimizer_d.step()
 
                 # Train generator
                 optimizer_g.zero_grad()
                 losses = self.model.compute_losses(batch, train_discriminator=False)
-                losses["total"].backward()
+                losses["total"].backward()  # type: ignore[no-untyped-call, unused-ignore]
                 torch.nn.utils.clip_grad_norm_(params_g, 1.0)
                 optimizer_g.step()
 
@@ -539,7 +538,7 @@ class AdversarialAutoencoderDetector:
                 result = self.model(batch)
                 train_scores.append(result["recon_error"].cpu().numpy())
 
-            train_scores = np.concatenate(train_scores)
+            train_scores = np.concatenate(train_scores)  # type: ignore[assignment, unused-ignore]
             self.threshold = float(np.percentile(train_scores, self.config.threshold_percentile))
 
         self._fitted = True

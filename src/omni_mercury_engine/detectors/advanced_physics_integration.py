@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Advanced Physics Integration Module for Mercury Agent.
 
@@ -67,7 +66,6 @@ from omni_mercury_engine.detectors.uiux_anomaly import (
 )
 from omni_mercury_engine.utils.constants import MathematicalConstants
 
-
 if TYPE_CHECKING:
     from omni_mercury_engine.core.three_r.types import AnomalyFusionResult
 
@@ -90,6 +88,10 @@ class PhysicsDetectorType(Enum):
     ACCELERATION_DYNAMICS = "acceleration_dynamics"
     UIUX_ANOMALY = "uiux_anomaly"
     ALL = "all"
+    # CLI-friendly aliases
+    SPECTRAL = "spectral_vibration"  # Alias for SPECTRAL_VIBRATION
+    DYNAMICS = "acceleration_dynamics"  # Alias for ACCELERATION_DYNAMICS
+    UIUX = "uiux_anomaly"  # Alias for UIUX_ANOMALY
 
 
 # =============================================================================
@@ -406,15 +408,15 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
                 data = data.cpu().numpy()
 
             if self._spectral_detector is not None:
-                self._spectral_detector.fit(data)
+                self._spectral_detector.fit(data)  # type: ignore[arg-type, unused-ignore]
 
             if self._dynamics_detector is not None:
-                self._dynamics_detector.fit(data)
+                self._dynamics_detector.fit(data)  # type: ignore[arg-type, unused-ignore]
 
         elif data_type == "interactions":
             # Fit UI/UX detector
             if self._uiux_detector is not None:
-                self._uiux_detector.fit(data)  # type: ignore
+                self._uiux_detector.fit(data)  # type: ignore[arg-type]
 
         elif data_type == "mixed":
             # Fit each detector with appropriate data
@@ -476,14 +478,14 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
                 data = data.cpu().numpy()
 
             if self._spectral_detector is not None and self._spectral_detector.is_fitted():
-                spectral_result = self._spectral_detector.detect(data)
+                spectral_result = self._spectral_detector.detect(data)  # type: ignore[arg-type, unused-ignore]
 
             if self._dynamics_detector is not None and self._dynamics_detector.is_fitted():
-                dynamics_result = self._dynamics_detector.detect(data)
+                dynamics_result = self._dynamics_detector.detect(data)  # type: ignore[arg-type, unused-ignore]
 
         elif data_type == "interactions":
             if self._uiux_detector is not None and self._uiux_detector.is_fitted():
-                uiux_result = self._uiux_detector.detect(data)  # type: ignore
+                uiux_result = self._uiux_detector.detect(data)  # type: ignore[arg-type, unused-ignore]
 
         elif data_type == "mixed" and isinstance(data, dict):
             if "time_series" in data:

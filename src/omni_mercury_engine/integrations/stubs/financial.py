@@ -30,7 +30,6 @@ from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -576,8 +575,9 @@ class FinancialService:
 
         def fetch() -> dict[str, Any]:
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=self.timeout) as response:
-                return json.loads(response.read().decode())
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+                result: dict[str, Any] = json.loads(response.read().decode())
+                return result
 
         # Run in thread pool to avoid blocking
         loop = asyncio.get_event_loop()
@@ -630,8 +630,9 @@ class FinancialService:
                     "Accept": "application/json",
                 },
             )
-            with urlopen(req, timeout=self.timeout) as response:
-                return json.loads(response.read().decode())
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+                result: dict[str, Any] = json.loads(response.read().decode())
+                return result
 
         # Run in thread pool to avoid blocking
         loop = asyncio.get_event_loop()
@@ -803,8 +804,9 @@ class FinancialService:
                     "Accept": "application/json",
                 },
             )
-            with urlopen(req, timeout=self.timeout) as response:
-                return json.loads(response.read().decode())
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+                fetched: dict[str, Any] = json.loads(response.read().decode())
+                return fetched
 
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, fetch)
@@ -862,8 +864,9 @@ class FinancialService:
 
         def fetch() -> dict[str, Any]:
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=self.timeout) as response:
-                return json.loads(response.read().decode())
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+                result: dict[str, Any] = json.loads(response.read().decode())
+                return result
 
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, fetch)

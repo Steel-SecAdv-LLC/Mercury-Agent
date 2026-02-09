@@ -38,9 +38,8 @@ from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Generator
 
 logger = logging.getLogger(__name__)
 
@@ -602,7 +601,7 @@ class DistributedTracer:
         resource = Resource.create(
             {
                 "service.name": self._service_name,
-                "service.version": "1.2.0",
+                "service.version": "1.4.0",
             }
         )
 
@@ -623,7 +622,7 @@ class DistributedTracer:
         name: str,
         kind: str = "internal",
         attributes: dict[str, Any] | None = None,
-    ):
+    ) -> Generator[dict[str, str], None, None]:
         """Create a tracing span context manager."""
         if not OTEL_AVAILABLE or self._tracer is None:
             yield {"trace_id": "", "span_id": ""}
@@ -875,10 +874,10 @@ def get_metrics() -> MetricsCollector:
 def traced(
     name: str | None = None,
     kind: str = "internal",
-):
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator for adding tracing to functions."""
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         span_name = name or func.__name__
 
         @wraps(func)
@@ -903,10 +902,10 @@ def traced(
 def audited(
     action: AuditAction,
     resource_type: ResourceType,
-):
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator for adding audit logging to functions."""
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             audit = get_audit_logger()

@@ -41,7 +41,6 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -50,7 +49,6 @@ from omni_mercury_engine.models.foundation.llm_adapter import (
     LLMConfig,
     LLMProvider,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -655,7 +653,7 @@ class OpenAICloudAdapter(BaseLLMAdapter):
             data = json.loads(response.read().decode("utf-8"))
 
             if response.status == 200:
-                return data["choices"][0]["message"]["content"]
+                return str(data["choices"][0]["message"]["content"])
             else:
                 error_msg = data.get("error", {}).get("message", "Unknown error")
                 logger.error(f"OpenAI API error: {error_msg}")
@@ -742,9 +740,9 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
 
             body = json.dumps(body_dict)
 
-            headers = {
+            headers: dict[str, str] = {
                 "Content-Type": "application/json",
-                "x-api-key": self.api_key,
+                "x-api-key": self.api_key or "",
                 "anthropic-version": "2023-06-01",
             }
 
@@ -755,7 +753,7 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
             if response.status == 200:
                 content = data.get("content", [])
                 if content and len(content) > 0:
-                    return content[0].get("text", "")
+                    return str(content[0].get("text", ""))
                 return ""
             else:
                 error_msg = data.get("error", {}).get("message", "Unknown error")
@@ -861,7 +859,7 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
 
             if response.status == 200:
                 if isinstance(data, list) and len(data) > 0:
-                    return data[0].get("generated_text", "")
+                    return str(data[0].get("generated_text", ""))
                 return str(data)
             else:
                 error_msg = data.get("error", "Unknown error")

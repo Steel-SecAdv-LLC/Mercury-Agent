@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Disaster Precursor Detector - Schumann Resonance + Multi-Source Correlation
 

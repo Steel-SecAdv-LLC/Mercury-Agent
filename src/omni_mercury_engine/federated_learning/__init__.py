@@ -9,6 +9,13 @@ Key Components:
 - FederatedClient: Handles local training and privacy enforcement
 - PrivacyEngine: Manages differential privacy budget and mechanisms
 - FederatedAnomalyDetector: High-level interface for federated anomaly detection
+- CISAFederatedCoordinator: Cross-sector coordination for CISA infrastructure
+
+Enhanced with:
+- Timeout handling for unresponsive clients
+- Network partition detection and recovery
+- Byzantine fault tolerance for malicious clients
+- Graceful degradation under partial failures
 
 References:
 - McMahan et al. (2017): Communication-Efficient Learning of Deep Networks
@@ -17,12 +24,22 @@ References:
 - Bonawitz et al. (2017): Practical Secure Aggregation
 """
 
+from omni_mercury_engine.federated_learning.cisa_coordinator import (
+    CISAFederatedCoordinator,
+    CrossSectorResult,
+    SectorConfig,
+    SectorPrivacyLevel,
+    SectorType,
+)
 from omni_mercury_engine.federated_learning.client import (
     ClientConfig,
+    ClientConnectionStatus,
+    ClientHealth,
     ClientManager,
     ClientState,
     ClientStatus,
     FederatedClient,
+    FederationConfig,
     FedProxTrainer,
     LocalTrainer,
     LocalUpdate,
@@ -56,16 +73,21 @@ from omni_mercury_engine.federated_learning.server import (
     TrainingResult,
 )
 
-
 __all__ = [
     # Server
     "AggregationStrategy",
     "Aggregator",
+    # CISA Coordinator
+    "CISAFederatedCoordinator",
     "ClientConfig",
+    # Fault Tolerance
+    "ClientConnectionStatus",
+    "ClientHealth",
     "ClientManager",
     "ClientState",
     # Client
     "ClientStatus",
+    "CrossSectorResult",
     "DifferentialPrivacyMechanism",
     "FedAdamAggregator",
     "FedAvgAggregator",
@@ -73,6 +95,7 @@ __all__ = [
     "FederatedAnomalyDetector",
     "FederatedClient",
     "FederatedServer",
+    "FederationConfig",
     "GaussianMechanism",
     "GradientClipper",
     "LaplaceMechanism",
@@ -88,6 +111,10 @@ __all__ = [
     "RoundResult",
     "SGDTrainer",
     "ScaffoldAggregator",
+    # Sector Types
+    "SectorConfig",
+    "SectorPrivacyLevel",
+    "SectorType",
     "SecureAggregator",
     "SecureAggregatorWrapper",
     "ServerConfig",

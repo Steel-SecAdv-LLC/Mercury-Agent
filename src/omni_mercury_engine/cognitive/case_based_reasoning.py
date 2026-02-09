@@ -10,7 +10,6 @@ the Free Software Foundation, either version 3 of the License, or
 
 from __future__ import annotations
 
-
 """
 Case-Based Reasoning Engine
 
@@ -33,7 +32,6 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -499,7 +497,7 @@ class CaseBasedReasoner:
         if not v1:
             return 0.0
 
-        v1, v2 = np.array(v1), np.array(v2)
+        v1, v2 = np.array(v1), np.array(v2)  # type: ignore[assignment, unused-ignore]
         norm1, norm2 = np.linalg.norm(v1), np.linalg.norm(v2)
         if norm1 > 0 and norm2 > 0:
             return float(np.dot(v1, v2) / (norm1 * norm2))

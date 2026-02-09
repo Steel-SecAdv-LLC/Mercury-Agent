@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Interstellar Object Anomaly Detection Module
 
@@ -319,7 +318,7 @@ class InterstellarObjectDetector:
         confidence_score = float(confidence[0].item())
 
         anomaly_types = [t.value for t in ISOAnomalyType]
-        anomaly_type = anomaly_types[anomaly_class]
+        anomaly_type = anomaly_types[anomaly_class]  # type: ignore[index, unused-ignore]
 
         anomaly_score = confidence_score * self.omni_interstellar_scalars["omni_orbital_precision"]
 

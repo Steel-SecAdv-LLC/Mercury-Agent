@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Core anomaly detection metrics.
 
@@ -34,7 +33,6 @@ from scipy.ndimage import label as connected_components
 
 from omni_mercury_engine.core.config import ThresholdConfig
 
-
 logger = logging.getLogger(__name__)
 
 # Centralized thresholds for consistent behavior
@@ -44,7 +42,7 @@ _thresholds = ThresholdConfig()
 def _to_numpy(arr: Any) -> np.ndarray[Any, Any]:
     """Convert array-like to numpy."""
     if hasattr(arr, "cpu"):  # torch tensor
-        return arr.cpu().numpy()
+        return arr.cpu().numpy()  # type: ignore[no-any-return, unused-ignore]
     return np.asarray(arr)
 
 
@@ -337,8 +335,8 @@ def compute_pro(
             pros.append(0.0)
 
     # Convert to arrays and sort by FPR
-    fprs = np.array(fprs)
-    pros = np.array(pros)
+    fprs = np.array(fprs)  # type: ignore[assignment, unused-ignore]
+    pros = np.array(pros)  # type: ignore[assignment, unused-ignore]
     order = np.argsort(fprs)
     fprs = fprs[order]
     pros = pros[order]
@@ -358,8 +356,9 @@ def compute_pro(
     # Normalize FPR to [0, 1] within integration limit
     fprs_norm = fprs_valid / integration_limit
 
-    # Compute AUC
-    pro_auc = np.trapz(pros_valid, fprs_norm)
+    # Compute AUC (trapezoid in NumPy 2.0+)
+    _trapz = np.trapezoid if hasattr(np, "trapezoid") else np.trapz  # type: ignore[attr-defined, unused-ignore]
+    pro_auc = _trapz(pros_valid, fprs_norm)
 
     return float(pro_auc)
 
@@ -452,7 +451,7 @@ class AnomalyMetrics:
         y_score = _to_numpy(y_score).flatten()
 
         unique_categories = list(set(categories))
-        results = {}
+        results: dict[str, dict[str, Any]] = {}
 
         for cat in unique_categories:
             mask = np.array([c == cat for c in categories])

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Dual-Student Knowledge Distillation for Anomaly Detection
 
@@ -41,7 +40,6 @@ from typing import Any
 
 import torch
 from torch import nn, optim
-
 
 logger = logging.getLogger(__name__)
 
@@ -393,7 +391,7 @@ class DualStudentDistillation(nn.Module):
                 total_loss = loss1 + loss2
 
                 optimizer.zero_grad()
-                total_loss.backward()
+                total_loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
                 optimizer.step()
 
                 epoch_loss += total_loss.item()

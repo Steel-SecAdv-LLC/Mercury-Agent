@@ -33,7 +33,6 @@ from omni_mercury_engine.harmonics.transform import (
     SphericalHarmonicTransform,
 )
 
-
 __all__ = [
     # Analyzer
     "AdvancedHarmonicAnalyzer",

@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 """
 Oceanography-Inspired Pattern Recognition Module
 
@@ -217,7 +216,7 @@ class OceanographyPatterns:
         if weights is None:
             weights = {key: 1.0 / len(sensor_data) for key in sensor_data}
 
-        fused_features = []
+        fused_features = []  # type: ignore[var-annotated, unused-ignore]
 
         for sensor_name, data in sensor_data.items():
             weight = weights.get(sensor_name, 1.0)

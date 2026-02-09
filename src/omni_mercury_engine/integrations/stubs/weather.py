@@ -29,7 +29,6 @@ from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -464,8 +463,9 @@ class WeatherService:
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
-            with urlopen(req, timeout=self.timeout) as response:
-                return json.loads(response.read().decode())
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+                result: dict[str, Any] = json.loads(response.read().decode())
+                return result
 
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, fetch)
@@ -514,8 +514,9 @@ class WeatherService:
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
-            with urlopen(req, timeout=self.timeout) as response:
-                return json.loads(response.read().decode())
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+                result: dict[str, Any] = json.loads(response.read().decode())
+                return result
 
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, fetch)
@@ -557,8 +558,9 @@ class WeatherService:
                     "Accept": "application/geo+json",
                 },
             )
-            with urlopen(req, timeout=self.timeout) as response:
-                return json.loads(response.read().decode())
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+                result: dict[str, Any] = json.loads(response.read().decode())
+                return result
 
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, fetch)
@@ -586,8 +588,9 @@ class WeatherService:
                     "Accept": "application/geo+json",
                 },
             )
-            with urlopen(req, timeout=self.timeout) as response:
-                return json.loads(response.read().decode())
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+                result: dict[str, Any] = json.loads(response.read().decode())
+                return result
 
         loop = asyncio.get_event_loop()
         forecast_data = await loop.run_in_executor(None, fetch_forecast)
@@ -772,8 +775,9 @@ class WeatherService:
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
-            with urlopen(req, timeout=self.timeout) as response:
-                return json.loads(response.read().decode())
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+                result: dict[str, Any] = json.loads(response.read().decode())
+                return result
 
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, fetch)

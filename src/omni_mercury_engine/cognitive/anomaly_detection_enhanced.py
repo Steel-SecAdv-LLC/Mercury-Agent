@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Enhanced Anomaly Detection - Memory Graph and External Data Integration
 
@@ -49,7 +48,6 @@ from typing import Any
 
 import httpx
 import numpy as np
-
 
 try:
     import networkx as nx
@@ -622,7 +620,7 @@ class USGSEarthquakeSource(ExternalDataSource):
         }
 
         try:
-            response = self._client.get(self.USGS_API_BASE, params=params)
+            response = self._client.get(self.USGS_API_BASE, params=params)  # type: ignore[arg-type, unused-ignore]
             response.raise_for_status()
             data = response.json()
 

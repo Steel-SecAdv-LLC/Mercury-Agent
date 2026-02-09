@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 """Core modules for Mercury Agent ♱."""
 
 from omni_mercury_engine.core.double_helix_engine import (
@@ -48,30 +47,48 @@ from omni_mercury_engine.core.score_calibration import (
     calibrate_scores,
     diagnose_scores,
 )
-
+from omni_mercury_engine.core.types import (
+    AnomalyType,
+    CircuitState,
+    ConfidenceLevel,
+    DetectorStatus,
+    EthicalPrinciple,
+    FusionStrategy,
+    PrivacyLevel,
+    ThreatLevel,
+)
 
 __all__ = [
+    # Canonical types from core.types
+    "AnomalyType",
     # Score calibration (solves F1=0 problem)
     "AutoThresholdOptimizer",
     "CalibrationDiagnostics",
     "CalibrationMethod",
     "CalibrationResult",
+    "CircuitState",
+    "ConfidenceLevel",
+    "DetectorStatus",
     # Original exports
     "DomainType",
     "DoubleHelixEvolutionEngine",
     "EnhancementResult",
     "EthicalConfig",
     "EthicalGate",
+    "EthicalPrinciple",
+    "FusionStrategy",
     "FusionWeightConfig",
     "GlobalOmniScalarNetwork",
     "HelixConfig",
     "MercuryEngineConfig",
     "MercuryEquationEngine",
     "MultiHeadAttentionFusion",
+    "PrivacyLevel",
     "ScalarGroup",
     "ScalarRegistration",
     "ScoreCalibrationManager",
     "ScoreDiagnostics",
+    "ThreatLevel",
     "ThreeRConfig",
     "calibrate_scores",
     "diagnose_scores",
@@ -86,7 +103,7 @@ def get_default_config() -> MercuryEngineConfig:
     """Get the global default configuration. Lazy import to avoid pydantic at module load."""
     from omni_mercury_engine.core.engine_config import get_default_config as _get
 
-    return _get()
+    return _get()  # type: ignore[return-value, unused-ignore]
 
 
 class MercuryEngineConfig:

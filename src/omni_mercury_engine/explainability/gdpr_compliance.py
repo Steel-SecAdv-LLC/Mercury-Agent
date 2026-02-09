@@ -27,7 +27,6 @@ from omni_mercury_engine.explainability.shap import (
     create_shap_explainer,
 )
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -383,7 +382,10 @@ Reference ID: {decision_id}
             category=decision_category,
         )
 
-        shap_explanation = self._shap_explainer.explain(instance[0])
+        shap_result = self._shap_explainer.explain(instance[0])
+        shap_explanation: ShapExplanation = (
+            shap_result if isinstance(shap_result, ShapExplanation) else shap_result[0]
+        )
 
         feature_contributions = shap_explanation.get_feature_importance()
 

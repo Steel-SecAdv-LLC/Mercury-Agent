@@ -47,7 +47,6 @@ from omni_mercury_engine.ml.drift import (
     PopulationStabilityIndexDetector,
 )
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
@@ -607,7 +606,7 @@ class DegradationAnalyzer:
 
         # Check for outlier differences (sudden shifts)
         threshold = abs(mean_diff) + 3 * std_diff
-        return np.any(np.abs(diffs) > threshold)  # type: ignore[no-any-return]
+        return np.any(np.abs(diffs) > threshold)  # type: ignore[return-value, unused-ignore]
 
     def _is_oscillating(self, performances: NDArray[np.float64]) -> bool:
         """Check for oscillating pattern."""
@@ -620,7 +619,7 @@ class DegradationAnalyzer:
         sign_changes = np.sum(np.abs(np.diff(np.sign(diffs))) == 2)
 
         # Oscillating if many sign changes relative to length
-        return sign_changes > n * 0.4  # type: ignore[no-any-return]
+        return sign_changes > n * 0.4
 
     def _find_inflection_points(self, performances: NDArray[np.float64]) -> list[int]:
         """Find points where trend changes direction."""
@@ -719,7 +718,7 @@ class DegradationAnalyzer:
             elif trend == DegradationTrend.LINEAR_DECLINE:
                 # Linear extrapolation
                 intercept = np.mean(performances) - slope * (n - 1) / 2
-                pred = intercept + slope * future_time
+                pred = intercept + slope * future_time  # type: ignore[assignment, unused-ignore]
                 pred = max(0, pred)  # Clip to non-negative
 
             elif trend == DegradationTrend.EXPONENTIAL_DECAY:
@@ -732,7 +731,7 @@ class DegradationAnalyzer:
             elif trend == DegradationTrend.RECOVERING:
                 # Optimistic linear extrapolation with ceiling
                 intercept = np.mean(performances) - slope * (n - 1) / 2
-                pred = intercept + slope * future_time
+                pred = intercept + slope * future_time  # type: ignore[assignment, unused-ignore]
                 pred = min(1, pred)  # Clip to maximum 1
 
             else:
@@ -1081,7 +1080,7 @@ class ConceptDriftEvaluator:
             )
 
         detector = self._drift_detectors["main"]
-        return detector.detect(X_test, feature_names)  # type: ignore[no-any-return]
+        return detector.detect(X_test, feature_names)
 
     def _extract_metric_values(self, performances: list[SplitPerformance]) -> list[float]:
         """Extract primary metric values for degradation analysis."""

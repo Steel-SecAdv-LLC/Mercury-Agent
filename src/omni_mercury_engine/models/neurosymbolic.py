@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Unified Neurosymbolic Engine - Fusion of neural networks and symbolic reasoning
 
@@ -65,7 +64,6 @@ from typing import Any
 import numpy as np
 
 from omni_mercury_engine.utils.constants import OmniCodes
-
 
 # Omni-Code: Omni-Benevolent Stone (ethical foundation and humanitarian alignment)
 _FOUNDATION_HASH = OmniCodes.OMNI_BENEVOLENT.code
@@ -457,9 +455,9 @@ class NeurosymbolicEngine:
                 padding = torch.zeros(
                     features_tensor.shape[0], self.input_dim - features_tensor.shape[1]
                 )
-                features_tensor = torch.cat([features_tensor, padding], dim=1)
+                features_tensor = torch.cat([features_tensor, padding], dim=1)  # type: ignore[assignment, unused-ignore]
             elif features_tensor.shape[1] > self.input_dim:
-                features_tensor = features_tensor[:, : self.input_dim]
+                features_tensor = features_tensor[:, : self.input_dim]  # type: ignore[assignment, unused-ignore]
 
             with torch.no_grad():
                 output = self.ltn.forward(features_tensor)

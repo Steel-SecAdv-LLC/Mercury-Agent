@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Training utilities for fusion model using PyTorch Lightning
 Enhanced with Ava Equation state evolution optimizers
@@ -35,7 +34,6 @@ from torch.utils.data import Dataset
 
 from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 
-
 # pytorch_lightning is optional - gracefully degrade when not available
 try:
     import pytorch_lightning as pl
@@ -43,7 +41,7 @@ try:
     HAS_PYTORCH_LIGHTNING = True
 except ImportError:
     HAS_PYTORCH_LIGHTNING = False
-    pl = None
+    pl = None  # type: ignore[assignment, unused-ignore]
 
 
 if TYPE_CHECKING:
@@ -201,7 +199,7 @@ class LearningRateScheduler:
 
     def get_last_lr(self) -> list[float]:
         """Get the last computed learning rate."""
-        return self._scheduler.get_last_lr()
+        return list(self._scheduler.get_last_lr())  # type: ignore[arg-type, unused-ignore]
 
 
 class Trainer:
@@ -394,7 +392,7 @@ class MercuryOptimizer(optim.Optimizer):
         defaults = {"lr": lr, "alpha": alpha, "beta": beta, "quantum_noise": quantum_noise}
         super().__init__(params, defaults)
 
-    def step(self, closure: Callable[[], float] | None = None) -> float | None:
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override, unused-ignore]
         loss = None
         if closure is not None:
             loss = closure()
@@ -442,7 +440,7 @@ class MercuryMomentumOptimizer(optim.Optimizer):
         defaults = {"lr": lr, "alpha": alpha, "momentum": momentum}
         super().__init__(params, defaults)
 
-    def step(self, closure: Callable[[], float] | None = None) -> float | None:
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override, unused-ignore]
         loss = None
         if closure is not None:
             loss = closure()
@@ -483,7 +481,7 @@ class MercuryExponentialDecayOptimizer(optim.Optimizer):
         defaults = {"lr": lr, "alpha": alpha, "decay_rate": decay_rate}
         super().__init__(params, defaults)
 
-    def step(self, closure: Callable[[], float] | None = None) -> float | None:
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override, unused-ignore]
         loss = None
         if closure is not None:
             loss = closure()
@@ -526,7 +524,7 @@ class MercuryHarmonicOptimizer(optim.Optimizer):
         defaults = {"lr": lr, "alpha": alpha, "omega": omega}
         super().__init__(params, defaults)
 
-    def step(self, closure: Callable[[], float] | None = None) -> float | None:
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override, unused-ignore]
         loss = None
         if closure is not None:
             loss = closure()
@@ -735,7 +733,7 @@ class LyapunovAnomalyLoss(nn.Module):
             "kl": L_kl,
             "stability": L_stability,
             "lyapunov_V": V_t,
-            "stability_violated": L_stability.item() > 0 if self.prev_scores is not None else False,
+            "stability_violated": L_stability.item() > 0 if self.prev_scores is not None else False,  # type: ignore[dict-item, unused-ignore]
         }
 
     def get_stability_rate(self) -> float:
@@ -780,7 +778,7 @@ class AnomalyDataset(
         self.detector_features = detector_features
         self.labels = labels
         self.scores = scores
-        self.num_samples = labels.shape[0]
+        self.num_samples: int = int(labels.shape[0])
 
     def __len__(self) -> int:
         return self.num_samples
@@ -1029,7 +1027,8 @@ class ThreeRAnomalyTrainer(_LightningBase):  # type: ignore[misc, valid-type]
 
     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward pass through 3R Anomaly Transformer."""
-        return self.model(x)
+        result: dict[str, torch.Tensor] = self.model(x)
+        return result
 
     def training_step(
         self,

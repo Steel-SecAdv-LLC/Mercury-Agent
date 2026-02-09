@@ -39,7 +39,6 @@ from omni_mercury_engine.quantum_computing.hybrid import (
     VQEAnomalyDetector,
 )
 
-
 __all__ = [
     "AnomalyEncodingCircuit",
     "BackendConfig",

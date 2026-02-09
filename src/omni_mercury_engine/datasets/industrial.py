@@ -34,7 +34,6 @@ import numpy as np
 
 from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit, safe_urlretrieve
 
-
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -185,7 +184,7 @@ class SWaTLoader(DatasetLoader):
         # Z-score normalization
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0) + 1e-8
-        return (data - mean) / std
+        return (data - mean) / std  # type: ignore[no-any-return, unused-ignore]
 
     def download(self) -> bool:
         """
@@ -365,7 +364,7 @@ class WADILoader(DatasetLoader):
         """Apply WADI-specific preprocessing (normalization)."""
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0) + 1e-8
-        return (data - mean) / std
+        return (data - mean) / std  # type: ignore[no-any-return, unused-ignore]
 
     def download(self) -> bool:
         """Download WADI dataset (requires iTrust registration)."""
@@ -499,7 +498,7 @@ class BATADALLoader(DatasetLoader):
         """Apply BATADAL-specific preprocessing (normalization)."""
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0) + 1e-8
-        return (data - mean) / std
+        return (data - mean) / std  # type: ignore[no-any-return, unused-ignore]
 
     def download(self) -> bool:
         """Download BATADAL dataset from official source."""

@@ -32,6 +32,7 @@ import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -45,7 +46,7 @@ class EthicalScalars:
     omni_justitia: float = 1.10
 
 
-def generate_infrastructure_scenarios(n_scenarios: int = 500) -> list[dict]:
+def generate_infrastructure_scenarios(n_scenarios: int = 500) -> list[dict[str, Any]]:
     """Generate realistic infrastructure anomaly scenarios with ethical context."""
     np.random.seed(42)
 
@@ -108,12 +109,12 @@ def apply_ethical_scalars(
 
     adjusted_score = base_score * ethical_multiplier
 
-    return np.clip(adjusted_score, 0.0, 1.0)
+    return float(np.clip(adjusted_score, 0.0, 1.0))
 
 
 def evaluate_with_scalars(
-    scenarios: list[dict], scalars: EthicalScalars, threshold: float = 0.5
-) -> dict:
+    scenarios: list[dict[str, Any]], scalars: EthicalScalars, threshold: float = 0.5
+) -> dict[str, Any]:
     """Evaluate detection performance with given ethical scalars."""
     start_time = time.time()
 
@@ -175,7 +176,9 @@ def evaluate_with_scalars(
     }
 
 
-def analyze_by_scenario_type(scenarios: list[dict], scalars: EthicalScalars) -> dict:
+def analyze_by_scenario_type(
+    scenarios: list[dict[str, Any]], scalars: EthicalScalars
+) -> dict[str, Any]:
     """Analyze performance breakdown by scenario type."""
     type_results = {}
 
@@ -195,7 +198,7 @@ def analyze_by_scenario_type(scenarios: list[dict], scalars: EthicalScalars) -> 
     return type_results
 
 
-def main():
+def main() -> int:
     """Run comprehensive ethical scalar validation."""
     print("=" * 80)
     print("ETHICAL SCALAR VALIDATION - PRODUCTION DEPLOYMENT")

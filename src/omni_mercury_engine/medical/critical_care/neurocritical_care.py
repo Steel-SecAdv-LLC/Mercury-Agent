@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Neurocritical Care Module - Advanced Neurological Emergency Detection
 
@@ -47,7 +46,6 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 from torch import nn
-
 
 if TYPE_CHECKING:
     import numpy as np
@@ -532,10 +530,10 @@ class NeurocriticalCarePredictor:
 
         probs = torch.softmax(classification[0], dim=0)
         stroke_idx = torch.argmax(probs).item()
-        confidence = float(probs[stroke_idx].item())
+        confidence = float(probs[stroke_idx].item())  # type: ignore[index, unused-ignore]
 
         stroke_types = [e.value for e in StrokeType]
-        detected_type = stroke_types[stroke_idx]
+        detected_type = stroke_types[stroke_idx]  # type: ignore[index, unused-ignore]
 
         stroke_detected = detected_type != "no_stroke"
 
@@ -575,7 +573,7 @@ class NeurocriticalCarePredictor:
         risk_score = float(risk[0].item())
 
         seizure_types = [e.value for e in SeizureType]
-        detected_type = seizure_types[seizure_idx]
+        detected_type = seizure_types[seizure_idx]  # type: ignore[index, unused-ignore]
 
         seizure_detected = detected_type != "no_seizure"
 

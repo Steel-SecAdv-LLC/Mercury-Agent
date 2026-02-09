@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 CFlow-AD: Real-Time Unsupervised Anomaly Detection with Localization via
 Conditional Normalizing Flows
@@ -52,7 +51,6 @@ from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
     VisualDetectorConfig,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +119,7 @@ class PositionalEncoding2D(nn.Module):
         Returns:
             Positional encoding [1, channels, h, w]
         """
-        pe = self.pe[:h, :w, :].permute(2, 0, 1).unsqueeze(0)
+        pe = self.pe[:h, :w, :].permute(2, 0, 1).unsqueeze(0)  # type: ignore[index, unused-ignore]
         return pe
 
 
@@ -171,10 +169,10 @@ class AffineCoupling(nn.Module):
         )
 
         # Initialize last layer to zero for stable training
-        nn.init.zeros_(self.scale_net[-1].weight)
-        nn.init.zeros_(self.scale_net[-1].bias)
-        nn.init.zeros_(self.translate_net[-1].weight)
-        nn.init.zeros_(self.translate_net[-1].bias)
+        nn.init.zeros_(self.scale_net[-1].weight)  # type: ignore[arg-type, unused-ignore]
+        nn.init.zeros_(self.scale_net[-1].bias)  # type: ignore[arg-type, unused-ignore]
+        nn.init.zeros_(self.translate_net[-1].weight)  # type: ignore[arg-type, unused-ignore]
+        nn.init.zeros_(self.translate_net[-1].bias)  # type: ignore[arg-type, unused-ignore]
 
     def forward(
         self, x: torch.Tensor, cond: torch.Tensor, reverse: bool = False
@@ -388,7 +386,7 @@ class CFlowDetector(BaseVisualDetector):
             self._initialize_flows(data[:1])
 
         # Optimizer for all flows
-        params = []
+        params = []  # type: ignore[var-annotated, unused-ignore]
         for flow in self.flows.values():
             params.extend(flow.parameters())
 
@@ -439,12 +437,12 @@ class CFlowDetector(BaseVisualDetector):
                     pos_enc = pos_enc.expand(b, -1, -1, -1)
 
                     # Negative log likelihood
-                    log_prob = self.flows[layer].log_prob(feat, pos_enc)
+                    log_prob = self.flows[layer].log_prob(feat, pos_enc)  # type: ignore[operator, unused-ignore]
                     loss = -log_prob.mean()
                     total_loss = total_loss + loss
 
                 optimizer.zero_grad()
-                total_loss.backward()
+                total_loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
                 nn.utils.clip_grad_norm_(params, 1.0)
                 optimizer.step()
 

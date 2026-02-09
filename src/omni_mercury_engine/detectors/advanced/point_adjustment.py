@@ -27,7 +27,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
@@ -182,7 +181,7 @@ def compute_adjusted_metrics(
                 detected_segments += 1
                 # Find first detection
                 first_detection = np.argmax(segment_preds)
-                total_delay += first_detection
+                total_delay += first_detection  # type: ignore[assignment, unused-ignore]
 
         segment_recall = detected_segments / len(segments)
         avg_delay = total_delay / max(detected_segments, 1)

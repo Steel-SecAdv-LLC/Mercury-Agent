@@ -19,7 +19,6 @@ from typing import Any
 
 import numpy as np
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -288,9 +287,9 @@ class RidgeFrequencyEstimator:
             return 0.1
 
         avg_period = np.mean(periods)
-        frequency = 1.0 / max(avg_period, 1.0)
+        frequency = 1.0 / max(avg_period, 1.0)  # type: ignore[operator, unused-ignore]
 
-        return min(0.5, max(0.05, frequency))
+        return float(min(0.5, max(0.05, frequency)))
 
 
 class GaborEnhancer:
@@ -854,7 +853,7 @@ class FingerprintLivenessDetector:
             return 0.2
 
         score = min(1.0, pore_density / expected_density)
-        return score
+        return float(score)
 
     def _analyze_perspiration(self, images: list[np.ndarray]) -> float:
         """Analyze perspiration changes over time."""
@@ -875,7 +874,7 @@ class FingerprintLivenessDetector:
             return 0.2
 
         score = min(1.0, variation / 0.02)
-        return score
+        return float(score)
 
     def _analyze_elasticity(self, images: list[np.ndarray]) -> float:
         """Analyze skin elasticity from pressure variations."""
@@ -896,7 +895,7 @@ class FingerprintLivenessDetector:
             return 0.2
 
         score = min(1.0, variation / 0.05)
-        return score
+        return float(score)
 
     def _convolve2d(self, image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
         """2D convolution."""
@@ -1062,7 +1061,7 @@ class FingerprintRecognizer:
         sin_sum = sum(np.sin(2 * a) for a in angles)
 
         coherence = np.sqrt(cos_sum**2 + sin_sum**2) / len(angles)
-        return coherence
+        return float(coherence)
 
     def _detect_singularities(self, orientation: np.ndarray) -> list[Singularity]:
         """Detect singular points (cores and deltas)."""
@@ -1123,4 +1122,4 @@ class FingerprintRecognizer:
         avg_quality = np.mean(quality_map)
         minutiae_factor = min(1.0, minutiae_count / 30.0)
 
-        return 0.6 * avg_quality + 0.4 * minutiae_factor
+        return float(0.6 * avg_quality + 0.4 * minutiae_factor)

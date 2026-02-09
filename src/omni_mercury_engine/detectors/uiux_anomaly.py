@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 UI/UX Anomaly Detection Module for Mercury Agent.
 
@@ -81,7 +80,6 @@ from torch import nn
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.utils.constants import MathematicalConstants
-
 
 logger = logging.getLogger(__name__)
 
@@ -709,6 +707,8 @@ class UIUXAnomalyDetector(BaseDetector):
         self._reference_scroll_velocity: float = 500.0
         self._reference_session_duration: float = 300.0
         self._page_transition_probs: dict[str, dict[str, float]] = {}
+        self._reference_features_mean: np.ndarray | None = None
+        self._reference_features_std: np.ndarray | None = None
 
     def _init_networks(self) -> None:
         """Initialize neural network components."""
@@ -744,7 +744,7 @@ class UIUXAnomalyDetector(BaseDetector):
 
     def fit(
         self,
-        interactions: list[UserInteraction] | list[list[UserInteraction]],
+        interactions: list[UserInteraction] | list[list[UserInteraction]],  # type: ignore[override, unused-ignore]
     ) -> UIUXAnomalyDetector:
         """Fit detector on reference/training data.
 
@@ -761,10 +761,14 @@ class UIUXAnomalyDetector(BaseDetector):
         if len(interactions) == 0:
             raise DetectorException("Cannot fit UIUXAnomalyDetector with empty data.")
 
+        sessions: list[list[UserInteraction]]
         if isinstance(interactions[0], UserInteraction):
-            sessions = [interactions]  # type: ignore
+            single_session: list[UserInteraction] = [
+                item for item in interactions if isinstance(item, UserInteraction)
+            ]
+            sessions = [single_session]
         else:
-            sessions = interactions  # type: ignore
+            sessions = [list(s) for s in interactions if isinstance(s, list)]
 
         # Collect statistics from all sessions
         all_timings = []
@@ -967,7 +971,7 @@ class UIUXAnomalyDetector(BaseDetector):
             features = features.reshape(1, -1)
 
         # Simple z-score based anomaly detection for features
-        if hasattr(self, "_reference_features_mean"):
+        if self._reference_features_mean is not None and self._reference_features_std is not None:
             z_scores = (features - self._reference_features_mean) / (
                 self._reference_features_std + 1e-8
             )
@@ -1486,7 +1490,7 @@ class UIUXAnomalyDetector(BaseDetector):
         erratic_score = min(1.0, max_velocity / cfg.mouse_velocity_threshold)
         variance_score = min(1.0, velocity_std / (np.mean(velocities) + 1e-8))
 
-        return float((erratic_score + variance_score) / 2)
+        return float((erratic_score + variance_score) / 2)  # type: ignore[operator, unused-ignore]
 
     def _compute_timing_anomaly_score(
         self,
@@ -1567,9 +1571,9 @@ class UIUXAnomalyDetector(BaseDetector):
             linear_segments = 0
             for i in range(len(moves) - 2):
                 # Vector from point i to i+1
-                v1 = (moves[i + 1][0] - moves[i][0], moves[i + 1][1] - moves[i][1])  # type: ignore
+                v1 = (moves[i + 1][0] - moves[i][0], moves[i + 1][1] - moves[i][1])
                 # Vector from point i+1 to i+2
-                v2 = (moves[i + 2][0] - moves[i + 1][0], moves[i + 2][1] - moves[i + 1][1])  # type: ignore
+                v2 = (moves[i + 2][0] - moves[i + 1][0], moves[i + 2][1] - moves[i + 1][1])
 
                 # Check if vectors are parallel (cross product near zero)
                 cross = abs(v1[0] * v2[1] - v1[1] * v2[0])

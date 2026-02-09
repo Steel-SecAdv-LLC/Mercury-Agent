@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 LVLM Backend implementations for anomaly detection.
 
@@ -43,7 +42,6 @@ from typing import Any
 import numpy as np
 import torch
 from PIL import Image
-
 
 logger = logging.getLogger(__name__)
 
@@ -110,10 +108,10 @@ class LVLMBackend(ABC):
         if isinstance(image, np.ndarray):
             if image.ndim == 4:
                 image = image[0]  # Take first if batched
-            if image.shape[0] in [1, 3]:  # CHW format
-                image = np.transpose(image, (1, 2, 0))
-            if image.max() <= 1.0:
-                image = (image * 255).astype(np.uint8)
+            if image.shape[0] in [1, 3]:  # type: ignore[union-attr, unused-ignore]  # CHW format
+                image = np.transpose(image, (1, 2, 0))  # type: ignore[arg-type, unused-ignore]
+            if image.max() <= 1.0:  # type: ignore[union-attr, unused-ignore]
+                image = (image * 255).astype(np.uint8)  # type: ignore[operator, union-attr, unused-ignore]
             return Image.fromarray(image)
         raise ValueError(f"Unsupported image type: {type(image)}")
 
@@ -350,7 +348,7 @@ class MockLVLMBackend(LVLMBackend):
         Returns:
             Answer string
         """
-        return self.generate([image] if not isinstance(image, list) else image, question)
+        return self.generate([image] if not isinstance(image, list) else image, question)  # type: ignore[arg-type, unused-ignore]
 
 
 def get_lvlm_backend(

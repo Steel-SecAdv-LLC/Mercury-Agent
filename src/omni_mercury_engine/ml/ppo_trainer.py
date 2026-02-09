@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 PPO Trainer for Mercury Agent ♱
 
@@ -44,7 +43,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +148,7 @@ class ConvergenceMonitor(BaseCallback):
                     mean_reward = np.mean(self.reward_history[-100:])
 
                     if mean_reward > self.best_mean_reward:
-                        self.best_mean_reward = mean_reward
+                        self.best_mean_reward = mean_reward  # type: ignore[assignment, unused-ignore]
                         self.episodes_without_improvement = 0
                     else:
                         self.episodes_without_improvement += 1

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Base classes for foundation model adapters.
 
@@ -34,7 +33,6 @@ import numpy as np
 import torch
 
 from omni_mercury_engine.core.base import BaseModel
-
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -266,11 +264,11 @@ class BaseFoundationModel(BaseModel):
             feat = self._compute_feature_statistics(series, results)
             features.append(feat)
 
-        features = np.stack(features)
+        features = np.stack(features)  # type: ignore[assignment, unused-ignore]
 
         # Pad to 128D if needed
-        if features.shape[1] < 128:
-            features = np.pad(features, ((0, 0), (0, 128 - features.shape[1])))
+        if features.shape[1] < 128:  # type: ignore[attr-defined, unused-ignore]
+            features = np.pad(features, ((0, 0), (0, 128 - features.shape[1])))  # type: ignore[assignment, attr-defined, unused-ignore]
 
         return torch.from_numpy(features).float()
 

@@ -34,7 +34,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
@@ -45,7 +44,6 @@ from omni_mercury_engine.ml.drift import (
     DriftSeverity,
     EnsembleDriftDetector,
 )
-
 
 logger = logging.getLogger(__name__)
 

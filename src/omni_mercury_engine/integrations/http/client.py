@@ -41,6 +41,7 @@ from enum import Enum
 from typing import Any
 from urllib.parse import urljoin
 
+from omni_mercury_engine.core.types import CircuitState
 
 logger = logging.getLogger(__name__)
 
@@ -149,14 +150,6 @@ class CircuitOpenError(HTTPError):
     def __init__(self, service_name: str) -> None:
         super().__init__(f"Circuit breaker open for service: {service_name}")
         self.service_name = service_name
-
-
-class CircuitState(Enum):
-    """Circuit breaker states."""
-
-    CLOSED = "closed"
-    OPEN = "open"
-    HALF_OPEN = "half_open"
 
 
 class HTTPCircuitBreaker:
@@ -305,9 +298,9 @@ class HTTPClient:
     def _get_circuit_breaker(self, endpoint: str) -> HTTPCircuitBreaker:
         """Get or create circuit breaker for endpoint."""
         # Create a key based on the endpoint pattern (ignore query params)
-        pattern = endpoint.split("?")[0]
-        # Use SHA-256 instead of MD5 for better security (non-cryptographic use for cache keys)
-        pattern_hash = hashlib.sha256(pattern.encode()).hexdigest()[:8]
+        pattern = endpoint.split("?", maxsplit=1)[0]
+        # Use SHA3-256 for Ava-Guardian alignment (non-cryptographic use for cache keys)
+        pattern_hash = hashlib.sha3_256(pattern.encode()).hexdigest()[:8]
 
         with self._cb_lock:
             if pattern_hash not in self._circuit_breakers:

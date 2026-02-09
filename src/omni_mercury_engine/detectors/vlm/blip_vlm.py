@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 BLIP Vision-Language Model Detector for Zero-Shot Anomaly Detection.
 
@@ -51,7 +50,6 @@ from omni_mercury_engine.detectors.vlm.base_vlm import (
     VLMConfig,
 )
 
-
 logger = logging.getLogger(__name__)
 
 # Optional imports with graceful fallback
@@ -72,7 +70,7 @@ try:
 
     HAS_PIL = True
 except ImportError:
-    Image = None
+    Image = None  # type: ignore[assignment, unused-ignore]
     logger.debug("PIL not available - image processing will be limited")
 
 
@@ -363,7 +361,7 @@ class BLIPVLMDetector(BaseVLMDetector):
 
                 images.append(Image.fromarray(img_np))
             else:
-                images.append(img)
+                images.append(img)  # type: ignore[arg-type, unused-ignore]
 
         return images
 

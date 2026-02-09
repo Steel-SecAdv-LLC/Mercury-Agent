@@ -35,7 +35,6 @@ from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -274,8 +273,8 @@ class SecureHashChain:
         return self._hmac_hash(genesis_data.encode())
 
     def _hmac_hash(self, data: bytes) -> str:
-        """Compute HMAC-SHA256 hash."""
-        return hmac.new(self.hmac_key, data, hashlib.sha256).hexdigest()
+        """Compute HMAC-SHA3-256 hash for Ava-Guardian alignment."""
+        return hmac.new(self.hmac_key, data, hashlib.sha3_256).hexdigest()
 
     def compute_event_hash(self, event_data: dict[str, Any]) -> tuple[str, str, int]:
         """
@@ -665,12 +664,12 @@ class SecureAuditLogger:
         logger.info(f"Rotated audit log: {rotated_path} (hash: {file_hash[:16]}...)")
 
     def _compute_file_hash(self, path: Path) -> str:
-        """Compute SHA-256 hash of file."""
-        sha256 = hashlib.sha256()
+        """Compute SHA3-256 hash of file for Ava-Guardian alignment."""
+        sha3 = hashlib.sha3_256()
         with open(path, "rb") as f:
             for chunk in iter(lambda: f.read(8192), b""):
-                sha256.update(chunk)
-        return sha256.hexdigest()
+                sha3.update(chunk)
+        return sha3.hexdigest()
 
     def _cleanup_old_logs(self) -> None:
         """Remove oldest rotated logs beyond limit."""

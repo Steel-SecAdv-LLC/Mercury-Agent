@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Physics Acceleration Dynamics Module for Mercury Agent.
 
@@ -64,7 +63,6 @@ from torch import nn
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.utils.constants import MathematicalConstants
-
 
 logger = logging.getLogger(__name__)
 
@@ -1133,11 +1131,11 @@ class AccelerationDynamicsDetector(BaseDetector):
         if len(distances) < 10:
             return 1.0
 
-        distances = np.array(distances)
+        distances = np.array(distances)  # type: ignore[assignment, unused-ignore]
 
         # Correlation sum for different radii
         radii = np.logspace(
-            np.log10(np.min(distances[distances > 0])), np.log10(np.max(distances)), 10
+            np.log10(np.min(distances[distances > 0])), np.log10(np.max(distances)), 10  # type: ignore[operator, unused-ignore]
         )
         correlations = []
 

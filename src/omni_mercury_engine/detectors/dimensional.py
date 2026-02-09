@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Dimensional analyzer using PCA and neural projection.
 
@@ -41,7 +40,6 @@ from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
-
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -281,7 +279,7 @@ class DimensionalAnalyzer(BaseDetector):
             loss = nn.functional.mse_loss(reconstructed, data_tensor)
 
             optimizer.zero_grad()
-            loss.backward()
+            loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
             optimizer.step()
 
         if self.use_db_term:

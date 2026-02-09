@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Multi-Agent Coordination Protocol for Mercury Agent.
 
@@ -51,7 +50,6 @@ from queue import Empty, Queue
 from typing import Any
 
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 
@@ -304,11 +302,12 @@ class DetectionAgent(ABC):
             self.capabilities: list[AgentCapability] = []
             self._capability_names: list[str] = []
         elif capabilities and isinstance(capabilities[0], str):
-            self._capability_names = list(capabilities)
+            self._capability_names = [c for c in capabilities if isinstance(c, str)]
             self.capabilities = []
         else:
-            self.capabilities = list(capabilities)
-            self._capability_names = [c.name for c in self.capabilities]
+            cap_objects = [c for c in capabilities if isinstance(c, AgentCapability)]
+            self.capabilities = cap_objects
+            self._capability_names = [c.name for c in cap_objects]
 
         self.status = AgentStatus.IDLE
 
@@ -517,31 +516,36 @@ class ConsensusProtocol:
 
         # Handle list of vote dicts (test API)
         if results and isinstance(results[0], dict):
-            return self._reach_consensus_from_votes(consensus_id, results)
+            vote_list: list[dict[str, Any]] = [r for r in results if isinstance(r, dict)]
+            return self._reach_consensus_from_votes(consensus_id, vote_list)
 
         # Original DetectionResult handling
-        if len(results) < self.min_participants:
+        detection_results: list[DetectionResult] = [
+            r for r in results if isinstance(r, DetectionResult)
+        ]
+
+        if len(detection_results) < self.min_participants:
             return ConsensusResult(
                 consensus_id=consensus_id,
                 final_decision=False,
                 confidence=0.0,
                 agreement_ratio=0.0,
-                participant_count=len(results),
+                participant_count=len(detection_results),
                 method_used=self.method,
             )
 
         if self.method == ConsensusMethod.MAJORITY_VOTE:
-            return self._majority_vote(consensus_id, results)
+            return self._majority_vote(consensus_id, detection_results)
         elif self.method == ConsensusMethod.WEIGHTED_VOTE:
-            return self._weighted_vote(consensus_id, results)
+            return self._weighted_vote(consensus_id, detection_results)
         elif self.method == ConsensusMethod.UNANIMOUS:
-            return self._unanimous(consensus_id, results)
+            return self._unanimous(consensus_id, detection_results)
         elif self.method == ConsensusMethod.BYZANTINE_TOLERANT:
-            return self._byzantine_tolerant(consensus_id, results)
+            return self._byzantine_tolerant(consensus_id, detection_results)
         elif self.method == ConsensusMethod.CONFIDENCE_WEIGHTED:
-            return self._confidence_weighted(consensus_id, results)
+            return self._confidence_weighted(consensus_id, detection_results)
         else:
-            return self._majority_vote(consensus_id, results)
+            return self._majority_vote(consensus_id, detection_results)
 
     def _reach_consensus_from_votes(
         self,
@@ -693,7 +697,7 @@ class ConsensusProtocol:
             # No consensus - default to anomaly for safety
             final_decision = any(decisions)
             agreement_ratio = max(decisions.count(True), decisions.count(False)) / len(decisions)
-            confidence = 0.5
+            confidence = 0.5  # type: ignore[assignment, unused-ignore]
             dissenting = [r.agent_id for r in results if r.is_anomaly != final_decision]
 
         return ConsensusResult(
@@ -1066,7 +1070,10 @@ class AgentCoordinator:
                 logger.error(f"Agent {agent.agent_id} detection error: {e}")
 
         # Reach consensus
-        consensus = self.consensus_protocol.reach_consensus(results)
+        consensus_result = self.consensus_protocol.reach_consensus(results)
+        if not isinstance(consensus_result, ConsensusResult):
+            raise TypeError("Expected ConsensusResult from reach_consensus")
+        consensus = consensus_result
         self._stats["consensus_reached"] += 1
 
         return consensus

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Visual Anomaly Detection Module
 
@@ -69,7 +68,6 @@ from omni_mercury_engine.detectors.visual.padim import PaDiMDetector
 from omni_mercury_engine.detectors.visual.patchcore import PatchCoreDetector
 from omni_mercury_engine.detectors.visual.reverse_distillation import ReverseDistillationDetector
 from omni_mercury_engine.detectors.visual.stfpm import STFPMDetector
-
 
 __all__ = [
     # Base classes

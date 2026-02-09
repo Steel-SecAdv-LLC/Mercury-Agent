@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Main OmniMercuryEngine orchestrating all detectors and models.
 
 This module provides the core anomaly detection engine that integrates
@@ -122,7 +121,6 @@ from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 from omni_mercury_engine.ml.inference import FusionInference
 from omni_mercury_engine.ml.optimization import OptimizationConfig, ParallelExecutor
 from omni_mercury_engine.utils.logging import LoggerMixin
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -922,7 +920,7 @@ class OmniMercuryEngine(LoggerMixin):
                 loss = torch.nn.functional.binary_cross_entropy(
                     outputs["anomaly_probs"], batch_labels
                 )
-                loss.backward()
+                loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
                 torch.nn.utils.clip_grad_norm_(self.fusion_model.parameters(), 1.0)
                 optimizer.step()
 
@@ -1059,7 +1057,7 @@ class OmniMercuryEngine(LoggerMixin):
             f"n_anomalies={int(pseudo_labels.sum())}/{n_samples}"
         )
 
-        return pseudo_labels
+        return pseudo_labels  # type: ignore[no-any-return, unused-ignore]
 
     def enable_drift_detection(
         self,
@@ -1219,7 +1217,7 @@ class OmniMercuryEngine(LoggerMixin):
         try:
             fairness_report = self.fairness_auditor.audit(
                 predictions=predictions,
-                sensitive_features=sensitive_data,
+                sensitive_features=sensitive_data,  # type: ignore[arg-type, unused-ignore]
             )
             if not fairness_report.is_fair:
                 logger.warning(
@@ -2190,7 +2188,7 @@ class OmniMercuryEngine(LoggerMixin):
                 }
 
         # Runtime Pipeline Integration: LLM Enhancement (non-blocking)
-        llm_enhancement = self._enhance_with_llm(data, result)
+        llm_enhancement = self._enhance_with_llm(data, result)  # type: ignore[arg-type, unused-ignore]
         if llm_enhancement is not None:
             result["llm_enhancement"] = llm_enhancement
 
@@ -2608,7 +2606,7 @@ class OmniMercuryEngine(LoggerMixin):
                         optimizer.zero_grad()
                 else:
                     loss = trainer_module.training_step(batch, batch_idx)
-                    (loss / gradient_accumulation_steps).backward()
+                    (loss / gradient_accumulation_steps).backward()  # type: ignore[no-untyped-call, unused-ignore]
 
                     if (batch_idx + 1) % gradient_accumulation_steps == 0:
                         optimizer.step()

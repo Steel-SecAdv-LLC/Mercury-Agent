@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 AnyAnomaly: Zero-Shot Customizable Video Anomaly Detection with LVLM
 
@@ -53,7 +52,6 @@ from omni_mercury_engine.detectors.vlm.context_providers import (
     TemporalContextProvider,
 )
 from omni_mercury_engine.detectors.vlm.lvlm_backends import get_lvlm_backend
-
 
 logger = logging.getLogger(__name__)
 
@@ -386,7 +384,7 @@ EXPLANATION: [Your detailed explanation]
         scores = frame_scores / frame_counts
 
         # Determine anomalies
-        is_anomaly = scores > self.vlm_config.confidence_threshold
+        is_anomaly = scores > self.vlm_config.confidence_threshold  # type: ignore[assignment, unused-ignore]
 
         # Collect explanations for anomalous segments
         explanations = [r["explanation"] for r in segment_results if r["is_anomaly"]]
@@ -494,9 +492,9 @@ EXPLANATION: [Your detailed explanation]
         )
 
         # Pad to 128D
-        features = np.array(features)
+        features = np.array(features)  # type: ignore[assignment, unused-ignore]
         if len(features) < 128:
-            features = np.pad(features, (0, 128 - len(features)))
+            features = np.pad(features, (0, 128 - len(features)))  # type: ignore[assignment, unused-ignore]
 
         return torch.from_numpy(features).float().unsqueeze(0)
 

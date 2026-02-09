@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Cardiology Predictor - Cardiovascular Disease Detection & Risk Assessment
 
@@ -47,7 +46,6 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 from torch import nn
-
 
 if TYPE_CHECKING:
     import numpy as np
@@ -614,10 +612,10 @@ class CardiologyPredictor:
 
         probs = torch.softmax(classification[0], dim=0)
         rhythm_idx = torch.argmax(probs).item()
-        confidence = float(probs[rhythm_idx].item())
+        confidence = float(probs[rhythm_idx].item())  # type: ignore[index, unused-ignore]
 
         arrhythmia_types = [e.value for e in ArrhythmiaType]
-        detected_rhythm = arrhythmia_types[rhythm_idx]
+        detected_rhythm = arrhythmia_types[rhythm_idx]  # type: ignore[index, unused-ignore]
 
         anomalies = []
         if detected_rhythm != "normal_sinus_rhythm":

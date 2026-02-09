@@ -31,7 +31,6 @@ from typing import Any
 
 import numpy as np
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -208,7 +207,7 @@ class BiasDetector:
             total_samples=len(y_true),
             sensitive_features=[feature_name],
             fairness_results=fairness_results,
-            overall_fairness_score=overall_score,
+            overall_fairness_score=overall_score,  # type: ignore[arg-type, unused-ignore]
             is_model_fair=is_model_fair,
             high_risk_groups=high_risk_groups,
             recommendations=recommendations,

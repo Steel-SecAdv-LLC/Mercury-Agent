@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Efficiency Optimizations Module
 
@@ -43,7 +42,6 @@ from functools import wraps
 from typing import Any, TypeVar
 
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 

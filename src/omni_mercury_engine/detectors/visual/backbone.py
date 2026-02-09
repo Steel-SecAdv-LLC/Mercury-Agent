@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Feature extraction backbones for visual anomaly detection.
 
@@ -31,7 +30,6 @@ from typing import Any
 
 import torch
 from torch import nn
-
 
 logger = logging.getLogger(__name__)
 
@@ -195,7 +193,7 @@ class FeatureExtractor(nn.Module):
             parts = layer_name.split(".")
             module = self.backbone
             for part in parts:
-                module = getattr(module, part, None)
+                module = getattr(module, part, None)  # type: ignore[assignment, unused-ignore]
                 if module is None:
                     return None
             return module
@@ -354,7 +352,7 @@ class PatchEmbedding(nn.Module):
         if output_dim and output_dim != patch_dim:
             self.projection = nn.Linear(patch_dim, output_dim)
         else:
-            self.projection = None
+            self.projection = None  # type: ignore[assignment, unused-ignore]
             self.output_dim = patch_dim
 
     def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, tuple[int, int]]:

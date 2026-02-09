@@ -17,7 +17,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 3R Attention Block for Anomaly Detection
 
@@ -46,7 +45,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
-
 
 if TYPE_CHECKING:
     from omni_mercury_engine.core.three_r_mechanism import ResonanceEngine
@@ -343,9 +341,9 @@ class ThreeRAttentionBlock(nn.Module):
             "H_score": H_score.item(),
             "O_score": O_score.item(),
             "fusion_weights": {
-                "w_R": self.w_R.item(),
-                "w_H": self.w_H.item(),
-                "w_O": self.w_O.item(),
+                "w_R": self.w_R.item(),  # type: ignore[operator, unused-ignore]
+                "w_H": self.w_H.item(),  # type: ignore[operator, unused-ignore]
+                "w_O": self.w_O.item(),  # type: ignore[operator, unused-ignore]
             },
             "anomaly_scores": anomaly_scores,
             "discrepancy": H_omega,  # [B, T]
@@ -510,4 +508,4 @@ class ThreeRAnomalyTransformer(nn.Module):
 
         """
         for layer in self.layers:
-            layer.init_from_resonance_engine(resonance_engine, training_data)
+            layer.init_from_resonance_engine(resonance_engine, training_data)  # type: ignore[operator, unused-ignore]

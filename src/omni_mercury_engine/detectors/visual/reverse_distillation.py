@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Reverse Distillation for Anomaly Detection
 
@@ -51,7 +50,6 @@ from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
     VisualDetectorConfig,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -353,7 +351,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
                         total_loss = total_loss + loss
 
                 optimizer.zero_grad()
-                total_loss.backward()
+                total_loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
                 optimizer.step()
 
                 epoch_loss += total_loss.item()

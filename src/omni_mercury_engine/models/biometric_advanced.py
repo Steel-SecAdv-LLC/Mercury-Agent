@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Advanced Biometric Processing Engine for Mercury Agent ♱
 
@@ -48,7 +47,6 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +144,7 @@ class BiometricFusion:
             self.transformer = nn.TransformerEncoderLayer(d_model=dim, nhead=8, batch_first=True)
             self.transformer = self.transformer.to(device)
         else:
-            self.transformer = None
+            self.transformer = None  # type: ignore[assignment, unused-ignore]
 
     def forward(
         self, neural_emb: np.ndarray[Any, Any], symbolic_score: float = 1.0
@@ -507,7 +505,7 @@ class AgeProgressionEngine:
                     return face
 
             face_cascade = cv2.CascadeClassifier(
-                cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+                cv2.data.haarcascades + "haarcascade_frontalface_default.xml"  # type: ignore[attr-defined, unused-ignore]
             )
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             faces = face_cascade.detectMultiScale(gray, 1.3, 5)

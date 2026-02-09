@@ -19,7 +19,6 @@ from typing import Any
 
 import numpy as np
 
-
 try:
     import pandas as pd
 
@@ -31,7 +30,6 @@ except ImportError:
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
-
 
 logger = logging.getLogger(__name__)
 
@@ -350,15 +348,15 @@ class SimonsCMAPLoader(DatasetLoader):
             )
             labels.append(1 if is_anomaly else 0)
 
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+        features = np.array(features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
+        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment, unused-ignore]
 
         save_path = self.data_path / "synthetic_cmap.npz"
         np.savez_compressed(save_path, features=features, labels=labels)
 
         logger.info(
             f"Generated {n_samples} synthetic ocean samples, "
-            f"{labels.sum()} anomalies (is_real_data=False)"
+            f"{labels.sum()} anomalies (is_real_data=False)"  # type: ignore[attr-defined, unused-ignore]
         )
         return True
 
@@ -553,15 +551,15 @@ class WorldOceanDatabaseLoader(DatasetLoader):
             )
             labels.append(1 if is_anomaly else 0)
 
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+        features = np.array(features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
+        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment, unused-ignore]
 
         save_path = self.data_path / "synthetic_wod.npz"
         np.savez_compressed(save_path, features=features, labels=labels)
 
         logger.info(
             f"Generated {n_samples} synthetic WOD profiles, "
-            f"{labels.sum()} anomalies (is_real_data=False)"
+            f"{labels.sum()} anomalies (is_real_data=False)"  # type: ignore[attr-defined, unused-ignore]
         )
         return True
 
@@ -810,15 +808,15 @@ class CopernicusSeaLevelLoader(DatasetLoader):
             )
             labels.append(1 if is_anomaly else 0)
 
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+        features = np.array(features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
+        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment, unused-ignore]
 
         save_path = self.data_path / "synthetic_sealevel.npz"
         np.savez_compressed(save_path, features=features, labels=labels)
 
         logger.info(
             f"Generated {n_samples} synthetic sea level samples, "
-            f"{labels.sum()} anomalies (is_real_data=False)"
+            f"{labels.sum()} anomalies (is_real_data=False)"  # type: ignore[attr-defined, unused-ignore]
         )
         return True
 
@@ -1154,15 +1152,15 @@ class CopernicusERA5Loader(DatasetLoader):
             )
             labels.append(1 if is_anomaly else 0)
 
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+        features = np.array(features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
+        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment, unused-ignore]
 
         save_path = self.data_path / "synthetic_era5.npz"
         np.savez_compressed(save_path, features=features, labels=labels)
 
         logger.info(
             f"Generated {n_samples} synthetic ERA5 samples, "
-            f"{labels.sum()} anomalies (is_real_data=False)"
+            f"{labels.sum()} anomalies (is_real_data=False)"  # type: ignore[attr-defined, unused-ignore]
         )
         return True
 

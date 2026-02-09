@@ -59,7 +59,6 @@ from omni_mercury_engine.explainability.shap import (
     create_shap_explainer,
 )
 
-
 __all__ = [
     "AnomalyExplanation",
     "ComplianceAuditRecord",

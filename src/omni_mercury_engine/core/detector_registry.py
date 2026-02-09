@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Unified Detector Registry - Bridge connecting detectors across domains for fusion.
 
@@ -88,7 +87,6 @@ import torch
 
 from omni_mercury_engine.resilience.api_circuit_breakers import get_detector_breaker
 from omni_mercury_engine.resilience.circuit_breaker import CircuitState
-
 
 logger = logging.getLogger(__name__)
 
@@ -386,7 +384,8 @@ class DetectorRegistry:
             )
 
         try:
-            return breaker.call(_execute_detector)
+            result: FeatureExtractionResult = breaker.call(_execute_detector)
+            return result
 
         except Exception as e:
             execution_time = (time.perf_counter() - start_time) * 1000

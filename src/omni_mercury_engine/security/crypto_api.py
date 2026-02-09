@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Algorithm-Agnostic Cryptographic API for Mercury Agent ♱
 
@@ -64,7 +63,6 @@ from omni_mercury_engine.security.pqc_backends import (
     sphincs_sign,
     sphincs_verify,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -209,7 +207,8 @@ class Ed25519Provider:
     def sign(self, message: bytes, secret_key: bytes) -> bytes:
         """Sign message with Ed25519."""
         private_key = Ed25519PrivateKey.from_private_bytes(secret_key)
-        return private_key.sign(message)
+        signature: bytes = private_key.sign(message)
+        return signature
 
     def verify(self, message: bytes, signature: bytes, public_key: bytes) -> bool:
         """Verify Ed25519 signature.
@@ -508,12 +507,11 @@ class MercuryCrypto:
 
         data_bytes = json.dumps(data, sort_keys=True, default=str).encode()
 
-        if config.hash_algorithm == "sha3-256":
-            data_hash = hashlib.sha3_256(data_bytes).hexdigest()
-        elif config.hash_algorithm == "sha3-512":
+        if config.hash_algorithm == "sha3-512":
             data_hash = hashlib.sha3_512(data_bytes).hexdigest()
         else:
-            data_hash = hashlib.sha256(data_bytes).hexdigest()
+            # Default to SHA3-256 for Ava-Guardian alignment
+            data_hash = hashlib.sha3_256(data_bytes).hexdigest()
 
         result = CryptoPackageResult(
             data_hash=data_hash,

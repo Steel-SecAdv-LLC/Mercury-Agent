@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Production inference utilities for fusion model
 """
@@ -30,7 +29,6 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.ml.fusion_network import OmniFusionModel
-
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

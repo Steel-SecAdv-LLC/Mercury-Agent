@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 STFPM: Student-Teacher Feature Pyramid Matching for Anomaly Detection
 
@@ -50,7 +49,6 @@ from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
     VisualDetectorConfig,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -269,7 +267,7 @@ class STFPMDetector(BaseVisualDetector):
 
                 # Backward pass
                 optimizer.zero_grad()
-                total_loss.backward()
+                total_loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
                 optimizer.step()
 
                 epoch_loss += total_loss.item()
@@ -323,7 +321,7 @@ class STFPMDetector(BaseVisualDetector):
 
             # Compute anomaly maps from feature discrepancy
             anomaly_maps = self._compute_anomaly_maps(
-                teacher_features, student_features, original_size
+                teacher_features, student_features, original_size  # type: ignore[arg-type, unused-ignore]
             )
 
             # Image-level scores

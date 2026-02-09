@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 LAVAD: Harnessing Large Language Models for Training-free Video Anomaly Detection
 
@@ -48,7 +47,6 @@ from torch import nn
 
 from omni_mercury_engine.detectors.vlm.base_vlm import BaseVLMDetector, VLMConfig
 from omni_mercury_engine.detectors.vlm.lvlm_backends import get_lvlm_backend
-
 
 logger = logging.getLogger(__name__)
 
@@ -384,7 +382,7 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
             scores = scores / scores.max()
 
         # Threshold for anomaly detection
-        is_anomaly = scores > self.vlm_config.confidence_threshold
+        is_anomaly = scores > self.vlm_config.confidence_threshold  # type: ignore[assignment, unused-ignore]
 
         # Generate features
         features = self._generate_features(scores, captions)
@@ -498,9 +496,9 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
         features.append(anomaly_ratio)
 
         # Pad to 128D
-        features = np.array(features)
+        features = np.array(features)  # type: ignore[assignment, unused-ignore]
         if len(features) < 128:
-            features = np.pad(features, (0, 128 - len(features)))
+            features = np.pad(features, (0, 128 - len(features)))  # type: ignore[assignment, unused-ignore]
 
         return torch.from_numpy(features).float().unsqueeze(0)
 

@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Chaos-Evolutionary Optimization for Adaptive Hyperparameter Tuning.
 
 Based on: Chaos Game Optimization - A novel metaheuristic algorithm inspired by chaotic dynamics
@@ -33,7 +32,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -229,7 +227,7 @@ class ChaosEvolutionOptimizer:
             self.convergence_history.append(float(self.best_fitness))
 
             if iteration % 10 == 0:
-                chaos_value = self._rng.rand()
+                chaos_value = self._rng.rand()  # type: ignore[assignment, unused-ignore]
 
         results = {
             "best_solution": self.best_solution,
@@ -304,7 +302,7 @@ class ChaosEvolutionOptimizer:
         chaos_value = self._rng.rand()
 
         for _ in range(num_hypotheses):
-            chaos_value = self.chaotic_map(chaos_value)
+            chaos_value = self.chaotic_map(chaos_value)  # type: ignore[arg-type, assignment, unused-ignore]
             perturbation = chaos_intensity * (2 * chaos_value - 1)
 
             hypothesis = base_solution + perturbation * self._rng.randn(*base_solution.shape)

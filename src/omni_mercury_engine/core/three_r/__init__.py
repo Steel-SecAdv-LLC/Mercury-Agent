@@ -47,7 +47,6 @@ from omni_mercury_engine.core.three_r.types import (
     RefactoringResult,
 )
 
-
 __all__ = [
     "CONVERGENCE_RATE_PARAMETER",
     "GOLDEN_RATIO_CONSTANT",

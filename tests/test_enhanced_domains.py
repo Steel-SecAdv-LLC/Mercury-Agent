@@ -17,7 +17,6 @@ from hypothesis import (
     strategies as st,
 )
 
-
 # Constants for testing
 SEED = 42
 PHI = 1.618033988749895

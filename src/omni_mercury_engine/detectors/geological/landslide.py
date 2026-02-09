@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Landslide & Avalanche Detector - Slope Instability Analysis
 
@@ -315,7 +314,7 @@ class RecursionMultiScaleAnalyzer:
             scale_scores.append(recursion_score * self._scale_weights[i])
 
         # Aggregate recursion score across scales
-        features["recursion_score"] = float(np.sum(scale_scores))
+        features["recursion_score"] = float(np.sum(scale_scores))  # type: ignore[assignment, unused-ignore]
         features["scale_weights"] = self._scale_weights
 
         return features

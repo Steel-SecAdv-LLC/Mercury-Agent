@@ -17,10 +17,10 @@ Generates consolidated publication-quality benchmark visualizations:
 
 import json
 from pathlib import Path
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
 from matplotlib.gridspec import GridSpec
 
 # Use non-interactive backend
@@ -60,17 +60,18 @@ OUTPUT_DIR = Path(__file__).parent.parent / "docs" / "images"
 RESULTS_DIR = Path(__file__).parent.parent / "results" / "latest"
 
 
-def load_benchmark_results() -> dict:
+def load_benchmark_results() -> dict[str, Any]:
     """Load benchmark results from JSON file."""
     results_file = Path(__file__).parent / "neuro_symbolic_results.json"
     if results_file.exists():
         with open(results_file) as f:
-            return json.load(f)
+            result: dict[str, Any] = json.load(f)
+            return result
     # Return synthetic data if no results file
     return generate_synthetic_results()
 
 
-def generate_synthetic_results() -> dict:
+def generate_synthetic_results() -> dict[str, Any]:
     """Generate synthetic benchmark results for visualization."""
     np.random.seed(42)
     epochs = 200
@@ -139,7 +140,9 @@ def generate_synthetic_results() -> dict:
     }
 
 
-def generate_anomaly_detection_panel(results: dict, output_path: Path | None = None) -> None:
+def generate_anomaly_detection_panel(
+    results: dict[str, Any], output_path: Path | None = None
+) -> None:
     """Generate comprehensive anomaly detection panel."""
     if output_path is None:
         output_path = OUTPUT_DIR / "anomaly_detection_panel.png"
@@ -266,7 +269,9 @@ def generate_anomaly_detection_panel(results: dict, output_path: Path | None = N
     print(f"Generated: {output_path}")
 
 
-def generate_benchmark_summary_live_data(results: dict, output_path: Path | None = None) -> None:
+def generate_benchmark_summary_live_data(
+    results: dict[str, Any], output_path: Path | None = None
+) -> None:
     """Generate live data benchmark summary visualization."""
     if output_path is None:
         output_path = OUTPUT_DIR / "benchmark_summary_live_data.png"
@@ -281,8 +286,8 @@ def generate_benchmark_summary_live_data(results: dict, output_path: Path | None
     roc_aucs = [0.94, 0.92, 0.90, 0.95, 0.93]
     x = np.arange(len(datasets))
     width = 0.35
-    bars1 = ax1.bar(x - width / 2, f1_scores, width, label="F1 Score", color=VIRIDIS(0.3))
-    bars2 = ax1.bar(x + width / 2, roc_aucs, width, label="ROC-AUC", color=VIRIDIS(0.7))
+    ax1.bar(x - width / 2, f1_scores, width, label="F1 Score", color=VIRIDIS(0.3))
+    ax1.bar(x + width / 2, roc_aucs, width, label="ROC-AUC", color=VIRIDIS(0.7))
     ax1.set_ylabel("Score")
     ax1.set_title("Real-World Dataset Performance")
     ax1.set_xticks(x)
@@ -352,7 +357,7 @@ def generate_benchmark_summary_live_data(results: dict, output_path: Path | None
 
 
 def generate_neuro_symbolic_benchmark_report(
-    results: dict, output_path: Path | None = None
+    results: dict[str, Any], output_path: Path | None = None
 ) -> None:
     """Generate comprehensive neuro-symbolic benchmark report."""
     if output_path is None:
@@ -538,7 +543,9 @@ def generate_neuro_symbolic_benchmark_report(
     print(f"Generated: {output_path}")
 
 
-def generate_performance_dashboard(results: dict, output_path: Path | None = None) -> None:
+def generate_performance_dashboard(
+    results: dict[str, Any], output_path: Path | None = None
+) -> None:
     """Generate consolidated performance dashboard combining performance, ethical gating, and test coverage."""
     if output_path is None:
         output_path = OUTPUT_DIR / "mercury_performance_dashboard.png"
@@ -641,10 +648,8 @@ def generate_performance_dashboard(results: dict, output_path: Path | None = Non
     thresholds = [0.1, 0.1, 0.8]
     x = np.arange(len(metrics))
     width = 0.35
-    bars1 = ax5.bar(x - width / 2, current, width, label="Current", color=COLORS["success"])
-    bars2 = ax5.bar(
-        x + width / 2, thresholds, width, label="Threshold", color=COLORS["warning"], alpha=0.5
-    )
+    ax5.bar(x - width / 2, current, width, label="Current", color=COLORS["success"])
+    ax5.bar(x + width / 2, thresholds, width, label="Threshold", color=COLORS["warning"], alpha=0.5)
     ax5.set_ylabel("Value")
     ax5.set_title("Fairlearn Bias Metrics")
     ax5.set_xticks(x)
@@ -783,7 +788,7 @@ def generate_all_consolidated_visuals() -> None:
     print()
     print("=" * 70)
     print("All consolidated visualizations generated successfully!")
-    print(f"Output directories:")
+    print("Output directories:")
     print(f"  - {OUTPUT_DIR}")
     print(f"  - {RESULTS_DIR}")
     print("=" * 70)

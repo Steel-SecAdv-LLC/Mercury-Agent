@@ -17,7 +17,6 @@ import numpy as np
 
 from omni_mercury_engine.harmonics.transform import HarmonicCoefficients
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -225,7 +224,7 @@ class HarmonicFeatureExtractor:
         if l3 < abs(l1 - l2) or l3 > l1 + l2:
             return 0.0
 
-        return 1.0 / np.sqrt(2 * l3 + 1)
+        return float(1.0 / np.sqrt(2 * l3 + 1))
 
     def _compute_energy_distribution(
         self,
@@ -264,14 +263,14 @@ class HarmonicFeatureExtractor:
         if not powers:
             return 0.0
 
-        powers = np.array(powers)
+        powers = np.array(powers)  # type: ignore[assignment, unused-ignore]
         total = np.sum(powers) + 1e-10
         probs = powers / total
 
         entropy = -np.sum(probs * np.log(probs + 1e-10))
         max_entropy = np.log(len(powers))
 
-        return entropy / (max_entropy + 1e-10)
+        return float(entropy / (max_entropy + 1e-10))
 
     def extract_multi_scale(
         self,
@@ -360,7 +359,7 @@ class HarmonicSimilarity:
                 np.linalg.norm(desc2.bispectrum.components),
                 1e-10,
             )
-            distances["bispectrum"] = bs_dist / max_bs
+            distances["bispectrum"] = bs_dist / max_bs  # type: ignore[operator, unused-ignore]
 
         energy_dist = np.linalg.norm(desc1.energy_distribution - desc2.energy_distribution)
         distances["energy"] = energy_dist / np.sqrt(2.0)

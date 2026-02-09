@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """CISA National Critical Functions (NCF) anomaly detection.
 
 Monitors 55 CISA National Critical Functions for anomalies and models

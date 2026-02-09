@@ -28,7 +28,6 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
@@ -436,7 +435,7 @@ class ContrastiveLearningDetector:
                 loss_dict = self.model.compute_loss(batch)
                 loss = loss_dict["loss"]
 
-                loss.backward()
+                loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                 optimizer.step()
 
@@ -537,10 +536,10 @@ class ContrastiveLearningDetector:
                 rep = self.model(batch, return_projection=False)["representation"]
                 representations.append(rep.cpu().numpy())
 
-        representations = np.concatenate(representations, axis=0)
+        representations = np.concatenate(representations, axis=0)  # type: ignore[assignment, unused-ignore]
 
         # Compute k-NN scores
-        return self._compute_knn_scores(representations)
+        return self._compute_knn_scores(representations)  # type: ignore[arg-type, unused-ignore]
 
     def detect(
         self,

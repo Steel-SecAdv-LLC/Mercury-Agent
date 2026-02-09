@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Foundation Model Ensemble
 
@@ -43,7 +42,6 @@ from omni_mercury_engine.models.foundation.matrix_profile import (
     MatrixProfileDetector,
 )
 from omni_mercury_engine.models.foundation.timegpt_adapter import TimeGPTAdapter, TimeGPTConfig
-
 
 logger = logging.getLogger(__name__)
 
@@ -229,8 +227,8 @@ class FoundationEnsemble(BaseFoundationModel):
             }
 
         # Normalize weights
-        valid_weights = np.array(valid_weights)
-        valid_weights = valid_weights / valid_weights.sum()
+        valid_weights = np.array(valid_weights)  # type: ignore[assignment, unused-ignore]
+        valid_weights = valid_weights / valid_weights.sum()  # type: ignore[attr-defined, unused-ignore]
 
         # Aggregate
         forecast = self._aggregate(all_forecasts, valid_weights)
@@ -300,8 +298,8 @@ class FoundationEnsemble(BaseFoundationModel):
                 "threshold": 0.5,
             }
 
-        valid_weights = np.array(valid_weights)
-        valid_weights = valid_weights / valid_weights.sum()
+        valid_weights = np.array(valid_weights)  # type: ignore[assignment, unused-ignore]
+        valid_weights = valid_weights / valid_weights.sum()  # type: ignore[attr-defined, unused-ignore]
 
         # Aggregate scores
         scores = self._aggregate_1d(all_scores, valid_weights)

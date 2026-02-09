@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Conversation Interface - Unified "Alive" Interface for Mercury Agent
 
@@ -41,7 +40,6 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -60,7 +58,6 @@ from omni_mercury_engine.narrative.proactive import (
     ProactiveMonitor,
     VigilanceLevel,
 )
-
 
 logger = logging.getLogger(__name__)
 

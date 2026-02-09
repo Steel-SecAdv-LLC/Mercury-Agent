@@ -21,7 +21,6 @@ import importlib.util
 
 import pytest
 
-
 # Optional torch import
 HAS_TORCH = importlib.util.find_spec("torch") is not None
 

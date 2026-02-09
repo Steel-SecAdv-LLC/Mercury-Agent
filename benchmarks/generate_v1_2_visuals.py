@@ -13,12 +13,12 @@ Generates consolidated publication-quality benchmark visualizations for v1.2.0:
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from matplotlib.gridspec import GridSpec
-
 
 # Use professional style
 plt.style.use("seaborn-v0_8-whitegrid")
@@ -57,16 +57,17 @@ OUTPUT_DIR = Path(__file__).parent.parent / "docs" / "images"
 RESULTS_DIR = Path(__file__).parent.parent / "results" / "latest"
 
 
-def load_benchmark_results() -> dict:
+def load_benchmark_results() -> dict[str, Any]:
     """Load actual benchmark results from the latest run."""
     results_file = RESULTS_DIR / "neuro_symbolic_benchmark_results.json"
     if results_file.exists():
         with open(results_file) as f:
-            return json.load(f)
+            result: dict[str, Any] = json.load(f)
+            return result
     raise FileNotFoundError(f"Benchmark results not found: {results_file}")
 
 
-def generate_neuro_symbolic_report(results: dict) -> None:
+def generate_neuro_symbolic_report(results: dict[str, Any]) -> None:
     """Generate comprehensive neuro-symbolic benchmark report (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
     fig.suptitle(
@@ -196,7 +197,7 @@ def generate_neuro_symbolic_report(results: dict) -> None:
     print(f"✓ Generated: {output_path}")
 
 
-def generate_anomaly_detection_panel(results: dict) -> None:
+def generate_anomaly_detection_panel(results: dict[str, Any]) -> None:
     """Generate anomaly detection analysis panel (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
     fig.suptitle(
@@ -284,8 +285,8 @@ def generate_anomaly_detection_panel(results: dict) -> None:
     throughput = [10000, 4000, 2000]  # samples/sec
     latency = [10, 25, 50]  # ms
     ax6_twin = ax6.twinx()
-    bars = ax6.bar(configs, throughput, color=COLORS["primary"], alpha=0.7, label="Throughput")
-    line = ax6_twin.plot(
+    ax6.bar(configs, throughput, color=COLORS["primary"], alpha=0.7, label="Throughput")
+    ax6_twin.plot(
         configs, latency, color=COLORS["danger"], marker="o", linewidth=2, label="Latency"
     )
     ax6.set_ylabel("Throughput (samples/sec)", color=COLORS["primary"])
@@ -380,7 +381,7 @@ def generate_anomaly_detection_panel(results: dict) -> None:
     print(f"✓ Generated: {output_path}")
 
 
-def generate_benchmark_summary(results: dict) -> None:
+def generate_benchmark_summary(results: dict[str, Any]) -> None:
     """Generate benchmark summary with live data and module coverage (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
     fig.suptitle(
@@ -414,7 +415,7 @@ def generate_benchmark_summary(results: dict) -> None:
     ax2 = fig.add_subplot(gs[0, 1])
     modules = ["Core", "ML", "Detectors", "Medical", "Security", "Cognitive", "API"]
     coverage = [92, 88, 85, 82, 90, 78, 95]
-    bars = ax2.barh(modules, coverage, color=plt.cm.Greens(np.linspace(0.3, 0.9, len(modules))))
+    ax2.barh(modules, coverage, color=plt.cm.Greens(np.linspace(0.3, 0.9, len(modules))))
     ax2.axvline(x=85, color=COLORS["warning"], linestyle="--", label="Target (85%)")
     ax2.set_xlabel("Coverage %")
     ax2.set_title("Test Coverage by Module")
@@ -582,7 +583,7 @@ def generate_benchmark_summary(results: dict) -> None:
     print(f"✓ Generated: {output_path}")
 
 
-def generate_performance_dashboard(results: dict) -> None:
+def generate_performance_dashboard(results: dict[str, Any]) -> None:
     """Generate performance, ethics, and quality dashboard (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
     fig.suptitle(
@@ -593,7 +594,6 @@ def generate_performance_dashboard(results: dict) -> None:
     )
 
     gs = GridSpec(3, 3, figure=fig, hspace=0.35, wspace=0.3)
-    metrics = results.get("final_metrics", {})
     epochs_data = results.get("epoch_summaries", [])
 
     # Panel 1: Benevolence Score Evolution
@@ -746,7 +746,7 @@ def generate_performance_dashboard(results: dict) -> None:
     print(f"✓ Generated: {output_path}")
 
 
-def main():
+def main() -> None:
     """Generate all consolidated visualizations."""
     print("=" * 60)
     print("Mercury Agent ♱ v1.2.0 - Visualization Generator")

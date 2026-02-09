@@ -32,22 +32,21 @@ import time
 
 import numpy as np
 
-from omni_mercury_engine.detectors.spectral_vibration import (
-    SpectralVibrationDetector,
-    SpectralAnalysisMode,
-)
 from omni_mercury_engine.detectors.acceleration_dynamics import (
     AccelerationDynamicsDetector,
-    MotionState,
-)
-from omni_mercury_engine.detectors.uiux_anomaly import (
-    UIUXAnomalyDetector,
-    UserInteraction,
-    InteractionType,
 )
 from omni_mercury_engine.detectors.advanced_physics_integration import (
     AdvancedPhysicsIntegratedDetector,
     PhysicsDetectorType,
+)
+from omni_mercury_engine.detectors.spectral_vibration import (
+    SpectralAnalysisMode,
+    SpectralVibrationDetector,
+)
+from omni_mercury_engine.detectors.uiux_anomaly import (
+    InteractionType,
+    UIUXAnomalyDetector,
+    UserInteraction,
 )
 
 

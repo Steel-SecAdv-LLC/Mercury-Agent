@@ -21,7 +21,6 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -70,7 +69,7 @@ class LogEntry:
     def checksum(self) -> str:
         """Compute checksum for integrity verification."""
         content = json.dumps(self.to_dict(), sort_keys=True)
-        return hashlib.sha256(content.encode()).hexdigest()[:16]
+        return hashlib.sha3_256(content.encode()).hexdigest()[:16]
 
 
 @dataclass
@@ -304,7 +303,7 @@ class MessageTransport:
 
     def __init__(self) -> None:
         """Initialize the transport."""
-        self._message_handlers: dict[str, Callable] = {}
+        self._message_handlers: dict[str, Callable[..., Any]] = {}
         self._connected_peers: set[str] = set()
 
     async def send_request_vote(
@@ -323,7 +322,7 @@ class MessageTransport:
         """Send append entries to peer."""
         raise NotImplementedError
 
-    def register_handler(self, message_type: str, handler: Callable) -> None:
+    def register_handler(self, message_type: str, handler: Callable[..., Any]) -> None:
         """Register message handler."""
         self._message_handlers[message_type] = handler
 
@@ -416,12 +415,12 @@ class RaftNode:
         self,
         config: ClusterConfiguration,
         transport: MessageTransport,
-        state_machine: StateMachine | None = None,
+        state_machine: StateMachine[Any] | None = None,
     ) -> None:
         """Initialize a Raft node."""
         self._config = config
         self._transport = transport
-        self._state_machine = state_machine or StateMachine()
+        self._state_machine: StateMachine[Any] = state_machine or StateMachine()
         self._log = RaftLog(config.snapshot_threshold)
 
         self._current_term: int = 0
@@ -433,12 +432,12 @@ class RaftNode:
         self._next_index: dict[str, int] = {}
         self._match_index: dict[str, int] = {}
 
-        self._election_timer: asyncio.Task | None = None
-        self._heartbeat_timer: asyncio.Task | None = None
-        self._replication_task: asyncio.Task | None = None
+        self._election_timer: asyncio.Task[None] | None = None
+        self._heartbeat_timer: asyncio.Task[None] | None = None
+        self._replication_task: asyncio.Task[None] | None = None
         self._running = False
 
-        self._pending_commands: dict[int, asyncio.Future] = {}
+        self._pending_commands: dict[int, asyncio.Future[Any]] = {}
         self._lock = asyncio.Lock()
 
         self._votes_received: set[str] = set()
@@ -518,7 +517,7 @@ class RaftNode:
             )
             await self._log.append(entry)
 
-            future: asyncio.Future = asyncio.Future()
+            future: asyncio.Future[Any] = asyncio.Future()
             self._pending_commands[index] = future
 
         self._replication_task = asyncio.create_task(self._replicate_entries())
@@ -830,7 +829,7 @@ class RaftCluster:
             else:
                 raise NotImplementedError("Network transport not yet implemented")
 
-            state_machine = StateMachine()
+            state_machine: StateMachine[Any] = StateMachine()
             node = RaftNode(config, transport, state_machine)
             self._nodes[config.node_id] = node
 

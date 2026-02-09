@@ -32,7 +32,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
@@ -165,12 +164,12 @@ class WorkerPool(ABC):
     """Abstract base class for worker pools."""
 
     @abstractmethod
-    def submit(self, func: Callable, *args: Any, **kwargs: Any) -> Any:
+    def submit(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         """Submit task to pool."""
         pass
 
     @abstractmethod
-    def map(self, func: Callable, items: list[Any]) -> list[Any]:
+    def map(self, func: Callable[..., Any], items: list[Any]) -> list[Any]:
         """Map function over items."""
         pass
 
@@ -187,10 +186,10 @@ class ThreadWorkerPool(WorkerPool):
         self.num_workers = num_workers
         self._executor = ThreadPoolExecutor(max_workers=num_workers)
 
-    def submit(self, func: Callable, *args: Any, **kwargs: Any) -> Any:
+    def submit(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         return self._executor.submit(func, *args, **kwargs)
 
-    def map(self, func: Callable, items: list[Any]) -> list[Any]:
+    def map(self, func: Callable[..., Any], items: list[Any]) -> list[Any]:
         futures = [self._executor.submit(func, item) for item in items]
         return [f.result() for f in as_completed(futures)]
 
@@ -205,10 +204,10 @@ class ProcessWorkerPool(WorkerPool):
         self.num_workers = num_workers
         self._executor = ProcessPoolExecutor(max_workers=num_workers)
 
-    def submit(self, func: Callable, *args: Any, **kwargs: Any) -> Any:
+    def submit(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         return self._executor.submit(func, *args, **kwargs)
 
-    def map(self, func: Callable, items: list[Any]) -> list[Any]:
+    def map(self, func: Callable[..., Any], items: list[Any]) -> list[Any]:
         return list(self._executor.map(func, items))
 
     def shutdown(self) -> None:
@@ -362,7 +361,7 @@ class DistributedProcessor:
 
         chunk_times = [r.processing_time_ms for r in results if r.error is None]
         if chunk_times:
-            self._stats.avg_chunk_time_ms = np.mean(chunk_times)
+            self._stats.avg_chunk_time_ms = np.mean(chunk_times)  # type: ignore[assignment, unused-ignore]
 
         return scores, is_anomaly, self._stats
 
@@ -391,6 +390,7 @@ class DistributedProcessor:
         futures = []
 
         # Submit all chunks
+        assert self._pool is not None
         for chunk_id, start_idx, chunk_data in chunk_gen:
             worker_id = chunk_id % self.config.num_workers
             future = self._pool.submit(
@@ -421,7 +421,7 @@ class DistributedProcessor:
         self,
         chunk_id: int,
         start_idx: int,
-        chunk_data_list: list,
+        chunk_data_list: list[Any],
         worker_id: int,
     ) -> ChunkResult:
         """Wrapper for multiprocessing (data must be serializable)."""
@@ -576,8 +576,12 @@ class StreamProcessor:
         self.config = config or ProcessingConfig()
         self.queue_size = queue_size
 
-        self._input_queue: queue.Queue = queue.Queue(maxsize=queue_size)
-        self._output_queue: queue.Queue = queue.Queue(maxsize=queue_size)
+        self._input_queue: queue.Queue[tuple[NDArray[np.float64], dict[str, Any]]] = queue.Queue(
+            maxsize=queue_size
+        )
+        self._output_queue: queue.Queue[
+            tuple[NDArray[np.float64], NDArray[np.bool_], dict[str, Any]]
+        ] = queue.Queue(maxsize=queue_size)
         self._running = False
         self._workers: list[threading.Thread] = []
         self._stats = ProcessingStats()

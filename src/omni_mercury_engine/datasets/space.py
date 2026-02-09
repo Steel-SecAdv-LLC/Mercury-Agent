@@ -19,7 +19,6 @@ from typing import Any
 
 import numpy as np
 
-
 try:
     import pandas as pd
 
@@ -31,7 +30,6 @@ except ImportError:
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
-
 
 logger = logging.getLogger(__name__)
 
@@ -99,8 +97,8 @@ class SETILoader(DatasetLoader):
             label = 0 if (i % len(self.SIGNAL_CLASSES)) == 3 else 1  # noise class
             labels.append(label)
 
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+        features = np.array(features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
+        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment, unused-ignore]
 
         save_path = self.data_path / "synthetic_seti.npz"
         np.savez_compressed(save_path, features=features, labels=labels)
@@ -278,7 +276,7 @@ class NASAExoplanetLoader(DatasetLoader):
             req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
-            with urllib.request.urlopen(req, timeout=60) as response:
+            with urllib.request.urlopen(req, timeout=60) as response:  # nosec B310
                 data = json.loads(response.read().decode("utf-8"))
 
             # Parse TAP response
@@ -382,13 +380,13 @@ class NASAExoplanetLoader(DatasetLoader):
             )
             labels.append(1 if is_anomaly else 0)
 
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+        features = np.array(features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
+        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment, unused-ignore]
 
         save_path = self.data_path / "synthetic_exoplanet.npz"
         np.savez_compressed(save_path, features=features, labels=labels)
 
-        logger.info(f"Generated {n_samples} exoplanet samples, {labels.sum()} anomalies")
+        logger.info(f"Generated {n_samples} exoplanet samples, {labels.sum()} anomalies")  # type: ignore[attr-defined, unused-ignore]
         return True
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
@@ -495,7 +493,7 @@ class SolarDynamicsLoader(DatasetLoader):
             req = urllib.request.Request(
                 url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
             )
-            with urllib.request.urlopen(req, timeout=60) as response:
+            with urllib.request.urlopen(req, timeout=60) as response:  # nosec B310
                 data = json.loads(response.read().decode("utf-8"))
 
             if not data:

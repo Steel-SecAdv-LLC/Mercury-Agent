@@ -35,7 +35,6 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import StratifiedKFold, train_test_split
 
-
 # Fixed seed for reproducibility
 GLOBAL_SEED = 42
 
@@ -613,13 +612,13 @@ def run_baseline_benchmarks(
 
         def predict(self, X: np.ndarray) -> np.ndarray:
             preds = self.model.predict(X)
-            return (preds == -1).astype(int)
+            return (preds == -1).astype(int)  # type: ignore[no-any-return, unused-ignore]
 
         def predict_proba(self, X: np.ndarray) -> np.ndarray:
             scores = -self.model.score_samples(X)
             # Normalize to [0, 1]
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return scores
+            return scores  # type: ignore[no-any-return, unused-ignore]
 
     results["IsolationForest"] = harness.benchmark_detector(
         IFWrapper(), X, y, "IsolationForest", dataset_name
@@ -635,12 +634,12 @@ def run_baseline_benchmarks(
 
         def predict(self, X: np.ndarray) -> np.ndarray:
             preds = self.model.predict(X)
-            return (preds == -1).astype(int)
+            return (preds == -1).astype(int)  # type: ignore[no-any-return, unused-ignore]
 
         def predict_proba(self, X: np.ndarray) -> np.ndarray:
             scores = -self.model.decision_function(X)
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return scores
+            return scores  # type: ignore[no-any-return, unused-ignore]
 
     results["OneClassSVM"] = harness.benchmark_detector(
         OCSVMWrapper(), X, y, "OneClassSVM", dataset_name
@@ -660,12 +659,12 @@ def run_baseline_benchmarks(
 
         def predict(self, X: np.ndarray) -> np.ndarray:
             preds = self.model.predict(X)
-            return (preds == -1).astype(int)
+            return (preds == -1).astype(int)  # type: ignore[no-any-return, unused-ignore]
 
         def predict_proba(self, X: np.ndarray) -> np.ndarray:
             scores = -self.model.decision_function(X)
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return scores
+            return scores  # type: ignore[no-any-return, unused-ignore]
 
     results["LOF"] = harness.benchmark_detector(LOFWrapper(), X, y, "LOF", dataset_name)
 
@@ -691,12 +690,12 @@ def run_baseline_benchmarks(
 
         def predict(self, X: np.ndarray) -> np.ndarray:
             preds = self.model.predict(X)
-            return (preds == -1).astype(int)
+            return (preds == -1).astype(int)  # type: ignore[no-any-return, unused-ignore]
 
         def predict_proba(self, X: np.ndarray) -> np.ndarray:
             scores = -self.model.decision_function(X)
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return scores
+            return scores  # type: ignore[no-any-return, unused-ignore]
 
     results["EllipticEnvelope"] = harness.benchmark_detector(
         EEWrapper(), X, y, "EllipticEnvelope", dataset_name

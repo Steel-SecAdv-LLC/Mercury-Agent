@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Configuration classes for Mercury Agent ♱
 
@@ -39,7 +38,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -529,13 +527,13 @@ class ConfigurationManager:
         # Check rollout percentage
         if flag.rollout_percentage < 100.0 and user_id:
             # Deterministic hash for consistent user experience
-            # Using SHA-256 instead of MD5 to satisfy security scanners
-            # Note: This is not security-sensitive (just bucketing), but SHA-256
+            # Using SHA3-256 for Ava-Guardian alignment
+            # Note: This is not security-sensitive (just bucketing), but SHA3-256
             # eliminates CodeQL weak-hash alerts while maintaining determinism
             import hashlib
 
             user_hash = int(
-                hashlib.sha256(f"{name}:{user_id}".encode()).hexdigest()[:8],
+                hashlib.sha3_256(f"{name}:{user_id}".encode()).hexdigest()[:8],
                 16,
             )
             return (user_hash % 100) < flag.rollout_percentage
@@ -554,9 +552,9 @@ class ConfigurationManager:
         if user_id:
             import hashlib
 
-            # Using SHA-256 instead of MD5 to satisfy security scanners
+            # Using SHA3-256 for Ava-Guardian alignment
             user_hash = int(
-                hashlib.sha256(f"{name}:{user_id}".encode()).hexdigest()[:8],
+                hashlib.sha3_256(f"{name}:{user_id}".encode()).hexdigest()[:8],
                 16,
             )
             variant_names = list(flag.variants.keys())

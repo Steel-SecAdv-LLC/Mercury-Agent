@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """Extended tests for neurosymbolic_engine to reach >95% coverage."""
 
 import ast

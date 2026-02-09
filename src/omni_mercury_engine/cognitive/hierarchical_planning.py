@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Hierarchical Planning Agent for Mercury Agent.
 
@@ -51,7 +50,6 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 
@@ -539,7 +537,7 @@ class GoalDecomposer:
         """
         # Handle dict input (test API)
         if isinstance(goal, dict):
-            description = goal.get("type", goal.get("description", "unknown_goal"))
+            description = str(goal.get("type", goal.get("description", "unknown_goal")))
             goal_id = f"goal_dict_{self._decomposition_counter:06d}"
             priority = 0.5
 
@@ -972,14 +970,16 @@ class HierarchicalPlanner:
         for goal in goal_hierarchy.values():
             if goal.level in [AbstractionLevel.STRATEGIC, AbstractionLevel.TACTICAL]:
                 subgoals = self.goal_decomposer.decompose(goal, context)
-                all_subgoals.extend(subgoals)
+                all_subgoals.extend(s for s in subgoals if isinstance(s, Subgoal))
 
         # Select options for subgoals
         options_used: list[Option] = []
         for subgoal in all_subgoals:
             applicable = self.option_library.get_applicable_options(current_state)
             if applicable:
-                options_used.append(applicable[0])  # Best option
+                first_option = applicable[0]
+                if isinstance(first_option, Option):
+                    options_used.append(first_option)
 
         # Estimate plan value
         estimated_reward = self._estimate_plan_reward(
@@ -1097,7 +1097,9 @@ class HierarchicalPlanner:
                 state, execution_state.current_goal
             )
             if applicable:
-                execution_state.current_option = applicable[0]
+                first_applicable = applicable[0]
+                if isinstance(first_applicable, Option):
+                    execution_state.current_option = first_applicable
 
         # Get action from option
         if execution_state.current_option:
@@ -1360,7 +1362,7 @@ class AnomalyHierarchicalPlanner:
 
         # Create root goal
         root_goal = self.planner.create_goal(
-            description=template["description"],
+            description=str(template["description"]),
             level=AbstractionLevel.STRATEGIC,
             priority={"low": 0.3, "normal": 0.5, "high": 0.7, "critical": 0.9}.get(urgency, 0.5),
             metadata={"data_source": data_source, "urgency": urgency},
@@ -1400,7 +1402,7 @@ class AnomalyHierarchicalPlanner:
             strategic_goals = [
                 f"assess_{anomaly_type}_impact",
                 f"contain_{anomaly_type}_threat",
-                f"remediate_affected_systems",
+                "remediate_affected_systems",
             ]
 
             tactical_actions = []

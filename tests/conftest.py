@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Pytest configuration and fixtures
 
@@ -31,7 +30,6 @@ import numpy as np
 import pytest
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, set_global_seed
-
 
 # Optional torch import for ML tests
 try:

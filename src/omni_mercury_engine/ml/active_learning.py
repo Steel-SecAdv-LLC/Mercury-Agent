@@ -30,7 +30,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from scipy.spatial.distance import cdist
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
@@ -530,11 +529,11 @@ class QueryByCommitteeSampler(BaseSampler):
                 preds = model.predict(X).astype(float)
             predictions.append(preds)
 
-        predictions = np.array(predictions)  # [n_committee, n_samples]
+        predictions = np.array(predictions)  # type: ignore[assignment, unused-ignore]  # [n_committee, n_samples]
 
         if self.disagreement_measure == "vote_entropy":
             # Vote entropy: entropy of binary vote distribution
-            votes = (predictions > 0.5).astype(int)
+            votes = (predictions > 0.5).astype(int)  # type: ignore[operator, unused-ignore]
             vote_fraction = np.mean(votes, axis=0)
             vote_fraction = np.clip(vote_fraction, 1e-10, 1 - 1e-10)
             entropy = -(
@@ -556,7 +555,7 @@ class QueryByCommitteeSampler(BaseSampler):
                 )
                 kl_sum += kl
 
-            return kl_sum / len(predictions)
+            return kl_sum / len(predictions)  # type: ignore[return-value, unused-ignore]
 
         else:
             # Default to variance

@@ -27,7 +27,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -36,7 +35,6 @@ if TYPE_CHECKING:
     import shap as shap_module  # noqa: F401
 
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +45,8 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None
-    nn = None
+    torch = None  # type: ignore[assignment, unused-ignore]
+    nn = None  # type: ignore[assignment, unused-ignore]
 
 # Optional SHAP import
 try:
@@ -588,8 +586,8 @@ class IntegratedGradientsExplainer(BaseExplainer):
                 grad = torch.autograd.grad(output.sum(), interpolated)[0]
                 gradients.append(grad.detach().numpy())
             else:
-                grad = self._numerical_gradient(model, interpolated.detach().numpy())
-                gradients.append(grad)
+                grad = self._numerical_gradient(model, interpolated.detach().numpy())  # type: ignore[assignment, unused-ignore]
+                gradients.append(grad)  # type: ignore[arg-type, unused-ignore]
 
         avg_gradients = np.mean(gradients, axis=0)
         attributions = (instance - baseline) * avg_gradients
@@ -714,7 +712,6 @@ class CounterfactualExplainer:
 
         original_pred = float(model(instance.reshape(1, -1))[0])
         original_class = 1 if original_pred > self.threshold else 0
-        _target_pred = 1.0 if target_class == 1 else 0.0
 
         counterfactual = instance.copy()
 

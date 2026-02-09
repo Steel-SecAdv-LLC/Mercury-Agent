@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Spatial anomaly detector for geographic data
 
@@ -33,7 +32,6 @@ from sklearn.neighbors import LocalOutlierFactor
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
-
 
 # Numba optimization for distance computation (hot path)
 try:

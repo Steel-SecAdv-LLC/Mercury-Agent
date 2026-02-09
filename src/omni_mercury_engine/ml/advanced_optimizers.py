@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Advanced Optimizers for Mercury Agent ♱
 
@@ -46,7 +45,6 @@ from typing import Any
 
 import numpy as np
 import numpy.typing as npt
-
 
 logger = logging.getLogger(__name__)
 
@@ -84,8 +82,8 @@ class GradientCache:
         """Compute cache key using quantized activations."""
         # Quantize to reduce cache misses from minor variations
         quantized = np.round(activations * 100).astype(np.int32)
-        # Using SHA256 instead of MD5 to satisfy security scanners (S324)
-        return hashlib.sha256(quantized.tobytes()).hexdigest()
+        # Using SHA3-256 for Ava-Guardian alignment
+        return hashlib.sha3_256(quantized.tobytes()).hexdigest()
 
     def get(self, activations: np.ndarray[Any, Any]) -> np.ndarray[Any, Any] | None:
         """Get cached gradient if available."""
@@ -266,7 +264,7 @@ class SyntheticGradientPredictor:
         loss = nn.functional.mse_loss(predicted_tensor, true_tensor.detach())
 
         if loss.requires_grad:
-            loss.backward()
+            loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
             self.optimizer.step()
 
         return float(loss.item())
@@ -454,13 +452,13 @@ class DifferenceTargetPropagation:
         reconstruction_loss = nn.functional.mse_loss(
             self.forward_layer(target_prev), h_tensor.detach()
         )
-        reconstruction_loss.backward(retain_graph=True)
+        reconstruction_loss.backward(retain_graph=True)  # type: ignore[no-untyped-call, unused-ignore]
         self.optimizer_inverse.step()
 
         forward_loss = nn.functional.mse_loss(
             self.forward_layer(target_prev.detach()), target_tensor.detach()
         )
-        forward_loss.backward()
+        forward_loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
         self.optimizer_forward.step()
 
         return np.asarray(target_prev.detach().numpy())

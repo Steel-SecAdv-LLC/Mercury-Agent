@@ -18,7 +18,6 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-
 """
 Internal Random Number Generator Utility for Test Determinism
 
@@ -41,7 +40,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-
 if TYPE_CHECKING:
     from collections.abc import Generator
 
@@ -51,7 +49,7 @@ try:
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None  # type: ignore[assignment]
+    torch = None  # type: ignore[assignment,unused-ignore]
     TORCH_AVAILABLE = False
 
 
@@ -347,9 +345,9 @@ class RNGState:
             "seed": self.seed,
             "version": self.version,
             "numpy_state_hash": (
-                # Using SHA-256 instead of MD5 to satisfy security scanners (CodeQL/ruff S324)
+                # Using SHA3-256 for Ava-Guardian alignment
                 # Note: This is non-cryptographic use for state hashing
-                hashlib.sha256(str(self.numpy_state).encode()).hexdigest()
+                hashlib.sha3_256(str(self.numpy_state).encode()).hexdigest()
                 if self.numpy_state
                 else None
             ),
