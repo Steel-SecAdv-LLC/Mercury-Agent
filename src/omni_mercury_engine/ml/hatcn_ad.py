@@ -65,12 +65,12 @@ class TemporalBlock(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through temporal block."""
         out = self.conv1(x)
-        out = out[:, :, : -self.conv1.padding[0]]  # type: ignore[operator]
+        out = out[:, :, : -self.conv1.padding[0]]
         out = self.bn1(out)
         out = self.relu(out)
 
         out = self.conv2(out)
-        out = out[:, :, : -self.conv2.padding[0]]  # type: ignore[operator]
+        out = out[:, :, : -self.conv2.padding[0]]
         out = self.bn2(out)
 
         res = x if self.downsample is None else self.downsample(x)

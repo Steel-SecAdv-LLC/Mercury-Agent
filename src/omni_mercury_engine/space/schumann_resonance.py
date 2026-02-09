@@ -302,7 +302,7 @@ class SchumannResonanceDetector:
         confidence_score = float(confidence[0].item())
 
         anomaly_types = ["normal", "amplitude", "frequency", "combined"]
-        anomaly_type = anomaly_types[anomaly_class]  # type: ignore[index]
+        anomaly_type = anomaly_types[anomaly_class]
 
         risk_score = (
             confidence_score

@@ -458,10 +458,10 @@ class IsotopePredictor:
 
         isotope_probs = torch.softmax(isotope_logits[0], dim=0)
         isotope_idx = torch.argmax(isotope_probs).item()
-        isotope_confidence = float(isotope_probs[isotope_idx].item())  # type: ignore[index]
+        isotope_confidence = float(isotope_probs[isotope_idx].item())
 
         isotope_types = [e.value for e in IsotopeType]
-        detected_type = isotope_types[isotope_idx]  # type: ignore[index]
+        detected_type = isotope_types[isotope_idx]
 
         enrichment_level = float(enrichment[0].item())
 
@@ -469,7 +469,7 @@ class IsotopePredictor:
         threat_idx = torch.argmax(threat_probs).item()
 
         threat_levels = [e.value for e in ThreatLevel]
-        threat_level = threat_levels[threat_idx]  # type: ignore[index]
+        threat_level = threat_levels[threat_idx]
 
         return {
             "isotope_type": detected_type,

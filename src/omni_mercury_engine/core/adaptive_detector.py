@@ -322,7 +322,7 @@ class CovarianceAwareDetector:
         left = np.dot(centered, self._covariance_inv)
         distances = np.sqrt(np.sum(left * centered, axis=1))
 
-        return distances  # type: ignore[no-any-return]
+        return distances
 
     def score_samples(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
         """Return anomaly scores (higher = more anomalous)."""
@@ -552,7 +552,7 @@ class AdaptiveAnomalyDetector:
 
         # Score based on off-diagonal correlations
         mask = ~np.eye(n_features, dtype=bool)
-        off_diag = np.abs(corr[mask])  # type: ignore[index]
+        off_diag = np.abs(corr[mask])
 
         # Strong covariance if many high correlations
         high_corr_fraction = np.mean(off_diag > 0.5)
@@ -792,7 +792,7 @@ class AdaptiveAnomalyDetector:
         for _ in range(n_projections):
             # Random 1D projection
             w = rng.standard_normal(X.shape[1])
-            w = w / np.linalg.norm(w)  # type: ignore[assignment]
+            w = w / np.linalg.norm(w)
             projected = X @ w
 
             # Outlier score in 1D

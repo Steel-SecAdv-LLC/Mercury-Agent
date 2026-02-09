@@ -97,8 +97,8 @@ class SETILoader(DatasetLoader):
             label = 0 if (i % len(self.SIGNAL_CLASSES)) == 3 else 1  # noise class
             labels.append(label)
 
-        features = np.array(features, dtype=np.float32)  # type: ignore[assignment]
-        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment]
+        features = np.array(features, dtype=np.float32)
+        labels = np.array(labels, dtype=np.int64)
 
         save_path = self.data_path / "synthetic_seti.npz"
         np.savez_compressed(save_path, features=features, labels=labels)
@@ -380,13 +380,13 @@ class NASAExoplanetLoader(DatasetLoader):
             )
             labels.append(1 if is_anomaly else 0)
 
-        features = np.array(features, dtype=np.float32)  # type: ignore[assignment]
-        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment]
+        features = np.array(features, dtype=np.float32)
+        labels = np.array(labels, dtype=np.int64)
 
         save_path = self.data_path / "synthetic_exoplanet.npz"
         np.savez_compressed(save_path, features=features, labels=labels)
 
-        logger.info(f"Generated {n_samples} exoplanet samples, {labels.sum()} anomalies")  # type: ignore[attr-defined]
+        logger.info(f"Generated {n_samples} exoplanet samples, {labels.sum()} anomalies")
         return True
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:

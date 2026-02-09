@@ -263,7 +263,7 @@ class HarmonicFeatureExtractor:
         if not powers:
             return 0.0
 
-        powers = np.array(powers)  # type: ignore[assignment]
+        powers = np.array(powers)
         total = np.sum(powers) + 1e-10
         probs = powers / total
 
@@ -359,7 +359,7 @@ class HarmonicSimilarity:
                 np.linalg.norm(desc2.bispectrum.components),
                 1e-10,
             )
-            distances["bispectrum"] = bs_dist / max_bs  # type: ignore[operator]
+            distances["bispectrum"] = bs_dist / max_bs
 
         energy_dist = np.linalg.norm(desc1.energy_distribution - desc2.energy_distribution)
         distances["energy"] = energy_dist / np.sqrt(2.0)

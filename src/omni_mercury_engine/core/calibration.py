@@ -191,7 +191,7 @@ class PlattScaling:
             return y_prob
 
         X = y_prob.reshape(-1, 1)
-        return self.model.predict_proba(X)[:, 1]  # type: ignore[no-any-return]
+        return self.model.predict_proba(X)[:, 1]
 
 
 class IsotonicCalibration:
@@ -254,7 +254,7 @@ class IsotonicCalibration:
         if not self._fitted:
             return y_prob
 
-        return self.model.predict(y_prob)  # type: ignore[no-any-return]
+        return self.model.predict(y_prob)
 
 
 class TemperatureScaling:
@@ -284,11 +284,11 @@ class TemperatureScaling:
     def _logit(self, p: np.ndarray) -> np.ndarray:
         """Convert probabilities to logits."""
         p = np.clip(p, 1e-10, 1 - 1e-10)
-        return np.log(p / (1 - p))  # type: ignore[no-any-return]
+        return np.log(p / (1 - p))
 
     def _sigmoid(self, z: np.ndarray) -> np.ndarray:
         """Convert logits to probabilities."""
-        return 1 / (1 + np.exp(-z))  # type: ignore[no-any-return]
+        return 1 / (1 + np.exp(-z))
 
     def fit(self, y_prob: np.ndarray, y_true: np.ndarray) -> TemperatureScaling:
         """
@@ -352,7 +352,7 @@ class CalibrationEnsemble:
 
     def __init__(self) -> None:
         """Initialize calibration ensemble."""
-        self.calibrators = {
+        self.calibrators: dict[str, PlattScaling | IsotonicCalibration | TemperatureScaling] = {
             "platt": PlattScaling(),
             "isotonic": IsotonicCalibration(),
             "temperature": TemperatureScaling(),
@@ -392,8 +392,8 @@ class CalibrationEnsemble:
         best_brier = float("inf")
 
         for name, calibrator in self.calibrators.items():
-            calibrator.fit(y_prob_train, y_true_train)  # type: ignore[attr-defined]
-            calibrated = calibrator.calibrate(y_prob_val)  # type: ignore[attr-defined]
+            calibrator.fit(y_prob_train, y_true_train)
+            calibrated = calibrator.calibrate(y_prob_val)
 
             try:
                 brier = brier_score_loss(y_true_val, calibrated)
@@ -406,7 +406,7 @@ class CalibrationEnsemble:
 
         # Refit best on all data
         if self.best_method:
-            self.calibrators[self.best_method].fit(y_prob, y_true)  # type: ignore[attr-defined]
+            self.calibrators[self.best_method].fit(y_prob, y_true)
 
         self._fitted = True
         logger.info(f"CalibrationEnsemble selected: {self.best_method} (Brier={best_brier:.4f})")
@@ -425,7 +425,7 @@ class CalibrationEnsemble:
         if not self._fitted or not self.best_method:
             return y_prob
 
-        return self.calibrators[self.best_method].calibrate(y_prob)  # type: ignore[attr-defined, no-any-return]
+        return self.calibrators[self.best_method].calibrate(y_prob)
 
 
 def evaluate_calibration(
@@ -687,7 +687,7 @@ def _compute_feature_variation(X: np.ndarray) -> np.ndarray:
     # Normalize to [0, 1]
     min_z, max_z = np.min(avg_z), np.max(avg_z)
     if max_z > min_z:
-        return (avg_z - min_z) / (max_z - min_z)  # type: ignore[no-any-return]
+        return (avg_z - min_z) / (max_z - min_z)
     return np.full(len(avg_z), 0.5)
 
 
@@ -742,4 +742,4 @@ def _compute_statistical_scores_for_calibration(X: np.ndarray) -> np.ndarray:
     # Weighted ensemble
     scores = 0.4 * z_anomaly + 0.35 * density_anomaly + 0.25 * pct_anomaly
 
-    return np.clip(scores, 0.0, 1.0)  # type: ignore[no-any-return]
+    return np.clip(scores, 0.0, 1.0)

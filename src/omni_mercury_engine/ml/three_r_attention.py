@@ -341,9 +341,9 @@ class ThreeRAttentionBlock(nn.Module):
             "H_score": H_score.item(),
             "O_score": O_score.item(),
             "fusion_weights": {
-                "w_R": self.w_R.item(),  # type: ignore[operator]
-                "w_H": self.w_H.item(),  # type: ignore[operator]
-                "w_O": self.w_O.item(),  # type: ignore[operator]
+                "w_R": self.w_R.item(),
+                "w_H": self.w_H.item(),
+                "w_O": self.w_O.item(),
             },
             "anomaly_scores": anomaly_scores,
             "discrepancy": H_omega,  # [B, T]
@@ -508,4 +508,4 @@ class ThreeRAnomalyTransformer(nn.Module):
 
         """
         for layer in self.layers:
-            layer.init_from_resonance_engine(resonance_engine, training_data)  # type: ignore[operator]
+            layer.init_from_resonance_engine(resonance_engine, training_data)

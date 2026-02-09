@@ -577,9 +577,9 @@ class AgenticAutonomy:
     ) -> np.ndarray[Any, Any]:
         """Apply data transformation."""
         if transformation == "normalize":
-            return (data - np.mean(data)) / (np.std(data) + 1e-8)  # type: ignore[no-any-return]
+            return (data - np.mean(data)) / (np.std(data) + 1e-8)
         elif transformation == "scale":
-            return (data - np.min(data)) / (np.max(data) - np.min(data) + 1e-8)  # type: ignore[no-any-return]
+            return (data - np.min(data)) / (np.max(data) - np.min(data) + 1e-8)
         else:
             return data
 
@@ -829,7 +829,7 @@ class AgenticAutonomy:
         is_converged = False
         if len(self.policy_metrics.convergence_history) >= 10:
             recent_errors = self.policy_metrics.convergence_history[-10:]
-            is_converged = np.mean(recent_errors) < 0.1  # type: ignore[assignment]
+            is_converged = np.mean(recent_errors) < 0.1
 
         return {
             "autonomy_level": self.autonomy_level,

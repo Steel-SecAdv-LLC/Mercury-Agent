@@ -38,7 +38,7 @@ try:
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
-    Dataset = object  # type: ignore[assignment, misc]
+    Dataset = object
 
 
 def get_default_transforms(
@@ -229,7 +229,7 @@ class BaseVideoDataset(ABC):
         if self.transform is not None:
             frames = [self.transform(f) for f in frames]
             if HAS_TORCH:
-                frames = torch.stack(frames)  # type: ignore[assignment]
+                frames = torch.stack(frames)
 
         result = {
             "frames": frames,
@@ -278,12 +278,12 @@ class BaseVideoDataset(ABC):
                 try:
                     frame_count = 0
                     while cap.isOpened():
-                        ret, frame = cap.read()  # type: ignore[assignment]
+                        ret, frame = cap.read()
                         if not ret:
                             break
                         if max_frames is not None and frame_count >= max_frames:
                             break
-                        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # type: ignore[call-overload]
+                        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                         frames.append(Image.fromarray(frame_rgb))
                         frame_count += 1
                 finally:
