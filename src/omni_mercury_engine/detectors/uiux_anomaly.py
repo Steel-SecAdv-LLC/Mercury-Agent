@@ -765,7 +765,10 @@ class UIUXAnomalyDetector(BaseDetector):
 
         sessions: list[list[UserInteraction]]
         if isinstance(interactions[0], UserInteraction):
-            sessions = [list(interactions)]
+            single_session: list[UserInteraction] = [
+                item for item in interactions if isinstance(item, UserInteraction)
+            ]
+            sessions = [single_session]
         else:
             sessions = [list(s) for s in interactions if isinstance(s, list)]
 

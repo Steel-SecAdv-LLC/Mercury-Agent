@@ -636,7 +636,8 @@ class JWTAuth:
         if email:
             payload["email"] = email
 
-        return jwt.encode(payload, secret_key, algorithm=algorithm)
+        result: str = jwt.encode(payload, secret_key, algorithm=algorithm)
+        return result
 
 
 class RequestRateLimiter:

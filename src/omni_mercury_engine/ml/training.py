@@ -808,7 +808,7 @@ def _get_lightning_base() -> type:
             "pytorch_lightning is required for FusionTrainer and ThreeRAnomalyTrainer. "
             "Install with: pip install pytorch-lightning"
         )
-    return pl.LightningModule  # type: ignore[no-any-return]
+    return pl.LightningModule
 
 
 # Conditional base class - evaluated at class definition time

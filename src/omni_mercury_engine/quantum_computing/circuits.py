@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -768,7 +768,8 @@ class QuantumFeatureMap:
 
             simulator = AerSimulator()
             result = simulator.run(circuit, shots=shots).result()
-            return cast(dict[str, int], result.get_counts())
+            counts: dict[str, int] = result.get_counts()
+            return counts
         except ImportError:
             return {"0" * self._num_qubits: shots // 2}
 

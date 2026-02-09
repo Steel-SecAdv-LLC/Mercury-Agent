@@ -48,7 +48,7 @@ import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 
@@ -972,14 +972,16 @@ class HierarchicalPlanner:
         for goal in goal_hierarchy.values():
             if goal.level in [AbstractionLevel.STRATEGIC, AbstractionLevel.TACTICAL]:
                 subgoals = self.goal_decomposer.decompose(goal, context)
-                all_subgoals.extend(cast(list[Subgoal], subgoals))
+                all_subgoals.extend(s for s in subgoals if isinstance(s, Subgoal))
 
         # Select options for subgoals
         options_used: list[Option] = []
         for subgoal in all_subgoals:
             applicable = self.option_library.get_applicable_options(current_state)
             if applicable:
-                options_used.append(cast(Option, applicable[0]))  # Best option
+                first_option = applicable[0]
+                if isinstance(first_option, Option):
+                    options_used.append(first_option)
 
         # Estimate plan value
         estimated_reward = self._estimate_plan_reward(
@@ -1097,7 +1099,9 @@ class HierarchicalPlanner:
                 state, execution_state.current_goal
             )
             if applicable:
-                execution_state.current_option = cast(Option, applicable[0])
+                first_applicable = applicable[0]
+                if isinstance(first_applicable, Option):
+                    execution_state.current_option = first_applicable
 
         # Get action from option
         if execution_state.current_option:

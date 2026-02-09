@@ -48,7 +48,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from queue import Empty, Queue
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 
@@ -304,11 +304,12 @@ class DetectionAgent(ABC):
             self.capabilities: list[AgentCapability] = []
             self._capability_names: list[str] = []
         elif capabilities and isinstance(capabilities[0], str):
-            self._capability_names = list(cast(list[str], capabilities))
+            self._capability_names = [c for c in capabilities if isinstance(c, str)]
             self.capabilities = []
         else:
-            self.capabilities = list(cast(list[AgentCapability], capabilities))
-            self._capability_names = [c.name for c in self.capabilities]
+            cap_objects = [c for c in capabilities if isinstance(c, AgentCapability)]
+            self.capabilities = cap_objects
+            self._capability_names = [c.name for c in cap_objects]
 
         self.status = AgentStatus.IDLE
 
@@ -517,10 +518,13 @@ class ConsensusProtocol:
 
         # Handle list of vote dicts (test API)
         if results and isinstance(results[0], dict):
-            return self._reach_consensus_from_votes(consensus_id, cast(list[dict[str, Any]], results))
+            vote_list: list[dict[str, Any]] = [r for r in results if isinstance(r, dict)]
+            return self._reach_consensus_from_votes(consensus_id, vote_list)
 
         # Original DetectionResult handling
-        detection_results = cast(list[DetectionResult], results)
+        detection_results: list[DetectionResult] = [
+            r for r in results if isinstance(r, DetectionResult)
+        ]
 
         if len(detection_results) < self.min_participants:
             return ConsensusResult(
@@ -1068,7 +1072,10 @@ class AgentCoordinator:
                 logger.error(f"Agent {agent.agent_id} detection error: {e}")
 
         # Reach consensus
-        consensus = cast(ConsensusResult, self.consensus_protocol.reach_consensus(results))
+        consensus_result = self.consensus_protocol.reach_consensus(results)
+        if not isinstance(consensus_result, ConsensusResult):
+            raise TypeError("Expected ConsensusResult from reach_consensus")
+        consensus = consensus_result
         self._stats["consensus_reached"] += 1
 
         return consensus

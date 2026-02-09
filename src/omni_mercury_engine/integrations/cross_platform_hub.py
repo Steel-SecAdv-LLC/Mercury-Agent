@@ -26,7 +26,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -930,7 +930,8 @@ class CrossPlatformHub:
             return {}
 
         if len(events) == 1:
-            return cast(dict[str, bool | int], await self.publish_event(events[0], platforms))
+            single_event_result = await self.publish_event(events[0], platforms)
+            return {k: v for k, v in single_event_result.items()}
         else:
             return await self.publish_batch(events, platforms)
 
