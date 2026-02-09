@@ -22,7 +22,7 @@
 
 ```
               +===============================================================================+
-              |                                   Mercury Agent ♱ v1.2                        |
+              |                                   Mercury Agent ♱ v1.4                        |
               |Neuro-Symbolic AI for Autonomous Anomaly Detection Paradigm with PQC-Protected |
               |                                                                               |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security    |
@@ -43,8 +43,8 @@
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
-**Version:** v1.2.0
-**Date:** 2026-02-03
+**Version:** v1.4.0
+**Date:** 2026-02-09
 **AI Co-Architects:** X ⚛ | Caduceus ⚚ | Dev ⚕ | Claude ⊛
 
 ---
@@ -147,7 +147,7 @@ Mercury Agent ♱ with AdaptiveAnomalyDetector achieves **F1 = 0.80** on neuro-s
 
 ### Comprehensive Multi-Panel Visualizations
 
-The following consolidated visualizations capture all benchmark metrics in professional multi-panel format (v1.2.0):
+The following consolidated visualizations capture all benchmark metrics in professional multi-panel format (v1.4.0):
 
 #### Neuro-Symbolic Benchmark Report
 
@@ -169,7 +169,7 @@ Consolidated dashboard showing benevolence score evolution, 180 ethical scalars 
 
 #### Live Data Benchmark Summary
 
-Module coverage and codebase statistics: 30+ dataset categories, test coverage by module (85%+), codebase stats (360 modules, 153,953 LOC), 5 new v1.2.0 modules (4,921 LOC), dataset benchmark results, distributed processing scalability, version evolution, code quality metrics, and CI/CD pipeline status:
+Module coverage and codebase statistics: 30+ dataset categories, test coverage by module (85%+), codebase stats (360 modules, 153,953 LOC), 5 new v1.4.0 modules (4,921 LOC), dataset benchmark results, distributed processing scalability, version evolution, code quality metrics, and CI/CD pipeline status:
 
 ![Benchmark Summary Live Data](docs/images/benchmark_summary_live_data.png)
 
@@ -938,7 +938,7 @@ The test suite includes:
 - **Security scanning** with Bandit integrated in CI/CD
 - **Coverage tracking**: 85%+ across core modules
 
-**New Test Suites (v1.2.0):**
+**New Test Suites (v1.4.0):**
 - `test_enhanced_anomaly_detection.py`: 38+ tests for enhanced statistical methods, cross-platform hub, ensemble coordination
 - `test_cortical_network.py`: 40+ tests for 6-layer cortical architecture
 - `test_statistical_real.py`: 30+ tests for Z-score, IQR, adaptive detection

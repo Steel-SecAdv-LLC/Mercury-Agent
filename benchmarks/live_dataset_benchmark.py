@@ -435,7 +435,7 @@ class LiveDatasetBenchmarkRunner:
 
         return BenchmarkSuiteResult(
             timestamp=datetime.utcnow().isoformat(),
-            mercury_version="1.2.0",
+            mercury_version="1.4.0",
             python_version=f"{sys.version_info.major}.{sys.version_info.minor}",
             detector_name=self.detector_name,
             total_datasets=len(self.results),

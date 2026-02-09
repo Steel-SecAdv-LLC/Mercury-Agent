@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-02-09
+
+### Added - Advanced Cognitive AI & Physics-Inspired Detectors
+
+- **Physics-Inspired Anomaly Detectors**: Spectral vibration analysis, acceleration dynamics,
+  dimensional analysis, spatial anomaly detection, and UI/UX behavioral anomaly detection
+- **Advanced Physics Integration**: GOSNN scalar fusion with physics detector backends,
+  factory functions and registry integration for all new detector types
+- **Comprehensive Strict Type Checking**: MyPy strict mode enabled across entire codebase,
+  resolved 274+ strict-mode errors and removed all `ignore_errors` exclusions
+- **SHA3-256 Cryptographic Alignment**: Aligned cryptographic posture with Ava-Guardian,
+  upgraded hash functions to SHA3-256 for tamper-evident audit trails
+- **CI/CD Pipeline Compliance**: Resolved all blocking lint (Flake8), type (MyPy),
+  security (Bandit), and test (pytest) failures across 408 files
+
+### Changed
+
+- **Codebase Consolidation**: Major refactoring for production readiness, removing
+  all `cast()` workarounds in favor of proper type annotations
+- **Version Alignment**: All deployment manifests, Helm charts, Kubernetes labels,
+  Docker images, User-Agent strings, and documentation updated to v1.4.0
+
+### Security
+
+- Cryptographic hash upgrade from SHA-256 to SHA3-256 across audit trail components
+- Removed type-unsafe `cast()` calls that masked potential runtime errors
+
+---
+
 ## [1.2.0] - 2026-02-02
 
 ### Added - SaaS Infrastructure and Production Hardening
