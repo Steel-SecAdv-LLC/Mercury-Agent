@@ -240,7 +240,7 @@ X, y, metadata = load_dataset('fraud')
 
 ## Expected Performance
 
-Based on validated benchmarks with Mercury Agent v1.2.0:
+Based on validated benchmarks with Mercury Agent v1.4.0:
 
 | Dataset Category | Mean F1 | Mean ROC-AUC | Notes |
 |-----------------|---------|--------------|-------|
@@ -303,11 +303,11 @@ Synthetic data is clearly marked in results for transparency.
 export MERCURY_SEED=42
 
 # Run with fixed seed
-python benchmarks/live_dataset_benchmark.py --seed 42 --output results_v1.2.0.json
+python benchmarks/live_dataset_benchmark.py --seed 42 --output results_v1.4.0.json
 
 # Verify reproducibility
-python benchmarks/live_dataset_benchmark.py --seed 42 --output results_v1.2.0_verify.json
-diff results_v1.2.0.json results_v1.2.0_verify.json
+python benchmarks/live_dataset_benchmark.py --seed 42 --output results_v1.4.0_verify.json
+diff results_v1.4.0.json results_v1.4.0_verify.json
 ```
 
 ### Dataset Access

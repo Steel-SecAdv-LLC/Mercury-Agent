@@ -30,7 +30,7 @@ Includes:
     - Advanced SOTA detectors (time-series, industrial, contrastive, copula-based)
 """
 
-# Advanced SOTA Detectors (v1.3.0)
+# Advanced SOTA Detectors (v1.4.0)
 from omni_mercury_engine.detectors.acceleration_dynamics import (
     AccelerationDynamicsDetector,
     EnergyState,
@@ -90,7 +90,7 @@ from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector, BaseVLMDetecto
 __all__ = [
     "AccelerationDynamicsDetector",
     "AdvancedPhysicsIntegratedDetector",
-    # Advanced SOTA detectors (v1.3.0)
+    # Advanced SOTA detectors (v1.4.0)
     "AdversarialAutoencoderDetector",
     "AnomalyCategory",
     # VLM detectors
