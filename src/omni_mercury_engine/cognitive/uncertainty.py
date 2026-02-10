@@ -89,6 +89,7 @@ class UncertaintyEstimate:
     mutual_information: float = 0.0  # BALD acquisition function
     predictive_entropy: float = 0.0  # Total predictive uncertainty
     mc_samples: int = 0  # Number of MC samples used
+    is_overconfident: bool = False  # High confidence despite poor calibration
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -104,6 +105,7 @@ class UncertaintyEstimate:
             "mutual_information": self.mutual_information,
             "predictive_entropy": self.predictive_entropy,
             "mc_samples": self.mc_samples,
+            "overconfident": self.is_overconfident,
         }
 
 
@@ -657,9 +659,15 @@ class UncertaintyQuantifier:
             )
         )
 
+        # === OVERCONFIDENCE DETECTION ===
+        # Ref: Kaddour et al. (2026) "Agentic Uncertainty Reveals Agentic Overconfidence"
+        # High confidence paired with poor calibration signals systematic overconfidence.
+        is_overconfident = confidence > 0.8 and calibration_error > self.reliability_threshold
+
         # === EXPLANATION ===
         explanation = self._generate_explanation(
-            epistemic, aleatoric, confidence, is_reliable, mutual_information, predictive_entropy
+            epistemic, aleatoric, confidence, is_reliable, mutual_information, predictive_entropy,
+            is_overconfident,
         )
 
         # Update running statistics
@@ -685,6 +693,7 @@ class UncertaintyQuantifier:
             mutual_information=mutual_information,
             predictive_entropy=predictive_entropy,
             mc_samples=self.n_monte_carlo if mc_predictions.shape[0] > 1 else 0,
+            is_overconfident=is_overconfident,
         )
 
     def estimate_epistemic(
@@ -894,6 +903,19 @@ class UncertaintyQuantifier:
             )
             return decision
 
+        # Check overconfidence (Kaddour et al. 2026)
+        # High confidence with poor calibration is worse than low confidence —
+        # the system doesn't know that it doesn't know.
+        if uncertainty.is_overconfident:
+            decision["should_defer"] = True
+            decision["action"] = "defer_to_human"
+            decision["reason"] = (
+                f"Overconfidence detected: confidence={uncertainty.confidence:.1%} "
+                f"but calibration_error={uncertainty.calibration_error:.3f}. "
+                "Confidence exceeds calibration quality. Human review recommended."
+            )
+            return decision
+
         # Confident action
         if uncertainty.prediction > action_threshold and uncertainty.confidence > 0.7:
             decision["should_act"] = True
@@ -932,7 +954,12 @@ class UncertaintyQuantifier:
         """
         if predictions_ensemble.ndim < 2:
             total = float(np.std(predictions_ensemble))
-            return {"epistemic": 0.0, "aleatoric": total, "total": total}
+            return {
+                "epistemic": 0.0,
+                "aleatoric": total,
+                "total": total,
+                "ensemble_disagreement": 0.0,
+            }
 
         if predictions_ensemble.ndim == 2:
             # (n_models, n_outputs) - single sample
@@ -953,11 +980,17 @@ class UncertaintyQuantifier:
         total = np.sqrt(epistemic + aleatoric)
         epistemic_ratio = epistemic / (epistemic + aleatoric + 1e-10)
 
+        # Ensemble disagreement: normalized spread of per-model predictions.
+        # High disagreement signals low consensus among ensemble members,
+        # which is a direct indicator of epistemic uncertainty.
+        ensemble_disagreement = float(np.std(model_means))
+
         return {
             "epistemic": epistemic,
             "aleatoric": aleatoric,
             "total": float(total),
             "epistemic_ratio": float(epistemic_ratio),
+            "ensemble_disagreement": ensemble_disagreement,
         }
 
     def conformal_prediction(
@@ -1151,9 +1184,18 @@ class UncertaintyQuantifier:
         is_reliable: bool,
         mutual_info: float,
         predictive_entropy: float,
+        is_overconfident: bool = False,
     ) -> str:
         """Generate human-readable uncertainty explanation."""
         parts = []
+
+        # Overconfidence warning (most critical — surface first)
+        if is_overconfident:
+            parts.append(
+                f"WARNING: Overconfidence detected (confidence: {confidence:.0%}). "
+                "Calibration history indicates confidence exceeds actual accuracy. "
+                "Treat this prediction with skepticism."
+            )
 
         # Overall reliability
         if is_reliable:

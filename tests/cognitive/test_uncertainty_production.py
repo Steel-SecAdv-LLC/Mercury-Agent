@@ -425,3 +425,143 @@ class TestUncertaintyEstimate:
         assert d["total"] == 0.22
         assert d["reliable"] is True
         assert d["mc_samples"] == 30
+        assert d["overconfident"] is False
+
+
+class TestOverconfidenceDetection:
+    """Tests for overconfidence detection (Kaddour et al. 2026)."""
+
+    def test_overconfident_flag_in_dataclass(self):
+        """Test is_overconfident field exists and defaults to False."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate
+
+        estimate = UncertaintyEstimate(
+            prediction=0.7,
+            epistemic=0.1,
+            aleatoric=0.2,
+            total=0.22,
+            confidence=0.8,
+            confidence_interval=(0.5, 0.9),
+            calibration_error=0.03,
+            is_reliable=True,
+            explanation="Test",
+        )
+        assert estimate.is_overconfident is False
+
+    def test_overconfident_flag_set_when_appropriate(self):
+        """Test is_overconfident is True when confidence > 0.8 and ECE > threshold."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate
+
+        estimate = UncertaintyEstimate(
+            prediction=0.9,
+            epistemic=0.05,
+            aleatoric=0.1,
+            total=0.11,
+            confidence=0.9,
+            confidence_interval=(0.7, 1.0),
+            calibration_error=0.15,  # Poor calibration
+            is_reliable=False,
+            explanation="Test",
+            is_overconfident=True,
+        )
+        assert estimate.is_overconfident is True
+        assert estimate.to_dict()["overconfident"] is True
+
+    def test_decision_defers_on_overconfidence(self):
+        """Test uncertainty_aware_decision defers when overconfident."""
+        from omni_mercury_engine.cognitive.uncertainty import (
+            UncertaintyEstimate,
+            UncertaintyQuantifier,
+        )
+
+        uq = UncertaintyQuantifier()
+
+        # High confidence, but flagged as overconfident
+        estimate = UncertaintyEstimate(
+            prediction=0.9,
+            epistemic=0.05,
+            aleatoric=0.1,
+            total=0.11,
+            confidence=0.85,
+            confidence_interval=(0.7, 1.0),
+            calibration_error=0.02,
+            is_reliable=True,
+            explanation="Test",
+            is_overconfident=True,
+        )
+
+        decision = uq.uncertainty_aware_decision(estimate, action_threshold=0.5)
+
+        assert decision["should_defer"] is True
+        assert decision["action"] == "defer_to_human"
+        assert "Overconfidence" in decision["reason"]
+
+    def test_not_overconfident_when_well_calibrated(self):
+        """Test no overconfidence flag when calibration is good."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate
+
+        estimate = UncertaintyEstimate(
+            prediction=0.9,
+            epistemic=0.05,
+            aleatoric=0.1,
+            total=0.11,
+            confidence=0.85,
+            confidence_interval=(0.7, 1.0),
+            calibration_error=0.02,  # Good calibration
+            is_reliable=True,
+            explanation="Test",
+            is_overconfident=False,
+        )
+        assert estimate.is_overconfident is False
+
+
+class TestEnsembleDisagreement:
+    """Tests for ensemble disagreement metric."""
+
+    def test_decompose_includes_disagreement(self):
+        """Test decompose_uncertainty returns ensemble_disagreement."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier()
+        predictions_ensemble = np.random.rand(10, 50)
+
+        decomp = uq.decompose_uncertainty(predictions_ensemble)
+
+        assert "ensemble_disagreement" in decomp
+        assert decomp["ensemble_disagreement"] >= 0
+
+    def test_high_agreement_low_disagreement(self):
+        """Test low disagreement when models agree."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier()
+        # All models predict similar values
+        base = np.random.rand(50)
+        predictions_ensemble = np.tile(base, (10, 1)) + np.random.randn(10, 50) * 0.001
+
+        decomp = uq.decompose_uncertainty(predictions_ensemble)
+
+        assert decomp["ensemble_disagreement"] < 0.01
+
+    def test_high_disagreement_when_models_diverge(self):
+        """Test high disagreement when models diverge."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier()
+        # Models predict very different values
+        predictions_ensemble = np.random.rand(10, 50) * 10  # Large spread
+
+        decomp = uq.decompose_uncertainty(predictions_ensemble)
+
+        assert decomp["ensemble_disagreement"] > 0.1
+
+    def test_single_model_zero_disagreement(self):
+        """Test zero disagreement for single model (ndim < 2)."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier()
+        predictions = np.array([0.5, 0.6, 0.7])
+
+        decomp = uq.decompose_uncertainty(predictions)
+
+        assert decomp["ensemble_disagreement"] == 0.0
