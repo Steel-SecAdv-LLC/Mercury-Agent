@@ -246,7 +246,7 @@ class ParallelExecutor:
 
 
 # =============================================================================
-# Advanced ML Capabilities (v1.2) - Lazy Imports
+# Advanced ML Capabilities (v1.4) - Lazy Imports
 # =============================================================================
 
 
