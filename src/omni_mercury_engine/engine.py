@@ -99,7 +99,14 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
-import torch
+
+try:
+    import torch
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    torch = None  # type: ignore[assignment, unused-ignore]
+    TORCH_AVAILABLE = False
 
 from omni_mercury_engine.core.config import EngineConfig
 from omni_mercury_engine.core.global_omni_scalar_network import (
@@ -643,6 +650,13 @@ class OmniMercuryEngine(LoggerMixin):
         """
         self.config = config or EngineConfig()
         self.mode = mode
+
+        if not TORCH_AVAILABLE:
+            raise ImportError(
+                "PyTorch is required for OmniMercuryEngine. "
+                "Install it with: pip install torch"
+            )
+
         self.device = torch.device(device)
 
         # Validate CUDA availability

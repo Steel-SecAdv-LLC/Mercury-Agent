@@ -46,7 +46,14 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
-import torch
+
+try:
+    import torch
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    torch = None  # type: ignore[assignment, unused-ignore]
+    TORCH_AVAILABLE = False
 
 from omni_mercury_engine.agentic.agentic_autonomy import AgenticAutonomy
 from omni_mercury_engine.cognitive.case_based_reasoning import CaseOutcome

@@ -546,11 +546,19 @@ class CORALAdapter(BaseDomainAdapter):
                 n_estimators=100, max_depth=5, random_state=42
             )
         except ImportError:
-            from sklearn.linear_model import LogisticRegression
+            try:
+                from sklearn.linear_model import LogisticRegression
 
-            self._classifier = LogisticRegression(max_iter=1000, random_state=42)
+                self._classifier = LogisticRegression(max_iter=1000, random_state=42)
+            except ImportError:
+                logger.warning(
+                    "sklearn not available — CORAL adapter will use alignment-only mode "
+                    "without classifier. Install scikit-learn for full functionality."
+                )
+                self._classifier = None
 
-        self._classifier.fit(source_X, source_y)
+        if self._classifier is not None:
+            self._classifier.fit(source_X, source_y)
 
     def transform(self, X: NDArray[np.float64], domain: str = "target") -> NDArray[np.float64]:
         """Transform target features to source-aligned space."""

@@ -565,3 +565,114 @@ class TestEnsembleDisagreement:
         decomp = uq.decompose_uncertainty(predictions)
 
         assert decomp["ensemble_disagreement"] == 0.0
+
+
+class TestBayesianCalibrationIntegration:
+    """Tests for BayesianConfidenceCalibrator integration into UncertaintyQuantifier."""
+
+    def test_init_without_bayesian(self):
+        """Test UQ works without Bayesian calibrator (default)."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier()
+        assert uq.bayesian_calibrator is None
+
+    def test_init_with_bayesian(self):
+        """Test UQ accepts Bayesian calibrator."""
+        from omni_mercury_engine.agentic.bayesian_calibrator import BayesianConfidenceCalibrator
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        cal = BayesianConfidenceCalibrator()
+        uq = UncertaintyQuantifier(bayesian_calibrator=cal)
+        assert uq.bayesian_calibrator is cal
+
+    def test_calibrate_with_bayesian_passthrough(self):
+        """Test calibrate_with_bayesian returns raw when no calibrator."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier()
+        result = uq.calibrate_with_bayesian(0.85, domain="security", goal="detect anomaly")
+        assert result == 0.85
+
+    def test_calibrate_with_bayesian_blends(self):
+        """Test calibrate_with_bayesian blends raw and Bayesian confidence."""
+        from omni_mercury_engine.agentic.bayesian_calibrator import BayesianConfidenceCalibrator
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        cal = BayesianConfidenceCalibrator()
+        # Feed some successes to shift the posterior
+        for _ in range(10):
+            cal.update("security", "detect anomaly", success=True)
+
+        uq = UncertaintyQuantifier(bayesian_calibrator=cal)
+        raw = 0.60
+        blended = uq.calibrate_with_bayesian(raw, domain="security", goal="detect anomaly")
+
+        # Blended should be between raw and Bayesian (which is high after 10 successes)
+        assert blended >= raw
+        assert 0.01 <= blended <= 0.99
+
+    def test_update_bayesian_noop_without_calibrator(self):
+        """Test update_bayesian is safe without calibrator."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier()
+        # Should not raise
+        uq.update_bayesian("security", "detect", success=True)
+
+    def test_update_bayesian_updates_posterior(self):
+        """Test update_bayesian actually updates the calibrator."""
+        from omni_mercury_engine.agentic.bayesian_calibrator import BayesianConfidenceCalibrator
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        cal = BayesianConfidenceCalibrator()
+        uq = UncertaintyQuantifier(bayesian_calibrator=cal)
+
+        uq.update_bayesian("medical", "analyze", success=True)
+        stats = cal.get_stats("medical", "analyze")
+        assert stats is not None
+        assert stats.successes == 1
+
+
+class TestConformalFusedScores:
+    """Tests for conformal prediction interval propagation through fusion."""
+
+    def test_no_intervals_without_aci(self):
+        """Test returns no intervals when ACI is disabled."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier(enable_aci=False)
+        result = uq.conformal_fused_scores(np.array([0.5, 0.7, 0.9]))
+
+        assert result["has_intervals"] is False
+        np.testing.assert_array_equal(result["predictions"], [0.5, 0.7, 0.9])
+
+    def test_no_intervals_without_calibration_data(self):
+        """Test returns no intervals when ACI has no calibration scores."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier(enable_aci=True)
+        result = uq.conformal_fused_scores(np.array([0.5, 0.7, 0.9]))
+
+        assert result["has_intervals"] is False
+
+    def test_intervals_with_calibrated_aci(self):
+        """Test returns valid intervals after ACI calibration."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier(enable_aci=True, aci_coverage=0.9)
+
+        # Feed calibration data through ACI
+        for i in range(50):
+            score = abs(np.random.randn())
+            uq.aci.update(score, covered=np.random.rand() > 0.1)
+
+        fused = np.array([0.3, 0.6, 0.9])
+        result = uq.conformal_fused_scores(fused, residual_std=0.1)
+
+        assert result["has_intervals"] is True
+        assert result["coverage_level"] == 0.9
+        assert len(result["lower_bounds"]) == 3
+        assert len(result["upper_bounds"]) == 3
+        # Lower bounds should be below upper bounds
+        assert np.all(result["lower_bounds"] <= result["upper_bounds"])

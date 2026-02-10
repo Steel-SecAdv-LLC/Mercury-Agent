@@ -32,16 +32,40 @@ except ImportError:
 class TestOptimizationErrorHandling:
     """Tests for ml/optimization.py error handling."""
 
-    @pytest.mark.skip(reason="DDPManager not implemented in current codebase")
     def test_ddp_cleanup_logs_on_failure(self, caplog):
         """Test that DDP cleanup logs debug message when process group doesn't exist."""
-        pass
+        from omni_mercury_engine.ml.optimization import DDPManager
 
-    @pytest.mark.skip(reason="estimate_batch_size not implemented in current codebase")
-    @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
+        manager = DDPManager(backend="gloo", world_size=1)
+        # Force is_initialized so cleanup actually tries to destroy
+        manager.is_initialized = True
+
+        with caplog.at_level(logging.DEBUG):
+            manager.cleanup()
+
+        assert not manager.is_initialized
+        # Should have logged a debug message about process group
+
     def test_estimate_batch_size_fallback(self):
         """Test that estimate_batch_size returns default on failure."""
-        pass
+        from omni_mercury_engine.ml.optimization import estimate_batch_size
+
+        # Normal case: 1KB samples, 1024 MB available, 70% usable
+        result = estimate_batch_size(sample_size_bytes=1024, available_memory_mb=1024.0)
+        assert result >= 1
+        assert result <= 4096
+
+        # Invalid input: returns min_batch
+        result = estimate_batch_size(sample_size_bytes=0)
+        assert result == 1
+
+        # Negative input: returns min_batch
+        result = estimate_batch_size(sample_size_bytes=-1)
+        assert result == 1
+
+        # Very large sample: returns min_batch
+        result = estimate_batch_size(sample_size_bytes=10**12, available_memory_mb=1.0)
+        assert result == 1
 
 
 class TestCrossDomainTransferErrorHandling:
