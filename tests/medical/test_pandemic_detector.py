@@ -39,7 +39,7 @@ class TestCaseSurgeDetector:
             "serial_interval_days": 5.0,
         }
         result = detector.detect_case_surge(case_data)
-        assert result["surge_detected"] == False  # noqa: E712 - numpy bool comparison
+        assert result["surge_detected"] is False
         assert result.get("growth_rate", 0) < 0.1
 
     def test_surge_detected_exponential_growth(self, detector: CaseSurgeDetector) -> None:
@@ -86,7 +86,7 @@ class TestCaseSurgeDetector:
             "serial_interval_days": 5.0,
         }
         result = detector.detect_case_surge(case_data)
-        assert result["surge_detected"] == False  # noqa: E712 - numpy bool comparison
+        assert result["surge_detected"] is False
         # R0 estimate should be present
         assert "r0_estimate" in result
 

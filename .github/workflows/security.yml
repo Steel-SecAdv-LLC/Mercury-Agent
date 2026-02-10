@@ -32,18 +32,20 @@ jobs:
 
     - name: Run Safety check
       # Safety check for known Python vulnerabilities
-      run: safety check --json --output safety-report.json || true
+      # continue-on-error: upstream CVEs in transitive deps shouldn't hard-block PRs,
+      # but removing || true ensures the step visibly fails when issues are found.
       continue-on-error: true
+      run: safety check --json --output safety-report.json
 
     - name: Run pip-audit
       # pip-audit provides more comprehensive vulnerability detection
-      run: pip-audit --format json --output pip-audit-report.json || true
       continue-on-error: true
+      run: pip-audit --format json --output pip-audit-report.json
 
     - name: Run Bandit security scan
       # Bandit scans for common security issues in Python code
-      run: bandit -r src/omni_mercury_engine/ -f json -o bandit-report.json --severity-level medium || true
       continue-on-error: true
+      run: bandit -r src/omni_mercury_engine/ -f json -o bandit-report.json --severity-level medium
 
     - name: Upload Security Reports
       uses: actions/upload-artifact@v4

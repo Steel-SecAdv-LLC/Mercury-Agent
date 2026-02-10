@@ -96,7 +96,8 @@ def extract_test_functions(
 
                 if len(functions) >= max_functions:
                     return functions[:max_functions]
-            except Exception:
+            except Exception as e:
+                print(f"  Skipping {py_file}: {e}")
                 continue
 
     return functions

@@ -163,13 +163,16 @@ jobs:
 
       - name: Run Safety (dependency vulnerabilities)
         # Safety check scans installed packages
+        # continue-on-error: upstream CVEs shouldn't hard-block, but failures are visible.
+        continue-on-error: true
         run: |
           pip install -e . || true
-          safety check --output json > safety-report.json || true
+          safety check --output json > safety-report.json
 
       - name: Run pip-audit
         # pip-audit scans installed packages
-        run: pip-audit --format json --output pip-audit-report.json || true
+        continue-on-error: true
+        run: pip-audit --format json --output pip-audit-report.json
 
       - name: Run Semgrep
         # Semgrep security scan - continue on error if semgrep not installed
