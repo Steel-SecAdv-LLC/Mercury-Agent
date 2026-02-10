@@ -43,30 +43,37 @@ classifiers = [
 ]
 
 dependencies = [
+    # Lightweight core -- enough for CLI, statistical detectors, and rule-based
+    # detection without pulling in ~2 GB of PyTorch.  For the full ML stack,
+    # install mercury-agent[ml] or mercury-agent[all].
     "numpy>=1.24.0",
     "scipy>=1.10.0",
-    "scikit-learn>=1.3.0",
-    "torch>=2.2.0",
-    "torchvision>=0.17.0",
-    "pytorch-lightning>=2.0.0",
     "pandas>=2.0.0",
     "click>=8.1.0",
     "pydantic>=2.0.0",
     "bcrypt>=4.0.1",
     "cryptography>=43.0.1",
-    "opencv-python>=4.8.0",
     "pillow>=10.4.0",  # Security: CVE patches
     "requests>=2.32.0",  # Security: SSL/TLS improvements
     "tqdm>=4.65.0",
     "networkx>=3.0",
-    "timm>=0.9.0",
 ]
 
 [project.optional-dependencies]
+# Core ML stack -- PyTorch, scikit-learn, and supporting libraries.
+# Required for all neural-network-based detectors.
+ml = [
+    "scikit-learn>=1.3.0",
+    "torch>=2.2.0",
+    "torchvision>=0.17.0",
+    "pytorch-lightning>=2.0.0",
+    "timm>=0.9.0",
+    "opencv-python>=4.8.0",
+]
+
 # Visual anomaly detection (PatchCore, PaDiM, STFPM, etc.)
 visual = [
-    "torchvision>=0.17.0",
-    "timm>=0.9.0",
+    "mercury-agent[ml]",
 ]
 
 # Vision-Language Model detectors (AnyAnomaly, LAVAD)
@@ -96,7 +103,7 @@ api = [
 
 # SOTA anomaly detection models (TranAD, MAAT, etc.)
 sota = [
-    "torch>=2.2.0",
+    "mercury-agent[ml]",
     "einops>=0.7.0",
 ]
 
@@ -170,7 +177,7 @@ loadtest = [
 
 # Full installation with all features
 all = [
-    "mercury-agent[visual,vlm,foundation,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark]",
+    "mercury-agent[ml,visual,vlm,foundation,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark]",
 ]
 
 [project.urls]
