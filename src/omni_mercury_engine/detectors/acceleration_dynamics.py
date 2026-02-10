@@ -56,9 +56,18 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-import torch
+
+try:
+    import torch
+    from torch import nn
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    torch = None  # type: ignore[assignment, unused-ignore]
+    nn = None  # type: ignore[assignment, unused-ignore]
+    TORCH_AVAILABLE = False
+
 from scipy.ndimage import uniform_filter1d
-from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
@@ -233,8 +242,13 @@ class AccelerationAnomalyResult:
 # Neural Network Components
 # =============================================================================
 
+# Guard: nn.Module subclasses require PyTorch at class definition time.
+# When torch is unavailable, provide a base object stub so the module can
+# still be imported for non-neural operations (e.g., kinematic analysis).
+_NNBase: type = nn.Module if TORCH_AVAILABLE else object  # type: ignore[assignment, unused-ignore]
 
-class MotionEncoder(nn.Module):
+
+class MotionEncoder(_NNBase):  # type: ignore[misc, unused-ignore]
     """Neural network encoder for motion feature extraction.
 
     Learns representations from kinematic features that capture
@@ -305,7 +319,7 @@ class MotionEncoder(nn.Module):
         return self.output_proj(context)
 
 
-class PhaseSpaceNetwork(nn.Module):
+class PhaseSpaceNetwork(_NNBase):  # type: ignore[misc, unused-ignore]
     """Neural network for phase space trajectory analysis.
 
     Processes phase space embeddings to detect chaotic behavior

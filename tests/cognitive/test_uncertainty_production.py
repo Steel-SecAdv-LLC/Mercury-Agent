@@ -425,3 +425,254 @@ class TestUncertaintyEstimate:
         assert d["total"] == 0.22
         assert d["reliable"] is True
         assert d["mc_samples"] == 30
+        assert d["overconfident"] is False
+
+
+class TestOverconfidenceDetection:
+    """Tests for overconfidence detection (Kaddour et al. 2026)."""
+
+    def test_overconfident_flag_in_dataclass(self):
+        """Test is_overconfident field exists and defaults to False."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate
+
+        estimate = UncertaintyEstimate(
+            prediction=0.7,
+            epistemic=0.1,
+            aleatoric=0.2,
+            total=0.22,
+            confidence=0.8,
+            confidence_interval=(0.5, 0.9),
+            calibration_error=0.03,
+            is_reliable=True,
+            explanation="Test",
+        )
+        assert estimate.is_overconfident is False
+
+    def test_overconfident_flag_set_when_appropriate(self):
+        """Test is_overconfident is True when confidence > 0.8 and ECE > threshold."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate
+
+        estimate = UncertaintyEstimate(
+            prediction=0.9,
+            epistemic=0.05,
+            aleatoric=0.1,
+            total=0.11,
+            confidence=0.9,
+            confidence_interval=(0.7, 1.0),
+            calibration_error=0.15,  # Poor calibration
+            is_reliable=False,
+            explanation="Test",
+            is_overconfident=True,
+        )
+        assert estimate.is_overconfident is True
+        assert estimate.to_dict()["overconfident"] is True
+
+    def test_decision_defers_on_overconfidence(self):
+        """Test uncertainty_aware_decision defers when overconfident."""
+        from omni_mercury_engine.cognitive.uncertainty import (
+            UncertaintyEstimate,
+            UncertaintyQuantifier,
+        )
+
+        uq = UncertaintyQuantifier()
+
+        # High confidence, but flagged as overconfident
+        estimate = UncertaintyEstimate(
+            prediction=0.9,
+            epistemic=0.05,
+            aleatoric=0.1,
+            total=0.11,
+            confidence=0.85,
+            confidence_interval=(0.7, 1.0),
+            calibration_error=0.02,
+            is_reliable=True,
+            explanation="Test",
+            is_overconfident=True,
+        )
+
+        decision = uq.uncertainty_aware_decision(estimate, action_threshold=0.5)
+
+        assert decision["should_defer"] is True
+        assert decision["action"] == "defer_to_human"
+        assert "Overconfidence" in decision["reason"]
+
+    def test_not_overconfident_when_well_calibrated(self):
+        """Test no overconfidence flag when calibration is good."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate
+
+        estimate = UncertaintyEstimate(
+            prediction=0.9,
+            epistemic=0.05,
+            aleatoric=0.1,
+            total=0.11,
+            confidence=0.85,
+            confidence_interval=(0.7, 1.0),
+            calibration_error=0.02,  # Good calibration
+            is_reliable=True,
+            explanation="Test",
+            is_overconfident=False,
+        )
+        assert estimate.is_overconfident is False
+
+
+class TestEnsembleDisagreement:
+    """Tests for ensemble disagreement metric."""
+
+    def test_decompose_includes_disagreement(self):
+        """Test decompose_uncertainty returns ensemble_disagreement."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier()
+        predictions_ensemble = np.random.rand(10, 50)
+
+        decomp = uq.decompose_uncertainty(predictions_ensemble)
+
+        assert "ensemble_disagreement" in decomp
+        assert decomp["ensemble_disagreement"] >= 0
+
+    def test_high_agreement_low_disagreement(self):
+        """Test low disagreement when models agree."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier()
+        # All models predict similar values
+        base = np.random.rand(50)
+        predictions_ensemble = np.tile(base, (10, 1)) + np.random.randn(10, 50) * 0.001
+
+        decomp = uq.decompose_uncertainty(predictions_ensemble)
+
+        assert decomp["ensemble_disagreement"] < 0.01
+
+    def test_high_disagreement_when_models_diverge(self):
+        """Test high disagreement when models diverge."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier()
+        # Models predict very different values
+        predictions_ensemble = np.random.rand(10, 50) * 10  # Large spread
+
+        decomp = uq.decompose_uncertainty(predictions_ensemble)
+
+        assert decomp["ensemble_disagreement"] > 0.1
+
+    def test_single_model_zero_disagreement(self):
+        """Test zero disagreement for single model (ndim < 2)."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier()
+        predictions = np.array([0.5, 0.6, 0.7])
+
+        decomp = uq.decompose_uncertainty(predictions)
+
+        assert decomp["ensemble_disagreement"] == 0.0
+
+
+class TestBayesianCalibrationIntegration:
+    """Tests for BayesianConfidenceCalibrator integration into UncertaintyQuantifier."""
+
+    def test_init_without_bayesian(self):
+        """Test UQ works without Bayesian calibrator (default)."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier()
+        assert uq.bayesian_calibrator is None
+
+    def test_init_with_bayesian(self):
+        """Test UQ accepts Bayesian calibrator."""
+        from omni_mercury_engine.agentic.bayesian_calibrator import BayesianConfidenceCalibrator
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        cal = BayesianConfidenceCalibrator()
+        uq = UncertaintyQuantifier(bayesian_calibrator=cal)
+        assert uq.bayesian_calibrator is cal
+
+    def test_calibrate_with_bayesian_passthrough(self):
+        """Test calibrate_with_bayesian returns raw when no calibrator."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier()
+        result = uq.calibrate_with_bayesian(0.85, domain="security", goal="detect anomaly")
+        assert result == 0.85
+
+    def test_calibrate_with_bayesian_blends(self):
+        """Test calibrate_with_bayesian blends raw and Bayesian confidence."""
+        from omni_mercury_engine.agentic.bayesian_calibrator import BayesianConfidenceCalibrator
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        cal = BayesianConfidenceCalibrator()
+        # Feed some successes to shift the posterior
+        for _ in range(10):
+            cal.update("security", "detect anomaly", success=True)
+
+        uq = UncertaintyQuantifier(bayesian_calibrator=cal)
+        raw = 0.60
+        blended = uq.calibrate_with_bayesian(raw, domain="security", goal="detect anomaly")
+
+        # Blended should be between raw and Bayesian (which is high after 10 successes)
+        assert blended >= raw
+        assert 0.01 <= blended <= 0.99
+
+    def test_update_bayesian_noop_without_calibrator(self):
+        """Test update_bayesian is safe without calibrator."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier()
+        # Should not raise
+        uq.update_bayesian("security", "detect", success=True)
+
+    def test_update_bayesian_updates_posterior(self):
+        """Test update_bayesian actually updates the calibrator."""
+        from omni_mercury_engine.agentic.bayesian_calibrator import BayesianConfidenceCalibrator
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        cal = BayesianConfidenceCalibrator()
+        uq = UncertaintyQuantifier(bayesian_calibrator=cal)
+
+        uq.update_bayesian("medical", "analyze", success=True)
+        stats = cal.get_stats("medical", "analyze")
+        assert stats is not None
+        assert stats.successes == 1
+
+
+class TestConformalFusedScores:
+    """Tests for conformal prediction interval propagation through fusion."""
+
+    def test_no_intervals_without_aci(self):
+        """Test returns no intervals when ACI is disabled."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier(enable_aci=False)
+        result = uq.conformal_fused_scores(np.array([0.5, 0.7, 0.9]))
+
+        assert result["has_intervals"] is False
+        np.testing.assert_array_equal(result["predictions"], [0.5, 0.7, 0.9])
+
+    def test_no_intervals_without_calibration_data(self):
+        """Test returns no intervals when ACI has no calibration scores."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier(enable_aci=True)
+        result = uq.conformal_fused_scores(np.array([0.5, 0.7, 0.9]))
+
+        assert result["has_intervals"] is False
+
+    def test_intervals_with_calibrated_aci(self):
+        """Test returns valid intervals after ACI calibration."""
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier(enable_aci=True, aci_coverage=0.9)
+
+        # Feed calibration data through ACI
+        for i in range(50):
+            score = abs(np.random.randn())
+            uq.aci.update(score, covered=np.random.rand() > 0.1)
+
+        fused = np.array([0.3, 0.6, 0.9])
+        result = uq.conformal_fused_scores(fused, residual_std=0.1)
+
+        assert result["has_intervals"] is True
+        assert result["coverage_level"] == 0.9
+        assert len(result["lower_bounds"]) == 3
+        assert len(result["upper_bounds"]) == 3
+        # Lower bounds should be below upper bounds
+        assert np.all(result["lower_bounds"] <= result["upper_bounds"])

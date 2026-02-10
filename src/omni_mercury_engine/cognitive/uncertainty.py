@@ -89,6 +89,7 @@ class UncertaintyEstimate:
     mutual_information: float = 0.0  # BALD acquisition function
     predictive_entropy: float = 0.0  # Total predictive uncertainty
     mc_samples: int = 0  # Number of MC samples used
+    is_overconfident: bool = False  # High confidence despite poor calibration
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -104,6 +105,7 @@ class UncertaintyEstimate:
             "mutual_information": self.mutual_information,
             "predictive_entropy": self.predictive_entropy,
             "mc_samples": self.mc_samples,
+            "overconfident": self.is_overconfident,
         }
 
 
@@ -485,6 +487,11 @@ class UncertaintyQuantifier:
        - Input-dependent aleatoric uncertainty
        - Local variance estimation
        - Separates data noise from model uncertainty
+
+    6. Bayesian Confidence Calibration (optional)
+       - Beta-Bernoulli conjugate prior per (domain, goal_type) context
+       - Continuously improving confidence from outcome feedback
+       - Blends raw UQ confidence with domain-specific historical accuracy
     """
 
     PHI = (1 + np.sqrt(5)) / 2  # Golden ratio
@@ -496,6 +503,7 @@ class UncertaintyQuantifier:
         reliability_threshold: float = 0.05,
         enable_aci: bool = True,
         aci_coverage: float = 0.9,
+        bayesian_calibrator: Any | None = None,
     ):
         """
         Initialize Uncertainty Quantifier.
@@ -506,6 +514,8 @@ class UncertaintyQuantifier:
             reliability_threshold: Max ECE for reliable predictions
             enable_aci: Enable Adaptive Conformal Inference
             aci_coverage: Target coverage for ACI
+            bayesian_calibrator: Optional BayesianConfidenceCalibrator for
+                domain-specific confidence adjustment via Beta-Bernoulli model
         """
         self.n_monte_carlo = n_monte_carlo
         self.calibration_bins = calibration_bins
@@ -515,6 +525,7 @@ class UncertaintyQuantifier:
         self.temperature_scaler = TemperatureScaler()
         self.aci = AdaptiveConformalInference(target_coverage=aci_coverage) if enable_aci else None
         self.heteroscedastic = HeteroscedasticEstimator()
+        self.bayesian_calibrator = bayesian_calibrator
 
         # Calibration history
         self._predictions: deque[float] = deque(maxlen=5000)
@@ -535,7 +546,8 @@ class UncertaintyQuantifier:
 
         logger.info(
             f"UncertaintyQuantifier initialized (MC={n_monte_carlo}, "
-            f"ACI={'enabled' if enable_aci else 'disabled'})"
+            f"ACI={'enabled' if enable_aci else 'disabled'}, "
+            f"Bayesian={'enabled' if bayesian_calibrator else 'disabled'})"
         )
 
     def estimate_uncertainty(
@@ -657,9 +669,20 @@ class UncertaintyQuantifier:
             )
         )
 
+        # === OVERCONFIDENCE DETECTION ===
+        # Ref: Kaddour et al. (2026) "Agentic Uncertainty Reveals Agentic Overconfidence"
+        # High confidence paired with poor calibration signals systematic overconfidence.
+        is_overconfident = confidence > 0.8 and calibration_error > self.reliability_threshold
+
         # === EXPLANATION ===
         explanation = self._generate_explanation(
-            epistemic, aleatoric, confidence, is_reliable, mutual_information, predictive_entropy
+            epistemic,
+            aleatoric,
+            confidence,
+            is_reliable,
+            mutual_information,
+            predictive_entropy,
+            is_overconfident,
         )
 
         # Update running statistics
@@ -685,6 +708,7 @@ class UncertaintyQuantifier:
             mutual_information=mutual_information,
             predictive_entropy=predictive_entropy,
             mc_samples=self.n_monte_carlo if mc_predictions.shape[0] > 1 else 0,
+            is_overconfident=is_overconfident,
         )
 
     def estimate_epistemic(
@@ -894,6 +918,19 @@ class UncertaintyQuantifier:
             )
             return decision
 
+        # Check overconfidence (Kaddour et al. 2026)
+        # High confidence with poor calibration is worse than low confidence —
+        # the system doesn't know that it doesn't know.
+        if uncertainty.is_overconfident:
+            decision["should_defer"] = True
+            decision["action"] = "defer_to_human"
+            decision["reason"] = (
+                f"Overconfidence detected: confidence={uncertainty.confidence:.1%} "
+                f"but calibration_error={uncertainty.calibration_error:.3f}. "
+                "Confidence exceeds calibration quality. Human review recommended."
+            )
+            return decision
+
         # Confident action
         if uncertainty.prediction > action_threshold and uncertainty.confidence > 0.7:
             decision["should_act"] = True
@@ -932,7 +969,12 @@ class UncertaintyQuantifier:
         """
         if predictions_ensemble.ndim < 2:
             total = float(np.std(predictions_ensemble))
-            return {"epistemic": 0.0, "aleatoric": total, "total": total}
+            return {
+                "epistemic": 0.0,
+                "aleatoric": total,
+                "total": total,
+                "ensemble_disagreement": 0.0,
+            }
 
         if predictions_ensemble.ndim == 2:
             # (n_models, n_outputs) - single sample
@@ -953,11 +995,17 @@ class UncertaintyQuantifier:
         total = np.sqrt(epistemic + aleatoric)
         epistemic_ratio = epistemic / (epistemic + aleatoric + 1e-10)
 
+        # Ensemble disagreement: normalized spread of per-model predictions.
+        # High disagreement signals low consensus among ensemble members,
+        # which is a direct indicator of epistemic uncertainty.
+        ensemble_disagreement = float(np.std(model_means))
+
         return {
             "epistemic": epistemic,
             "aleatoric": aleatoric,
             "total": float(total),
             "epistemic_ratio": float(epistemic_ratio),
+            "ensemble_disagreement": ensemble_disagreement,
         }
 
     def conformal_prediction(
@@ -1003,6 +1051,56 @@ class UncertaintyQuantifier:
             "effective_quantile": quantile_level,
         }
 
+    def conformal_fused_scores(
+        self,
+        fused_scores: np.ndarray[Any, Any],
+        residual_std: float | None = None,
+    ) -> dict[str, Any]:
+        """
+        Wrap fused detection scores with conformal prediction intervals.
+
+        Uses the Adaptive Conformal Inference (ACI) component to provide
+        distribution-free intervals on post-fusion anomaly scores. This bridges
+        the gap between conformal_prediction.py and the fusion layer — fused
+        scores go in, intervals with coverage guarantees come out.
+
+        Args:
+            fused_scores: Array of fused anomaly scores from the fusion layer
+            residual_std: Optional residual standard deviation for interval width.
+                If None, uses the running average epistemic uncertainty.
+
+        Returns:
+            Dictionary with 'predictions', 'lower_bounds', 'upper_bounds',
+            'coverage_level', and 'has_intervals' flag
+        """
+        result: dict[str, Any] = {
+            "predictions": fused_scores,
+            "has_intervals": False,
+            "lower_bounds": fused_scores,
+            "upper_bounds": fused_scores,
+            "coverage_level": 0.0,
+        }
+
+        if self.aci is None or len(self.aci.scores) == 0:
+            return result
+
+        if residual_std is None:
+            residual_std = max(self._stats.get("avg_epistemic", 0.1), 0.01)
+
+        lowers = []
+        uppers = []
+        for score in fused_scores:
+            lo, hi = self.aci.predict_interval(float(score), residual_std=residual_std)
+            lowers.append(lo)
+            uppers.append(hi)
+
+        result["lower_bounds"] = np.array(lowers)
+        result["upper_bounds"] = np.array(uppers)
+        result["has_intervals"] = True
+        result["coverage_level"] = self.aci.target_coverage
+
+        return result
+
     def update_with_outcome(
         self,
         prediction: float,
@@ -1035,6 +1133,59 @@ class UncertaintyQuantifier:
         self._confidences.append(confidence)
         outcome = (prediction > 0.5) == (true_value_float > 0.5)
         self._outcomes.append(outcome)
+
+    def calibrate_with_bayesian(
+        self,
+        raw_confidence: float,
+        domain: str,
+        goal: str = "detect",
+    ) -> float:
+        """
+        Blend raw UQ confidence with Bayesian domain-specific calibration.
+
+        When a BayesianConfidenceCalibrator is attached, this interpolates
+        between the raw confidence from MC Dropout / temperature scaling
+        and the Bayesian posterior mean for this (domain, goal_type) context.
+        The interpolation weight is the Bayesian familiarity factor — novel
+        contexts trust the raw UQ score, familiar contexts trust the posterior.
+
+        Args:
+            raw_confidence: Confidence from estimate_uncertainty()
+            domain: Detection domain (e.g., "medical", "security", "network")
+            goal: Goal description for context classification
+
+        Returns:
+            Calibrated confidence blending raw UQ with Bayesian prior
+        """
+        if self.bayesian_calibrator is None:
+            return raw_confidence
+
+        bayesian_confidence = self.bayesian_calibrator.get_confidence(domain, goal)
+
+        # Weighted average: give equal weight to both sources.
+        # The Bayesian calibrator internally handles familiarity weighting
+        # (novel contexts → prior ≈ 0.76, familiar contexts → posterior).
+        blended = 0.5 * raw_confidence + 0.5 * bayesian_confidence
+        return float(np.clip(blended, 0.01, 0.99))
+
+    def update_bayesian(
+        self,
+        domain: str,
+        goal: str,
+        success: bool,
+        timestamp: float = 0.0,
+    ) -> None:
+        """
+        Update the Bayesian calibrator with an observed outcome.
+
+        Args:
+            domain: Detection domain
+            goal: Goal description
+            success: Whether the detection was correct
+            timestamp: Observation timestamp
+        """
+        if self.bayesian_calibrator is not None:
+            self.bayesian_calibrator.update(domain, goal, success, timestamp)
 
     def _monte_carlo_sampling(
         self,
@@ -1151,9 +1302,18 @@ class UncertaintyQuantifier:
         is_reliable: bool,
         mutual_info: float,
         predictive_entropy: float,
+        is_overconfident: bool = False,
     ) -> str:
         """Generate human-readable uncertainty explanation."""
         parts = []
+
+        # Overconfidence warning (most critical — surface first)
+        if is_overconfident:
+            parts.append(
+                f"WARNING: Overconfidence detected (confidence: {confidence:.0%}). "
+                "Calibration history indicates confidence exceeds actual accuracy. "
+                "Treat this prediction with skepticism."
+            )
 
         # Overall reliability
         if is_reliable:

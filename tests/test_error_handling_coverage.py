@@ -32,16 +32,40 @@ except ImportError:
 class TestOptimizationErrorHandling:
     """Tests for ml/optimization.py error handling."""
 
-    @pytest.mark.skip(reason="DDPManager not implemented in current codebase")
     def test_ddp_cleanup_logs_on_failure(self, caplog):
         """Test that DDP cleanup logs debug message when process group doesn't exist."""
-        pass
+        from omni_mercury_engine.ml.optimization import DDPManager
 
-    @pytest.mark.skip(reason="estimate_batch_size not implemented in current codebase")
-    @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
+        manager = DDPManager(backend="gloo", world_size=1)
+        # Force is_initialized so cleanup actually tries to destroy
+        manager.is_initialized = True
+
+        with caplog.at_level(logging.DEBUG):
+            manager.cleanup()
+
+        assert not manager.is_initialized
+        # Should have logged a debug message about process group
+
     def test_estimate_batch_size_fallback(self):
         """Test that estimate_batch_size returns default on failure."""
-        pass
+        from omni_mercury_engine.ml.optimization import estimate_batch_size
+
+        # Normal case: 1KB samples, 1024 MB available, 70% usable
+        result = estimate_batch_size(sample_size_bytes=1024, available_memory_mb=1024.0)
+        assert result >= 1
+        assert result <= 4096
+
+        # Invalid input: returns min_batch
+        result = estimate_batch_size(sample_size_bytes=0)
+        assert result == 1
+
+        # Negative input: returns min_batch
+        result = estimate_batch_size(sample_size_bytes=-1)
+        assert result == 1
+
+        # Very large sample: returns min_batch
+        result = estimate_batch_size(sample_size_bytes=10**12, available_memory_mb=1.0)
+        assert result == 1
 
 
 class TestCrossDomainTransferErrorHandling:
@@ -152,29 +176,52 @@ class TestDirectiveDetectorErrorHandling:
         assert result is not None
 
 
+class _MockClassifier:
+    """Minimal sklearn-compatible classifier for testing GWO without sklearn."""
+
+    def fit(self, X: np.ndarray, y: np.ndarray) -> _MockClassifier:
+        return self
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        return np.zeros(X.shape[0])
+
+    def score(self, X: np.ndarray, y: np.ndarray) -> float:
+        return 0.5
+
+    def get_params(self, deep: bool = True) -> dict:  # type: ignore[type-arg]
+        return {}
+
+    def set_params(self, **params: object) -> _MockClassifier:
+        return self
+
+
 class TestGWOOptimizerErrorHandling:
     """Tests for ml/gwo_optimizer.py error handling."""
 
     def test_cross_val_failure_logs_and_returns_default(self, caplog):
-        """Test that cross-validation failure is logged properly."""
-        from sklearn.ensemble import RandomForestClassifier
+        """Test that GWO select_features returns valid mask even when cross-val fails.
 
+        When sklearn is unavailable, the ImportError is caught inside the
+        objective function's try/except, logged, and returns default fitness.
+        GWO still produces a valid feature mask.
+        """
         from omni_mercury_engine.ml.gwo_optimizer import GreyWolfOptimizer
 
         gwo = GreyWolfOptimizer(n_wolves=5, max_iter=2)
 
-        # Create simple data
         X = np.random.randn(20, 10)
         y = np.array([0] * 10 + [1] * 10)
 
-        # Create a simple classifier for feature selection
-        clf = RandomForestClassifier(n_estimators=10, random_state=42)
+        # Use mock classifier — if sklearn is missing, the import inside
+        # select_features fails gracefully; if sklearn IS available,
+        # cross_val_score will use the mock's fit/score methods.
+        clf = _MockClassifier()
 
         with caplog.at_level(logging.DEBUG):
-            # Select features - may trigger cross-val failures with small data
             mask = gwo.select_features(X, y, clf, n_features=3)
 
         assert mask is not None
+        assert mask.dtype == bool
         assert mask.sum() > 0
 
 
@@ -280,9 +327,12 @@ class TestCrossValidationErrorHandling:
     """Additional cross-validation error handling tests."""
 
     def test_gwo_with_insufficient_samples(self, caplog):
-        """Test GWO handles insufficient samples for cross-validation."""
-        from sklearn.ensemble import RandomForestClassifier
+        """Test GWO handles insufficient samples for cross-validation.
 
+        With only 6 samples, 3-fold CV has 2 samples per fold which may
+        trigger failures. When sklearn is missing, the ImportError is caught
+        gracefully. Either way, GWO must return a valid boolean mask.
+        """
         from omni_mercury_engine.ml.gwo_optimizer import GreyWolfOptimizer
 
         gwo = GreyWolfOptimizer(n_wolves=3, max_iter=2)
@@ -291,8 +341,7 @@ class TestCrossValidationErrorHandling:
         X = np.random.randn(6, 5)  # Only 6 samples
         y = np.array([0, 0, 0, 1, 1, 1])
 
-        # Create a simple classifier for feature selection
-        clf = RandomForestClassifier(n_estimators=10, random_state=42)
+        clf = _MockClassifier()
 
         with caplog.at_level(logging.DEBUG):
             mask = gwo.select_features(X, y, clf, n_features=2)

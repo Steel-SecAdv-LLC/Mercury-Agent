@@ -507,6 +507,48 @@ class DDPScaler:
                 self.is_initialized = False
 
 
+# Alias for backward compatibility and intuitive naming
+DDPManager = DDPScaler
+
+
+def estimate_batch_size(
+    sample_size_bytes: int,
+    available_memory_mb: float = 2048.0,
+    memory_fraction: float = 0.7,
+    min_batch: int = 1,
+    max_batch: int = 4096,
+) -> int:
+    """
+    Estimate optimal batch size based on available memory.
+
+    Computes how many samples can fit in memory given per-sample size,
+    reserving headroom for model parameters and intermediate activations.
+
+    Args:
+        sample_size_bytes: Size of a single sample in bytes
+        available_memory_mb: Total available memory in MB
+        memory_fraction: Fraction of memory to use for batches (rest for model, etc.)
+        min_batch: Minimum batch size
+        max_batch: Maximum batch size
+
+    Returns:
+        Estimated batch size clamped to [min_batch, max_batch]
+    """
+    if sample_size_bytes <= 0:
+        logger.warning(
+            "Invalid sample_size_bytes (%d), returning default batch size", sample_size_bytes
+        )
+        return min_batch
+
+    try:
+        usable_bytes = available_memory_mb * 1024 * 1024 * memory_fraction
+        estimated = int(usable_bytes / sample_size_bytes)
+        return max(min_batch, min(max_batch, estimated))
+    except Exception as e:
+        logger.warning("Batch size estimation failed: %s, returning default", e)
+        return min_batch
+
+
 @dataclass
 class OptimizationResult:
     """Result of optimization application."""

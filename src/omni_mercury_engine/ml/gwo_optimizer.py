@@ -175,9 +175,9 @@ class GreyWolfOptimizer:
 
             X_selected = X[:, mask]
 
-            from sklearn.model_selection import cross_val_score
-
             try:
+                from sklearn.model_selection import cross_val_score
+
                 scores = cross_val_score(clf, X_selected, y, cv=3)
                 return 1.0 - float(np.mean(scores))
             except Exception as e:

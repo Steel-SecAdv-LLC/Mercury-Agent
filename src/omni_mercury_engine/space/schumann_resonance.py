@@ -62,9 +62,21 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
-import torch
 from scipy.fft import fft, fftfreq
-from torch import nn
+
+try:
+    import torch
+    from torch import nn
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    torch = None  # type: ignore[assignment, unused-ignore]
+    nn = None  # type: ignore[assignment, unused-ignore]
+    TORCH_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
+
+_NNBase: type = nn.Module if TORCH_AVAILABLE else object  # type: ignore[assignment, unused-ignore]
 
 
 @dataclass
@@ -91,7 +103,7 @@ class SchumannAnomalyResult:
     ancient_correlation: dict[str, Any] | None = None
 
 
-class SchumannHarmonicAnalyzer(nn.Module):
+class SchumannHarmonicAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
     """
     Neural network for Schumann harmonic pattern analysis.
 
@@ -100,6 +112,11 @@ class SchumannHarmonicAnalyzer(nn.Module):
     """
 
     def __init__(self, spectrum_size: int = 512) -> None:
+        if not TORCH_AVAILABLE:
+            raise ImportError(
+                "PyTorch is required for SchumannHarmonicAnalyzer. "
+                "Install it with: pip install torch"
+            )
         super().__init__()
 
         phi = 1.618
@@ -184,6 +201,11 @@ class SchumannResonanceDetector:
             enable_ancient_correlation: Correlate with ancient solar/lunar cycles
             golden_ratio_thresholds: Use φ-optimized detection thresholds
         """
+        if not TORCH_AVAILABLE:
+            raise ImportError(
+                "PyTorch is required for SchumannResonanceDetector. "
+                "Install it with: pip install torch"
+            )
         self.logger = logging.getLogger(__name__)
         self.sampling_rate = sampling_rate
         self.enable_ancient_correlation = enable_ancient_correlation

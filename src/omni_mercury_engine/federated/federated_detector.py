@@ -76,10 +76,13 @@ from omni_mercury_engine.federated_learning import (
 )
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
-# Emit deprecation warning when module is imported
+# Emit deprecation warning when module is imported.
+# Scheduled for removal in v2.0.0.
 warnings.warn(
-    "omni_mercury_engine.federated.federated_detector is deprecated. "
-    "Please use omni_mercury_engine.federated_learning instead.",
+    "omni_mercury_engine.federated.federated_detector is deprecated and "
+    "will be removed in v2.0.0. "
+    "Please use omni_mercury_engine.federated_learning instead. "
+    "See migration guide in this module's docstring.",
     DeprecationWarning,
     stacklevel=2,
 )

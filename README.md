@@ -1750,7 +1750,7 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**Mercury Agent ♱ v1.2 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
+**Mercury Agent ♱ v1.4 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 
