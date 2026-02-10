@@ -21,8 +21,8 @@ from __future__ import annotations
 """Emergent Life Detector module for SETI-like anomaly detection."""
 
 __all__ = [
+    "BioSignalPatternRecognizer",
     "EmergentLifeDetector",
     "LifeDetectionResult",
     "SETICosmicSignalAnalyzer",
-    "BioSignalPatternRecognizer",
 ]

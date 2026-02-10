@@ -25,8 +25,8 @@ Comprehensive marine ecosystem and ocean monitoring.
 """
 
 __all__ = [
-    "MarineBiodiversityDetector",
+    "BiodiversityPredictionResult",
     "CoralBleachingDetector",
     "EcosystemHealth",
-    "BiodiversityPredictionResult",
+    "MarineBiodiversityDetector",
 ]
