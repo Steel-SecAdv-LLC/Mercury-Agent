@@ -653,8 +653,7 @@ class OmniMercuryEngine(LoggerMixin):
 
         if not TORCH_AVAILABLE:
             raise ImportError(
-                "PyTorch is required for OmniMercuryEngine. "
-                "Install it with: pip install torch"
+                "PyTorch is required for OmniMercuryEngine. " "Install it with: pip install torch"
             )
 
         self.device = torch.device(device)

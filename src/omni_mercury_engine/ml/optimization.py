@@ -535,7 +535,9 @@ def estimate_batch_size(
         Estimated batch size clamped to [min_batch, max_batch]
     """
     if sample_size_bytes <= 0:
-        logger.warning("Invalid sample_size_bytes (%d), returning default batch size", sample_size_bytes)
+        logger.warning(
+            "Invalid sample_size_bytes (%d), returning default batch size", sample_size_bytes
+        )
         return min_batch
 
     try:

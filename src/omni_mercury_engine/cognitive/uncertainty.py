@@ -676,7 +676,12 @@ class UncertaintyQuantifier:
 
         # === EXPLANATION ===
         explanation = self._generate_explanation(
-            epistemic, aleatoric, confidence, is_reliable, mutual_information, predictive_entropy,
+            epistemic,
+            aleatoric,
+            confidence,
+            is_reliable,
+            mutual_information,
+            predictive_entropy,
             is_overconfident,
         )
 

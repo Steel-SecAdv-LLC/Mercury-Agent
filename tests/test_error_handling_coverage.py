@@ -179,7 +179,7 @@ class TestDirectiveDetectorErrorHandling:
 class _MockClassifier:
     """Minimal sklearn-compatible classifier for testing GWO without sklearn."""
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "_MockClassifier":
+    def fit(self, X: np.ndarray, y: np.ndarray) -> _MockClassifier:
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -191,7 +191,7 @@ class _MockClassifier:
     def get_params(self, deep: bool = True) -> dict:  # type: ignore[type-arg]
         return {}
 
-    def set_params(self, **params: object) -> "_MockClassifier":
+    def set_params(self, **params: object) -> _MockClassifier:
         return self
 
 
