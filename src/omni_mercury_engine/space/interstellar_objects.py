@@ -60,8 +60,20 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-import torch
-from torch import nn
+
+try:
+    import torch
+    from torch import nn
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    torch = None  # type: ignore[assignment, unused-ignore]
+    nn = None  # type: ignore[assignment, unused-ignore]
+    TORCH_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
+
+_NNBase: type = nn.Module if TORCH_AVAILABLE else object  # type: ignore[assignment, unused-ignore]
 
 
 class ISOAnomalyType(Enum):
@@ -108,7 +120,7 @@ class InterstellarObjectResult:
     scientific_significance: float = 0.0
 
 
-class InterstellarObjectAnalyzer(nn.Module):
+class InterstellarObjectAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
     """
     Neural network for interstellar object anomaly analysis.
 
@@ -117,6 +129,11 @@ class InterstellarObjectAnalyzer(nn.Module):
     """
 
     def __init__(self, input_dim: int = 96) -> None:
+        if not TORCH_AVAILABLE:
+            raise ImportError(
+                "PyTorch is required for InterstellarObjectAnalyzer. "
+                "Install it with: pip install torch"
+            )
         super().__init__()
 
         phi = 1.618
@@ -220,6 +237,11 @@ class InterstellarObjectDetector:
             enable_artificial_origin_test: Enable Galileo Project-style tests
                                            (requires conservative thresholds)
         """
+        if not TORCH_AVAILABLE:
+            raise ImportError(
+                "PyTorch is required for InterstellarObjectDetector. "
+                "Install it with: pip install torch"
+            )
         self.logger = logging.getLogger(__name__)
         self.enable_artificial_origin_test = enable_artificial_origin_test
         self.golden_ratio = 1.618
