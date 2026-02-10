@@ -1,6 +1,6 @@
 """
 Mercury Agent
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Tests for VLM/Visual detector enhancements including:
 - Advanced context providers (Semantic, Frequency, Appearance)

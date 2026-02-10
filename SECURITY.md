@@ -2,7 +2,7 @@
 
 ## Mercury Agent ♱ Security Framework
 
-Mercury Agent ♱ is a security-focused AI framework developed by Steel Security Advisory LLC. We take security seriously and are committed to maintaining the integrity, confidentiality, and availability of our systems and user data.
+Mercury Agent ♱ is a security-focused AI framework developed by Steel Security Advisors LLC. We take security seriously and are committed to maintaining the integrity, confidentiality, and availability of our systems and user data.
 
 ## Supported Versions
 

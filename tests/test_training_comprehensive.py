@@ -1,6 +1,6 @@
 """
 Mercury Agent
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Comprehensive tests for ml/training.py module.
 Targets coverage improvement for training utilities, optimizers, and loss functions.

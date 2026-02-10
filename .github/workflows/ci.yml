@@ -1,6 +1,6 @@
 # Mercury-Agent Comprehensive CI/CD Pipeline
 # Implements multi-stage testing, security scanning, and quality checks
-# Copyright (C) 2025 Steel Security Advisory LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
 
 name: CI/CD Pipeline
 

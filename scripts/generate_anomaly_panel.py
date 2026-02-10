@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Mercury Agent ♱
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Generate multi-panel anomaly detection visualization.
 """

@@ -2,7 +2,7 @@
 name = "mercury_crypto"
 version = "0.1.0"
 edition = "2021"
-authors = ["Steel Security Advisory LLC"]
+authors = ["Steel Security Advisors LLC"]
 description = "High-performance cryptographic operations for Mercury Agent"
 license = "GPL-3.0"
 readme = "README.md"

@@ -1,6 +1,6 @@
 """
 Mercury Agent - Tests for Enhanced Domain Components
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Comprehensive tests for:
 - Enhanced base domain detectors (adaptive thresholds, event metrics, spatial)

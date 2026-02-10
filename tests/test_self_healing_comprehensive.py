@@ -1,6 +1,6 @@
 """
 Mercury Agent
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Comprehensive tests for resilience/self_healing.py module.
 Targets coverage improvement for AdaptiveDefenseSystem and SelfHealingEngine.

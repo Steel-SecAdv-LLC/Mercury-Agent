@@ -1,6 +1,6 @@
 """
 Mercury Agent ♱
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Point-Adjustment Evaluation Protocol for Time-Series Anomaly Detection
 

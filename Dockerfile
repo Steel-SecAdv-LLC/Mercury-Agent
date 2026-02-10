@@ -49,10 +49,10 @@ ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
 # Security labels
-LABEL maintainer="Steel Security Advisory LLC <support@steelsecurityadvisors.com>"
+LABEL maintainer="Steel Security Advisors LLC <support@steelsecurityadvisors.com>"
 LABEL org.opencontainers.image.title="Mercury Agent"
 LABEL org.opencontainers.image.description="ML-Centric Multi-Domain Anomaly Detection Framework"
-LABEL org.opencontainers.image.vendor="Steel Security Advisory LLC"
+LABEL org.opencontainers.image.vendor="Steel Security Advisors LLC"
 LABEL org.opencontainers.image.version="1.4.0"
 LABEL org.opencontainers.image.licenses="GPL-3.0"
 LABEL security.hardened="true"

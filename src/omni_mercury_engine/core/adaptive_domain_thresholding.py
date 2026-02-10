@@ -1,6 +1,6 @@
 """
 Mercury Agent - Adaptive Per-Domain Thresholding System
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Advanced thresholding system with per-domain optimization:
 - Domain-specific threshold calibration

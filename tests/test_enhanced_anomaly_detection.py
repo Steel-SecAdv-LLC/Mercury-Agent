@@ -1,6 +1,6 @@
 """
 Mercury Agent - Comprehensive Tests for Enhanced Anomaly Detection Modules
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Tests for:
 - Enhanced Statistical Methods (MAD, LOF, DBSCAN, MCD, CUSUM, GESD)

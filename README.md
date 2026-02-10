@@ -1077,14 +1077,11 @@ mypy src/
 <summary><strong>Python Package</strong></summary>
 
 ```bash
-# Build wheel
+# Build sdist and wheel
 python -m build
 
 # Install in development mode
 pip install -e ".[dev]"
-
-# Create distribution
-python -m build
 ```
 
 **Environment Variables**:

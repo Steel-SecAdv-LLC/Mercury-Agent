@@ -1,6 +1,6 @@
 """
 Mercury Agent - Neuro-Symbolic Hub and GOSNN Enhancement Tests
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Comprehensive tests for:
 - Neuro-Symbolic Hub

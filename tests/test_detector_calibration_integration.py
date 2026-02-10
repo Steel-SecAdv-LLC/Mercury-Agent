@@ -1,6 +1,6 @@
 """
 Integration Tests for All Calibrated Detectors
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Tests that all detectors properly support auto-calibration and that the
 calibration system solves the F1=0 problem across all detector types.

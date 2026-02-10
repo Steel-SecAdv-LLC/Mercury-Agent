@@ -7,7 +7,7 @@ Tests for the SaaS streaming infrastructure including:
 - Streaming anomaly pipeline
 - Message serialization
 
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 Licensed under GPL-3.0-or-later
 """
 

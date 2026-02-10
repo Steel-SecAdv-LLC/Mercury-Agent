@@ -3,7 +3,7 @@ Mercury Agent - Correlation ID Middleware Tests
 
 Tests for the request correlation ID tracking middleware.
 
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 Licensed under GPL-3.0-or-later
 """
 

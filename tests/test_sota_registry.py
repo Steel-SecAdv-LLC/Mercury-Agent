@@ -2,7 +2,7 @@
 Tests for SOTA Model Registry.
 
 Mercury Agent
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 """
 
 import pytest

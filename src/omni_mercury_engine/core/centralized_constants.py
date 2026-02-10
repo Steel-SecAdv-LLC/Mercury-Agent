@@ -1,6 +1,6 @@
 """
 Mercury Agent - Centralized Constants and Magic Numbers
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Consolidates magic numbers, thresholds, and configuration constants
 from across the codebase into a single, documented source of truth.

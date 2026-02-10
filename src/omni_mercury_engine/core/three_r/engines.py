@@ -1,6 +1,6 @@
 """
 Mercury Agent - 3R Mechanism Engines
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Core engines for the 3R (Recursion-Resonance-Refactoring) Mechanism.
 """

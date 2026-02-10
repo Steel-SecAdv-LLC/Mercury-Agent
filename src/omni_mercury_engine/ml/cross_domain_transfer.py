@@ -1,6 +1,6 @@
 """
 Mercury Agent - Cross-Domain Transfer Learning Framework
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

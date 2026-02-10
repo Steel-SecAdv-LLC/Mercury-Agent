@@ -1,6 +1,6 @@
 """
 Mercury Agent ♱
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 State-of-the-Art Anomaly Detection Models
 
@@ -56,4 +56,4 @@ __all__ = [
 ]
 
 __version__ = "1.0.0"
-__author__ = "Steel Security Advisory LLC"
+__author__ = "Steel Security Advisors LLC"

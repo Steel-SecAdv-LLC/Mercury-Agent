@@ -4,7 +4,7 @@ Integration tests for fusion model training.
 Tests for Issue #1 (Untrained Fusion Neural Network) and Issue #6 (Feature Dimension Mismatch).
 Validates that OmniFusionModel can be trained and produces meaningful scores.
 
-Mercury Agent - Copyright (C) 2025 Steel Security Advisory LLC
+Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
 Licensed under GNU GPL v3
 """
 

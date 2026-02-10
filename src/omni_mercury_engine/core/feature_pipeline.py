@@ -1,6 +1,6 @@
 """
 Mercury Agent - Feature Extraction Pipeline
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 This module provides enhanced feature extraction capabilities including:
 - Feature standardization with multiple scaling strategies
