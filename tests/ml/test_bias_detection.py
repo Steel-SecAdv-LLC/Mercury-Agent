@@ -1,6 +1,6 @@
 """
 Mercury Agent ♱
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Tests for ml/bias_detection.py module.
 Comprehensive test coverage for bias detection and fairness evaluation.

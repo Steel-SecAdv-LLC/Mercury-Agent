@@ -1,6 +1,6 @@
 """
 Mercury Agent - Security and Performance Audit Tests
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Tests for audit improvements including:
 - PII masking in logs

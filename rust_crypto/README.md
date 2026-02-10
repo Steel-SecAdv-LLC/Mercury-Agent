@@ -140,4 +140,4 @@ is_equal = mercury_crypto.py_constant_time_compare(a, b)
 
 GNU General Public License v3.0 (GPL-3.0)
 
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC

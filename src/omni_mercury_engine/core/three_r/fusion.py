@@ -1,6 +1,6 @@
 """
 Mercury Agent - 3R Mechanism Fusion
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 AVA Anomaly Fusion Equation (AAFE) implementation for unified precision scoring.
 """

@@ -1,6 +1,6 @@
 """
 Mercury Agent ♱
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -133,7 +133,11 @@ try:
 except ImportError:
     SCORE_CALIBRATION_AVAILABLE = False
 
-warnings.filterwarnings("ignore")
+# Suppress expected warnings from sklearn/numpy during benchmark model fitting.
+# Scoped to specific categories rather than blanket suppression.
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=".*convergence.*", category=UserWarning)
 
 # Configure logging for benchmark telemetry
 logging.basicConfig(level=logging.INFO)

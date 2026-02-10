@@ -7,7 +7,7 @@ Validates:
 - TemporalPatternDetector (enhances smd detection)
 - AdaptiveAnomalyDetector (unified interface)
 
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 """
 
 import numpy as np

@@ -529,8 +529,8 @@ class IrisLivenessDetector:
                 try:
                     _, pupil_r, _, _ = segmenter.segment(img)
                     radii.append(pupil_r)  # type: ignore[attr-defined, unused-ignore]
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Iris segmentation failed for image: %s", e)
 
             if len(radii) < 2:
                 return 0.0

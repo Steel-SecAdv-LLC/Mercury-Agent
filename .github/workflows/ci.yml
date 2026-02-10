@@ -1,6 +1,6 @@
 # Mercury-Agent Comprehensive CI/CD Pipeline
 # Implements multi-stage testing, security scanning, and quality checks
-# Copyright (C) 2025 Steel Security Advisory LLC
+# Copyright (C) 2025 Steel Security Advisors LLC
 
 name: CI/CD Pipeline
 
@@ -28,6 +28,8 @@ on:
 env:
   PYTHON_VERSION: "3.12"
   PIP_CACHE_DIR: ~/.cache/pip
+  # Core tests run a subset of the suite; threshold must be achievable by partial runs.
+  # Full-suite goal (85%) is in pyproject.toml [tool.coverage.report].
   COVERAGE_THRESHOLD: 10
 
 jobs:
@@ -161,13 +163,16 @@ jobs:
 
       - name: Run Safety (dependency vulnerabilities)
         # Safety check scans installed packages
+        # continue-on-error: upstream CVEs shouldn't hard-block, but failures are visible.
+        continue-on-error: true
         run: |
           pip install -e . || true
-          safety check --output json > safety-report.json || true
+          safety check --output json > safety-report.json
 
       - name: Run pip-audit
         # pip-audit scans installed packages
-        run: pip-audit --format json --output pip-audit-report.json || true
+        continue-on-error: true
+        run: pip-audit --format json --output pip-audit-report.json
 
       - name: Run Semgrep
         # Semgrep security scan - continue on error if semgrep not installed

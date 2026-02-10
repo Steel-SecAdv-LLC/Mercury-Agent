@@ -1,6 +1,6 @@
 """
 Mercury Agent ♱
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -23,3 +23,13 @@ Energy Infrastructure Anomaly Detectors
 
 Comprehensive energy system monitoring for critical infrastructure protection.
 """
+
+__all__ = [
+    "E1PulseDetector",
+    "E3PulseDetector",
+    "EMPDetector",
+    "EMPPredictionResult",
+    "EMPType",
+    "IntentionalEMIDetector",
+    "ThreatLevel",
+]

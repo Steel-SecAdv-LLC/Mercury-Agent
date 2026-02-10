@@ -1,6 +1,6 @@
 """
 Mercury Agent ♱
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -96,7 +96,8 @@ def extract_test_functions(
 
                 if len(functions) >= max_functions:
                     return functions[:max_functions]
-            except Exception:
+            except Exception as e:
+                print(f"  Skipping {py_file}: {e}")
                 continue
 
     return functions

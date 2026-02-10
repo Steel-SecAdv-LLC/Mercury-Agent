@@ -1,6 +1,6 @@
 """
 Mercury Agent - Adaptive Fusion Architecture
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 This module provides enhanced fusion capabilities including:
 - Adaptive attention head count based on input complexity

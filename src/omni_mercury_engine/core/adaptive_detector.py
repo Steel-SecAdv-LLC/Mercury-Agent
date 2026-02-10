@@ -7,7 +7,7 @@ Addresses specific weaknesses identified in benchmark analysis:
 - smd: Temporal pattern recognition (time-series aware)
 
 Targeted Performance Improvements for Multi-Dataset Optimization
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 """
 
 import logging

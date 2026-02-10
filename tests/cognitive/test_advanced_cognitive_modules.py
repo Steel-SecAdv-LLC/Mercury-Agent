@@ -1,6 +1,6 @@
 """
 Mercury Agent ♱
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Tests for Advanced Cognitive Modules (arxiv 2508.11957v1 - AI Agents Survey)
 

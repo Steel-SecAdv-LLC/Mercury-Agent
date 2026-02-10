@@ -4,7 +4,7 @@ Unit tests for signal integrity fixes.
 Tests for Issue #3 (Discrete Score Destruction) and Issue #5 (Contamination Mismatch).
 Validates that statistical detector produces continuous scores instead of discrete values.
 
-Mercury Agent - Copyright (C) 2025 Steel Security Advisory LLC
+Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
 Licensed under GNU GPL v3
 """
 

@@ -8,7 +8,7 @@
 //! - Key derivation (Argon2id)
 //! - Constant-time operations for security
 //!
-//! Copyright (C) 2025 Steel Security Advisory LLC
+//! Copyright (C) 2025 Steel Security Advisors LLC
 //! Licensed under GPL-3.0
 
 use pyo3::prelude::*;

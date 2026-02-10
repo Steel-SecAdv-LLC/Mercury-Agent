@@ -4,7 +4,7 @@ Unit tests for Issue #7: Score Continuity Fix.
 Tests that temporal and directive detectors use soft normalization
 instead of hard clipping, preserving ranking information for extreme anomalies.
 
-Mercury Agent - Copyright (C) 2025 Steel Security Advisory LLC
+Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
 Licensed under GNU GPL v3
 """
 

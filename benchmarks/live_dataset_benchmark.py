@@ -28,7 +28,7 @@ Usage:
     # Export results
     python benchmarks/live_dataset_benchmark.py --output results.json
 
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 Licensed under GPL-3.0-or-later
 """
 

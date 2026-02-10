@@ -2,7 +2,7 @@
 Tests for HATCN-AD (Hierarchical Attention TCN for Anomaly Detection) module.
 
 Mercury Agent
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 """
 
 import torch

@@ -1,6 +1,6 @@
 """
 Tests for Score Calibration System
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Tests the complete calibration pipeline that solves the F1=0 problem:
 - AutoThresholdOptimizer with multiple methods

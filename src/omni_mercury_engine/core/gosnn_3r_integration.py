@@ -1,6 +1,6 @@
 """
 Mercury Agent - GOSNN ↔ 3R Bidirectional Feedback Integration
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Implements bidirectional synaptic integration between:
 - Global Omni-Scalar Network (GOSNN): 180 omni-scalars, ethical gating

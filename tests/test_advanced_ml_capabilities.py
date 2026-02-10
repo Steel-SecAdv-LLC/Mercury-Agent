@@ -1,6 +1,6 @@
 """
 Mercury Agent - Tests for Advanced ML Capabilities
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Comprehensive tests for:
 - Concept drift evaluation

@@ -2,7 +2,7 @@
 Tests for constant-time security operations.
 
 Mercury Agent
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 """
 
 import numpy as np

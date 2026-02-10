@@ -23,7 +23,7 @@ Environment Variables:
     OMNI_RATE_LIMIT_ENABLED: Enable rate limiting (default: true)
     JWT_SECRET_KEY: Secret key for JWT authentication
 
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 Licensed under GPL-3.0-or-later
 """
 

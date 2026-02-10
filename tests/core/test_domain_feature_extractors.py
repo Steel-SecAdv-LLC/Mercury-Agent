@@ -1,6 +1,6 @@
 """
 Mercury Agent - Domain Feature Extractors Tests
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Comprehensive unit tests for domain-specific feature extraction modules:
 - Medical domain: Vital sign patterns, SOFA scoring, HRV metrics

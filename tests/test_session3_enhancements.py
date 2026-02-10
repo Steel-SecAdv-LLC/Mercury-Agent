@@ -1,6 +1,6 @@
 """
 Mercury Agent - Neuro-Symbolic Hub and GOSNN Enhancement Tests
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Comprehensive tests for:
 - Neuro-Symbolic Hub
@@ -573,9 +573,8 @@ class TestEthicalConstraints:
         )
 
         # Ethical scalars should not be prunable
-        # Use == instead of 'is' for numpy boolean comparison
-        assert importances["omnibenevolence"].prunable == False  # noqa: E712
-        assert importances["omnimorality"].prunable == False  # noqa: E712
+        assert importances["omnibenevolence"].prunable == False  # noqa: E712 - numpy.bool_
+        assert importances["omnimorality"].prunable == False  # noqa: E712 - numpy.bool_
 
 
 if __name__ == "__main__":

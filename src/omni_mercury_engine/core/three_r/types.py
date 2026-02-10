@@ -1,6 +1,6 @@
 """
 Mercury Agent - 3R Mechanism Type Definitions
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Type definitions, enums, and dataclasses for the 3R Mechanism.
 """

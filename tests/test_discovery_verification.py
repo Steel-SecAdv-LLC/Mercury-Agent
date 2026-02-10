@@ -1,6 +1,6 @@
 """
 Mercury Agent ♱
-Copyright (C) 2025 Steel Security Advisory LLC
+Copyright (C) 2025 Steel Security Advisors LLC
 
 Comprehensive Discovery and Innovation Verification Tests.
 Tests the key claims made in NOVELTY_PROOFS.md and DISCOVERIES.md.
