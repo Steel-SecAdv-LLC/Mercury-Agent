@@ -41,7 +41,7 @@ class TestDataQualityChecker:
 
         result = checker.check_missing_values(data)
 
-        assert result.passed is True
+        assert result.passed == True  # noqa: E712 - numpy.bool_ identity check fails
         assert result.score == 1.0
         assert result.details["missing_count"] == 0
 
@@ -91,7 +91,7 @@ class TestDataQualityChecker:
 
         result = checker.check_feature_variance(data)
 
-        assert result.passed is True
+        assert result.passed == True  # noqa: E712 - numpy.bool_ identity check fails
 
     def test_check_feature_variance_low_variance(self):
         """Test feature variance check with low variance features."""
@@ -120,7 +120,7 @@ class TestDataQualityChecker:
 
         result = checker.check_class_balance(labels)
 
-        assert result.passed is True
+        assert result.passed == True  # noqa: E712 - numpy.bool_ identity check fails
         assert result.details["minority_ratio"] == 0.5
 
     def test_check_class_balance_imbalanced(self):
@@ -130,7 +130,7 @@ class TestDataQualityChecker:
 
         result = checker.check_class_balance(labels)
 
-        assert result.passed is False
+        assert result.passed == False  # noqa: E712 - numpy.bool_ identity check fails
         assert result.details["minority_ratio"] == 0.1
 
     def test_check_feature_correlation_1d_data(self):
@@ -168,8 +168,8 @@ class TestDataQualityChecker:
 
         result = checker.check_data_range(data)
 
-        assert result.passed is True
-        assert result.details["needs_scaling"] is False
+        assert result.passed == True  # noqa: E712 - numpy.bool_ identity check fails
+        assert result.details["needs_scaling"] == False  # noqa: E712
 
     def test_check_data_range_needs_scaling(self):
         """Test data range check with data needing scaling."""
@@ -178,8 +178,8 @@ class TestDataQualityChecker:
 
         result = checker.check_data_range(data)
 
-        assert result.passed is False
-        assert result.details["needs_scaling"] is True
+        assert result.passed == False  # noqa: E712 - numpy.bool_ identity check fails
+        assert result.details["needs_scaling"] == True  # noqa: E712
 
     def test_run_all_checks(self):
         """Test running all quality checks."""
@@ -211,7 +211,7 @@ class TestABTester:
             metric_name="F1 Score",
         )
 
-        assert result.statistically_significant is True
+        assert result.statistically_significant == True  # noqa: E712 - numpy.bool_
         assert result.winner == "New Model"
         assert result.improvement > 0
 

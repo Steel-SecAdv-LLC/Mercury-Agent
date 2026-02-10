@@ -258,7 +258,7 @@ class TestDataQualityChecker:
         """Test missing value check on clean data."""
         result = checker.check_missing_values(clean_data)
 
-        assert result.passed is True
+        assert result.passed == True  # noqa: E712 - numpy.bool_ identity check fails
         assert result.score == 1.0
 
     def test_check_missing_values_dirty(self, checker, dirty_data):

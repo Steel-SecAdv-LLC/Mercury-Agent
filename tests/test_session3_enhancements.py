@@ -573,8 +573,8 @@ class TestEthicalConstraints:
         )
 
         # Ethical scalars should not be prunable
-        assert importances["omnibenevolence"].prunable is False
-        assert importances["omnimorality"].prunable is False
+        assert importances["omnibenevolence"].prunable == False  # noqa: E712 - numpy.bool_
+        assert importances["omnimorality"].prunable == False  # noqa: E712 - numpy.bool_
 
 
 if __name__ == "__main__":
