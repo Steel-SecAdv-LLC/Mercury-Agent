@@ -29,13 +29,8 @@ to function without torch installed. Access ML components only when torch is ava
 
 from typing import TYPE_CHECKING, Any
 
-# Check if torch is available
-try:
-    import torch
-
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
+# Centralized availability check (fast, no side-effects)
+from omni_mercury_engine._compat import HAS_TORCH
 
 __all__ = [
     "HAS_PYTORCH_LIGHTNING",

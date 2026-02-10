@@ -80,13 +80,18 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
-import torch
 
+from omni_mercury_engine._compat import HAS_TORCH
 from omni_mercury_engine.resilience.api_circuit_breakers import get_detector_breaker
 from omni_mercury_engine.resilience.circuit_breaker import CircuitState
+
+if TYPE_CHECKING or HAS_TORCH:
+    import torch
+else:
+    torch = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +181,403 @@ class FeatureExtractionResult:
         if isinstance(self.features, torch.Tensor):
             return self.features.to(device)
         return torch.tensor(self.features, dtype=torch.float32, device=device)
+
+
+@dataclass(frozen=True)
+class DetectorManifestEntry:
+    """Declarative entry describing a discoverable detector.
+
+    Each entry maps a detector name to the module/class that provides it,
+    along with registration metadata.  The manifest is iterated by
+    ``auto_discover_detectors`` so new detectors can be added as data rather
+    than code.
+    """
+
+    name: str
+    module_path: str
+    class_name: str
+    category: DetectorCategory
+    description: str
+    feature_dim: int | None = None
+    tags: list[str] = field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Detector Manifest -- single source of truth for auto-discovery
+# ---------------------------------------------------------------------------
+# To register a new detector, add an entry here.  No other code changes are
+# required; ``auto_discover_detectors`` will pick it up automatically.
+# ---------------------------------------------------------------------------
+DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
+    # -- Base detectors -------------------------------------------------------
+    DetectorManifestEntry(
+        "statistical",
+        "omni_mercury_engine.detectors.statistical",
+        "StatisticalAnomalyDetector",
+        DetectorCategory.BASE,
+        "Z-score, percentile, MAD-based detection",
+    ),
+    DetectorManifestEntry(
+        "temporal",
+        "omni_mercury_engine.detectors.temporal",
+        "TemporalAnomalyDetector",
+        DetectorCategory.BASE,
+        "Time-series patterns and seasonal anomalies",
+    ),
+    DetectorManifestEntry(
+        "spatial",
+        "omni_mercury_engine.detectors.spatial",
+        "SpatialAnomalyDetector",
+        DetectorCategory.BASE,
+        "Geographic and spatial relationship anomalies",
+    ),
+    DetectorManifestEntry(
+        "dimensional",
+        "omni_mercury_engine.detectors.dimensional",
+        "DimensionalAnalyzer",
+        DetectorCategory.BASE,
+        "High-dimensional data anomalies",
+    ),
+    DetectorManifestEntry(
+        "directive",
+        "omni_mercury_engine.detectors.directive",
+        "SigmaDirectiveDetector",
+        DetectorCategory.BASE,
+        "Rule-based sigma detection",
+    ),
+    DetectorManifestEntry(
+        "graph_based",
+        "omni_mercury_engine.detectors.graph_based",
+        "GraphAnomalyDetector",
+        DetectorCategory.BASE,
+        "Graph structure anomaly detection",
+    ),
+    # -- Specialized models ---------------------------------------------------
+    DetectorManifestEntry(
+        "quantum",
+        "omni_mercury_engine.models.quantum",
+        "QuantumAnomalyModel",
+        DetectorCategory.MODEL,
+        "Quantum state anomalies",
+    ),
+    DetectorManifestEntry(
+        "astrophysical",
+        "omni_mercury_engine.models.astrophysical",
+        "AstrophysicalAnomalyModel",
+        DetectorCategory.MODEL,
+        "Cosmic signal anomalies",
+    ),
+    DetectorManifestEntry(
+        "biometric",
+        "omni_mercury_engine.models.biometric",
+        "BiometricAnomalyModel",
+        DetectorCategory.MODEL,
+        "Face/biometric anomalies",
+    ),
+    DetectorManifestEntry(
+        "affective",
+        "omni_mercury_engine.models.affective",
+        "AffectiveAnomalyModel",
+        DetectorCategory.MODEL,
+        "Emotional state anomalies",
+    ),
+    DetectorManifestEntry(
+        "neural_cognitive",
+        "omni_mercury_engine.models.neural",
+        "NeuralCognitiveModel",
+        DetectorCategory.MODEL,
+        "Brain activity anomalies",
+    ),
+    DetectorManifestEntry(
+        "consciousness",
+        "omni_mercury_engine.models.consciousness",
+        "ConsciousnessPreservationModel",
+        DetectorCategory.MODEL,
+        "Consciousness preservation analysis",
+    ),
+    DetectorManifestEntry(
+        "neurosymbolic",
+        "omni_mercury_engine.models.neurosymbolic",
+        "NeurosymbolicEngine",
+        DetectorCategory.NEUROSYMBOLIC,
+        "Hybrid neural-symbolic reasoning",
+    ),
+    DetectorManifestEntry(
+        "chemistry",
+        "omni_mercury_engine.models.chemistry",
+        "ChemistryAnomalyDetector",
+        DetectorCategory.MODEL,
+        "Chemical anomaly detection",
+    ),
+    DetectorManifestEntry(
+        "parapsychology",
+        "omni_mercury_engine.models.parapsychology",
+        "ParapsychologyDetector",
+        DetectorCategory.MODEL,
+        "Psi phenomena detection",
+    ),
+    # -- Security detectors ---------------------------------------------------
+    DetectorManifestEntry(
+        "threat_detection",
+        "omni_mercury_engine.security.threat_detection",
+        "ThreatDetector",
+        DetectorCategory.SECURITY,
+        "Security threat detection",
+    ),
+    DetectorManifestEntry(
+        "psyop",
+        "omni_mercury_engine.security.psyop",
+        "PSYOPAnalyzer",
+        DetectorCategory.INTELLIGENCE,
+        "Psychological operations analysis",
+    ),
+    DetectorManifestEntry(
+        "intelligence_fusion",
+        "omni_mercury_engine.security.intelligence_fusion",
+        "IntelligenceFusionEngine",
+        DetectorCategory.INTELLIGENCE,
+        "Multi-source intelligence fusion",
+    ),
+    # -- Space detectors ------------------------------------------------------
+    DetectorManifestEntry(
+        "schumann_resonance",
+        "omni_mercury_engine.space.schumann_resonance",
+        "SchumannResonanceDetector",
+        DetectorCategory.SPACE,
+        "Earth resonance detection",
+    ),
+    DetectorManifestEntry(
+        "solar_storm",
+        "omni_mercury_engine.space.solar_storm_detector",
+        "SolarStormDetector",
+        DetectorCategory.SPACE,
+        "Solar storm prediction",
+    ),
+    # -- Medical detectors ----------------------------------------------------
+    DetectorManifestEntry(
+        "medical_abms",
+        "omni_mercury_engine.medical.abms_disciplines",
+        "ABMSDisciplineDetector",
+        DetectorCategory.MEDICAL,
+        "Medical discipline detection",
+    ),
+    # -- Geological detectors -------------------------------------------------
+    DetectorManifestEntry(
+        "volcanic",
+        "omni_mercury_engine.detectors.geological.volcanic",
+        "VolcanicEruptionDetector",
+        DetectorCategory.GEOLOGICAL,
+        "Volcanic eruption prediction",
+    ),
+    DetectorManifestEntry(
+        "landslide",
+        "omni_mercury_engine.detectors.geological.landslide",
+        "LandslideDetector",
+        DetectorCategory.GEOLOGICAL,
+        "Landslide prediction",
+    ),
+    DetectorManifestEntry(
+        "wildfire",
+        "omni_mercury_engine.detectors.geological.wildfire",
+        "WildfireDetector",
+        DetectorCategory.GEOLOGICAL,
+        "Wildfire prediction",
+    ),
+    DetectorManifestEntry(
+        "tornado",
+        "omni_mercury_engine.detectors.geological.tornado_detector",
+        "TornadoDetector",
+        DetectorCategory.GEOLOGICAL,
+        "Tornado prediction with Doppler radar and FFT resonance analysis",
+        feature_dim=20,
+        tags=["disaster", "weather", "3r-resonance"],
+    ),
+    DetectorManifestEntry(
+        "hurricane",
+        "omni_mercury_engine.detectors.geological.hurricane_detector",
+        "HurricaneDetector",
+        DetectorCategory.GEOLOGICAL,
+        "Hurricane/cyclone/typhoon prediction with SST and resonance amplification",
+        feature_dim=20,
+        tags=["disaster", "weather", "3r-resonance"],
+    ),
+    DetectorManifestEntry(
+        "flood",
+        "omni_mercury_engine.detectors.geological.flood_detector",
+        "FloodDetector",
+        DetectorCategory.GEOLOGICAL,
+        "Flood prediction with refactoring engine optimization",
+        feature_dim=20,
+        tags=["disaster", "weather", "3r-refactoring"],
+    ),
+    # -- Economic detectors ---------------------------------------------------
+    DetectorManifestEntry(
+        "financial_crisis",
+        "omni_mercury_engine.detectors.economic.financial_crisis_detector",
+        "FinancialCrisisDetector",
+        DetectorCategory.ECONOMIC,
+        "Financial crisis prediction",
+    ),
+    # -- Energy detectors -----------------------------------------------------
+    DetectorManifestEntry(
+        "emp",
+        "omni_mercury_engine.detectors.energy.emp_detector",
+        "EMPDetector",
+        DetectorCategory.ENERGY,
+        "Electromagnetic pulse detection",
+    ),
+    # -- Marine detectors -----------------------------------------------------
+    DetectorManifestEntry(
+        "marine_biodiversity",
+        "omni_mercury_engine.detectors.marine.biodiversity_detector",
+        "MarineBiodiversityDetector",
+        DetectorCategory.MARINE,
+        "Marine biodiversity threat detection",
+    ),
+    # -- Safeguards -----------------------------------------------------------
+    DetectorManifestEntry(
+        "nano_safeguard",
+        "omni_mercury_engine.safeguards.nano_safeguards",
+        "NanoSafeguardDetector",
+        DetectorCategory.BASE,
+        "Nano-safeguard micro-anomaly detection with hierarchical scanning",
+        feature_dim=20,
+        tags=["safeguard", "micro-anomaly", "3r-recursion", "lyapunov"],
+    ),
+    # -- SOTA Visual Anomaly Detection ----------------------------------------
+    DetectorManifestEntry(
+        "patchcore",
+        "omni_mercury_engine.detectors.visual",
+        "PatchCoreDetector",
+        DetectorCategory.VISUAL,
+        "Memory bank + coreset subsampling anomaly detection",
+        tags=["visual", "sota", "memory-bank"],
+    ),
+    DetectorManifestEntry(
+        "padim",
+        "omni_mercury_engine.detectors.visual",
+        "PaDiMDetector",
+        DetectorCategory.VISUAL,
+        "Patch-wise Mahalanobis distance anomaly detection",
+        tags=["visual", "sota", "mahalanobis"],
+    ),
+    DetectorManifestEntry(
+        "stfpm",
+        "omni_mercury_engine.detectors.visual",
+        "STFPMDetector",
+        DetectorCategory.VISUAL,
+        "Student-Teacher Feature Pyramid Matching",
+        tags=["visual", "sota", "teacher-student"],
+    ),
+    DetectorManifestEntry(
+        "reverse_distillation",
+        "omni_mercury_engine.detectors.visual",
+        "ReverseDistillationDetector",
+        DetectorCategory.VISUAL,
+        "Reverse knowledge distillation with OCE bottleneck",
+        tags=["visual", "sota", "distillation"],
+    ),
+    DetectorManifestEntry(
+        "cflow",
+        "omni_mercury_engine.detectors.visual",
+        "CFlowDetector",
+        DetectorCategory.VISUAL,
+        "Conditional normalizing flow anomaly detection",
+        tags=["visual", "sota", "normalizing-flow"],
+    ),
+    # -- Vision-Language Model (VLM) Detectors --------------------------------
+    DetectorManifestEntry(
+        "anyanomaly",
+        "omni_mercury_engine.detectors.vlm",
+        "AnyAnomalyDetector",
+        DetectorCategory.VLM,
+        "Zero-shot customizable VAD with LVLM (WACV 2026)",
+        tags=["vlm", "zero-shot", "lvlm", "sota"],
+    ),
+    DetectorManifestEntry(
+        "lavad",
+        "omni_mercury_engine.detectors.vlm",
+        "LAVADDetector",
+        DetectorCategory.VLM,
+        "Training-free LLM-based VAD (CVPR 2024)",
+        tags=["vlm", "training-free", "llm", "sota"],
+    ),
+    # -- Foundation Model Adapters --------------------------------------------
+    DetectorManifestEntry(
+        "timegpt",
+        "omni_mercury_engine.models.foundation",
+        "TimeGPTAdapter",
+        DetectorCategory.FOUNDATION,
+        "Nixtla TimeGPT foundation model adapter",
+        tags=["foundation", "time-series", "api"],
+    ),
+    DetectorManifestEntry(
+        "chronos",
+        "omni_mercury_engine.models.foundation",
+        "ChronosAdapter",
+        DetectorCategory.FOUNDATION,
+        "Amazon Chronos time-series foundation model",
+        tags=["foundation", "time-series", "local"],
+    ),
+    DetectorManifestEntry(
+        "matrix_profile",
+        "omni_mercury_engine.models.foundation",
+        "MatrixProfileAdapter",
+        DetectorCategory.FOUNDATION,
+        "STUMPY Matrix Profile for time-series anomalies",
+        tags=["foundation", "time-series", "matrix-profile"],
+    ),
+    DetectorManifestEntry(
+        "foundation_ensemble",
+        "omni_mercury_engine.models.foundation",
+        "FoundationEnsemble",
+        DetectorCategory.FOUNDATION,
+        "Ensemble of foundation model adapters",
+        tags=["foundation", "ensemble"],
+    ),
+    # -- Knowledge Distillation -----------------------------------------------
+    DetectorManifestEntry(
+        "dual_student",
+        "omni_mercury_engine.ml.distillation",
+        "DualStudentDistillation",
+        DetectorCategory.DISTILLATION,
+        "Dual-student knowledge distillation for AD",
+        tags=["distillation", "sota", "dual-student"],
+    ),
+    # -- Advanced Physics-Inspired Detectors (v1.4.0) -------------------------
+    DetectorManifestEntry(
+        "spectral_vibration",
+        "omni_mercury_engine.detectors.spectral_vibration",
+        "SpectralVibrationDetector",
+        DetectorCategory.PHYSICS,
+        "GNN/CNN spectral analysis with phonon interactions",
+        tags=["physics", "spectral", "vibration", "maintenance"],
+    ),
+    DetectorManifestEntry(
+        "acceleration_dynamics",
+        "omni_mercury_engine.detectors.acceleration_dynamics",
+        "AccelerationDynamicsDetector",
+        DetectorCategory.PHYSICS,
+        "Kinematic analysis with Lyapunov stability and phase space",
+        tags=["physics", "kinematics", "chaos", "energy"],
+    ),
+    DetectorManifestEntry(
+        "uiux_anomaly",
+        "omni_mercury_engine.detectors.uiux_anomaly",
+        "UIUXAnomalyDetector",
+        DetectorCategory.UIUX,
+        "User interaction and behavior anomaly detection",
+        tags=["uiux", "behavior", "engagement", "bot-detection"],
+    ),
+    DetectorManifestEntry(
+        "physics_integrated",
+        "omni_mercury_engine.detectors.advanced_physics_integration",
+        "AdvancedPhysicsIntegratedDetector",
+        DetectorCategory.PHYSICS,
+        "Unified physics detector with 3R and GOSNN integration",
+        tags=["physics", "integrated", "3r", "gosnn", "fusion"],
+    ),
+]
 
 
 class DetectorRegistry:
@@ -681,684 +1083,34 @@ class DetectorRegistry:
     def auto_discover_detectors(self) -> int:
         """Auto-discover and register available detectors.
 
+        Iterates over DETECTOR_MANIFEST entries, dynamically importing each
+        detector class and registering it. Missing optional dependencies are
+        logged at debug level and skipped gracefully.
+
         Returns:
             Number of detectors registered
         """
         registered_count = 0
 
-        # Base detectors
-        try:
-            from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
-
-            self.register(
-                "statistical",
-                StatisticalAnomalyDetector(),
-                DetectorCategory.BASE,
-                description="Z-score, percentile, MAD-based detection",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'statistical' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
-
-            self.register(
-                "temporal",
-                TemporalAnomalyDetector(),
-                DetectorCategory.BASE,
-                description="Time-series patterns and seasonal anomalies",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'temporal' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
-
-            self.register(
-                "spatial",
-                SpatialAnomalyDetector(),
-                DetectorCategory.BASE,
-                description="Geographic and spatial relationship anomalies",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'spatial' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
-
-            self.register(
-                "dimensional",
-                DimensionalAnalyzer(),
-                DetectorCategory.BASE,
-                description="High-dimensional data anomalies",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'dimensional' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
-
-            self.register(
-                "directive",
-                SigmaDirectiveDetector(),
-                DetectorCategory.BASE,
-                description="Rule-based sigma detection",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'directive' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.graph_based import GraphAnomalyDetector
-
-            self.register(
-                "graph_based",
-                GraphAnomalyDetector(),
-                DetectorCategory.BASE,
-                description="Graph structure anomaly detection",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'graph_based' not available: %s", e)
-
-        # Specialized models
-        try:
-            from omni_mercury_engine.models.quantum import QuantumAnomalyModel
-
-            self.register(
-                "quantum",
-                QuantumAnomalyModel(),
-                DetectorCategory.MODEL,
-                description="Quantum state anomalies",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'quantum' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.models.astrophysical import AstrophysicalAnomalyModel
-
-            self.register(
-                "astrophysical",
-                AstrophysicalAnomalyModel(),
-                DetectorCategory.MODEL,
-                description="Cosmic signal anomalies",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'astrophysical' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.models.biometric import BiometricAnomalyModel
-
-            self.register(
-                "biometric",
-                BiometricAnomalyModel(),
-                DetectorCategory.MODEL,
-                description="Face/biometric anomalies",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'biometric' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.models.affective import AffectiveAnomalyModel
-
-            self.register(
-                "affective",
-                AffectiveAnomalyModel(),
-                DetectorCategory.MODEL,
-                description="Emotional state anomalies",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'affective' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.models.neural import NeuralCognitiveModel
-
-            self.register(
-                "neural_cognitive",
-                NeuralCognitiveModel(),
-                DetectorCategory.MODEL,
-                description="Brain activity anomalies",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'neural_cognitive' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.models.consciousness import ConsciousnessPreservationModel
-
-            self.register(
-                "consciousness",
-                ConsciousnessPreservationModel(),
-                DetectorCategory.MODEL,
-                description="Consciousness preservation analysis",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'consciousness' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.models.neurosymbolic import NeurosymbolicEngine
-
-            self.register(
-                "neurosymbolic",
-                NeurosymbolicEngine(),
-                DetectorCategory.NEUROSYMBOLIC,
-                description="Hybrid neural-symbolic reasoning",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'neurosymbolic' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.models.chemistry import ChemistryAnomalyDetector
-
-            self.register(
-                "chemistry",
-                ChemistryAnomalyDetector(),
-                DetectorCategory.MODEL,
-                description="Chemical anomaly detection",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'chemistry' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.models.parapsychology import ParapsychologyDetector
-
-            self.register(
-                "parapsychology",
-                ParapsychologyDetector(),
-                DetectorCategory.MODEL,
-                description="Psi phenomena detection",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'parapsychology' not available: %s", e)
-
-        # Security detectors
-        try:
-            from omni_mercury_engine.security.threat_detection import ThreatDetector
-
-            self.register(
-                "threat_detection",
-                ThreatDetector(),
-                DetectorCategory.SECURITY,
-                description="Security threat detection",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'threat_detection' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.security.psyop import PSYOPAnalyzer
-
-            self.register(
-                "psyop",
-                PSYOPAnalyzer(),
-                DetectorCategory.INTELLIGENCE,
-                description="Psychological operations analysis",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'psyop' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.security.intelligence_fusion import IntelligenceFusionEngine
-
-            self.register(
-                "intelligence_fusion",
-                IntelligenceFusionEngine(),
-                DetectorCategory.INTELLIGENCE,
-                description="Multi-source intelligence fusion",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'intelligence_fusion' not available: %s", e)
-
-        # Space detectors
-        try:
-            from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
-
-            self.register(
-                "schumann_resonance",
-                SchumannResonanceDetector(),
-                DetectorCategory.SPACE,
-                description="Earth resonance detection",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'schumann_resonance' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.space.solar_storm_detector import SolarStormDetector
-
-            self.register(
-                "solar_storm",
-                SolarStormDetector(),
-                DetectorCategory.SPACE,
-                description="Solar storm prediction",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'solar_storm' not available: %s", e)
-
-        # Medical detectors
-        try:
-            from omni_mercury_engine.medical.abms_disciplines import ABMSDisciplineDetector
-
-            self.register(
-                "medical_abms",
-                ABMSDisciplineDetector(),
-                DetectorCategory.MEDICAL,
-                description="Medical discipline detection",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'medical_abms' not available: %s", e)
-
-        # Geological detectors
-        try:
-            from omni_mercury_engine.detectors.geological.volcanic import VolcanicEruptionDetector
-
-            self.register(
-                "volcanic",
-                VolcanicEruptionDetector(),
-                DetectorCategory.GEOLOGICAL,
-                description="Volcanic eruption prediction",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'volcanic' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.geological.landslide import LandslideDetector
-
-            self.register(
-                "landslide",
-                LandslideDetector(),
-                DetectorCategory.GEOLOGICAL,
-                description="Landslide prediction",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'landslide' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.geological.wildfire import WildfireDetector
-
-            self.register(
-                "wildfire",
-                WildfireDetector(),
-                DetectorCategory.GEOLOGICAL,
-                description="Wildfire prediction",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'wildfire' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.geological.tornado_detector import TornadoDetector
-
-            self.register(
-                "tornado",
-                TornadoDetector(),
-                DetectorCategory.GEOLOGICAL,
-                feature_dim=20,
-                description="Tornado prediction with Doppler radar and FFT resonance analysis",
-                tags=["disaster", "weather", "3r-resonance"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'tornado' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.geological.hurricane_detector import (
-                HurricaneDetector,
-            )
-
-            self.register(
-                "hurricane",
-                HurricaneDetector(),
-                DetectorCategory.GEOLOGICAL,
-                feature_dim=20,
-                description="Hurricane/cyclone/typhoon prediction with SST and resonance amplification",
-                tags=["disaster", "weather", "3r-resonance"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'hurricane' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.geological.flood_detector import FloodDetector
-
-            self.register(
-                "flood",
-                FloodDetector(),
-                DetectorCategory.GEOLOGICAL,
-                feature_dim=20,
-                description="Flood prediction with refactoring engine optimization",
-                tags=["disaster", "weather", "3r-refactoring"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'flood' not available: %s", e)
-
-        # Economic detectors
-        try:
-            from omni_mercury_engine.detectors.economic.financial_crisis_detector import (
-                FinancialCrisisDetector,
-            )
-
-            self.register(
-                "financial_crisis",
-                FinancialCrisisDetector(),
-                DetectorCategory.ECONOMIC,
-                description="Financial crisis prediction",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'financial_crisis' not available: %s", e)
-
-        # Energy detectors
-        try:
-            from omni_mercury_engine.detectors.energy.emp_detector import EMPDetector
-
-            self.register(
-                "emp",
-                EMPDetector(),
-                DetectorCategory.ENERGY,
-                description="Electromagnetic pulse detection",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'emp' not available: %s", e)
-
-        # Marine detectors
-        try:
-            from omni_mercury_engine.detectors.marine.biodiversity_detector import (
-                MarineBiodiversityDetector,
-            )
-
-            self.register(
-                "marine_biodiversity",
-                MarineBiodiversityDetector(),
-                DetectorCategory.MARINE,
-                description="Marine biodiversity threat detection",
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'marine_biodiversity' not available: %s", e)
-
-        # =====================================================================
-        # Safeguards (Nano-level anomaly detection)
-        # =====================================================================
-        try:
-            from omni_mercury_engine.safeguards.nano_safeguards import NanoSafeguardDetector
-
-            self.register(
-                "nano_safeguard",
-                NanoSafeguardDetector(),
-                DetectorCategory.BASE,
-                feature_dim=20,
-                description="Nano-safeguard micro-anomaly detection with hierarchical scanning",
-                tags=["safeguard", "micro-anomaly", "3r-recursion", "lyapunov"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'nano_safeguard' not available: %s", e)
-
-        # =====================================================================
-        # SOTA Visual Anomaly Detection (PatchCore, PaDiM, STFPM, etc.)
-        # =====================================================================
-        try:
-            from omni_mercury_engine.detectors.visual import PatchCoreDetector
-
-            self.register(
-                "patchcore",
-                PatchCoreDetector(),
-                DetectorCategory.VISUAL,
-                description="Memory bank + coreset subsampling anomaly detection",
-                tags=["visual", "sota", "memory-bank"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'patchcore' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.visual import PaDiMDetector
-
-            self.register(
-                "padim",
-                PaDiMDetector(),
-                DetectorCategory.VISUAL,
-                description="Patch-wise Mahalanobis distance anomaly detection",
-                tags=["visual", "sota", "mahalanobis"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'padim' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.visual import STFPMDetector
-
-            self.register(
-                "stfpm",
-                STFPMDetector(),
-                DetectorCategory.VISUAL,
-                description="Student-Teacher Feature Pyramid Matching",
-                tags=["visual", "sota", "teacher-student"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'stfpm' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.visual import ReverseDistillationDetector
-
-            self.register(
-                "reverse_distillation",
-                ReverseDistillationDetector(),
-                DetectorCategory.VISUAL,
-                description="Reverse knowledge distillation with OCE bottleneck",
-                tags=["visual", "sota", "distillation"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'reverse_distillation' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.visual import CFlowDetector
-
-            self.register(
-                "cflow",
-                CFlowDetector(),
-                DetectorCategory.VISUAL,
-                description="Conditional normalizing flow anomaly detection",
-                tags=["visual", "sota", "normalizing-flow"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'cflow' not available: %s", e)
-
-        # =====================================================================
-        # Vision-Language Model (VLM) Detectors
-        # =====================================================================
-        try:
-            from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
-
-            self.register(
-                "anyanomaly",
-                AnyAnomalyDetector(),
-                DetectorCategory.VLM,
-                description="Zero-shot customizable VAD with LVLM (WACV 2026)",
-                tags=["vlm", "zero-shot", "lvlm", "sota"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'anyanomaly' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.vlm import LAVADDetector
-
-            self.register(
-                "lavad",
-                LAVADDetector(),
-                DetectorCategory.VLM,
-                description="Training-free LLM-based VAD (CVPR 2024)",
-                tags=["vlm", "training-free", "llm", "sota"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'lavad' not available: %s", e)
-
-        # =====================================================================
-        # Foundation Model Adapters (TimeGPT, Chronos, Matrix Profile)
-        # =====================================================================
-        try:
-            from omni_mercury_engine.models.foundation import TimeGPTAdapter
-
-            self.register(
-                "timegpt",
-                TimeGPTAdapter(),
-                DetectorCategory.FOUNDATION,
-                description="Nixtla TimeGPT foundation model adapter",
-                tags=["foundation", "time-series", "api"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'timegpt' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.models.foundation import ChronosAdapter
-
-            self.register(
-                "chronos",
-                ChronosAdapter(),
-                DetectorCategory.FOUNDATION,
-                description="Amazon Chronos time-series foundation model",
-                tags=["foundation", "time-series", "local"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'chronos' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.models.foundation import MatrixProfileAdapter
-
-            self.register(
-                "matrix_profile",
-                MatrixProfileAdapter(),
-                DetectorCategory.FOUNDATION,
-                description="STUMPY Matrix Profile for time-series anomalies",
-                tags=["foundation", "time-series", "matrix-profile"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'matrix_profile' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.models.foundation import FoundationEnsemble
-
-            self.register(
-                "foundation_ensemble",
-                FoundationEnsemble(),
-                DetectorCategory.FOUNDATION,
-                description="Ensemble of foundation model adapters",
-                tags=["foundation", "ensemble"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'foundation_ensemble' not available: %s", e)
-
-        # =====================================================================
-        # Knowledge Distillation Methods
-        # =====================================================================
-        try:
-            from omni_mercury_engine.ml.distillation import DualStudentDistillation
-
-            self.register(
-                "dual_student",
-                DualStudentDistillation(),
-                DetectorCategory.DISTILLATION,
-                description="Dual-student knowledge distillation for AD",
-                tags=["distillation", "sota", "dual-student"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'dual_student' not available: %s", e)
-
-        # =====================================================================
-        # Advanced Physics-Inspired Detectors (v1.4.0)
-        # =====================================================================
-        try:
-            from omni_mercury_engine.detectors.spectral_vibration import SpectralVibrationDetector
-
-            self.register(
-                "spectral_vibration",
-                SpectralVibrationDetector(),
-                DetectorCategory.PHYSICS,
-                description="GNN/CNN spectral analysis with phonon interactions",
-                tags=["physics", "spectral", "vibration", "maintenance"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'spectral_vibration' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.acceleration_dynamics import (
-                AccelerationDynamicsDetector,
-            )
-
-            self.register(
-                "acceleration_dynamics",
-                AccelerationDynamicsDetector(),
-                DetectorCategory.PHYSICS,
-                description="Kinematic analysis with Lyapunov stability and phase space",
-                tags=["physics", "kinematics", "chaos", "energy"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'acceleration_dynamics' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.uiux_anomaly import UIUXAnomalyDetector
-
-            self.register(
-                "uiux_anomaly",
-                UIUXAnomalyDetector(),
-                DetectorCategory.UIUX,
-                description="User interaction and behavior anomaly detection",
-                tags=["uiux", "behavior", "engagement", "bot-detection"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'uiux_anomaly' not available: %s", e)
-
-        try:
-            from omni_mercury_engine.detectors.advanced_physics_integration import (
-                AdvancedPhysicsIntegratedDetector,
-            )
-
-            self.register(
-                "physics_integrated",
-                AdvancedPhysicsIntegratedDetector(),
-                DetectorCategory.PHYSICS,
-                description="Unified physics detector with 3R and GOSNN integration",
-                tags=["physics", "integrated", "3r", "gosnn", "fusion"],
-            )
-            registered_count += 1
-        except ImportError as e:
-            logger.debug("Optional detector 'physics_integrated' not available: %s", e)
-
-        logger.info(f"Auto-discovered and registered {registered_count} detectors")
+        for entry in DETECTOR_MANIFEST:
+            try:
+                module = __import__(entry.module_path, fromlist=[entry.class_name])
+                cls = getattr(module, entry.class_name)
+                self.register(
+                    entry.name,
+                    cls(),
+                    entry.category,
+                    feature_dim=entry.feature_dim,
+                    description=entry.description,
+                    tags=entry.tags or [],
+                )
+                registered_count += 1
+            except ImportError as e:
+                logger.debug("Optional detector '%s' not available: %s", entry.name, e)
+            except Exception as e:
+                logger.warning("Failed to load detector '%s': %s", entry.name, e)
+
+        logger.info("Auto-discovered and registered %d detectors", registered_count)
         return registered_count
 
     def aggregate_enhanced_geological_features(

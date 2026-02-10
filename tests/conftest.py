@@ -29,15 +29,12 @@ to ensure consistent test results across runs.
 import numpy as np
 import pytest
 
+# Centralized availability check -- avoids importing torch at probe time
+from omni_mercury_engine._compat import HAS_TORCH
 from omni_mercury_engine.utils.rng import DeterministicRNG, set_global_seed
 
-# Optional torch import for ML tests
-try:
+if HAS_TORCH:
     import torch
-
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
 
 # Default seed for reproducibility
 DEFAULT_TEST_SEED = 42

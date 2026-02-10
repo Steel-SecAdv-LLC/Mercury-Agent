@@ -28,9 +28,13 @@ on:
 env:
   PYTHON_VERSION: "3.12"
   PIP_CACHE_DIR: ~/.cache/pip
-  # Core tests run a subset of the suite; threshold must be achievable by partial runs.
-  # Full-suite goal (85%) is in pyproject.toml [tool.coverage.report].
-  COVERAGE_THRESHOLD: 10
+  # Core tests cover test_cli.py + tests/core/ against the full source tree.
+  # 40% is the minimum bar for the core subset to prevent coverage regression.
+  COVERAGE_THRESHOLD_CORE: 40
+  # Full suite (ML tests) covers all tests/ against the full source tree.
+  # 60% is the shipping bar; pyproject.toml fail_under stays at 85 as the
+  # aspirational target enforced in local/nightly runs.
+  COVERAGE_THRESHOLD_FULL: 60
 
 jobs:
   # ===========================================================================
@@ -116,7 +120,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          # [ml] needed for torch type stubs used by mypy
+          pip install -e ".[ml]"
           pip install mypy types-requests
 
       - name: Run MyPy
@@ -239,7 +244,10 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          # [ml] provides torch/sklearn (moved out of core deps to keep
+          # `pip install mercury-agent` lightweight).  Core tests exercise
+          # engine, fusion, and detector code that needs the ML stack.
+          pip install -e ".[ml,dev]"
           pip install pytest pytest-cov pytest-asyncio fastapi httpx sympy
 
       - name: Run core tests with coverage
@@ -251,7 +259,7 @@ jobs:
             --cov=src/omni_mercury_engine \
             --cov-report=xml \
             --cov-report=term-missing \
-            --cov-fail-under=${{ env.COVERAGE_THRESHOLD }}
+            --cov-fail-under=${{ env.COVERAGE_THRESHOLD_CORE }}
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -319,7 +327,7 @@ jobs:
             --cov=src/omni_mercury_engine \
             --cov-report=xml \
             --cov-report=term-missing \
-            --cov-fail-under=${{ env.COVERAGE_THRESHOLD }} \
+            --cov-fail-under=${{ env.COVERAGE_THRESHOLD_FULL }} \
             --dist=loadgroup
 
       - name: Upload coverage
@@ -362,9 +370,11 @@ jobs:
           pip install pytest pytest-asyncio httpx fastapi uvicorn
 
       - name: Run integration tests
-        # Integration tests may require external services or specific setup
-        # Failures here are informational - core tests are the blocking gate
-        continue-on-error: true
+        # Integration tests are a blocking gate.  For an anomaly detection
+        # system that talks to external data sources (NASA, NOAA, DART buoys,
+        # financial feeds), integration testing is where production breaks
+        # surface.  Tests that depend on live external services should use
+        # the @pytest.mark.integration marker and mock external calls.
         run: |
           pytest tests/integration/ -v --timeout=60
 
@@ -601,22 +611,24 @@ jobs:
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
-    needs: [code-quality, type-checking, core-tests, security-scan]
+    needs: [code-quality, type-checking, core-tests, security-scan, integration-tests]
     if: always()
 
     steps:
       - name: Check all jobs
         run: |
-          # Check all blocking jobs
+          # Check all blocking jobs (integration-tests now included)
           if [[ "${{ needs.code-quality.result }}" == "failure" ]] || \
              [[ "${{ needs.type-checking.result }}" == "failure" ]] || \
              [[ "${{ needs.core-tests.result }}" == "failure" ]] || \
-             [[ "${{ needs.security-scan.result }}" == "failure" ]]; then
+             [[ "${{ needs.security-scan.result }}" == "failure" ]] || \
+             [[ "${{ needs.integration-tests.result }}" == "failure" ]]; then
             echo "❌ CI Pipeline Failed"
             echo "  code-quality: ${{ needs.code-quality.result }}"
             echo "  type-checking: ${{ needs.type-checking.result }}"
             echo "  core-tests: ${{ needs.core-tests.result }}"
             echo "  security-scan: ${{ needs.security-scan.result }}"
+            echo "  integration-tests: ${{ needs.integration-tests.result }}"
             exit 1
           fi
           echo "✅ CI Pipeline Passed"
@@ -624,3 +636,4 @@ jobs:
           echo "  type-checking: ${{ needs.type-checking.result }}"
           echo "  core-tests: ${{ needs.core-tests.result }}"
           echo "  security-scan: ${{ needs.security-scan.result }}"
+          echo "  integration-tests: ${{ needs.integration-tests.result }}"

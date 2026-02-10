@@ -28,14 +28,14 @@ from typing import Any, Union
 
 import numpy as np
 
-# Make torch optional to support environments without ML dependencies
-try:
-    import torch
+# Centralized availability check (fast, no side-effects)
+from omni_mercury_engine._compat import HAS_TORCH as TORCH_AVAILABLE
 
-    TORCH_AVAILABLE = True
-except ImportError:
+# Lazy torch import -- only resolved when TORCH_AVAILABLE is True
+if TORCH_AVAILABLE:
+    import torch
+else:
     torch = None  # type: ignore[assignment,unused-ignore]
-    TORCH_AVAILABLE = False
 
 from omni_mercury_engine.utils.comm import AsyncMessageQueue, Message, MessagePriority, SimplePubSub
 from omni_mercury_engine.utils.constants import (
