@@ -33,7 +33,7 @@ COPY pyproject.toml /app/
 COPY src/ /app/src/
 
 # Install the package with all dependencies
-RUN pip install --no-cache-dir .[full]
+RUN pip install --no-cache-dir ".[all]"
 
 # Copy remaining application files
 COPY . /app

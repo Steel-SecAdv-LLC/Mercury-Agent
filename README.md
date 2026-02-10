@@ -14,7 +14,7 @@
 [![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
-[![Tests](https://img.shields.io/badge/tests-4863%2B-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-5114%2B-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-85%25%2B-brightgreen.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-orange.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
@@ -70,7 +70,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-02-03
+> **Last Updated:** 2026-02-09
 
 ---
 
@@ -110,7 +110,7 @@ The following benchmarks were generated from a 200-epoch training run with the f
 | **Benevolence Score** | 0.99+ | Ethical alignment metric (target threshold) |
 | **Neural Contribution** | 47.0% | Neural network pattern detection |
 | **Symbolic Contribution** | 53.0% | Symbolic reasoning inference |
-| **Test Coverage** | 85%+ | Comprehensive test suite (4,863+ tests) |
+| **Test Coverage** | 85%+ | Comprehensive test suite (5,114+ tests) |
 | **Statistical Significance** | p < 0.0001 | Cohen's d = 0.952 (large effect size) |
 
 ### Empirical Benchmark Results (AdaptiveAnomalyDetector)
@@ -169,7 +169,7 @@ Consolidated dashboard showing benevolence score evolution, 180 ethical scalars 
 
 #### Live Data Benchmark Summary
 
-Module coverage and codebase statistics: 30+ dataset categories, test coverage by module (85%+), codebase stats (360 modules, 153,953 LOC), 5 new v1.4.0 modules (4,921 LOC), dataset benchmark results, distributed processing scalability, version evolution, code quality metrics, and CI/CD pipeline status:
+Module coverage and codebase statistics: 30+ dataset categories, test coverage by module (85%+), codebase stats (415 modules, 246,539 LOC), 5 new v1.4.0 modules (4,921 LOC), dataset benchmark results, distributed processing scalability, version evolution, code quality metrics, and CI/CD pipeline status:
 
 ![Benchmark Summary Live Data](docs/images/benchmark_summary_live_data.png)
 
@@ -465,7 +465,7 @@ Modern anomaly detection faces three critical challenges:
 Mercury Agent ♱ addresses all three challenges through:
 
 - **Unified Framework**: 18+ detection engines under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
-- **Ethical Governance**: Fairlearn bias detection with demographic parity, equalized odds, and 80% rule enforcement; 150+ ethical scalars with Lyapunov stability
+- **Ethical Governance**: Fairlearn bias detection with demographic parity, equalized odds, and 80% rule enforcement; 180+ ethical scalars with Lyapunov stability
 - **Production Security**: OWASP-compliant input validation, post-quantum cryptography support (Kyber768, Dilithium3), JWT authentication, rate limiting
 
 ### Target Use Cases
@@ -490,14 +490,14 @@ See [Use Cases by Sector](#use-cases-by-sector) for detailed scenarios.
 |-------|------------|------------|
 | 1. Core Infrastructure | Security foundation | Kyber768/Dilithium3 PQC, JWT auth, OWASP validation |
 | 2. ML/AI Pipeline | Detection intelligence | 18+ engines, hybrid fusion, multi-head attention |
-| 3. Ethical Governance | Fairness assurance | Fairlearn bias audit, 150+ ethical scalars, Lyapunov stability |
+| 3. Ethical Governance | Fairness assurance | Fairlearn bias audit, 180+ ethical scalars, Lyapunov stability |
 
 ### Ethical AI Governance
 
 The signature innovation providing transparent, auditable AI decision-making:
 
 - **Fairlearn Integration**: Demographic parity, equalized odds, 80% rule enforcement
-- **150+ Ethical Scalars**: Omnibenevolent constraints across all operations
+- **180+ Ethical Scalars**: Omnibenevolent constraints across all operations
 - **Lyapunov Stability**: Mathematical guarantees on system convergence
 - **Civilization-First Philosophy**: Humanitarian impact prioritized in all design decisions
 
@@ -520,10 +520,10 @@ Optimized for both accuracy and interpretability:
 | Multi-Domain Coverage | 22+ detection engines across 5 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | 4,863+ tests in 205 files, property-based testing, security scanning |
+| Comprehensive Testing | 5,114+ tests in 212 files, property-based testing, security scanning |
 | Cross-Platform | Linux, macOS, Windows, Docker, Kubernetes, 10+ external platforms |
 | Mathematical Rigor | Lyapunov stability, sigma_quadratic constraints |
-| Codebase Scale | 360 Python modules, 153,953+ lines of code |
+| Codebase Scale | 415 Python modules, 246,539+ lines of code |
 
 </details>
 
@@ -933,7 +933,7 @@ bandit -r src/ -f txt
 ### Test Coverage
 
 The test suite includes:
-- **4,863+ tests** across 205 test files
+- **5,114+ tests** across 212 test files
 - **Property-based testing** with Hypothesis for edge case discovery
 - **Security scanning** with Bandit integrated in CI/CD
 - **Coverage tracking**: 85%+ across core modules
@@ -995,7 +995,7 @@ See [SECURITY.md](SECURITY.md) for complete security analysis.
 |------|----------|
 | black | PEP 8 formatting |
 | isort | Import sorting |
-| flake8 | Linting (max-line-length=88) |
+| flake8 | Linting (max-line-length=100) |
 | mypy | Static type checking |
 | ruff | Fast Python linting |
 | bandit | Security-focused static analysis |
@@ -1035,9 +1035,9 @@ mypy src/
 | Document | Description |
 |----------|-------------|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Detailed system architecture |
-| [docs/PROTECTION_OVERVIEW.md](docs/PROTECTION_OVERVIEW.md) | Security protection overview |
-| [docs/OMNI_CODES.md](docs/OMNI_CODES.md) | Omni-Codes reference documentation |
 | [docs/ROUTING_GUIDE.md](docs/ROUTING_GUIDE.md) | Request routing and fallback chains |
+| [docs/BENCHMARKS.md](docs/BENCHMARKS.md) | Benchmark methodology and results |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Feature roadmap and planned work |
 
 </details>
 
@@ -1048,8 +1048,7 @@ mypy src/
 |----------|-------------|
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
-| [docs/runbooks/](docs/runbooks/) | Operational runbooks |
-| [docs/operations/](docs/operations/) | Backup, disaster recovery |
+| [DEPRECATION.md](DEPRECATION.md) | Deprecation notices |
 
 </details>
 
@@ -1085,7 +1084,7 @@ python -m build
 pip install -e ".[dev]"
 
 # Create distribution
-python setup.py sdist bdist_wheel
+python -m build
 ```
 
 **Environment Variables**:
@@ -1099,15 +1098,16 @@ python setup.py sdist bdist_wheel
 <summary><strong>Docker</strong></summary>
 
 ```bash
-# Multi-stage build with security scanning
-docker build --target production -t mercury-agent:latest .
-docker build --target security-scanner -t mercury-agent:scan .
+# Build runtime image (default target)
+docker build -t mercury-agent:latest .
+
+# Build only the builder stage (for CI caching)
+docker build --target builder -t mercury-agent:builder .
 ```
 
-**Docker Images**:
-- `production`: Minimal runtime image
-- `development`: Full development environment
-- `security-scanner`: Security scanning tools
+**Docker Stages**:
+- `builder`: Build environment with compilation dependencies
+- `runtime` (default): Minimal, security-hardened runtime image
 
 </details>
 
@@ -1116,7 +1116,7 @@ docker build --target security-scanner -t mercury-agent:scan .
 
 - **Helm Charts**: `helm/mercury-agent/`
 - **Base Manifests**: `k8s/base/`
-- **Environment Overlays**: `k8s/overlays/{development,staging,production}/`
+- **Environment Overlays**: `k8s/overlays/{development,staging,production,distributed}/`
 
 ```bash
 # Deploy to Kubernetes
@@ -1229,7 +1229,7 @@ Mercury Agent ♱ pioneers the integration of ethical principles directly into M
 | Equalized Odds | Equal TPR/FPR across groups | Difference <= 0.1 |
 | 80% Rule | Adverse impact ratio | Ratio >= 0.8 |
 
-**150+ Ethical Scalars** govern system behavior:
+**180+ Ethical Scalars** govern system behavior:
 - Compassion, empathy, care constraints
 - Evidence, truth, verification requirements
 - Justice, fairness, accountability bounds
@@ -1717,7 +1717,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **Standards-based design:** Built on OWASP security guidelines, NIST PQC standards, Fairlearn fairness metrics
 - **Quantified claims:** All performance metrics are measured and documented with methodology
-- **Comprehensive testing:** 1,880+ tests with property-based testing and security scanning
+- **Comprehensive testing:** 5,114+ tests with property-based testing and security scanning
 - **Transparent limitations:** Documentation explicitly distinguishes validated vs. pending claims
 - **Ethical governance:** Fairlearn bias auditing integrated throughout the ML pipeline
 - **Academic grounding:** Medical modules reference JAMA guidelines, security follows OWASP
@@ -1760,6 +1760,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 </div>
 
-*Last updated: 2026-02-03*
+*Last updated: 2026-02-09*
 
 </div>

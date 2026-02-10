@@ -23,3 +23,10 @@ Marine & Oceanography Anomaly Detectors
 
 Comprehensive marine ecosystem and ocean monitoring.
 """
+
+__all__ = [
+    "MarineBiodiversityDetector",
+    "CoralBleachingDetector",
+    "EcosystemHealth",
+    "BiodiversityPredictionResult",
+]

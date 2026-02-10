@@ -11,7 +11,7 @@ We provide security updates for the following versions:
 | Version | Supported          |
 | ------- | ------------------ |
 | 1.4.x   | :white_check_mark: |
-| 1.1.x   | :white_check_mark: |
+| 1.2.x   | :white_check_mark: |
 | 1.0.x   | :white_check_mark: |
 | < 1.0   | :x:                |
 
@@ -63,7 +63,7 @@ Mercury Agent ♱ implements multiple layers of security:
 ### Cryptographic Security
 
 - **Post-Quantum Cryptography**: PQC backends for future-proof encryption
-- **Secure Hash Functions**: SHA-256+ for integrity verification
+- **Secure Hash Functions**: SHA3-256 for integrity verification
 - **Key Management**: Secure key generation and storage patterns
 
 ### Post-Quantum Cryptography (PQC) Backend Audit Status

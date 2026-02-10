@@ -23,3 +23,9 @@ GUI Module for Mercury Agent ♱
 
 Streamlit-based graphical user interfaces for accessibility.
 """
+
+__all__ = [
+    "AnomalyVisualizer",
+    "DashboardBuilder",
+    "create_quick_dashboard",
+]
