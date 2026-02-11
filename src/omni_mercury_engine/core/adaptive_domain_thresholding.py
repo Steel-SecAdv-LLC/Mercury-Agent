@@ -764,7 +764,7 @@ class AdaptiveDomainThresholdManager:
 
         if abs(mean_shift) > 1.0:
             # Significant mean shift - adjust threshold proportionally
-            adjustment += mean_shift * historical_std * self.config.history_weight  # type: ignore[assignment]
+            adjustment += float(mean_shift * historical_std) * self.config.history_weight
 
         if std_ratio > 1.5 or std_ratio < 0.67:
             # Significant variance change - be more conservative
@@ -798,9 +798,9 @@ class AdaptiveDomainThresholdManager:
         # History consistency
         if len(self._threshold_history) > 2:
             threshold_std = np.std(self._threshold_history[-5:])
-            history_factor = 1.0 / (1.0 + threshold_std * 10)
+            history_factor = float(1.0 / (1.0 + threshold_std * 10))
         else:
-            history_factor = 0.5  # type: ignore[assignment]
+            history_factor = 0.5
 
         confidence = 0.4 * sample_factor + 0.3 * spread_factor + 0.3 * history_factor
         return float(np.clip(confidence, 0.0, 1.0))

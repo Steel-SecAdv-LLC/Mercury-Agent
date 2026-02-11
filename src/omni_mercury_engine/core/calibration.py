@@ -742,4 +742,4 @@ def _compute_statistical_scores_for_calibration(X: np.ndarray) -> np.ndarray:
     # Weighted ensemble
     scores = 0.4 * z_anomaly + 0.35 * density_anomaly + 0.25 * pct_anomaly
 
-    return np.clip(scores, 0.0, 1.0)  # type: ignore[no-any-return]
+    return np.asarray(np.clip(scores, 0.0, 1.0))

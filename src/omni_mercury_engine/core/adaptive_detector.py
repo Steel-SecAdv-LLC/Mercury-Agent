@@ -791,8 +791,8 @@ class AdaptiveAnomalyDetector:
 
         for _ in range(n_projections):
             # Random 1D projection
-            w = rng.standard_normal(X.shape[1])
-            w = w / np.linalg.norm(w)  # type: ignore[assignment]
+            w: np.ndarray = np.asarray(rng.standard_normal(X.shape[1]))
+            w = w / float(np.linalg.norm(w))
             projected = X @ w
 
             # Outlier score in 1D

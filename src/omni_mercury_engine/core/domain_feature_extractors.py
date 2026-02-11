@@ -845,10 +845,10 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
 
             # Acceleration (change in velocity)
             if len(rolling_sum) > 1:
-                acceleration = np.mean(np.diff(rolling_sum))
+                acceleration = float(np.mean(np.diff(rolling_sum)))
             else:
-                acceleration = 0.0  # type: ignore[assignment]
-            features.append(acceleration)  # type: ignore[arg-type]
+                acceleration = 0.0
+            features.append(acceleration)
             names.append(f"velocity_{window}_acceleration")
 
             # Velocity volatility
@@ -1429,9 +1429,9 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
             if len(var_data) > 1:
                 derivative = np.diff(var_data)
                 derivative_var = np.var(derivative)
-                var_ratio = derivative_var / (np.var(var_data) + 1e-10)
+                var_ratio = float(derivative_var / (np.var(var_data) + 1e-10))
             else:
-                var_ratio = 0.0  # type: ignore[assignment]
+                var_ratio = 0.0
 
             # Stability score (lower is more stable)
             stability = oscillation_idx * var_ratio
@@ -1507,7 +1507,7 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
                 diff = np.abs(np.diff(var_data))
                 std_diff = np.std(diff) + 1e-10
                 large_steps = np.sum(diff > 5 * std_diff)
-                step_changes += large_steps  # type: ignore[assignment]
+                step_changes += int(large_steps)
 
         features.append(float(step_changes) / (n_samples * n_vars + 1e-10))
         names.append("attack_step_injection_ratio")

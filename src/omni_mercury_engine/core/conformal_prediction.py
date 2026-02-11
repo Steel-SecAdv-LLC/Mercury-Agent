@@ -219,7 +219,7 @@ class CrossConformalPredictor:
         """
         kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=self.seed)
 
-        all_scores = []  # type: ignore[var-annotated]
+        all_scores: list[float] = []
         self.fold_thresholds = []
 
         for train_idx, cal_idx in kf.split(X):
@@ -511,7 +511,7 @@ class ConformalAnomalyDetector:
                 scores = 0.3 + 0.4 * scores + 0.1 * np.random.rand(len(scores))
                 scores = np.clip(scores, 0.0, 1.0)
 
-            return scores  # type: ignore[no-any-return]
+            return np.asarray(scores)
         except (AttributeError, NotImplementedError):
             pass
 
@@ -576,7 +576,7 @@ class ConformalAnomalyDetector:
         # Ensemble fusion (weighted average)
         ensemble_scores = 0.4 * z_anomaly + 0.35 * density_anomaly + 0.25 * percentile_anomaly
 
-        return np.clip(ensemble_scores, 0.0, 1.0)  # type: ignore[no-any-return]
+        return np.asarray(np.clip(ensemble_scores, 0.0, 1.0))
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -791,7 +791,7 @@ def _extract_detector_scores(detector: Any, X: np.ndarray) -> np.ndarray:
             np.max(feature_std) - np.min(feature_std) + 1e-10
         )
         scores = scores + 0.1 * (feature_std_norm - 0.5)
-        return np.clip(scores, 0.0, 1.0)  # type: ignore[no-any-return]
+        return np.asarray(np.clip(scores, 0.0, 1.0))
     except (AttributeError, NotImplementedError):
         pass
 
@@ -849,4 +849,4 @@ def _compute_statistical_anomaly_scores(X: np.ndarray) -> np.ndarray:
     # Weighted ensemble
     ensemble_scores = 0.4 * z_anomaly + 0.35 * density_anomaly + 0.25 * percentile_anomaly
 
-    return np.clip(ensemble_scores, 0.0, 1.0)  # type: ignore[no-any-return]
+    return np.asarray(np.clip(ensemble_scores, 0.0, 1.0))

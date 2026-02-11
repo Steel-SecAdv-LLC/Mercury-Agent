@@ -842,10 +842,10 @@ class ActiveInferenceAgent:
             expected_fes.append(expected_fe)
 
         # Select action with minimum expected free energy
-        expected_fes = np.array(expected_fes)  # type: ignore[assignment]
-        selected_action = int(np.argmin(expected_fes))
+        expected_fes_arr = np.array(expected_fes)
+        selected_action = int(np.argmin(expected_fes_arr))
 
-        return selected_action, float(expected_fes[selected_action])
+        return selected_action, float(expected_fes_arr[selected_action])
 
     def _compute_action_fe(
         self,
@@ -878,9 +878,9 @@ class ActiveInferenceAgent:
 
         # Historical action effectiveness
         if self._action_outcomes[action]:
-            effectiveness = np.mean(self._action_outcomes[action])
+            effectiveness = float(np.mean(self._action_outcomes[action]))
         else:
-            effectiveness = 0.5  # type: ignore[assignment]
+            effectiveness = 0.5
 
         # Expected surprise (lower effectiveness = higher surprise)
         expected_surprise = avg_error * (1 - effectiveness)

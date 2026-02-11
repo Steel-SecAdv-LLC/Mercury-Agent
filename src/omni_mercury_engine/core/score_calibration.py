@@ -925,7 +925,7 @@ class AutoThresholdOptimizer:
             std = np.std(scores)
             if std < 1e-10:
                 return self._percentile_threshold(scores, contamination, fixed_threshold)
-            threshold = mean + 2 * std
+            threshold = float(mean + 2 * std)
         else:
             # Standard IQR upper fence
             upper_fence = q3 + 1.5 * iqr
@@ -946,9 +946,9 @@ class AutoThresholdOptimizer:
 
             # Set threshold at corresponding percentile
             percentile = 100 * (1 - effective_contamination)
-            threshold = float(np.percentile(scores, percentile))  # type: ignore[assignment]
+            threshold = float(np.percentile(scores, percentile))
 
-        return threshold, {  # type: ignore[return-value]
+        return threshold, {
             "method": "adaptive_iqr",
             "q1": float(q1),
             "q3": float(q3),
@@ -1634,14 +1634,14 @@ class LabelSmoothingCalibrator:
             pos_ratio = np.mean(labels)
             # More smoothing for minority class
             imbalance = abs(0.5 - pos_ratio) * 2  # 0 to 1
-            effective_smoothing = self.min_smoothing + imbalance * (
-                self.max_smoothing - self.min_smoothing
+            effective_smoothing = float(
+                self.min_smoothing + imbalance * (self.max_smoothing - self.min_smoothing)
             )
         else:
-            effective_smoothing = self.smoothing  # type: ignore[assignment]
+            effective_smoothing = self.smoothing
 
         # Apply smoothing: y_smooth = y * (1 - eps) + eps/2
-        smoothed = labels * (1 - effective_smoothing) + effective_smoothing / 2
+        smoothed = np.asarray(labels * (1 - effective_smoothing) + effective_smoothing / 2, dtype=np.float64)
 
         return smoothed
 

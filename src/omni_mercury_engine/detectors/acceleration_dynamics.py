@@ -1145,16 +1145,16 @@ class AccelerationDynamicsDetector(BaseDetector):
         if len(distances) < 10:
             return 1.0
 
-        distances = np.array(distances)  # type: ignore[assignment]
+        dist_arr = np.array(distances)
 
         # Correlation sum for different radii
         radii = np.logspace(
-            np.log10(np.min(distances[distances > 0])), np.log10(np.max(distances)), 10  # type: ignore[operator]
+            float(np.log10(np.min(dist_arr[dist_arr > 0]))), float(np.log10(np.max(dist_arr))), 10
         )
         correlations = []
 
         for r in radii:
-            c = np.sum(distances < r) / len(distances)
+            c = np.sum(dist_arr < r) / len(dist_arr)
             if c > 0:
                 correlations.append((np.log(r), np.log(c)))
 

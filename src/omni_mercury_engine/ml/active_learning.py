@@ -555,7 +555,7 @@ class QueryByCommitteeSampler(BaseSampler):
                 )
                 kl_sum += kl
 
-            return kl_sum / len(predictions)  # type: ignore[return-value]
+            return np.asarray(kl_sum / len(predictions))
 
         else:
             # Default to variance

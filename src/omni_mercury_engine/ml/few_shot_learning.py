@@ -317,8 +317,8 @@ class EpisodeGenerator:
                 valid_classes, size=self.n_way, replace=False
             ).tolist()
 
-            support_indices = []  # type: ignore[var-annotated]
-            query_indices = []  # type: ignore[var-annotated]
+            support_indices: list[Any] = []
+            query_indices: list[Any] = []
 
             for cls in episode_classes:
                 indices = class_indices[cls]
@@ -387,8 +387,8 @@ class EpisodeGenerator:
 
             for trial_id in range(n_trials):
                 # Create single large episode with k_per_class support samples
-                support_indices = []  # type: ignore[var-annotated]
-                query_indices = []  # type: ignore[var-annotated]
+                support_indices: list[Any] = []
+                query_indices: list[Any] = []
 
                 class_indices: dict[int, NDArray[np.int64]] = {}
                 for cls in unique_classes:
