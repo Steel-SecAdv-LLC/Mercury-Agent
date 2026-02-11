@@ -302,7 +302,7 @@ class ChaosEvolutionOptimizer:
         chaos_value = self._rng.rand()
 
         for _ in range(num_hypotheses):
-            chaos_value = self.chaotic_map(chaos_value)  # type: ignore[arg-type, assignment]
+            chaos_value = self.chaotic_map(chaos_value)
             perturbation = chaos_intensity * (2 * chaos_value - 1)
 
             hypothesis = base_solution + perturbation * self._rng.randn(*base_solution.shape)

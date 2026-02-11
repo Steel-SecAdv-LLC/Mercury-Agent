@@ -230,12 +230,6 @@ jobs:
           sudo apt-get autoremove -y
           docker system prune -af --volumes || true
 
-      - name: Install system dependencies
-        run: |
-          # opencv-python requires libGL; install headless GL and glib
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends libgl1-mesa-glx libglib2.0-0
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -304,12 +298,6 @@ jobs:
           sudo apt-get autoremove -y
           docker system prune -af --volumes || true
 
-      - name: Install system dependencies
-        run: |
-          # opencv-python requires libGL; headless variant avoids X11 deps
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends libgl1-mesa-glx libglib2.0-0
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -336,12 +324,10 @@ jobs:
           TORCH_HOME: ~/.cache/torch
         run: |
           # Run tests in parallel with 4 workers, 300s timeout per test
-          # Exclude @pytest.mark.slow tests (model downloads, heavy computation)
           # Coverage threshold enforced to ensure production readiness
           pytest tests/ \
             -v \
             -n 4 \
-            -m "not slow" \
             --timeout=300 \
             --cov=src/omni_mercury_engine \
             --cov-report=xml \

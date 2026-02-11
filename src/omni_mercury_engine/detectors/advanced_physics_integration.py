@@ -408,10 +408,10 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
                 data = data.cpu().numpy()
 
             if self._spectral_detector is not None:
-                self._spectral_detector.fit(data)  # type: ignore[arg-type]
+                self._spectral_detector.fit(data)
 
             if self._dynamics_detector is not None:
-                self._dynamics_detector.fit(data)  # type: ignore[arg-type]
+                self._dynamics_detector.fit(data)
 
         elif data_type == "interactions":
             # Fit UI/UX detector
@@ -478,14 +478,14 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
                 data = data.cpu().numpy()
 
             if self._spectral_detector is not None and self._spectral_detector.is_fitted():
-                spectral_result = self._spectral_detector.detect(data)  # type: ignore[arg-type]
+                spectral_result = self._spectral_detector.detect(data)
 
             if self._dynamics_detector is not None and self._dynamics_detector.is_fitted():
-                dynamics_result = self._dynamics_detector.detect(data)  # type: ignore[arg-type]
+                dynamics_result = self._dynamics_detector.detect(data)
 
         elif data_type == "interactions":
             if self._uiux_detector is not None and self._uiux_detector.is_fitted():
-                uiux_result = self._uiux_detector.detect(data)  # type: ignore[arg-type]
+                uiux_result = self._uiux_detector.detect(data)
 
         elif data_type == "mixed" and isinstance(data, dict):
             if "time_series" in data:

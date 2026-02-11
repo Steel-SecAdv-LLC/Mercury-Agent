@@ -2117,10 +2117,10 @@ class RefactoringEngine:
 
         for i in range(num_variants):
             config = RefactoringConfig(
-                enable_harmonics=bool(self._rng.choice([True, False])),  # type: ignore[arg-type]
-                enable_quantum_paths=bool(self._rng.choice([True, False])),  # type: ignore[arg-type]
-                enable_pattern_resonance=bool(self._rng.choice([True, False])),  # type: ignore[arg-type]
-                quantum_num_paths=int(self._rng.choice([1, 2, 3])),  # type: ignore[arg-type]
+                enable_harmonics=bool(self._rng.choice([True, False])),
+                enable_quantum_paths=bool(self._rng.choice([True, False])),
+                enable_pattern_resonance=bool(self._rng.choice([True, False])),
+                quantum_num_paths=int(self._rng.choice([1, 2, 3])),
                 enable_caching=True,
             )
 

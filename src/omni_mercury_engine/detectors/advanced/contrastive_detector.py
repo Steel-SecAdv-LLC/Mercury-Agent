@@ -435,7 +435,7 @@ class ContrastiveLearningDetector:
                 loss_dict = self.model.compute_loss(batch)
                 loss = loss_dict["loss"]
 
-                loss.backward()  # type: ignore[no-untyped-call]
+                loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                 optimizer.step()
 
@@ -536,10 +536,10 @@ class ContrastiveLearningDetector:
                 rep = self.model(batch, return_projection=False)["representation"]
                 representations.append(rep.cpu().numpy())
 
-        representations = np.concatenate(representations, axis=0)  # type: ignore[assignment]
+        representations = np.concatenate(representations, axis=0)
 
         # Compute k-NN scores
-        return self._compute_knn_scores(representations)  # type: ignore[arg-type]
+        return self._compute_knn_scores(representations)
 
     def detect(
         self,

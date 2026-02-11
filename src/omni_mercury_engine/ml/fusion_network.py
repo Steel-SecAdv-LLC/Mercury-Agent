@@ -289,7 +289,7 @@ class TemporalSequenceEncoder(nn.Module):
             )
             rnn_output_dim = hidden_dim * (2 if bidirectional else 1)
         elif mode == "gru":
-            self.rnn = nn.GRU(  # type: ignore[assignment]
+            self.rnn = nn.GRU(
                 input_dim,
                 hidden_dim,
                 num_layers=num_layers,
@@ -413,7 +413,7 @@ class TemporalSequenceEncoder(nn.Module):
         elif pool == "max":
             pooled = rnn_out.max(dim=1)[0]
         elif pool == "attention":
-            return self.forward(x, return_sequence=False)  # type: ignore[return-value]
+            return self.forward(x, return_sequence=False)
         else:
             raise ValueError(f"Unknown pool: {pool}")
 
@@ -844,7 +844,7 @@ class OmniFusionModel(nn.Module):
                 return_attention=True,
             )
 
-            weights = output["attention_weights"]["detector_weights"]  # type: ignore[index]
+            weights = output["attention_weights"]["detector_weights"]
 
             importance = {
                 name: float(weights[i]) for i, name in enumerate(self.feature_dims.keys())
@@ -1083,7 +1083,7 @@ class OmniFusionModel(nn.Module):
         if len(lyapunov_values) > 10:
             lyapunov_array = np.array(lyapunov_values)
             lyapunov_diff = np.diff(lyapunov_array[-100:])
-            lyapunov_stable = np.mean(lyapunov_diff) <= lambda_lyapunov * 0.1  # type: ignore[assignment]
+            lyapunov_stable = np.mean(lyapunov_diff) <= lambda_lyapunov * 0.1
 
         baseline_convergence = 0.1
         speedup_factor = (

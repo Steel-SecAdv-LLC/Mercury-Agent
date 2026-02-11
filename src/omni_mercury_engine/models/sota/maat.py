@@ -461,7 +461,7 @@ class GatedFeatureFusion(nn.Module):
 
         # Initialize with bias
         if gate_bias != 0:
-            self.gate[-2].bias.data.fill_(gate_bias)  # type: ignore[operator]
+            self.gate[-2].bias.data.fill_(gate_bias)
 
         # Output projection
         self.out_proj = nn.Linear(d_model, d_model)
@@ -766,9 +766,7 @@ class MAATModel(nn.Module):
         if "gates" not in result or not result["gates"]:
             return {"attention_ratio": torch.tensor(0.5)}
 
-        gates = torch.stack(
-            result["gates"], dim=0  # type: ignore[arg-type]
-        )  # [layers, batch, seq, d_model]
+        gates = torch.stack(result["gates"], dim=0)  # [layers, batch, seq, d_model]
 
         # Gate > 0.5 means attention preferred
         attention_ratio = (gates > 0.5).float().mean()
@@ -799,7 +797,7 @@ class PositionalEncoding(nn.Module):
         self.register_buffer("pe", pe)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.pe[:, : x.size(1), :]  # type: ignore[index]
+        x = x + self.pe[:, : x.size(1), :]
         return self.dropout(x)
 
 
@@ -854,7 +852,7 @@ class MAATLoss(nn.Module):
 
         # Pathway balance (encourage use of both pathways)
         if result.get("gates"):
-            gates = torch.stack(result["gates"], dim=0)  # type: ignore[arg-type]
+            gates = torch.stack(result["gates"], dim=0)
             # Penalize extreme gates (0 or 1)
             balance_loss = ((gates - 0.5) ** 2).mean()
         else:

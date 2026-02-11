@@ -421,8 +421,8 @@ class BiometricAnomalyDetector:
                 anomaly_type = "suspicious_pattern"
 
         return BiometricAnomalyResult(
-            is_anomaly=is_anomaly,  # type: ignore[arg-type]
-            anomaly_score=anomaly_score,  # type: ignore[arg-type]
+            is_anomaly=is_anomaly,
+            anomaly_score=anomaly_score,
             anomaly_type=anomaly_type,
             modality_scores=modality_scores,
             liveness_scores=liveness_scores,

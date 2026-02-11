@@ -144,7 +144,7 @@ class BiometricFusion:
             self.transformer = nn.TransformerEncoderLayer(d_model=dim, nhead=8, batch_first=True)
             self.transformer = self.transformer.to(device)
         else:
-            self.transformer = None  # type: ignore[assignment]
+            self.transformer = None
 
     def forward(
         self, neural_emb: np.ndarray[Any, Any], symbolic_score: float = 1.0

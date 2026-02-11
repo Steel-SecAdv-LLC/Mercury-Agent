@@ -384,7 +384,7 @@ EXPLANATION: [Your detailed explanation]
         scores = frame_scores / frame_counts
 
         # Determine anomalies
-        is_anomaly = scores > self.vlm_config.confidence_threshold  # type: ignore[assignment]
+        is_anomaly = scores > self.vlm_config.confidence_threshold
 
         # Collect explanations for anomalous segments
         explanations = [r["explanation"] for r in segment_results if r["is_anomaly"]]
@@ -492,9 +492,9 @@ EXPLANATION: [Your detailed explanation]
         )
 
         # Pad to 128D
-        features = np.array(features)  # type: ignore[assignment]
+        features = np.array(features)
         if len(features) < 128:
-            features = np.pad(features, (0, 128 - len(features)))  # type: ignore[assignment]
+            features = np.pad(features, (0, 128 - len(features)))
 
         return torch.from_numpy(features).float().unsqueeze(0)
 
