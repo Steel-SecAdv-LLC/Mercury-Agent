@@ -595,8 +595,8 @@ class PhysioNetLoader(DatasetLoader):
 
             features.append(ecg)
 
-        features = np.array(features)  # type: ignore[assignment]
-        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment]
+        features = np.array(features)
+        labels = np.array(labels, dtype=np.int64)
 
         save_path = self.data_path / "synthetic_ecg.npz"
         np.savez_compressed(save_path, features=features, labels=labels)

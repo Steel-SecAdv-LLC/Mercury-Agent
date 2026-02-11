@@ -38,7 +38,7 @@ try:
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
-    Dataset = object  # type: ignore[assignment, misc]
+    Dataset = object
 
 
 def get_default_transforms(
@@ -229,7 +229,7 @@ class BaseVideoDataset(ABC):
         if self.transform is not None:
             frames = [self.transform(f) for f in frames]
             if HAS_TORCH:
-                frames = torch.stack(frames)  # type: ignore[assignment]
+                frames = torch.stack(frames)
 
         result = {
             "frames": frames,

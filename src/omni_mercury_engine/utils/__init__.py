@@ -35,7 +35,7 @@ from omni_mercury_engine._compat import HAS_TORCH as TORCH_AVAILABLE
 if TORCH_AVAILABLE:
     import torch
 else:
-    torch = None  # type: ignore[assignment]
+    torch = None
 
 from omni_mercury_engine.utils.comm import AsyncMessageQueue, Message, MessagePriority, SimplePubSub
 from omni_mercury_engine.utils.constants import (
@@ -104,7 +104,7 @@ def normalize_data(
     is_torch = TORCH_AVAILABLE and torch is not None and isinstance(data, torch.Tensor)
 
     if is_torch:
-        data_np = data.cpu().numpy()  # type: ignore[union-attr]
+        data_np = data.cpu().numpy()
     else:
         data_np = data
 

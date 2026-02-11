@@ -199,7 +199,9 @@ class GOSNNPerformanceMonitor:
                             "metadata": metric.metadata,
                         }
                     )
-            return sorted(bottlenecks, key=lambda x: float(str(x["duration_ms"])), reverse=True)[:10]
+            return sorted(bottlenecks, key=lambda x: float(str(x["duration_ms"])), reverse=True)[
+                :10
+            ]
 
     def reset(self) -> None:
         """Reset all metrics."""

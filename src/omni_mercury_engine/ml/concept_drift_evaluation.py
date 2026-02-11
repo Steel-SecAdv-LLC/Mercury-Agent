@@ -718,7 +718,7 @@ class DegradationAnalyzer:
             elif trend == DegradationTrend.LINEAR_DECLINE:
                 # Linear extrapolation
                 intercept = np.mean(performances) - slope * (n - 1) / 2
-                pred = intercept + slope * future_time  # type: ignore[assignment]
+                pred = intercept + slope * future_time
                 pred = max(0, pred)  # Clip to non-negative
 
             elif trend == DegradationTrend.EXPONENTIAL_DECAY:
@@ -731,7 +731,7 @@ class DegradationAnalyzer:
             elif trend == DegradationTrend.RECOVERING:
                 # Optimistic linear extrapolation with ceiling
                 intercept = np.mean(performances) - slope * (n - 1) / 2
-                pred = intercept + slope * future_time  # type: ignore[assignment]
+                pred = intercept + slope * future_time
                 pred = min(1, pred)  # Clip to maximum 1
 
             else:

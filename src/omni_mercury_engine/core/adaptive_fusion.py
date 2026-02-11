@@ -505,20 +505,18 @@ class UncertaintyQuantifier(nn.Module):
             sample = self.mc_dropout(x)
             mc_samples.append(sample)
 
-        mc_samples = torch.stack(  # type: ignore[assignment]
-            mc_samples, dim=0
-        )  # [n_samples, batch, embed_dim]
+        mc_samples = torch.stack(mc_samples, dim=0)  # [n_samples, batch, embed_dim]
 
         # Epistemic uncertainty (model uncertainty from MC dropout)
-        mean = mc_samples.mean(dim=0)  # type: ignore[attr-defined]
-        epistemic_var = mc_samples.var(dim=0).mean().item()  # type: ignore[attr-defined]
+        mean = mc_samples.mean(dim=0)
+        epistemic_var = mc_samples.var(dim=0).mean().item()
 
         # Aleatoric uncertainty (data uncertainty)
         aleatoric_var = self.aleatoric_head(x).squeeze(-1)  # [batch_size]
         aleatoric_uncertainty = aleatoric_var.mean().item()
 
         # Total uncertainty
-        total_std = torch.sqrt(mc_samples.var(dim=0) + aleatoric_var.unsqueeze(-1))  # type: ignore[attr-defined]
+        total_std = torch.sqrt(mc_samples.var(dim=0) + aleatoric_var.unsqueeze(-1))
 
         # Compute confidence intervals
         z_score = 1.96 if confidence_level == 0.95 else 2.576  # 95% or 99%

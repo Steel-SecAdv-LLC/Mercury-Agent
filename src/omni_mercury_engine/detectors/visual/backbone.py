@@ -193,7 +193,7 @@ class FeatureExtractor(nn.Module):
             parts = layer_name.split(".")
             module = self.backbone
             for part in parts:
-                module = getattr(module, part, None)  # type: ignore[assignment]
+                module = getattr(module, part, None)
                 if module is None:
                     return None
             return module
@@ -352,7 +352,7 @@ class PatchEmbedding(nn.Module):
         if output_dim and output_dim != patch_dim:
             self.projection = nn.Linear(patch_dim, output_dim)
         else:
-            self.projection = None  # type: ignore[assignment]
+            self.projection = None
             self.output_dim = patch_dim
 
     def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, tuple[int, int]]:

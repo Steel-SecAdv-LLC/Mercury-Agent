@@ -56,7 +56,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
-from typing import cast, Any, TypeVar
+from typing import Any, TypeVar, cast
 
 # Import CircuitState from canonical location with fallback for backwards compatibility
 try:
@@ -381,7 +381,7 @@ class CircuitBreaker:
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             return self.call(func, *args, **kwargs)
 
-        return cast(F, wrapper)
+        return cast("F", wrapper)
 
     def reset(self) -> None:
         """Manually reset the circuit breaker.
@@ -498,7 +498,7 @@ def retry(
 
             raise RuntimeError(f"Retry logic error in {func.__name__}: {last_exception}")
 
-        return cast(F, wrapper)
+        return cast("F", wrapper)
 
     return decorator
 
@@ -821,6 +821,6 @@ def timeout(seconds: float) -> Callable[[F], F]:
                 except TimeoutError:
                     raise TimeoutError(f"Function {func.__name__} timed out after {seconds}s")
 
-        return cast(F, wrapper)
+        return cast("F", wrapper)
 
     return decorator

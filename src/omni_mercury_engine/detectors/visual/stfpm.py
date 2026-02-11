@@ -267,7 +267,7 @@ class STFPMDetector(BaseVisualDetector):
 
                 # Backward pass
                 optimizer.zero_grad()
-                total_loss.backward()  # type: ignore[no-untyped-call]
+                total_loss.backward()
                 optimizer.step()
 
                 epoch_loss += total_loss.item()
@@ -321,7 +321,7 @@ class STFPMDetector(BaseVisualDetector):
 
             # Compute anomaly maps from feature discrepancy
             anomaly_maps = self._compute_anomaly_maps(
-                teacher_features, student_features, original_size  # type: ignore[arg-type]
+                teacher_features, student_features, original_size
             )
 
             # Image-level scores

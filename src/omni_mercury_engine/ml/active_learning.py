@@ -529,11 +529,11 @@ class QueryByCommitteeSampler(BaseSampler):
                 preds = model.predict(X).astype(float)
             predictions.append(preds)
 
-        predictions = np.array(predictions)  # type: ignore[assignment]  # [n_committee, n_samples]
+        predictions = np.array(predictions)  # [n_committee, n_samples]
 
         if self.disagreement_measure == "vote_entropy":
             # Vote entropy: entropy of binary vote distribution
-            votes = (predictions > 0.5).astype(int)  # type: ignore[operator]
+            votes = (predictions > 0.5).astype(int)
             vote_fraction = np.mean(votes, axis=0)
             vote_fraction = np.clip(vote_fraction, 1e-10, 1 - 1e-10)
             entropy = -(

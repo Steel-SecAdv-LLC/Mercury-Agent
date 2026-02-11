@@ -1070,7 +1070,7 @@ class PercipienceEngine:
             "healing": performance_metrics.get("recovery", 0.5),
             "judgment": performance_metrics.get("decision_accuracy", 0.5),
             "authority": ethical_scores.get("control", 0.5),
-            "knowledge": (  # type: ignore[dict-item]
+            "knowledge": (
                 np.mean(list(knowledge_indicators.values())) if knowledge_indicators else 0.5
             ),
             "balance": ethical_scores.get("balance", 0.5),

@@ -134,7 +134,7 @@ class AnomalyVisualizer:
 
     def time_series_plot(
         self,
-        timestamps: list[datetime] | NDArray,  # type: ignore[type-arg]
+        timestamps: list[datetime] | NDArray,
         scores: NDArray[np.float64],
         threshold: float = 0.5,
         anomaly_mask: NDArray[np.bool_] | None = None,
@@ -351,7 +351,7 @@ class AnomalyVisualizer:
         if labels is not None:
             for name, scores in detector_scores.items():
                 fpr, tpr = self._compute_roc(labels, scores)
-                _trapz = np.trapezoid if hasattr(np, "trapezoid") else np.trapz  # type: ignore[attr-defined]
+                _trapz = np.trapezoid if hasattr(np, "trapezoid") else np.trapz
                 auc = _trapz(tpr, fpr)
                 fig.add_trace(
                     go.Scatter(x=fpr, y=tpr, name=f"{name} (AUC={auc:.3f})", mode="lines"),
@@ -732,7 +732,7 @@ class DashboardBuilder:
     def add_time_series(
         self,
         name: str,
-        timestamps: list[datetime] | NDArray,  # type: ignore[type-arg]
+        timestamps: list[datetime] | NDArray,
         scores: NDArray[np.float64],
         **kwargs: Any,
     ) -> DashboardBuilder:

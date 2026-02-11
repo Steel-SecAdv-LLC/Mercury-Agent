@@ -40,10 +40,10 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None  # type: ignore[assignment]
-    nn = None  # type: ignore[assignment]
-    F = None  # type: ignore[assignment]
-    Adam = None  # type: ignore[assignment, misc]
+    torch = None
+    nn = None
+    F = None
+    Adam = None
 
 
 from omni_mercury_engine.core.centralized_constants import (
@@ -140,7 +140,7 @@ if TORCH_AVAILABLE:
             if scalar_indices is None:
                 scalar_emb = self.scalar_embeddings
             else:
-                scalar_emb = self.scalar_embeddings[scalar_indices]  # type: ignore[assignment]
+                scalar_emb = self.scalar_embeddings[scalar_indices]
 
             if category_indices is not None:
                 cat_emb = self.category_embeddings(category_indices)
@@ -380,7 +380,7 @@ if TORCH_AVAILABLE:
         ) -> torch.Tensor:
             """Predict correlation between two scalar embeddings."""
             combined = torch.cat([emb1, emb2], dim=-1)
-            return self.correlation_learner(combined)  # type: ignore[no-any-return]
+            return self.correlation_learner(combined)
 
 
 class LearnableGOSNN:
@@ -428,12 +428,12 @@ class LearnableGOSNN:
                     n_heads=n_heads,
                 ).to(device)
             elif attention_type == "linear":
-                self.attention = LinformerAttention(  # type: ignore[assignment]
+                self.attention = LinformerAttention(
                     d_model=embedding_dim,
                     n_heads=n_heads,
                 ).to(device)
             else:
-                self.attention = nn.MultiheadAttention(  # type: ignore[assignment]
+                self.attention = nn.MultiheadAttention(
                     embed_dim=embedding_dim,
                     num_heads=n_heads,
                     batch_first=True,
@@ -449,10 +449,10 @@ class LearnableGOSNN:
                 lr=0.001,
             )
         else:
-            self.scalar_embeddings = None  # type: ignore[assignment]
-            self.attention = None  # type: ignore[assignment]
-            self.correlation_tracker = None  # type: ignore[assignment]
-            self.optimizer = None  # type: ignore[assignment]
+            self.scalar_embeddings = None
+            self.attention = None
+            self.correlation_tracker = None
+            self.optimizer = None
 
         self._initialize_default_scalars()
 
@@ -715,7 +715,7 @@ class LearnableGOSNN:
         target = torch.tensor(target_score, dtype=torch.float32, device=self.device)
 
         loss = F.mse_loss(predicted, target)
-        loss.backward()  # type: ignore[no-untyped-call]
+        loss.backward()
 
         self.optimizer.step()
         self._optimization_step += 1

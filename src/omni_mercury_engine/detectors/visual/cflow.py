@@ -119,7 +119,7 @@ class PositionalEncoding2D(nn.Module):
         Returns:
             Positional encoding [1, channels, h, w]
         """
-        pe = self.pe[:h, :w, :].permute(2, 0, 1).unsqueeze(0)  # type: ignore[index]
+        pe = self.pe[:h, :w, :].permute(2, 0, 1).unsqueeze(0)
         return pe
 
 
@@ -169,10 +169,10 @@ class AffineCoupling(nn.Module):
         )
 
         # Initialize last layer to zero for stable training
-        nn.init.zeros_(self.scale_net[-1].weight)  # type: ignore[arg-type]
-        nn.init.zeros_(self.scale_net[-1].bias)  # type: ignore[arg-type]
-        nn.init.zeros_(self.translate_net[-1].weight)  # type: ignore[arg-type]
-        nn.init.zeros_(self.translate_net[-1].bias)  # type: ignore[arg-type]
+        nn.init.zeros_(self.scale_net[-1].weight)
+        nn.init.zeros_(self.scale_net[-1].bias)
+        nn.init.zeros_(self.translate_net[-1].weight)
+        nn.init.zeros_(self.translate_net[-1].bias)
 
     def forward(
         self, x: torch.Tensor, cond: torch.Tensor, reverse: bool = False
@@ -437,12 +437,12 @@ class CFlowDetector(BaseVisualDetector):
                     pos_enc = pos_enc.expand(b, -1, -1, -1)
 
                     # Negative log likelihood
-                    log_prob = self.flows[layer].log_prob(feat, pos_enc)  # type: ignore[operator]
+                    log_prob = self.flows[layer].log_prob(feat, pos_enc)
                     loss = -log_prob.mean()
                     total_loss = total_loss + loss
 
                 optimizer.zero_grad()
-                total_loss.backward()  # type: ignore[no-untyped-call]
+                total_loss.backward()
                 nn.utils.clip_grad_norm_(params, 1.0)
                 optimizer.step()
 

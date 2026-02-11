@@ -128,11 +128,10 @@ jobs:
 
       - name: Run MyPy
         # MyPy type checking is now blocking for code quality assurance
+        # Uses pyproject.toml strict config (disallow_untyped_defs, warn_unused_ignores, etc.)
         run: |
           mypy src/omni_mercury_engine/ \
-            --ignore-missing-imports \
-            --show-error-codes \
-            --pretty
+            --config-file pyproject.toml
 
   # ===========================================================================
   # Stage 3: Security Scanning

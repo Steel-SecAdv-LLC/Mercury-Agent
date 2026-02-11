@@ -750,7 +750,11 @@ class RealWorldBenchmarkRunner:
         diff = np.array(values_a) - np.array(values_b)
         cohens_d = np.mean(diff) / (np.std(diff) + 1e-10)
 
-        improvement = float(np.mean(values_a) - np.mean(values_b)) / max(float(np.mean(values_b)), 1e-10) * 100
+        improvement = (
+            float(np.mean(values_a) - np.mean(values_b))
+            / max(float(np.mean(values_b)), 1e-10)
+            * 100
+        )
 
         return {
             "detector_a": result_a.detector_name,

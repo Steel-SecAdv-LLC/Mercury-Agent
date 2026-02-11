@@ -173,7 +173,7 @@ def cardiology_interface() -> None:
                     else rng.randn(12, 1000)
                 )
 
-            patient_data["biomarkers"] = {  # type: ignore[assignment]
+            patient_data["biomarkers"] = {
                 "troponin_i_ng_ml": troponin,
                 "bnp_pg_ml": bnp,
                 "ck_mb_ng_ml": ck_mb,
