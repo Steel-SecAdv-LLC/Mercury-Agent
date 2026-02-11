@@ -5,6 +5,77 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-02-11
+
+### Added - Mathematical Audit & Parameterization Overhaul
+
+- **PHASE 1 — Equation Inventory** (`docs/equations_inventory.md`): Comprehensive catalog
+  of 47 equations, formulas, constants, thresholds, and mathematical operations across
+  the entire codebase with provenance tracking (EQ-001 through EQ-047)
+
+- **PHASE 2 — Correctness Report** (`docs/correctness_report.md`): Mathematical
+  correctness verification identifying 16 issues (1 critical, 3 high, 8 medium, 4 low)
+  across numerical stability, edge cases, and documentation mismatches
+
+- **PHASE 3 — Parameterization Overhaul**:
+  - **Sigmoid Benevolence Gate**: Replaced hard threshold (≥ 0.99) with smooth sigmoid
+    curve η(b) = 1/(1+exp(-k·(b-b₀))) with domain-specific profiles:
+    Medical (b₀=0.93, k=30), Security (b₀=0.95, k=25), Environmental (b₀=0.90, k=20),
+    Humanitarian (b₀=0.92, k=35), Infrastructure (b₀=0.94, k=25)
+  - **Banach Contraction Recursion**: Added convergence-bounded recursive computation
+    with α constrained via sigmoid (α_max=0.95), error bounds, and runtime contraction
+    monitoring with halt on violation. Provenance: Banach fixed-point theorem (1922)
+  - **Domain-Adaptive Harmonics**: Replaced universal Schumann resonance (7.83 Hz) with
+    domain-specific fundamental frequencies: Medical (HRV bands), Infrastructure (power
+    grid), Space (solar cycle), with adaptive peak detection for unknown domains
+  - **Hierarchical Omni-Scalar Aggregation**: Added 3-level hierarchical aggregation
+    (category grouping → weighted mean → geometric mean) for 180+ omni-scalars organized
+    into safety, fairness, transparency, accountability, and beneficence categories
+  - **Configurable AAFE Exponent**: Made ethical scaling exponent configurable (default Φ)
+    to support empirical optimization via parameter sweep
+  - **NaN Guards**: Added NaN propagation prevention to AAFE fusion equation
+  - **Parameter Sweep Infrastructure** (`benchmarks/parameter_sweep.py`): Bayesian
+    optimization via Optuna TPE over full parameter space with composite objective
+    (F1 + calibration error + stability)
+
+- **PHASE 5 — Calibration Pipeline** (`core/calibration_pipeline.py`): Threshold
+  auto-calibration with Youden's J, F1-optimal, cost-sensitive methods; dataset
+  fingerprinting via SHA-256; distribution drift detection via KS test and KL divergence
+
+- **PHASE 7 — Deliverables**:
+  - `docs/MATH_SPEC.md`: Formal mathematical specification with LaTeX equations,
+    parameter justification, convergence proofs, and sensitivity analysis
+  - `docs/math_debt_backlog.md`: 15 prioritized mathematical debt items (3 high,
+    6 medium, 6 low) with resolution recommendations
+  - `docs/equations_inventory.md`: Complete equation catalog
+  - `docs/correctness_report.md`: Correctness verification findings
+
+### Changed
+
+- **AAFE Equation** (`core/three_r/fusion.py`): Ethical exponent now configurable
+  (was hardcoded to Φ). Added `domain` and `ethical_exponent` constructor parameters.
+  Added `benevolence_score` parameter to `compute()` for sigmoid gate integration.
+- **Spectral Vibration** (`detectors/spectral_vibration.py`): `_compute_schumann_alignment`
+  now uses domain-adaptive frequencies via `get_domain_fundamentals()`. Added
+  `_detect_spectral_peaks` static method for unknown-domain frequency detection.
+- **Centralized Constants** (`core/centralized_constants.py`): Added
+  `BenevolenceGateConstants`, `DomainHarmonicConstants`, `RecursionConvergenceConstants`
+  dataclasses and `sigmoid_benevolence_gate()`, `get_domain_fundamentals()` functions.
+- **GOSNN** (`core/global_omni_scalar_network.py`): Added `compute_hierarchical_score()`
+  method implementing 3-level hierarchical aggregation with configurable domain weights
+  and geometric/arithmetic/harmonic mean options.
+
+### Mathematical Provenance
+
+- Sigmoid benevolence gate: Logistic function (Verhulst, 1845)
+- Banach contraction recursion: Banach fixed-point theorem (Banach, 1922)
+- Schumann resonance: Schumann (1952)
+- HRV frequency bands: Task Force of ESC/NASPE (1996)
+- Conformal prediction: Vovk et al. (2005)
+- Youden's J statistic: Youden (1950)
+
+---
+
 ## [1.4.0] - 2026-02-09
 
 ### Added - Advanced Cognitive AI & Physics-Inspired Detectors
