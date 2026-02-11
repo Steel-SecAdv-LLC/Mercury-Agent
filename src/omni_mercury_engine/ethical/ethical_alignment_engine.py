@@ -451,7 +451,7 @@ class StrategicEngine:
         if not options:
             return {"error": "No options provided", "recommendation": None}
 
-        scored_options = []
+        scored_options: list[dict[str, Any]] = []
         for i, option in enumerate(options):
             score = self._score_option(option, decision_context)
             scored_options.append(
@@ -463,7 +463,7 @@ class StrategicEngine:
                 }
             )
 
-        scored_options.sort(key=lambda x: float(x["score"]), reverse=True)  # type: ignore[arg-type]
+        scored_options.sort(key=lambda x: float(x["score"]), reverse=True)  # type: ignore[arg-type, unused-ignore]
 
         return {
             "recommended_option": scored_options[0],

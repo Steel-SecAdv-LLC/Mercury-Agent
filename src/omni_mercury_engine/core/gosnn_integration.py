@@ -187,7 +187,7 @@ class GOSNNPerformanceMonitor:
     def get_bottlenecks(self, threshold_ms: float = 100.0) -> list[dict[str, Any]]:
         """Identify operations exceeding latency threshold."""
         with self._lock:
-            bottlenecks = []
+            bottlenecks: list[dict[str, Any]] = []
             ops_seen: set[str] = set()
             for metric in self._metrics:
                 if metric.duration_ms > threshold_ms and metric.operation not in ops_seen:
@@ -199,7 +199,7 @@ class GOSNNPerformanceMonitor:
                             "metadata": metric.metadata,
                         }
                     )
-            return sorted(bottlenecks, key=lambda x: float(x["duration_ms"]), reverse=True)[:10]  # type: ignore[arg-type]
+            return sorted(bottlenecks, key=lambda x: float(x["duration_ms"]), reverse=True)[:10]  # type: ignore[arg-type, unused-ignore]
 
     def reset(self) -> None:
         """Reset all metrics."""

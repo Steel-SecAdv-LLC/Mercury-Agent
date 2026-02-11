@@ -529,7 +529,7 @@ class QueryByCommitteeSampler(BaseSampler):
                 preds = model.predict(X).astype(float)
             predictions.append(preds)
 
-        predictions = np.array(predictions)  # type: ignore[assignment, unused-ignore]  # [n_committee, n_samples]
+        predictions = np.array(predictions)  # type: ignore[assignment, unused-ignore]
 
         if self.disagreement_measure == "vote_entropy":
             # Vote entropy: entropy of binary vote distribution
@@ -555,7 +555,7 @@ class QueryByCommitteeSampler(BaseSampler):
                 )
                 kl_sum += kl
 
-            return kl_sum / len(predictions)  # type: ignore[return-value, unused-ignore]
+            return np.asarray(kl_sum / len(predictions))  # type: ignore[return-value, unused-ignore]
 
         else:
             # Default to variance

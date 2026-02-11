@@ -1090,7 +1090,7 @@ def load_file_data(uploaded_file: Any) -> np.ndarray[Any, Any] | None:
             return np.array([data])
         elif uploaded_file.name.endswith(".csv"):
             df = pd.read_csv(uploaded_file)
-            return df.values  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(df.values)  # type: ignore[no-any-return, unused-ignore]
         else:
             st.error("Unsupported file format")
             return None

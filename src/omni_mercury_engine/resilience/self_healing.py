@@ -537,7 +537,7 @@ class SelfHealingEngine:
         try:
             is_healthy = component["health_check"]()
             component["status"] = "healthy" if is_healthy else "unhealthy"
-            return is_healthy  # type: ignore[no-any-return]
+            return bool(is_healthy)  # type: ignore[no-any-return, unused-ignore]
         except Exception as e:
             self.logger.error(f"Health check failed for {component_name}: {e}")
             component["status"] = "unhealthy"

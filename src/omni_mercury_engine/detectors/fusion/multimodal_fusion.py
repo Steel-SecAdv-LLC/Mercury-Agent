@@ -808,7 +808,7 @@ class MultiModalFusionOptimizer:
             if scores:
                 avg_score = np.mean(scores)
                 if avg_score > best_score:
-                    best_score = avg_score  # type: ignore[assignment, unused-ignore]
+                    best_score = float(avg_score)  # type: ignore[assignment, unused-ignore]
                     best_strategy = strategy
 
         return best_strategy

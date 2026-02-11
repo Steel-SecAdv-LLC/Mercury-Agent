@@ -193,7 +193,7 @@ class EmergingTechMonitor:
         Returns:
             Multiple scenario projections (optimistic, pessimistic, disruptive)
         """
-        scenarios = {
+        scenarios: dict[str, dict[str, Any]] = {
             "optimistic": {
                 "description": "Technology matures safely, benefits widely distributed",
                 "probability": 0.30,
@@ -226,9 +226,7 @@ class EmergingTechMonitor:
             "timeframe_years": timeframe_years,
             "scenarios": scenarios,
             "recommended_posture": (
-                "monitor_and_adapt"
-                if float(disruptive_prob) < 0.10  # type: ignore[arg-type]
-                else "proactive_intervention"
+                "monitor_and_adapt" if float(disruptive_prob) < 0.10 else "proactive_intervention"  # type: ignore[arg-type, unused-ignore]
             ),
         }
 

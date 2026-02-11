@@ -355,11 +355,11 @@ class HarmonicSimilarity:
         if desc1.bispectrum is not None and desc2.bispectrum is not None:
             bs_dist = np.linalg.norm(desc1.bispectrum.components - desc2.bispectrum.components)
             max_bs = max(
-                np.linalg.norm(desc1.bispectrum.components),
-                np.linalg.norm(desc2.bispectrum.components),
+                float(np.linalg.norm(desc1.bispectrum.components)),
+                float(np.linalg.norm(desc2.bispectrum.components)),
                 1e-10,
             )
-            distances["bispectrum"] = bs_dist / max_bs  # type: ignore[operator, unused-ignore]
+            distances["bispectrum"] = float(bs_dist) / max_bs  # type: ignore[operator, unused-ignore]
 
         energy_dist = np.linalg.norm(desc1.energy_distribution - desc2.energy_distribution)
         distances["energy"] = energy_dist / np.sqrt(2.0)

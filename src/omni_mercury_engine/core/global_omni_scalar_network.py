@@ -266,7 +266,7 @@ class TriadicPhiWeighting:
             # Fallback: apply mean weight
             weighted = attention_scores * np.mean(self.head_weights)
 
-        return weighted  # type: ignore[no-any-return, unused-ignore]
+        return np.asarray(weighted)  # type: ignore[no-any-return, unused-ignore]
 
     def compute_harmonic_synergy(self, attention_output: np.ndarray[Any, Any]) -> float:
         """Compute harmonic synergy score from attention output.

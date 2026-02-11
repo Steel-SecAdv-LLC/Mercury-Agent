@@ -68,7 +68,7 @@ ml = [
     "torchvision>=0.17.0",
     "pytorch-lightning>=2.0.0",
     "timm>=0.9.0",
-    "opencv-python>=4.8.0",
+    "opencv-python-headless>=4.8.0",
 ]
 
 # Visual anomaly detection (PatchCore, PaDiM, STFPM, etc.)

@@ -44,7 +44,7 @@ class WorldBankSectorsMonitor:
         Args:
             regenerative_config: Regenerative architecture configuration
         """
-        self.isic_sectors = {
+        self.isic_sectors: dict[str, dict[str, Any]] = {
             "A": {"name": "Agriculture, forestry and fishing", "sdg_priority": 0.90},
             "B": {"name": "Mining and quarrying", "sdg_priority": 0.60},
             "C": {"name": "Manufacturing", "sdg_priority": 0.75},
@@ -186,7 +186,7 @@ class WorldBankSectorsMonitor:
 
         for sector_code, sustainability_score in regional_data.items():
             if sector_code in self.isic_sectors:
-                sdg_priority = float(self.isic_sectors[sector_code]["sdg_priority"])  # type: ignore[arg-type]
+                sdg_priority = float(self.isic_sectors[sector_code]["sdg_priority"])  # type: ignore[arg-type, unused-ignore]
                 weighted_scores.append(float(sustainability_score) * sdg_priority)
 
         overall_score = 0.5 if not weighted_scores else np.mean(weighted_scores)

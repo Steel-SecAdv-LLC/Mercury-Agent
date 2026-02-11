@@ -361,7 +361,7 @@ class DistributedProcessor:
 
         chunk_times = [r.processing_time_ms for r in results if r.error is None]
         if chunk_times:
-            self._stats.avg_chunk_time_ms = np.mean(chunk_times)  # type: ignore[assignment, unused-ignore]
+            self._stats.avg_chunk_time_ms = float(np.mean(chunk_times))  # type: ignore[assignment, unused-ignore]
 
         return scores, is_anomaly, self._stats
 

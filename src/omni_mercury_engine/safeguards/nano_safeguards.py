@@ -206,7 +206,7 @@ class ResonanceAnalyzer:
         """Compute spectral entropy for frequency distribution analysis."""
         normalized = power_spectrum / (np.sum(power_spectrum) + 1e-10)
         entropy = -np.sum(normalized * np.log2(normalized + 1e-10))
-        return entropy / np.log2(len(power_spectrum) + 1)  # type: ignore[no-any-return]
+        return float(entropy / np.log2(len(power_spectrum) + 1))  # type: ignore[no-any-return, unused-ignore]
 
 
 class NanoSafeguardDetector(BaseDetector):

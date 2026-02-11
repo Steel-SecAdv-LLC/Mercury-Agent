@@ -691,7 +691,7 @@ class ConsensusProtocol:
         if unanimous:
             final_decision = decisions[0]
             agreement_ratio = 1.0
-            confidence = np.mean([r.confidence for r in results])
+            confidence = float(np.mean([r.confidence for r in results]))
             dissenting = []
         else:
             # No consensus - default to anomaly for safety
