@@ -74,13 +74,15 @@ import logging
 import math
 import sys
 import time
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 # ---------------------------------------------------------------------------
 # Optuna import with user-friendly error
@@ -98,15 +100,10 @@ except ImportError:
 # installed package (e.g. CI / standalone benchmark execution).
 # ---------------------------------------------------------------------------
 try:
-    from omni_mercury_engine.core.three_r.fusion import AnomalyFusionEquation
     from omni_mercury_engine.core.centralized_constants import (
         sigmoid_benevolence_gate,
-        LYAPUNOV,
-        MATH,
-        FUSION,
-        RECURSION,
-        BENEVOLENCE_GATE,
     )
+    from omni_mercury_engine.core.three_r.fusion import AnomalyFusionEquation
 
     MERCURY_IMPORTS_AVAILABLE = True
 except ImportError:
@@ -246,7 +243,7 @@ def _fallback_aafe(
         Fused anomaly score ``A``.
     """
     weighted_sum = w_r * recursion_score + w_h * resonance_score + w_o * optimization_score
-    return weighted_sum * (eta ** ethical_exponent)
+    return weighted_sum * (eta**ethical_exponent)
 
 
 # ============================================================================
@@ -294,8 +291,7 @@ def generate_synthetic_data(
     x_anomaly = np.clip(x_anomaly, 0.0, 1.0)
 
     x = np.vstack([x_normal, x_anomaly])
-    y = np.concatenate([np.zeros(n_normal, dtype=np.int64),
-                        np.ones(n_anomaly, dtype=np.int64)])
+    y = np.concatenate([np.zeros(n_normal, dtype=np.int64), np.ones(n_anomaly, dtype=np.int64)])
 
     # Shuffle consistently
     perm = rng.permutation(n_samples)
@@ -566,9 +562,9 @@ def objective(
         r_score = r_score * alpha
 
         # Neural-symbolic blending: neural amplifies, symbolic smooths
-        blend = neural_weight * (r_score + h_score + o_score) / 3.0 + (
-            1.0 - neural_weight
-        ) * max(r_score, h_score, o_score)
+        blend = neural_weight * (r_score + h_score + o_score) / 3.0 + (1.0 - neural_weight) * max(
+            r_score, h_score, o_score
+        )
         # Re-distribute blended signal back to channels
         r_adj = r_score + 0.1 * blend
         h_adj = h_score + 0.1 * blend
@@ -586,7 +582,9 @@ def objective(
             fusion_scores[i] = result.fusion_score
         else:
             eta = _fallback_sigmoid_benevolence_gate(
-                float(benevolence_base[i]), b0=b0, k=k,
+                float(benevolence_base[i]),
+                b0=b0,
+                k=k,
             )
             fusion_scores[i] = _fallback_aafe(
                 recursion_score=r_adj,
@@ -657,10 +655,7 @@ def compute_pareto_frontier(
     if not trials:
         return []
 
-    objectives = np.array([
-        [t["f1_score"], 1.0 - t["ece"], t["stability"]]
-        for t in trials
-    ])
+    objectives = np.array([[t["f1_score"], 1.0 - t["ece"], t["stability"]] for t in trials])
 
     n = len(objectives)
     is_dominated = np.zeros(n, dtype=bool)
@@ -672,8 +667,7 @@ def compute_pareto_frontier(
             if i == j or is_dominated[j]:
                 continue
             # j dominates i if j >= i on all objectives and j > i on at least one
-            if (np.all(objectives[j] >= objectives[i])
-                    and np.any(objectives[j] > objectives[i])):
+            if np.all(objectives[j] >= objectives[i]) and np.any(objectives[j] > objectives[i]):
                 is_dominated[i] = True
                 break
 
@@ -734,9 +728,11 @@ def run_sweep(
     )
 
     if verbose:
-        print(f"Parameter sweep: {n_trials} trials, "
-              f"{n_samples} samples ({anomaly_fraction:.0%} anomalous), "
-              f"seed={seed}")
+        print(
+            f"Parameter sweep: {n_trials} trials, "
+            f"{n_samples} samples ({anomaly_fraction:.0%} anomalous), "
+            f"seed={seed}"
+        )
         print(f"Mercury imports available: {MERCURY_IMPORTS_AVAILABLE}")
         print("-" * 72)
 
@@ -775,19 +771,21 @@ def run_sweep(
         params["w_H"] = params["w_H_raw"] / w_total
         params["w_O"] = params["w_O_raw"] / w_total
 
-        all_trials.append({
-            "trial_number": t.number,
-            "params": params,
-            "f1_score": t.user_attrs.get("f1_score", 0.0),
-            "ece": t.user_attrs.get("ece", 0.0),
-            "stability": t.user_attrs.get("stability", 0.0),
-            "composite": t.value if t.value is not None else 0.0,
-            "duration_s": (
-                (t.datetime_complete - t.datetime_start).total_seconds()
-                if t.datetime_complete and t.datetime_start
-                else 0.0
-            ),
-        })
+        all_trials.append(
+            {
+                "trial_number": t.number,
+                "params": params,
+                "f1_score": t.user_attrs.get("f1_score", 0.0),
+                "ece": t.user_attrs.get("ece", 0.0),
+                "stability": t.user_attrs.get("stability", 0.0),
+                "composite": t.value if t.value is not None else 0.0,
+                "duration_s": (
+                    (t.datetime_complete - t.datetime_start).total_seconds()
+                    if t.datetime_complete and t.datetime_start
+                    else 0.0
+                ),
+            }
+        )
 
     # Best trial
     best = study.best_trial
@@ -812,7 +810,7 @@ def run_sweep(
         pareto_frontier=pareto,
         all_trials=all_trials,
         metadata={
-            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+            "timestamp": datetime.now(tz=UTC).isoformat(),
             "seed": seed,
             "n_samples": n_samples,
             "anomaly_fraction": anomaly_fraction,
@@ -854,13 +852,15 @@ def run_sweep(
         print(f"  Stability      : {result.best_stability:.6f}")
         print(f"Results saved to : {output_path}")
 
-        print(f"\nBest parameters:")
+        print("\nBest parameters:")
         for pname, pval in sorted(result.best_params.items()):
             print(f"  {pname:30s} = {pval:.6f}")
 
         print(f"\nPareto frontier ({len(pareto)} configurations):")
         print(f"  {'#':>4s}  {'F1':>8s}  {'ECE':>8s}  {'Stability':>10s}  {'Composite':>10s}")
-        print(f"  {'----':>4s}  {'--------':>8s}  {'--------':>8s}  {'----------':>10s}  {'----------':>10s}")
+        print(
+            f"  {'----':>4s}  {'--------':>8s}  {'--------':>8s}  {'----------':>10s}  {'----------':>10s}"
+        )
         for i, p in enumerate(pareto[:20]):  # Show top 20
             print(
                 f"  {i+1:4d}  {p['f1_score']:8.5f}  {p['ece']:8.5f}  "
@@ -894,27 +894,38 @@ def main() -> None:
         ),
     )
     parser.add_argument(
-        "--trials", type=int, default=1000,
+        "--trials",
+        type=int,
+        default=1000,
         help="Number of Optuna trials (default: 1000).",
     )
     parser.add_argument(
-        "--samples", type=int, default=500,
+        "--samples",
+        type=int,
+        default=500,
         help="Synthetic dataset size (default: 500).",
     )
     parser.add_argument(
-        "--anomaly-fraction", type=float, default=0.15,
+        "--anomaly-fraction",
+        type=float,
+        default=0.15,
         help="Fraction of anomalous points (default: 0.15).",
     )
     parser.add_argument(
-        "--seed", type=int, default=42,
+        "--seed",
+        type=int,
+        default=42,
         help="Random seed for reproducibility (default: 42).",
     )
     parser.add_argument(
-        "--output", type=str, default=None,
+        "--output",
+        type=str,
+        default=None,
         help="Output JSON path (default: benchmarks/parameter_sweep_results.json).",
     )
     parser.add_argument(
-        "--quiet", action="store_true",
+        "--quiet",
+        action="store_true",
         help="Suppress progress output.",
     )
 

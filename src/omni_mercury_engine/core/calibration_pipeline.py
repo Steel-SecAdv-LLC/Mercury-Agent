@@ -45,7 +45,6 @@ import hashlib
 import json
 import logging
 import time
-import warnings
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -179,9 +178,7 @@ class ThresholdRecord:
             "status": self.status.value,
             "strategy": self.strategy,
             "dataset_fingerprint": (
-                self.dataset_fingerprint.to_dict()
-                if self.dataset_fingerprint is not None
-                else None
+                self.dataset_fingerprint.to_dict() if self.dataset_fingerprint is not None else None
             ),
             "metric_at_threshold": self.metric_at_threshold,
             "metadata": self.metadata,
@@ -665,8 +662,7 @@ class ThresholdCalibrationPipeline:
 
         if len(scores) != len(y):
             raise ValueError(
-                f"X and y must have the same number of samples, "
-                f"got {len(scores)} and {len(y)}"
+                f"X and y must have the same number of samples, " f"got {len(scores)} and {len(y)}"
             )
 
         unique_labels = np.unique(y)
@@ -684,14 +680,10 @@ class ThresholdCalibrationPipeline:
 
         # Select calibration function
         if method == CalibrationStrategy.YOUDEN_J:
-            best_threshold, best_metric, details = self._youden_j(
-                scores, y, candidates
-            )
+            best_threshold, best_metric, details = self._youden_j(scores, y, candidates)
             metric_name = "youden_j"
         elif method == CalibrationStrategy.F1_OPTIMAL:
-            best_threshold, best_metric, details = self._f1_optimal(
-                scores, y, candidates
-            )
+            best_threshold, best_metric, details = self._f1_optimal(scores, y, candidates)
             metric_name = "f1"
         elif method == CalibrationStrategy.COST_SENSITIVE:
             best_threshold, best_metric, details = self._cost_sensitive(
@@ -1001,13 +993,9 @@ class ThresholdCalibrationPipeline:
 
         parts: list[str] = []
         if kl_drifted:
-            parts.append(
-                f"KL divergence {avg_kl:.4f} exceeds threshold {self.kl_threshold}"
-            )
+            parts.append(f"KL divergence {avg_kl:.4f} exceeds threshold {self.kl_threshold}")
         if ks_drifted:
-            parts.append(
-                f"KS p-value {min_pval:.4e} below alpha {self.ks_alpha}"
-            )
+            parts.append(f"KS p-value {min_pval:.4e} below alpha {self.ks_alpha}")
         if not drifted:
             parts.append("No significant drift detected")
 
@@ -1106,9 +1094,7 @@ class ThresholdCalibrationPipeline:
     def stale_thresholds(self) -> list[str]:
         """List the names of all thresholds that are STALE (drifted)."""
         return [
-            name
-            for name, rec in self._thresholds.items()
-            if rec.status == ThresholdStatus.STALE
+            name for name, rec in self._thresholds.items() if rec.status == ThresholdStatus.STALE
         ]
 
     # ------------------------------------------------------------------
@@ -1160,12 +1146,16 @@ class ThresholdCalibrationPipeline:
                 best_tpr = tpr
                 best_fpr = fpr
 
-        return best_t, float(best_j), {
-            "tpr": best_tpr,
-            "fpr": best_fpr,
-            "sensitivity": best_tpr,
-            "specificity": 1.0 - best_fpr,
-        }
+        return (
+            best_t,
+            float(best_j),
+            {
+                "tpr": best_tpr,
+                "fpr": best_fpr,
+                "sensitivity": best_tpr,
+                "specificity": 1.0 - best_fpr,
+            },
+        )
 
     @staticmethod
     def _f1_optimal(
@@ -1203,9 +1193,7 @@ class ThresholdCalibrationPipeline:
             precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
             recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
             f1 = (
-                2.0 * precision * recall / (precision + recall)
-                if (precision + recall) > 0
-                else 0.0
+                2.0 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
             )
             if f1 > best_f1:
                 best_f1 = f1
@@ -1213,10 +1201,14 @@ class ThresholdCalibrationPipeline:
                 best_prec = precision
                 best_rec = recall
 
-        return best_t, float(best_f1), {
-            "precision": best_prec,
-            "recall": best_rec,
-        }
+        return (
+            best_t,
+            float(best_f1),
+            {
+                "precision": best_prec,
+                "recall": best_rec,
+            },
+        )
 
     @staticmethod
     def _cost_sensitive(
@@ -1262,13 +1254,17 @@ class ThresholdCalibrationPipeline:
                 best_fp = fp
                 best_fn = fn
 
-        return best_t, float(-best_cost), {
-            "cost_fp": cost_fp,
-            "cost_fn": cost_fn,
-            "n_false_positives": best_fp,
-            "n_false_negatives": best_fn,
-            "total_cost": float(best_cost),
-        }
+        return (
+            best_t,
+            float(-best_cost),
+            {
+                "cost_fp": cost_fp,
+                "cost_fn": cost_fn,
+                "n_false_positives": best_fp,
+                "n_false_negatives": best_fn,
+                "total_cost": float(best_cost),
+            },
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -26,10 +26,12 @@ if TYPE_CHECKING:
 
 import numpy as np
 
+from omni_mercury_engine.core.centralized_constants import ETHICAL
+
 logger = logging.getLogger(__name__)
 
-# Benevolence threshold from ethical requirements
-BENEVOLENCE_THRESHOLD = 0.99
+# Benevolence threshold from centralized constants
+BENEVOLENCE_THRESHOLD = ETHICAL.BENEVOLENCE_IMMUTABLE
 
 # Golden ratio for harmonic scaling
 PHI = 1.618033988749895

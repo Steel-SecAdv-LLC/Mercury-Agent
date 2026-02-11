@@ -29,6 +29,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.core.centralized_constants import ETHICAL, LYAPUNOV, MATH
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -46,12 +48,7 @@ except ImportError:
     Adam = None  # type: ignore[assignment, misc, unused-ignore]
 
 
-from omni_mercury_engine.core.centralized_constants import (
-    ETHICAL,
-    LYAPUNOV,
-    MATH,
-)
-
+# Constants from centralized source of truth
 PHI: float = MATH.GOLDEN_RATIO
 LAMBDA_LYAPUNOV: float = LYAPUNOV.LAMBDA_CONVERGENCE
 SIGMA_IMMUTABLE_DEFAULT: float = ETHICAL.SIGMA_IMMUTABLE_DEFAULT
@@ -466,7 +463,7 @@ class LearnableGOSNN:
             ScalarCategory.ETHICAL: [
                 ("omnimorality", 1.20),
                 ("omniempathy", 1.22),
-                ("omnibenevolence", 0.99),
+                ("omnibenevolence", ETHICAL.BENEVOLENCE_IMMUTABLE),
                 ("omnijustice", 1.30),
                 ("omniintegrity", 1.30),
             ],

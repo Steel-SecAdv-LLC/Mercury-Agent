@@ -47,7 +47,6 @@ from omni_mercury_engine.core.three_r.fusion import (
     BanachRecursion,
 )
 
-
 # ==========================================================================
 # Fixtures
 # ==========================================================================
@@ -76,9 +75,9 @@ class TestSigmoidBenevolenceGate:
         """Gate output must lie strictly in (0, 1) for any finite input."""
         for score in [0.0, 0.25, 0.5, 0.75, 0.9, 0.93, 0.95, 0.99, 1.0]:
             result: float = sigmoid_benevolence_gate(score)
-            assert 0.0 < result < 1.0, (
-                f"sigmoid_benevolence_gate({score}) = {result} is not in (0, 1)"
-            )
+            assert (
+                0.0 < result < 1.0
+            ), f"sigmoid_benevolence_gate({score}) = {result} is not in (0, 1)"
 
     def test_high_benevolence_yields_high_gate(self) -> None:
         """A benevolence score well above b0 should produce a gate near 1.
@@ -234,25 +233,25 @@ class TestBanachRecursion:
         """
         for raw in [-100.0, -10.0, -1.0, 0.0, 1.0, 10.0, 100.0, 1000.0]:
             br = BanachRecursion(alpha_raw=raw)
-            assert br.alpha <= br.alpha_max, (
-                f"alpha_raw={raw}: alpha={br.alpha} > alpha_max={br.alpha_max}"
-            )
+            assert (
+                br.alpha <= br.alpha_max
+            ), f"alpha_raw={raw}: alpha={br.alpha} > alpha_max={br.alpha_max}"
             assert br.alpha > 0.0
 
     def test_alpha_strictly_less_than_alpha_max_moderate_input(self) -> None:
         """For moderate alpha_raw values, alpha is strictly < alpha_max."""
         for raw in [-10.0, -1.0, 0.0, 1.0, 5.0]:
             br = BanachRecursion(alpha_raw=raw)
-            assert br.alpha < br.alpha_max, (
-                f"alpha_raw={raw}: alpha={br.alpha} >= alpha_max={br.alpha_max}"
-            )
+            assert (
+                br.alpha < br.alpha_max
+            ), f"alpha_raw={raw}: alpha={br.alpha} >= alpha_max={br.alpha_max}"
 
     def test_alpha_max_gte_one_raises_value_error(self) -> None:
         """alpha_max >= 1.0 must raise ValueError (convergence impossible)."""
-        with pytest.raises(ValueError, match="alpha_max must be < 1.0"):
+        with pytest.raises(ValueError, match=r"alpha_max must be < 1\.0"):
             BanachRecursion(alpha_max=1.0)
 
-        with pytest.raises(ValueError, match="alpha_max must be < 1.0"):
+        with pytest.raises(ValueError, match=r"alpha_max must be < 1\.0"):
             BanachRecursion(alpha_max=1.5)
 
     def test_set_alpha_via_sigmoid(self) -> None:
@@ -268,7 +267,7 @@ class TestBanachRecursion:
         br = BanachRecursion(alpha_raw=0.0)  # alpha = 0.5 * 0.95 = 0.475
         x0_norm: float = 1.0
         depth: int = 5
-        expected: float = (br.alpha ** depth) * x0_norm / (1.0 - br.alpha)
+        expected: float = (br.alpha**depth) * x0_norm / (1.0 - br.alpha)
         actual: float = br.compute_error_bound(x0_norm, depth=depth)
         assert actual == pytest.approx(expected, rel=1e-8)
 
@@ -304,7 +303,7 @@ class TestBanachRecursion:
         def f_divergent(x: float) -> float:
             nonlocal call_count
             call_count += 1
-            return x * (2.0 ** call_count)
+            return x * (2.0**call_count)
 
         def g_identity(x: float) -> float:
             return x
@@ -488,16 +487,20 @@ class TestHierarchicalOmniScalarAggregation:
         network: GlobalOmniScalarNetwork = self._make_network()
         result: dict[str, Any] = network.compute_hierarchical_score()
         for cat_name, cat_score in result["category_scores"].items():
-            assert 0.0 <= cat_score <= 1.0, (
-                f"Category '{cat_name}' score {cat_score} outside [0, 1]"
-            )
+            assert (
+                0.0 <= cat_score <= 1.0
+            ), f"Category '{cat_name}' score {cat_score} outside [0, 1]"
 
     def test_all_five_categories_present(self) -> None:
         """All five categories should be present in the result."""
         network: GlobalOmniScalarNetwork = self._make_network()
         result: dict[str, Any] = network.compute_hierarchical_score()
         expected_categories = {
-            "safety", "fairness", "transparency", "accountability", "beneficence"
+            "safety",
+            "fairness",
+            "transparency",
+            "accountability",
+            "beneficence",
         }
         assert set(result["category_scores"].keys()) == expected_categories
 
@@ -830,7 +833,7 @@ class TestCrossCuttingIntegration:
 
     def test_recursion_constants_match_banach_defaults(self) -> None:
         """BanachRecursion defaults should align with RECURSION constants."""
-        assert RECURSION.ALPHA_MAX == pytest.approx(0.95)
+        assert pytest.approx(0.95) == RECURSION.ALPHA_MAX
         assert RECURSION.MAX_DEPTH == 50
-        assert RECURSION.CONVERGENCE_TOLERANCE == pytest.approx(1e-6)
-        assert RECURSION.CONTRACTION_VIOLATION_THRESHOLD == pytest.approx(1.0)
+        assert pytest.approx(1e-6) == RECURSION.CONVERGENCE_TOLERANCE
+        assert pytest.approx(1.0) == RECURSION.CONTRACTION_VIOLATION_THRESHOLD

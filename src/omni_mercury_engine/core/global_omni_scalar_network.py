@@ -1232,14 +1232,17 @@ class GlobalOmniScalarNetwork:
 
         # Beneficence: Ethical benevolence/compassion + Cosmic
         beneficence_keys = [
-            k for k in ethical
-            if "benevol" in k or "compass" in k or "love" in k
-            or "empathy" in k or "altru" in k or "hope" in k
+            k
+            for k in ethical
+            if "benevol" in k
+            or "compass" in k
+            or "love" in k
+            or "empathy" in k
+            or "altru" in k
+            or "hope" in k
         ]
         categories["beneficence"].extend(ethical[k] for k in beneficence_keys)
-        categories["beneficence"].extend(
-            self.scalar_groups[ScalarGroup.COSMIC].values()
-        )
+        categories["beneficence"].extend(self.scalar_groups[ScalarGroup.COSMIC].values())
 
         # Level 2: Weighted mean within each category
         category_scores: dict[str, float] = {}
@@ -1276,9 +1279,7 @@ class GlobalOmniScalarNetwork:
             overall = float(total_weight / inv_sum)
         else:
             # Arithmetic mean (default fallback)
-            overall = float(
-                sum(s * w for s, w in weighted_scores) / total_weight
-            )
+            overall = float(sum(s * w for s, w in weighted_scores) / total_weight)
 
         overall = float(np.clip(overall, 0.0, 1.0))
 

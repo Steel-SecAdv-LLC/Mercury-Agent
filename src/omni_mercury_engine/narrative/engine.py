@@ -52,6 +52,8 @@ from typing import Any
 
 import numpy as np
 
+from omni_mercury_engine.core.centralized_constants import ETHICAL
+
 logger = logging.getLogger(__name__)
 
 
@@ -332,7 +334,7 @@ class NarrativeEngine:
         gosnn = self._get_gosnn()
         if gosnn is None:
             return {
-                "omnibenevolence": 0.99,
+                "omnibenevolence": ETHICAL.BENEVOLENCE_IMMUTABLE,
                 "omnitransparency": 0.18,
                 "omniexplainability": 0.9,
                 "omnicompassion": 1.30,
@@ -340,7 +342,7 @@ class NarrativeEngine:
             }
 
         return {
-            "omnibenevolence": gosnn.get_scalar("omnibenevolence", 0.99),
+            "omnibenevolence": gosnn.get_scalar("omnibenevolence", ETHICAL.BENEVOLENCE_IMMUTABLE),
             "omnitransparency": gosnn.get_scalar("omnitransparency", 0.18),
             "omniexplainability": gosnn.get_scalar("omniexplainability", 0.9),
             "omnicompassion": gosnn.get_scalar("omnicompassion", 1.30),
