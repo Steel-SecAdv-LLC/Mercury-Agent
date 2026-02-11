@@ -386,7 +386,7 @@ class CFlowDetector(BaseVisualDetector):
             self._initialize_flows(data[:1])
 
         # Optimizer for all flows
-        params = []  # type: ignore[var-annotated, unused-ignore]
+        params: list[Any] = []  # type: ignore[var-annotated, unused-ignore]
         for flow in self.flows.values():
             params.extend(flow.parameters())
 

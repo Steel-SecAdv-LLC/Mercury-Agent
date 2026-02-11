@@ -214,7 +214,7 @@ class PlattScalingCalibrator:
             # Cross-entropy loss with clipping for numerical stability
             p = np.clip(p, 1e-10, 1 - 1e-10)
             loss = -np.mean(targets * np.log(p) + (1 - targets) * np.log(1 - p))
-            return loss  # type: ignore[no-any-return]
+            return float(loss)  # type: ignore[no-any-return, unused-ignore]
 
         # Initialize with reasonable values
         x0 = np.array([-1.0, 0.0])
@@ -764,7 +764,7 @@ class AdaptiveDomainThresholdManager:
 
         if abs(mean_shift) > 1.0:
             # Significant mean shift - adjust threshold proportionally
-            adjustment += mean_shift * historical_std * self.config.history_weight  # type: ignore[assignment, unused-ignore]
+            adjustment += float(mean_shift * historical_std) * self.config.history_weight  # type: ignore[assignment, unused-ignore]
 
         if std_ratio > 1.5 or std_ratio < 0.67:
             # Significant variance change - be more conservative
@@ -798,7 +798,7 @@ class AdaptiveDomainThresholdManager:
         # History consistency
         if len(self._threshold_history) > 2:
             threshold_std = np.std(self._threshold_history[-5:])
-            history_factor = 1.0 / (1.0 + threshold_std * 10)
+            history_factor = float(1.0 / (1.0 + threshold_std * 10))
         else:
             history_factor = 0.5  # type: ignore[assignment, unused-ignore]
 

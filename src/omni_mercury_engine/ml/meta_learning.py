@@ -602,7 +602,7 @@ class PrototypicalNetworks:
         avg_loss = total_loss / len(y_query)
 
         return AdaptationResult(
-            task_id=task.task_id,
+            task_id=task.task_id,  # type: ignore[union-attr, unused-ignore]
             pre_adaptation_loss=avg_loss,  # Same since no inner loop
             post_adaptation_loss=avg_loss,
             pre_adaptation_accuracy=accuracy,

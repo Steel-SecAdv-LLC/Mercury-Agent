@@ -222,7 +222,7 @@ class StackingFusion:
             raise RuntimeError("Must call fit() before predict()")
 
         meta_X = self._get_meta_features(X)
-        return self.meta_learner.predict(meta_X)  # type: ignore[no-any-return, unused-ignore]
+        return np.asarray(self.meta_learner.predict(meta_X))  # type: ignore[no-any-return, unused-ignore]
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         """
@@ -239,10 +239,10 @@ class StackingFusion:
 
         meta_X = self._get_meta_features(X)
         try:
-            return self.meta_learner.predict_proba(meta_X)  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(self.meta_learner.predict_proba(meta_X))  # type: ignore[no-any-return, unused-ignore]
         except AttributeError:
             # Meta-learner doesn't support proba
-            return self.meta_learner.predict(meta_X).astype(float)  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(self.meta_learner.predict(meta_X).astype(float))  # type: ignore[no-any-return, unused-ignore]
 
     def _get_meta_features(self, X: np.ndarray) -> np.ndarray:
         """Get meta-features from base detectors."""

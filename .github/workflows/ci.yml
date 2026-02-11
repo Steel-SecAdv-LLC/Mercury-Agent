@@ -127,7 +127,10 @@ jobs:
           pip install mypy types-requests
 
       - name: Run MyPy
-        # MyPy type checking is now blocking for code quality assurance
+        # MyPy reads strict config from pyproject.toml automatically.
+        # --ignore-missing-imports is required because CI only installs [ml]
+        # extras; modules behind other extras (api, visual, all) lack stubs
+        # in this job and would otherwise produce import-not-found errors.
         run: |
           mypy src/omni_mercury_engine/ \
             --ignore-missing-imports \
@@ -306,7 +309,9 @@ jobs:
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
-          path: ${{ env.PIP_CACHE_DIR }}
+          path: |
+            ${{ env.PIP_CACHE_DIR }}
+            ~/.cache/torch
           key: ${{ runner.os }}-pip-ml-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-pip-ml-
@@ -318,9 +323,10 @@ jobs:
           pip install pytest pytest-cov pytest-asyncio pytest-xdist pytest-timeout
 
       - name: Run full test suite with parallelization
+        env:
+          TORCH_HOME: ~/.cache/torch
         run: |
           # Run tests in parallel with 4 workers, 300s timeout per test
-          # This prevents individual hanging tests from blocking the entire suite
           # Coverage threshold enforced to ensure production readiness
           pytest tests/ \
             -v \

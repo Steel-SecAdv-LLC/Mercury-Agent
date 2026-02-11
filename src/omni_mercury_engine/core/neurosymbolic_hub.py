@@ -456,7 +456,7 @@ class NeuralEncoder:
             with torch.no_grad():
                 X_tensor = torch.tensor(X, dtype=torch.float32)
                 scores = self.encoder(X_tensor).numpy()
-            return scores.flatten()  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(scores.flatten())  # type: ignore[no-any-return, unused-ignore]
         else:
             # NumPy fallback - use statistical features
             mean = np.mean(X, axis=1)
@@ -466,7 +466,7 @@ class NeuralEncoder:
             z_score = np.abs(mean) / std
             score = 1 / (1 + np.exp(-z_score + 2))  # Sigmoid centered at 2
 
-            return score  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(score)  # type: ignore[no-any-return, unused-ignore]
 
     def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> NeuralEncoder:
         """Fit encoder (placeholder for training)."""

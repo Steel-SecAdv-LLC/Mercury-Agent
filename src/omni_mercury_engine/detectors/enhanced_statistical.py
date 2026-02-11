@@ -614,8 +614,8 @@ class CUSUMDetector:
             X = np.mean(X, axis=1)
         X = X.flatten()
 
-        self._fitted_mean = self.target_mean if self.target_mean is not None else np.mean(X)  # type: ignore[assignment, unused-ignore]
-        self._fitted_std = self.target_std if self.target_std is not None else np.std(X)  # type: ignore[assignment, unused-ignore]
+        self._fitted_mean = self.target_mean if self.target_mean is not None else float(np.mean(X))  # type: ignore[assignment, unused-ignore]
+        self._fitted_std = self.target_std if self.target_std is not None else float(np.std(X))  # type: ignore[assignment, unused-ignore]
 
         if self._fitted_std < 1e-10:  # type: ignore[operator, unused-ignore]
             self._fitted_std = 1.0
@@ -636,6 +636,8 @@ class CUSUMDetector:
         n = len(X)
 
         # Normalize data
+        if self._fitted_mean is None or self._fitted_std is None:
+            raise RuntimeError("CUSUM detector must be fitted before scoring")
         z = (X - self._fitted_mean) / self._fitted_std  # type: ignore[operator, unused-ignore]
 
         # CUSUM statistics

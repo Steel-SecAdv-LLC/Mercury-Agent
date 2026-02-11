@@ -491,7 +491,9 @@ class EmergentLifeDetector:
         context = context or {}
 
         if self.enable_seti and analysis_type in ["seti", "comprehensive"]:
-            seti = self.seti_analyzer.detect_seti_anomaly(data, context)  # type: ignore[union-attr]
+            if self.seti_analyzer is None:
+                raise RuntimeError("SETI analyzer not initialized despite enable_seti=True")
+            seti = self.seti_analyzer.detect_seti_anomaly(data, context)  # type: ignore[union-attr, unused-ignore]
             if seti is not None and seti.get("seti_anomaly_detected"):
                 result.life_signal_detected = True
                 result.signal_type = "technosignature"
@@ -500,7 +502,11 @@ class EmergentLifeDetector:
                 result.recommendations.extend(seti.get("recommendations", []))
 
         if self.enable_biosignatures and analysis_type in ["biosignatures", "comprehensive"]:
-            biosig = self.biosig_recognizer.detect_biosignatures(  # type: ignore[union-attr]
+            if self.biosig_recognizer is None:
+                raise RuntimeError(
+                    "Biosig recognizer not initialized despite enable_biosignatures=True"
+                )
+            biosig = self.biosig_recognizer.detect_biosignatures(  # type: ignore[union-attr, unused-ignore]
                 data, context.get("data_type", "atmospheric")
             )
             if biosig is not None and biosig.get("biosignatures_detected"):
@@ -515,7 +521,11 @@ class EmergentLifeDetector:
             and result.life_signal_detected
             and result.signal_type == "technosignature"
         ):
-            protocols = self.protocol_explorer.explore_contact_protocols(  # type: ignore[union-attr]
+            if self.protocol_explorer is None:
+                raise RuntimeError(
+                    "Protocol explorer not initialized despite enable_contact_protocols=True"
+                )
+            protocols = self.protocol_explorer.explore_contact_protocols(  # type: ignore[union-attr, unused-ignore]
                 {"confidence": result.confidence, "technosignatures": result.seti_technosignatures}
             )
             if protocols is not None:

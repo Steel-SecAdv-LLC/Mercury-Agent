@@ -493,7 +493,7 @@ class AnomalyTransformerEncoder(nn.Module):
         if threshold is None:
             mean_score = anomaly_score.mean()
             std_score = anomaly_score.std()
-            threshold = mean_score + 3 * std_score  # type: ignore[assignment, unused-ignore]
+            threshold = float(mean_score + 3 * std_score)  # type: ignore[assignment, unused-ignore]
 
         predictions = (anomaly_score > threshold).float()  # type: ignore[operator, unused-ignore]
 

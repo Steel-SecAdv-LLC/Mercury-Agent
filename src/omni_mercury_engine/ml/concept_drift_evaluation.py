@@ -606,7 +606,7 @@ class DegradationAnalyzer:
 
         # Check for outlier differences (sudden shifts)
         threshold = abs(mean_diff) + 3 * std_diff
-        return np.any(np.abs(diffs) > threshold)  # type: ignore[return-value, unused-ignore]
+        return bool(np.any(np.abs(diffs) > threshold))  # type: ignore[return-value, unused-ignore]
 
     def _is_oscillating(self, performances: NDArray[np.float64]) -> bool:
         """Check for oscillating pattern."""

@@ -616,16 +616,16 @@ class GOSNN3RIntegration:
             # Check weight stability
             if len(self.state.weight_history) >= 10:
                 weight_array = np.array(self.state.weight_history[-10:])
-                weight_variance = np.mean(np.var(weight_array, axis=0))
-                weight_stable = weight_variance < 0.01
+                weight_variance = float(np.mean(np.var(weight_array, axis=0)))
+                weight_stable = bool(weight_variance < 0.01)
             else:
                 weight_stable = True
                 weight_variance = 0.0
 
             # Check score stability
             if len(self.state.fusion_score_history) >= 10:
-                score_variance = np.var(self.state.fusion_score_history[-10:])
-                score_stable = score_variance < 0.05
+                score_variance = float(np.var(self.state.fusion_score_history[-10:]))
+                score_stable = bool(score_variance < 0.05)
             else:
                 score_stable = True  # type: ignore[assignment, unused-ignore]
                 score_variance = 0.0  # type: ignore[assignment, unused-ignore]
@@ -650,7 +650,7 @@ class GOSNN3RIntegration:
                 },
             }
 
-            return is_stable, report  # type: ignore[return-value, unused-ignore]
+            return bool(is_stable), report  # type: ignore[return-value, unused-ignore]
 
     def adjust_weights(
         self,

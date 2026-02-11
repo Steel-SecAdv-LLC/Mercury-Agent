@@ -249,82 +249,84 @@ def _lazy_import(name: str) -> Any:
 
 def get_abms_detector() -> type[ABMSDisciplineDetector]:
     """Get ABMSDisciplineDetector class (lazy loaded)."""
-    return _lazy_import("ABMSDisciplineDetector")  # type: ignore[no-any-return]
+    return cast("type[ABMSDisciplineDetector]", _lazy_import("ABMSDisciplineDetector"))  # type: ignore[no-any-return, unused-ignore]
 
 
 def get_affective_model() -> type[AffectiveAnomalyModel]:
     """Get AffectiveAnomalyModel class (lazy loaded)."""
-    return _lazy_import("AffectiveAnomalyModel")  # type: ignore[no-any-return]
+    return cast("type[AffectiveAnomalyModel]", _lazy_import("AffectiveAnomalyModel"))  # type: ignore[no-any-return, unused-ignore]
 
 
 def get_astrophysical_model() -> type[AstrophysicalAnomalyModel]:
     """Get AstrophysicalAnomalyModel class (lazy loaded)."""
-    return _lazy_import("AstrophysicalAnomalyModel")  # type: ignore[no-any-return]
+    return cast("type[AstrophysicalAnomalyModel]", _lazy_import("AstrophysicalAnomalyModel"))  # type: ignore[no-any-return, unused-ignore]
 
 
 def get_biometric_model() -> type[BiometricAnomalyModel]:
     """Get BiometricAnomalyModel class (lazy loaded)."""
-    return _lazy_import("BiometricAnomalyModel")  # type: ignore[no-any-return]
+    return cast("type[BiometricAnomalyModel]", _lazy_import("BiometricAnomalyModel"))  # type: ignore[no-any-return, unused-ignore]
 
 
 def get_chemistry_detector() -> type[ChemistryAnomalyDetector]:
     """Get ChemistryAnomalyDetector class (lazy loaded)."""
-    return _lazy_import("ChemistryAnomalyDetector")  # type: ignore[no-any-return]
+    return cast("type[ChemistryAnomalyDetector]", _lazy_import("ChemistryAnomalyDetector"))  # type: ignore[no-any-return, unused-ignore]
 
 
 def get_consciousness_model() -> type[ConsciousnessPreservationModel]:
     """Get ConsciousnessPreservationModel class (lazy loaded)."""
-    return _lazy_import("ConsciousnessPreservationModel")  # type: ignore[no-any-return]
+    return cast(  # type: ignore[no-any-return, unused-ignore]
+        "type[ConsciousnessPreservationModel]", _lazy_import("ConsciousnessPreservationModel")
+    )
 
 
 def get_neural_model() -> type[NeuralCognitiveModel]:
     """Get NeuralCognitiveModel class (lazy loaded)."""
-    return _lazy_import("NeuralCognitiveModel")  # type: ignore[no-any-return]
+    return cast("type[NeuralCognitiveModel]", _lazy_import("NeuralCognitiveModel"))  # type: ignore[no-any-return, unused-ignore]
 
 
 def get_parapsychology_detector() -> type[ParapsychologyDetector]:
     """Get ParapsychologyDetector class (lazy loaded)."""
-    return _lazy_import("ParapsychologyDetector")  # type: ignore[no-any-return]
+    return cast("type[ParapsychologyDetector]", _lazy_import("ParapsychologyDetector"))  # type: ignore[no-any-return, unused-ignore]
 
 
 def get_quantum_model() -> type[QuantumAnomalyModel]:
     """Get QuantumAnomalyModel class (lazy loaded)."""
-    return _lazy_import("QuantumAnomalyModel")  # type: ignore[no-any-return]
+    return cast("type[QuantumAnomalyModel]", _lazy_import("QuantumAnomalyModel"))  # type: ignore[no-any-return, unused-ignore]
 
 
 def get_intelligence_fusion() -> type[IntelligenceFusionEngine]:
     """Get IntelligenceFusionEngine class (lazy loaded)."""
-    return _lazy_import("IntelligenceFusionEngine")  # type: ignore[no-any-return]
+    return cast("type[IntelligenceFusionEngine]", _lazy_import("IntelligenceFusionEngine"))  # type: ignore[no-any-return, unused-ignore]
 
 
 def get_threat_detector() -> type[ThreatDetector]:
     """Get ThreatDetector class (lazy loaded)."""
-    return _lazy_import("ThreatDetector")  # type: ignore[no-any-return]
+    return cast("type[ThreatDetector]", _lazy_import("ThreatDetector"))  # type: ignore[no-any-return, unused-ignore]
 
 
 def get_schumann_detector() -> type[SchumannResonanceDetector]:
     """Get SchumannResonanceDetector class (lazy loaded)."""
-    return _lazy_import("SchumannResonanceDetector")  # type: ignore[no-any-return]
+    return cast("type[SchumannResonanceDetector]", _lazy_import("SchumannResonanceDetector"))  # type: ignore[no-any-return, unused-ignore]
 
 
 def get_self_healing() -> type[SelfHealingEngine]:
     """Get SelfHealingEngine class (lazy loaded)."""
-    return _lazy_import("SelfHealingEngine")  # type: ignore[no-any-return]
+    return cast("type[SelfHealingEngine]", _lazy_import("SelfHealingEngine"))  # type: ignore[no-any-return, unused-ignore]
 
 
 def get_llm_config() -> type[LLMConfig]:
     """Get LLMConfig class (lazy loaded)."""
-    return _lazy_import("LLMConfig")  # type: ignore[no-any-return]
+    return cast("type[LLMConfig]", _lazy_import("LLMConfig"))  # type: ignore[no-any-return, unused-ignore]
 
 
 def get_llm_provider() -> type[LLMProvider]:
     """Get LLMProvider class (lazy loaded)."""
-    return _lazy_import("LLMProvider")  # type: ignore[no-any-return]
+    return cast("type[LLMProvider]", _lazy_import("LLMProvider"))  # type: ignore[no-any-return, unused-ignore]
 
 
 def get_zero_shot_detector() -> type[ZeroShotAnomalyDetector]:
     """Get ZeroShotAnomalyDetector class (lazy loaded)."""
-    return _lazy_import("ZeroShotAnomalyDetector")  # type: ignore[no-any-return]
+    return cast("type[ZeroShotAnomalyDetector]", _lazy_import("ZeroShotAnomalyDetector"))  # type: ignore[no-any-return, unused-ignore]
 
 
 # Backward-compatible aliases for direct access (triggers lazy load on access)

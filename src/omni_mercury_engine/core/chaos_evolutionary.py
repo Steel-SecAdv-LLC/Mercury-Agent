@@ -227,7 +227,7 @@ class ChaosEvolutionOptimizer:
             self.convergence_history.append(float(self.best_fitness))
 
             if iteration % 10 == 0:
-                chaos_value = self._rng.rand()  # type: ignore[assignment, unused-ignore]
+                chaos_value = float(self._rng.rand())  # type: ignore[assignment, unused-ignore]
 
         results = {
             "best_solution": self.best_solution,

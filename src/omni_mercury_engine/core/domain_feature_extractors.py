@@ -800,7 +800,7 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
         features.append(float(suspicious))
         names.append("benford_suspicious_digits")
 
-        return features, names
+        return features, names  # type: ignore[return-value, unused-ignore]
 
     def _compute_velocity_features(
         self, amounts: NDArray[np.float64]
@@ -845,7 +845,7 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
 
             # Acceleration (change in velocity)
             if len(rolling_sum) > 1:
-                acceleration = np.mean(np.diff(rolling_sum))
+                acceleration = float(np.mean(np.diff(rolling_sum)))
             else:
                 acceleration = 0.0  # type: ignore[assignment, unused-ignore]
             features.append(acceleration)  # type: ignore[arg-type, unused-ignore]
@@ -856,7 +856,7 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
             features.append(volatility)
             names.append(f"velocity_{window}_volatility")
 
-        return features, names
+        return features, names  # type: ignore[return-value, unused-ignore]
 
     def _compute_round_number_features(
         self, amounts: NDArray[np.float64]
@@ -1429,7 +1429,7 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
             if len(var_data) > 1:
                 derivative = np.diff(var_data)
                 derivative_var = np.var(derivative)
-                var_ratio = derivative_var / (np.var(var_data) + 1e-10)
+                var_ratio = float(derivative_var / (np.var(var_data) + 1e-10))
             else:
                 var_ratio = 0.0  # type: ignore[assignment, unused-ignore]
 
@@ -1507,7 +1507,7 @@ class InfrastructureFeatureExtractor(BaseDomainExtractor):
                 diff = np.abs(np.diff(var_data))
                 std_diff = np.std(diff) + 1e-10
                 large_steps = np.sum(diff > 5 * std_diff)
-                step_changes += large_steps  # type: ignore[assignment, unused-ignore]
+                step_changes += int(large_steps)  # type: ignore[assignment, unused-ignore]
 
         features.append(float(step_changes) / (n_samples * n_vars + 1e-10))
         names.append("attack_step_injection_ratio")

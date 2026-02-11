@@ -1026,7 +1026,7 @@ class USGSGeochemistryLoader(DatasetLoader):
         data_processed = (data_processed - data_processed.mean(axis=0)) / (
             data_processed.std(axis=0) + 1e-8
         )
-        return data_processed.astype(np.float32)  # type: ignore[no-any-return, unused-ignore]
+        return np.asarray(data_processed.astype(np.float32))  # type: ignore[no-any-return, unused-ignore]
 
 
 # Register environmental loaders
