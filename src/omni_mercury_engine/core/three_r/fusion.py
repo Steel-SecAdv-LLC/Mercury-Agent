@@ -82,7 +82,13 @@ class AnomalyFusionEquation:
         if lambda_lyapunov is not None:
             convergence_rate = lambda_lyapunov
 
-        self.ethical_compliance_threshold = max(0.90, min(0.99, ethical_compliance_threshold))
+        clamped = max(0.90, min(0.99, ethical_compliance_threshold))
+        if clamped != ethical_compliance_threshold:
+            logger.warning(
+                f"ethical_compliance_threshold={ethical_compliance_threshold:.4f} "
+                f"clamped to [{0.90}, {0.99}] -> {clamped:.4f}"
+            )
+        self.ethical_compliance_threshold = clamped
         self.convergence_rate_param = convergence_rate
         self.golden_ratio = GOLDEN_RATIO_CONSTANT
         self.domain = domain
@@ -153,6 +159,14 @@ class AnomalyFusionEquation:
         """
         if sigma_immutable_override is not None:
             ethical_threshold_override = sigma_immutable_override
+
+        # Validate benevolence_score range
+        if benevolence_score is not None and not (0.0 <= benevolence_score <= 1.0):
+            logger.warning(
+                f"benevolence_score={benevolence_score:.4f} outside [0, 1], "
+                "clamping to valid range"
+            )
+            benevolence_score = max(0.0, min(1.0, benevolence_score))
 
         # NaN guard on input scores
         if np.isnan(recursion_score):
@@ -510,10 +524,12 @@ class BanachRecursion:
     ) -> float:
         """Inner recursive computation with contraction monitoring."""
         base = f(x)
-        self.actual_depth += 1
 
         if depth <= 0:
             return base
+
+        # Only count actual recursive steps, not base cases
+        self.actual_depth += 1
 
         # Recurse
         next_x = g(x)

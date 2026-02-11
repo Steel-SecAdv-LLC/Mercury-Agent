@@ -566,7 +566,8 @@ class GlobalOmniScalarNetwork:
         Legacy aliases (without omni- prefix) are maintained for backward
         compatibility and will be deprecated in v2.0.
         """
-        # Core ethical scalars with omni- prefix (omnibenevolence >= 0.99)
+        # Core ethical scalars with omni- prefix
+        # omnibenevolence uses ETHICAL.BENEVOLENCE_IMMUTABLE (0.99)
         self.scalar_groups[ScalarGroup.ETHICAL] = {
             # Primary omni-scalars
             "omnimorality": self.MIN_MORALITY,
@@ -585,7 +586,7 @@ class GlobalOmniScalarNetwork:
             "omniaccountability": 1.30,
             "omnitransparency": 0.18,
             "omniexplainability": 0.9,
-            "omnibenevolence": 0.99,  # Core benevolence threshold
+            "omnibenevolence": ETHICAL.BENEVOLENCE_IMMUTABLE,  # Core benevolence threshold
             "omniequity": 1.30,
             "omnigrace": 1.25,
             "omnipatience": 1.20,
@@ -1033,7 +1034,10 @@ class GlobalOmniScalarNetwork:
         omnimorality = self.scalar_groups[ScalarGroup.ETHICAL].get(
             "omnimorality", self.MIN_MORALITY
         )
-        omnibenevolence = self.scalar_groups[ScalarGroup.ETHICAL].get("omnibenevolence", 0.99)
+        benevolence_threshold = ETHICAL.BENEVOLENCE_IMMUTABLE
+        omnibenevolence = self.scalar_groups[ScalarGroup.ETHICAL].get(
+            "omnibenevolence", benevolence_threshold
+        )
 
         if omniempathy < self.MIN_EMPATHY:
             recommendations.append(
@@ -1043,9 +1047,10 @@ class GlobalOmniScalarNetwork:
             recommendations.append(
                 f"Omnimorality {omnimorality:.2f} below minimum {self.MIN_MORALITY}"
             )
-        if omnibenevolence < 0.99:
+        if omnibenevolence < benevolence_threshold:
             recommendations.append(
-                f"Omnibenevolence {omnibenevolence:.2f} below required threshold 0.99"
+                f"Omnibenevolence {omnibenevolence:.2f} below required "
+                f"threshold {benevolence_threshold}"
             )
 
         return {

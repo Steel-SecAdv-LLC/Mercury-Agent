@@ -348,8 +348,8 @@ class TestBanachRecursion:
             return x * 0.9
 
         br.recurse(1.0, f, g, depth=5)
-        # actual_depth counts every _recurse_inner call (depth+1 total including base)
-        assert br.actual_depth == 6  # depth 5 means 6 calls (0..5)
+        # actual_depth counts only recursive steps (not base case)
+        assert br.actual_depth == 5  # depth 5 means 5 recursive steps
 
     def test_custom_alpha_max(self) -> None:
         """Custom alpha_max < 1.0 should be respected.
