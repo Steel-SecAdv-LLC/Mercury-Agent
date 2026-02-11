@@ -1149,6 +1149,141 @@ class GlobalOmniScalarNetwork:
         contribution = np.mean(values) / (1.0 + np.std(values))
         return float(np.clip(contribution, 0.0, 1.0))
 
+    def compute_hierarchical_score(
+        self,
+        domain_weights: dict[str, float] | None = None,
+        aggregation_method: str = "geometric_mean",
+    ) -> dict[str, Any]:
+        """Compute hierarchical aggregation of omni-scalars (Phase 3).
+
+        Implements 3-level hierarchical aggregation:
+
+        Level 1 — Category groups: Group scalars by category
+            (safety, fairness, transparency, accountability, beneficence)
+        Level 2 — Category aggregation: Weighted mean within each group
+            (weights set by domain priority)
+        Level 3 — Cross-category: Final aggregation via geometric mean
+            (penalizes any single low score)
+
+        The mapping from ScalarGroups to the 5-category taxonomy:
+            - safety: MEDICAL, SECURITY, HUMANITARIAN
+            - fairness: ETHICAL (equity/justice subset)
+            - transparency: ETHICAL (transparency/explainability subset)
+            - accountability: SOFTWARE_ENGINEERING, ADVANCED_REASONING
+            - beneficence: ETHICAL (benevolence/compassion subset), COSMIC
+
+        Args:
+            domain_weights: Optional per-category weights. If None, uses
+                equal weighting. Keys: "safety", "fairness", "transparency",
+                "accountability", "beneficence".
+            aggregation_method: Cross-category aggregation method.
+                "geometric_mean" (default, penalizes low scores),
+                "arithmetic_mean", or "harmonic_mean".
+
+        Returns:
+            Dict with:
+                - "overall_score": Final aggregated score in [0, 1]
+                - "category_scores": Per-category scores
+                - "category_sizes": Number of scalars per category
+                - "method": Aggregation method used
+        """
+        # Default equal weights
+        if domain_weights is None:
+            domain_weights = {
+                "safety": 1.0,
+                "fairness": 1.0,
+                "transparency": 1.0,
+                "accountability": 1.0,
+                "beneficence": 1.0,
+            }
+
+        # Level 1: Map scalars to categories
+        categories: dict[str, list[float]] = {
+            "safety": [],
+            "fairness": [],
+            "transparency": [],
+            "accountability": [],
+            "beneficence": [],
+        }
+
+        # Safety: Medical + Security + Humanitarian
+        for group_key in [ScalarGroup.MEDICAL, ScalarGroup.SECURITY, ScalarGroup.HUMANITARIAN]:
+            categories["safety"].extend(self.scalar_groups[group_key].values())
+
+        # Fairness: Ethical equity/justice subset
+        ethical = self.scalar_groups[ScalarGroup.ETHICAL]
+        fairness_keys = [k for k in ethical if "equit" in k or "justic" in k or "bias" in k]
+        categories["fairness"].extend(ethical[k] for k in fairness_keys)
+
+        # Transparency: Ethical transparency/explainability subset
+        transparency_keys = [
+            k for k in ethical if "transparen" in k or "explain" in k or "account" in k
+        ]
+        categories["transparency"].extend(ethical[k] for k in transparency_keys)
+
+        # Accountability: Software Engineering + Advanced Reasoning
+        for group_key in [ScalarGroup.SOFTWARE_ENGINEERING, ScalarGroup.ADVANCED_REASONING]:
+            categories["accountability"].extend(self.scalar_groups[group_key].values())
+
+        # Beneficence: Ethical benevolence/compassion + Cosmic
+        beneficence_keys = [
+            k for k in ethical
+            if "benevol" in k or "compass" in k or "love" in k
+            or "empathy" in k or "altru" in k or "hope" in k
+        ]
+        categories["beneficence"].extend(ethical[k] for k in beneficence_keys)
+        categories["beneficence"].extend(
+            self.scalar_groups[ScalarGroup.COSMIC].values()
+        )
+
+        # Level 2: Weighted mean within each category
+        category_scores: dict[str, float] = {}
+        category_sizes: dict[str, int] = {}
+
+        for cat_name, values in categories.items():
+            category_sizes[cat_name] = len(values)
+            if values:
+                arr = np.array(values)
+                # Normalize: values > 1 are boosts, < 1 are penalties
+                # Map to [0, 1] by dividing by max reasonable value (2.0)
+                normalized = np.clip(arr / 2.0, 0.0, 1.0)
+                category_scores[cat_name] = float(np.mean(normalized))
+            else:
+                category_scores[cat_name] = 0.5  # Neutral if empty
+
+        # Level 3: Cross-category aggregation
+        weighted_scores = []
+        total_weight = 0.0
+        for cat_name, score in category_scores.items():
+            w = domain_weights.get(cat_name, 1.0)
+            weighted_scores.append((score, w))
+            total_weight += w
+
+        if total_weight == 0 or not weighted_scores:
+            overall = 0.5
+        elif aggregation_method == "geometric_mean":
+            # Weighted geometric mean: penalizes any single low score
+            log_sum = sum(w * np.log(max(s, 1e-10)) for s, w in weighted_scores)
+            overall = float(np.exp(log_sum / total_weight))
+        elif aggregation_method == "harmonic_mean":
+            # Weighted harmonic mean: even stronger penalty for low scores
+            inv_sum = sum(w / max(s, 1e-10) for s, w in weighted_scores)
+            overall = float(total_weight / inv_sum)
+        else:
+            # Arithmetic mean (default fallback)
+            overall = float(
+                sum(s * w for s, w in weighted_scores) / total_weight
+            )
+
+        overall = float(np.clip(overall, 0.0, 1.0))
+
+        return {
+            "overall_score": overall,
+            "category_scores": category_scores,
+            "category_sizes": category_sizes,
+            "method": aggregation_method,
+        }
+
 
 # Global GOSNN singleton instance
 # Thread Safety: Uses lazy initialization with potential race condition on first access.

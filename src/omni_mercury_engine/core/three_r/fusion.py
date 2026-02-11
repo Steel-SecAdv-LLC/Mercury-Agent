@@ -13,6 +13,10 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from scipy import optimize
 
+from omni_mercury_engine.core.centralized_constants import (
+    RECURSION,
+    sigmoid_benevolence_gate,
+)
 from omni_mercury_engine.core.three_r.types import (
     CONVERGENCE_RATE_PARAMETER,
     GOLDEN_RATIO_CONSTANT,
@@ -50,16 +54,28 @@ class AnomalyFusionEquation:
         initial_weights: dict[str, float] | None = None,
         sigma_immutable: float | None = None,
         lambda_lyapunov: float | None = None,
+        domain: str = "default",
+        ethical_exponent: float | None = None,
     ):
         """
         Initialize AVA Anomaly Fusion Equation.
 
+        The AAFE computes:
+            A = (w_R·R(x) + w_H·H(ω) + w_O·O(θ)) · η(b)^p
+
+        Where η(b) is the sigmoid benevolence gate (replacing hard threshold)
+        and p is the ethical exponent (default: Φ = 1.618, configurable for
+        empirical optimization).
+
         Args:
-            ethical_compliance_threshold: Ethical threshold η_Ethical (0.93-0.96)
-            convergence_rate: Convergence rate parameter for stability
-            initial_weights: Optional initial weights {w_R, w_H, w_O}
-            sigma_immutable: Deprecated alias for ethical_compliance_threshold
-            lambda_lyapunov: Deprecated alias for convergence_rate
+            ethical_compliance_threshold: Ethical threshold η_Ethical (0.93-0.96).
+            convergence_rate: Convergence rate parameter for Lyapunov stability.
+            initial_weights: Optional initial weights {w_R, w_H, w_O}.
+            sigma_immutable: Deprecated alias for ethical_compliance_threshold.
+            lambda_lyapunov: Deprecated alias for convergence_rate.
+            domain: Domain name for sigmoid benevolence profile selection.
+            ethical_exponent: Exponent for ethical scaling. Defaults to Φ (1.618).
+                Set to None to use golden ratio. Override for empirical optimization.
         """
         if sigma_immutable is not None:
             ethical_compliance_threshold = sigma_immutable
@@ -69,6 +85,16 @@ class AnomalyFusionEquation:
         self.ethical_compliance_threshold = max(0.90, min(0.99, ethical_compliance_threshold))
         self.convergence_rate_param = convergence_rate
         self.golden_ratio = GOLDEN_RATIO_CONSTANT
+        self.domain = domain
+
+        # Ethical exponent: defaults to Φ but is configurable for empirical tuning.
+        # PHASE 3 NOTE: The golden ratio exponent Φ = 1.618 is used as default.
+        # Empirical parameter sweep (see benchmarks/parameter_sweep.py) should
+        # validate whether Φ is optimal or should be replaced. The exponent is
+        # now configurable to support empirical optimization.
+        self.ethical_exponent = (
+            ethical_exponent if ethical_exponent is not None else self.golden_ratio
+        )
 
         # Backward-compatible aliases
         self.sigma_immutable = self.ethical_compliance_threshold
@@ -97,28 +123,56 @@ class AnomalyFusionEquation:
         optimization_score: float,
         ethical_threshold_override: float | None = None,
         sigma_immutable_override: float | None = None,
+        benevolence_score: float | None = None,
     ) -> AnomalyFusionResult:
         """
         Compute AVA Anomaly Fusion Equation score.
 
+        A = (w_R·R(x) + w_H·H(ω) + w_O·O(θ)) · η^p
+
+        Where η is either:
+          - The sigmoid benevolence gate η(b) if benevolence_score is provided
+          - The raw ethical_compliance_threshold otherwise (backward compatible)
+
+        And p is the ethical exponent (default Φ = 1.618, configurable).
+
+        NaN guard: If any input score is NaN, it is replaced with 0.0 and
+        a warning is logged.
+
         Args:
-            recursion_score: R(x) from hierarchical feature extraction
-            resonance_score: H(omega) from frequency-domain analysis
-            optimization_score: O(theta) from adaptive enhancement
-            ethical_threshold_override: Optional override for η_Ethical
-            sigma_immutable_override: Deprecated alias
+            recursion_score: R(x) from hierarchical feature extraction.
+            resonance_score: H(ω) from frequency-domain analysis.
+            optimization_score: O(θ) from adaptive enhancement.
+            ethical_threshold_override: Optional override for η_Ethical.
+            sigma_immutable_override: Deprecated alias.
+            benevolence_score: If provided, uses sigmoid gate instead of
+                raw threshold. This is the recommended approach.
 
         Returns:
-            AnomalyFusionResult with all component scores and metadata
+            AnomalyFusionResult with all component scores and metadata.
         """
         if sigma_immutable_override is not None:
             ethical_threshold_override = sigma_immutable_override
 
-        eta = (
-            ethical_threshold_override
-            if ethical_threshold_override is not None
-            else self.ethical_compliance_threshold
-        )
+        # NaN guard on input scores
+        if np.isnan(recursion_score):
+            logger.warning("NaN recursion_score in AAFE, replacing with 0.0")
+            recursion_score = 0.0
+        if np.isnan(resonance_score):
+            logger.warning("NaN resonance_score in AAFE, replacing with 0.0")
+            resonance_score = 0.0
+        if np.isnan(optimization_score):
+            logger.warning("NaN optimization_score in AAFE, replacing with 0.0")
+            optimization_score = 0.0
+
+        # Compute ethical gate value
+        if benevolence_score is not None:
+            # Use sigmoid benevolence gate (Phase 3 upgrade)
+            eta = sigmoid_benevolence_gate(benevolence_score, domain=self.domain)
+        elif ethical_threshold_override is not None:
+            eta = ethical_threshold_override
+        else:
+            eta = self.ethical_compliance_threshold
 
         weighted_sum = (
             self.weights["w_R"] * recursion_score
@@ -126,7 +180,8 @@ class AnomalyFusionEquation:
             + self.weights["w_O"] * optimization_score
         )
 
-        ethical_scaling = eta**self.golden_ratio
+        # Use configurable exponent (default Φ) instead of hardcoded golden_ratio
+        ethical_scaling = eta**self.ethical_exponent
         fusion_score = weighted_sum * ethical_scaling
 
         self.time_step += 1
@@ -301,3 +356,189 @@ class AAFEWeightOptimizer:
                 "w_O": float(self.optimized_weights[2]),
             },
         )
+
+
+class BanachRecursion:
+    """Convergence-bounded recursive computation via Banach contraction mapping.
+
+    Implements:
+        R(x, d) = f(x) + α · R(g(x), d-1)
+
+    With convergence guarantees:
+        - α is constrained via sigmoid: α = σ(α_raw) · α_max where α_max = 0.95
+        - This guarantees α ∈ (0, 0.95), ensuring geometric convergence
+        - Error bound after d iterations: err ≤ α^d · ‖x₀ - R(x₀)‖ / (1 - α)
+        - Runtime contraction monitoring with halt on violation
+
+    Reference: Banach fixed-point theorem (Banach, 1922).
+
+    Mathematical proof of convergence:
+        Let (X, d) be a complete metric space and R: X → X satisfy
+        d(R(x), R(y)) ≤ α · d(x, y) for all x, y ∈ X and some α ∈ [0, 1).
+        Then R has a unique fixed point x* and for any x₀ ∈ X,
+        the sequence x_{n+1} = R(x_n) converges to x*.
+        Error bound: d(x_n, x*) ≤ α^n / (1-α) · d(x₀, x₁).
+    """
+
+    def __init__(
+        self,
+        alpha_raw: float = 0.0,
+        alpha_max: float = RECURSION.ALPHA_MAX,
+        max_depth: int = RECURSION.MAX_DEPTH,
+        convergence_tolerance: float = RECURSION.CONVERGENCE_TOLERANCE,
+    ):
+        """Initialize convergence-bounded recursion.
+
+        Args:
+            alpha_raw: Raw contraction parameter (before sigmoid constraint).
+                Will be mapped to (0, alpha_max) via sigmoid.
+            alpha_max: Maximum allowed contraction factor. Must be < 1.0
+                to guarantee convergence.
+            max_depth: Maximum recursion depth.
+            convergence_tolerance: Stop when successive changes fall below
+                this threshold.
+
+        Raises:
+            ValueError: If alpha_max >= 1.0 (convergence impossible).
+        """
+        if alpha_max >= 1.0:
+            raise ValueError(
+                f"alpha_max must be < 1.0 for convergence guarantee, got {alpha_max}"
+            )
+
+        self.alpha_max = alpha_max
+        self.max_depth = max_depth
+        self.convergence_tolerance = convergence_tolerance
+
+        # Constrain α via sigmoid: α = σ(α_raw) * α_max
+        self.alpha = self._sigmoid(alpha_raw) * self.alpha_max
+
+        # Monitoring state
+        self.contraction_ratios: list[float] = []
+        self.convergence_achieved = False
+        self.actual_depth = 0
+
+    @staticmethod
+    def _sigmoid(x: float) -> float:
+        """Sigmoid function with overflow protection."""
+        if x >= 0:
+            z = np.exp(-x)
+            return 1.0 / (1.0 + z)
+        else:
+            z = np.exp(x)
+            return z / (1.0 + z)
+
+    def set_alpha(self, alpha_raw: float) -> float:
+        """Set contraction factor from raw value via sigmoid constraint.
+
+        Args:
+            alpha_raw: Unconstrained parameter.
+
+        Returns:
+            Constrained α ∈ (0, alpha_max).
+        """
+        self.alpha = self._sigmoid(alpha_raw) * self.alpha_max
+        return self.alpha
+
+    def compute_error_bound(self, x0_norm: float, depth: int | None = None) -> float:
+        """Compute theoretical error bound after d iterations.
+
+        Error bound: err ≤ α^d · ‖x₀ - R(x₀)‖ / (1 - α)
+
+        Args:
+            x0_norm: ‖x₀ - R(x₀)‖, the initial displacement.
+            depth: Number of iterations (defaults to actual_depth).
+
+        Returns:
+            Upper bound on error.
+        """
+        d = depth if depth is not None else self.actual_depth
+        if self.alpha >= 1.0:
+            return float("inf")
+        return (self.alpha**d) * x0_norm / (1.0 - self.alpha)
+
+    def recurse(
+        self,
+        x: float,
+        f: Any,
+        g: Any,
+        depth: int | None = None,
+    ) -> tuple[float, float]:
+        """Execute convergence-bounded recursion.
+
+        Computes R(x, d) = f(x) + α · R(g(x), d-1) with:
+          - Contraction monitoring at each step
+          - Early termination on convergence
+          - Halt on contraction violation
+
+        Args:
+            x: Input value.
+            f: Base transformation function f(x) -> float.
+            g: Recursive transformation function g(x) -> float.
+            depth: Maximum recursion depth (defaults to self.max_depth).
+
+        Returns:
+            Tuple of (result, error_bound).
+
+        Raises:
+            RuntimeError: If contraction ratio exceeds 1.0 (divergence detected).
+        """
+        max_d = depth if depth is not None else self.max_depth
+        self.contraction_ratios = []
+        self.convergence_achieved = False
+        self.actual_depth = 0
+
+        result = self._recurse_inner(x, f, g, max_d, prev_result=None)
+
+        # Compute error bound
+        if self.contraction_ratios:
+            # Use initial displacement for error bound
+            x0_norm = abs(f(x))
+            error_bound = self.compute_error_bound(x0_norm)
+        else:
+            error_bound = 0.0
+
+        return result, error_bound
+
+    def _recurse_inner(
+        self,
+        x: float,
+        f: Any,
+        g: Any,
+        depth: int,
+        prev_result: float | None,
+    ) -> float:
+        """Inner recursive computation with contraction monitoring."""
+        base = f(x)
+        self.actual_depth += 1
+
+        if depth <= 0:
+            return base
+
+        # Recurse
+        next_x = g(x)
+        sub_result = self._recurse_inner(next_x, f, g, depth - 1, base)
+        result = base + self.alpha * sub_result
+
+        # Monitor contraction ratio
+        if prev_result is not None and abs(prev_result) > self.convergence_tolerance:
+            contraction_ratio = abs(result - prev_result) / abs(prev_result)
+            self.contraction_ratios.append(contraction_ratio)
+
+            if contraction_ratio > RECURSION.CONTRACTION_VIOLATION_THRESHOLD:
+                logger.error(
+                    f"Contraction violation: ratio={contraction_ratio:.4f} > "
+                    f"{RECURSION.CONTRACTION_VIOLATION_THRESHOLD}. "
+                    f"Halting recursion at depth={self.actual_depth}."
+                )
+                raise RuntimeError(
+                    f"Banach contraction violated: ratio={contraction_ratio:.4f}"
+                )
+
+        # Check convergence
+        if prev_result is not None:
+            change = abs(result - prev_result)
+            if change < self.convergence_tolerance:
+                self.convergence_achieved = True
+
+        return result

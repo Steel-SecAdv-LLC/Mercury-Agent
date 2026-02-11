@@ -56,6 +56,7 @@ from scipy.sparse.linalg import eigsh
 from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.core.centralized_constants import get_domain_fundamentals
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.utils.constants import MathematicalConstants
 
@@ -70,9 +71,13 @@ logger = logging.getLogger(__name__)
 PHI = MathematicalConstants.GOLDEN_RATIO.value  # 1.618033988749895
 
 # Schumann resonance fundamental frequency (Hz)
+# Now used as fallback only — domain-adaptive frequencies are preferred.
+# Provenance: Schumann (1952), valid for environmental/geophysical domain.
 SCHUMANN_FUNDAMENTAL = 7.83
 
 # Schumann harmonics (Hz)
+# Retained for backward compatibility; see get_domain_fundamentals() for
+# domain-specific frequency selection.
 SCHUMANN_HARMONICS = [7.83, 14.3, 20.8, 27.3, 33.8]
 
 
@@ -147,6 +152,7 @@ class SpectralVibrationConfig:
     enable_schumann: bool = True
     threshold: float = 0.5
     device: str = "cpu"
+    domain: str = "environmental"
     extra_params: dict[str, Any] = field(default_factory=dict)
 
 
@@ -1361,26 +1367,57 @@ class SpectralVibrationDetector(BaseDetector):
         freqs: np.ndarray,
         spectrum: np.ndarray,
     ) -> float:
-        """Compute alignment with Schumann resonance frequencies.
+        """Compute alignment with domain-adaptive fundamental frequencies.
+
+        Phase 3 upgrade: Replaces universal Schumann (7.83 Hz) with
+        domain-specific fundamentals:
+          - Environmental: Schumann resonances (7.83, 14.3, 20.8, 27.3, 33.8 Hz)
+          - Medical: HRV bands (0.04, 0.15, 0.4, 1.0, 40.0 Hz)
+          - Infrastructure: Power grid + structural (50, 60, 0.1, 0.01 Hz)
+          - Space: Solar cycle + orbital (0.001, 0.01, 0.1, 11.0 Hz)
+          - Security/Financial: Adaptive spectral peak detection
+
+        For domains with no predefined fundamentals, the method performs
+        adaptive peak detection on the input spectrum.
+
+        Updated harmonic ratio equation:
+            A(x) = Σ_d [ Σ_n H(n·ω_d) / Σ H(ω) ] / |D|
+            where D is the set of domain fundamental frequencies.
 
         Args:
-            freqs: Frequency array
-            spectrum: Power spectrum
+            freqs: Frequency array from FFT.
+            spectrum: Power spectrum.
 
         Returns:
-            Alignment score [0, 1]
+            Alignment score in [0, 1].
+
+        Provenance:
+            - Schumann (1952) for environmental frequencies
+            - Task Force of ESC/NASPE (1996) for HRV frequency bands
+            - Standard power grid frequencies for infrastructure
         """
         if not self._spectral_config.enable_schumann:
             return 0.0
 
-        # Find spectrum values at Schumann frequencies
+        # Get domain-specific fundamental frequencies
+        domain = getattr(self._spectral_config, "domain", "environmental")
+        domain_freqs = get_domain_fundamentals(domain)
+
+        if domain_freqs is None:
+            # Adaptive spectral peak detection for unknown domains
+            domain_freqs = self._detect_spectral_peaks(freqs, spectrum)
+
+        if not domain_freqs:
+            return 0.0
+
+        # Compute alignment against domain fundamentals
         alignment_scores = []
 
-        for schumann_freq in SCHUMANN_HARMONICS:
+        for target_freq in domain_freqs:
             # Find closest frequency bin
-            idx = np.argmin(np.abs(freqs - schumann_freq))
-            if idx > 0 and idx < len(spectrum) - 1:
-                # Interpolate value at exact Schumann frequency
+            idx = np.argmin(np.abs(freqs - target_freq))
+            if 0 < idx < len(spectrum) - 1:
+                # Interpolate value at target frequency
                 local_max = max(spectrum[idx - 1], spectrum[idx], spectrum[idx + 1])
                 local_mean = np.mean(spectrum[max(0, idx - 5) : min(len(spectrum), idx + 6)])  # type: ignore[misc, unused-ignore]
 
@@ -1397,6 +1434,57 @@ class SpectralVibrationDetector(BaseDetector):
         weights = np.array(weights) / sum(weights)  # type: ignore[assignment, unused-ignore]
 
         return float(np.average(alignment_scores, weights=weights))
+
+    @staticmethod
+    def _detect_spectral_peaks(
+        freqs: np.ndarray,
+        spectrum: np.ndarray,
+        max_peaks: int = 5,
+    ) -> tuple[float, ...]:
+        """Adaptive spectral peak detection for domains without known fundamentals.
+
+        Uses scipy's find_peaks for dominant frequency identification.
+        This is a simplified alternative to MUSIC/ESPRIT algorithms
+        suitable for real-time operation.
+
+        Args:
+            freqs: Frequency array.
+            spectrum: Power spectrum.
+            max_peaks: Maximum number of peaks to return.
+
+        Returns:
+            Tuple of detected fundamental frequencies in Hz.
+        """
+        if len(spectrum) < 10:
+            return ()
+
+        # Find peaks with minimum prominence
+        try:
+            from scipy.signal import find_peaks as scipy_find_peaks
+
+            # Normalize spectrum for consistent thresholding
+            norm_spectrum = spectrum / (np.max(spectrum) + 1e-10)
+            peak_indices, properties = scipy_find_peaks(
+                norm_spectrum,
+                height=0.1,       # Minimum 10% of max
+                distance=5,       # Minimum 5 bins apart
+                prominence=0.05,  # Minimum prominence
+            )
+
+            if len(peak_indices) == 0:
+                return ()
+
+            # Sort by prominence (most prominent first)
+            if "prominences" in properties:
+                sorted_idx = np.argsort(properties["prominences"])[::-1]
+                peak_indices = peak_indices[sorted_idx]
+
+            # Return top peaks as frequencies
+            selected = peak_indices[:max_peaks]
+            return tuple(float(freqs[i]) for i in selected if i < len(freqs))
+
+        except (ImportError, ValueError):
+            return ()
 
     def _build_spectral_graph(self, num_nodes: int) -> tuple[torch.Tensor, torch.Tensor]:
         """Build graph structure for spectral analysis.
