@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import math
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 # ==============================================================================
@@ -163,7 +163,7 @@ class BenevolenceDomainProfile:
     """
 
     b0: float  # Inflection point
-    k: float   # Steepness
+    k: float  # Steepness
     label: str = ""  # Human-readable domain name
 
 
@@ -179,12 +179,8 @@ class BenevolenceGateConstants:
 
     # Domain profiles: (b₀, k, label)
     # b₀ = inflection point, k = steepness
-    MEDICAL: BenevolenceDomainProfile = BenevolenceDomainProfile(
-        b0=0.93, k=30.0, label="Medical"
-    )
-    SECURITY: BenevolenceDomainProfile = BenevolenceDomainProfile(
-        b0=0.95, k=25.0, label="Security"
-    )
+    MEDICAL: BenevolenceDomainProfile = BenevolenceDomainProfile(b0=0.93, k=30.0, label="Medical")
+    SECURITY: BenevolenceDomainProfile = BenevolenceDomainProfile(b0=0.95, k=25.0, label="Security")
     ENVIRONMENTAL: BenevolenceDomainProfile = BenevolenceDomainProfile(
         b0=0.90, k=20.0, label="Environmental"
     )
@@ -194,9 +190,7 @@ class BenevolenceGateConstants:
     INFRASTRUCTURE: BenevolenceDomainProfile = BenevolenceDomainProfile(
         b0=0.94, k=25.0, label="Infrastructure"
     )
-    DEFAULT: BenevolenceDomainProfile = BenevolenceDomainProfile(
-        b0=0.93, k=25.0, label="Default"
-    )
+    DEFAULT: BenevolenceDomainProfile = BenevolenceDomainProfile(b0=0.93, k=25.0, label="Default")
 
 
 BENEVOLENCE_GATE = BenevolenceGateConstants()
@@ -312,11 +306,11 @@ class RecursionConvergenceConstants:
     Provenance: Banach fixed-point theorem (Banach, 1922).
     """
 
-    # Maximum contraction factor (α_max)
-    # Constraining α < 1 guarantees convergence
+    # Maximum contraction factor (alpha_max)
+    # Constraining alpha < 1 guarantees convergence
     ALPHA_MAX: float = 0.95
 
-    # Recommended operating range for α
+    # Recommended operating range for alpha
     ALPHA_MIN_RECOMMENDED: float = 0.5
     ALPHA_MAX_RECOMMENDED: float = 0.85
 

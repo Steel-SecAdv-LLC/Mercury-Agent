@@ -1466,8 +1466,8 @@ class SpectralVibrationDetector(BaseDetector):
             norm_spectrum = spectrum / (np.max(spectrum) + 1e-10)
             peak_indices, properties = scipy_find_peaks(
                 norm_spectrum,
-                height=0.1,       # Minimum 10% of max
-                distance=5,       # Minimum 5 bins apart
+                height=0.1,  # Minimum 10% of max
+                distance=5,  # Minimum 5 bins apart
                 prominence=0.05,  # Minimum prominence
             )
 

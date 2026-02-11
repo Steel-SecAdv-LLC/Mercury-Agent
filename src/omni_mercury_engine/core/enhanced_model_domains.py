@@ -24,11 +24,13 @@ from typing import Any
 import numpy as np
 from scipy import linalg
 
+from omni_mercury_engine.core.centralized_constants import ETHICAL, MATH
+
 logger = logging.getLogger(__name__)
 
-# Constants
-PHI = 1.618033988749895  # Golden ratio
-BENEVOLENCE_THRESHOLD = 0.99  # Required benevolence level
+# Constants from centralized source of truth
+PHI = MATH.GOLDEN_RATIO
+BENEVOLENCE_THRESHOLD = ETHICAL.BENEVOLENCE_IMMUTABLE
 
 
 @dataclass

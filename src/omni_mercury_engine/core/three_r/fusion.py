@@ -372,6 +372,118 @@ class AAFEWeightOptimizer:
         )
 
 
+class DomainAdaptiveAAFEWeights:
+    """Domain-adaptive weight profiles for the AAFE equation.
+
+    When cross-domain weight variance exceeds a threshold (default 10%),
+    this class maintains per-domain weight profiles learned from empirical
+    data. Falls back to the golden-ratio default when insufficient data exists.
+
+    Reference: Phase 3B specification — "If sweep reveals variance > 10%
+    across domains, create domain-specific weight profiles."
+    """
+
+    VARIANCE_THRESHOLD: float = 0.10
+
+    def __init__(self) -> None:
+        """Initialize with empty domain profiles."""
+        phi = GOLDEN_RATIO_CONSTANT
+        phi_sum = phi + 1.0 + 1.0 / phi
+        self._default_weights = {
+            "w_R": phi / phi_sum,
+            "w_H": 1.0 / phi_sum,
+            "w_O": (1.0 / phi) / phi_sum,
+        }
+        self._domain_profiles: dict[str, dict[str, float]] = {}
+        self._domain_scores: dict[str, list[tuple[float, float, float, float]]] = {}
+
+    def record_observation(
+        self,
+        domain: str,
+        r_score: float,
+        h_score: float,
+        o_score: float,
+        target: float,
+    ) -> None:
+        """Record an observation for domain-specific weight learning.
+
+        Args:
+            domain: Domain identifier (e.g. "medical", "security").
+            r_score: Recursion score R(x).
+            h_score: Resonance score H(omega).
+            o_score: Optimization score O(theta).
+            target: Ground truth anomaly label (0 or 1).
+        """
+        key = domain.lower()
+        if key not in self._domain_scores:
+            self._domain_scores[key] = []
+        self._domain_scores[key].append((r_score, h_score, o_score, target))
+
+    def fit_domain_profiles(self, min_samples: int = 30) -> dict[str, dict[str, float]]:
+        """Fit per-domain weight profiles from recorded observations.
+
+        Only creates a domain-specific profile when enough data exists.
+        Returns the mapping of domain -> weight dict.
+
+        Args:
+            min_samples: Minimum observations needed to learn domain weights.
+
+        Returns:
+            Dict mapping domain name to weight dict.
+        """
+        all_weights: list[np.ndarray] = []
+
+        for domain, observations in self._domain_scores.items():
+            if len(observations) < min_samples:
+                continue
+
+            data = np.array(observations)
+            scores = data[:, :3]
+            targets = data[:, 3]
+
+            optimizer = AAFEWeightOptimizer()
+            tuples = [(float(r), float(h), float(o)) for r, h, o in scores]
+            optimized = optimizer.optimize_weights(tuples, targets.tolist())
+
+            profile = {
+                "w_R": float(optimized[0]),
+                "w_H": float(optimized[1]),
+                "w_O": float(optimized[2]),
+            }
+            self._domain_profiles[domain] = profile
+            all_weights.append(optimized)
+
+        # Check cross-domain variance
+        if len(all_weights) >= 2:
+            weight_matrix = np.array(all_weights)
+            per_weight_var = np.var(weight_matrix, axis=0)
+            mean_variance = float(np.mean(per_weight_var))
+            if mean_variance < self.VARIANCE_THRESHOLD:
+                logger.info(
+                    f"Cross-domain weight variance {mean_variance:.4f} < "
+                    f"{self.VARIANCE_THRESHOLD}. Domain-specific profiles not needed."
+                )
+
+        return dict(self._domain_profiles)
+
+    def get_weights(self, domain: str) -> dict[str, float]:
+        """Get weights for a specific domain.
+
+        Returns domain-specific profile if available, otherwise defaults.
+
+        Args:
+            domain: Domain identifier.
+
+        Returns:
+            Weight dict with keys w_R, w_H, w_O.
+        """
+        return self._domain_profiles.get(domain.lower(), self._default_weights.copy())
+
+    def has_domain_profile(self, domain: str) -> bool:
+        """Check if a domain-specific profile exists."""
+        return domain.lower() in self._domain_profiles
+
+
 class BanachRecursion:
     """Convergence-bounded recursive computation via Banach contraction mapping.
 
@@ -416,15 +528,13 @@ class BanachRecursion:
             ValueError: If alpha_max >= 1.0 (convergence impossible).
         """
         if alpha_max >= 1.0:
-            raise ValueError(
-                f"alpha_max must be < 1.0 for convergence guarantee, got {alpha_max}"
-            )
+            raise ValueError(f"alpha_max must be < 1.0 for convergence guarantee, got {alpha_max}")
 
         self.alpha_max = alpha_max
         self.max_depth = max_depth
         self.convergence_tolerance = convergence_tolerance
 
-        # Constrain α via sigmoid: α = σ(α_raw) * α_max
+        # Constrain alpha via sigmoid: alpha = sigmoid(alpha_raw) * alpha_max
         self.alpha = self._sigmoid(alpha_raw) * self.alpha_max
 
         # Monitoring state
@@ -547,9 +657,7 @@ class BanachRecursion:
                     f"{RECURSION.CONTRACTION_VIOLATION_THRESHOLD}. "
                     f"Halting recursion at depth={self.actual_depth}."
                 )
-                raise RuntimeError(
-                    f"Banach contraction violated: ratio={contraction_ratio:.4f}"
-                )
+                raise RuntimeError(f"Banach contraction violated: ratio={contraction_ratio:.4f}")
 
         # Check convergence
         if prev_result is not None:

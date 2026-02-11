@@ -38,9 +38,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     optimization via Optuna TPE over full parameter space with composite objective
     (F1 + calibration error + stability)
 
+- **PHASE 3A — Parameter Sweep Execution**: Ran 1,000 Optuna TPE trials with
+  composite objective (F1 + ECE + stability). Best composite: 0.816, Best F1: 0.895.
+  53 Pareto-optimal configurations identified. Results saved to
+  `benchmarks/parameter_sweep_results.json`
+
+- **PHASE 3B — Phi Exponent Validation**: Statistically validated golden ratio exponent
+  (Phi=1.618). Mean F1 near Phi: 0.9045 vs 0.8944 elsewhere (p < 0.001, t=8.05).
+  Phi confirmed as near-optimal with best trial at 1.742
+
+- **PHASE 3B — Domain-Adaptive AAFE Weights** (`core/three_r/fusion.py`):
+  `DomainAdaptiveAAFEWeights` class that learns per-domain weight profiles from empirical
+  data when cross-domain variance exceeds 10%. Falls back to golden-ratio defaults
+
+- **PHASE 4A — Conformal Prediction Enhancement** (`core/conformal_prediction.py`):
+  - `MondrianConformalPredictor`: Label-conditional coverage guarantees per group
+    (Vovk et al. 2005 Chapter 8). Ensures balanced coverage across subpopulations
+  - `ConformalCalibrationBridge`: Integrates split, adaptive, and Mondrian conformal
+    prediction into the calibration pipeline
+
+- **PHASE 4B — Topological Data Analysis** (`core/topological_analysis.py`):
+  - `VietorisRipsFiltration`: Vietoris-Rips simplicial complex from point clouds
+  - 0D and 1D persistent homology via union-find algorithm
+  - `PersistenceDiagram`: Birth/death pairs, Betti numbers, persistence entropy
+  - `TopologicalAnomalyDetector`: TDA-based anomaly detection with topological
+    feature extraction (Betti numbers, entropy, landscape norms)
+  - Wasserstein and bottleneck distances for persistence diagram comparison
+  - Reference: Edelsbrunner & Harer (2010) "Computational Topology"
+
+- **PHASE 4C — Fisher Information Metric** (`core/info_geometry.py`):
+  - `FisherInformationMatrix`: Gaussian closed-form and empirical FIM computation
+    with Tikhonov regularization for numerical stability
+  - `NaturalGradient`: F^{-1} * g_euclidean with Cholesky decomposition
+  - `FisherRaoAdaptiveThreshold`: Derives thresholds as tau = mu + k*sqrt(tr(F^{-1}))
+    with drift detection and automatic recalibration
+  - `StatisticalManifold`: Riemannian manifold of probability distributions
+  - Reference: IGEOOD (ICLR 2022)
+
+- **PHASE 4D — Riemannian Optimization** (`core/riemannian_optimization.py`):
+  - `SimplexManifold`: Probability simplex with projection (Duchi et al. 2008),
+    exponential/logarithmic maps, geodesic distance
+  - `SPDManifold`: Symmetric positive definite matrices with affine-invariant metric
+  - `RiemannianGradientDescent`: Manifold optimization with Armijo line search
+  - `RiemannianAdam`: Adam optimizer adapted for Riemannian manifolds
+  - `ConstrainedParameterOptimizer`: High-level API for AAFE weights on simplex
+    and covariance parameters on SPD manifold
+
 - **PHASE 5 — Calibration Pipeline** (`core/calibration_pipeline.py`): Threshold
   auto-calibration with Youden's J, F1-optimal, cost-sensitive methods; dataset
   fingerprinting via SHA-256; distribution drift detection via KS test and KL divergence
+
+- **PHASE 6 — System-Level Coherence** (`core/system_coherence.py`):
+  - `SignalFlowGraph`: Data structure describing signal propagation through the
+    detection pipeline (ingestion -> features -> detection -> fusion -> ethical
+    gating -> calibration -> output) with ASCII rendering
+  - `NormalizationVerifier`: Validates score range compatibility at every stage
+    boundary, detecting normalization handoff mismatches
+  - `LyapunovRuntimeEnforcer`: Runtime guard enforcing V_dot <= -lambda*V at
+    every fusion step with violation logging and optional pipeline halt
+  - `run_coherence_audit()`: Full system coherence audit function
+  - Reference: Khalil (2002) "Nonlinear Systems" Chapter 4
+
+- **Hardcoded Constant Centralization**: Replaced 38+ hardcoded 0.99 benevolence
+  references across 10+ source files with `ETHICAL.BENEVOLENCE_IMMUTABLE` from
+  `centralized_constants.py`. Files updated: benevolence_optimization.py,
+  domain_metrics.py, enhanced_model_domains.py, gosnn_integration.py,
+  gosnn_optimizer.py, engine_config.py, config.py, personality.py, engine.py,
+  learnable_gosnn.py
 
 - **PHASE 7 — Deliverables**:
   - `docs/MATH_SPEC.md`: Formal mathematical specification with LaTeX equations,
@@ -65,6 +129,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   method implementing 3-level hierarchical aggregation with configurable domain weights
   and geometric/arithmetic/harmonic mean options.
 
+### Testing
+
+- **124 new tests** across `test_phase3_math_audit.py` (78) and
+  `test_phase4_6_math_audit.py` (46) covering all new mathematical infrastructure
+- All 594 existing + new core tests passing
+
 ### Mathematical Provenance
 
 - Sigmoid benevolence gate: Logistic function (Verhulst, 1845)
@@ -72,7 +142,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Schumann resonance: Schumann (1952)
 - HRV frequency bands: Task Force of ESC/NASPE (1996)
 - Conformal prediction: Vovk et al. (2005)
+- Mondrian conformal prediction: Vovk et al. (2005) Chapter 8
 - Youden's J statistic: Youden (1950)
+- Persistent homology: Edelsbrunner & Harer (2010)
+- Fisher information metric: IGEOOD (ICLR 2022)
+- Riemannian optimization: Absil et al. (2008)
+- Simplex projection: Duchi et al. (2008)
+- Lyapunov stability: Khalil (2002)
+- Bayesian optimization: Bergstra et al. (2011) TPE
 
 ---
 

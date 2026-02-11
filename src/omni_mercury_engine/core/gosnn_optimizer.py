@@ -27,12 +27,14 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# Constants
-PHI = 1.618033988749895
+from omni_mercury_engine.core.centralized_constants import ETHICAL, LYAPUNOV, MATH
+
+# Constants from centralized source of truth
+PHI = MATH.GOLDEN_RATIO
 SIGMA_IMMUTABLE_HARD = 0.93  # Hard minimum
 SIGMA_IMMUTABLE_TARGET = 0.96  # Target threshold
-BENEVOLENCE_MIN = 0.99
-LYAPUNOV_LAMBDA = 0.25
+BENEVOLENCE_MIN = ETHICAL.BENEVOLENCE_IMMUTABLE
+LYAPUNOV_LAMBDA = LYAPUNOV.LAMBDA_CONVERGENCE
 
 
 @dataclass

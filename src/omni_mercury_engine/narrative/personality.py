@@ -42,6 +42,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from omni_mercury_engine.core.centralized_constants import ETHICAL
+
 logger = logging.getLogger(__name__)
 
 
@@ -160,7 +162,7 @@ class PersonalityEngine:
 
         # Default scalar values (used when GOSNN unavailable)
         self._default_scalars = {
-            "omnibenevolence": 0.99,
+            "omnibenevolence": ETHICAL.BENEVOLENCE_IMMUTABLE,
             "omnitransparency": 0.18,
             "omniexplainability": 0.9,
             "omnicompassion": 1.30,
