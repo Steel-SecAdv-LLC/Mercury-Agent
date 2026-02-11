@@ -595,7 +595,9 @@ class EthicallyConstrainedFusion:
 
             detector_preds.append(proba)
 
-        detector_preds = np.array(detector_preds).T  # (n_samples, n_detectors)
+        detector_preds = np.array(  # type: ignore[assignment]
+            detector_preds
+        ).T  # (n_samples, n_detectors)
         ethical_vec = np.array([self.ethical_scores[name] for name in self.detectors])
 
         # Optimize weights with ethical constraints

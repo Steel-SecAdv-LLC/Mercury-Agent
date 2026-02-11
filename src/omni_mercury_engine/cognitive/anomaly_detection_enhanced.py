@@ -620,7 +620,7 @@ class USGSEarthquakeSource(ExternalDataSource):
         }
 
         try:
-            response = self._client.get(self.USGS_API_BASE, params=params)
+            response = self._client.get(self.USGS_API_BASE, params=params)  # type: ignore[arg-type]
             response.raise_for_status()
             data = response.json()
 

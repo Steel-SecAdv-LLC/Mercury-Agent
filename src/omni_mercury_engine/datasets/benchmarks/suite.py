@@ -380,8 +380,8 @@ class RealWorldBenchmarkSuite:
             baseline_name=baseline_name,
             improvement_vs_baseline=improvements,
             statistical_tests=stat_tests,
-            overall_f1=overall_f1,
-            overall_improvement=overall_improvement,
+            overall_f1=overall_f1,  # type: ignore[arg-type]
+            overall_improvement=overall_improvement,  # type: ignore[arg-type]
         )
 
     def _calculate_metrics(

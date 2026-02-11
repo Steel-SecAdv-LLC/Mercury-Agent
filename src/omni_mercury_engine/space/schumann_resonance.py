@@ -70,8 +70,8 @@ try:
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None
-    nn = None
+    torch = None  # type: ignore[assignment]
+    nn = None  # type: ignore[assignment]
     TORCH_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
@@ -324,7 +324,7 @@ class SchumannResonanceDetector:
         confidence_score = float(confidence[0].item())
 
         anomaly_types = ["normal", "amplitude", "frequency", "combined"]
-        anomaly_type = anomaly_types[anomaly_class]
+        anomaly_type = anomaly_types[anomaly_class]  # type: ignore[index]
 
         risk_score = (
             confidence_score

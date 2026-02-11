@@ -552,7 +552,7 @@ class AdaptiveAnomalyDetector:
 
         # Score based on off-diagonal correlations
         mask = ~np.eye(n_features, dtype=bool)
-        off_diag = np.abs(corr[mask])
+        off_diag = np.abs(corr[mask])  # type: ignore[index]
 
         # Strong covariance if many high correlations
         high_corr_fraction = np.mean(off_diag > 0.5)

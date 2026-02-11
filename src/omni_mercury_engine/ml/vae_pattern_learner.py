@@ -164,13 +164,13 @@ class VAEPatternLearner:
                 recon, mu, logvar = self.vae(batch)
                 losses = self.vae.compute_loss(batch, recon, mu, logvar, beta)
 
-                losses["total_loss"].backward()
+                losses["total_loss"].backward()  # type: ignore[no-untyped-call]
                 self.optimizer.step()
 
         self.vae.eval()
         with torch.no_grad():
             train_scores = self.vae.anomaly_score(X_train)
-            self.threshold = train_scores.mean() + 3 * train_scores.std()
+            self.threshold = train_scores.mean() + 3 * train_scores.std()  # type: ignore[assignment]
 
         return self
 

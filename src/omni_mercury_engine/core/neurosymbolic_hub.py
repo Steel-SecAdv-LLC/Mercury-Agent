@@ -104,8 +104,8 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None
-    nn = None
+    torch = None  # type: ignore[assignment]
+    nn = None  # type: ignore[assignment]
 
 
 class FusionMode(Enum):
@@ -483,11 +483,11 @@ class NeuralEncoder:
                 # Regularized least squares
                 lambda_reg = 0.01
                 identity_mat = np.eye(X_aug.shape[1])
-                self.weights = np.linalg.solve(
+                self.weights = np.linalg.solve(  # type: ignore[assignment]
                     X_aug.T @ X_aug + lambda_reg * identity_mat, X_aug.T @ y
                 )
             except np.linalg.LinAlgError:
-                self.weights = np.zeros(X_aug.shape[1])
+                self.weights = np.zeros(X_aug.shape[1])  # type: ignore[assignment]
 
         return self
 
@@ -872,7 +872,7 @@ class NeuroSymbolicHub:
             context = {"deviation_score": np.abs(X[i]).max()}
             score, _ = self.knowledge_graph.get_anomaly_indicators(context)
             symbolic_scores.append(score)
-        symbolic_scores = np.array(symbolic_scores)
+        symbolic_scores = np.array(symbolic_scores)  # type: ignore[assignment]
 
         if self.fusion_mode == FusionMode.STACKING:
             # Train meta-learner

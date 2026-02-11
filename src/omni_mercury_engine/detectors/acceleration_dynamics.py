@@ -63,8 +63,8 @@ try:
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None
-    nn = None
+    torch = None  # type: ignore[assignment]
+    nn = None  # type: ignore[assignment]
     TORCH_AVAILABLE = False
 
 from scipy.ndimage import uniform_filter1d

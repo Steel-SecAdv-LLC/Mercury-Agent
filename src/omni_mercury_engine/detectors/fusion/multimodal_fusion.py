@@ -375,12 +375,12 @@ class ScoreWeightedFusion(BaseFusionModule):
             )
 
         # Normalize weights
-        weights = np.array(weights)
+        weights = np.array(weights)  # type: ignore[assignment]
         if self.normalize_weights:
-            weights = weights / weights.sum()
+            weights = weights / weights.sum()  # type: ignore[attr-defined]
 
         # Weighted average
-        scores = np.array(scores)
+        scores = np.array(scores)  # type: ignore[assignment]
         fused_scores = np.average(scores, axis=0, weights=weights)
 
         # Build weight dict
@@ -464,19 +464,19 @@ class DecisionConfidenceFusion(BaseFusionModule):
                 modality_weights={},
             )
 
-        predictions = np.array(predictions)
-        confidences = np.array(confidences)
+        predictions = np.array(predictions)  # type: ignore[assignment]
+        confidences = np.array(confidences)  # type: ignore[assignment]
 
         # Weighted voting
-        weighted_votes = predictions * confidences
-        vote_sum = weighted_votes.sum(axis=0)
-        weight_sum = confidences.sum(axis=0) + 1e-8
+        weighted_votes = predictions * confidences  # type: ignore[operator]
+        vote_sum = weighted_votes.sum(axis=0)  # type: ignore[attr-defined]
+        weight_sum = confidences.sum(axis=0) + 1e-8  # type: ignore[attr-defined]
 
         fused_scores = vote_sum / weight_sum
 
         if self.require_consensus:
             # Require majority
-            vote_fraction = predictions.sum(axis=0) / len(predictions)
+            vote_fraction = predictions.sum(axis=0) / len(predictions)  # type: ignore[attr-defined]
             consensus_mask = vote_fraction >= self.consensus_threshold
             fused_predictions = ((fused_scores >= threshold) & consensus_mask).astype(np.int32)
         else:

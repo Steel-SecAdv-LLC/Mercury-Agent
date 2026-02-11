@@ -178,7 +178,7 @@ app = FastAPI(
     title=API_TITLE,
     description=API_DESCRIPTION,
     version=API_VERSION,
-    openapi_tags=tags_metadata,
+    openapi_tags=tags_metadata,  # type: ignore[arg-type]
     contact={
         "name": "Steel Security Advisors LLC",
         "url": "https://github.com/Steel-SecAdv-LLC/Mercury-Agent",
@@ -285,7 +285,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 
 # Register rate limiting middleware
-app.add_middleware(RateLimitMiddleware)
+app.add_middleware(RateLimitMiddleware)  # type: ignore[arg-type]
 
 
 # =============================================================================
@@ -1125,7 +1125,7 @@ def custom_openapi() -> dict[str, Any]:
         version=API_VERSION,
         description=API_DESCRIPTION,
         routes=app.routes,
-        tags=tags_metadata,
+        tags=tags_metadata,  # type: ignore[arg-type]
     )
 
     # Add security schemes for future use
@@ -1154,7 +1154,7 @@ def custom_openapi() -> dict[str, Any]:
     return openapi_schema
 
 
-app.openapi = custom_openapi
+app.openapi = custom_openapi  # type: ignore[method-assign]
 
 
 # =============================================================================

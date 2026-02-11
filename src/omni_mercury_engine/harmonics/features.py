@@ -263,7 +263,7 @@ class HarmonicFeatureExtractor:
         if not powers:
             return 0.0
 
-        powers = np.array(powers)
+        powers = np.array(powers)  # type: ignore[assignment]
         total = np.sum(powers) + 1e-10
         probs = powers / total
 

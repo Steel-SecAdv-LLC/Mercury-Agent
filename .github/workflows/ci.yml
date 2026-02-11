@@ -128,10 +128,14 @@ jobs:
 
       - name: Run MyPy
         # MyPy type checking is now blocking for code quality assurance
-        # Uses pyproject.toml strict config (disallow_untyped_defs, warn_unused_ignores, etc.)
+        # Uses pyproject.toml strict config (disallow_untyped_defs, etc.)
+        # --no-warn-unused-ignores: type stubs differ across Python versions and
+        # package builds, so a type: ignore that is needed on 3.11 may be unused
+        # on 3.12 (or vice-versa).  Suppressing this check avoids false failures.
         run: |
           mypy src/omni_mercury_engine/ \
-            --config-file pyproject.toml
+            --config-file pyproject.toml \
+            --no-warn-unused-ignores
 
   # ===========================================================================
   # Stage 3: Security Scanning

@@ -39,9 +39,9 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None
-    nn = None
-    F = None
+    torch = None  # type: ignore[assignment]
+    nn = None  # type: ignore[assignment]
+    F = None  # type: ignore[assignment]
 
 
 class PredicateType(Enum):
@@ -387,13 +387,13 @@ if TORCH_AVAILABLE:
                     score = self.soft_unify(goal[:, 0, :], fact)
                     unification_scores.append(score)
 
-                unification_scores = torch.cat(unification_scores, dim=-1)
-                max_score, best_fact_idx = torch.max(unification_scores, dim=-1)
+                unification_scores = torch.cat(unification_scores, dim=-1)  # type: ignore[assignment]
+                max_score, best_fact_idx = torch.max(unification_scores, dim=-1)  # type: ignore[call-overload]
 
                 proof_trace.append(
                     {
                         "step": step,
-                        "unification_scores": unification_scores.detach(),
+                        "unification_scores": unification_scores.detach(),  # type: ignore[attr-defined]
                         "selected_fact": best_fact_idx.detach(),
                         "match_score": max_score.detach(),
                     }
@@ -409,7 +409,7 @@ if TORCH_AVAILABLE:
                 controller_state = self.proof_controller(controller_input, controller_state)
 
             proof_probability = self.success_predictor(controller_state)
-            return proof_probability, proof_trace
+            return proof_probability, proof_trace  # type: ignore[return-value]
 
     class CounterfactualReasoner(nn.Module):
         """Counterfactual reasoning module for "what-if" explanations."""
@@ -526,10 +526,10 @@ class DifferentiableLogicEngine:
                 hidden_dim=hidden_dim,
             ).to(device)
         else:
-            self.predicate_encoder = None
-            self.rule_module = None
-            self.theorem_prover = None
-            self.counterfactual_reasoner = None
+            self.predicate_encoder = None  # type: ignore[assignment]
+            self.rule_module = None  # type: ignore[assignment]
+            self.theorem_prover = None  # type: ignore[assignment]
+            self.counterfactual_reasoner = None  # type: ignore[assignment]
 
         logger.info(
             f"DifferentiableLogicEngine initialized "

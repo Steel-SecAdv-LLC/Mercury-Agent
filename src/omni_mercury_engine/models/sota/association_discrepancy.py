@@ -117,7 +117,7 @@ class PriorAssociation(nn.Module):
             positions = torch.arange(seq_len, dtype=torch.float32, device=device)
             distances = (positions.unsqueeze(0) - positions.unsqueeze(1)) ** 2
         else:
-            distances = self.distance_matrix[:seq_len, :seq_len]
+            distances = self.distance_matrix[:seq_len, :seq_len]  # type: ignore[index]
             if device is not None:
                 distances = distances.to(device)
 
@@ -574,7 +574,7 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Add positional encoding to input."""
-        x = x + self.pe[:, : x.size(1), :]
+        x = x + self.pe[:, : x.size(1), :]  # type: ignore[index]
         return self.dropout(x)
 
 

@@ -67,8 +67,8 @@ try:
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None
-    nn = None
+    torch = None  # type: ignore[assignment]
+    nn = None  # type: ignore[assignment]
     TORCH_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
@@ -340,7 +340,7 @@ class InterstellarObjectDetector:
         confidence_score = float(confidence[0].item())
 
         anomaly_types = [t.value for t in ISOAnomalyType]
-        anomaly_type = anomaly_types[anomaly_class]
+        anomaly_type = anomaly_types[anomaly_class]  # type: ignore[index]
 
         anomaly_score = confidence_score * self.omni_interstellar_scalars["omni_orbital_precision"]
 

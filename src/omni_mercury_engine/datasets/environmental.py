@@ -276,13 +276,13 @@ class USGSEarthquakeLoader(DatasetLoader):
             )
             labels.append(1 if is_anomaly else 0)
 
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+        features = np.array(features, dtype=np.float32)  # type: ignore[assignment]
+        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment]
 
         save_path = self.data_path / "synthetic_earthquake.npz"
         np.savez_compressed(save_path, features=features, labels=labels)
 
-        logger.info(f"Generated {n_samples} earthquake samples, {labels.sum()} significant events")
+        logger.info(f"Generated {n_samples} earthquake samples, {labels.sum()} significant events")  # type: ignore[attr-defined]
         return True
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
@@ -789,13 +789,13 @@ class WildfireDataLoader(DatasetLoader):
             feature_vec = [params[f] for f in self.FEATURE_NAMES]
             features.append(feature_vec)
 
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+        features = np.array(features, dtype=np.float32)  # type: ignore[assignment]
+        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment]
 
         save_path = self.data_path / "synthetic_wildfire.npz"
         np.savez_compressed(save_path, features=features, labels=labels)
 
-        logger.info(f"Generated {n_samples} wildfire samples, {labels.sum()} fire detections")
+        logger.info(f"Generated {n_samples} wildfire samples, {labels.sum()} fire detections")  # type: ignore[attr-defined]
         return True
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
@@ -986,15 +986,15 @@ class USGSGeochemistryLoader(DatasetLoader):
             )
             labels.append(1 if is_anomaly else 0)
 
-        features = np.array(features, dtype=np.float32)
-        labels = np.array(labels, dtype=np.int64)
+        features = np.array(features, dtype=np.float32)  # type: ignore[assignment]
+        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment]
 
         save_path = self.data_path / "synthetic_geochemistry.npz"
         np.savez_compressed(save_path, features=features, labels=labels)
 
         logger.info(
             f"Generated {n_samples} synthetic geochemistry samples, "
-            f"{labels.sum()} contamination anomalies (is_real_data=False)"
+            f"{labels.sum()} contamination anomalies (is_real_data=False)"  # type: ignore[attr-defined]
         )
         return True
 

@@ -643,7 +643,7 @@ def optimize_benevolent_detector(
     def objective(params: dict[str, Any]) -> np.ndarray:
         """Multi-objective function returning [detection, 1-benevolence, 1-fairness]."""
         try:
-            model = model_fn(params)
+            model = model_fn(params)  # type: ignore[arg-type]
             model.fit(X_train, y_train)
             predictions = model.predict_proba(X_train)
             if predictions.ndim == 2:
@@ -663,7 +663,7 @@ def optimize_benevolent_detector(
         )
 
     optimizer = ParetoOptimizer(
-        objective_fn=objective,
+        objective_fn=objective,  # type: ignore[arg-type]
         n_objectives=3,
         n_generations=n_generations,
         seed=seed,

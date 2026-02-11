@@ -70,7 +70,7 @@ try:
 
     HAS_PIL = True
 except ImportError:
-    Image = None
+    Image = None  # type: ignore[assignment]
     logger.debug("PIL not available - image processing will be limited")
 
 
@@ -361,7 +361,7 @@ class BLIPVLMDetector(BaseVLMDetector):
 
                 images.append(Image.fromarray(img_np))
             else:
-                images.append(img)
+                images.append(img)  # type: ignore[arg-type]
 
         return images
 

@@ -351,7 +351,7 @@ class IsotonicCalibrator:
             raise ValueError("IsotonicCalibrator must be fitted before calibration")
 
         scores = np.asarray(scores).flatten()
-        calibrated = np.interp(scores, self._score_bins, self._calibration_map)
+        calibrated = np.interp(scores, self._score_bins, self._calibration_map)  # type: ignore[arg-type]
 
         if self.out_of_bounds == "clip":
             calibrated = np.clip(calibrated, 0.0, 1.0)

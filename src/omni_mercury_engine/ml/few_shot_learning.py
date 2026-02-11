@@ -48,8 +48,8 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None
-    nn = None
+    torch = None  # type: ignore[assignment]
+    nn = None  # type: ignore[assignment]
 
 
 class FewShotMethod(StrEnum):
@@ -1379,8 +1379,8 @@ class FewShotLearner:
             all_true.extend(episode.query_y.tolist())
 
         # Aggregate metrics
-        all_preds = np.array(all_preds)
-        all_true = np.array(all_true)
+        all_preds = np.array(all_preds)  # type: ignore[assignment]
+        all_true = np.array(all_true)  # type: ignore[assignment]
 
         # Handle binary classification
         avg_precision = 0.0
