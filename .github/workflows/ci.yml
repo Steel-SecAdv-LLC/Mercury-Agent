@@ -127,15 +127,12 @@ jobs:
           pip install mypy types-requests
 
       - name: Run MyPy
-        # MyPy type checking is now blocking for code quality assurance
-        # Uses pyproject.toml strict config (disallow_untyped_defs, etc.)
-        # --no-warn-unused-ignores: type stubs differ across Python versions and
-        # package builds, so a type: ignore that is needed on 3.11 may be unused
-        # on 3.12 (or vice-versa).  Suppressing this check avoids false failures.
+        # MyPy type checking uses pyproject.toml strict config
+        # (disallow_untyped_defs, disallow_any_generics, etc.)
+        # pyproject.toml disables unused-ignore errors for cross-version stability
         run: |
           mypy src/omni_mercury_engine/ \
-            --config-file pyproject.toml \
-            --no-warn-unused-ignores
+            --config-file pyproject.toml
 
   # ===========================================================================
   # Stage 3: Security Scanning
@@ -233,6 +230,12 @@ jobs:
           sudo apt-get autoremove -y
           docker system prune -af --volumes || true
 
+      - name: Install system dependencies
+        run: |
+          # opencv-python requires libGL; install headless GL and glib
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libgl1-mesa-glx libglib2.0-0
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -301,6 +304,12 @@ jobs:
           sudo apt-get autoremove -y
           docker system prune -af --volumes || true
 
+      - name: Install system dependencies
+        run: |
+          # opencv-python requires libGL; headless variant avoids X11 deps
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libgl1-mesa-glx libglib2.0-0
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -309,7 +318,9 @@ jobs:
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
-          path: ${{ env.PIP_CACHE_DIR }}
+          path: |
+            ${{ env.PIP_CACHE_DIR }}
+            ~/.cache/torch
           key: ${{ runner.os }}-pip-ml-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-pip-ml-
@@ -321,13 +332,16 @@ jobs:
           pip install pytest pytest-cov pytest-asyncio pytest-xdist pytest-timeout
 
       - name: Run full test suite with parallelization
+        env:
+          TORCH_HOME: ~/.cache/torch
         run: |
           # Run tests in parallel with 4 workers, 300s timeout per test
-          # This prevents individual hanging tests from blocking the entire suite
+          # Exclude @pytest.mark.slow tests (model downloads, heavy computation)
           # Coverage threshold enforced to ensure production readiness
           pytest tests/ \
             -v \
             -n 4 \
+            -m "not slow" \
             --timeout=300 \
             --cov=src/omni_mercury_engine \
             --cov-report=xml \
