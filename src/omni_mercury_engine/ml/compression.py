@@ -131,9 +131,9 @@ class QuantizedLinear(nn.Module):
 
         quantized = torch.clamp(torch.round(weight / scale + zero_point), qmin, qmax).to(torch.int8)
 
-        self.weight_scale.fill_(scale.item())  # type: ignore[operator, unused-ignore]
-        self.weight_zero_point.fill_(zero_point.item())  # type: ignore[operator, unused-ignore]
-        self.quantized_weight.copy_(quantized)  # type: ignore[operator, unused-ignore]
+        self.weight_scale.fill_(scale.item())  # type: ignore[operator]
+        self.weight_zero_point.fill_(zero_point.item())  # type: ignore[operator]
+        self.quantized_weight.copy_(quantized)  # type: ignore[operator]
         self._is_quantized = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -147,7 +147,7 @@ class QuantizedLinear(nn.Module):
         """
         if self._is_quantized:
             quantized_float = self.quantized_weight.float()
-            weight = (quantized_float - self.weight_zero_point) * self.weight_scale  # type: ignore[operator, unused-ignore]
+            weight = (quantized_float - self.weight_zero_point) * self.weight_scale  # type: ignore[operator]
         else:
             weight = self.quantized_weight.float()
 
@@ -191,7 +191,7 @@ class PrunedLinear(nn.Module):
             weight_abs = torch.abs(self.weight)
             threshold = torch.quantile(weight_abs.flatten(), ratio)
             new_mask = (weight_abs >= threshold).float()
-            self.mask.copy_(new_mask)  # type: ignore[operator, unused-ignore]
+            self.mask.copy_(new_mask)  # type: ignore[operator]
 
             pruned_count = int((1 - new_mask.mean()).item() * new_mask.numel())
             return pruned_count
@@ -205,7 +205,7 @@ class PrunedLinear(nn.Module):
         Returns:
             Output tensor
         """
-        masked_weight = self.weight * self.mask  # type: ignore[operator, unused-ignore]
+        masked_weight = self.weight * self.mask  # type: ignore[operator]
         return F.linear(x, masked_weight, self.bias)
 
 
@@ -349,7 +349,7 @@ class KnowledgeDistiller:
 
         if optimizer is not None:
             optimizer.zero_grad()
-            loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
+            loss.backward()  # type: ignore[no-untyped-call]
             optimizer.step()
 
         return float(loss.item())
@@ -426,7 +426,7 @@ class ModelCompressor:
             Quantized model
         """
         if self.config.enable_dynamic_quantization:
-            quantized_model: nn.Module = torch.quantization.quantize_dynamic(  # type: ignore[attr-defined, unused-ignore]
+            quantized_model: nn.Module = torch.quantization.quantize_dynamic(  # type: ignore[attr-defined]
                 model,
                 {nn.Linear},
                 dtype=torch.qint8,
@@ -561,7 +561,7 @@ class ModelCompressor:
             # If model has simple init, we can use state_dict approach
             if hasattr(model, "_init_args") and hasattr(model, "_init_kwargs"):
                 # Model stores its construction args (best case)
-                new_model = model_class(*model._init_args, **model._init_kwargs)  # type: ignore[arg-type, misc, unused-ignore]
+                new_model = model_class(*model._init_args, **model._init_kwargs)  # type: ignore[arg-type, misc]
                 new_model.load_state_dict(copy.deepcopy(model.state_dict()))
                 return new_model
 

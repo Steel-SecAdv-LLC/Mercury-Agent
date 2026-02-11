@@ -255,7 +255,7 @@ class AnomalyDetector(LoggerMixin):
         with torch.no_grad():
             train_errors = self.model.reconstruction_error(train_seqs).cpu().numpy()
 
-        self.train_errors = train_errors  # type: ignore[assignment, unused-ignore]
+        self.train_errors = train_errors  # type: ignore[assignment]
         # Set threshold at 95th percentile of training errors
         self.threshold = np.percentile(train_errors, 95)
 

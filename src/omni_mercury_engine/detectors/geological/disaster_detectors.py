@@ -531,7 +531,7 @@ class TsunamiDetector:
         for target_freq in self.tsunami_frequencies:
             idx = np.argmin(np.abs(freqs - target_freq))
             if idx < len(power_spectrum):
-                local_power = power_spectrum[max(0, idx - 2) : idx + 3].mean()  # type: ignore[misc, unused-ignore]
+                local_power = power_spectrum[max(0, idx - 2) : idx + 3].mean()  # type: ignore[misc]
                 global_power = power_spectrum.mean() + 1e-10
                 if local_power / global_power > 2.0:
                     resonance_score += 0.25

@@ -52,7 +52,7 @@ try:
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None  # type: ignore[assignment, unused-ignore]
+    torch = None  # type: ignore[assignment]
     TORCH_AVAILABLE = False
 
 from omni_mercury_engine.agentic.agentic_autonomy import AgenticAutonomy

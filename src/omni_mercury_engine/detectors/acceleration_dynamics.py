@@ -63,8 +63,8 @@ try:
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None  # type: ignore[assignment, unused-ignore]
-    nn = None  # type: ignore[assignment, unused-ignore]
+    torch = None  # type: ignore[assignment]
+    nn = None  # type: ignore[assignment]
     TORCH_AVAILABLE = False
 
 from scipy.ndimage import uniform_filter1d
@@ -245,10 +245,10 @@ class AccelerationAnomalyResult:
 # Guard: nn.Module subclasses require PyTorch at class definition time.
 # When torch is unavailable, provide a base object stub so the module can
 # still be imported for non-neural operations (e.g., kinematic analysis).
-_NNBase: type = nn.Module if TORCH_AVAILABLE else object  # type: ignore[assignment, unused-ignore]
+_NNBase: type = nn.Module if TORCH_AVAILABLE else object
 
 
-class MotionEncoder(_NNBase):  # type: ignore[misc, unused-ignore]
+class MotionEncoder(_NNBase):
     """Neural network encoder for motion feature extraction.
 
     Learns representations from kinematic features that capture
@@ -319,7 +319,7 @@ class MotionEncoder(_NNBase):  # type: ignore[misc, unused-ignore]
         return self.output_proj(context)
 
 
-class PhaseSpaceNetwork(_NNBase):  # type: ignore[misc, unused-ignore]
+class PhaseSpaceNetwork(_NNBase):
     """Neural network for phase space trajectory analysis.
 
     Processes phase space embeddings to detect chaotic behavior
@@ -1145,11 +1145,11 @@ class AccelerationDynamicsDetector(BaseDetector):
         if len(distances) < 10:
             return 1.0
 
-        distances = np.array(distances)  # type: ignore[assignment, unused-ignore]
+        distances = np.array(distances)  # type: ignore[assignment]
 
         # Correlation sum for different radii
         radii = np.logspace(
-            np.log10(np.min(distances[distances > 0])), np.log10(np.max(distances)), 10  # type: ignore[operator, unused-ignore]
+            np.log10(np.min(distances[distances > 0])), np.log10(np.max(distances)), 10  # type: ignore[operator]
         )
         correlations = []
 

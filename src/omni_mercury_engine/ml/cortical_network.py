@@ -210,7 +210,7 @@ class LateralInhibition(nn.Module):
             Tensor with lateral interactions applied
         """
         # Apply lateral interaction kernel
-        inhibited = torch.matmul(x, self.kernel)  # type: ignore[arg-type, unused-ignore]
+        inhibited = torch.matmul(x, self.kernel)  # type: ignore[arg-type]
 
         # Blend original with inhibited based on strength
         return (1 - self.strength) * x + self.strength * inhibited
@@ -681,13 +681,13 @@ class CorticalLaminatedNetwork(nn.Module):
             # Get feedback from next column (top-down)
             col_feedback = None
             if i < len(self.columns) - 1 and hasattr(self.columns[i + 1], "activations"):
-                col_feedback = self.columns[i + 1].activations.get("layer_vi")  # type: ignore[operator, union-attr, unused-ignore]
+                col_feedback = self.columns[i + 1].activations.get("layer_vi")  # type: ignore[operator, union-attr]
 
             h, activations = column(h, feedback=col_feedback, return_layer_activations=True)
             all_activations[f"column_{i}"] = activations
 
         # Store Layer VI from last column for next forward pass (thalamic feedback)
-        self._prev_feedback = self.columns[-1].activations.get("layer_vi")  # type: ignore[operator, union-attr, unused-ignore]
+        self._prev_feedback = self.columns[-1].activations.get("layer_vi")  # type: ignore[operator, union-attr]
 
         # Apply Hebbian learning if enabled (during training)
         if self.use_hebbian and self.training:

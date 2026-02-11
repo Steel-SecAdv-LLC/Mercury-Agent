@@ -227,8 +227,8 @@ class FoundationEnsemble(BaseFoundationModel):
             }
 
         # Normalize weights
-        valid_weights = np.array(valid_weights)  # type: ignore[assignment, unused-ignore]
-        valid_weights = valid_weights / valid_weights.sum()  # type: ignore[attr-defined, unused-ignore]
+        valid_weights = np.array(valid_weights)  # type: ignore[assignment]
+        valid_weights = valid_weights / valid_weights.sum()  # type: ignore[attr-defined]
 
         # Aggregate
         forecast = self._aggregate(all_forecasts, valid_weights)
@@ -298,8 +298,8 @@ class FoundationEnsemble(BaseFoundationModel):
                 "threshold": 0.5,
             }
 
-        valid_weights = np.array(valid_weights)  # type: ignore[assignment, unused-ignore]
-        valid_weights = valid_weights / valid_weights.sum()  # type: ignore[attr-defined, unused-ignore]
+        valid_weights = np.array(valid_weights)  # type: ignore[assignment]
+        valid_weights = valid_weights / valid_weights.sum()  # type: ignore[attr-defined]
 
         # Aggregate scores
         scores = self._aggregate_1d(all_scores, valid_weights)

@@ -109,8 +109,8 @@ class AssociatedLegendre:
             norm = np.sqrt(
                 (2 * degree + 1)
                 / (4 * np.pi)
-                * np.math.factorial(degree - m_abs)  # type: ignore[attr-defined, unused-ignore]
-                / np.math.factorial(degree + m_abs)  # type: ignore[attr-defined, unused-ignore]
+                * np.math.factorial(degree - m_abs)  # type: ignore[attr-defined]
+                / np.math.factorial(degree + m_abs)  # type: ignore[attr-defined]
             )
             plm = plm * norm
 
@@ -342,7 +342,7 @@ class SphericalHarmonicTransform:
             for m in range(-degree, degree + 1):
                 idx = degree * (degree + 1) + m
                 c = coefficients.coefficients[idx]
-                f += np.real(c) * basis[idx]  # type: ignore[misc, unused-ignore]
+                f += np.real(c) * basis[idx]  # type: ignore[misc]
 
         return f
 

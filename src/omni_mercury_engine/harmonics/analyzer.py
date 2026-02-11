@@ -302,8 +302,8 @@ class AdvancedHarmonicAnalyzer:
             self._mean_power_spectrum = np.mean(ps_array, axis=0)
             self._std_power_spectrum = np.std(ps_array, axis=0) + 1e-10
 
-            self._mean_complexity = np.mean(all_complexities)  # type: ignore[assignment, unused-ignore]
-            self._std_complexity = np.std(all_complexities) + 1e-10  # type: ignore[assignment, unused-ignore]
+            self._mean_complexity = np.mean(all_complexities)  # type: ignore[assignment]
+            self._std_complexity = np.std(all_complexities) + 1e-10  # type: ignore[assignment]
 
         return self
 
@@ -329,7 +329,7 @@ class AdvancedHarmonicAnalyzer:
         if self._reference_db and len(self._reference_db) > 0:
             nearest = self._reference_db.find_nearest(coefficients, k=3)
             if nearest:
-                similarity_score = np.mean([s for _, s in nearest])  # type: ignore[assignment, unused-ignore]
+                similarity_score = np.mean([s for _, s in nearest])  # type: ignore[assignment]
 
         ps_deviation = 0.0
         if self._mean_power_spectrum is not None:

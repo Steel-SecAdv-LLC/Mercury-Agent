@@ -287,7 +287,7 @@ class RidgeFrequencyEstimator:
             return 0.1
 
         avg_period = np.mean(periods)
-        frequency = 1.0 / max(avg_period, 1.0)  # type: ignore[operator, unused-ignore]
+        frequency = 1.0 / max(avg_period, 1.0)  # type: ignore[operator]
 
         return float(min(0.5, max(0.05, frequency)))
 

@@ -214,7 +214,7 @@ class PlattScalingCalibrator:
             # Cross-entropy loss with clipping for numerical stability
             p = np.clip(p, 1e-10, 1 - 1e-10)
             loss = -np.mean(targets * np.log(p) + (1 - targets) * np.log(1 - p))
-            return loss  # type: ignore[no-any-return]
+            return float(loss)
 
         # Initialize with reasonable values
         x0 = np.array([-1.0, 0.0])
@@ -351,7 +351,7 @@ class IsotonicCalibrator:
             raise ValueError("IsotonicCalibrator must be fitted before calibration")
 
         scores = np.asarray(scores).flatten()
-        calibrated = np.interp(scores, self._score_bins, self._calibration_map)  # type: ignore[arg-type, unused-ignore]
+        calibrated = np.interp(scores, self._score_bins, self._calibration_map)  # type: ignore[arg-type]
 
         if self.out_of_bounds == "clip":
             calibrated = np.clip(calibrated, 0.0, 1.0)
@@ -764,7 +764,7 @@ class AdaptiveDomainThresholdManager:
 
         if abs(mean_shift) > 1.0:
             # Significant mean shift - adjust threshold proportionally
-            adjustment += mean_shift * historical_std * self.config.history_weight  # type: ignore[assignment, unused-ignore]
+            adjustment += mean_shift * historical_std * self.config.history_weight  # type: ignore[assignment]
 
         if std_ratio > 1.5 or std_ratio < 0.67:
             # Significant variance change - be more conservative
@@ -800,7 +800,7 @@ class AdaptiveDomainThresholdManager:
             threshold_std = np.std(self._threshold_history[-5:])
             history_factor = 1.0 / (1.0 + threshold_std * 10)
         else:
-            history_factor = 0.5  # type: ignore[assignment, unused-ignore]
+            history_factor = 0.5  # type: ignore[assignment]
 
         confidence = 0.4 * sample_factor + 0.3 * spread_factor + 0.3 * history_factor
         return float(np.clip(confidence, 0.0, 1.0))

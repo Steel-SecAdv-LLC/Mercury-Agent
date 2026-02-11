@@ -455,9 +455,9 @@ class NeurosymbolicEngine:
                 padding = torch.zeros(
                     features_tensor.shape[0], self.input_dim - features_tensor.shape[1]
                 )
-                features_tensor = torch.cat([features_tensor, padding], dim=1)  # type: ignore[assignment, unused-ignore]
+                features_tensor = torch.cat([features_tensor, padding], dim=1)  # type: ignore[assignment]
             elif features_tensor.shape[1] > self.input_dim:
-                features_tensor = features_tensor[:, : self.input_dim]  # type: ignore[assignment, unused-ignore]
+                features_tensor = features_tensor[:, : self.input_dim]  # type: ignore[assignment]
 
             with torch.no_grad():
                 output = self.ltn.forward(features_tensor)

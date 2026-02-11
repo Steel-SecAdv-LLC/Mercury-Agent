@@ -576,12 +576,12 @@ class FrequencyContextProvider(BaseContextProvider):
             else:
                 power_spectrum.append(0)
 
-        power_spectrum = np.array(power_spectrum)  # type: ignore[assignment, unused-ignore]
+        power_spectrum = np.array(power_spectrum)  # type: ignore[assignment]
 
         # Find dominant frequencies (peaks)
         # Exclude DC component (bin 0) from mean calculation for peak detection
         # as it typically dominates and masks periodic patterns
-        ac_mean = power_spectrum[1:].mean() if len(power_spectrum) > 1 else power_spectrum.mean()  # type: ignore[attr-defined, unused-ignore]
+        ac_mean = power_spectrum[1:].mean() if len(power_spectrum) > 1 else power_spectrum.mean()  # type: ignore[attr-defined]
         dominant_frequencies = []
         for i in range(1, len(power_spectrum) - 1):
             if (
@@ -598,14 +598,14 @@ class FrequencyContextProvider(BaseContextProvider):
 
         # Periodic score (ratio of dominant peaks to AC power, excluding DC)
         # This provides a more meaningful measure of periodicity
-        total_power = power_spectrum.sum()  # type: ignore[attr-defined, unused-ignore]
-        ac_power = power_spectrum[1:].sum() if len(power_spectrum) > 1 else total_power  # type: ignore[attr-defined, unused-ignore]
+        total_power = power_spectrum.sum()  # type: ignore[attr-defined]
+        ac_power = power_spectrum[1:].sum() if len(power_spectrum) > 1 else total_power  # type: ignore[attr-defined]
         peak_power = sum(p[1] for p in dominant_frequencies[:3])
         periodic_score = float(peak_power / (ac_power + 1e-8))
 
         # Noise level (high frequency content ratio)
         high_freq_idx = int(self.frequency_bins * 0.7)
-        noise_level = float(power_spectrum[high_freq_idx:].sum() / (total_power + 1e-8))  # type: ignore[attr-defined, unused-ignore]
+        noise_level = float(power_spectrum[high_freq_idx:].sum() / (total_power + 1e-8))  # type: ignore[attr-defined]
 
         # Spectral centroid
         freq_centers = (freq_bins[:-1] + freq_bins[1:]) / 2

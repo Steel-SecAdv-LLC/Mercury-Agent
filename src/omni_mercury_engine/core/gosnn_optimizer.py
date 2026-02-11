@@ -268,8 +268,8 @@ class EthicalGateOptimizer:
                     weights.append(1.0)
                 values.append(v)
 
-            weights = np.array(weights)  # type: ignore[assignment, unused-ignore]
-            values = np.array(values)  # type: ignore[assignment, unused-ignore]
+            weights = np.array(weights)  # type: ignore[assignment]
+            values = np.array(values)  # type: ignore[assignment]
 
             # Normalize - values > 1 are boosts, < 1 are penalties
             # Map to [0, 1] for ethical score

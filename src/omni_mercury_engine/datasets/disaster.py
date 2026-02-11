@@ -396,15 +396,15 @@ class FEMADisasterLoader(DatasetLoader):
             )
             labels.append(1 if is_major else 0)
 
-        features = np.array(features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
-        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment, unused-ignore]
+        features = np.array(features, dtype=np.float32)  # type: ignore[assignment]
+        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment]
 
         save_path = self.data_path / "synthetic_fema_disaster.npz"
         np.savez_compressed(save_path, features=features, labels=labels)
 
         logger.info(
             f"Generated {n_samples} synthetic disaster records, "
-            f"{labels.sum()} major disasters (is_real_data=False)"  # type: ignore[attr-defined, unused-ignore]
+            f"{labels.sum()} major disasters (is_real_data=False)"  # type: ignore[attr-defined]
         )
         return True
 
@@ -553,8 +553,8 @@ class FEMAHazardMitigationLoader(DatasetLoader):
             is_major = project_amount > 500000
             labels.append(1 if is_major else 0)
 
-        features = np.array(features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
-        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment, unused-ignore]
+        features = np.array(features, dtype=np.float32)  # type: ignore[assignment]
+        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment]
 
         save_path = self.data_path / "synthetic_hazard_mitigation.npz"
         np.savez_compressed(save_path, features=features, labels=labels)

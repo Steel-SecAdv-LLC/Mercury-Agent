@@ -70,13 +70,13 @@ try:
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None  # type: ignore[assignment, unused-ignore]
-    nn = None  # type: ignore[assignment, unused-ignore]
+    torch = None  # type: ignore[assignment]
+    nn = None  # type: ignore[assignment]
     TORCH_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
-_NNBase: type = nn.Module if TORCH_AVAILABLE else object  # type: ignore[assignment, unused-ignore]
+_NNBase: type = nn.Module if TORCH_AVAILABLE else object
 
 
 @dataclass
@@ -103,7 +103,7 @@ class SchumannAnomalyResult:
     ancient_correlation: dict[str, Any] | None = None
 
 
-class SchumannHarmonicAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
+class SchumannHarmonicAnalyzer(_NNBase):
     """
     Neural network for Schumann harmonic pattern analysis.
 
@@ -324,7 +324,7 @@ class SchumannResonanceDetector:
         confidence_score = float(confidence[0].item())
 
         anomaly_types = ["normal", "amplitude", "frequency", "combined"]
-        anomaly_type = anomaly_types[anomaly_class]  # type: ignore[index, unused-ignore]
+        anomaly_type = anomaly_types[anomaly_class]  # type: ignore[index]
 
         risk_score = (
             confidence_score

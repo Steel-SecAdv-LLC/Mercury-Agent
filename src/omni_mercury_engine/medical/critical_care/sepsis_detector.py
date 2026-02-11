@@ -484,10 +484,10 @@ class SepsisDetector:
 
         stage_probs = torch.softmax(stage_logits[0], dim=0)
         stage_idx = torch.argmax(stage_probs).item()
-        confidence = float(stage_probs[stage_idx].item())  # type: ignore[index, unused-ignore]
+        confidence = float(stage_probs[stage_idx].item())  # type: ignore[index]
 
         stages = [e.value for e in SepsisStage]
-        predicted_stage = stages[stage_idx]  # type: ignore[index, unused-ignore]
+        predicted_stage = stages[stage_idx]  # type: ignore[index]
 
         return {
             "predicted_stage": predicted_stage,

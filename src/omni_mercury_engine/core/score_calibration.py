@@ -894,7 +894,7 @@ class AutoThresholdOptimizer:
 
         # Map back to original indices
         knee_idx_original = knee_idx + window // 2
-        knee_idx_original = min(knee_idx_original, n - 1)  # type: ignore[arg-type, unused-ignore]
+        knee_idx_original = min(knee_idx_original, n - 1)  # type: ignore[arg-type]
 
         threshold = sorted_scores[knee_idx_original]
 
@@ -946,9 +946,9 @@ class AutoThresholdOptimizer:
 
             # Set threshold at corresponding percentile
             percentile = 100 * (1 - effective_contamination)
-            threshold = float(np.percentile(scores, percentile))  # type: ignore[assignment, unused-ignore]
+            threshold = float(np.percentile(scores, percentile))  # type: ignore[assignment]
 
-        return threshold, {  # type: ignore[return-value, unused-ignore]
+        return threshold, {  # type: ignore[return-value]
             "method": "adaptive_iqr",
             "q1": float(q1),
             "q3": float(q3),
@@ -1514,7 +1514,7 @@ class ThresholdConfidenceIntervalCalculator:
         # Handle edge cases
         prop_less = np.clip(prop_less, 0.001, 0.999)
         z0 = float(
-            np.sqrt(2) * np.erfinv(2 * prop_less - 1)  # type: ignore[attr-defined, unused-ignore]
+            np.sqrt(2) * np.erfinv(2 * prop_less - 1)  # type: ignore[attr-defined]
         )  # Inverse normal CDF
 
         # Acceleration factor (a) using jackknife
@@ -1533,8 +1533,8 @@ class ThresholdConfidenceIntervalCalculator:
 
         # Compute BCa percentiles
         alpha = 1 - self.confidence_level
-        z_alpha_low = float(np.sqrt(2) * np.erfinv(2 * (alpha / 2) - 1))  # type: ignore[attr-defined, unused-ignore]
-        z_alpha_high = float(np.sqrt(2) * np.erfinv(2 * (1 - alpha / 2) - 1))  # type: ignore[attr-defined, unused-ignore]
+        z_alpha_low = float(np.sqrt(2) * np.erfinv(2 * (alpha / 2) - 1))  # type: ignore[attr-defined]
+        z_alpha_high = float(np.sqrt(2) * np.erfinv(2 * (1 - alpha / 2) - 1))  # type: ignore[attr-defined]
 
         # BCa adjusted percentiles
         def bca_percentile(z_alpha: float) -> float:
@@ -1638,7 +1638,7 @@ class LabelSmoothingCalibrator:
                 self.max_smoothing - self.min_smoothing
             )
         else:
-            effective_smoothing = self.smoothing  # type: ignore[assignment, unused-ignore]
+            effective_smoothing = self.smoothing  # type: ignore[assignment]
 
         # Apply smoothing: y_smooth = y * (1 - eps) + eps/2
         smoothed = labels * (1 - effective_smoothing) + effective_smoothing / 2

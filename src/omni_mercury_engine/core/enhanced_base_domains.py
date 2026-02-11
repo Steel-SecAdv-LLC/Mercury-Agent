@@ -748,19 +748,19 @@ class EnhancedBaseDetector:
             features = self.base_detector.extract_features(X)
             if hasattr(features, "numpy"):
                 features = features.numpy()
-            return features  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(features)
         return np.zeros((len(X), 32))
 
     def _get_scores(self, X: np.ndarray) -> np.ndarray:
         """Get anomaly scores from base detector."""
         if hasattr(self.base_detector, "detect"):
             result = self.base_detector.detect(X)
-            return result.get("scores", np.zeros(len(X)))  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(result.get("scores", np.zeros(len(X))))
         elif hasattr(self.base_detector, "predict"):
             result = self.base_detector.predict(X)
             if isinstance(result, dict):
-                return result.get("anomaly_scores", np.zeros(len(X)))  # type: ignore[no-any-return, unused-ignore]
-            return result  # type: ignore[no-any-return, unused-ignore]
+                return np.asarray(result.get("anomaly_scores", np.zeros(len(X))))
+            return np.asarray(result)
         return np.zeros(len(X))
 
     def _setup_calibration(self, scores: np.ndarray, labels: np.ndarray) -> None:

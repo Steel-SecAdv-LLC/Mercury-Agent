@@ -331,7 +331,7 @@ class CreditAssignment:
             if self.use_advantage and len(credits) > 1:
                 mean_credit = np.mean(credits)
                 std_credit = np.std(credits) + 1e-8
-                credits = [(c - mean_credit) / std_credit for c in credits]  # type: ignore[misc, unused-ignore]
+                credits = [(c - mean_credit) / std_credit for c in credits]  # type: ignore[misc]
 
             return credits
 
@@ -353,7 +353,7 @@ class CreditAssignment:
         if self.use_advantage and len(credits) > 1:
             mean_credit = np.mean(credits)
             std_credit = np.std(credits) + 1e-8
-            credits = [(c - mean_credit) / std_credit for c in credits]  # type: ignore[misc, unused-ignore]
+            credits = [(c - mean_credit) / std_credit for c in credits]  # type: ignore[misc]
 
         return credits
 

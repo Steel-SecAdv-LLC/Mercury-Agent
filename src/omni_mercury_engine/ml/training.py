@@ -41,7 +41,7 @@ try:
     HAS_PYTORCH_LIGHTNING = True
 except ImportError:
     HAS_PYTORCH_LIGHTNING = False
-    pl = None  # type: ignore[assignment, unused-ignore]
+    pl = None  # type: ignore[assignment]
 
 
 if TYPE_CHECKING:
@@ -199,7 +199,7 @@ class LearningRateScheduler:
 
     def get_last_lr(self) -> list[float]:
         """Get the last computed learning rate."""
-        return list(self._scheduler.get_last_lr())  # type: ignore[arg-type, unused-ignore]
+        return list(self._scheduler.get_last_lr())  # type: ignore[arg-type]
 
 
 class Trainer:
@@ -392,7 +392,7 @@ class MercuryOptimizer(optim.Optimizer):
         defaults = {"lr": lr, "alpha": alpha, "beta": beta, "quantum_noise": quantum_noise}
         super().__init__(params, defaults)
 
-    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override, unused-ignore]
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override]
         loss = None
         if closure is not None:
             loss = closure()
@@ -440,7 +440,7 @@ class MercuryMomentumOptimizer(optim.Optimizer):
         defaults = {"lr": lr, "alpha": alpha, "momentum": momentum}
         super().__init__(params, defaults)
 
-    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override, unused-ignore]
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override]
         loss = None
         if closure is not None:
             loss = closure()
@@ -481,7 +481,7 @@ class MercuryExponentialDecayOptimizer(optim.Optimizer):
         defaults = {"lr": lr, "alpha": alpha, "decay_rate": decay_rate}
         super().__init__(params, defaults)
 
-    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override, unused-ignore]
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override]
         loss = None
         if closure is not None:
             loss = closure()
@@ -524,7 +524,7 @@ class MercuryHarmonicOptimizer(optim.Optimizer):
         defaults = {"lr": lr, "alpha": alpha, "omega": omega}
         super().__init__(params, defaults)
 
-    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override, unused-ignore]
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override]
         loss = None
         if closure is not None:
             loss = closure()
@@ -733,7 +733,7 @@ class LyapunovAnomalyLoss(nn.Module):
             "kl": L_kl,
             "stability": L_stability,
             "lyapunov_V": V_t,
-            "stability_violated": L_stability.item() > 0 if self.prev_scores is not None else False,  # type: ignore[dict-item, unused-ignore]
+            "stability_violated": L_stability.item() > 0 if self.prev_scores is not None else False,  # type: ignore[dict-item]
         }
 
     def get_stability_rate(self) -> float:

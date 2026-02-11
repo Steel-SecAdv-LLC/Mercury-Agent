@@ -227,7 +227,7 @@ class EmergingTechMonitor:
             "scenarios": scenarios,
             "recommended_posture": (
                 "monitor_and_adapt"
-                if float(disruptive_prob) < 0.10  # type: ignore[arg-type]
+                if float(str(disruptive_prob)) < 0.10
                 else "proactive_intervention"
             ),
         }

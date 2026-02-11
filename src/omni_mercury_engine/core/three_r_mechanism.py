@@ -99,7 +99,7 @@ __all__ = [
 
 
 # Backward-compatible alias for AvaDominanceEquation
-AvaDominanceEquation = AnomalyFusionEquation
+AvaDominanceEquation: type[AnomalyFusionEquation] = AnomalyFusionEquation
 
 
 class _LegacyAnomalyFusionEquation:
@@ -338,7 +338,7 @@ class _LegacyAnomalyFusionEquation:
 
 
 # Backward-compatible alias for AvaDominanceEquation
-AvaDominanceEquation = AnomalyFusionEquation  # type: ignore[misc]
+AvaDominanceEquation = AnomalyFusionEquation
 
 
 class _LegacyAAFEWeightOptimizer:
@@ -428,7 +428,7 @@ class _LegacyAAFEWeightOptimizer:
         # A = (w_R * R + w_H * H + w_O * O) * η^Φ
         weighted_sum = np.dot(X, weights)
         ethical_scaling = self.ethical_threshold**self.golden_ratio
-        return weighted_sum * ethical_scaling  # type: ignore[no-any-return, unused-ignore]
+        return np.asarray(weighted_sum * ethical_scaling)
 
     def _objective_function(
         self,
@@ -585,7 +585,7 @@ class _LegacyRecursionEngine:
 
         diff = np.linalg.norm(transformed - data)
         if diff < threshold:
-            return transformed  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(transformed)
 
         return self.recursive_transform(transformed, transform_fn, depth + 1, threshold)
 
@@ -609,7 +609,7 @@ class _LegacyRecursionEngine:
             window_size = max(3, len(data) // (2**level))
             return self._sliding_window_stats(data, window_size)
         else:
-            return np.mean(data, axis=1, keepdims=True)  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(np.mean(data, axis=1, keepdims=True))
 
     def _sliding_window_stats(self, data: NDArray[Any], window_size: int) -> NDArray[Any]:
         if len(data) < window_size:
@@ -2117,10 +2117,10 @@ class RefactoringEngine:
 
         for i in range(num_variants):
             config = RefactoringConfig(
-                enable_harmonics=bool(self._rng.choice([True, False])),  # type: ignore[arg-type, unused-ignore]
-                enable_quantum_paths=bool(self._rng.choice([True, False])),  # type: ignore[arg-type, unused-ignore]
-                enable_pattern_resonance=bool(self._rng.choice([True, False])),  # type: ignore[arg-type, unused-ignore]
-                quantum_num_paths=int(self._rng.choice([1, 2, 3])),  # type: ignore[arg-type, unused-ignore]
+                enable_harmonics=bool(self._rng.choice([True, False])),  # type: ignore[arg-type]
+                enable_quantum_paths=bool(self._rng.choice([True, False])),  # type: ignore[arg-type]
+                enable_pattern_resonance=bool(self._rng.choice([True, False])),  # type: ignore[arg-type]
+                quantum_num_paths=int(self._rng.choice([1, 2, 3])),  # type: ignore[arg-type]
                 enable_caching=True,
             )
 

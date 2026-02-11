@@ -332,7 +332,7 @@ def point_adjusted_f1(
         if y_pred[i] == 1 and y_true[i] == 0:
             adjusted_pred[i] = 1
 
-    return f1_score(y_true, adjusted_pred, zero_division=1.0)  # type: ignore[no-any-return]
+    return float(f1_score(y_true, adjusted_pred, zero_division=1.0))
 
 
 class RigorousBenchmarkHarness:
@@ -612,13 +612,13 @@ def run_baseline_benchmarks(
 
         def predict(self, X: np.ndarray) -> np.ndarray:
             preds = self.model.predict(X)
-            return (preds == -1).astype(int)  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray((preds == -1).astype(int))
 
         def predict_proba(self, X: np.ndarray) -> np.ndarray:
             scores = -self.model.score_samples(X)
             # Normalize to [0, 1]
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return scores  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(scores)
 
     results["IsolationForest"] = harness.benchmark_detector(
         IFWrapper(), X, y, "IsolationForest", dataset_name
@@ -634,12 +634,12 @@ def run_baseline_benchmarks(
 
         def predict(self, X: np.ndarray) -> np.ndarray:
             preds = self.model.predict(X)
-            return (preds == -1).astype(int)  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray((preds == -1).astype(int))
 
         def predict_proba(self, X: np.ndarray) -> np.ndarray:
             scores = -self.model.decision_function(X)
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return scores  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(scores)
 
     results["OneClassSVM"] = harness.benchmark_detector(
         OCSVMWrapper(), X, y, "OneClassSVM", dataset_name
@@ -659,12 +659,12 @@ def run_baseline_benchmarks(
 
         def predict(self, X: np.ndarray) -> np.ndarray:
             preds = self.model.predict(X)
-            return (preds == -1).astype(int)  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray((preds == -1).astype(int))
 
         def predict_proba(self, X: np.ndarray) -> np.ndarray:
             scores = -self.model.decision_function(X)
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return scores  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(scores)
 
     results["LOF"] = harness.benchmark_detector(LOFWrapper(), X, y, "LOF", dataset_name)
 
@@ -690,12 +690,12 @@ def run_baseline_benchmarks(
 
         def predict(self, X: np.ndarray) -> np.ndarray:
             preds = self.model.predict(X)
-            return (preds == -1).astype(int)  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray((preds == -1).astype(int))
 
         def predict_proba(self, X: np.ndarray) -> np.ndarray:
             scores = -self.model.decision_function(X)
             scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return scores  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(scores)
 
     results["EllipticEnvelope"] = harness.benchmark_detector(
         EEWrapper(), X, y, "EllipticEnvelope", dataset_name

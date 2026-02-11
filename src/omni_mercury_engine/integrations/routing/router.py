@@ -113,7 +113,8 @@ class Route:
         if self._regex is None:
             self.compile()
 
-        match = self._regex.match(path)  # type: ignore[union-attr]
+        assert self._regex is not None
+        match = self._regex.match(path)
         if match:
             return match.groupdict()
         return None

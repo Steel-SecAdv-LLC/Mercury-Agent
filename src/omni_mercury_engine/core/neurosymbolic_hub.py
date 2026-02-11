@@ -104,8 +104,8 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None  # type: ignore[assignment, unused-ignore]
-    nn = None  # type: ignore[assignment, unused-ignore]
+    torch = None  # type: ignore[assignment]
+    nn = None  # type: ignore[assignment]
 
 
 class FusionMode(Enum):
@@ -456,7 +456,7 @@ class NeuralEncoder:
             with torch.no_grad():
                 X_tensor = torch.tensor(X, dtype=torch.float32)
                 scores = self.encoder(X_tensor).numpy()
-            return scores.flatten()  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(scores.flatten())
         else:
             # NumPy fallback - use statistical features
             mean = np.mean(X, axis=1)
@@ -466,7 +466,7 @@ class NeuralEncoder:
             z_score = np.abs(mean) / std
             score = 1 / (1 + np.exp(-z_score + 2))  # Sigmoid centered at 2
 
-            return score  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(score)
 
     def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> NeuralEncoder:
         """Fit encoder (placeholder for training)."""
@@ -483,11 +483,11 @@ class NeuralEncoder:
                 # Regularized least squares
                 lambda_reg = 0.01
                 identity_mat = np.eye(X_aug.shape[1])
-                self.weights = np.linalg.solve(  # type: ignore[assignment, unused-ignore]
+                self.weights = np.linalg.solve(  # type: ignore[assignment]
                     X_aug.T @ X_aug + lambda_reg * identity_mat, X_aug.T @ y
                 )
             except np.linalg.LinAlgError:
-                self.weights = np.zeros(X_aug.shape[1])  # type: ignore[assignment, unused-ignore]
+                self.weights = np.zeros(X_aug.shape[1])  # type: ignore[assignment]
 
         return self
 
@@ -872,7 +872,7 @@ class NeuroSymbolicHub:
             context = {"deviation_score": np.abs(X[i]).max()}
             score, _ = self.knowledge_graph.get_anomaly_indicators(context)
             symbolic_scores.append(score)
-        symbolic_scores = np.array(symbolic_scores)  # type: ignore[assignment, unused-ignore]
+        symbolic_scores = np.array(symbolic_scores)  # type: ignore[assignment]
 
         if self.fusion_mode == FusionMode.STACKING:
             # Train meta-learner

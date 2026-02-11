@@ -67,13 +67,13 @@ try:
 
     TORCH_AVAILABLE = True
 except ImportError:
-    torch = None  # type: ignore[assignment, unused-ignore]
-    nn = None  # type: ignore[assignment, unused-ignore]
+    torch = None  # type: ignore[assignment]
+    nn = None  # type: ignore[assignment]
     TORCH_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
-_NNBase: type = nn.Module if TORCH_AVAILABLE else object  # type: ignore[assignment, unused-ignore]
+_NNBase: type = nn.Module if TORCH_AVAILABLE else object
 
 
 class ISOAnomalyType(Enum):
@@ -120,7 +120,7 @@ class InterstellarObjectResult:
     scientific_significance: float = 0.0
 
 
-class InterstellarObjectAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
+class InterstellarObjectAnalyzer(_NNBase):
     """
     Neural network for interstellar object anomaly analysis.
 
@@ -340,7 +340,7 @@ class InterstellarObjectDetector:
         confidence_score = float(confidence[0].item())
 
         anomaly_types = [t.value for t in ISOAnomalyType]
-        anomaly_type = anomaly_types[anomaly_class]  # type: ignore[index, unused-ignore]
+        anomaly_type = anomaly_types[anomaly_class]  # type: ignore[index]
 
         anomaly_score = confidence_score * self.omni_interstellar_scalars["omni_orbital_precision"]
 

@@ -161,7 +161,7 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
         data = np.loadtxt(path, delimiter=",", dtype=np.float32)
         if data.ndim == 1:
             data = data.reshape(1, -1)
-        return data  # type: ignore[no-any-return, unused-ignore]
+        return np.asarray(data)
 
     else:
         raise ValueError(f"Unsupported file format: {path.suffix}")

@@ -491,7 +491,8 @@ class EmergentLifeDetector:
         context = context or {}
 
         if self.enable_seti and analysis_type in ["seti", "comprehensive"]:
-            seti = self.seti_analyzer.detect_seti_anomaly(data, context)  # type: ignore[union-attr]
+            assert self.seti_analyzer is not None
+            seti = self.seti_analyzer.detect_seti_anomaly(data, context)
             if seti is not None and seti.get("seti_anomaly_detected"):
                 result.life_signal_detected = True
                 result.signal_type = "technosignature"
@@ -500,7 +501,8 @@ class EmergentLifeDetector:
                 result.recommendations.extend(seti.get("recommendations", []))
 
         if self.enable_biosignatures and analysis_type in ["biosignatures", "comprehensive"]:
-            biosig = self.biosig_recognizer.detect_biosignatures(  # type: ignore[union-attr]
+            assert self.biosig_recognizer is not None
+            biosig = self.biosig_recognizer.detect_biosignatures(
                 data, context.get("data_type", "atmospheric")
             )
             if biosig is not None and biosig.get("biosignatures_detected"):
@@ -515,7 +517,8 @@ class EmergentLifeDetector:
             and result.life_signal_detected
             and result.signal_type == "technosignature"
         ):
-            protocols = self.protocol_explorer.explore_contact_protocols(  # type: ignore[union-attr]
+            assert self.protocol_explorer is not None
+            protocols = self.protocol_explorer.explore_contact_protocols(
                 {"confidence": result.confidence, "technosignatures": result.seti_technosignatures}
             )
             if protocols is not None:
