@@ -277,4 +277,4 @@ CVE-2023-45853
 # are released. The docker.yml workflow now uses ignore-unfixed to prevent
 # these from appearing in the GitHub Security tab.
 #
-# Security Contact: security@steelsecurityadvisors.com
+# Security Contact: steel.sa.llc@gmail.com
