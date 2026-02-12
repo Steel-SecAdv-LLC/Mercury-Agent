@@ -40,9 +40,9 @@ def benchmark_loader(name: str, loader_class: Any, timeout: int = 300) -> dict[s
 
     result: dict[str, Any] = {
         "name": name,
-        "loader_class": loader_class.__name__
-        if hasattr(loader_class, "__name__")
-        else str(loader_class),
+        "loader_class": (
+            loader_class.__name__ if hasattr(loader_class, "__name__") else str(loader_class)
+        ),
         "data_source": "error",
         "record_count": 0,
         "feature_count": 0,
