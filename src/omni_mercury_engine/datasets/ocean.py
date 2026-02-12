@@ -37,6 +37,7 @@ except ImportError:
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError, check_synthetic_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +137,14 @@ class NOAABuoyLoader(DatasetLoader):
         """
         if not PANDAS_AVAILABLE:
             logger.warning("pandas required for NOAA buoy data processing")
-            return self._create_synthetic_fallback()
+            if ALLOW_SYNTHETIC:
+                check_synthetic_allowed("NOAABuoy", "pandas not available for buoy data processing")
+                return self._create_synthetic_fallback()
+            raise DataSourceUnavailableError(
+                loader_name="NOAABuoy",
+                source_url="https://www.ndbc.noaa.gov/",
+                reason="pandas required for NOAA buoy data processing",
+            )
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -183,8 +191,15 @@ class NOAABuoyLoader(DatasetLoader):
                     continue
 
             if not all_data:
-                logger.warning("No buoy data downloaded, falling back to synthetic")
-                return self._create_synthetic_fallback()
+                logger.warning("No buoy data downloaded")
+                if ALLOW_SYNTHETIC:
+                    check_synthetic_allowed("NOAABuoy", "No buoy data downloaded from any station")
+                    return self._create_synthetic_fallback()
+                raise DataSourceUnavailableError(
+                    loader_name="NOAABuoy",
+                    source_url="https://www.ndbc.noaa.gov/",
+                    reason="No buoy data downloaded from any station",
+                )
 
             combined = pd.concat(all_data, ignore_index=True)
             logger.info(f"Total: {len(combined)} buoy records from {len(all_data)} stations")
@@ -206,7 +221,14 @@ class NOAABuoyLoader(DatasetLoader):
 
         except Exception as e:
             logger.warning(f"NOAA Buoy download failed: {e}")
-            return self._create_synthetic_fallback()
+            if ALLOW_SYNTHETIC:
+                check_synthetic_allowed("NOAABuoy", f"NOAA Buoy download failed: {e}")
+                return self._create_synthetic_fallback()
+            raise DataSourceUnavailableError(
+                loader_name="NOAABuoy",
+                source_url="https://www.ndbc.noaa.gov/",
+                reason=f"NOAA Buoy download failed: {e}",
+            )
 
     def _process_buoy_data(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         """Process buoy data for anomaly detection with comprehensive missing value handling.
@@ -282,7 +304,7 @@ class NOAABuoyLoader(DatasetLoader):
 
         logger.info(
             f"Quality filtering: {original_len - len(features_df)} rows removed "
-            f"({(1 - len(features_df)/original_len):.1%} of data)"
+            f"({(1 - len(features_df) / original_len):.1%} of data)"
         )
 
         # ============================================================
@@ -470,7 +492,7 @@ class NOAABuoyLoader(DatasetLoader):
             return self._features, self._labels
 
         synthetic_path = self.data_path / "synthetic_noaa_buoy.npz"
-        if synthetic_path.exists():
+        if synthetic_path.exists() and ALLOW_SYNTHETIC:
             data = np.load(synthetic_path)
             self._features = data["features"]
             self._labels = data["labels"]

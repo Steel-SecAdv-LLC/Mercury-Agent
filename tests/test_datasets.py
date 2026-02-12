@@ -3,11 +3,19 @@ Mercury Agent ♱
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Tests for real-world dataset loaders and benchmarks.
+
+These tests use synthetic fallback data for fast, offline unit testing.
+Real-data tests are in test_loaders_live.py (marked @pytest.mark.network).
 """
 
 from __future__ import annotations
 
 import os
+
+# Enable synthetic fallback for these unit tests — they deliberately test
+# loader mechanics with generated data, not live API correctness.
+os.environ["MERCURY_ALLOW_SYNTHETIC"] = "1"
+
 import tempfile
 
 import numpy as np
@@ -24,6 +32,7 @@ from omni_mercury_engine.datasets.environmental import (
     USGSEarthquakeLoader,
     WildfireDataLoader,
 )
+from omni_mercury_engine.datasets.exceptions import DataSourceUnavailableError
 from omni_mercury_engine.datasets.medical import MIMICLoader, PhysioNetLoader, SepsisDataset
 from omni_mercury_engine.datasets.security import CICIDSLoader, NSLKDDLoader, ThreatIntelLoader
 from omni_mercury_engine.datasets.space import NASAExoplanetLoader, SETILoader, SolarDynamicsLoader
@@ -69,8 +78,8 @@ class TestMedicalDatasets:
         with tempfile.TemporaryDirectory() as d:
             yield d
 
-    def test_mimic_loader_synthetic(self, tmpdir):
-        """Test MIMIC loader with synthetic data."""
+    def test_mimic_loader_credential_gate(self, tmpdir):
+        """Test MIMIC loader raises without credentials (never generates synthetic)."""
         config = DatasetConfig(
             name="mimic-iii",
             data_dir=tmpdir,
@@ -79,12 +88,8 @@ class TestMedicalDatasets:
         )
         loader = MIMICLoader(config)
 
-        features, labels = loader.load(DatasetSplit.ALL)
-
-        assert features.shape[0] == 100
-        assert features.shape[1] == len(MIMICLoader.FEATURE_NAMES)
-        assert labels.shape[0] == 100
-        assert np.all(np.isin(labels, [0, 1]))
+        with pytest.raises(DataSourceUnavailableError, match="PhysioNet"):
+            loader.load(DatasetSplit.ALL)
 
     def test_physionet_loader_ecg(self, tmpdir):
         """Test PhysioNet ECG loader."""
@@ -126,8 +131,8 @@ class TestSpaceDatasets:
         with tempfile.TemporaryDirectory() as d:
             yield d
 
-    def test_seti_loader(self, tmpdir):
-        """Test SETI signal loader."""
+    def test_seti_loader_deprecated(self, tmpdir):
+        """Test SETI loader is deprecated and raises."""
         config = DatasetConfig(
             name="seti",
             data_dir=tmpdir,
@@ -136,10 +141,8 @@ class TestSpaceDatasets:
         )
         loader = SETILoader(config)
 
-        features, labels = loader.load(DatasetSplit.ALL)
-
-        assert len(features) == 100
-        assert len(labels) == 100
+        with pytest.raises(DataSourceUnavailableError, match="deprecated"):
+            loader.load(DatasetSplit.ALL)
 
     def test_exoplanet_loader(self, tmpdir):
         """Test exoplanet loader."""
@@ -294,10 +297,10 @@ class TestDatasetRegistry:
     def test_create_from_registry(self):
         """Test creating loader from registry."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            config = DatasetConfig(name="seti", data_dir=tmpdir, cache_dir=tmpdir)
-            loader = DatasetRegistry.create("seti", config)
+            config = DatasetConfig(name="earthquake", data_dir=tmpdir, cache_dir=tmpdir)
+            loader = DatasetRegistry.create("earthquake", config)
 
-            assert isinstance(loader, SETILoader)
+            assert isinstance(loader, USGSEarthquakeLoader)
 
 
 class TestBenchmarkSuite:
@@ -320,13 +323,13 @@ class TestBenchmarkSuite:
             return np.random.rand(len(features))
 
         result = suite.run_benchmark(
-            dataset_name="seti",
+            dataset_name="earthquake",
             detector=simple_detector,
             detector_name="TestDetector",
         )
 
         assert isinstance(result, BenchmarkResult)
-        assert result.dataset_name == "seti"
+        assert result.dataset_name == "earthquake"
         assert 0 <= result.accuracy <= 1
         assert 0 <= result.f1_score <= 1
 
@@ -341,7 +344,7 @@ class TestBenchmarkSuite:
         results = suite.run_all_benchmarks(
             detector=random_baseline,
             detector_name="RandomBaseline",
-            datasets=["seti", "earthquake"],  # Quick test
+            datasets=["earthquake", "wildfire"],  # Quick test
         )
 
         assert len(results) == 2
@@ -362,7 +365,7 @@ class TestBenchmarkSuite:
         results = suite.run_all_benchmarks(
             detector=better_detector,
             detector_name="BetterDetector",
-            datasets=["seti"],
+            datasets=["earthquake"],
         )
 
         comparison = suite.compare_with_baseline(
@@ -372,7 +375,7 @@ class TestBenchmarkSuite:
         )
 
         assert comparison.baseline_name == "RandomBaseline"
-        assert "seti" in comparison.improvement_vs_baseline
+        assert "earthquake" in comparison.improvement_vs_baseline
 
     def test_save_and_load_results(self, tmpdir):
         """Test saving and loading benchmark results."""
@@ -385,7 +388,7 @@ class TestBenchmarkSuite:
         suite.run_all_benchmarks(
             detector=random_baseline,
             detector_name="Test",
-            datasets=["seti"],
+            datasets=["earthquake"],
         )
 
         # Save
@@ -398,7 +401,7 @@ class TestBenchmarkSuite:
         loaded = suite2.load_results(save_path)
 
         assert len(loaded) == 1
-        assert loaded[0].dataset_name == "seti"
+        assert loaded[0].dataset_name == "earthquake"
 
 
 class TestPyTorchIntegration:
@@ -414,12 +417,12 @@ class TestPyTorchIntegration:
         pytest.importorskip("torch")
 
         config = DatasetConfig(
-            name="seti",
+            name="earthquake",
             data_dir=tmpdir,
             cache_dir=tmpdir,
             max_samples=50,
         )
-        loader = SETILoader(config)
+        loader = USGSEarthquakeLoader(config)
         loader.load()  # Ensure data is loaded
 
         torch_dataset = loader.to_pytorch_dataset(DatasetSplit.TRAIN)
@@ -433,12 +436,12 @@ class TestPyTorchIntegration:
         pytest.importorskip("torch")
 
         config = DatasetConfig(
-            name="seti",
+            name="earthquake",
             data_dir=tmpdir,
             cache_dir=tmpdir,
             max_samples=50,
         )
-        loader = SETILoader(config)
+        loader = USGSEarthquakeLoader(config)
         loader.load()
 
         dataloader = loader.get_dataloader(

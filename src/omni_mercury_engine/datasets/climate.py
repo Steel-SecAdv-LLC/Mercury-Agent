@@ -30,6 +30,7 @@ except ImportError:
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError, check_synthetic_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -139,13 +140,20 @@ class SimonsCMAPLoader(DatasetLoader):
             logger.info("pycmap not installed. Using sample data or synthetic fallback.")
 
         # Fall back to synthetic data with realistic oceanographic patterns
-        logger.warning(
-            "Simons CMAP requires pycmap package and API key for full access.\n"
-            "Install: pip install pycmap\n"
-            "Get API key: https://simonscmap.com/register\n"
-            "Falling back to SYNTHETIC ocean data."
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed(
+                "SimonsCMAP",
+                "Simons CMAP requires pycmap package and API key for full access",
+            )
+            return self._create_synthetic_ocean()
+        raise DataSourceUnavailableError(
+            loader_name="SimonsCMAP",
+            source_url="https://simonscmap.com/",
+            reason=(
+                "Simons CMAP requires pycmap package and API key for full access. "
+                "Install: pip install pycmap | Get API key: https://simonscmap.com/register"
+            ),
         )
-        return self._create_synthetic_ocean()
 
     def _build_cmap_query(self) -> str:
         """Build a safe SQL query for the pycmap API with validated numeric bounds.
@@ -234,7 +242,7 @@ class SimonsCMAPLoader(DatasetLoader):
 
             if df is None or len(df) == 0:
                 logger.warning("No data returned from CMAP query")
-                return self._create_synthetic_ocean()
+                return False
 
             # Process the data
             features, labels = self._process_cmap_data(df)
@@ -251,7 +259,7 @@ class SimonsCMAPLoader(DatasetLoader):
 
         except Exception as e:
             logger.warning(f"Simons CMAP download failed: {e}")
-            return self._create_synthetic_ocean()
+            return False
 
     def _process_cmap_data(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         """Process CMAP query results.
@@ -370,7 +378,7 @@ class SimonsCMAPLoader(DatasetLoader):
             return data["features"], data["labels"]
 
         synthetic_path = self.data_path / "synthetic_cmap.npz"
-        if synthetic_path.exists():
+        if synthetic_path.exists() and ALLOW_SYNTHETIC:
             data = np.load(synthetic_path)
             self._is_real_data = False
             logger.info("Loaded SYNTHETIC ocean data (is_real_data=False)")
@@ -468,12 +476,20 @@ class WorldOceanDatabaseLoader(DatasetLoader):
         if self._download_wod_sample():
             return True
 
-        logger.warning(
-            "World Ocean Database bulk data requires WODselect tool or wget.\n"
-            "Access: https://www.ncei.noaa.gov/access/world-ocean-database-select\n"
-            "Falling back to SYNTHETIC ocean profile data."
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed(
+                "WorldOceanDatabase",
+                "WOD bulk data requires WODselect tool or wget",
+            )
+            return self._create_synthetic_wod()
+        raise DataSourceUnavailableError(
+            loader_name="WorldOceanDatabase",
+            source_url="https://www.ncei.noaa.gov/products/world-ocean-database",
+            reason=(
+                "World Ocean Database bulk data requires WODselect tool or wget. "
+                "Access: https://www.ncei.noaa.gov/access/world-ocean-database-select"
+            ),
         )
-        return self._create_synthetic_wod()
 
     def _download_wod_sample(self) -> bool:
         """Attempt to download WOD sample data."""
@@ -573,7 +589,7 @@ class WorldOceanDatabaseLoader(DatasetLoader):
             return data["features"], data["labels"]
 
         synthetic_path = self.data_path / "synthetic_wod.npz"
-        if synthetic_path.exists():
+        if synthetic_path.exists() and ALLOW_SYNTHETIC:
             data = np.load(synthetic_path)
             self._is_real_data = False
             logger.info("Loaded SYNTHETIC WOD data (is_real_data=False)")
@@ -656,6 +672,9 @@ class CopernicusSeaLevelLoader(DatasetLoader):
     def download(self) -> bool:
         """Download sea level data from Copernicus CDS.
 
+        Requires CDS API credentials. Register at:
+        https://cds.climate.copernicus.eu/user/register
+
         Returns:
             True if download successful, False otherwise.
         """
@@ -668,13 +687,21 @@ class CopernicusSeaLevelLoader(DatasetLoader):
         except ImportError:
             logger.info("cdsapi not installed. Using synthetic fallback.")
 
-        logger.warning(
-            "Copernicus CDS requires cdsapi package and API key.\n"
-            "Install: pip install cdsapi\n"
-            "Register: https://cds.climate.copernicus.eu/user/register\n"
-            "Falling back to SYNTHETIC sea level data."
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed(
+                "CopernicusSeaLevel",
+                "Copernicus CDS requires cdsapi package and CDS API credentials",
+            )
+            return self._create_synthetic_sea_level()
+        raise DataSourceUnavailableError(
+            loader_name="CopernicusSeaLevel",
+            source_url="https://cds.climate.copernicus.eu/datasets/satellite-sea-level-global",
+            reason=(
+                "Copernicus CDS requires cdsapi package and CDS API credentials. "
+                "Install: pip install cdsapi | "
+                "Register: https://cds.climate.copernicus.eu/user/register"
+            ),
         )
-        return self._create_synthetic_sea_level()
 
     def _download_via_cdsapi(self) -> bool:
         """Download data using cdsapi Python client."""
@@ -735,7 +762,7 @@ class CopernicusSeaLevelLoader(DatasetLoader):
 
         except Exception as e:
             logger.warning(f"Copernicus CDS download failed: {e}")
-            return self._create_synthetic_sea_level()
+            return False
 
     def _process_netcdf(self, ds: Any) -> tuple[np.ndarray, np.ndarray]:
         """Process NetCDF sea level data."""
@@ -830,7 +857,7 @@ class CopernicusSeaLevelLoader(DatasetLoader):
             return data["features"], data["labels"]
 
         synthetic_path = self.data_path / "synthetic_sealevel.npz"
-        if synthetic_path.exists():
+        if synthetic_path.exists() and ALLOW_SYNTHETIC:
             data = np.load(synthetic_path)
             self._is_real_data = False
             logger.info("Loaded SYNTHETIC sea level data (is_real_data=False)")
@@ -959,13 +986,21 @@ class CopernicusERA5Loader(DatasetLoader):
         except ImportError:
             logger.info("cdsapi not installed. Using synthetic fallback.")
 
-        logger.warning(
-            "Copernicus ERA5 requires cdsapi package and API key.\n"
-            "Install: pip install cdsapi\n"
-            "Register: https://cds.climate.copernicus.eu/user/register\n"
-            "Falling back to SYNTHETIC ERA5 data."
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed(
+                "CopernicusERA5",
+                "Copernicus ERA5 requires cdsapi package and API key",
+            )
+            return self._create_synthetic_era5()
+        raise DataSourceUnavailableError(
+            loader_name="CopernicusERA5",
+            source_url="https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels",
+            reason=(
+                "Copernicus ERA5 requires cdsapi package and API key. "
+                "Install: pip install cdsapi | "
+                "Register: https://cds.climate.copernicus.eu/user/register"
+            ),
         )
-        return self._create_synthetic_era5()
 
     def _download_via_cdsapi(self) -> bool:
         """Download data using cdsapi Python client."""
@@ -1028,7 +1063,7 @@ class CopernicusERA5Loader(DatasetLoader):
 
         except Exception as e:
             logger.warning(f"ERA5 CDS download failed: {e}")
-            return self._create_synthetic_era5()
+            return False
 
     def _process_era5_netcdf(self, ds: Any) -> tuple[np.ndarray, np.ndarray]:
         """Process NetCDF ERA5 data."""
@@ -1174,7 +1209,7 @@ class CopernicusERA5Loader(DatasetLoader):
             return data["features"], data["labels"]
 
         synthetic_path = self.data_path / "synthetic_era5.npz"
-        if synthetic_path.exists():
+        if synthetic_path.exists() and ALLOW_SYNTHETIC:
             data = np.load(synthetic_path)
             self._is_real_data = False
             logger.info("Loaded SYNTHETIC ERA5 data (is_real_data=False)")

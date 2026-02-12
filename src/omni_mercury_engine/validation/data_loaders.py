@@ -40,6 +40,11 @@ from urllib.request import urlopen
 
 import numpy as np
 
+from omni_mercury_engine.datasets.exceptions import (
+    ALLOW_SYNTHETIC,
+    DataSourceUnavailableError,
+    check_synthetic_allowed,
+)
 from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
@@ -290,7 +295,16 @@ class NSLKDDLoader(DatasetLoader):
             return loaded["data"], loaded["labels"]
 
         logger.info("Downloading NSL-KDD dataset...")
-        return self._generate_synthetic(50000)
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed(
+                "NSL-KDD (validation)", "Download not implemented in validation loader"
+            )
+            return self._generate_synthetic(50000)
+        raise DataSourceUnavailableError(
+            loader_name="NSL-KDD (validation)",
+            source_url=str(self.NSL_KDD_URL),
+            reason="Cache not found and download not implemented. Use datasets.security.NSLKDDLoader instead.",
+        )
 
     def get_train_test_split(
         self, test_size: float = 0.2, random_state: int = 42
@@ -677,6 +691,17 @@ class MIMICLoader(DatasetLoader):
         import time
 
         start_time = time.time()
+
+        if not ALLOW_SYNTHETIC:
+            raise DataSourceUnavailableError(
+                loader_name="MIMIC-III",
+                reason=(
+                    "MIMIC-III requires PhysioNet credentialing. "
+                    "Set MERCURY_ALLOW_SYNTHETIC=1 for synthetic data, "
+                    "or download real data from https://physionet.org/content/mimiciii/1.4/"
+                ),
+            )
+        check_synthetic_allowed("MIMIC-III", "Using synthetic simulation")
 
         self._data, self._labels = self._generate_synthetic(n_samples, anomaly_type)
 

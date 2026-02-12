@@ -31,6 +31,7 @@ except ImportError:
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError, check_synthetic_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -201,8 +202,14 @@ class NSLKDDLoader(DatasetLoader):
             True if download successful, False otherwise.
         """
         if not PANDAS_AVAILABLE:
-            logger.warning("pandas required for NSL-KDD processing")
-            return self._create_synthetic_fallback()
+            logger.error("pandas required for NSL-KDD processing")
+            if ALLOW_SYNTHETIC:
+                check_synthetic_allowed("NSL-KDD", "pandas not installed")
+                return self._create_synthetic_fallback()
+            raise DataSourceUnavailableError(
+                loader_name="NSL-KDD",
+                reason="pandas library is required but not installed",
+            )
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -258,9 +265,15 @@ class NSLKDDLoader(DatasetLoader):
             return True
 
         except Exception as e:
-            logger.warning(f"NSL-KDD download failed: {e}")
-            logger.warning("Falling back to SYNTHETIC data.")
-            return self._create_synthetic_fallback()
+            logger.error(f"NSL-KDD download failed: {e}")
+            if ALLOW_SYNTHETIC:
+                check_synthetic_allowed("NSL-KDD", str(e))
+                return self._create_synthetic_fallback()
+            raise DataSourceUnavailableError(
+                loader_name="NSL-KDD",
+                source_url=str(self.NSLKDD_URLS.get("train", "")),
+                reason=str(e),
+            ) from e
 
     def _process_nslkdd_dataframe(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         """Process NSL-KDD dataframe: encode categoricals and labels.
@@ -387,9 +400,9 @@ class NSLKDDLoader(DatasetLoader):
             logger.info(f"Loaded REAL NSL-KDD data from {real_cache}")
             return self._features, self._labels
 
-        # Check for synthetic fallback
+        # Check for synthetic fallback only if ALLOW_SYNTHETIC
         synthetic_path = self.data_path / "synthetic_nslkdd.npz"
-        if synthetic_path.exists():
+        if synthetic_path.exists() and ALLOW_SYNTHETIC:
             data = np.load(synthetic_path)
             self._features = data["features"]
             self._labels = data["labels"]
@@ -622,12 +635,14 @@ class CICIDSLoader(DatasetLoader):
                     else:
                         logger.warning(f"Failed to download from {source_info['name']}: {e}")
 
-        # All sources failed - fall back to synthetic with WARNING
-        logger.warning(
-            "CICIDS 2017: All download sources failed. "
-            "Falling back to SYNTHETIC data. Results will NOT reflect real-world performance."
+        # All sources failed
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed("CICIDS-2017", "All download sources failed")
+            return self._create_synthetic_fallback()
+        raise DataSourceUnavailableError(
+            loader_name="CICIDS-2017",
+            reason="All download sources failed. Place kaggle.json in ~/.kaggle/ or provide local_path.",
         )
-        return self._create_synthetic_fallback()
 
     def _load_from_local_path(self) -> bool:
         """Load CICIDS data from a local file or directory.
@@ -1085,24 +1100,36 @@ class CICIDSLoader(DatasetLoader):
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load raw CICIDS data from cached files."""
-        # Check for cached processed data (local first, then remote sources, synthetic last)
+        # Check for cached processed data (local first, then remote sources)
         for cache_name in [
             "cicids_local.npz",  # Local file takes priority
             "cicids_huggingface.npz",
             "cicids_distrinet_(improved).npz",
             "cicids_cic_official.npz",
-            "synthetic_cicids.npz",
         ]:
             cache_path = self.data_path / cache_name
             if cache_path.exists():
                 data = np.load(cache_path)
                 self._features = data["features"]
                 self._labels = data["labels"]
-                self._is_real_data = "synthetic" not in cache_name
-                logger.info(
-                    f"Loaded CICIDS from {cache_name} " f"(is_real_data={self._is_real_data})"
-                )
+                self._is_real_data = True
+                logger.info(f"Loaded CICIDS from {cache_name} (is_real_data=True)")
                 return self._features, self._labels
+
+        # Check for synthetic fallback only if ALLOW_SYNTHETIC
+        synthetic_path = self.data_path / "synthetic_cicids.npz"
+        if synthetic_path.exists():
+            if not ALLOW_SYNTHETIC:
+                raise DataSourceUnavailableError(
+                    loader_name="CICIDS-2017",
+                    reason="Only synthetic cache exists and MERCURY_ALLOW_SYNTHETIC is not set.",
+                )
+            data = np.load(synthetic_path)
+            self._features = data["features"]
+            self._labels = data["labels"]
+            self._is_real_data = False
+            logger.info("Loaded SYNTHETIC CICIDS data (is_real_data=False)")
+            return self._features, self._labels
 
         raise FileNotFoundError("CICIDS data not found. Run download() first.")
 
@@ -1269,8 +1296,14 @@ class ThreatIntelLoader(DatasetLoader):
         if self._download_from_mitre():
             return True
 
-        logger.warning("MITRE ATT&CK download failed, falling back to SYNTHETIC data.")
-        return self._create_synthetic_threat_intel()
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed("ThreatIntel", "MITRE ATT&CK download failed")
+            return self._create_synthetic_threat_intel()
+        raise DataSourceUnavailableError(
+            loader_name="ThreatIntel",
+            source_url=self.MITRE_STIX_URL,
+            reason="MITRE ATT&CK download failed",
+        )
 
     def _download_from_mitre(self) -> bool:
         """Download and process MITRE ATT&CK STIX data."""
@@ -1452,9 +1485,14 @@ class ThreatIntelLoader(DatasetLoader):
             logger.info(f"Loaded REAL MITRE ATT&CK data from {real_cache}")
             return data["features"], data["labels"]
 
-        # Fall back to synthetic
+        # Check for synthetic fallback only if ALLOW_SYNTHETIC
         synthetic_path = self.data_path / "synthetic_threat_intel.npz"
         if synthetic_path.exists():
+            if not ALLOW_SYNTHETIC:
+                raise DataSourceUnavailableError(
+                    loader_name="ThreatIntel",
+                    reason="Only synthetic cache exists and MERCURY_ALLOW_SYNTHETIC is not set.",
+                )
             data = np.load(synthetic_path)
             self._is_real_data = False
             logger.info("Loaded SYNTHETIC threat intel data (is_real_data=False)")

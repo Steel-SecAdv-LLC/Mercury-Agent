@@ -42,7 +42,12 @@ from omni_mercury_engine.security.crypto_api import (
     SphincsProvider,
 )
 from omni_mercury_engine.security.encryption import SecureDataHandler
-from omni_mercury_engine.security.intelligence_fusion import IntelligenceFusionEngine
+
+try:
+    from omni_mercury_engine.security.intelligence_fusion import IntelligenceFusionEngine
+except ImportError:  # torch not installed
+    IntelligenceFusionEngine = None  # type: ignore[assignment, misc]
+
 from omni_mercury_engine.security.pqc_backends import (
     DILITHIUM_AVAILABLE,
     KYBER_AVAILABLE,

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry, safe_urlretrieve
+from .exceptions import DataSourceUnavailableError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -444,48 +445,58 @@ class SMAPMSLLoader(DatasetLoader):
         self.dataset = config.preprocessing.get("dataset", "SMAP")  # SMAP or MSL
 
     def download(self) -> bool:
-        """Download REAL SMAP/MSL data from GitHub."""
+        """Download REAL SMAP/MSL data.
+
+        The original S3 URL (s3-us-west-2.amazonaws.com/telemanom/data.zip) returns 403.
+        Labels are fetched from the GitHub repo. For the actual telemetry data, users must
+        download from TimeEval HiDrive mirror or the GitHub repo's preprocessed files.
+
+        Returns:
+            True if data is available, False otherwise.
+
+        Raises:
+            DataSourceUnavailableError: If data cannot be obtained.
+        """
         import urllib.error
 
-        logger.info(f"Downloading REAL NASA {self.dataset} spacecraft telemetry...")
+        logger.info(f"Preparing NASA {self.dataset} spacecraft telemetry...")
 
-        # Download labeled anomalies
+        # Download labeled anomalies from GitHub
         labels_path = self.data_path / "labeled_anomalies.csv"
-        try:
-            safe_urlretrieve(self.LABELED_ANOMALIES_URL, labels_path)
-            logger.info("  Downloaded anomaly labels")
-        except (urllib.error.URLError, ValueError) as e:
-            logger.warning(f"  Failed to download labels: {e}")
+        if not labels_path.exists():
+            try:
+                safe_urlretrieve(self.LABELED_ANOMALIES_URL, labels_path)
+                logger.info("  Downloaded anomaly labels from GitHub")
+            except (urllib.error.URLError, ValueError) as e:
+                logger.error(f"  Failed to download labels: {e}")
+                raise DataSourceUnavailableError(
+                    loader_name=f"SMAP/MSL ({self.dataset})",
+                    source_url=self.LABELED_ANOMALIES_URL,
+                    reason=f"Failed to download anomaly labels: {e}",
+                ) from e
 
-        # The actual data needs to be downloaded from the preprocessed archive
-        # The telemanom repo provides preprocessed .npy files
-        logger.info("  Note: Full SMAP/MSL data requires downloading from:")
-        logger.info("    https://s3-us-west-2.amazonaws.com/telemanom/data.zip")
-        logger.info(f"    Extract to: {self.data_path}")
-
-        instructions_path = self.data_path / "DOWNLOAD_INSTRUCTIONS.txt"
-        with open(instructions_path, "w") as f:
-            f.write("NASA SMAP/MSL Telemetry Data Download Instructions\n")
-            f.write("=" * 50 + "\n\n")
-            f.write("1. Download the preprocessed data:\n")
-            f.write("   wget https://s3-us-west-2.amazonaws.com/telemanom/data.zip\n\n")
-            f.write("2. Extract to this directory:\n")
-            f.write(f"   unzip data.zip -d {self.data_path}\n\n")
-            f.write("3. The data will be organized as:\n")
-            f.write("   train/ - Training sequences (.npy files)\n")
-            f.write("   test/ - Test sequences (.npy files)\n\n")
-            f.write("Reference: https://github.com/khundman/telemanom\n")
-
-        # Check if data already exists
+        # Check if preprocessed data already exists
         train_dir = self.data_path / "train"
         test_dir = self.data_path / "test"
 
         if train_dir.exists() and test_dir.exists():
-            n_files = len(list(test_dir.glob("*.npy")))
-            logger.info(f"  Found {n_files} existing data files")
-            return True
+            n_train = len(list(train_dir.glob("*.npy")))
+            n_test = len(list(test_dir.glob("*.npy")))
+            if n_test > 0:
+                logger.info(f"  Found {n_train} train, {n_test} test files")
+                return True
 
-        return labels_path.exists()
+        # Data not present — raise with download instructions
+        raise DataSourceUnavailableError(
+            loader_name=f"SMAP/MSL ({self.dataset})",
+            source_url="https://my.hidrive.com/share/ma4p8w4qqb",
+            reason=(
+                "Preprocessed telemetry data not found. "
+                "The original S3 URL (s3-us-west-2.amazonaws.com/telemanom/data.zip) returns 403. "
+                "Download from TimeEval HiDrive mirror: https://my.hidrive.com/share/ma4p8w4qqb "
+                f"and extract train/ and test/ directories to: {self.data_path}"
+            ),
+        )
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load REAL SMAP/MSL data from downloaded files."""
@@ -495,7 +506,8 @@ class SMAPMSLLoader(DatasetLoader):
         if not test_dir.exists():
             raise FileNotFoundError(
                 f"SMAP/MSL data not found in {self.data_path}. "
-                "Download from https://s3-us-west-2.amazonaws.com/telemanom/data.zip"
+                "Download from HiDrive mirror: https://my.hidrive.com/share/ma4p8w4qqb "
+                "and extract train/ and test/ directories."
             )
 
         logger.info(f"Loading REAL NASA {self.dataset} telemetry data...")

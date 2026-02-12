@@ -30,6 +30,7 @@ except ImportError:
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError, check_synthetic_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +78,14 @@ class SETILoader(DatasetLoader):
         self.frequency_bins = config.preprocessing.get("frequency_bins", 256)
 
     def download(self) -> bool:
-        """Generate synthetic SETI signals for development."""
-        return self._create_synthetic_seti()
+        """SETI loader is deprecated — use NASAExoplanetLoader instead."""
+        raise DataSourceUnavailableError(
+            loader_name="SETI",
+            reason=(
+                "SETI loader has been deprecated. No auth-free real SETI signal data source exists. "
+                "Use NASAExoplanetLoader instead for space anomaly detection."
+            ),
+        )
 
     def _create_synthetic_seti(self) -> bool:
         """Create synthetic SETI-like signal data."""
@@ -240,8 +247,14 @@ class NASAExoplanetLoader(DatasetLoader):
         if self._download_from_nasa_tap():
             return True
 
-        logger.warning("NASA Exoplanet Archive failed, falling back to SYNTHETIC data.")
-        return self._create_synthetic_exoplanet()
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed("NASAExoplanet", "NASA Exoplanet Archive failed")
+            return self._create_synthetic_exoplanet()
+        raise DataSourceUnavailableError(
+            loader_name="NASAExoplanet",
+            source_url="https://exoplanetarchive.ipac.caltech.edu/TAP/",
+            reason="NASA Exoplanet Archive API failed",
+        )
 
     def _download_from_nasa_tap(self) -> bool:
         """Download exoplanet data from NASA TAP service."""
@@ -399,9 +412,9 @@ class NASAExoplanetLoader(DatasetLoader):
             logger.info(f"Loaded REAL NASA exoplanet data from {real_cache}")
             return data["features"], data["labels"]
 
-        # Fall back to synthetic
+        # Fall back to synthetic (only if allowed)
         synthetic_path = self.data_path / "synthetic_exoplanet.npz"
-        if synthetic_path.exists():
+        if synthetic_path.exists() and ALLOW_SYNTHETIC:
             data = np.load(synthetic_path)
             self._is_real_data = False
             logger.info("Loaded SYNTHETIC exoplanet data (is_real_data=False)")
@@ -467,8 +480,14 @@ class SolarDynamicsLoader(DatasetLoader):
         if self._download_from_swpc():
             return True
 
-        logger.warning("NOAA SWPC download failed, falling back to SYNTHETIC data.")
-        return self._create_synthetic_solar()
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed("SolarDynamics", "NOAA SWPC download failed")
+            return self._create_synthetic_solar()
+        raise DataSourceUnavailableError(
+            loader_name="SolarDynamics",
+            source_url="https://services.swpc.noaa.gov/",
+            reason="NOAA SWPC download failed",
+        )
 
     def _download_from_swpc(self) -> bool:
         """Download solar activity data from NOAA SWPC."""
@@ -630,9 +649,9 @@ class SolarDynamicsLoader(DatasetLoader):
             logger.info(f"Loaded REAL NOAA solar data from {real_cache}")
             return data["features"], data["labels"]
 
-        # Fall back to synthetic
+        # Fall back to synthetic (only if allowed)
         synthetic_path = self.data_path / "synthetic_solar.npz"
-        if synthetic_path.exists():
+        if synthetic_path.exists() and ALLOW_SYNTHETIC:
             data = np.load(synthetic_path)
             self._is_real_data = False
             logger.info("Loaded SYNTHETIC solar data (is_real_data=False)")

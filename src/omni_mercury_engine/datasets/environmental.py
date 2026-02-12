@@ -30,6 +30,7 @@ except ImportError:
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError, check_synthetic_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -91,8 +92,14 @@ class USGSEarthquakeLoader(DatasetLoader):
         if self._download_from_usgs():
             return True
 
-        logger.warning("USGS API failed, falling back to SYNTHETIC data.")
-        return self._create_synthetic_earthquake()
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed("USGSEarthquake", "USGS API failed")
+            return self._create_synthetic_earthquake()
+        raise DataSourceUnavailableError(
+            loader_name="USGSEarthquake",
+            source_url=self.USGS_API_URL,
+            reason="USGS API failed",
+        )
 
     def _download_from_usgs(self) -> bool:
         """Download earthquake data from USGS Earthquake Hazards API."""
@@ -295,9 +302,9 @@ class USGSEarthquakeLoader(DatasetLoader):
             logger.info(f"Loaded REAL USGS earthquake data from {real_cache}")
             return data["features"], data["labels"]
 
-        # Fall back to synthetic
+        # Fall back to synthetic (only if allowed)
         synthetic_path = self.data_path / "synthetic_earthquake.npz"
-        if synthetic_path.exists():
+        if synthetic_path.exists() and ALLOW_SYNTHETIC:
             data = np.load(synthetic_path)
             self._is_real_data = False
             logger.info("Loaded SYNTHETIC earthquake data (is_real_data=False)")
@@ -378,8 +385,14 @@ class NOAAWeatherLoader(DatasetLoader):
         if self._download_from_open_meteo():
             return True
 
-        logger.warning("Open-Meteo API failed, falling back to SYNTHETIC data.")
-        return self._create_synthetic_weather()
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed("NOAAWeather", "Open-Meteo API failed")
+            return self._create_synthetic_weather()
+        raise DataSourceUnavailableError(
+            loader_name="NOAAWeather",
+            source_url=self.OPEN_METEO_URL,
+            reason="Open-Meteo API failed",
+        )
 
     def _download_from_open_meteo(self) -> bool:
         """Download weather data from Open-Meteo Archive API."""
@@ -532,9 +545,9 @@ class NOAAWeatherLoader(DatasetLoader):
             logger.info(f"Loaded REAL weather data from {real_cache}")
             return data["features"], data["labels"]
 
-        # Fall back to synthetic
+        # Fall back to synthetic (only if allowed)
         synthetic_path = self.data_path / "synthetic_weather.npz"
-        if synthetic_path.exists():
+        if synthetic_path.exists() and ALLOW_SYNTHETIC:
             data = np.load(synthetic_path)
             self._is_real_data = False
             logger.info("Loaded SYNTHETIC weather data (is_real_data=False)")
@@ -604,8 +617,14 @@ class WildfireDataLoader(DatasetLoader):
         if self._download_from_firms():
             return True
 
-        logger.warning("NASA FIRMS download failed, falling back to SYNTHETIC data.")
-        return self._create_synthetic_wildfire()
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed("Wildfire", "NASA FIRMS download failed")
+            return self._create_synthetic_wildfire()
+        raise DataSourceUnavailableError(
+            loader_name="Wildfire",
+            source_url="https://firms.modaps.eosdis.nasa.gov/",
+            reason="NASA FIRMS download failed",
+        )
 
     def _download_from_firms(self) -> bool:
         """Download active fire data from NASA FIRMS public CSV."""
@@ -808,9 +827,9 @@ class WildfireDataLoader(DatasetLoader):
             logger.info(f"Loaded REAL NASA FIRMS data from {real_cache}")
             return data["features"], data["labels"]
 
-        # Fall back to synthetic
+        # Fall back to synthetic (only if allowed)
         synthetic_path = self.data_path / "synthetic_wildfire.npz"
-        if synthetic_path.exists():
+        if synthetic_path.exists() and ALLOW_SYNTHETIC:
             data = np.load(synthetic_path)
             self._is_real_data = False
             logger.info("Loaded SYNTHETIC wildfire data (is_real_data=False)")
@@ -907,12 +926,17 @@ class USGSGeochemistryLoader(DatasetLoader):
         if self._download_from_usgs():
             return True
 
-        logger.warning(
-            "USGS MRData API requires bulk download. "
-            "Access: https://mrdata.usgs.gov/geochem/\n"
-            "Falling back to SYNTHETIC geochemistry data."
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed(
+                "USGSGeochemistry",
+                "USGS MRData API requires bulk download",
+            )
+            return self._create_synthetic_geochemistry()
+        raise DataSourceUnavailableError(
+            loader_name="USGSGeochemistry",
+            source_url="https://mrdata.usgs.gov/geochem/",
+            reason="USGS MRData API requires bulk download",
         )
-        return self._create_synthetic_geochemistry()
 
     def _download_from_usgs(self) -> bool:
         """Attempt to download USGS geochemistry data."""
@@ -1008,7 +1032,7 @@ class USGSGeochemistryLoader(DatasetLoader):
             return data["features"], data["labels"]
 
         synthetic_path = self.data_path / "synthetic_geochemistry.npz"
-        if synthetic_path.exists():
+        if synthetic_path.exists() and ALLOW_SYNTHETIC:
             data = np.load(synthetic_path)
             self._is_real_data = False
             logger.info("Loaded SYNTHETIC geochemistry data (is_real_data=False)")

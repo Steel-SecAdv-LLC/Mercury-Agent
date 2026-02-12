@@ -32,6 +32,7 @@ except ImportError:
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError, check_synthetic_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -133,16 +134,16 @@ class FEMADisasterLoader(DatasetLoader):
         self._last_request_time = time.time()
 
     def download(self) -> bool:
-        """Download disaster data from OpenFEMA API.
-
-        Returns:
-            True if download successful, False otherwise.
-        """
         if self._download_from_fema():
             return True
-
-        logger.warning("OpenFEMA API failed, falling back to SYNTHETIC data.")
-        return self._create_synthetic_disasters()
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed("FEMADisaster", "OpenFEMA API failed")
+            return self._create_synthetic_disasters()
+        raise DataSourceUnavailableError(
+            loader_name="FEMADisaster",
+            source_url=str(self.API_URL),
+            reason="OpenFEMA API unavailable",
+        )
 
     def _download_from_fema(self) -> bool:
         """Download disaster declarations from OpenFEMA API."""
@@ -418,10 +419,10 @@ class FEMADisasterLoader(DatasetLoader):
             return data["features"], data["labels"]
 
         synthetic_path = self.data_path / "synthetic_fema_disaster.npz"
-        if synthetic_path.exists():
+        if synthetic_path.exists() and ALLOW_SYNTHETIC:
             data = np.load(synthetic_path)
             self._is_real_data = False
-            logger.info("Loaded SYNTHETIC FEMA disaster data (is_real_data=False)")
+            logger.warning("Loaded SYNTHETIC FEMA disaster data (MERCURY_ALLOW_SYNTHETIC=1)")
             return data["features"], data["labels"]
 
         raise FileNotFoundError("FEMA disaster data not found. Run download() first.")
@@ -506,11 +507,118 @@ class FEMAHazardMitigationLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Download hazard mitigation data or generate synthetic."""
-        # Note: Full implementation would query FEMA's HazardMitigationGrants endpoint
-        # For now, use synthetic data as the API structure is more complex
-        logger.info("Generating synthetic hazard mitigation data for development")
-        return self._create_synthetic_mitigation()
+        """Download hazard mitigation data from OpenFEMA API."""
+        if self._download_from_fema():
+            return True
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed("FEMAHazardMitigation", "OpenFEMA Hazard Mitigation API failed")
+            return self._create_synthetic_mitigation()
+        raise DataSourceUnavailableError(
+            loader_name="FEMAHazardMitigation",
+            source_url="https://www.fema.gov/api/open/v2/HazardMitigationGrants",
+            reason="OpenFEMA Hazard Mitigation API unavailable",
+        )
+
+    def _download_from_fema(self) -> bool:
+        """Download hazard mitigation grants from OpenFEMA API."""
+        import urllib.parse
+        import urllib.request
+
+        from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
+        dataset_dir = self.data_path
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        cache_file = dataset_dir / "fema_hazard_mitigation_real.npz"
+
+        if cache_file.exists():
+            logger.info(f"FEMA hazard mitigation data already cached at {cache_file}")
+            self._is_real_data = True
+            return True
+
+        try:
+            api_url = TrustedEndpoints.FEMA_HAZARD_MITIGATION
+            params = {
+                "$top": str(min(self.config.max_samples or 5000, 5000)),
+                "$orderby": "dateApproved desc",
+            }
+            query_string = urllib.parse.urlencode(params)
+            url = f"{api_url}?{query_string}"
+
+            logger.info("Downloading hazard mitigation data from OpenFEMA API...")
+
+            TrustedEndpoints.validate_url(api_url)
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
+            )
+
+            with urllib.request.urlopen(req, timeout=120) as response:  # nosec B310
+                data = json.loads(response.read().decode("utf-8"))
+
+            records = data.get("HazardMitigationGrants", [])
+            if not records:
+                logger.warning("No hazard mitigation records returned from FEMA API")
+                return False
+
+            logger.info(f"Downloaded {len(records)} hazard mitigation records")
+
+            features, labels = self._process_mitigation_data(records)
+
+            np.savez_compressed(cache_file, features=features, labels=labels)
+            self._is_real_data = True
+
+            logger.info(
+                f"FEMA hazard mitigation data loaded: {len(features)} samples, "
+                f"{labels.sum()} high-value projects (is_real_data=True)"
+            )
+            return True
+
+        except Exception as e:
+            logger.warning(f"OpenFEMA Hazard Mitigation API download failed: {e}")
+            return False
+
+    def _process_mitigation_data(
+        self, records: list[dict[str, Any]]
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Process OpenFEMA hazard mitigation grant records."""
+        rows = []
+
+        for record in records:
+            project_amount = float(record.get("projectAmount", 0) or 0)
+            federal_share = float(record.get("federalShareObligated", 0) or 0)
+
+            state_str = record.get("state", "0")
+            try:
+                state_fips = int(state_str) if state_str and state_str.isdigit() else 0
+            except (ValueError, TypeError):
+                state_fips = 0
+
+            date_str = record.get("dateApproved", "")
+            try:
+                from datetime import datetime
+
+                dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                year = dt.year
+            except (ValueError, AttributeError):
+                year = 2000
+
+            project_type_code = hash(record.get("projectType", "")) % 10
+            status_code = hash(record.get("status", "")) % 3
+            program_type_code = hash(record.get("programArea", "")) % 3
+
+            row = [
+                project_amount,
+                federal_share,
+                state_fips,
+                year,
+                project_type_code,
+                status_code,
+                program_type_code,
+            ]
+            rows.append(row)
+
+        features = np.array(rows, dtype=np.float32)
+        labels = (features[:, 0] > 500000).astype(np.int64)
+        return features, labels
 
     def _create_synthetic_mitigation(self) -> bool:
         """Create synthetic hazard mitigation project data."""
@@ -564,10 +672,20 @@ class FEMAHazardMitigationLoader(DatasetLoader):
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load mitigation data from cache."""
-        synthetic_path = self.data_path / "synthetic_hazard_mitigation.npz"
-        if synthetic_path.exists():
-            data = np.load(synthetic_path)
+        real_cache = self.data_path / "fema_hazard_mitigation_real.npz"
+        if real_cache.exists():
+            data = np.load(real_cache)
+            self._is_real_data = True
+            logger.info(f"Loaded REAL FEMA hazard mitigation data from {real_cache}")
             return data["features"], data["labels"]
+
+        synthetic_path = self.data_path / "synthetic_hazard_mitigation.npz"
+        if synthetic_path.exists() and ALLOW_SYNTHETIC:
+            data = np.load(synthetic_path)
+            self._is_real_data = False
+            logger.warning("Loaded SYNTHETIC hazard mitigation data (MERCURY_ALLOW_SYNTHETIC=1)")
+            return data["features"], data["labels"]
+
         raise FileNotFoundError("Hazard mitigation data not found. Run download() first.")
 
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
