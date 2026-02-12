@@ -614,6 +614,21 @@ class TrustedEndpoints:
             "ssd-api.jpl.nasa.gov",
             # Code/Data Repositories
             "raw.githubusercontent.com",
+            "github.com",  # ADBench tabular anomaly-detection benchmarks
+            # NOAA ERDDAP — Oceanographic / Climate Gridded Data
+            "coastwatch.pfeg.noaa.gov",
+            # USGS Water Quality Portal
+            "www.waterqualitydata.us",
+            # EPA Air Quality System
+            "aqs.epa.gov",
+            # PhysioNet — MIT-BIH Arrhythmia Database
+            "physionet.org",
+            # TimeEval HiDrive — SMAP/MSL/SMD mirrors
+            "my.hidrive.com",
+            # BATADAL — Water Network Attack Detection
+            "www.batadal.net",
+            # MAST — Kepler Light Curves
+            "mast.stsci.edu",
         }
     )
 
@@ -843,6 +858,60 @@ class TrustedEndpoints:
     NASA_SBDB_QUERY = "https://ssd-api.jpl.nasa.gov/sbdb_query.api"
     # Sentry Impact Monitoring API - Potential future impact events
     NASA_SENTRY = "https://ssd-api.jpl.nasa.gov/sentry.api"
+
+    # ==========================================================================
+    # ADBench — Tabular Anomaly Detection Benchmarks (GitHub)
+    # ==========================================================================
+    ADBENCH_BASE = (
+        "https://github.com/Minqi824/ADBench/raw/main/adbench/datasets/Classical/"
+    )
+
+    # ==========================================================================
+    # NOAA ERDDAP — Oceanographic / Climate Gridded Data
+    # ==========================================================================
+    NOAA_ERDDAP_SSH = "https://coastwatch.pfeg.noaa.gov/erddap/griddap/nesdisSSH1day.csv"
+    NOAA_ERDDAP_CHL = "https://coastwatch.pfeg.noaa.gov/erddap/griddap/nesdisVHNSQchlaDaily.csv"
+
+    # ==========================================================================
+    # NOAA NCEI — Storm Events Bulk CSV
+    # ==========================================================================
+    NOAA_STORM_EVENTS = "https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/"
+
+    # ==========================================================================
+    # NOAA GSOD — Global Summary of the Day
+    # ==========================================================================
+    NOAA_GSOD_BASE = "https://www.ncei.noaa.gov/data/global-summary-of-the-day/access/"
+
+    # ==========================================================================
+    # EPA Air Quality System — Daily PM2.5
+    # ==========================================================================
+    EPA_AQS_BASE = "https://aqs.epa.gov/aqsweb/airdata/"
+
+    # ==========================================================================
+    # USGS Water Quality Portal
+    # ==========================================================================
+    USGS_WATER_QUALITY = "https://www.waterqualitydata.us/data/Result/search"
+
+    # ==========================================================================
+    # PhysioNet — MIT-BIH Arrhythmia Database
+    # ==========================================================================
+    PHYSIONET_MITBIH = "https://physionet.org/content/mitdb/1.0.0/"
+
+    # ==========================================================================
+    # FEMA — Hazard Mitigation Grants (real API endpoint)
+    # ==========================================================================
+    FEMA_HAZARD_MITIGATION = "https://www.fema.gov/api/open/v2/HazardMitigationGrants"
+
+    # ==========================================================================
+    # TimeEval HiDrive — SMAP/MSL/SMD mirrors
+    # ==========================================================================
+    TIMEEVAL_HIDRIVE = "https://my.hidrive.com/share/ma4p8w4qqb"
+
+    # ==========================================================================
+    # BATADAL — Water Network Attack Detection
+    # ==========================================================================
+    BATADAL_TRAIN = "https://www.batadal.net/data/BATADAL_dataset03.csv"
+    BATADAL_TEST = "https://www.batadal.net/data/BATADAL_dataset04.csv"
 
 
 __all__ = [
