@@ -34,6 +34,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from omni_mercury_engine.core.centralized_constants import ETHICAL
+
 
 class DomainType(StrEnum):
     """Domain types for context-aware configuration."""
@@ -80,7 +82,7 @@ class EthicalConfig(BaseModel):
         description="Ethical purity threshold (σ_Immutable). Higher = stricter ethical gating.",
     )
     benevolence_threshold: float = Field(
-        default=0.99,
+        default=ETHICAL.BENEVOLENCE_IMMUTABLE,
         ge=0.90,
         le=1.0,
         description="Benevolence threshold for net-positive outcomes.",

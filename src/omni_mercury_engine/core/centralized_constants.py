@@ -19,6 +19,7 @@ the Free Software Foundation, either version 3 of the License, or
 
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass
 from typing import Any
@@ -137,6 +138,196 @@ ETHICAL = EthicalConstants()
 
 
 # ==============================================================================
+# SIGMOID BENEVOLENCE GATE (Phase 3 — replaces hard threshold)
+# ==============================================================================
+
+
+@dataclass(frozen=True)
+class BenevolenceDomainProfile:
+    """Sigmoid benevolence gate parameters for a specific domain.
+
+    The sigmoid gate replaces the hard benevolence threshold (≥ 0.99) with
+    a smooth penalty curve:
+
+        η(b) = 1 / (1 + exp(-k · (b - b₀)))
+
+    Where:
+        b₀ = inflection point (domain-specific)
+        k  = steepness parameter (domain-specific)
+
+    This eliminates the discontinuity at the threshold boundary while
+    maintaining strict gating behavior for high-stakes domains.
+
+    Provenance: Logistic function (Verhulst, 1845). Parameters calibrated
+    per domain based on operational risk tolerance.
+    """
+
+    b0: float  # Inflection point
+    k: float  # Steepness
+    label: str = ""  # Human-readable domain name
+
+
+@dataclass(frozen=True)
+class BenevolenceGateConstants:
+    """Domain-specific sigmoid benevolence gate profiles.
+
+    All domain fallbacks derive from a SINGLE sigmoid function:
+        η(b) = 1 / (1 + exp(-k · (b - b₀)))
+
+    No separate hardcoded fallback values anywhere — one equation, one behavior.
+    """
+
+    # Domain profiles: (b₀, k, label)
+    # b₀ = inflection point, k = steepness
+    MEDICAL: BenevolenceDomainProfile = BenevolenceDomainProfile(b0=0.93, k=30.0, label="Medical")
+    SECURITY: BenevolenceDomainProfile = BenevolenceDomainProfile(b0=0.95, k=25.0, label="Security")
+    ENVIRONMENTAL: BenevolenceDomainProfile = BenevolenceDomainProfile(
+        b0=0.90, k=20.0, label="Environmental"
+    )
+    HUMANITARIAN: BenevolenceDomainProfile = BenevolenceDomainProfile(
+        b0=0.92, k=35.0, label="Humanitarian"
+    )
+    INFRASTRUCTURE: BenevolenceDomainProfile = BenevolenceDomainProfile(
+        b0=0.94, k=25.0, label="Infrastructure"
+    )
+    DEFAULT: BenevolenceDomainProfile = BenevolenceDomainProfile(b0=0.93, k=25.0, label="Default")
+
+
+BENEVOLENCE_GATE = BenevolenceGateConstants()
+
+
+def sigmoid_benevolence_gate(
+    benevolence_score: float,
+    domain: str = "default",
+) -> float:
+    """Compute sigmoid benevolence gate value.
+
+    Replaces the hard threshold (≥ 0.99) with a smooth sigmoid curve:
+        η(b) = 1 / (1 + exp(-k · (b - b₀)))
+
+    Args:
+        benevolence_score: Raw benevolence score in [0, 1].
+        domain: Domain name for profile selection.
+
+    Returns:
+        Gate value in (0, 1). Values near 1.0 indicate full ethical
+        compliance; values near 0.0 indicate ethical violation.
+
+    Provenance:
+        Logistic function (Verhulst, 1845). Domain profiles from
+        operational risk analysis.
+    """
+    domain_lower = domain.lower()
+    profiles = {
+        "medical": BENEVOLENCE_GATE.MEDICAL,
+        "security": BENEVOLENCE_GATE.SECURITY,
+        "environmental": BENEVOLENCE_GATE.ENVIRONMENTAL,
+        "humanitarian": BENEVOLENCE_GATE.HUMANITARIAN,
+        "infrastructure": BENEVOLENCE_GATE.INFRASTRUCTURE,
+    }
+    profile = profiles.get(domain_lower, BENEVOLENCE_GATE.DEFAULT)
+
+    # Clip input to prevent overflow in exp()
+    exponent = -profile.k * (benevolence_score - profile.b0)
+    exponent = max(-500.0, min(500.0, exponent))  # Prevent overflow
+
+    return 1.0 / (1.0 + math.exp(exponent))
+
+
+# ==============================================================================
+# DOMAIN-ADAPTIVE HARMONIC FREQUENCIES (Phase 3)
+# ==============================================================================
+
+
+@dataclass(frozen=True)
+class DomainHarmonicConstants:
+    """Domain-specific fundamental frequencies for harmonic analysis.
+
+    Replaces the universal Schumann resonance (7.83 Hz) with
+    domain-appropriate frequencies. For domains with unknown
+    fundamentals (None), adaptive spectral peak detection is used.
+
+    Provenance:
+        - Environmental: Schumann resonances (Schumann, 1952)
+        - Medical: HRV frequency bands (Task Force, 1996)
+        - Infrastructure: Power grid + structural resonance
+        - Space: Solar cycle + orbital mechanics
+    """
+
+    ENVIRONMENTAL: tuple[float, ...] = (7.83, 14.3, 20.8, 27.3, 33.8)
+    MEDICAL: tuple[float, ...] = (0.04, 0.15, 0.4, 1.0, 40.0)
+    INFRASTRUCTURE: tuple[float, ...] = (50.0, 60.0, 0.1, 0.01)
+    SPACE: tuple[float, ...] = (0.001, 0.01, 0.1, 11.0)
+    # Security and Financial use adaptive detection (no predefined fundamentals)
+
+
+DOMAIN_HARMONICS = DomainHarmonicConstants()
+
+
+def get_domain_fundamentals(domain: str) -> tuple[float, ...] | None:
+    """Get fundamental frequencies for a domain.
+
+    Args:
+        domain: Domain name.
+
+    Returns:
+        Tuple of fundamental frequencies in Hz, or None if adaptive
+        detection should be used (MUSIC/ESPRIT algorithm).
+    """
+    domain_lower = domain.lower()
+    mapping: dict[str, tuple[float, ...] | None] = {
+        "environmental": DOMAIN_HARMONICS.ENVIRONMENTAL,
+        "medical": DOMAIN_HARMONICS.MEDICAL,
+        "infrastructure": DOMAIN_HARMONICS.INFRASTRUCTURE,
+        "space": DOMAIN_HARMONICS.SPACE,
+        "security": None,  # Auto-detect via MUSIC/ESPRIT
+        "financial": None,  # Auto-detect via MUSIC/ESPRIT
+    }
+    return mapping.get(domain_lower, DOMAIN_HARMONICS.ENVIRONMENTAL)
+
+
+# ==============================================================================
+# RECURSION CONVERGENCE BOUNDS (Phase 3)
+# ==============================================================================
+
+
+@dataclass(frozen=True)
+class RecursionConvergenceConstants:
+    """Convergence bounds for recursive computations.
+
+    Implements Banach contraction mapping constraints:
+        d(R(x), R(y)) ≤ α · d(x, y) with α < 1
+
+    This guarantees:
+        - Unique fixed point existence
+        - Geometric convergence
+        - Computable error bounds: err ≤ α^d · ‖x₀ - R(x₀)‖ / (1 - α)
+
+    Provenance: Banach fixed-point theorem (Banach, 1922).
+    """
+
+    # Maximum contraction factor (alpha_max)
+    # Constraining alpha < 1 guarantees convergence
+    ALPHA_MAX: float = 0.95
+
+    # Recommended operating range for alpha
+    ALPHA_MIN_RECOMMENDED: float = 0.5
+    ALPHA_MAX_RECOMMENDED: float = 0.85
+
+    # Maximum recursion depth before forced termination
+    MAX_DEPTH: int = 50
+
+    # Convergence tolerance — stop when change < this
+    CONVERGENCE_TOLERANCE: float = 1e-6
+
+    # Contraction violation threshold — halt if exceeded
+    CONTRACTION_VIOLATION_THRESHOLD: float = 1.0
+
+
+RECURSION = RecursionConvergenceConstants()
+
+
+# ==============================================================================
 # ANOMALY DETECTION CONSTANTS
 # ==============================================================================
 
@@ -193,10 +384,10 @@ class FusionConstants:
     # AAFE default weights (golden ratio proportions)
     # w_R: Recursion, w_H: Harmonic, w_O: Optimization
     # Origin: core/three_r/fusion.py, three_r_mechanism.py
-    # phi_sum = φ + 1 + 1/φ ≈ 2.8944
-    AAFE_WEIGHT_R: float = 0.447  # φ / phi_sum
-    AAFE_WEIGHT_H: float = 0.276  # 1 / phi_sum
-    AAFE_WEIGHT_O: float = 0.276  # (1/φ) / phi_sum
+    # phi_sum = φ + 1 + 1/φ ≈ 3.2361
+    AAFE_WEIGHT_R: float = 0.500000  # φ / phi_sum
+    AAFE_WEIGHT_H: float = 0.309017  # 1 / phi_sum
+    AAFE_WEIGHT_O: float = 0.190983  # (1/φ) / phi_sum
 
     # Neural-symbolic fusion weights
     # Origin: neurosymbolic_fusion.py, neurosymbolic_hub.py
@@ -621,8 +812,10 @@ def get_domain_constants(domain: str) -> dict[str, Any]:
 __all__ = [
     "ANOMALY",
     "API",
+    "BENEVOLENCE_GATE",
     "CALIBRATION",
     "CONFIDENCE",
+    "DOMAIN_HARMONICS",
     "ETHICAL",
     "FINANCIAL",
     "FUSION",
@@ -631,12 +824,16 @@ __all__ = [
     "MATH",
     "MEDICAL",
     "NEURAL",
+    "RECURSION",
     "SLIDING_WINDOW",
     "APIConstants",
     "AnomalyDetectionConstants",
+    "BenevolenceDomainProfile",
+    "BenevolenceGateConstants",
     "CalibrationConstants",
     "ConfidenceConstants",
     "ConstantRegistry",
+    "DomainHarmonicConstants",
     "EthicalConstants",
     "FinancialDomainConstants",
     "FusionConstants",
@@ -645,6 +842,9 @@ __all__ = [
     "MathConstants",
     "MedicalDomainConstants",
     "NeuralNetConstants",
+    "RecursionConvergenceConstants",
     "SlidingWindowConstants",
     "get_domain_constants",
+    "get_domain_fundamentals",
+    "sigmoid_benevolence_gate",
 ]

@@ -5,6 +5,154 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-02-11
+
+### Added - Mathematical Audit & Parameterization Overhaul
+
+- **PHASE 1 — Equation Inventory** (`docs/equations_inventory.md`): Comprehensive catalog
+  of 47 equations, formulas, constants, thresholds, and mathematical operations across
+  the entire codebase with provenance tracking (EQ-001 through EQ-047)
+
+- **PHASE 2 — Correctness Report** (`docs/correctness_report.md`): Mathematical
+  correctness verification identifying 16 issues (1 critical, 3 high, 8 medium, 4 low)
+  across numerical stability, edge cases, and documentation mismatches
+
+- **PHASE 3 — Parameterization Overhaul**:
+  - **Sigmoid Benevolence Gate**: Replaced hard threshold (≥ 0.99) with smooth sigmoid
+    curve η(b) = 1/(1+exp(-k·(b-b₀))) with domain-specific profiles:
+    Medical (b₀=0.93, k=30), Security (b₀=0.95, k=25), Environmental (b₀=0.90, k=20),
+    Humanitarian (b₀=0.92, k=35), Infrastructure (b₀=0.94, k=25)
+  - **Banach Contraction Recursion**: Added convergence-bounded recursive computation
+    with α constrained via sigmoid (α_max=0.95), error bounds, and runtime contraction
+    monitoring with halt on violation. Provenance: Banach fixed-point theorem (1922)
+  - **Domain-Adaptive Harmonics**: Replaced universal Schumann resonance (7.83 Hz) with
+    domain-specific fundamental frequencies: Medical (HRV bands), Infrastructure (power
+    grid), Space (solar cycle), with adaptive peak detection for unknown domains
+  - **Hierarchical Omni-Scalar Aggregation**: Added 3-level hierarchical aggregation
+    (category grouping → weighted mean → geometric mean) for 180+ omni-scalars organized
+    into safety, fairness, transparency, accountability, and beneficence categories
+  - **Configurable AAFE Exponent**: Made ethical scaling exponent configurable (default Φ)
+    to support empirical optimization via parameter sweep
+  - **NaN Guards**: Added NaN propagation prevention to AAFE fusion equation
+  - **Parameter Sweep Infrastructure** (`benchmarks/parameter_sweep.py`): Bayesian
+    optimization via Optuna TPE over full parameter space with composite objective
+    (F1 + calibration error + stability)
+
+- **PHASE 3A — Parameter Sweep Execution**: Ran 1,000 Optuna TPE trials with
+  composite objective (F1 + ECE + stability). Best composite: 0.816, Best F1: 0.895.
+  53 Pareto-optimal configurations identified. Results saved to
+  `benchmarks/parameter_sweep_results.json`
+
+- **PHASE 3B — Phi Exponent Validation**: Statistically validated golden ratio exponent
+  (Phi=1.618). Mean F1 near Phi: 0.9045 vs 0.8944 elsewhere (p < 0.001, t=8.05).
+  Phi confirmed as near-optimal with best trial at 1.742
+
+- **PHASE 3B — Domain-Adaptive AAFE Weights** (`core/three_r/fusion.py`):
+  `DomainAdaptiveAAFEWeights` class that learns per-domain weight profiles from empirical
+  data when cross-domain variance exceeds 10%. Falls back to golden-ratio defaults
+
+- **PHASE 4A — Conformal Prediction Enhancement** (`core/conformal_prediction.py`):
+  - `MondrianConformalPredictor`: Label-conditional coverage guarantees per group
+    (Vovk et al. 2005 Chapter 8). Ensures balanced coverage across subpopulations
+  - `ConformalCalibrationBridge`: Integrates split, adaptive, and Mondrian conformal
+    prediction into the calibration pipeline
+
+- **PHASE 4B — Topological Data Analysis** (`core/topological_analysis.py`):
+  - `VietorisRipsFiltration`: Vietoris-Rips simplicial complex from point clouds
+  - 0D and 1D persistent homology via union-find algorithm
+  - `PersistenceDiagram`: Birth/death pairs, Betti numbers, persistence entropy
+  - `TopologicalAnomalyDetector`: TDA-based anomaly detection with topological
+    feature extraction (Betti numbers, entropy, landscape norms)
+  - Wasserstein and bottleneck distances for persistence diagram comparison
+  - Reference: Edelsbrunner & Harer (2010) "Computational Topology"
+
+- **PHASE 4C — Fisher Information Metric** (`core/info_geometry.py`):
+  - `FisherInformationMatrix`: Gaussian closed-form and empirical FIM computation
+    with Tikhonov regularization for numerical stability
+  - `NaturalGradient`: F^{-1} * g_euclidean with Cholesky decomposition
+  - `FisherRaoAdaptiveThreshold`: Derives thresholds as tau = mu + k*sqrt(tr(F^{-1}))
+    with drift detection and automatic recalibration
+  - `StatisticalManifold`: Riemannian manifold of probability distributions
+  - Reference: IGEOOD (ICLR 2022)
+
+- **PHASE 4D — Riemannian Optimization** (`core/riemannian_optimization.py`):
+  - `SimplexManifold`: Probability simplex with projection (Duchi et al. 2008),
+    exponential/logarithmic maps, geodesic distance
+  - `SPDManifold`: Symmetric positive definite matrices with affine-invariant metric
+  - `RiemannianGradientDescent`: Manifold optimization with Armijo line search
+  - `RiemannianAdam`: Adam optimizer adapted for Riemannian manifolds
+  - `ConstrainedParameterOptimizer`: High-level API for AAFE weights on simplex
+    and covariance parameters on SPD manifold
+
+- **PHASE 5 — Calibration Pipeline** (`core/calibration_pipeline.py`): Threshold
+  auto-calibration with Youden's J, F1-optimal, cost-sensitive methods; dataset
+  fingerprinting via SHA-256; distribution drift detection via KS test and KL divergence
+
+- **PHASE 6 — System-Level Coherence** (`core/system_coherence.py`):
+  - `SignalFlowGraph`: Data structure describing signal propagation through the
+    detection pipeline (ingestion -> features -> detection -> fusion -> ethical
+    gating -> calibration -> output) with ASCII rendering
+  - `NormalizationVerifier`: Validates score range compatibility at every stage
+    boundary, detecting normalization handoff mismatches
+  - `LyapunovRuntimeEnforcer`: Runtime guard enforcing V_dot <= -lambda*V at
+    every fusion step with violation logging and optional pipeline halt
+  - `run_coherence_audit()`: Full system coherence audit function
+  - Reference: Khalil (2002) "Nonlinear Systems" Chapter 4
+
+- **Hardcoded Constant Centralization**: Replaced 38+ hardcoded 0.99 benevolence
+  references across 10+ source files with `ETHICAL.BENEVOLENCE_IMMUTABLE` from
+  `centralized_constants.py`. Files updated: benevolence_optimization.py,
+  domain_metrics.py, enhanced_model_domains.py, gosnn_integration.py,
+  gosnn_optimizer.py, engine_config.py, config.py, personality.py, engine.py,
+  learnable_gosnn.py
+
+- **PHASE 7 — Deliverables**:
+  - `docs/MATH_SPEC.md`: Formal mathematical specification with LaTeX equations,
+    parameter justification, convergence proofs, and sensitivity analysis
+  - `docs/math_debt_backlog.md`: 15 prioritized mathematical debt items (3 high,
+    6 medium, 6 low) with resolution recommendations
+  - `docs/equations_inventory.md`: Complete equation catalog
+  - `docs/correctness_report.md`: Correctness verification findings
+
+### Changed
+
+- **AAFE Equation** (`core/three_r/fusion.py`): Ethical exponent now configurable
+  (was hardcoded to Φ). Added `domain` and `ethical_exponent` constructor parameters.
+  Added `benevolence_score` parameter to `compute()` for sigmoid gate integration.
+- **Spectral Vibration** (`detectors/spectral_vibration.py`): `_compute_schumann_alignment`
+  now uses domain-adaptive frequencies via `get_domain_fundamentals()`. Added
+  `_detect_spectral_peaks` static method for unknown-domain frequency detection.
+- **Centralized Constants** (`core/centralized_constants.py`): Added
+  `BenevolenceGateConstants`, `DomainHarmonicConstants`, `RecursionConvergenceConstants`
+  dataclasses and `sigmoid_benevolence_gate()`, `get_domain_fundamentals()` functions.
+- **GOSNN** (`core/global_omni_scalar_network.py`): Added `compute_hierarchical_score()`
+  method implementing 3-level hierarchical aggregation with configurable domain weights
+  and geometric/arithmetic/harmonic mean options.
+
+### Testing
+
+- **124 new tests** across `test_phase3_math_audit.py` (78) and
+  `test_phase4_6_math_audit.py` (46) covering all new mathematical infrastructure
+- All 594 existing + new core tests passing
+
+### Mathematical Provenance
+
+- Sigmoid benevolence gate: Logistic function (Verhulst, 1845)
+- Banach contraction recursion: Banach fixed-point theorem (Banach, 1922)
+- Schumann resonance: Schumann (1952)
+- HRV frequency bands: Task Force of ESC/NASPE (1996)
+- Conformal prediction: Vovk et al. (2005)
+- Mondrian conformal prediction: Vovk et al. (2005) Chapter 8
+- Youden's J statistic: Youden (1950)
+- Persistent homology: Edelsbrunner & Harer (2010)
+- Fisher information metric: IGEOOD (ICLR 2022)
+- Riemannian optimization: Absil et al. (2008)
+- Simplex projection: Duchi et al. (2008)
+- Lyapunov stability: Khalil (2002)
+- Bayesian optimization: Bergstra et al. (2011) TPE
+
+---
+
 ## [1.4.0] - 2026-02-09
 
 ### Added - Advanced Cognitive AI & Physics-Inspired Detectors

@@ -42,6 +42,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+from omni_mercury_engine.core.centralized_constants import ETHICAL
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -134,7 +135,7 @@ class ThresholdConfig:
     ethical_minimum: float = 0.6
     """Minimum ethical alignment score required for operations."""
 
-    benevolence_required: float = 0.99
+    benevolence_required: float = ETHICAL.BENEVOLENCE_IMMUTABLE
     """Required benevolence score for civilization-first decisions."""
 
     # Statistical thresholds
@@ -183,7 +184,7 @@ class ThresholdDefaults:
     ANOMALY_CLASSIFICATION_DEFAULT: float = 0.5
 
     # From various ethical modules - Immutable benevolence requirement
-    BENEVOLENCE_IMMUTABLE: float = 0.99
+    BENEVOLENCE_IMMUTABLE: float = ETHICAL.BENEVOLENCE_IMMUTABLE
 
     # From ethical alignment modules - Minimum ethical score
     ETHICAL_MINIMUM: float = 0.6

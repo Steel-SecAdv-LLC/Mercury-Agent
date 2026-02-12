@@ -236,8 +236,9 @@ class CrossConformalPredictor:
             q_idx = min(max(q_idx, 0), n - 1)
             self.fold_thresholds.append(sorted_scores[q_idx])
 
-        # Aggregate threshold (conservative: use max)
-        self.aggregated_threshold = np.mean(self.fold_thresholds)
+        # Aggregate threshold: use maximum across folds for conservative
+        # coverage guarantee (ensures at least target coverage in each fold).
+        self.aggregated_threshold = float(np.max(self.fold_thresholds))
         self._fitted = True
 
         logger.debug(
@@ -677,6 +678,235 @@ class ConformalAnomalyDetector:
             average_set_size=avg_set_size,
             marginal_coverage_by_class=class_coverage,
         )
+
+
+class MondrianConformalPredictor:
+    """
+    Mondrian Conformal Prediction for label-conditional coverage.
+
+    Provides per-group (e.g., per-domain, per-class) coverage guarantees
+    instead of just marginal coverage. This ensures that coverage is
+    balanced across subpopulations, preventing under-coverage of rare
+    groups — critical for fair anomaly detection.
+
+    Reference: Vovk et al. (2005) "Algorithmic Learning in a Random World",
+    Chapter 8: Mondrian Conformal Prediction.
+    """
+
+    def __init__(
+        self,
+        coverage: float = 0.95,
+        seed: int = 42,
+    ):
+        """
+        Initialize Mondrian conformal predictor.
+
+        Args:
+            coverage: Target coverage level per group.
+            seed: Random seed for reproducibility.
+        """
+        self.coverage = coverage
+        self.seed = seed
+        self._group_predictors: dict[int | str, SplitConformalPredictor] = {}
+        self._fitted = False
+
+    def fit(
+        self,
+        nonconformity_scores: np.ndarray,
+        groups: np.ndarray,
+    ) -> MondrianConformalPredictor:
+        """
+        Fit per-group conformal predictors.
+
+        Args:
+            nonconformity_scores: Nonconformity scores from calibration set.
+            groups: Group labels for each calibration example (int or str).
+
+        Returns:
+            Self for method chaining.
+        """
+        unique_groups = np.unique(groups)
+        self._group_predictors = {}
+
+        for group in unique_groups:
+            mask = groups == group
+            group_scores = nonconformity_scores[mask]
+            if len(group_scores) < 2:
+                logger.warning(
+                    f"MondrianConformal: group {group} has only "
+                    f"{len(group_scores)} samples — using global threshold."
+                )
+                continue
+
+            predictor = SplitConformalPredictor(coverage=self.coverage, seed=self.seed)
+            predictor.fit(group_scores)
+            self._group_predictors[group] = predictor
+
+        # Global fallback for groups with insufficient data
+        self._global_predictor = SplitConformalPredictor(coverage=self.coverage, seed=self.seed)
+        self._global_predictor.fit(nonconformity_scores)
+
+        self._fitted = True
+        logger.debug(
+            f"MondrianConformal fitted: {len(self._group_predictors)} groups, "
+            f"coverage={self.coverage}"
+        )
+        return self
+
+    def get_anomaly_threshold(self, group: int | str | None = None) -> float:
+        """
+        Get anomaly threshold for a specific group.
+
+        Args:
+            group: Group identifier. If None, returns global threshold.
+
+        Returns:
+            Anomaly threshold for the specified group.
+        """
+        if not self._fitted:
+            raise RuntimeError("Must call fit() before get_anomaly_threshold()")
+
+        if group is not None and group in self._group_predictors:
+            return self._group_predictors[group].get_anomaly_threshold()
+
+        return self._global_predictor.get_anomaly_threshold()
+
+    def predict(
+        self,
+        scores: np.ndarray,
+        groups: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Predict anomalies with per-group coverage guarantees.
+
+        Args:
+            scores: Nonconformity scores for test examples.
+            groups: Group labels for each test example.
+
+        Returns:
+            Binary predictions with per-group coverage guarantee.
+        """
+        if not self._fitted:
+            raise RuntimeError("Must call fit() before predict()")
+
+        predictions = np.zeros(len(scores), dtype=int)
+        for i, (score, group) in enumerate(zip(scores, groups)):
+            threshold = self.get_anomaly_threshold(group)
+            predictions[i] = int(score > threshold)
+        return predictions
+
+    def evaluate_group_coverage(
+        self,
+        scores: np.ndarray,
+        labels: np.ndarray,
+        groups: np.ndarray,
+    ) -> dict[str, float | dict[int | str, float]]:
+        """
+        Evaluate per-group empirical coverage.
+
+        Args:
+            scores: Nonconformity scores.
+            labels: True labels (0/1).
+            groups: Group identifiers.
+
+        Returns:
+            Dict with overall and per-group coverage stats.
+        """
+        predictions = self.predict(scores, groups)
+        correct = predictions == labels
+
+        per_group: dict[int | str, float] = {}
+        for group in np.unique(groups):
+            mask = groups == group
+            if np.sum(mask) > 0:
+                per_group[group] = float(np.mean(correct[mask]))
+
+        return {
+            "overall_coverage": float(np.mean(correct)),
+            "target_coverage": self.coverage,
+            "per_group_coverage": per_group,
+            "worst_group_coverage": min(per_group.values()) if per_group else 0.0,
+            "coverage_gap": (
+                max(abs(v - self.coverage) for v in per_group.values()) if per_group else 0.0
+            ),
+        }
+
+
+class ConformalCalibrationBridge:
+    """
+    Bridge between conformal prediction and the calibration pipeline.
+
+    Integrates conformal uncertainty quantification into the threshold
+    calibration process, providing distribution-free coverage guarantees
+    on top of calibrated thresholds.
+    """
+
+    def __init__(
+        self,
+        base_coverage: float = 0.95,
+        adaptive_lr: float = 0.05,
+    ):
+        """
+        Initialize calibration bridge.
+
+        Args:
+            base_coverage: Target coverage level.
+            adaptive_lr: Learning rate for adaptive threshold.
+        """
+        self.split_predictor = SplitConformalPredictor(coverage=base_coverage)
+        self.adaptive_predictor = AdaptiveConformalInference(
+            target_coverage=base_coverage,
+            learning_rate=adaptive_lr,
+        )
+        self.mondrian_predictor = MondrianConformalPredictor(coverage=base_coverage)
+        self._calibrated = False
+
+    def calibrate(
+        self,
+        calibration_scores: np.ndarray,
+        groups: np.ndarray | None = None,
+    ) -> dict[str, float]:
+        """
+        Calibrate all conformal predictors.
+
+        Args:
+            calibration_scores: Nonconformity scores from calibration data.
+            groups: Optional group labels for Mondrian prediction.
+
+        Returns:
+            Dict of threshold values from each method.
+        """
+        self.split_predictor.fit(calibration_scores)
+
+        if groups is not None:
+            self.mondrian_predictor.fit(calibration_scores, groups)
+
+        self._calibrated = True
+
+        result = {
+            "split_threshold": self.split_predictor.get_anomaly_threshold(),
+            "adaptive_threshold": self.adaptive_predictor.get_current_threshold(),
+        }
+
+        if groups is not None:
+            unique_groups = np.unique(groups)
+            for g in unique_groups:
+                result[f"mondrian_{g}_threshold"] = self.mondrian_predictor.get_anomaly_threshold(g)
+
+        return result
+
+    def update_adaptive(self, score: float, true_label: int | None = None) -> tuple[float, bool]:
+        """
+        Update adaptive conformal threshold with new observation.
+
+        Args:
+            score: New nonconformity score.
+            true_label: Optional true label.
+
+        Returns:
+            Tuple of (current_threshold, is_covered).
+        """
+        return self.adaptive_predictor.update(score, true_label)
 
 
 def add_conformal_to_detector(
