@@ -384,10 +384,10 @@ class FusionConstants:
     # AAFE default weights (golden ratio proportions)
     # w_R: Recursion, w_H: Harmonic, w_O: Optimization
     # Origin: core/three_r/fusion.py, three_r_mechanism.py
-    # phi_sum = φ + 1 + 1/φ ≈ 2.8944
-    AAFE_WEIGHT_R: float = 0.447  # φ / phi_sum
-    AAFE_WEIGHT_H: float = 0.276  # 1 / phi_sum
-    AAFE_WEIGHT_O: float = 0.276  # (1/φ) / phi_sum
+    # phi_sum = φ + 1 + 1/φ ≈ 3.2361
+    AAFE_WEIGHT_R: float = 0.500000  # φ / phi_sum
+    AAFE_WEIGHT_H: float = 0.309017  # 1 / phi_sum
+    AAFE_WEIGHT_O: float = 0.190983  # (1/φ) / phi_sum
 
     # Neural-symbolic fusion weights
     # Origin: neurosymbolic_fusion.py, neurosymbolic_hub.py

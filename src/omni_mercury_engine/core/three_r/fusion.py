@@ -612,13 +612,16 @@ class BanachRecursion:
         self.convergence_achieved = False
         self.actual_depth = 0
 
+        base_value: float = f(x)
         result = self._recurse_inner(x, f, g, max_d, prev_result=None)
 
-        # Compute error bound
+        # Compute error bound: |x0 - R(x0)| approximated as |f(x) - result|
+        # This is the displacement between the base (depth=0) and the
+        # converged value, used in the Banach contraction error formula:
+        #   error <= alpha^d * |x0 - R(x0)| / (1 - alpha)
         if self.contraction_ratios:
-            # Use initial displacement for error bound
-            x0_norm = abs(f(x))
-            error_bound = self.compute_error_bound(x0_norm)
+            initial_displacement = abs(base_value - result)
+            error_bound = self.compute_error_bound(initial_displacement)
         else:
             error_bound = 0.0
 

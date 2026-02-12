@@ -159,7 +159,8 @@ class SimplexManifold(Manifold):
     def _clamp_to_interior(x: np.ndarray) -> np.ndarray:
         """Clamp point to the strict interior of the simplex."""
         x = np.maximum(x, _EPS)
-        return x / x.sum()
+        result: np.ndarray = x / x.sum()
+        return result
 
     # -- Manifold interface -----------------------------------------------
 
@@ -182,7 +183,7 @@ class SimplexManifold(Manifold):
         else:
             # batched case
             theta = np.array([(cumsum[i, r] - 1.0) / (r + 1.0) for i, r in enumerate(rho)])
-        projected = np.maximum(x - theta[..., np.newaxis], 0.0)
+        projected: np.ndarray = np.maximum(x - theta[..., np.newaxis], 0.0)
         # Normalise to handle residual floating-point error
         projected = projected / (projected.sum(axis=-1, keepdims=True) + _EPS)
         return projected
@@ -209,7 +210,8 @@ class SimplexManifold(Manifold):
         log_result -= log_result.max()
         result = np.exp(log_result)
         result = result / (result.sum() + _EPS)
-        return np.maximum(result, 0.0)
+        clamped: np.ndarray = np.maximum(result, 0.0)
+        return clamped
 
     def log_map(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         """Logarithmic map: inverse of exp_map.
@@ -224,8 +226,8 @@ class SimplexManifold(Manifold):
         y_safe = self._clamp_to_interior(y)
         v = x_safe * (np.log(y_safe + _EPS) - np.log(x_safe + _EPS))
         # Project onto the tangent space of the simplex: sum(v) = 0
-        v -= x_safe * v.sum()
-        return v
+        v_proj: np.ndarray = v - x_safe * v.sum()
+        return v_proj
 
     def inner_product(self, x: np.ndarray, u: np.ndarray, v: np.ndarray) -> float:
         """Fisher information inner product on the simplex.
@@ -320,17 +322,20 @@ class SPDManifold(Manifold):
     @staticmethod
     def _sym(x: np.ndarray) -> np.ndarray:
         """Symmetrise a matrix: (X + X^T) / 2."""
-        return 0.5 * (x + x.T)
+        result: np.ndarray = 0.5 * (x + x.T)
+        return result
 
     def _safe_inv(self, x: np.ndarray) -> np.ndarray:
         """Compute matrix inverse with fallback for near-singular matrices."""
         try:
-            return scipy.linalg.inv(x)
+            result: np.ndarray = scipy.linalg.inv(x)
+            return result
         except scipy.linalg.LinAlgError:
             logger.warning(
                 "Singular matrix encountered in SPD inverse; falling back to pseudo-inverse."
             )
-            return scipy.linalg.pinvh(x)
+            result = scipy.linalg.pinvh(x)
+            return result
 
     def _safe_sqrtm(self, x: np.ndarray) -> np.ndarray:
         """Compute matrix square root, ensuring real and symmetric output."""
@@ -362,7 +367,8 @@ class SPDManifold(Manifold):
         x_sym = self._sym(x)
         eigenvalues, eigenvectors = scipy.linalg.eigh(x_sym)
         eigenvalues = np.maximum(eigenvalues, self.min_eigenvalue)
-        return eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T
+        result: np.ndarray = eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T
+        return result
 
     def retraction(self, x: np.ndarray, v: np.ndarray) -> np.ndarray:
         """Retraction on the SPD manifold.
@@ -934,7 +940,7 @@ class ConstrainedParameterOptimizer:
             eg = grad_fn(x)
             # Fisher-metric Riemannian gradient on the simplex
             x_safe = np.maximum(x, _EPS)
-            rg = x_safe * (eg - np.dot(eg, x_safe))
+            rg: np.ndarray = x_safe * (eg - np.dot(eg, x_safe))
             return rg
 
         return optimizer.optimize(
@@ -987,7 +993,8 @@ class ConstrainedParameterOptimizer:
         def riemannian_grad(x: np.ndarray) -> np.ndarray:
             eg = grad_fn(x)
             eg_sym = 0.5 * (eg + eg.T)
-            return x @ eg_sym @ x
+            rg: np.ndarray = x @ eg_sym @ x
+            return rg
 
         return optimizer.optimize(
             initial_matrix,

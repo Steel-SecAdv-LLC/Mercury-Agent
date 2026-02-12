@@ -286,6 +286,13 @@ class LyapunovRuntimeEnforcer:
             halt_on_violation: If True, raises RuntimeError on violation.
             grace_steps: Number of initial steps before enforcement begins
                 (allows transient startup behaviour).
+
+        .. warning::
+            **Safety-critical notice:** During the *grace_steps* initial
+            steps, stability is NOT monitored.  If the system diverges
+            during startup, no violation will be recorded.  For
+            safety-critical deployments, set ``grace_steps=0`` to enable
+            enforcement from the very first step.
         """
         self.lambda_convergence = lambda_convergence
         self.epsilon_initial = epsilon_initial

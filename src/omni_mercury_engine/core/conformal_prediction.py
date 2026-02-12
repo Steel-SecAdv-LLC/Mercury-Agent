@@ -236,8 +236,9 @@ class CrossConformalPredictor:
             q_idx = min(max(q_idx, 0), n - 1)
             self.fold_thresholds.append(sorted_scores[q_idx])
 
-        # Aggregate threshold (conservative: use max)
-        self.aggregated_threshold = np.mean(self.fold_thresholds)
+        # Aggregate threshold: use maximum across folds for conservative
+        # coverage guarantee (ensures at least target coverage in each fold).
+        self.aggregated_threshold = float(np.max(self.fold_thresholds))
         self._fitted = True
 
         logger.debug(

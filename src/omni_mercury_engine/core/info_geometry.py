@@ -77,10 +77,12 @@ def _safe_cholesky(
     (up to regularization).
     """
     try:
-        return sp_linalg.cholesky(matrix, lower=True)
+        result: np.ndarray[Any, Any] = sp_linalg.cholesky(matrix, lower=True)
+        return result
     except sp_linalg.LinAlgError:
         regularized = _regularize(matrix, tikhonov_lambda)
-        return sp_linalg.cholesky(regularized, lower=True)
+        result = sp_linalg.cholesky(regularized, lower=True)
+        return result
 
 
 # =========================================================================
@@ -258,14 +260,15 @@ class NaturalGradient:
             )
 
         damped = _regularize(fim, self.damping)
+        result: np.ndarray[Any, Any]
         try:
             cho_lower = sp_linalg.cholesky(damped, lower=True)
-            natural_grad = sp_linalg.cho_solve((cho_lower, True), euclidean_gradient)
+            result = sp_linalg.cho_solve((cho_lower, True), euclidean_gradient)
         except sp_linalg.LinAlgError:
             # Fall back to pseudo-inverse if Cholesky still fails.
-            natural_grad = np.linalg.pinv(damped) @ euclidean_gradient
+            result = np.linalg.pinv(damped) @ euclidean_gradient
 
-        return natural_grad
+        return result
 
     def compute_from_samples(
         self,

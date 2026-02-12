@@ -180,7 +180,8 @@ class PersistenceDiagram:
         if pairs.size == 0:
             return np.array([], dtype=np.float64)
         deaths = np.where(np.isinf(pairs[:, 1]), self.filtration_max, pairs[:, 1])
-        return deaths - pairs[:, 0]
+        result: np.ndarray = deaths - pairs[:, 0]
+        return result
 
     def betti_at(self, epsilon: float, dim: int = 0) -> int:
         """Compute the Betti number at filtration value *epsilon*.
@@ -386,9 +387,13 @@ class VietorisRipsFiltration:
         neighbour.  If so, the cycle is born at the edge weight and dies
         at the weight of the heaviest triangle edge.
 
-        This is a lightweight heuristic suitable for small-to-medium point
-        clouds.  For large-scale problems a full boundary-matrix reduction
-        would be needed.
+        .. warning::
+            **LIMITATION (safety-critical notice):** This is a triangle-based
+            heuristic, NOT full boundary-matrix reduction.  It detects only
+            cycles that close via triangles and may miss longer cycles or
+            produce incorrect birth/death pairs in dense simplicial complexes.
+            For safety-critical topological analysis, consider using GUDHI or
+            Ripser for exact persistent homology computation.
 
         Args:
             n_points: Number of vertices.

@@ -658,3 +658,194 @@ class TestDomainAdaptiveAAFEWeights:
             daw.record_observation("sparse", 0.5, 0.5, 0.5, 1)
         daw.fit_domain_profiles(min_samples=30)
         assert not daw.has_domain_profile("sparse")
+
+
+# ============================================================================
+# Additional Coverage: SPDManifold, CrossConformal, Wasserstein triangle
+# ============================================================================
+
+
+class TestSPDManifold:
+    """Tests for Symmetric Positive Definite manifold operations."""
+
+    def test_spd_project_preserves_symmetry(self) -> None:
+        from omni_mercury_engine.core.riemannian_optimization import SPDManifold
+
+        manifold = SPDManifold(size=3)
+        # Asymmetric matrix
+        x = np.array([[2.0, 0.5, 0.1], [0.3, 1.5, 0.2], [0.0, 0.1, 1.0]])
+        projected = manifold.project(x)
+        assert np.allclose(projected, projected.T, atol=1e-10), "Projected matrix must be symmetric"
+
+    def test_spd_project_positive_eigenvalues(self) -> None:
+        from omni_mercury_engine.core.riemannian_optimization import SPDManifold
+
+        manifold = SPDManifold(size=3)
+        # Matrix with a negative eigenvalue
+        x = np.array([[1.0, 0.0, 0.0], [0.0, -0.5, 0.0], [0.0, 0.0, 1.0]])
+        projected = manifold.project(x)
+        eigenvalues = np.linalg.eigvalsh(projected)
+        assert np.all(eigenvalues > 0), f"All eigenvalues must be positive, got {eigenvalues}"
+
+    def test_spd_geodesic_distance_self_is_zero(self) -> None:
+        from omni_mercury_engine.core.riemannian_optimization import SPDManifold
+
+        manifold = SPDManifold(size=3)
+        x = np.eye(3) * 2.0
+        dist = manifold.geodesic_distance(x, x)
+        assert abs(dist) < 1e-8, f"Distance to self should be 0, got {dist}"
+
+    def test_spd_geodesic_distance_symmetry(self) -> None:
+        from omni_mercury_engine.core.riemannian_optimization import SPDManifold
+
+        manifold = SPDManifold(size=2)
+        x = np.eye(2) * 2.0
+        y = np.array([[3.0, 0.5], [0.5, 1.5]])
+        dxy = manifold.geodesic_distance(x, y)
+        dyx = manifold.geodesic_distance(y, x)
+        assert abs(dxy - dyx) < 1e-8, f"Distance not symmetric: {dxy} vs {dyx}"
+
+    def test_spd_geodesic_distance_positive(self) -> None:
+        from omni_mercury_engine.core.riemannian_optimization import SPDManifold
+
+        manifold = SPDManifold(size=2)
+        x = np.eye(2)
+        y = np.eye(2) * 3.0
+        dist = manifold.geodesic_distance(x, y)
+        assert dist > 0, f"Distance between different SPD matrices must be positive, got {dist}"
+
+    def test_spd_exp_log_roundtrip(self) -> None:
+        """exp_map(x, log_map(x, y)) should recover y (approximately)."""
+        from omni_mercury_engine.core.riemannian_optimization import SPDManifold
+
+        manifold = SPDManifold(size=2)
+        x = np.eye(2) * 2.0
+        y = np.array([[3.0, 0.3], [0.3, 1.5]])
+        v = manifold.log_map(x, y)
+        recovered = manifold.exp_map(x, v)
+        assert np.allclose(
+            recovered, y, atol=0.1
+        ), f"exp(log(y)) should ≈ y.\nExpected:\n{y}\nGot:\n{recovered}"
+
+
+class TestCrossConformalPredictor:
+    """Tests for CrossConformalPredictor coverage guarantees."""
+
+    def test_cross_conformal_threshold_conservative(self) -> None:
+        """Cross-conformal threshold should be >= the median fold threshold."""
+        from omni_mercury_engine.core.conformal_prediction import CrossConformalPredictor
+
+        rng = np.random.RandomState(42)
+        X = rng.randn(200, 5)
+
+        def scoring_fn(X_input: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
+            return np.linalg.norm(X_input, axis=1)
+
+        predictor = CrossConformalPredictor(coverage=0.95, n_folds=5, seed=42)
+        predictor.fit(X, scoring_fn)
+
+        # Max aggregation should produce threshold >= median of folds
+        threshold = predictor.get_anomaly_threshold()
+        median_threshold = float(np.median(predictor.fold_thresholds))
+        assert (
+            threshold >= median_threshold
+        ), f"Max-aggregated threshold {threshold} should be >= median {median_threshold}"
+
+    def test_cross_conformal_all_folds_produce_thresholds(self) -> None:
+        from omni_mercury_engine.core.conformal_prediction import CrossConformalPredictor
+
+        rng = np.random.RandomState(42)
+        X = rng.randn(100, 3)
+
+        def scoring_fn(X_input: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
+            return np.linalg.norm(X_input, axis=1)
+
+        predictor = CrossConformalPredictor(coverage=0.90, n_folds=5, seed=42)
+        predictor.fit(X, scoring_fn)
+        assert len(predictor.fold_thresholds) == 5
+
+
+class TestWassersteinTriangleInequality:
+    """Tests for Wasserstein distance triangle inequality."""
+
+    def test_wasserstein_triangle_inequality(self) -> None:
+        """d(A, C) <= d(A, B) + d(B, C) for Wasserstein distance."""
+        from omni_mercury_engine.core.topological_analysis import (
+            PersistenceDiagram,
+            wasserstein_distance_pd,
+        )
+
+        dgm_a = PersistenceDiagram(
+            pairs_dim0=np.array([[0.0, 1.0], [0.0, 2.0]]),
+            filtration_max=3.0,
+        )
+        dgm_b = PersistenceDiagram(
+            pairs_dim0=np.array([[0.0, 1.5], [0.0, 2.5]]),
+            filtration_max=3.0,
+        )
+        dgm_c = PersistenceDiagram(
+            pairs_dim0=np.array([[0.0, 0.5], [0.0, 3.0]]),
+            filtration_max=3.0,
+        )
+
+        d_ab = wasserstein_distance_pd(dgm_a, dgm_b)
+        d_bc = wasserstein_distance_pd(dgm_b, dgm_c)
+        d_ac = wasserstein_distance_pd(dgm_a, dgm_c)
+        assert (
+            d_ac <= d_ab + d_bc + 1e-10
+        ), f"Triangle inequality violated: d(A,C)={d_ac} > d(A,B)+d(B,C)={d_ab + d_bc}"
+
+    def test_wasserstein_symmetry(self) -> None:
+        """Wasserstein distance must be symmetric."""
+        from omni_mercury_engine.core.topological_analysis import (
+            PersistenceDiagram,
+            wasserstein_distance_pd,
+        )
+
+        dgm_a = PersistenceDiagram(
+            pairs_dim0=np.array([[0.0, 1.0], [0.0, 2.0]]),
+            filtration_max=3.0,
+        )
+        dgm_b = PersistenceDiagram(
+            pairs_dim0=np.array([[0.0, 1.5], [0.0, 2.5]]),
+            filtration_max=3.0,
+        )
+        d_ab = wasserstein_distance_pd(dgm_a, dgm_b)
+        d_ba = wasserstein_distance_pd(dgm_b, dgm_a)
+        assert abs(d_ab - d_ba) < 1e-10, f"Not symmetric: {d_ab} vs {d_ba}"
+
+
+class TestGoldenRatioWeightCorrectness:
+    """Verify FUSION AAFE weights match actual golden ratio derivation."""
+
+    def test_aafe_weights_are_golden_ratio_proportions(self) -> None:
+        from omni_mercury_engine.core.centralized_constants import FUSION
+
+        phi = 1.618033988749895
+        phi_sum = phi + 1.0 + 1.0 / phi
+        expected_r = phi / phi_sum
+        expected_h = 1.0 / phi_sum
+        expected_o = (1.0 / phi) / phi_sum
+
+        assert (
+            abs(FUSION.AAFE_WEIGHT_R - expected_r) < 0.001
+        ), f"w_R should be {expected_r:.6f}, got {FUSION.AAFE_WEIGHT_R}"
+        assert (
+            abs(FUSION.AAFE_WEIGHT_H - expected_h) < 0.001
+        ), f"w_H should be {expected_h:.6f}, got {FUSION.AAFE_WEIGHT_H}"
+        assert (
+            abs(FUSION.AAFE_WEIGHT_O - expected_o) < 0.001
+        ), f"w_O should be {expected_o:.6f}, got {FUSION.AAFE_WEIGHT_O}"
+
+    def test_aafe_weights_sum_to_one(self) -> None:
+        from omni_mercury_engine.core.centralized_constants import FUSION
+
+        total = FUSION.AAFE_WEIGHT_R + FUSION.AAFE_WEIGHT_H + FUSION.AAFE_WEIGHT_O
+        assert abs(total - 1.0) < 1e-6, f"Weights must sum to 1.0, got {total}"
+
+    def test_aafe_weight_ordering(self) -> None:
+        """w_R > w_H > w_O (golden ratio ordering)."""
+        from omni_mercury_engine.core.centralized_constants import FUSION
+
+        assert FUSION.AAFE_WEIGHT_R > FUSION.AAFE_WEIGHT_H, "w_R should be largest"
+        assert FUSION.AAFE_WEIGHT_H > FUSION.AAFE_WEIGHT_O, "w_H should be larger than w_O"

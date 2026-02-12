@@ -266,3 +266,94 @@ class TestInformationGeometryDetector:
         config = {"approximation_method": "sampling"}
         detector = InformationGeometryDetector(config)
         assert detector.approximation_method == "sampling"
+
+
+class TestFisherMatrixCorrectness:
+    """Mathematical correctness tests for Fisher Information Matrix."""
+
+    def test_fim_equals_cov_inverse_for_identity(self):
+        """For Gaussian with identity covariance, FIM should be identity."""
+        detector = InformationGeometryDetector()
+        mean = np.zeros(5)
+        cov = np.eye(5)
+        fisher = detector._compute_fisher_matrix(mean, cov)
+        # FIM = cov^{-1} + Tikhonov regularization
+        # For identity cov, FIM ≈ I + lambda*I = (1+lambda)*I
+        # The diagonal should be close to 1.0 (regularization is small)
+        diag = np.diag(fisher)
+        assert np.allclose(
+            diag, diag[0], atol=1e-6
+        ), "FIM diagonal should be uniform for identity cov"
+        assert diag[0] > 0.99, "FIM diagonal for identity cov should be close to 1.0"
+
+    def test_fim_equals_cov_inverse_for_scaled_identity(self):
+        """For Gaussian with sigma^2 * I covariance, FIM diagonal = 1/sigma^2."""
+        detector = InformationGeometryDetector()
+        sigma_sq = 4.0
+        mean = np.zeros(3)
+        cov = sigma_sq * np.eye(3)
+        fisher = detector._compute_fisher_matrix(mean, cov)
+        expected_diag = 1.0 / sigma_sq  # = 0.25
+        diag = np.diag(fisher)
+        assert np.allclose(
+            diag, expected_diag, atol=0.01
+        ), f"FIM diagonal for {sigma_sq}*I should be ~{expected_diag}, got {diag}"
+
+    def test_fim_symmetry(self):
+        """FIM must be symmetric."""
+        detector = InformationGeometryDetector()
+        cov = np.array([[2.0, 0.5, 0.1], [0.5, 1.5, 0.3], [0.1, 0.3, 1.0]])
+        fisher = detector._compute_fisher_matrix(np.zeros(3), cov)
+        assert np.allclose(fisher, fisher.T, atol=1e-10), "FIM must be symmetric"
+
+    def test_fim_positive_definite(self):
+        """FIM must be positive definite (all eigenvalues > 0)."""
+        detector = InformationGeometryDetector()
+        cov = np.array([[2.0, 0.5], [0.5, 1.5]])
+        fisher = detector._compute_fisher_matrix(np.zeros(2), cov)
+        eigenvalues = np.linalg.eigvalsh(fisher)
+        assert np.all(eigenvalues > 0), f"FIM eigenvalues must all be positive, got {eigenvalues}"
+
+    def test_fisher_rao_distance_symmetry(self):
+        """Fisher-Rao distance must be symmetric: d(P,Q) = d(Q,P)."""
+        detector = InformationGeometryDetector()
+        detector.fit_reference_distribution(np.random.randn(100, 5))
+        dist1 = {"mean": np.array([1.0, 0.0, 0.0, 0.0, 0.0]), "cov": np.eye(5)}
+        dist2 = {"mean": np.array([0.0, 1.0, 0.0, 0.0, 0.0]), "cov": np.eye(5)}
+        d12 = detector.fisher_rao_distance(dist1, dist2)
+        d21 = detector.fisher_rao_distance(dist2, dist1)
+        assert abs(d12 - d21) < 1e-10, f"Distance not symmetric: {d12} vs {d21}"
+
+    def test_fisher_rao_distance_scales_with_separation(self):
+        """Larger mean separation should yield larger Fisher-Rao distance."""
+        detector = InformationGeometryDetector()
+        detector.fit_reference_distribution(np.random.randn(100, 3))
+        base = {"mean": np.zeros(3), "cov": np.eye(3)}
+        near = {"mean": np.array([0.5, 0.0, 0.0]), "cov": np.eye(3)}
+        far = {"mean": np.array([5.0, 0.0, 0.0]), "cov": np.eye(3)}
+        d_near = detector.fisher_rao_distance(base, near)
+        d_far = detector.fisher_rao_distance(base, far)
+        assert d_far > d_near, f"Farther point should have larger distance: {d_far} vs {d_near}"
+
+    def test_ood_detects_shifted_distribution(self):
+        """OOD detector should flag data shifted far from reference."""
+        np.random.seed(42)
+        detector = InformationGeometryDetector(config={"adaptive_threshold": False})
+        reference = np.random.randn(200, 5)
+        detector.fit_reference_distribution(reference)
+        # Test with data shifted very far from reference
+        shifted = np.random.randn(50, 5) + 100.0
+        results = detector.detect_ood(shifted)
+        assert results["ood_score"] > 0, "Shifted data should have positive OOD score"
+        assert results["is_ood"], "Data shifted by 100 sigma should be flagged OOD"
+
+    def test_ood_in_distribution_data_low_score(self):
+        """In-distribution data should have low OOD scores."""
+        np.random.seed(42)
+        detector = InformationGeometryDetector(config={"adaptive_threshold": False})
+        reference = np.random.randn(200, 5)
+        detector.fit_reference_distribution(reference)
+        # Test with data from same distribution
+        in_dist = np.random.randn(50, 5)
+        results = detector.detect_ood(in_dist, threshold=100.0)
+        assert not results["is_ood"], "In-distribution data should not be flagged as OOD"
