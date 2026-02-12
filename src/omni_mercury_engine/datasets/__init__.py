@@ -21,27 +21,31 @@ from __future__ import annotations
 """
 Real-World Dataset Loaders for Mercury Agent
 
-All loaders fetch REAL DATA from official sources with synthetic fallbacks.
+All loaders fetch REAL DATA from official sources. Synthetic fallbacks are
+disabled by default (set MERCURY_ALLOW_SYNTHETIC=1 to permit). Every loader
+either returns real data with verified metadata or raises DataSourceUnavailableError.
 
 Provides unified access to real-world datasets for benchmarking:
-- ADRepository: 21+ real-world anomaly detection datasets (fraud, backdoor, thyroid, etc.)
+- ADBench: 47 tabular anomaly detection datasets from GitHub (fraud, thyroid, etc.)
+- ADRepository: 21+ real-world anomaly detection datasets
 - Time-Series: NAB, SMD, SMAP/MSL (standard anomaly detection benchmarks)
-- Medical: MIMIC-III, MIMIC-IV, PhysioNet (credentialed access)
-- Space: SETI signal archives, NASA exoplanet data
-- Environmental: USGS earthquake API, NOAA storm events, NASA FIRMS
+- Medical: MIT-BIH Arrhythmia (open access), MIMIC-III (credentialed)
+- Space: NASA Exoplanet Archive (TAP API)
+- Environmental: USGS earthquake, NOAA GSOD, EPA Air Quality, NASA FIRMS
 - Security: NSL-KDD, CICIDS-2017 network intrusion
-- Ocean: NOAA buoy, Simons CMAP, World Ocean Database, Copernicus sea level
-- Climate: Satellite altimetry, ocean biogeochemistry
-- Disaster: FEMA disaster declarations, hazard mitigation programs
+- Ocean: NOAA Buoy, NOAA ERDDAP (replaces Copernicus/SimonsCMAP/WorldOcean)
+- Disaster: FEMA disaster declarations, hazard mitigation, NOAA Storm Events
+- Industrial: BATADAL, SWaT/WADI (credential-gated stubs)
 
 Quick Start:
     >>> from omni_mercury_engine.datasets import load_dataset, list_available_datasets
-    >>> print(list_available_datasets())  # See all ADRepository datasets
-    >>> X, y, meta = load_dataset('fraud')  # Load credit card fraud dataset
+    >>> print(list_available_datasets())
+    >>> X, y, meta = load_dataset('fraud')
 
 All loaders follow official source licensing requirements.
 """
 
+from .adbench import ADBENCH_CATALOG, ADBenchLoader
 from .adrepository import (
     ADREPOSITORY_DATASETS,
     ADRepositoryLoader,
@@ -82,8 +86,15 @@ from .environmental import (
     USGSGeochemistryLoader,
     WildfireDataLoader,
 )
+from .epa_air import EPAAirQualityLoader
+from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError
 from .industrial import BATADALLoader, SWaTLoader, WADILoader
 from .medical import CardiologyDataset, MIMICLoader, PhysioNetLoader, SepsisDataset
+from .metadata import LoaderDataset, LoaderDatasetMetadata
+from .mitbih import MITBIHLoader
+from .noaa_erddap import NOAAERDDAPLoader
+from .noaa_gsod import NOAAGSODLoader
+from .noaa_storm import NOAAStormEventsLoader
 from .ocean import NOAABuoyLoader
 from .security import CICIDSLoader, NSLKDDLoader, ThreatIntelLoader
 from .space import NASAExoplanetLoader, SETILoader, SolarDynamicsLoader
@@ -91,6 +102,14 @@ from .timeseries import NABLoader, SMAPMSLLoader, SMDLoader
 from .ucr_archive import CWRUBearingLoader, MBALoader, MSDSLoader, UCRLoader
 
 __all__ = [
+    # Core infrastructure
+    "ALLOW_SYNTHETIC",
+    "DataSourceUnavailableError",
+    "LoaderDataset",
+    "LoaderDatasetMetadata",
+    # ADBench (47 tabular anomaly detection datasets)
+    "ADBENCH_CATALOG",
+    "ADBenchLoader",
     "ADREPOSITORY_DATASETS",
     "ADRepositoryLoader",
     "BATADALLoader",
@@ -108,10 +127,14 @@ __all__ = [
     "DatasetLoader",
     "DatasetRegistry",
     "DatasetSplit",
+    # EPA Air Quality
+    "EPAAirQualityLoader",
     "FEMADisasterLoader",
     "FEMAHazardMitigationLoader",
     "MBALoader",
     "MIMICLoader",
+    # MIT-BIH Arrhythmia
+    "MITBIHLoader",
     "MSDSLoader",
     # MVTec AD dataset
     "MVTecADConfig",
@@ -119,6 +142,12 @@ __all__ = [
     "NABLoader",
     "NASAExoplanetLoader",
     "NOAABuoyLoader",
+    # NOAA ERDDAP (replaces Copernicus/SimonsCMAP/WorldOcean)
+    "NOAAERDDAPLoader",
+    # NOAA GSOD
+    "NOAAGSODLoader",
+    # NOAA Storm Events
+    "NOAAStormEventsLoader",
     "NOAAWeatherLoader",
     "NSLKDDLoader",
     "PhysioNetLoader",
