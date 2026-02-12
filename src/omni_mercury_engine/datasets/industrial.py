@@ -33,6 +33,7 @@ from typing import Any
 import numpy as np
 
 from .base import DatasetConfig, DatasetLoader, DatasetMetadata, DatasetSplit, safe_urlretrieve
+from .exceptions import DataSourceUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -187,42 +188,16 @@ class SWaTLoader(DatasetLoader):
         return np.asarray((data - mean) / std)  # type: ignore[no-any-return, unused-ignore]
 
     def download(self) -> bool:
-        """
-        Download SWaT dataset (requires iTrust registration).
-
-        Due to licensing, this method provides download instructions
-        rather than automatic download.
-        """
-        logger.info("SWaT Dataset Download Instructions")
-        logger.info("=" * 50)
-        logger.info("1. Register at iTrust Labs:")
-        logger.info("   https://itrust.sutd.edu.sg/itrust-labs-datasets/")
-        logger.info("")
-        logger.info("2. Request access to SWaT dataset")
-        logger.info("")
-        logger.info("3. Download and extract to:")
-        logger.info(f"   {self.data_path}")
-        logger.info("")
-        logger.info("Expected files:")
-        logger.info("   - SWaT_Dataset_Normal_v1.xlsx")
-        logger.info("   - SWaT_Dataset_Attack_v0.xlsx")
-        logger.info("   OR")
-        logger.info("   - SWaT.A1 & A2_Dec 2015/")
-
-        # Create directory and instructions file
-        self.data_path.mkdir(parents=True, exist_ok=True)
-        instructions_path = self.data_path / "DOWNLOAD_INSTRUCTIONS.txt"
-        with open(instructions_path, "w") as f:
-            f.write("SWaT Dataset Download Instructions\n")
-            f.write("=" * 50 + "\n\n")
-            f.write("1. Register at iTrust Labs:\n")
-            f.write("   https://itrust.sutd.edu.sg/itrust-labs-datasets/\n\n")
-            f.write("2. Request access to 'SWaT Dataset'\n\n")
-            f.write("3. Download and extract files to this directory\n\n")
-            f.write("Citation:\n")
-            f.write(f"   {self.CITATION}\n")
-
-        return False  # Manual download required
+        """SWaT requires iTrust institutional registration."""
+        raise DataSourceUnavailableError(
+            loader_name="SWaT",
+            source_url="https://itrust.sutd.edu.sg/itrust-labs-datasets/",
+            reason=(
+                "SWaT/WADI requires iTrust registration: "
+                "https://itrust.sutd.edu.sg/itrust-labs-datasets/ "
+                "Download data and place in " + str(self.data_path)
+            ),
+        )
 
     def load(
         self, split: DatasetSplit = DatasetSplit.ALL
@@ -367,30 +342,16 @@ class WADILoader(DatasetLoader):
         return np.asarray((data - mean) / std)  # type: ignore[no-any-return, unused-ignore]
 
     def download(self) -> bool:
-        """Download WADI dataset (requires iTrust registration)."""
-        logger.info("WADI Dataset Download Instructions")
-        logger.info("=" * 50)
-        logger.info("1. Register at iTrust Labs:")
-        logger.info("   https://itrust.sutd.edu.sg/itrust-labs-datasets/")
-        logger.info("")
-        logger.info("2. Request access to WADI dataset")
-        logger.info("")
-        logger.info("3. Download and extract to:")
-        logger.info(f"   {self.data_path}")
-
-        self.data_path.mkdir(parents=True, exist_ok=True)
-        instructions_path = self.data_path / "DOWNLOAD_INSTRUCTIONS.txt"
-        with open(instructions_path, "w") as f:
-            f.write("WADI Dataset Download Instructions\n")
-            f.write("=" * 50 + "\n\n")
-            f.write("1. Register at iTrust Labs:\n")
-            f.write("   https://itrust.sutd.edu.sg/itrust-labs-datasets/\n\n")
-            f.write("2. Request access to 'WADI Dataset'\n\n")
-            f.write("3. Download and extract files to this directory\n\n")
-            f.write("Citation:\n")
-            f.write(f"   {self.CITATION}\n")
-
-        return False
+        """WADI requires iTrust institutional registration."""
+        raise DataSourceUnavailableError(
+            loader_name="WADI",
+            source_url="https://itrust.sutd.edu.sg/itrust-labs-datasets/",
+            reason=(
+                "SWaT/WADI requires iTrust registration: "
+                "https://itrust.sutd.edu.sg/itrust-labs-datasets/ "
+                "Download data and place in " + str(self.data_path)
+            ),
+        )
 
     def load(
         self, split: DatasetSplit = DatasetSplit.ALL
@@ -519,8 +480,12 @@ class BATADALLoader(DatasetLoader):
                 logger.info(f"  Downloading {name}...")
                 safe_urlretrieve(url, output_path)
             except (urllib.error.URLError, ValueError) as e:
-                logger.warning(f"  Failed to download {name}: {e}")
-                return False
+                logger.error(f"  Failed to download {name}: {e}")
+                raise DataSourceUnavailableError(
+                    loader_name="BATADAL",
+                    source_url=url,
+                    reason=f"Failed to download {name}: {e}",
+                ) from e
 
         logger.info("BATADAL download complete")
         return True

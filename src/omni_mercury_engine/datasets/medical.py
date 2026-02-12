@@ -30,6 +30,7 @@ from typing import Any
 import numpy as np
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError, check_synthetic_allowed
 
 try:
     import pandas as pd
@@ -109,18 +110,7 @@ class MIMICLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Load MIMIC data from local path or generate synthetic fallback.
-
-        MIMIC data cannot be auto-downloaded due to PhysioNet credentialing.
-        Users must:
-        1. Register at https://physionet.org/
-        2. Complete CITI training
-        3. Download data using wget with credentials
-        4. Set local_path in config
-
-        Returns:
-            True if data was loaded/generated successfully.
-        """
+        """MIMIC-III requires PhysioNet credentials. Check for local files."""
         # Check for local path first
         if self.local_path:
             local_dir = Path(self.local_path)
@@ -139,18 +129,17 @@ class MIMICLoader(DatasetLoader):
             self._is_real_data = True
             return True
 
-        # No real data found - fall back to synthetic with clear warning
-        logger.warning(
-            "MIMIC-III/IV requires PhysioNet credentialed access. "
-            "To use real data:\n"
-            "  1. Register at https://physionet.org/\n"
-            "  2. Complete CITI training\n"
-            "  3. Download: wget -r -N -c -np --user YOUR_USER --ask-password "
-            "https://physionet.org/files/mimiciii/1.4/\n"
-            "  4. Set config.preprocessing['local_path'] = '/path/to/mimiciii/1.4/'\n"
-            "Falling back to SYNTHETIC data."
+        # No real data found - raise error (never generate synthetic MIMIC data)
+        raise DataSourceUnavailableError(
+            loader_name="MIMIC-III",
+            reason=(
+                "MIMIC-III requires PhysioNet credentialing. "
+                "1. Complete CITI training at https://physionet.org/ "
+                "2. Sign Data Use Agreement "
+                "3. Download data and set local_path in config. "
+                "Never generates synthetic MIMIC data."
+            ),
         )
-        return self._create_synthetic_mimic()
 
     def _create_synthetic_mimic(self) -> bool:
         """Create synthetic MIMIC-like data for testing."""
@@ -231,14 +220,7 @@ class MIMICLoader(DatasetLoader):
             logger.info(f"Loading REAL MIMIC data from {self.data_path}")
             return self._load_real_mimic(self.data_path)
 
-        # Fall back to synthetic
-        synthetic_path = self.data_path / "synthetic_mimic.npz"
-        if synthetic_path.exists():
-            data = np.load(synthetic_path)
-            self._is_real_data = False
-            logger.info("Loading SYNTHETIC MIMIC data (is_real_data=False)")
-            return data["features"], data["labels"]
-
+        # Synthetic MIMIC data is never allowed
         raise FileNotFoundError("MIMIC data not found. Run download() first.")
 
     def _load_real_mimic(
@@ -547,12 +529,20 @@ class PhysioNetLoader(DatasetLoader):
                 self._is_real_data = True
                 return True
 
-        logger.warning(
-            f"PhysioNet {self.subdataset} data not found locally. "
-            "To use real data, download using wfdb or wget and set local_path.\n"
-            "Falling back to SYNTHETIC ECG data."
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed(
+                "PhysioNet",
+                f"PhysioNet {self.subdataset} data not found locally",
+            )
+            return self._create_synthetic_ecg()
+        raise DataSourceUnavailableError(
+            loader_name="PhysioNet",
+            source_url=self.SUBDATASETS.get(self.subdataset, "https://physionet.org/"),
+            reason=(
+                f"PhysioNet {self.subdataset} data not found locally. "
+                "Download using wfdb or wget and set local_path."
+            ),
         )
-        return self._create_synthetic_ecg()
 
     def _create_synthetic_ecg(self) -> bool:
         """Create synthetic ECG data for testing."""
@@ -636,7 +626,7 @@ class PhysioNetLoader(DatasetLoader):
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load PhysioNet data from cache (real or synthetic)."""
         synthetic_path = self.data_path / "synthetic_ecg.npz"
-        if synthetic_path.exists():
+        if synthetic_path.exists() and ALLOW_SYNTHETIC:
             data = np.load(synthetic_path)
             # Note: _is_real_data is set during download() based on local_path
             logger.info(f"Loaded ECG data (is_real_data={self._is_real_data})")
@@ -665,9 +655,9 @@ class SepsisDataset(MIMICLoader):
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load sepsis data from disk."""
-        # Check for sepsis-specific synthetic data first
+        # Check for sepsis-specific synthetic data (only if allowed)
         sepsis_path = self.data_path / "synthetic_sepsis.npz"
-        if sepsis_path.exists():
+        if sepsis_path.exists() and ALLOW_SYNTHETIC:
             data = np.load(sepsis_path)
             return data["features"], data["labels"]
         # Fall back to MIMIC data
