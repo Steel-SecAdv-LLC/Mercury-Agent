@@ -193,7 +193,8 @@ class TestInformationGeometryDetector:
 
     def test_detect_ood_default_threshold(self):
         """Test OOD detection with default threshold."""
-        detector = InformationGeometryDetector()
+        # With adaptive_threshold disabled, fallback is 3.0
+        detector = InformationGeometryDetector(config={"adaptive_threshold": False})
         in_dist_data = np.random.randn(100, 10)
         detector.fit_reference_distribution(in_dist_data)
 
@@ -201,6 +202,19 @@ class TestInformationGeometryDetector:
         results = detector.detect_ood(test_data)
 
         assert results["threshold"] == 3.0
+
+    def test_detect_ood_adaptive_threshold(self):
+        """Test OOD detection with adaptive threshold (default behavior)."""
+        detector = InformationGeometryDetector()
+        in_dist_data = np.random.randn(100, 10)
+        detector.fit_reference_distribution(in_dist_data)
+
+        test_data = np.random.randn(50, 10)
+        results = detector.detect_ood(test_data)
+
+        # Adaptive threshold is FIM-derived, must be positive
+        assert results["threshold"] > 0
+        assert results["adaptive"] is True
 
     def test_detect_ood_score_type(self):
         """Test OOD score is float."""

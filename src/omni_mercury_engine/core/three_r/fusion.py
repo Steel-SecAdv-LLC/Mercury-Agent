@@ -547,10 +547,10 @@ class BanachRecursion:
         """Sigmoid function with overflow protection."""
         if x >= 0:
             z = np.exp(-x)
-            return 1.0 / (1.0 + z)
+            return float(1.0 / (1.0 + z))
         else:
             z = np.exp(x)
-            return z / (1.0 + z)
+            return float(z / (1.0 + z))
 
     def set_alpha(self, alpha_raw: float) -> float:
         """Set contraction factor from raw value via sigmoid constraint.
@@ -633,7 +633,7 @@ class BanachRecursion:
         prev_result: float | None,
     ) -> float:
         """Inner recursive computation with contraction monitoring."""
-        base = f(x)
+        base: float = f(x)
 
         if depth <= 0:
             return base

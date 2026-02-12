@@ -731,6 +731,7 @@ class InformationGeometryDetector:
         ood_score = self.fisher_rao_distance(self.reference_distribution, test_distribution)
 
         # Determine threshold.
+        user_provided_threshold = threshold is not None
         if threshold is None:
             if self._adaptive is not None:
                 threshold = self._adaptive.threshold
@@ -741,7 +742,7 @@ class InformationGeometryDetector:
         recalibrated = False
         if self._adaptive is not None:
             recalibrated = self._adaptive.recalibrate_if_drifted(test_data)
-            if recalibrated:
+            if recalibrated and not user_provided_threshold:
                 threshold = self._adaptive.threshold
 
         results: dict[str, Any] = {
